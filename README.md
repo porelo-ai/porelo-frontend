@@ -5,7 +5,11 @@
 > **Early bird - work in progress.** Sokar is not stable yet: until release 1.0.0, its code, commands
 > and file formats can change without notice.
 
-The desktop interface for [Sokar](https://github.com/sokar-ai/sokar), on Linux.
+The desktop interface for [Sokar](https://github.com/sokar-ai/sokar), on Linux and on Windows.
+
+**Download:** on Linux, the `sokar-frontend` package from Sokar's own package repository; on Windows,
+a ZIP from [the Windows section](https://sokar-ai.github.io/frontend/#windows) of the chapter's page,
+with how to check it before unpacking.
 
 Sokar runs AI coding agents in locked-down containers: no network except what a project declares, no
 credential the agent can read, and nothing leaves the machine without somebody approving it. This
