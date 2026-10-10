@@ -5,9 +5,12 @@ Feature: Reaching a real machine, reading it, and following a project
   Background:
     Given the interface is running
 
+  # What the machine says about itself is read the first time it is gone to and answers, so a
+  # machine that cannot run a task is said so before the first start.
   Scenario: a machine added with a forward raised here is reached
     When I watch the test machine through a forward raised here
     Then the test machine is answering
+    And the interface says what the test machine needs to run work
 
   Scenario: every reply the interface reads can be read from the real daemon
     Given the test machine is being watched

@@ -50,6 +50,19 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I watch it
     Then nothing was raised for {'the build machine'}
 
+  # A machine that cannot run a task is said so before the first start. What it says is the daemon's
+  # own answer, as `sokar doctor` gives it, and it is added either way. Adding it does not move what
+  # is being acted on, so it is read when the person goes there.
+  Scenario: a machine added is asked whether it can run work when the person goes there
+    When I say it is called {'the build machine'}
+    And I choose {'Its socket is already forwarded'}
+    And I go on
+    And the forwarded socket is {'/tmp/sokar-build.sock'}
+    And I watch it
+    Then it does not say {'This machine can run work'}
+    When I switch to the machine {'the build machine'}
+    Then it says {'This machine can run work. Nothing is missing.'}
+
   # BatchMode fails on an unknown key rather than asking, and a key accepted unseen is the one step
   # somebody in the middle needs. So it is shown, and trusting it is a separate act.
   Scenario: a host reached for the first time shows its key before anything logs in

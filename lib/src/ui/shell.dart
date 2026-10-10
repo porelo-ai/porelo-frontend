@@ -1743,6 +1743,11 @@ class _ShellState extends State<Shell> {
     );
     if (machine == null) return;
     await widget.machines.add(machine);
+    // What the machine says about itself, read once it answers and is the one shown: a machine that
+    // cannot run a task is said so before the first start. Adding it does not move what is being
+    // acted on, so it is read when the person goes there. Added either way.
+    // A machine the wizard set up was asked by its own last step, and goes on to its connections.
+    if (!thenConnections) _checkWhenShown(machine);
     if (!thenConnections || !mounted) return;
     // The wizard's last step: how it connects out, now that its daemon can be asked.
     widget.machines.select(machine);
@@ -1758,6 +1763,32 @@ class _ShellState extends State<Shell> {
   Future<void> _startThenCheck() async {
     final machine = widget.machines.current;
     if (!await _startTheDaemon()) return;
+    await _checkOnceItAnswers(machine);
+  }
+
+  /// Checks [machine] the first time it is the one shown and answers, once.
+  void _checkWhenShown(Machine machine) {
+    final fleet = widget.machines.of(machine);
+    var done = false;
+    late final VoidCallback look;
+    look = () {
+      if (done || !mounted) return;
+      if (widget.machines.current != machine || fleet.reachability != Reachability.connected) return;
+      done = true;
+      widget.machines.removeListener(look);
+      fleet.removeListener(look);
+      // After the frame that shows the machine: going there closes what was open for the one before.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.machines.current == machine) unawaited(_checkTheMachine());
+      });
+    };
+    widget.machines.addListener(look);
+    fleet.addListener(look);
+    look();
+  }
+
+  /// Checks [machine] once it answers, if it is still the one shown. Waits half a minute at most.
+  Future<void> _checkOnceItAnswers(Machine machine) async {
     final fleet = widget.machines.of(machine);
     // The start is an operation that connects again when it is done; the check waits for that,
     // and is not run against a daemon that did not come.
@@ -1775,7 +1806,7 @@ class _ShellState extends State<Shell> {
     } finally {
       fleet.removeListener(check);
     }
-    if (mounted && identical(widget.machines.current, machine)) await _checkTheMachine();
+    if (mounted && widget.machines.current == machine) await _checkTheMachine();
   }
 
   /// Asks whether to start Sokar where it is not answering, and starts it on a yes. Answers whether

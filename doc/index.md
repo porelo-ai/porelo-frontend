@@ -44,7 +44,9 @@ over ssh.
 2. **Add a machine** with *Watch another machine…* in the title bar: one whose socket is forwarded
    already, one reached over ssh, where the interface raises the forward itself, or **a new machine
    just rented**, which a wizard prepares end to end, showing every command before it runs it and
-   using root only for setting up.
+   using root only for setting up. The first time you go to it and it answers, the interface shows
+   what it says about itself, as `sokar doctor` does on a terminal: each check green, yellow or red, with what to do.
+   Nothing is repaired from here, and the machine is added either way.
 3. **Add your forge** under *Forges*, with a token, so a repository can be picked rather than typed.
 4. **Start work** with *New work* on *Work*: a machine and a repository. Without a project it runs
    with the machine's own settings. The first time, the agent asks you to sign in; the sign-in is

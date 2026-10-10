@@ -123,14 +123,7 @@ class _ProbeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final (icon, colour) = switch (probe.state) {
-      'OK' => (Icons.check_circle_outline, scheme.primary),
-      'MISSING' => (Icons.error_outline, scheme.error),
-      'DEGRADED' => (Icons.warning_amber_outlined, scheme.tertiary),
-      // Its own answer rather than the good case, so it never draws as one.
-      _ => (Icons.help_outline, scheme.onSurfaceVariant),
-    };
+    final (icon, colour) = probeLook(probe.state, Theme.of(context).colorScheme);
 
     return ListTile(
       dense: true,
@@ -167,3 +160,13 @@ class _Heading extends StatelessWidget {
         child: Text(words, style: Theme.of(context).textTheme.labelLarge),
       );
 }
+
+/// How a probe's state is drawn, as `sokar doctor` colours it on a terminal: `OK` green, `DEGRADED`
+/// and `UNKNOWN` yellow, `MISSING` red. Each with a shape of its own, so it reads without colour too,
+/// and an unknown state never draws as the good case.
+(IconData, Color) probeLook(String state, ColorScheme scheme) => switch (state) {
+      'OK' => (Icons.check_circle_outline, StateColours.working),
+      'MISSING' => (Icons.error_outline, scheme.error),
+      'DEGRADED' => (Icons.warning_amber_outlined, StateColours.waiting),
+      _ => (Icons.help_outline, StateColours.waiting),
+    };

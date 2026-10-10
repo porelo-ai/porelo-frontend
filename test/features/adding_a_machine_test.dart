@@ -20,6 +20,9 @@ import './step/i_go_back.dart';
 import './step/the_forwarded_socket_is.dart';
 import './step/i_watch_it.dart';
 import './step/nothing_was_raised_for.dart';
+import './step/it_does_not_say.dart';
+import './step/i_switch_to_the_machine.dart';
+import './step/it_says.dart';
 import './step/the_host_key_of_is_not_known_yet.dart';
 import './step/its_socket_there_is.dart';
 import './step/i_try_the_connection.dart';
@@ -35,7 +38,6 @@ import './step/the_wizard_cannot_go_to_the_next_step_yet.dart';
 import './step/i_generate_a_key_pair.dart';
 import './step/i_keep_the_key.dart';
 import './step/the_key_was_kept_owneronly_as.dart';
-import './step/it_says.dart';
 import './step/the_public_key_is_shown_to_copy.dart';
 import './step/i_paste_the_halves_of_two_different_key_pairs.dart';
 import './step/what_a_walk_writes_down_does_not_hold.dart';
@@ -65,7 +67,6 @@ import './step/nothing_sokar_doctor_found_is_shown.dart';
 import './step/i_watch_the_new_machine.dart';
 import './step/the_forward_was_raised_through_to.dart';
 import './step/sokar_doctor_will_refuse_with.dart';
-import './step/it_does_not_say.dart';
 import './step/what_sokar_doctor_found_is_shown.dart';
 import './step/sokar_doctor_passes_now.dart';
 import './step/i_ask_sokar_doctor_again.dart';
@@ -187,6 +188,19 @@ void main() {
       await theForwardedSocketIs(tester, '/tmp/sokar-build.sock');
       await iWatchIt(tester);
       await nothingWasRaisedFor(tester, 'the build machine');
+    });
+    testWidgets(
+        '''a machine added is asked whether it can run work when the person goes there''',
+        (tester) async {
+      await bddSetUp(tester);
+      await iSayItIsCalled(tester, 'the build machine');
+      await iChoose(tester, 'Its socket is already forwarded');
+      await iGoOn(tester);
+      await theForwardedSocketIs(tester, '/tmp/sokar-build.sock');
+      await iWatchIt(tester);
+      await itDoesNotSay(tester, 'This machine can run work');
+      await iSwitchToTheMachine(tester, 'the build machine');
+      await itSays(tester, 'This machine can run work. Nothing is missing.');
     });
     testWidgets(
         '''a host reached for the first time shows its key before anything logs in''',

@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A machine added is asked what it needs to run work the first time it is the one shown and
+  answers, and what it says is shown at once: each check in the daemon's own words, green when it is fine, yellow when it is
+  degraded or could not be established, red when it is missing, as `sokar doctor` colours them.
 - On Windows, a WSL distribution is a machine. The interface lists the distributions with
   `wsl.exe`, never starting a stopped one, and reaches the chosen one's daemon through
   `wsl.exe -d <distribution> --exec sokar daemon connect`, the same Varlink over the relay's standard

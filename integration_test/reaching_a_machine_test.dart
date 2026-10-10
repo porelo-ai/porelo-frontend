@@ -8,6 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import './step/the_interface_is_running.dart';
 import './step/i_watch_the_test_machine_through_a_forward_raised_here.dart';
 import './step/the_test_machine_is_answering.dart';
+import './step/the_interface_says_what_the_test_machine_needs_to_run_work.dart';
 import './step/the_test_machine_is_being_watched.dart';
 import './step/every_reply_it_gives_can_be_read.dart';
 import './step/i_try_the_test_machine_from_the_dialog.dart';
@@ -107,6 +108,7 @@ void main() {
       await bddSetUp(tester);
       await iWatchTheTestMachineThroughAForwardRaisedHere(tester);
       await theTestMachineIsAnswering(tester);
+      await theInterfaceSaysWhatTheTestMachineNeedsToRunWork(tester);
     });
     testWidgets(
         '''every reply the interface reads can be read from the real daemon''',
