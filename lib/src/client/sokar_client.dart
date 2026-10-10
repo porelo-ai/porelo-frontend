@@ -67,8 +67,12 @@ class Backend {
 
   /// Worked out once: it is compared against every machine, and asking `id` each time ran a
   /// process on the interface's own thread.
-  static final String _localSocket =
-      '${setIn('XDG_RUNTIME_DIR') ?? '/run/user/${_uid()}'}/sokar/sokard.sock';
+  ///
+  /// On Windows there is no local daemon: Sokar runs in a WSL distribution, a machine of its own, and
+  /// `id` is not asked there.
+  static final String _localSocket = Platform.isWindows
+      ? ''
+      : '${setIn('XDG_RUNTIME_DIR') ?? '/run/user/${_uid()}'}/sokar/sokard.sock';
 
   static String _uid() => Process.runSync('id', const ['-u']).stdout.toString().trim();
 }

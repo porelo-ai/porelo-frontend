@@ -38,7 +38,7 @@ jobs:
       # Each such mark says why in the test itself.
       - name: Test
         timeout-minutes: 20
-        run: flutter test --exclude-tags linux --timeout 60s --reporter expanded
+        run: flutter test --exclude-tags linux --timeout 60s --reporter expanded --concurrency 1
 
       - name: Build
         timeout-minutes: 20

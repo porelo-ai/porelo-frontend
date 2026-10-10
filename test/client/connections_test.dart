@@ -1,3 +1,8 @@
+// Linux only: it stands the mock daemon on a unix socket, and on GitHub's Windows runner a test
+// through it hung where no timeout could end it.
+@Tags(<String>['linux'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sokar_frontend/client.dart';
 import 'package:sokar_frontend/src/app/connections.dart';
