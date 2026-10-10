@@ -40,6 +40,7 @@ is in `doc/` or `AGENTS.md`; decisions are in [doc/decisions.md](../doc/decision
 | [F106](F106-The-Wizard-Shows-What-Sokar-Doctor-Says.md) | blocked | `sokar` B161 | Adding a machine shows what `sokar doctor` says about it. | 1 |
 | [F77](F77-What-A-Piece-Of-Work-Did-Is-One-Page.md) | open | — | What a piece of work did, on one page with one timeline. | 0 |
 | [F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | open | — | A waiting push read as a pull request. | 0 |
+| [F107](F107-Code-Comments-In-The-Review.md) | blocked | `sokar` B166, B171 | Comments on lines in the review: written, read with their origin, held and released. | 1 |
 | [F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | blocked | `sokar` B95 | A waiting push's tests run in a container of their own on the machine. | 0 |
 | [F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | blocked | a GitHub token and test repositories from the operator | Making a project from a repository measured against GitHub. | 0 |
 | [F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | blocked | `sokar` B99 | The setup script verified by its signature before it runs. | 0 |
