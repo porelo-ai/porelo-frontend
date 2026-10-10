@@ -9,8 +9,8 @@ Feature: Reaching a real machine, reading it, and following a project
   # machine that cannot run a task is said so before the first start.
   Scenario: a machine added with a forward raised here is reached
     When I watch the test machine through a forward raised here
-    Then the test machine is answering
-    And the interface says what the test machine needs to run work
+    Then the interface says what the test machine needs to run work
+    And the test machine is answering
 
   Scenario: every reply the interface reads can be read from the real daemon
     Given the test machine is being watched

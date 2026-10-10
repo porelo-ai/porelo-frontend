@@ -7,9 +7,15 @@ import '../support/e2e.dart';
 ///
 /// Read the first time the machine is gone to and answers, with no other action of the person's:
 /// the verdict, and each check the daemon made, in the daemon's own words.
+///
+/// Where the machine became the one shown when it was added, it is read there and then; where
+/// another stayed shown, it is read when the person goes to it.
 Future<void> theInterfaceSaysWhatTheTestMachineNeedsToRunWork(WidgetTester tester) async {
-  await toTheMachines(tester);
-  await switchTo(tester, E2e.name);
+  bool shown() => find.byKey(const Key('probe')).evaluate().isNotEmpty;
+  for (var waited = 0; waited < 50 && !shown(); waited++) {
+    await pumpFor(tester, const Duration(milliseconds: 300));
+  }
+  if (!shown()) await switchTo(tester, E2e.name);
   await pumpUntil(
     tester,
     () => find.byKey(const Key('probe')).evaluate().isNotEmpty,
