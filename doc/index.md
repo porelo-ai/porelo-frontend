@@ -41,16 +41,19 @@ over ssh.
 
 On Windows the interface reaches a Sokar in a WSL distribution of yours, through `wsl.exe`, with no
 ssh and no open port. It comes as a ZIP, `sokar-frontend-<version>-windows-x64.zip`, unpacked and
-started with nothing installed: each build of `main` offers it as the artifact *windows* of its run
-in the repository's *Actions*. The ZIP is not signed. Check it before unpacking, twice:
+started with nothing installed. It lies in the same Artifactory as the packages, one folder per
+version, with its checksum and its attestation beside it:
+`https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/releases/<version>/`, and each build of
+`main` under `snapshots/`. The ZIP is not signed. Check it before unpacking, twice:
 
 ```powershell
 # The checksum, against the SHA256SUMS beside it:
 (Get-FileHash .\sokar-frontend-<version>-windows-x64.zip -Algorithm SHA256).Hash.ToLower()
 Get-Content .\SHA256SUMS
 
-# That this repository's workflow built it:
-gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai/sokar-frontend
+# That this repository's workflow built it, with the attestation from beside it:
+gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai/sokar-frontend `
+  --bundle .\sokar-frontend-<version>-windows-x64.zip.sigstore.json
 ```
 
 When a WSL distribution has no Sokar yet, the interface offers to set it up there, every line shown

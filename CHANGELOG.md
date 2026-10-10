@@ -10,7 +10,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Every build of `main` makes the Windows interface as a ZIP, beside the Linux packages, with a
-  `SHA256SUMS` and a build provenance attestation, so a person can check both before unpacking it.
+  `SHA256SUMS` and a build provenance attestation, and publishes all three into Artifactory, so a
+  person can check both before unpacking it.
   The Build's jobs are named *Linux* and *Windows*; the trial on a `windows/` branch publishes
   nothing.
 - A machine added is asked what it needs to run work the first time it is the one shown and

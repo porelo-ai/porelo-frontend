@@ -268,7 +268,7 @@ void main() {
     });
 
     test('the packages are proven to install before they are published', () {
-      expect(workflow, contains('needs: [build, installs, integration]'));
+      expect(workflow, contains('needs: [build, installs, integration, windows]'));
       expect(workflow, contains("needs.build.result == 'success' && needs.installs.result == 'success'"));
       for (final system in <String>['ubuntu:26.04@sha256:', 'debian:13@sha256:', 'fedora:43@sha256:', 'fedora:44@sha256:']) {
         expect(workflow, contains(system), reason: 'each supported system, pinned by its digest');
