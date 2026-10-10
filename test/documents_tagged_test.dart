@@ -11,11 +11,11 @@ void main() {
       .listSync(recursive: true)
       .whereType<File>()
       .where((file) => file.path.endsWith('_test.dart'))
-      .where((file) => file.path != 'test/documents_tagged_test.dart')
+      .where((file) => file.path.replaceAll(r'\', '/') != 'test/documents_tagged_test.dart')
       .toList();
   final readers = <String>{
     for (final file in tests)
-      if (_readsADocument.any((shape) => shape.hasMatch(file.readAsStringSync()))) file.path,
+      if (_readsADocument.any((shape) => shape.hasMatch(file.readAsStringSync()))) file.path.replaceAll(r'\', '/'),
   };
 
   test('the tests that read a document are found', () {

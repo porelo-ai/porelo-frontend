@@ -284,7 +284,7 @@ void main() {
       await itSays(tester,
           'Give this admin key to the provider when the server is created');
       await thePublicKeyIsShownToCopy(tester);
-    });
+    }, tags: ['linux']);
     testWidgets(
         '''pasted halves of two different pairs are refused and nothing is kept''',
         (tester) async {
@@ -412,7 +412,7 @@ void main() {
       await iWatchTheNewMachine(tester);
       await theForwardWasRaisedThroughTo(tester, 'sokar-the-build-machine',
           '/run/user/1001/sokar/sokard.sock');
-    });
+    }, tags: ['linux']);
     testWidgets(
         '''a machine sokar doctor refuses can be watched, and what doctor found is said''',
         (tester) async {
@@ -580,7 +580,7 @@ void main() {
           tester,
           'sokar-the-build-machine-as-other',
           '/run/user/1001/sokar/sokard.sock');
-    });
+    }, tags: ['linux']);
     testWidgets(
         '''going back and on again keeps the key and where the machine is''',
         (tester) async {
@@ -665,7 +665,7 @@ void main() {
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
       await rootLoggedInToWith(tester, '203.0.113.10', 'id_ed25519');
-    });
+    }, tags: ['linux']);
     testWidgets(
         '''a host whose key changed is warned about, and the old key is replaced only when asked''',
         (tester) async {

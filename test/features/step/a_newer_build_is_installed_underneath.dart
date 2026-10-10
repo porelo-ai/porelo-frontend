@@ -8,7 +8,7 @@ import '../support/world.dart';
 /// Usage: a newer build is installed underneath
 Future<void> aNewerBuildIsInstalledUnderneath(WidgetTester tester) async {
   // What a package upgrade does: the binary is replaced while this one keeps running.
-  final binary = File('/tmp/sokar-build-${DateTime.now().microsecondsSinceEpoch}');
+  final binary = File('${Directory.systemTemp.path}/sokar-build-${DateTime.now().microsecondsSinceEpoch}');
   binary.writeAsStringSync('the build that is running');
   addTearDown(() => binary.existsSync() ? binary.deleteSync() : null);
 

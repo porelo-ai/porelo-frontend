@@ -9,7 +9,7 @@ void main() {
   late File binary;
 
   setUp(() {
-    binary = File('/tmp/sokar-build-${DateTime.now().microsecondsSinceEpoch}');
+    binary = File('${Directory.systemTemp.path}/sokar-build-${DateTime.now().microsecondsSinceEpoch}');
     binary.writeAsStringSync('the build that is running');
     addTearDown(() => binary.existsSync() ? binary.deleteSync() : null);
   });
@@ -36,7 +36,7 @@ void main() {
   test('a binary that cannot be read claims nothing either way', () {
     // Running from a place that is gone, or read-only in a way stat cannot see. Saying "up to
     // date" would be as wrong as saying "out of date".
-    final watching = NewerVersion(what: File('/tmp/nothing-is-here-at-all'))..watch();
+    final watching = NewerVersion(what: File('${Directory.systemTemp.path}/nothing-is-here-at-all'))..watch();
 
     watching.lookNow();
 

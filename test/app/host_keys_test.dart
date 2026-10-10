@@ -113,6 +113,7 @@ void main() {
         'existing line\n|1|abc= ssh-ed25519 AAAAC3Nza\n');
   });
 
+  // Linux only: it reads the file's mode, which Windows does not keep.
   test('a first known_hosts is made owner-only', () async {
     final home = Directory.systemTemp.createTempSync('host-keys-');
     addTearDown(() => home.deleteSync(recursive: true));
@@ -126,7 +127,7 @@ void main() {
 
     expect(FileStat.statSync('${home.path}/.ssh').mode & 0x1FF, 0x1C0); // 700
     expect(FileStat.statSync('${home.path}/.ssh/known_hosts').mode & 0x1FF, 0x180); // 600
-  });
+  }, tags: 'linux');
 
   test('replacing a changed key takes the old one out first, then keeps the new one', () async {
     final home = Directory.systemTemp.createTempSync('host-keys-');

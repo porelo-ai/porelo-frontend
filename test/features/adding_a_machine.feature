@@ -121,6 +121,9 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then no host key was asked about
 
   # The key before the machine: one made afterwards cannot reach a machine that only knows root's.
+  # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
+  # Windows the wizard offers a WSL distribution.
+  @linux
   Scenario: a new machine starts with a key, kept owner-only, and its public half to copy
     When I say it is called {'the build machine'}
     And I choose {'A new machine'}
@@ -218,6 +221,9 @@ Feature: Adding a machine through a wizard that starts from what you have
     And the wizard cannot go to the next step yet
 
   # The Host entry is the work user's, never root's, and the forward is raised the way watching it will.
+  # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
+  # Windows the wizard offers a WSL distribution.
+  @linux
   Scenario: the prepared machine is reached as the work user and watched
     Given a new machine whose root logs in
     When I see what it can install
@@ -348,6 +354,9 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then the setup script was shown for {'builder'}
 
   # The second wizard: only the parts that make a user, with the key the machine already knows.
+  # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
+  # Windows the wizard offers a WSL distribution.
+  @linux
   Scenario: another user is added to a machine prepared before, and watched as a machine of its own
     Given a key the machine already knows is kept as {'sokar-the-build-machine'}
     When I cancel the dialog
@@ -427,6 +436,9 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then it offers the package {'sokar-agent-claude'}
 
   # The third way to a key: one already in ~/.ssh, used where it is rather than copied.
+  # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
+  # Windows the wizard offers a WSL distribution.
+  @linux
   Scenario: a key already in ~/.ssh can be chosen by name and used as it is
     Given a key the machine already knows is kept as {'id_ed25519'}
     When I cancel the dialog

@@ -21,12 +21,13 @@ void main() {
     expect(machine.name, 'sokar-mock.sock');
   });
 
+  // Linux only: there is no local daemon on Windows; Sokar runs in WSL there.
   test('without it, the local daemon', () {
     final machine = Machine.local(environment: const <String, String>{});
 
     expect(machine.name, 'this machine');
     expect(machine.socketPath, endsWith('/sokar/sokard.sock'));
-  });
+  }, tags: 'linux');
 
   test('a machine exists before anything has been read back from disk', () {
     // The frame is drawn before load() can finish. A Machines with nothing in it yet crashed the

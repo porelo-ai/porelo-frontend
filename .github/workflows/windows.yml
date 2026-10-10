@@ -35,10 +35,10 @@ jobs:
         run: dart analyze --fatal-infos
 
       # A test marked `linux` needs what only Linux has: a pty, a unix socket, `chmod`, a Bash tool.
-      # Each such mark says why in the test itself.
+      # Each such mark says why in the test itself. The documents are checked by the Linux build.
       - name: Test
         timeout-minutes: 20
-        run: flutter test --exclude-tags linux --timeout 60s --reporter expanded --concurrency 1
+        run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
       - name: Build
         timeout-minutes: 20

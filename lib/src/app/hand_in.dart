@@ -70,7 +70,8 @@ class HandingIn extends ChangeNotifier {
   Future<HandedFile?> give(FleetBackend backend, Task to, String path, {String? as}) async {
     final file = File(path);
     final size = await file.length();
-    final named = as ?? path.split(Platform.pathSeparator).last;
+    // Either separator: a picked file on Windows can come with `/` as well as `\\`.
+    final named = as ?? path.split(RegExp(r'[\\/]')).last;
     task = to.name;
     name = named;
     bytes = size;
