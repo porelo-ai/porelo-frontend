@@ -166,6 +166,9 @@ Decided on 2026-10-10: the ZIP first, the MSIX after it.
 3. **The MSIX**, self-signed at first.
 
 **Built in stage 2, and what it settled:**
+- **The ZIP** is made by the Build's job *Windows*, beside the Linux packages, with `SHA256SUMS` and
+  a build provenance attestation; each build of `main` offers it as its run's artifact *windows*.
+  `doc/index.md` says how to check both before unpacking.
 - **`wsl.exe -d <distribution> --exec …`, not `-- …`.** After `--`, `wsl.exe` hands the words to the
   distribution's shell, which splits them again; `--exec` runs the program with exactly the
   arguments given. The measurement above ran `sokar daemon connect` with `--`, where no word needs
@@ -235,13 +238,10 @@ after agreement in the channel and in both. Today an entry has `name` and `socke
 
 ## To be checked
 
-- **The two permissions held to the one Windows job by a check:** `sokar-buildtools`' BT02, "Check
-  Actions Reads Permissions". `check-actions` reads only `uses:` lines today. With BT02 a `write`
-  permission is allowed only in a job its list names, so the Windows job is named in that list
-  before it is built.
-
 - **The socket under `wsl.exe --exec`, on Windows itself.** `sokar daemon connect` needs no
   `--socket`: with `XDG_RUNTIME_DIR` unset it takes `/run/user/<uid>`, the uid read from
   `/proc/self/status`, where `sokard` listens under systemd, which lingering keeps up with no session
   open. Seen on Linux with an emptied environment and no shell; on Windows, in the operator's test.
-- **Where the MSIX and the ZIP are published**, and which certificate replaces the self-signed one.
+- **Where a released ZIP and the MSIX are published**, and which certificate replaces the
+  self-signed one. A build of `main` offers the ZIP as its run's artifact; a release needs a place
+  that lasts.

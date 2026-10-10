@@ -37,6 +37,26 @@ Artifactory signs the repository's index, not each package, so there is no packa
 check. Sokar itself is recommended, not required: the interface is as useful for machines reached
 over ssh.
 
+### Windows
+
+On Windows the interface reaches a Sokar in a WSL distribution of yours, through `wsl.exe`, with no
+ssh and no open port. It comes as a ZIP, `sokar-frontend-<version>-windows-x64.zip`, unpacked and
+started with nothing installed: each build of `main` offers it as the artifact *windows* of its run
+in the repository's *Actions*. The ZIP is not signed. Check it before unpacking, twice:
+
+```powershell
+# The checksum, against the SHA256SUMS beside it:
+(Get-FileHash .\sokar-frontend-<version>-windows-x64.zip -Algorithm SHA256).Hash.ToLower()
+Get-Content .\SHA256SUMS
+
+# That this repository's workflow built it:
+gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai/sokar-frontend
+```
+
+When a WSL distribution has no Sokar yet, the interface offers to set it up there, every line shown
+before it runs, and checks the repository's key against the fingerprint it carries. That fingerprint
+is only as trustworthy as the ZIP it came in, which is why both checks above come first.
+
 ## First steps
 
 1. **Start it**: *Sokar* among the desktop's applications. It shows this computer's Sokar, if one is

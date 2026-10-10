@@ -55,5 +55,5 @@ is in `doc/` or `AGENTS.md`; decisions are in [doc/decisions.md](../doc/decision
 | [F72](F72-Forges-Beyond-GitHub.md) | blocked | the operator: which forge next | Forges beyond GitHub. | 1 |
 | [F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | blocked | the operator: a mobile client | A machine reached without an `ssh` binary. | 3 |
 | [F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | open | — | A device's key released only with a touch or a PIN. | 0 |
-| [F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md) | open | — | The interface on Windows reaches a Sokar in WSL through `wsl.exe`, with no ssh and no open port. | 3 |
+| [F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md) | open | — | The interface on Windows reaches a Sokar in WSL through `wsl.exe`, with no ssh and no open port. | 2 |
 | [F62](F62-An-Organisations-Policy-Is-Shown.md) | blocked | `sokar`'s part of `sokar-project` PJ16 | An organisation's policy shown. | 0 |

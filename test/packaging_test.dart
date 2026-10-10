@@ -213,13 +213,14 @@ void main() {
       expect(workflow, contains(r'vars.JF_URL'));
     });
 
-    test('every job builds on the oldest distribution this is meant to install on', () {
+    test('every Linux job builds on the oldest distribution this is meant to install on', () {
       // The bundle links the system GTK3 stack, so the build machine sets the floor. A job that
       // slipped to a newer runner would produce a package that installs nowhere older, and
-      // nothing about the run would say so.
+      // nothing about the run would say so. The Windows job is the one other runner.
       expect(workflow.contains('runs-on: ubuntu-latest'), isFalse);
       expect('runs-on: ubuntu-22.04'.allMatches(workflow).length,
-          'runs-on:'.allMatches(workflow).length);
+          'runs-on:'.allMatches(workflow).length - 'runs-on: windows-'.allMatches(workflow).length);
+      expect('runs-on: windows-'.allMatches(workflow).length, 1);
     });
 
     test('the publish is not believed until the index carries it', () {
