@@ -224,8 +224,14 @@ jobs:
           $zip = "build/windows-zip/sokar-frontend-$version-windows-x64.zip"
           Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath $zip
           Push-Location build/windows-zip
-          Get-ChildItem *.zip | ForEach-Object { "$((Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } |
-            Set-Content -Encoding ascii -NoNewline:$false SHA256SUMS
+          # Written with `\n` alone: `Set-Content` ends lines with `\r\n` on Windows, and `sha256sum -c`
+          # then looks for a file whose name ends in `\r`.
+          $sums = Get-ChildItem *.zip | ForEach-Object { "$((Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower())  $($_.Name)`n" }
+          [System.IO.File]::WriteAllText("$PWD/SHA256SUMS", ($sums -join ''))
+          if ([System.IO.File]::ReadAllText("$PWD/SHA256SUMS").Contains("`r")) {
+            Write-Error "SHA256SUMS has a carriage return in it; sha256sum -c would not find the ZIP"
+            exit 1
+          }
           Get-Content SHA256SUMS
           Pop-Location
 
