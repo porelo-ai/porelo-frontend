@@ -1,6 +1,9 @@
 # F37 — Reach A Machine Without An ssh Binary
 
 **Status:** later; blocked by the operator: a mobile client.
+**Size:** L - one transport interface over the forward, the trial and the terminal, a `dartssh2`
+implementation with its own host key store and keychain, and a leg against a real machine; its
+questions decided first. A mobile client itself is not in it, and waits for the operator.
 
 **What must be true.** A person reaches a machine from a device without an `ssh` binary, such as a
 phone, and the machine is trusted, authenticated and supervised to the same standard as from the
@@ -35,6 +38,27 @@ questions have deadlines, and notifications need another path.
   platform keychain.
 - `VarlinkConnection` accepts any byte stream instead of only `Socket.connect(socketPath)`.
 
+## Plan
+
+- **Already there:** `VarlinkConnection.over` (`lib/src/wire/varlink_connection.dart`) speaks
+  over any byte stream, and `Backend.open` (`lib/src/client/sokar_client.dart`) uses it for a
+  `relay` command, proven by `test/client/relay_test.dart` through a process. A test over an
+  in-memory stream, with no process and no socket file, is still missing.
+- **Where `ssh` runs today:** `Tunnel` and `Tunnels` (`lib/src/app/tunnel.dart`, `ssh -L`);
+  `tryAMachine` (`lib/src/app/connection_trial.dart`) through `Tunnels.trial`; `Session.command`
+  (`lib/src/app/session.dart`, `ssh -t … sokar task attach`), opened as a `SessionChannel`
+  (`lib/src/app/pty.dart`).
+- **One transport interface:** a byte stream to the daemon, a command run there (starting the
+  daemon, `id -u`), and a `SessionChannel` with a pty. The desktop's implementation wraps today's
+  code unchanged; `Machine` (`lib/src/app/machines.dart`) says which one a machine takes.
+- **The `dartssh2` implementation:** `onVerifyHostKey` always set, against a known-hosts store of
+  its own kept owner-only; keys in the platform keychain through `flutter_secure_storage`, as
+  `PlatformDeviceKeyStore` (`lib/src/app/keystore.dart`) keeps a device's; the stream to the
+  daemon through `sokar daemon connect` or a forward to the Unix socket.
+- **Red first:** a test in `test/client/` speaking Varlink over an in-memory stream; then tests
+  with an unknown and a changed host key against a fake server; then a leg in `tool/e2e.sh` over
+  `dartssh2`.
+
 ## Acceptance
 
 - **One transport interface** covers the forward to the daemon, starting it, `id -u` and a pty
@@ -57,7 +81,12 @@ questions have deadlines, and notifications need another path.
 
 - **How keys reach a phone**: generated there and authorized on the machine, or imported, and
   whether hardware-backed keys (Secure Enclave, StrongBox) are required through
-  `SSHIdentity.custom`.
+  `SSHIdentity.custom`. (the operator's)
 - **Whether a connection without post-quantum key exchange is acceptable** for a mobile client.
+  (the operator's)
 - **How a pinned `dartssh2` is kept current**, given how fast it changes and how recent its
-  security fixes are.
+  security fixes are. (Agent Frontend's)
+- **The stream to the daemon over `dartssh2`**: exec of `sokar daemon connect`, as the WSL way
+  does, or a forward to the Unix socket. (Agent Frontend's)
+- **Which mobile platform first**, and the client beyond the transport (connections ended in the
+  background, deadlines, notifications) as issues of its own. (the operator's)

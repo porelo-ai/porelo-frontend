@@ -1,6 +1,8 @@
 # F59 — A Project From A Repository, Measured Against GitHub
 
 **Status:** soon; blocked by a GitHub token and the test repositories from the operator.
+**Size:** S - a measurement against GitHub with the code as it is, and a fix only where one step
+fails; it waits for the operator's token and test repositories.
 
 **What must be true.** What is left of making a project from a repository is shown to work against
 GitHub itself, not only against stand-ins.
@@ -16,6 +18,27 @@ forwarded to the repository's `main`.
 The token needs *Contents* and *Administration: Read and write* for the test repositories. Neither
 the token nor the repositories are ever kept in this repository or the channel.
 
+## Plan
+
+- **No new code is planned:** each criterion is measured on the VM against Sokar's handover, with
+  the interface built from this repository and the operator's token and test repositories. A step
+  that fails becomes a fix with its test first.
+- **Deploy keys:** a machine cleared with `MachineClearing` (`lib/src/app/machine_clearing.dart`) and
+  one removed with `MachineBinding.remove` (`lib/src/app/machine_binding.dart`); then the keys are
+  listed at GitHub, by its own page and by `GitHub.deployKeys` in `lib/src/app/forge.dart`.
+- **A verified commit:** `project.yml` committed by `ProjectWorkspace.commitAndPush` in
+  `lib/src/app/project_workspace.dart`, then GitHub's commit page read for "Verified".
+- **Branch protection:** a rule set on the test repository's branch; a push through
+  `ProjectWorkspace` and a forward through `Gate.approve` (`lib/src/app/gate.dart`) are made against
+  it, and the words shown are compared with GitHub's.
+- **Past 100 repositories:** `GitHub.repositories` in `lib/src/app/forge.dart` read for an account
+  with more than 100, once with a fine-grained token and once with a classic one, and compared with
+  GitHub's own list, admin and push rights included.
+- **Approved work in a project:** a task started in a project, its push forwarded at the gate, and
+  the commit looked for on the repository's branch at GitHub.
+- **Red first:** none written ahead; the unit tests in `test/app/forge_test.dart` stand for GitHub's
+  answers, and a measurement that differs from them is written there as a failing test first.
+
 ## Acceptance
 
 - **Removing a machine, or unbinding it, deletes its deploy keys at GitHub.** Seen to fail: the
@@ -29,3 +52,12 @@ the token nor the repositories are ever kept in this repository or the channel.
   repositories where one is missing or its rights differ from GitHub's.
 - **Approved work in a project**, not only in `default`, reaches the repository at GitHub. Seen to
   fail: the approved commit is not on the repository's branch at GitHub.
+
+## To be checked
+
+- **An account with more than 100 repositories**, and a classic token beside the fine-grained
+  one, for the paging step. (the operator's)
+- **Whether the measurement stays a manual step or becomes a leg** that runs with a token kept in
+  the build's secrets. (the operator's)
+- **Which push branch protection is measured against:** the commit of `project.yml`, the forward
+  of approved work, or both. (Agent Frontend's)

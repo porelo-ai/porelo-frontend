@@ -1,7 +1,10 @@
 # F102 — A Sokar In WSL Reached From Windows
 
-**Status:** stage 1 built; stage 2 built locally on 2026-10-10 and run first on GitHub's Windows
-runner from a branch `windows/stage2`; stage 3 later. See *The stages*.
+**Status:** stages 1 to 3 built: the WSL reach, the ZIP, and the MSIX signed by `CN=porelo.ai`,
+published from the Build on `main` since 2026-10-11. See *The stages*.
+**Size:** M - what remains: the MSIX installed and started in the Build's Windows job, Windows
+notifications once the MSIX gives the interface an identity, and the operator's test on Windows; no
+contract changes.
 
 **What must be true.** On a Windows machine with Sokar in a WSL2 distribution, the interface runs as
 a Windows application on the same machine. It reaches that Sokar with no ssh and no open port, and
@@ -218,6 +221,27 @@ after agreement in the channel and in both. Today an entry has `name` and `socke
   The IntelliJ plugin uses it too. Nothing new for `sokar` to build.
 - Nothing else: the interface speaks the same contract over the relay as over a socket.
 
+## Plan
+
+- **Built:** `Wsl` in `lib/src/app/wsl.dart` (`relayTo`, `runIn` with `--exec`, the
+  distributions from `-l -q` and `-l -v`), `lib/src/app/wsl_setup.dart`, the `wsl` kind in `Machine`
+  (`lib/src/app/machines.dart`, `relay`, `whyNotReachableOn`), the relay in `Backend.open`
+  (`lib/src/client/sokar_client.dart`), `Session.command` through `Wsl.runIn`
+  (`lib/src/app/session.dart`), `lib/src/app/conpty.dart`, and the ZIP and MSIX made by
+  `tool/windows-package.ps1` in the job `windows` of `.github/workflows/build.yml`.
+- **The MSIX installed on the runner:** nothing installs it today. A step after the packing trusts
+  the certificate's public half, runs `Add-AppxPackage`, and starts the installed interface once.
+  Red first: the same step against an MSIX signed by another certificate, which must fail; proved
+  by running it green and red.
+- **Notifications on Windows:** `DesktopNotifier.raise` (`lib/src/app/notifications.dart`) only
+  sets `problem` on Windows. Installed from the MSIX, whose identity is in
+  `packaging/windows/AppxManifest.xml.in`, it raises a Windows notification; the ZIP keeps saying
+  that none is raised. Red first: a test of `DesktopNotifier` with `onWindows: true` and an identity
+  given, expecting a notification rather than `problem`.
+- **The operator's test** on Windows with WSL2, against the published snapshots, for what the
+  runner cannot show: only the owner reaches it, no `sshd` and no TCP port, a terminal attached, a
+  push approved at the gate, a stopped distribution left stopped.
+
 ## Acceptance
 
 - **The interface lists the WSL distributions** of the Windows user and shows, for the one running
@@ -248,4 +272,6 @@ after agreement in the channel and in both. Today an entry has `name` and `socke
   `--socket`: with `XDG_RUNTIME_DIR` unset it takes `/run/user/<uid>`, the uid read from
   `/proc/self/status`, where `sokard` listens under systemd, which lingering keeps up with no session
   open. Seen on Linux with an emptied environment and no shell; on Windows, in the operator's test.
-- **Where the MSIX is published**, and which certificate replaces the self-signed one.
+  (the operator's)
+- **How a Windows notification is raised from Dart**, a package or WinRT through `dart:ffi`, and
+  whether the ZIP, with no identity, can raise one at all. (Agent Frontend's)
