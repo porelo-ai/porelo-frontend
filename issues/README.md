@@ -9,27 +9,27 @@ the backend has no method or field for yet.
 
 Grouped by state, the group's heading naming it, as `AGENTS.md` says how an issue moves through
 them; within a group the order is the priority. **Size** is how big what remains is, `—` for an
-issue in Review; **Open questions** counts what waits on the operator, the issue's *Open questions*;
-what an agent finds out itself stands under *To be checked* and is not counted. A finished issue is
-deleted, file and row together, once what outlives it is in `doc/` or `AGENTS.md`; decisions are in
-[doc/decisions.md](../doc/decisions.md).
+issue in Review; **Open questions**, in *Analyzed* only, counts what waits on the operator, the
+issue's *Open questions*; what an agent finds out itself stands under *To be checked* and is not
+counted. A finished issue is deleted, file and row together, once what outlives it is in `doc/` or
+`AGENTS.md`; decisions are in [doc/decisions.md](../doc/decisions.md).
 
 ### Review
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="f79"></a>[F79](F79-What-Walk-8-Found-In-The-Interface.md) | — | — | Tiles, *Needs you*, *Join* and talking read at a glance, an action's effect seen at once. | — |
-| <a id="f71"></a>[F71](F71-The-Sign-In-Terminal-Shows-Where-Typing-Goes.md) | — | — | A terminal waiting for input shows where typing goes. | — |
-| <a id="f68"></a>[F68](F68-A-Refusal-Says-What-To-Do-About-It.md) | — | — | A refusal says what to change, and where. Built but for an organisation's approval of a fine-grained token. | — |
-| <a id="f69"></a>[F69](F69-The-New-Machine-Wizard-Offers-What-Is-Published.md) | — | — | The new-machine wizard offers what the package index has today, in today's words. | — |
-| <a id="f101"></a>[F101](F101-What-The-Build-Of-A-Push-Did.md) | — | — | What the build of the work's last push did, on its tile and in its detail. | — |
-| <a id="f100"></a>[F100](F100-A-File-Handed-To-A-Running-Task.md) | — | — | A file handed to a running task, taken back, and its record. | — |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f79"></a>[F79](F79-What-Walk-8-Found-In-The-Interface.md) | — | — | Tiles, *Needs you*, *Join* and talking read at a glance, an action's effect seen at once. |
+| <a id="f71"></a>[F71](F71-The-Sign-In-Terminal-Shows-Where-Typing-Goes.md) | — | — | A terminal waiting for input shows where typing goes. |
+| <a id="f68"></a>[F68](F68-A-Refusal-Says-What-To-Do-About-It.md) | — | — | A refusal says what to change, and where. Built but for an organisation's approval of a fine-grained token. |
+| <a id="f69"></a>[F69](F69-The-New-Machine-Wizard-Offers-What-Is-Published.md) | — | — | The new-machine wizard offers what the package index has today, in today's words. |
+| <a id="f101"></a>[F101](F101-What-The-Build-Of-A-Push-Did.md) | — | — | What the build of the work's last push did, on its tile and in its detail. |
+| <a id="f100"></a>[F100](F100-A-File-Handed-To-A-Running-Task.md) | — | — | A file handed to a running task, taken back, and its record. |
 
 ### Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="f102"></a>[F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md) | M | — | The interface on Windows reaches a Sokar in WSL through `wsl.exe`, with no ssh and no open port. Stages 1 to 3 built and published; the MSIX installed on the runner, notifications and the test on Windows left. | — |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f102"></a>[F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md) | M | — | The interface on Windows reaches a Sokar in WSL through `wsl.exe`, with no ssh and no open port. Stages 1 to 3 built and published; the MSIX installed on the runner, notifications and the test on Windows left. |
 
 ### Analyzed
 
