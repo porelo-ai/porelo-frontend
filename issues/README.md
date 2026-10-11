@@ -35,7 +35,7 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Sokar-In-A-Local-VM.md) | XL | — | The interface on macOS, with Sokar in a local Lima VM set up from the window, and remote machines over ssh. | 4 |
+| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Sokar-In-A-Local-VM.md) | XL | — | The interface on macOS, with Sokar in a local Lima VM set up from the window, and remote machines over ssh. | — |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. | — |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. | 1 |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. | 1 |
