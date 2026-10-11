@@ -40,12 +40,19 @@ over ssh.
 ### Windows
 
 On Windows the interface reaches a Sokar in a WSL distribution of yours, through `wsl.exe`, with no
-ssh and no open port. It comes as a ZIP, `sokar-frontend-<version>-windows-x64.zip`, unpacked and
-started with nothing installed. It lies in the same Artifactory as the packages, one folder per
-version, `<version>/`, with its checksum and its attestation beside it: the
-[releases](https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/releases/), and each build of
-`main` among the [snapshots](https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/snapshots/).
-The ZIP is not signed. Check it before unpacking, twice:
+ssh and no open port. It comes two ways, from the same Artifactory as the packages, one folder per
+version, `<version>/`: the [releases](https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/releases/),
+and each build of `main` among the
+[snapshots](https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/snapshots/). Each folder holds both,
+with one `SHA256SUMS` over them and the build's attestation,
+`sokar-frontend-<version>-windows-x64.sigstore.json`. Both read and write the same machine list,
+`%APPDATA%\sokar\frontend.json`, so either can be used, and the other taken up later.
+
+#### Portable (ZIP)
+
+`sokar-frontend-<version>-windows-x64.zip`, unpacked whole into a folder of its own and started there
+as `sokar_frontend.exe`, with nothing installed and no administrator needed: for a computer you may
+not install on. The ZIP is not signed. Check it before unpacking, twice:
 
 ```powershell
 # The checksum, against the SHA256SUMS beside it:
@@ -57,22 +64,32 @@ gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai
   --bundle .\sokar-frontend-<version>-windows-x64.sigstore.json
 ```
 
-To install it instead, the same folder holds `sokar-frontend-<version>-windows-x64.msix`, signed by
-`CN=porelo.ai` with a certificate of the project's own, and that certificate's public half,
-`sokar-msix.cer`. Windows installs the MSIX only once the certificate is trusted on the machine,
-once, as an administrator; after that each newer version installs over the last. Before trusting
-it, check that it is the project's: its thumbprint is `8BD1F34465EDC9B11A162B39C6644231851DEE24`,
-valid until 2029-10-11, and the file's SHA-256 is
-`6641c3c28749e532120ff7b76da057cab1987e984d13b1624504376bbb93498b`.
+A newer version is a new folder: unpack it beside the old one, or over it.
+
+#### Installation (MSIX)
+
+`sokar-frontend-<version>-windows-x64.msix`, installed as an app, in the Start menu as "Sokar
+interface", and updated by installing a newer one over it. It is signed by `CN=porelo.ai` with a
+certificate of the project's own, whose public half lies beside it as `sokar-msix.cer`. Windows
+installs the MSIX only once that certificate is trusted on the machine: once, as an administrator.
+Before trusting it, check that it is the project's: its thumbprint is
+`8BD1F34465EDC9B11A162B39C6644231851DEE24`, valid until 2029-10-11, and the file's SHA-256 is
+`6641c3c28749e532120ff7b76da057cab1987e984d13b1624504376bbb93498b`. Check the MSIX against
+`SHA256SUMS` and the attestation as the ZIP above, then:
 
 ```powershell
+# The certificate, before trusting it:
 (Get-PfxCertificate .\sokar-msix.cer).Thumbprint
 (Get-FileHash .\sokar-msix.cer -Algorithm SHA256).Hash.ToLower()
+
+# Once per machine, as an administrator:
 Import-Certificate -FilePath .\sokar-msix.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+
+# Each version:
 Add-AppxPackage .\sokar-frontend-<version>-windows-x64.msix
 ```
 
-Check the MSIX and the certificate against `SHA256SUMS` as the ZIP, before either.
+#### Either way
 
 If typing or scrolling in a task's terminal does not work, `sokar_frontend.exe --diagnose-terminal`
 shows every key and wheel event the terminal receives, the bytes it would send, and what of them
@@ -80,7 +97,7 @@ arrives in a WSL distribution, and writes it all to `sokar-terminal-diagnose.txt
 
 When a WSL distribution has no Sokar yet, the interface offers to set it up there, every line shown
 before it runs, and checks the repository's key against the fingerprint it carries. That fingerprint
-is only as trustworthy as the ZIP it came in, which is why both checks above come first.
+is only as trustworthy as the ZIP or the MSIX it came in, which is why the checks above come first.
 
 ## First steps
 
