@@ -99,8 +99,8 @@ usually have systemd on and SELinux off; Ubuntu's do not always have systemd on.
 
 Part of stage 2. A person adds a WSL distribution in the wizard, and the interface finds no Sokar
 there, or no daemon running. Instead of a raw error it says so in words and offers to set Sokar up,
-as `sokar`'s B159 offers a remedy: the remedy shown, asked, done, checked again, and then the
-connection goes on.
+as Sokar offers what it would tell a person to type (`sokar`'s `doc/decisions.md`): the remedy
+shown, asked, done, checked again, and then the connection goes on.
 
 - **What it runs** is what Sokar's `doc/getting-started.md` says for the distribution's package
   manager. On Ubuntu and Debian: the key to `/usr/share/keyrings/sokar.gpg`, the source line for
@@ -111,7 +111,7 @@ connection goes on.
   is open: `sokar setup` does not turn lingering on, and whether `wsl.exe` opens a login session
   that `sokard` lives in is not measured. Then `sokar setup` as the distribution's user. Each line
   is shown to the person before anything runs.
-- **The agents are a choice:** Claude Code, Pi and Oh My Pi, one or more, as `sokar`'s B159 offers a
+- **The agents are a choice:** Claude Code, Pi and Oh My Pi, one or more, as Sokar offers them from a
   list. Nothing is chosen in advance.
 - **The repository's key is checked against a fingerprint the interface carries.** A key whose
   fingerprint does not match stops the setup, saying the fingerprint expected and the one that came.
