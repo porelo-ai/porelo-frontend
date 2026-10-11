@@ -32,11 +32,17 @@ import 'src/app/settings.dart';
 import 'src/app/shell_model.dart';
 import 'src/app/sokar_app.dart';
 import 'src/ui/choice_field.dart';
+import 'src/ui/terminal_diagnosis.dart';
 import 'src/ui/theme.dart';
 import 'src/ui/walk_texts.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // What reaches the terminal widget on this system, shown and logged; no task, nothing changed.
+  if (arguments.contains('--diagnose-terminal')) {
+    runApp(const TerminalDiagnosisApp());
+    return;
+  }
   // Started by the interface as the guided walk's own window: the panel and nothing else, before the
   // interface's one-instance lock would send it away.
   if (walkWindowPath() case final path?) {

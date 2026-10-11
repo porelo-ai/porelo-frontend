@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `sokar_frontend --diagnose-terminal` shows and logs every key and wheel event the terminal widget
+  receives, the bytes it would send, and what of them arrives in a WSL distribution, through pipes
+  as the relay and through a pseudoconsole as the attach: for finding out what a system delivers.
 - Every build of `main` makes the Windows interface as a ZIP, beside the Linux packages, with a
   `SHA256SUMS` and a build provenance attestation, and publishes all three into Artifactory, so a
   person can check both before unpacking it.

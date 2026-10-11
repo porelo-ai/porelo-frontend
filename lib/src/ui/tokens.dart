@@ -175,6 +175,9 @@ abstract final class Sizes {
 
   /// The line height of terminal text, as a terminal spaces its rows.
   static const terminalLineHeight = 1.25;
+
+  /// The terminal pane of the terminal diagnosis: a dozen rows to type into, the log below it.
+  static const diagnosisTerminal = 220.0;
 }
 
 /// Corner radii.

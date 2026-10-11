@@ -57,6 +57,10 @@ gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai
   --bundle .\sokar-frontend-<version>-windows-x64.zip.sigstore.json
 ```
 
+If typing or scrolling in a task's terminal does not work, `sokar_frontend.exe --diagnose-terminal`
+shows every key and wheel event the terminal receives, the bytes it would send, and what of them
+arrives in a WSL distribution, and writes it all to `sokar-terminal-diagnose.txt` in `%TEMP%`.
+
 When a WSL distribution has no Sokar yet, the interface offers to set it up there, every line shown
 before it runs, and checks the repository's key against the fingerprint it carries. That fingerprint
 is only as trustworthy as the ZIP it came in, which is why both checks above come first.
