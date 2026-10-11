@@ -424,8 +424,9 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   is, and an apostrophe or a `$` in a step's text breaks the generated Dart.
 - **No requirement id appears outside `issues/`**: `sokar-release check-citations .` enforces it, and
   `check-doc-site doc mkdocs.yml` holds `doc/` to the site's navigation, and `check-readmes .` the
-  `README.md` beside `pom.xml`; `shared-rules` runs all three on every push. A channel question number is
-  kept out of the code by `test/features_named_test.dart`.
+  `README.md` beside `pom.xml`; all three run on the host before every hand-over, and
+  `shared-rules` once a day. A channel question number is kept out of the code by
+  `test/features_named_test.dart`.
 - **Three levels**: the frame against `FakeBackend` in `testWidgets`; the client against `MockDaemon`
   over a real unix socket in plain `test()`; `test/client/live_daemon_test.dart` against a real
   `sokard` when `SOKAR_SOCKET` is set (and `SOKAR_VAULT_TEST=1` for the vault round trip).
