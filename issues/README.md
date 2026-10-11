@@ -53,7 +53,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. |
 | <a id="f64"></a>[F64](F64-The-Guided-Walk-As-A-Package-Of-Its-Own.md) | L | — | The guided walk as a package any Flutter app can use. |
 | <a id="f75"></a>[F75](F75-One-Definition-For-A-UI-Test-And-A-Guided-Walk.md) | XL | `flutter-guided-walk`: a scenario that is also a walk | Each scenario tagged `@walk` is also a walk. |
-| <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | M | Bitbucket's account, token and test repositories from the operator | Forges beyond GitHub. |
+| <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
 | <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Sokar-In-A-Local-VM.md) | XL | — | The interface on macOS, with Sokar in a local Lima VM set up from the window, and remote machines over ssh. |
