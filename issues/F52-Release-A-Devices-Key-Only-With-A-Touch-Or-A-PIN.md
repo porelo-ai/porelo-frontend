@@ -1,9 +1,9 @@
 # F52 — Release A Device's Key Only With A Touch Or A PIN
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - splits into a store that derives the share at unlock behind `DeviceKeyStore`,
-with its words (M); FIDO2 `hmac-secret` through a native library on Linux and Windows (L); and a
-TPM2 object behind a PIN on Linux and Windows (L).
+with its words (M), and a TPM2 object behind a PIN on Linux and Windows (L); FIDO2 `hmac-secret`
+(L) is an issue of its own, later.
 
 **What must be true.** A person can enroll this device so that its key is released only with a
 touch on a security key or a PIN at this machine's TPM, which code running as the same user cannot
@@ -28,7 +28,7 @@ device declares one; nothing here can enroll a device that way.
   secret (the slot, a credential id and salt, or a TPM object), and answers the share at unlock
   time after a touch or a PIN. The contract stays: the derived share is what `enrollDevice` and
   `unlockWithShare` carry.
-- **FIDO2:** `hmac-secret` through libfido2 on Linux and the platform's WebAuthn on Windows, over
+- **FIDO2, later, in an issue of its own:** `hmac-secret` through libfido2 on Linux and the platform's WebAuthn on Windows, over
   `dart:ffi` as `lib/src/app/pty.dart` does with libc; `packaging/nfpm.yaml.in` names the library.
 - **TPM2:** an object behind a PIN, through the TPM's software stack on Linux and the platform's
   provider on Windows.
@@ -40,23 +40,17 @@ device declares one; nothing here can enroll a device that way.
 
 ## Acceptance
 
-- **The share is derived at unlock time**, from a FIDO2 token's `hmac-secret` or from a TPM2 object
-  behind a PIN, and is never kept where same-user code can read it. Seen to fail: a test that
+- **TPM2 first; FIDO2 later, as an issue of its own.** The share is derived at unlock time from a
+  TPM2 object behind a PIN, and is never kept where same-user code can read it. Seen to fail: a test that
   enrolls with a fake token and finds no share in any store or file afterwards.
-- **The device declares `FIDO2` or `TPM2` accordingly**, and every place it is shown says what that
+- **The device declares `TPM2`**, and every place it is shown says what that
   protects against, as for the other classes. Seen to fail: the enrollment request in a test, and
   widget tests of each place a device is shown.
-- **A token or PIN that is not there refuses the unlock in words**, and offers nothing it cannot
+- **A TPM or PIN that is not there refuses the unlock in words**, and offers nothing it cannot
   do. Seen to fail: a widget test unlocking without the token and with a wrong PIN.
-
-## Open questions
-
-- **FIDO2 or TPM2 first, or only one of them.** (the operator's)
 
 ## To be checked
 
 - **Which native library for each, and whether the packages' dependencies may grow by it.**
   (Agent Frontend's, with the operator's word on a new dependency)
-- **Whether a FIDO2 token also asks for its own PIN** (user verification) besides the touch.
-  (Agent Frontend's)
 - **How it is tested beyond a fake**: a software TPM or a real token in a leg. (Agent Frontend's)

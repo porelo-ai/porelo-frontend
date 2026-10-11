@@ -1,6 +1,6 @@
 # F107 — Code Comments In The Review
 
-**Status:** Analyzed; blocked by `sokar`'s [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), "Line Comments Sent Back To The Agent", for the comment
+**Status:** Estimated; blocked by `sokar`'s [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), "Line Comments Sent Back To The Agent", for the comment
 model, comments with their origin and the local review, and by [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171), "Forge Review Comments To And
 From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172), "A
 Task That Reviews". Blocked by [F78](README.md#f78) too: comments are written only in its

@@ -1,6 +1,6 @@
 # F95 — A Waiting Push Fetched Here, Into A Clone Chosen
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a folder dialog, a git run here, the review's own-clone box and its wiring, and a
 changed decision in `doc/decisions.md`; no contract changes.
 

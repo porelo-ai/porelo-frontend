@@ -1,6 +1,6 @@
 # F91 — One Way To Show Loading
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one small shared widget, but eleven views and a held answer for each in the test
 backend; no contract changes.
 

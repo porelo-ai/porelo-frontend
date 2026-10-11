@@ -1,6 +1,6 @@
 # F75 — One Definition For A UI Test And A Guided Walk
 
-**Status:** Analyzed; blocked by flutter-guided-walk: a scenario that is also a walk.
+**Status:** Estimated; blocked by flutter-guided-walk: a scenario that is also a walk.
 **Size:** XL - splits into the plugin's step that carries its walk steps (`flutter-guided-walk`,
 L); the walks in `doc/walks/` generated from their scenarios and compared (M); and every other step
 given walk steps or marked by hand, over the 1,107 files in `test/features/step/` (L). Blocked by
@@ -36,15 +36,11 @@ beside them. The mechanism is the plugin's; the backend is short of nothing.
 
 ## Acceptance
 
-- Every walk in `doc/walks/` is generated from a scenario, and none is written by hand. Seen to fail:
-  `test/walks_test.dart` goes red where a walk file differs from what its scenario generates.
-- Every step of a scenario has walk steps or is marked as by hand. Seen to fail: a test that lists a
-  step with neither.
-
-## Open questions
-
-- **Whether every scenario becomes a walk, or only those tagged as one.** The acceptance says
-  every one. (the operator's)
+- Only scenarios tagged `@walk` become walks; every walk in `doc/walks/` is generated from one, and
+  none is written by hand. Seen to fail: `test/walks_test.dart` goes red where a walk file differs
+  from what its scenario generates, or a walk has no `@walk` scenario.
+- Every step of a `@walk` scenario has walk steps or is marked as by hand. Seen to fail: a test that
+  lists a step with neither.
 
 ## To be checked
 

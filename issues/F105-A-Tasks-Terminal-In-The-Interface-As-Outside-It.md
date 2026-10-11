@@ -1,6 +1,6 @@
 # F105 — A Task's Terminal In The Interface As Outside It
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a measurement on the VM, then the session, its view and its key handling, with
 unit tests and a scenario against a real task; no contract changes.
 

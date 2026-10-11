@@ -1,6 +1,6 @@
 # F37 — Reach A Machine Without An ssh Binary
 
-**Status:** Analyzed; blocked by the operator: a mobile client.
+**Status:** Estimated; Android first, the mobile client beyond the transport as issues of its own.
 **Size:** L - one transport interface over the forward, the trial and the terminal, a `dartssh2`
 implementation with its own host key store and keychain, and a leg against a real machine; its
 questions decided first. A mobile client itself is not in it, and waits for the operator.
@@ -61,6 +61,12 @@ questions have deadlines, and notifications need another path.
 
 ## Acceptance
 
+- **The key is made on the phone, in its hardware** (Secure Enclave or StrongBox, through
+  `SSHIdentity.custom`), and authorized on the machine once; it is never imported. Seen to fail: a
+  test where a key is taken from a file, or a private key can be read out of the store.
+- **Post-quantum key exchange is required** (`mlkem768x25519-sha256` or `sntrup761x25519-sha512`):
+  a server or a library without it does not connect, and says so. Seen to fail: a leg against a
+  server offering only classical exchange that connects.
 - **One transport interface** covers the forward to the daemon, starting it, `id -u` and a pty
   session, and the desktop behaves exactly as before. Seen to fail: the existing scenarios and
   integration legs of the desktop.
@@ -76,16 +82,6 @@ questions have deadlines, and notifications need another path.
 - **The `dartssh2` transport is exercised against a real machine** in the integration legs, not
   only against a fake. Seen to fail: an integration leg over `dartssh2` that connects, forwards and
   opens a pty.
-
-## Open questions
-
-- **How keys reach a phone**: generated there and authorized on the machine, or imported, and
-  whether hardware-backed keys (Secure Enclave, StrongBox) are required through
-  `SSHIdentity.custom`. (the operator's)
-- **Whether a connection without post-quantum key exchange is acceptable** for a mobile client.
-  (the operator's)
-- **Which mobile platform first**, and the client beyond the transport (connections ended in the
-  background, deadlines, notifications) as issues of its own. (the operator's)
 
 ## To be checked
 

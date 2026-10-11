@@ -1,6 +1,7 @@
 # F72 — Forges Beyond GitHub
 
-**Status:** Analyzed; blocked by the operator: which forge next.
+**Status:** Estimated; the next forge is Bitbucket; blocked by its account, token and test
+repositories from the operator when it is built.
 **Size:** M per forge - a second `Forge` beside `GitHub`, chosen by address, the GitHub-only
 reading of an upstream widened, scenarios, and a leg measured against the forge; waits for the
 operator to name the forge and give an account there.
@@ -39,13 +40,7 @@ forge's own API is the interface's; the backend is short of nothing known.
 - Where the forge forbids a step, the interface says so in words instead of failing silently.
   Seen to fail: a scenario where the forge refuses the step and the words are missing.
 
-## Open questions
-
-- **Which forge comes next.** (the operator's)
-- **An account, a token and test repositories at that forge** for the measured leg, as `F59` waits
-  for them at GitHub. (the operator's)
-
 ## To be checked
 
 - Bitbucket Cloud's access keys are read-only: what a machine's push goes through there. (Agent
-  Frontend's, once Bitbucket is chosen)
+  Frontend's)

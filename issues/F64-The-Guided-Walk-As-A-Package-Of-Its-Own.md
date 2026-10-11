@@ -1,6 +1,6 @@
 # F64 — The Guided Walk as a Package of Its Own
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - what is left is in another repository, `flutter-guided-walk`: a Semantics reader,
 a WebSocket way, a versioned walk format, the waiting words and pub.dev; this repository's part is S.
 
@@ -45,9 +45,14 @@ has no part in it.
 
 ## Acceptance
 
-- **Published on pub.dev**, and this interface depends on it from there; the only Sokar-specific
-  part left here is marking what is secret. Seen to fail: `pubspec.yaml` still takes it by git, or
-  walk code other than secret marking remains in `lib/`.
+- **Published on pub.dev under the publisher fuin.org** (the operator publishes, or sets up the
+  automated publishing), and this interface depends on it from there. What stays here is marking
+  what is secret and a little wiring: the frame, the button that shows the walk again, its texts
+  and its choice hook. Seen to fail: `pubspec.yaml` still takes it by git, or walk code beyond
+  that remains in `lib/`.
+- **The variable that starts a walk is the plugin's own**, read by `guided_walk` (e.g.
+  `GUIDED_WALK`), so no app reads one of its own; this interface drops `SOKAR_WALK`. Seen to fail:
+  `SOKAR_WALK` read anywhere in `lib/`.
 - **The window's state is read from Flutter's Semantics tree**, so it describes any app, not this
   one's own widgets. Seen to fail: a test in the package describing its example app built from
   plain Material widgets with no knowledge of them.
@@ -65,13 +70,6 @@ has no part in it.
   passed: "Der Agent arbeitet daran - seit 1:20". The agent's next line replaces it. Seen to fail: a
   widget test that waits 15 seconds with no answer and then sends one. (Writing one line before any
   longer work is the leading agent's part, not the plugin's.)
-
-## Open questions
-
-- **Whether the wiring left in `lib/` counts as "secret marking only"**: the `SOKAR_WALK` variable,
-  `WalkFrame`, the button that shows the walk again, the `ChoiceField` hook and the German words; or
-  the first acceptance item is reworded to allow an app's wiring. (the operator's)
-- **Who publishes on pub.dev, and under which publisher.** (the operator's)
 
 ## To be checked
 
