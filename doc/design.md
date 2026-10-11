@@ -163,7 +163,7 @@ so it runs on any hosted runner.
 
 ## Packaging
 
-Delivered as a `.deb` and an `.rpm`, from the same repository as the `sokar` package —
+On Linux, delivered as a `.deb` and an `.rpm`, from the same repository as the `sokar` package —
 The packaging requirement is met and retired; this is what it is made of.
 
 - **Output:** `flutter build linux --release` produces a bundle directory — the binary,
@@ -199,6 +199,85 @@ The packaging requirement is met and retired; this is what it is made of.
 
 ### Where it lives
 
-**`lib/` at the root, one package named `sokar_frontend`**, organization `org.fuin`, Linux the only
-enabled platform. A `packages/` split pays for itself only once something is shared, and nothing
+**`lib/` at the root, one package named `sokar_frontend`**, organization `org.fuin`, Linux and
+Windows the enabled platforms. A `packages/` split pays for itself only once something is shared, and nothing
 is; a second consumer of the client code is what would change that.
+
+## Windows
+
+On Windows the interface reaches a Sokar in a WSL2 distribution of the same Windows user. A unix
+socket does not cross the boundary of WSL2's virtual machine, so the way in is a relay:
+`wsl.exe -d <distribution> --exec sokar daemon connect`, which joins its standard input and output to
+the daemon's socket. `VarlinkConnection` speaks over that byte stream as over a socket file. No ssh,
+no open port, no key: `wsl.exe` runs as the Windows user, so only that user reaches the
+distribution.
+
+- **`--exec`, not `--`:** after `--`, `wsl.exe` hands the words to the distribution's shell, which
+  splits them again; `--exec` runs the program with exactly the arguments given.
+- **A process, never a shell pipe:** `wsl.exe` is started with byte streams of its own
+  (`Process.start`). Windows PowerShell 5.1 has no `<` and re-encodes text in its pipes; measured on
+  2026-10-10, `wsl.exe` itself carries Varlink's framing both ways, the closing `\0` included.
+- **The distributions** come from `wsl.exe -l -q`, those running from `-l --running -q`, the WSL
+  version from the last column of `-l -v`, whose state column is in Windows' language. Each call into
+  a distribution is preceded by that reading.
+- **What runs on a machine over ssh on Linux runs through `wsl.exe` on Windows:** a task's terminal
+  (through ConPTY, `lib/src/app/conpty.dart`), attaching, a sign-in, and the connection trial's checks.
+- **Setting up Sokar in a distribution that lacks it** checks, in order, the Windows build, WSL
+  installed, WSL2 and not WSL1, a supported distribution from `/etc/os-release`, systemd, and Sokar
+  and its daemon, and says in words where it stops. Then it offers the lines Sokar's
+  `doc/getting-started.md` gives for the distribution's package manager, with `loginctl
+  enable-linger` and `sokar setup`, each shown before it runs. Root inside the distribution
+  (`wsl.exe -u root`) is used only for exactly the lines the person said yes to, and recorded in the
+  operations record. The repository's key is checked against a fingerprint the interface carries.
+- **A machine over ssh is reached from the Linux build only, so far:** `dart:io` opens no unix socket
+  on Windows, so the forward does not work there. A socket entry carried over from Linux is said to
+  name a path Windows cannot open.
+- **Notifications are not raised on Windows yet**, and that is said once: Windows' own need the
+  application registered with the shell, which the MSIX's identity would give.
+- **The files:** `%APPDATA%\sokar\frontend.json`; the operations record under
+  `%LOCALAPPDATA%\sokar`; a file kept to its owner with `icacls`; one window over a loopback port
+  named in `%LOCALAPPDATA%\sokar\frontend.port`.
+- **The packages,** made by `tool/windows-package.ps1` in the Build's job *Windows* on GitHub's
+  Windows runner: a ZIP, not signed, and an MSIX signed by `CN=porelo.ai`, with one `SHA256SUMS` and
+  the build's provenance attestation, in Artifactory's `sokar-dist-windows`. The MSIX's writes to
+  AppData are not redirected (`unvirtualizedResources`), so it reads the same `frontend.json` as the
+  ZIP and the IntelliJ plugin. The MSIX version takes four numbers: `0.4.2~snapshot.141` becomes
+  `0.4.2.141`.
+
+### The machine file, which the IntelliJ plugin reads too
+
+The interface keeps its machines in `frontend.json` (`$XDG_CONFIG_HOME/sokar/` on Linux), and
+`sokar-intellij` reads the same file, so a new kind of entry is a contract between the two
+repositories, changed only after agreement in both.
+
+- **Without `kind`:** a plain `socket`, or a machine behind ssh when `host` and `remoteSocket` are set.
+- **A WSL entry:** `{"name": "<label>", "kind": "wsl", "distribution": "<WSL distribution name>"}`,
+  with no `socket`: the socket inside the distribution is found on each connection, from the
+  distribution's user id. An older plugin drops an entry without `socket`, so it never opens a Linux
+  path on Windows.
+- **An unknown `kind`** is kept in the file and shown as not reachable by this version, never dropped.
+
+### A test on a Windows machine
+
+Not required before a push; welcome from time to time, since GitHub's runner has no WSL
+distribution with Sokar. On a Windows 10 2004 or later, or Windows 11, with WSL2:
+
+1. **Install** from the newest folder of
+   [`sokar-dist-windows/snapshots/`](https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/snapshots/)
+   the ZIP or the MSIX, checked as the download page says; in a fresh WSL distribution (Ubuntu
+   26.04, Debian 13, or Fedora 43 or 44), nothing of Sokar yet.
+2. **Add the distribution** with *Watch another machine…* → WSL: the setup is offered, every line
+   shown, the snapshot channel chosen as Sokar's `doc/getting-started.md` says under "Snapshots";
+   the distribution is reached afterwards.
+3. **Follow a project, start work, attach its terminal**: type, resize, scroll, and go back.
+4. **Approve a push at the gate**; it arrives at the upstream.
+5. **No ssh and no port:** in the distribution, `ss -ltnp` shows no `sshd` and no `sokard` on TCP
+   while the interface works with it.
+6. **Only the owner:** a second Windows user on the same machine does not reach the distribution.
+7. **Stopped stays stopped:** `wsl --terminate <distribution>`; the interface shows it as stopped,
+   and `wsl -l -v` still says *Stopped* afterwards.
+
+Where typing or scrolling fails, `sokar_frontend.exe --diagnose-terminal` writes what arrives to
+`%TEMP%\sokar-terminal-diagnose.txt`. The result, with the version tested, goes in the channel; the
+download page and the issue's row then say "tested on Windows on <version>".
+

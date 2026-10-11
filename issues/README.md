@@ -9,10 +9,10 @@ the backend has no method or field for yet.
 
 Grouped by state, the group's heading naming it, as `AGENTS.md` says how an issue moves through
 them; within a group the order is the priority. **Size** is how big what remains is, `—` for an
-issue in Review; **Open questions**, in *Analyzed* only, counts what waits on the operator, the
+issue in Review or not yet analyzed; **Open questions**, in *Analyzed* only, counts what waits on the operator, the
 issue's *Open questions*; what an agent finds out itself stands under *To be checked* and is not
-counted. A finished issue is deleted, file and row together, once what outlives it is in `doc/` or
-`AGENTS.md`; decisions are in [doc/decisions.md](../doc/decisions.md).
+counted. A finished issue's file is deleted once what outlives it is in `doc/` or `AGENTS.md`;
+its row stays under *Finished*, with one sentence of what was built; decisions are in [doc/decisions.md](../doc/decisions.md).
 
 ### Review
 
@@ -25,11 +25,12 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f101"></a>[F101](F101-What-The-Build-Of-A-Push-Did.md) | — | — | What the build of the work's last push did, on its tile and in its detail. |
 | <a id="f100"></a>[F100](F100-A-File-Handed-To-A-Running-Task.md) | — | — | A file handed to a running task, taken back, and its record. |
 
-### Implementing
+### Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f102"></a>[F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md) | M | — | The interface on Windows reaches a Sokar in WSL through `wsl.exe`, with no ssh and no open port. Stages 1 to 3 built and published; the MSIX installed on the runner, notifications and the test on Windows left. |
+| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | — | — | The MSIX installed and started in the Build's Windows job. |
+| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | — | — | Windows notifications from the MSIX's identity. |
 
 ### Estimated
 
@@ -62,3 +63,9 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `sokar` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `sokar`'s part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. |
+
+### Finished
+
+| # | Title | What was built |
+|---|---|---|
+| <a id="f102"></a>F102 | A Sokar In WSL Reached From Windows | The interface on Windows, as a ZIP and an MSIX signed by `CN=porelo.ai`, reaching a Sokar in a WSL distribution through `wsl.exe` with no ssh and no open port, and setting Sokar up there; checked on GitHub's Windows runner, untested on a Windows machine. |

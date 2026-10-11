@@ -48,6 +48,11 @@ with one `SHA256SUMS` over them and the build's attestation,
 `sokar-frontend-<version>-windows-x64.sigstore.json`. Both read and write the same machine list,
 `%APPDATA%\sokar\frontend.json`, so either can be used, and the other taken up later.
 
+**Untested on a Windows machine.** Each build is checked on GitHub's Windows runner, where its tests
+run and the ZIP and the MSIX are built; neither has yet been tried with a WSL distribution on a
+person's Windows computer, and the MSIX has not been installed. Once such a test is done, this says
+on which version.
+
 #### Portable (ZIP)
 
 `sokar-frontend-<version>-windows-x64.zip`, unpacked whole into a folder of its own and started there

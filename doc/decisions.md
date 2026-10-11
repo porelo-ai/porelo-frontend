@@ -46,6 +46,9 @@ taken, `git log` answers.
 | [Where a Dart or Flutter skill says otherwise, this repository's measured rules win, and what was left is named](#where-a-dart-or-flutter-skill-says-otherwise) |
 | [The license is GPL-3.0-only, and *or-later* is not decided](#the-license-is-gpl-30-only-and-or-later-is-not-decided) |
 | [The client is written by hand until it has drifted from the contract once](#the-client-is-written-by-hand-until-it-has-drifted-from-the-contract-once) |
+| [A WSL distribution is reached through `wsl.exe` and the relay, never over a port](#a-wsl-distribution-is-reached-through-wslexe-and-the-relay-never-over-a-port) |
+| [A stopped WSL distribution is never started by the interface, but for the restart a person asked for](#a-stopped-wsl-distribution-is-never-started-by-the-interface) |
+| [The Windows build is checked on GitHub's Windows runner; a test on a Windows machine is welcome, not required](#the-windows-build-is-checked-on-githubs-windows-runner) |
 
 ## The interface can do what a console can
 
@@ -564,3 +567,38 @@ The contract is machine readable and the daemon serves it, so a client generated
 possible. It is not written: a generator is code to keep, and it pays for itself only once a
 hand-written client has drifted from the contract. The tests that read the served contract
 (`dart tool/contract.dart`, the live daemon tests) are what would show that drift.
+
+## A WSL distribution is reached through `wsl.exe` and the relay, never over a port
+
+`sokard` answers only on its unix socket, which a Windows program cannot open across WSL2's
+boundary. The interface runs `wsl.exe -d <distribution> --exec sokar daemon connect` and speaks
+Varlink over its standard input and output, as Docker Desktop and Podman Desktop reach their WSL
+machines. **Not `sokard` on TCP at localhost:** WSL2 forwards such a port to Windows, where any
+program of any user could start tasks, approve at the gate or open the vault; the socket's file
+permissions are the only guard, and a port would remove it. Not an ssh server in the distribution
+either: it is one more service and key for what `wsl.exe` already does as the Windows user.
+
+## A stopped WSL distribution is never started by the interface
+
+`wsl.exe -d <distribution> -- …` starts a stopped distribution, with its memory and CPU. The
+interface reads each one's state with `wsl.exe -l --running -q` and `-l -v`, which start nothing,
+calls into one only while it runs, and shows a stopped one as stopped for the person to start. **The
+one exception** is turning systemd on, which needs the distribution restarted: asked as a question of
+its own, saying that shells, services and running Sokar tasks in it end, the answer no unless the
+person changes it; after a yes, `wsl.exe --terminate` and the next call starts it again.
+
+## The Windows build is checked on GitHub's Windows runner
+
+There is no Windows machine here, so the rule that the whole workflow runs green on the VM before a
+push has one exception: the Windows build's regular check is GitHub's Windows runner, its unit,
+feature and documents tests, the ZIP and the MSIX built and signed. The operator tests on a Windows
+machine from time to time, as [design](design.md#a-test-on-a-windows-machine) says how; such a test
+is welcome, not required before a push or before an issue is finished. Until one is done, the
+download page and the issue's row say "untested on a Windows machine", then "tested on Windows on
+<version>".
+
+**The exposure:** until such a test, nothing has shown the interface on Windows reaching a WSL
+distribution, a terminal attached through ConPTY, a push approved at the gate, or that a second
+Windows user cannot reach the distribution; and the MSIX is built and signed but never installed.
+**What would change the answer:** the MSIX installed and started in the Build's Windows job narrows
+it; a Windows machine here would make the test part of every hand-over.
