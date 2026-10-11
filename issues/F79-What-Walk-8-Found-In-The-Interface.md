@@ -1,6 +1,8 @@
 # F79 — What Walk 8 Found In The Interface
 
-**Status:** Review; to be walked.
+**Status:** Review; to be walked. Split off as not built: a tile's repository in its heading, a
+release Sokar refuses said with what to do, and the project file taken after one's own push,
+[F117](README.md#f117).
 
 **What must be true.** A person reads tiles, *Needs you*, *Join* and talking at a glance, and sees the
 effect of their own action at once; each point below is fixed, or decided against in
@@ -15,8 +17,8 @@ needs Sokar's `Peers` to list them, which is built but not published yet.
 
 Each is judged in a walk on the VM against Sokar's handover.
 
-- Tiles: a tile is headed by its work and repository, with the machine under it. Seen to fail: a
-  scenario in `work_tiles.feature` where the machine is the heading.
+- Tiles: a tile is headed by its work, with the machine under it. Seen to fail: a scenario in
+  `work_tiles.feature` where the machine is the heading.
 - Tiles: running, waiting, needing a person and stopped are told apart by a mark of color and shape
   before the name, and a stopped tile is greyed. Seen to fail: a `work_tiles.feature` scenario where
   two states share a mark.
@@ -27,9 +29,6 @@ Each is judged in a walk on the VM against Sokar's handover.
   shows, or a refused text does.
 - *Needs you*: its heading says who wrote it and to whom, and one the person wrote is said as theirs.
   Seen to fail: a `moderating_messages.feature` scenario where the writer is missing.
-- *Needs you*: a release that fails at sending, or that Sokar refuses (no account in the
-  conversation), is shown as an error in words with what to do. Seen to fail: a scenario where the
-  failure is silent.
 - *Needs you*: the dialog closes after a decision and says what came of it. Seen to fail: a scenario
   where it stays open.
 - Talking: *Whom this work may talk to* offers the project's other tasks once Sokar's `Peers` lists
@@ -49,8 +48,6 @@ Each is judged in a walk on the VM against Sokar's handover.
   *Refresh*. Seen to fail: a scenario where the old count or time stays until *Refresh*.
 - The start form asks again where the machine refused an agent it lists, and names the agent. Seen to
   fail: a scenario in `task_creation.feature` where the refusal is not named.
-- A project file the machine follows is taken at once after one's own push. Seen to fail: a scenario
-  in `following.feature` where it waits for the next poll.
 - A project's work repository that is itself a project (a `project.yml` of its own, which is not
   read) is said when binding a machine. Seen to fail: a scenario in `project_configuration.feature`
   where it is not said.

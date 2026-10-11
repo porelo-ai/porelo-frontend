@@ -45,34 +45,11 @@
     },
     {
       "say": "„Start it“. Der erste Start setzt den Homeserver und den Raum auf, etwa zehn Sekunden. Das Terminal von writer öffnet sich; Claude sagt beim Start, wo sein Postfach ist (es liest /run/sokar/mail/README.md).",
-      "at": [
-        "s",
-        "t",
-        "a",
-        "r",
-        "t",
-        "-",
-        "g",
-        "o"
-      ]
+      "at": "start-go"
     },
     {
       "say": "„Leave“ oben rechts: writer läuft weiter.",
-      "at": [
-        "l",
-        "e",
-        "a",
-        "v",
-        "e",
-        "-",
-        "s",
-        "e",
-        "s",
-        "s",
-        "i",
-        "o",
-        "n"
-      ]
+      "at": "leave-session"
     },
     {
       "say": "Links „Work“: an der Kachel von writer „Show more“. Die Mini-Konsole zeigt jetzt, was in seinem Terminal steht, wie ein kleiner Bildschirm, alle drei Sekunden frisch. Der Knopf rechts daneben öffnet das Terminal ganz.",

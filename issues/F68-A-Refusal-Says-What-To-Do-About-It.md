@@ -1,6 +1,8 @@
 # F68 — A Refusal Says What To Do About It
 
-**Status:** Review; to be walked; an organisation's approval of a fine-grained token not built.
+**Status:** Review; to be walked. Split off as not built: a fine-grained token waiting for an
+organisation's approval, [F115](README.md#f115); a refused login explained when a machine is
+connected again, with the key it would take, [F116](README.md#f116).
 
 **What must be true.** Where the interface knows why something was refused, it says what to change,
 and where, instead of showing only the forge's or ssh's words.
@@ -23,12 +25,9 @@ so far only a stand-in answering the same way was measured.
   GitHub with a token lacking each right, and the scenarios for both refusals.
 - **Deploy keys disabled for a repository** are said as the organisation's setting, and where it
   is. Seen to fail: a walk at GitHub with an organisation that disabled them.
-- **A fine-grained token whose change waits for the organisation's approval** is said as waiting,
-  not as refused. Seen to fail: GitHub's answer for such a token, measured, then a scenario with it.
 - **A repository's host key the machine does not know** is offered to be trusted when starting work
   in `default`, as following a project offers it. Seen to fail: a start measured on the VM against
   Core's handover with a host the machine never met.
-- **A machine that refused every key the ssh agent offered** says so, and which key it expects,
-  rather than *not connected*, both when it is added and when it is connected again. Seen to fail: a
-  walk connecting to a machine whose `authorized_keys` holds none of the agent's keys, and a test of
-  the reconnect path.
+- **A machine that refused every key the ssh agent offered** says so when it is added, rather than
+  *not connected*. Seen to fail: a walk adding a machine whose `authorized_keys` holds none of the
+  agent's keys.

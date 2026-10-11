@@ -1,0 +1,83 @@
+{
+  "title": "Walk 15: a refusal says what to do about it",
+  "steps": [
+    {
+      "say": "Walk 15: eine Ablehnung sagt, was zu ändern ist und wo – bei GitHub-Tokens, Deploy-Keys, einem unbekannten Host-Schlüssel und einem verweigerten ssh-Login, auf testmaschine. Dafür brauchst Du bei GitHub zwei fein-granulare Tokens für sokar-ai/sokar-test-project und seine Repositories: eines mit „Contents: Read and write“, aber ohne „Administration“, und eines mit „Administration: Read and write“, aber nur „Contents: Read-only“. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar project following\"'\n\n„project following“ zeigt sokar-test-project. Dann „Next“ hier.",
+      "at": []
+    },
+    {
+      "say": "Links „Forges“ → „GitHub“ → das Token ändern: das erste (ohne Administration) eintragen.",
+      "at": [
+        "forge-change *",
+        "forge GitHub",
+        "rail forges",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Im Filter test-project, sokar-ai/sokar-test-project wählen. Bestanden: „This token lacks Administration: Read and write for sokar-ai/sokar-test-project. Give it that at GitHub → Settings → Developer settings → Fine-grained tokens → this token → Repository permissions …“, und in Klammern GitHubs eigene Worte.",
+      "at": [
+        "repository-says *",
+        "forge-repository-menu *sokar-test-project",
+        "repositories-search",
+        "forge GitHub"
+      ]
+    },
+    {
+      "say": "Das Token ändern auf das zweite (Administration, Contents nur lesen). Dann an sokar-ai/sokar-test-project ⋮ → „Work on it on testmaschine“ → „Work on it on testmaschine“. Bestanden: „This token may not push to sokar-ai/sokar-test-project: it lacks Contents: Read and write there. Give it that at GitHub → … Repository permissions.“, mit den Worten von git in Klammern.",
+      "at": [
+        "binding-problem",
+        "binding-bind",
+        "forge-repository-menu *sokar-test-project",
+        "forge GitHub",
+        "rail forges",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Das richtige Token wieder eintragen. Deploy-Keys, die eine Organisation abgeschaltet hat: nur, wenn Du Owner einer Organisation mit einem Repository samt project.yml bist – dort unter Settings → Member privileges die Deploy-Keys aus, dann dieses Repository wie eben „Work on it on testmaschine“. Bestanden: „Deploy keys are switched off for <Repository> by its organisation. An owner turns them on under the organisation’s Settings → Member privileges → Deploy keys.“ Danach wieder einschalten. Ohne solche Organisation: „Next“.",
+      "at": [
+        "binding-problem",
+        "forge-change *",
+        "forge GitHub",
+        "rail forges",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Ein Host, den testmaschine nicht kennt: in einem Terminal auf dem Desktop\n\nssh <Konto>@<Adresse der Testmaschine> 'ssh-keygen -R github.com'\n\nDann links unter testmaschine „default — work without a project“ → „Start work“, bei „Its address“ git@github.com:sokar-ai/sokar-test-1.git, „Start work on it“, Claude Code, „Start it“.",
+      "at": [
+        "default-start-new",
+        "default-address",
+        "start-work",
+        "project default",
+        "project */default"
+      ]
+    },
+    {
+      "say": "Bestanden: „This machine has never met github.com, so it cannot fetch from there yet. Trust its key first.“, darunter die Schlüssel des Hosts, einer mit „· the forge publishes this key“, und „Trust the key the forge publishes, and ask again“. Klicken: die Arbeit startet. Dann „Leave“ und die Arbeit an ihrer Kachel ⋮ entfernen.",
+      "at": [
+        "start-trust-host-key",
+        "start-host-key *",
+        "not-ready"
+      ]
+    },
+    {
+      "say": "Eine Maschine, die keinen Schlüssel Deines ssh-Agenten annimmt: ein Konto auf testmaschine, in dessen ~/.ssh/authorized_keys keiner davon steht (ssh-add -l zeigt Deine). „Watch another machine…“, Name egal, „Raise the forward for me“, „Next“, bei „Where it is“ dieses Konto, das Socket-Feld leer, „Try the connection“.",
+      "at": [
+        "try-it",
+        "machine-host",
+        "wizard-next",
+        "machine-kind-choice",
+        "machine-name",
+        "watch-another-machine"
+      ]
+    },
+    {
+      "say": "Bestanden: „Could not log in to <Host> to ask where Sokar is for you there. <Host> accepted none of the keys your ssh agent offered. The account there needs your public key in its ~/.ssh/authorized_keys, or the account does not exist yet.“ – nicht nur „not connected“. Den Dialog mit „Cancel“ schliessen. Schreib mir, was anders war.",
+      "at": [
+        "trial-result"
+      ]
+    }
+  ]
+}

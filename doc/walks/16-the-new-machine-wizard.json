@@ -1,0 +1,94 @@
+{
+  "title": "Walk 16: the new-machine wizard offers what is published",
+  "steps": [
+    {
+      "say": "Walk 16: der Assistent für eine neue Maschine, auf einer frischen Maschine – einem neu gemieteten Server oder einer neuen VM, auf der root sich mit einem Schlüssel anmelden darf und noch kein Sokar ist. Ihre Adresse nennst Du nur im Assistenten.",
+      "at": []
+    },
+    {
+      "say": "„Watch another machine…“ oben rechts. Name: neu. „Are you an administrator there?“: „Yes: I may run commands as root there“. „How to reach it“: „A new machine“. Bei „The user that runs work there“ z. B. work. „Next“.",
+      "at": [
+        "wizard-next",
+        "work-user-name",
+        "machine-kind-choice",
+        "machine-admin",
+        "machine-name",
+        "watch-another-machine"
+      ]
+    },
+    {
+      "say": "„1. The admin key“: „Generate a key pair“, dann „Keep it as ~/.ssh/sokar-neu-admin“. Den öffentlichen Schlüssel beim Anbieter hinterlegen, wenn der Server angelegt wird (oder in root's authorized_keys der VM). „Next step“.",
+      "at": [
+        "keep-key",
+        "generate-key"
+      ],
+      "then": "setup-next"
+    },
+    {
+      "say": "„2. Where it is“: Name oder Adresse der Maschine, „Try logging in as root“. Bestanden: „Logged in as root on … with …“. „Next step“.",
+      "at": [
+        "try-root-login",
+        "new-host"
+      ],
+      "then": "setup-next"
+    },
+    {
+      "say": "„3. Preparing it“: „See what it can install“. Bestanden: die Pakete, die der Paketindex heute hat, jedes mit „<Art>: <Beschreibung>“; die Matrix-Transportschicht und der Homeserver als eigene Wahl; kein ausgemusterter Transport; der Filter nicht als eigenes Kästchen (er kommt mit dem Transport).",
+      "at": [
+        "package-*",
+        "list-packages"
+      ]
+    },
+    {
+      "say": "Nichts von Transport und Homeserver ankreuzen. Bestanden: rot „With no transport chosen, its work cannot send or receive messages …“. Nur den Transport: rot „The transport alone carries messages only for a project that names a homeserver of its own …“. Transport und Homeserver: keine Warnung. So lassen.",
+      "at": [
+        "setup-choice-lacks",
+        "package-*homeserver",
+        "package-*transport-matrix"
+      ]
+    },
+    {
+      "say": "„Show what it would do“, lesen, dann „Run it as root“. Wenn es durch ist: „Next step“.",
+      "at": [
+        "run-setup",
+        "show-setup"
+      ],
+      "then": "setup-next"
+    },
+    {
+      "say": "„4. Reaching it as work“: „Set it up and connect“. Bestanden: „It can carry its projects’ messages: the Matrix transport is installed, and a homeserver can run here …“ und „Ready to watch.“",
+      "at": [
+        "setup-messages",
+        "finish-setup"
+      ]
+    },
+    {
+      "say": "„Next step“ → „5. The vault“. Bestanden: „Next step“ ist gesperrt, solange es keinen Tresor gibt. „Open a terminal to make the vault“, Passwort zweimal tippen. Danach: „The vault is there …“, und „Next step“ ist frei.",
+      "at": [
+        "open-vault-terminal"
+      ],
+      "then": "setup-next"
+    },
+    {
+      "say": "„6. Closing the way root came in“: noch NICHT ausführen – es kommt ein zweiter Benutzer. „Watch it“.",
+      "at": [
+        "watch-new"
+      ],
+      "then": "!watch-new"
+    },
+    {
+      "say": "Ein zweiter Benutzer auf derselben Maschine: „Watch another machine…“, Name neu-2, Administrator: Ja, „Another user on a machine already prepared“, Benutzer work2, „Next“, als Schlüssel ~/.ssh/sokar-neu-admin, dann die Schritte wie eben, ohne Paketwahl. Bestanden in Schritt 4: dieselbe Zeile, dass sie Nachrichten tragen kann, für work2.",
+      "at": [
+        "machine-new-user",
+        "machine-kind-choice",
+        "watch-another-machine"
+      ]
+    },
+    {
+      "say": "Bestanden zuletzt: in je einem Projekt mit Nachrichten auf neu und auf neu-2 „Messages“ → „Join“: jeder Homeserver hat seinen eigenen Port, http://127.0.0.1:<port>, zwei verschiedene Zahlen. Schreib mir, was anders war; danach die Maschine löschen oder „Closing the way root came in“ ausführen.",
+      "at": [
+        "login-forward"
+      ]
+    }
+  ]
+}

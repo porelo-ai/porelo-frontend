@@ -1,0 +1,167 @@
+{
+  "title": "Walk 13: what walk 8 found, in tiles, Needs you, talking and Join",
+  "steps": [
+    {
+      "say": "Walk 13: was Walk 8 gefunden hat – Kacheln, „Needs you“, Reden und „Join“ –, mit dem echten Claude Code auf testmaschine. Bestanden ist ein Schritt, wenn Du siehst, was er nennt. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar project following\"'\n\n„project following“ zeigt sokar-test-project. Dann „Next“ hier.",
+      "at": []
+    },
+    {
+      "say": "Links „Machines“: testmaschine antwortet. Fehlt sie: „Watch another machine…“, wie in Walk 11.",
+      "at": [
+        "rail-machine testmaschine",
+        "rail machines",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Zwei Arbeiten starten. Links „Work“ → „New work“: testmaschine, sokar-test-project, Repository sokar-test-1, Name alpha, Claude Code, „A shell, driven by hand“. Fragt das Formular nach der Anmeldung: „Sign in first“.",
+      "at": [
+        "new-work",
+        "rail work",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "„Start it“, dann „Leave“ oben rechts. Dasselbe noch einmal mit dem Namen beta, ebenfalls „Leave“.",
+      "at": [
+        "start-go"
+      ],
+      "then": "!start-go"
+    },
+    {
+      "say": "Links „Work“: jede Kachel ist oben fett nach ihrer Arbeit benannt (alpha, beta), darunter klein testmaschine – nie die Maschine als Überschrift.",
+      "at": [
+        "tile-what",
+        "rail work",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Vor dem Namen jeder Kachel ein Zeichen in Farbe und Form; mit der Maus darüber sagt es seinen Zustand: „Working“ gefüllt, „Running“ und „Waiting“ als Ring, „Needs you“ rot gefüllt. Bestanden: keine zwei Zustände sehen gleich aus.",
+      "at": [
+        "tile-state *"
+      ]
+    },
+    {
+      "say": "beta anhalten: an der Kachel von beta ⋮ → „Stop it, keeping its workspace“. Bestanden: genau beta's Menü öffnet sich (jede Kachel hat ihr eigenes), danach ist die Kachel grau, ihr Zeichen ein Ring, mit der Maus darüber „Stopped“.",
+      "at": [
+        "text:Stop it, keeping its workspace",
+        "tile-menu *beta"
+      ]
+    },
+    {
+      "say": "An der Kachel von alpha ⋮ → „Hold its project's messages to a peer“. Bestanden: jeder Peer sagt, wer er ist – „Whoever reads this project’s conversation in a matrix client …“ für people, „Another piece of work in this project …“ für eine andere Arbeit des Projekts, sobald Sokar sie als Peer listet.",
+      "at": [
+        "peer-who *",
+        "work.talk",
+        "tile-menu *alpha"
+      ]
+    },
+    {
+      "say": "Bei people „Hold everything for it“ einschalten, dann „Done“.",
+      "at": [
+        "peer-held *"
+      ],
+      "then": "peers-close"
+    },
+    {
+      "say": "alphas Terminal öffnen (der Knopf neben der Mini-Konsole) und Claude bitten: „Please send a short hello to people.“ Dann „Leave“.",
+      "at": [
+        "tile-fold *alpha",
+        "leave-session"
+      ]
+    },
+    {
+      "say": "Links „Needs you“: die gehaltene Nachricht. Bestanden: fett „A message going out from alpha to people, on testmaschine“, darunter in Anführungszeichen der Anfang ihres Textes, und „Held until somebody reads it …“.",
+      "at": [
+        "held-preview *",
+        "rail attention",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "„Read it and decide“ → „Release it“. Bestanden: der Dialog schliesst sich, und unten steht „Released. It goes out on the next pass …“.",
+      "at": [
+        "release-message",
+        "read-message *alpha*/*"
+      ],
+      "then": "!held-message-dialog"
+    },
+    {
+      "say": "An der Kachel von alpha wieder ⋮ → „Hold its project's messages to a peer“, unten „What happened to its messages“: das hello als gehalten und dann gesendet. Bestanden: eine Nachricht, die noch nicht gesendet werden konnte, stünde dort rot mit „could not be sent yet“, nie als gesendet. Dann „Hold everything for it“ wieder aus und „Done“.",
+      "at": [
+        "talk-event *",
+        "work.talk",
+        "tile-menu *alpha"
+      ]
+    },
+    {
+      "say": "Links „Projects“, sokar-test-project öffnen, ⋮ oben rechts → „Messages — the conversation of this project …“. Dein Name, „Join“ (oder „Give a new password“, wenn Du schon beigetreten bist).",
+      "at": [
+        "join-it",
+        "project-menu",
+        "project sokar-test-project",
+        "rail projects",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Bestanden: unter „Their login, shown once“ stehen „Homeserver URL“, „Matrix ID“, Password und Room, jedes mit einem Kopierknopf, und darunter „Copy all of it“. Dann den Dialog schliessen.",
+      "at": [
+        "login-copy-all",
+        "login-copy *"
+      ]
+    },
+    {
+      "say": "Ein Push an das Tor: alphas Terminal öffnen und Claude bitten: „Add a line to README.md, commit it and push.“ Dann „Leave“. Links „Projects“: sokar-test-project zeigt einen wartenden Push.",
+      "at": [
+        "tile-fold *alpha",
+        "leave-session"
+      ]
+    },
+    {
+      "say": "Auf der Seite von sokar-test-project ⋮ → „Review what is waiting at the gate“, den Push öffnen, „Forward it upstream…“. Bestanden: „Branch to push to“ bietet die Branches des Repositories zur Auswahl an, der Standard als „(its default branch)“, und „A new branch…“ – getippt werden muss nichts.",
+      "at": [
+        "forward-branch",
+        "gate.open",
+        "project-menu",
+        "project sokar-test-project",
+        "rail projects",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Einen neuen Branch wählen, z. B. walk-13, und „Forward it“. Bestanden: zurück auf der Projektseite ist der wartende Push sofort weg, ohne „Refresh“.",
+      "at": [
+        "project-facts"
+      ]
+    },
+    {
+      "say": "Ein Repository, das selbst ein Projekt ist: lege in Deinem Klon von sokar-test-1 eine project.yml an, die nur „name: x“ enthält, committe und pushe sie. Dann links „Forges“ → „GitHub“, im Filter test-project, an sokar-ai/sokar-test-project ⋮ → „Work on it on testmaschine“ → „Work on it on testmaschine“. Bestanden: eine Zeile sagt „sokar-ai/sokar-test-1 holds a project.yml of its own … its own project.yml is not read here.“ Danach die project.yml in sokar-test-1 wieder löschen und pushen.",
+      "at": [
+        "binding-done *",
+        "binding-bind",
+        "forge-repository-menu *sokar-test-project",
+        "forge GitHub",
+        "rail forges",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Listet testmaschine einen Agenten, der dort nicht installiert ist: „New work“, diesen Agenten wählen, „Start it“. Bestanden: das Formular fragt noch einmal und nennt ihn: „<Agent> is not installed on this machine.“ Ist jeder gelistete installiert, diesen Schritt mit „Next“ überspringen.",
+      "at": [
+        "not-ready",
+        "start-agent",
+        "new-work"
+      ]
+    },
+    {
+      "say": "Aufräumen: alpha und beta an ihren Kacheln ⋮ entfernen. Schreib mir, was nicht so war, wie ein Schritt sagt.",
+      "at": [
+        "tile-menu *alpha",
+        "rail work",
+        "open-rail"
+      ]
+    }
+  ]
+}

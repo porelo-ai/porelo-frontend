@@ -1,0 +1,71 @@
+{
+  "title": "Walk 14: where typing goes in the sign-in and passphrase terminals",
+  "steps": [
+    {
+      "say": "Walk 14: ob ein Terminal, das auf Dich wartet, zeigt, wo Getipptes hingeht – bei der Anmeldung eines Agenten und beim Passwort des Tresors, auf testmaschine. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar project following\"'\n\n„project following“ zeigt sokar-test-project. Dann „Next“ hier.",
+      "at": []
+    },
+    {
+      "say": "Links „Work“ → „New work“: testmaschine, sokar-test-project, ein Agent, für den auf testmaschine noch nichts gespeichert ist (ist Claude Code schon angemeldet, ein anderer). Oben steht „Sign in to <Agent> first“.",
+      "at": [
+        "start-sign-in",
+        "start-agent",
+        "new-work",
+        "rail work",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "„Sign in to <Agent>“. Beim ersten Mal baut die Maschine ein Image, das dauert einige Minuten.",
+      "at": [
+        "log-in-with-the-agent"
+      ],
+      "then": "unlock-terminal"
+    },
+    {
+      "say": "Bestanden: solange das Terminal auf Deine Eingabe wartet, steht ein Cursor genau dort, wo Getipptes hingeht – auch wenn das Programm darin seinen eigenen versteckt. Den Link im Browser öffnen, anmelden, den Code kopieren und einfügen (Strg+Umschalt+V): er erscheint am Cursor. Enter.",
+      "at": [
+        "unlock-terminal"
+      ],
+      "then": "unlock-done"
+    },
+    {
+      "say": "Unten „Signed in to <Agent> …“. „Done“.",
+      "at": [
+        "unlock-done"
+      ],
+      "then": "!unlock-done"
+    },
+    {
+      "say": "Den Tresor schliessen: links „Machines“ → testmaschine, ⋮ → „Shut the vault“.",
+      "at": [
+        "vault.shut",
+        "machine-menu",
+        "rail-machine testmaschine",
+        "rail machines",
+        "open-rail"
+      ]
+    },
+    {
+      "say": "Das Schloss im Kopf der Maschine: „Shut. Open it with its passphrase, in a terminal on the machine“. Klicken.",
+      "at": [
+        "vault-act"
+      ],
+      "then": "unlock-terminal"
+    },
+    {
+      "say": "Bestanden: auch hier steht der Cursor, wo das Passwort hingeht, während das Terminal wartet; die Zeichen selbst erscheinen nicht. Passwort tippen, Enter.",
+      "at": [
+        "unlock-terminal"
+      ],
+      "then": "unlock-done"
+    },
+    {
+      "say": "„Done“. Das Schloss zeigt den Tresor offen. Schreib mir, ob Du in beiden Terminals immer gesehen hast, wo Getipptes hingeht.",
+      "at": [
+        "unlock-done"
+      ],
+      "then": "!unlock-done"
+    }
+  ]
+}
