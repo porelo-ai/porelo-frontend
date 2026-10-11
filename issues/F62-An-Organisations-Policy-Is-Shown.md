@@ -1,6 +1,6 @@
 # F62 — An Organisation's Policy Is Shown
 
-**Status:** Analyzed; blocked by Sokar's part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).
+**Status:** Estimated; blocked by Sokar's part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).
 **Size:** M - one contract change read from `sokar` (the policy and its refusals) across the
 machine, starting work, the clearance prompt and following, with the mock daemon and the docs; waits
 for `sokar`'s part of [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).

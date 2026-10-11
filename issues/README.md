@@ -31,20 +31,6 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 |---|---|---|---|
 | <a id="f102"></a>[F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md) | M | — | The interface on Windows reaches a Sokar in WSL through `wsl.exe`, with no ssh and no open port. Stages 1 to 3 built and published; the MSIX installed on the runner, notifications and the test on Windows left. |
 
-### Analyzed
-
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. | — |
-| <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. | — |
-| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. | — |
-| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. | — |
-| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. | — |
-| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. | — |
-| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. | — |
-| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `sokar` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. | — |
-| <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `sokar`'s part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. | — |
-
 ### Estimated
 
 | # | Size | Blocked by | What it covers |
@@ -67,3 +53,12 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
 | <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Sokar-In-A-Local-VM.md) | XL | — | The interface on macOS, with Sokar in a local Lima VM set up from the window, and remote machines over ssh. |
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
+| <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. |
+| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
+| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
+| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. |
+| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
+| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. |
+| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `sokar` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. |
+| <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `sokar`'s part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. |

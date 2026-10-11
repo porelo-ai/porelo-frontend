@@ -1,6 +1,6 @@
 # F88 — A Nickname For Each Agent
 
-**Status:** Analyzed; blocked by `sokar` (`@label`, the agent card, and handing the label to the
+**Status:** Estimated; blocked by `sokar` (`@label`, the agent card, and handing the label to the
 transport's `enroll --display` and `rename --display`, which `sokar-message-matrix` has built).
 **Size:** M - the frontend's part: a field and its check in the start form, `Label` after `Start`,
 scenarios, and a step on the VM against Sokar's handover; it waits for `sokar` (`@label`, the agent

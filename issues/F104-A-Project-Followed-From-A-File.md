@@ -1,6 +1,6 @@
 # F104 — A Project Followed From A File
 
-**Status:** Analyzed; blocked by `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160), "A Project Followed From A File Over The Socket".
+**Status:** Estimated; blocked by `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160), "A Project Followed From A File Over The Socket".
 **Size:** M - the frontend's part: one contract change read in the client, the follow
 dialog, the project's view and the mock, with scenarios. It waits for `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160).
 

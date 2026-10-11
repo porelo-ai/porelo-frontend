@@ -1,6 +1,6 @@
 # F111 — All Of A Piece's Logs In One Timeline
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a merged view over every log of a piece of work, its filter and the fold for the logs
 by source; several modules, no contract change if each source's lines carry their time.
 

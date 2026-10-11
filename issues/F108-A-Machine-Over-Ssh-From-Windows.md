@@ -1,6 +1,6 @@
 # F108 — A Machine Over Ssh From Windows
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - several modules (the machine list, the relay, the trial, commands, the wizard) and
 the operator's Windows test; no contract changes.
 

@@ -1,6 +1,6 @@
 # F99 — An Attached Agent Shown At Rest Or Working
 
-**Status:** Analyzed; blocked by `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118).
+**Status:** Estimated; blocked by `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118).
 **Size:** S - one derivation, its tile words, the stand-in and two feature files; waits for
 `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118)'s answer on the wire.
 

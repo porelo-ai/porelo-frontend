@@ -1,6 +1,6 @@
 # F112 — What A Piece Of Work Did, In Words
 
-**Status:** Analyzed; blocked by `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174), "A Running Task's Commits And Their Diff".
+**Status:** Estimated; blocked by `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174), "A Running Task's Commits And Their Diff".
 **Size:** L - five kinds of facts at the top of every tile, one of which needs a new method of
 `sokar`'s; crosses repositories.
 

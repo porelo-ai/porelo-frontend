@@ -1,6 +1,6 @@
 # F81 — The Setup Script Checked By Its Signature
 
-**Status:** Analyzed; blocked by `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99).
+**Status:** Estimated; blocked by `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99).
 **Size:** M - one module and its scenarios here, but it follows a contract `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99) sets (the
 key, the signature's form, the versioned names) and a leg on a leased machine; it waits for [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99).
 
