@@ -42,7 +42,7 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. | — |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. | — |
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. | — |
-| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `sokar` (`@label`, the agent card), `sokar-message-matrix` (the display name) | A nickname for each agent. | — |
+| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `sokar` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. | — |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `sokar`'s part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. | — |
 
 ### Estimated

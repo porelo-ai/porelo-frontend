@@ -1,10 +1,10 @@
 # F88 — A Nickname For Each Agent
 
-**Status:** Analyzed; blocked by sokar (`@label`, the agent card) and sokar-message-matrix (the display
-name).
+**Status:** Analyzed; blocked by `sokar` (`@label`, the agent card, and handing the label to the
+transport's `enroll --display` and `rename --display`, which `sokar-message-matrix` has built).
 **Size:** M - the frontend's part: a field and its check in the start form, `Label` after `Start`,
 scenarios, and a step on the VM against Sokar's handover; it waits for `sokar` (`@label`, the agent
-card) and `sokar-message-matrix` (the display name).
+card, and the label handed to the transport).
 
 **What must be true.** A person gives each agent a nickname when starting its work, sees it wherever
 the agent is shown, and can name the agent by it in the room; the agent knows its nickname too.

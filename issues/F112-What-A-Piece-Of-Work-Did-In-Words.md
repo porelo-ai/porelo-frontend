@@ -19,8 +19,10 @@ easily left unread.
 - **The last answer:** `Task.lastMessage`, which `sokar` answers already; shown as text.
 - **The commits and their diff since it started:** no method answers them for a running task today
   (`workHeld` in `lib/src/app/work_held.dart` answers counts, `Review` only a push at the gate);
-  `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) answers them (id, subject and time of each commit, the diff of one or of all), and
-  `SokarClient`, `FleetBackend` and the stand-in take it.
+  `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) answers them: `TaskCommits(task)` the commits `WorkHeld` counts (commit, time, subject; for a
+  stopped task from the note its stop wrote, with `asOf`), and `TaskDiff(task, commit?)` the patch
+  of one or of all, cut at a file boundary with `files` whole. `SokarClient`, `FleetBackend` and the
+  stand-in take both; a running task's diff is asked only when the person opens it.
 - **What waits at the gate:** `Gate.waiting`. **Its messages:** `Mailboxes`. **What the firewall
   stopped:** the task's `events.jsonl`, shown only where it holds a line.
 - **Where:** a section at the top of `TaskTile` in `lib/src/ui/attention_view.dart`.
