@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
+import '../app/desk.dart';
 import '../app/session.dart';
 import 'panes.dart';
 import 'package:guided_walk/guided_walk.dart';
@@ -121,7 +123,17 @@ class _SessionViewState extends State<SessionView> {
               Expanded(
                 child: ColoredBox(
                   color: scheme.surfaceContainerLowest,
-                  child: WalkSecret(child: CopiesAsShown(
+                  // On Windows the wheel is reported to tmux by the session itself; see
+                  // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
+                  child: Listener(
+                    onPointerSignal: desk.isWindows
+                        ? (event) {
+                            if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+                              session.wheel(up: event.scrollDelta.dy < 0);
+                            }
+                          }
+                        : null,
+                    child: WalkSecret(child: CopiesAsShown(
                     terminal: session.terminal,
                     controller: _selection,
                     child: TerminalView(
@@ -135,8 +147,12 @@ class _SessionViewState extends State<SessionView> {
                     // Read-only once it is over, so keys typed at a dead session do not look
                     // like they went somewhere.
                     readOnly: !session.live,
+                    // On Windows every key, letters included, is read from the keyboard's own
+                    // events: there the text-input path this widget uses elsewhere delivered
+                    // Enter, Backspace and the page keys and no letter at all.
+                    hardwareKeyboardOnly: desk.isWindows,
                     textStyle: const TerminalStyle(fontSize: 13),
-                  ))),
+                  )))),
                 ),
               ),
               Padding(

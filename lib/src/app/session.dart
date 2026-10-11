@@ -188,6 +188,14 @@ class Session extends ChangeNotifier {
               ? <String>['ssh', '-t', machine.host, inTheLoginShell('sokar task attach ${quoteForAShell(task)}')]
               : <String>['sokar', 'task', 'attach', task]);
 
+  /// Reports one turn of the mouse wheel to the far end as an SGR wheel report, the way tmux reads
+  /// it: up is button 64, down 65.
+  ///
+  /// **For Windows only.** Through a Windows pseudoconsole the terminal never learns that tmux
+  /// asked for the mouse, since the pseudoconsole draws the screen again rather than passing on
+  /// what tmux wrote; so the terminal would answer the wheel itself, with nothing to scroll.
+  void wheel({required bool up}) => type('\x1b[<${up ? 64 : 65};1;1M');
+
   /// Sends what somebody typed. Does nothing once it is over, rather than throwing into a widget.
   void type(String input) {
     if (!live) return;
