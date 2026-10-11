@@ -1,8 +1,8 @@
 # F79 — What Walk 8 Found In The Interface
 
 **Status:** Review; to be walked. Split off as not built: a tile's repository in its heading, a
-release Sokar refuses said with what to do, and the project file taken after one's own push,
-[F117](README.md#f117).
+release Sokar refuses said as an error that stays, and the project file taken after one's own
+push, [F117](README.md#f117).
 
 **What must be true.** A person reads tiles, *Needs you*, *Join* and talking at a glance, and sees the
 effect of their own action at once; each point below is fixed, or decided against in
