@@ -43,6 +43,12 @@ terminal and knowing where to look.
   then `ssh-keygen -t ed25519 -f <path>` in the same terminal, and `ssh-add <path>` after it.
 - **Then chosen:** after each way, `signingKeys` is read again and the key whose public half matches
   the file's `.pub` is chosen.
+- **Remembered across restarts:** the window keeps the key's path in `frontend.json`
+  (`lib/src/app/settings.dart`). When the agent does not hold it, the key's choice offers
+  `ssh-add <path>` in a terminal, so its passphrase is typed once a session.
+- **At GitHub:** a new key is added there by the person. The window shows its public half with a
+  Copy button and the link to GitHub's page for a new signing key; the token needs no
+  `write:ssh_signing_key`.
 - **Red first:** a scenario in `test/features/project_from_repository.feature`, "a missing signing
   key is found from the window", that looks for the help and its two links under the key's choice.
 
@@ -57,17 +63,10 @@ terminal and knowing where to look.
   terminal, or the window has a passphrase field.
 - A new key is made where the person said and is then chosen. Seen to fail: a scenario where the key
   lies elsewhere or is not chosen.
-- Further criteria follow from the answers below.
-
-## Open questions
-
-- How is such a key remembered across restarts? After a restart the agent no longer holds a key added
-  with `ssh-add`. Ways to weigh: the window remembers the key's path and asks `ssh-add` in a terminal
-  when it is not in the agent; git's own `user.signingkey` set to the file, so git signs with it
-  directly where it has no passphrase; an `IdentityFile` with `AddKeysToAgent yes` in `~/.ssh/config`,
-  which loads it only when ssh uses it, not for signing. (the operator's)
-- Is a new key uploaded to GitHub as a signing key from the window (it has the token, but needs the
-  scope `write:ssh_signing_key`), or does the person add it there? (the operator's)
+- After a restart, a remembered key the agent no longer holds is offered for `ssh-add` in a terminal.
+  Seen to fail: a scenario that restarts with the path kept and the agent empty, and finds no offer.
+- A new key's public half is shown to copy, with the link to add it at GitHub. Seen to fail: a
+  scenario that makes a key and finds neither.
 
 ## To be checked
 

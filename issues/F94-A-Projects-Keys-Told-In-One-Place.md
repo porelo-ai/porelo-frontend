@@ -30,9 +30,12 @@ for no key again; what each key is for is not yet told together.
   (`GET /repos/{owner}/{repo}/rules/branches/{branch}`, a `required_signatures` rule), which a
   token that only reads the repository may call; a classic branch protection needs admin and is
   read only where the token has it.
+- **Which branches.** Every branch tasks may push to, as the project's `project.yml` names them
+  (read through `ProjectShape.of`), each asked for its rule.
 - **The check.** With the rule on, the chosen `SigningKey` is compared by public key with
-  `Forge.signingKeys(login)`; a key not listed there is told in a warning beside the rule, with
-  where to add it at the forge.
+  `Forge.signingKeys(login)`, the forge's SSH signing keys only; a key not listed there is told in a
+  warning beside the rule, with where to add it at the forge. A person whose forge holds only a GPG
+  key is told that Sokar signs with SSH and needs an SSH signing key there.
 - **The fakes.** `FakeForge` in `test/features/support/world.dart` gets a settable rule per branch;
   its `signing` list already stands for the forge's signing keys.
 - **Red first.** In `test/features/project_from_repository.feature`, beside "every Sokar key and
@@ -49,13 +52,6 @@ for no key again; what each key is for is not yet told together.
 - When a branch rule demands signed commits, the person's signing key is checked against it and the
   outcome shown. Seen to fail: a scenario with such a rule and a person's key the forge does not take
   for signing that shows no warning, or one that shows a warning for a key it does take.
-
-## Open questions
-
-- Which branch is checked: the default branch only, or every branch a task may push to, as the
-  project's `project.yml` names them? (the operator's)
-- Does "signed" accept GPG keys too? The forge's GPG keys are another listing, and nothing here
-  signs with GPG today. (the operator's)
 
 ## To be checked
 
