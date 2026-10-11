@@ -51,8 +51,9 @@ Three issues, in this order; this one is split before any is built:
      off (the interface starts `ssh`, `limactl` and a pseudoterminal) and keep the hardened runtime
      notarisation needs, with a keychain group for `flutter_secure_storage`.
    - `lib/src/app/desk.dart`: a `MacDesk` beside `LinuxDesk` and `WindowsDesk` (`Desk.of` on
-     `'macos'`): `~/Library/Application Support/sokar` for the configuration, `open` instead of
-     `xdg-open`. Where `frontend.json` lies must stay the place the IntelliJ plugin reads.
+     `'macos'`): the configuration where Linux keeps it, `$XDG_CONFIG_HOME/sokar`, else
+     `~/.config/sokar`, which is where the IntelliJ plugin reads `frontend.json` on a Mac too; `open`
+     instead of `xdg-open`.
    - `lib/src/app/pty.dart`: the libc constants are Linux's (`_oCloexec`, `_tiocswinsz`,
      `_spawnSetsid`, the status layout); they become per system, with macOS's values.
    - `lib/src/app/notifications.dart`: `osascript`'s `display notification` instead of `notify-send`.
@@ -107,6 +108,5 @@ Three issues, in this order; this one is split before any is built:
   keeps it up with no session, measured. (Agent Frontend's)
 - **Scaleway's 24-hour minimum for the M4**, read from Scaleway's own terms, and GitHub's macOS
   minute price on the bill. (Agent Frontend's)
-- **Where the IntelliJ plugin reads `frontend.json` on macOS.** (Agent IntelliJ's)
 - **`flutter_secure_storage` on macOS** without the App Sandbox: the keychain group its entitlement
   needs. (Agent Frontend's)
