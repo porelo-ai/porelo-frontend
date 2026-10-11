@@ -50,11 +50,14 @@ for no key again; what each key is for is not yet told together.
   outcome shown. Seen to fail: a scenario with such a rule and a person's key the forge does not take
   for signing that shows no warning, or one that shows a warning for a key it does take.
 
-## To be checked
+## Open questions
 
 - Which branch is checked: the default branch only, or every branch a task may push to, as the
   project's `project.yml` names them? (the operator's)
 - Does "signed" accept GPG keys too? The forge's GPG keys are another listing, and nothing here
   signs with GPG today. (the operator's)
+
+## To be checked
+
 - Is the one list the survey in today's dialog, or a view of its own reached from the project's
   page? (Agent Frontend's)

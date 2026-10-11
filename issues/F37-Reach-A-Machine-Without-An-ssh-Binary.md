@@ -77,16 +77,19 @@ questions have deadlines, and notifications need another path.
   only against a fake. Seen to fail: an integration leg over `dartssh2` that connects, forwards and
   opens a pty.
 
-## To be checked
+## Open questions
 
 - **How keys reach a phone**: generated there and authorized on the machine, or imported, and
   whether hardware-backed keys (Secure Enclave, StrongBox) are required through
   `SSHIdentity.custom`. (the operator's)
 - **Whether a connection without post-quantum key exchange is acceptable** for a mobile client.
   (the operator's)
+- **Which mobile platform first**, and the client beyond the transport (connections ended in the
+  background, deadlines, notifications) as issues of its own. (the operator's)
+
+## To be checked
+
 - **How a pinned `dartssh2` is kept current**, given how fast it changes and how recent its
   security fixes are. (Agent Frontend's)
 - **The stream to the daemon over `dartssh2`**: exec of `sokar daemon connect`, as the WSL way
   does, or a forward to the Unix socket. (Agent Frontend's)
-- **Which mobile platform first**, and the client beyond the transport (connections ended in the
-  background, deadlines, notifications) as issues of its own. (the operator's)

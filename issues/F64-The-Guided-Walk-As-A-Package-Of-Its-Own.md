@@ -66,11 +66,14 @@ has no part in it.
   widget test that waits 15 seconds with no answer and then sends one. (Writing one line before any
   longer work is the leading agent's part, not the plugin's.)
 
-## To be checked
+## Open questions
 
 - **Whether the wiring left in `lib/` counts as "secret marking only"**: the `SOKAR_WALK` variable,
   `WalkFrame`, the button that shows the walk again, the `ChoiceField` hook and the German words; or
   the first acceptance item is reworded to allow an app's wiring. (the operator's)
+- **Who publishes on pub.dev, and under which publisher.** (the operator's)
+
+## To be checked
+
 - **Whether the Semantics tree carries what `filled:<key>` reads today** from Sokar's own choice
   fields, so the `walkChoices` hook can go. Measured in the plugin. (Agent Frontend's)
-- **Who publishes on pub.dev, and under which publisher.** (the operator's)

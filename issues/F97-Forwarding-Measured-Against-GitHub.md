@@ -39,7 +39,7 @@ have not been measured against GitHub.
   typed one arrives on that branch at GitHub. Seen to fail: the commit missing from the chosen branch
   at GitHub, or landing on another.
 
-## To be checked
+## Open questions
 
 - The GitHub token and the test repository for the run, and where the run reads them from without
   their being kept here or in the channel. (the operator's)

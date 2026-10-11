@@ -39,10 +39,13 @@ forge's own API is the interface's; the backend is short of nothing known.
 - Where the forge forbids a step, the interface says so in words instead of failing silently.
   Seen to fail: a scenario where the forge refuses the step and the words are missing.
 
-## To be checked
+## Open questions
 
 - **Which forge comes next.** (the operator's)
-- Bitbucket Cloud's access keys are read-only: what a machine's push goes through there. (Agent
-  Frontend's, once Bitbucket is chosen)
 - **An account, a token and test repositories at that forge** for the measured leg, as `F59` waits
   for them at GitHub. (the operator's)
+
+## To be checked
+
+- Bitbucket Cloud's access keys are read-only: what a machine's push goes through there. (Agent
+  Frontend's, once Bitbucket is chosen)

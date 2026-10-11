@@ -84,11 +84,14 @@ person's release by default.
 - **A suggestion is shown and never applied by the interface.** Seen to fail: a scenario where
   accepting it changes a file.
 
-## To be checked
+## Open questions
 
-- **The contract:** which methods and fields `sokar`'s comment model brings to `Tasks1`, once its
-  requirements say so (Agent Core's).
 - **Where comments are written:** on today's `ReviewView`, or only once the forge-like review of
   [F78](README.md#f78) is built (the operator's).
 - **Where a held forge comment is shown:** in the review only, or also in *Needs you* beside held
   messages (the operator's).
+
+## To be checked
+
+- **The contract:** which methods and fields `sokar`'s comment model brings to `Tasks1`, once its
+  requirements say so (Agent Core's).

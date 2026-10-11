@@ -37,10 +37,13 @@ a machine using a key for an address.
   offers neither. Seen to fail: a scenario in `test/features/connections.feature` that finds either
   action in the view outside the ⋮, or cannot add or forget a connection through the ⋮.
 
+## Open questions
+
+- The new-machine wizard ends in this view to set up how the machine connects out
+  (`adding_a_machine.feature`); with "Add a connection" in the ⋮, does that step still show an
+  empty view with a pointer to the ⋮, or open the wizard at once? (the operator's)
+
 ## To be checked
 
 - With many connections, is one "Forget <address>" entry per connection in the ⋮ right, or a
   chooser behind one "Forget…" entry? (Agent Frontend's)
-- The new-machine wizard ends in this view to set up how the machine connects out
-  (`adding_a_machine.feature`); with "Add a connection" in the ⋮, does that step still show an
-  empty view with a pointer to the ⋮, or open the wizard at once? (the operator's)

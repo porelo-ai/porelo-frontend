@@ -51,11 +51,14 @@ reading and what, so a person never takes an empty view for a finished one.
   Seen to fail: a scenario per view that holds the answer back and finds no progress or no sentence,
   or still finds the progress after the answer came.
 
+## Open questions
+
+- Dialogs (`MessagesDialog`, `DefaultDialog`, `StartWorkDialog`, `ProjectForgeDialog`) have no
+  pane header: the bar sits at the top of the dialog's content, not under a title bar. Is that
+  the same "way" the shape asks for? (the operator's)
+
 ## To be checked
 
 - A machine's page is `_ShellState._machineArea` over `FleetModel`, whose `busy` is true on every
   `FleetModel.refresh` not marked quiet: is the bar shown only on the first read after opening, or
   on each of those refreshes too? (Agent Frontend's)
-- Dialogs (`MessagesDialog`, `DefaultDialog`, `StartWorkDialog`, `ProjectForgeDialog`) have no
-  pane header: the bar sits at the top of the dialog's content, not under a title bar. Is that
-  the same "way" the shape asks for? (the operator's)

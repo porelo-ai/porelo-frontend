@@ -41,12 +41,15 @@ beside them. The mechanism is the plugin's; the backend is short of nothing.
 - Every step of a scenario has walk steps or is marked as by hand. Seen to fail: a test that lists a
   step with neither.
 
+## Open questions
+
+- **Whether every scenario becomes a walk, or only those tagged as one.** The acceptance says
+  every one. (the operator's)
+
 ## To be checked
 
 - **Where a step's walk steps live**: in its Dart step function, in the feature's text, or in a
   table beside it. (the owner of `flutter-guided-walk`'s)
 - **How a step written in English for a test gets the German a walk says**, and what a step says
   when it is used in several scenarios. (Agent Frontend's)
-- **Whether every scenario becomes a walk, or only those tagged as one.** The acceptance says
-  every one. (the operator's)
 - **What becomes of `doc/walks/walked/`**: kept as walked, or generated too. (Agent Frontend's)

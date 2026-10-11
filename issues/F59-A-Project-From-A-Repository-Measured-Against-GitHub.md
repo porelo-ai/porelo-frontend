@@ -53,11 +53,14 @@ the token nor the repositories are ever kept in this repository or the channel.
 - **Approved work in a project**, not only in `default`, reaches the repository at GitHub. Seen to
   fail: the approved commit is not on the repository's branch at GitHub.
 
-## To be checked
+## Open questions
 
 - **An account with more than 100 repositories**, and a classic token beside the fine-grained
   one, for the paging step. (the operator's)
 - **Whether the measurement stays a manual step or becomes a leg** that runs with a token kept in
   the build's secrets. (the operator's)
+
+## To be checked
+
 - **Which push branch protection is measured against:** the commit of `project.yml`, the forward
   of approved work, or both. (Agent Frontend's)

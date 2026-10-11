@@ -66,7 +66,7 @@ passed through it, not tmux's history.
 - **Scrolling back and down works** in the interface as in a plain terminal, by the keys and by the
   wheel.
 
-## To be checked
+## Open questions
 
 - **Whether the interface keeps its own scrollback** once tmux's is reachable, or gives it up for
   tasks. (the operator's)

@@ -59,7 +59,7 @@ terminal and knowing where to look.
   lies elsewhere or is not chosen.
 - Further criteria follow from the answers below.
 
-## To be checked
+## Open questions
 
 - How is such a key remembered across restarts? After a restart the agent no longer holds a key added
   with `ssh-add`. Ways to weigh: the window remembers the key's path and asks `ssh-add` in a terminal
@@ -68,6 +68,9 @@ terminal and knowing where to look.
   which loads it only when ssh uses it, not for signing. (the operator's)
 - Is a new key uploaded to GitHub as a signing key from the window (it has the token, but needs the
   scope `write:ssh_signing_key`), or does the person add it there? (the operator's)
+
+## To be checked
+
 - Where does a new key lie by default, and what is it called? (Agent Frontend's)
 - What does the file dialog refuse: a public half, a key this window made to log into a machine
   (`~/.ssh/sokar-*`), a key type git cannot sign with? (Agent Frontend's)

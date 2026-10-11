@@ -45,12 +45,15 @@ Clearing a machine or a project already takes its keys at the forge and its line
 - The clearing is measured on a machine against Sokar's handover. Seen to fail: on the VM, a key of
   the cleared machine still at the forge, or its line still in `machine-signers`.
 
+## Open questions
+
+- Is the VM measured against real GitHub with test repositories, which waits for the operator's
+  token as [F59](README.md#f59) does, or against a stand-in forge beside the real daemon? (the operator's)
+- Should keys titled for this machine in repositories outside its projects (all the token reaches)
+  be looked for too, at one request per repository? (the operator's)
+
 ## To be checked
 
 - The title carries the machine's own name, which may differ from what the person calls it here;
   could `Clear`'s answer carry that name, so a machine that names no key can still be matched?
   (Agent Core's)
-- Is the VM measured against real GitHub with test repositories, which waits for the operator's
-  token as [F59](README.md#f59) does, or against a stand-in forge beside the real daemon? (the operator's)
-- Should keys titled for this machine in repositories outside its projects (all the token reaches)
-  be looked for too, at one request per repository? (the operator's)

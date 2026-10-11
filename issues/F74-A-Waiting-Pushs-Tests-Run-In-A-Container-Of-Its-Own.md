@@ -44,11 +44,14 @@ offered.
 - Nothing the run does reaches the gate: the push stays as the agent made it. Seen to fail: on the
   VM against Sokar's handover, a run that writes to its workspace changes the waiting ref.
 
+## Open questions
+
+- **Whether the command is kept by the interface or in the project's `project.yml`**, where every
+  person working on it would share it. (the operator's)
+
 ## To be checked
 
 - **Whether `gate try` is reached as a Varlink method** or only as a command on the machine, and
   how its exit and its container are named. (Agent Core's)
 - **How Sokar offers an IDE** for the container, and what the interface starts here for it. (Agent
   Core's)
-- **Whether the command is kept by the interface or in the project's `project.yml`**, where every
-  person working on it would share it. (the operator's)

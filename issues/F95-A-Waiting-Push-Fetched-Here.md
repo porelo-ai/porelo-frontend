@@ -42,12 +42,15 @@ and copied with one button.
   not. Seen to fail: a scenario that runs the fetch into a chosen clone and finds the push not there,
   or a failed fetch with no reason shown.
 
+## Open questions
+
+- Is the chosen clone checked to be one of the push's repository (its remotes), or is any git
+  work tree taken? (the operator's)
+- An ssh fetch run from the window has no terminal for a host key or a passphrase: is it run
+  with `BatchMode=yes` and its refusal shown, or in a terminal of the window's own? (the operator's)
+
 ## To be checked
 
 - `fetchFrom` puts in the ssh login only where the machine needs a tunnel; for this computer, a WSL
   distribution, or a machine whose ssh name differs, which address does a fetch run here use?
   (Agent Frontend's)
-- Is the chosen clone checked to be one of the push's repository (its remotes), or is any git
-  work tree taken? (the operator's)
-- An ssh fetch run from the window has no terminal for a host key or a passphrase: is it run
-  with `BatchMode=yes` and its refusal shown, or in a terminal of the window's own? (the operator's)

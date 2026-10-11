@@ -49,9 +49,12 @@ device declares one; nothing here can enroll a device that way.
 - **A token or PIN that is not there refuses the unlock in words**, and offers nothing it cannot
   do. Seen to fail: a widget test unlocking without the token and with a wrong PIN.
 
-## To be checked
+## Open questions
 
 - **FIDO2 or TPM2 first, or only one of them.** (the operator's)
+
+## To be checked
+
 - **Which native library for each, and whether the packages' dependencies may grow by it.**
   (Agent Frontend's, with the operator's word on a new dependency)
 - **Whether a FIDO2 token also asks for its own PIN** (user verification) besides the touch.

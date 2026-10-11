@@ -50,11 +50,14 @@ lives for the whole app (`lib/main.dart`), so what it keeps survives leaving the
 - Copying the diff and the fetch into one's own clone stay, for what an IDE does better. Seen to
   fail: the existing scenarios for both go red.
 
+## Open questions
+
+- Whether ticks need to survive a restart of the interface, which would mean keeping them on disk
+  (the operator's).
+
 ## To be checked
 
 - Where the whole file comes from: `Review` answering more context or a file at a revision, or the
   interface reading the `PendingBundle` with git on this computer (Agent Core's, then Agent
   Frontend's).
 - Which highlighting package, and whether its licence and size are acceptable (Agent Frontend's).
-- Whether ticks need to survive a restart of the interface, which would mean keeping them on disk
-  (the operator's).
