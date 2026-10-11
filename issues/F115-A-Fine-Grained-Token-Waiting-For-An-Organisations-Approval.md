@@ -1,6 +1,6 @@
 # F115 — A Fine-Grained Token Waiting For An Organisation's Approval
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A fine-grained GitHub token whose access to an organisation's repositories
 waits for that organisation's approval is said as waiting, with where an owner approves it, not as

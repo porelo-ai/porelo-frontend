@@ -1,6 +1,6 @@
 # F114 — Windows Notifications From The MSIX
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** Installed from the MSIX, the interface raises Windows' own notifications where
 it raises a desktop notification on Linux; the ZIP, which has no identity, keeps saying once that

@@ -1,6 +1,6 @@
 # F117 — What Walk 8 Left Unbuilt
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** Three points walk 8 found, which the interface does not do yet: a tile names
 its repository in its heading, a release Sokar refuses says what to do about it, and a project file

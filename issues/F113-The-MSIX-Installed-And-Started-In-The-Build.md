@@ -1,6 +1,6 @@
 # F113 — The MSIX Installed And Started In The Build
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** The Build's job *Windows* installs the MSIX it has just signed on GitHub's
 Windows runner, with the certificate's public half trusted as the download page says, and starts the

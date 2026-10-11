@@ -1,6 +1,6 @@
 # F116 — A Refused Ssh Login Explained When Connecting Again
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A machine that refuses every key the ssh agent offers is said so in words
 when it is connected again, as when it is added, together with the key it would take where this
