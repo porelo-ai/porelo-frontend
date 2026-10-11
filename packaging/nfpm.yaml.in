@@ -7,7 +7,7 @@ platform: linux
 version: "@VERSION@"
 section: devel
 priority: optional
-maintainer: "fuin.org <info@fuin.org>"
+maintainer: "Michael Schnell <michael@fuin.org>"
 description: |
   Interface for Sokar, which runs AI coding agents in locked-down containers.
   Watches what work is doing, reviews what it produced before anything leaves the
