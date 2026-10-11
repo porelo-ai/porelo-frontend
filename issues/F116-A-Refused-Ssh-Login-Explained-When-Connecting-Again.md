@@ -1,6 +1,8 @@
 # F116 — A Refused Ssh Login Explained When Connecting Again
 
-**Status:** Accepted.
+**Status:** Analyzed.
+**Size:** S - the forward's ending explained as the added machine's is, the key ssh would use read
+from ssh itself, and where it shows; one module and its tests.
 
 **What must be true.** A machine that refuses every key the ssh agent offers is said so in words
 when it is connected again, as when it is added, together with the key it would take where this
@@ -14,12 +16,25 @@ found, no answer on ssh's port. A forward that fails later, on a reconnect or wh
 again by itself, keeps ssh's raw words, joined, and shows them only in the tooltip of the machine's
 mark. Neither way names the key the machine would take, which is what a person needs to fix it.
 
-## The shape
+## Plan
 
-- A forward that ends with a refused login says it as the added machine does (`whySshRefused` in
-  `lib/src/app/tunnel.dart`), where the machine shows that it is not reached, not only in a tooltip.
-- The key it would take, where this computer knows one: the `IdentityFile` that `~/.ssh/config`
-  names for the host, or the key the new-machine wizard kept for it; otherwise said that it is not
-  known here.
-- Red first: a test of the reconnect path with ssh refusing every key, which today shows the raw
-  words.
+- **`lib/src/app/tunnel.dart`, `Tunnel._itEnded`:** `problem` is `whySshRefused` of what ssh said,
+  for the machine's host, where it tells; ssh's raw words only where it does not, as now.
+- **The key ssh would use:** `ssh -G <host>` prints the configuration ssh resolves for the host, its
+  `identityfile` lines among it, without connecting. Where `~/.ssh/config` names one (or the
+  new-machine wizard wrote one, `~/.ssh/sokar-<name>-<user>`), the refusal names it: "It would log
+  in with ~/.ssh/<file>; that key's public half must be in the account's authorized_keys." Where only
+  ssh's defaults are listed, it says no key is named for the host. The same sentence joins the
+  refusal when the machine is added (`loginUidAt`).
+- **Where it shows:** beside the machine where it is not reached, on the machines page
+  (`lib/src/ui/machines_page.dart`, under `rail-machine <name>`, keyed `machine-refused <name>`),
+  not only in the mark's tooltip (`ReachIcon` in `lib/src/ui/machine_switcher.dart`).
+- **Red first:** `test/app/tunnel_test.dart` with a stand-in ssh that ends with "Permission denied
+  (publickey)": today `problem` is the raw words; then a widget test of the machines page.
+
+## Acceptance
+
+- **A forward refused on reconnect says why in words,** as an added machine does, where the machine
+  is listed. Seen to fail: the tunnel test with ssh refusing every key.
+- **The key ssh would use is named where the configuration names one,** and said unnamed where not.
+  Seen to fail: tests of the sentence with `ssh -G`'s output holding a named key and only defaults.

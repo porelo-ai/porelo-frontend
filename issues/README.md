@@ -25,15 +25,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f101"></a>[F101](F101-What-The-Build-Of-A-Push-Did.md) | — | — | What the build of the work's last push did, on its tile and in its detail. |
 | <a id="f100"></a>[F100](F100-A-File-Handed-To-A-Running-Task.md) | — | — | A file handed to a running task, taken back, and its record. |
 
-### Accepted
+### Analyzed
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | — | — | The MSIX installed and started in the Build's Windows job. |
-| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | — | — | Windows notifications from the MSIX's identity. |
-| <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | — | — | A fine-grained token waiting for an organisation's approval said as waiting. |
-| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | — | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
-| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | — | — | A tile's repository in its heading, a refused release said with what to do, the project file taken after one's own push. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. | — |
+| <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
+| <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
+| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. | — |
+| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said with what to do, the project file taken after one's own push. | — |
 
 ### Estimated
 
