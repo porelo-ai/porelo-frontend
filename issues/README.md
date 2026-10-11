@@ -46,7 +46,7 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. | — |
 | <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. | — |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. | — |
-| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `sokar`: a running task's commits (to be opened) | What a piece of work did, in words, at the top of its tile. | — |
+| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. | — |
 | <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | M | — | A waiting push read as a pull request. | — |
 | <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | L | `sokar` [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171), [F78](README.md#f78) | Comments on lines in the review: written, read with their origin, held and released. | — |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. | — |

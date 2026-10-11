@@ -1,7 +1,6 @@
 # F112 — What A Piece Of Work Did, In Words
 
-**Status:** Analyzed; blocked by `sokar`: a method for a running task's commits and their diff since
-it started (to be opened by Agent Core).
+**Status:** Analyzed; blocked by `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174), "A Running Task's Commits And Their Diff".
 **Size:** L - five kinds of facts at the top of every tile, one of which needs a new method of
 `sokar`'s; crosses repositories.
 
@@ -20,7 +19,8 @@ easily left unread.
 - **The last answer:** `Task.lastMessage`, which `sokar` answers already; shown as text.
 - **The commits and their diff since it started:** no method answers them for a running task today
   (`workHeld` in `lib/src/app/work_held.dart` answers counts, `Review` only a push at the gate);
-  the method comes from `sokar`, and `SokarClient`, `FleetBackend` and the stand-in take it.
+  `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) answers them (id, subject and time of each commit, the diff of one or of all), and
+  `SokarClient`, `FleetBackend` and the stand-in take it.
 - **What waits at the gate:** `Gate.waiting`. **Its messages:** `Mailboxes`. **What the firewall
   stopped:** the task's `events.jsonl`, shown only where it holds a line.
 - **Where:** a section at the top of `TaskTile` in `lib/src/ui/attention_view.dart`.
@@ -34,7 +34,3 @@ easily left unread.
   only where something was. Seen to fail: a scenario in `work_tiles.feature` where any of these is
   missing, or the firewall part shows when nothing was stopped.
 
-## To be checked
-
-- **The method's name and shape** for a running task's commits and diff, once Agent Core writes its
-  issue. (Agent Core's)

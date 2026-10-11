@@ -20,8 +20,9 @@ offered.
 
 - **The action:** `_Decision` in `lib/src/ui/gate_view.dart` gets *Run its tests* beside *Copy the
   diff*, for the push `Gate.looking` holds (`lib/src/app/gate.dart`).
-- **The command:** read from the project's `project.yml`, shared by everyone on the project (a key
-  `sokar` reads too, to be named with Agent Core). The interface may override it for this computer:
+- **The command:** read from the project's `project.yml`, shared by everyone on the project:
+  `repositories.<name>.try`, a list of arguments run without a shell, which `gate try <task>` runs
+  with nothing after `--`. The interface may override it for this computer:
   a value in `Settings` (`lib/src/app/settings.dart`) by machine and project, set and cleared in a
   dialog that shows the project's own beside it. Where neither holds one, the dialog asks and offers
   to write it into `project.yml` through `ProjectWorkspace`.
