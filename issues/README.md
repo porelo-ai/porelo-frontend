@@ -35,7 +35,6 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Sokar-In-A-Local-VM.md) | XL | — | The interface on macOS, with Sokar in a local Lima VM set up from the window, and remote machines over ssh. | — |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. | — |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. | 1 |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. | 1 |
@@ -60,3 +59,9 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | the operator: a mobile client | A machine reached without an `ssh` binary. | 3 |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only with a touch or a PIN. | 1 |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `sokar`'s part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. | — |
+
+### Estimated
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Sokar-In-A-Local-VM.md) | XL | — | The interface on macOS, with Sokar in a local Lima VM set up from the window, and remote machines over ssh. |

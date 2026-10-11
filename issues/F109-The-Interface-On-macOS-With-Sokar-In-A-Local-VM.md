@@ -1,6 +1,6 @@
 # F109 — The Interface On macOS, With Sokar In A Local VM
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - a third desktop build, its signing and its package, and a VM set up from the window;
 it splits into three issues of L or smaller, as *Plan* says.
 
