@@ -2,7 +2,7 @@
 
 **Status:** Analyzed.
 **Size:** M - no product code changes, but a new acceptance scenario on the VM against GitHub, with
-its support for a token and a test repository; it waits for both from the operator, as F59 does.
+its support for a token and a test repository; it waits for both from the operator, as [F59](README.md#f59) does.
 
 **What must be true.** Forwarding approved work to a branch the person chose from the repository's
 own lands on that branch at GitHub.
@@ -43,6 +43,6 @@ have not been measured against GitHub.
 
 - The GitHub token and the test repository for the run, and where the run reads them from without
   their being kept here or in the channel. (the operator's)
-- Is this issue blocked by them, as F59 is, so its status says so? (the operator's)
+- Is this issue blocked by them, as [F59](README.md#f59) is, so its status says so? (the operator's)
 - A waiting push needs a task that pushes; is a task whose shell commits and pushes on the VM
   enough, or must it be an agent's work? (the operator's)

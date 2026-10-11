@@ -12,7 +12,7 @@ Linux: its projects, its work, its terminals and its gate, with the key Windows'
 On Linux a machine over ssh is reached through `ssh -L`, forwarding the daemon's socket to a local
 unix socket. `dart:io` opens no unix socket on Windows, so the Windows build shows such a machine as
 not reachable ("reached from the Linux build of the interface; this Windows build reaches WSL
-distributions only, so far", [F102](F102-A-Sokar-In-WSL-Reached-From-Windows.md)).
+distributions only, so far", [F102](README.md#f102)).
 
 ## The shape
 

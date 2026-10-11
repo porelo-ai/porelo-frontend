@@ -33,7 +33,7 @@ the socket's file permissions are the only guard, and an open port would remove 
   is opened and no key is needed. `wsl.exe` runs as the Windows user, so only that user reaches the
   distribution.
 - **`VarlinkConnection` speaks over any byte stream**: the relay's standard input and output here,
-  and a socket file as today. This is the same seam [F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md)
+  and a socket file as today. This is the same seam [F37](README.md#f37)
   needs; whichever is built first makes it.
 - **The machine switcher and the connection wizard offer the WSL way**, listing the distributions
   with `wsl.exe -l -q`. A distribution without Sokar, or with its daemon down, is said in words.
@@ -210,7 +210,7 @@ after agreement in the channel and in both. Today an entry has `name` and `socke
 - **Entries without `kind`** stay what they are today: a plain socket, or a machine behind ssh when
   `host` and `remoteSocket` are set. An unknown `kind` is kept in the file and shown as not
   reachable by this version, never dropped from the file.
-- The plugin's side is `sokar-intellij`'s IJ03, "A Sokar in WSL reached from IntelliJ on Windows",
+- The plugin's side is `sokar-intellij`'s [IJ03](https://github.com/sokar-ai/sokar-intellij/blob/main/issues/README.md#ij03), "A Sokar in WSL reached from IntelliJ on Windows",
   blocked by this one.
 
 ## Where it touches `sokar`

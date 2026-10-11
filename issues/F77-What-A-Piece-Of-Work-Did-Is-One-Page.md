@@ -60,4 +60,4 @@ of their own. Built as three issues, in this order:
   does today (Agent Core's).
 - How each line gets its time for the timeline: a time field from `Tail`, or each source's format
   read here (Agent Core's).
-- Whether F77 is split into the three issues the plan names before it is built (the operator's).
+- Whether [F77](README.md#f77) is split into the three issues the plan names before it is built (the operator's).

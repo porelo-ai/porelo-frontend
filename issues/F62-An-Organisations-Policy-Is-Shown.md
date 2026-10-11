@@ -1,16 +1,16 @@
 # F62 — An Organisation's Policy Is Shown
 
-**Status:** Analyzed; blocked by Sokar's part of `sokar-project` PJ16.
+**Status:** Analyzed; blocked by Sokar's part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).
 **Size:** M - one contract change read from `sokar` (the policy and its refusals) across the
 machine, starting work, the clearance prompt and following, with the mock daemon and the docs; waits
-for `sokar`'s part of PJ16.
+for `sokar`'s part of [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).
 
 **What must be true.** A person on a machine whose organisation set a policy sees that it is in
 force and what it allows, and is told why when it refuses something, rather than being surprised.
 
 ## Why
 
-`sokar-project` PJ16, *An organisation decides which providers its machines use*. Sokar's part is
+`sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16), *An organisation decides which providers its machines use*. Sokar's part is
 the policy file, its refusals and `doctor`; the contract carries none of it yet: not the policy, its
 refusals, or whether a prompt may be allowed.
 

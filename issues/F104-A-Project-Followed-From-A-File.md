@@ -1,8 +1,8 @@
 # F104 — A Project Followed From A File
 
-**Status:** Analyzed; blocked by `sokar` B160, "A Project Followed From A File Over The Socket".
+**Status:** Analyzed; blocked by `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160), "A Project Followed From A File Over The Socket".
 **Size:** M - the frontend's part: one contract change read in the client, the follow
-dialog, the project's view and the mock, with scenarios. It waits for `sokar` B160.
+dialog, the project's view and the mock, with scenarios. It waits for `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160).
 
 **What must be true.** A person makes a project from a bundle or a directory on the machine, from
 the interface, as `sokar project follow NAME FILE` does. An offline project, which can come only
@@ -10,7 +10,7 @@ that way, can be made from the interface again.
 
 ## Why
 
-Since `sokar`'s B137, decided on 2026-10-09, an offline project never connects. `upstream:` and
+Since `sokar`'s [B137](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b137), decided on 2026-10-09, an offline project never connects. `upstream:` and
 `--upstream` are refused for it, and its repository comes in only as a bundle (`gate restore`) or
 from a checkout on the machine. `sokar project follow NAME FILE` takes a bundle or a local directory
 for every class, and a project followed from a file is never fetched in the background.
@@ -31,7 +31,7 @@ longer be made from the interface at all.
 - **A bundle from this computer has no way to the machine yet.** `HandIn` writes into a running
   task only. The shape preferred: `Follow` takes the bundle's bytes itself, so no file outlives
   the call. The other shape would be a method that keeps the bytes on the machine and answers the
-  path to give `Follow`. `sokar` B160 takes the first shape: the bytes go in the `Follow` call, the
+  path to give `Follow`. `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160) takes the first shape: the bytes go in the `Follow` call, the
   daemon keeps the bundle where only the account reads it, and a bundle above a limit the contract
   states is refused by name.
 
@@ -54,7 +54,7 @@ longer be made from the interface at all.
 - **Red first**: a scenario in `test/features/following_a_repository.feature`, "an offline project
   is made from a bundle on this computer", against the mock. It fails today: the dialog has only
   the `follow-url` field.
-- **Contract**: read B160's `Follow` from `dart tool/contract.dart` against the handover. Add the
+- **Contract**: read [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160)'s `Follow` from `dart tool/contract.dart` against the handover. Add the
   bundle's bytes to `SokarClient.follow` in `lib/src/client/sokar_client.dart`, to
   `FleetBackend.follow` in `lib/src/app/fleet_backend.dart` (both places), and to the mock's
   `_follow` in `lib/src/mock/machine.dart`, with its refusal above the size limit and of an

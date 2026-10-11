@@ -1,6 +1,6 @@
 # F101 — What The Build Of A Push Did
 
-**Status:** Review; to be walked. Blocked by `sokar` B37 until it is on `main`.
+**Status:** Review; to be walked.
 
 **What must be true.** A person sees on a work tile, and in the work's detail, what the build of the
 work's last push did - its verdict, every job and which of them left a log in the task - as the
@@ -8,7 +8,7 @@ machine reads it from the forge, and why when it cannot.
 
 ## Why
 
-`sokar` B37 follows each commit an `online` task pushes at the forge and hands the verdict and the
+`sokar` follows each commit an `online` task pushes at the forge and hands the verdict and the
 logs into the task as Sokar's own files. The contract, as `org.fuin.sokar.Tasks1` says it:
 
     # The forge whose builds of this task's pushes are followed, as the project names it under builds.forge

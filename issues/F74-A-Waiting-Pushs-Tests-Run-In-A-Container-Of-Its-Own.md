@@ -1,8 +1,8 @@
 # F74 — A Waiting Push's Tests Run In A Container Of Its Own
 
-**Status:** Analyzed; blocked by `sokar` B95.
+**Status:** Analyzed; blocked by `sokar` [B95](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b95).
 **Size:** M - the frontend's part: an action beside the review, a command kept per project, a
-terminal for the run and an acceptance step on the VM; it waits for `sokar` B95's `gate try`.
+terminal for the run and an acceptance step on the VM; it waits for `sokar` [B95](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b95)'s `gate try`.
 
 **What must be true.** A person can run a waiting push's build or tests, and later open it in an IDE,
 in a fresh container on the machine made from the project's image, and read the result beside the
@@ -11,7 +11,7 @@ review, without the run reaching the gate.
 ## Why
 
 Building or testing an agent's work runs whatever the agent wrote; on the person's own computer it
-would run with their rights and credentials. `sokar` B95 gives `gate try <task> -- <command>`: a fresh
+would run with their rights and credentials. `sokar` [B95](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b95) gives `gate try <task> -- <command>`: a fresh
 container from the project's image, the waiting ref as its workspace, the project's egress and
 limits, no way back to the gate, and an IDE attached there later. An IDE backend on the host is not
 offered.

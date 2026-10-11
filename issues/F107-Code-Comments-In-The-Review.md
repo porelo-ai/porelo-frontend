@@ -1,12 +1,12 @@
 # F107 — Code Comments In The Review
 
-**Status:** Analyzed; blocked by `sokar`'s B166, "Line Comments Sent Back To The Agent", for the comment
-model, comments with their origin and the local review, and by B171, "Forge Review Comments To And
-From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is B172, "A
+**Status:** Analyzed; blocked by `sokar`'s [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), "Line Comments Sent Back To The Agent", for the comment
+model, comments with their origin and the local review, and by [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171), "Forge Review Comments To And
+From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172), "A
 Task That Reviews".
 **Size:** L - crosses repositories: a new part of `Tasks1` from `sokar`, the review, *Needs you*,
-the stand-in and the docs; it is built in parts, the B166 part (ways A and B), the B171 part (C and
-outgoing release), and D once `sokar` B172 is built.
+the stand-in and the docs; it is built in parts, the [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166) part (ways A and B), the [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171) part (C and
+outgoing release), and D once `sokar` [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172) is built.
 
 **What must be true.** In the review of a waiting push, a person writes comments on lines and reads
 the comments of agents and of people on the forge, each marked with where it came from. A comment
@@ -32,7 +32,7 @@ person's release by default.
 
 ## The shape
 
-- **In the review of a waiting push** ([F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md)), a
+- **In the review of a waiting push** ([F78](README.md#f78)), a
   line can be commented on, on its old or its new side. A thread shows its comments in order, open
   or resolved.
 - **Each comment says where it came from:** the person here, an agent (which task, in which role,
@@ -50,7 +50,7 @@ person's release by default.
 
 ## Plan
 
-- **Waits for the contract:** nothing is built before B166's methods and fields are in `Tasks1`;
+- **Waits for the contract:** nothing is built before [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166)'s methods and fields are in `Tasks1`;
   `doc/Backend-API.md` and `doc/Contract-Gaps.md` take them first.
 - **Red first:** a scenario in `test/features/work_handover.feature` that opens a waiting push,
   comments on an added line and finds the comment in the task's thread on the stand-in.
@@ -63,9 +63,9 @@ person's release by default.
 - **The review:** `Gate` in `lib/src/app/gate.dart` reads the push's threads beside `changed`;
   `ReviewView`, `_File` and `_Line` in `lib/src/ui/gate_view.dart` draw a thread under its line,
   each comment with its origin, a suggestion as the lines it puts in place, and a way to comment.
-- **Held forge comments (B171):** listed apart in the review, each released alone, as
+- **Held forge comments ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** listed apart in the review, each released alone, as
   `HeldMessageDialog` in `lib/src/ui/held_message_view.dart` releases a held message.
-- **Outgoing ones (B171):** `Attention` in `lib/src/app/attention.dart` lists them beside
+- **Outgoing ones ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** `Attention` in `lib/src/app/attention.dart` lists them beside
   `heldMessages` and counts them in `needingSomebody`; `lib/src/ui/attention_view.dart` draws them.
 - **The stand-in:** `lib/src/mock/machine.dart` holds threads, held and outgoing comments, and the
   project's switch; refusals come back in Sokar's words through `RefusalView` in
@@ -89,6 +89,6 @@ person's release by default.
 - **The contract:** which methods and fields `sokar`'s comment model brings to `Tasks1`, once its
   requirements say so (Agent Core's).
 - **Where comments are written:** on today's `ReviewView`, or only once the forge-like review of
-  F78 is built (the operator's).
+  [F78](README.md#f78) is built (the operator's).
 - **Where a held forge comment is shown:** in the review only, or also in *Needs you* beside held
   messages (the operator's).

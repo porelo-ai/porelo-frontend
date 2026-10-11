@@ -1,6 +1,6 @@
 # F100 — A File Handed To A Running Task
 
-**Status:** Review; to be walked. Blocked by `sokar` B39 until it is on `main`.
+**Status:** Review; to be walked.
 
 **What must be true.** A person hands a file on this computer to a running task from the interface,
 sees what the task has been handed and by whom, takes a file back, and reads the record of every
@@ -8,7 +8,7 @@ hand-in after the task is gone - on this machine and on one reached over ssh ali
 
 ## Why
 
-`sokar` B39 lets a file be put in front of a running task once, without a repository. The contract,
+`sokar` lets a file be put in front of a running task once, without a repository. The contract,
 as `org.fuin.sokar.Tasks1` says it:
 
     # Hands a file to a running task. It appears in the container as /sokar/files/<name>, owned by root and
