@@ -213,46 +213,39 @@ jobs:
         timeout-minutes: 20
         run: flutter build windows --release
 
-      # Named as the Linux packages are: `<version>~snapshot.<run>` from `main`, `<version>` from a
-      # tag `v<version>`.
-      - name: Pack the ZIP
+      # The ZIP, and the MSIX signed with the certificate the two secrets hold, named as the Linux
+      # packages are; tool/windows-package.ps1 says how. Without the secrets the MSIX is packed to
+      # prove it and not kept.
+      - name: Pack the ZIP and the MSIX
         shell: pwsh
-        run: |
-          $base = ((Select-String -Path pubspec.yaml -Pattern '^version:').Line -replace 'version:\s*', '').Trim() -replace '-SNAPSHOT$', ''
-          if ($env:GITHUB_REF -like 'refs/tags/v*') { $version = $base } else { $version = "$base~snapshot.$env:GITHUB_RUN_NUMBER" }
-          New-Item -ItemType Directory -Force -Path build/windows-zip | Out-Null
-          $zip = "build/windows-zip/sokar-frontend-$version-windows-x64.zip"
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath $zip
-          Push-Location build/windows-zip
-          # Written with `\n` alone: `Set-Content` ends lines with `\r\n` on Windows, and `sha256sum -c`
-          # then looks for a file whose name ends in `\r`.
-          $sums = Get-ChildItem *.zip | ForEach-Object { "$((Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower())  $($_.Name)`n" }
-          [System.IO.File]::WriteAllText("$PWD/SHA256SUMS", ($sums -join ''))
-          if ([System.IO.File]::ReadAllText("$PWD/SHA256SUMS").Contains("`r")) {
-            Write-Error "SHA256SUMS has a carriage return in it; sha256sum -c would not find the ZIP"
-            exit 1
-          }
-          Get-Content SHA256SUMS
-          Pop-Location
+        env:
+          WINDOWS_SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
+          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+        run: ./tool/windows-package.ps1
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         id: attest
         with:
-          subject-path: build/windows-zip/*.zip
+          subject-path: |
+            build/windows-zip/*.zip
+            build/windows-zip/*.msix
 
-      # The attestation's Sigstore bundle beside the ZIP, so it can be checked from Artifactory
-      # alone: `gh attestation verify <zip> --bundle <zip>.sigstore.json --repo sokar-ai/sokar-frontend`.
-      - name: Keep the attestation beside the ZIP
+      # The attestation's Sigstore bundle beside the packages, one for both, so they can be checked
+      # from Artifactory alone:
+      # `gh attestation verify <file> --bundle <name>.sigstore.json --repo sokar-ai/sokar-frontend`.
+      - name: Keep the attestation beside the packages
         shell: pwsh
         run: |
-          $zip = (Get-ChildItem build/windows-zip/*.zip).Name
-          Copy-Item '${{ steps.attest.outputs.bundle-path }}' "build/windows-zip/$zip.sigstore.json"
+          $name = (Get-ChildItem build/windows-zip/*.zip).BaseName
+          Copy-Item '${{ steps.attest.outputs.bundle-path }}' "build/windows-zip/$name.sigstore.json"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows
           path: |
             build/windows-zip/*.zip
+            build/windows-zip/*.msix
+            build/windows-zip/*.cer
             build/windows-zip/*.sigstore.json
             build/windows-zip/SHA256SUMS
           if-no-files-found: error
@@ -539,8 +532,8 @@ jobs:
           fi
           (cd windows && sha256sum -c SHA256SUMS) || { echo "::error::the ZIP is not the one its SHA256SUMS names" >&2; exit 1; }
           jf rt upload "windows/*" "$target" --flat=true
-          # Read back as a person would fetch it, with no token.
-          for file in "$zip" SHA256SUMS "$zip.sigstore.json"; do
+          # Read back as a person would fetch it, with no token: each file the job made.
+          for file in $(cd windows && ls); do
             curl -fsSI "$base/${target}${file}" >/dev/null \
               || { echo "::error::$target$file cannot be fetched after the upload" >&2; exit 1; }
           done

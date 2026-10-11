@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The interface on Windows as an MSIX. Filled in by the Build's job "Windows": @VERSION@ is
+  <major>.<minor>.<patch>.<run>, four numbers as an MSIX takes them.
+
+  Publisher must equal the signing certificate's subject byte for byte, or Windows refuses the
+  package as tampered with.
+
+  A full-trust desktop app: it starts wsl.exe, OpenSSH and a pseudoconsole. Its writes to the user's
+  AppData are not redirected into a package-private folder (unvirtualizedResources), so
+  %APPDATA%\sokar\frontend.json is the one file the ZIP, the MSIX and the IntelliJ plugin all read.
+-->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+    IgnorableNamespaces="uap rescap desktop6">
+  <Identity Name="ai.porelo.sokar.frontend" Publisher="CN=porelo.ai" Version="@VERSION@"
+      ProcessorArchitecture="x64"/>
+  <Properties>
+    <DisplayName>Sokar interface</DisplayName>
+    <PublisherDisplayName>porelo.ai</PublisherDisplayName>
+    <Logo>assets\StoreLogo.png</Logo>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+  </Properties>
+  <Dependencies>
+    <!-- Windows 10 2004, the first with WSL2 and with the write virtualization switch. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0"/>
+  </Dependencies>
+  <Resources>
+    <Resource Language="en-us"/>
+  </Resources>
+  <Applications>
+    <Application Id="SokarInterface" Executable="sokar_frontend.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Sokar interface" Description="The desktop interface for Sokar"
+          BackgroundColor="transparent" Square150x150Logo="assets\Square150x150Logo.png"
+          Square44x44Logo="assets\Square44x44Logo.png"/>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+    <rescap:Capability Name="unvirtualizedResources"/>
+  </Capabilities>
+</Package>

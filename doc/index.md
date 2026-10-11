@@ -54,8 +54,20 @@ Get-Content .\SHA256SUMS
 
 # That this repository's workflow built it, with the attestation from beside it:
 gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai/sokar-frontend `
-  --bundle .\sokar-frontend-<version>-windows-x64.zip.sigstore.json
+  --bundle .\sokar-frontend-<version>-windows-x64.sigstore.json
 ```
+
+To install it instead, the same folder holds `sokar-frontend-<version>-windows-x64.msix`, signed by
+`CN=porelo.ai` with a certificate of the project's own, and that certificate's public half,
+`sokar-msix.cer`. Windows installs the MSIX only once the certificate is trusted on the machine,
+once, as an administrator; after that each newer version installs over the last:
+
+```powershell
+Import-Certificate -FilePath .\sokar-msix.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+Add-AppxPackage .\sokar-frontend-<version>-windows-x64.msix
+```
+
+Check the MSIX and the certificate against `SHA256SUMS` as the ZIP, before either.
 
 If typing or scrolling in a task's terminal does not work, `sokar_frontend.exe --diagnose-terminal`
 shows every key and wheel event the terminal receives, the bytes it would send, and what of them

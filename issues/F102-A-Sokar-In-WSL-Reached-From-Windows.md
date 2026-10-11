@@ -163,7 +163,12 @@ Decided on 2026-10-10: the ZIP first, the MSIX after it.
    and terminals, attach and sign-in through `wsl.exe`. The only package is **the ZIP** with the
    `.exe`, made by a Windows job on GitHub's runner. It is pushed on the operator's word, and then
    the operator tests it on a Windows machine with WSL2, against the published snapshots.
-3. **The MSIX**, self-signed at first.
+3. **The MSIX**, self-signed at first (built on 2026-10-11): signed by `CN=porelo.ai` in the Build's
+   job "Windows" with a certificate whose key is held in the repository secrets
+   `WINDOWS_SIGNING_PFX` and `WINDOWS_SIGNING_PFX_PASSWORD`, and published beside the ZIP with the
+   certificate's public half. A person trusts that certificate once, in `TrustedPeople`, as
+   `doc/index.md` says. The package's writes to AppData are not redirected
+   (`unvirtualizedResources`), so it reads the same `frontend.json` as the ZIP and the plugin.
 
 **Built in stage 2, and what it settled:**
 - **The ZIP** is made by the Build's job *Windows*, beside the Linux packages, with `SHA256SUMS` and

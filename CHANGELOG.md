@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The Windows interface also comes as an MSIX, signed by `CN=porelo.ai` with a certificate of the
+  project's own, beside the ZIP in Artifactory with the certificate's public half, in the same
+  `SHA256SUMS` and under the same attestation. Installed, it writes the same `%APPDATA%\sokar\frontend.json`
+  as the ZIP, which the IntelliJ plugin reads.
 - `sokar_frontend --diagnose-terminal` shows and logs every key and wheel event the terminal widget
   receives, the bytes it would send, and what of them arrives in a WSL distribution, through pipes
   as the relay and through a pseudoconsole as the attach: for finding out what a system delivers.
