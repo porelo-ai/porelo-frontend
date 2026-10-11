@@ -51,9 +51,15 @@ if ($env:WINDOWS_SIGNING_PFX) {
     $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
       $pfx, $env:WINDOWS_SIGNING_PFX_PASSWORD)
     [IO.File]::WriteAllBytes("$Out/sokar-msix.cer", $certificate.Export('Cert'))
-    $signer = (Get-AuthenticodeSignature $msix).SignerCertificate.Subject
-    if ($signer -ne 'CN=porelo.ai') { Write-Error "the MSIX is signed by $signer, not CN=porelo.ai"; exit 1 }
-    "signed by $signer, thumbprint $($certificate.Thumbprint)"
+    # The certificate the project made, and no other: by its thumbprint, which names it, not only by
+    # its subject, which anybody can write into a certificate of their own.
+    $pinned = '8BD1F34465EDC9B11A162B39C6644231851DEE24'
+    $signer = (Get-AuthenticodeSignature $msix).SignerCertificate
+    if ($signer.Thumbprint -ne $pinned) {
+      Write-Error "the MSIX is signed by $($signer.Subject), thumbprint $($signer.Thumbprint), not $pinned"
+      exit 1
+    }
+    "signed by $($signer.Subject), thumbprint $($signer.Thumbprint)"
   } finally {
     if (Test-Path $pfx) { Remove-Item -Force $pfx }
   }

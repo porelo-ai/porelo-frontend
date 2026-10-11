@@ -60,9 +60,14 @@ gh attestation verify .\sokar-frontend-<version>-windows-x64.zip --repo sokar-ai
 To install it instead, the same folder holds `sokar-frontend-<version>-windows-x64.msix`, signed by
 `CN=porelo.ai` with a certificate of the project's own, and that certificate's public half,
 `sokar-msix.cer`. Windows installs the MSIX only once the certificate is trusted on the machine,
-once, as an administrator; after that each newer version installs over the last:
+once, as an administrator; after that each newer version installs over the last. Before trusting
+it, check that it is the project's: its thumbprint is `8BD1F34465EDC9B11A162B39C6644231851DEE24`,
+valid until 2029-10-11, and the file's SHA-256 is
+`6641c3c28749e532120ff7b76da057cab1987e984d13b1624504376bbb93498b`.
 
 ```powershell
+(Get-PfxCertificate .\sokar-msix.cer).Thumbprint
+(Get-FileHash .\sokar-msix.cer -Algorithm SHA256).Hash.ToLower()
 Import-Certificate -FilePath .\sokar-msix.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
 Add-AppxPackage .\sokar-frontend-<version>-windows-x64.msix
 ```
