@@ -33,8 +33,11 @@ lives for the whole app (`lib/main.dart`), so what it keeps survives leaving the
   file. `diff.dart` says no method reads a file at a revision; the whole file comes from a diff with
   full context or from the `PendingBundle` the fetch already uses.
 - **Read ticks.** `Gate` keeps a set of read paths per push name and commit, cleared when the push is
-  approved or dropped. Red first: a scenario in `work_handover.feature` that ticks a file, goes back
-  to the gate and opens the push again.
+  approved or dropped, and kept on disk per piece of work beside the operations record (the state
+  folder `Desk.state`), so they survive a restart; a tick is void once the push's commit changes.
+  Red first: a scenario in `work_handover.feature` that ticks a file, goes back to the gate and
+  opens the push again, and one that restarts the interface and finds the tick, and none after a
+  new commit.
 - **Kept.** *Copy the diff* and `_OwnClone` stay in `_Decision` and above the list; the scenarios "a
   waiting push can be fetched" and "the diff leaves the interface in one action" stay green.
 
@@ -45,15 +48,11 @@ lives for the whole app (`lib/main.dart`), so what it keeps survives leaving the
 - On the right, the file old and new side by side, or one under the other at a switch, with syntax
   colors, and the unchanged lines around a change expandable to the whole file. Seen to fail: a
   widget test where the switch, the colors or the expansion is missing.
-- Each file can be ticked as read, and the review remembers it until the push is decided. Seen to
-  fail: a scenario where a tick is lost on leaving and coming back to the review.
+- Each file can be ticked as read, and the review remembers it until the push is decided, across a
+  restart of the interface, and forgets it once the work changes. Seen to fail: a scenario where a
+  tick is lost on leaving and coming back, or after a restart, or kept for a new commit.
 - Copying the diff and the fetch into one's own clone stay, for what an IDE does better. Seen to
   fail: the existing scenarios for both go red.
-
-## Open questions
-
-- Whether ticks need to survive a restart of the interface, which would mean keeping them on disk
-  (the operator's).
 
 ## To be checked
 

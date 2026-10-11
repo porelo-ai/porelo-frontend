@@ -48,9 +48,11 @@ passed through it, not tmux's history.
   the far end where tmux asks for it.
 - **Focus events and OSC 52** are output the far end sends: read in `Session`'s `Terminal` set-up
   (today `onPrivateOSC = _hyperlink` reads OSC 8 and `5379` only). OSC 52 writes this computer's
-  clipboard; focus reports go out when the `TerminalView`'s `focusNode` in
+  clipboard without a word only right after the person's own key or mouse action in that terminal,
+  as tmux's copy mode does; any other write asks first, with a preview of what would be written.
+  Focus reports go out when the `TerminalView`'s `focusNode` in
   `lib/src/ui/session_view.dart` gains and loses focus.
-- **Scrolling.** Decide which scrollback is used (see *To be checked*). If tmux's: the
+- **Scrolling: tmux's alone.** For a task the interface gives up its own scrollback. The
   `TerminalView`'s `shortcuts` (`copyAsShownShortcuts`, `lib/src/ui/terminal_copy.dart`) must not
   take Shift+PageUp/PageDown, and the wheel goes to tmux everywhere, as `Session.wheel` does on
   Windows today. `Session.scrollback` and the `leaving-is-safe` line under the terminal follow the
@@ -66,9 +68,3 @@ passed through it, not tmux's history.
 - **Scrolling back and down works** in the interface as in a plain terminal, by the keys and by the
   wheel.
 
-## Open questions
-
-- **Whether the interface keeps its own scrollback** once tmux's is reachable, or gives it up for
-  tasks. (the operator's)
-- **Whether OSC 52 may write this computer's clipboard** from a task without a person's
-  word each time. (the operator's)

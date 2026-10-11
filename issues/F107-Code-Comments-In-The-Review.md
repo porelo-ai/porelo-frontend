@@ -3,7 +3,8 @@
 **Status:** Analyzed; blocked by `sokar`'s [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), "Line Comments Sent Back To The Agent", for the comment
 model, comments with their origin and the local review, and by [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171), "Forge Review Comments To And
 From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172), "A
-Task That Reviews".
+Task That Reviews". Blocked by [F78](README.md#f78) too: comments are written only in its
+forge-like review.
 **Size:** L - crosses repositories: a new part of `Tasks1` from `sokar`, the review, *Needs you*,
 the stand-in and the docs; it is built in parts, the [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166) part (ways A and B), the [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171) part (C and
 outgoing release), and D once `sokar` [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172) is built.
@@ -60,10 +61,12 @@ person's release by default.
 - **The client:** `SokarClient` in `lib/src/client/sokar_client.dart` and `FleetBackend` in
   `lib/src/app/fleet_backend.dart` gain the comment calls; `lib/src/client/models.dart` a comment
   model with its origin (person, agent with task and role, forge account) and a suggestion.
-- **The review:** `Gate` in `lib/src/app/gate.dart` reads the push's threads beside `changed`;
-  `ReviewView`, `_File` and `_Line` in `lib/src/ui/gate_view.dart` draw a thread under its line,
+- **The review:** only [F78](README.md#f78)'s forge-like review, once it is built. `Gate` in `lib/src/app/gate.dart`
+  reads the push's threads beside `changed`; the review's file and line widgets draw a thread under
+  its line,
   each comment with its origin, a suggestion as the lines it puts in place, and a way to comment.
-- **Held forge comments ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** listed apart in the review, each released alone, as
+- **Held forge comments ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** listed apart in the review and in *Needs you* beside held
+  messages (`Attention` in `lib/src/app/attention.dart`), each released alone, as
   `HeldMessageDialog` in `lib/src/ui/held_message_view.dart` releases a held message.
 - **Outgoing ones ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** `Attention` in `lib/src/app/attention.dart` lists them beside
   `heldMessages` and counts them in `needingSomebody`; `lib/src/ui/attention_view.dart` draws them.
@@ -83,13 +86,6 @@ person's release by default.
   the project's switch off, it is not held. Seen to fail: scenarios for both.
 - **A suggestion is shown and never applied by the interface.** Seen to fail: a scenario where
   accepting it changes a file.
-
-## Open questions
-
-- **Where comments are written:** on today's `ReviewView`, or only once the forge-like review of
-  [F78](README.md#f78) is built (the operator's).
-- **Where a held forge comment is shown:** in the review only, or also in *Needs you* beside held
-  messages (the operator's).
 
 ## To be checked
 

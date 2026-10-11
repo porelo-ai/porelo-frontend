@@ -5,7 +5,7 @@
 it splits into three issues of L or smaller, as *Plan* says.
 
 **What must be true.** A person on a Mac installs the interface and works with a Sokar that runs in
-a local Linux VM on that Mac, set up from the window, as F102 does for Windows with WSL; and with
+a local Linux VM on that Mac, set up from the window, as [F102](README.md#f102) does for Windows with WSL; and with
 Sokar on remote machines over ssh, as on Linux.
 
 ## Why
@@ -24,7 +24,7 @@ a Mac it runs in a Linux VM, and the interface on the Mac is how a person works 
 - **How the interface reaches it:** the daemon's socket in the VM, `/run/user/<uid>/sokar/sokard.sock`,
   forwarded by Lima to a socket on the Mac, which the interface opens as it opens a local socket on
   Linux: no ssh, no open port. Terminals and commands go `limactl shell <name> …` in a pseudoterminal.
-- **Set up from the window, as F102's WSL wizard:** a VM is made from Lima's Ubuntu template with the
+- **Set up from the window, as [F102](README.md#f102)'s WSL wizard:** a VM is made from Lima's Ubuntu template with the
   socket forward in its configuration; Sokar is installed in it with the same lines `doc/getting-started.md`
   gives, each shown before it runs, the repository's key checked against the fingerprint the interface
   carries; lingering on; `sokar setup` as the VM's user.
@@ -82,7 +82,7 @@ Three issues, in this order; this one is split before any is built:
      Homebrew's line shown), no VM, no Sokar, no daemon - each said and offered; the VM's
      architecture follows the Mac's, `aarch64` or `x86_64`.
    - `Session.command` through `limactl shell`.
-   - Red first: `test/features/lima_machine.feature`, with a stand-in `limactl` as F102's tests have
+   - Red first: `test/features/lima_machine.feature`, with a stand-in `limactl` as [F102](README.md#f102)'s tests have
      a stand-in `wsl.exe`; then the VM leg on the rented Mac mini, a self-hosted runner for that day.
 
 ## Acceptance

@@ -20,8 +20,11 @@ offered.
 
 - **The action:** `_Decision` in `lib/src/ui/gate_view.dart` gets *Run its tests* beside *Copy the
   diff*, for the push `Gate.looking` holds (`lib/src/app/gate.dart`).
-- **The command, asked once:** a dialog asks for it the first time, and a new value in `Settings`
-  (`lib/src/app/settings.dart`) keeps it by machine and project; the same dialog changes it.
+- **The command:** read from the project's `project.yml`, shared by everyone on the project (a key
+  `sokar` reads too, to be named with Agent Core). The interface may override it for this computer:
+  a value in `Settings` (`lib/src/app/settings.dart`) by machine and project, set and cleared in a
+  dialog that shows the project's own beside it. Where neither holds one, the dialog asks and offers
+  to write it into `project.yml` through `ProjectWorkspace`.
 - **The run:** `gate try <task> -- <command>` is made for the machine with `onTheMachine` in
   `lib/src/app/connections.dart` and run in a terminal with `runInATerminal` in
   `lib/src/ui/unlock_terminal.dart`, so the output streams as it comes. Its exit is said beside the
@@ -36,18 +39,14 @@ offered.
 
 ## Acceptance
 
-- *Run its tests* beside the review: the command is asked once and kept for the project, run in a
+- *Run its tests* beside the review: the command is the project's from `project.yml`, or this
+  computer's override, run in a
   fresh container, its output streamed and its exit said beside the review. Seen to fail: a scenario
   in `work_handover.feature` against a fake `gate try`, where the output or the exit is missing.
 - *Open in an IDE* attaches an IDE to the same container, when Sokar offers it. Seen to fail: a
   scenario where the IDE is attached to anything but that container.
 - Nothing the run does reaches the gate: the push stays as the agent made it. Seen to fail: on the
   VM against Sokar's handover, a run that writes to its workspace changes the waiting ref.
-
-## Open questions
-
-- **Whether the command is kept by the interface or in the project's `project.yml`**, where every
-  person working on it would share it. (the operator's)
 
 ## To be checked
 
