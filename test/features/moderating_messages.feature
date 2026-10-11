@@ -168,14 +168,14 @@ Feature: Reading and deciding about what work says to other work
     And it does not say {'under Settings on its page'}
     And it does not say {'External: what arrives from it is checked again here'}
 
-  # Walk 8: "Written to michi" read as writing to oneself; who a peer is had to be guessed from `matrix:`.
+  # Walk 8: "Written to alice" read as writing to oneself; who a peer is had to be guessed from `matrix:`.
   Scenario: who a peer in the project's conversation is, is said
     Given a backend with work on it
-    And {'sokar-checkout-migrate'} may talk to {'michi'} through the project's conversation, {'external'}
+    And {'sokar-checkout-migrate'} may talk to {'alice'} through the project's conversation, {'external'}
     And {'sokar-checkout-migrate'} may talk to {'reader'} through the project's conversation, {'vouched'}
     And the app is running
     When I choose {"Hold its project's messages to a peer"} from the menu of the tile {'sokar-checkout-migrate'}
-    Then it says {'Whoever reads this project’s conversation in a matrix client, by the name michi'}
+    Then it says {'Whoever reads this project’s conversation in a matrix client, by the name alice'}
     And it says {'Another piece of work in this project'}
 
   # `off` is said as what it is: nothing is asked, and the filter still runs.

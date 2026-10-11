@@ -17,7 +17,7 @@ class _Forward implements HeldForward {
 }
 
 void main() {
-  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'michi@vm', remoteSocket: '/run/user/1000/sokar/sokard.sock');
+  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'alice@vm', remoteSocket: '/run/user/1000/sokar/sokard.sock');
 
   Future<Machines> machinesWithVm(Settings settings) async {
     final machines = Machines(settings, reach: (machine) => FakeBackend(const <Task>[]), tunnels: FakeTunnels());

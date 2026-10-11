@@ -72,7 +72,7 @@ void main() {
         '''a person joins, and their login is shown once with the homeserver forwarded here''',
         (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theProjectHasAConversationOverReachingReady(
           tester, 'checkout', 'matrix', '127.0.0.1:8008');
       await iSelectTheProject(tester, 'checkout');
@@ -101,7 +101,7 @@ void main() {
         '''the homeserver's address is said on the project's page, and a forward that cannot be raised needs you''',
         (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theProjectHasAConversationOverReachingReady(
           tester, 'checkout', 'matrix', '127.0.0.1:8008');
       await iSelectTheProject(tester, 'checkout');

@@ -83,14 +83,14 @@ Feature: A project comes to a machine by following its repository
 
   Scenario: a credential in a shut vault offers to open it, and follows nothing
     Given the credential check answers {'VAULT_LOCKED'}
-    And the machine is reached over ssh as {'michi@vm'}
+    And the machine is reached over ssh as {'alice@vm'}
     When I follow a repository
     And I name it {'payments'} at {'git@example.org:payments.git'}
     And I choose to follow it unverified
     And I follow it
     Then no follow was sent
     When I open the vault from the follow
-    Then a terminal runs {'ssh -t michi@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
 
   # A key is sent from its connection and a file on the machine is replaced there, so neither is
   # a terminal's to store — the way out is the connection itself.

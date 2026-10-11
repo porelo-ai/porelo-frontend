@@ -4,7 +4,7 @@ import 'package:sokar_frontend/src/app/machines.dart';
 import '../support/tiles.dart';
 import '../support/world.dart';
 
-/// Usage: the machine is reached over ssh as {'michi@vm'}
+/// Usage: the machine is reached over ssh as {'alice@vm'}
 Future<void> theMachineIsReachedOverSshAs(WidgetTester tester, String host) async {
   // A machine this interface raises the forward to, so it has a host to open a terminal on.
   final machine = Machine(

@@ -21,7 +21,7 @@ Feature: A project's conversation, and a person joining it
 
   # Answered once and kept nowhere: shown whole while the dialog is open, and gone with it.
   Scenario: a person joins, and their login is shown once with the homeserver forwarded here
-    Given the machine is reached over ssh as {'michi@vm'}
+    Given the machine is reached over ssh as {'alice@vm'}
     And the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
     And I select the project {'checkout'}
     When I choose the command {'Messages — the conversation of this project, and who has joined it'}
@@ -44,7 +44,7 @@ Feature: A project's conversation, and a person joining it
 
   # Walk 10: where the address is said beside the dialog, and a forward that cannot be raised is not quiet.
   Scenario: the homeserver's address is said on the project's page, and a forward that cannot be raised needs you
-    Given the machine is reached over ssh as {'michi@vm'}
+    Given the machine is reached over ssh as {'alice@vm'}
     And the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
     And I select the project {'checkout'}
     When I choose the command {'Messages — the conversation of this project, and who has joined it'}

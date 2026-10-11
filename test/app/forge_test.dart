@@ -47,9 +47,9 @@ void main() {
   });
 
   test('a person\'s signing keys are read from what GitHub lists for anybody', () async {
-    answers['GET /users/michi/ssh_signing_keys'] =
+    answers['GET /users/alice/ssh_signing_keys'] =
         reply(200, <Object>[<String, Object>{'id': 1, 'title': 'Laptop', 'key': 'ssh-ed25519 AAAAmine'}]);
-    final keys = await github().signingKeys('michi');
+    final keys = await github().signingKeys('alice');
     expect([for (final each in keys) '${each.title} ${each.keyPart}'], <String>['Laptop ssh-ed25519 AAAAmine']);
   });
 
@@ -77,9 +77,9 @@ void main() {
   });
 
   test('the token goes in a header, never in the address', () async {
-    answers['GET /user'] = reply(200, <String, String>{'login': 'michi'});
+    answers['GET /user'] = reply(200, <String, String>{'login': 'alice'});
 
-    expect((await github().whoAmI()).login, 'michi');
+    expect((await github().whoAmI()).login, 'alice');
     expect(asked.single.headers['Authorization'], 'Bearer ghp_secret-token');
     expect(asked.single.uri.toString(), isNot(contains('ghp_secret-token')));
   });

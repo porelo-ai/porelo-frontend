@@ -413,7 +413,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theMachineHasNoStoreYet(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iChooseTheCommand(
           tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
@@ -425,7 +425,7 @@ void main() {
       await addingItIsNotOfferedYet(tester);
       await iMakeTheVaultFromTheCheck(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault init');
+          tester, 'ssh -t alice@vm sokar vault init');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineWasAskedAgainWhetherItWouldWork(tester);
     });
@@ -433,7 +433,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iChooseTheCommand(
           tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
@@ -444,7 +444,7 @@ void main() {
       await itSays(tester, 'the vault is shut');
       await iOpenTheVaultFromTheCheck(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm sokar vault unlock');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineWasAskedAgainWhetherItWouldWork(tester);
     });

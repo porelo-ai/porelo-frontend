@@ -42,7 +42,7 @@ Feature: What a piece of work is doing, and how long it has been
     And it says {'a-provider for weather, as SOKAR_TOKEN_A_PROVIDER'}
 
   Scenario: a credential a person granted says who the task acts as
-    Given the work {'sokar-checkout-migrate'} holds {'jira'} for {'jira'}, granted by {'michi'} at {'2026-09-30T05:40:00Z'}
+    Given the work {'sokar-checkout-migrate'} holds {'jira'} for {'jira'}, granted by {'alice'} at {'2026-09-30T05:40:00Z'}
     When I select the work {'sokar-checkout-migrate'}
     And I open the selection
-    Then it says {'jira for jira, as SOKAR_TOKEN_JIRA, granted by michi at 2026-09-30T05:40:00Z'}
+    Then it says {'jira for jira, as SOKAR_TOKEN_JIRA, granted by alice at 2026-09-30T05:40:00Z'}

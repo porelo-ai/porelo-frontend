@@ -268,7 +268,7 @@ Feature: How a machine connects out, and giving it a credential
   # A vault that is not there is made at the machine, from the check, and then asked about again.
   Scenario: an account without a vault is sent to make one, and checked again
     Given the machine has no store yet
-    And the machine is reached over ssh as {'michi@vm'}
+    And the machine is reached over ssh as {'alice@vm'}
     When I choose the command {'Connections — how this machine connects out'}
     And I add a connection to {'https://gitlab.example/acme/'}
     And I choose it to be {'TOKEN'}
@@ -278,13 +278,13 @@ Feature: How a machine connects out, and giving it a credential
     Then it says {'no vault yet'}
     And adding it is not offered yet
     When I make the vault from the check
-    Then a terminal runs {'ssh -t michi@vm sokar vault init'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault init'} on the machine
     When the unlock terminal ends and is put away
     Then the machine was asked again whether it would work
 
   Scenario: a shut vault is opened from the check, and checked again
     Given the store is shut
-    And the machine is reached over ssh as {'michi@vm'}
+    And the machine is reached over ssh as {'alice@vm'}
     When I choose the command {'Connections — how this machine connects out'}
     And I add a connection to {'https://gitlab.example/acme/'}
     And I choose it to be {'TOKEN'}
@@ -293,7 +293,7 @@ Feature: How a machine connects out, and giving it a credential
     And I go on
     Then it says {'the vault is shut'}
     When I open the vault from the check
-    Then a terminal runs {'ssh -t michi@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
     When the unlock terminal ends and is put away
     Then the machine was asked again whether it would work
 

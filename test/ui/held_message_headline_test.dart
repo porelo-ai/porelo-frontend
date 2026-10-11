@@ -9,18 +9,18 @@ void main() {
         'standing': 'held',
         'message': 'm.json',
         'role': role,
-        'peer': 'michi',
+        'peer': 'alice',
         'kind': 'question',
         'direction': 'out',
       });
 
   test('one the person wrote is said as theirs', () {
-    expect(HeldMessageRow.headline(held('ROLE_USER'), 'walk8'),
-        'A question you wrote, going out through sokar-test-project-foo to michi, on walk8');
+    expect(HeldMessageRow.headline(held('ROLE_USER'), 'vm'),
+        'A question you wrote, going out through sokar-test-project-foo to alice, on vm');
   });
 
   test("one the task's agent wrote is said as the task's", () {
-    expect(HeldMessageRow.headline(held('ROLE_AGENT'), 'walk8'),
-        'A question going out from sokar-test-project-foo to michi, on walk8');
+    expect(HeldMessageRow.headline(held('ROLE_AGENT'), 'vm'),
+        'A question going out from sokar-test-project-foo to alice, on vm');
   });
 }

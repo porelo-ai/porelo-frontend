@@ -11,7 +11,7 @@ import '../features/support/world.dart';
 /// login terminal, for one port, while it is open.
 void main() {
   final withSsh = raiseLoginForward;
-  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'michi@vm', remoteSocket: '/run/s.sock');
+  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'alice@vm', remoteSocket: '/run/s.sock');
   late List<({Machine machine, int port})> raised;
   late List<int> closed;
   late FakeTerminal far;
@@ -19,7 +19,7 @@ void main() {
   Session login({bool forwards = true}) => Session(
         task: 'login',
         machine: vm,
-        run: const <String>['ssh', '-t', 'michi@vm', 'sokar', 'vault', 'login', 'claude'],
+        run: const <String>['ssh', '-t', 'alice@vm', 'sokar', 'vault', 'login', 'claude'],
         forwardsALoginReply: forwards,
         open: (executable, arguments, {columns = 80, rows = 24}) => far = FakeTerminal(<String>[executable, ...arguments]),
       );

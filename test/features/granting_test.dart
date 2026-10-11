@@ -169,7 +169,7 @@ void main() {
         '''a redirect's page is offered only once its answer can reach the machine, and the forward goes after''',
         (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theStoreHoldsOfKindBeside(
           tester, 'forge', 'oauth-code', 'a-provider');
       await iGrantFromTheStore(tester, 'forge');
@@ -223,7 +223,7 @@ void main() {
         '''a redirect whose answer cannot be forwarded is not offered to open, and says why''',
         (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await forwardingAPortFailsWith(
           tester, 'Port 8765 is already in use on this computer');
       await theStoreHoldsOfKindBeside(
@@ -251,11 +251,11 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theStoreHoldsOfKindGrantedByAt(
-          tester, 'jira', 'oauth-device', 'michi', '2026-09-30T05:40:00Z');
+          tester, 'jira', 'oauth-device', 'alice', '2026-09-30T05:40:00Z');
       await theStoreAlsoHoldsOfKindNotGranted(tester, 'forge', 'oauth-code');
       await iShowTheVault(tester);
       await itSays(
-          tester, 'oauth-device · granted by michi, 2026-09-30T05:40:00Z');
+          tester, 'oauth-device · granted by alice, 2026-09-30T05:40:00Z');
       await itSays(tester, 'oauth-code · not granted yet');
       await grantingIsOfferedAgain(tester, 'jira');
     });

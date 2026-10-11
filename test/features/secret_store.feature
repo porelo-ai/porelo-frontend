@@ -57,18 +57,18 @@ Feature: Seeing and shutting the secret store, without showing a value
   # passphrase — typed into a terminal on the machine, never into this program.
   Scenario: a shut store is opened by its passphrase in a terminal on the machine, then asked again
     Given the store is shut
-    And the machine is reached over ssh as {'michi@vm'}
+    And the machine is reached over ssh as {'alice@vm'}
     When I show the vault
     And I open it here with its passphrase
-    Then a terminal runs {'ssh -t michi@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
     When the unlock terminal ends and is put away
     Then the machine is asked again whether the store is open
 
   Scenario: a shut store on a device that is not enrolled is opened from the lock by its passphrase
     Given the store is shut
-    And the machine is reached over ssh as {'michi@vm'}
+    And the machine is reached over ssh as {'alice@vm'}
     When I open the store with its passphrase from the lock
-    Then a terminal runs {'ssh -t michi@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
 
   # A socket somebody else forwarded has no host behind it; a sokar run here would open another vault.
   Scenario: a machine whose socket somebody else forwards is not offered a terminal to open it
@@ -85,18 +85,18 @@ Feature: Seeing and shutting the secret store, without showing a value
 
   # A fresh machine has no store, and enrolling and opening both start from one being there.
   Scenario: a machine with no store is offered to make one from the lock, in a terminal there
-    Given the machine is reached over ssh as {'michi@vm'}
+    Given the machine is reached over ssh as {'alice@vm'}
     And the machine has no store yet
     When I open the store with its passphrase from the lock
-    Then a terminal runs {'ssh -t michi@vm sokar vault init'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault init'} on the machine
 
   # A person new to Sokar looks at the work, not at a mark in the header: the first step is said there.
   Scenario: a machine with no store says making it is the next step, and makes it from there
-    Given the machine is reached over ssh as {'michi@vm'}
+    Given the machine is reached over ssh as {'alice@vm'}
     And the machine has no store yet
     Then the work says {'Next: make the vault on'}
     When I make it from the next step
-    Then a terminal runs {'ssh -t michi@vm sokar vault init'} on the machine
+    Then a terminal runs {'ssh -t alice@vm sokar vault init'} on the machine
 
   Scenario: a machine with a store says nothing about making one
     Then the work does not say {'Next: make the vault'}

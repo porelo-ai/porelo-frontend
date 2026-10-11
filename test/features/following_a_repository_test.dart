@@ -152,7 +152,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'VAULT_LOCKED');
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
       await iChooseToFollowItUnverified(tester);
@@ -160,7 +160,7 @@ void main() {
       await noFollowWasSent(tester);
       await iOpenTheVaultFromTheFollow(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm sokar vault unlock');
     });
     testWidgets(
         '''a connection whose value is not there offers the connection, and follows nothing''',

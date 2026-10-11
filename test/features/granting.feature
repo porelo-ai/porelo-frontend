@@ -67,7 +67,7 @@ Feature: Granting an authorization once, in a browser, for later tasks
 
   # The answer comes back to a port on the machine; the browser here reaches it only through a forward.
   Scenario: a redirect's page is offered only once its answer can reach the machine, and the forward goes after
-    Given the machine is reached over ssh as {'michi@vm'}
+    Given the machine is reached over ssh as {'alice@vm'}
     And the store holds {'forge'} of kind {'oauth-code'} beside {'a-provider'}
     When I grant {'forge'} from the store
     And the machine asks for a decision on {'https://forge.example/authorize?state=s1'} answered on port {'8765'}
@@ -92,7 +92,7 @@ Feature: Granting an authorization once, in a browser, for later tasks
 
   # Sent to a port nothing answers on, the browser would show an error and the grant would never land.
   Scenario: a redirect whose answer cannot be forwarded is not offered to open, and says why
-    Given the machine is reached over ssh as {'michi@vm'}
+    Given the machine is reached over ssh as {'alice@vm'}
     And forwarding a port fails with {'Port 8765 is already in use on this computer'}
     And the store holds {'forge'} of kind {'oauth-code'} beside {'a-provider'}
     When I grant {'forge'} from the store
@@ -109,10 +109,10 @@ Feature: Granting an authorization once, in a browser, for later tasks
 
   # Who a task using it acts as, from the machine's record: never the grant itself.
   Scenario: an entry says who granted it and when, or that nobody has yet
-    Given the store holds {'jira'} of kind {'oauth-device'} granted by {'michi'} at {'2026-09-30T05:40:00Z'}
+    Given the store holds {'jira'} of kind {'oauth-device'} granted by {'alice'} at {'2026-09-30T05:40:00Z'}
     And the store also holds {'forge'} of kind {'oauth-code'}, not granted
     When I show the vault
-    Then it says {'oauth-device · granted by michi, 2026-09-30T05:40:00Z'}
+    Then it says {'oauth-device · granted by alice, 2026-09-30T05:40:00Z'}
     And it says {'oauth-code · not granted yet'}
     And granting {'jira'} is offered again
 

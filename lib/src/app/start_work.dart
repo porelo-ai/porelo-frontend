@@ -574,7 +574,7 @@ class StartWork extends ChangeNotifier {
               project: where.name, agent: agent, task: about, repository: repository, credentials: credentials);
       // Typing moves faster than a machine answers.
       if (asking != _asked) return;
-      // Refused for an agent the machine lists as installed: measured on walk8 while another task
+      // Refused for an agent the machine lists as installed: measured on the test machine while another task
       // was starting, and gone when asked again. Asked again once, a moment later, rather than
       // leaving *Start it* off over an answer the machine itself contradicts.
       if (answer.outcome.name == 'UNKNOWN_AGENT' && !_askedAgain && agents.any((each) => each.name == agent)) {

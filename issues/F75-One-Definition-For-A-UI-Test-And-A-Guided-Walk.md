@@ -52,4 +52,3 @@ beside them. The mechanism is the plugin's; the backend is short of nothing.
   table beside it. (the owner of `flutter-guided-walk`'s)
 - **How a step written in English for a test gets the German a walk says**, and what a step says
   when it is used in several scenarios. (Agent Frontend's)
-- **What becomes of `doc/walks/walked/`**: kept as walked, or generated too. (Agent Frontend's)

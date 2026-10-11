@@ -20,7 +20,7 @@ Feature: A project from a repository a person already has on a forge
     When I pick a project from one of my repositories
     Then the repositories are offered
     And it says {'GitHub'}
-    And it says {'as michi'}
+    And it says {'as alice'}
     And the forge's repository {'acme/api'} is listed
 
   Scenario: following a project by hand points to picking one of the person's repositories
@@ -50,7 +50,7 @@ Feature: A project from a repository a person already has on a forge
     And no token is asked for
     When I choose the forge {'GitHub work'}
     Then it says {'GitHub work'}
-    And it says {'as michi'}
+    And it says {'as alice'}
     And the forge's repository {'acme/api'} is listed
 
   Scenario: a forge is renamed and given a new token, which is kept only once it is accepted
@@ -106,7 +106,7 @@ Feature: A project from a repository a person already has on a forge
     When I choose the command {'A project from a repository you have'}
     And I connect the forge with the token {'ghp_accepted'}
     Then it says {'GitHub'}
-    And it says {'as michi'}
+    And it says {'as alice'}
     And the keychain here keeps the token {'ghp_accepted'}
     And it does not say {'ghp_accepted'}
 
@@ -214,7 +214,7 @@ Feature: A project from a repository a person already has on a forge
     And no token is asked for
     When the forge answers
     Then it says {'GitHub'}
-    And it says {'as michi'}
+    And it says {'as alice'}
 
   Scenario: the list narrows to what is searched for
     Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
@@ -239,7 +239,7 @@ Feature: A project from a repository a person already has on a forge
     And the keychain here keeps the token {'ghp_accepted'} for the forge
     When I choose the command {'A project from a repository you have'}
     Then it says {'GitHub'}
-    And it says {'as michi'}
+    And it says {'as alice'}
     When I forget the token here
     Then the keychain here keeps no token
 

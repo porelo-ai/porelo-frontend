@@ -12,10 +12,10 @@ Feature: Where a repository's work comes from and goes, and catching up
     And I go to the work
 
   Scenario: a repository started in a checkout says its work comes from it and goes back there
-    Given default holds {'app'} from the checkout {'/home/walk9/walk/app'} whose remote is {'git@example.org:app.git'}
+    Given default holds {'app'} from the checkout {'/home/somebody/work/app'} whose remote is {'git@example.org:app.git'}
     When I select the project {'default'}
     And I choose the command {'Repositories worked on without a project'}
-    Then it says {'From the checkout /home/walk9/walk/app, and back into it as sokar/<task>'}
+    Then it says {'From the checkout /home/somebody/work/app, and back into it as sokar/<task>'}
     And it says {'its remote git@example.org:app.git is yours to pull and push'}
 
   Scenario: a repository added by its address says its work comes from that remote and goes there
@@ -48,8 +48,8 @@ Feature: Where a repository's work comes from and goes, and catching up
     And the status line mentions {'started without one, or it is offline'}
 
   Scenario: a refresh that failed says why, in the machine's words
-    Given a refresh answers {'FAILED'} because {'the checkout /home/walk9/walk/app is gone'}
+    Given a refresh answers {'FAILED'} because {'the checkout /home/somebody/work/app is gone'}
     When I select the project {'checkout'}
     And I select the work {'sokar-checkout-shell'}
     And I choose the command {'Bring it up to its source'}
-    Then the status line mentions {'could not be brought up to its source: the checkout /home/walk9/walk/app is gone'}
+    Then the status line mentions {'could not be brought up to its source: the checkout /home/somebody/work/app is gone'}

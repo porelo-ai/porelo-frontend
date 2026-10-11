@@ -117,11 +117,11 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iShowTheVault(tester);
       await iOpenItHereWithItsPassphrase(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm sokar vault unlock');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineIsAskedAgainWhetherTheStoreIsOpen(tester);
     });
@@ -130,10 +130,10 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm sokar vault unlock');
     });
     testWidgets(
         '''a machine whose socket somebody else forwards is not offered a terminal to open it''',
@@ -160,22 +160,22 @@ void main() {
         '''a machine with no store is offered to make one from the lock, in a terminal there''',
         (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theMachineHasNoStoreYet(tester);
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault init');
+          tester, 'ssh -t alice@vm sokar vault init');
     });
     testWidgets(
         '''a machine with no store says making it is the next step, and makes it from there''',
         (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'michi@vm');
+      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theMachineHasNoStoreYet(tester);
       await theWorkSays(tester, 'Next: make the vault on');
       await iMakeItFromTheNextStep(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t michi@vm sokar vault init');
+          tester, 'ssh -t alice@vm sokar vault init');
     });
     testWidgets('''a machine with a store says nothing about making one''',
         (tester) async {

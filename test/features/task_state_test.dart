@@ -86,11 +86,11 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theWorkHoldsForGrantedByAt(tester, 'sokar-checkout-migrate', 'jira',
-          'jira', 'michi', '2026-09-30T05:40:00Z');
+          'jira', 'alice', '2026-09-30T05:40:00Z');
       await iSelectTheWork(tester, 'sokar-checkout-migrate');
       await iOpenTheSelection(tester);
       await itSays(tester,
-          'jira for jira, as SOKAR_TOKEN_JIRA, granted by michi at 2026-09-30T05:40:00Z');
+          'jira for jira, as SOKAR_TOKEN_JIRA, granted by alice at 2026-09-30T05:40:00Z');
     });
   });
 }

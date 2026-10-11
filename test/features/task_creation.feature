@@ -17,7 +17,7 @@ Feature: Starting work with an agent, a mode and a credential
     When the machine has answered
     Then it does not say {'Asking the machine what it has'}
 
-  # Measured on walk8: CanStart said the agent was not installed while Agents listed it,
+  # Measured on the test machine: CanStart said the agent was not installed while Agents listed it,
   # and asking again answered ready. Start it stayed off until somebody chose the agent again.
   Scenario: an agent the machine lists, refused once as not installed, is asked about again
     Given the machine refuses the agent as not installed {1} times

@@ -97,7 +97,7 @@ void main() {
     expect(keys.single.comment, 'person@test');
     expect(keys.single.fingerprint, startsWith('SHA256:'));
 
-    final commit = await work.commitAndPush('Make api a Sokar project', keys.single, login: 'michi');
+    final commit = await work.commitAndPush('Make api a Sokar project', keys.single, login: 'alice');
 
     // On the forge, signed by exactly that key.
     await File('${here.path}/allowed').writeAsString('person@test ${keys.single.publicKey}\n');
@@ -122,11 +122,11 @@ void main() {
     final key = (await work.signingKeys()).single;
     // Which right is missing, and where it is given, rather than git's words alone (walk: "Write access").
     await expectLater(
-        work.commitAndPush('First words', key, login: 'michi'),
+        work.commitAndPush('First words', key, login: 'alice'),
         throwsA(isA<WorkspaceRefused>().having((each) => each.words, 'words', contains('Contents: Read and write'))));
 
     await hook.delete();
-    final commit = await work.commitAndPush('Make api a Sokar project', key, login: 'michi');
+    final commit = await work.commitAndPush('Make api a Sokar project', key, login: 'alice');
 
     final onMain = await Process.run('git', <String>['log', '--format=%H %s', 'main'], workingDirectory: '${here.path}/forge.git');
     expect('${onMain.stdout}'.trim().split('\n').first, '$commit Make api a Sokar project');
@@ -137,7 +137,7 @@ void main() {
     final work = workspace();
     await work.open();
     await work.write('project:\n  name: "api"\n');
-    await work.commitAndPush('x', (await work.signingKeys()).single, login: 'michi');
+    await work.commitAndPush('x', (await work.signingKeys()).single, login: 'alice');
 
     expect(seen.expand((each) => each).where((each) => each.contains('ghp_never')), isEmpty);
   });
@@ -202,7 +202,7 @@ void main() {
     expect(diff, contains('+  name: "api"'));
 
     final key = (await work.signingKeys()).single;
-    final merged = await work.mergeAndPush('work', 'Take the planning task’s project file', key, login: 'michi');
+    final merged = await work.mergeAndPush('work', 'Take the planning task’s project file', key, login: 'alice');
 
     await File('${here.path}/allowed').writeAsString('person@test ${key.publicKey}\n');
     final verified = await Process.run('git', <String>['-c', 'gpg.ssh.allowedSignersFile=${here.path}/allowed', 'verify-commit', merged],

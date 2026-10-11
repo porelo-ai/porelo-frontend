@@ -9,7 +9,7 @@ reading and what, so a person never takes an empty view for a finished one.
 
 ## The shape
 
-- A progress bar at the view's top with one sentence of what is being read ("Reading walk9's
+- A progress bar at the view's top with one sentence of what is being read ("Reading vm's
   connections…"), until the answer is there; then the answer, or why there is none.
 - The forge's page already shows it this way. The views still to go through: Connections, a machine's
   page, the gate, backups, what a project may reach, Messages, Agents, the vault, the start form, a

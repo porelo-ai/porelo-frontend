@@ -43,7 +43,7 @@ void main() {
   test('an unknown host is scanned on the port ssh will use, and its fingerprints are shown', () async {
     final ssh = _Ssh();
 
-    final check = await SshHostKeys(run: ssh.run, home: '/home/somebody').check('michi@build');
+    final check = await SshHostKeys(run: ssh.run, home: '/home/somebody').check('alice@build');
 
     expect(check.known, isFalse);
     expect(check.host, 'build.example.test', reason: 'the alias was not resolved');

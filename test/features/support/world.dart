@@ -1031,7 +1031,7 @@ class FakeBackend implements FleetBackend {
   String? grantNeededFor;
 
   /// How many more times `CanStart` answers that the agent asked for is not installed, naming no
-  /// agent, while `Agents` lists it: as `walk8` answered once.
+  /// agent, while `Agents` lists it: as `vm` answered once.
   int refusesTheAgent = 0;
 
   /// Every set of credentials `CanStart` was asked about, empty where none was sent.
@@ -3652,7 +3652,7 @@ class FakeForge implements Forge {
   final Set<String> alsoAccepted = <String>{};
 
   /// Who the accepted token logs in as.
-  String login = 'michi';
+  String login = 'alice';
 
   /// What the login reaches.
   List<ForgeRepository> repositoriesHere = <ForgeRepository>[];

@@ -147,8 +147,8 @@ void main() {
   });
 
   test('a key whose comment holds a quote reaches root exactly as it is', () async {
-    // The comment is a machine name somebody typed; "Michi's box" once broke the root script.
-    const key = "ssh-ed25519 AAAA Michi's box'; touch /tmp/sokar-pwned; '";
+    // The comment is a machine name somebody typed; "Alice's box" once broke the root script.
+    const key = "ssh-ed25519 AAAA Alice's box'; touch /tmp/sokar-pwned; '";
     final lines = MachineSetup.authorize("o'brien", key).split('\n').take(3).join('\n');
 
     final ran = await Process.run('bash', <String>['-c', '$lines\nprintf "%s\\n" "\$user" "\$key"']);

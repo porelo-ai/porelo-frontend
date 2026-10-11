@@ -3,7 +3,7 @@ import 'package:sokar_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: the store holds {'jira'} of kind {'oauth-device'} granted by {'michi'} at {'2026-09-30T05:40:00Z'}
+/// Usage: the store holds {'jira'} of kind {'oauth-device'} granted by {'alice'} at {'2026-09-30T05:40:00Z'}
 Future<void> theStoreHoldsOfKindGrantedByAt(WidgetTester tester, String name, String kind, String by, String at) async {
   World.backend.theStoreIs = VaultState.from(<String, dynamic>{
     'vault': '/home/somebody/.local/share/sokar/vault.bin',

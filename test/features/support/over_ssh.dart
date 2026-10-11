@@ -1,6 +1,6 @@
 import 'package:sokar_frontend/src/app/connections.dart';
 
-/// [line] as a person reads it — `ssh -t michi@vm sokar vault init` — as it is run: what follows
+/// [line] as a person reads it — `ssh -t alice@vm sokar vault init` — as it is run: what follows
 /// the host goes to the account's login shell, so the account finds its own `sokar`.
 String asRunOverSsh(String line) {
   final words = line.split(' ');

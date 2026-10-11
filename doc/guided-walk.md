@@ -33,8 +33,9 @@ name is in the interface. One is started by copying it over the walk file:
 cp doc/walks/3-first-task-in-default.json ~/.sokar/walk/walk.json
 ```
 
-A walk that has been walked moves to `doc/walks/walked/`, as it was walked. Only the walks still in
-`doc/walks/` are checked against the interface's keys.
+A walk that has been walked is deleted; what it found is in the issues. A walk names no machine,
+account or address: it says "the test machine" and `<Konto>`, which the agent walking it reads from
+`.AGENTS.md`. Every walk in `doc/walks/` is checked against the interface's keys.
 
 **The agent reaches the walk in one of two ways**, both described in the plugin's README:
 - **through the files**, where MCP may not be used: it waits for a comment with

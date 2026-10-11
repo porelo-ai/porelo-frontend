@@ -137,7 +137,7 @@ void main() {
       await iPickAProjectFromOneOfMyRepositories(tester);
       await theRepositoriesAreOffered(tester);
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as michi');
+      await itSays(tester, 'as alice');
       await theForgesRepositoryIsListed(tester, 'acme/api');
     });
     testWidgets(
@@ -178,7 +178,7 @@ void main() {
       await noTokenIsAskedFor(tester);
       await iChooseTheForge(tester, 'GitHub work');
       await itSays(tester, 'GitHub work');
-      await itSays(tester, 'as michi');
+      await itSays(tester, 'as alice');
       await theForgesRepositoryIsListed(tester, 'acme/api');
     });
     testWidgets(
@@ -259,7 +259,7 @@ void main() {
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as michi');
+      await itSays(tester, 'as alice');
       await theKeychainHereKeepsTheToken(tester, 'ghp_accepted');
       await itDoesNotSay(tester, 'ghp_accepted');
     });
@@ -408,7 +408,7 @@ void main() {
       await noTokenIsAskedFor(tester);
       await theForgeAnswers(tester);
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as michi');
+      await itSays(tester, 'as alice');
     });
     testWidgets('''the list narrows to what is searched for''', (tester) async {
       await bddSetUp(tester);
@@ -442,7 +442,7 @@ void main() {
       await theKeychainHereKeepsTheTokenForTheForge(tester, 'ghp_accepted');
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as michi');
+      await itSays(tester, 'as alice');
       await iForgetTheTokenHere(tester);
       await theKeychainHereKeepsNoToken(tester);
     });

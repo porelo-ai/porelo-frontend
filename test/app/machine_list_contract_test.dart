@@ -8,15 +8,15 @@ import 'package:sokar_frontend/src/app/settings.dart';
 void main() {
   test('a machine reached through a tunnel is stored with the four fields the plugin reads', () {
     const machine = Machine(
-        name: 'walk9',
-        socketPath: '/run/user/1000/sokar-tunnel-walk9.sock',
-        host: 'walk9@192.168.122.174',
+        name: 'vm',
+        socketPath: '/run/user/1000/sokar-tunnel-vm.sock',
+        host: 'somebody@192.0.2.10',
         remoteSocket: '/run/user/1012/sokar/sokard.sock');
 
     expect(machine.stored, <String, Object?>{
-      'name': 'walk9',
-      'socket': '/run/user/1000/sokar-tunnel-walk9.sock',
-      'host': 'walk9@192.168.122.174',
+      'name': 'vm',
+      'socket': '/run/user/1000/sokar-tunnel-vm.sock',
+      'host': 'somebody@192.0.2.10',
       'remoteSocket': '/run/user/1012/sokar/sokard.sock',
     });
   });

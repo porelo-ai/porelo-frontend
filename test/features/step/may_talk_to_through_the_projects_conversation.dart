@@ -3,7 +3,7 @@ import 'package:sokar_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: {'sokar-checkout-migrate'} may talk to {'michi'} through the project's conversation, {'external'}
+/// Usage: {'sokar-checkout-migrate'} may talk to {'alice'} through the project's conversation, {'external'}
 ///
 /// A peer at `matrix:`, as a project names a person reading its room, or as Sokar lists the
 /// project's other work (`vouched`).

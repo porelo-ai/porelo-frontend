@@ -263,14 +263,14 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToThroughTheProjectsConversation(
-          tester, 'sokar-checkout-migrate', 'michi', 'external');
+          tester, 'sokar-checkout-migrate', 'alice', 'external');
       await mayTalkToThroughTheProjectsConversation(
           tester, 'sokar-checkout-migrate', 'reader', 'vouched');
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
           "Hold its project's messages to a peer", 'sokar-checkout-migrate');
       await itSays(tester,
-          'Whoever reads this project’s conversation in a matrix client, by the name michi');
+          'Whoever reads this project’s conversation in a matrix client, by the name alice');
       await itSays(tester, 'Another piece of work in this project');
     });
     testWidgets(

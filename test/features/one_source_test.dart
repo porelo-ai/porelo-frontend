@@ -37,12 +37,12 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await defaultHoldsFromTheCheckoutWhoseRemoteIs(
-          tester, 'app', '/home/walk9/walk/app', 'git@example.org:app.git');
+          tester, 'app', '/home/somebody/work/app', 'git@example.org:app.git');
       await iSelectTheProject(tester, 'default');
       await iChooseTheCommand(
           tester, 'Repositories worked on without a project');
       await itSays(tester,
-          'From the checkout /home/walk9/walk/app, and back into it as sokar/<task>');
+          'From the checkout /home/somebody/work/app, and back into it as sokar/<task>');
       await itSays(tester,
           'its remote git@example.org:app.git is yours to pull and push');
     });
@@ -99,12 +99,12 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await aRefreshAnswersBecause(
-          tester, 'FAILED', 'the checkout /home/walk9/walk/app is gone');
+          tester, 'FAILED', 'the checkout /home/somebody/work/app is gone');
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'sokar-checkout-shell');
       await iChooseTheCommand(tester, 'Bring it up to its source');
       await theStatusLineMentions(tester,
-          'could not be brought up to its source: the checkout /home/walk9/walk/app is gone');
+          'could not be brought up to its source: the checkout /home/somebody/work/app is gone');
     });
   });
 }

@@ -2,12 +2,12 @@
   "title": "Walk 12: one source for a repository, both ways",
   "steps": [
     {
-      "say": "Walk 12: eine Quelle pro Repository, in beide Richtungen, auf walk9 mit Sokar 0.4.1~snapshot.271. Fast alles im Terminal: auf dem Desktop\n\nssh walk9@192.168.122.174\n\nund dort zuerst den Tresor öffnen:\n\nsokar vault unlock\n\n„sokar --version“ nennt snapshot.271. Dann „Next“. (Die Schritte 1–7 sind vorher in einem Test-Account durchgespielt; 8 und 9 brauchen die GitHub-Schlüssel von walk9 und sind noch nicht ausprobiert.)",
+      "say": "Walk 12: eine Quelle pro Repository, in beide Richtungen, auf testmaschine mit Sokar 0.4.1~snapshot.271. Fast alles im Terminal: auf dem Desktop\n\nssh <Konto>@<Adresse der Testmaschine>\n\nund dort zuerst den Tresor öffnen:\n\nsokar vault unlock\n\n„sokar --version“ nennt snapshot.271. Dann „Next“. (Die Schritte 1–7 sind vorher in einem Test-Account durchgespielt; 8 und 9 brauchen die GitHub-Schlüssel von testmaschine und sind noch nicht ausprobiert.)",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "1 – Lokale Commits erreichen die Arbeit. Auf walk9 ein Checkout ohne jedes Remote, mit einem Commit, und darin eine Arbeit starten:\n\nmkdir -p ~/walk/app && cd ~/walk/app && git init -q -b main && git config user.email walk9@example.org && git config user.name walk9 && echo hello > README && git add README && git commit -qm \"First, only here\"\nsokar task start --agent claude --attach shell --detach\n\nErwartet: „project … in 'default' as 'app': its history comes from /home/walk9/walk/app, and approved work goes back there as sokar/<task>; Sokar never reaches a remote“, und „container sokar-default-app“.",
+      "say": "1 – Lokale Commits erreichen die Arbeit. Auf testmaschine ein Checkout ohne jedes Remote, mit einem Commit, und darin eine Arbeit starten:\n\nmkdir -p ~/walk/app && cd ~/walk/app && git init -q -b main && git config user.email test@example.org && git config user.name test && echo hello > README && git add README && git commit -qm \"First, only here\"\nsokar task start --agent claude --attach shell --detach\n\nErwartet: „project … in 'default' as 'app': its history comes from /home/<Konto>/walk/app, and approved work goes back there as sokar/<task>; Sokar never reaches a remote“, und „container sokar-default-app“.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
@@ -17,7 +17,7 @@
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "2 – Die Arbeit kommt zurück. Noch in der Arbeit:\n\necho work > WORK && git add WORK && git commit -qm \"Work from the task\" && git push\ngit status -sb | head -1\nexit\n\nDer Push sagt „HEAD -> refs/sokar/incoming/app“, und „git status“ danach steht auf dem Platz der Arbeit am Gate, ohne „ahead“. Dann im Checkout auf walk9:\n\ncd ~/walk/app && sokar approve\n\nEs zeigt den Commit und den Diff von WORK und fragt; mit y: „brought app into /home/walk9/walk/app as sokar/app“. Danach zeigt „git branch“ main und sokar/app, „git status“ ist leer – Dein main und Deine Arbeitskopie sind unberührt.",
+      "say": "2 – Die Arbeit kommt zurück. Noch in der Arbeit:\n\necho work > WORK && git add WORK && git commit -qm \"Work from the task\" && git push\ngit status -sb | head -1\nexit\n\nDer Push sagt „HEAD -> refs/sokar/incoming/app“, und „git status“ danach steht auf dem Platz der Arbeit am Gate, ohne „ahead“. Dann im Checkout auf testmaschine:\n\ncd ~/walk/app && sokar approve\n\nEs zeigt den Commit und den Diff von WORK und fragt; mit y: „brought app into /home/<Konto>/walk/app as sokar/app“. Danach zeigt „git branch“ main und sokar/app, „git status“ ist leer – Dein main und Deine Arbeitskopie sind unberührt.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
@@ -39,7 +39,7 @@
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "6 – Der Agent hat nicht gepusht. In der Arbeit committen, aber nicht pushen:\n\necho first > FIRST && git add FIRST && git commit -qm \"First task change\"\nexit\n\nIm Checkout:\n\nsokar approve\n\nErwartet: „nothing waits at the gate for a task started from /home/walk9/walk/app; but the task sokar-default-app holds 1 commit that is not at the gate. In the task, commit and 'git push' - its remote is the gate“.",
+      "say": "6 – Der Agent hat nicht gepusht. In der Arbeit committen, aber nicht pushen:\n\necho first > FIRST && git add FIRST && git commit -qm \"First task change\"\nexit\n\nIm Checkout:\n\nsokar approve\n\nErwartet: „nothing waits at the gate for a task started from /home/<Konto>/walk/app; but the task sokar-default-app holds 1 commit that is not at the gate. In the task, commit and 'git push' - its remote is the gate“.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
@@ -49,12 +49,12 @@
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "3 – Zwei Checkouts desselben Remotes sind zwei Repositories. Ein Remote auf walk9 selbst, zweimal geklont, in jedem eine Arbeit:\n\ncd ~/walk && git init -q --bare -b main shared.git && git clone -q shared.git seed && cd seed && git config user.email walk9@example.org && git config user.name walk9 && echo s > S && git add S && git commit -qm seed && git push -q origin main && cd ..\ngit clone -q shared.git one && git clone -q shared.git two\n(cd one && sokar task start --agent claude --attach shell --detach)\n(cd two && sokar task start --agent claude --attach shell --detach)\nsokar project default\n\nErwartet: „added to 'default' as 'shared'“ für one und „… as 'shared-2'“ für two, jedes mit „Sokar never reaches /home/walk9/walk/shared.git“; „sokar project default“ listet shared → ~/walk/one und shared-2 → ~/walk/two.",
+      "say": "3 – Zwei Checkouts desselben Remotes sind zwei Repositories. Ein Remote auf testmaschine selbst, zweimal geklont, in jedem eine Arbeit:\n\ncd ~/walk && git init -q --bare -b main shared.git && git clone -q shared.git seed && cd seed && git config user.email test@example.org && git config user.name test && echo s > S && git add S && git commit -qm seed && git push -q origin main && cd ..\ngit clone -q shared.git one && git clone -q shared.git two\n(cd one && sokar task start --agent claude --attach shell --detach)\n(cd two && sokar task start --agent claude --attach shell --detach)\nsokar project default\n\nErwartet: „added to 'default' as 'shared'“ für one und „… as 'shared-2'“ für two, jedes mit „Sokar never reaches /home/<Konto>/walk/shared.git“; „sokar project default“ listet shared → ~/walk/one und shared-2 → ~/walk/two.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "8 – Ein Repository mit dem Remote als Quelle (noch nicht ausprobiert: der Test-Account hat keine GitHub-Schlüssel). Den Klon von sokar-test-1 von Deinem Desktop nach walk9 kopieren, im Terminal auf dem Desktop:\n\nscp -rq ~/.sokar/git/sokar-test-1 walk9@192.168.122.174:walk/t1\n\nAuf walk9:\n\ncd ~/walk/t1 && sokar task start --agent claude --attach shell --detach\n\nErwartet: „… its work comes from <remote> and goes there, not into this checkout“. In der Arbeit ein Commit und git push wie in Schritt 2, dann im Checkout „sokar approve“: es sagt, die Arbeit geht an das Remote, und nennt „sokar gate approve“; „git branch“ zeigt keinen sokar/-Branch. Weicht etwas ab, schreib es mir.",
+      "say": "8 – Ein Repository mit dem Remote als Quelle (noch nicht ausprobiert: der Test-Account hat keine GitHub-Schlüssel). Den Klon von sokar-test-1 von Deinem Desktop nach testmaschine kopieren, im Terminal auf dem Desktop:\n\nscp -rq ~/.sokar/git/sokar-test-1 <Konto>@<Adresse der Testmaschine>:walk/t1\n\nAuf testmaschine:\n\ncd ~/walk/t1 && sokar task start --agent claude --attach shell --detach\n\nErwartet: „… its work comes from <remote> and goes there, not into this checkout“. In der Arbeit ein Commit und git push wie in Schritt 2, dann im Checkout „sokar approve“: es sagt, die Arbeit geht an das Remote, und nennt „sokar gate approve“; „git branch“ zeigt keinen sokar/-Branch. Weicht etwas ab, schreib es mir.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "say": "Aufräumen, auf walk9. Zuerst die Arbeiten von default ansehen:\n\nsokar task list\n\nJede Zeile, die mit sokar-default- beginnt, entfernen, z. B.:\n\nsokar task remove --force sokar-default-app\n\n(ebenso second, shared, shared-2 und die aus Schritt 8), dann rm -rf ~/walk. Die Online-Arbeit an der Kachel ⋮ → „Stop it, keeping its workspace“, dann „Remove it“; den Branch online bei GitHub löschst Du vom Desktop aus: cd ~/.sokar/git/sokar-test-2 && git push -q origin --delete online. Die Einträge in default (app, shared, shared-2 und der aus Schritt 8) bleiben stehen; sag mir, ob ich sie wegräumen soll.",
+      "say": "Aufräumen, auf testmaschine. Zuerst die Arbeiten von default ansehen:\n\nsokar task list\n\nJede Zeile, die mit sokar-default- beginnt, entfernen, z. B.:\n\nsokar task remove --force sokar-default-app\n\n(ebenso second, shared, shared-2 und die aus Schritt 8), dann rm -rf ~/walk. Die Online-Arbeit an der Kachel ⋮ → „Stop it, keeping its workspace“, dann „Remove it“; den Branch online bei GitHub löschst Du vom Desktop aus: cd ~/.sokar/git/sokar-test-2 && git push -q origin --delete online. Die Einträge in default (app, shared, shared-2 und der aus Schritt 8) bleiben stehen; sag mir, ob ich sie wegräumen soll.",
       "at": [],
       "then": "!walk-stays-until-next"
     },

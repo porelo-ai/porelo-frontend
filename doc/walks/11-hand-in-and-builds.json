@@ -2,13 +2,13 @@
   "title": "Walk 11: a file handed to the work, and the build of its push",
   "steps": [
     {
-      "say": "Walk 11: eine Datei an die Arbeit geben und zurücknehmen, und was der Build ihres Pushs sagt, mit dem echten Claude Code auf walk9. Zuerst den Tresor von walk9 öffnen (er ist seit dem Neustart der VM zu), in einem Terminal auf dem Desktop:\n\nssh walk9@192.168.122.174 'bash -lc \"sokar vault unlock && sokar vault list && sokar project following\"'\n\n„vault list“ nennt sokar-test-actions und die drei deploy:sokar-test-project:…; „project following“ zeigt c42f9cd, nicht mehr vault_locked. Dann „Next“ hier.",
+      "say": "Walk 11: eine Datei an die Arbeit geben und zurücknehmen, und was der Build ihres Pushs sagt, mit dem echten Claude Code auf testmaschine. Zuerst den Tresor von testmaschine öffnen (er ist seit dem Neustart der VM zu), in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar vault list && sokar project following\"'\n\n„vault list“ nennt sokar-test-actions und die drei deploy:sokar-test-project:…; „project following“ zeigt c42f9cd, nicht mehr vault_locked. Dann „Next“ hier.",
       "at": []
     },
     {
-      "say": "Links „Machines“: walk9 antwortet mit Sokar 0.4.1~snapshot.259. Fehlt walk9 in der Liste: „Watch another machine…“, Name walk9, „Raise the forward for me“, „Where it is“ walk9@192.168.122.174, das Socket-Feld leer lassen (die Maschine wird gefragt).",
+      "say": "Links „Machines“: testmaschine antwortet mit Sokar 0.4.1~snapshot.259. Fehlt testmaschine in der Liste: „Watch another machine…“, Name testmaschine, „Raise the forward for me“, „Where it is“ <Konto>@<Adresse der Testmaschine>, das Socket-Feld leer lassen (die Maschine wird gefragt).",
       "at": [
-        "rail-machine walk9",
+        "rail-machine testmaschine",
         "rail machines",
         "open-rail"
       ]
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "say": "Die rote Arbeit starten: auf der Seite von sokar-test-project an der Zeile sokar-test-2 rechts ⋮ → „Start work in sokar-test-2“ (oder links „Work“ → „New work“, walk9, sokar-test-project, sokar-test-2).",
+      "say": "Die rote Arbeit starten: auf der Seite von sokar-test-project an der Zeile sokar-test-2 rechts ⋮ → „Start work in sokar-test-2“ (oder links „Work“ → „New work“, testmaschine, sokar-test-project, sokar-test-2).",
       "at": [
         "start-in-*test-2",
         "repository-menu *test-2",
@@ -64,7 +64,7 @@
       ]
     },
     {
-      "say": "Die Statuszeile sagt „note.txt is in sokar-sokar-test-project-red now, as /sokar/files/note.txt.“ Die Arbeit öffnen mit › rechts an der Kachel: „Handed in“ zeigt note.txt, 21 bytes, by walk9; „Hand-in record“ note.txt given by walk9.",
+      "say": "Die Statuszeile sagt „note.txt is in sokar-sokar-test-project-red now, as /sokar/files/note.txt.“ Die Arbeit öffnen mit › rechts an der Kachel: „Handed in“ zeigt note.txt, 21 bytes, by testmaschine; „Hand-in record“ note.txt given by testmaschine.",
       "at": [
         "handed-in",
         "hand-in-record",
@@ -79,7 +79,7 @@
       ]
     },
     {
-      "say": "Zurücknehmen: an der Kachel ⋮ → „Take back a file it was handed“ → „note.txt, 21 bytes, by walk9“. Die Statuszeile: „note.txt is out of … again.“ In der geöffneten Arbeit steht im „Hand-in record“ jetzt auch note.txt taken back by walk9.",
+      "say": "Zurücknehmen: an der Kachel ⋮ → „Take back a file it was handed“ → „note.txt, 21 bytes, by testmaschine“. Die Statuszeile: „note.txt is out of … again.“ In der geöffneten Arbeit steht im „Hand-in record“ jetzt auch note.txt taken back by testmaschine.",
       "at": [
         "take back *",
         "text:Take back a file it was handed",
@@ -113,7 +113,7 @@
       ]
     },
     {
-      "say": "Die grüne Arbeit, auf walk9: links „Work“ → „New work“ → „Where should it run?“ walk9, dann sokar-test-project (oder links „Projects“ → sokar-test-project, an der Zeile sokar-test-1 ⋮ → „Start work in sokar-test-1“). Repository sokar-test-1, Name green, Claude Code, „A shell, driven by hand“, „Start it“, dann „Leave“.",
+      "say": "Die grüne Arbeit, auf testmaschine: links „Work“ → „New work“ → „Where should it run?“ testmaschine, dann sokar-test-project (oder links „Projects“ → sokar-test-project, an der Zeile sokar-test-1 ⋮ → „Start work in sokar-test-1“). Repository sokar-test-1, Name green, Claude Code, „A shell, driven by hand“, „Start it“, dann „Leave“.",
       "at": [
         "start-in-*test-1",
         "repository-menu *test-1",
@@ -134,7 +134,7 @@
       ]
     },
     {
-      "say": "Aufräumen: an beiden Kacheln ⋮ → „Stop it, keeping its workspace“, dann „Remove it“. Die Branches bei GitHub, im Terminal auf dem Desktop:\n\ncd ~/.sokar/git/sokar-test-2 && git switch -q main && git push -q origin --delete red\ncd ~/.sokar/git/sokar-test-1 && git switch -q main && git push -q origin --delete green\n\nDie Anmeldung bei Claude Code bleibt im Tresor von walk9, wie Du willst.",
+      "say": "Aufräumen: an beiden Kacheln ⋮ → „Stop it, keeping its workspace“, dann „Remove it“. Die Branches bei GitHub, im Terminal auf dem Desktop:\n\ncd ~/.sokar/git/sokar-test-2 && git switch -q main && git push -q origin --delete red\ncd ~/.sokar/git/sokar-test-1 && git switch -q main && git push -q origin --delete green\n\nDie Anmeldung bei Claude Code bleibt im Tresor von testmaschine, wie Du willst.",
       "at": [
         "text:Remove it",
         "text:Stop it, keeping its workspace",

@@ -229,7 +229,7 @@ void main() {
           'projects': <Map<String, dynamic>>[
             <String, dynamic>{
               'name': 'objects4j',
-              'file': '/home/michi/git/objects4j/project.yml',
+              'file': '/home/alice/git/objects4j/project.yml',
               'following': <String, dynamic>{},
             },
             <String, dynamic>{'name': 'older', 'file': '/srv/older/project.yml'},

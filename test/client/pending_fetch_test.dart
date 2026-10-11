@@ -12,8 +12,8 @@ void main() {
 
   test('the host is the one this computer reaches the machine by', () {
     const push = PendingPush(name: 'x', commit: '', subject: '', waiting: '', at: '', fetch: named);
-    expect(push.fetchFrom('me@192.168.122.174'),
-        'git fetch ssh://me@192.168.122.174/srv/repo.git refs/sokar/incoming/x:refs/remotes/sokar/x');
+    expect(push.fetchFrom('me@192.0.2.10'),
+        'git fetch ssh://me@192.0.2.10/srv/repo.git refs/sokar/incoming/x:refs/remotes/sokar/x');
     expect(push.fetchFrom(null), named, reason: 'reached otherwise, it is as the machine named it');
     expect(push.inRepository('repo').fetch, named, reason: 'kept when the repository is added');
   });
