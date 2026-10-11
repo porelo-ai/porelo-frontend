@@ -1,6 +1,6 @@
 # F97 — Forwarding To A Branch, Measured Against GitHub
 
-**Status:** Analyzed.
+**Status:** Analyzed; blocked by the test organisation and its token from the operator.
 **Size:** M - no product code changes, but a new acceptance scenario on the VM against GitHub, with
 its support for a token and a test repository; it waits for both from the operator, as [F59](README.md#f59) does.
 
@@ -14,13 +14,19 @@ have not been measured against GitHub.
 
 ## Plan
 
+- **Against real GitHub, in a CI leg.** In a test organisation of its own (`sokar-ai-test`), with
+  its test repositories made once by a script, and a fine-grained token scoped to that organisation
+  only, kept as the Actions secret `SOKAR_TEST_GITHUB_TOKEN` of this repository. The leg runs in the
+  Build's job against a leased machine, on a push to `main` or by hand, never for a pull request,
+  and skips itself while the token is missing. The operator makes the organisation and the token.
 - **What is measured.** `_ShellState._approve` in `lib/src/ui/shell.dart` asks `_branchesFor`
   (which reads `Forge.branches` and the default branch from `Forge.repository`), then
   `askWhichBranch` (`lib/src/ui/gate_view.dart`), then `Gate.approve(backend, branch)` in
   `lib/src/app/gate.dart`. Nothing of this changes unless the measurement finds a fault.
 - **A waiting push on the VM.** No integration scenario reaches the gate today. A step makes one
   through `onTheTestMachine` (`integration_test/support/remote.dart`): a task in a project
-  following the test repository commits and pushes, so its push waits at the gate.
+  following the test repository commits and pushes, so its push waits at the gate. The task's
+  shell does it; no agent's work is needed.
 - **GitHub in the run.** A support file in `integration_test/support/` reads the token and the test
   repository from the environment, as `E2e` in `integration_test/support/e2e.dart` reads
   `SOKAR_E2E_HOST`, and skips the scenario when they are not set. It asks GitHub's API for a
@@ -39,10 +45,3 @@ have not been measured against GitHub.
   typed one arrives on that branch at GitHub. Seen to fail: the commit missing from the chosen branch
   at GitHub, or landing on another.
 
-## Open questions
-
-- The GitHub token and the test repository for the run, and where the run reads them from without
-  their being kept here or in the channel. (the operator's)
-- Is this issue blocked by them, as [F59](README.md#f59) is, so its status says so? (the operator's)
-- A waiting push needs a task that pushes; is a task whose shell commits and pushes on the VM
-  enough, or must it be an agent's work? (the operator's)

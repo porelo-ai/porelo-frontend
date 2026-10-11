@@ -26,6 +26,9 @@ a machine using a key for an address.
 - **The steps.** `test/features/step/i_add_a_connection_to.dart` and
   `i_forget_the_connection.dart` open the ⋮ first; `adding_a_connection_is_offered.dart` and
   `the_connections_of_the_machine_are_open.dart` look for the menu entry, not the button.
+- **The wizard's last step.** Where the new-machine wizard ends in this view, it opens "Add a
+  connection" at once; whoever needs none closes it. `adding_a_machine.feature`'s step "adding a
+  connection is offered" then finds the open dialog.
 - **Red first.** A new scenario in `test/features/connections.feature`, "adding and forgetting are
   in the view's menu, not in the view": it finds no `add-connection` and no `forget ...` outside the
   open menu, then adds and forgets through it. The existing add and forget scenarios must stay green
@@ -36,12 +39,6 @@ a machine using a key for an address.
 - "Add a connection" and "Forget" are reached from the view's ⋮ and work as before; the view itself
   offers neither. Seen to fail: a scenario in `test/features/connections.feature` that finds either
   action in the view outside the ⋮, or cannot add or forget a connection through the ⋮.
-
-## Open questions
-
-- The new-machine wizard ends in this view to set up how the machine connects out
-  (`adding_a_machine.feature`); with "Add a connection" in the ⋮, does that step still show an
-  empty view with a pointer to the ⋮, or open the wizard at once? (the operator's)
 
 ## To be checked
 

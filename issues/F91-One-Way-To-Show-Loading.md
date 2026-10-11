@@ -14,6 +14,8 @@ reading and what, so a person never takes an empty view for a finished one.
 - The forge's page already shows it this way. The views still to go through: Connections, a machine's
   page, the gate, backups, what a project may reach, Messages, Agents, the vault, the start form, a
   project's machines and keys at its forge, the Default dialog.
+- In a dialog the bar sits at the top of the dialog's content; that is the same way, and a dialog
+  gets no header of its own.
 
 ## Plan
 
@@ -50,12 +52,6 @@ reading and what, so a person never takes an empty view for a finished one.
 - Each view, its answer held back, shows the progress and its sentence, then the answer once it comes.
   Seen to fail: a scenario per view that holds the answer back and finds no progress or no sentence,
   or still finds the progress after the answer came.
-
-## Open questions
-
-- Dialogs (`MessagesDialog`, `DefaultDialog`, `StartWorkDialog`, `ProjectForgeDialog`) have no
-  pane header: the bar sits at the top of the dialog's content, not under a title bar. Is that
-  the same "way" the shape asks for? (the operator's)
 
 ## To be checked
 

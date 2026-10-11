@@ -36,12 +36,12 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. | — |
-| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. | 1 |
-| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. | 1 |
+| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. | — |
+| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. | — |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. | 2 |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | — | A waiting push fetched here, into a clone the person chooses. | 2 |
-| <a id="f96"></a>[F96](F96-Keys-A-Machine-No-Longer-Knows.md) | M | — | Clearing a machine also removes the forge keys it no longer knows. | 2 |
-| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | — | Forwarding to a chosen branch measured against GitHub. | 3 |
+| <a id="f96"></a>[F96](F96-Keys-A-Machine-No-Longer-Knows.md) | M | the test organisation and its token from the operator | Clearing a machine also removes the forge keys it no longer knows. | — |
+| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | the test organisation and its token from the operator | Forwarding to a chosen branch measured against GitHub. | — |
 | <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | — | A task's terminal in the interface behaves as in a plain terminal. | 2 |
 | <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `sokar` [B160](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. | — |
 | <a id="f77"></a>[F77](F77-What-A-Piece-Of-Work-Did-Is-One-Page.md) | XL | — | What a piece of work did, on one page with one timeline. | 1 |
@@ -49,7 +49,7 @@ counted. A finished issue is deleted, file and row together, once what outlives 
 | <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | L | `sokar` [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171) | Comments on lines in the review: written, read with their origin, held and released. | 2 |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. | — |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | `sokar` [B95](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b95) | A waiting push's tests run in a container of their own on the machine. | 1 |
-| <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | a GitHub token and test repositories from the operator | Making a project from a repository measured against GitHub. | 2 |
+| <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. | — |
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `sokar` [B99](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. | — |
 | <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. | 2 |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `sokar` (`@label`, the agent card), `sokar-message-matrix` (the display name) | A nickname for each agent. | — |

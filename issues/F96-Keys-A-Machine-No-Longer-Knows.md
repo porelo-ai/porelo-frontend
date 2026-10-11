@@ -1,6 +1,6 @@
 # F96 — Keys A Machine No Longer Knows, Found By Their Title
 
-**Status:** Analyzed.
+**Status:** Analyzed; blocked by the test organisation and its token from the operator.
 **Size:** M - one module and its scenario, plus a measurement on the VM against Sokar's handover;
 no contract changes on this side.
 
@@ -14,6 +14,11 @@ Clearing a machine or a project already takes its keys at the forge and its line
 
 ## Plan
 
+- **Against real GitHub, in a CI leg.** In a test organisation of its own (`sokar-ai-test`), with
+  its test repositories made once by a script, and a fine-grained token scoped to that organisation
+  only, kept as the Actions secret `SOKAR_TEST_GITHUB_TOKEN` of this repository. The leg runs in the
+  Build's job against a leased machine, on a push to `main` or by hand, never for a pull request,
+  and skips itself while the token is missing. The operator makes the organisation and the token.
 - **Where it is today.** `MachineClearing.clearIt` in `lib/src/app/machine_clearing.dart` calls the
   machine's `clear`, then `removeAtTheForge` in `lib/src/app/machine_binding.dart` for each
   `MachineDeployKey` in `Cleared.keys`, matched at the forge by public key; `_takeOutTheSigner`
@@ -27,30 +32,28 @@ Clearing a machine or a project already takes its keys at the forge and its line
   named." For a project clearing, only titles with that project.
 - **The machine's name in titles.** Read off the titles of `Cleared.keys` where there are any; a
   machine that names no key leaves nothing to match by, and the report says so.
+- **Beyond the projects, on a yes.** At the end of a clearing the report offers a thorough search
+  over every repository the token reaches, one request each, run only when the person says yes,
+  and says what it found and removed the same way.
 - **The preview.** `look` lists the found keys too, so what goes is shown before it goes, as today.
 - **Red first.** In `test/features/project_from_repository.feature`, beside "a machine is cleared
   in one step": "a key at the forge the machine no longer names is found by its title and
   cleared" - `FakeForge` holds `sokar vm api/api` that the fake's `clear` does not name; after
   clearing it is gone and the report names it. The existing step "the forge holds the key ... from
   a machine that is gone" sets such a key up already.
-- **On the VM.** Then a scenario in `integration_test/reaching_a_machine.feature`, run against
-  Sokar's handover: bind, make the machine forget a key, clear, and find neither the key nor the
+- **On the VM, then in CI against GitHub.** A scenario in
+  `integration_test/reaching_a_machine.feature`, run against Sokar's handover and the test
+  organisation's repositories: bind, make the machine forget a key, clear, and find neither the key nor the
   `machine-signers` line.
 
 ## Acceptance
 
 - Keys at the forge whose title names the machine are found and cleared with it, though the machine
-  does not name them. Seen to fail: a scenario with such a key at the forge that is still there after
+  does not name them, in the repositories of the machine's projects; with the person's yes, in
+  every repository the token reaches. Seen to fail: a scenario with such a key at the forge that is still there after
   clearing, or not listed among what was cleared.
 - The clearing is measured on a machine against Sokar's handover. Seen to fail: on the VM, a key of
   the cleared machine still at the forge, or its line still in `machine-signers`.
-
-## Open questions
-
-- Is the VM measured against real GitHub with test repositories, which waits for the operator's
-  token as [F59](README.md#f59) does, or against a stand-in forge beside the real daemon? (the operator's)
-- Should keys titled for this machine in repositories outside its projects (all the token reaches)
-  be looked for too, at one request per repository? (the operator's)
 
 ## To be checked
 

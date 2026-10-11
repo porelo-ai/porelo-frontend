@@ -1,6 +1,6 @@
 # F59 — A Project From A Repository, Measured Against GitHub
 
-**Status:** Analyzed; blocked by a GitHub token and the test repositories from the operator.
+**Status:** Analyzed; blocked by the test organisation, its token and signing key from the operator.
 **Size:** S - a measurement against GitHub with the code as it is, and a fix only where one step
 fails; it waits for the operator's token and test repositories.
 
@@ -20,6 +20,12 @@ the token nor the repositories are ever kept in this repository or the channel.
 
 ## Plan
 
+- **Against real GitHub, in a CI leg.** In a test organisation of its own (`sokar-ai-test`), with
+  its test repositories made once by a script, and a fine-grained token scoped to that organisation
+  only, kept as the Actions secret `SOKAR_TEST_GITHUB_TOKEN` of this repository with the signing
+  key `SOKAR_TEST_SIGNING_KEY`. The leg runs in the Build's job against a leased machine, on a push
+  to `main` or by hand, never for a pull request, and skips itself while either is missing. The
+  operator makes the organisation, the token and the key.
 - **No new code is planned:** each criterion is measured on the VM against Sokar's handover, with
   the interface built from this repository and the operator's token and test repositories. A step
   that fails becomes a fix with its test first.
@@ -31,9 +37,10 @@ the token nor the repositories are ever kept in this repository or the channel.
 - **Branch protection:** a rule set on the test repository's branch; a push through
   `ProjectWorkspace` and a forward through `Gate.approve` (`lib/src/app/gate.dart`) are made against
   it, and the words shown are compared with GitHub's.
-- **Past 100 repositories:** `GitHub.repositories` in `lib/src/app/forge.dart` read for an account
-  with more than 100, once with a fine-grained token and once with a classic one, and compared with
-  GitHub's own list, admin and push rights included.
+- **Past 100 repositories:** `GitHub.repositories` in `lib/src/app/forge.dart` read for the test
+  organisation, which holds 104, and compared with GitHub's own list, admin and push rights
+  included. Only the fine-grained token: both kinds are listed through the same `/user/repos`, so
+  a classic token adds nothing to prove and is not kept.
 - **Approved work in a project:** a task started in a project, its push forwarded at the gate, and
   the commit looked for on the repository's branch at GitHub.
 - **Red first:** none written ahead; the unit tests in `test/app/forge_test.dart` stand for GitHub's
@@ -48,17 +55,10 @@ the token nor the repositories are ever kept in this repository or the channel.
 - **A push that branch protection refuses** is said in GitHub's words. Seen to fail: a push to a
   protected branch shows anything other than GitHub's refusal.
 - **The repository list pages past 100 repositories**, with admin and push rights as GitHub reports
-  them, for a fine-grained token and for a classic one. Seen to fail: an account with more than 100
-  repositories where one is missing or its rights differ from GitHub's.
+  them. Seen to fail: the test organisation's 104 repositories with one missing or its rights
+  differing from GitHub's.
 - **Approved work in a project**, not only in `default`, reaches the repository at GitHub. Seen to
   fail: the approved commit is not on the repository's branch at GitHub.
-
-## Open questions
-
-- **An account with more than 100 repositories**, and a classic token beside the fine-grained
-  one, for the paging step. (the operator's)
-- **Whether the measurement stays a manual step or becomes a leg** that runs with a token kept in
-  the build's secrets. (the operator's)
 
 ## To be checked
 
