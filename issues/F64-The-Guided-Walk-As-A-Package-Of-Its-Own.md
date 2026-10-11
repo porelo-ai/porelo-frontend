@@ -1,6 +1,6 @@
 # F64 — The Guided Walk as a Package of Its Own
 
-**Status:** later.
+**Status:** Analyzed.
 **Size:** L - what is left is in another repository, `flutter-guided-walk`: a Semantics reader,
 a WebSocket way, a versioned walk format, the waiting words and pub.dev; this repository's part is S.
 

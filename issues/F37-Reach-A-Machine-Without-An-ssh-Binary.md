@@ -1,6 +1,6 @@
 # F37 — Reach A Machine Without An ssh Binary
 
-**Status:** later; blocked by the operator: a mobile client.
+**Status:** Analyzed; blocked by the operator: a mobile client.
 **Size:** L - one transport interface over the forward, the trial and the terminal, a `dartssh2`
 implementation with its own host key store and keychain, and a leg against a real machine; its
 questions decided first. A mobile client itself is not in it, and waits for the operator.

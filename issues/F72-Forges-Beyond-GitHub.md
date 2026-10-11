@@ -1,6 +1,6 @@
 # F72 — Forges Beyond GitHub
 
-**Status:** later; blocked by the operator: which forge next.
+**Status:** Analyzed; blocked by the operator: which forge next.
 **Size:** M per forge - a second `Forge` beside `GitHub`, chosen by address, the GitHub-only
 reading of an upstream widened, scenarios, and a leg measured against the forge; waits for the
 operator to name the forge and give an account there.

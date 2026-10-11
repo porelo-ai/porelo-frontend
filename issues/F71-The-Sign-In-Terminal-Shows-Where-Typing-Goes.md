@@ -1,6 +1,6 @@
 # F71 — The Sign-In Terminal Shows Where Typing Goes
 
-**Status:** now; built, to be walked.
+**Status:** Review; to be walked.
 
 **What must be true.** A terminal that waits for the person's input shows where it goes.
 

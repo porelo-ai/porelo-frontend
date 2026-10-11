@@ -1,6 +1,6 @@
 # F93 — Connections: Its Rare Actions Out Of The Way
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** S - one view and its steps change; the wizard and `Connections` stay as they are.
 
 **What must be true.** A machine's Connections shows which key or token the machine reaches each

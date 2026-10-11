@@ -1,6 +1,6 @@
 # F79 — What Walk 8 Found In The Interface
 
-**Status:** now; built, to be walked.
+**Status:** Review; to be walked.
 
 **What must be true.** A person reads tiles, *Needs you*, *Join* and talking at a glance, and sees the
 effect of their own action at once; each point below is fixed, or decided against in

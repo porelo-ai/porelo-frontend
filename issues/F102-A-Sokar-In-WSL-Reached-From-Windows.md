@@ -1,7 +1,7 @@
 # F102 — A Sokar In WSL Reached From Windows
 
-**Status:** stages 1 to 3 built: the WSL reach, the ZIP, and the MSIX signed by `CN=porelo.ai`,
-published from the Build on `main` since 2026-10-11. See *The stages*.
+**Status:** Implementing; stages 1 to 3 built: the WSL reach, the ZIP, and the MSIX signed by
+`CN=porelo.ai`, published from the Build on `main` since 2026-10-11. See *The stages*.
 **Size:** M - what remains: the MSIX installed and started in the Build's Windows job, Windows
 notifications once the MSIX gives the interface an identity, and the operator's test on Windows; no
 contract changes.

@@ -1,6 +1,6 @@
 # F99 — An Attached Agent Shown At Rest Or Working
 
-**Status:** soon; blocked by `sokar` B118.
+**Status:** Analyzed; blocked by `sokar` B118.
 **Size:** S - one derivation, its tile words, the stand-in and two feature files; waits for
 `sokar` B118's answer on the wire.
 

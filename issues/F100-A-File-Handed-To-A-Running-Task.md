@@ -1,6 +1,6 @@
 # F100 — A File Handed To A Running Task
 
-**Status:** soon; built, to be walked; blocked by `sokar` B39 until it is on `main`.
+**Status:** Review; to be walked. Blocked by `sokar` B39 until it is on `main`.
 
 **What must be true.** A person hands a file on this computer to a running task from the interface,
 sees what the task has been handed and by whom, takes a file back, and reads the record of every

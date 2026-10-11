@@ -1,6 +1,6 @@
 # F78 — A Waiting Push Is Reviewed As At A Forge
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** M - the review's model and view are rewritten in one repository, with a new dependency for
 syntax colors; it becomes L if showing the whole file needs a method from `sokar`.
 

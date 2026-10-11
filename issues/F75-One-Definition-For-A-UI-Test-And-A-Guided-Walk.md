@@ -1,6 +1,6 @@
 # F75 — One Definition For A UI Test And A Guided Walk
 
-**Status:** later; blocked by flutter-guided-walk: a scenario that is also a walk.
+**Status:** Analyzed; blocked by flutter-guided-walk: a scenario that is also a walk.
 **Size:** XL - splits into the plugin's step that carries its walk steps (`flutter-guided-walk`,
 L); the walks in `doc/walks/` generated from their scenarios and compared (M); and every other step
 given walk steps or marked by hand, over the 1,107 files in `test/features/step/` (L). Blocked by

@@ -1,9 +1,9 @@
 # F107 — Code Comments In The Review
 
-**Status:** soon; decided on 2026-10-10, the next larger block after the Windows round. Blocked by
-`sokar`'s B166, "Line Comments Sent Back To The Agent", for the comment model, comments with their
-origin and the local review, and by B171, "Forge Review Comments To And From A Task", for held forge
-comments and releasing outgoing ones. An agent as reviewer is B172, "A Task That Reviews".
+**Status:** Analyzed; blocked by `sokar`'s B166, "Line Comments Sent Back To The Agent", for the comment
+model, comments with their origin and the local review, and by B171, "Forge Review Comments To And
+From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is B172, "A
+Task That Reviews".
 **Size:** L - crosses repositories: a new part of `Tasks1` from `sokar`, the review, *Needs you*,
 the stand-in and the docs; it is built in parts, the B166 part (ways A and B), the B171 part (C and
 outgoing release), and D once `sokar` B172 is built.

@@ -1,6 +1,6 @@
 # F94 — A Project's Keys Told In One Place
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** M - a new question to the forge, the binding's survey and its dialog, and scenarios with a
 fake branch rule; nothing another repository reads changes.
 

@@ -1,6 +1,6 @@
 # F81 — The Setup Script Checked By Its Signature
 
-**Status:** soon; blocked by `sokar` B99.
+**Status:** Analyzed; blocked by `sokar` B99.
 **Size:** M - one module and its scenarios here, but it follows a contract `sokar` B99 sets (the
 key, the signature's form, the versioned names) and a leg on a leased machine; it waits for B99.
 

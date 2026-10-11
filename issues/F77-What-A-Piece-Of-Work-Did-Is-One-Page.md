@@ -1,6 +1,6 @@
 # F77 — What A Piece Of Work Did Is One Page
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** XL - five kinds of facts on the tile, a merged timeline and an end line; it splits into an
 S (the end line), an M (the timeline) and an L (*What it did*, which needs answers from `sokar`).
 

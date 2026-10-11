@@ -1,6 +1,6 @@
 # F97 — Forwarding To A Branch, Measured Against GitHub
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** M - no product code changes, but a new acceptance scenario on the VM against GitHub, with
 its support for a token and a test repository; it waits for both from the operator, as F59 does.
 

@@ -1,6 +1,6 @@
 # F69 — The New-Machine Wizard Offers What Is Published
 
-**Status:** now; built, to be walked.
+**Status:** Review; to be walked.
 
 **What must be true.** The wizard offers what the package index has today, says what it installs in
 today's words, and lets a step be left only once it is done.

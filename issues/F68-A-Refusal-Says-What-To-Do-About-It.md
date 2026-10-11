@@ -1,7 +1,6 @@
 # F68 — A Refusal Says What To Do About It
 
-**Status:** now; mostly built, to be walked; an organisation's approval of a fine-grained token not
-built.
+**Status:** Review; to be walked; an organisation's approval of a fine-grained token not built.
 
 **What must be true.** Where the interface knows why something was refused, it says what to change,
 and where, instead of showing only the forge's or ssh's words.

@@ -1,6 +1,6 @@
 # F59 — A Project From A Repository, Measured Against GitHub
 
-**Status:** soon; blocked by a GitHub token and the test repositories from the operator.
+**Status:** Analyzed; blocked by a GitHub token and the test repositories from the operator.
 **Size:** S - a measurement against GitHub with the code as it is, and a fix only where one step
 fails; it waits for the operator's token and test repositories.
 

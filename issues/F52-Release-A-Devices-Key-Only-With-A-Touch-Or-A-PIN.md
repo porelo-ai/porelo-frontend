@@ -1,6 +1,6 @@
 # F52 — Release A Device's Key Only With A Touch Or A PIN
 
-**Status:** later.
+**Status:** Analyzed.
 **Size:** XL - splits into a store that derives the share at unlock behind `DeviceKeyStore`,
 with its words (M); FIDO2 `hmac-secret` through a native library on Linux and Windows (L); and a
 TPM2 object behind a PIN on Linux and Windows (L).

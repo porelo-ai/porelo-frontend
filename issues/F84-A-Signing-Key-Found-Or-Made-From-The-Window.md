@@ -1,6 +1,6 @@
 # F84 — A Signing Key Found Or Made From The Window
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** M - two dialogs, the workspace's key list, a terminal and two desktop dialogs here, with
 scenarios; how a key is kept across restarts is still to be decided and may add to it.
 

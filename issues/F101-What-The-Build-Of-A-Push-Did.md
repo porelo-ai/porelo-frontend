@@ -1,6 +1,6 @@
 # F101 — What The Build Of A Push Did
 
-**Status:** soon; built, to be walked; blocked by `sokar` B37 until it is on `main`.
+**Status:** Review; to be walked. Blocked by `sokar` B37 until it is on `main`.
 
 **What must be true.** A person sees on a work tile, and in the work's detail, what the build of the
 work's last push did - its verdict, every job and which of them left a log in the task - as the

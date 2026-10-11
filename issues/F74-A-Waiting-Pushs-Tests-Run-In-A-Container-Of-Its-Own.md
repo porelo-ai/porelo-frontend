@@ -1,6 +1,6 @@
 # F74 — A Waiting Push's Tests Run In A Container Of Its Own
 
-**Status:** soon; blocked by `sokar` B95.
+**Status:** Analyzed; blocked by `sokar` B95.
 **Size:** M - the frontend's part: an action beside the review, a command kept per project, a
 terminal for the run and an acceptance step on the VM; it waits for `sokar` B95's `gate try`.
 

@@ -1,6 +1,6 @@
 # F96 — Keys A Machine No Longer Knows, Found By Their Title
 
-**Status:** soon.
+**Status:** Analyzed.
 **Size:** M - one module and its scenario, plus a measurement on the VM against Sokar's handover;
 no contract changes on this side.
 

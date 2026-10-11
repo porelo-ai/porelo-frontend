@@ -1,7 +1,6 @@
 # F104 — A Project Followed From A File
 
-**Status:** open; decided on 2026-10-10. Blocked by `sokar` B160, "A Project Followed From A File
-Over The Socket".
+**Status:** Analyzed; blocked by `sokar` B160, "A Project Followed From A File Over The Socket".
 **Size:** M - the frontend's part: one contract change read in the client, the follow
 dialog, the project's view and the mock, with scenarios. It waits for `sokar` B160.
 
