@@ -35,7 +35,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. | — |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. | — |
 
-### Idea
+### Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|

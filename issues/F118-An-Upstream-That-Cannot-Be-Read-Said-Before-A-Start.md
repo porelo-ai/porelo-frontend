@@ -1,6 +1,6 @@
 # F118 — An Upstream That Cannot Be Read Said Before A Start
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** Where the daemon finds before a start that the repository's upstream cannot
 be read, the start dialog says why and what fixes it, the way it says an unknown host key today:
