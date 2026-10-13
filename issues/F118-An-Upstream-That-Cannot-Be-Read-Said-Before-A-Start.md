@@ -1,6 +1,6 @@
 # F118 — An Upstream That Cannot Be Read Said Before A Start
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - words for four outcomes and one refusal, the fix selectable with a terminal and an
 "ask again" beside it, the refusal for both ways a start goes; the stand-in daemon and tests.
 
