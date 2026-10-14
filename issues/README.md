@@ -40,6 +40,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. | — |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. | — |
+| <a id="f120"></a>[F120](F120-The-Interface-Renamed-Porelo.md) | M | `sokar` renamed and published, [PJ41](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj41) step 3 | The interface renamed Porelo: its package, binary, desktop ids, settings, packages and the daemon's contract. | — |
 | <a id="f119"></a>[F119](F119-The-Code-Changed-Since-The-Skills-Reading-Read-Against-Them.md) | L | — | The code changed since the last skills reading read against the sixteen skills, their versions recorded. | — |
 
 ### Estimated
