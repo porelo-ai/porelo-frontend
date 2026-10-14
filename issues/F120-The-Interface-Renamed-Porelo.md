@@ -1,6 +1,6 @@
 # F120 — The Interface Renamed Porelo
 
-**Status:** Analyzed; blocked by `sokar` renamed and published, step 3 of
+**Status:** Estimated; blocked by `sokar` renamed and published, step 3 of
 [PJ41](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj41).
 **Size:** M - one scripted commit over 708 files, plus a handful of names the replacement gets wrong, a
 regenerated step tree, the whole suite, the packages and the integration leg against a renamed daemon.
