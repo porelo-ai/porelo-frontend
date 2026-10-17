@@ -1,6 +1,6 @@
 # F122 — The Interface Called Porelo Control Tower
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** XS - one name in Dart, the two runners' window titles, the desktop entry, the Windows
 resources and the MSIX's display names, and a test that holds them to one another.
 
