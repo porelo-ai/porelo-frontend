@@ -1,6 +1,6 @@
 # F125 — The Client And The App Cleared Of The Reading's Findings
 
-**Status:** Backlog; blocked by [F124](README.md#f124).
+**Status:** Implementing; Review once it is pushed and published as a snapshot.
 **Size:** L - twelve findings across `lib/src/client`, `lib/src/app` and `lib/src/mock`, eleven of
 them with a test for the harm they do, the documentation the reading found misplaced or missing
 there, the strict analyzer modes, and `porelo/frontend.json` keeping what it does not know.
@@ -26,8 +26,8 @@ prevents a harm has a test that fails without it; and no interface another repos
 - **`porelo/frontend.json` keeps the top-level keys it does not know** when it is written
   (`Settings`), as `Machine.fromStored` already keeps a machine's - data lost; with a test.
 - **The documentation:** each doc comment back on its own member, and every public member of
-  `lib/src/client` and `lib/src/app` documented, held by `public_member_api_docs` and
-  `comment_references` for those directories; no test.
+  `lib/src/client` and `lib/src/app` documented; no test. The lints that hold it come with
+  [F126](README.md#f126).
 - **`strict-casts`, `strict-inference` and `strict-raw-types`** on in `analysis_options.yaml`; they
   find nothing in `lib` today.
 - **Red first:** each harm's test, named in its commit; the two Windows findings on the Windows job,
@@ -37,5 +37,30 @@ prevents a harm has a test that fails without it; and no interface another repos
 
 - **Each harm's test fails before its fix and passes after**, or the finding is declined in
   [F119](README.md#f119) with its reason.
-- **`dart analyze` is clean with the strict modes and the two lints, and the whole workflow is green
-  on the VM** on the commit handed over.
+- **`dart analyze` is clean with the strict modes, and the whole workflow is green on the VM** on the
+  commit handed over.
+
+## Outcome
+
+Each test names its harm and was seen to fail before its fix:
+
+| Finding | Outcome |
+|---|---|
+| 1, the API path | Joined under the API's path; `forge_test`, every call of a GitHub of its own. |
+| 2, a forge's failures | Each said as `ForgeRefused`; `forge_test`, a page that is not JSON, another shape, TLS and HTTP. |
+| 3, no time limit | Thirty seconds for a request, connecting and answering; `forge_test` against a silent socket, seen hanging without it. |
+| 4, bare casts | Read past another type; `tolerant_readers_test`. |
+| 5, the bundle | Said as the machine answering wrongly; `porelo_client_test`. |
+| 6, the hand-in | Ends as failed on a file missing or unreadable; `hand_in_test`. |
+| 7, the forwards | One raise at a time per homeserver, and one raised after closing taken down; `homeserver_forwards_test`. |
+| 8, the WSL key | One primary key or none; `wsl_setup_test`, a second key, and the carried one with its subkey. |
+| 9, this computer | Never a WSL distribution or a machine with no socket; `machine_kind_test`, seen red on Linux too. |
+| 10, Windows paths | The profile's `.ssh`, and `chmod` only off Windows, through the seam; `project_workspace_on_windows_test`. |
+| 11, the stand-in's `Stop` | A count, as the daemon answers; no test, it guards nothing a person meets. |
+| 12, two of one name | The second dropped when read; `settings_test`. |
+| `frontend.json`'s unknown keys | Kept at each write; `settings_test`. |
+
+The strict analyzer modes are on and find nothing. Every public member of `lib/src/client` and
+`lib/src/app` is documented and each doc comment is on its own member; the two documentation lints are
+switched on with [F126](README.md#f126), since a lint holds the whole of `lib` and the frame is not yet
+documented.

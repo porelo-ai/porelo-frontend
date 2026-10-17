@@ -73,7 +73,7 @@ class Tile {
 /// Everything that might need a person, from every machine at once, most urgent first.
 ///
 /// **Read from the models that already exist, never from a stream of its own.** Each machine's
-/// [FleetModel] watches its tasks and its [Clearance] watches its questions; a second subscription
+/// `FleetModel` watches its tasks and its `Clearance` watches its questions; a second subscription
 /// here would be two answers to one question.
 class Attention extends ChangeNotifier {
   /// Constructor taking the machines to read across.
@@ -281,8 +281,6 @@ class Attention extends ChangeNotifier {
     return out;
   }
 
-  /// How many things need somebody now: an open question, a machine that cannot say, or a failure
-  /// nobody has seen.
   /// Machines that dropped questions about blocked connections unseen: those are not asked again,
   /// so work may be held until its deadline with nobody told (the contracts review).
   List<Machine> get missedQuestions => <Machine>[
@@ -290,6 +288,8 @@ class Attention extends ChangeNotifier {
       if (_machines.of(machine).clearance.missed > 0) machine,
   ];
 
+  /// How many things need somebody now: an open question, a machine that cannot say, or a failure
+  /// nobody has seen; the count *Needs you*'s badge shows.
   int get needingSomebody =>
       tiles.where((tile) => tile.demand == Demand.question || tile.demand == Demand.ended).length +
       missedQuestions.length +

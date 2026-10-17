@@ -14,6 +14,7 @@ class TerminalLink {
   /// Constructor taking the address and whether the machine marked it as its login's page.
   const TerminalLink(this.address, {this.isTheLogin = false});
 
+  /// Where it points.
   final Uri address;
 
   /// Whether the machine marked it as its login's own page — the one whose reply comes back to the

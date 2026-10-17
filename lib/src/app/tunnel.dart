@@ -497,12 +497,12 @@ class Tunnels extends ChangeNotifier {
   /// uid says what it said before rather than guessing one.
   Future<int?> loginUidOn(Machine machine) async => machine.needsATunnel ? loginUidAt(machine.host) : null;
 
-  /// The uid of the account [host] logs in as, or null when it cannot say: what the wizard asks
-  /// when a person knows only how they log in, and not where Porelo's socket is there.
   /// Why the last login [loginUidAt] tried was refused, in words a person can act on; null where it
   /// was not refused or ssh said nothing that tells.
   String? lastLoginRefusal;
 
+  /// The uid of the account [host] logs in as, or null when it cannot say: what the wizard asks
+  /// when a person knows only how they log in, and not where Porelo's socket is there.
   Future<int?> loginUidAt(String host) async {
     lastLoginRefusal = null;
     try {

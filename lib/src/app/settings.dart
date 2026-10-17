@@ -119,7 +119,7 @@ class Settings extends ChangeNotifier {
   /// Whether [name] can be a user on a Linux machine: what `useradd` accepts by default.
   static bool isUserName(String name) => RegExp(r'^[a-z_][a-z0-9_-]{0,31}$').hasMatch(name);
 
-  /// A machine setup the wizard started and did not finish, as [SetupRun] stores it, or null.
+  /// A machine setup the wizard started and did not finish, as `SetupRun` stores it, or null.
   ///
   /// **Never a private key**: only where a kept key lives. Kept so a wizard that was canceled, or
   /// a window that was closed, picks up where it stopped rather than asking everything again.
@@ -205,11 +205,15 @@ class Settings extends ChangeNotifier {
     // socket nor a kind of its own, cannot be watched or told apart from another, and losing every
     // other machine over it would be the worse answer. An entry with a kind is kept even without a
     // socket: a WSL distribution has none, and a kind this version does not know is not its to drop.
+    // A second entry of a name already read is dropped too: every machine is told apart by its name,
+    // and two of one would send one's calls through the other's way in.
     final machines = <Machine>[];
     for (final each in stored) {
       if (each is! Map<String, Object?>) continue;
       final machine = Machine.fromStored(each);
-      if (machine.name.isNotEmpty && (machine.socketPath.isNotEmpty || machine.kind.isNotEmpty)) machines.add(machine);
+      if (machine.name.isEmpty || (machine.socketPath.isEmpty && machine.kind.isEmpty)) continue;
+      if (machines.any((kept) => kept.name == machine.name)) continue;
+      machines.add(machine);
     }
     return machines;
   }
@@ -323,7 +327,19 @@ class Settings extends ChangeNotifier {
 
   List<Map<String, Object?>> _templates = const <Map<String, Object?>>[];
 
-  Future<void> _write() => _store.write(<String, Object?>{
+  /// Writes every choice, **keeping the keys this version does not know**: the file is shared with
+  /// the IntelliJ plugin and outlives this version, and what a later one wrote is not this one's to
+  /// drop.
+  Future<void> _write() async {
+    final known = _known;
+    final kept = <String, Object?>{
+      for (final entry in (await _store.read()).entries)
+        if (!known.containsKey(entry.key)) entry.key: entry.value,
+    };
+    await _store.write(<String, Object?>{...kept, ...known});
+  }
+
+  Map<String, Object?> get _known => <String, Object?>{
     'refreshSeconds': _refreshSeconds,
     'workUser': _workUser,
     'setupDraft': _setupDraft,
@@ -338,7 +354,7 @@ class Settings extends ChangeNotifier {
     'place': _place,
     'templates': _templates,
     'forges': _forges,
-  });
+  };
 
   static ThemeMode _appearanceNamed(Object? name) =>
       ThemeMode.values.firstWhere((mode) => mode.name == name, orElse: () => ThemeMode.system);

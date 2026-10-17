@@ -137,10 +137,13 @@ class SetupRun extends ChangeNotifier {
   /// Whether the machine has a vault, as its daemon last said; null before it was asked.
   bool? hasVault;
 
+  /// The step the person is on.
   SetupStep step = SetupStep.key;
 
   /// The pasted or generated key, before it is kept.
   String privateKey = '';
+
+  /// Its public half, shown and put on the machine.
   String publicKey = '';
 
   /// The key file root logs in with, when adding a user.
@@ -193,6 +196,8 @@ class SetupRun extends ChangeNotifier {
 
   /// What `--show` printed, and for which choice.
   String? shown;
+
+  /// The choice [shown] was printed for: a changed choice shows again.
   String? shownFor;
 
   /// The SHA-256 of the script [shown] came from: what [prepare] runs, and nothing else.
@@ -226,8 +231,11 @@ class SetupRun extends ChangeNotifier {
 
   /// What the last action said, and whether it was a refusal.
   String? said;
+
+  /// Whether [said] is a refusal, said in the error's colour.
   bool saidIsBad = false;
 
+  /// Whether an action is running: the steps wait for it.
   bool get busy => doing != null;
 
   /// The admin key's file name under `~/.ssh`: root's, for setting up, never the daily one.
@@ -255,10 +263,16 @@ class SetupRun extends ChangeNotifier {
     SetupStep.harden => false,
   };
 
+  /// Whether this is the first step, with nothing before it.
   bool get isFirst => step == SetupStep.key;
+
+  /// Whether this is the last step, with nothing after it.
   bool get isLast => step == SetupStep.harden;
 
+  /// Goes on to the step after this one.
   void next() => _goTo(SetupStep.values[step.index + 1]);
+
+  /// Goes back to the step before this one.
   void previous() => _goTo(SetupStep.values[step.index - 1]);
 
   void _goTo(SetupStep to) {
@@ -296,6 +310,7 @@ class SetupRun extends ChangeNotifier {
   /// Forgets the run: it was finished, or the person discarded it.
   Future<void> forget() async => remember?.call(null);
 
+  /// Makes a new key pair for root's login, named after the machine.
   Future<void> generate() => _doing('Generating a key pair…', () async {
     final pair = await setup.generate('porelo $name');
     privateKey = pair.privateKey;
@@ -303,6 +318,7 @@ class SetupRun extends ChangeNotifier {
     return null;
   });
 
+  /// Keeps the pasted or made key, once its two halves are seen to belong together.
   Future<void> keep() => _doing('Checking the two halves belong together…', () async {
     final pair = KeyPair(privateKey: privateKey, publicKey: publicKey.trim());
     final wrong = await setup.mismatch(pair);
@@ -311,6 +327,7 @@ class SetupRun extends ChangeNotifier {
     return 'Kept as $kept.';
   });
 
+  /// Uses a key that is already on this computer, read from [keyFile].
   Future<void> useKey() => _doing('Reading the key…', () async {
     final file = keyFile.trim();
     publicKey = await setup.publicKeyOf(file);
@@ -339,6 +356,7 @@ class SetupRun extends ChangeNotifier {
     return 'Logged in as root on $target with $kept.';
   });
 
+  /// Asks the machine, as root, what Porelo's setup script can install there.
   Future<void> listPackages() => _doing('Asking the machine what it can install…', () async {
     final listed = await _root(RootAction.list, MachineSetup.listInstallable());
     if (listed.exitCode != 0) {
@@ -350,6 +368,7 @@ class SetupRun extends ChangeNotifier {
     return offered!.isEmpty && why.isNotEmpty ? why : null;
   });
 
+  /// Asks the setup script what it would do with the choices made, without doing it.
   Future<void> show() => _doing("Fetching Porelo's setup script and asking what it would do…", () async {
     shown = null;
     shownDigest = null;
@@ -365,6 +384,7 @@ class SetupRun extends ChangeNotifier {
     return null;
   });
 
+  /// Runs Porelo's setup script as root with the choices made.
   Future<void> prepare() => _doing("Running Porelo's setup script as root…", () async {
     final digest = shownDigest;
     if (digest == null) throw const MachineSetupFailed('What the setup script would do has to be shown first.');
@@ -384,6 +404,7 @@ class SetupRun extends ChangeNotifier {
     changed();
   }
 
+  /// Sets the machine up for the work user, with a key of its own, and connects to its Porelo.
   Future<void> reach() => _doing('Setting it up for $workUser and connecting…', () async {
     log.clear();
     // The work user's own key: chosen, or made once and found again on a second run.
@@ -532,6 +553,7 @@ class SetupRun extends ChangeNotifier {
     }
   }
 
+  /// Turns off root's login and logging in with a password, now that the work user's key works.
   Future<void> harden() => _doing('Turning off root and password login…', () async {
     final done = await _root(RootAction.harden, MachineSetup.harden);
     if (done.exitCode != 0) throw MachineSetupFailed('Root login is still on: ${both(done)}');

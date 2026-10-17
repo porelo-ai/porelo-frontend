@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/homeserver_forwards.dart';
@@ -85,5 +87,52 @@ void main() {
     expect(settings.homeservers, hasLength(1));
     expect(closed, <int>[8010], reason: 'the first one, no longer answering, was let go before the second');
     forwards.dispose();
+  });
+
+  // The harm: an ssh forward that came up after the window closed its forwards was kept by nobody,
+  // a process left holding a port.
+  test('a forward that comes up after the forwards are closed is taken down at once', () async {
+    final settings = Settings(MemorySettingsStore());
+    final raising = Completer<HeldForward>();
+    var closed = 0;
+    final forwards = HomeserverForwards(
+      settings,
+      raise: (machine, port) => raising.future,
+      answers: (port) async => true,
+    );
+
+    final held = forwards.hold(vm, 'checkout', 8010);
+    await Future<void>.delayed(Duration.zero);
+    forwards.dispose();
+    raising.complete(_Forward(() => closed++));
+    await held;
+
+    expect(closed, 1);
+  });
+
+  // The harm: two raises for one port at once, the second failing on the port the first holds, and
+  // its error said although the first forward is up.
+  test('a homeserver asked for twice at once is raised once', () async {
+    final settings = Settings(MemorySettingsStore());
+    final raising = Completer<HeldForward>();
+    var raised = 0;
+    final forwards = HomeserverForwards(
+      settings,
+      raise: (machine, port) {
+        raised++;
+        return raising.future;
+      },
+      answers: (port) async => true,
+    );
+    addTearDown(forwards.dispose);
+
+    final first = forwards.hold(vm, 'checkout', 8010);
+    final second = forwards.retry(vm, 'checkout');
+    await Future<void>.delayed(Duration.zero);
+    raising.complete(_Forward(() {}));
+    await Future.wait(<Future<void>>[first, second]);
+
+    expect(raised, 1);
+    expect(forwards.problemOf(vm, 'checkout'), isNull);
   });
 }

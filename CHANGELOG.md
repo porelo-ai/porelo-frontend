@@ -7,6 +7,24 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- On a GitHub of its own, every call is asked under its `/api/v3`, not at the instance's root.
+- A forge that answers with a page that is not its API, with JSON of another shape, or breaks off its
+  TLS or HTTP exchange is said as refusing, and a request it does not answer within thirty seconds
+  ends; neither leaves a form busy any more.
+- A hand-in whose file cannot be read ends as failed, saying why, instead of staying busy.
+- A homeserver forward raised after the window closed its forwards is taken down, and one asked for
+  twice at once is raised once.
+- Setting Porelo up in WSL refuses a key file that holds another key besides Porelo's.
+- On Windows, a WSL distribution no longer counts as this computer, so a silent one is shown under
+  *Needs you*, and *Start Porelo* is not offered for it.
+- On Windows, a forge workspace looks for the keys made for machines in the person's profile.
+- `porelo/frontend.json` keeps the keys this version does not know when it is written, and a second
+  machine of a name already read is dropped.
+- A default repository's source and remote, a refresh's moved branches and a waiting push's bundle
+  read past a value of another type, rather than failing the whole answer.
+
 ### Changed
 
 - The code is in the shared style: `dart format` at 120 columns, the YAML and the feature files at

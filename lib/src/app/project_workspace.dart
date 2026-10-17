@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'desk.dart';
 import 'forge.dart';
 
 /// What one git or ssh command answered.
@@ -35,6 +36,7 @@ class WorkspaceRefused implements Exception {
   /// Constructor taking the sentence.
   const WorkspaceRefused(this.words);
 
+  /// Why, in a sentence a person can act on.
   final String words;
 
   @override
@@ -142,7 +144,7 @@ class ProjectWorkspace {
   /// how programs are run.
   ProjectWorkspace(this.repository, this._token, {required this.root, RunHere? run, String? sshDirectory})
     : _run = run ?? runHere,
-      sshDirectory = sshDirectory ?? '${Platform.environment['HOME'] ?? '.'}/.ssh';
+      sshDirectory = sshDirectory ?? desk.join(<String>[desk.home, '.ssh']);
 
   /// Where the keys this interface made for machines are kept, `porelo-<machine>` each.
   final String sshDirectory;
@@ -377,7 +379,8 @@ class ProjectWorkspace {
         await program.writeAsString(
           '#!/bin/sh\ncase "\$1" in\n  Username*) echo x-access-token ;;\n  *) printf \'%s\\n\' "\$PORELO_FORGE_TOKEN" ;;\nesac\n',
         );
-        await Process.run('chmod', <String>['700', asking.path, program.path]);
+        // Windows has no chmod; a temporary folder there is the person's own already.
+        if (!desk.isWindows) await _run('chmod', <String>['700', asking.path, program.path]);
         environment['GIT_ASKPASS'] = program.path;
         environment['PORELO_FORGE_TOKEN'] = _token;
       }

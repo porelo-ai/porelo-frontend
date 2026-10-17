@@ -1744,7 +1744,8 @@ class MockMachine {
           ? 'STOPPED'
           : 'NOTHING_TO_STOP',
       'helpers': running ? 2 : 0,
-      'surviving': <String>[],
+      // A count, as the daemon's Stop answers it; a stopped task's own Panic lists their names.
+      'surviving': 0,
     };
   }
 

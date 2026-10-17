@@ -30,7 +30,8 @@ are in US English; and no interface another repository reads changes.
 - **`shellcheck` 0.11.0** clean on both scripts, the two trap handlers kept with
   `# shellcheck disable=SC2329` and their reason.
 - **The documentation:** each doc comment back on its own member, and every public member of
-  `lib/src/ui` documented, held by `public_member_api_docs` for that directory; no test.
+  `lib/src/ui` documented; then `public_member_api_docs` and `comment_references` on for the whole of
+  `lib`, which [F125](README.md#f125) left documented. No test.
 - **Red first:** each harm's test, named in its commit; the signing on the Windows job.
 
 ## Acceptance

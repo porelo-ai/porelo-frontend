@@ -699,16 +699,16 @@ class PoreloClient {
     }),
   });
 
-  /// Stops following a project, and removes it and everything Porelo built for it from this machine.
-  ///
-  /// It **refuses rather than decides**: unreviewed pushes exist only in the mirror and a running
-  /// task is work cut off mid-flight. [force] is how somebody says they meant it. The project's own
-  /// repository is not on this machine and is never touched.
   /// Clears this machine of a project, or of every project with none named: its tasks, workspaces,
   /// gate, mirrors, follow and conversation, leaving what only a person's credentials remove named.
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) async =>
       Cleared.from(await _call('Clear', {'project': ?project, 'dryRun': ?dryRun, 'force': ?force}));
 
+  /// Stops following a project, and removes it and everything Porelo built for it from this machine.
+  ///
+  /// It **refuses rather than decides**: unreviewed pushes exist only in the mirror and a running
+  /// task is work cut off mid-flight. [force] is how somebody says they meant it. The project's own
+  /// repository is not on this machine and is never touched.
   Future<Deletion> unfollow(String name, {bool? dryRun, bool? force}) async =>
       Deletion.from(await _call('Unfollow', {'name': name, 'dryRun': ?dryRun, 'force': ?force}));
 
@@ -919,14 +919,20 @@ class PoreloClient {
       'name': name,
       'branch': ?branch,
     });
-    return (
-      bundle: base64.decode(reply['bundle'] is String ? reply['bundle'] as String : ''),
-      bytes: reply['bytes'] is int ? reply['bytes'] as int : 0,
-    );
+    final List<int> bundle;
+    try {
+      bundle = base64.decode(reply['bundle'] is String ? reply['bundle'] as String : '');
+    } on FormatException {
+      // Said as the machine answering wrongly, which a review shows, rather than thrown past it.
+      throw const VarlinkException('org.fuin.porelo.Tasks1.PendingBundle', <String, dynamic>{
+        'message': 'the bundle it sent is not base64',
+      });
+    }
+    return (bundle: bundle, bytes: reply['bytes'] is int ? reply['bytes'] as int : 0);
   }
 
   /// Clears pending work [name] once [branch] on the upstream holds its commit, fetched with the
-  /// machine's own key. Not landed changes nothing, and [detail] says why.
+  /// machine's own key. Not landed changes nothing, and `detail` says why.
   Future<({bool landed, String commit, String detail})> landed(
     String project,
     String name, {

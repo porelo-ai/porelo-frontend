@@ -37,7 +37,9 @@ class HomeserverForwards extends ChangeNotifier {
 
   final Map<String, HeldForward> _held = <String, HeldForward>{};
   final Map<String, String> _problems = <String, String>{};
+  final Map<String, Future<void>> _raising = <String, Future<void>>{};
   Timer? _looking;
+  bool _lookingNow = false;
   bool _disposed = false;
 
   static String _key(String machine, String project) => '$machine/$project';
@@ -89,8 +91,21 @@ class HomeserverForwards extends ChangeNotifier {
     _looking = Timer.periodic(lookEvery, (_) => unawaited(_look(machines)));
   }
 
+  /// One look at a time: a look that outlasts [lookEvery], over slow ssh, is not started again
+  /// beside itself.
   Future<void> _look(Machines machines) async {
+    if (_lookingNow) return;
+    _lookingNow = true;
+    try {
+      await _lookAtEach(machines);
+    } finally {
+      _lookingNow = false;
+    }
+  }
+
+  Future<void> _lookAtEach(Machines machines) async {
     for (final each in _settings.homeservers) {
+      if (_disposed) return;
       final machine = machines.all.where((m) => m.name == each.machine).firstOrNull;
       if (machine == null) continue;
       final key = _key(each.machine, each.project);
@@ -100,12 +115,32 @@ class HomeserverForwards extends ChangeNotifier {
     }
   }
 
-  Future<void> _raiseFor(Machine machine, String project, int port) async {
+  /// Raises [project]'s forward on [machine], **once at a time for each**: a second ask while one is
+  /// being raised waits for that one rather than raising a second on the same port.
+  Future<void> _raiseFor(Machine machine, String project, int port) {
     final key = _key(machine.name, project);
+    final underway = _raising[key];
+    if (underway != null) return underway;
+    // A block, not an arrow: `remove` answers the very future being completed, which whenComplete
+    // would wait for, and so never complete.
+    final raising = _raiseOnce(key, machine, port).whenComplete(() {
+      _raising.remove(key);
+    });
+    _raising[key] = raising;
+    return raising;
+  }
+
+  Future<void> _raiseOnce(String key, Machine machine, int port) async {
     if (_held.containsKey(key) && await _answers(port)) return;
     await _held.remove(key)?.close();
     try {
-      _held[key] = await _raise(machine, port);
+      final raised = await _raise(machine, port);
+      // Closed meanwhile: nobody would ever take this one down.
+      if (_disposed) {
+        await raised.close();
+        return;
+      }
+      _held[key] = raised;
       _problems.remove(key);
     } on ForwardRefused catch (refused) {
       _problems[key] = refused.words;

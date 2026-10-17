@@ -89,10 +89,23 @@ abstract final class BuildsSaid {
 }
 
 /// How a build reads at a glance: each drawn with its own shape and colour, and said in a word.
-enum BuildLook { passed, failed, running, none }
+enum BuildLook {
+  /// Every job passed.
+  passed,
+
+  /// A job failed, or the build did.
+  failed,
+
+  /// It has not ended.
+  running,
+
+  /// There is no build to show.
+  none,
+}
 
 /// What a work tile says about the build of its last push.
 final class BuildLine {
+  /// Constructor taking how it looks, its headline and its detail.
   const BuildLine(this.look, this.headline, this.detail);
 
   /// Passed, failed, running, or none of them.

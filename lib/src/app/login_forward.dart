@@ -14,6 +14,7 @@ class ForwardRefused implements Exception {
   /// Constructor taking the sentence.
   const ForwardRefused(this.words);
 
+  /// Why, in a sentence a person can act on.
   final String words;
 
   @override

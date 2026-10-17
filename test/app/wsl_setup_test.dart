@@ -156,7 +156,10 @@ void main() {
       run: (name, command, {bool asRoot = false}) async {
         run.ran.add(command.join(' '));
         return command.first == 'gpg' && command[1] == '--show-keys'
-            ? (code: 0, said: 'fpr:::::::::0000000000000000000000000000000000000000:\n')
+            ? (
+                code: 0,
+                said: 'pub:-:4096:1:0000000000000000:::::\nfpr:::::::::0000000000000000000000000000000000000000:\n',
+              )
             : (code: 0, said: '');
       },
       record: (line, said) => recorded.add(line),
@@ -170,6 +173,59 @@ void main() {
     expect(recorded, contains('check the key'));
   });
 
+  // The harm: a file holding Porelo's key and another after it passed the check, and both went
+  // into apt's keyring, so packages signed by the other were trusted as Porelo's.
+  test('a file holding a second key besides the carried one stops the setup before anything is written', () async {
+    final run = distribution(porelo: false);
+    final it = WslSetup(
+      distribution: 'Ubuntu',
+      operatingSystemVersion: windows11,
+      wsl: Wsl(run: (arguments) async => (code: 0, printed: <int>[])),
+      run: (name, command, {bool asRoot = false}) async {
+        run.ran.add(command.join(' '));
+        return command.first == 'gpg' && command[1] == '--show-keys'
+            ? (
+                code: 0,
+                said:
+                    'pub:-:4096:1:68D19D175D904415:::::\nfpr:::::::::$poreloKeyFingerprint:\n'
+                    'sub:-:4096:1:1111111111111111:::::\nfpr:::::::::1111111111111111111111111111111111111111:\n'
+                    'pub:-:4096:1:2222222222222222:::::\nfpr:::::::::2222222222222222222222222222222222222222:\n',
+              )
+            : (code: 0, said: '');
+      },
+    );
+
+    await it.runSetup(it.setupLines('somebody'));
+
+    expect(it.stopped, contains('2222222222222222222222222222222222222222'));
+    expect(run.ran.where((each) => each.contains('dearmor') || each.contains('install')), isEmpty);
+  });
+
+  test("the carried key with a subkey of its own is Porelo's key, and the setup goes on", () async {
+    final run = distribution(porelo: false);
+    final it = WslSetup(
+      distribution: 'Ubuntu',
+      operatingSystemVersion: windows11,
+      wsl: Wsl(run: (arguments) async => (code: 0, printed: <int>[])),
+      run: (name, command, {bool asRoot = false}) async {
+        run.ran.add(command.join(' '));
+        return command.first == 'gpg' && command[1] == '--show-keys'
+            ? (
+                code: 0,
+                said:
+                    'pub:-:4096:1:68D19D175D904415:::::\nfpr:::::::::$poreloKeyFingerprint:\n'
+                    'sub:-:4096:1:1111111111111111:::::\nfpr:::::::::1111111111111111111111111111111111111111:\n',
+              )
+            : (code: 0, said: '');
+      },
+    );
+
+    await it.runSetup(it.setupLines('somebody'));
+
+    expect(it.stopped, isNull);
+    expect(run.ran.where((each) => each.contains('dearmor')), isNotEmpty);
+  });
+
   test('every line that ran is recorded, and a failing one stops the rest', () async {
     final run = distribution(porelo: false, failAt: 3);
     final recorded = <String>[];
@@ -181,7 +237,7 @@ void main() {
         run.ran.add(command.join(' '));
         if (command.join(' ').startsWith('sh -c echo')) return (code: 1, said: 'refused');
         return command.first == 'gpg' && command[1] == '--show-keys'
-            ? (code: 0, said: 'fpr:::::::::$poreloKeyFingerprint:\n')
+            ? (code: 0, said: 'pub:-:4096:1:68D19D175D904415:::::\nfpr:::::::::$poreloKeyFingerprint:\n')
             : (code: 0, said: '');
       },
       record: (line, said) => recorded.add(line),

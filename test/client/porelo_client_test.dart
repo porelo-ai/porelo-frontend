@@ -36,6 +36,18 @@ void main() {
     'helpers': helpers,
   };
 
+  // The harm: a bundle that is not base64 threw a FormatException past the review, which catches
+  // only what the machine says, so the form stayed busy and nothing was shown.
+  test('a waiting push whose bundle is not base64 is said as the machine answering wrongly', () async {
+    daemon.method('PendingBundle', (parameters) => <String, dynamic>{'bundle': '%%%', 'bytes': 3});
+    await expectLater(
+      (await connect()).pendingBundle('demo', 'porelo/fix'),
+      throwsA(
+        isA<VarlinkException>().having((refusal) => refusal.parameters['message'], 'message', contains('base64')),
+      ),
+    );
+  });
+
   group('talking to a backend', () {
     test('a task name is asked about with readiness, and a bad one comes back as such', () async {
       Map<String, dynamic>? asked;

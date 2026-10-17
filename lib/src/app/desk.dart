@@ -19,6 +19,7 @@ typedef StartDetached = Future<void> Function(String executable, List<String> ar
 /// The paths that name the far side of a connection, `/run/user/…` on a Linux machine, are not
 /// here: they are the machine's, whatever this computer is.
 abstract class Desk {
+  /// Constructor taking the environment and, for a test, how a program is run and one started.
   Desk(this.environment, {RunProgram? run, StartDetached? startDetached})
     : run = run ?? Process.run,
       startDetached = startDetached ?? _detached;
@@ -98,6 +99,7 @@ abstract class Desk {
 
 /// Linux: the XDG folders, `chmod`, and `xdg-open`.
 class LinuxDesk extends Desk {
+  /// Constructor taking the environment and, for a test, how programs are run.
   LinuxDesk(super.environment, {super.run, super.startDetached});
 
   String get _home => _set('HOME') ?? '.';
@@ -130,6 +132,7 @@ class LinuxDesk extends Desk {
 
 /// Windows: the folders under the user's profile, `icacls`, and the shell's file association.
 class WindowsDesk extends Desk {
+  /// Constructor taking the environment and, for a test, how programs are run.
   WindowsDesk(super.environment, {super.run, super.startDetached});
 
   String get _profile => _set('USERPROFILE') ?? '.';

@@ -46,6 +46,34 @@ void main() {
     return file;
   }
 
+  // The harm: a file that cannot be read threw out of the hand-in with it still busy, so the
+  // action stayed spinning for good and nothing said why.
+  test('a file that cannot be read here ends the hand-in as failed, saying so', () async {
+    final task = await aRunningTask();
+    final file = await aFile('locked.bin', 300);
+    await Process.run('chmod', <String>['000', file.path]);
+    addTearDown(() => Process.run('chmod', <String>['600', file.path]));
+    final handing = HandingIn();
+
+    final placed = await handing.give(backend, task, file.path);
+
+    expect(placed, isNull);
+    expect(handing.busy, isFalse);
+    expect(handing.failed, isTrue);
+    expect(handing.said, contains('locked.bin'));
+  });
+
+  test('a file that is not there ends the hand-in as failed, saying so', () async {
+    final handing = HandingIn();
+
+    final placed = await handing.give(backend, await aRunningTask(), '${here.path}/gone.bin');
+
+    expect(placed, isNull);
+    expect(handing.busy, isFalse);
+    expect(handing.failed, isTrue);
+    expect(handing.said, contains('gone.bin'));
+  });
+
   test('a small file is placed in one part and listed on the task', () async {
     final task = await aRunningTask();
     final file = await aFile('notes.txt', 300);

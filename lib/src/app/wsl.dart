@@ -8,6 +8,7 @@ typedef RunWsl = Future<({int code, List<int> printed})> Function(List<String> a
 
 /// A WSL distribution of the Windows user, as `wsl.exe` lists it.
 class WslDistribution {
+  /// Constructor taking each field as `wsl.exe` lists it.
   const WslDistribution({required this.name, required this.running, required this.version});
 
   /// Its name, as `wsl.exe -d` takes it.
@@ -38,6 +39,7 @@ class WslDistribution {
 /// of `-l -v`. The state column of `-l -v` is translated ("Running", "Wird ausgeführt"), and a
 /// German Windows must not read as one where every distribution is stopped.
 class Wsl {
+  /// Constructor taking, for a test, how `wsl.exe` is run.
   Wsl({RunWsl? run}) : _run = run ?? runWslExe;
 
   final RunWsl _run;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -39,7 +40,6 @@ class ForgeRepository {
   });
 }
 
-/// A deploy key a forge holds for one repository.
 /// A key a person signs commits with, as their forge lists it.
 class ForgeSigningKey {
   /// Constructor taking what the person called it and the key.
@@ -55,6 +55,7 @@ class ForgeSigningKey {
   String get keyPart => key.trim().split(RegExp(r'\s+')).take(2).join(' ');
 }
 
+/// A deploy key a forge holds for one repository.
 class ForgeDeployKey {
   /// The forge's own id for it, which removing it takes.
   final int id;
@@ -89,7 +90,10 @@ class ForgeRefused implements Exception {
   /// Constructor taking the sentence and, where the forge gave one, its status.
   const ForgeRefused(this.words, {this.status});
 
+  /// What was refused and why, in a sentence a person can act on.
   final String words;
+
+  /// The forge's HTTP status, where it answered with one.
   final int? status;
 
   @override
@@ -157,10 +161,11 @@ abstract interface class Forge {
 /// **The token is sent to GitHub and nowhere else**: in a header, over https, never in a URL, a
 /// command line or a log.
 class GitHub implements Forge {
-  /// Constructor taking the token and, for a test or GitHub Enterprise, the API's address.
-  GitHub(this._token, {Uri? api, ForgeHttp? http})
+  /// Constructor taking the token and, for a test or GitHub Enterprise, the API's address; a request
+  /// over the network that is not answered within [answerWithin] is said as GitHub refusing it.
+  GitHub(this._token, {Uri? api, ForgeHttp? http, Duration answerWithin = const Duration(seconds: 30)})
     : _api = api ?? Uri.parse('https://api.github.com'),
-      _http = http ?? _Network().send;
+      _http = http ?? _Network(answerWithin).send;
 
   /// The API of the GitHub at [address]: `api.github.com` for `github.com`, `/api/v3` on a
   /// self-hosted instance.
@@ -176,7 +181,7 @@ class GitHub implements Forge {
 
   @override
   Future<ForgeAccount> whoAmI() async {
-    final user = await _json('GET', '/user') as Map<String, dynamic>;
+    final user = _mapOf(await _send('GET', _at('/user')));
     return ForgeAccount('${user['login'] ?? ''}');
   }
 
@@ -184,13 +189,10 @@ class GitHub implements Forge {
   Future<List<ForgeRepository>> repositories() async {
     final all = <ForgeRepository>[];
     // Every page the forge has, as its Link header says; a person with many repositories sees them all.
-    Uri? next = _api.replace(
-      path: '/user/repos',
-      queryParameters: <String, String>{'per_page': '100', 'sort': 'full_name'},
-    );
+    Uri? next = _at('/user/repos', queryParameters: <String, String>{'per_page': '100', 'sort': 'full_name'});
     while (next != null) {
       final reply = await _send('GET', next);
-      for (final each in jsonDecode(reply.body) as List<dynamic>) {
+      for (final each in _listOf(reply)) {
         // One the forge names wrongly is left out, not the whole list.
         if (each is Map<String, dynamic> && isFullName('${each['full_name']}')) all.add(_repository(each));
       }
@@ -205,14 +207,14 @@ class GitHub implements Forge {
 
   @override
   Future<ForgeRepository> repository(String fullName) async =>
-      _repository(await _json('GET', '/repos/$fullName') as Map<String, dynamic>);
+      _repository(_mapOf(await _send('GET', _at('/repos/$fullName'))));
 
   @override
   Future<bool> hasProjectFile(ForgeRepository repository) async {
     final reply = await _send(
       'GET',
-      _api.replace(
-        path: '/repos/${repository.fullName}/contents/project.yml',
+      _at(
+        '/repos/${repository.fullName}/contents/project.yml',
         queryParameters: <String, String>{'ref': repository.defaultBranch},
       ),
       allow404: true,
@@ -223,10 +225,10 @@ class GitHub implements Forge {
   @override
   Future<List<String>> branches(String repository) async {
     final all = <String>[];
-    Uri? next = _api.replace(path: '/repos/$repository/branches', queryParameters: <String, String>{'per_page': '100'});
+    Uri? next = _at('/repos/$repository/branches', queryParameters: <String, String>{'per_page': '100'});
     while (next != null) {
       final reply = await _send('GET', next);
-      for (final each in jsonDecode(reply.body) as List<dynamic>) {
+      for (final each in _listOf(reply)) {
         if (each is Map<String, dynamic> && each['name'] is String) all.add(each['name'] as String);
       }
       next = _nextPage(reply.headers['link']);
@@ -236,7 +238,7 @@ class GitHub implements Forge {
 
   @override
   Future<List<String>> hostKeyFingerprints() async {
-    final meta = await _json('GET', '/meta') as Map<String, dynamic>;
+    final meta = _mapOf(await _send('GET', _at('/meta')));
     final listed = meta['ssh_key_fingerprints'];
     return <String>[
       if (listed is Map<String, dynamic>)
@@ -247,7 +249,7 @@ class GitHub implements Forge {
 
   @override
   Future<List<ForgeSigningKey>> signingKeys(String login) async {
-    final listed = await _json('GET', '/users/$login/ssh_signing_keys') as List<dynamic>;
+    final listed = _listOf(await _send('GET', _at('/users/$login/ssh_signing_keys')));
     return <ForgeSigningKey>[
       for (final each in listed.whereType<Map<String, dynamic>>())
         if (each['key'] is String) ForgeSigningKey(title: '${each['title'] ?? ''}', key: each['key'] as String),
@@ -257,10 +259,10 @@ class GitHub implements Forge {
   @override
   Future<List<ForgeDeployKey>> deployKeys(String repository) async {
     final all = <ForgeDeployKey>[];
-    Uri? next = _api.replace(path: '/repos/$repository/keys', queryParameters: <String, String>{'per_page': '100'});
+    Uri? next = _at('/repos/$repository/keys', queryParameters: <String, String>{'per_page': '100'});
     while (next != null) {
       final reply = await _send('GET', next);
-      for (final each in jsonDecode(reply.body) as List<dynamic>) {
+      for (final each in _listOf(reply)) {
         if (each is Map<String, dynamic>) all.add(_deployKey(each));
       }
       next = _nextPage(reply.headers['link']);
@@ -273,10 +275,7 @@ class GitHub implements Forge {
     // Reading the keys needs what adding one needs: administration of the repository. GitHub
     // answers 403 for a token without it, and 404 for one that may not see the repository at all.
     try {
-      await _send(
-        'GET',
-        _api.replace(path: '/repos/$repository/keys', queryParameters: <String, String>{'per_page': '1'}),
-      );
+      await _send('GET', _at('/repos/$repository/keys', queryParameters: <String, String>{'per_page': '1'}));
       return null;
     } on ForgeRefused catch (refused) {
       if (refused.status == 403 || refused.status == 404) return refused.words;
@@ -293,15 +292,15 @@ class GitHub implements Forge {
   }) async {
     final reply = await _send(
       'POST',
-      _api.replace(path: '/repos/$repository/keys'),
+      _at('/repos/$repository/keys'),
       body: jsonEncode(<String, Object>{'title': title, 'key': key, 'read_only': readOnly}),
     );
-    return _deployKey(jsonDecode(reply.body) as Map<String, dynamic>);
+    return _deployKey(_mapOf(reply));
   }
 
   @override
   Future<void> removeDeployKey(String repository, int id) async {
-    await _send('DELETE', _api.replace(path: '/repos/$repository/keys/$id'), allow404: true);
+    await _send('DELETE', _at('/repos/$repository/keys/$id'), allow404: true);
   }
 
   static ForgeDeployKey _deployKey(Map<String, dynamic> map) => ForgeDeployKey(
@@ -361,8 +360,34 @@ class GitHub implements Forge {
     return null;
   }
 
-  Future<Object?> _json(String method, String path) async =>
-      jsonDecode((await _send(method, _api.replace(path: path))).body);
+  /// [path] under this forge's API, never in place of it: a GitHub of its own keeps its API under
+  /// `/api/v3`, which a bare replace would drop.
+  Uri _at(String path, {Map<String, String>? queryParameters}) =>
+      _api.replace(path: '${_api.path}$path', queryParameters: queryParameters);
+
+  /// [reply]'s body as the list a call reads, or GitHub refusing it: a proxy's page, or JSON of another
+  /// shape, is said rather than thrown past every form that asked.
+  static List<dynamic> _listOf(ForgeReply reply) => switch (_decoded(reply)) {
+    final List<dynamic> list => list,
+    _ => throw ForgeRefused('GitHub answered with something other than the list this asks for.'),
+  };
+
+  /// [reply]'s body as the object a call reads, or GitHub refusing it.
+  static Map<String, dynamic> _mapOf(ForgeReply reply) => switch (_decoded(reply)) {
+    final Map<String, dynamic> map => map,
+    _ => throw ForgeRefused('GitHub answered with something other than the object this asks for.'),
+  };
+
+  static Object? _decoded(ForgeReply reply) {
+    try {
+      return jsonDecode(reply.body);
+    } on FormatException {
+      throw ForgeRefused(
+        'GitHub answered with a page that is not its API, as a proxy or a network sign-in does.',
+        status: reply.status,
+      );
+    }
+  }
 
   Future<ForgeReply> _send(String method, Uri uri, {bool allow404 = false, String? body}) async {
     final ForgeReply reply;
@@ -376,6 +401,9 @@ class GitHub implements Forge {
       }, body);
     } on SocketException catch (ex) {
       throw ForgeRefused('GitHub could not be reached: ${ex.message}');
+    } on IOException catch (ex) {
+      // A TLS handshake refused, or an exchange broken off: no answer of GitHub's either.
+      throw ForgeRefused('GitHub could not be asked: $ex');
     }
     if (reply.status >= 200 && reply.status < 300) return reply;
     if (allow404 && reply.status == 404) return reply;
@@ -436,19 +464,35 @@ class GitHub implements Forge {
 /// The forge over the network, with connections kept open and reused between requests: one per
 /// token's forge. Asking about fifty repositories one handshake at a time took a
 /// minute or two.
+///
+/// **Every request ends within [_within]**, connecting and answering together: a forge that accepts
+/// and then says nothing would otherwise hold the form that asked for good.
 class _Network {
+  _Network(this._within);
+
+  final Duration _within;
   HttpClient? _client;
 
   Future<ForgeReply> send(String method, Uri uri, Map<String, String> headers, String? body) async {
-    final client = _client ??= HttpClient()..idleTimeout = const Duration(seconds: 30);
-    final request = await client.openUrl(method, uri);
-    headers.forEach(request.headers.set);
-    if (body != null) request.write(body);
-    final response = await request.close();
-    final text = await response.transform(utf8.decoder).join();
-    final seen = <String, String>{};
-    response.headers.forEach((name, values) => seen[name.toLowerCase()] = values.join(', '));
-    return (status: response.statusCode, body: text, headers: seen);
+    final client = _client ??= HttpClient()
+      ..idleTimeout = const Duration(seconds: 30)
+      ..connectionTimeout = _within;
+    HttpClientRequest? request;
+    try {
+      return await () async {
+        request = await client.openUrl(method, uri);
+        headers.forEach(request!.headers.set);
+        if (body != null) request!.write(body);
+        final response = await request!.close();
+        final text = await response.transform(utf8.decoder).join();
+        final seen = <String, String>{};
+        response.headers.forEach((name, values) => seen[name.toLowerCase()] = values.join(', '));
+        return (status: response.statusCode, body: text, headers: seen);
+      }().timeout(_within);
+    } on TimeoutException {
+      request?.abort();
+      throw ForgeRefused('GitHub did not answer within ${_within.inSeconds} seconds.');
+    }
   }
 }
 

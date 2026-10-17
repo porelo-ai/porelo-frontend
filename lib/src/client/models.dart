@@ -917,7 +917,6 @@ class Credential {
     this.grant,
   });
 
-  /// Reads one from a reply.
   /// How a vault entry's name appears inside a task, after `PORELO_TOKEN_` and `PORELO_URL_`:
   /// upper-cased, anything but a letter or digit as `_`. Measured: `f56-api` is `PORELO_TOKEN_F56_API`.
   static String variableOf(String entry) => entry.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '_');
@@ -925,6 +924,7 @@ class Credential {
   /// Whether it names a service a person grants an authorization for, once, in a browser.
   bool get isGranted => type == 'oauth-device' || type == 'oauth-code';
 
+  /// Reads one from a reply.
   factory Credential.from(Map<String, dynamic> map) => Credential(
     name: _string(map, 'name'),
     type: _string(map, 'type'),
@@ -987,8 +987,8 @@ class DefaultRepository {
     upstream: _string(map, 'upstream'),
     checkout: _string(map, 'checkout'),
     claimedBy: _string(map, 'claimedBy'),
-    source: map['source'] as String?,
-    remote: map['remote'] as String?,
+    source: map['source'] is String ? map['source'] as String : null,
+    remote: map['remote'] is String ? map['remote'] as String : null,
   );
 }
 
@@ -1018,7 +1018,8 @@ class TaskRefreshed {
   factory TaskRefreshed.from(Map<String, dynamic> map) => TaskRefreshed(
     outcome: _string(map, 'outcome'),
     moved: <String, String>{
-      for (final each in ((map['moved'] as Map?) ?? const <String, dynamic>{}).entries) '${each.key}': '${each.value}',
+      for (final each in (map['moved'] is Map ? map['moved'] as Map : const <String, dynamic>{}).entries)
+        '${each.key}': '${each.value}',
     },
     detail: _string(map, 'detail'),
     told: map['told'] == true,
@@ -1162,6 +1163,8 @@ class ProjectFileSchema {
 class ProjectFileKey {
   /// Where it sits: `""` for the top level, `mail.peers.<peer>` for each named one.
   final String section;
+
+  /// The key's own name within [section].
   final String name;
 
   /// What it means, in one sentence: Porelo's words, never written a second time here.
@@ -4652,6 +4655,8 @@ class Destination {
 
   /// The header the key goes in, and the text before it.
   final String authHeader;
+
+  /// The text before the key in [authHeader], such as `Bearer `.
   final String authPrefix;
 
   /// The URL parameter the key goes in instead, or empty for the header.

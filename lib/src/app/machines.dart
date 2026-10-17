@@ -159,8 +159,10 @@ class Machine {
   bool get needsATunnel => host.isNotEmpty && remoteSocket.isNotEmpty;
 
   /// Whether this is this computer's own daemon, at the place this user's Porelo puts its socket:
-  /// one the interface can start here, as it starts one it logs into.
-  bool get isThisComputer => !needsATunnel && socketPath == Backend.local().socketPath;
+  /// one the interface can start here, as it starts one it logs into. **Never a WSL distribution**,
+  /// nor a machine with no socket: on Windows there is no local daemon, and its socket reads as `''`.
+  bool get isThisComputer =>
+      kind.isEmpty && !needsATunnel && socketPath.isNotEmpty && socketPath == Backend.local().socketPath;
 
   /// Whether this interface can start the daemon itself: over its own login, or here.
   bool get canBeStartedHere => needsATunnel || isThisComputer;
@@ -233,7 +235,7 @@ class Machine {
 ///
 /// **Connected to all of them, acting on one.** A clearance prompt has a deadline and does not
 /// come again, so a machine nobody is connected to is a machine whose blocked work expires
-/// unseen. Which one an action lands on is a separate question, and it is answered by [selected]
+/// unseen. Which one an action lands on is a separate question, and it is answered by [current]
 /// — never by which one happens to be reachable.
 class Machines extends ChangeNotifier {
   /// Constructor taking where the list is kept and how to reach a machine.
@@ -242,9 +244,9 @@ class Machines extends ChangeNotifier {
   /// frame is drawn before [load] can finish, and a frame with no machine behind it has nothing
   /// to draw — which it did, as a crash on the first frame.
   ///
-  /// [lookFor] is a machine shown besides the stored ones **only while something answers at its
+  /// `lookFor` is a machine shown besides the stored ones **only while something answers at its
   /// socket**, and never stored: the mock, so a person working on the interface does not have to
-  /// add it to every list they keep. [answers] says whether something does.
+  /// add it to every list they keep. `answers` says whether something does.
   Machines(
     this._settings, {
     FleetBackend Function(Machine)? reach,
@@ -334,14 +336,14 @@ class Machines extends ChangeNotifier {
     whyNotNow: machine.relay == null ? null : () => Wsl().whyNotNow(machine.distribution),
   );
 
-  /// Tries [machine] as watching it would, without watching it or leaving anything running.
-  /// Where Porelo's socket is for the account [host] logs in as, asked of the machine, or null when
+  /// Where Porelo's socket is for the account `host` logs in as, asked of the machine, or null when
   /// it could not be asked.
   Future<String?> socketAt(String host) async {
     final uid = await tunnels.loginUidAt(host);
     return uid == null ? null : Machine.porelodSocketFor(uid);
   }
 
+  /// Tries [machine] as watching it would, without watching it or leaving anything running.
   Future<Trial> tryMachine(Machine machine) => tryAMachine(machine, reach: _reach, tunnels: tunnels);
 
   /// How many ways into [machine]'s vault there are, or null when it could not be asked.

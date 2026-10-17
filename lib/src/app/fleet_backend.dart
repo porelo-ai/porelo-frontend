@@ -176,7 +176,7 @@ abstract class FleetBackend {
   /// Which node this is, or empty from a daemon that does not answer.
   ///
   /// Only ever compared with another one. **Empty is never equal to empty here** — see
-  /// [Machines].
+  /// `Machines`.
   Future<String> node();
 
   /// Removes what Porelo built for a project, or says what it would remove.

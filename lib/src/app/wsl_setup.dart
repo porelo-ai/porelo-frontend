@@ -16,7 +16,11 @@ const poreloKeyFingerprint = 'BF27A2FA637F505CAFBE431768D19D175D904415';
 
 /// Where the repository's key and packages are.
 const poreloKeyAddress = 'https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public';
+
+/// Porelo's Debian package repository, with `releases` and `snapshots`.
 const poreloDebRepository = 'https://fuinorg.jfrog.io/artifactory/porelo-dist-deb';
+
+/// Porelo's RPM package repository, with `releases` and `snapshots`.
 const poreloRpmRepository = 'https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm';
 
 /// The agents offered when Porelo is set up, as their packages are named. **None is chosen in
@@ -29,12 +33,25 @@ const poreloAgents = <({String package, String name})>[
 
 /// One check before a WSL distribution is connected to, and what it found.
 enum WslCheck {
+  /// Windows' build, read here.
   windows('Windows is new enough for WSL2'),
+
+  /// `wsl.exe` answering.
   installed('WSL is installed'),
+
+  /// The distribution's WSL version.
   wsl2('The distribution runs under WSL2'),
+
+  /// Its `/etc/os-release`.
   supported('The distribution is one Porelo supports'),
+
+  /// Whether systemd is its init.
   systemd('systemd runs in it'),
+
+  /// Whether `porelo` is on its path.
   porelo('Porelo is installed in it'),
+
+  /// Whether its daemon answers through the relay.
   daemon('Its daemon answers');
 
   const WslCheck(this.title);
@@ -45,9 +62,13 @@ enum WslCheck {
 
 /// What one check found: passed, or failed with why and what to do.
 class WslFinding {
+  /// Constructor taking the check, whether it passed, and what it found.
   const WslFinding(this.check, {required this.passed, this.words = ''});
 
+  /// The check this is the finding of.
   final WslCheck check;
+
+  /// Whether it passed.
   final bool passed;
 
   /// Why it failed and what to do, or what was found, in words.
@@ -56,6 +77,7 @@ class WslFinding {
 
 /// The system a distribution says it is, from its `/etc/os-release`.
 class OsRelease {
+  /// Constructor taking each field as `/etc/os-release` names it.
   const OsRelease({required this.id, required this.version, required this.name});
 
   /// Read from `/etc/os-release`'s text: `ID`, `VERSION_ID` and `PRETTY_NAME`.
@@ -77,8 +99,13 @@ class OsRelease {
     );
   }
 
+  /// `ID`: `ubuntu`, `debian`, `fedora`.
   final String id;
+
+  /// `VERSION_ID`: `26.04`, `13`, `43`.
   final String version;
+
+  /// `PRETTY_NAME`, as a person reads it.
   final String name;
 
   /// Whether Porelo supports it: Ubuntu 26.04 or later, Debian 13, Fedora 43 or 44.
@@ -110,10 +137,13 @@ const int firstWsl2Build = 19041;
 
 /// The lines that set Porelo up in a distribution, each shown before anything runs.
 class SetupLine {
+  /// Constructor taking what runs, whether as root, and what for.
   const SetupLine(this.command, {required this.asRoot, required this.why});
 
   /// What runs, as the program and its arguments; shown joined.
   final List<String> command;
+
+  /// Whether it runs as root, after the person said yes to it.
   final bool asRoot;
 
   /// What it is for, in words.
@@ -136,6 +166,8 @@ class SetupLine {
 /// one without systemd is restarted only after a question of its own, whose answer is no unless
 /// the person changes it.
 class WslSetup extends ChangeNotifier {
+  /// Constructor taking the distribution, Windows' version, and, for a test, how WSL is reached and
+  /// a line run.
   WslSetup({
     required this.distribution,
     required this.operatingSystemVersion,
@@ -364,7 +396,8 @@ class WslSetup extends ChangeNotifier {
     ];
   }
 
-  /// The fingerprint of the key fetched to `/tmp/porelo.asc`, or null where none could be read.
+  /// The fingerprint of the key fetched to `/tmp/porelo.asc`, or null where none could be read; a file
+  /// holding more than one key is answered as how many, with each fingerprint, which no carried one equals.
   Future<String?> fetchedFingerprint() async {
     final shown = await _run(distribution, const <String>[
       'gpg',
@@ -372,13 +405,26 @@ class WslSetup extends ChangeNotifier {
       '--with-colons',
       '/tmp/porelo.asc',
     ], asRoot: true);
+    // One primary key's fingerprint per `pub` record: the `fpr` after a `sub` is its own subkey's.
+    // A file with a second primary key is not Porelo's key, however the first one reads.
+    final primaries = <String>[];
+    var afterPrimary = false;
     for (final line in const LineSplitter().convert(shown.said)) {
-      if (line.startsWith('fpr:')) {
+      if (line.startsWith('pub:')) {
+        afterPrimary = true;
+      } else if (line.startsWith('sub:')) {
+        afterPrimary = false;
+      } else if (line.startsWith('fpr:') && afterPrimary) {
         final fields = line.split(':');
-        if (fields.length > 9 && fields[9].isNotEmpty) return fields[9];
+        if (fields.length > 9 && fields[9].isNotEmpty) primaries.add(fields[9]);
+        afterPrimary = false;
       }
     }
-    return null;
+    return switch (primaries) {
+      [] => null,
+      [final only] => only,
+      _ => '${primaries.length} keys, ${primaries.join(', ')}',
+    };
   }
 
   /// Runs the setup [lines] in order, after a yes to exactly them. The key is checked against

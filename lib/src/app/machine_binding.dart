@@ -11,6 +11,7 @@ class BindingRefused implements Exception {
   /// Constructor taking the sentence.
   const BindingRefused(this.words);
 
+  /// Why, in a sentence a person can act on.
   final String words;
 
   @override
@@ -451,6 +452,8 @@ class MachineBinding extends ChangeNotifier {
 
   /// The change being looked at, and what it would change against the default branch.
   String? reviewing;
+
+  /// What [reviewing] would change against the default branch, as a diff.
   String reviewDiff = '';
 
   /// Asks the machine what waits at its gate for the project's own repository.

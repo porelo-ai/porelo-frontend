@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
@@ -270,5 +271,85 @@ void main() {
   test('the API of a GitHub is api.github.com for github.com, and /api/v3 on one of its own', () {
     expect(GitHub.apiOf('github.com'), Uri.parse('https://api.github.com'));
     expect(GitHub.apiOf('git.example.org'), Uri.parse('https://git.example.org/api/v3'));
+  });
+
+  // The harm: on a GitHub of its own every call went to the instance's root, past its /api/v3, so
+  // nothing a person asked of it was answered and their token went to pages that are not the API.
+  test('a GitHub of its own is asked under its /api/v3, for every call', () async {
+    final enterprise = GitHub(
+      'ghp_secret-token',
+      api: GitHub.apiOf('git.example.org'),
+      http: (method, uri, headers, body) async {
+        asked.add((method: method, uri: uri, headers: headers));
+        return reply(200, method == 'GET' && uri.path.endsWith('/user') ? <String, String>{'login': 'a'} : <Object>[]);
+      },
+    );
+    await enterprise.whoAmI();
+    await enterprise.repositories();
+    await enterprise.branches('team/app');
+    await enterprise.deployKeys('team/app');
+    await enterprise.removeDeployKey('team/app', 7);
+    expect(
+      [for (final each in asked) each.uri.path],
+      <String>[
+        '/api/v3/user',
+        '/api/v3/user/repos',
+        '/api/v3/repos/team/app/branches',
+        '/api/v3/repos/team/app/keys',
+        '/api/v3/repos/team/app/keys/7',
+      ],
+    );
+    expect({for (final each in asked) each.uri.host}, <String>{'git.example.org'});
+  });
+
+  // The harm: what is not GitHub's refusal escaped as a raw exception that the forms do not catch,
+  // so a button stayed busy for good and nothing was said.
+  group('every way a request can fail is said as GitHub refusing it', () {
+    GitHub answering(Future<ForgeReply> Function() answer) =>
+        GitHub('ghp_secret-token', http: (method, uri, headers, body) => answer());
+
+    test('a page that is not JSON, as a proxy or a captive portal answers', () async {
+      final github = answering(() async => (status: 200, body: '<html>sign in</html>', headers: <String, String>{}));
+      await expectLater(github.whoAmI(), throwsA(isA<ForgeRefused>()));
+      await expectLater(github.repositories(), throwsA(isA<ForgeRefused>()));
+    });
+
+    test('JSON of another shape than the call reads', () async {
+      final github = answering(() async => reply(200, <String, Object>{}));
+      await expectLater(github.repositories(), throwsA(isA<ForgeRefused>()));
+      await expectLater(github.branches('team/app'), throwsA(isA<ForgeRefused>()));
+      final listing = answering(() async => reply(200, <Object>[]));
+      await expectLater(listing.whoAmI(), throwsA(isA<ForgeRefused>()));
+    });
+
+    test('a TLS handshake or an HTTP exchange that breaks off', () async {
+      await expectLater(
+        answering(() => throw const HandshakeException('certificate unknown')).whoAmI(),
+        throwsA(isA<ForgeRefused>()),
+      );
+      await expectLater(
+        answering(() => throw const HttpException('Connection closed before full header was received')).whoAmI(),
+        throwsA(isA<ForgeRefused>()),
+      );
+    });
+  });
+
+  // The harm: a forge that accepts and then says nothing held the form that asked for good.
+  test('a forge that accepts and never answers is said as refusing, within the time given', () async {
+    final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final held = <Socket>[];
+    silent.listen(held.add);
+    addTearDown(() async {
+      for (final each in held) {
+        each.destroy();
+      }
+      await silent.close();
+    });
+    final github = GitHub(
+      'ghp_secret-token',
+      api: Uri.parse('http://127.0.0.1:${silent.port}'),
+      answerWithin: const Duration(seconds: 1),
+    );
+    await expectLater(github.whoAmI().timeout(const Duration(seconds: 10)), throwsA(isA<ForgeRefused>()));
   });
 }

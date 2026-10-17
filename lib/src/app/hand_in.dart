@@ -69,9 +69,17 @@ class HandingIn extends ChangeNotifier {
   /// Refused before a byte is read when the file is larger than the task takes.
   Future<HandedFile?> give(FleetBackend backend, Task to, String path, {String? as}) async {
     final file = File(path);
-    final size = await file.length();
     // Either separator: a picked file on Windows can come with `/` as well as `\\`.
     final named = as ?? path.split(RegExp(r'[\\/]')).last;
+    final int size;
+    try {
+      size = await file.length();
+    } on FileSystemException catch (ex) {
+      task = to.name;
+      name = named;
+      _tell('$named cannot be read here: ${ex.osError?.message ?? ex.message}. Nothing was sent.', failed: true);
+      return null;
+    }
     task = to.name;
     name = named;
     bytes = size;
@@ -89,8 +97,9 @@ class HandingIn extends ChangeNotifier {
     said = null;
     failed = false;
     notifyListeners();
-    final opened = await file.open();
+    RandomAccessFile? opened;
     try {
+      opened = await file.open();
       final sha256 = (await crypto.sha256.bind(file.openRead()).first).toString();
       var offset = 0;
       var lostInARow = 0;
@@ -151,8 +160,15 @@ class HandingIn extends ChangeNotifier {
       );
     } on FeatureNotSupported {
       _tell('This machine cannot hand a file to work.', failed: true);
+    } on FileSystemException catch (ex) {
+      // Read past the size it had, or taken away while it was read: what is there says so.
+      _tell(
+        '$named cannot be read here: ${ex.osError?.message ?? ex.message}. '
+        '${inWords(received)} of ${inWords(size)} were sent.',
+        failed: true,
+      );
     } finally {
-      await opened.close();
+      await opened?.close();
     }
     return null;
   }
