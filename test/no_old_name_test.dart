@@ -41,7 +41,7 @@ void main() {
 
   test('every exception still holds the old name', () {
     // An exception that no longer matches anything is a hole the old name can come back through.
-    for (final path in <String>['CHANGELOG.md', _renameIssue(tracked)]) {
+    for (final path in <String>['CHANGELOG.md']) {
       final lines = File(path).readAsLinesSync();
       final kept = _kept(path, lines);
       expect(kept.where((i) => oldName.hasMatch(lines[i])), isNotEmpty,
@@ -52,12 +52,9 @@ void main() {
 
 /// The lines of [path] that may say the old name, by index.
 ///
-/// The released sections of the changelog say what was shipped under it, the sentence that announces
-/// the rename says what it was, and the rename's own issue describes the change from one to the other.
+/// The released sections of the changelog say what was shipped under it, and the sentence that
+/// announces the rename says what it was.
 Set<int> _kept(String path, List<String> lines) {
-  if (path.startsWith('issues/') && path.endsWith('-The-Interface-Renamed-Porelo.md')) {
-    return <int>{for (var i = 0; i < lines.length; i++) i};
-  }
   if (path == 'CHANGELOG.md') {
     final released = lines.indexWhere((line) => RegExp(r'^## \[\d').hasMatch(line));
     return <int>{
@@ -70,9 +67,6 @@ Set<int> _kept(String path, List<String> lines) {
 
 /// The changelog's announcement of the rename, the one sentence above the released sections kept.
 const _renameSentence = ' is now Porelo, ';
-
-String _renameIssue(List<String> tracked) =>
-    tracked.singleWhere((path) => path.startsWith('issues/') && path.endsWith('-The-Interface-Renamed-Porelo.md'));
 
 List<String> _trackedFiles() {
   final listed = Process.runSync('git', <String>['ls-files', '-z'],

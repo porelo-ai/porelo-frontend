@@ -20,7 +20,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f122"></a>[F122](F122-The-Interface-Called-Porelo-Control-Tower.md) | XS | — | The interface called Porelo Control Tower wherever a person reads its name. |
 | <a id="f121"></a>[F121](F121-The-Interface-In-Porelos-Look.md) | M | — | The interface in the look of Porelo's website, with a light mode beside the dark one, and the logo as its icon. |
-| <a id="f120"></a>[F120](F120-The-Interface-Renamed-Porelo.md) | M | — | The interface renamed Porelo: its package, binary, desktop ids, settings, packages and the daemon's contract. |
 | <a id="f79"></a>[F79](F79-What-Walk-8-Found-In-The-Interface.md) | — | — | Tiles, *Needs you*, *Join* and talking read at a glance, an action's effect seen at once. |
 | <a id="f71"></a>[F71](F71-The-Sign-In-Terminal-Shows-Where-Typing-Goes.md) | — | — | A terminal waiting for input shows where typing goes. |
 | <a id="f68"></a>[F68](F68-A-Refusal-Says-What-To-Do-About-It.md) | — | — | A refusal says what to change, and where. |
@@ -77,4 +76,5 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f120"></a>F120 | The Interface Renamed Porelo | The interface renamed Porelo in one scripted commit: its Dart package, binary, desktop and MSIX ids, settings, packages and the daemon's contract, installed afresh, and a test that holds every tracked file to the new name. |
 | <a id="f102"></a>F102 | A Porelo In WSL Reached From Windows | The interface on Windows, as a ZIP and an MSIX signed by `CN=porelo.ai`, reaching a Porelo in a WSL distribution through `wsl.exe` with no ssh and no open port, and setting Porelo up there; checked on GitHub's Windows runner, untested on a Windows machine. |

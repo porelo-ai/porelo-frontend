@@ -49,6 +49,7 @@ taken, `git log` answers.
 | [A WSL distribution is reached through `wsl.exe` and the relay, never over a port](#a-wsl-distribution-is-reached-through-wslexe-and-the-relay-never-over-a-port) |
 | [A stopped WSL distribution is never started by the interface, but for the restart a person asked for](#a-stopped-wsl-distribution-is-never-started-by-the-interface) |
 | [The Windows build is checked on GitHub's Windows runner; a test on a Windows machine is welcome, not required](#the-windows-build-is-checked-on-githubs-windows-runner) |
+| [The rename to Porelo carries nothing over: the interface is installed afresh](#the-rename-to-porelo-carries-nothing-over) |
 
 ## The interface can do what a console can
 
@@ -602,3 +603,15 @@ distribution, a terminal attached through ConPTY, a push approved at the gate, o
 Windows user cannot reach the distribution; and the MSIX is built and signed but never installed.
 **What would change the answer:** the MSIX installed and started in the Build's Windows job narrows
 it; a Windows machine here would make the test part of every hand-over.
+
+## The rename to Porelo carries nothing over
+
+The interface installs as `porelo-frontend`, keeps its settings in `porelo/frontend.json` and speaks
+`porelod`'s contract; nothing reads the old name's settings, socket or packages. The MSIX is a new app,
+`ai.porelo.frontend`, beside the old one rather than an update of it. The old name stays only where
+a sentence says what it was - the changelog's released sections and the line that announces the
+rename - and `test/no_old_name_test.dart` holds every other tracked file to the new name.
+
+**The exposure:** a person who used the interface under the old name connects their machines again
+and removes the old package and app themselves. **What would change the answer:** people outside
+this project who installed a release under the old name.
