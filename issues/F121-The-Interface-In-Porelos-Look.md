@@ -1,6 +1,6 @@
 # F121 — The Interface In Porelo's Look
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one colour scheme per brightness in place of a seed colour, the state colours by
 brightness, the terminal's palette, the corners and buttons, the logo as the application's icon, and
 a test that holds every pair to its contrast.
