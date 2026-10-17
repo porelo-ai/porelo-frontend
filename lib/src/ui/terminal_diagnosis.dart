@@ -30,6 +30,7 @@ typedef ThroughWsl = Future<String> Function(String distribution, List<int> byte
 /// as on Linux, or the key events alone), and whether what was typed survives `wsl.exe`, through
 /// pipes as the relay uses them or through a pseudoconsole as the attach does.
 class TerminalDiagnosis extends StatefulWidget {
+  /// Constructor taking, for a test, how WSL is asked, how bytes are sent through it, and the log.
   const TerminalDiagnosis({this.wsl, this.throughWsl, this.log, super.key});
 
   /// How the distributions are listed; null for `wsl.exe` itself.
@@ -51,7 +52,7 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
   final List<String> _lines = <String>[];
   final List<int> _sent = <int>[];
   late final File _log =
-      widget.log ?? File('${Directory.systemTemp.path}${Platform.pathSeparator}porelo-terminal-diagnose.txt');
+      widget.log ?? File(desk.join(<String>[Directory.systemTemp.path, 'porelo-terminal-diagnose.txt']));
   List<String> _distributions = const <String>[];
   String? _distribution;
   bool _keyEventsOnly = false;
@@ -303,6 +304,7 @@ Future<String> throughWslForReal(
 
 /// The diagnosis as a window of its own.
 class TerminalDiagnosisApp extends StatelessWidget {
+  /// Constructor, with nothing to take.
   const TerminalDiagnosisApp({super.key});
 
   @override

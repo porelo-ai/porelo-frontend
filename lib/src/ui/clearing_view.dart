@@ -13,6 +13,8 @@ import 'tokens.dart';
 Future<void> openClearing(BuildContext context, MachineClearing clearing) async {
   unawaited(clearing.look());
   await showDialog<void>(context: context, builder: (_) => _ClearingDialog(clearing));
+  // Closed: a look or a clearing still running says what it found to nobody.
+  clearing.dispose();
 }
 
 class _ClearingDialog extends StatelessWidget {

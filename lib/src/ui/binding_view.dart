@@ -26,11 +26,12 @@ Future<String?> showBinding(
 }
 
 /// Working on a project on a machine: one button, said as what the person gets, each step said as
-/// it is done. What a project's keys and changes are for later is in [ProjectForgeDialog].
+/// it is done. What a project's keys and changes are for later is in `ProjectForgeDialog`.
 class BindingDialog extends StatefulWidget {
   /// Constructor taking the binding.
   const BindingDialog({required this.binding, this.startFollows = false, this.changeToken, super.key});
 
+  /// What binding the machine to the project knows and does.
   final MachineBinding binding;
 
   /// Whether starting work follows the binding by itself, the dialog closing on its own once the
@@ -304,6 +305,7 @@ class _BindingDialogState extends State<BindingDialog> {
 class _HostKeyAtTheForge extends StatelessWidget {
   const _HostKeyAtTheForge({required this.binding, required this.met});
 
+  /// What binding the machine to the project knows and does.
   final MachineBinding binding;
   final Followed met;
 

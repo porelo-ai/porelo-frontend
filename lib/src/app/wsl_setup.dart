@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'machines.dart';
 import 'wsl.dart';
+import 'quiet_after_dispose.dart';
 
 /// Runs a command in a WSL distribution, as its user or as root, and answers its exit code and
 /// what it printed. Injectable, so a test's distribution is whatever it says.
@@ -165,7 +166,7 @@ class SetupLine {
 /// of them is recorded with what it answered. A distribution that is stopped is never started, and
 /// one without systemd is restarted only after a question of its own, whose answer is no unless
 /// the person changes it.
-class WslSetup extends ChangeNotifier {
+class WslSetup extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the distribution, Windows' version, and, for a test, how WSL is reached and
   /// a line run.
   WslSetup({

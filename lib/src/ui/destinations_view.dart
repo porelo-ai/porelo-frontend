@@ -22,6 +22,7 @@ class DestinationsDialog extends StatefulWidget {
   /// Constructor taking the machine to ask.
   const DestinationsDialog({required this.backend, super.key});
 
+  /// The machine whose destinations these are.
   final FleetBackend backend;
 
   @override
@@ -36,6 +37,20 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
   /// The destination being written, or null while none is.
   _Draft? _draft;
 
+  /// Puts [next] in place of the draft, disposing the one it replaces once the frame that still
+  /// shows it is drawn.
+  void _setDraft(_Draft? next) {
+    final before = _draft;
+    _draft = next;
+    if (before != null && before != next) WidgetsBinding.instance.addPostFrameCallback((_) => before.dispose());
+  }
+
+  @override
+  void dispose() {
+    _draft?.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +63,7 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
   });
 
   Future<void> _asking(Future<void> Function() action) async {
+    if (!mounted) return;
     setState(() => _problem = null);
     try {
       await action();
@@ -116,7 +132,7 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
               if (draft == null)
                 OutlinedButton.icon(
                   key: const Key('add-destination'),
-                  onPressed: () => setState(() => _draft = _Draft()),
+                  onPressed: () => setState(() => _setDraft(_Draft())),
                   icon: const Icon(Icons.add, size: Sizes.rowIcon),
                   label: const Text('Add a destination'),
                 )
@@ -126,12 +142,12 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
                   backend: widget.backend,
                   onWritten: (written) async {
                     setState(() {
-                      _draft = null;
+                      _setDraft(null);
                       _said = 'Written: ${written.name}, in ${written.file}.';
                     });
                     await _read();
                   },
-                  onLeave: () => setState(() => _draft = null),
+                  onLeave: () => setState(() => _setDraft(null)),
                 ),
             ],
           ),
@@ -179,7 +195,7 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
                 if (each.inForce)
                   TextButton(
                     key: ValueKey<String>('change-destination ${each.name}'),
-                    onPressed: () => setState(() => _draft = _Draft.of(each)),
+                    onPressed: () => setState(() => _setDraft(_Draft.of(each))),
                     child: Text(each.packaged ? 'Put your own in its place' : 'Change it'),
                   ),
                 if (!each.packaged)
@@ -222,6 +238,13 @@ class _Draft {
   final TextEditingController prefix;
   final TextEditingController query;
 
+  /// Lets go of every field's controller.
+  void dispose() {
+    for (final field in <TextEditingController>[name, label, upstream, header, prefix, query]) {
+      field.dispose();
+    }
+  }
+
   /// Everything typed, as one comparable value: a preview holds only for what it was asked about.
   String get typed =>
       <TextEditingController>[name, label, upstream, header, prefix, query].map((each) => each.text).join('\u0000');
@@ -232,6 +255,8 @@ class _DraftForm extends StatefulWidget {
   const _DraftForm({required this.draft, required this.backend, required this.onWritten, required this.onLeave});
 
   final _Draft draft;
+
+  /// The machine whose destinations these are.
   final FleetBackend backend;
   final Future<void> Function(Destination written) onWritten;
   final VoidCallback onLeave;

@@ -64,6 +64,18 @@ class _SessionViewState extends State<SessionView> {
     session.addListener(_changed);
   }
 
+  /// Another session shown in this one's place listens for its own end, not the old one's.
+  @override
+  void didUpdateWidget(SessionView old) {
+    super.didUpdateWidget(old);
+    if (old.session == widget.session) return;
+    old.session.removeListener(_changed);
+    _back?.cancel();
+    _back = null;
+    _selection.clearSelection();
+    widget.session.addListener(_changed);
+  }
+
   @override
   void dispose() {
     session.removeListener(_changed);

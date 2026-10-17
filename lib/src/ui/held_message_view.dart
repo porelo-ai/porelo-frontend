@@ -13,8 +13,13 @@ class HeldMessageRow extends StatelessWidget {
   /// Constructor taking the message and where it is.
   const HeldMessageRow({required this.machine, required this.fleet, required this.message, super.key});
 
+  /// The machine holding it.
   final Machine machine;
+
+  /// What the machine says, and what deciding it sends.
   final FleetModel fleet;
+
+  /// The message held.
   final HeldMessage message;
 
   @override
@@ -116,7 +121,10 @@ class HeldMessageDialog extends StatefulWidget {
   /// Constructor taking the machine's model and the message as it was listed.
   const HeldMessageDialog({required this.fleet, required this.message, super.key});
 
+  /// What the machine says, and what deciding it sends.
   final FleetModel fleet;
+
+  /// The message held.
   final HeldMessage message;
 
   @override
@@ -346,7 +354,10 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
 class _Preview extends StatefulWidget {
   const _Preview({required this.fleet, required this.message});
 
+  /// What the machine says, and what deciding it sends.
   final FleetModel fleet;
+
+  /// The message held.
   final HeldMessage message;
 
   /// How much of it is shown.

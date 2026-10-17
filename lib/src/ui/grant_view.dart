@@ -30,6 +30,7 @@ class GrantDialog extends StatelessWidget {
   /// Constructor taking what is being granted.
   const GrantDialog({required this.granting, super.key});
 
+  /// What granting the authorization knows and does.
   final Granting granting;
 
   @override
@@ -176,8 +177,13 @@ class AuthorizationRow extends StatelessWidget {
   /// Constructor taking the machine, its model and the question.
   const AuthorizationRow({required this.machine, required this.fleet, required this.needed, super.key});
 
+  /// The machine the work runs on.
   final Machine machine;
+
+  /// What the machine says about its work.
   final FleetModel fleet;
+
+  /// The authorization the work waits for.
   final AuthorizationNeeded needed;
 
   @override

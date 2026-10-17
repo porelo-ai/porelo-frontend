@@ -69,6 +69,7 @@ class RepositoriesDialog extends StatefulWidget {
   /// Opens the start dialog on the project called by name, on [machine]; null where not offered.
   final Future<void> Function(String project)? onStartWork;
 
+  /// The forge whose repositories these are.
   final ForgeConnection forges;
 
   /// The machine that checks a project file, or null where none is watched.
@@ -169,7 +170,7 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
           : 'Give ${forges.current!.name} its token again.',
       style: Theme.of(context).textTheme.bodySmall,
     ),
-    ForgeForm(key: const Key('forge-first'), forges: forges, editing: forges.current, onDone: (_) {}),
+    ForgeForm(key: const Key('forge-first'), forges: forges, editing: forges.current, onDone: (_) {}, cancels: false),
   ];
 
   /// Which forge, where more than one is set up.

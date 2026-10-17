@@ -99,6 +99,7 @@ import 'tokens.dart';
 import 'window_size.dart';
 import 'work_page.dart';
 import 'wsl_machine.dart';
+import 'dialog_scroll.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -553,10 +554,6 @@ class _ShellState extends State<Shell> {
     await widget.gate.lookAt(_fleet.backend, project);
   }
 
-  /// Asks what removing what Porelo built for this project would take, then offers to do it.
-  ///
-  /// **Nothing is removed by opening this.** The preview is a call with `dryRun`, and what it
-  /// lists is what somebody agrees to — the sentence above the button is not.
   /// Clears the selected project from the machine, and the machine's keys for it at the forge.
   Future<void> _clearTheProject() async {
     final project = _fleet.selectedProject;
@@ -574,6 +571,10 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
+  /// Asks what removing what Porelo built for this project would take, then offers to do it.
+  ///
+  /// **Nothing is removed by opening this.** The preview is a call with `dryRun`, and what it
+  /// lists is what somebody agrees to — the sentence above the button is not.
   Future<void> _removeWhatWasBuilt() async {
     final project = _fleet.selectedProject;
     if (project == null) return;
@@ -601,9 +602,6 @@ class _ShellState extends State<Shell> {
     await widget.readiness.look(_fleet.backend);
   }
 
-  /// Shows what has been backed up of the selected project.
-  ///
-  /// [repository] is one of the project's; without one, the project's own.
   /// The person's forge login: the one the app was given, or the platform's own keychain.
   late final ForgeConnection _forges =
       widget.forges ?? ForgeConnection(PlatformForgeTokens(), entries: _ForgesInSettings(widget.settings));
@@ -703,6 +701,9 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  /// Shows what has been backed up of the selected project.
+  ///
+  /// [repository] is one of the project's; without one, the project's own.
   Future<void> _showTheBackups({String? repository}) async {
     final project = _fleet.selectedProject;
     if (project == null) return;
@@ -717,9 +718,6 @@ class _ShellState extends State<Shell> {
     if (said.isNotEmpty) _fleet.say(said);
   }
 
-  /// Asks the upstream how far behind this project is, now.
-  ///
-  /// [repository] is one of the project's; without one, the project's own.
   /// Fetches [project] now and asks its repositories' upstream; the page says what came back.
   Future<void> _checkNow(ProjectOnScreen project) async {
     final repositories = <String>[
@@ -730,6 +728,9 @@ class _ShellState extends State<Shell> {
     await _fleet.refresh(quietly: true);
   }
 
+  /// Asks the upstream how far behind this project is, now.
+  ///
+  /// [repository] is one of the project's; without one, the project's own.
   Future<void> _syncTheUpstream({String? repository}) async {
     final project = _fleet.selectedProject;
     if (project == null) return;
@@ -944,7 +945,6 @@ class _ShellState extends State<Shell> {
     await _fleet.refresh(quietly: true);
   }
 
-  /// Follows a repository in the machine's place — the only way a project comes to a machine.
   /// The person's own repositories on a forge: made a project, and this machine bound to one.
   /// A project from a repository the person has: their forges, or the one forge's repositories
   /// straight away where there is only one (walk 10: forges are a place of their own).
@@ -1022,6 +1022,7 @@ class _ShellState extends State<Shell> {
           if (hostOf(url) == entry.address) ?fullNameOf(url),
   }.toList()..sort();
 
+  /// Follows a repository in the machine's place — the only way a project comes to a machine.
   Future<void> _followARepository() async {
     widget.following.startOn(_fleet.backend);
     widget.shell
@@ -1195,33 +1196,35 @@ class _ShellState extends State<Shell> {
             title: Text('Forget ${machine.name}?'),
             content: SizedBox(
               width: Sizes.dialogMedium,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  const Text('This interface stops watching it. Nothing on the machine changes.'),
-                  const SizedBox(height: Space.normal),
-                  CheckboxListTile(
-                    key: const Key('forget-host-entry'),
-                    contentPadding: EdgeInsets.zero,
-                    value: removeEntry,
-                    onChanged: (value) => setState(() => removeEntry = value ?? false),
-                    title: Text('Also remove Host ${machine.host} from ~/.ssh/config'),
-                    subtitle: const Text('The entry setting it up wrote; the file as it was is kept.'),
-                  ),
-                  CheckboxListTile(
-                    key: const Key('forget-key'),
-                    contentPadding: EdgeInsets.zero,
-                    value: removeKey,
-                    onChanged: keyShared ? null : (value) => setState(() => removeKey = value ?? false),
-                    title: Text('Also delete its key, ${written.keyFile}'),
-                    subtitle: Text(
-                      keyShared
-                          ? 'Another entry in ~/.ssh/config uses it, so it stays.'
-                          : 'Nothing here can reach the machine as that user afterwards.',
+              child: DialogScroll(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text('This interface stops watching it. Nothing on the machine changes.'),
+                    const SizedBox(height: Space.normal),
+                    CheckboxListTile(
+                      key: const Key('forget-host-entry'),
+                      contentPadding: EdgeInsets.zero,
+                      value: removeEntry,
+                      onChanged: (value) => setState(() => removeEntry = value ?? false),
+                      title: Text('Also remove Host ${machine.host} from ~/.ssh/config'),
+                      subtitle: const Text('The entry setting it up wrote; the file as it was is kept.'),
                     ),
-                  ),
-                ],
+                    CheckboxListTile(
+                      key: const Key('forget-key'),
+                      contentPadding: EdgeInsets.zero,
+                      value: removeKey,
+                      onChanged: keyShared ? null : (value) => setState(() => removeKey = value ?? false),
+                      title: Text('Also delete its key, ${written.keyFile}'),
+                      subtitle: Text(
+                        keyShared
+                            ? 'Another entry in ~/.ssh/config uses it, so it stays.'
+                            : 'Nothing here can reach the machine as that user afterwards.',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: <Widget>[
@@ -1810,11 +1813,6 @@ class _ShellState extends State<Shell> {
     await _showConnections();
   }
 
-  /// Offers to start a daemon on a machine that is not answering, and starts it on a yes.
-  ///
-  /// The one thing a silent machine can still be asked. What runs is named before it runs: this
-  /// is the interface reaching further into somebody else's machine than forwarding a socket goes,
-  /// and it goes no further than a line somebody read and agreed to.
   /// Starts Porelo where it is not answering, then checks the machine once it answers.
   Future<void> _startThenCheck() async {
     final machine = widget.machines.current;
@@ -1865,8 +1863,12 @@ class _ShellState extends State<Shell> {
     if (mounted && widget.machines.current == machine) await _checkTheMachine();
   }
 
-  /// Asks whether to start Porelo where it is not answering, and starts it on a yes. Answers whether
-  /// it was asked to.
+  /// Offers to start a daemon on a machine that is not answering, and starts it on a yes; answers
+  /// whether it was asked to.
+  ///
+  /// The one thing a silent machine can still be asked. What runs is named before it runs: this
+  /// is the interface reaching further into somebody else's machine than forwarding a socket goes,
+  /// and it goes no further than a line somebody read and agreed to.
   Future<bool> _startTheDaemon() async {
     final machine = widget.machines.current;
     if (!machine.canBeStartedHere) return false;
@@ -2927,6 +2929,8 @@ class _ShellState extends State<Shell> {
     _frameFocus.dispose();
     _handing.dispose();
     _handIns.dispose();
+    // Only the one made here: a connection the app handed in is the app's.
+    if (widget.forges == null) _forges.dispose();
     super.dispose();
   }
 }

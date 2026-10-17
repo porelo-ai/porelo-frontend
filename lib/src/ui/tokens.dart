@@ -61,6 +61,114 @@ abstract final class Primitives {
   /// What a stopped piece of work is drawn in, and an outline, in either mode.
   static const Color steel = Color(0xFF6B7396);
 
+  /// A deep cyan, behind cyan text in the dark mode.
+  static const Color cyanContainer = Color(0xFF00474E);
+
+  /// A pale cyan, the text on [cyanContainer].
+  static const Color onCyanContainer = Color(0xFFA6F9FF);
+
+  /// A deep magenta, behind magenta text in the dark mode.
+  static const Color magentaContainer = Color(0xFF5A1149);
+
+  /// A pale magenta, the text on [magentaContainer].
+  static const Color onMagentaContainer = Color(0xFFFFD0F4);
+
+  /// A deep lime, behind lime text in the dark mode.
+  static const Color limeContainer = Color(0xFF2C4410);
+
+  /// A pale lime, the text on [limeContainer].
+  static const Color onLimeContainer = Color(0xFFDDFFAD);
+
+  /// A deep red, behind what failed in the dark mode.
+  static const Color redContainer = Color(0xFF561020);
+
+  /// A pale red, the text on [redContainer].
+  static const Color onRedContainer = Color(0xFFFFD0D8);
+
+  /// Below the ground: the lowest surface in the dark mode.
+  static const Color groundLowest = Color(0xFF030308);
+
+  /// The website's frosted glass laid opaque over the ground: the first step.
+  static const Color glass1 = Color(0xFF0F1122);
+
+  /// The frosted glass, the second step.
+  static const Color glass2 = Color(0xFF15172C);
+
+  /// The frosted glass, the third and highest step; the light mode's inverse surface.
+  static const Color glass3 = Color(0xFF1C1F38);
+
+  /// The dark mode's outline, and the terminal's bright black.
+  static const Color dusk = Color(0xFF6E77A0);
+
+  /// The glass's fine border, in the dark mode.
+  static const Color glassBorder = Color(0xFF2A2F50);
+
+  /// A pale petrol, behind petrol text in the light mode.
+  static const Color petrolContainer = Color(0xFFC2F6FA);
+
+  /// A near-black petrol, the text on [petrolContainer].
+  static const Color onPetrolContainer = Color(0xFF00262A);
+
+  /// A pale magenta, behind deep magenta text in the light mode.
+  static const Color deepMagentaContainer = Color(0xFFFFD5F3);
+
+  /// A near-black magenta, the text on [deepMagentaContainer].
+  static const Color onDeepMagentaContainer = Color(0xFF3A002D);
+
+  /// A pale olive, behind olive text in the light mode.
+  static const Color oliveContainer = Color(0xFFD6F5A4);
+
+  /// A near-black olive, the text on [oliveContainer].
+  static const Color onOliveContainer = Color(0xFF112000);
+
+  /// A pale red, behind what failed in the light mode.
+  static const Color deepRedContainer = Color(0xFFFFD9DF);
+
+  /// A near-black red, the text on [deepRedContainer].
+  static const Color onDeepRedContainer = Color(0xFF3F0011);
+
+  /// The light mode's surfaces over its ground: the first step.
+  static const Color pale1 = Color(0xFFF0F2FA);
+
+  /// The light mode's surfaces, the second step.
+  static const Color pale2 = Color(0xFFEAEDF7);
+
+  /// The light mode's surfaces, the third step.
+  static const Color pale3 = Color(0xFFE3E7F3);
+
+  /// The light mode's surfaces, the fourth and highest step.
+  static const Color pale4 = Color(0xFFDCE1F0);
+
+  /// The light mode's fine border.
+  static const Color paleBorder = Color(0xFFC9CFE3);
+
+  /// Cyan at a third, what the terminal draws behind a selection.
+  static const Color cyanSelection = Color(0x5500F0FF);
+
+  /// The terminal's blue, which the website has none of.
+  static const Color terminalBlue = Color(0xFF6E8BFF);
+
+  /// The terminal's white, a shade below the text.
+  static const Color terminalWhite = Color(0xFFC9D0F0);
+
+  /// The terminal's bright red.
+  static const Color brightRed = Color(0xFFFF8FA2);
+
+  /// The terminal's bright green, a paler lime.
+  static const Color brightLime = Color(0xFFD4FF8A);
+
+  /// The terminal's bright yellow, a paler amber.
+  static const Color brightAmber = Color(0xFFFFCB6B);
+
+  /// The terminal's bright blue.
+  static const Color brightBlue = Color(0xFF9DB0FF);
+
+  /// The terminal's bright magenta.
+  static const Color brightMagenta = Color(0xFFFF7AE5);
+
+  /// The terminal's bright cyan.
+  static const Color brightCyan = Color(0xFF7CF9FF);
+
   /// One logical pixel, the thinnest line a screen draws.
   static const double hairline = 1;
 

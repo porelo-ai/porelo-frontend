@@ -23,6 +23,7 @@ class ProjectForgeDialog extends StatefulWidget {
   /// Constructor taking the binding.
   const ProjectForgeDialog({required this.binding, super.key});
 
+  /// The project's keys and changes at its forge.
   final MachineBinding binding;
 
   @override

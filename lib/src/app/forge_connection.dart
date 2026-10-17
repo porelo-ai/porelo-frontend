@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'desk.dart';
 import 'forge.dart';
 import 'project_workspace.dart';
+import 'quiet_after_dispose.dart';
 
 /// Makes the forge for a token at an address: GitHub for now. Injectable, so a test judges the
 /// flow offline.
@@ -81,7 +82,7 @@ String workingFolders() => desk.join(<String>[desk.data, 'projects']);
 ///
 /// **A token is typed once and kept in this computer's keychain**, never shown again, never sent
 /// anywhere but its forge. What it reaches is asked of the forge each time, never kept here.
-class ForgeConnection extends ChangeNotifier {
+class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking where tokens and the list are kept, and how a forge is made from a token.
   ForgeConnection(this._tokens, {ForgeEntries? entries, ForgeFor? forgeFor, WorkspaceFor? workspaceFor})
     : _entries = entries ?? MemoryForgeEntries(),

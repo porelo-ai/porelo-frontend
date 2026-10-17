@@ -98,6 +98,11 @@ class _WorkPageState extends State<WorkPage> {
   /// a menu open on it would lose its tile.
   final Map<String, GlobalKey> _where = <String, GlobalKey>{};
   String? _scrolledTo;
+
+  /// Where [tile] is kept among the tiles: by machine and work, and for a question whose work the
+  /// machine does not list yet, by the work the question names, so two such tiles never share one.
+  static String _placeOf(Tile tile) =>
+      '${tile.machine.name}/${tile.task?.name ?? tile.questions.firstOrNull?.task ?? ''}';
   String? get _machine => _view.machine;
   set _machine(String? value) => _view.machine = value;
   String? get _project => _view.project;
@@ -379,10 +384,7 @@ class _WorkPageState extends State<WorkPage> {
                   runSpacing: Space.normal,
                   children: <Widget>[
                     for (final tile in groups[group]!)
-                      KeyedSubtree(
-                        key: _where.putIfAbsent('${tile.machine.name}/${tile.task?.name ?? ''}', GlobalKey.new),
-                        child: widget.tile(tile),
-                      ),
+                      KeyedSubtree(key: _where.putIfAbsent(_placeOf(tile), GlobalKey.new), child: widget.tile(tile)),
                   ],
                 ),
               ),

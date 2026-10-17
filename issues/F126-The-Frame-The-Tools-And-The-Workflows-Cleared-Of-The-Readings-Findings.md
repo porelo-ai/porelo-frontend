@@ -1,6 +1,6 @@
 # F126 — The Frame, The Tools And The Workflows Cleared Of The Reading's Findings
 
-**Status:** Backlog; blocked by [F124](README.md#f124).
+**Status:** Implementing; Review once it is pushed and published as a snapshot.
 **Size:** L - twelve findings across `lib/src/ui`, `tool` and the workflows, five of them with a test
 for the harm they do, the colours moved into the tokens, the walks translated into US English,
 `persist-credentials`, and the documentation in `lib/src/ui`.
@@ -40,3 +40,25 @@ are in US English; and no interface another repository reads changes.
   [F119](README.md#f119) with its reason; `theme_contrast_test` stays green.
 - **The whole workflow is green on the VM**, and the Windows job signs the MSIX, on the commit
   handed over.
+
+## Outcome
+
+| Finding | Outcome |
+|---|---|
+| 13, one key for two tiles | A question's tile keyed by the work it names; `work_page_questions_test`, seen throwing. |
+| 14, the WSL probe | Behind `Machines.daemonAnswers`, its connection closed in any case; `daemon_answers_test`. |
+| 15-17, lifetimes | The drafts' controllers, a WSL setup made here, the shell's own forge connection and each clearing disposed; the models a dialog disposes mid-call quiet after (`QuietAfterDispose`); a new session followed in `SessionView`. No test. |
+| 18, the console | One look at a time; `tile_console_test`, 11 calls before, 1 after. |
+| 19, dialogs | The words dialog, *Forget* and *Which branch* scroll. No test. |
+| 20, lists built whole | Declined: the scenarios and the walk find rows that a lazy list would not have built, and the work per row is a loop over the machines' few projects. |
+| 21, *Cancel* | Not offered where the form is the only thing shown. No test. |
+| 22, the diagnosis | Its log's path joined by the desk; its synchronous write per event kept, as a tool for watching every event in order. |
+| 23, `tool/e2e.sh` | A lease without its user or socket stops the run; `e2e_lease_test`. `shellcheck` 0.11.0 clean, the two trap handlers kept with `SC2329` disabled and the reason. |
+| 24, the signing | From the certificate store, by thumbprint, the key in memory; shown by the Windows job, which signs on `main` only. **Still to be seen.** |
+| The colours | In `tokens.dart`, with the rule in `AGENTS.md`. |
+| The walk | Its note in US English. |
+| `persist-credentials` | `false` on all five checkouts, in [F124](README.md#f124)'s commit, since the shared `check-actions` refuses a build without it. |
+
+Every public member of `lib` is documented, each doc comment on its own member, and
+`public_member_api_docs` and `comment_references` hold it.
+

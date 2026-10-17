@@ -40,6 +40,9 @@ linter:
     # `// ignore_for_file: name_of_lint` syntax on the line or in the file
     # producing the lint.
     rules:
+        # Every public member says what it is, and a reference in a doc comment resolves.
+        public_member_api_docs: true
+        comment_references: true
         # avoid_print: false  # Uncomment to disable the `avoid_print` rule
         # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 

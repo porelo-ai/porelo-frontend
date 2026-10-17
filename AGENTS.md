@@ -421,9 +421,9 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **Nothing is applied optimistically**: a decision shows once the daemon's own answer or echo
   confirms it.
 - **No layout assumes the window is never a phone's.**
-- **A spacing, width or radius is spelled only in `tokens.dart`, a width compared only in
-  `window_size.dart`**, which reads the window, never the pane; icons are outlined, filled only when
-  selected.
+- **A spacing, width, radius or colour is spelled only in `tokens.dart`, a width compared only in
+  `window_size.dart`**, which reads the window, never the pane: Porelo's look lives in one place;
+  icons are outlined, filled only when selected.
 - **`PORELO_SOCKET` is read only in `Machine.local()`.**
 - **A node is an OS user with a `porelod`, so nothing is keyed by hostname alone; a host is an egress
   destination, never a machine.**

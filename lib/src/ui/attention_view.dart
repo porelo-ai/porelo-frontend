@@ -393,7 +393,6 @@ class _FailedOperation extends StatelessWidget {
   }
 }
 
-/// A machine that is not answering, said about the machine: it is not work, so it is not a tile.
 /// Questions about blocked connections a machine dropped before they were seen.
 class _MissedQuestions extends StatelessWidget {
   const _MissedQuestions({required this.machine, required this.count, required this.onSeen});
@@ -427,6 +426,7 @@ class _MissedQuestions extends StatelessWidget {
   }
 }
 
+/// A machine that is not answering, said about the machine: it is not work, so it is not a tile.
 class _MachineNotice extends StatelessWidget {
   const _MachineNotice({required this.machine, required this.fleet, required this.onSeen});
 
@@ -479,7 +479,6 @@ class _MachineNotice extends StatelessWidget {
   }
 }
 
-/// One tile. Its state is legible without opening it, and it carries its own actions.
 /// Which tiles below it are folded open, where tiles fold at all: a page with many tiles shows each
 /// by its work, its machine and its state's mark, and the rest only when it is opened
 /// (walk 9). A tile that asks something of a person is never folded.
@@ -500,6 +499,7 @@ class TileFolding extends InheritedWidget {
   bool updateShouldNotify(TileFolding oldWidget) => open != oldWidget.open;
 }
 
+/// One tile. Its state is legible without opening it, and it carries its own actions.
 class TaskTile extends StatelessWidget {
   /// Constructor taking the tile and what it can do.
   const TaskTile({

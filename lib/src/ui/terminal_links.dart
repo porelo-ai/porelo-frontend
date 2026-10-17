@@ -12,6 +12,7 @@ class TerminalLinks extends StatelessWidget {
   /// Constructor taking the session whose links these are.
   const TerminalLinks({super.key, required this.session});
 
+  /// The session whose links these are.
   final Session session;
 
   @override

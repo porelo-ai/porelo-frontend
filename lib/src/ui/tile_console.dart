@@ -71,6 +71,7 @@ class _TileConsoleState extends State<TileConsole> {
   bool _screenShown = false;
   bool _sessionLive = true;
   Timer? _looking;
+  bool _askingForTheScreen = false;
 
   @override
   void initState() {
@@ -107,8 +108,12 @@ class _TileConsoleState extends State<TileConsole> {
     });
   }
 
-  /// Asks the machine what the session shows now: a snapshot, never an attach.
+  /// Asks the machine what the session shows now: a snapshot, never an attach. **One at a time**: a
+  /// machine slower than [TileConsole.drawnEvery] is not asked again until it has answered, since
+  /// every look waits on the same connection as the person's own actions.
   Future<void> _lookAtTheScreen() async {
+    if (_askingForTheScreen) return;
+    _askingForTheScreen = true;
     try {
       final screen = await widget.backend.screen(widget.task, last: TileConsole.shown, escapes: true);
       if (!mounted) return;
@@ -130,6 +135,8 @@ class _TileConsoleState extends State<TileConsole> {
       // updated Porelo on the same machine has it, and one unanswered call every few seconds is cheap.
     } on Object {
       // Not answering now: what was shown stays, and the next look asks again.
+    } finally {
+      _askingForTheScreen = false;
     }
   }
 

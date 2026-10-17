@@ -24,9 +24,19 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   machine of a name already read is dropped.
 - A default repository's source and remote, a refresh's moved branches and a waiting push's bundle
   read past a value of another type, rather than failing the whole answer.
+- Two questions for work a machine does not list yet no longer break the Work page.
+- Asking whether a WSL distribution's daemon answers closes its connection whatever came of it, and a
+  tile's console asks a session's screen one look at a time.
+- The integration leg stops on a lease that names no user or socket, before it asks a machine.
+- The words dialog, *Forget* and *Which branch* scroll on a short window, and the forge form shown
+  alone offers no *Cancel* that did nothing.
+- The guided walk's note on the terminal is in US English.
 
 ### Changed
 
+- The MSIX is signed from the certificate store: its key is never a file in the build and its
+  password never on a command line.
+- Every colour of Porelo's look is named in the tokens, as every size is.
 - The code is in the shared style: `dart format` at 120 columns, the YAML and the feature files at
   four spaces, and the scripts as `shfmt` writes them, each checked in the build; the build stands
   on `porelo-parent` `0.2.1` and its tools `0.5.1`, and no checkout keeps the job's token.

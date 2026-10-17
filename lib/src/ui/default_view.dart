@@ -45,15 +45,20 @@ class DefaultDialog extends StatefulWidget {
     super.key,
   });
 
+  /// The machine whose `default` this is.
   final FleetBackend machine;
+
+  /// Its name, as the person reads it.
   final String machineName;
+
+  /// Lets the person pick a repository at a forge set up here, or null where none is.
   final Future<({ForgeRepository repository, Forge forge})?> Function()? pickAtAForge;
 
   /// Starts work on the repository named, once it is in `default`; null where the dialog only lists
   /// what is there to take out.
   final Future<void> Function(String repository)? onStartWork;
 
-  /// The forge set up here that holds [upstream], with its `owner/name` there, or null.
+  /// The forge set up here that holds `upstream`, with its `owner/name` there, or null.
   final Future<({Forge forge, String fullName})?> Function(String upstream)? forgeHolding;
 
   @override

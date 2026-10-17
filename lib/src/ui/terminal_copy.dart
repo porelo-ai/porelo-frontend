@@ -38,6 +38,7 @@ String copiedText(Terminal terminal, BufferRange range) {
 
 /// Copying out of a terminal as it shows: its copy keys send this, and [CopiesAsShown] answers.
 class CopyAsShownIntent extends Intent {
+  /// The intent, which carries nothing.
   const CopyAsShownIntent();
 }
 
@@ -49,10 +50,16 @@ Map<ShortcutActivator, Intent> get copyAsShownShortcuts => <ShortcutActivator, I
 
 /// Answers [CopyAsShownIntent] for the terminal under it, with what [controller] has selected.
 class CopiesAsShown extends StatelessWidget {
+  /// Constructor taking the terminal, its selection, and what is drawn.
   const CopiesAsShown({super.key, required this.terminal, required this.controller, required this.child});
 
+  /// The terminal whose text is copied.
   final Terminal terminal;
+
+  /// Its selection.
   final TerminalController controller;
+
+  /// What is drawn, the terminal among it.
   final Widget child;
 
   @override

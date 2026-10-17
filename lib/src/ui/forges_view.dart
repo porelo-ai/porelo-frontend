@@ -39,7 +39,10 @@ class ForgesDialog extends StatefulWidget {
   /// Constructor taking the forges.
   const ForgesDialog({required this.forges, this.usedBy, super.key});
 
+  /// The forges set up here, and the one being looked at.
   final ForgeConnection forges;
+
+  /// The projects a forge's repositories are in, to say before it is removed.
   final List<String> Function(ForgeEntry entry)? usedBy;
 
   @override
@@ -236,13 +239,19 @@ Future<String> _removeKeys(ForgeConnection forges, ForgeEntry entry, List<String
 /// once the forge accepted it. The kind of an entry never changes.
 class ForgeForm extends StatefulWidget {
   /// Constructor taking the forges and, to change one, the entry.
-  const ForgeForm({required this.forges, required this.onDone, this.editing, super.key});
+  const ForgeForm({required this.forges, required this.onDone, this.editing, this.cancels = true, super.key});
 
+  /// The forges set up here, and the one being looked at.
   final ForgeConnection forges;
+
+  /// The forge being changed, or null for a new one.
   final ForgeEntry? editing;
 
   /// Called with what happened, in words, once it was kept.
   final void Function(String said) onDone;
+
+  /// Whether it offers *Cancel*: not where it is the only thing shown, with nothing to go back to.
+  final bool cancels;
 
   @override
   State<ForgeForm> createState() => _ForgeFormState();
@@ -341,11 +350,12 @@ class _ForgeFormState extends State<ForgeForm> {
                       : () => unawaited(_save()),
                   child: Text(editing == null ? 'Connect it' : 'Keep the change'),
                 ),
-                TextButton(
-                  key: const Key('forge-cancel'),
-                  onPressed: () => widget.onDone(''),
-                  child: const Text('Cancel'),
-                ),
+                if (widget.cancels)
+                  TextButton(
+                    key: const Key('forge-cancel'),
+                    onPressed: () => widget.onDone(''),
+                    child: const Text('Cancel'),
+                  ),
               ],
             ),
           ],

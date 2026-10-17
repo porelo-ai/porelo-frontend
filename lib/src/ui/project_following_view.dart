@@ -31,6 +31,7 @@ class ProjectFollowingPanel extends StatelessWidget {
     super.key,
   });
 
+  /// Following a project from its repository, step by step.
   final ProjectFollowing following;
 
   /// Follows it; with `true`, a person's answer to a rewritten history.

@@ -343,6 +343,26 @@ class Machines extends ChangeNotifier {
     return uid == null ? null : Machine.porelodSocketFor(uid);
   }
 
+  /// Whether [machine]'s daemon answers within [within], asked over [open] or its own way in. **The
+  /// connection is closed whatever came of it**: one that is not answered is a relay and a socket
+  /// left open at every look.
+  static Future<bool> daemonAnswers(
+    Machine machine, {
+    Duration within = const Duration(seconds: 10),
+    Future<VarlinkConnection> Function()? open,
+  }) async {
+    VarlinkConnection? connection;
+    try {
+      connection = await (open ?? backendFor(machine).open)();
+      await connection.call('org.varlink.service.GetInfo').timeout(within);
+      return true;
+    } on Object {
+      return false;
+    } finally {
+      await connection?.close();
+    }
+  }
+
   /// Tries [machine] as watching it would, without watching it or leaving anything running.
   Future<Trial> tryMachine(Machine machine) => tryAMachine(machine, reach: _reach, tunnels: tunnels);
 

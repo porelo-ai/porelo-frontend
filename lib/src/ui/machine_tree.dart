@@ -6,12 +6,13 @@ import '../app/fleet_model.dart';
 import 'command_menu.dart';
 import 'tokens.dart';
 
-/// The stop for every machine at once, at the foot of the tree where it is always on screen.
-/// The stop for every machine at once: work is stopped, never removed.
+/// The stop for every machine at once, at the foot of the tree where it is always on screen: work is
+/// stopped, never removed.
 class StopEverywhere extends StatelessWidget {
   /// Constructor taking what pressing it does, or null where nothing answers.
   const StopEverywhere({required this.onPressed, super.key});
 
+  /// What pressing it does, or null where nothing answers.
   final VoidCallback? onPressed;
 
   @override

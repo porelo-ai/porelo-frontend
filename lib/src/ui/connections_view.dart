@@ -29,6 +29,7 @@ class ConnectionsView extends StatelessWidget {
     super.key,
   });
 
+  /// The connections the machine keeps, and what changes them.
   final Connections connections;
 
   /// Asks what to declare, and declares it.

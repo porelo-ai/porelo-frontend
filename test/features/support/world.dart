@@ -3110,8 +3110,8 @@ class World {
     await settle(tester);
   }
 
-  /// The drop-down that offers [choice] — by the key its entry carries, or by its words — or null
-  /// when no field on screen offers it.
+  /// The drop-down that offers a choice — by the key its entry carries, [id], or by its [words] — or
+  /// null when no field on screen offers it.
   static ChoiceField<dynamic>? fieldOffering(WidgetTester tester, {String? id, String? words}) {
     for (final element in find.byWidgetPredicate((widget) => widget is ChoiceField).evaluate()) {
       final field = element.widget as ChoiceField<dynamic>;

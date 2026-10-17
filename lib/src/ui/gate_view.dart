@@ -7,6 +7,7 @@ import '../app/gate.dart';
 import 'panes.dart';
 import 'selection_list.dart';
 import 'tokens.dart';
+import 'dialog_scroll.dart';
 
 /// What is waiting at a project's gate.
 ///
@@ -624,53 +625,55 @@ class _WhichBranchState extends State<_WhichBranch> {
     title: Text(widget.toOrigin ? 'Forward it to its origin' : 'Forward it upstream'),
     content: SizedBox(
       width: Sizes.dialogSmall,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(widget.subject, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: Space.normal),
-          // Chosen from the repository's own where its forge says them, the default first.
-          if (_offered.isNotEmpty) ...<Widget>[
-            DropdownButtonFormField<String?>(
-              key: const Key('forward-branch'),
-              initialValue: _chosen,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Branch to push to', border: OutlineInputBorder()),
-              items: <DropdownMenuItem<String?>>[
-                for (final each in _offered)
-                  DropdownMenuItem<String?>(
-                    value: each,
-                    child: Text(each == widget.defaultBranch ? '$each (its default branch)' : each),
-                  ),
-                const DropdownMenuItem<String?>(value: null, child: Text('A new branch…')),
-              ],
-              onChanged: (chosen) => setState(() => _chosen = chosen),
-            ),
-            const SizedBox(height: Space.small),
-          ],
-          if (_chosen == null)
-            TextField(
-              key: const Key('forward-new-branch'),
-              controller: _branch,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: _offered.isEmpty ? 'Branch to push to' : 'The new branch',
-                hintText: 'fix-rounding',
-                border: const OutlineInputBorder(),
-                errorText: whyNotABranch(_branch.text.trim()),
+      child: DialogScroll(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(widget.subject, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: Space.normal),
+            // Chosen from the repository's own where its forge says them, the default first.
+            if (_offered.isNotEmpty) ...<Widget>[
+              DropdownButtonFormField<String?>(
+                key: const Key('forward-branch'),
+                initialValue: _chosen,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Branch to push to', border: OutlineInputBorder()),
+                items: <DropdownMenuItem<String?>>[
+                  for (final each in _offered)
+                    DropdownMenuItem<String?>(
+                      value: each,
+                      child: Text(each == widget.defaultBranch ? '$each (its default branch)' : each),
+                    ),
+                  const DropdownMenuItem<String?>(value: null, child: Text('A new branch…')),
+                ],
+                onChanged: (chosen) => setState(() => _chosen = chosen),
               ),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: (_) => _submit(),
+              const SizedBox(height: Space.small),
+            ],
+            if (_chosen == null)
+              TextField(
+                key: const Key('forward-new-branch'),
+                controller: _branch,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: _offered.isEmpty ? 'Branch to push to' : 'The new branch',
+                  hintText: 'fix-rounding',
+                  border: const OutlineInputBorder(),
+                  errorText: whyNotABranch(_branch.text.trim()),
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => _submit(),
+              ),
+            const SizedBox(height: Space.normal),
+            Text(
+              'This is the only thing the interface does that sends anything anywhere. '
+              'The branch is named rather than guessed.',
+              key: const Key('only-thing-that-sends'),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          const SizedBox(height: Space.normal),
-          Text(
-            'This is the only thing the interface does that sends anything anywhere. '
-            'The branch is named rather than guessed.',
-            key: const Key('only-thing-that-sends'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+          ],
+        ),
       ),
     ),
     actions: <Widget>[

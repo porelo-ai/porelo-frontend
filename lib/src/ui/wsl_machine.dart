@@ -17,6 +17,7 @@ import 'terminal_look.dart';
 /// **Nothing runs as root but lines a person read and said yes to**, and a distribution is started
 /// only by the restart for systemd, after a question of its own whose answer is no until changed.
 class WslSteps extends StatefulWidget {
+  /// Constructor taking what a ready machine does and, for a test, WSL, the setup and the record.
   const WslSteps({required this.onReady, this.wsl, this.setupFor, this.record, super.key});
 
   /// Told the machine to watch once every check passed, or null while not.
@@ -50,9 +51,13 @@ class _WslStepsState extends State<WslSteps> {
     unawaited(_read());
   }
 
+  /// Whether [_setup] was made here, and so is this view's to dispose; one handed in is its caller's.
+  bool _ownsSetup = false;
+
   @override
   void dispose() {
     _setup?.removeListener(_changed);
+    if (_ownsSetup) _setup?.dispose();
     super.dispose();
   }
 
@@ -69,7 +74,11 @@ class _WslStepsState extends State<WslSteps> {
   }
 
   void _choose(String? name) {
-    _setup?.removeListener(_changed);
+    final before = _setup;
+    before?.removeListener(_changed);
+    if (before != null && _ownsSetup) WidgetsBinding.instance.addPostFrameCallback((_) => before.dispose());
+    final given = name == null ? null : widget.setupFor?.call(name);
+    _ownsSetup = name != null && given == null;
     setState(() {
       _chosen = name;
       _showLines = false;
@@ -77,7 +86,7 @@ class _WslStepsState extends State<WslSteps> {
       _setup =
           name == null
                 ? null
-                : (widget.setupFor?.call(name) ??
+                : (given ??
                       WslSetup(
                         distribution: name,
                         operatingSystemVersion: Platform.operatingSystemVersion,
@@ -90,16 +99,7 @@ class _WslStepsState extends State<WslSteps> {
     widget.onReady(null);
   }
 
-  static Future<bool> _answers(Machine machine) async {
-    try {
-      final connection = await Machines.backendFor(machine).open();
-      await connection.call('org.varlink.service.GetInfo').timeout(const Duration(seconds: 10));
-      connection.close();
-      return true;
-    } on Object {
-      return false;
-    }
-  }
+  static Future<bool> _answers(Machine machine) => Machines.daemonAnswers(machine);
 
   Future<void> _check() async {
     final setup = _setup;

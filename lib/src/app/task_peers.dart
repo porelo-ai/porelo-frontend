@@ -2,12 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
+import 'quiet_after_dispose.dart';
 
 /// Whom one task may talk to, how each is moderated, and what a person writes to one of them.
 ///
 /// **Derived from the task's project, never kept here**: the project says who may be addressed
 /// and the mailbox says whether anything goes there, so both are asked of the machine each time.
-class TaskPeers extends ChangeNotifier {
+class TaskPeers extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the machine and the task.
   TaskPeers(this._backend, this.task);
 

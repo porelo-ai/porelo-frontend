@@ -1,9 +1,9 @@
 import 'package:guided_walk/guided_walk.dart';
 
-/// The guided walk's words as Porelo says them: the operator walks the interface in German.
+/// The guided walk's words as Porelo says them, in US English like everything else it writes.
 const poreloWalkTexts = WalkPanelTexts(
   terminalUnread:
-      'Das Terminal wird bewusst nicht gelesen und nicht mitgeschickt: was du dort '
-      'tippst, etwa ein Passwort, bleibt bei dir. Was du darin erledigt hast, sieht der '
-      'Durchgang deshalb nicht. Sag es hier, wenn er nicht von selbst weitergeht.',
+      'The terminal is not read and not sent, on purpose: what you type there, a password for '
+      'one, stays with you. So the walk does not see what you did in it. Say it here when it '
+      'does not go on by itself.',
 );

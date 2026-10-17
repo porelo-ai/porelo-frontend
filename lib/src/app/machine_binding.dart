@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 import 'fleet_backend.dart';
 import 'forge.dart';
 import 'project_workspace.dart';
+import 'quiet_after_dispose.dart';
 
 /// Why a machine was not bound, in words a person can act on.
 class BindingRefused implements Exception {
@@ -118,7 +119,7 @@ String? withoutSigner(String text, String line, String machine) {
 /// repository, with write access, registered likewise; and its message key goes into the project's
 /// `machine-signers` as a commit signed on this computer. **Only public halves
 /// travel.** Removing goes the other way, the forge's keys first, since they are what grant access.
-class MachineBinding extends ChangeNotifier {
+class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the forge, the project's clone here, and the machine.
   MachineBinding(this.forge, this.workspace, this._machine, {required this.machineName, required this.login});
 

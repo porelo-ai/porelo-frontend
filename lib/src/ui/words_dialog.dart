@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'tokens.dart';
+import 'dialog_scroll.dart';
 
 /// Asks for a person's own words before an act that hands them to a task's agent: why a push is
 /// dropped, or anything a person wants to tell it. Answers the words, empty where they were left
@@ -29,9 +30,16 @@ class WordsDialog extends StatefulWidget {
     super.key,
   });
 
+  /// What the dialog is called.
   final String title;
+
+  /// What the words are for, above the field.
   final String explain;
+
+  /// The field's label.
   final String label;
+
+  /// The confirming button's words.
   final String confirm;
 
   /// Whether going on needs words at all.
@@ -56,22 +64,24 @@ class _WordsDialogState extends State<WordsDialog> {
     title: Text(widget.title),
     content: SizedBox(
       width: Sizes.dialog,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(widget.explain, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: Space.small),
-          TextField(
-            key: const Key('words'),
-            controller: _words,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 8,
-            decoration: InputDecoration(labelText: widget.label),
-            onChanged: (_) => setState(() {}),
-          ),
-        ],
+      child: DialogScroll(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(widget.explain, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: Space.small),
+            TextField(
+              key: const Key('words'),
+              controller: _words,
+              autofocus: true,
+              minLines: 2,
+              maxLines: 8,
+              decoration: InputDecoration(labelText: widget.label),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
       ),
     ),
     actions: <Widget>[

@@ -6,13 +6,14 @@ import 'forge.dart';
 import 'forge_connection.dart';
 import 'machine_binding.dart';
 import 'project_workspace.dart';
+import 'quiet_after_dispose.dart';
 
 /// Clearing a machine, or one project on it, of everything Porelo put there and at the forge, in one
 /// step: the machine's `Clear` does what only it can; then each deploy key it names is removed at
 /// the forge with the person's sign-in, and its line taken out of each project's `machine-signers`
 /// in one signed commit. What was removed and what was left is said, thing by thing (walk 8:
 /// when the work is done, everything on the server can be cleared very simply).
-class MachineClearing extends ChangeNotifier {
+class MachineClearing extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the machine, how the forge is reached, and what is cleared: [project], or
   /// everything where it is null.
   MachineClearing(this._machine, this.forges, {required this.machineName, this.project});

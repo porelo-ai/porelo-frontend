@@ -34,6 +34,7 @@ class MessagesDialog extends StatefulWidget {
   /// Constructor taking the conversation.
   const MessagesDialog({required this.conversation, super.key});
 
+  /// The project's conversation, and who is in it.
   final ProjectConversation conversation;
 
   @override

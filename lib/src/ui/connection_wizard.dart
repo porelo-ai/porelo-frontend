@@ -49,14 +49,31 @@ class NewConnection {
     this.key,
   });
 
+  /// What kind of connection it is, as the machine names kinds.
   final String kind;
+
+  /// The destination it is for, as the machine matches it.
   final String match;
+
+  /// What it is for, in the person's words.
   final String purpose;
+
+  /// Where its credential comes from.
   final String source;
+
+  /// Where the credential is kept.
   final Storing storing;
+
+  /// Its name in the vault, where it has one.
   final String? id;
+
+  /// The account it logs in as, where it takes one.
   final String? user;
+
+  /// The file on this computer its key is read from, where one was chosen.
   final String? fromFile;
+
+  /// The key itself, where it was pasted.
   final String? key;
 }
 
@@ -112,6 +129,7 @@ class _ConnectionWizard extends StatefulWidget {
   /// Opens the machine's vault in a terminal there, or null likewise.
   final Future<void> Function()? openTheVault;
 
+  /// The destination it is for, as the machine matches it.
   final String match;
   final Future<List<SshKey>> Function() keys;
   final Future<CredentialDeclared> Function(NewConnection asked) check;
@@ -566,9 +584,16 @@ class KeyOnTheMachine extends StatelessWidget {
     required this.onTyped,
   });
 
+  /// The keys the machine has, to choose from.
   final Future<List<SshKey>> keys;
+
+  /// The one chosen, or empty.
   final String chosen;
+
+  /// What choosing one does.
   final ValueChanged<String> onChosen;
+
+  /// What typing a path in place of choosing does.
   final ValueChanged<String> onTyped;
 
   @override

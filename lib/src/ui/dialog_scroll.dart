@@ -12,6 +12,7 @@ class DialogScroll extends StatefulWidget {
   /// Constructor taking what scrolls.
   const DialogScroll({super.key, required this.child, this.controller});
 
+  /// What scrolls.
   final Widget child;
 
   /// For a dialog that scrolls to what it just said; otherwise one of its own.

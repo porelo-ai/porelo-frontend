@@ -19,9 +19,21 @@ set -euo pipefail
 leased=build/leased.properties
 forget_host=''
 if [ -z "${PORELO_E2E_HOST:-}" ] && [ -f "$leased" ]; then
-    value() { grep "^$1=" "$leased" | cut -d= -f2-; }
+    # Each one named or the run stops here, before anything is asked of a machine: a missing user
+    # would run as "@host", which ssh fills with whoever runs the build.
+    value() {
+        local found
+        found=$(grep "^$1=" "$leased" | cut -d= -f2-) || true
+        [ -n "$found" ] || {
+            echo "e2e: $leased names no $1" >&2
+            exit 1
+        }
+        printf '%s\n' "$found"
+    }
     address=$(value address)
-    export PORELO_E2E_HOST="$(value user)@$address" PORELO_E2E_REMOTE_SOCKET="$(value socket)"
+    user=$(value user)
+    socket=$(value socket)
+    export PORELO_E2E_HOST="$user@$address" PORELO_E2E_REMOTE_SOCKET="$socket"
     export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${HETZNER_KEY:-}}"
     # A fresh machine's host key is unknown, and the interface never accepts one on its own.
     mkdir -p ~/.ssh
@@ -38,6 +50,8 @@ agent=''
 # this one are somebody else's and stay; the ones this run raised go.
 port_forwards() { pgrep -f -- "ssh -N .*-L [0-9]+:localhost:[0-9]+ $PORELO_E2E_HOST\$" || true; }
 before=" $(port_forwards | tr '\n' ' ') "
+# Run by the trap on EXIT below, which shellcheck does not follow.
+# shellcheck disable=SC2329
 cleanup() {
     # The app raises its forwards with ssh, and a test ending is not a window closing: nothing takes
     # them down. Every one raised under this run's directory goes, even after a crash.
@@ -100,6 +114,8 @@ while [ "$pid" -gt 1 ]; do
 done
 test_run=''
 watch=''
+# Run by the trap on INT and TERM below, which shellcheck does not follow.
+# shellcheck disable=SC2329
 stop() {
     trap - INT TERM
     if [ -n "$watch" ]; then kill "$watch" 2>/dev/null || true; fi

@@ -6,8 +6,9 @@
 #
 # The MSIX is signed only where WINDOWS_SIGNING_PFX (the certificate with its key, base64) and
 # WINDOWS_SIGNING_PFX_PASSWORD are set: the Build on `main` and tags. Elsewhere it is packed and left
-# unsigned, which proves the manifest and the layout, and it is said so. The key is written to the
-# runner's temporary folder only for `signtool`, and removed whatever happens.
+# unsigned, which proves the manifest and the layout, and it is said so. The key goes into this
+# user's certificate store only for `signtool`, and is taken out whatever happens; it is never a file,
+# and its password never on a command line.
 param([string] $Out = 'build/windows-zip')
 
 $ErrorActionPreference = 'Stop'
@@ -42,18 +43,23 @@ if ($LASTEXITCODE -ne 0) { Write-Error "MakeAppx refused the package (exit $LAST
 Remove-Item -Recurse -Force $layout
 
 if ($env:WINDOWS_SIGNING_PFX) {
-  $pfx = Join-Path $env:RUNNER_TEMP 'porelo-msix.pfx'
+  # The key is never written to a file and its password never goes on a command line: the PFX is read
+  # from the environment into memory, put in this user's certificate store for the one signing, found
+  # there by its thumbprint, and taken out again whatever happened.
+  $pinned = '8BD1F34465EDC9B11A162B39C6644231851DEE24'
+  $flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]'UserKeySet,PersistKeySet'
+  $loaded = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+    [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX), $env:WINDOWS_SIGNING_PFX_PASSWORD, $flags)
+  $store = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser')
+  $store.Open('ReadWrite')
   try {
-    [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX))
-    & "$bin\signtool.exe" sign /fd SHA256 /f $pfx /p $env:WINDOWS_SIGNING_PFX_PASSWORD $msix
+    $store.Add($loaded)
+    & "$bin\signtool.exe" sign /fd SHA256 /s My /sha1 $loaded.Thumbprint $msix
     if ($LASTEXITCODE -ne 0) { Write-Error "SignTool did not sign the MSIX (exit $LASTEXITCODE)"; exit 1 }
     # The public half beside it, for a person to trust once on their machine.
-    $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
-      $pfx, $env:WINDOWS_SIGNING_PFX_PASSWORD)
-    [IO.File]::WriteAllBytes("$Out/porelo-msix.cer", $certificate.Export('Cert'))
+    [IO.File]::WriteAllBytes("$Out/porelo-msix.cer", $loaded.Export('Cert'))
     # The certificate the project made, and no other: by its thumbprint, which names it, not only by
     # its subject, which anybody can write into a certificate of their own.
-    $pinned = '8BD1F34465EDC9B11A162B39C6644231851DEE24'
     $signer = (Get-AuthenticodeSignature $msix).SignerCertificate
     if ($signer.Thumbprint -ne $pinned) {
       Write-Error "the MSIX is signed by $($signer.Subject), thumbprint $($signer.Thumbprint), not $pinned"
@@ -61,7 +67,9 @@ if ($env:WINDOWS_SIGNING_PFX) {
     }
     "signed by $($signer.Subject), thumbprint $($signer.Thumbprint)"
   } finally {
-    if (Test-Path $pfx) { Remove-Item -Force $pfx }
+    $store.Remove($loaded)
+    $store.Close()
+    $loaded.Dispose()
   }
 } else {
   # An unsigned MSIX installs nowhere, so it is not offered: packing it proved the manifest.

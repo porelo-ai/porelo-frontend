@@ -22,6 +22,7 @@ class ForgesPage extends StatefulWidget {
   /// Constructor taking the forges, what uses each, and what opening one does.
   const ForgesPage({required this.forges, required this.usedBy, required this.onOpen, super.key});
 
+  /// The forges set up here, and the one being looked at.
   final ForgeConnection forges;
 
   /// The repositories of followed projects on a forge, for removing it.
@@ -226,6 +227,7 @@ class ForgePage extends StatefulWidget {
     super.key,
   });
 
+  /// The forges set up here, and the one being looked at.
   final ForgeConnection forges;
 
   /// The repositories of followed projects on a forge, for removing it.
@@ -321,7 +323,7 @@ class _ForgePageState extends State<ForgePage> {
               key: const Key('forge-kept-token'),
             )
           else if (!forges.connected)
-            ForgeForm(key: const Key('forge-first'), forges: forges, editing: entry, onDone: (_) {})
+            ForgeForm(key: const Key('forge-first'), forges: forges, editing: entry, onDone: (_) {}, cancels: false)
           else ...<Widget>[
             TextField(
               key: const Key('repositories-search'),
