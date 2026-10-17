@@ -50,6 +50,8 @@ taken, `git log` answers.
 | [A stopped WSL distribution is never started by the interface, but for the restart a person asked for](#a-stopped-wsl-distribution-is-never-started-by-the-interface) |
 | [The Windows build is checked on GitHub's Windows runner; a test on a Windows machine is welcome, not required](#the-windows-build-is-checked-on-githubs-windows-runner) |
 | [The rename to Porelo carries nothing over: the interface is installed afresh](#the-rename-to-porelo-carries-nothing-over) |
+| [A work's terminal keeps the cursor its program sets; the sign-in and passphrase terminals always show one](#a-works-terminal-keeps-the-cursor-its-program-sets) |
+| [The interface takes the website's colours and shapes, not its motion, and keeps a light mode](#the-interface-takes-the-websites-colours-and-shapes-not-its-motion) |
 
 ## The interface can do what a console can
 
@@ -615,3 +617,20 @@ rename - and `test/no_old_name_test.dart` holds every other tracked file to the 
 **The exposure:** a person who used the interface under the old name connects their machines again
 and removes the old package and app themselves. **What would change the answer:** people outside
 this project who installed a release under the old name.
+
+## A work's terminal keeps the cursor its program sets
+
+The sign-in terminal and the vault's passphrase terminal always show the cursor while they wait for
+the person, whatever runs in them hides: a pasted code has to be seen to land. The terminal of a
+piece of work honours what runs in it, since Claude Code hides the terminal's cursor and draws its
+own, and a second cursor there would point at the wrong place.
+
+## The interface takes the website's colours and shapes, not its motion
+
+The interface looks like Porelo's website - its ground, cyan, magenta, lime and amber, its rounded
+surfaces with a hairline border and its logo - so the two read as one product. Unlike the website it
+keeps a light mode beside the dark one, the same hues darkened for a pale ground, and every text and
+mark in either holds WCAG AA (`test/ui/theme_contrast_test.dart`). Its surfaces are the website's
+frosted glass laid opaque, and its moving background, glitch and typing effects stay on the website:
+a blur and motion cost a tool open all day more than they give. The terminal stays dark in both
+modes.

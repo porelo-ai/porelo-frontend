@@ -12,9 +12,8 @@ beside it, not lost.
 
 ## Why
 
-`porelo` [B181](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b181) has the
-daemon read the upstream with the clone's own credential before a gated start. `CanStart`'s outcome
-grows by `UPSTREAM_KEY_REFUSED`, `UPSTREAM_NOT_FOUND`, `UPSTREAM_UNREACHABLE` and
+`porelo`'s daemon reads the upstream with the clone's own credential before a gated start.
+`CanStart`'s outcome grows by `UPSTREAM_KEY_REFUSED`, `UPSTREAM_NOT_FOUND`, `UPSTREAM_UNREACHABLE` and
 `UPSTREAM_UNREADABLE`, each with a `detail` that says what was tried and ends with the command that
 fixes it. `Start` gets the error `UpstreamUnreadable(cause, detail, fix)`, where `cause` is one of
 the four without the prefix, or `UNKNOWN_HOST_KEY` for a host whose key changed since it was
