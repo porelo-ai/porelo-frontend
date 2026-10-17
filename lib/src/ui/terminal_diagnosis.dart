@@ -12,6 +12,7 @@ import '../app/desk.dart';
 import '../app/pty.dart';
 import '../app/wsl.dart';
 import 'tokens.dart';
+import 'terminal_look.dart';
 
 /// Sends [bytes] into a WSL distribution and answers what `od -c` read there.
 typedef ThroughWsl = Future<String> Function(String distribution, List<int> bytes, {required bool pseudoconsole});
@@ -201,10 +202,11 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
                   key: const Key('diagnose-wheel'),
                   onPointerSignal: _wheel,
                   child: ColoredBox(
-                    color: Colors.black,
+                    color: TerminalLook.background,
                     child: TerminalView(
                       _terminal,
                       key: ValueKey<bool>(_keyEventsOnly),
+                      theme: TerminalLook.theme,
                       focusNode: _focus,
                       autofocus: true,
                       hardwareKeyboardOnly: _keyEventsOnly,

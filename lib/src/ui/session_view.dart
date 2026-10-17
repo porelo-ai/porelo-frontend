@@ -11,6 +11,7 @@ import 'package:guided_walk/guided_walk.dart';
 import 'tokens.dart';
 import 'terminal_copy.dart';
 import 'terminal_links.dart';
+import 'terminal_look.dart';
 
 /// A shell inside running work, drawn in the window.
 ///
@@ -139,6 +140,7 @@ class _SessionViewState extends State<SessionView> {
                     child: TerminalView(
                     session.terminal,
                     key: const Key('terminal'),
+                    theme: TerminalLook.theme,
                     controller: _selection,
                     shortcuts: copyAsShownShortcuts,
                     focusNode: widget.focusNode,

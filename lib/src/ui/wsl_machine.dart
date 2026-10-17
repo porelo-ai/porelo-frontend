@@ -9,6 +9,7 @@ import '../app/wsl.dart';
 import '../app/wsl_setup.dart';
 import 'choice_field.dart';
 import 'tokens.dart';
+import 'terminal_look.dart';
 
 /// The WSL way to a machine, on Windows: the distributions of this Windows user, the checks before
 /// one is connected to, and the offer to set Porelo up in one that lacks it.
@@ -249,10 +250,10 @@ class _WslStepsState extends State<WslSteps> {
         key: const Key('wsl-lines'),
         width: double.infinity,
         padding: const EdgeInsets.all(Space.small),
-        color: Colors.black,
+        color: TerminalLook.background,
         child: SelectableText(
           lines.map((each) => each.shown).join('\n'),
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.white),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: TerminalLook.foreground),
         ),
       ),
       const SizedBox(height: Space.small),

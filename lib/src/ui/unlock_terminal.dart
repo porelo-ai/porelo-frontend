@@ -9,6 +9,7 @@ import 'dialog_scroll.dart';
 import 'package:guided_walk/guided_walk.dart';
 import 'tokens.dart';
 import 'terminal_links.dart';
+import 'terminal_look.dart';
 
 /// Opens [machine]'s vault by its passphrase, typed into a terminal running [command] there.
 ///
@@ -179,10 +180,11 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
               SizedBox(
                 height: Sizes.terminal,
                 child: ColoredBox(
-                  color: const Color(0xFF1E1E1E),
+                  color: TerminalLook.background,
                   child: WalkSecret(child: TerminalView(
                     _session.terminal,
                     key: const Key('unlock-terminal'),
+                    theme: TerminalLook.theme,
                     focusNode: _keyboard,
                     autofocus: true,
                     // The cursor always shown while it waits: a pasted sign-in code went in with

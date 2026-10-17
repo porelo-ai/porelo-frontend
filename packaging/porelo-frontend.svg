@@ -1,8 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- A gate, which is what the product is about: work waits on one side until somebody decides. -->
-  <rect x="4" y="4" width="56" height="56" rx="12" fill="#00695c"/>
-  <path d="M20 44V26a12 12 0 0 1 24 0v18" fill="none" stroke="#e0f2f1" stroke-width="4"
-        stroke-linecap="round"/>
-  <line x1="14" y1="44" x2="50" y2="44" stroke="#e0f2f1" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="32" cy="33" r="4" fill="#e0f2f1"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Porelo">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00f0ff"/>
+      <stop offset="1" stop-color="#ff2bd6"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#07070f"/>
+  <path d="M32 7 53 19v26L32 57 11 45V19Z" fill="none" stroke="url(#g)" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M24 22v20M32 18v28M40 22v20" stroke="url(#g)" stroke-width="2.5" stroke-linecap="round" opacity=".55"/>
+  <circle cx="32" cy="32" r="5.5" fill="#00f0ff"/>
 </svg>

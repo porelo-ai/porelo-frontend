@@ -5,16 +5,67 @@
 /// makes a slightly different one — which is how an interface stops looking like one thing.
 library;
 
-import 'dart:ui' show Color;
+import 'package:flutter/material.dart' show Brightness, Color, ColorScheme;
 
 /// Raw values, named for what they are rather than what they are for. Only the tokens below and
 /// the theme read these; a widget reads the tokens.
 abstract final class Primitives {
-  /// The brand color every other color is worked out from, shared with melkheftken.
-  static const Color brandIndigo600 = Color(0xFF3949AB);
+  /// The website's ground, near black.
+  static const Color ground = Color(0xFF05050C);
+
+  /// The website's second ground, a shade lighter.
+  static const Color ground2 = Color(0xFF0B0B1A);
+
+  /// The website's text.
+  static const Color text = Color(0xFFE8ECFF);
+
+  /// The website's muted text.
+  static const Color muted = Color(0xFF9AA3C7);
+
+  /// The website's cyan: links, focus, the first accent.
+  static const Color cyan = Color(0xFF00F0FF);
+
+  /// The website's magenta: the second accent.
+  static const Color magenta = Color(0xFFFF2BD6);
+
+  /// The website's lime: code, and what works.
+  static const Color lime = Color(0xFFB6FF3B);
+
+  /// The website's amber: what waits.
+  static const Color amber = Color(0xFFFFB020);
+
+  /// The website's red for what failed.
+  static const Color red = Color(0xFFFF5F7A);
+
+  /// Cyan darkened until it reads on a light ground: petrol.
+  static const Color petrol = Color(0xFF006872);
+
+  /// Magenta darkened until it reads on a light ground.
+  static const Color deepMagenta = Color(0xFFA3127F);
+
+  /// Lime darkened until it reads on a light ground: olive.
+  static const Color olive = Color(0xFF3B6600);
+
+  /// Amber darkened until it reads on a light ground: brown.
+  static const Color brown = Color(0xFF8A5300);
+
+  /// Red darkened until it reads on a light ground.
+  static const Color deepRed = Color(0xFFB3123A);
+
+  /// The light mode's ground, a pale blue-grey.
+  static const Color paleGround = Color(0xFFF6F7FC);
+
+  /// The light mode's muted text.
+  static const Color slate = Color(0xFF464E70);
+
+  /// What a stopped piece of work is drawn in, and an outline, in either mode.
+  static const Color steel = Color(0xFF6B7396);
 
   /// One logical pixel, the thinnest line a screen draws.
   static const double hairline = 1;
+
+  /// The border of what has the focus, as the website draws it.
+  static const double focusLine = 2;
 
   /// Four logical pixels.
   static const double space1 = 4;
@@ -31,27 +82,29 @@ abstract final class Primitives {
   /// Twenty-four logical pixels.
   static const double space6 = 24;
 
-  /// A small corner.
-  static const double radiusSm = 4;
+  /// A small corner, as the website's badges have.
+  static const double radiusSm = 8;
 
-  /// A card's corner.
-  static const double radiusMd = 8;
+  /// A card's corner, the website's small radius.
+  static const double radiusMd = 12;
+
+  /// A dialog's corner, the website's large radius.
+  static const double radiusLg = 18;
+}
+
+/// The colours of a piece of work's state, each paired with a shape so it reads without colour too
+/// (walk 8: running, waiting, needing a person and stopped told apart at a glance).
+///
+/// Each comes in a dark and a light tone, since the lime and amber that glow on black vanish on white.
+abstract final class StateColours {
+  /// Working, waiting or quiet, and stopped, for the brightness of [scheme].
+  static ({Color working, Color waiting, Color stopped}) of(ColorScheme scheme) =>
+      scheme.brightness == Brightness.dark
+          ? (working: Primitives.lime, waiting: Primitives.amber, stopped: Primitives.muted)
+          : (working: Primitives.olive, waiting: Primitives.brown, stopped: Primitives.steel);
 }
 
 /// Space between things, in logical pixels.
-/// The colours of a piece of work's state, each paired with a shape so it reads without colour too
-/// (walk 8: running, waiting, needing a person and stopped told apart at a glance).
-abstract final class StateColours {
-  /// Working.
-  static const Color working = Color(0xFF2E7D32);
-
-  /// Waiting, or quiet.
-  static const Color waiting = Color(0xFFF9A825);
-
-  /// Stopped.
-  static const Color stopped = Color(0xFF9E9E9E);
-}
-
 abstract final class Space {
   /// Above and below each line of a block that reads as one, such as a diff.
   static const hairline = Primitives.hairline;

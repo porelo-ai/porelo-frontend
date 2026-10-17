@@ -19,7 +19,7 @@ does goes through the daemon's socket. Maven only drives its build; the one `pom
 
 **Documentation: [porelo-ai.github.io/frontend](https://porelo-ai.github.io/frontend/)**, the interface's chapter of all of Porelo's documentation.
 
-![The interface: the work running on a machine reached over ssh](images/porelo-frontend.gif)
+![The interface in the dark mode: a person working by hand in a session with Claude Code on this machine](images/porelo-frontend.png)
 
 ## Install
 

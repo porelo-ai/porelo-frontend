@@ -9,10 +9,10 @@ void main() {
   final scheme = ColorScheme.fromSeed(seedColor: Colors.indigo);
 
   test('OK is green, MISSING red, DEGRADED and UNKNOWN yellow', () {
-    expect(probeLook('OK', scheme).$2, StateColours.working);
+    expect(probeLook('OK', scheme).$2, StateColours.of(scheme).working);
     expect(probeLook('MISSING', scheme).$2, scheme.error);
-    expect(probeLook('DEGRADED', scheme).$2, StateColours.waiting);
-    expect(probeLook('UNKNOWN', scheme).$2, StateColours.waiting);
+    expect(probeLook('DEGRADED', scheme).$2, StateColours.of(scheme).waiting);
+    expect(probeLook('UNKNOWN', scheme).$2, StateColours.of(scheme).waiting);
   });
 
   test('a state this build does not know never draws as the good case', () {

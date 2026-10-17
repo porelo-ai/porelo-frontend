@@ -931,12 +931,13 @@ class _StateMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final states = StateColours.of(scheme);
     final (colour, filled, words) = switch (demand) {
       Demand.question || Demand.ended || Demand.gate => (scheme.error, true, 'Needs you'),
-      Demand.working => (StateColours.working, true, 'Working'),
-      Demand.unseen => (StateColours.working, false, 'Running'),
-      Demand.quiet => (StateColours.waiting, false, 'Waiting'),
-      Demand.stopped => (StateColours.stopped, false, 'Stopped'),
+      Demand.working => (states.working, true, 'Working'),
+      Demand.unseen => (states.working, false, 'Running'),
+      Demand.quiet => (states.waiting, false, 'Waiting'),
+      Demand.stopped => (states.stopped, false, 'Stopped'),
     };
     return Tooltip(
       message: words,
@@ -965,11 +966,12 @@ class _BuildLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final states = StateColours.of(scheme);
     final (icon, colour) = switch (said.look) {
-      BuildLook.passed => (Icons.check_circle, StateColours.working),
+      BuildLook.passed => (Icons.check_circle, states.working),
       BuildLook.failed => (Icons.cancel, scheme.error),
-      BuildLook.running => (Icons.timelapse, StateColours.waiting),
-      BuildLook.none => (Icons.remove_circle_outline, StateColours.stopped),
+      BuildLook.running => (Icons.timelapse, states.waiting),
+      BuildLook.none => (Icons.remove_circle_outline, states.stopped),
     };
     return Padding(
       key: const Key('tile-build'),

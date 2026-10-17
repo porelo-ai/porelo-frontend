@@ -76,8 +76,8 @@ Counted on `main`: 4,392 occurrences (`sokar` 3,374, `Sokar` 855, `SOKAR` 163, n
     `ai.porelo.frontend`, a new app, which no migration needs.
   - **The demo `images/porelo-frontend.gif`** shows the old name in every frame - the window title,
     the daemon's version in the header, the tasks' names, the gate's ref and the tmux bar. It is
-    recorded again against Porelo after this commit, two running tasks on a machine as before, and
-    stays as it is until then; the icons draw only the gate, not the word.
+    replaced by a screenshot of the renamed interface in its new look, `images/porelo-frontend.png`,
+    with [F121](README.md#f121); the icons draw only the gate, not the word.
 - **The tunnel socket** `$runtime/porelo-tunnel-<name>.sock` grows by one byte with the name: under
   `/run/user/1000` a machine name fits 108 bytes up to 73 characters, one fewer than before. No
   test asserts the limit and no machine name is bounded, before the rename or after.

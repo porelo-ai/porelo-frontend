@@ -53,6 +53,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `porelod` over `$XDG_RUNTIME_DIR/porelo/`, keeps its settings in
   `$XDG_CONFIG_HOME/porelo/frontend.json` (`%APPDATA%\porelo\` on Windows) and comes from
   `porelo-dist-deb`, `porelo-dist-rpm` and `porelo-dist-windows`.
+- The interface looks like Porelo's website: its near-black ground, cyan, magenta, lime and amber,
+  its rounded surfaces with a fine border and pill-shaped buttons in the dark mode, and the same hues
+  darkened on a pale ground in the light one, which stays beside it. Every text and mark reads at
+  WCAG AA in both. The terminals take the same colours, and the website's logo is the application's
+  icon on Linux and Windows.
 - The packages are proven to install on the systems Porelo supports, Ubuntu 26.04, Debian 13,
   Fedora 43 and Fedora 44, each image pinned by its digest, instead of Debian 12 and Fedora 40.
   The `.rpm` declares the oldest C library it needs, as the `.deb` does, and a build that would need

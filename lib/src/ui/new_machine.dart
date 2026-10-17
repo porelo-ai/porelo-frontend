@@ -8,6 +8,7 @@ import '../app/session.dart';
 import '../app/setup_run.dart';
 import 'host_key_dialog.dart';
 import 'tokens.dart';
+import 'terminal_look.dart';
 
 /// The steps of a new machine, or of a new user on a machine prepared before, drawn from a
 /// [SetupRun]. **The run holds everything**, so this can be rebuilt, left and come back to without
@@ -494,10 +495,11 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
         SizedBox(
           height: Sizes.terminal,
           child: ColoredBox(
-            color: const Color(0xFF1E1E1E),
+            color: TerminalLook.background,
             child: TerminalView(
               vault.terminal,
               key: const Key('vault-terminal'),
+              theme: TerminalLook.theme,
               autofocus: true,
               // A passphrase is typed here blind: the cursor at least says where it goes.
               alwaysShowCursor: vault.live,
@@ -555,7 +557,7 @@ class Terminal extends StatelessWidget {
         width: double.infinity,
         constraints: const BoxConstraints(maxHeight: Sizes.terminal),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: TerminalLook.background,
           borderRadius: BorderRadius.circular(Radii.small),
         ),
         padding: const EdgeInsets.all(Space.small),
@@ -564,7 +566,7 @@ class Terminal extends StatelessWidget {
           child: SelectableText(
             text.trim(),
             key: Key(id),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFFD4D4D4)),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: TerminalLook.foreground),
           ),
         ),
       );

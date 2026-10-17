@@ -165,8 +165,8 @@ class _Heading extends StatelessWidget {
 /// and `UNKNOWN` yellow, `MISSING` red. Each with a shape of its own, so it reads without colour too,
 /// and an unknown state never draws as the good case.
 (IconData, Color) probeLook(String state, ColorScheme scheme) => switch (state) {
-      'OK' => (Icons.check_circle_outline, StateColours.working),
+      'OK' => (Icons.check_circle_outline, StateColours.of(scheme).working),
       'MISSING' => (Icons.error_outline, scheme.error),
-      'DEGRADED' => (Icons.warning_amber_outlined, StateColours.waiting),
-      _ => (Icons.help_outline, StateColours.waiting),
+      'DEGRADED' => (Icons.warning_amber_outlined, StateColours.of(scheme).waiting),
+      _ => (Icons.help_outline, StateColours.of(scheme).waiting),
     };
