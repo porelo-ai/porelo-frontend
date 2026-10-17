@@ -1,12 +1,14 @@
 # F119 — The Code Changed Since The Skills Reading Read Against Them
 
-**Status:** Analyzed.
-**Size:** L - 860 files under `lib`, `test`, `tool` and `integration_test` changed since the last
-reading, about 37,400 lines added, 17,200 of them in `lib`; each finding fixed with a test seen red.
+**Status:** Backlog; read, and built in three parts, each blocked by [F124](README.md#f124): [F125](README.md#f125) (`lib/src/client`
+with `app`), [F126](README.md#f126) (`lib/src/ui` with `tool` and the workflows) and [F127](README.md#f127) (the tests). Each
+part goes out as its own push once it is green on the VM.
+**Size:** XL - 860 files read, thirty findings with their sites, built as the three parts of L or
+smaller; this issue keeps the reading and its findings, and is finished when the three are.
 
 **What must be true.** Every line of Dart in this repository has been read against the sixteen skills
-`AGENTS.md` names, each at a recorded version and SHA-256. Every finding was either fixed with a test
-seen to fail first, or declined with its reason written here.
+`AGENTS.md` names, each at a recorded version and SHA-256. Every finding was either fixed, with a test
+seen to fail first where it prevents a harm, or declined with its reason written here.
 
 ## Why
 
@@ -51,19 +53,152 @@ recorded which version of each skill it used.
 - **The order**, from what reaches a daemon outward: `lib/src/client`, `lib/src/app`, `lib/src/ui`,
   `lib/src/mock`, `tool`, then the tests (`dart-add-unit-test`, `flutter-add-widget-test`,
   `flutter-add-integration-test`, `dart-generate-test-mocks` weigh most there).
-- **A finding** is fixed with a test seen to fail first. Otherwise it is declined here with its
-  reason. Where a skill contradicts a rule measured here, it is added to the decision "Where a Dart
+- **A finding** is fixed, with a test seen to fail first where it names the harm it prevents, and
+  without one where it names none, as the shared rule on what is tested says. Otherwise it is declined
+  here with its reason. Where a skill contradicts a rule measured here, it is added to the decision "Where a Dart
   or Flutter skill says otherwise" in `doc/decisions.md`, which already settles tolerant readers,
   non-enum backend values, the layout of `lib/src`, `World.settle`, stand-ins instead of `mockito`
   and `integration_test` under xvfb.
-- **Red first:** each finding's own test, seen to fail on `main` before its fix.
+- **`shellcheck` on each tracked `*.sh`** (`tool/e2e.sh`, `tool/package.sh`), as part of the reading,
+  since what it finds can change behaviour. Each finding is fixed in the cleanup commit, with a test
+  seen red first where one can be; one left as it is gets `# shellcheck disable=<code>` with its
+  reason on the line above. The host has no `shellcheck`; its version is recorded here when it runs.
+- **`persist-credentials: false` on every `actions/checkout`**, the five in `build.yml`,
+  `windows.yml` and `shared-rules.yml`, in the cleanup commit: no step pushes with git, so the
+  read-only token need not stay in `.git/config`. `check-actions` refuses a checkout without it once
+  porelo-buildtools carries that.
+- **No interface another repository reads changes:** not the calls and fields of
+  `org.fuin.porelo.Tasks1` and `Tasks2`, the settings file `porelo/frontend.json` the IntelliJ plugin
+  reads, the packages' names and paths, the desktop and MSIX ids, or the instance socket. A finding
+  that would change one is not built; it is named in the channel and here.
+- **Red first:** each harm's test, seen to fail on `main` before its fix.
+- **Which part takes what:** findings 1-12, the strict analyzer modes and the documentation in
+  `lib/src/client` and `lib/src/app` go to [F125](README.md#f125), with `porelo/frontend.json` keeping its unknown
+  keys; 13-24, the colours, the walks in English, `persist-credentials` and the documentation in
+  `lib/src/ui` to
+  [F126](README.md#f126); 25-30 and the skill named in `doc/decisions.md` to [F127](README.md#f127).
+
+## Findings
+
+Read on `7c38e4e` against the sixteen skills at the versions above, each zip's SHA-256 matching this
+table and `agent-skills`' storage API, none newer; each `SKILL.md` read from outside the repository,
+since the harness cannot install them here. `shellcheck` 0.11.0. Each finding is a guess until its
+test is seen red; none is fixed before [F124](README.md#f124). *Probed* means reproduced in a scratch
+copy.
+
+**`lib/src/client`, `lib/src/app`:**
+
+1. **GitHub Enterprise is asked at the wrong path** (`forge.dart`, eight calls): `_api.replace(path:)`
+   drops `/api/v3`, so `whoAmI` asks `https://<host>/user`. *Probed.*
+2. **A forge's failure escapes as an exception nothing handles** (`forge.dart`): a 2xx that is not
+   JSON, a body of another shape, a TLS or HTTP exception; the callers catch only `ForgeRefused`, so a
+   button's future fails unhandled and `stillAsking` never reaches 0. *Probed.*
+3. **Forge requests have no time limit** (`forge.dart`, `_Network`): a forge that stops answering
+   leaves the form busy for good.
+4. **Three wire fields are read with a bare cast** (`models.dart`, `DefaultRepository.source` and
+   `remote`, `TaskRefreshed.moved`), against the tolerant-reader rule. *Probed.*
+5. **A bundle that is not base64 throws out of the review** (`porelo_client.dart`, `pendingBundle`).
+6. **A hand-in whose file cannot be read stays busy for good** (`hand_in.dart`). *Probed.*
+7. **A homeserver forward raised after `dispose` is never closed** (`homeserver_forwards.dart`), and
+   overlapping checks can raise two forwards for one port. *Probed* (the first).
+8. **The WSL package-key check takes the first key of the file only** (`wsl_setup.dart`): a file with
+   the right key first and another after it passes, and both go into apt's keyring. *Probed.*
+9. **On Windows a WSL machine counts as this computer** (`machines.dart`, `isThisComputer`, both
+   sockets `''`): a silent distribution is never under *Needs you*, and *Start Porelo* runs `sh`.
+10. **The forge workspace assumes Linux** (`project_workspace.dart`): `$HOME/.ssh`, and a `chmod`
+    outside the `RunHere` seam.
+11. **The stand-in's `Stop` answers `surviving` as a list**, where the client reads a count
+    (`mock/machine.dart`).
+12. **Two machines of one name in a hand-edited `porelo/frontend.json` are both kept**
+    (`settings.dart`, `machines()`); the second is to be dropped as an unusable entry is.
+
+**`lib/src/ui`:**
+
+13. **Two task-less tiles on one machine share a `GlobalKey`** (`work_page.dart`): two questions for
+    tasks not listed yet throw "Duplicate GlobalKey"; the key map is never pruned.
+14. **The WSL probe leaks its connection on a timeout, and a view opens a socket**
+    (`wsl_machine.dart`), against "only `lib/src/wire` and `lib/src/client` open a socket".
+15. **Models and controllers never disposed:** six `TextEditingController`s per draft
+    (`destinations_view.dart`), `WslSetup`, the shell's own `ForgeConnection` and each
+    `MachineClearing`.
+16. **A model used after it is disposed:** `setState` after `dispose` in `destinations_view.dart`;
+    `MachineBinding` and `TaskPeers` notify after their dialog disposed them mid-call.
+17. **`SessionView` keeps listening to the old session** when another is shown in its place (no
+    `didUpdateWidget`).
+18. **A tile's console asks for the screen every 3 s with no guard**, so slow answers queue on the
+    machine's one connection (`tile_console.dart`).
+19. **Dialogs that do not scroll overflow on a short window:** the words dialog, *Forget* with an ssh
+    entry, and *Which branch*.
+20. **Repository lists are built whole**, each row asking `usedOn` on every rebuild
+    (`forges_page.dart`, `repositories_view.dart`).
+21. **Cancel does nothing** on the forge form in two places (`onDone: (_) {}`).
+22. **The terminal diagnosis writes synchronously and rebuilds every line on each event**, and joins a
+    path by hand.
+
+**`tool`:**
+
+23. **`tool/e2e.sh:24` exports an empty user or socket** from a lease file that lacks one, and runs on
+    (`shellcheck` SC2155). Its two SC2329 notes are trap handlers: kept, with the reason.
+24. **`tool/windows-package.ps1` writes the signing key to `RUNNER_TEMP` and passes its password on
+    `signtool`'s command line**, against "a secret never appears in a command line … never touches a
+    filesystem in CI". The fix signs from the certificate store, loaded from memory.
+
+**The tests:**
+
+25. **A red integration run leaves the VM account dirty:** cleanup is each scenario's last step,
+    never a tear-down, and several cleanup steps cannot fail (`|| true`, `rm -f`, an unchecked
+    `unfollow`); `matrixInTheAccount` and the stub agent stay installed.
+26. **A step leaves a `lib` static at zero**: `StartWork.askAgainAfter`, for every later scenario.
+27. **`pumpAndSettle` in `World.fromARepositorysMenu` and six steps**, against "steps settle with
+    `World.settle`"; `settle`'s own doc now heads another method.
+28. **Tests that pass with what they test removed:** `it_says_keeps_running` (half the sentence),
+    `the_repositories_are_listed_a_card_each` (0 = 0), Check it now in `live_refresh_test`, the rpm
+    half of the index wait in `workflow_publish_test`, `probe_look_test` (the record, not the colour),
+    `held()` in `live_daemon_test`, the IDL declaration check there (cut at the second `)`, no word
+    boundary), the probe step, and two `textContaining` over the whole screen.
+29. **Tests that reach the host:** git without `GIT_CONFIG_GLOBAL`/`NOSYSTEM`
+    (`project_workspace_test`, `features_named_test`), the tunnel tests through a login shell and its
+    `/etc/profile`, three steps on `DateTime.now()`.
+30. **Clean-up and independence:** disposals after the expects (`homeserver_forwards_test`,
+    `modified_keys_test`, `relay_test`, `terminal_copy_test`), `live_hand_in_test`'s tests depending
+    on each other's order, `live_b130_test` leaving a task when it fails, `walks_test` with no guard
+    that any walk was found, a fixed 300 ms wait in `openTheDestinations`, unchecked `ssh-keygen` and
+    `ssh-add`.
+
+**Documentation and lints:** about twenty doc comments now head the member after the one they
+describe, where new code went in between; about seventy new public members have none
+(`public_member_api_docs`); three `discarded_futures`. `strict-casts`, `strict-inference` and
+`strict-raw-types` find nothing in `lib`, so they go on.
+
+**The workflows:** five `actions/checkout` without `persist-credentials: false`.
+
+**Which findings carry a test,** under the shared rule that a test guards what can do harm: the
+harm each prevents is named in its part, [F125](README.md#f125), [F126](README.md#f126) or
+[F127](README.md#f127). Without a test, as they name none: 11, 15-17, 19-22, 26, the documentation
+and the colours. Of the tests that cannot fail (28), those that guard a harm are repaired and the
+others deleted.
+
+**Decided by the operator:**
+
+- **`porelo/frontend.json` keeps the top-level keys it does not know** when the interface writes it;
+  that disturbs no reader and stops entries being lost ([F125](README.md#f125)).
+- **Colours are held to the tokens too:** the about forty literals in `theme.dart` and
+  `terminal_look.dart` move into `tokens.dart`, the rule goes into `AGENTS.md` beside the one for
+  sizes; no test holds them there, since a colour only reads wrong ([F126](README.md#f126)).
+- **The walks are translated into US English:** `walk_texts.dart` holds German sentences, against
+  "everything written is US English" ([F126](README.md#f126)).
+
+**Where a skill and a rule here disagree,** to be named in `doc/decisions.md` with the cleanup: `dart-build-cli-app` asks for
+`package:test_process` and `test_descriptor` and a thin `bin/`; the suite drives its processes with
+stand-in scripts in temporary folders, and `tool/contract.dart` stays dependency-free.
 
 ## Acceptance
 
 - **Every file in the scope was read against all sixteen skills**, and the versions and SHA-256s
   used are in this issue.
-- **Each finding is fixed with a test seen to fail without its fix, or declined here with its
-  reason**; a skill that contradicts a measured rule is named in `doc/decisions.md`.
+- **Each finding is fixed, with a test seen to fail without its fix where it prevents a harm, or
+  declined here with its reason**; a skill that contradicts a measured rule is named in
+  `doc/decisions.md`.
 - **`dart analyze` is clean and the whole suite is green** on the commit handed over.
 
 ## To be checked

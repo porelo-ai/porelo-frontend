@@ -18,6 +18,11 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f124"></a>[F124](F124-The-Dart-Code-In-One-Format.md) | S | `porelo-parent` `0.2.1-SNAPSHOT` with the shared `.editorconfig` | The Dart code in one format, `dart format` checked in the build. |
+| <a id="f125"></a>[F125](F125-The-Client-And-The-App-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the client and the app, fixed with a test each. |
+| <a id="f126"></a>[F126](F126-The-Frame-The-Tools-And-The-Workflows-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the frame, the tools and the workflows, fixed; the colours in the tokens. |
+| <a id="f127"></a>[F127](F127-The-Tests-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the tests, fixed; a red run leaves the test machine clean. |
+| <a id="f119"></a>[F119](F119-The-Code-Changed-Since-The-Skills-Reading-Read-Against-Them.md) | XL | [F125](README.md#f125), [F126](README.md#f126), [F127](README.md#f127) | The code changed since the last skills reading read against the sixteen skills; its findings built in three parts. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | — | An upstream that cannot be read said before a start, with what fixes it. |
 
 ### Analyzed
@@ -29,7 +34,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. | — |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. | — |
-| <a id="f119"></a>[F119](F119-The-Code-Changed-Since-The-Skills-Reading-Read-Against-Them.md) | L | — | The code changed since the last skills reading read against the sixteen skills, their versions recorded. | — |
 
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
