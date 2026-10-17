@@ -5,7 +5,7 @@ All notable changes to this project are recorded here.
 The format is [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-17
 
 ### Added
 
@@ -69,7 +69,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Every workflow run is titled with its workflow, its branch or tag and its commit's subject; the
   shared rules' workflow is called "Shared rules check" and the Artifactory probe "Artifactory probe
   test".
-- The build takes `porelo-parent` `0.2.0-SNAPSHOT` and with it the build tools' snapshot, and its
+- The build takes `porelo-parent` `0.2.0` and with it the build tools' `0.5.0`, and its
   Maven build and tests read the project's `settings.xml` like every other Maven call, so the
   snapshots come from Central's snapshot repository.
 
