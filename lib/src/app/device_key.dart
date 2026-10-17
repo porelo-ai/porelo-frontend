@@ -95,9 +95,9 @@ String newShare([Random? random]) {
 /// application a store of its own. **macOS is counted as user-scoped**: only a signed application
 /// gets a keychain entry other programs cannot read, and nothing here can tell whether it was signed.
 KeyslotStorage storageOn(String operatingSystem) => switch (operatingSystem) {
-      'ios' || 'android' => KeyslotStorage.applicationScoped,
-      _ => KeyslotStorage.userScoped,
-    };
+  'ios' || 'android' => KeyslotStorage.applicationScoped,
+  _ => KeyslotStorage.userScoped,
+};
 
 /// What a keystore on this machine is worth.
 KeyslotStorage get storageHere => storageOn(Platform.operatingSystem);

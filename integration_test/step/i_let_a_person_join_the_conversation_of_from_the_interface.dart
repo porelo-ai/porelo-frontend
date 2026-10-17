@@ -40,11 +40,12 @@ Future<void> iLetAPersonJoinTheConversationOfFromTheInterface(WidgetTester teste
   await pumpFor(tester);
   await tester.tap(find.byKey(const Key('join-it')));
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('login password')).evaluate().isNotEmpty ||
-          find.byKey(const Key('messages-problem')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 60),
-      what: 'the machine to let $person in');
+    tester,
+    () =>
+        find.byKey(const Key('login password')).evaluate().isNotEmpty ||
+        find.byKey(const Key('messages-problem')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 60),
+    what: 'the machine to let $person in',
+  );
   expect(find.byKey(const Key('messages-problem')), findsNothing);
 }

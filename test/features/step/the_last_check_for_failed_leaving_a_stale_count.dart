@@ -4,8 +4,7 @@ import 'package:porelo_frontend/client.dart';
 import '../support/world.dart';
 
 /// Usage: the last check for {'billing'} failed, leaving a stale count
-Future<void> theLastCheckForFailedLeavingAStaleCount(
-    WidgetTester tester, String project) async {
+Future<void> theLastCheckForFailedLeavingAStaleCount(WidgetTester tester, String project) async {
   // `behind` is meaningless unless the reason is MEASURED, and the contract says so. A daemon
   // that leaves the previous number in the field while reporting a failure is within its rights,
   // and drawing it would be this end inventing a measurement.

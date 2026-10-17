@@ -9,11 +9,19 @@ Future<void> iGrantFromWhatNeedsAPersonInTheInterface(WidgetTester tester, Strin
   await toThePlace(tester, 'attention');
   await pumpFor(tester);
   final grant = find.byKey(ValueKey<String>('grant-needed $entry'));
-  await pumpUntil(tester, () => grant.evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'what needs a person to ask for a grant of $entry');
+  await pumpUntil(
+    tester,
+    () => grant.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'what needs a person to ask for a grant of $entry',
+  );
   expect(find.textContaining('Nobody has granted it yet'), findsWidgets);
   await tester.ensureVisible(grant);
   await tester.tap(grant);
-  await pumpUntil(tester, () => find.byKey(const Key('grant-link')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the machine to answer with the page');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('grant-link')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to answer with the page',
+  );
 }

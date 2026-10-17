@@ -13,11 +13,8 @@ void main() {
   late List<int> sent;
   var destroyed = false;
 
-  VarlinkConnection connection() => VarlinkConnection.over(
-        incoming: fromDaemon.stream,
-        outgoing: toDaemon.sink,
-        destroy: () => destroyed = true,
-      );
+  VarlinkConnection connection() =>
+      VarlinkConnection.over(incoming: fromDaemon.stream, outgoing: toDaemon.sink, destroy: () => destroyed = true);
 
   void answer(Map<String, dynamic> reply) => fromDaemon.add(<int>[...utf8.encode(jsonEncode(reply)), 0]);
 
@@ -35,7 +32,9 @@ void main() {
     expect(utf8.decode(sent.sublist(0, sent.length - 1)), '{"method":"org.varlink.service.GetInfo","parameters":{}}');
     expect(sent.last, 0);
 
-    answer(<String, dynamic>{'parameters': <String, dynamic>{'product': 'Porelo'}});
+    answer(<String, dynamic>{
+      'parameters': <String, dynamic>{'product': 'Porelo'},
+    });
 
     expect(await reply, <String, dynamic>{'product': 'Porelo'});
   });
@@ -43,8 +42,13 @@ void main() {
   test('a stream of replies arrives as it comes, and ends with the last one', () async {
     final replies = connection().callMore('org.fuin.porelo.Tasks1.Watch').toList();
     await pumpEventQueue();
-    answer(<String, dynamic>{'parameters': <String, dynamic>{'n': 1}, 'continues': true});
-    answer(<String, dynamic>{'parameters': <String, dynamic>{'n': 2}});
+    answer(<String, dynamic>{
+      'parameters': <String, dynamic>{'n': 1},
+      'continues': true,
+    });
+    answer(<String, dynamic>{
+      'parameters': <String, dynamic>{'n': 2},
+    });
 
     expect(await replies, <Map<String, dynamic>>[
       <String, dynamic>{'n': 1},

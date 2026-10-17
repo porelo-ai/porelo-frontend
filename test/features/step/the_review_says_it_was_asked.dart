@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> theReviewSaysItWasAsked(WidgetTester tester, String asked) async {
   expect(tester.widget<SelectableText>(find.byKey(const Key('review-asked'))).data, asked);
   // Above what it touched, kept apart from it.
-  expect(tester.getTopLeft(find.byKey(const Key('review-asked'))).dy,
-      lessThan(tester.getTopLeft(find.byKey(const Key('review-not-a-verdict'))).dy));
+  expect(
+    tester.getTopLeft(find.byKey(const Key('review-asked'))).dy,
+    lessThan(tester.getTopLeft(find.byKey(const Key('review-not-a-verdict'))).dy),
+  );
 }

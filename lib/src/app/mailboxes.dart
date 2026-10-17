@@ -33,9 +33,9 @@ class Mailboxes extends ChangeNotifier {
 
   /// What happened to the messages of any of [tasks] since this interface connected, newest first.
   List<TalkEvent> eventsOfAny(Set<String> tasks) => <TalkEvent>[
-        for (final each in _events.reversed)
-          if (tasks.contains(each.task)) each,
-      ];
+    for (final each in _events.reversed)
+      if (tasks.contains(each.task)) each,
+  ];
 
   /// How many messages between [task] and [peer] wait for a person's decision right now.
   int waitingWith(String task, String peer) =>
@@ -43,18 +43,18 @@ class Mailboxes extends ChangeNotifier {
 
   /// What happened to one task's messages since this interface connected, newest first.
   List<TalkEvent> eventsOf(String task) => <TalkEvent>[
-        for (final each in _events.reversed)
-          if (each.task == task) each,
-      ];
+    for (final each in _events.reversed)
+      if (each.task == task) each,
+  ];
 
   /// Everything listed, including what is only there to be seen: refused for good, or unchecked.
   List<HeldMessage> get held => _held;
 
   /// What still waits for a decision, oldest first.
   List<HeldMessage> get waiting => <HeldMessage>[
-        for (final each in _held)
-          if (each.waits) each,
-      ]..sort((a, b) => a.at.compareTo(b.at));
+    for (final each in _held)
+      if (each.waits) each,
+  ]..sort((a, b) => a.at.compareTo(b.at));
 
   /// Starts watching. Safe to call again; it replaces what was watching before.
   void watch(FleetBackend backend) {
@@ -110,10 +110,19 @@ class Mailboxes extends ChangeNotifier {
 
   /// Decides about exactly [read]: named by the file that was read, so there is no moment in which
   /// the decision and what was on screen could be two different messages.
-  Future<MessageRelease> decide(FleetBackend backend, HeldMessageRead read, String task,
-      {required bool refuse, String reason = ''}) async {
-    final done = await backend.release(task, read.message.isNotEmpty ? read.message : read.id,
-        refuse: refuse, reason: reason);
+  Future<MessageRelease> decide(
+    FleetBackend backend,
+    HeldMessageRead read,
+    String task, {
+    required bool refuse,
+    String reason = '',
+  }) async {
+    final done = await backend.release(
+      task,
+      read.message.isNotEmpty ? read.message : read.id,
+      refuse: refuse,
+      reason: reason,
+    );
     await refresh();
     return done;
   }

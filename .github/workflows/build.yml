@@ -10,534 +10,557 @@ run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.he
 # the host before it is handed over, and by the shared-rules workflow once a day, with nothing
 # leased. A push that changes code and docs together runs in full. `workflow_dispatch` ignores the path filter, so a run can always be forced.
 on:
-  push:
-    branches: [main]
-    # A version tag builds the release, into the `releases` distribution beside `snapshots`.
-    tags: ['v*']
-    paths-ignore:
-      - '**.md'
-      - 'doc/**'
-      - 'issues/**'
-      - 'mkdocs.yml'
-  workflow_dispatch:
+    push:
+        branches: [main]
+        # A version tag builds the release, into the `releases` distribution beside `snapshots`.
+        tags: ['v*']
+        paths-ignore:
+            - '**.md'
+            - 'doc/**'
+            - 'issues/**'
+            - 'mkdocs.yml'
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 # Every action is pinned to a commit, the version in a trailing comment: a tag is a name its owner
 # can repoint, and these jobs hold the publishing token. Dependabot keeps the pins current, and
 # test/packaging_test.dart rejects any action reference without a SHA.
 
 jobs:
-  build:
-    name: Linux
-    # The oldest distribution this interface is meant to install on, and not a preference: the
-    # Flutter bundle links the system GTK3 stack, so **the build machine sets the floor**. Built on
-    # 24.04 the package refuses to install on 22.04, and the failure arrives at somebody else's
-    # `apt`. Raising this is a decision about who can no longer install, not a maintenance chore —
-    # and the same runner is used for the other two jobs so nothing is built against a newer GTK
-    # by accident.
-    runs-on: ubuntu-22.04
-    # A run that hangs or crawls is stopped, never left to hold a runner for hours: one ran 1 h 29 min,
-    # and never again. Limits are about three times what the last four
-    # green runs took: this job 9-15 minutes, its build step 7-12.
-    timeout-minutes: 45
-    outputs:
-      channel: ${{ steps.channel.outputs.channel }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    build:
+        name: Linux
+        # The oldest distribution this interface is meant to install on, and not a preference: the
+        # Flutter bundle links the system GTK3 stack, so **the build machine sets the floor**. Built on
+        # 24.04 the package refuses to install on 22.04, and the failure arrives at somebody else's
+        # `apt`. Raising this is a decision about who can no longer install, not a maintenance chore —
+        # and the same runner is used for the other two jobs so nothing is built against a newer GTK
+        # by accident.
+        runs-on: ubuntu-22.04
+        # A run that hangs or crawls is stopped, never left to hold a runner for hours: one ran 1 h 29 min,
+        # and never again. Limits are about three times what the last four
+        # green runs took: this job 9-15 minutes, its build step 7-12.
+        timeout-minutes: 45
+        outputs:
+            channel: ${{ steps.channel.outputs.channel }}
+        steps:
+            # Without the job's token in .git/config: nothing here pushes with git.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
-      # Before anything is built, because the packages carry the version it decides: `main` makes
-      # `<version>~snapshot.<run>` for `snapshots`; a tag `v<version>` makes `<version>` for
-      # `releases`, and only where `pubspec.yaml` says exactly that version, with no `-SNAPSHOT`.
-      - name: Which channel
-        id: channel
-        run: |
-          set -eu
-          have="$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//' | tr -d '[:space:]')"
-          if [ "${{ github.ref_type }}" = tag ]; then
-            want="${GITHUB_REF_NAME#v}"
-            [ "$have" = "$want" ] || { echo "::error::the tag says $want, pubspec.yaml says $have" >&2; exit 1; }
-            case "$have" in *-SNAPSHOT*) echo "::error::$have is a snapshot, not a release" >&2; exit 1;; esac
-            echo "channel=releases" >> "$GITHUB_OUTPUT"
-            echo "RELEASE=1" >> "$GITHUB_ENV"
-          else
-            echo "channel=snapshots" >> "$GITHUB_OUTPUT"
-          fi
+            # Before anything is built, because the packages carry the version it decides: `main` makes
+            # `<version>~snapshot.<run>` for `snapshots`; a tag `v<version>` makes `<version>` for
+            # `releases`, and only where `pubspec.yaml` says exactly that version, with no `-SNAPSHOT`.
+            - name: Which channel
+              id: channel
+              run: |
+                  set -eu
+                  have="$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//' | tr -d '[:space:]')"
+                  if [ "${{ github.ref_type }}" = tag ]; then
+                    want="${GITHUB_REF_NAME#v}"
+                    [ "$have" = "$want" ] || { echo "::error::the tag says $want, pubspec.yaml says $have" >&2; exit 1; }
+                    case "$have" in *-SNAPSHOT*) echo "::error::$have is a snapshot, not a release" >&2; exit 1;; esac
+                    echo "channel=releases" >> "$GITHUB_OUTPUT"
+                    echo "RELEASE=1" >> "$GITHUB_ENV"
+                  else
+                    echo "channel=snapshots" >> "$GITHUB_OUTPUT"
+                  fi
 
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
+            - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+              with:
+                  flutter-version-file: pubspec.yaml
+                  cache: true
 
-      # Maven drives the build, so the runner needs a JDK as well as Flutter: the pinned one.
-      - uses: ./.github/actions/pinned-jdk
+            # Maven drives the build, so the runner needs a JDK as well as Flutter: the pinned one.
+            - uses: ./.github/actions/pinned-jdk
 
-      # What this build runs is pinned and moved only by review, and Porelo's own tool says so for
-      # every repository alike; the action above already resolved it beside porelo-machines.
-      - name: Check that every action is pinned
-        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-actions
+            # What this build runs is pinned and moved only by review, and Porelo's own tool says so for
+            # every repository alike; the action above already resolved it beside porelo-machines.
+            - name: Check that every action is pinned
+              run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-actions
 
-      # A shared rules block whose hash no longer fits its text is a copy someone edited here.
-      - name: Check that the shared rules are unchanged copies
-        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-shared AGENTS.md
+            # A shared rules block whose hash no longer fits its text is a copy someone edited here.
+            - name: Check that the shared rules are unchanged copies
+              run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-shared AGENTS.md .editorconfig
 
-      # No page or source cites an issue, whose file is deleted once it is done, and every page under
-      # doc/ is in the site's navigation once, with no link out of doc/.
-      - name: Check the citations, the documentation site and the READMEs
-        run: |
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
+            # No page or source cites an issue, whose file is deleted once it is done, and every page under
+            # doc/ is in the site's navigation once, with no link out of doc/.
+            - name: Check the citations, the documentation site and the READMEs
+              run: |
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
 
-      # A release depends only on releases: every -SNAPSHOT Maven resolved for this build - the parent,
-      # the tools and their plugin dependencies, inactive profiles included - is refused on a tag.
-      # pom.xml's own 0-SNAPSHOT is the reactor's and outside the rule; the version that ships is
-      # pubspec.yaml's, which *Which channel* holds.
-      - name: Check that a release uses releases only
-        if: github.ref_type == 'tag'
-        run: |
-          ./mvnw -B -q -s settings.xml help:effective-pom -Doutput=build/effective-pom.xml
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-releases \
-            build/effective-pom.xml --requires org.fuin.porelo:porelo-release
+            # A release depends only on releases: every -SNAPSHOT Maven resolved for this build - the parent,
+            # the tools and their plugin dependencies, inactive profiles included - is refused on a tag.
+            # pom.xml's own 0-SNAPSHOT is the reactor's and outside the rule; the version that ships is
+            # pubspec.yaml's, which *Which channel* holds.
+            - name: Check that a release uses releases only
+              if: github.ref_type == 'tag'
+              run: |
+                  ./mvnw -B -q -s settings.xml help:effective-pom -Doutput=build/effective-pom.xml
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-releases \
+                    build/effective-pom.xml --requires org.fuin.porelo:porelo-release
 
-      # GTK and the toolchain, which the runner has by default in neither case. The third-party
-      # lists go first: `apt-get update` exits 100 when any index fails, and everything installed
-      # here is Ubuntu's own. Chrome's cost run 93144262860.
-      - name: Install what a Linux desktop build needs
-        run: |
-          sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
-            libstdc++-12-dev dpkg-dev binutils rpm
+            # GTK and the toolchain, which the runner has by default in neither case. The third-party
+            # lists go first: `apt-get update` exits 100 when any index fails, and everything installed
+            # here is Ubuntu's own. Chrome's cost run 93144262860.
+            - name: Install what a Linux desktop build needs
+              run: |
+                  sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
+                  sudo apt-get update
+                  sudo apt-get install --no-install-recommends -y \
+                    clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
+                    libstdc++-12-dev dpkg-dev binutils rpm
 
-      - name: Get dependencies
-        run: flutter pub get
+            - name: Get dependencies
+              run: flutter pub get
 
-      # Generated tests are committed, so CI proves they are current rather than trusting that
-      # somebody ran the generator. A diff here means a .feature was edited and not regenerated.
-      - name: Prove the generated tests are current
-        run: |
-          dart run build_runner build
-          git diff --exit-code test/features integration_test || {
-            echo "::error::a .feature changed without build_runner being run" >&2
-            exit 1
-          }
+            # Generated tests are committed, so CI proves they are current rather than trusting that
+            # somebody ran the generator. A diff here means a .feature was edited and not regenerated.
+            - name: Prove the generated tests are current
+              run: |
+                  dart run build_runner build
+                  dart format test/features integration_test
+                  git diff --exit-code test/features integration_test || {
+                    echo "::error::a .feature changed without build_runner being run" >&2
+                    exit 1
+                  }
 
-      # Maven runs pub get, analyze, the tests and the release build. `set +e` so a red run still
-      # reports; the report's exit code and Maven's both fail the job.
-      - name: Build and test
-        timeout-minutes: 35
-        # Online here, so the fingerprint this build carries is held to the key the repository serves.
+            # The shfmt the parent pins, which Spotless does not download: checked against the digest its
+            # release names. Maven's validate then holds the shell scripts to it.
+            - name: The pinned shfmt
+              run: |
+                  set -eu
+                  VERSION=3.12.0
+                  mkdir -p "$RUNNER_TEMP/bin"
+                  curl -fsSL -o "$RUNNER_TEMP/bin/shfmt" \
+                      "https://github.com/mvdan/sh/releases/download/v$VERSION/shfmt_v${VERSION}_linux_amd64"
+                  echo "d9fbb2a9c33d13f47e7618cf362a914d029d02a6df124064fff04fd688a745ea  $RUNNER_TEMP/bin/shfmt" | sha256sum -c -
+                  chmod +x "$RUNNER_TEMP/bin/shfmt"
+                  echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+            # Maven runs pub get, analyze, the tests and the release build. `set +e` so a red run still
+            # reports; the report's exit code and Maven's both fail the job.
+            - name: Build and test
+              timeout-minutes: 35
+              # Online here, so the fingerprint this build carries is held to the key the repository serves.
+              env:
+                  PORELO_PUBLISHED_KEY: '1'
+              run: |
+                  set +e
+                  ./mvnw -B -s settings.xml verify
+                  built=$?
+                  set -e
+                  dart tool/test_report.dart
+                  exit $built
+
+            # The builder is pinned by digest, not by version. A version names what was *meant*; the
+            # digest is what arrives. This binary writes the packages that this workflow then publishes,
+            # so an asset replaced upstream would be a package nobody here ever inspected.
+            - name: Package
+              run: |
+                  nfpm_sha=a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b
+                  curl -sSL --fail -o nfpm.tar.gz \
+                    https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_Linux_x86_64.tar.gz
+                  echo "$nfpm_sha  nfpm.tar.gz" | sha256sum -c -
+                  tar xzf nfpm.tar.gz nfpm
+                  # Each build supersedes the last, or a repository called `snapshots` never updates
+                  # anybody. Locally this defaults to 0.
+                  NFPM="$PWD/nfpm" SNAPSHOT_RUN="${{ github.run_number }}" tool/package.sh
+
+            # What was built, named once. The backend learned this the hard way: two lists of files drift,
+            # and the symptom is a publish failing after the tests have already passed.
+            - name: Say what was built
+              run: |
+                  ls -1 build/packages/*.deb build/packages/*.rpm > build/packages/fetched.txt
+                  cat build/packages/fetched.txt
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: packages
+                  path: |
+                      build/packages/*.deb
+                      build/packages/*.rpm
+                      build/packages/fetched.txt
+                  if-no-files-found: error
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: always()
+              with:
+                  name: test-reports
+                  path: |
+                      build/test-results.xml
+                      build/test-report.html
+
+    # The interface on Windows, which reaches a Porelo in a WSL distribution through `wsl.exe`. Tested
+    # and built on GitHub's Windows runner, there being no Windows machine beside the VM, and packed as
+    # a ZIP somebody unpacks and starts with nothing installed. The ZIP is not signed: a `SHA256SUMS`
+    # goes beside it, and a build provenance attestation says it was built from this repository by
+    # this workflow, checked with `gh attestation verify <zip> --repo porelo-ai/porelo-frontend`.
+    windows:
+        name: Windows
+        runs-on: windows-2025
+        timeout-minutes: 45
+        # The attestation's two, for this job only, as `check-actions`' list names them.
+        permissions:
+            contents: read
+            id-token: write
+            attestations: write
+        steps:
+            # Without the job's token in .git/config: nothing here pushes with git.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+              with:
+                  flutter-version-file: pubspec.yaml
+                  cache: true
+
+            - name: Get dependencies
+              run: flutter pub get
+
+            - name: Analyze
+              run: dart analyze --fatal-infos
+
+            # A test marked `linux` needs what only Linux has, and says why; the documents are the Linux
+            # job's. Each test has a minute, so one that would wait for ever ends the run and names itself.
+            - name: Test
+              timeout-minutes: 20
+              run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
+
+            - name: Build
+              timeout-minutes: 20
+              run: flutter build windows --release
+
+            # The ZIP, and the MSIX signed with the certificate the two secrets hold, named as the Linux
+            # packages are; tool/windows-package.ps1 says how. Without the secrets the MSIX is packed to
+            # prove it and not kept.
+            - name: Pack the ZIP and the MSIX
+              shell: pwsh
+              env:
+                  WINDOWS_SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
+                  WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+              run: ./tool/windows-package.ps1
+
+            - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+              id: attest
+              with:
+                  subject-path: |
+                      build/windows-zip/*.zip
+                      build/windows-zip/*.msix
+
+            # The attestation's Sigstore bundle beside the packages, one for both, so they can be checked
+            # from Artifactory alone:
+            # `gh attestation verify <file> --bundle <name>.sigstore.json --repo porelo-ai/porelo-frontend`.
+            - name: Keep the attestation beside the packages
+              shell: pwsh
+              run: |
+                  $name = (Get-ChildItem build/windows-zip/*.zip).BaseName
+                  Copy-Item '${{ steps.attest.outputs.bundle-path }}' "build/windows-zip/$name.sigstore.json"
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: windows
+                  path: |
+                      build/windows-zip/*.zip
+                      build/windows-zip/*.msix
+                      build/windows-zip/*.cer
+                      build/windows-zip/*.sigstore.json
+                      build/windows-zip/SHA256SUMS
+                  if-no-files-found: error
+
+    # Against a machine rented for the run: Maven leases it, the GUI tests run headless over ssh,
+    # and the sweep takes it down whether they passed or not. Not a gate for publishing: a rented
+    # machine that cannot be had is not a fault in this interface.
+    integration:
+        name: Test against a leased machine
+        runs-on: ubuntu-22.04
+        # 12-15 minutes with the lease (its step 10-13); stopped well before a rented machine is paid for
+        # by the hour, with ten minutes left under the job for the sweep.
+        timeout-minutes: 50
+        # A fork's pull request gets no secrets, and would rent nothing.
+        if: github.event_name != 'pull_request'
         env:
-          PORELO_PUBLISHED_KEY: '1'
-        run: |
-          set +e
-          ./mvnw -B -s settings.xml verify
-          built=$?
-          set -e
-          dart tool/test_report.dart
-          exit $built
+            # With GITHUB_RUN_ID this names the run, so the last step sweeps what this run leased.
+            PORELO_CI_LEG: frontend-e2e
+            HETZNER_API: ${{ secrets.HETZNER_API }}
+            # The key as material, never written to a file: the lease and tool/e2e.sh both read it.
+            HETZNER_SSH: ${{ secrets.HETZNER_SSH }}
+        steps:
+            # Without the job's token in .git/config: nothing here pushes with git.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
-      # The builder is pinned by digest, not by version. A version names what was *meant*; the
-      # digest is what arrives. This binary writes the packages that this workflow then publishes,
-      # so an asset replaced upstream would be a package nobody here ever inspected.
-      - name: Package
-        run: |
-          nfpm_sha=a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b
-          curl -sSL --fail -o nfpm.tar.gz \
-            https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_Linux_x86_64.tar.gz
-          echo "$nfpm_sha  nfpm.tar.gz" | sha256sum -c -
-          tar xzf nfpm.tar.gz nfpm
-          # Each build supersedes the last, or a repository called `snapshots` never updates
-          # anybody. Locally this defaults to 0.
-          NFPM="$PWD/nfpm" SNAPSHOT_RUN="${{ github.run_number }}" tool/package.sh
+            - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+              with:
+                  flutter-version-file: pubspec.yaml
+                  cache: true
 
-      # What was built, named once. The backend learned this the hard way: two lists of files drift,
-      # and the symptom is a publish failing after the tests have already passed.
-      - name: Say what was built
-        run: |
-          ls -1 build/packages/*.deb build/packages/*.rpm > build/packages/fetched.txt
-          cat build/packages/fetched.txt
+            - uses: ./.github/actions/pinned-jdk
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: packages
-          path: |
-            build/packages/*.deb
-            build/packages/*.rpm
-            build/packages/fetched.txt
-          if-no-files-found: error
+            - name: Install what a headless desktop test needs
+              run: |
+                  sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
+                  sudo apt-get update
+                  sudo apt-get install --no-install-recommends -y \
+                    clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
+                    libstdc++-12-dev xvfb
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: test-reports
-          path: |
-            build/test-results.xml
-            build/test-report.html
+            # Before anything is rented, so the sweep at the end always has a tool to run.
+            - name: Resolve the machine tool
+              run: |
+                  mkdir -p build
+                  ./mvnw -B -q -s settings.xml -Phetzner dependency:build-classpath \
+                    -Dmdep.outputFile=build/cp.txt
 
-  # The interface on Windows, which reaches a Porelo in a WSL distribution through `wsl.exe`. Tested
-  # and built on GitHub's Windows runner, there being no Windows machine beside the VM, and packed as
-  # a ZIP somebody unpacks and starts with nothing installed. The ZIP is not signed: a `SHA256SUMS`
-  # goes beside it, and a build provenance attestation says it was built from this repository by
-  # this workflow, checked with `gh attestation verify <zip> --repo porelo-ai/porelo-frontend`.
-  windows:
-    name: Windows
-    runs-on: windows-2025
-    timeout-minutes: 45
-    # The attestation's two, for this job only, as `check-actions`' list names them.
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            # Its own limit, under the job's, so the sweep below still has time to run when it is hit.
+            - name: Lease, test and sweep
+              timeout-minutes: 40
+              run: |
+                  set +e
+                  ./mvnw -B -s settings.xml verify -Pe2e,hetzner -DskipTests
+                  built=$?
+                  set -e
+                  dart tool/test_report.dart build/e2e-results.json build/e2e-report.html \
+                    build/e2e-results.xml --heading=Integration --against="a real machine, over ssh"
+                  exit $built
 
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
+            # The net under Maven's own sweep: whatever this run leased, whatever failed on the way.
+            - name: Sweep anything this run leased
+              if: always()
+              run: |
+                  test -s build/cp.txt || { echo "::warning::the machine tool was never resolved"; exit 0; }
+                  java -cp "$(cat build/cp.txt)" org.fuin.porelo.machines.Main sweep --mine
 
-      - name: Get dependencies
-        run: flutter pub get
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: always()
+              with:
+                  name: integration-reports
+                  path: |
+                      build/e2e-results.xml
+                      build/e2e-report.html
 
-      - name: Analyze
-        run: dart analyze --fatal-infos
+    installs:
+        name: Prove the packages install
+        needs: build
+        runs-on: ubuntu-22.04
+        timeout-minutes: 5
+        # The systems Porelo supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
+        # image is pinned by its digest, as every action is, so what is proven is what was read.
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - system: ubuntu:26.04
+                      image: ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
+                    - system: debian:13
+                      image: debian:13@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
+                    - system: fedora:43
+                      image: fedora:43@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42
+                    - system: fedora:44
+                      image: fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+        steps:
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: packages
+                  path: packages
 
-      # A test marked `linux` needs what only Linux has, and says why; the documents are the Linux
-      # job's. Each test has a minute, so one that would wait for ever ends the run and names itself.
-      - name: Test
-        timeout-minutes: 20
-        run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
+            # A package that does not install is worth catching here rather than in somebody's apt. The
+            # container is clean, so a dependency that was only ever satisfied by the build machine
+            # fails loudly.
+            - name: Install it in a clean ${{ matrix.system }}
+              run: |
+                  docker run --rm -v "$PWD/packages:/packages" ${{ matrix.image }} sh -c '
+                    set -e
+                    if command -v apt-get >/dev/null; then
+                      apt-get update
+                      apt-get install -y /packages/*.deb
+                      test -x /usr/bin/porelo-frontend
+                      test -f /usr/lib/porelo-frontend/lib/libapp.so
+                      test -f /usr/lib/porelo-frontend/data/icudtl.dat
+                    else
+                      dnf install -y /packages/*.rpm
+                      test -x /usr/bin/porelo-frontend
+                      test -f /usr/lib/porelo-frontend/lib/libapp.so
+                      test -f /usr/lib/porelo-frontend/data/icudtl.dat
+                    fi
+                    test -f /usr/share/applications/porelo-frontend.desktop
+                  '
 
-      - name: Build
-        timeout-minutes: 20
-        run: flutter build windows --release
-
-      # The ZIP, and the MSIX signed with the certificate the two secrets hold, named as the Linux
-      # packages are; tool/windows-package.ps1 says how. Without the secrets the MSIX is packed to
-      # prove it and not kept.
-      - name: Pack the ZIP and the MSIX
-        shell: pwsh
+    publish:
+        name: Publish to Artifactory
+        needs: [build, installs, integration, windows]
+        runs-on: ubuntu-22.04
+        timeout-minutes: 5
+        # A pull request from a fork has no access to the token, and a run that publishes nothing is
+        # better than one that fails at the last step. A release waits for every job, the leg on a
+        # rented machine included, since it is never replaced; a snapshot needs only the build and the
+        # installs, and is published whatever that leg says.
+        if: >-
+            !cancelled() && github.event_name != 'pull_request'
+            && needs.build.result == 'success' && needs.installs.result == 'success'
+            && (needs.integration.result == 'success' || !startsWith(github.ref, 'refs/tags/v'))
         env:
-          WINDOWS_SIGNING_PFX: ${{ secrets.WINDOWS_SIGNING_PFX }}
-          WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
-        run: ./tool/windows-package.ps1
+            CHANNEL: ${{ needs.build.outputs.channel }}
+        steps:
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: packages
+                  path: packages
 
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        id: attest
-        with:
-          subject-path: |
-            build/windows-zip/*.zip
-            build/windows-zip/*.msix
+            # The manifest is checked rather than trusted: the file list lives in one place, and this is
+            # where it is proven to still describe what arrived.
+            - name: Check everything the build said it made is here
+              run: |
+                  while read -r built; do
+                    file="packages/$(basename "$built")"
+                    test -f "$file" || { echo "::error::$file is missing" >&2; exit 1; }
+                  done < packages/fetched.txt
 
-      # The attestation's Sigstore bundle beside the packages, one for both, so they can be checked
-      # from Artifactory alone:
-      # `gh attestation verify <file> --bundle <name>.sigstore.json --repo porelo-ai/porelo-frontend`.
-      - name: Keep the attestation beside the packages
-        shell: pwsh
-        run: |
-          $name = (Get-ChildItem build/windows-zip/*.zip).BaseName
-          Copy-Item '${{ steps.attest.outputs.bundle-path }}' "build/windows-zip/$name.sigstore.json"
+            - uses: jfrog/setup-jfrog-cli@68c0efdc951dd2359bbbfa15c48bc67b3ae8e4d6 # v5.2.0
+              env:
+                  JF_URL: ${{ vars.JF_URL }}
+                  JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+              with:
+                  # Otherwise it writes build-info to a repository this token cannot write, and warns on
+                  # every run.
+                  disable-auto-build-publish: true
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: windows
-          path: |
-            build/windows-zip/*.zip
-            build/windows-zip/*.msix
-            build/windows-zip/*.cer
-            build/windows-zip/*.sigstore.json
-            build/windows-zip/SHA256SUMS
-          if-no-files-found: error
+            # `--target-props` is not optional. Without them Artifactory **stores the file and never
+            # indexes it**: apt sees nothing and no error appears anywhere. Setting properties needs
+            # Annotate permission as well as Deploy — and without Annotate the upload still succeeds and
+            # the properties are silently dropped, which is why `artifactory-probe.yml` exists.
+            #
+            # `--flat=true`, or the source directory travels and the package lands under
+            # `pool/main/p/porelo-frontend/packages/...`.
+            # A release is published once: the same version uploaded again would replace what people
+            # installed, under the same name.
+            - name: Refuse a release that is there already
+              if: env.CHANNEL == 'releases'
+              run: |
+                  set -u
+                  base="${{ vars.JF_URL }}"
+                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
+                  base="${base%/artifactory}/artifactory"
+                  version="$(dpkg-deb -f packages/*.deb Version)"
+                  # This package's own file: the index holds every Porelo package, many at one version.
+                  file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
+                  if curl -fsSL "$base/porelo-dist-deb/dists/releases/main/binary-amd64/Packages" 2>/dev/null \
+                       | grep -qxF "$file"; then
+                    echo "::error::porelo-frontend $version is released already" >&2
+                    exit 1
+                  fi
 
-  # Against a machine rented for the run: Maven leases it, the GUI tests run headless over ssh,
-  # and the sweep takes it down whether they passed or not. Not a gate for publishing: a rented
-  # machine that cannot be had is not a fault in this interface.
-  integration:
-    name: Test against a leased machine
-    runs-on: ubuntu-22.04
-    # 12-15 minutes with the lease (its step 10-13); stopped well before a rented machine is paid for
-    # by the hour, with ten minutes left under the job for the sweep.
-    timeout-minutes: 50
-    # A fork's pull request gets no secrets, and would rent nothing.
-    if: github.event_name != 'pull_request'
-    env:
-      # With GITHUB_RUN_ID this names the run, so the last step sweeps what this run leased.
-      PORELO_CI_LEG: frontend-e2e
-      HETZNER_API: ${{ secrets.HETZNER_API }}
-      # The key as material, never written to a file: the lease and tool/e2e.sh both read it.
-      HETZNER_SSH: ${{ secrets.HETZNER_SSH }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - name: Upload the deb
+              run: |
+                  jf rt upload "packages/*.deb" "porelo-dist-deb/pool/main/p/porelo-frontend/" \
+                    --flat=true \
+                    --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
 
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
+            - name: Upload the rpm
+              run: |
+                  jf rt upload "packages/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
 
-      - uses: ./.github/actions/pinned-jdk
+            # An upload that succeeded is not a package anybody can install. Artifactory indexes
+            # asynchronously, and **a missing index, an empty index and a late index look identical from
+            # a client** — measured when the Debian index went 404, then 200 with an empty
+            # Packages file, then 404 again inside twelve minutes. A single probe of an asynchronous
+            # index is not a measurement, so this retries before it believes the answer.
+            #
+            # This is the other half of the `--target-props` lesson: the properties being *passed* is
+            # asserted by a test, and the package being *indexed* can only be seen from outside.
+            - name: Wait until it is actually indexed
+              run: |
+                  set -u
+                  # `JF_URL` is the **platform** url — `https://…jfrog.io` — and the `jf` CLI appends
+                  # `/artifactory` itself. Raw curl does not, which is why the first version of this step
+                  # spent two minutes asking a 404 and the second blamed a trailing slash it had never
+                  # measured. Normalised both ways so either shape works.
+                  base="${{ vars.JF_URL }}"
+                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
+                  base="${base%/artifactory}"
+                  test -n "$base" || { echo "::error::vars.JF_URL is not set" >&2; exit 1; }
+                  base="$base/artifactory"
 
-      - name: Install what a headless desktop test needs
-        run: |
-          sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
-            libstdc++-12-dev xvfb
+                  version="$(dpkg-deb -f packages/*.deb Version)"
+                  test -n "$version" || { echo "::error::could not read the built version" >&2; exit 1; }
 
-      # Before anything is rented, so the sweep at the end always has a tool to run.
-      - name: Resolve the machine tool
-        run: |
-          mkdir -p build
-          ./mvnw -B -q -s settings.xml -Phetzner dependency:build-classpath \
-            -Dmdep.outputFile=build/cp.txt
+                  deb="$base/porelo-dist-deb/dists/${CHANNEL}/main/binary-amd64/Packages"
+                  rpm="$base/porelo-dist-rpm/${CHANNEL}/repodata/repomd.xml"
+                  # This package's own files, never its version alone: other packages share it.
+                  deb_file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
+                  rpm_file="$(basename packages/*.rpm)"
+                  echo "looking for $version"
+                  echo "  $deb"
+                  echo "  $rpm"
 
-      # Its own limit, under the job's, so the sweep below still has time to run when it is hit.
-      - name: Lease, test and sweep
-        timeout-minutes: 40
-        run: |
-          set +e
-          ./mvnw -B -s settings.xml verify -Pe2e,hetzner -DskipTests
-          built=$?
-          set -e
-          dart tool/test_report.dart build/e2e-results.json build/e2e-report.html \
-            build/e2e-results.xml --heading=Integration --against="a real machine, over ssh"
-          exit $built
+                  found_deb=no
+                  found_rpm=no
+                  for attempt in $(seq 1 20); do
+                    if [ "$found_deb" = no ] && \
+                       curl -fsSL "$deb" 2>/dev/null | grep -qxF "$deb_file"; then
+                      found_deb=yes
+                      echo "the deb index carries $version"
+                    fi
+                    if [ "$found_rpm" = no ]; then
+                      primary="$(curl -fsSL "$rpm" 2>/dev/null \
+                        | grep -oE 'repodata/[a-f0-9]+-primary.xml.gz' | head -1)"
+                      if [ -n "$primary" ] && curl -fsSL "$base/porelo-dist-rpm/${CHANNEL}/$primary" \
+                           2>/dev/null | gunzip -c | grep -qF "href=\"$rpm_file\""; then
+                        found_rpm=yes
+                        echo "the rpm index carries $rpm_file"
+                      fi
+                    fi
+                    if [ "$found_deb" = yes ] && [ "$found_rpm" = yes ]; then exit 0; fi
+                    sleep 6
+                  done
 
-      # The net under Maven's own sweep: whatever this run leased, whatever failed on the way.
-      - name: Sweep anything this run leased
-        if: always()
-        run: |
-          test -s build/cp.txt || { echo "::warning::the machine tool was never resolved"; exit 0; }
-          java -cp "$(cat build/cp.txt)" org.fuin.porelo.machines.Main sweep --mine
+                  # What it asked and what came back, rather than a cause it cannot know. The first
+                  # version of this asserted the token lacked Annotate; the packages were indexed and the
+                  # URL was wrong.
+                  echo "deb index: HTTP $(curl -sSL -o /dev/null -w '%{http_code}' "$deb")"
+                  echo "rpm index: HTTP $(curl -sSL -o /dev/null -w '%{http_code}' "$rpm")"
+                  curl -fsSL "$deb" 2>/dev/null | grep '^Version:' | sed 's/^/  in the index: /' || true
+                  echo "::error::uploaded but not indexed after two minutes" \
+                       "(deb: $found_deb, rpm: $found_rpm). The packages are stored and nothing can" \
+                       "install them. What was asked for and what came back is above." >&2
+                  exit 1
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: integration-reports
-          path: |
-            build/e2e-results.xml
-            build/e2e-report.html
+            # The Windows ZIP, its checksum and its attestation, one folder per version in a generic
+            # repository beside the packages: `porelo-dist-windows/<channel>/<version>/`. Only where the
+            # Windows job made them: a red Windows job never holds back the Linux snapshot above.
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: needs.windows.result == 'success'
+              with:
+                  name: windows
+                  path: windows
 
-  installs:
-    name: Prove the packages install
-    needs: build
-    runs-on: ubuntu-22.04
-    timeout-minutes: 5
-    # The systems Porelo supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
-    # image is pinned by its digest, as every action is, so what is proven is what was read.
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - system: ubuntu:26.04
-            image: ubuntu:26.04@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
-          - system: debian:13
-            image: debian:13@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
-          - system: fedora:43
-            image: fedora:43@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42
-          - system: fedora:44
-            image: fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: packages
-          path: packages
-
-      # A package that does not install is worth catching here rather than in somebody's apt. The
-      # container is clean, so a dependency that was only ever satisfied by the build machine
-      # fails loudly.
-      - name: Install it in a clean ${{ matrix.system }}
-        run: |
-          docker run --rm -v "$PWD/packages:/packages" ${{ matrix.image }} sh -c '
-            set -e
-            if command -v apt-get >/dev/null; then
-              apt-get update
-              apt-get install -y /packages/*.deb
-              test -x /usr/bin/porelo-frontend
-              test -f /usr/lib/porelo-frontend/lib/libapp.so
-              test -f /usr/lib/porelo-frontend/data/icudtl.dat
-            else
-              dnf install -y /packages/*.rpm
-              test -x /usr/bin/porelo-frontend
-              test -f /usr/lib/porelo-frontend/lib/libapp.so
-              test -f /usr/lib/porelo-frontend/data/icudtl.dat
-            fi
-            test -f /usr/share/applications/porelo-frontend.desktop
-          '
-
-  publish:
-    name: Publish to Artifactory
-    needs: [build, installs, integration, windows]
-    runs-on: ubuntu-22.04
-    timeout-minutes: 5
-    # A pull request from a fork has no access to the token, and a run that publishes nothing is
-    # better than one that fails at the last step. A release waits for every job, the leg on a
-    # rented machine included, since it is never replaced; a snapshot needs only the build and the
-    # installs, and is published whatever that leg says.
-    if: >-
-      !cancelled() && github.event_name != 'pull_request'
-      && needs.build.result == 'success' && needs.installs.result == 'success'
-      && (needs.integration.result == 'success' || !startsWith(github.ref, 'refs/tags/v'))
-    env:
-      CHANNEL: ${{ needs.build.outputs.channel }}
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: packages
-          path: packages
-
-      # The manifest is checked rather than trusted: the file list lives in one place, and this is
-      # where it is proven to still describe what arrived.
-      - name: Check everything the build said it made is here
-        run: |
-          while read -r built; do
-            file="packages/$(basename "$built")"
-            test -f "$file" || { echo "::error::$file is missing" >&2; exit 1; }
-          done < packages/fetched.txt
-
-      - uses: jfrog/setup-jfrog-cli@68c0efdc951dd2359bbbfa15c48bc67b3ae8e4d6 # v5.2.0
-        env:
-          JF_URL: ${{ vars.JF_URL }}
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-        with:
-          # Otherwise it writes build-info to a repository this token cannot write, and warns on
-          # every run.
-          disable-auto-build-publish: true
-
-      # `--target-props` is not optional. Without them Artifactory **stores the file and never
-      # indexes it**: apt sees nothing and no error appears anywhere. Setting properties needs
-      # Annotate permission as well as Deploy — and without Annotate the upload still succeeds and
-      # the properties are silently dropped, which is why `artifactory-probe.yml` exists.
-      #
-      # `--flat=true`, or the source directory travels and the package lands under
-      # `pool/main/p/porelo-frontend/packages/...`.
-      # A release is published once: the same version uploaded again would replace what people
-      # installed, under the same name.
-      - name: Refuse a release that is there already
-        if: env.CHANNEL == 'releases'
-        run: |
-          set -u
-          base="${{ vars.JF_URL }}"
-          while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
-          base="${base%/artifactory}/artifactory"
-          version="$(dpkg-deb -f packages/*.deb Version)"
-          # This package's own file: the index holds every Porelo package, many at one version.
-          file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
-          if curl -fsSL "$base/porelo-dist-deb/dists/releases/main/binary-amd64/Packages" 2>/dev/null \
-               | grep -qxF "$file"; then
-            echo "::error::porelo-frontend $version is released already" >&2
-            exit 1
-          fi
-
-      - name: Upload the deb
-        run: |
-          jf rt upload "packages/*.deb" "porelo-dist-deb/pool/main/p/porelo-frontend/" \
-            --flat=true \
-            --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
-
-      - name: Upload the rpm
-        run: |
-          jf rt upload "packages/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
-
-      # An upload that succeeded is not a package anybody can install. Artifactory indexes
-      # asynchronously, and **a missing index, an empty index and a late index look identical from
-      # a client** — measured when the Debian index went 404, then 200 with an empty
-      # Packages file, then 404 again inside twelve minutes. A single probe of an asynchronous
-      # index is not a measurement, so this retries before it believes the answer.
-      #
-      # This is the other half of the `--target-props` lesson: the properties being *passed* is
-      # asserted by a test, and the package being *indexed* can only be seen from outside.
-      - name: Wait until it is actually indexed
-        run: |
-          set -u
-          # `JF_URL` is the **platform** url — `https://…jfrog.io` — and the `jf` CLI appends
-          # `/artifactory` itself. Raw curl does not, which is why the first version of this step
-          # spent two minutes asking a 404 and the second blamed a trailing slash it had never
-          # measured. Normalised both ways so either shape works.
-          base="${{ vars.JF_URL }}"
-          while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
-          base="${base%/artifactory}"
-          test -n "$base" || { echo "::error::vars.JF_URL is not set" >&2; exit 1; }
-          base="$base/artifactory"
-
-          version="$(dpkg-deb -f packages/*.deb Version)"
-          test -n "$version" || { echo "::error::could not read the built version" >&2; exit 1; }
-
-          deb="$base/porelo-dist-deb/dists/${CHANNEL}/main/binary-amd64/Packages"
-          rpm="$base/porelo-dist-rpm/${CHANNEL}/repodata/repomd.xml"
-          # This package's own files, never its version alone: other packages share it.
-          deb_file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
-          rpm_file="$(basename packages/*.rpm)"
-          echo "looking for $version"
-          echo "  $deb"
-          echo "  $rpm"
-
-          found_deb=no
-          found_rpm=no
-          for attempt in $(seq 1 20); do
-            if [ "$found_deb" = no ] && \
-               curl -fsSL "$deb" 2>/dev/null | grep -qxF "$deb_file"; then
-              found_deb=yes
-              echo "the deb index carries $version"
-            fi
-            if [ "$found_rpm" = no ]; then
-              primary="$(curl -fsSL "$rpm" 2>/dev/null \
-                | grep -oE 'repodata/[a-f0-9]+-primary.xml.gz' | head -1)"
-              if [ -n "$primary" ] && curl -fsSL "$base/porelo-dist-rpm/${CHANNEL}/$primary" \
-                   2>/dev/null | gunzip -c | grep -qF "href=\"$rpm_file\""; then
-                found_rpm=yes
-                echo "the rpm index carries $rpm_file"
-              fi
-            fi
-            if [ "$found_deb" = yes ] && [ "$found_rpm" = yes ]; then exit 0; fi
-            sleep 6
-          done
-
-          # What it asked and what came back, rather than a cause it cannot know. The first
-          # version of this asserted the token lacked Annotate; the packages were indexed and the
-          # URL was wrong.
-          echo "deb index: HTTP $(curl -sSL -o /dev/null -w '%{http_code}' "$deb")"
-          echo "rpm index: HTTP $(curl -sSL -o /dev/null -w '%{http_code}' "$rpm")"
-          curl -fsSL "$deb" 2>/dev/null | grep '^Version:' | sed 's/^/  in the index: /' || true
-          echo "::error::uploaded but not indexed after two minutes" \
-               "(deb: $found_deb, rpm: $found_rpm). The packages are stored and nothing can" \
-               "install them. What was asked for and what came back is above." >&2
-          exit 1
-
-      # The Windows ZIP, its checksum and its attestation, one folder per version in a generic
-      # repository beside the packages: `porelo-dist-windows/<channel>/<version>/`. Only where the
-      # Windows job made them: a red Windows job never holds back the Linux snapshot above.
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.windows.result == 'success'
-        with:
-          name: windows
-          path: windows
-
-      # A release is published once, as the packages are; the folder of its version is the test.
-      - name: Upload the Windows ZIP
-        if: needs.windows.result == 'success'
-        run: |
-          set -u
-          base="${{ vars.JF_URL }}"
-          while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
-          base="${base%/artifactory}/artifactory"
-          zip="$(basename windows/*.zip)"
-          version="${zip#porelo-frontend-}"
-          version="${version%-windows-x64.zip}"
-          target="porelo-dist-windows/${CHANNEL}/${version}/"
-          if [ "$CHANNEL" = releases ] && curl -fsSI "$base/${target}${zip}" >/dev/null 2>&1; then
-            echo "::error::the Windows ZIP of $version is released already" >&2
-            exit 1
-          fi
-          (cd windows && sha256sum -c SHA256SUMS) || { echo "::error::the ZIP is not the one its SHA256SUMS names" >&2; exit 1; }
-          jf rt upload "windows/*" "$target" --flat=true
-          # Read back as a person would fetch it, with no token: each file the job made.
-          for file in $(cd windows && ls); do
-            curl -fsSI "$base/${target}${file}" >/dev/null \
-              || { echo "::error::$target$file cannot be fetched after the upload" >&2; exit 1; }
-          done
-          echo "$base/${target}${zip}"
+            # A release is published once, as the packages are; the folder of its version is the test.
+            - name: Upload the Windows ZIP
+              if: needs.windows.result == 'success'
+              run: |
+                  set -u
+                  base="${{ vars.JF_URL }}"
+                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
+                  base="${base%/artifactory}/artifactory"
+                  zip="$(basename windows/*.zip)"
+                  version="${zip#porelo-frontend-}"
+                  version="${version%-windows-x64.zip}"
+                  target="porelo-dist-windows/${CHANNEL}/${version}/"
+                  if [ "$CHANNEL" = releases ] && curl -fsSI "$base/${target}${zip}" >/dev/null 2>&1; then
+                    echo "::error::the Windows ZIP of $version is released already" >&2
+                    exit 1
+                  fi
+                  (cd windows && sha256sum -c SHA256SUMS) || { echo "::error::the ZIP is not the one its SHA256SUMS names" >&2; exit 1; }
+                  jf rt upload "windows/*" "$target" --flat=true
+                  # Read back as a person would fetch it, with no token: each file the job made.
+                  for file in $(cd windows && ls); do
+                    curl -fsSI "$base/${target}${file}" >/dev/null \
+                      || { echo "::error::$target$file cannot be fetched after the upload" >&2; exit 1; }
+                  done
+                  echo "$base/${target}${zip}"

@@ -23,14 +23,19 @@ void main() {
   Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   void answering(String method, Map<String, dynamic> reply) => daemon.method(method, (parameters) {
-        asked = parameters;
-        return reply;
-      });
+    asked = parameters;
+    return reply;
+  });
 
   test('its repositories say which followed project names one too', () async {
     answering('DefaultRepositories', <String, dynamic>{
       'repositories': <Map<String, dynamic>>[
-        <String, dynamic>{'name': 'api', 'upstream': 'git@github.com:acme/api.git', 'checkout': '/home/me/api', 'claimedBy': 'payments'},
+        <String, dynamic>{
+          'name': 'api',
+          'upstream': 'git@github.com:acme/api.git',
+          'checkout': '/home/me/api',
+          'claimedBy': 'payments',
+        },
       ],
     });
 
@@ -44,7 +49,12 @@ void main() {
 
   test('one is added by its address, with a name only where one was given', () async {
     answering('AddToDefault', <String, dynamic>{
-      'repository': <String, dynamic>{'name': 'tools', 'upstream': 'git@example.org:acme/tools.git', 'checkout': '', 'claimedBy': ''},
+      'repository': <String, dynamic>{
+        'name': 'tools',
+        'upstream': 'git@example.org:acme/tools.git',
+        'checkout': '',
+        'claimedBy': '',
+      },
     });
     final client = await connect();
 

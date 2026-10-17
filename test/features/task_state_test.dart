@@ -33,12 +33,9 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets(
-        '''work waiting on a person says so, and says what it is waiting on''',
-        (tester) async {
+    testWidgets('''work waiting on a person says so, and says what it is waiting on''', (tester) async {
       await bddSetUp(tester);
-      await theWorkIsWaitingOn(
-          tester, 'porelo-checkout-shell', 'api.example.test:443');
+      await theWorkIsWaitingOn(tester, 'porelo-checkout-shell', 'api.example.test:443');
       await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'waiting');
       await itSaysItIsWaitingOn(tester, 'api.example.test:443');
     });
@@ -49,49 +46,44 @@ void main() {
       await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Quiet');
       await theWorkIsShownAs(tester, 'porelo-checkout-migrate', 'Not running');
     });
-    testWidgets('''how long it has been that way is answerable''',
-        (tester) async {
+    testWidgets('''how long it has been that way is answerable''', (tester) async {
       await bddSetUp(tester);
-      await theWorkHasBeenIdleSinceMinutesAgo(
-          tester, 'porelo-checkout-shell', '40');
-      await theWorkIsShownAs(
-          tester, 'porelo-checkout-shell', 'Quiet for 40 minutes');
+      await theWorkHasBeenIdleSinceMinutesAgo(tester, 'porelo-checkout-shell', '40');
+      await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Quiet for 40 minutes');
     });
-    testWidgets('''work nothing can see is not reported as idle''',
-        (tester) async {
+    testWidgets('''work nothing can see is not reported as idle''', (tester) async {
       await bddSetUp(tester);
       await theWorkCannotBeSeen(tester, 'porelo-checkout-shell');
       await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Running');
       await theWorkIsNotShownAs(tester, 'porelo-checkout-shell', 'Quiet');
     });
-    testWidgets(
-        '''a change of activity arrives without anybody asking for it''',
-        (tester) async {
+    testWidgets('''a change of activity arrives without anybody asking for it''', (tester) async {
       await bddSetUp(tester);
       await theWorkIsIdle(tester, 'porelo-checkout-shell');
       await theBackendSaysItIsWaitingOn(tester, 'api.example.test:443');
       await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'waiting');
     });
-    testWidgets('''the credentials a task holds are shown with it''',
-        (tester) async {
+    testWidgets('''the credentials a task holds are shown with it''', (tester) async {
       await bddSetUp(tester);
-      await theWorkHoldsFor(
-          tester, 'porelo-checkout-migrate', 'a-provider', 'weather');
+      await theWorkHoldsFor(tester, 'porelo-checkout-migrate', 'a-provider', 'weather');
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
       await theDetailForIsShown(tester, 'porelo-checkout-migrate');
-      await itSays(
-          tester, 'a-provider for weather, as PORELO_TOKEN_A_PROVIDER');
+      await itSays(tester, 'a-provider for weather, as PORELO_TOKEN_A_PROVIDER');
     });
-    testWidgets('''a credential a person granted says who the task acts as''',
-        (tester) async {
+    testWidgets('''a credential a person granted says who the task acts as''', (tester) async {
       await bddSetUp(tester);
-      await theWorkHoldsForGrantedByAt(tester, 'porelo-checkout-migrate',
-          'jira', 'jira', 'alice', '2026-09-30T05:40:00Z');
+      await theWorkHoldsForGrantedByAt(
+        tester,
+        'porelo-checkout-migrate',
+        'jira',
+        'jira',
+        'alice',
+        '2026-09-30T05:40:00Z',
+      );
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
-      await itSays(tester,
-          'jira for jira, as PORELO_TOKEN_JIRA, granted by alice at 2026-09-30T05:40:00Z');
+      await itSays(tester, 'jira for jira, as PORELO_TOKEN_JIRA, granted by alice at 2026-09-30T05:40:00Z');
     });
   });
 }

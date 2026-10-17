@@ -50,11 +50,7 @@ class StatusLine extends StatelessWidget {
       children: <Widget>[
         SizedBox(
           height: Sizes.progressBar,
-          child:
-              fleet.busy ||
-                  operations.all.any(
-                    (each) => each.machine == machine && each.running,
-                  )
+          child: fleet.busy || operations.all.any((each) => each.machine == machine && each.running)
               ? const LinearProgressIndicator(minHeight: Sizes.progressBar)
               : null,
         ),
@@ -62,10 +58,7 @@ class StatusLine extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: theme.dividerColor)),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: Space.normal,
-            vertical: Space.tight,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
           child: Row(
             children: <Widget>[
               _Reachability(reachability: fleet.reachability),
@@ -96,15 +89,10 @@ class StatusLine extends StatelessWidget {
                   padding: const EdgeInsets.only(left: Space.small),
                   child: Tooltip(
                     message: cannotNotify!,
-                    child: Icon(
-                      Icons.notifications_off_outlined,
-                      size: Sizes.mark,
-                      color: theme.colorScheme.error,
-                    ),
+                    child: Icon(Icons.notifications_off_outlined, size: Sizes.mark, color: theme.colorScheme.error),
                   ),
                 ),
-              if (fleet.reachability == Reachability.connected &&
-                  !fleet.liveUpdates)
+              if (fleet.reachability == Reachability.connected && !fleet.liveUpdates)
                 Padding(
                   padding: const EdgeInsets.only(left: Space.small),
                   child: Text('not live', style: theme.textTheme.bodySmall),
@@ -138,22 +126,10 @@ class _Reachability extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String words) = switch (reachability) {
-      Reachability.connecting => (
-        Icons.cloud_queue,
-        scheme.outline,
-        'Connecting',
-      ),
+      Reachability.connecting => (Icons.cloud_queue, scheme.outline, 'Connecting'),
       Reachability.connected => (Icons.cloud_done, scheme.primary, 'Connected'),
-      Reachability.unreachable => (
-        Icons.cloud_off,
-        scheme.error,
-        'Not connected',
-      ),
-      Reachability.incompatible => (
-        Icons.warning_amber_outlined,
-        scheme.error,
-        'Incompatible backend',
-      ),
+      Reachability.unreachable => (Icons.cloud_off, scheme.error, 'Not connected'),
+      Reachability.incompatible => (Icons.warning_amber_outlined, scheme.error, 'Incompatible backend'),
     };
     return Tooltip(
       message: words,
@@ -167,12 +143,7 @@ class _Reachability extends StatelessWidget {
 /// A count rather than the newest line: output belongs in the operation's own view, and a status
 /// line that scrolled a build would bury the outcome of the last action under it.
 class _Operations extends StatelessWidget {
-  const _Operations({
-    required this.operations,
-    required this.machine,
-    required this.onShow,
-    required this.autofocus,
-  });
+  const _Operations({required this.operations, required this.machine, required this.onShow, required this.autofocus});
 
   final Operations operations;
   final String machine;
@@ -181,9 +152,7 @@ class _Operations extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final all = operations.all
-        .where((each) => each.machine == machine)
-        .toList();
+    final all = operations.all.where((each) => each.machine == machine).toList();
     final running = all.where((each) => each.running).length;
     final failed = all.where((operation) => operation.failed).length;
     return TextButton(

@@ -6,8 +6,5 @@ import '../support/tiles.dart';
 Future<void> theTileSays(WidgetTester tester, String work, String words) async {
   await toTheTile(tester, work);
   expect(tileFor(work), findsOneWidget, reason: 'no tile for $work');
-  expect(
-    find.descendant(of: tileFor(work), matching: find.textContaining(words)),
-    findsWidgets,
-  );
+  expect(find.descendant(of: tileFor(work), matching: find.textContaining(words)), findsWidgets);
 }

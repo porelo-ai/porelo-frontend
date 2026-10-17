@@ -13,8 +13,7 @@ import 'device_key.dart';
 /// the settings, not a file, not an operation record.
 class PlatformDeviceKeyStore implements DeviceKeyStore {
   /// Constructor, optionally with the storage to use instead of the platform's.
-  PlatformDeviceKeyStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+  PlatformDeviceKeyStore({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -40,10 +39,9 @@ class PlatformDeviceKeyStore implements DeviceKeyStore {
   }
 
   @override
-  Future<void> write(String node, DeviceKey key) => _guarded(() => _storage.write(
-        key: _entry(node),
-        value: jsonEncode(<String, String>{'slot': key.slot, 'share': key.share}),
-      ));
+  Future<void> write(String node, DeviceKey key) => _guarded(
+    () => _storage.write(key: _entry(node), value: jsonEncode(<String, String>{'slot': key.slot, 'share': key.share})),
+  );
 
   @override
   Future<void> delete(String node) => _guarded(() => _storage.delete(key: _entry(node)));

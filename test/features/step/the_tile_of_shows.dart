@@ -11,5 +11,6 @@ Future<void> theTileOfShows(WidgetTester tester, String work, String line) async
 
 /// Finds [line] in the console of [work]'s tile.
 Finder consoleSaying(String work, String line) => find.descendant(
-    of: find.byKey(ValueKey<String>('tile-console $work')),
-    matching: find.textContaining(line, findRichText: true));
+  of: find.byKey(ValueKey<String>('tile-console $work')),
+  matching: find.textContaining(line, findRichText: true),
+);

@@ -73,11 +73,7 @@ class Widening extends ChangeNotifier {
   /// Split on commas and whitespace, because both are what people type into a list of hosts, and
   /// emptied of blanks so a trailing comma is not a name.
   void ask(String typed) {
-    asking = typed
-        .split(RegExp(r'[\s,]+'))
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList();
+    asking = typed.split(RegExp(r'[\s,]+')).map((name) => name.trim()).where((name) => name.isNotEmpty).toList();
     // Names changed, so what was previewed is no longer what would happen.
     preview = null;
     applied = null;
@@ -149,11 +145,11 @@ class Widening extends ChangeNotifier {
   }
 
   static String _wordsFor(VarlinkException refusal) => switch (refusal.simpleName) {
-        // Only reachable if this code stopped sending one, which is why it names the cause rather
-        // than asking a person to pick again.
-        'ScopeRequired' =>
-          'No scope was sent. This run and this project are different changes and the '
-              'daemon will not choose between them.',
-        _ => 'Refused: ${refusal.simpleName}.',
-      };
+    // Only reachable if this code stopped sending one, which is why it names the cause rather
+    // than asking a person to pick again.
+    'ScopeRequired' =>
+      'No scope was sent. This run and this project are different changes and the '
+          'daemon will not choose between them.',
+    _ => 'Refused: ${refusal.simpleName}.',
+  };
 }

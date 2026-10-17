@@ -18,18 +18,26 @@ Future<void> iAddTheDestinationAtFromTheInterface(WidgetTester tester, String na
   await tester.ensureVisible(find.byKey(const Key('check-destination')));
   await tester.tap(find.byKey(const Key('check-destination')));
   // The refusal of an earlier try goes with the press; waited out, so it is not read as this one's.
-  await pumpUntil(tester, () => find.byKey(const Key('destination-refused')).evaluate().isEmpty,
-      what: 'the earlier answer to go');
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('destination-previewed')).evaluate().isNotEmpty ||
-          find.byKey(const Key('destination-refused')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30),
-      what: 'the machine to check the destination');
+    tester,
+    () => find.byKey(const Key('destination-refused')).evaluate().isEmpty,
+    what: 'the earlier answer to go',
+  );
+  await pumpUntil(
+    tester,
+    () =>
+        find.byKey(const Key('destination-previewed')).evaluate().isNotEmpty ||
+        find.byKey(const Key('destination-refused')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to check the destination',
+  );
   if (find.byKey(const Key('destination-refused')).evaluate().isNotEmpty) return;
   await tester.ensureVisible(find.byKey(const Key('write-destination')));
   await tester.tap(find.byKey(const Key('write-destination')));
-  await pumpUntil(tester, () => find.textContaining('Written: $name').evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the machine to say it wrote $name');
+  await pumpUntil(
+    tester,
+    () => find.textContaining('Written: $name').evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to say it wrote $name',
+  );
 }

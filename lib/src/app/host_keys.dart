@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:porelo_frontend/src/app/desk.dart';
 
 /// Runs a program and answers what it printed, the way [Process.run] does, with optional input.
@@ -66,9 +67,9 @@ abstract interface class HostKeys {
 class SshHostKeys implements HostKeys {
   /// Constructor, optionally with what runs a program, whose home `~/.ssh` is in, and the desk.
   SshHostKeys({RunWith? run, String? home, Desk? on})
-      : _run = run ?? _runForReal,
-        _desk = on ?? desk,
-        _home = home ?? (on ?? desk).home;
+    : _run = run ?? _runForReal,
+      _desk = on ?? desk,
+      _home = home ?? (on ?? desk).home;
 
   final RunWith _run;
   final Desk _desk;
@@ -99,7 +100,8 @@ class SshHostKeys implements HostKeys {
         destination: destination,
         host: destination,
         known: false,
-        problem: 'ssh could not read its configuration for $destination: '
+        problem:
+            'ssh could not read its configuration for $destination: '
             '${'${config.stderr}'.trim()}',
       );
     }

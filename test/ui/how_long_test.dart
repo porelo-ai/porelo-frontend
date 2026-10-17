@@ -2,8 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/ui/how_long.dart';
 
-Task at(String since) =>
-    Task.from(<String, dynamic>{'name': 'a-task', 'since': since});
+Task at(String since) => Task.from(<String, dynamic>{'name': 'a-task', 'since': since});
 
 void main() {
   final now = DateTime.parse('2026-09-07T15:00:00Z');

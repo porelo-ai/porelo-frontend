@@ -8,36 +8,23 @@ import 'package:porelo_frontend/client.dart';
 /// about the difference between a number and a measurement.
 void main() {
   Project projectWith(Map<String, dynamic> fields) => Project.from(<String, dynamic>{
-        'name': 'checkout',
-        'securityClass': 'guarded',
-        'file': '/srv/checkout/project.yml',
-        'mirror': '',
-        'pending': 0,
-        'tasks': 0,
-        'running': 0,
-        ...fields,
-      });
+    'name': 'checkout',
+    'securityClass': 'guarded',
+    'file': '/srv/checkout/project.yml',
+    'mirror': '',
+    'pending': 0,
+    'tasks': 0,
+    'running': 0,
+    ...fields,
+  });
 
   test('a count is only a measurement when the reason says it was measured', () {
     // The one that would be invisible: a stale 7 beside a failure, drawn as though somebody had
     // counted it this morning.
-    expect(
-      projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'FAILED'}).hasFallenBehind,
-      isFalse,
-    );
-    expect(
-      projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'NEVER_CHECKED'})
-          .hasFallenBehind,
-      isFalse,
-    );
-    expect(
-      projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'OFFLINE'}).hasFallenBehind,
-      isFalse,
-    );
-    expect(
-      projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'MEASURED'}).hasFallenBehind,
-      isTrue,
-    );
+    expect(projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'FAILED'}).hasFallenBehind, isFalse);
+    expect(projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'NEVER_CHECKED'}).hasFallenBehind, isFalse);
+    expect(projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'OFFLINE'}).hasFallenBehind, isFalse);
+    expect(projectWith(<String, dynamic>{'behind': 7, 'behindReason': 'MEASURED'}).hasFallenBehind, isTrue);
   });
 
   test('measured and zero is up to date, and nothing else is', () {
@@ -58,16 +45,14 @@ void main() {
     final measured = projectWith(<String, dynamic>{
       'behind': 3,
       'behindReason': 'MEASURED',
-      'behindMeasured':
-          DateTime.now().toUtc().subtract(const Duration(minutes: 20)).toIso8601String(),
+      'behindMeasured': DateTime.now().toUtc().subtract(const Duration(minutes: 20)).toIso8601String(),
     });
 
     expect(measured.behindWords, '3 behind, as of 20 minutes ago');
   });
 
   test('a measurement with no age says the number and claims nothing about when', () {
-    final measured =
-        projectWith(<String, dynamic>{'behind': 3, 'behindReason': 'MEASURED'});
+    final measured = projectWith(<String, dynamic>{'behind': 3, 'behindReason': 'MEASURED'});
 
     expect(measured.behindWords, '3 behind');
   });
@@ -80,16 +65,13 @@ void main() {
   });
 
   test('nothing said about it is its own sentence, not a blank', () {
-    expect(projectWith(const <String, dynamic>{}).behindWords,
-        'Nothing said how far behind it is');
+    expect(projectWith(const <String, dynamic>{}).behindWords, 'Nothing said how far behind it is');
   });
 
   test('a failure says what failed when the daemon said what it was', () {
     expect(
-      projectWith(<String, dynamic>{
-        'behindReason': 'FAILED',
-        'behindDetail': 'the upstream refused the connection',
-      }).behindWords,
+      projectWith(<String, dynamic>{'behindReason': 'FAILED', 'behindDetail': 'the upstream refused the connection'})
+          .behindWords,
       'The last check did not work: the upstream refused the connection',
     );
   });

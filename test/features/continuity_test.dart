@@ -24,29 +24,24 @@ import './step/a_newer_build_is_installed_underneath.dart';
 import './step/it_says_a_newer_build_is_installed.dart';
 
 void main() {
-  group('''Leaving and reopening the window without losing where you were''',
-      () {
+  group('''Leaving and reopening the window without losing where you were''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''leaving says what carries on without the window''',
-        (tester) async {
+    testWidgets('''leaving says what carries on without the window''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iAskToCloseIt(tester);
       await itSaysKeepsRunning(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''a decision that nothing will be listening for is said before leaving''',
-        (tester) async {
+    testWidgets('''a decision that nothing will be listening for is said before leaving''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iAskToCloseIt(tester);
-      await itSays(
-          tester, 'Nothing will be listening for them once this closes');
+      await itSays(tester, 'Nothing will be listening for them once this closes');
     });
     testWidgets('''staying changes nothing''', (tester) async {
       await bddSetUp(tester);
@@ -54,8 +49,7 @@ void main() {
       await iStay(tester);
       await theAppIsStillOpen(tester);
     });
-    testWidgets('''reopening comes back to the same selection''',
-        (tester) async {
+    testWidgets('''reopening comes back to the same selection''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -64,16 +58,13 @@ void main() {
       await theProjectIsSelected(tester, 'checkout');
       await theWorkIsStillSelected(tester, 'porelo-checkout-shell');
     });
-    testWidgets('''reopening opens on the work, whichever section was left''',
-        (tester) async {
+    testWidgets('''reopening opens on the work, whichever section was left''', (tester) async {
       await bddSetUp(tester);
       await iShowWhatThisSessionHasRun(tester);
       await theAppIsRestarted(tester);
       await theSectionShownIs(tester, 'Work');
     });
-    testWidgets(
-        '''a newer build installed underneath says so, and changes nothing on its own''',
-        (tester) async {
+    testWidgets('''a newer build installed underneath says so, and changes nothing on its own''', (tester) async {
       await bddSetUp(tester);
       await aNewerBuildIsInstalledUnderneath(tester);
       await itSaysANewerBuildIsInstalled(tester);

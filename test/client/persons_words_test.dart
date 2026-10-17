@@ -24,9 +24,9 @@ void main() {
   Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   void answering(String method, Map<String, dynamic> reply) => daemon.method(method, (parameters) {
-        asked = parameters;
-        return reply;
-      });
+    asked = parameters;
+    return reply;
+  });
 
   test('a drop names its reason, and says whether its task was told', () async {
     answering('Reject', <String, dynamic>{'rejected': 'migrate', 'told': true});

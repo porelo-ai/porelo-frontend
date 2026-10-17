@@ -41,24 +41,31 @@ esac
     File('${scratch.path}/index-deb').writeAsStringSync(deb);
     File('${scratch.path}/index-rpm').writeAsStringSync(rpm);
     final script = _runOf(workflow, step).replaceAll(r'${{ vars.JF_URL }}', 'https://example.invalid');
-    return Process.run('bash', <String>['-c', script],
-        workingDirectory: scratch.path,
-        environment: <String, String>{
-          'PATH': '${scratch.path}/bin:${Platform.environment['PATH']}',
-          'CHANNEL': 'releases',
-          'INDEX_DEB': '${scratch.path}/index-deb',
-          'INDEX_RPM': '${scratch.path}/index-rpm',
-        });
+    return Process.run(
+      'bash',
+      <String>['-c', script],
+      workingDirectory: scratch.path,
+      environment: <String, String>{
+        'PATH': '${scratch.path}/bin:${Platform.environment['PATH']}',
+        'CHANNEL': 'releases',
+        'INDEX_DEB': '${scratch.path}/index-deb',
+        'INDEX_RPM': '${scratch.path}/index-rpm',
+      },
+    );
   }
 
-  const others = 'Package: porelo\nVersion: 0.4.0\nFilename: pool/main/p/porelo/porelo_0.4.0_amd64.deb\n\n'
+  const others =
+      'Package: porelo\nVersion: 0.4.0\nFilename: pool/main/p/porelo/porelo_0.4.0_amd64.deb\n\n'
       'Package: porelo-agent-claude\nVersion: 0.4.0\n'
       'Filename: pool/main/p/porelo-agent-claude/porelo-agent-claude_0.4.0_amd64.deb\n\n';
-  const ours = 'Package: porelo-frontend\nVersion: 0.4.0\n'
+  const ours =
+      'Package: porelo-frontend\nVersion: 0.4.0\n'
       'Filename: pool/main/p/porelo-frontend/porelo-frontend_0.4.0_amd64.deb\n\n';
-  const othersRpm = '<package><name>porelo-frontend</name><location href="porelo-frontend-0.3.9-1.x86_64.rpm"/>'
+  const othersRpm =
+      '<package><name>porelo-frontend</name><location href="porelo-frontend-0.3.9-1.x86_64.rpm"/>'
       '</package><package><name>porelo</name><location href="porelo-0.4.0-1.x86_64.rpm"/></package>';
-  const oursRpm = '<package><name>porelo-frontend</name><location href="porelo-frontend-0.4.0-1.x86_64.rpm"/></package>';
+  const oursRpm =
+      '<package><name>porelo-frontend</name><location href="porelo-frontend-0.4.0-1.x86_64.rpm"/></package>';
 
   test('a release is not refused because another package has its version', () async {
     final result = await run('Refuse a release that is there already', deb: others, rpm: othersRpm);

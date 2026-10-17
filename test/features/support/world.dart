@@ -87,8 +87,7 @@ class FakeBackend implements FleetBackend {
 
   /// Every launch, as it was asked for. What mode and prompt went down the socket is the whole
   /// of it — a screen that offered one and sent another would be wrong invisibly.
-  final List<({String? task, String? project, String? agent, Mode? mode, String? prompt, String? repository})>
-      starts =
+  final List<({String? task, String? project, String? agent, Mode? mode, String? prompt, String? repository})> starts =
       <({String? task, String? project, String? agent, Mode? mode, String? prompt, String? repository})>[];
 
   /// What `Agents` answers, and what could not be read.
@@ -103,10 +102,7 @@ class FakeBackend implements FleetBackend {
       'refusedDomains': <String>['telemetry.example.test'],
       // What its commits are attributed to. The second agent has none, which is what an agent
       // installed by a Porelo older than the field answers — a state to render, not a blank.
-      'commitsAs': <String, dynamic>{
-        'name': 'An Agent',
-        'email': 'an-agent@porelo.invalid',
-      },
+      'commitsAs': <String, dynamic>{'name': 'An Agent', 'email': 'an-agent@porelo.invalid'},
       'artifacts': <Map<String, dynamic>>[
         <String, dynamic>{
           'url': 'https://example.test/an-agent-2.4.0.tar.gz',
@@ -145,11 +141,7 @@ class FakeBackend implements FleetBackend {
   @override
   Future<AgentsOnTheMachine> agentsOn() async {
     if (agentsTake > Duration.zero) await Future<void>.delayed(agentsTake);
-    return (
-      agents: theAgentsItHas,
-      failures: theAgentsItCannotRead,
-      shadowed: theAgentsItNeverUses,
-    );
+    return (agents: theAgentsItHas, failures: theAgentsItCannotRead, shadowed: theAgentsItNeverUses);
   }
 
   /// How long the machine takes to say which agents it has.
@@ -190,10 +182,7 @@ class FakeBackend implements FleetBackend {
       'prepared': true,
       'preparedState': 'READY',
       'behind': 3,
-      'behindMeasured': DateTime.now()
-          .toUtc()
-          .subtract(const Duration(minutes: 20))
-          .toIso8601String(),
+      'behindMeasured': DateTime.now().toUtc().subtract(const Duration(minutes: 20)).toIso8601String(),
       'behindReason': 'MEASURED',
       'pending': 2,
       'tasks': 2,
@@ -241,22 +230,22 @@ class FakeBackend implements FleetBackend {
   }
 
   List<Project> _projects() => <Project>[
-        for (final each in theProjectsItHas)
-          // As Porelo lists it (measured on 254): default names the repositories added to it.
-          if (each.name == defaultProject && each.repositories.isEmpty && inDefault.isNotEmpty)
-            Project.from(<String, dynamic>{
-              'name': defaultProject,
-              'securityClass': each.securityClass,
-              'file': each.file,
-              'following': null,
-              'repositories': <Map<String, dynamic>>[
-                for (final repository in inDefault)
-                  <String, dynamic>{'name': repository.name, 'own': false, 'upstream': repository.upstream},
-              ],
-            })
-          else
-            each,
-      ];
+    for (final each in theProjectsItHas)
+      // As Porelo lists it (measured on 254): default names the repositories added to it.
+      if (each.name == defaultProject && each.repositories.isEmpty && inDefault.isNotEmpty)
+        Project.from(<String, dynamic>{
+          'name': defaultProject,
+          'securityClass': each.securityClass,
+          'file': each.file,
+          'following': null,
+          'repositories': <Map<String, dynamic>>[
+            for (final repository in inDefault)
+              <String, dynamic>{'name': repository.name, 'own': false, 'upstream': repository.upstream},
+          ],
+        })
+      else
+        each,
+  ];
 
   @override
   Stream<List<Task>> watch() async* {
@@ -295,15 +284,10 @@ class FakeBackend implements FleetBackend {
   Future<Stopped> stopTask(String task) async {
     stops.add(task);
     _tasks = <Task>[
-      for (final each in _tasks)
-        each.name == task ? _with(each, running: false, startAction: 'RESUME') : each,
+      for (final each in _tasks) each.name == task ? _with(each, running: false, startAction: 'RESUME') : each,
     ];
     _changes.add(_tasks);
-    return Stopped.from(const <String, dynamic>{
-      'outcome': 'STOPPED',
-      'helpers': 2,
-      'surviving': <String>[],
-    });
+    return Stopped.from(const <String, dynamic>{'outcome': 'STOPPED', 'helpers': 2, 'surviving': <String>[]});
   }
 
   /// What the next [removeTask] answers. Set by the scenario, so a refusal can be produced without
@@ -317,8 +301,7 @@ class FakeBackend implements FleetBackend {
   });
 
   /// Every removal asked for, and how it was asked.
-  final List<({String task, bool? rescue, bool? force})> removals =
-      <({String task, bool? rescue, bool? force})>[];
+  final List<({String task, bool? rescue, bool? force})> removals = <({String task, bool? rescue, bool? force})>[];
 
   /// Acts on the machine, rather than only answering about it.
   ///
@@ -368,8 +351,7 @@ class FakeBackend implements FleetBackend {
     // no action at all with exit 0.
     if (nextStart.action == StartAction.resume || (nextStart.action == null && (nextStart.exitCode ?? 0) == 0)) {
       _tasks = <Task>[
-        for (final each in _tasks)
-          each.task == task ? _with(each, running: true, startAction: 'RUNNING') : each,
+        for (final each in _tasks) each.task == task ? _with(each, running: true, startAction: 'RUNNING') : each,
       ];
       _changes.add(_tasks);
     }
@@ -378,20 +360,23 @@ class FakeBackend implements FleetBackend {
 
   /// Lists [task] as the machine would once a start has brought it up.
   void bringsUp(Task task) {
-    _tasks = <Task>[for (final each in _tasks) if (each.name != task.name) each, task];
+    _tasks = <Task>[
+      for (final each in _tasks)
+        if (each.name != task.name) each,
+      task,
+    ];
     _changes.add(_tasks);
   }
 
   /// [task] with its running state, and what Start would do to it, changed.
-  static Task _with(Task task, {required bool running, required String startAction}) =>
-      Task.from(<String, dynamic>{
-        ...wire(task),
-        'state': running ? 'Up 1 second' : 'Exited (143) 0 seconds ago',
-        'running': running,
-        'helpers': running ? 2 : 0,
-        'activity': running ? 'WORKING' : 'DEAD',
-        'startAction': startAction,
-      });
+  static Task _with(Task task, {required bool running, required String startAction}) => Task.from(<String, dynamic>{
+    ...wire(task),
+    'state': running ? 'Up 1 second' : 'Exited (143) 0 seconds ago',
+    'running': running,
+    'helpers': running ? 2 : 0,
+    'activity': running ? 'WORKING' : 'DEAD',
+    'startAction': startAction,
+  });
 
   /// What the next [tailLog] prints into, so the scenario decides when a line arrives.
   late StreamController<List<String>> tailing;
@@ -408,8 +393,7 @@ class FakeBackend implements FleetBackend {
   final asking = StreamController<Prompt>.broadcast();
 
   /// Every answer that was sent, and what it said.
-  final List<({String key, bool allow})> decisions =
-      <({String key, bool allow})>[];
+  final List<({String key, bool allow})> decisions = <({String key, bool allow})>[];
 
   /// Set to refuse the next answer, the way a task that has stopped running does.
   VarlinkException? refuseTheAnswer;
@@ -418,13 +402,11 @@ class FakeBackend implements FleetBackend {
   /// contrived task list can produce on demand.
   Panicked? nextPanic;
 
-
   /// Every panic asked for, and whether it was only a preview.
   final List<bool> panics = <bool>[];
 
   /// Every caption asked for, and what it was.
-  final List<({String task, String? label})> labels =
-      <({String task, String? label})>[];
+  final List<({String task, String? label})> labels = <({String task, String? label})>[];
 
   /// What the next [labelTask] answers. A scenario sets it for a task older than the field.
   Labelled? nextLabel;
@@ -458,10 +440,7 @@ class FakeBackend implements FleetBackend {
           each,
     ];
     _changes.add(_tasks);
-    return Labelled(
-      outcome: caption.isEmpty ? 'CLEARED' : 'LABELLED',
-      label: caption,
-    );
+    return Labelled(outcome: caption.isEmpty ? 'CLEARED' : 'LABELLED', label: caption);
   }
 
   /// Every part of a hand-in that arrived: which task, which file, where it started and how long.
@@ -489,12 +468,14 @@ class FakeBackend implements FleetBackend {
   final Map<String, List<int>> arrived = <String, List<int>>{};
 
   @override
-  Future<HandInPart> handIn(String task,
-      {required String name,
-      required int bytes,
-      required String sha256,
-      required int offset,
-      required List<int> part}) async {
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) async {
     if (noHandIn) throw const FeatureNotSupported('HandIn');
     parts.add((task: task, name: name, offset: offset, length: part.length));
     final refusal = refuseTheHandIn;
@@ -510,13 +491,15 @@ class FakeBackend implements FleetBackend {
     final key = '$task/$name';
     var coming = _incoming[key];
     if (coming != null && (coming.bytes != bytes || coming.sha256 != sha256)) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.HandInInProgress',
-          {'name': name, 'received': coming.got.length, 'bytes': coming.bytes});
+      throw VarlinkException('org.fuin.porelo.Tasks1.HandInInProgress', {
+        'name': name,
+        'received': coming.got.length,
+        'bytes': coming.bytes,
+      });
     }
     coming ??= _incoming[key] = (bytes: bytes, sha256: sha256, got: <int>[]);
     if (offset != coming.got.length) {
-      throw VarlinkException(
-          'org.fuin.porelo.Tasks1.PartOutOfOrder', {'name': name, 'received': coming.got.length});
+      throw VarlinkException('org.fuin.porelo.Tasks1.PartOutOfOrder', {'name': name, 'received': coming.got.length});
     }
     coming.got.addAll(part);
     if (loseTheNextReply) {
@@ -530,11 +513,21 @@ class FakeBackend implements FleetBackend {
       throw VarlinkException('org.fuin.porelo.Tasks1.FileDiffers', {'expected': sha256, 'actual': actual});
     }
     final placed = HandedFile(
-        name: name, bytes: bytes, sha256: sha256, at: '2026-10-06T10:00:00Z', by: 'somebody', run: to.run ?? '');
+      name: name,
+      bytes: bytes,
+      sha256: sha256,
+      at: '2026-10-06T10:00:00Z',
+      by: 'somebody',
+      run: to.run ?? '',
+    );
     final before = to.files ?? const <HandedFile>[];
     final replaced = before.any((each) => each.name == name);
     arrived['$task/$name'] = List<int>.of(coming.got);
-    _withFiles(task, [for (final each in before) if (each.name != name) each, placed]);
+    _withFiles(task, [
+      for (final each in before)
+        if (each.name != name) each,
+      placed,
+    ]);
     (_handInRecord[task] ??= <HandInEvent>[]).add(HandInEvent(event: replaced ? 'replaced' : 'given', file: placed));
     return HandInPart(received: bytes, file: placed);
   }
@@ -553,7 +546,10 @@ class FakeBackend implements FleetBackend {
     if (file == null) {
       throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchFile', {'task': task, 'name': name});
     }
-    _withFiles(task, [for (final each in files) if (each.name != name) each]);
+    _withFiles(task, [
+      for (final each in files)
+        if (each.name != name) each,
+    ]);
     (_handInRecord[task] ??= <HandInEvent>[]).add(HandInEvent(event: 'taken back', file: file));
     return file;
   }
@@ -581,55 +577,56 @@ class FakeBackend implements FleetBackend {
   }
 
   /// [task] with what hand-in adds to it, every other field kept.
-  static Task withHandIn(Task task,
-          {required List<HandedFile>? files,
-          int? limit,
-          String? run,
-          List<Build>? builds,
-          String? buildReader,
-          String? buildProblem}) =>
-      Task(
-        name: task.name,
-        label: task.label,
-        project: task.project,
-        securityClass: task.securityClass,
-        state: task.state,
-        running: task.running,
-        helpers: task.helpers,
-        agent: task.agent,
-        provider: task.provider,
-        mode: task.mode,
-        prompt: task.prompt,
-        branch: task.branch,
-        since: task.since,
-        activity: task.activity,
-        waitingFor: task.waitingFor,
-        clearance: task.clearance,
-        waiting: task.waiting,
-        task: task.task,
-        startAction: task.startAction,
-        startDetail: task.startDetail,
-        phase: task.phase,
-        repository: task.repository,
-        credentials: task.credentials,
-        grants: task.grants,
-        agentEnded: task.agentEnded,
-        run: run ?? task.run,
-        handInLimit: limit ?? task.handInLimit,
-        files: files,
-        builds: builds ?? task.builds,
-        buildReader: buildReader ?? task.buildReader,
-        buildProblem: buildProblem ?? task.buildProblem,
-      );
+  static Task withHandIn(
+    Task task, {
+    required List<HandedFile>? files,
+    int? limit,
+    String? run,
+    List<Build>? builds,
+    String? buildReader,
+    String? buildProblem,
+  }) => Task(
+    name: task.name,
+    label: task.label,
+    project: task.project,
+    securityClass: task.securityClass,
+    state: task.state,
+    running: task.running,
+    helpers: task.helpers,
+    agent: task.agent,
+    provider: task.provider,
+    mode: task.mode,
+    prompt: task.prompt,
+    branch: task.branch,
+    since: task.since,
+    activity: task.activity,
+    waitingFor: task.waitingFor,
+    clearance: task.clearance,
+    waiting: task.waiting,
+    task: task.task,
+    startAction: task.startAction,
+    startDetail: task.startDetail,
+    phase: task.phase,
+    repository: task.repository,
+    credentials: task.credentials,
+    grants: task.grants,
+    agentEnded: task.agentEnded,
+    run: run ?? task.run,
+    handInLimit: limit ?? task.handInLimit,
+    files: files,
+    builds: builds ?? task.builds,
+    buildReader: buildReader ?? task.buildReader,
+    buildProblem: buildProblem ?? task.buildProblem,
+  );
 
   /// Changes what the machine says about [work]'s builds, every other field kept.
   void followBuilds(String work, {List<Build>? builds, String? reader, String? problem}) => publish(<Task>[
-        for (final task in _tasks)
-          if (task.name == work)
-            withHandIn(task, files: task.files, builds: builds, buildReader: reader, buildProblem: problem)
-          else
-            task,
-      ]);
+    for (final task in _tasks)
+      if (task.name == work)
+        withHandIn(task, files: task.files, builds: builds, buildReader: reader, buildProblem: problem)
+      else
+        task,
+  ]);
 
   /// What `Credentials` answers. A scenario sets it to produce a shut store, which is a state no
   /// contrived list of names can express.
@@ -674,8 +671,8 @@ class FakeBackend implements FleetBackend {
   Set<String> filesOnTheMachine = <String>{};
 
   /// Every connection declared, as it was asked.
-  final List<({String kind, String match, String? id, String? user, String? purpose, String? source})>
-      declared = <({String kind, String match, String? id, String? user, String? purpose, String? source})>[];
+  final List<({String kind, String match, String? id, String? user, String? purpose, String? source})> declared =
+      <({String kind, String match, String? id, String? user, String? purpose, String? source})>[];
 
   /// Every address forgotten.
   final List<String> forgottenMatches = <String>[];
@@ -761,7 +758,10 @@ class FakeBackend implements FleetBackend {
   List<String> _storeCommand(String kind, String where, String name, String? fromFile) => where != 'VAULT'
       ? const <String>[]
       : <String>[
-          'porelo', 'vault', 'put', name,
+          'porelo',
+          'vault',
+          'put',
+          name,
           if (kind == 'TOKEN') ...<String>['--type', 'token'],
           if (fromFile != null) ...<String>['--from-file', fromFile],
         ];
@@ -769,7 +769,14 @@ class FakeBackend implements FleetBackend {
   /// Answers a dry run as the machine does: the refusals a declaration owes, a value
   /// that is not there, and for a key the forge's greeting — nothing written.
   CredentialDeclared _wouldDeclare(
-      String kind, String match, String where, String name, String? user, String? purpose, String? fromFile) {
+    String kind,
+    String match,
+    String where,
+    String name,
+    String? user,
+    String? purpose,
+    String? fromFile,
+  ) {
     final overHttps = match.startsWith('https://') || match.startsWith('http://');
     final present = switch (where) {
       'FILE' => _onTheMachine(name),
@@ -789,31 +796,37 @@ class FakeBackend implements FleetBackend {
     );
     if (kind == 'SSH_KEY' && overHttps) {
       return CredentialDeclared(
-          connection: const Connection(),
-          outcome: 'NO_CREDENTIAL',
-          detail: "'$match' is reached over https, which asks for a token or a username and password "
-              'and never for an ssh key. Declare it as token, basic or oauth, or name an ssh address.');
+        connection: const Connection(),
+        outcome: 'NO_CREDENTIAL',
+        detail:
+            "'$match' is reached over https, which asks for a token or a username and password "
+            'and never for an ssh key. Declare it as token, basic or oauth, or name an ssh address.',
+      );
     }
     if (where == 'VAULT' && !theStoreIs.exists) {
       return CredentialDeclared(
-          connection: connection,
-          storeCommand: _storeCommand(kind, where, name, fromFile),
-          outcome: 'NO_VAULT',
-          detail: "this account has no vault yet, so there is nowhere to put '$name'");
+        connection: connection,
+        storeCommand: _storeCommand(kind, where, name, fromFile),
+        outcome: 'NO_VAULT',
+        detail: "this account has no vault yet, so there is nowhere to put '$name'",
+      );
     }
     if (where == 'VAULT' && !theStoreIs.readable) {
       return CredentialDeclared(
-          connection: connection,
-          storeCommand: _storeCommand(kind, where, name, fromFile),
-          outcome: 'VAULT_LOCKED',
-          detail: 'the vault is shut, so nothing can be put in it');
+        connection: connection,
+        storeCommand: _storeCommand(kind, where, name, fromFile),
+        outcome: 'VAULT_LOCKED',
+        detail: 'the vault is shut, so nothing can be put in it',
+      );
     }
     if (kind != 'SSH_KEY' && !overHttps) {
       return CredentialDeclared(
-          connection: const Connection(),
-          outcome: 'NO_CREDENTIAL',
-          detail: "'$match' is reached over ssh, which asks for a key and never for a token or a "
-              'password. Declare it as ssh-key, or name an https address.');
+        connection: const Connection(),
+        outcome: 'NO_CREDENTIAL',
+        detail:
+            "'$match' is reached over ssh, which asks for a key and never for a token or a "
+            'password. Declare it as ssh-key, or name an https address.',
+      );
     }
     return CredentialDeclared(
       connection: connection,
@@ -828,7 +841,10 @@ class FakeBackend implements FleetBackend {
   Future<CredentialForgotten> credentialForget(String match) async {
     forgottenMatches.add(match);
     final gone = theConnections.where((each) => each.match == match).firstOrNull;
-    theConnections = <Connection>[for (final each in theConnections) if (each.match != match) each];
+    theConnections = <Connection>[
+      for (final each in theConnections)
+        if (each.match != match) each,
+    ];
     return CredentialForgotten(
       forgotten: gone != null,
       leftBehind: gone == null || gone.source == 'AGENT' ? '' : 'the ${gone.source.toLowerCase()} entry ${gone.id}',
@@ -941,11 +957,7 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
-  Future<Enrolled> enrollDevice({
-    required String name,
-    required String share,
-    required KeyslotStorage storage,
-  }) async {
+  Future<Enrolled> enrollDevice({required String name, required String share, required KeyslotStorage storage}) async {
     _b60('EnrollDevice');
     sharesSent.add(share);
     if (enrollingLosesTheConnection) throw const VarlinkDisconnected('the forward went away');
@@ -1000,7 +1012,12 @@ class FakeBackend implements FleetBackend {
       return const UnlockedWithShare(outcome: KeyslotOutcome.shareRejected, until: '', slot: null, detail: '');
     }
     theStoreIs = _whileOpen ?? theStoreIs;
-    return UnlockedWithShare(outcome: KeyslotOutcome.unlocked, until: '2026-09-18T08:30:00Z', slot: opens.slot, detail: '');
+    return UnlockedWithShare(
+      outcome: KeyslotOutcome.unlocked,
+      until: '2026-09-18T08:30:00Z',
+      slot: opens.slot,
+      detail: '',
+    );
   }
 
   /// A name this machine refuses, and its words, the way a daemon with a rule of its own would.
@@ -1039,16 +1056,22 @@ class FakeBackend implements FleetBackend {
 
   /// The destinations and providers a credential can be for here, as the machine checks them.
   Set<String> get declaredPlaces => <String>{
-        for (final each in destinationsHere)
-          if (each.inForce) each.name,
-        for (final each in theProvidersItHas.providers) each.name,
-      };
+    for (final each in destinationsHere)
+      if (each.inForce) each.name,
+    for (final each in theProvidersItHas.providers) each.name,
+  };
 
   /// Every repository `CanStart` was asked about, null where none was sent.
   final List<String?> askedAboutRepositories = <String?>[];
 
   @override
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials}) async {
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) async {
     canStartAsked++;
     askedAboutCredentials.add(credentials ?? const <String, String>{});
     final failing = canStartFails;
@@ -1099,7 +1122,8 @@ class FakeBackend implements FleetBackend {
           agent: agent ?? '',
           provider: '',
           credential: given.key,
-          detail: "the run names credential '${given.key}' for '${given.value}', and no destination or "
+          detail:
+              "the run names credential '${given.key}' for '${given.value}', and no destination or "
               'provider of that name is declared here',
         );
       }
@@ -1169,8 +1193,7 @@ class FakeBackend implements FleetBackend {
   ///
   /// **Readable with two zeros by default**, which is *holds nothing* — a scenario that wants
   /// *nobody could look* says so, because those are the two the screen must not merge.
-  HeldWork theWorkItHolds =
-      const HeldWork(readable: true, changedFiles: 0, unpushedCommits: 0);
+  HeldWork theWorkItHolds = const HeldWork(readable: true, changedFiles: 0, unpushedCommits: 0);
 
   /// Whether the next ask is for a name that is no task at all.
   bool workHeldIsNoSuchTask = false;
@@ -1190,8 +1213,7 @@ class FakeBackend implements FleetBackend {
   }
 
   /// What the next sync answers. Set by the scenario.
-  Synced theSyncAnswers = const Synced(
-      outcome: 'MEASURED', behind: 3, measured: true, reason: 'MEASURED', detail: '');
+  Synced theSyncAnswers = const Synced(outcome: 'MEASURED', behind: 3, measured: true, reason: 'MEASURED', detail: '');
 
   /// Every project a sync was asked for.
   final List<String> syncs = <String>[];
@@ -1252,25 +1274,19 @@ class FakeBackend implements FleetBackend {
   List<String> theRestoreWouldDestroy = const <String>[];
 
   /// Every restore asked for.
-  final List<({String bundle, bool preview, bool force})> restores =
-      <({String bundle, bool preview, bool force})>[];
+  final List<({String bundle, bool preview, bool force})> restores = <({String bundle, bool preview, bool force})>[];
 
   @override
-  Future<Restored> restoreBackup(String project, String bundle,
-      {bool? dryRun, bool? force, String? repository}) async {
+  Future<Restored> restoreBackup(String project, String bundle, {bool? dryRun, bool? force, String? repository}) async {
     restoredIn.add(repository);
-    restores.add((
-      bundle: bundle,
-      preview: dryRun == true,
-      force: force == true,
-    ));
+    restores.add((bundle: bundle, preview: dryRun == true, force: force == true));
     final refused = theRestoreWouldDestroy.isNotEmpty && force != true;
     return Restored(
       outcome: dryRun == true
           ? 'PREVIEWED'
           : refused
-              ? 'HOLDS_WORK'
-              : 'RESTORED',
+          ? 'HOLDS_WORK'
+          : 'RESTORED',
       mirror: '/srv/$project/.porelo/mirror',
       // Filled under force too: it is what force destroyed, and somebody who forced needs it
       // afterwards rather than only in the warning they clicked past.
@@ -1283,20 +1299,19 @@ class FakeBackend implements FleetBackend {
   bool theBundleIsThere = true;
 
   /// Every backup deletion asked for.
-  final List<({String bundle, bool preview})> backupDeletions =
-      <({String bundle, bool preview})>[];
+  final List<({String bundle, bool preview})> backupDeletions = <({String bundle, bool preview})>[];
 
   @override
-  Future<BackupDeleted> deleteBackup(String project, String bundle,
-      {bool? dryRun}) async {
+  Future<BackupDeleted> deleteBackup(String project, String bundle, {bool? dryRun}) async {
     backupDeletions.add((bundle: bundle, preview: dryRun == true));
     final known = theBackupsItHas.where((each) => each.bundle == bundle);
     if (known.isEmpty) {
       return const BackupDeleted(
-          outcome: 'NO_SUCH_BACKUP',
-          fileRemoved: false,
-          refs: 0,
-          detail: 'no record names that path');
+        outcome: 'NO_SUCH_BACKUP',
+        fileRemoved: false,
+        refs: 0,
+        detail: 'no record names that path',
+      );
     }
     return BackupDeleted(
       outcome: dryRun == true ? 'PREVIEWED' : 'DELETED',
@@ -1338,8 +1353,7 @@ class FakeBackend implements FleetBackend {
       <({String project, String? rebuild, bool preview})>[];
 
   @override
-  Stream<PrepareProgress> prepare(String project,
-      {String? agent, String? rebuild, bool? dryRun}) async* {
+  Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) async* {
     mustBeAProject(project);
     builds.add((project: project, rebuild: rebuild, preview: dryRun == true));
     for (final line in theBuildPrints) {
@@ -1350,9 +1364,7 @@ class FakeBackend implements FleetBackend {
       image: theBuildEndsWith == 'PREPARED' ? 'porelo/checkout:latest' : '',
       // Read back rather than echoed: a depth the daemon did not recognize has to be visible.
       rebuild: rebuild ?? 'CACHED',
-      detail: theBuildEndsWith == 'FAILED'
-          ? 'STEP 4/6: RUN apt-get install -y git returned 100'
-          : '',
+      detail: theBuildEndsWith == 'FAILED' ? 'STEP 4/6: RUN apt-get install -y git returned 100' : '',
     );
   }
 
@@ -1456,20 +1468,26 @@ class FakeBackend implements FleetBackend {
   /// Every deletion asked for: the project, and whether it was a preview and whether it was
   /// forced. **Read off the socket** — a screen that shows a preview while having removed a
   /// project is exactly the failure this guards.
-  final List<({String project, bool preview, bool force})> deletions =
-      <({String project, bool preview, bool force})>[];
+  final List<({String project, bool preview, bool force})> deletions = <({String project, bool preview, bool force})>[];
 
   /// What the next [follow] answers, or null for a project taken at once.
   Followed? nextFollow;
 
   /// Every follow asked for, and how its commits were to be checked.
   final List<({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>
-      follows = <({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>[];
+  follows =
+      <({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>[];
 
   /// Acts like Porelo: a follow that is taken makes the project, listed with its follow state.
   @override
-  Future<Followed> follow(String name, String url,
-      {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite}) async {
+  Future<Followed> follow(
+    String name,
+    String url, {
+    String? signedBy,
+    List<String>? signers,
+    bool? unverified,
+    bool? acceptRewrite,
+  }) async {
     follows.add((
       name: name,
       url: url,
@@ -1487,18 +1505,20 @@ class FakeBackend implements FleetBackend {
             outcome: changedHost == unmet.first ? 'HOST_KEY_CHANGED' : 'UNKNOWN_HOST_KEY',
             host: unmet.first,
             hostKeys: hostsOffer[unmet.first]!,
-            needsAPerson: true)
+            needsAPerson: true,
+          )
         : acceptRewrite == true || nextFollow == null
-            ? Followed(
-                name: name,
-                url: url,
-                commit: 'c0ffee1d2e3f',
-                outcome: 'APPLIED',
-                // Pinned to the key it was given, as the machine answers it: by fingerprint.
-                signer: signedBy == null ? '' : pinsInstead ?? 'SHA256:person',
-                // Several keys are all pinned, each by its fingerprint, in the order given.
-                pinned: <String>[for (final each in signers ?? const <String>[]) 'SHA256:${each.split(' ').last}'])
-            : nextFollow!;
+        ? Followed(
+            name: name,
+            url: url,
+            commit: 'c0ffee1d2e3f',
+            outcome: 'APPLIED',
+            // Pinned to the key it was given, as the machine answers it: by fingerprint.
+            signer: signedBy == null ? '' : pinsInstead ?? 'SHA256:person',
+            // Several keys are all pinned, each by its fingerprint, in the order given.
+            pinned: <String>[for (final each in signers ?? const <String>[]) 'SHA256:${each.split(' ').last}'],
+          )
+        : nextFollow!;
     if (answer.inForce && !theProjectsItHas.any((each) => each.name == name)) {
       theProjectsItHas = <Project>[
         ...theProjectsItHas,
@@ -1531,7 +1551,10 @@ class FakeBackend implements FleetBackend {
     clears.add((project: project, dryRun: dryRun == true, force: force == true));
     final refused = clearRefusesUnforced && force != true;
     final status = dryRun == true || refused ? 'WOULD_REMOVE' : 'REMOVED';
-    final projects = <String>[for (final each in theProjectsItHas) if (project == null || each.name == project) each.name];
+    final projects = <String>[
+      for (final each in theProjectsItHas)
+        if (project == null || each.name == project) each.name,
+    ];
     final cleared = Cleared(
       refused: refused && dryRun != true,
       items: <ClearedItem>[
@@ -1539,15 +1562,28 @@ class FakeBackend implements FleetBackend {
           ClearedItem(kind: 'task', what: 'porelo-$name-shell', status: status),
           ClearedItem(kind: 'follow', what: name, status: status),
         ],
-        if (project == null) ClearedItem(kind: 'transport', what: 'what the matrix transport and this machine keep for this account', status: status),
+        if (project == null)
+          ClearedItem(
+            kind: 'transport',
+            what: 'what the matrix transport and this machine keep for this account',
+            status: status,
+          ),
         for (final key in deployKeysMade)
-          ClearedItem(kind: 'deploy key', what: key.title, status: 'FOR_A_PERSON', why: 'removed with your forge sign-in'),
+          ClearedItem(
+            kind: 'deploy key',
+            what: key.title,
+            status: 'FOR_A_PERSON',
+            why: 'removed with your forge sign-in',
+          ),
       ],
       keys: List<MachineDeployKey>.of(deployKeysMade),
       signer: theMessageKey.line,
     );
     if (dryRun != true && !cleared.refused) {
-      theProjectsItHas = <Project>[for (final each in theProjectsItHas) if (!projects.contains(each.name)) each];
+      theProjectsItHas = <Project>[
+        for (final each in theProjectsItHas)
+          if (!projects.contains(each.name)) each,
+      ];
     }
     return cleared;
   }
@@ -1562,8 +1598,8 @@ class FakeBackend implements FleetBackend {
       outcome: dryRun == true
           ? DeleteOutcome.previewed
           : refused
-              ? deletionAnswers
-              : DeleteOutcome.deleted,
+          ? deletionAnswers
+          : DeleteOutcome.deleted,
       // Filled for a refusal too, so the cost can be shown beside the reason it was stopped.
       removes: const <Removal>[
         Removal(kind: 'MIRROR', what: '/srv/checkout/.porelo/mirror'),
@@ -1572,9 +1608,7 @@ class FakeBackend implements FleetBackend {
         Removal(kind: 'TASK', what: 'porelo-checkout-migrate'),
       ],
       keeps: const <String>['/srv/checkout/project.yml'],
-      unreviewed: deletionAnswers == DeleteOutcome.holdsWork
-          ? const <String>['migrate']
-          : const <String>[],
+      unreviewed: deletionAnswers == DeleteOutcome.holdsWork ? const <String>['migrate'] : const <String>[],
       running: deletionAnswers == DeleteOutcome.tasksRunning
           ? const <String>['porelo-checkout-shell']
           : const <String>[],
@@ -1598,14 +1632,10 @@ class FakeBackend implements FleetBackend {
             <String, dynamic>{
               'name': task.name,
               'helpers': task.helpers,
-              'surviving': dryRun == true || nextPanic == null
-                  ? const <String>[]
-                  : nextPanic!.surviving,
+              'surviving': dryRun == true || nextPanic == null ? const <String>[] : nextPanic!.surviving,
             },
       ],
-      'surviving': dryRun == true
-          ? const <String>[]
-          : nextPanic?.surviving ?? const <String>[],
+      'surviving': dryRun == true ? const <String>[] : nextPanic?.surviving ?? const <String>[],
       'previewed': dryRun == true,
     });
   }
@@ -1639,8 +1669,7 @@ class FakeBackend implements FleetBackend {
 
   @override
   Future<HeldMessageRead> readHeld(String task, String id) async =>
-      readable[id] ??
-      HeldMessageRead.from(const <String, dynamic>{'outcome': 'NO_SUCH_MESSAGE'});
+      readable[id] ?? HeldMessageRead.from(const <String, dynamic>{'outcome': 'NO_SUCH_MESSAGE'});
 
   @override
   Future<MessageRelease> release(String task, String id, {bool refuse = false, String? reason}) async {
@@ -1680,8 +1709,7 @@ class FakeBackend implements FleetBackend {
   final Map<String, List<MessageMember>> membersOf = <String, List<MessageMember>>{};
 
   /// Every join asked for, in order.
-  final List<({String project, String person, bool reset})> joins =
-      <({String project, String person, bool reset})>[];
+  final List<({String project, String person, bool reset})> joins = <({String project, String person, bool reset})>[];
 
   /// Whether the account's own homeserver answers the join, on loopback, or a central one.
   bool joinsOnLoopback = true;
@@ -1696,18 +1724,21 @@ class FakeBackend implements FleetBackend {
     final members = membersOf.putIfAbsent(project, () => <MessageMember>[]);
     final user = '@$person:localhost';
     if (members.any((each) => each.person == person) && !reset) {
-      throw VarlinkException(
-          'org.fuin.porelo.Tasks1.MemberExists', <String, dynamic>{'person': person, 'user': user});
+      throw VarlinkException('org.fuin.porelo.Tasks1.MemberExists', <String, dynamic>{'person': person, 'user': user});
     }
     if (!members.any((each) => each.person == person)) members.add(MessageMember(person: person, user: user));
-    return MessagesJoined(transport: 'matrix', shown: 'shown on a terminal', login: <String, String>{
-      'homeserver': joinsOnLoopback ? 'http://127.0.0.1:8008' : 'https://matrix.example.org',
-      'user': user,
-      'room': '#porelo-$project:localhost',
-      'password': 'pw-${joins.length}-once',
-      if (joinsOnLoopback) 'loopback': 'true',
-      if (joinsOnLoopback) 'port': '8008',
-    });
+    return MessagesJoined(
+      transport: 'matrix',
+      shown: 'shown on a terminal',
+      login: <String, String>{
+        'homeserver': joinsOnLoopback ? 'http://127.0.0.1:8008' : 'https://matrix.example.org',
+        'user': user,
+        'room': '#porelo-$project:localhost',
+        'password': 'pw-${joins.length}-once',
+        if (joinsOnLoopback) 'loopback': 'true',
+        if (joinsOnLoopback) 'port': '8008',
+      },
+    );
   }
 
   @override
@@ -1724,8 +1755,13 @@ class FakeBackend implements FleetBackend {
   final Map<String, String> workUpstreams = <String, String>{};
 
   @override
-  Future<MachineDeployKey> deployKey(String project,
-      {String? repository, String? upstream, bool? readOnly, bool renew = false}) async {
+  Future<MachineDeployKey> deployKey(
+    String project, {
+    String? repository,
+    String? upstream,
+    bool? readOnly,
+    bool renew = false,
+  }) async {
     final own = repository == null;
     final made = MachineDeployKey(
       entry: 'deploy/$project/${repository ?? project}',
@@ -1744,7 +1780,11 @@ class FakeBackend implements FleetBackend {
 
   /// This machine's message key.
   MachineKey theMessageKey = const MachineKey(
-      principal: 'porelo@vm', key: 'ssh-ed25519 AAAAmsg', line: 'porelo@vm ssh-ed25519 AAAAmsg', fingerprint: 'SHA256:msg');
+    principal: 'porelo@vm',
+    key: 'ssh-ed25519 AAAAmsg',
+    line: 'porelo@vm ssh-ed25519 AAAAmsg',
+    fingerprint: 'SHA256:msg',
+  );
 
   @override
   Future<MachineKey> messageKey() async => theMessageKey;
@@ -1777,7 +1817,10 @@ class FakeBackend implements FleetBackend {
   @override
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) async {
     final before = inDefault.length;
-    inDefault = <DefaultRepository>[for (final each in inDefault) if (each.name != name) each];
+    inDefault = <DefaultRepository>[
+      for (final each in inDefault)
+        if (each.name != name) each,
+    ];
     // The key the machine made for it, as Porelo b08d211 answers it once it is forgotten.
     final forgotten = <MachineDeployKey>[
       for (final each in deployKeysMade)
@@ -1792,8 +1835,8 @@ class FakeBackend implements FleetBackend {
   @override
   Future<String> contract() async => canBind
       ? 'method DeployKey(project: string, repository: ?string, upstream: ?string) -> ()\n'
-          'method Follow(name: string, url: string, signedBy: ?string, signers: ?[]string) -> ()\n'
-          'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n'
+            'method Follow(name: string, url: string, signedBy: ?string, signers: ?[]string) -> ()\n'
+            'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n'
       : 'method Follow(name: string, url: string) -> ()\n';
 
   /// Pending work handed out as a bundle, and what was asked whether it landed.
@@ -1804,15 +1847,23 @@ class FakeBackend implements FleetBackend {
   bool itLands = true;
 
   @override
-  Future<({List<int> bundle, int bytes})> pendingBundle(String project, String name,
-      {String? repository, String? branch}) async {
+  Future<({List<int> bundle, int bytes})> pendingBundle(
+    String project,
+    String name, {
+    String? repository,
+    String? branch,
+  }) async {
     bundlesTaken.add(name);
     return (bundle: <int>[1, 2, 3], bytes: 3);
   }
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(String project, String name,
-      {String? repository, required String branch}) async {
+  Future<({bool landed, String commit, String detail})> landed(
+    String project,
+    String name, {
+    String? repository,
+    required String branch,
+  }) async {
     landedAsked.add((name: name, branch: branch));
     return itLands
         ? (landed: true, commit: 'c0ffee9', detail: '')
@@ -1820,26 +1871,79 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
-  Future<ProjectFileSchema> projectFileSchema() async => const ProjectFileSchema(sections: <String, List<String>>{
-        '': <String>['credentials', 'egress', 'image', 'limits', 'mail', 'project', 'repositories'],
-        'project': <String>['name', 'security_class'],
-      }, open: <String>['credentials', 'repositories', 'mail.transports.<scheme>'], keys: <ProjectFileKey>[
-        // As Porelo describes them (measured on 244), the ones a first project's form shows.
-        ProjectFileKey(section: '', name: 'project', describe: 'Who the project is and how far its agents are trusted.',
-            type: 'map', values: <String>[], defaultValue: '', required: true),
-        ProjectFileKey(section: '', name: 'image', describe: 'What a task\'s container is built from.',
-            type: 'map', values: <String>[], defaultValue: '', required: true),
-        ProjectFileKey(section: 'project', name: 'name', describe: 'The project\'s name.',
-            type: 'string', values: <String>[], defaultValue: '', required: true),
-        ProjectFileKey(section: 'project', name: 'description', describe: 'For people: shown wherever the project is listed.',
-            type: 'string', values: <String>[], defaultValue: '', required: false),
-        ProjectFileKey(section: 'project', name: 'security_class', describe: 'How far the agent is trusted.',
-            type: 'string', values: <String>['offline', 'guarded', 'online'], defaultValue: '', required: true),
-        ProjectFileKey(section: 'image', name: 'base_image', describe: 'The image a task\'s container is built from.',
-            type: 'string', values: <String>[], defaultValue: '', required: true),
-        ProjectFileKey(section: 'image', name: 'package_sources', describe: 'Where apt fetches from.',
-            type: 'list', values: <String>[], defaultValue: '[]', required: false),
-      ]);
+  Future<ProjectFileSchema> projectFileSchema() async => const ProjectFileSchema(
+    sections: <String, List<String>>{
+      '': <String>['credentials', 'egress', 'image', 'limits', 'mail', 'project', 'repositories'],
+      'project': <String>['name', 'security_class'],
+    },
+    open: <String>['credentials', 'repositories', 'mail.transports.<scheme>'],
+    keys: <ProjectFileKey>[
+      // As Porelo describes them (measured on 244), the ones a first project's form shows.
+      ProjectFileKey(
+        section: '',
+        name: 'project',
+        describe: 'Who the project is and how far its agents are trusted.',
+        type: 'map',
+        values: <String>[],
+        defaultValue: '',
+        required: true,
+      ),
+      ProjectFileKey(
+        section: '',
+        name: 'image',
+        describe: 'What a task\'s container is built from.',
+        type: 'map',
+        values: <String>[],
+        defaultValue: '',
+        required: true,
+      ),
+      ProjectFileKey(
+        section: 'project',
+        name: 'name',
+        describe: 'The project\'s name.',
+        type: 'string',
+        values: <String>[],
+        defaultValue: '',
+        required: true,
+      ),
+      ProjectFileKey(
+        section: 'project',
+        name: 'description',
+        describe: 'For people: shown wherever the project is listed.',
+        type: 'string',
+        values: <String>[],
+        defaultValue: '',
+        required: false,
+      ),
+      ProjectFileKey(
+        section: 'project',
+        name: 'security_class',
+        describe: 'How far the agent is trusted.',
+        type: 'string',
+        values: <String>['offline', 'guarded', 'online'],
+        defaultValue: '',
+        required: true,
+      ),
+      ProjectFileKey(
+        section: 'image',
+        name: 'base_image',
+        describe: 'The image a task\'s container is built from.',
+        type: 'string',
+        values: <String>[],
+        defaultValue: '',
+        required: true,
+      ),
+      ProjectFileKey(
+        section: 'image',
+        name: 'package_sources',
+        describe: 'Where apt fetches from.',
+        type: 'list',
+        values: <String>[],
+        defaultValue: '[]',
+        required: false,
+      ),
+    ],
+  );
 
   /// Every draft a project file check was asked about, in order.
   final List<String> checkedDrafts = <String>[];
@@ -1850,7 +1954,8 @@ class FakeBackend implements FleetBackend {
     // As Porelo answers it: a misspelt key is refused anywhere; an egress set this machine lacks only here.
     return ProjectFileCheck(
       refused: <String>[
-        if (text.contains('secruity_class')) "project.yml: 'secruity_class' is not a setting; did you mean 'security_class'?",
+        if (text.contains('secruity_class'))
+          "project.yml: 'secruity_class' is not a setting; did you mean 'security_class'?",
       ],
       refusedHere: <String>[
         if (text.contains('internal-mirror')) "egress set 'internal-mirror' is not defined on this machine",
@@ -1912,8 +2017,9 @@ class FakeBackend implements FleetBackend {
     destinationWrites.add((name: name, upstream: upstream, authPrefix: authPrefix, dryRun: dryRun));
     // As the machine refuses it: a destination is reached over https only.
     if (!upstream.startsWith('https://')) {
-      throw VarlinkException('org.fuin.porelo.Tasks1.DestinationRefused',
-          <String, dynamic>{'message': "Destination '$name' must be reached over https, not '$upstream'"});
+      throw VarlinkException('org.fuin.porelo.Tasks1.DestinationRefused', <String, dynamic>{
+        'message': "Destination '$name' must be reached over https, not '$upstream'",
+      });
     }
     final written = Destination(
       name: name,
@@ -1934,8 +2040,16 @@ class FakeBackend implements FleetBackend {
         final each = destinationsHere[i];
         if (each.name == name && each.packaged) {
           destinationsHere[i] = Destination(
-              name: each.name, label: each.label, upstream: each.upstream, authHeader: each.authHeader,
-              authPrefix: each.authPrefix, authQuery: each.authQuery, file: each.file, packaged: true, inForce: false);
+            name: each.name,
+            label: each.label,
+            upstream: each.upstream,
+            authHeader: each.authHeader,
+            authPrefix: each.authPrefix,
+            authQuery: each.authQuery,
+            file: each.file,
+            packaged: true,
+            inForce: false,
+          );
         }
       }
     }
@@ -1952,8 +2066,16 @@ class FakeBackend implements FleetBackend {
       final each = destinationsHere[i];
       if (each.name == name && each.packaged) {
         destinationsHere[i] = Destination(
-            name: each.name, label: each.label, upstream: each.upstream, authHeader: each.authHeader,
-            authPrefix: each.authPrefix, authQuery: each.authQuery, file: each.file, packaged: true, inForce: true);
+          name: each.name,
+          label: each.label,
+          upstream: each.upstream,
+          authHeader: each.authHeader,
+          authPrefix: each.authPrefix,
+          authQuery: each.authQuery,
+          file: each.file,
+          packaged: true,
+          inForce: true,
+        );
       }
     }
     return (removed: true, file: own.file);
@@ -2020,7 +2142,8 @@ class FakeBackend implements FleetBackend {
         'subject': 'Round to the nearest penny, not away from zero',
         'waiting': '4 minutes',
         'at': '2026-09-07T14:12:00Z',
-        'fetch': 'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror '
+        'fetch':
+            'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror '
             'refs/porelo/incoming/migrate:refs/remotes/porelo/migrate',
       },
     ],
@@ -2074,18 +2197,9 @@ diff --git a/lib/money.dart b/lib/money.dart
 
   /// What `Egress` answers, in the order the sources granted them.
   List<EgressHost> theHostsItMayReach = <EgressHost>[
-    EgressHost.from(const <String, dynamic>{
-      'host': 'api.anthropic.com',
-      'origin': 'agent an-agent',
-    }),
-    EgressHost.from(const <String, dynamic>{
-      'host': 'github.com',
-      'origin': 'upstream',
-    }),
-    EgressHost.from(const <String, dynamic>{
-      'host': 'pub.dev',
-      'origin': 'set dart-packages',
-    }),
+    EgressHost.from(const <String, dynamic>{'host': 'api.anthropic.com', 'origin': 'agent an-agent'}),
+    EgressHost.from(const <String, dynamic>{'host': 'github.com', 'origin': 'upstream'}),
+    EgressHost.from(const <String, dynamic>{'host': 'pub.dev', 'origin': 'set dart-packages'}),
   ];
 
   /// What an agent asks for and is deliberately not given.
@@ -2109,8 +2223,7 @@ diff --git a/lib/money.dart b/lib/money.dart
   EgressChange? nextChange;
 
   /// Every change asked for, and whether it was only a preview.
-  final List<({List<String> addSets, bool preview})> changes =
-      <({List<String> addSets, bool preview})>[];
+  final List<({List<String> addSets, bool preview})> changes = <({List<String> addSets, bool preview})>[];
 
   @override
   Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository}) async {
@@ -2145,9 +2258,7 @@ diff --git a/lib/money.dart b/lib/money.dart
           'outcome': dryRun == true ? 'PREVIEWED' : 'CHANGED',
           'opens': <Map<String, dynamic>>[
             for (final name in addSets ?? <String>[])
-              for (final host in theSetsItHas
-                  .firstWhere((set) => set.name == name)
-                  .domains)
+              for (final host in theSetsItHas.firstWhere((set) => set.name == name).domains)
                 <String, dynamic>{'host': host, 'origin': 'set $name'},
           ],
           'closes': <Map<String, dynamic>>[],
@@ -2166,18 +2277,8 @@ diff --git a/lib/money.dart b/lib/money.dart
       <({String task, List<String> domains, Scope scope, bool preview})>[];
 
   @override
-  Future<Widened> widenTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) async {
-    widenings.add((
-      task: task,
-      domains: domains,
-      scope: scope,
-      preview: dryRun == true,
-    ));
+  Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async {
+    widenings.add((task: task, domains: domains, scope: scope, preview: dryRun == true));
     return nextWidening ??
         Widened.from(<String, dynamic>{
           'outcome': dryRun == true ? 'PREVIEWED' : 'WIDENED',
@@ -2191,24 +2292,19 @@ diff --git a/lib/money.dart b/lib/money.dart
   ClearanceSet? nextClearance;
 
   /// Every enforcement change asked for.
-  final List<({String task, String mode, bool preview})> clearances =
-      <({String task, String mode, bool preview})>[];
+  final List<({String task, String mode, bool preview})> clearances = <({String task, String mode, bool preview})>[];
 
   @override
   Future<ClearanceSet> setClearance(String task, String mode, {bool? dryRun}) async {
     clearances.add((task: task, mode: mode, preview: dryRun == true));
-    final was = _tasks
-        .where((each) => each.name == task)
-        .map((each) => each.clearance)
-        .firstOrNull ??
-        '';
+    final was = _tasks.where((each) => each.name == task).map((each) => each.clearance).firstOrNull ?? '';
     if (nextClearance != null) return nextClearance!;
     return ClearanceSet(
       outcome: dryRun == true
           ? 'PREVIEWED'
           : was == mode
-              ? 'UNCHANGED'
-              : 'CHANGED',
+          ? 'UNCHANGED'
+          : 'CHANGED',
       was: was,
       // Empty when nothing changed, exactly as the contract says.
       now: dryRun == true || was == mode ? '' : mode,
@@ -2224,18 +2320,8 @@ diff --git a/lib/money.dart b/lib/money.dart
       <({String task, List<String> domains, Scope scope, bool preview})>[];
 
   @override
-  Future<Narrowed> narrowTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) async {
-    narrowings.add((
-      task: task,
-      domains: domains,
-      scope: scope,
-      preview: dryRun == true,
-    ));
+  Future<Narrowed> narrowTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async {
+    narrowings.add((task: task, domains: domains, scope: scope, preview: dryRun == true));
     return nextNarrowing ??
         Narrowed.from(<String, dynamic>{
           'outcome': dryRun == true ? 'PREVIEWED' : 'NARROWED',
@@ -2332,14 +2418,14 @@ diff --git a/lib/money.dart b/lib/money.dart
 
   @override
   Future<List<Log>> logsOf(String task) async => <Log>[
-        for (final name in theLogsItHas)
-          Log.from(<String, dynamic>{
-            'name': name,
-            'bytes': 2048,
-            'at': '2026-09-07T14:12:00Z',
-            if (whatTheLogsHold[name] != null) 'what': whatTheLogsHold[name],
-          }),
-      ];
+    for (final name in theLogsItHas)
+      Log.from(<String, dynamic>{
+        'name': name,
+        'bytes': 2048,
+        'at': '2026-09-07T14:12:00Z',
+        if (whatTheLogsHold[name] != null) 'what': whatTheLogsHold[name],
+      }),
+  ];
 
   /// What each task's terminal session shows, by task; none where the machine has no `Screen`.
   final Map<String, Screen> screens = <String, Screen>{};
@@ -2372,8 +2458,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     }
     tailing = StreamController<List<String>>();
     if (!theLogsItHas.contains(log)) {
-      tailing.addError(
-          const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{}));
+      tailing.addError(const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{}));
       tailing.close();
     }
     return tailing.stream;
@@ -2606,24 +2691,26 @@ class World {
 
   /// One machine with two projects on it, one of them with work stopped.
   static List<Task> get work => <Task>[
-        // Running, unattended, and carrying its prompt: continuing it is refused because it is
-        // still going, which is a different refusal from "it was never an unattended run".
-        _task('porelo-checkout-shell', 'checkout',
-            mode: 'UNATTENDED', prompt: 'Bring the schema up to date'),
-        // A finished unattended run that kept what it was asked to do, which is what continuing
-        // it with a new prompt reads back.
-        // Its own ref is the one waiting at the gate, which `waiting` says on the task itself.
-        // Nothing joins the two: this container's name is not that ref, and never was.
-        _task('porelo-checkout-migrate', 'checkout',
-            running: false,
-            helpers: 0,
-            mode: 'UNATTENDED',
-            waiting: 1,
-            prompt: 'Fix the rounding in Money.pennies and add a test for it'),
-        _task('porelo-billing-shell', 'billing', securityClass: 'offline', helpers: 1),
-        // Started with enforcement off: nothing will ever be asked about what it reaches.
-        _task('porelo-billing-audit', 'billing', helpers: 0, clearance: 'off'),
-      ];
+    // Running, unattended, and carrying its prompt: continuing it is refused because it is
+    // still going, which is a different refusal from "it was never an unattended run".
+    _task('porelo-checkout-shell', 'checkout', mode: 'UNATTENDED', prompt: 'Bring the schema up to date'),
+    // A finished unattended run that kept what it was asked to do, which is what continuing
+    // it with a new prompt reads back.
+    // Its own ref is the one waiting at the gate, which `waiting` says on the task itself.
+    // Nothing joins the two: this container's name is not that ref, and never was.
+    _task(
+      'porelo-checkout-migrate',
+      'checkout',
+      running: false,
+      helpers: 0,
+      mode: 'UNATTENDED',
+      waiting: 1,
+      prompt: 'Fix the rounding in Money.pennies and add a test for it',
+    ),
+    _task('porelo-billing-shell', 'billing', securityClass: 'offline', helpers: 1),
+    // Started with enforcement off: nothing will ever be asked about what it reaches.
+    _task('porelo-billing-audit', 'billing', helpers: 0, clearance: 'off'),
+  ];
 
   /// A task as the machine lists it, for a step to put on the machine.
   static Task aTask(String name, String project, {String mode = ''}) => _task(name, project, mode: mode);
@@ -2641,29 +2728,27 @@ class World {
     String prompt = '',
     String agent = 'an-agent',
     int waiting = 0,
-  }) =>
-      Task.from(<String, dynamic>{
-        'name': name,
-        // The stand-in's own naming rule; the interface never derives this.
-        'task': name.replaceFirst('porelo-$project-', ''),
-        'project': project,
-        'securityClass': securityClass,
-        'state': running ? 'Up 4 minutes' : 'Exited (0) 12 minutes ago',
-        'running': running,
-        'helpers': helpers,
-        'clearance': clearance,
-        'mode': mode,
-        'prompt': prompt,
-        'waiting': waiting,
-        'agent': agent,
-      });
+  }) => Task.from(<String, dynamic>{
+    'name': name,
+    // The stand-in's own naming rule; the interface never derives this.
+    'task': name.replaceFirst('porelo-$project-', ''),
+    'project': project,
+    'securityClass': securityClass,
+    'state': running ? 'Up 4 minutes' : 'Exited (0) 12 minutes ago',
+    'running': running,
+    'helpers': helpers,
+    'clearance': clearance,
+    'mode': mode,
+    'prompt': prompt,
+    'waiting': waiting,
+    'agent': agent,
+  });
 
   /// One blocked connection, as the daemon raises it.
   ///
   /// Wire-shaped, and driven by the scenario rather than by a clock: this is the one event with a
   /// deadline, and a flaky test of it is a flaky test of the thing that matters most.
-  static Prompt blocked(String destination,
-      {String task = 'porelo-checkout-shell', String? deadline}) {
+  static Prompt blocked(String destination, {String task = 'porelo-checkout-shell', String? deadline}) {
     final parts = destination.split(':');
     return Prompt.from(<String, dynamic>{
       'task': task,
@@ -2679,17 +2764,17 @@ class World {
 
   /// The same question a second time, carrying its answer.
   static Prompt settled(Prompt asked, String verdict) => Prompt.from(<String, dynamic>{
-        'task': asked.task,
-        'key': asked.key,
-        'destination': asked.destination,
-        'protocol': asked.protocol,
-        'port': asked.port,
-        // Two things this field means: the block time on the question, the decision time here.
-        'at': '2026-09-07T15:04:00Z',
-        // Empty on an answer: nothing decided it a second time.
-        'prefix': '',
-        'verdict': verdict,
-      });
+    'task': asked.task,
+    'key': asked.key,
+    'destination': asked.destination,
+    'protocol': asked.protocol,
+    'port': asked.port,
+    // Two things this field means: the block time on the question, the decision time here.
+    'at': '2026-09-07T15:04:00Z',
+    // Empty on an answer: nothing decided it a second time.
+    'prefix': '',
+    'verdict': verdict,
+  });
 
   /// Replaces one task with the same task in a different activity.
   ///
@@ -2736,11 +2821,7 @@ class World {
         if (task.name != name)
           task
         else
-          Task.from(<String, dynamic>{
-            ...wire(task),
-            'startAction': action,
-            'startDetail': detail,
-          }),
+          Task.from(<String, dynamic>{...wire(task), 'startAction': action, 'startDetail': detail}),
     ]);
   }
 
@@ -2803,16 +2884,21 @@ class World {
     forgeTokens = MemoryForgeTokens();
     workspace = FakeWorkspace();
     forgeEntries = MemoryForgeEntries();
-    forges = ForgeConnection(forgeTokens, entries: forgeEntries, forgeFor: (token, address) {
-      forge.tokensTried.add(token);
-      // Each token its own forge, as GitHub(token) is: a dialog that kept the old one is caught.
-      return forge.keysOnlyWith == null ? forge : _ForgeWithToken(forge, token);
-    }, workspaceFor: (repository, token) {
-      workspace.repository = repository;
-      // Each token its own clone, as ProjectWorkspace(repository, token) is: a dialog that kept the
-      // old one is caught.
-      return workspace.pushesOnlyWith == null ? workspace : _WorkspaceWithToken(workspace, token);
-    });
+    forges = ForgeConnection(
+      forgeTokens,
+      entries: forgeEntries,
+      forgeFor: (token, address) {
+        forge.tokensTried.add(token);
+        // Each token its own forge, as GitHub(token) is: a dialog that kept the old one is caught.
+        return forge.keysOnlyWith == null ? forge : _ForgeWithToken(forge, token);
+      },
+      workspaceFor: (repository, token) {
+        workspace.repository = repository;
+        // Each token its own clone, as ProjectWorkspace(repository, token) is: a dialog that kept the
+        // old one is caught.
+        return workspace.pushesOnlyWith == null ? workspace : _WorkspaceWithToken(workspace, token);
+      },
+    );
     pickedFile = null;
     opened.clear();
     forwards.clear();
@@ -2834,19 +2920,20 @@ class World {
     addTearDown(narrowing.dispose);
     held = WorkHeld();
     addTearDown(held.dispose);
-    sessions = Sessions(openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
-      final terminal = FakeTerminal(<String>[executable, ...arguments]);
-      terminals.add(terminal);
-      return terminal;
-    });
+    sessions = Sessions(
+      openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
+        final terminal = FakeTerminal(<String>[executable, ...arguments]);
+        terminals.add(terminal);
+        return terminal;
+      },
+    );
     addTearDown(sessions.dispose);
     notifier = RecordingNotifier();
     notifications = Notifications(notifier, settings)
       ..watchOperations(operations, open: (operation) => shell.openOperation(operation.id));
     addTearDown(notifications.dispose);
     await notifications.load();
-    elsewhere = FakeBackend(<Task>[_task('porelo-shared-shell', 'shared')])
-      ..nodeId = 'node-b';
+    elsewhere = FakeBackend(<Task>[_task('porelo-shared-shell', 'shared')])..nodeId = 'node-b';
     addTearDown(elsewhere.stop);
 
     // One machine to begin with, and a second only when a scenario asks. Reaching several is
@@ -2874,43 +2961,45 @@ class World {
     // As the application does it: every machine, including one added later.
     notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
 
-    await tester.pumpWidget(PoreloApp(
-      machines: machines,
-      shell: shell,
-      settings: settings,
-      operations: operations,
-      logs: logs,
-      gate: gate,
-      notifications: notifications,
-      egress: egress,
-      widening: widening,
-      starting: starting,
-      inventory: inventory,
-      templates: templates,
-      stopping: stopping,
-      vault: vault,
-      newerVersion: newerVersion,
-      sessions: sessions,
-      deleting: deleting,
-      readiness: readiness,
-      authentication: authentication,
-      following: following,
-      connections: connections,
-      forges: forges,
-      pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
-      backups: backups,
-      narrowing: narrowing,
-      held: held,
-    ));
+    await tester.pumpWidget(
+      PoreloApp(
+        machines: machines,
+        shell: shell,
+        settings: settings,
+        operations: operations,
+        logs: logs,
+        gate: gate,
+        notifications: notifications,
+        egress: egress,
+        widening: widening,
+        starting: starting,
+        inventory: inventory,
+        templates: templates,
+        stopping: stopping,
+        vault: vault,
+        newerVersion: newerVersion,
+        sessions: sessions,
+        deleting: deleting,
+        readiness: readiness,
+        authentication: authentication,
+        following: following,
+        connections: connections,
+        forges: forges,
+        pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
+        backups: backups,
+        narrowing: narrowing,
+        held: held,
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
   static Operations _operationsFrom(OperationsStore store) => Operations(
-        store: store,
-        open: (path) async => filesOpened.add(path),
-        // Written at once: a timer still pending when a scenario ends fails it.
-        saveDelay: Duration.zero,
-      );
+    store: store,
+    open: (path) async => filesOpened.add(path),
+    // Written at once: a timer still pending when a scenario ends fails it.
+    saveDelay: Duration.zero,
+  );
 
   /// Closes the window and opens it again, keeping what was stored.
   static Future<void> restartApp(WidgetTester tester) async {
@@ -2943,67 +3032,71 @@ class World {
     // As the application does it: every machine, including one added later.
     notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
 
-    await tester.pumpWidget(PoreloApp(
-      machines: machines,
-      shell: shell,
-      settings: settings,
-      operations: operations,
-      logs: logs,
-      gate: gate,
-      notifications: notifications,
-      egress: egress,
-      widening: widening,
-      starting: starting,
-      inventory: inventory,
-      templates: templates,
-      stopping: stopping,
-      vault: vault,
-      newerVersion: newerVersion,
-      sessions: sessions,
-      deleting: deleting,
-      readiness: readiness,
-      authentication: authentication,
-      following: following,
-      connections: connections,
-      forges: forges,
-      pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
-      backups: backups,
-      narrowing: narrowing,
-      held: held,
-    ));
+    await tester.pumpWidget(
+      PoreloApp(
+        machines: machines,
+        shell: shell,
+        settings: settings,
+        operations: operations,
+        logs: logs,
+        gate: gate,
+        notifications: notifications,
+        egress: egress,
+        widening: widening,
+        starting: starting,
+        inventory: inventory,
+        templates: templates,
+        stopping: stopping,
+        vault: vault,
+        newerVersion: newerVersion,
+        sessions: sessions,
+        deleting: deleting,
+        readiness: readiness,
+        authentication: authentication,
+        following: following,
+        connections: connections,
+        forges: forges,
+        pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
+        backups: backups,
+        narrowing: narrowing,
+        held: held,
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
   /// Builds the interface again with whatever the scenario has just replaced.
   static Future<void> rebuild(WidgetTester tester) async {
-    await tester.pumpWidget(PoreloApp(
-      machines: machines,
-      shell: shell,
-      settings: settings,
-      operations: operations,
-      logs: logs,
-      gate: gate,
-      notifications: notifications,
-      egress: egress,
-      widening: widening,
-      starting: starting,
-      inventory: inventory,
-      templates: templates,
-      stopping: stopping,
-      vault: vault,
-      newerVersion: newerVersion,
-      sessions: sessions,
-      deleting: deleting,
-      readiness: readiness,
-      authentication: authentication,
-      following: following,
-      connections: connections,
-      forges: forges,
-      pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
-      backups: backups,
-      narrowing: narrowing,
-      held: held,
-    ));
+    await tester.pumpWidget(
+      PoreloApp(
+        machines: machines,
+        shell: shell,
+        settings: settings,
+        operations: operations,
+        logs: logs,
+        gate: gate,
+        notifications: notifications,
+        egress: egress,
+        widening: widening,
+        starting: starting,
+        inventory: inventory,
+        templates: templates,
+        stopping: stopping,
+        vault: vault,
+        newerVersion: newerVersion,
+        sessions: sessions,
+        deleting: deleting,
+        readiness: readiness,
+        authentication: authentication,
+        following: following,
+        connections: connections,
+        forges: forges,
+        pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
+        backups: backups,
+        narrowing: narrowing,
+        held: held,
+      ),
+    );
     await settle(tester);
   }
 
@@ -3072,10 +3165,12 @@ class World {
     await tester.tap(find.descendant(of: find.byKey(Key(choice)).last, matching: find.byType(Text)));
     await settle(tester);
     // A tap in an open menu that lands on its neighbor chooses that one, quietly.
-    final chosen = tester.widget<ChoiceField<Object?>>(find.ancestor(
-        of: find.byKey(Key(field)), matching: find.byWidgetPredicate((each) => each is ChoiceField)));
-    expect(chosen.choices.where((each) => each.value == chosen.value).map((each) => each.id), [choice],
-        reason: 'choosing $choice in $field');
+    final chosen = tester.widget<ChoiceField<Object?>>(
+      find.ancestor(of: find.byKey(Key(field)), matching: find.byWidgetPredicate((each) => each is ChoiceField)),
+    );
+    expect(chosen.choices.where((each) => each.value == chosen.value).map((each) => each.id), [
+      choice,
+    ], reason: 'choosing $choice in $field');
   }
 
   /// Puts a message in [task]'s mailbox that waits for a person, readable in full, and answers it.
@@ -3102,8 +3197,11 @@ class World {
     };
     final message = HeldMessage.from(fields);
     backend.heldForAPerson.add(message);
-    backend.readable[message.message] =
-        HeldMessageRead.from(<String, dynamic>{...fields, 'outcome': 'FOUND', 'text': <String>[text]});
+    backend.readable[message.message] = HeldMessageRead.from(<String, dynamic>{
+      ...fields,
+      'outcome': 'FOUND',
+      'text': <String>[text],
+    });
     return message;
   }
 
@@ -3166,22 +3264,17 @@ class World {
   /// Listens for anything copied, which crosses a platform channel rather than staying in Dart.
   static void watchTheClipboard(WidgetTester tester) {
     copied.clear();
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied.add((call.arguments as Map<Object?, Object?>)['text']! as String);
-        }
-        return null;
-      },
-    );
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, null));
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied.add((call.arguments as Map<Object?, Object?>)['text']! as String);
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
   }
 
   /// The theme the interface is actually drawn with.
-  static ThemeData themeInUse(WidgetTester tester) =>
-      Theme.of(tester.element(find.byType(Scaffold).first));
+  static ThemeData themeInUse(WidgetTester tester) => Theme.of(tester.element(find.byType(Scaffold).first));
 }
 
 /// Forwards, recorded rather than raised.
@@ -3223,8 +3316,7 @@ class FakeTerminal implements SessionChannel {
   void send(String input) => typed.add(input);
 
   @override
-  void resize({required int columns, required int rows}) =>
-      sizes.add('${columns}x$rows');
+  void resize({required int columns, required int rows}) => sizes.add('${columns}x$rows');
 
   @override
   Future<void> close() async {
@@ -3343,7 +3435,8 @@ class FakeMachineSetup extends MachineSetup {
   int prepareEnds = 0;
 
   /// What the setup script's `--list --json` prints.
-  String lists = '{"packages": ['
+  String lists =
+      '{"packages": ['
       '{"name": "porelo-agent-claude", "kind": "agent", "description": "Claude Code", '
       '"installed": false, "version": "1.0.0~snapshot.12"}, '
       '{"name": "porelo-agent-omp", "kind": "agent", "description": "oh-my-pi", '
@@ -3354,7 +3447,8 @@ class FakeMachineSetup extends MachineSetup {
       '"description": "A Matrix homeserver on this machine", "installed": true, "version": "1.0.0"}]}';
 
   /// What the setup script's `--show` prints.
-  String shows = "The script shown has the SHA-256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n"
+  String shows =
+      "The script shown has the SHA-256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n"
       "useradd --create-home agent\napt-get install -y porelo\nloginctl enable-linger agent";
 
   @override
@@ -3367,8 +3461,12 @@ class FakeMachineSetup extends MachineSetup {
       return ProcessResult(0, 0, lists, lists.contains('[]') ? 'nothing yet - no package declares it' : '');
     }
     if (script.contains('--show')) {
-      return ProcessResult(0, showEnds, showEnds == 3 ? '' : shows,
-          showEnds == 3 ? 'This is Arch Linux, which this script does not know.' : '');
+      return ProcessResult(
+        0,
+        showEnds,
+        showEnds == 3 ? '' : shows,
+        showEnds == 3 ? 'This is Arch Linux, which this script does not know.' : '',
+      );
     }
     if (script.contains('\nbash /root/porelo-setup.sh --user')) {
       return ProcessResult(0, prepareEnds, 'agents exists\nporelo installed', '');
@@ -3420,8 +3518,12 @@ class FakeMachineSetup extends MachineSetup {
       'porelo setup' when registeringFails != null => ProcessResult(0, 1, '', registeringFails!),
       'id -u' => ProcessResult(0, 0, '1001\n', ''),
       'porelo doctor' => doctorRefuses ?? ProcessResult(0, 0, 'transports  OK  matrix\nready', ''),
-      'systemctl --user show porelo-matrix-homeserver -p LoadState --value' =>
-        ProcessResult(0, 0, homeserverInstalled ? 'loaded\n' : 'not-found\n', ''),
+      'systemctl --user show porelo-matrix-homeserver -p LoadState --value' => ProcessResult(
+        0,
+        0,
+        homeserverInstalled ? 'loaded\n' : 'not-found\n',
+        '',
+      ),
       _ => ProcessResult(0, 0, '', ''),
     };
   }
@@ -3456,9 +3558,12 @@ class _ForgeWithToken implements Forge {
   @override
   Future<String?> whyNoKeys(String repository) => _forge.whyNoKeys(repository);
   @override
-  Future<ForgeDeployKey> addDeployKey(String repository,
-          {required String title, required String key, required bool readOnly}) =>
-      _forge._addDeployKey(repository, title: title, key: key, readOnly: readOnly, token: _token);
+  Future<ForgeDeployKey> addDeployKey(
+    String repository, {
+    required String title,
+    required String key,
+    required bool readOnly,
+  }) => _forge._addDeployKey(repository, title: title, key: key, readOnly: readOnly, token: _token);
   @override
   Future<void> removeDeployKey(String repository, int id) => _forge.removeDeployKey(repository, id);
 }
@@ -3500,9 +3605,12 @@ class _WorkspaceWithToken implements ProjectWorkspace {
   @override
   Future<void> writeFile(String name, String text) => _clone.writeFile(name, text);
   @override
-  Future<String> commitAndPush(String message, SigningKey key,
-          {required String login, List<String> files = const <String>['project.yml']}) =>
-      _clone._commitAndPush(message, key, login: login, files: files, token: _token);
+  Future<String> commitAndPush(
+    String message,
+    SigningKey key, {
+    required String login,
+    List<String> files = const <String>['project.yml'],
+  }) => _clone._commitAndPush(message, key, login: login, files: files, token: _token);
 }
 
 class FakeTunnels extends Tunnels {
@@ -3601,33 +3709,33 @@ class FakeTunnels extends Tunnels {
 
 /// [task] as the machine would send it.
 Map<String, dynamic> wire(Task task) => <String, dynamic>{
-      'name': task.name,
-      'task': task.task,
-      'label': task.label,
-      'project': task.project,
-      'securityClass': task.securityClass,
-      'state': task.state,
-      'running': task.running,
-      'helpers': task.helpers,
-      'agent': task.agent,
-      'mode': task.mode.name,
-      'prompt': task.prompt,
-      'branch': task.branch,
-      'since': task.since,
-      'activity': task.activity.name,
-      'waitingFor': task.waitingFor,
-      'clearance': task.clearance,
-      'waiting': task.waiting,
-      'startAction': task.startAction.name,
-      'startDetail': task.startDetail,
-      'phase': task.phase,
-      'repository': task.repository,
-      'credentials': task.credentials,
-      'grants': <String, dynamic>{
-        for (final each in task.grants.entries)
-          each.key: <String, dynamic>{'grantedBy': each.value.grantedBy, 'grantedAt': each.value.grantedAt},
-      },
-    };
+  'name': task.name,
+  'task': task.task,
+  'label': task.label,
+  'project': task.project,
+  'securityClass': task.securityClass,
+  'state': task.state,
+  'running': task.running,
+  'helpers': task.helpers,
+  'agent': task.agent,
+  'mode': task.mode.name,
+  'prompt': task.prompt,
+  'branch': task.branch,
+  'since': task.since,
+  'activity': task.activity.name,
+  'waitingFor': task.waitingFor,
+  'clearance': task.clearance,
+  'waiting': task.waiting,
+  'startAction': task.startAction.name,
+  'startDetail': task.startDetail,
+  'phase': task.phase,
+  'repository': task.repository,
+  'credentials': task.credentials,
+  'grants': <String, dynamic>{
+    for (final each in task.grants.entries)
+      each.key: <String, dynamic>{'grantedBy': each.value.grantedBy, 'grantedAt': each.value.grantedAt},
+  },
+};
 
 /// A forward that only records being taken down.
 class _RecordedForward implements HeldForward {
@@ -3638,7 +3746,6 @@ class _RecordedForward implements HeldForward {
   @override
   Future<void> close() async => _onClose();
 }
-
 
 /// A forge that answers as a scenario says, with nothing on the network.
 class FakeForge implements Forge {
@@ -3671,8 +3778,10 @@ class FakeForge implements Forge {
     final later = answersLater;
     if (later != null) await later.future;
     if (tokensTried.last != accepts && !alsoAccepted.contains(tokensTried.last)) {
-      throw const ForgeRefused('GitHub does not accept this token: it is wrong, expired or revoked. (Bad credentials)',
-          status: 401);
+      throw const ForgeRefused(
+        'GitHub does not accept this token: it is wrong, expired or revoked. (Bad credentials)',
+        status: 401,
+      );
     }
     return ForgeAccount(login);
   }
@@ -3684,9 +3793,10 @@ class FakeForge implements Forge {
   Future<bool> hasProjectFile(ForgeRepository repository) async => projects.contains(repository.fullName);
 
   @override
-  Future<ForgeRepository> repository(String fullName) async =>
-      repositoriesHere.firstWhere((each) => each.fullName == fullName,
-          orElse: () => throw const ForgeRefused('GitHub has nothing there this token can see.', status: 404));
+  Future<ForgeRepository> repository(String fullName) async => repositoriesHere.firstWhere(
+    (each) => each.fullName == fullName,
+    orElse: () => throw const ForgeRefused('GitHub has nothing there this token can see.', status: 404),
+  );
 
   /// Deploy keys by repository, as the forge holds them.
   final Map<String, List<ForgeDeployKey>> keysOf = <String, List<ForgeDeployKey>>{};
@@ -3724,28 +3834,38 @@ class FakeForge implements Forge {
   @override
   Future<String?> whyNoKeys(String repository) async => tokenMayNotManageKeysOf.contains(repository)
       ? 'GitHub refused it: the token lacks a right this needs, or a limit was reached. '
-          '(Resource not accessible by personal access token)'
+            '(Resource not accessible by personal access token)'
       : null;
 
   /// The one token that may add deploy keys, where only one may: the token in use is the last tried.
   String? keysOnlyWith;
 
   @override
-  Future<ForgeDeployKey> addDeployKey(String repository,
-      {required String title, required String key, required bool readOnly}) async {
+  Future<ForgeDeployKey> addDeployKey(
+    String repository, {
+    required String title,
+    required String key,
+    required bool readOnly,
+  }) async {
     return _addDeployKey(repository, title: title, key: key, readOnly: readOnly, token: tokensTried.lastOrNull);
   }
 
-  Future<ForgeDeployKey> _addDeployKey(String repository,
-      {required String title, required String key, required bool readOnly, required String? token}) async {
+  Future<ForgeDeployKey> _addDeployKey(
+    String repository, {
+    required String title,
+    required String key,
+    required bool readOnly,
+    required String? token,
+  }) async {
     if (refusesAddingAt.contains(repository)) {
       throw ForgeRefused('GitHub refused a deploy key at $repository: the key is already in use', status: 422);
     }
     if (keysOnlyWith != null && token != keysOnlyWith) {
       throw const ForgeRefused(
-          'GitHub refused it: Resource not accessible by personal access token. The token needs '
-          '"Administration: Read and write" on the repository.',
-          status: 403);
+        'GitHub refused it: Resource not accessible by personal access token. The token needs '
+        '"Administration: Read and write" on the repository.',
+        status: 403,
+      );
     }
     final made = ForgeDeployKey(id: _nextKey++, title: title, key: key, readOnly: readOnly);
     keysOf.putIfAbsent(repository, () => <ForgeDeployKey>[]).add(made);
@@ -3767,7 +3887,6 @@ class FakeForge implements Forge {
   final Set<String> refusesAddingAt = <String>{};
 }
 
-
 /// A working folder that answers as a scenario says, with no git and no agent.
 class FakeWorkspace implements ProjectWorkspace {
   @override
@@ -3775,7 +3894,14 @@ class FakeWorkspace implements ProjectWorkspace {
 
   @override
   ForgeRepository repository = const ForgeRepository(
-      fullName: '', sshUrl: '', httpsUrl: '', defaultBranch: 'main', admin: true, push: true, private: true);
+    fullName: '',
+    sshUrl: '',
+    httpsUrl: '',
+    defaultBranch: 'main',
+    admin: true,
+    push: true,
+    private: true,
+  );
 
   /// What the file holds on the forge, or null for none.
   String? onTheForge;
@@ -3785,7 +3911,11 @@ class FakeWorkspace implements ProjectWorkspace {
 
   /// The keys the agent holds.
   List<SigningKey> agentKeys = <SigningKey>[
-    const SigningKey(publicKey: 'ssh-ed25519 AAAAperson person@laptop', fingerprint: 'SHA256:person', comment: 'person@laptop'),
+    const SigningKey(
+      publicKey: 'ssh-ed25519 AAAAperson person@laptop',
+      fingerprint: 'SHA256:person',
+      comment: 'person@laptop',
+    ),
   ];
 
   /// Every commit pushed: the file, the message and the key it was signed with.
@@ -3815,7 +3945,9 @@ class FakeWorkspace implements ProjectWorkspace {
 
   @override
   Future<List<SigningKey>> signingKeys() async {
-    if (agentKeys.isEmpty) throw const WorkspaceRefused('Your ssh agent holds no key. Add one with ssh-add, and it can sign.');
+    if (agentKeys.isEmpty) {
+      throw const WorkspaceRefused('Your ssh agent holds no key. Add one with ssh-add, and it can sign.');
+    }
     return agentKeys;
   }
 
@@ -3852,15 +3984,25 @@ class FakeWorkspace implements ProjectWorkspace {
   String? pushesOnlyWith;
 
   @override
-  Future<String> commitAndPush(String message, SigningKey key,
-      {required String login, List<String> files = const <String>['project.yml']}) =>
-      _commitAndPush(message, key, login: login, files: files, token: null);
+  Future<String> commitAndPush(
+    String message,
+    SigningKey key, {
+    required String login,
+    List<String> files = const <String>['project.yml'],
+  }) => _commitAndPush(message, key, login: login, files: files, token: null);
 
-  Future<String> _commitAndPush(String message, SigningKey key,
-      {required String login, required List<String> files, required String? token}) async {
+  Future<String> _commitAndPush(
+    String message,
+    SigningKey key, {
+    required String login,
+    required List<String> files,
+    required String? token,
+  }) async {
     if (pushesOnlyWith != null && token != pushesOnlyWith) {
-      throw const WorkspaceRefused('The push was refused: the token needs "Contents: Read and write" on the '
-          'repository. Give it that right at the forge, or use a token that has it.');
+      throw const WorkspaceRefused(
+        'The push was refused: the token needs "Contents: Read and write" on the '
+        'repository. Give it that right at the forge, or use a token that has it.',
+      );
     }
     commits.add((names: files, message: message, fingerprint: key.fingerprint));
     if (files.contains('project.yml')) {

@@ -21,8 +21,7 @@ class TerminalLink {
   final bool isTheLogin;
 
   @override
-  bool operator ==(Object other) =>
-      other is TerminalLink && other.address == address && other.isTheLogin == isTheLogin;
+  bool operator ==(Object other) => other is TerminalLink && other.address == address && other.isTheLogin == isTheLogin;
 
   @override
   int get hashCode => Object.hash(address, isTheLogin);

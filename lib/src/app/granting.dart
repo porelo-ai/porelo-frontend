@@ -76,21 +76,23 @@ class Granting extends ChangeNotifier {
 
   /// Asks the machine, and listens until it is settled.
   void start() {
-    _listening = _backend.authorize(entry).listen(
-      _heard,
-      onError: (Object error) {
-        problem = switch (error) {
-          FeatureNotSupported() => 'This machine cannot grant an authorization.',
-          // Not only a refusal: a service the machine cannot reach answers the same way.
-          VarlinkException(:final simpleName, :final parameters) =>
-            'It could not be asked for: ${parameters['message'] ?? parameters['detail'] ?? simpleName}',
-          VarlinkDisconnected(:final message) => 'Lost contact with the machine: $message',
-          _ => '$error',
-        };
-        unawaited(_closeTheForward());
-        _notify();
-      },
-    );
+    _listening = _backend
+        .authorize(entry)
+        .listen(
+          _heard,
+          onError: (Object error) {
+            problem = switch (error) {
+              FeatureNotSupported() => 'This machine cannot grant an authorization.',
+              // Not only a refusal: a service the machine cannot reach answers the same way.
+              VarlinkException(:final simpleName, :final parameters) =>
+                'It could not be asked for: ${parameters['message'] ?? parameters['detail'] ?? simpleName}',
+              VarlinkDisconnected(:final message) => 'Lost contact with the machine: $message',
+              _ => '$error',
+            };
+            unawaited(_closeTheForward());
+            _notify();
+          },
+        );
   }
 
   void _heard(AuthorizeProgress progress) {

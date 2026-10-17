@@ -16,11 +16,8 @@ import './step/enough_time_passes_for_another_try.dart';
 import './step/a_backend_with_work_on_it.dart';
 
 void main() {
-  group('''A first start led from a machine to a project to the first work''',
-      () {
-    testWidgets(
-        '''with no work anywhere, the work page leads through three steps''',
-        (tester) async {
+  group('''A first start led from a machine to a project to the first work''', () {
+    testWidgets('''with no work anywhere, the work page leads through three steps''', (tester) async {
       await aBackendWithNothingOnIt(tester);
       await theAppIsRunning(tester);
       await theSectionShownIs(tester, 'Work');
@@ -31,9 +28,7 @@ void main() {
       await theFirstStepIsDone(tester, 'project', true);
       await itSays(tester, 'Start the first work');
     });
-    testWidgets(
-        '''a machine that does not answer is the first step still to take''',
-        (tester) async {
+    testWidgets('''a machine that does not answer is the first step still to take''', (tester) async {
       await aBackendWithNothingOnIt(tester);
       await theAppIsRunning(tester);
       await theTunnelDrops(tester);
@@ -43,9 +38,7 @@ void main() {
       await enoughTimePassesForAnotherTry(tester);
       await theFirstStepIsDone(tester, 'machine', true);
     });
-    testWidgets(
-        '''once there is work, the window shows it rather than the first steps''',
-        (tester) async {
+    testWidgets('''once there is work, the window shows it rather than the first steps''', (tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await itDoesNotSay(tester, 'Three steps, and the first work runs');

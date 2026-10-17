@@ -4,7 +4,8 @@ import '../support/world.dart';
 
 /// Usage: the machine has no transport yet
 Future<void> theMachineHasNoTransportYet(WidgetTester tester) async {
-  World.setup.lists = '{"packages": ['
+  World.setup.lists =
+      '{"packages": ['
       '{"name": "porelo-agent-claude", "kind": "agent", "description": "Claude Code", '
       '"installed": false, "version": "1.0.0"}, '
       '{"name": "porelo-message-transport-matrix", "kind": "transport", '

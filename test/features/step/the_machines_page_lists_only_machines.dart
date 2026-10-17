@@ -13,7 +13,8 @@ Future<void> theMachinesPageListsOnlyMachines(WidgetTester tester) async {
     expect(find.byKey(ValueKey<String>('machines-row ${machine.name}')), findsOneWidget);
   }
   final projects = find.byWidgetPredicate(
-      (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('project '));
+    (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('project '),
+  );
   expect(projects, findsNothing);
   expect(find.byWidgetPredicate((widget) => widget is Card && '${widget.key}'.contains("'tile ")), findsNothing);
 }

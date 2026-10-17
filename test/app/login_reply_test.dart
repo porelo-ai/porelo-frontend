@@ -17,12 +17,12 @@ void main() {
   late FakeTerminal far;
 
   Session login({bool forwards = true}) => Session(
-        task: 'login',
-        machine: vm,
-        run: const <String>['ssh', '-t', 'alice@vm', 'porelo', 'vault', 'login', 'claude'],
-        forwardsALoginReply: forwards,
-        open: (executable, arguments, {columns = 80, rows = 24}) => far = FakeTerminal(<String>[executable, ...arguments]),
-      );
+    task: 'login',
+    machine: vm,
+    run: const <String>['ssh', '-t', 'alice@vm', 'porelo', 'vault', 'login', 'claude'],
+    forwardsALoginReply: forwards,
+    open: (executable, arguments, {columns = 80, rows = 24}) => far = FakeTerminal(<String>[executable, ...arguments]),
+  );
 
   // What one test raised and kept is not the next one's to find.
   tearDown(letGoOfTheForwards);
@@ -41,8 +41,7 @@ void main() {
     await pumpEventQueue();
   }
 
-  test('the port a login names is forwarded to the same port on its machine, and taken down after',
-      () async {
+  test('the port a login names is forwarded to the same port on its machine, and taken down after', () async {
     final session = login();
     await said('\x1b]5379;forward;42017\x1b\\');
 
@@ -84,9 +83,11 @@ void main() {
     addTearDown(taken.close);
 
     await expectLater(
-        withSsh(vm, taken.port),
-        throwsA(isA<ForwardRefused>()
-            .having((refused) => refused.words, 'words', contains('already in use on this computer'))));
+      withSsh(vm, taken.port),
+      throwsA(
+        isA<ForwardRefused>().having((refused) => refused.words, 'words', contains('already in use on this computer')),
+      ),
+    );
   });
 
   test("this computer's own daemon needs nothing forwarded: the reply lands on its listener", () async {
@@ -107,8 +108,7 @@ void main() {
 
   // Measured: a forward still held when the run ended kept its ssh, and its port,
   // after the interface was gone.
-  test('the window closing takes down every forward still held, and one taken down already only once',
-      () async {
+  test('the window closing takes down every forward still held, and one taken down already only once', () async {
     final homeserver = await raiseForward(vm, 8009);
     final grant = await raiseForward(vm, 9420);
     await grant.close();
@@ -119,7 +119,6 @@ void main() {
     await homeserver.close();
     expect(closed, <int>[9420, 8009], reason: 'taken down twice');
   });
-
 }
 
 class _Recorded implements HeldForward {

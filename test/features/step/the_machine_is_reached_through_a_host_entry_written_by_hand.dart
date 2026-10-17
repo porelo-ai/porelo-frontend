@@ -10,11 +10,13 @@ Future<void> theMachineIsReachedThroughAHostEntryWrittenByHand(WidgetTester test
   final ssh = World.machines.setup.sshDirectory;
   Directory(ssh).createSync(recursive: true);
   File('$ssh/config').writeAsStringSync('Host $name\n    HostName $name.example.test\n    User me\n');
-  await World.machines.add(Machine(
-    name: name,
-    socketPath: Machine.endpointFor(name),
-    host: name,
-    remoteSocket: '/run/user/1000/porelo/porelod.sock',
-  ));
+  await World.machines.add(
+    Machine(
+      name: name,
+      socketPath: Machine.endpointFor(name),
+      host: name,
+      remoteSocket: '/run/user/1000/porelo/porelod.sock',
+    ),
+  );
   await World.settle(tester);
 }

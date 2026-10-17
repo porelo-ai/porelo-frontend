@@ -8,6 +8,9 @@ import '../support/world.dart';
 /// agent's own config file on its own disk.
 Future<void> noSecretCrossedTheSocket(WidgetTester tester) async {
   expect(World.backend.imports, isNotEmpty);
-  expect(World.backend.imports.every((agent) => agent == null || agent.isNotEmpty), isTrue,
-      reason: 'an empty agent name matches nothing and must never be sent as one');
+  expect(
+    World.backend.imports.every((agent) => agent == null || agent.isNotEmpty),
+    isTrue,
+    reason: 'an empty agent name matches nothing and must never be sent as one',
+  );
 }

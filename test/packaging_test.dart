@@ -20,10 +20,7 @@ void main() {
   // Comments stripped before anything is asserted. Every rule below is also *explained* in that
   // file, so a plain `contains` matches the sentence describing a directive as readily as the
   // directive — which is how the first version of this passed with the bundle flattened.
-  final template = commented
-      .split('\n')
-      .where((line) => !line.trimLeft().startsWith('#'))
-      .join('\n');
+  final template = commented.split('\n').where((line) => !line.trimLeft().startsWith('#')).join('\n');
   final desktop = File('packaging/porelo-frontend.desktop').readAsStringSync();
 
   String desktopField(String key) => desktop
@@ -69,18 +66,27 @@ void main() {
     for (final MapEntry(key: path, value: named) in runners.entries) {
       expect(File(path).readAsStringSync(), contains(named), reason: '$path does not say $productName');
     }
-    expect(File('linux/runner/my_application.cc').readAsStringSync(), isNot(contains('"porelo_frontend"')),
-        reason: 'the Linux window still takes its title from the binary');
-    expect(File('windows/runner/main.cpp').readAsStringSync(), isNot(contains('L"porelo_frontend"')),
-        reason: 'the Windows window still takes its title from the binary');
+    expect(
+      File('linux/runner/my_application.cc').readAsStringSync(),
+      isNot(contains('"porelo_frontend"')),
+      reason: 'the Linux window still takes its title from the binary',
+    );
+    expect(
+      File('windows/runner/main.cpp').readAsStringSync(),
+      isNot(contains('L"porelo_frontend"')),
+      reason: 'the Windows window still takes its title from the binary',
+    );
   });
 
   test('dependencies are not written down anywhere', () {
     // The criterion is that they are derived from the binary. A hand-written list goes stale the
     // first time Flutter changes what it links, and the failure is a package that installs and
     // then opens no window — so the template must carry none at all.
-    expect(template.contains('\ndepends:'), isFalse,
-        reason: 'dependencies belong to dpkg-shlibdeps and the ELF, not to this file');
+    expect(
+      template.contains('\ndepends:'),
+      isFalse,
+      reason: 'dependencies belong to dpkg-shlibdeps and the ELF, not to this file',
+    );
     expect(template.contains('\nrequires:'), isFalse);
   });
 
@@ -155,14 +161,18 @@ void main() {
         final here = Directory.systemTemp.createTempSync('channel-');
         addTearDown(() => here.deleteSync(recursive: true));
         File('${here.path}/pubspec.yaml').writeAsStringSync('version: $version\n');
-        final ran = await Process.run('bash', <String>['-c', script.replaceAll(r'${{ github.ref_type }}', refType)],
-            workingDirectory: here.path,
-            environment: <String, String>{
-              'GITHUB_OUTPUT': '${here.path}/output',
-              'GITHUB_ENV': '${here.path}/env',
-              'GITHUB_REF_NAME': ref,
-            });
-        String read(String name) => File('${here.path}/$name').existsSync() ? File('${here.path}/$name').readAsStringSync() : '';
+        final ran = await Process.run(
+          'bash',
+          <String>['-c', script.replaceAll(r'${{ github.ref_type }}', refType)],
+          workingDirectory: here.path,
+          environment: <String, String>{
+            'GITHUB_OUTPUT': '${here.path}/output',
+            'GITHUB_ENV': '${here.path}/env',
+            'GITHUB_REF_NAME': ref,
+          },
+        );
+        String read(String name) =>
+            File('${here.path}/$name').existsSync() ? File('${here.path}/$name').readAsStringSync() : '';
         return (code: ran.exitCode, output: read('output'), env: read('env'));
       }
 
@@ -202,19 +212,23 @@ void main() {
       // check-actions refuses a setup action that fetches a JDK by name; that each job then takes the
       // pinned one, and not none at all, is this repository's own to hold.
       final build = File('.github/workflows/build.yml').readAsStringSync();
-      expect('uses: ./.github/actions/pinned-jdk'.allMatches(build).length, 2,
-          reason: 'both jobs that run Maven take the pinned JDK');
+      expect(
+        'uses: ./.github/actions/pinned-jdk'.allMatches(build).length,
+        2,
+        reason: 'both jobs that run Maven take the pinned JDK',
+      );
       final action = File('.github/actions/pinned-jdk/action.yml').readAsStringSync();
       expect(action, contains('org.fuin.porelo.machines.Main jdk --github'));
-      expect(action, contains(r'"$JAVA_HOME_25_X64/bin/java"'),
-          reason: "the runner's own Java only runs the tool");
+      expect(action, contains(r'"$JAVA_HOME_25_X64/bin/java"'), reason: "the runner's own Java only runs the tool");
     });
 
     test('check-actions runs in the build', () {
       // The one test for what a build runs being pinned, for every Porelo repository alike: the
       // pins, Dependabot with its cooldown and group, and the digest of what mvnw downloads.
-      expect(File('.github/workflows/build.yml').readAsStringSync(),
-          contains('org.fuin.porelo.release.Main check-actions'));
+      expect(
+        File('.github/workflows/build.yml').readAsStringSync(),
+        contains('org.fuin.porelo.release.Main check-actions'),
+      );
     });
 
     test('the builder that writes the packages is pinned by digest', () {
@@ -224,8 +238,7 @@ void main() {
       final fetched = RegExp(r'nfpm_([0-9.]+)_Linux_x86_64\.tar\.gz').firstMatch(workflow);
       expect(fetched, isNotNull, reason: 'the workflow no longer fetches nfpm by that name');
       expect(workflow, matches(RegExp(r'nfpm_sha=[0-9a-f]{64}')));
-      expect(workflow, contains('sha256sum -c -'),
-          reason: 'the digest is declared and never checked');
+      expect(workflow, contains('sha256sum -c -'), reason: 'the digest is declared and never checked');
     });
 
     test('the secret names are the ones that exist, not invented ones', () {
@@ -238,8 +251,10 @@ void main() {
       // slipped to a newer runner would produce a package that installs nowhere older, and
       // nothing about the run would say so. The Windows job is the one other runner.
       expect(workflow.contains('runs-on: ubuntu-latest'), isFalse);
-      expect('runs-on: ubuntu-22.04'.allMatches(workflow).length,
-          'runs-on:'.allMatches(workflow).length - 'runs-on: windows-'.allMatches(workflow).length);
+      expect(
+        'runs-on: ubuntu-22.04'.allMatches(workflow).length,
+        'runs-on:'.allMatches(workflow).length - 'runs-on: windows-'.allMatches(workflow).length,
+      );
       expect('runs-on: windows-'.allMatches(workflow).length, 1);
     });
 
@@ -273,8 +288,7 @@ void main() {
       // Artifactory answers an artifact with a 302 to a CDN, and `curl -f` treats a redirect as
       // success — so without -L the body is empty, nothing matches, and a perfectly well indexed
       // package is reported as "not indexed".
-      expect(workflow.contains('curl -fsS "'), isFalse,
-          reason: 'every fetch in the index check needs -L');
+      expect(workflow.contains('curl -fsS "'), isFalse, reason: 'every fetch in the index check needs -L');
     });
 
     test('the index check retries rather than probing once', () {
@@ -290,7 +304,12 @@ void main() {
     test('the packages are proven to install before they are published', () {
       expect(workflow, contains('needs: [build, installs, integration, windows]'));
       expect(workflow, contains("needs.build.result == 'success' && needs.installs.result == 'success'"));
-      for (final system in <String>['ubuntu:26.04@sha256:', 'debian:13@sha256:', 'fedora:43@sha256:', 'fedora:44@sha256:']) {
+      for (final system in <String>[
+        'ubuntu:26.04@sha256:',
+        'debian:13@sha256:',
+        'fedora:43@sha256:',
+        'fedora:44@sha256:',
+      ]) {
         expect(workflow, contains(system), reason: 'each supported system, pinned by its digest');
       }
       expect(workflow, isNot(contains('debian:12')), reason: 'below what Porelo supports');
@@ -314,7 +333,9 @@ void main() {
         }
       }
       final integration = ((loadYaml(workflow) as YamlMap)['jobs'] as YamlMap)['integration'] as YamlMap;
-      final lease = (integration['steps'] as YamlList).cast<YamlMap>().firstWhere((each) => each['name'] == 'Lease, test and sweep');
+      final lease = (integration['steps'] as YamlList).cast<YamlMap>().firstWhere(
+        (each) => each['name'] == 'Lease, test and sweep',
+      );
       expect(lease['timeout-minutes'] as int, lessThan(integration['timeout-minutes'] as int));
     });
 

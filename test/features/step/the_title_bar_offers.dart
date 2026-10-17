@@ -9,8 +9,7 @@ Future<void> theTitleBarOffers(WidgetTester tester, String actions) async {
       .map((button) => button.tooltip ?? '')
       .where((tooltip) => tooltip.isNotEmpty && tooltip != 'Open navigation menu');
   final menus = tester
-      .widgetList<PopupMenuButton<String>>(
-          find.descendant(of: bar, matching: find.byType(PopupMenuButton<String>)))
+      .widgetList<PopupMenuButton<String>>(find.descendant(of: bar, matching: find.byType(PopupMenuButton<String>)))
       .map((menu) => menu.tooltip ?? '');
   expect(<String>{...buttons, ...menus}, actions.split(', ').toSet());
 }

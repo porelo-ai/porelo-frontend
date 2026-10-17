@@ -24,8 +24,7 @@ class Clearance extends ChangeNotifier {
   String? problem;
 
   /// What is waiting for an answer, oldest question first.
-  List<Prompt> get waiting => _asking.values.toList()
-    ..sort((a, b) => a.at.compareTo(b.at));
+  List<Prompt> get waiting => _asking.values.toList()..sort((a, b) => a.at.compareTo(b.at));
 
   /// How many are waiting.
   int get count => _asking.length;
@@ -43,10 +42,9 @@ class Clearance extends ChangeNotifier {
   /// fixed address is asked about once for the whole run, while a CDN or anything round-robin
   /// asks again for every new address it resolves to. Saying so beats leaving somebody to
   /// conclude their last answer was ignored.
-  bool askedBefore(Prompt prompt) => _settled.any((each) =>
-      each.task == prompt.task &&
-      each.destination == prompt.destination &&
-      each.verdict == 'allow');
+  bool askedBefore(Prompt prompt) => _settled.any(
+    (each) => each.task == prompt.task && each.destination == prompt.destination && each.verdict == 'allow',
+  );
 
   /// Starts watching. Safe to call again; it replaces what was watching before.
   void watch(FleetBackend backend) {
@@ -56,9 +54,7 @@ class Clearance extends ChangeNotifier {
       _arrived,
       onError: (Object error) {
         // An older daemon has no Prompts; that disables this one feature and nothing else.
-        problem = error is FeatureNotSupported
-            ? 'This backend cannot report blocked connections.'
-            : '$error';
+        problem = error is FeatureNotSupported ? 'This backend cannot report blocked connections.' : '$error';
         _notify();
       },
     );
@@ -68,11 +64,7 @@ class Clearance extends ChangeNotifier {
   ///
   /// Not removed optimistically: the answer is only real once whatever asked has taken it, and a
   /// row that vanished on the press would claim something nobody had confirmed.
-  Future<void> decide(
-    FleetBackend backend,
-    Prompt prompt, {
-    required bool allow,
-  }) async {
+  Future<void> decide(FleetBackend backend, Prompt prompt, {required bool allow}) async {
     _answering.add(prompt.identity);
     _notify();
     try {

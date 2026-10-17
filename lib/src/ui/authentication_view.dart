@@ -13,12 +13,7 @@ import 'tokens.dart';
 /// can see the socket at all — so what is shown is the command, ready to copy.
 class AuthenticationView extends StatelessWidget {
   /// Constructor taking what the machine said and what can be done.
-  const AuthenticationView({
-    required this.authentication,
-    required this.onImport,
-    required this.onClose,
-    super.key,
-  });
+  const AuthenticationView({required this.authentication, required this.onImport, required this.onClose, super.key});
 
   /// What the machine has.
   final Authentication authentication;
@@ -37,11 +32,7 @@ class AuthenticationView extends StatelessWidget {
       children: <Widget>[
         PaneHeader(
           title: 'Providers on this machine',
-          trailing: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close (Esc)',
-            onPressed: onClose,
-          ),
+          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         if (authentication.problem != null)
           Container(
@@ -64,14 +55,10 @@ class AuthenticationView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (authentication.busy && authentication.answer == null)
-                const Padding(
-                  padding: EdgeInsets.all(Space.normal),
-                  child: Text('Asking the machine…'),
-                ),
+                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…')),
               if (!authentication.readable && authentication.answer != null)
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      Space.normal, 0, Space.normal, Space.small),
+                  padding: EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
                   child: Text(
                     'The vault is shut, so nothing here can say which of these are '
                     'authenticated. That is not the same as none of them being.',
@@ -106,11 +93,7 @@ class AuthenticationView extends StatelessWidget {
 
 /// One provider, with where its credential belongs.
 class _ProviderRow extends StatelessWidget {
-  const _ProviderRow({
-    required this.provider,
-    required this.readable,
-    required this.onImport,
-  });
+  const _ProviderRow({required this.provider, required this.readable, required this.onImport});
 
   final Provider provider;
   final bool readable;
@@ -127,26 +110,26 @@ class _ProviderRow extends StatelessWidget {
         !readable
             ? Icons.help_outline
             : provider.authenticated
-                ? Icons.check_circle_outline
-                : Icons.radio_button_unchecked,
+            ? Icons.check_circle_outline
+            : Icons.radio_button_unchecked,
         size: Sizes.mark,
         color: !readable
             ? scheme.onSurfaceVariant
             : provider.authenticated
-                ? scheme.primary
-                : scheme.outline,
+            ? scheme.primary
+            : scheme.outline,
       ),
-      title: Text(provider.label.isEmpty ? provider.name : provider.label,
-          key: const Key('provider')),
-      subtitle: Text(!readable
-          ? '${provider.name} · cannot say while the vault is shut'
-          : provider.authenticated
-              ? '${provider.name} · authenticated'
-              : '${provider.name} · not authenticated'),
+      title: Text(provider.label.isEmpty ? provider.name : provider.label, key: const Key('provider')),
+      subtitle: Text(
+        !readable
+            ? '${provider.name} · cannot say while the vault is shut'
+            : provider.authenticated
+            ? '${provider.name} · authenticated'
+            : '${provider.name} · not authenticated',
+      ),
       children: <Widget>[
         _Field(name: 'Reaches', value: provider.upstream),
-        if (provider.dialects.isNotEmpty)
-          _Field(name: 'Ways in', value: provider.dialects.join(', ')),
+        if (provider.dialects.isNotEmpty) _Field(name: 'Ways in', value: provider.dialects.join(', ')),
         // **What differs between them, without pretending to know each agent's flow.** The two
         // kinds go in different headers, which is why the command carries `--type` — sending one
         // as the other fails as an authentication error that looks exactly like a wrong key.
@@ -156,8 +139,7 @@ class _ProviderRow extends StatelessWidget {
         // instructions.
         if (provider.dialects.length > 1)
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-                Space.normal, Space.tight, Space.normal, Space.small),
+            padding: const EdgeInsets.fromLTRB(Space.normal, Space.tight, Space.normal, Space.small),
             child: Text(
               'A key and a subscription token are stored differently — the command below carries '
               'which. Getting either one is the agent’s own login, on the machine, and its own '
@@ -170,38 +152,35 @@ class _ProviderRow extends StatelessWidget {
         // before credentials were keyed by provider answers under the *agent's* name and that key
         // stays in use — so a client intersecting two lists would report a credential missing from
         // precisely the vault that has one.
-        if (provider.credentialName.isNotEmpty)
-          _Field(name: 'Stored under', value: provider.credentialName),
-        if (readable && provider.credentialType.isNotEmpty)
-          _Field(name: 'Kind', value: provider.credentialType),
+        if (provider.credentialName.isNotEmpty) _Field(name: 'Stored under', value: provider.credentialName),
+        if (readable && provider.credentialType.isNotEmpty) _Field(name: 'Kind', value: provider.credentialType),
         if (provider.storeCommand.isNotEmpty) ...<Widget>[
           const _Heading(words: 'To store one, at the machine'),
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-                Space.normal, 0, Space.normal, Space.small),
+            padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
             child: Row(
               children: <Widget>[
                 Expanded(
                   // Rendered verbatim. The daemon built it from the key it really uses, and a
                   // line rebuilt here would sooner or later name a different one.
-                  child: SelectableText(provider.storeCommand,
-                      key: const Key('store-command'),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                  child: SelectableText(
+                    provider.storeCommand,
+                    key: const Key('store-command'),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
                 ),
                 IconButton(
                   key: const Key('copy-store-command'),
                   icon: const Icon(Icons.copy, size: Sizes.rowIcon),
                   tooltip: 'Copy it',
-                  onPressed: () => Clipboard.setData(
-                      ClipboardData(text: provider.storeCommand)),
+                  onPressed: () => Clipboard.setData(ClipboardData(text: provider.storeCommand)),
                 ),
               ],
             ),
           ),
         ],
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-              Space.normal, 0, Space.normal, Space.normal),
+          padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.normal),
           child: Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
@@ -226,10 +205,9 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-            Space.normal, Space.small, Space.normal, Space.tight),
-        child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-      );
+    padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.normal, Space.tight),
+    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
+  );
 }
 
 class _Field extends StatelessWidget {
@@ -240,20 +218,18 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: Space.normal, vertical: Space.tight),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            SizedBox(
-              width: Sizes.label,
-              child: Text(name, style: Theme.of(context).textTheme.bodySmall),
-            ),
-            Expanded(
-              child: Text(value.isEmpty ? '—' : value,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: Sizes.label,
+          child: Text(name, style: Theme.of(context).textTheme.bodySmall),
         ),
-      );
+        Expanded(
+          child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+        ),
+      ],
+    ),
+  );
 }

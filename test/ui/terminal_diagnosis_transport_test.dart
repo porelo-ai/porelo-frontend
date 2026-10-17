@@ -23,11 +23,17 @@ void main() {
   tearDown(() => bin.deleteSync(recursive: true));
 
   for (final pseudoconsole in <bool>[true, false]) {
-    test('through ${pseudoconsole ? 'a terminal' : 'pipes'}, a letter, a carriage return and an escape arrive as sent',
-        () async {
-      final read = await throughWslForReal('Ubuntu', <int>[0x61, 0x0d, 0x1b, 0x5b, 0x41],
-          pseudoconsole: pseudoconsole, wslExe: '${bin.path}/wsl.exe');
-      expect(read, contains(r'a  \r 033   [   A'));
-    });
+    test(
+      'through ${pseudoconsole ? 'a terminal' : 'pipes'}, a letter, a carriage return and an escape arrive as sent',
+      () async {
+        final read = await throughWslForReal(
+          'Ubuntu',
+          <int>[0x61, 0x0d, 0x1b, 0x5b, 0x41],
+          pseudoconsole: pseudoconsole,
+          wslExe: '${bin.path}/wsl.exe',
+        );
+        expect(read, contains(r'a  \r 033   [   A'));
+      },
+    );
   }
 }

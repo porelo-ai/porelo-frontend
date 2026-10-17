@@ -12,7 +12,10 @@ Future<void> theMachineSays(WidgetTester tester, String name, String words) asyn
         .widgetList<Tooltip>(find.byType(Tooltip))
         .map((tip) => tip.message ?? '')
         .where((message) => message.contains(name));
-    expect(said.any((message) => message.contains(words)), isTrue,
-        reason: 'the transport said "$words" and nothing showed it: $said');
+    expect(
+      said.any((message) => message.contains(words)),
+      isTrue,
+      reason: 'the transport said "$words" and nothing showed it: $said',
+    );
   });
 }

@@ -34,9 +34,7 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''the way to stop everything is on screen without opening anything''',
-        (tester) async {
+    testWidgets('''the way to stop everything is on screen without opening anything''', (tester) async {
       await bddSetUp(tester);
       await stoppingEverythingIsOfferedOnTheFrame(tester);
     });
@@ -45,39 +43,31 @@ void main() {
       await iOpenTheCommandFinder(tester);
       await theCommandFinderNames(tester, 'Stop everything on this machine');
     });
-    testWidgets('''it never stops anything on the first press''',
-        (tester) async {
+    testWidgets('''it never stops anything on the first press''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await nothingHasBeenStopped(tester);
-      await itSays(
-          tester, 'This would stop the 3 pieces of work that are running');
+      await itSays(tester, 'This would stop the 3 pieces of work that are running');
     });
-    testWidgets('''leaving is the default, so a stray Return carries nothing''',
-        (tester) async {
+    testWidgets('''leaving is the default, so a stray Return carries nothing''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await leavingItRunningIsTheDefault(tester);
     });
-    testWidgets(
-        '''agreeing stops everything and says what state the machine is in''',
-        (tester) async {
+    testWidgets('''agreeing stops everything and says what state the machine is in''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await iAgreeToStopEverything(tester);
-      await itSays(
-          tester, 'Stopped the 3 that were running. Nothing was removed.');
+      await itSays(tester, 'Stopped the 3 that were running. Nothing was removed.');
       await itSays(tester, 'exactly where it was');
     });
-    testWidgets('''the way back is named, not left to be worked out''',
-        (tester) async {
+    testWidgets('''the way back is named, not left to be worked out''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await iAgreeToStopEverything(tester);
       await itSaysHowToGetBackToWork(tester);
     });
-    testWidgets('''a helper that outlived its stop is named, never counted''',
-        (tester) async {
+    testWidgets('''a helper that outlived its stop is named, never counted''', (tester) async {
       await bddSetUp(tester);
       await oneHelperWillOutliveTheStop(tester);
       await iAskToStopEverything(tester);
@@ -85,39 +75,31 @@ void main() {
       await itNamesTheHelper(tester, 'porelo-checkout-shell-gate (pid 4711)');
       await itSays(tester, 'killed on the machine by hand');
     });
-    testWidgets('''losing the machine mid-stop says nothing was stopped''',
-        (tester) async {
+    testWidgets('''losing the machine mid-stop says nothing was stopped''', (tester) async {
       await bddSetUp(tester);
       await theBackendWillRefuseToStopEverything(tester);
       await iAskToStopEverything(tester);
       await iAgreeToStopEverything(tester);
       await itSays(tester, 'Nothing was stopped, and work is still running');
     });
-    testWidgets(
-        '''what was stopped is named, because the name is how it comes back''',
-        (tester) async {
+    testWidgets('''what was stopped is named, because the name is how it comes back''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await iAgreeToStopEverything(tester);
       await itNamesTheWorkAmongWhatWasStopped(tester, 'porelo-checkout-shell');
     });
-    testWidgets('''a preview promises nothing about what will survive''',
-        (tester) async {
+    testWidgets('''a preview promises nothing about what will survive''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await itDoesNotClaimEverythingWillStopCleanly(tester);
     });
-    testWidgets(
-        '''the stop for every machine is on the rail, and it asks first''',
-        (tester) async {
+    testWidgets('''the stop for every machine is on the rail, and it asks first''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopEverythingOnEveryMachine(tester);
       await nothingHasBeenStopped(tester);
       await itSays(tester, 'Stop everything on every machine?');
     });
-    testWidgets(
-        '''agreeing stops every machine, and says what survived on each''',
-        (tester) async {
+    testWidgets('''agreeing stops every machine, and says what survived on each''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iAskToStopEverythingOnEveryMachine(tester);

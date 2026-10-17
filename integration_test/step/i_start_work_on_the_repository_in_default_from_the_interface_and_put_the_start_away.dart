@@ -20,8 +20,13 @@ Future<void> openTheDefaultFromWork(WidgetTester tester) async {
     await tester.tap(inDefault);
     await pumpFor(tester);
   }
-  await pumpUntil(tester, () => find.byKey(const Key('default-dialog')).evaluate().isNotEmpty &&
-      find.text('Asking the machine…').evaluate().isEmpty, what: 'default, read from the machine');
+  await pumpUntil(
+    tester,
+    () =>
+        find.byKey(const Key('default-dialog')).evaluate().isNotEmpty &&
+        find.text('Asking the machine…').evaluate().isEmpty,
+    what: 'default, read from the machine',
+  );
 }
 
 /// Opens default's repositories, as the window offers them.
@@ -35,18 +40,21 @@ Future<void> openTheDefault(WidgetTester tester) async {
 /// The way into default: New work under Work, Default, the repository's address, "Start work on it". The start
 /// form that follows is put away: what is measured here is the repository going in.
 Future<void> iStartWorkOnTheRepositoryInDefaultFromTheInterfaceAndPutTheStartAway(
-    WidgetTester tester, String name) async {
+  WidgetTester tester,
+  String name,
+) async {
   await openTheDefaultFromWork(tester);
   await tester.enterText(find.byKey(const Key('default-address')), theRepositoryThere!);
   await pumpFor(tester);
   await tester.tap(find.byKey(const Key('default-start-new')));
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('start-go')).evaluate().isNotEmpty ||
-          find.byKey(const Key('default-problem')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 60),
-      what: 'the machine to put $name into default and the start to open');
+    tester,
+    () =>
+        find.byKey(const Key('start-go')).evaluate().isNotEmpty ||
+        find.byKey(const Key('default-problem')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 60),
+    what: 'the machine to put $name into default and the start to open',
+  );
   expect(find.byKey(const Key('default-problem')), findsNothing);
   await tester.tap(find.widgetWithText(TextButton, 'Not now').last);
   await pumpFor(tester);

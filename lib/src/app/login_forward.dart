@@ -69,8 +69,10 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     final taken = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
     await taken.close();
   } on SocketException {
-    throw ForwardRefused('Port $port is already in use on this computer, so the browser’s answer '
-        'could not reach ${machine.name}. Close what uses it and try again.');
+    throw ForwardRefused(
+      'Port $port is already in use on this computer, so the browser’s answer '
+      'could not reach ${machine.name}. Close what uses it and try again.',
+    );
   }
   final ssh = await Process.start('ssh', <String>[
     '-N',
@@ -88,12 +90,17 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
     final exited = await ssh.exitCode.timeout(const Duration(milliseconds: 100), onTimeout: () => -1);
     if (exited != -1) {
       final words = (await said).trim();
-      throw ForwardRefused('The browser’s answer could not be forwarded to ${machine.name}: '
-          '${words.isEmpty ? 'ssh ended with $exited' : words}');
+      throw ForwardRefused(
+        'The browser’s answer could not be forwarded to ${machine.name}: '
+        '${words.isEmpty ? 'ssh ended with $exited' : words}',
+      );
     }
     try {
-      final through = await Socket.connect(InternetAddress.loopbackIPv4, port,
-          timeout: const Duration(milliseconds: 200));
+      final through = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        port,
+        timeout: const Duration(milliseconds: 200),
+      );
       through.destroy();
       return _Ssh(ssh);
     } on SocketException {

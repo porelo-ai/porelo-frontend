@@ -23,7 +23,7 @@ Future<void> main(List<String> args) async {
   final path = args.isNotEmpty
       ? args[0]
       : '${Platform.environment['XDG_RUNTIME_DIR'] ?? '/run/user/${_uid()}'}'
-          '/porelo/porelod.sock';
+            '/porelo/porelod.sock';
   final within = Duration(seconds: args.length > 1 ? int.parse(args[1]) : 30);
 
   if (!await FileSystemEntity.isLink(path) && !File(path).existsSync()) {
@@ -32,25 +32,28 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final socket =
-      await Socket.connect(InternetAddress(path, type: InternetAddressType.unix), 0);
+  final socket = await Socket.connect(InternetAddress(path, type: InternetAddressType.unix), 0);
   final replies = <Map<String, dynamic>>[];
   final buffer = BytesBuilder();
   final answered = Completer<void>();
-  socket.listen((chunk) {
-    for (final byte in chunk) {
-      if (byte == 0) {
-        replies.add(jsonDecode(utf8.decode(buffer.takeBytes())) as Map<String, dynamic>);
-        if (replies.length == _calls && !answered.isCompleted) answered.complete();
-      } else {
-        buffer.addByte(byte);
+  socket.listen(
+    (chunk) {
+      for (final byte in chunk) {
+        if (byte == 0) {
+          replies.add(jsonDecode(utf8.decode(buffer.takeBytes())) as Map<String, dynamic>);
+          if (replies.length == _calls && !answered.isCompleted) answered.complete();
+        } else {
+          buffer.addByte(byte);
+        }
       }
-    }
-  }, onDone: () {
-    if (!answered.isCompleted) answered.complete();
-  }, onError: (Object _) {
-    if (!answered.isCompleted) answered.complete();
-  });
+    },
+    onDone: () {
+      if (!answered.isCompleted) answered.complete();
+    },
+    onError: (Object _) {
+      if (!answered.isCompleted) answered.complete();
+    },
+  );
 
   void call(String method, [Map<String, dynamic> parameters = const {}]) {
     socket.add(utf8.encode(jsonEncode({'method': method, 'parameters': parameters})));
@@ -64,8 +67,10 @@ Future<void> main(List<String> args) async {
   await answered.future.timeout(within, onTimeout: () {});
   socket.destroy();
   if (replies.length < _calls) {
-    stderr.writeln('$path answered ${replies.length} of $_calls calls within '
-        '${within.inSeconds} seconds');
+    stderr.writeln(
+      '$path answered ${replies.length} of $_calls calls within '
+      '${within.inSeconds} seconds',
+    );
     exitCode = 1;
   }
 
@@ -77,8 +82,10 @@ Future<void> main(List<String> args) async {
     }
     final parameters = reply['parameters'] as Map<String, dynamic>? ?? const {};
     if (parameters['product'] != null) {
-      print('${parameters['product']} ${parameters['version']} '
-          '(${parameters['vendor']})');
+      print(
+        '${parameters['product']} ${parameters['version']} '
+        '(${parameters['vendor']})',
+      );
       print('interfaces: ${(parameters['interfaces'] as List<dynamic>).join(', ')}');
       print('');
     }
@@ -88,5 +95,4 @@ Future<void> main(List<String> args) async {
   }
 }
 
-int _uid() => int.tryParse(
-    Process.runSync('id', ['-u']).stdout.toString().trim()) ?? 1000;
+int _uid() => int.tryParse(Process.runSync('id', ['-u']).stdout.toString().trim()) ?? 1000;

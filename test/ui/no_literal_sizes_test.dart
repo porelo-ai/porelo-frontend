@@ -59,9 +59,7 @@ const _named =
     r'thickness|indent|endIndent|spacing|runSpacing|horizontal|vertical|left|top|right|bottom)'
     r'\s*:\s*[^,;()]*';
 
-final _shapes = RegExp(
-  '$_named|\\bEdgeInsets\\w*\\.\\w+\\([^)]*\\)|Radius\\.circular\\([^)]*\\)',
-);
+final _shapes = RegExp('$_named|\\bEdgeInsets\\w*\\.\\w+\\([^)]*\\)|Radius\\.circular\\([^)]*\\)');
 
 /// A number other than zero, standing on its own rather than inside a name.
 final _number = RegExp(r'(?:^|[^\w.])(\d+(?:\.\d+)?)(?![\w.])');

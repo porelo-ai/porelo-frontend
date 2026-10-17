@@ -139,7 +139,8 @@ class StartWork extends ChangeNotifier {
         : '${runningElsewhere.sublist(0, runningElsewhere.length - 1).join(', ')} and ${runningElsewhere.last}';
     final name = project?.name ?? 'this project';
     // The machine's own homeserver is reached on loopback; an offline project must stay there.
-    final ownHomeserver = messages.loopbackOnly ||
+    final ownHomeserver =
+        messages.loopbackOnly ||
         messages.reaches.isEmpty ||
         messages.reaches.every((each) => RegExp(r'^(https?://)?(127\.|localhost\b|\[::1\])').hasMatch(each));
     if (ownHomeserver) {
@@ -292,10 +293,10 @@ class StartWork extends ChangeNotifier {
   bool get refusedOutright =>
       refusedForADestination ||
       takesAPrompt &&
-      readiness != null &&
-      !readiness!.ready &&
-      !readinessIsAboutTheName &&
-      !readinessIsAboutTheRepository;
+          readiness != null &&
+          !readiness!.ready &&
+          !readinessIsAboutTheName &&
+          !readinessIsAboutTheRepository;
 
   /// Whether a credential is for a destination the machine does not declare. **Refused in every
   /// mode**: `Start` answers it with `NoSuchDestination` before anything exists, so there is
@@ -304,8 +305,7 @@ class StartWork extends ChangeNotifier {
 
   /// Whether the machine's answer is only that a repository has to be chosen — **the dialog's own
   /// required choice**, never a refusal, and never a reason to warn about what starting costs.
-  bool get readinessIsAboutTheRepository =>
-      readiness?.outcome == StartOutcome.noRepositoryChosen && needsARepository;
+  bool get readinessIsAboutTheRepository => readiness?.outcome == StartOutcome.noRepositoryChosen && needsARepository;
 
   /// What starting would cost when it is offered in spite of a problem.
   ///
@@ -362,11 +362,7 @@ class StartWork extends ChangeNotifier {
   /// The prompt is put in the box rather than sent as it stands: a template carries the shape of
   /// a job, and the one thing that changes between two runs of the same job is what it is asked
   /// to do this time.
-  Future<void> openFrom(
-    FleetBackend backend,
-    Project project,
-    Template template,
-  ) async {
+  Future<void> openFrom(FleetBackend backend, Project project, Template template) async {
     this.project = project;
     // Where the job was named to start — unless the project no longer has that repository, when
     // it is chosen again rather than sent to be refused.
@@ -512,10 +508,10 @@ class StartWork extends ChangeNotifier {
 
   /// What to call the operation this starts, for somebody reading the list an hour later.
   String get title => switch (mode) {
-        Mode.unattended when continuing != null => 'Continue ${continuing!.name}',
-        Mode.unattended => 'Run ${agent ?? 'an agent'} in ${project?.name ?? ''}',
-        _ => 'Start work in ${project?.name ?? ''}',
-      };
+    Mode.unattended when continuing != null => 'Continue ${continuing!.name}',
+    Mode.unattended => 'Run ${agent ?? 'an agent'} in ${project?.name ?? ''}',
+    _ => 'Start work in ${project?.name ?? ''}',
+  };
 
   /// The stream the operation is built on. Empty when there is not enough to start with.
   Stream<String> begin(FleetBackend backend) {
@@ -569,9 +565,13 @@ class StartWork extends ChangeNotifier {
     final asking = ++_asked;
     final about = name.isEmpty || _localNameProblem != null ? null : name;
     try {
-      final answer =
-          await backend.canStart(
-              project: where.name, agent: agent, task: about, repository: repository, credentials: credentials);
+      final answer = await backend.canStart(
+        project: where.name,
+        agent: agent,
+        task: about,
+        repository: repository,
+        credentials: credentials,
+      );
       // Typing moves faster than a machine answers.
       if (asking != _asked) return;
       // Refused for an agent the machine lists as installed: measured on the test machine while another task

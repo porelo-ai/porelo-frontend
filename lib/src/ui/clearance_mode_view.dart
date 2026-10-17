@@ -10,21 +10,37 @@ import 'dialog_scroll.dart';
 /// are the daemon's words, and *"asks first"* is the person's.
 enum Enforcement {
   /// Asks, and the work waits for the answer.
-  prompt('prompt', 'Ask me', 'The work waits while a question is on screen. Nothing new is '
-      'reached until somebody answers.'),
+  prompt(
+    'prompt',
+    'Ask me',
+    'The work waits while a question is on screen. Nothing new is '
+        'reached until somebody answers.',
+  ),
 
   /// Lets anything new through without asking.
-  allow('allow', 'Let it through', 'Anything new is reached without asking. Nothing is refused '
-      'and nothing is put to anybody.'),
+  allow(
+    'allow',
+    'Let it through',
+    'Anything new is reached without asking. Nothing is refused '
+        'and nothing is put to anybody.',
+  ),
 
   /// Refuses anything new without asking.
-  deny('deny', 'Refuse it', 'Anything new is refused without asking. The work never waits, and '
-      'never reaches something it was not already allowed.'),
+  deny(
+    'deny',
+    'Refuse it',
+    'Anything new is refused without asking. The work never waits, and '
+        'never reaches something it was not already allowed.',
+  ),
 
   /// Nothing asks and nothing is refused.
-  off('off', 'Stop asking entirely', 'Nothing is refused and nothing is asked. The ruleset is '
-      'still loaded — this changes whether a blocked connection produces a question, not what '
-      'the container can reach.');
+  off(
+    'off',
+    'Stop asking entirely',
+    'Nothing is refused and nothing is asked. The ruleset is '
+        'still loaded — this changes whether a blocked connection produces a question, not what '
+        'the container can reach.',
+  );
 
   const Enforcement(this.name, this.label, this.what);
 
@@ -44,11 +60,7 @@ enum Enforcement {
 /// recall a connection that was already refused — the packet was dropped and nothing retries it —
 /// and turning it back on does not recall anything waved through while it was off. **The ruleset
 /// is loaded throughout**, so none of this opens a destination by itself.
-Future<Enforcement?> askHowToEnforce(
-  BuildContext context, {
-  required String task,
-  required String now,
-}) =>
+Future<Enforcement?> askHowToEnforce(BuildContext context, {required String task, required String now}) =>
     showDialog<Enforcement>(
       context: context,
       builder: (context) => AlertDialog(
@@ -91,19 +103,19 @@ Future<Enforcement?> askHowToEnforce(
                             const SizedBox(height: Space.small),
                             Row(
                               children: <Widget>[
-                                Text(mode.label,
-                                    style: Theme.of(context).textTheme.titleSmall),
+                                Text(mode.label, style: Theme.of(context).textTheme.titleSmall),
                                 if (mode.name == now) ...<Widget>[
                                   const SizedBox(width: Space.small),
-                                  Text('— what it does now',
-                                      key: const Key('is-what-it-does-now'),
-                                      style: Theme.of(context).textTheme.bodySmall),
+                                  Text(
+                                    '— what it does now',
+                                    key: const Key('is-what-it-does-now'),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
                                 ],
                               ],
                             ),
                             const SizedBox(height: Space.tight),
-                            Text(mode.what,
-                                style: Theme.of(context).textTheme.bodySmall),
+                            Text(mode.what, style: Theme.of(context).textTheme.bodySmall),
                             const SizedBox(height: Space.small),
                           ],
                         ),
@@ -129,16 +141,17 @@ Future<Enforcement?> askHowToEnforce(
 /// **`UNCHANGED` is not a failure** — it was already in that mode and nothing was restarted, which
 /// is a different sentence from a change that happened.
 String whatEnforcementDid(ClearanceSet said, String task) => switch (said.outcome) {
-      'CHANGED' => said.was.isEmpty
-          ? '$task now does “${said.now}” with a blocked connection.'
-          : '$task went from “${said.was}” to “${said.now}”.',
-      'UNCHANGED' => '$task was already doing that. Nothing was changed and nothing restarted.',
-      'NOT_RUNNING' => '$task is not running, so there is nothing to change.',
-      'NO_SUCH_TASK' => 'Nothing on this machine knows $task any more.',
-      'UNKNOWN_MODE' => 'That is not a mode this machine knows. ${said.detail}'.trim(),
-      'NOT_RECORDED' =>
-        'It was changed, and nothing recorded it — so the work list will go on showing what it '
-            'showed before.',
-      'FAILED' => 'It could not be changed. ${said.detail}'.trim(),
-      _ => '${said.outcome}. ${said.detail}'.trim(),
-    };
+  'CHANGED' =>
+    said.was.isEmpty
+        ? '$task now does “${said.now}” with a blocked connection.'
+        : '$task went from “${said.was}” to “${said.now}”.',
+  'UNCHANGED' => '$task was already doing that. Nothing was changed and nothing restarted.',
+  'NOT_RUNNING' => '$task is not running, so there is nothing to change.',
+  'NO_SUCH_TASK' => 'Nothing on this machine knows $task any more.',
+  'UNKNOWN_MODE' => 'That is not a mode this machine knows. ${said.detail}'.trim(),
+  'NOT_RECORDED' =>
+    'It was changed, and nothing recorded it — so the work list will go on showing what it '
+        'showed before.',
+  'FAILED' => 'It could not be changed. ${said.detail}'.trim(),
+  _ => '${said.outcome}. ${said.detail}'.trim(),
+};

@@ -53,8 +53,9 @@ class _OneOfTwoGatesReadable implements FleetBackend {
   @override
   Future<GateState> gateOf(String projectFile, {String? repository}) async {
     if (repository == 'payments-api') {
-      throw const VarlinkException(
-          'org.fuin.porelo.Tasks1.Failed', <String, dynamic>{'message': 'the mirror is missing'});
+      throw const VarlinkException('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{
+        'message': 'the mirror is missing',
+      });
     }
     return GateState.from(const <String, dynamic>{
       'mode': 'gatekeeping',
@@ -65,9 +66,12 @@ class _OneOfTwoGatesReadable implements FleetBackend {
   }
 
   @override
-  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(String projectFile, String name,
-          {String? against, String? repository}) async =>
-      (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
+    String projectFile,
+    String name, {
+    String? against,
+    String? repository,
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async =>

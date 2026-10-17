@@ -96,8 +96,7 @@ class MockDaemon {
   /// loop is blocked accepts connections and then says nothing, so the socket looks healthy and
   /// every call hangs. Met for real while building the frame.
   void neverAnswers(String name) {
-    _methods['$interfaceName.$name'] =
-        _Handler.streaming((_) => StreamController<Map<String, dynamic>>().stream);
+    _methods['$interfaceName.$name'] = _Handler.streaming((_) => StreamController<Map<String, dynamic>>().stream);
   }
 
   /// Removes a method, so calling it answers `MethodNotFound`.
@@ -113,8 +112,7 @@ class MockDaemon {
   Future<void> start() async {
     _directory = await Directory.systemTemp.createTemp('skm');
     _path = '${_directory!.path}/d.sock';
-    _server = await ServerSocket.bind(
-        InternetAddress(_path, type: InternetAddressType.unix), 0);
+    _server = await ServerSocket.bind(InternetAddress(_path, type: InternetAddressType.unix), 0);
     _server!.listen(_serve);
   }
 
@@ -176,12 +174,7 @@ class MockDaemon {
 
     if (method == 'org.varlink.service.GetInfo') {
       return _send(client, {
-        'parameters': {
-          'vendor': 'fuin.org',
-          'product': 'Porelo',
-          'version': version,
-          'interfaces': interfaces,
-        }
+        'parameters': {'vendor': 'fuin.org', 'product': 'Porelo', 'version': version, 'interfaces': interfaces},
       });
     }
     if (method == 'org.varlink.service.GetInterfaceDescription') {
@@ -192,7 +185,7 @@ class MockDaemon {
         });
       }
       return _send(client, {
-        'parameters': {'description': description}
+        'parameters': {'description': description},
       });
     }
 
@@ -209,8 +202,7 @@ class MockDaemon {
         'parameters': {'method': '$method'},
       });
     }
-    await handler.run(parameters, call['more'] == true,
-        (reply) => _send(client, reply));
+    await handler.run(parameters, call['more'] == true, (reply) => _send(client, reply));
   }
 
   void _send(Socket client, Map<String, dynamic> message) {
@@ -234,31 +226,15 @@ class _Handler {
   final Map<String, dynamic> _errorParameters;
   final bool _immediate;
 
-  _Handler.single(this._single)
-      : _events = null,
-        _error = null,
-        _errorParameters = const {},
-        _immediate = false;
+  _Handler.single(this._single) : _events = null, _error = null, _errorParameters = const {}, _immediate = false;
 
-  _Handler.streaming(this._events)
-      : _single = null,
-        _error = null,
-        _errorParameters = const {},
-        _immediate = false;
+  _Handler.streaming(this._events) : _single = null, _error = null, _errorParameters = const {}, _immediate = false;
 
-  _Handler.pushing(this._events)
-      : _single = null,
-        _error = null,
-        _errorParameters = const {},
-        _immediate = true;
+  _Handler.pushing(this._events) : _single = null, _error = null, _errorParameters = const {}, _immediate = true;
 
-  _Handler.failing(this._error, this._errorParameters)
-      : _single = null,
-        _events = null,
-        _immediate = false;
+  _Handler.failing(this._error, this._errorParameters) : _single = null, _events = null, _immediate = false;
 
-  Future<void> run(Map<String, dynamic> parameters, bool more,
-      void Function(Map<String, dynamic>) send) async {
+  Future<void> run(Map<String, dynamic> parameters, bool more, void Function(Map<String, dynamic>) send) async {
     try {
       await _answer(parameters, more, send);
     } on MockRefusal catch (refusal) {
@@ -269,8 +245,7 @@ class _Handler {
     }
   }
 
-  Future<void> _answer(Map<String, dynamic> parameters, bool more,
-      void Function(Map<String, dynamic>) send) async {
+  Future<void> _answer(Map<String, dynamic> parameters, bool more, void Function(Map<String, dynamic>) send) async {
     if (_error != null) {
       return send({'error': _error, 'parameters': _errorParameters});
     }

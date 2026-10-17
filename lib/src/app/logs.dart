@@ -63,8 +63,7 @@ class LogTail {
 /// Every log this session has opened, and what it has read.
 class Logs extends ChangeNotifier {
   final Map<String, LogTail> _open = <String, LogTail>{};
-  final Map<String, StreamSubscription<List<String>>> _reading =
-      <String, StreamSubscription<List<String>>>{};
+  final Map<String, StreamSubscription<List<String>>> _reading = <String, StreamSubscription<List<String>>>{};
   bool _disposed = false;
 
   /// What has been opened, oldest first.
@@ -86,22 +85,24 @@ class Logs extends ChangeNotifier {
     _open[key] = tail;
     // Only the end of it: the earlier lines are not drawn anyway, and a log of tens of megabytes
     // need not cross the connection to show its last screen (a sliding window).
-    _reading[key] = backend.tailLog(task, log, last: firstLines, formatted: formatted).listen(
-      (lines) {
-        tail.add(lines);
-        _soon();
-      },
-      onError: (Object error) {
-        tail.problem = _wordsFor(error, task, log);
-        _stopReading(key);
-        _notify();
-      },
-      onDone: () {
-        // A log that ends is a log that has been fully read, not one that failed.
-        _stopReading(key);
-        _notify();
-      },
-    );
+    _reading[key] = backend
+        .tailLog(task, log, last: firstLines, formatted: formatted)
+        .listen(
+          (lines) {
+            tail.add(lines);
+            _soon();
+          },
+          onError: (Object error) {
+            tail.problem = _wordsFor(error, task, log);
+            _stopReading(key);
+            _notify();
+          },
+          onDone: () {
+            // A log that ends is a log that has been fully read, not one that failed.
+            _stopReading(key);
+            _notify();
+          },
+        );
     _notify();
     return tail;
   }

@@ -9,7 +9,10 @@ Future<void> iChooseFromTheMenuOfTheProject(WidgetTester tester, String entry, S
   await toTheProjects(tester);
   await tester.tap(find.byKey(ValueKey<String>('projects-menu ${World.machines.current.name}/$project')));
   await World.settle(tester);
-  final item = find.ancestor(of: find.text(entry), matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem));
+  final item = find.ancestor(
+    of: find.text(entry),
+    matching: find.byWidgetPredicate((widget) => widget is PopupMenuItem),
+  );
   await tester.ensureVisible(item);
   await tester.pump();
   await tester.tap(item);

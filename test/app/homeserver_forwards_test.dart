@@ -17,7 +17,12 @@ class _Forward implements HeldForward {
 }
 
 void main() {
-  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'alice@vm', remoteSocket: '/run/user/1000/porelo/porelod.sock');
+  const vm = Machine(
+    name: 'vm',
+    socketPath: '/tmp/vm.sock',
+    host: 'alice@vm',
+    remoteSocket: '/run/user/1000/porelo/porelod.sock',
+  );
 
   Future<Machines> machinesWithVm(Settings settings) async {
     final machines = Machines(settings, reach: (machine) => FakeBackend(const <Task>[]), tunnels: FakeTunnels());
@@ -31,12 +36,14 @@ void main() {
     final settings = Settings(MemorySettingsStore());
     await settings.rememberHomeserver('vm', 'checkout', 8010);
     final raised = <int>[];
-    final forwards = HomeserverForwards(settings,
-        raise: (machine, port) async {
-          raised.add(port);
-          return _Forward(() {});
-        },
-        answers: (port) async => true);
+    final forwards = HomeserverForwards(
+      settings,
+      raise: (machine, port) async {
+        raised.add(port);
+        return _Forward(() {});
+      },
+      answers: (port) async => true,
+    );
     final machines = await machinesWithVm(settings);
 
     await forwards.restore(machines);
@@ -49,9 +56,11 @@ void main() {
 
   test('a forward that cannot be raised says why, and is kept to try again', () async {
     final settings = Settings(MemorySettingsStore());
-    final forwards = HomeserverForwards(settings,
-        raise: (machine, port) async => throw const ForwardRefused('Port 8010 is already in use on this computer.'),
-        answers: (port) async => false);
+    final forwards = HomeserverForwards(
+      settings,
+      raise: (machine, port) async => throw const ForwardRefused('Port 8010 is already in use on this computer.'),
+      answers: (port) async => false,
+    );
 
     await forwards.hold(vm, 'checkout', 8010);
 
@@ -64,8 +73,11 @@ void main() {
   test('one held forward per project: joining again replaces what was kept, never doubles it', () async {
     final settings = Settings(MemorySettingsStore());
     final closed = <int>[];
-    final forwards = HomeserverForwards(settings,
-        raise: (machine, port) async => _Forward(() => closed.add(port)), answers: (port) async => false);
+    final forwards = HomeserverForwards(
+      settings,
+      raise: (machine, port) async => _Forward(() => closed.add(port)),
+      answers: (port) async => false,
+    );
 
     await forwards.hold(vm, 'checkout', 8010);
     await forwards.hold(vm, 'checkout', 8010);

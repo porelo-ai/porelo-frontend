@@ -5,8 +5,5 @@ import '../support/world.dart';
 
 /// Usage: the appearance is {'dark'}
 Future<void> theAppearanceIs(WidgetTester tester, String appearance) async {
-  expect(
-    World.themeInUse(tester).brightness,
-    appearance == 'dark' ? Brightness.dark : Brightness.light,
-  );
+  expect(World.themeInUse(tester).brightness, appearance == 'dark' ? Brightness.dark : Brightness.light);
 }

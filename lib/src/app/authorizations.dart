@@ -19,8 +19,7 @@ class Authorizations extends ChangeNotifier {
   bool supported = true;
 
   /// What is open now, oldest first.
-  List<AuthorizationNeeded> get open =>
-      _open.values.toList()..sort((a, b) => a.at.compareTo(b.at));
+  List<AuthorizationNeeded> get open => _open.values.toList()..sort((a, b) => a.at.compareTo(b.at));
 
   /// Starts watching. Safe to call again; it replaces what was watching before.
   void watch(FleetBackend backend) {

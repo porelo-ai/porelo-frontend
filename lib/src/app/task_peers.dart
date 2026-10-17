@@ -30,14 +30,15 @@ class TaskPeers extends ChangeNotifier {
 
   /// Asks the machine whom the task may talk to.
   Future<void> load() => _asking(() async {
-        if (task.project.isEmpty) {
-          problem = 'Nothing recorded which project ${task.name} belongs to, and its project is '
-              'what says whom it may talk to.';
-          peers = const <TalkPeer>[];
-          return;
-        }
-        peers = await _backend.peers(task.name, task.project);
-      });
+    if (task.project.isEmpty) {
+      problem =
+          'Nothing recorded which project ${task.name} belongs to, and its project is '
+          'what says whom it may talk to.';
+      peers = const <TalkPeer>[];
+      return;
+    }
+    peers = await _backend.peers(task.name, task.project);
+  });
 
   /// Holds everything for [peer], or lets it go again.
   Future<void> setHeld(TalkPeer peer, bool held) =>
@@ -75,8 +76,9 @@ class TaskPeers extends ChangeNotifier {
       problem = switch (refusal.simpleName) {
         // The daemon's own sentence, which names what refused it.
         'Failed' => '${refusal.parameters['message'] ?? 'The machine refused it.'}',
-        'NoSuchProject' => 'This machine does not follow ${task.project}, so it cannot say whom '
-            '${task.name} may talk to.',
+        'NoSuchProject' =>
+          'This machine does not follow ${task.project}, so it cannot say whom '
+              '${task.name} may talk to.',
         'NoSuchTask' => '${task.name} is not a task on this machine any more.',
         _ => 'The machine refused it: ${refusal.simpleName}.',
       };

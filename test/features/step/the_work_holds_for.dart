@@ -8,7 +8,10 @@ Future<void> theWorkHoldsFor(WidgetTester tester, String work, String entry, Str
   World.backend.publish(<Task>[
     for (final task in World.backend.tasksNow)
       task.name == work
-          ? Task.from(<String, dynamic>{...wire(task), 'credentials': <String, dynamic>{entry: destination}})
+          ? Task.from(<String, dynamic>{
+              ...wire(task),
+              'credentials': <String, dynamic>{entry: destination},
+            })
           : task,
   ]);
   await World.settle(tester);

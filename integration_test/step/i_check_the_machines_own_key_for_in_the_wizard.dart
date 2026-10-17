@@ -12,8 +12,11 @@ Future<void> iCheckTheMachinesOwnKeyForInTheWizard(WidgetTester tester, String m
   await tester.tap(find.byKey(const Key('wizard-next')));
   await pumpUntilShown(tester, const Key('connection-way'));
   await choose(tester, 'connection-way', 'way-machine');
-  await pumpUntil(tester, () => find.byKey(const Key('connection-key')).evaluate().isNotEmpty,
-      what: 'the machine to list its keys');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('connection-key')).evaluate().isNotEmpty,
+    what: 'the machine to list its keys',
+  );
   await choose(tester, 'connection-key', 'key $theKey');
   await tester.tap(find.byKey(const Key('wizard-next')));
   await untilTheMachineChecked(tester);

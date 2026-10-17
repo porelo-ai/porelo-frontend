@@ -7,9 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// would sooner or later name a different one.
 Future<void> theCommandToStoreOneIs(WidgetTester tester, String command) async {
   expect(
-    tester
-        .widgetList<SelectableText>(find.byKey(const Key('store-command')))
-        .map((each) => each.data),
+    tester.widgetList<SelectableText>(find.byKey(const Key('store-command'))).map((each) => each.data),
     contains(command),
   );
 }

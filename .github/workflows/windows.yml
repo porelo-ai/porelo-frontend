@@ -8,52 +8,55 @@ run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.he
 # Every wait is bounded. A test has a minute, the steps their own limits well under the job's, so a
 # test that would wait for ever ends the run soon and names itself.
 on:
-  push:
-    branches: ['windows/**']
-  workflow_dispatch:
+    push:
+        branches: ['windows/**']
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 jobs:
-  windows:
-    name: Test and build on Windows
-    runs-on: windows-2025
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    windows:
+        name: Test and build on Windows
+        runs-on: windows-2025
+        timeout-minutes: 45
+        steps:
+            # Without the job's token in .git/config: nothing here pushes with git.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
+            - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+              with:
+                  flutter-version-file: pubspec.yaml
+                  cache: true
 
-      - name: Get dependencies
-        run: flutter pub get
+            - name: Get dependencies
+              run: flutter pub get
 
-      - name: Analyze
-        run: dart analyze --fatal-infos
+            - name: Analyze
+              run: dart analyze --fatal-infos
 
-      # A test marked `linux` needs what only Linux has: a pty, a unix socket, `chmod`, a Bash tool.
-      # Each such mark says why in the test itself. The documents are checked by the Linux build.
-      - name: Test
-        timeout-minutes: 20
-        run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
+            # A test marked `linux` needs what only Linux has: a pty, a unix socket, `chmod`, a Bash tool.
+            # Each such mark says why in the test itself. The documents are checked by the Linux build.
+            - name: Test
+              timeout-minutes: 20
+              run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
-      - name: Build
-        timeout-minutes: 20
-        run: flutter build windows --release
+            - name: Build
+              timeout-minutes: 20
+              run: flutter build windows --release
 
-      # The ZIP and the MSIX packed as the Build packs them. With no certificate here the MSIX is
-      # packed to prove the manifest and the layout, and not kept.
-      - name: Pack
-        shell: pwsh
-        run: ./tool/windows-package.ps1
+            # The ZIP and the MSIX packed as the Build packs them. With no certificate here the MSIX is
+            # packed to prove the manifest and the layout, and not kept.
+            - name: Pack
+              shell: pwsh
+              run: ./tool/windows-package.ps1
 
-      # The built folder as it is, for a person to try on Windows: unpacked whole into a folder of
-      # its own, since the code is in `data\app.so` beside the `.exe`.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: porelo-frontend-windows
-          path: build/windows/x64/runner/Release/
-          if-no-files-found: error
+            # The built folder as it is, for a person to try on Windows: unpacked whole into a folder of
+            # its own, since the code is in `data\app.so` beside the `.exe`.
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: porelo-frontend-windows
+                  path: build/windows/x64/runner/Release/
+                  if-no-files-found: error

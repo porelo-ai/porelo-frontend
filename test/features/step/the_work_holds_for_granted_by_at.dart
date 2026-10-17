@@ -5,7 +5,13 @@ import '../support/world.dart';
 
 /// Usage: the work {'porelo-checkout-migrate'} holds {'jira'} for {'jira'}, granted by {'alice'} at {'2026-09-30T05:40:00Z'}
 Future<void> theWorkHoldsForGrantedByAt(
-    WidgetTester tester, String work, String entry, String destination, String by, String at) async {
+  WidgetTester tester,
+  String work,
+  String entry,
+  String destination,
+  String by,
+  String at,
+) async {
   World.backend.publish(<Task>[
     for (final task in World.backend.tasksNow)
       task.name == work

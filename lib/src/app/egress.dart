@@ -39,8 +39,7 @@ class Egress extends ChangeNotifier {
   String? problem;
 
   /// Whether [host] is one the chosen repository adds, rather than one every repository gets.
-  bool addedByTheRepository(EgressHost host) =>
-      repository != null && host.origin == 'repository $repository';
+  bool addedByTheRepository(EgressHost host) => repository != null && host.origin == 'repository $repository';
 
   /// Whether this project can be asked about at all.
   bool get reachableAtAll => project?.canBeActedOn ?? false;
@@ -52,7 +51,8 @@ class Egress extends ChangeNotifier {
     if (!project.canBeActedOn) {
       reachable = const <EgressHost>[];
       refused = const <String>[];
-      problem = '${project.name} is not a project this machine follows, so nothing can be asked '
+      problem =
+          '${project.name} is not a project this machine follows, so nothing can be asked '
           'about its egress. Following its repository makes it one.';
       notifyListeners();
       return;

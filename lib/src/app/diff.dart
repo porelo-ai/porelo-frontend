@@ -32,13 +32,7 @@ class DiffLine {
 @immutable
 class ChangedFile {
   /// Constructor taking the path and what happened to it.
-  const ChangedFile({
-    required this.path,
-    required this.lines,
-    this.wasAt,
-    this.added = false,
-    this.removed = false,
-  });
+  const ChangedFile({required this.path, required this.lines, this.wasAt, this.added = false, this.removed = false});
 
   /// Where the file is now — or was, when it was removed.
   final String path;
@@ -56,21 +50,19 @@ class ChangedFile {
   final List<DiffLine> lines;
 
   /// How many lines it gained.
-  int get insertions =>
-      lines.where((line) => line.kind == DiffLineKind.added).length;
+  int get insertions => lines.where((line) => line.kind == DiffLineKind.added).length;
 
   /// How many it lost.
-  int get deletions =>
-      lines.where((line) => line.kind == DiffLineKind.removed).length;
+  int get deletions => lines.where((line) => line.kind == DiffLineKind.removed).length;
 
   /// What happened to it, in one word, for a row that has no room for more.
   String get what => added
       ? 'added'
       : removed
-          ? 'removed'
-          : wasAt != null
-              ? 'moved'
-              : 'changed';
+      ? 'removed'
+      : wasAt != null
+      ? 'moved'
+      : 'changed';
 }
 
 /// Reads a unified diff into the files it touches.
@@ -93,13 +85,7 @@ List<ChangedFile> parseUnifiedDiff(String diff) {
 
   void finish() {
     if (path.isEmpty && lines.isEmpty) return;
-    files.add(ChangedFile(
-      path: path,
-      wasAt: wasAt,
-      added: added,
-      removed: removed,
-      lines: lines,
-    ));
+    files.add(ChangedFile(path: path, wasAt: wasAt, added: added, removed: removed, lines: lines));
     path = '';
     wasAt = null;
     added = false;

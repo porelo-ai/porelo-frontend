@@ -77,11 +77,11 @@ class EmergencyStop extends ChangeNotifier {
   /// Recovery is `Start`, and it is possible precisely because nothing was removed. The steps are
   /// named because somebody reading this has just had a bad minute.
   List<String> get howToRecover => const <String>[
-        'Find what went wrong. Every log is where it was.',
-        'Start each piece of work again from its row — it comes back with the workspace, '
-            'the branch and the commits it had.',
-        'Anything that was waiting at the gate is still waiting there.',
-      ];
+    'Find what went wrong. Every log is where it was.',
+    'Start each piece of work again from its row — it comes back with the workspace, '
+        'the branch and the commits it had.',
+    'Anything that was waiting at the gate is still waiting there.',
+  ];
 
   Future<void> _asking(Future<void> Function() ask) async {
     busy = true;
@@ -92,7 +92,8 @@ class EmergencyStop extends ChangeNotifier {
     } on VarlinkException catch (refusal) {
       problem = 'Refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
-      problem = 'Lost contact with the machine: ${ex.message}. '
+      problem =
+          'Lost contact with the machine: ${ex.message}. '
           'Nothing was stopped, and work is still running.';
     } on FeatureNotSupported catch (ex) {
       // A backend older than `Panic`. Saying so beats a button that quietly does nothing at the

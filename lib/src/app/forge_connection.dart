@@ -30,9 +30,9 @@ class ForgeEntry {
 
   /// What kind of forge, in words.
   String get kindWords => switch (kind) {
-        'github' => address == 'github.com' ? 'GitHub' : 'GitHub Enterprise',
-        _ => kind,
-      };
+    'github' => address == 'github.com' ? 'GitHub' : 'GitHub Enterprise',
+    _ => kind,
+  };
 
   /// Kept as it is stored.
   Map<String, Object?> toJson() => <String, Object?>{'id': id, 'kind': kind, 'name': name, 'address': address};
@@ -84,9 +84,10 @@ String workingFolders() => desk.join(<String>[desk.data, 'projects']);
 class ForgeConnection extends ChangeNotifier {
   /// Constructor taking where tokens and the list are kept, and how a forge is made from a token.
   ForgeConnection(this._tokens, {ForgeEntries? entries, ForgeFor? forgeFor, WorkspaceFor? workspaceFor})
-      : _entries = entries ?? MemoryForgeEntries(),
-        _forgeFor = forgeFor ?? ((token, address) => GitHub(token, api: GitHub.apiOf(address))),
-        _workspaceFor = workspaceFor ?? ((repository, token) => ProjectWorkspace(repository, token, root: workingFolders()));
+    : _entries = entries ?? MemoryForgeEntries(),
+      _forgeFor = forgeFor ?? ((token, address) => GitHub(token, api: GitHub.apiOf(address))),
+      _workspaceFor =
+          workspaceFor ?? ((repository, token) => ProjectWorkspace(repository, token, root: workingFolders()));
 
   final ForgeTokens _tokens;
   final ForgeEntries _entries;
@@ -196,18 +197,16 @@ class ForgeConnection extends ChangeNotifier {
   /// Reads the forges set up here, and opens the one there is where there is only one. A GitHub
   /// token kept before the list existed becomes its first entry, under the key it was kept by.
   Future<void> load() => _asking(() async {
-        await _readList();
-        if (entries.length == 1 && current == null) await _open(entries.single);
-      });
+    await _readList();
+    if (entries.length == 1 && current == null) await _open(entries.single);
+  });
 
   /// Reads the forges set up here without asking any of them anything: what says, before a forge
   /// is used, which project's repository is on which.
   Future<void> readList() => _asking(_readList);
 
   Future<void> _readList() async {
-    entries = <ForgeEntry>[
-      for (final each in await _entries.read()) ?ForgeEntry.fromJson(each),
-    ];
+    entries = <ForgeEntry>[for (final each in await _entries.read()) ?ForgeEntry.fromJson(each)];
     if (entries.isEmpty) {
       final before = await _tokens.read(_keptBefore);
       if (before != null && before.isNotEmpty) {
@@ -225,7 +224,12 @@ class ForgeConnection extends ChangeNotifier {
 
   /// Sets up a forge: kept, with its token, only once the forge accepted the token. Answers the
   /// entry, or null where it was not accepted.
-  Future<ForgeEntry?> add({required String name, required String address, required String token, String kind = 'github'}) async {
+  Future<ForgeEntry?> add({
+    required String name,
+    required String address,
+    required String token,
+    String kind = 'github',
+  }) async {
     ForgeEntry? made;
     await _asking(() async {
       final typed = token.trim();
@@ -255,27 +259,30 @@ class ForgeConnection extends ChangeNotifier {
   /// Renames [entry], and replaces its token where a new one is given: one that expired, say. The
   /// kind stays, so the projects made from it still fit. A token is kept only once it was accepted.
   Future<void> edit(ForgeEntry entry, {String? name, String? token}) => _asking(() async {
-        final typed = token?.trim() ?? '';
-        if (typed.isNotEmpty) {
-          final forge = _forgeFor(typed, entry.address);
-          final login = await forge.whoAmI();
-          await _tokens.write(entry.id, typed);
-          if (current?.id == entry.id) await _use(entry, forge, typed, login);
-        }
-        final renamed = name == null || name.trim().isEmpty ? entry : entry.named(name.trim());
-        entries = <ForgeEntry>[for (final each in entries) each.id == entry.id ? renamed : each];
-        if (current?.id == entry.id) current = renamed;
-        await _keep();
-      });
+    final typed = token?.trim() ?? '';
+    if (typed.isNotEmpty) {
+      final forge = _forgeFor(typed, entry.address);
+      final login = await forge.whoAmI();
+      await _tokens.write(entry.id, typed);
+      if (current?.id == entry.id) await _use(entry, forge, typed, login);
+    }
+    final renamed = name == null || name.trim().isEmpty ? entry : entry.named(name.trim());
+    entries = <ForgeEntry>[for (final each in entries) each.id == entry.id ? renamed : each];
+    if (current?.id == entry.id) current = renamed;
+    await _keep();
+  });
 
   /// Removes [entry] here: its token out of the keychain. **Nothing at the forge is touched**: the
   /// token stays valid there until the person revokes it, and keys machines registered stay.
   Future<void> remove(ForgeEntry entry) => _asking(() async {
-        await _tokens.delete(entry.id);
-        entries = <ForgeEntry>[for (final each in entries) if (each.id != entry.id) each];
-        await _keep();
-        if (current?.id == entry.id) _close();
-      });
+    await _tokens.delete(entry.id);
+    entries = <ForgeEntry>[
+      for (final each in entries)
+        if (each.id != entry.id) each,
+    ];
+    await _keep();
+    if (current?.id == entry.id) _close();
+  });
 
   /// Forgets the forge being used here. It stays valid at the forge until the person revokes it there.
   Future<void> forget() async {
@@ -335,9 +342,9 @@ class ForgeConnection extends ChangeNotifier {
 
   /// Asks the forge again what the login reaches.
   Future<void> refresh() => _asking(() async {
-        final forge = _forge;
-        if (forge != null) repositories = await forge.repositories();
-      });
+    final forge = _forge;
+    if (forge != null) repositories = await forge.repositories();
+  });
 
   /// Narrows the list to what matches [typed].
   void search(String typed) {
@@ -366,12 +373,12 @@ class ForgeConnection extends ChangeNotifier {
 
   /// Asks, a few at a time, which repositories have a `project.yml`.
   Future<void> _askWhichAreProjects(Forge forge, List<ForgeRepository> found) => _eachOf(found, forge, (each) async {
-        try {
-          isProject[each.fullName] = await forge.hasProjectFile(each);
-        } on ForgeRefused {
-          // Said as not known: the row then offers nothing it cannot back.
-        }
-      });
+    try {
+      isProject[each.fullName] = await forge.hasProjectFile(each);
+    } on ForgeRefused {
+      // Said as not known: the row then offers nothing it cannot back.
+    }
+  });
 
   /// Runs [ask] for every one of [found], twelve at a time over the forge's one connection, for as
   /// long as [forge] is still the one connected.
@@ -406,7 +413,6 @@ class ForgeConnection extends ChangeNotifier {
     });
   }
 
-
   Future<void> _asking(Future<void> Function() action) async {
     busy = true;
     problem = null;
@@ -433,6 +439,7 @@ String? hostOf(String url) {
 
 /// `owner/name` for a repository's address on any host, or null.
 String? fullNameOf(String url) {
-  final match = RegExp(r'^(?:[^@/:]+@[^:/]+:|[a-z+]+://(?:[^@/]+@)?[^/]+/)([^/]+/[^/]+?)(?:\.git)?/?$').firstMatch(url.trim());
+  final match = RegExp(r'^(?:[^@/:]+@[^:/]+:|[a-z+]+://(?:[^@/]+@)?[^/]+/)([^/]+/[^/]+?)(?:\.git)?/?$')
+      .firstMatch(url.trim());
   return match?.group(1);
 }

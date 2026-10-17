@@ -106,8 +106,7 @@ class Authentication extends ChangeNotifier {
         'The vault is shut, so nothing here can say whether it holds one. It is opened at the '
             'machine.',
       'NO_SUCH_AGENT' => 'No agent of that name is installed on that machine.',
-      'NO_CONFIG_DIRECTORY' =>
-        'That agent keeps its credentials somewhere this machine could not find.',
+      'NO_CONFIG_DIRECTORY' => 'That agent keeps its credentials somewhere this machine could not find.',
       'FAILED' => 'It could not be imported. ${said.detail}'.trim(),
       _ => '${said.outcome}. ${said.detail}'.trim(),
     };

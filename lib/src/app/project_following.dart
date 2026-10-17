@@ -169,14 +169,14 @@ class ProjectFollowing extends ChangeNotifier {
 
   /// What the check found, in one line, before the machine's own sentence.
   String get checkWords => switch (check?.outcome) {
-        'NO_CREDENTIAL' => 'Nothing on this machine is set up to reach this address.',
-        'VAULT_LOCKED' => 'The credential for this address is in the vault, and the vault is shut.',
-        'MISSING_VALUE' => 'A connection for this address is set up, and its value is not there.',
-        'UNUSABLE_VALUE' => 'A connection for this address is set up, and its value cannot be used.',
-        'EXPIRED' => 'The token for this address has expired.',
-        null => '',
-        final other => other.toLowerCase().replaceAll('_', ' '),
-      };
+    'NO_CREDENTIAL' => 'Nothing on this machine is set up to reach this address.',
+    'VAULT_LOCKED' => 'The credential for this address is in the vault, and the vault is shut.',
+    'MISSING_VALUE' => 'A connection for this address is set up, and its value is not there.',
+    'UNUSABLE_VALUE' => 'A connection for this address is set up, and its value cannot be used.',
+    'EXPIRED' => 'The token for this address has expired.',
+    null => '',
+    final other => other.toLowerCase().replaceAll('_', ' '),
+  };
 
   /// Puts it away.
   void letItBe() {

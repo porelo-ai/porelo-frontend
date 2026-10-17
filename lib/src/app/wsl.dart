@@ -92,13 +92,12 @@ class Wsl {
   /// hands the words to the distribution's shell, which splits them again, so a task's name with a
   /// space or a quote in it would arrive as something else. `--exec` runs the program with exactly
   /// these arguments.
-  static List<String> runIn(String name, List<String> command) =>
-      <String>['wsl.exe', '-d', name, '--exec', ...command];
+  static List<String> runIn(String name, List<String> command) => <String>['wsl.exe', '-d', name, '--exec', ...command];
 
   Future<List<String>> _names(List<String> arguments) async => <String>[
-        for (final line in const LineSplitter().convert(await _text(arguments)))
-          if (line.trim().isNotEmpty) line.trim(),
-      ];
+    for (final line in const LineSplitter().convert(await _text(arguments)))
+      if (line.trim().isNotEmpty) line.trim(),
+  ];
 
   Future<String> _text(List<String> arguments) async {
     try {
@@ -128,20 +127,22 @@ class Wsl {
   /// **Bounded, with nothing on its input**: where WSL is not installed, `wsl.exe` can be a stub that
   /// prints a notice and waits for a key. Its input is closed at once, and after [within] it is
   /// ended and answered as having failed, so nothing here waits for ever.
-  static Future<({int code, List<int> printed})> runWslExe(List<String> arguments,
-      {Duration within = const Duration(seconds: 20)}) async {
+  static Future<({int code, List<int> printed})> runWslExe(
+    List<String> arguments, {
+    Duration within = const Duration(seconds: 20),
+  }) async {
     final process = await Process.start('wsl.exe', arguments, environment: const <String, String>{'WSL_UTF8': '1'});
     unawaited(process.stdin.close());
     final out = <int>[];
     final err = <int>[];
-    final reading = Future.wait(<Future<void>>[
-      process.stdout.forEach(out.addAll),
-      process.stderr.forEach(err.addAll),
-    ]);
-    final code = await process.exitCode.timeout(within, onTimeout: () {
-      process.kill(ProcessSignal.sigkill);
-      return -1;
-    });
+    final reading = Future.wait(<Future<void>>[process.stdout.forEach(out.addAll), process.stderr.forEach(err.addAll)]);
+    final code = await process.exitCode.timeout(
+      within,
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
     await reading.timeout(const Duration(seconds: 2), onTimeout: () => <void>[]);
     return (code: code, printed: <int>[...out, ...err]);
   }
@@ -152,7 +153,8 @@ class Wsl {
 String decodeWsl(List<int> printed) {
   var bytes = printed;
   if (bytes.length >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe) bytes = bytes.sublist(2);
-  final looksWide = bytes.length >= 2 &&
+  final looksWide =
+      bytes.length >= 2 &&
       bytes.length.isEven &&
       Iterable<int>.generate(bytes.length ~/ 2 < 8 ? bytes.length ~/ 2 : 8).every((i) => bytes[2 * i + 1] == 0);
   if (!looksWide) return utf8.decode(bytes, allowMalformed: true).replaceAll('\r', '');

@@ -8,12 +8,7 @@ import 'package:porelo_frontend/src/ui/log_view.dart';
 /// spans, and a finder that only looked at `data` would find nothing on exactly the lines this
 /// requirement is about.
 String logText(WidgetTester tester) => tester
-    .widgetList<SelectableText>(
-      find.descendant(
-        of: find.byType(LogView),
-        matching: find.byType(SelectableText),
-      ),
-    )
+    .widgetList<SelectableText>(find.descendant(of: find.byType(LogView), matching: find.byType(SelectableText)))
     .map((shown) => shown.data ?? shown.textSpan?.toPlainText() ?? '')
     .join('\n');
 

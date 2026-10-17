@@ -7,7 +7,8 @@ import '../support/remote.dart';
 /// Usage: the work starts on {'my-first'}, which is in default now
 Future<void> theWorkStartsOnWhichIsInDefaultNow(WidgetTester tester, String name) async {
   if (!walkingAsANewPerson) return;
-  final field = tester.widgetList<ChoiceField<Object?>>(find.byWidgetPredicate((each) => each is ChoiceField))
+  final field = tester
+      .widgetList<ChoiceField<Object?>>(find.byWidgetPredicate((each) => each is ChoiceField))
       .where((each) => each.id == 'start-repository')
       .single;
   expect(field.value, name);

@@ -9,7 +9,7 @@
     <parent>
         <groupId>org.fuin.porelo</groupId>
         <artifactId>porelo-parent</artifactId>
-        <version>0.2.0</version>
+        <version>0.2.1-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
@@ -39,6 +39,13 @@
 
     <build>
         <plugins>
+            <!-- The shared code style for what is not Dart: the shell scripts, as shfmt writes them, checked
+                 in validate. The parent pins it and its formatters, and leaves out hidden directories and
+                 build output. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+            </plugin>
             <!-- Flutter and dart from PATH, with no profile around them: nothing here builds without
                  Flutter, and a profile that switched itself off would make a green build that did nothing. -->
             <plugin>
@@ -74,6 +81,27 @@
                     </execution>
                     <!-- dart, never flutter analyze, which rewrites analysis_options.yaml. Before the
                          build rather than after it: failing early is worth leaving the template's order. -->
+                    <!-- As `dart format` writes it, at the width analysis_options.yaml takes from the shared
+                         .editorconfig; the generated tests too, which the build formats after generating. -->
+                    <execution>
+                        <id>dart-format</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>dart</executable>
+                            <arguments>
+                                <argument>format</argument>
+                                <argument>--output=none</argument>
+                                <argument>--set-exit-if-changed</argument>
+                                <argument>lib</argument>
+                                <argument>test</argument>
+                                <argument>tool</argument>
+                                <argument>integration_test</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>dart-analyze</id>
                         <phase>process-sources</phase>

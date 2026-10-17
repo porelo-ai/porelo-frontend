@@ -6,7 +6,6 @@ import '../support/world.dart';
 ///
 /// Read off the socket. It runs external programs on the machine, so *"asked again"* has to mean
 /// asked again rather than a screen redrawn from what it remembered.
-Future<void> theMachineWasAskedTwiceWhetherItCanRunAnything(
-    WidgetTester tester) async {
+Future<void> theMachineWasAskedTwiceWhetherItCanRunAnything(WidgetTester tester) async {
   expect(World.backend.healthAsked, 2);
 }

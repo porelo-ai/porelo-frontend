@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> theNewestLineIsInView(WidgetTester tester, String line) async {
   final shown = find.textContaining(line, findRichText: true);
   expect(shown, findsOneWidget);
-  final scroll = tester.state<ScrollableState>(
-      find.ancestor(of: shown, matching: find.byType(Scrollable)).first);
+  final scroll = tester.state<ScrollableState>(find.ancestor(of: shown, matching: find.byType(Scrollable)).first);
   expect(scroll.position.pixels, scroll.position.maxScrollExtent);
 }

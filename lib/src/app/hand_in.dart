@@ -78,8 +78,11 @@ class HandingIn extends ChangeNotifier {
     received = 0;
     final limit = to.handInLimit;
     if (limit != null && size > limit) {
-      _tell('$named has ${inWords(size)}, and ${to.name} takes at most ${inWords(limit)}. '
-          'Nothing was sent.', failed: true);
+      _tell(
+        '$named has ${inWords(size)}, and ${to.name} takes at most ${inWords(limit)}. '
+        'Nothing was sent.',
+        failed: true,
+      );
       return null;
     }
     busy = true;
@@ -96,8 +99,14 @@ class HandingIn extends ChangeNotifier {
         await opened.setPosition(offset);
         final part = await opened.read(min(partBytes, size - offset));
         try {
-          final answer = await backend.handIn(to.name,
-              name: named, bytes: size, sha256: sha256, offset: offset, part: part);
+          final answer = await backend.handIn(
+            to.name,
+            name: named,
+            bytes: size,
+            sha256: sha256,
+            offset: offset,
+            part: part,
+          );
           lostInARow = 0;
           received = answer.received;
           final placed = answer.file;
@@ -107,8 +116,11 @@ class HandingIn extends ChangeNotifier {
           }
           if (answer.received <= offset) {
             // The machine took nothing and placed nothing: asking again would loop.
-            _tell('The machine took none of the part at ${inWords(offset)} and placed nothing. '
-                'Nothing more was sent.', failed: true);
+            _tell(
+              'The machine took none of the part at ${inWords(offset)} and placed nothing. '
+              'Nothing more was sent.',
+              failed: true,
+            );
             return null;
           }
           offset = answer.received;
@@ -117,8 +129,7 @@ class HandingIn extends ChangeNotifier {
           if (refusal.simpleName != 'PartOutOfOrder') rethrow;
           final at = _intIn(refusal, 'received');
           if (at == resumedAt) {
-            _tell('The machine asked twice to go on at ${inWords(at)}. Nothing more was sent.',
-                failed: true);
+            _tell('The machine asked twice to go on at ${inWords(at)}. Nothing more was sent.', failed: true);
             return null;
           }
           resumedAt = at;
@@ -132,9 +143,12 @@ class HandingIn extends ChangeNotifier {
     } on VarlinkException catch (refusal) {
       _tell(wordsFor(refusal, to.name), failed: true);
     } on VarlinkDisconnected catch (ex) {
-      _tell('Lost contact with the machine $mostLostInARow times in a row: ${ex.message}. '
-          '${inWords(received)} of ${inWords(size)} are there; handing it in again goes on '
-          'from there for ten minutes.', failed: true);
+      _tell(
+        'Lost contact with the machine $mostLostInARow times in a row: ${ex.message}. '
+        '${inWords(received)} of ${inWords(size)} are there; handing it in again goes on '
+        'from there for ten minutes.',
+        failed: true,
+      );
     } on FeatureNotSupported {
       _tell('This machine cannot hand a file to work.', failed: true);
     } finally {
@@ -178,16 +192,19 @@ class HandingIn extends ChangeNotifier {
     return switch (refusal.simpleName) {
       'NotRunning' => '$task is not running any more, and a file goes only to running work.',
       'NoSuchTask' => '$task is not on this machine any more.',
-      'FileTooLarge' => 'The file has ${inWords(_intIn(refusal, 'bytes'))}, and $task takes at '
-          'most ${inWords(_intIn(refusal, 'limit'))}. A larger limit is set in the project file.',
+      'FileTooLarge' =>
+        'The file has ${inWords(_intIn(refusal, 'bytes'))}, and $task takes at '
+            'most ${inWords(_intIn(refusal, 'limit'))}. A larger limit is set in the project file.',
       'FileNameRefused' =>
         'The machine will not take the name "${text('name')}": ${text('reason')}. '
             'Hand it in under another name.',
-      'FileDiffers' => 'What arrived is not the file that was read, so nothing was placed. '
-          'Hand it in again; if it changed while it was sent, wait until it is written.',
-      'HandInInProgress' => 'Another file named "${text('name')}" is being handed in: '
-          '${inWords(_intIn(refusal, 'received'))} of ${inWords(_intIn(refusal, 'bytes'))} are '
-          'there. Wait for it, or hand this one in under another name.',
+      'FileDiffers' =>
+        'What arrived is not the file that was read, so nothing was placed. '
+            'Hand it in again; if it changed while it was sent, wait until it is written.',
+      'HandInInProgress' =>
+        'Another file named "${text('name')}" is being handed in: '
+            '${inWords(_intIn(refusal, 'received'))} of ${inWords(_intIn(refusal, 'bytes'))} are '
+            'there. Wait for it, or hand this one in under another name.',
       'NoSuchFile' => '$task holds no handed-in file named "${text('name')}".',
       _ => 'Refused: ${refusal.simpleName}.',
     };
@@ -209,9 +226,7 @@ class HandingIn extends ChangeNotifier {
       size /= 1024;
       unit++;
     }
-    final shown = size >= 10 || size == size.roundToDouble()
-        ? size.round().toString()
-        : size.toStringAsFixed(1);
+    final shown = size >= 10 || size == size.roundToDouble() ? size.round().toString() : size.toStringAsFixed(1);
     return '$shown ${units[unit]}';
   }
 }

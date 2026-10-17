@@ -7,8 +7,7 @@ import '../support/remote.dart';
 
 /// Usage: the machine lists the connection {'https://e2e-typed.invalid/'} as a token in its vault
 Future<void> theMachineListsTheConnectionAsATokenInItsVault(WidgetTester tester, String match) async {
-  final client = await PoreloClient.connect(
-      Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
+  final client = await PoreloClient.connect(Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
   Connection? connection;
   final until = DateTime.now().add(const Duration(seconds: 30));
   while (DateTime.now().isBefore(until)) {

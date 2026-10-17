@@ -19,17 +19,23 @@ void main() {
   });
   tearDown(() => place.deleteSync(recursive: true));
 
-  final wsl = Wsl(run: (arguments) async => (
-        code: 0,
-        printed: switch (arguments.join(' ')) {
-          '-l -q' || '-l --running -q' => 'Ubuntu\n'.codeUnits,
-          '-l -v' => '  NAME STATE VERSION\n* Ubuntu Running 2\n'.codeUnits,
-          _ => <int>[],
-        }
-      ));
+  final wsl = Wsl(
+    run: (arguments) async => (
+      code: 0,
+      printed: switch (arguments.join(' ')) {
+        '-l -q' || '-l --running -q' => 'Ubuntu\n'.codeUnits,
+        '-l -v' => '  NAME STATE VERSION\n* Ubuntu Running 2\n'.codeUnits,
+        _ => <int>[],
+      },
+    ),
+  );
 
   testWidgets('a key, the bytes for it, and a wheel turn are shown and written to the log', (tester) async {
-    await tester.pumpWidget(MaterialApp(home: TerminalDiagnosis(wsl: wsl, log: log)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TerminalDiagnosis(wsl: wsl, log: log),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('diagnose-key-events-only')));
     await tester.pumpAndSettle();
@@ -49,23 +55,28 @@ void main() {
     expect(written, contains(r'terminal would send \r'));
     expect(written, contains(r'tmux would be sent \e[<64;1;1M'));
     expect(
-        find.byWidgetPredicate((widget) => widget is SelectableText && (widget.data ?? '').contains('tmux would be sent')),
-        findsOneWidget,
-        reason: 'shown on screen as well as written');
+      find.byWidgetPredicate(
+        (widget) => widget is SelectableText && (widget.data ?? '').contains('tmux would be sent'),
+      ),
+      findsOneWidget,
+      reason: 'shown on screen as well as written',
+    );
   });
 
   testWidgets('what was typed goes into the chosen distribution and what od read is shown', (tester) async {
     final sent = <({String distribution, List<int> bytes, bool pseudoconsole})>[];
-    await tester.pumpWidget(MaterialApp(
-      home: TerminalDiagnosis(
-        wsl: wsl,
-        log: log,
-        throughWsl: (distribution, bytes, {required pseudoconsole}) async {
-          sent.add((distribution: distribution, bytes: bytes, pseudoconsole: pseudoconsole));
-          return '0000000   a  \\r\n0000002\n';
-        },
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TerminalDiagnosis(
+          wsl: wsl,
+          log: log,
+          throughWsl: (distribution, bytes, {required pseudoconsole}) async {
+            sent.add((distribution: distribution, bytes: bytes, pseudoconsole: pseudoconsole));
+            return '0000000   a  \\r\n0000002\n';
+          },
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('diagnose-key-events-only')));
     await tester.pumpAndSettle();

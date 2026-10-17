@@ -24,23 +24,26 @@ void main() {
   tearDown(() => scratch.deleteSync(recursive: true));
 
   Future<ProcessResult> package({required bool release}) => Process.run(
-        'bash',
-        <String>['tool/package.sh', '0.4.0'],
-        environment: <String, String>{
-          'PATH': '${scratch.path}:${Platform.environment['PATH']}',
-          'NFPM': '/bin/true',
-          'OUT_DIR': '${scratch.path}/out',
-          'SNAPSHOT_RUN': '126',
-          // Always said, never inherited: a tag's build runs the suite with RELEASE=1 set.
-          'RELEASE': release ? '1' : '0',
-        },
-      );
+    'bash',
+    <String>['tool/package.sh', '0.4.0'],
+    environment: <String, String>{
+      'PATH': '${scratch.path}:${Platform.environment['PATH']}',
+      'NFPM': '/bin/true',
+      'OUT_DIR': '${scratch.path}/out',
+      'SNAPSHOT_RUN': '126',
+      // Always said, never inherited: a tag's build runs the suite with RELEASE=1 set.
+      'RELEASE': release ? '1' : '0',
+    },
+  );
 
   test('a release passes the version checks and reaches the build', () async {
     final result = await package(release: true);
     final said = '${result.stdout}${result.stderr}';
-    expect(said, contains('Checking the version supersedes the last one: 0.4.0\n'),
-        reason: 'a release is packaged as its own version:\n$said');
+    expect(
+      said,
+      contains('Checking the version supersedes the last one: 0.4.0\n'),
+      reason: 'a release is packaged as its own version:\n$said',
+    );
     expect(said, contains('the build was reached'), reason: 'the release stopped before the build:\n$said');
   });
 

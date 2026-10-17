@@ -24,16 +24,14 @@ void main() {
     });
   });
 
-  String inodeOf(File of) =>
-      Process.runSync('stat', <String>['-c', '%i', of.path]).stdout.toString().trim();
+  String inodeOf(File of) => Process.runSync('stat', <String>['-c', '%i', of.path]).stdout.toString().trim();
 
   test('what it writes is readable by nobody but its owner', () async {
     final store = FileSettingsStore(file: file);
 
     await store.write(<String, Object?>{'appearance': 'dark'});
 
-    expect(FileStat.statSync(file.path).mode & 0x3F, 0,
-        reason: 'it names the hosts somebody logs in to');
+    expect(FileStat.statSync(file.path).mode & 0x3F, 0, reason: 'it names the hosts somebody logs in to');
   });
 
   test('the file is replaced in one step, never written into', () async {

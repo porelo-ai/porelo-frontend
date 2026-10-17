@@ -5,7 +5,5 @@ import '../support/world.dart';
 
 /// Usage: the repository {'payments-api'} adds {'api.stripe.com'}
 Future<void> theRepositoryAdds(WidgetTester tester, String repository, String host) async {
-  World.backend.theRepositoryAdds[repository] = <EgressHost>[
-    EgressHost(host: host, origin: 'repository $repository'),
-  ];
+  World.backend.theRepositoryAdds[repository] = <EgressHost>[EgressHost(host: host, origin: 'repository $repository')];
 }

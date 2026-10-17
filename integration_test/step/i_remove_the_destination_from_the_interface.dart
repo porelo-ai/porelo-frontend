@@ -12,10 +12,11 @@ Future<void> iRemoveTheDestinationFromTheInterface(WidgetTester tester, String n
   await tester.tap(remove);
   // Waited for by its own words: what writing said is still on screen until removing answers.
   await pumpUntil(
-      tester,
-      () =>
-          find.textContaining('Removed $name').evaluate().isNotEmpty ||
-          find.textContaining('Nothing of your own').evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30),
-      what: 'the machine to say what removing did');
+    tester,
+    () =>
+        find.textContaining('Removed $name').evaluate().isNotEmpty ||
+        find.textContaining('Nothing of your own').evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to say what removing did',
+  );
 }

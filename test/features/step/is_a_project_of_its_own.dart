@@ -12,13 +12,14 @@ Future<void> isAProjectOfItsOwn(WidgetTester tester, String repository) async {
     World.forge.repositoriesHere = <ForgeRepository>[
       ...World.forge.repositoriesHere,
       ForgeRepository(
-          fullName: repository,
-          sshUrl: 'git@github.com:$repository.git',
-          httpsUrl: 'https://github.com/$repository.git',
-          defaultBranch: 'main',
-          admin: true,
-          push: true,
-          private: true),
+        fullName: repository,
+        sshUrl: 'git@github.com:$repository.git',
+        httpsUrl: 'https://github.com/$repository.git',
+        defaultBranch: 'main',
+        admin: true,
+        push: true,
+        private: true,
+      ),
     ];
   }
 }

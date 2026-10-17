@@ -8,6 +8,7 @@ import '../support/world.dart';
 Future<void> anotherHostEntryUsesTheKeyOf(WidgetTester tester, String name) async {
   final ssh = World.machines.setup.sshDirectory;
   File('$ssh/config').writeAsStringSync(
-      '\nHost other\n    HostName other.example.test\n    IdentityFile $ssh/porelo-$name-agent\n',
-      mode: FileMode.append);
+    '\nHost other\n    HostName other.example.test\n    IdentityFile $ssh/porelo-$name-agent\n',
+    mode: FileMode.append,
+  );
 }

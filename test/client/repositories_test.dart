@@ -19,8 +19,7 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<PoreloClient> connect() =>
-      PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Future<Map<String, dynamic>> started({String? repository}) async {
     Map<String, dynamic>? asked;
@@ -43,12 +42,18 @@ void main() {
   });
 
   test("a project's repositories are read in the order given, its own first", () async {
-    daemon.method('Projects', (_) => <String, dynamic>{
-          'projects': <Map<String, dynamic>>[
-            <String, dynamic>{'name': 'checkout', 'repositories': <String>['checkout', 'payments-api']},
-            <String, dynamic>{'name': 'older'},
-          ],
-        });
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'repositories': <String>['checkout', 'payments-api'],
+          },
+          <String, dynamic>{'name': 'older'},
+        ],
+      },
+    );
 
     final projects = await (await connect()).projects();
 
@@ -57,27 +62,30 @@ void main() {
   });
 
   test('repositories answered as objects are read, the own one first', () async {
-    daemon.method('Projects', (_) => <String, dynamic>{
-          'projects': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'name': 'checkout',
-              'pending': 3,
-              'repositories': <Map<String, dynamic>>[
-                <String, dynamic>{
-                  'name': 'payments-api',
-                  'own': false,
-                  'upstream': 'git@example.org:payments-api.git',
-                  'mirror': '/srv/checkout/.porelo/repositories/payments-api',
-                  'pending': 2,
-                  'behind': 4,
-                  'behindMeasured': '2026-09-18T22:00:00Z',
-                  'behindReason': 'MEASURED',
-                },
-                <String, dynamic>{'name': 'checkout', 'own': true, 'pending': 1},
-              ],
-            },
-          ],
-        });
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'pending': 3,
+            'repositories': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'name': 'payments-api',
+                'own': false,
+                'upstream': 'git@example.org:payments-api.git',
+                'mirror': '/srv/checkout/.porelo/repositories/payments-api',
+                'pending': 2,
+                'behind': 4,
+                'behindMeasured': '2026-09-18T22:00:00Z',
+                'behindReason': 'MEASURED',
+              },
+              <String, dynamic>{'name': 'checkout', 'own': true, 'pending': 1},
+            ],
+          },
+        ],
+      },
+    );
 
     final project = (await (await connect()).projects()).single;
 
@@ -120,27 +128,30 @@ void main() {
   });
 
   test('a follow state is read whole, and neither absent nor empty is a follow', () async {
-    daemon.method('Projects', (_) => <String, dynamic>{
-          'projects': <Map<String, dynamic>>[
-            <String, dynamic>{
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'following': <String, dynamic>{
               'name': 'checkout',
-              'following': <String, dynamic>{
-                'name': 'checkout',
-                'url': 'git@example.org:checkout.git',
-                'commit': '4f2a9c1e0b77',
-                'at': '2026-09-19T03:50:00Z',
-                'outcome': 'UNKNOWN_KEY',
-                'refused': 'b71d03aa9e2c',
-                'signer': 'SHA256:9xQeTbL1',
-                'detail': 'not pinned here',
-                'needsAPerson': true,
-                'unverified': true,
-              },
+              'url': 'git@example.org:checkout.git',
+              'commit': '4f2a9c1e0b77',
+              'at': '2026-09-19T03:50:00Z',
+              'outcome': 'UNKNOWN_KEY',
+              'refused': 'b71d03aa9e2c',
+              'signer': 'SHA256:9xQeTbL1',
+              'detail': 'not pinned here',
+              'needsAPerson': true,
+              'unverified': true,
             },
-            <String, dynamic>{'name': 'nobody-follows'},
-            <String, dynamic>{'name': 'empty-object', 'following': <String, dynamic>{}},
-          ],
-        });
+          },
+          <String, dynamic>{'name': 'nobody-follows'},
+          <String, dynamic>{'name': 'empty-object', 'following': <String, dynamic>{}},
+        ],
+      },
+    );
 
     final projects = await (await connect()).projects();
 
@@ -159,9 +170,7 @@ void main() {
       final names = <String, String?>{};
       for (final method in <String>['Egress', 'SetEgress']) {
         daemon.method(method, (parameters) {
-          names[method] = parameters.containsKey('repository')
-              ? parameters['repository'] as String?
-              : 'none sent';
+          names[method] = parameters.containsKey('repository') ? parameters['repository'] as String? : 'none sent';
           return <String, dynamic>{};
         });
       }
@@ -181,27 +190,30 @@ void main() {
   });
 
   test("a repository's limits are read with where each key came from", () async {
-    daemon.method('Projects', (_) => <String, dynamic>{
-          'projects': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'name': 'checkout',
-              'repositories': <Map<String, dynamic>>[
-                <String, dynamic>{
-                  'name': 'payments-api',
-                  'limits': <String, dynamic>{
-                    'memory': '4g',
-                    'cpus': '',
-                    'pids': 512,
-                    'memoryFrom': 'repository',
-                    'cpusFrom': 'project',
-                    'pidsFrom': 'project',
-                  },
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'repositories': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'name': 'payments-api',
+                'limits': <String, dynamic>{
+                  'memory': '4g',
+                  'cpus': '',
+                  'pids': 512,
+                  'memoryFrom': 'repository',
+                  'cpusFrom': 'project',
+                  'pidsFrom': 'project',
                 },
-                <String, dynamic>{'name': 'older'},
-              ],
-            },
-          ],
-        });
+              },
+              <String, dynamic>{'name': 'older'},
+            ],
+          },
+        ],
+      },
+    );
 
     final repositories = (await (await connect()).projects()).single.repositoryStates;
 
@@ -211,11 +223,14 @@ void main() {
   });
 
   test('what this account follows is read, one entry per project', () async {
-    daemon.method('Following', (_) => <String, dynamic>{
-          'projects': <Map<String, dynamic>>[
-            <String, dynamic>{'name': 'e2e-follow', 'outcome': 'APPLIED', 'unverified': true},
-          ],
-        });
+    daemon.method(
+      'Following',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'e2e-follow', 'outcome': 'APPLIED', 'unverified': true},
+        ],
+      },
+    );
 
     final followed = await (await connect()).following();
 
@@ -225,16 +240,19 @@ void main() {
   });
 
   test('a project left from before following carries a file and is still not acted on', () async {
-    daemon.method('Projects', (_) => <String, dynamic>{
-          'projects': <Map<String, dynamic>>[
-            <String, dynamic>{
-              'name': 'objects4j',
-              'file': '/home/alice/git/objects4j/project.yml',
-              'following': <String, dynamic>{},
-            },
-            <String, dynamic>{'name': 'older', 'file': '/srv/older/project.yml'},
-          ],
-        });
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'objects4j',
+            'file': '/home/alice/git/objects4j/project.yml',
+            'following': <String, dynamic>{},
+          },
+          <String, dynamic>{'name': 'older', 'file': '/srv/older/project.yml'},
+        ],
+      },
+    );
 
     final projects = await (await connect()).projects();
 

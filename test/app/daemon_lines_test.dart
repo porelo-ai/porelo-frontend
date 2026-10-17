@@ -10,14 +10,26 @@ void main() {
 
   test('starting runs its line in the login shell, never waiting on a prompt', () {
     expect(Tunnels.startCommandFor(vm), <String>[
-      'ssh', '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'agent@vm',
+      'ssh',
+      '-n',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      'agent@vm',
       inTheLoginShell(Tunnels.startsIt),
     ]);
   });
 
   test('stopping runs its line in the login shell, never waiting on a prompt', () {
     expect(Tunnels.stopCommandFor(vm), <String>[
-      'ssh', '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'agent@vm',
+      'ssh',
+      '-n',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      'agent@vm',
       inTheLoginShell(Tunnels.stopsIt),
     ]);
   });

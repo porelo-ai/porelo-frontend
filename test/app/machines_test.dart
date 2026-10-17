@@ -13,9 +13,7 @@ import '../features/support/world.dart';
 /// and said it could not connect. Every test passed. This is the guard that was missing.
 void main() {
   test('PORELO_SOCKET names the machine to open', () {
-    final machine = Machine.local(
-      environment: const <String, String>{'PORELO_SOCKET': '/tmp/porelo-mock.sock'},
-    );
+    final machine = Machine.local(environment: const <String, String>{'PORELO_SOCKET': '/tmp/porelo-mock.sock'});
 
     expect(machine.socketPath, '/tmp/porelo-mock.sock');
     expect(machine.name, 'porelo-mock.sock');
@@ -67,11 +65,16 @@ void main() {
   });
 
   test('a WSL distribution in the list is said to be unreachable here, and no socket is tried', () async {
-    final machines = Machines(Settings(MemorySettingsStore(<String, Object?>{
-      'machines': <Object?>[
-        <String, Object?>{'name': 'Ubuntu on this PC', 'kind': 'wsl', 'distribution': 'Ubuntu'},
-      ],
-    })), tunnels: FakeTunnels());
+    final machines = Machines(
+      Settings(
+        MemorySettingsStore(<String, Object?>{
+          'machines': <Object?>[
+            <String, Object?>{'name': 'Ubuntu on this PC', 'kind': 'wsl', 'distribution': 'Ubuntu'},
+          ],
+        }),
+      ),
+      tunnels: FakeTunnels(),
+    );
     await machines.load();
     final machine = machines.all.single;
     final fleet = machines.of(machine);
@@ -91,14 +94,20 @@ void main() {
   /// looks exactly like having lost it.
   group('a stored machine that is not what it should be', () {
     test('a wrong type where a path belongs does not take the other machines with it', () async {
-      final settings = Settings(MemorySettingsStore(<String, Object?>{
-        'machines': <Object?>[
-          <String, Object?>{'name': 'this machine', 'socket': '/run/user/1000/porelo/porelod.sock'},
-          <String, Object?>{'name': 'broken', 'socket': 1000},
-          <String, Object?>{'name': 'the build machine', 'socket': '/tmp/build.sock',
-              'host': 'user@build', 'remoteSocket': '/run/user/1001/porelo/porelod.sock'},
-        ],
-      }));
+      final settings = Settings(
+        MemorySettingsStore(<String, Object?>{
+          'machines': <Object?>[
+            <String, Object?>{'name': 'this machine', 'socket': '/run/user/1000/porelo/porelod.sock'},
+            <String, Object?>{'name': 'broken', 'socket': 1000},
+            <String, Object?>{
+              'name': 'the build machine',
+              'socket': '/tmp/build.sock',
+              'host': 'user@build',
+              'remoteSocket': '/run/user/1001/porelo/porelod.sock',
+            },
+          ],
+        }),
+      );
 
       final machines = await settings.machines();
 
@@ -106,17 +115,26 @@ void main() {
     });
 
     test('an entry that is not an object at all is dropped', () async {
-      final settings = Settings(MemorySettingsStore(<String, Object?>{
-        'machines': <Object?>['just a string', <String, Object?>{'name': 'kept', 'socket': '/tmp/k.sock'}],
-      }));
+      final settings = Settings(
+        MemorySettingsStore(<String, Object?>{
+          'machines': <Object?>[
+            'just a string',
+            <String, Object?>{'name': 'kept', 'socket': '/tmp/k.sock'},
+          ],
+        }),
+      );
 
       expect((await settings.machines()).map((each) => each.name), <String>['kept']);
     });
 
     test('a nameless machine is dropped: nothing could tell it from another', () async {
-      final settings = Settings(MemorySettingsStore(<String, Object?>{
-        'machines': <Object?>[<String, Object?>{'socket': '/tmp/nameless.sock'}],
-      }));
+      final settings = Settings(
+        MemorySettingsStore(<String, Object?>{
+          'machines': <Object?>[
+            <String, Object?>{'socket': '/tmp/nameless.sock'},
+          ],
+        }),
+      );
 
       expect(await settings.machines(), isEmpty);
     });
@@ -137,12 +155,12 @@ void main() {
     };
 
     Machines machinesWith(Settings settings, {required bool running}) => Machines(
-          settings,
-          reach: (machine) => FakeBackend(const <Task>[]),
-          tunnels: FakeTunnels(),
-          lookFor: mock,
-          answers: (socket) async => running && socket == mock.socketPath,
-        );
+      settings,
+      reach: (machine) => FakeBackend(const <Task>[]),
+      tunnels: FakeTunnels(),
+      lookFor: mock,
+      answers: (socket) async => running && socket == mock.socketPath,
+    );
 
     test('a running mock is shown beside the stored machines, and never stored', () async {
       final store = MemorySettingsStore(stored);

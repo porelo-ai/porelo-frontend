@@ -49,42 +49,47 @@ class _ForgesPageState extends State<ForgesPage> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: widget.forges,
-        builder: (context, _) {
-          final forges = widget.forges;
-          final text = Theme.of(context).textTheme;
-          return ListView(
-            key: const Key('forges-page'),
-            padding: const EdgeInsets.all(Space.normal),
+    animation: widget.forges,
+    builder: (context, _) {
+      final forges = widget.forges;
+      final text = Theme.of(context).textTheme;
+      return ListView(
+        key: const Key('forges-page'),
+        padding: const EdgeInsets.all(Space.normal),
+        children: <Widget>[
+          Wrap(
+            spacing: Space.normal,
+            runSpacing: Space.small,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              Wrap(
-                spacing: Space.normal,
-                runSpacing: Space.small,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: <Widget>[
-                  Text('Forges', style: text.headlineSmall),
-                  FilledButton.icon(
-                    key: const Key('forge-add'),
-                    onPressed: forges.busy ? null : () => unawaited(_form(context)),
-                    icon: const Icon(Icons.add, size: Sizes.rowIcon),
-                    label: const Text('Add a forge'),
-                  ),
-                ],
+              Text('Forges', style: text.headlineSmall),
+              FilledButton.icon(
+                key: const Key('forge-add'),
+                onPressed: forges.busy ? null : () => unawaited(_form(context)),
+                icon: const Icon(Icons.add, size: Sizes.rowIcon),
+                label: const Text('Add a forge'),
               ),
-              const SizedBox(height: Space.tight),
-              Text('Where your repositories are, each reached with a token kept in this computer’s keychain.',
-                  style: text.bodySmall),
-              const SizedBox(height: Space.normal),
-              if (forges.problem != null)
-                Text(forges.problem!,
-                    key: const Key('forges-problem'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              if (_said != null) Text(_said!, key: const Key('forges-said')),
-              if (forges.loaded && forges.entries.isEmpty) const Text('None yet.', key: Key('forges-none')),
-              for (final entry in forges.entries) _row(context, forges, entry),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: Space.tight),
+          Text(
+            'Where your repositories are, each reached with a token kept in this computer’s keychain.',
+            style: text.bodySmall,
+          ),
+          const SizedBox(height: Space.normal),
+          if (forges.problem != null)
+            Text(
+              forges.problem!,
+              key: const Key('forges-problem'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          if (_said != null) Text(_said!, key: const Key('forges-said')),
+          if (forges.loaded && forges.entries.isEmpty) const Text('None yet.', key: Key('forges-none')),
+          for (final entry in forges.entries) _row(context, forges, entry),
+        ],
       );
+    },
+  );
 
   Widget _row(BuildContext context, ForgeConnection forges, ForgeEntry entry) {
     final mine = forges.current?.id == entry.id && forges.connected;
@@ -95,12 +100,14 @@ class _ForgesPageState extends State<ForgesPage> {
         key: ValueKey<String>('forge ${entry.name}'),
         leading: const Icon(Icons.hub_outlined),
         title: Text(entry.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(<String>[
-          entry.kindWords,
-          entry.address,
-          if (mine) 'as ${forges.account!.login}',
-          if (count != null) count == 1 ? '1 repository' : '$count repositories',
-        ].join('  ·  ')),
+        subtitle: Text(
+          <String>[
+            entry.kindWords,
+            entry.address,
+            if (mine) 'as ${forges.account!.login}',
+            if (count != null) count == 1 ? '1 repository' : '$count repositories',
+          ].join('  ·  '),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -120,78 +127,87 @@ class _ForgesPageState extends State<ForgesPage> {
 }
 
 /// A forge's menu, on its card and beside its page's heading: a new token or name, or removing it.
-Widget forgeMenu(BuildContext context, ForgeConnection forges, ForgeEntry entry,
-        List<String> Function(ForgeEntry entry) usedBy,
-        {required void Function(String said) said}) =>
-    PopupMenuButton<String>(
-      key: ValueKey<String>('forges-menu ${entry.name}'),
-      tooltip: 'What can be done with ${entry.name}',
-      onSelected: (chosen) async {
-        if (chosen == 'change') {
-          final words = await showForgeForm(context, forges, editing: entry);
-          if (words != null && words.isNotEmpty) said(words);
-        } else if (chosen == 'remove' && context.mounted) {
-          final words = await removeForge(context, forges, entry, usedBy(entry));
-          if (words != null) said(words);
-        }
-      },
-      itemBuilder: (_) => <PopupMenuEntry<String>>[
-        PopupMenuItem<String>(
-          key: ValueKey<String>('forge-change ${entry.name}'),
-          value: 'change',
-          child: const Text('Change its name or token'),
-        ),
-        PopupMenuItem<String>(
-          key: ValueKey<String>('forge-remove ${entry.name}'),
-          value: 'remove',
-          child: const Text('Remove from this computer'),
-        ),
-      ],
-    );
+Widget forgeMenu(
+  BuildContext context,
+  ForgeConnection forges,
+  ForgeEntry entry,
+  List<String> Function(ForgeEntry entry) usedBy, {
+  required void Function(String said) said,
+}) => PopupMenuButton<String>(
+  key: ValueKey<String>('forges-menu ${entry.name}'),
+  tooltip: 'What can be done with ${entry.name}',
+  onSelected: (chosen) async {
+    if (chosen == 'change') {
+      final words = await showForgeForm(context, forges, editing: entry);
+      if (words != null && words.isNotEmpty) said(words);
+    } else if (chosen == 'remove' && context.mounted) {
+      final words = await removeForge(context, forges, entry, usedBy(entry));
+      if (words != null) said(words);
+    }
+  },
+  itemBuilder: (_) => <PopupMenuEntry<String>>[
+    PopupMenuItem<String>(
+      key: ValueKey<String>('forge-change ${entry.name}'),
+      value: 'change',
+      child: const Text('Change its name or token'),
+    ),
+    PopupMenuItem<String>(
+      key: ValueKey<String>('forge-remove ${entry.name}'),
+      value: 'remove',
+      child: const Text('Remove from this computer'),
+    ),
+  ],
+);
 
 /// Sets up a forge, or changes [editing], in a dialog of its own; answers what happened, or null.
-Future<String?> showForgeForm(BuildContext context, ForgeConnection forges,
-        {ForgeEntry? editing, VoidCallback? onFollowByAddress}) =>
-    showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        key: const Key('forge-form-dialog'),
-        title: Text(editing == null ? 'Add a forge' : 'Change ${editing.name}'),
-        content: SizedBox(
-          width: Sizes.dialog,
-          child: SingleChildScrollView(
-            child: AnimatedBuilder(
-              animation: forges,
-              builder: (context, _) => Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  if (forges.problem != null)
-                    Text(forges.problem!,
-                        key: const Key('forge-problem'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  ForgeForm(
-                    key: Key(editing == null ? 'forge-add-form' : 'forge-edit ${editing.id}'),
-                    forges: forges,
-                    editing: editing,
-                    onDone: (said) => Navigator.of(context).pop(said),
-                  ),
-                  // A repository on no forge is followed by its address instead.
-                  if (onFollowByAddress != null)
-                    TextButton(
-                      key: const Key('follow-by-address'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        onFollowByAddress();
-                      },
-                      child: const Text('Not on a forge? Follow a project by its address'),
-                    ),
-                ],
+Future<String?> showForgeForm(
+  BuildContext context,
+  ForgeConnection forges, {
+  ForgeEntry? editing,
+  VoidCallback? onFollowByAddress,
+}) => showDialog<String>(
+  context: context,
+  builder: (context) => AlertDialog(
+    key: const Key('forge-form-dialog'),
+    title: Text(editing == null ? 'Add a forge' : 'Change ${editing.name}'),
+    content: SizedBox(
+      width: Sizes.dialog,
+      child: SingleChildScrollView(
+        child: AnimatedBuilder(
+          animation: forges,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (forges.problem != null)
+                Text(
+                  forges.problem!,
+                  key: const Key('forge-problem'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ForgeForm(
+                key: Key(editing == null ? 'forge-add-form' : 'forge-edit ${editing.id}'),
+                forges: forges,
+                editing: editing,
+                onDone: (said) => Navigator.of(context).pop(said),
               ),
-            ),
+              // A repository on no forge is followed by its address instead.
+              if (onFollowByAddress != null)
+                TextButton(
+                  key: const Key('follow-by-address'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    onFollowByAddress();
+                  },
+                  child: const Text('Not on a forge? Follow a project by its address'),
+                ),
+            ],
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
 
 /// One forge's repositories, as a page: filtered from the top, a card each with what can be done with
 /// it in its menu, and on which watched machines it is worked on.
@@ -246,115 +262,126 @@ class _ForgePageState extends State<ForgePage> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: widget.forges,
-        builder: (context, _) {
-          final forges = widget.forges;
-          final text = Theme.of(context).textTheme;
-          final scheme = Theme.of(context).colorScheme;
-          final entry = forges.current;
-          final repositories = forges.repositories;
-          final shown = forges.shown;
-          return ListView(
-            key: const Key('forge-page'),
-            padding: const EdgeInsets.all(Space.normal),
+    animation: widget.forges,
+    builder: (context, _) {
+      final forges = widget.forges;
+      final text = Theme.of(context).textTheme;
+      final scheme = Theme.of(context).colorScheme;
+      final entry = forges.current;
+      final repositories = forges.repositories;
+      final shown = forges.shown;
+      return ListView(
+        key: const Key('forge-page'),
+        padding: const EdgeInsets.all(Space.normal),
+        children: <Widget>[
+          Wrap(
+            spacing: Space.normal,
+            runSpacing: Space.small,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              Wrap(
-                spacing: Space.normal,
-                runSpacing: Space.small,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              Text(entry?.name ?? 'Forge', key: const Key('forge-title'), style: text.headlineSmall),
+              if (entry != null)
+                forgeMenu(context, forges, entry, widget.usedBy, said: (words) => setState(() => _said = words)),
+            ],
+          ),
+          const SizedBox(height: Space.tight),
+          if (entry != null)
+            Text(
+              <String>[entry.address, if (forges.connected) 'as ${forges.account!.login}'].join('  ·  '),
+              key: const Key('forge-account'),
+              style: text.bodySmall,
+            ),
+          const SizedBox(height: Space.small),
+          if (forges.problem != null)
+            Text(
+              forges.problem!,
+              key: const Key('forge-problem'),
+              style: TextStyle(color: scheme.error),
+            ),
+          if (_said != null) Text(_said!, key: const Key('forge-said')),
+          // Loading is shown as loading: an empty page read as a fault until the list came (walk 10).
+          if (forges.busy || !forges.loaded || (forges.connected && repositories == null))
+            Padding(
+              key: const Key('forge-loading'),
+              padding: const EdgeInsets.symmetric(vertical: Space.small),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(entry?.name ?? 'Forge', key: const Key('forge-title'), style: text.headlineSmall),
-                  if (entry != null)
-                    forgeMenu(context, forges, entry, widget.usedBy, said: (words) => setState(() => _said = words)),
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: Space.tight),
+                  Text('Reading your repositories at ${entry?.name ?? 'the forge'}…', style: text.bodySmall),
                 ],
               ),
-              const SizedBox(height: Space.tight),
-              if (entry != null)
-                Text(
-                  <String>[entry.address, if (forges.connected) 'as ${forges.account!.login}'].join('  ·  '),
-                  key: const Key('forge-account'),
-                  style: text.bodySmall,
+            ),
+          if (!forges.connected && (!forges.loaded || forges.busy))
+            Text(
+              entry == null
+                  ? 'Reading the forges set up on this computer…'
+                  : 'Using ${entry.name}, set up on this computer…',
+              key: const Key('forge-kept-token'),
+            )
+          else if (!forges.connected)
+            ForgeForm(key: const Key('forge-first'), forges: forges, editing: entry, onDone: (_) {})
+          else ...<Widget>[
+            TextField(
+              key: const Key('repositories-search'),
+              decoration: const InputDecoration(labelText: 'Filter', prefixIcon: Icon(Icons.search)),
+              onChanged: forges.search,
+            ),
+            if (repositories != null && repositories.isNotEmpty)
+              SwitchListTile(
+                key: const Key('forge-only-bindable'),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                // "Bind" said nothing to a person (walk 10): what it means is said instead.
+                title: const Text('Only those a machine can be set up to work on'),
+                subtitle: const Text(
+                  'A machine works on a repository with keys of its own there, which this '
+                  'token must be allowed to give it (Administration). Can be slow: the forge is asked '
+                  'about each repository, one by one.',
                 ),
-              const SizedBox(height: Space.small),
-              if (forges.problem != null)
-                Text(forges.problem!, key: const Key('forge-problem'), style: TextStyle(color: scheme.error)),
-              if (_said != null) Text(_said!, key: const Key('forge-said')),
-              // Loading is shown as loading: an empty page read as a fault until the list came (walk 10).
-              if (forges.busy || !forges.loaded || (forges.connected && repositories == null))
-                Padding(
-                  key: const Key('forge-loading'),
-                  padding: const EdgeInsets.symmetric(vertical: Space.small),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const LinearProgressIndicator(),
-                      const SizedBox(height: Space.tight),
-                      Text('Reading your repositories at ${entry?.name ?? 'the forge'}…', style: text.bodySmall),
-                    ],
-                  ),
-                ),
-              if (!forges.connected && (!forges.loaded || forges.busy))
-                Text(
-                    entry == null
-                        ? 'Reading the forges set up on this computer…'
-                        : 'Using ${entry.name}, set up on this computer…',
-                    key: const Key('forge-kept-token'))
-              else if (!forges.connected)
-                ForgeForm(key: const Key('forge-first'), forges: forges, editing: entry, onDone: (_) {})
-              else ...<Widget>[
-                TextField(
-                  key: const Key('repositories-search'),
-                  decoration: const InputDecoration(labelText: 'Filter', prefixIcon: Icon(Icons.search)),
-                  onChanged: forges.search,
-                ),
-                if (repositories != null && repositories.isNotEmpty)
-                  SwitchListTile(
-                    key: const Key('forge-only-bindable'),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    // "Bind" said nothing to a person (walk 10): what it means is said instead.
-                    title: const Text('Only those a machine can be set up to work on'),
-                    subtitle: const Text('A machine works on a repository with keys of its own there, which this '
-                        'token must be allowed to give it (Administration). Can be slow: the forge is asked '
-                        'about each repository, one by one.'),
-                    value: forges.onlyBindable,
-                    onChanged: forges.showOnlyBindable,
-                  ),
-                if (repositories != null && forges.stillAsking > 0)
-                  Text('Asking which repositories a machine can be set up to work on… '
-                      '(${forges.stillAsking} still to ask)', key: const Key('forge-still-asking'), style: text.bodySmall),
-                if (repositories != null &&
-                    repositories.isNotEmpty &&
-                    forges.onlyBindable &&
-                    forges.stillAsking == 0 &&
-                    forges.bindable == 0)
-                  Text(
-                    'This token cannot set a machine up to work on any of them. For each repository you want a machine to '
-                    'work on, it needs Administration and Contents, both read and write: Administration to add a '
-                    "machine's key, Contents to push its line to the project's machine-signers.",
-                    key: const Key('forge-binds-none'),
-                    style: TextStyle(color: scheme.error),
-                  ),
-                const SizedBox(height: Space.small),
-                if (repositories != null && repositories.isEmpty)
-                  const Text('This login reaches no repository.', key: Key('no-repositories')),
-                if (repositories != null && repositories.isNotEmpty && shown.isEmpty && forges.stillAsking == 0)
-                  const Text('Nothing matches.', key: Key('no-repository-matches')),
-                for (final each in shown) _row(context, forges, each, text),
-              ],
-              if (widget.onFollowByAddress case final byAddress?)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    key: const Key('follow-by-address'),
-                    onPressed: byAddress,
-                    child: const Text('Not on a forge? Follow a project by its address'),
-                  ),
-                ),
-            ],
-          );
-        },
+                value: forges.onlyBindable,
+                onChanged: forges.showOnlyBindable,
+              ),
+            if (repositories != null && forges.stillAsking > 0)
+              Text(
+                'Asking which repositories a machine can be set up to work on… '
+                '(${forges.stillAsking} still to ask)',
+                key: const Key('forge-still-asking'),
+                style: text.bodySmall,
+              ),
+            if (repositories != null &&
+                repositories.isNotEmpty &&
+                forges.onlyBindable &&
+                forges.stillAsking == 0 &&
+                forges.bindable == 0)
+              Text(
+                'This token cannot set a machine up to work on any of them. For each repository you want a machine to '
+                'work on, it needs Administration and Contents, both read and write: Administration to add a '
+                "machine's key, Contents to push its line to the project's machine-signers.",
+                key: const Key('forge-binds-none'),
+                style: TextStyle(color: scheme.error),
+              ),
+            const SizedBox(height: Space.small),
+            if (repositories != null && repositories.isEmpty)
+              const Text('This login reaches no repository.', key: Key('no-repositories')),
+            if (repositories != null && repositories.isNotEmpty && shown.isEmpty && forges.stillAsking == 0)
+              const Text('Nothing matches.', key: Key('no-repository-matches')),
+            for (final each in shown) _row(context, forges, each, text),
+          ],
+          if (widget.onFollowByAddress case final byAddress?)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('follow-by-address'),
+                onPressed: byAddress,
+                child: const Text('Not on a forge? Follow a project by its address'),
+              ),
+            ),
+        ],
       );
+    },
+  );
 
   Widget _row(BuildContext context, ForgeConnection forges, ForgeRepository repository, TextTheme text) {
     final name = repository.fullName;
@@ -374,15 +401,22 @@ class _ForgePageState extends State<ForgePage> {
             subtitle: Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
-                Text(<String>[
-                  // Binding a machine adds a deploy key, which only an admin may do: said, never found out.
-                  if (repository.admin) 'you are an admin' else 'not an admin: no machine can be given keys to it from here',
-                  if (!repository.push) 'you cannot push to it',
-                  if (isProject == true) 'has a project.yml',
-                  if (isProject == false) 'no project.yml yet',
-                  if (isProject == null) 'looking for a project.yml…',
-                  if (repository.admin && forges.mayBind[name] == false) 'this token may not give a machine keys to it',
-                ].join(' · '), style: text.bodySmall),
+                Text(
+                  <String>[
+                    // Binding a machine adds a deploy key, which only an admin may do: said, never found out.
+                    if (repository.admin)
+                      'you are an admin'
+                    else
+                      'not an admin: no machine can be given keys to it from here',
+                    if (!repository.push) 'you cannot push to it',
+                    if (isProject == true) 'has a project.yml',
+                    if (isProject == false) 'no project.yml yet',
+                    if (isProject == null) 'looking for a project.yml…',
+                    if (repository.admin && forges.mayBind[name] == false)
+                      'this token may not give a machine keys to it',
+                  ].join(' · '),
+                  style: text.bodySmall,
+                ),
                 // Where it is worked on, by the machines watched here: their names, nothing else
                 // (walk 10).
                 if (on.isNotEmpty) ...<Widget>[
@@ -461,21 +495,21 @@ class _ForgePageState extends State<ForgePage> {
     final says = widget.machine == null
         ? 'No machine is being watched here to work on it.'
         : !repository.push
-            ? 'You cannot push to it, so no machine can be set up to work on it from here.'
-            : isProject == null
-                ? 'Asking ${forges.current?.name ?? 'the forge'} what it holds, and what this token may do there…'
-                : !isProject
-                    // Made a project in its repository, never here (walk 10).
-                    ? 'It has no project.yml, so it is no Porelo project. Add one in the repository itself.'
-                    : !repository.admin
-                        ? 'It is a Porelo project. Only an admin of it can let a machine work on it, since that '
-                            'gives the machine keys there.'
-                        : mayBind == false
-                            ? 'It is a Porelo project, but this token may not give a machine keys to it. Give the '
-                                'token Administration (read and write) on this repository. '
-                                '${forges.whyNot[name] ?? ''}'
-                            : 'It is a Porelo project. ${widget.machineName} gets keys of its own for it, and work '
-                                'can start there.';
+        ? 'You cannot push to it, so no machine can be set up to work on it from here.'
+        : isProject == null
+        ? 'Asking ${forges.current?.name ?? 'the forge'} what it holds, and what this token may do there…'
+        : !isProject
+        // Made a project in its repository, never here (walk 10).
+        ? 'It has no project.yml, so it is no Porelo project. Add one in the repository itself.'
+        : !repository.admin
+        ? 'It is a Porelo project. Only an admin of it can let a machine work on it, since that '
+              'gives the machine keys there.'
+        : mayBind == false
+        ? 'It is a Porelo project, but this token may not give a machine keys to it. Give the '
+              'token Administration (read and write) on this repository. '
+              '${forges.whyNot[name] ?? ''}'
+        : 'It is a Porelo project. ${widget.machineName} gets keys of its own for it, and work '
+              'can start there.';
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
       child: Text(says, key: ValueKey<String>('repository-says $name'), style: Theme.of(context).textTheme.bodySmall),
@@ -503,7 +537,9 @@ class _ForgePageState extends State<ForgePage> {
           if (mounted) setState(() => forges.problem = refused.words);
         } on VarlinkException catch (refusal) {
           if (mounted) {
-            setState(() => _said = '${widget.machineName} refused it: ${refusal.parameters['message'] ?? refusal.simpleName}.');
+            setState(
+              () => _said = '${widget.machineName} refused it: ${refusal.parameters['message'] ?? refusal.simpleName}.',
+            );
           }
         }
         widget.onDefaultChanged?.call();
@@ -539,10 +575,12 @@ class _ForgePageState extends State<ForgePage> {
     final forge = forges.forge;
     if (workspace == null || machine == null || forge == null) return;
     final start = widget.onStartWork;
-    final project = await showBinding(context,
-        MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
-        changeToken: _changingTheToken(context, forges, repository),
-        startFollows: start != null);
+    final project = await showBinding(
+      context,
+      MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
+      changeToken: _changingTheToken(context, forges, repository),
+      startFollows: start != null,
+    );
     if (project != null && start != null && context.mounted) await start(project);
   }
 
@@ -553,19 +591,21 @@ class _ForgePageState extends State<ForgePage> {
     final forge = forges.forge;
     if (workspace == null || machine == null || forge == null) return;
     await showProjectForge(
-        context,
-        MachineBinding(forge, workspace, machine,
-            machineName: widget.machineName, login: forges.account?.login ?? ''));
+      context,
+      MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
+    );
   }
 
   /// Changing the token from a dialog over the binding: the binding goes on with the token then in use.
   Future<({Forge forge, ProjectWorkspace workspace})?> Function() _changingTheToken(
-          BuildContext context, ForgeConnection forges, ForgeRepository repository) =>
-      () async {
-        final entry = forges.current;
-        if (entry != null) await showForgeForm(context, forges, editing: entry);
-        final changed = forges.forge;
-        final clone = forges.workspace(repository);
-        return changed == null || clone == null ? null : (forge: changed, workspace: clone);
-      };
+    BuildContext context,
+    ForgeConnection forges,
+    ForgeRepository repository,
+  ) => () async {
+    final entry = forges.current;
+    if (entry != null) await showForgeForm(context, forges, editing: entry);
+    final changed = forges.forge;
+    final clone = forges.workspace(repository);
+    return changed == null || clone == null ? null : (forge: changed, workspace: clone);
+  };
 }

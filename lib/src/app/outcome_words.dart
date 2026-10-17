@@ -13,18 +13,16 @@ String stopWords(String task, Stopped result) {
   };
   final said = _detail(result.detail);
   return switch (result.outcome) {
-    Outcome.stopped =>
-      '$task was stopped. It is kept, workspace and all, and can be started again.$surviving$said',
+    Outcome.stopped => '$task was stopped. It is kept, workspace and all, and can be started again.$surviving$said',
     Outcome.notATask => '$task is not a task Porelo created. Nothing was touched.$said',
     Outcome.nothingToStop => 'There was nothing of $task to stop.$said',
-    _ => '$task: ${result.outcome.label}.$surviving$said'
+    _ => '$task: ${result.outcome.label}.$surviving$said',
   };
 }
 
 /// What a `Remove` did, or why it did not, in words named by the consequence.
 String removeWords(String task, Removed result) {
-  final rescued =
-      result.rescuedRef.isEmpty ? '' : ' What it held was pushed to ${result.rescuedRef}.';
+  final rescued = result.rescuedRef.isEmpty ? '' : ' What it held was pushed to ${result.rescuedRef}.';
   // Nothing else records what the container held beyond its image, so a removal that does not say
   // is the last chance to know that anything went. A count of paths, not a size.
   final discarded = switch (result.discarded) {
@@ -35,16 +33,13 @@ String removeWords(String task, Removed result) {
   final said = _detail(result.detail);
   return switch (result.outcome) {
     Outcome.removed => '$task was removed.$rescued$discarded$said',
-    Outcome.holdsWork =>
-      '$task holds work that never reached the gate, so nothing was touched.$said',
-    Outcome.nothingKnows =>
-      'Nothing could say whether $task holds work, so it was left as it was.$said',
+    Outcome.holdsWork => '$task holds work that never reached the gate, so nothing was touched.$said',
+    Outcome.nothingKnows => 'Nothing could say whether $task holds work, so it was left as it was.$said',
     Outcome.stillRunning => '$task is still running, so nothing was removed.$said',
     Outcome.notATask => '$task is not a task Porelo created. Nothing was touched.$said',
-    Outcome.rescueNeedsItRunning =>
-      '$task is already down, so what it holds cannot be read out of it.$said',
+    Outcome.rescueNeedsItRunning => '$task is already down, so what it holds cannot be read out of it.$said',
     Outcome.rescueFailed => 'Rescuing $task failed, so nothing was removed.$said',
-    _ => '$task: ${result.outcome.label}.$rescued$discarded$said'
+    _ => '$task: ${result.outcome.label}.$rescued$discarded$said',
   };
 }
 
@@ -54,41 +49,37 @@ String removeWords(String task, Removed result) {
 /// restart of its machine took down, and bringing it back restores its records, its egress and
 /// its tokens. Read from that structured answer, never from the lines the start printed.
 String startWords(String task, StartProgress result, {bool afterARestart = false}) {
-  final drift = result.imageDrift.isEmpty
-      ? ''
-      : ' The image it was built from has changed since: ${result.imageDrift}';
+  final drift = result.imageDrift.isEmpty ? '' : ' The image it was built from has changed since: ${result.imageDrift}';
   final problems = result.problems.isEmpty ? '' : ' ${result.problems.join('; ')}.';
   final started = result.helpersStarted;
   final recorded = result.helpersRecorded;
   final action = result.action;
-  final restored = '$task is back after the machine restarted: its records, its egress and its '
+  final restored =
+      '$task is back after the machine restarted: its records, its egress and its '
       'tokens were restored';
   return switch (action) {
     // A start that worked answers with no action at all, measured on Porelo 199.1: what the task
     // said before it was started is what tells a restart's return from any other.
     null when afterARestart && (result.exitCode ?? 0) == 0 => '$restored.$drift',
-    null => (result.exitCode ?? 0) == 0
-        ? '$task was started.'
-        : 'Starting $task failed with exit code ${result.exitCode}.${_reasonIn(result.output)}',
+    null =>
+      (result.exitCode ?? 0) == 0
+          ? '$task was started.'
+          : 'Starting $task failed with exit code ${result.exitCode}.${_reasonIn(result.output)}',
     // Fewer started than recorded is a partial start, and saying "running again" would be a lie.
     StartAction.resume when started != null && recorded != null && started < recorded =>
       '$task is running again, but only $started of $recorded helpers came back.'
           '$problems$drift',
-    StartAction.resume when afterARestart =>
-      '$restored${started == null ? '' : ', with $started helpers'}.$drift',
-    StartAction.resume =>
-      '$task is running again${started == null ? '' : ' with $started helpers'}.$drift',
+    StartAction.resume when afterARestart => '$restored${started == null ? '' : ', with $started helpers'}.$drift',
+    StartAction.resume => '$task is running again${started == null ? '' : ' with $started helpers'}.$drift',
     StartAction.create => '$task was created and started.',
     StartAction.running => '$task is already running. Nothing was started.',
-    StartAction.needsVault =>
-      '$task was not started: the vault is locked. Unlock it, then start it again.',
-    StartAction.supersededName =>
-      '$task is from before one container per task, so it cannot be started. Remove it.',
+    StartAction.needsVault => '$task was not started: the vault is locked. Unlock it, then start it again.',
+    StartAction.supersededName => '$task is from before one container per task, so it cannot be started. Remove it.',
     StartAction.notReady => '$task was not started: its project is not ready.',
     StartAction.predatesRestart =>
       '$task was started before this machine restarted, so it cannot be started again. '
           'Copy its workspace out, then remove it.',
-    _ => '$task: ${action.label}.'
+    _ => '$task: ${action.label}.',
   };
 }
 

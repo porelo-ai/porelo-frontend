@@ -7,37 +7,40 @@ run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.he
 # Once a day, not on a push: every hand-over runs the same checks locally on its exact commit first, and a run per
 # push spent build minutes on what was already known. 03:17 UTC lies outside the hours the repositories are worked in.
 on:
-  schedule:
-    - cron: '17 3 * * *'
-  pull_request:
-  workflow_dispatch:
+    schedule:
+        - cron: '17 3 * * *'
+    pull_request:
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 jobs:
-  check:
-    name: The shared rules are unchanged copies, nothing cites an issue, and the documents hold
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    check:
+        name: The shared rules are unchanged copies, nothing cites an issue, and the documents hold
+        runs-on: ubuntu-22.04
+        timeout-minutes: 15
+        steps:
+            # Without the job's token in .git/config: nothing here pushes with git.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
-      - uses: ./.github/actions/pinned-jdk
+            - uses: ./.github/actions/pinned-jdk
 
-      - name: Check that the shared rules are unchanged copies
-        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-shared AGENTS.md
+            - name: Check that the shared rules are unchanged copies
+              run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-shared AGENTS.md .editorconfig
 
-      - name: Check the citations, the documentation site and the READMEs
-        run: |
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
+            - name: Check the citations, the documentation site and the READMEs
+              run: |
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
 
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          flutter-version-file: pubspec.yaml
-          cache: true
+            - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+              with:
+                  flutter-version-file: pubspec.yaml
+                  cache: true
 
-      - name: Run the tests that read a document
-        run: flutter test --tags documents
+            - name: Run the tests that read a document
+              run: flutter test --tags documents

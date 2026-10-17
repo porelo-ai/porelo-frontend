@@ -63,9 +63,7 @@ class SetupRun extends ChangeNotifier {
     this.trying,
     this.remember,
     this.countKeyslots,
-  }) : keyFile = addingAUser
-            ? (setup.existingKeys().firstOrNull ?? setup.sshKeys().firstOrNull ?? '')
-            : '';
+  }) : keyFile = addingAUser ? (setup.existingKeys().firstOrNull ?? setup.sshKeys().firstOrNull ?? '') : '';
 
   /// Picks a run up again from what [toStored] kept, or null when it is not one.
   static SetupRun? fromStored(
@@ -246,16 +244,16 @@ class SetupRun extends ChangeNotifier {
 
   /// Whether the step showing is done, so the wizard may go on.
   bool get canGoOn => switch (step) {
-        SetupStep.key => kept != null,
-        SetupStep.where => loggedInTo != null && loggedInTo == host.trim(),
-        SetupStep.prepare => prepared,
-        SetupStep.reach => ready != null,
-        // Not left while the machine says there is none: a machine left with no vault refused the
-        // first credential later, far from where it is made. Where it
-        // could not be asked, it is not held up on that.
-        SetupStep.vault => hasVault != false,
-        SetupStep.harden => false,
-      };
+    SetupStep.key => kept != null,
+    SetupStep.where => loggedInTo != null && loggedInTo == host.trim(),
+    SetupStep.prepare => prepared,
+    SetupStep.reach => ready != null,
+    // Not left while the machine says there is none: a machine left with no vault refused the
+    // first credential later, far from where it is made. Where it
+    // could not be asked, it is not held up on that.
+    SetupStep.vault => hasVault != false,
+    SetupStep.harden => false,
+  };
 
   bool get isFirst => step == SetupStep.key;
   bool get isLast => step == SetupStep.harden;
@@ -281,17 +279,17 @@ class SetupRun extends ChangeNotifier {
 
   /// What is kept of this run: never a private key.
   Map<String, Object?> toStored() => <String, Object?>{
-        'name': name,
-        'workUser': workUser,
-        'addingAUser': addingAUser,
-        'step': step.name,
-        'kept': kept ?? '',
-        'publicKey': kept == null ? '' : publicKey,
-        'host': host,
-        'prepared': prepared,
-        'chosen': chosen.toList()..sort(),
-        'userKeyFile': userKeyFile ?? '',
-      };
+    'name': name,
+    'workUser': workUser,
+    'addingAUser': addingAUser,
+    'step': step.name,
+    'kept': kept ?? '',
+    'publicKey': kept == null ? '' : publicKey,
+    'host': host,
+    'prepared': prepared,
+    'chosen': chosen.toList()..sort(),
+    'userKeyFile': userKeyFile ?? '',
+  };
 
   void _keep() => remember?.call(toStored());
 
@@ -299,86 +297,85 @@ class SetupRun extends ChangeNotifier {
   Future<void> forget() async => remember?.call(null);
 
   Future<void> generate() => _doing('Generating a key pair…', () async {
-        final pair = await setup.generate('porelo $name');
-        privateKey = pair.privateKey;
-        publicKey = pair.publicKey;
-        return null;
-      });
+    final pair = await setup.generate('porelo $name');
+    privateKey = pair.privateKey;
+    publicKey = pair.publicKey;
+    return null;
+  });
 
   Future<void> keep() => _doing('Checking the two halves belong together…', () async {
-        final pair = KeyPair(privateKey: privateKey, publicKey: publicKey.trim());
-        final wrong = await setup.mismatch(pair);
-        if (wrong != null) throw MachineSetupFailed(wrong);
-        kept = await setup.save(pair, keyName);
-        return 'Kept as $kept.';
-      });
+    final pair = KeyPair(privateKey: privateKey, publicKey: publicKey.trim());
+    final wrong = await setup.mismatch(pair);
+    if (wrong != null) throw MachineSetupFailed(wrong);
+    kept = await setup.save(pair, keyName);
+    return 'Kept as $kept.';
+  });
 
   Future<void> useKey() => _doing('Reading the key…', () async {
-        final file = keyFile.trim();
-        publicKey = await setup.publicKeyOf(file);
-        kept = file;
-        return 'Root logs in with $file, and $workUser will too.';
-      });
+    final file = keyFile.trim();
+    publicKey = await setup.publicKeyOf(file);
+    kept = file;
+    return 'Root logs in with $file, and $workUser will too.';
+  });
 
   /// Logs in as root, asking [confirm] about a host key seen for the first time.
-  Future<void> tryRoot(Future<bool> Function(HostKeyCheck check) confirm) =>
-      _doing('Logging in as root…', () async {
-        final target = host.trim();
-        loggedInTo = null;
-        final keys = hostKeys;
-        if (keys != null) {
-          final check = await keys.check('root@$target');
-          if (check.problem != null) throw MachineSetupFailed(check.problem!);
-          if (!check.known) {
-            if (!await confirm(check)) {
-              throw MachineSetupFailed(
-                  'The host key of ${check.host} was not trusted, so nothing logged in.');
-            }
-            await keys.accept(check);
-          }
+  Future<void> tryRoot(Future<bool> Function(HostKeyCheck check) confirm) => _doing('Logging in as root…', () async {
+    final target = host.trim();
+    loggedInTo = null;
+    final keys = hostKeys;
+    if (keys != null) {
+      final check = await keys.check('root@$target');
+      if (check.problem != null) throw MachineSetupFailed(check.problem!);
+      if (!check.known) {
+        if (!await confirm(check)) {
+          throw MachineSetupFailed('The host key of ${check.host} was not trusted, so nothing logged in.');
         }
-        final failed = await setup.loginAsRoot(target, kept!);
-        if (failed != null) throw MachineSetupFailed(failed);
-        loggedInTo = target;
-        return 'Logged in as root on $target with $kept.';
-      });
+        await keys.accept(check);
+      }
+    }
+    final failed = await setup.loginAsRoot(target, kept!);
+    if (failed != null) throw MachineSetupFailed(failed);
+    loggedInTo = target;
+    return 'Logged in as root on $target with $kept.';
+  });
 
   Future<void> listPackages() => _doing('Asking the machine what it can install…', () async {
-        final listed = await _root(RootAction.list, MachineSetup.listInstallable());
-        if (listed.exitCode != 0) {
-          throw MachineSetupFailed(
-              '${MachineSetup.whatTheScriptSaid(listed.exitCode)}\n${both(listed)}'.trim());
-        }
-        offered = MachineSetup.installableIn('${listed.stdout}');
-        chosen.removeWhere((name) => !offered!.any((each) => each.name == name));
-        final why = '${listed.stderr}'.trim();
-        return offered!.isEmpty && why.isNotEmpty ? why : null;
-      });
+    final listed = await _root(RootAction.list, MachineSetup.listInstallable());
+    if (listed.exitCode != 0) {
+      throw MachineSetupFailed('${MachineSetup.whatTheScriptSaid(listed.exitCode)}\n${both(listed)}'.trim());
+    }
+    offered = MachineSetup.installableIn('${listed.stdout}');
+    chosen.removeWhere((name) => !offered!.any((each) => each.name == name));
+    final why = '${listed.stderr}'.trim();
+    return offered!.isEmpty && why.isNotEmpty ? why : null;
+  });
 
   Future<void> show() => _doing("Fetching Porelo's setup script and asking what it would do…", () async {
-        shown = null;
-        shownDigest = null;
-        final now = choice;
-        final result = await _root(RootAction.show, MachineSetup.show(workUser, chosen.toList()..sort()));
-        final said = both(result);
-        if (result.exitCode != 0) {
-          throw MachineSetupFailed('${MachineSetup.whatTheScriptSaid(result.exitCode)}\n$said');
-        }
-        shown = said;
-        shownFor = now;
-        shownDigest = MachineSetup.digestIn(said);
-        return null;
-      });
+    shown = null;
+    shownDigest = null;
+    final now = choice;
+    final result = await _root(RootAction.show, MachineSetup.show(workUser, chosen.toList()..sort()));
+    final said = both(result);
+    if (result.exitCode != 0) {
+      throw MachineSetupFailed('${MachineSetup.whatTheScriptSaid(result.exitCode)}\n$said');
+    }
+    shown = said;
+    shownFor = now;
+    shownDigest = MachineSetup.digestIn(said);
+    return null;
+  });
 
   Future<void> prepare() => _doing("Running Porelo's setup script as root…", () async {
-        final digest = shownDigest;
-        if (digest == null) throw const MachineSetupFailed('What the setup script would do has to be shown first.');
-        final ran = await _root(
-            RootAction.prepare, MachineSetup.prepare(workUser, chosen.toList()..sort(), digest: digest));
-        if (ran.exitCode != 0) throw MachineSetupFailed(MachineSetup.whatTheScriptSaid(ran.exitCode));
-        prepared = true;
-        return MachineSetup.whatTheScriptSaid(0);
-      });
+    final digest = shownDigest;
+    if (digest == null) throw const MachineSetupFailed('What the setup script would do has to be shown first.');
+    final ran = await _root(
+      RootAction.prepare,
+      MachineSetup.prepare(workUser, chosen.toList()..sort(), digest: digest),
+    );
+    if (ran.exitCode != 0) throw MachineSetupFailed(MachineSetup.whatTheScriptSaid(ran.exitCode));
+    prepared = true;
+    return MachineSetup.whatTheScriptSaid(0);
+  });
 
   /// Chooses a key already in `~/.ssh` for the work user instead of having one made.
   void useUserKey(String? file) {
@@ -388,71 +385,70 @@ class SetupRun extends ChangeNotifier {
   }
 
   Future<void> reach() => _doing('Setting it up for $workUser and connecting…', () async {
-        log.clear();
-        // The work user's own key: chosen, or made once and found again on a second run.
-        var userKey = userKeyFile;
-        if (userKey == null) {
-          final made = '${setup.sshDirectory}/$userKeyName';
-          if (!File(made).existsSync()) {
-            await setup.save(await setup.generate('porelo $name $workUser'), userKeyName);
-            _logged('Made a key of its own for $workUser: $made.');
-          }
-          userKey = made;
-          userKeyFile = made;
-        }
-        userPublicKey = await setup.publicKeyOf(userKey);
-        final allowed = await setup.asRoot(
-            loggedInTo!, kept!, MachineSetup.authorize(workUser, userPublicKey));
-        if (allowed.exitCode != 0) {
-          throw MachineSetupFailed('The key could not be allowed for $workUser: ${both(allowed)}');
-        }
-        _logged('$workUser logs in with its own key only; its password stays locked.');
-        _logged(await setup.addHostEntry(alias: alias, host: loggedInTo!, user: workUser, keyFile: userKey));
-        final started = await setup.asUser(alias, 'systemctl --user enable --now porelod');
-        if (started.exitCode != 0) {
-          throw MachineSetupFailed('Porelo did not start as $workUser: ${both(started)}');
-        }
-        _logged('Porelo runs as $workUser.');
-        // The work user's step, never root's: podman reads its hook descriptors per user, so only
-        // that account knows whose configuration to write. Without it a task runs with no firewall
-        // until the first start registers them, and `porelo doctor` says so.
-        final registered = await setup.asUser(alias, 'porelo setup');
-        if (registered.exitCode != 0) {
-          throw MachineSetupFailed('porelo setup did not register what a task needs: ${both(registered)}');
-        }
-        _logged("Porelo's hooks are registered for $workUser.");
-        final uid = await setup.asUser(alias, 'id -u');
-        final id = '${uid.stdout}'.trim();
-        if (uid.exitCode != 0 || int.tryParse(id) == null) {
-          throw MachineSetupFailed('Which uid $workUser has could not be asked: ${both(uid)}');
-        }
-        final doctor = await setup.asUser(alias, 'porelo doctor');
-        _logged('porelo doctor${doctor.exitCode == 0 ? '' : ' (ended with ${doctor.exitCode})'}:');
-        _logged(both(doctor));
-        doctorFound = refusedBy(doctor);
-        messages = await _canCarryMessages(both(doctor));
-        final machine = Machine(
-          name: name,
-          socketPath: Machine.endpointFor(name),
-          host: alias,
-          remoteSocket: '/run/user/$id/porelo/porelod.sock',
-        );
-        final trying = this.trying;
-        if (trying != null) {
-          final trial = await trying(machine);
-          _logged(trial.words);
-          if (!trial.reached) throw MachineSetupFailed('It does not answer yet: ${trial.words}');
-        }
-        ready = machine;
-        return _readiness();
-      });
+    log.clear();
+    // The work user's own key: chosen, or made once and found again on a second run.
+    var userKey = userKeyFile;
+    if (userKey == null) {
+      final made = '${setup.sshDirectory}/$userKeyName';
+      if (!File(made).existsSync()) {
+        await setup.save(await setup.generate('porelo $name $workUser'), userKeyName);
+        _logged('Made a key of its own for $workUser: $made.');
+      }
+      userKey = made;
+      userKeyFile = made;
+    }
+    userPublicKey = await setup.publicKeyOf(userKey);
+    final allowed = await setup.asRoot(loggedInTo!, kept!, MachineSetup.authorize(workUser, userPublicKey));
+    if (allowed.exitCode != 0) {
+      throw MachineSetupFailed('The key could not be allowed for $workUser: ${both(allowed)}');
+    }
+    _logged('$workUser logs in with its own key only; its password stays locked.');
+    _logged(await setup.addHostEntry(alias: alias, host: loggedInTo!, user: workUser, keyFile: userKey));
+    final started = await setup.asUser(alias, 'systemctl --user enable --now porelod');
+    if (started.exitCode != 0) {
+      throw MachineSetupFailed('Porelo did not start as $workUser: ${both(started)}');
+    }
+    _logged('Porelo runs as $workUser.');
+    // The work user's step, never root's: podman reads its hook descriptors per user, so only
+    // that account knows whose configuration to write. Without it a task runs with no firewall
+    // until the first start registers them, and `porelo doctor` says so.
+    final registered = await setup.asUser(alias, 'porelo setup');
+    if (registered.exitCode != 0) {
+      throw MachineSetupFailed('porelo setup did not register what a task needs: ${both(registered)}');
+    }
+    _logged("Porelo's hooks are registered for $workUser.");
+    final uid = await setup.asUser(alias, 'id -u');
+    final id = '${uid.stdout}'.trim();
+    if (uid.exitCode != 0 || int.tryParse(id) == null) {
+      throw MachineSetupFailed('Which uid $workUser has could not be asked: ${both(uid)}');
+    }
+    final doctor = await setup.asUser(alias, 'porelo doctor');
+    _logged('porelo doctor${doctor.exitCode == 0 ? '' : ' (ended with ${doctor.exitCode})'}:');
+    _logged(both(doctor));
+    doctorFound = refusedBy(doctor);
+    messages = await _canCarryMessages(both(doctor));
+    final machine = Machine(
+      name: name,
+      socketPath: Machine.endpointFor(name),
+      host: alias,
+      remoteSocket: '/run/user/$id/porelo/porelod.sock',
+    );
+    final trying = this.trying;
+    if (trying != null) {
+      final trial = await trying(machine);
+      _logged(trial.words);
+      if (!trial.reached) throw MachineSetupFailed('It does not answer yet: ${trial.words}');
+    }
+    ready = machine;
+    return _readiness();
+  });
 
   /// Asks `porelo doctor` again, for a finding fixed at the machine since.
   Future<void> askDoctorAgain() => _doing('Asking porelo doctor again…', () async {
-        final doctor = await setup.asUser(alias, 'porelo doctor');
-        doctorFound = refusedBy(doctor);
-        return _readiness();
-      });
+    final doctor = await setup.asUser(alias, 'porelo doctor');
+    doctorFound = refusedBy(doctor);
+    return _readiness();
+  });
 
   /// Whether the machine can carry its projects' messages, in one sentence: the Matrix transport as
   /// `porelo doctor` lists it, and a homeserver on the machine as its unit says; null where neither
@@ -465,12 +461,15 @@ class SetupRun extends ChangeNotifier {
     final unit = await setup.asUser(alias, 'systemctl --user show porelo-matrix-homeserver -p LoadState --value');
     final homeserver = unit.exitCode == 0 && '${unit.stdout}'.trim() == 'loaded';
     return switch ((hasMatrix, homeserver)) {
-      (true, true) => 'It can carry its projects’ messages: the Matrix transport is installed, and a homeserver can '
-          'run here; the first task of a project with messages starts it.',
-      (true, false) => 'The Matrix transport is installed, but no homeserver is: a project’s messages need one '
-          'named in its project.yml, or the package porelo-matrix-homeserver here.',
-      (false, _) => 'It cannot carry messages: no transport is installed. Choose the Matrix transport (and a '
-          'homeserver) when preparing it, or install them later.',
+      (true, true) =>
+        'It can carry its projects’ messages: the Matrix transport is installed, and a homeserver can '
+            'run here; the first task of a project with messages starts it.',
+      (true, false) =>
+        'The Matrix transport is installed, but no homeserver is: a project’s messages need one '
+            'named in its project.yml, or the package porelo-matrix-homeserver here.',
+      (false, _) =>
+        'It cannot carry messages: no transport is installed. Choose the Matrix transport (and a '
+            'homeserver) when preparing it, or install them later.',
     };
   }
 
@@ -504,17 +503,17 @@ class SetupRun extends ChangeNotifier {
   /// Asks the daemon whether the vault is there now. **Never read out of the terminal**: its exit
   /// says only that the command ran, and `Keyslots` says what is true.
   Future<void> checkVault() => _doing('Asking the machine whether its vault is there…', () async {
-        final count = countKeyslots;
-        final machine = ready;
-        if (count == null || machine == null) return null;
-        final slots = await count(machine);
-        if (slots == null) throw const MachineSetupFailed('The machine could not be asked about its vault.');
-        hasVault = slots > 0;
-        return hasVault!
-            ? 'The vault is there, and it opens with the passphrase typed.'
-            : 'There is no vault yet. Open the terminal again, or make it later at the machine with '
-                '`porelo vault init`.';
-      });
+    final count = countKeyslots;
+    final machine = ready;
+    if (count == null || machine == null) return null;
+    final slots = await count(machine);
+    if (slots == null) throw const MachineSetupFailed('The machine could not be asked about its vault.');
+    hasVault = slots > 0;
+    return hasVault!
+        ? 'The vault is there, and it opens with the passphrase typed.'
+        : 'There is no vault yet. Open the terminal again, or make it later at the machine with '
+              '`porelo vault init`.';
+  });
 
   /// Asks whether the vault is there without holding the wizard up: a machine slow to answer keeps
   /// the step as it was until it does.
@@ -534,11 +533,11 @@ class SetupRun extends ChangeNotifier {
   }
 
   Future<void> harden() => _doing('Turning off root and password login…', () async {
-        final done = await _root(RootAction.harden, MachineSetup.harden);
-        if (done.exitCode != 0) throw MachineSetupFailed('Root login is still on: ${both(done)}');
-        hardened = true;
-        return 'Logging in as root and with a password is off.';
-      });
+    final done = await _root(RootAction.harden, MachineSetup.harden);
+    if (done.exitCode != 0) throw MachineSetupFailed('Root login is still on: ${both(done)}');
+    hardened = true;
+    return 'Logging in as root and with a password is off.';
+  });
 
   /// A root script, its lines shown as they arrive.
   Future<ProcessResult> _root(RootAction action, String script) {
@@ -581,8 +580,6 @@ class SetupRun extends ChangeNotifier {
   }
 
   /// What a program printed on both streams.
-  static String both(ProcessResult result) => <String>[
-        '${result.stdout}'.trim(),
-        '${result.stderr}'.trim(),
-      ].where((each) => each.isNotEmpty).join('\n');
+  static String both(ProcessResult result) =>
+      <String>['${result.stdout}'.trim(), '${result.stderr}'.trim()].where((each) => each.isNotEmpty).join('\n');
 }

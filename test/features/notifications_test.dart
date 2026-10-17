@@ -34,16 +34,13 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets(
-        '''a waiting decision reaches somebody who is not looking at the window''',
-        (tester) async {
+    testWidgets('''a waiting decision reaches somebody who is not looking at the window''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await somebodyIsTold(tester, 'is asking to reach api.example.test:443');
       await itWasToldAsSomethingThatCannotWait(tester);
     });
-    testWidgets('''a question on a machine added later reaches somebody too''',
-        (tester) async {
+    testWidgets('''a question on a machine added later reaches somebody too''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await workElsewhereIsBlockedReaching(tester, 'api.example.test:443');
@@ -57,41 +54,35 @@ void main() {
     });
     testWidgets('''finishing is told apart from failing''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationFinishes(tester);
       await somebodyIsTold(tester, 'That is done');
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationFails(tester);
       await somebodyIsTold(tester, 'That did not work');
     });
     testWidgets('''acting on it opens the work it came from''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationFinishes(tester);
       await iCloseWhatIsOpen(tester);
       await somebodyActsOnWhatTheyWereTold(tester);
       await theOperationIsOpen(tester);
     });
-    testWidgets('''a project that has been turned off says nothing''',
-        (tester) async {
+    testWidgets('''a project that has been turned off says nothing''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iStopBeingToldAboutThisProject(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await nobodyWasToldAnything(tester);
     });
-    testWidgets('''a project that is turned off says so where it is listed''',
-        (tester) async {
+    testWidgets('''a project that is turned off says so where it is listed''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iStopBeingToldAboutThisProject(tester);
       await theProjectIsMarkedAsSilent(tester, 'checkout');
     });
-    testWidgets('''turning a project off does not silence the others''',
-        (tester) async {
+    testWidgets('''turning a project off does not silence the others''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iStopBeingToldAboutThisProject(tester);

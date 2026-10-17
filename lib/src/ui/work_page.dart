@@ -120,75 +120,99 @@ class _WorkPageState extends State<WorkPage> {
   /// project or none, then the first work. Each step says when it is done, and the window opens
   /// on the work once there is some.
   Widget _firstSteps(BuildContext context) {
-    final machineReady = widget.machines.all
-        .any((each) => widget.machines.of(each).reachability == Reachability.connected);
-    final projectReady = _withoutAProject ||
-        widget.machines.all.any((each) =>
-            widget.machines.of(each).projects.any((project) => project.name != defaultProject));
-    Widget step(int number, String key, String title, String says, bool done, bool open, List<Widget> actions) =>
-        Card(
-          key: ValueKey<String>('first-step $key'),
-          child: ListTile(
-            leading: CircleAvatar(child: done ? const Icon(Icons.check) : Text('$number')),
-            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(says),
-                if (open && !done) ...<Widget>[
-                  const SizedBox(height: Space.small),
-                  Wrap(spacing: Space.small, runSpacing: Space.tight, children: actions),
-                ],
-              ],
-            ),
-          ),
+    final machineReady = widget.machines.all.any(
+      (each) => widget.machines.of(each).reachability == Reachability.connected,
+    );
+    final projectReady =
+        _withoutAProject ||
+        widget.machines.all.any(
+          (each) => widget.machines.of(each).projects.any((project) => project.name != defaultProject),
         );
+    Widget step(int number, String key, String title, String says, bool done, bool open, List<Widget> actions) => Card(
+      key: ValueKey<String>('first-step $key'),
+      child: ListTile(
+        leading: CircleAvatar(child: done ? const Icon(Icons.check) : Text('$number')),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(says),
+            if (open && !done) ...<Widget>[
+              const SizedBox(height: Space.small),
+              Wrap(spacing: Space.small, runSpacing: Space.tight, children: actions),
+            ],
+          ],
+        ),
+      ),
+    );
     return Column(
       key: const Key('work-none'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text('No work yet. Three steps, and the first work runs; machines and projects are '
-            'then under Set up, out of the way.'),
+        const Text(
+          'No work yet. Three steps, and the first work runs; machines and projects are '
+          'then under Set up, out of the way.',
+        ),
         const SizedBox(height: Space.small),
-        step(1, 'machine', 'A machine', 'Where work runs: this computer, or one you reach over ssh.', machineReady,
-            true, <Widget>[
-          FilledButton(
-            key: const Key('first-add-machine'),
-            onPressed: widget.onAddAMachine,
-            child: const Text('Set up a machine'),
-          ),
-        ]),
-        step(2, 'project', 'A project, or none',
-            'How work runs: its repositories, who reviews what it pushes. Work can also run without one.',
-            projectReady, machineReady, <Widget>[
-          FilledButton(
-            key: const Key('first-set-up-project'),
-            onPressed: widget.onSetUpAProject,
-            child: const Text('From a repository you have'),
-          ),
-          OutlinedButton(
-            key: const Key('first-no-project'),
-            onPressed: () => setState(() => _withoutAProject = true),
-            child: const Text('Skip: work without a project'),
-          ),
-        ]),
-        step(3, 'work', 'The first work', 'An agent, in a repository, on the machine.', false,
-            machineReady && projectReady, <Widget>[
-          FilledButton(
-            key: const Key('first-new-work'),
-            onPressed: widget.onNewWork,
-            child: const Text('Start the first work'),
-          ),
-        ]),
+        step(
+          1,
+          'machine',
+          'A machine',
+          'Where work runs: this computer, or one you reach over ssh.',
+          machineReady,
+          true,
+          <Widget>[
+            FilledButton(
+              key: const Key('first-add-machine'),
+              onPressed: widget.onAddAMachine,
+              child: const Text('Set up a machine'),
+            ),
+          ],
+        ),
+        step(
+          2,
+          'project',
+          'A project, or none',
+          'How work runs: its repositories, who reviews what it pushes. Work can also run without one.',
+          projectReady,
+          machineReady,
+          <Widget>[
+            FilledButton(
+              key: const Key('first-set-up-project'),
+              onPressed: widget.onSetUpAProject,
+              child: const Text('From a repository you have'),
+            ),
+            OutlinedButton(
+              key: const Key('first-no-project'),
+              onPressed: () => setState(() => _withoutAProject = true),
+              child: const Text('Skip: work without a project'),
+            ),
+          ],
+        ),
+        step(
+          3,
+          'work',
+          'The first work',
+          'An agent, in a repository, on the machine.',
+          false,
+          machineReady && projectReady,
+          <Widget>[
+            FilledButton(
+              key: const Key('first-new-work'),
+              onPressed: widget.onNewWork,
+              child: const Text('Start the first work'),
+            ),
+          ],
+        ),
       ],
     );
   }
 
   static _Group _groupOf(Tile tile) => switch (tile.demand) {
-        Demand.question || Demand.ended || Demand.gate => _Group.waiting,
-        Demand.stopped => _Group.stopped,
-        _ => _Group.running,
-      };
+    Demand.question || Demand.ended || Demand.gate => _Group.waiting,
+    Demand.stopped => _Group.stopped,
+    _ => _Group.running,
+  };
 
   /// The project a tile's work is in, `default` (work in none) said as none.
   static String _projectOf(Tile tile) {
@@ -198,12 +222,12 @@ class _WorkPageState extends State<WorkPage> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: Listenable.merge(<Listenable>[
-          widget.attention,
-          for (final machine in widget.machines.all) widget.machines.of(machine),
-        ]),
-        builder: (context, _) => _build(context),
-      );
+    listenable: Listenable.merge(<Listenable>[
+      widget.attention,
+      for (final machine in widget.machines.all) widget.machines.of(machine),
+    ]),
+    builder: (context, _) => _build(context),
+  );
 
   Widget _build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -211,9 +235,10 @@ class _WorkPageState extends State<WorkPage> {
     final projects = <String>{for (final tile in tiles) _projectOf(tile)}.toList()
       ..sort((a, b) => a == _noProject ? 1 : (b == _noProject ? -1 : a.compareTo(b)));
     final shown = tiles
-        .where((tile) =>
-            (_machine == null || tile.machine.name == _machine) &&
-            (_project == null || _projectOf(tile) == _project))
+        .where(
+          (tile) =>
+              (_machine == null || tile.machine.name == _machine) && (_project == null || _projectOf(tile) == _project),
+        )
         .toList();
     final reveal = widget.reveal;
     if (reveal != null) {
@@ -228,7 +253,9 @@ class _WorkPageState extends State<WorkPage> {
             final there = _where[reveal]?.currentContext;
             // Moved only where it is out of view: a tile on screen stays where it is.
             if (there != null && there.mounted) {
-              unawaited(Scrollable.ensureVisible(there, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd));
+              unawaited(
+                Scrollable.ensureVisible(there, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd),
+              );
             }
           });
         }
@@ -241,11 +268,11 @@ class _WorkPageState extends State<WorkPage> {
         group: shown.where((tile) => _groupOf(tile) == group).toList()..sort(_newestFirst),
     };
     Widget chip(String key, String label, bool selected, VoidCallback onSelected) => ChoiceChip(
-          key: ValueKey<String>(key),
-          label: Text(label),
-          selected: selected,
-          onSelected: (_) => setState(onSelected),
-        );
+      key: ValueKey<String>(key),
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(onSelected),
+    );
     return ListView(
       key: const Key('work-page'),
       padding: const EdgeInsets.all(Space.normal),
@@ -274,8 +301,12 @@ class _WorkPageState extends State<WorkPage> {
               Text('Machine', style: text.labelMedium),
               chip('work-machine-all', 'All', _machine == null, () => _machine = null),
               for (final machine in widget.machines.all)
-                chip('work-machine ${machine.name}', machine.name, _machine == machine.name,
-                    () => _machine = machine.name),
+                chip(
+                  'work-machine ${machine.name}',
+                  machine.name,
+                  _machine == machine.name,
+                  () => _machine = machine.name,
+                ),
             ],
           ),
         // Shown while a project is chosen too, even when only one is left: a filter nobody can see made
@@ -289,9 +320,16 @@ class _WorkPageState extends State<WorkPage> {
             children: <Widget>[
               Text('Project', style: text.labelMedium),
               chip('work-project-all', 'All', _project == null, () => _project = null),
-              for (final project in <String>[...projects, if (_project != null && !projects.contains(_project)) _project!])
-                chip('work-project $project', project == _noProject ? 'Default' : project, _project == project,
-                    () => _project = project),
+              for (final project in <String>[
+                ...projects,
+                if (_project != null && !projects.contains(_project)) _project!,
+              ])
+                chip(
+                  'work-project $project',
+                  project == _noProject ? 'Default' : project,
+                  _project == project,
+                  () => _project = project,
+                ),
             ],
           ),
         ],
@@ -320,31 +358,34 @@ class _WorkPageState extends State<WorkPage> {
                   children: <Widget>[
                     Icon(_isShut(group) ? Icons.chevron_right : Icons.expand_more, size: Sizes.rowIcon),
                     const SizedBox(width: Space.tight),
-                    Text('${group.label} (${groups[group]!.length})',
-                        key: ValueKey<String>('work-group ${group.name}'), style: text.titleSmall),
+                    Text(
+                      '${group.label} (${groups[group]!.length})',
+                      key: ValueKey<String>('work-group ${group.name}'),
+                      style: text.titleSmall,
+                    ),
                   ],
                 ),
               ),
             ),
             if (!_isShut(group))
-            TileFolding(
-              open: _open,
-              toggle: (tile) => setState(() {
-                _open = <String>{..._open};
-                if (!_open.remove(tile)) _open.add(tile);
-              }),
-              child: Wrap(
-                spacing: Space.normal,
-                runSpacing: Space.normal,
-                children: <Widget>[
-                  for (final tile in groups[group]!)
-                    KeyedSubtree(
-                      key: _where.putIfAbsent('${tile.machine.name}/${tile.task?.name ?? ''}', GlobalKey.new),
-                      child: widget.tile(tile),
-                    ),
-                ],
+              TileFolding(
+                open: _open,
+                toggle: (tile) => setState(() {
+                  _open = <String>{..._open};
+                  if (!_open.remove(tile)) _open.add(tile);
+                }),
+                child: Wrap(
+                  spacing: Space.normal,
+                  runSpacing: Space.normal,
+                  children: <Widget>[
+                    for (final tile in groups[group]!)
+                      KeyedSubtree(
+                        key: _where.putIfAbsent('${tile.machine.name}/${tile.task?.name ?? ''}', GlobalKey.new),
+                        child: widget.tile(tile),
+                      ),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: Space.normal),
           ],
       ],

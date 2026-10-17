@@ -9,7 +9,10 @@ Future<void> noTwoFieldsOfTheDialogOverlap(WidgetTester tester) async {
     ..sort((a, b) => a.top.compareTo(b.top));
   expect(boxes.length, greaterThan(2), reason: 'the dialog should have fields to judge');
   for (var i = 1; i < boxes.length; i++) {
-    expect(boxes[i].top - boxes[i - 1].bottom, greaterThanOrEqualTo(4),
-        reason: 'the label of field ${i + 1} reaches into field $i');
+    expect(
+      boxes[i].top - boxes[i - 1].bottom,
+      greaterThanOrEqualTo(4),
+      reason: 'the label of field ${i + 1} reaches into field $i',
+    );
   }
 }

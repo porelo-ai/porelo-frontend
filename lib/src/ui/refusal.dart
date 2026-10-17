@@ -30,82 +30,73 @@ class RefusalView extends StatelessWidget {
       color: scheme.errorContainer,
       padding: const EdgeInsets.all(Space.wide),
       // What is held has no length limit, and the choice comes after it.
-      child: SingleChildScrollView(child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Icon(Icons.pan_tool_outlined, color: scheme.onErrorContainer),
-              const SizedBox(width: Space.small),
-              Expanded(
-                child: Text(
-                  '$task was not removed',
-                  style: Theme.of(context).textTheme.titleMedium,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(Icons.pan_tool_outlined, color: scheme.onErrorContainer),
+                const SizedBox(width: Space.small),
+                Expanded(child: Text('$task was not removed', style: Theme.of(context).textTheme.titleMedium)),
+              ],
+            ),
+            const SizedBox(height: Space.normal),
+            Text(
+              refusal.holdsWork
+                  ? 'It holds work that never reached the gate. It has been left exactly as it '
+                        'was, and nothing has been discarded.'
+                  : refusal.stillRunning
+                  ? 'It is still running, and a running task is not removed.'
+                  : 'Nothing could say whether it holds any work, so it has been left exactly '
+                        'as it was.',
+            ),
+            if (refusal.result.work.isNotEmpty) ...<Widget>[
+              const SizedBox(height: Space.normal),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(Space.normal),
+                decoration: BoxDecoration(color: scheme.surface, borderRadius: BorderRadius.circular(Radii.small)),
+                child: SelectableText(
+                  refusal.result.work,
+                  key: const Key('what-is-held'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: Space.normal),
-          Text(
-            refusal.holdsWork
-                ? 'It holds work that never reached the gate. It has been left exactly as it '
-                    'was, and nothing has been discarded.'
-                : refusal.stillRunning
-                    ? 'It is still running, and a running task is not removed.'
-                    : 'Nothing could say whether it holds any work, so it has been left exactly '
-                        'as it was.',
-          ),
-          if (refusal.result.work.isNotEmpty) ...<Widget>[
-            const SizedBox(height: Space.normal),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(Space.normal),
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                borderRadius: BorderRadius.circular(Radii.small),
-              ),
-              child: SelectableText(
-                refusal.result.work,
-                key: const Key('what-is-held'),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
+            const SizedBox(height: Space.loose),
+            Wrap(
+              spacing: Space.small,
+              runSpacing: Space.small,
+              children: <Widget>[
+                // Leaving it alone is first and is the plain button: it is the answer that destroys
+                // nothing, and it should be the easiest one to give.
+                FilledButton(onPressed: fleet.letItBe, child: const Text('Leave it alone')),
+                if (refusal.holdsWork)
+                  OutlinedButton(
+                    onPressed: () => fleet.removeWork(task, rescue: true),
+                    child: const Text('Push what it holds to the mirror, then remove it'),
+                  ),
+                if (refusal.holdsWork)
+                  OutlinedButton(
+                    onPressed: () => fleet.removeWork(task, force: true),
+                    child: const Text('Discard what it holds and remove it'),
+                  ),
+                if (refusal.nothingKnows)
+                  OutlinedButton(
+                    onPressed: () => fleet.removeWork(task, force: true),
+                    child: const Text('Remove it anyway, without knowing'),
+                  ),
+                if (refusal.stillRunning)
+                  OutlinedButton(
+                    onPressed: () => fleet.stopAndRemove(task),
+                    child: const Text('Stop it, then remove it'),
+                  ),
+              ],
             ),
           ],
-          const SizedBox(height: Space.loose),
-          Wrap(
-            spacing: Space.small,
-            runSpacing: Space.small,
-            children: <Widget>[
-              // Leaving it alone is first and is the plain button: it is the answer that destroys
-              // nothing, and it should be the easiest one to give.
-              FilledButton(
-                onPressed: fleet.letItBe,
-                child: const Text('Leave it alone'),
-              ),
-              if (refusal.holdsWork)
-                OutlinedButton(
-                  onPressed: () => fleet.removeWork(task, rescue: true),
-                  child: const Text('Push what it holds to the mirror, then remove it'),
-                ),
-              if (refusal.holdsWork)
-                OutlinedButton(
-                  onPressed: () => fleet.removeWork(task, force: true),
-                  child: const Text('Discard what it holds and remove it'),
-                ),
-              if (refusal.nothingKnows)
-                OutlinedButton(
-                  onPressed: () => fleet.removeWork(task, force: true),
-                  child: const Text('Remove it anyway, without knowing'),
-                ),
-              if (refusal.stillRunning)
-                OutlinedButton(
-                  onPressed: () => fleet.stopAndRemove(task),
-                  child: const Text('Stop it, then remove it'),
-                ),
-            ],
-          ),
-        ],
-      )),
+        ),
+      ),
     );
   }
 }
@@ -114,11 +105,7 @@ class RefusalView extends StatelessWidget {
 ///
 /// What is named here is only what this side knows. What the task *holds* is the daemon's answer,
 /// and it arrives as a refusal rather than as a guess made in a dialog.
-Future<bool> confirmRemove(
-  BuildContext context, {
-  required String task,
-  required bool running,
-}) async =>
+Future<bool> confirmRemove(BuildContext context, {required String task, required bool running}) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -131,14 +118,8 @@ Future<bool> confirmRemove(
           'being destroyed. To keep it and start it again later, stop it instead.',
         ),
         actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove it'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Remove it')),
         ],
       ),
     ) ??
@@ -152,11 +133,7 @@ Future<bool> confirmRemove(
 ///
 /// It is the same destruction a removal is, and the same refusal protects it — work that never
 /// reached the gate stops this and says so.
-Future<bool> confirmRecreate(
-  BuildContext context, {
-  required String task,
-  required int helpers,
-}) async =>
+Future<bool> confirmRecreate(BuildContext context, {required String task, required int helpers}) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -165,16 +142,13 @@ Future<bool> confirmRecreate(
           'A task keeps the image it started with, so this is how it picks up a newly built '
           'environment: it is removed and created again rather than started again.\n\n'
           'The container goes and so ${helpers == 1 ? 'does the helper' : 'do the $helpers '
-              'helpers'} beside it. Whatever the agent installed inside — packages, caches, '
+                    'helpers'} beside it. Whatever the agent installed inside — packages, caches, '
           'anything it built — goes with it and exists nowhere else.\n\n'
           'Work it holds that never reached the gate will stop this, and say so, rather than '
           'being destroyed. Nothing is started again until the removal has gone through.',
         ),
         actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
           FilledButton(
             key: const Key('recreate-it'),
             onPressed: () => Navigator.of(context).pop(true),

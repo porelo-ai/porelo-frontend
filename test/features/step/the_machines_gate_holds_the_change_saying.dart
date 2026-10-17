@@ -8,7 +8,13 @@ Future<void> theMachinesGateHoldsTheChangeSaying(WidgetTester tester, String nam
   World.backend.theGate = GateState.from(<String, dynamic>{
     'mode': 'gatekeeping',
     'pending': <Map<String, dynamic>>[
-      <String, dynamic>{'name': name, 'commit': 'abc1234', 'subject': subject, 'waiting': '5 minutes', 'at': '2026-09-30T11:00:00Z'},
+      <String, dynamic>{
+        'name': name,
+        'commit': 'abc1234',
+        'subject': subject,
+        'waiting': '5 minutes',
+        'at': '2026-09-30T11:00:00Z',
+      },
     ],
   });
 }

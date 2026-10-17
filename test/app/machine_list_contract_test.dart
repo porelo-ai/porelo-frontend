@@ -8,10 +8,11 @@ import 'package:porelo_frontend/src/app/settings.dart';
 void main() {
   test('a machine reached through a tunnel is stored with the four fields the plugin reads', () {
     const machine = Machine(
-        name: 'vm',
-        socketPath: '/run/user/1000/porelo-tunnel-vm.sock',
-        host: 'somebody@192.0.2.10',
-        remoteSocket: '/run/user/1012/porelo/porelod.sock');
+      name: 'vm',
+      socketPath: '/run/user/1000/porelo-tunnel-vm.sock',
+      host: 'somebody@192.0.2.10',
+      remoteSocket: '/run/user/1012/porelo/porelod.sock',
+    );
 
     expect(machine.stored, <String, Object?>{
       'name': 'vm',
@@ -45,10 +46,15 @@ void main() {
   });
 
   test('neither a WSL entry nor an unknown kind is reached here; a plain socket is', () {
-    expect(Machine.fromStored(const <String, Object?>{'name': 'w', 'kind': 'wsl', 'distribution': 'Ubuntu'}).whyNotReachableHere,
-        contains('WSL distribution Ubuntu is reached from Windows'));
-    expect(Machine.fromStored(const <String, Object?>{'name': 'l', 'kind': 'teleport'}).whyNotReachableHere,
-        contains('"teleport"'));
+    expect(
+      Machine.fromStored(const <String, Object?>{'name': 'w', 'kind': 'wsl', 'distribution': 'Ubuntu'})
+          .whyNotReachableHere,
+      contains('WSL distribution Ubuntu is reached from Windows'),
+    );
+    expect(
+      Machine.fromStored(const <String, Object?>{'name': 'l', 'kind': 'teleport'}).whyNotReachableHere,
+      contains('"teleport"'),
+    );
     expect(const Machine(name: 'here', socketPath: '/run/user/1000/porelo/porelod.sock').whyNotReachableHere, isNull);
   });
 

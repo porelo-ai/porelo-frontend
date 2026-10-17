@@ -7,7 +7,13 @@ import '../support/world.dart';
 ///
 /// A peer at `matrix:`, as a project names a person reading its room, or as Porelo lists the
 /// project's other work (`vouched`).
-Future<void> mayTalkToThroughTheProjectsConversation(WidgetTester tester, String task, String peer, String trust) async {
-  World.backend.peersOf.putIfAbsent(task, () => <TalkPeer>[]).add(
-      TalkPeer(name: peer, address: 'matrix:', trust: trust, perDay: 200, mode: 'prompt', held: false));
+Future<void> mayTalkToThroughTheProjectsConversation(
+  WidgetTester tester,
+  String task,
+  String peer,
+  String trust,
+) async {
+  World.backend.peersOf
+      .putIfAbsent(task, () => <TalkPeer>[])
+      .add(TalkPeer(name: peer, address: 'matrix:', trust: trust, perDay: 200, mode: 'prompt', held: false));
 }

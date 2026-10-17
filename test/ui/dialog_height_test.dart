@@ -12,21 +12,26 @@ void main() {
       ..physicalSize = const Size(1280, 480)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(onPressed: () => show(context), child: const Text('open')),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(onPressed: () => show(context), child: const Text('open')),
+        ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
 
   testWidgets('closing with a lot running still reaches the answer', (tester) async {
-    await open(tester, (context) => confirmQuit(
-          context,
-          running: <String>[for (var each = 0; each < 60; each++) 'porelo-project-task-$each'],
-          waiting: 2,
-        ));
+    await open(
+      tester,
+      (context) => confirmQuit(
+        context,
+        running: <String>[for (var each = 0; each < 60; each++) 'porelo-project-task-$each'],
+        waiting: 2,
+      ),
+    );
 
     expect(tester.takeException(), isNull);
     await tester.ensureVisible(find.byKey(const Key('what-will-be-missed')));
@@ -39,16 +44,19 @@ void main() {
   });
 
   testWidgets('a changed host key with many fingerprints still reaches the answer', (tester) async {
-    await open(tester, (context) => confirmHostKey(
-          context,
-          HostKeyCheck(
-            destination: 'root@build',
-            host: 'build',
-            known: true,
-            changed: true,
-            fingerprints: <String>[for (var each = 0; each < 30; each++) 'SHA256:key$each (ED25519)'],
-          ),
-        ));
+    await open(
+      tester,
+      (context) => confirmHostKey(
+        context,
+        HostKeyCheck(
+          destination: 'root@build',
+          host: 'build',
+          known: true,
+          changed: true,
+          fingerprints: <String>[for (var each = 0; each < 30; each++) 'SHA256:key$each (ED25519)'],
+        ),
+      ),
+    );
 
     expect(tester.takeException(), isNull);
   });

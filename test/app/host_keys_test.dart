@@ -5,7 +5,9 @@ import 'package:porelo_frontend/src/app/host_keys.dart';
 
 /// OpenSSH as far as these checks ask it: `ssh -G`, `ssh-keygen -F` and `-l`, `ssh-keyscan`.
 class _Ssh {
-  _Ssh({this.config = 'hostname build.example.test\nport 22\nuserknownhostsfile ~/.ssh/known_hosts ~/.ssh/known_hosts2\n'});
+  _Ssh({
+    this.config = 'hostname build.example.test\nport 22\nuserknownhostsfile ~/.ssh/known_hosts ~/.ssh/known_hosts2\n',
+  });
 
   final String config;
 
@@ -99,18 +101,18 @@ void main() {
   test('accepting appends exactly what was scanned, owner-only', () async {
     final home = Directory.systemTemp.createTempSync('host-keys-');
     addTearDown(() => home.deleteSync(recursive: true));
-    File('${(Directory('${home.path}/.ssh')..createSync()).path}/known_hosts')
-        .writeAsStringSync('existing line\n');
+    File('${(Directory('${home.path}/.ssh')..createSync()).path}/known_hosts').writeAsStringSync('existing line\n');
 
-    await SshHostKeys(home: home.path).accept(const HostKeyCheck(
-      destination: 'build',
-      host: 'build.example.test',
-      known: false,
-      scanned: <String>['|1|abc= ssh-ed25519 AAAAC3Nza'],
-    ));
+    await SshHostKeys(home: home.path).accept(
+      const HostKeyCheck(
+        destination: 'build',
+        host: 'build.example.test',
+        known: false,
+        scanned: <String>['|1|abc= ssh-ed25519 AAAAC3Nza'],
+      ),
+    );
 
-    expect(File('${home.path}/.ssh/known_hosts').readAsStringSync(),
-        'existing line\n|1|abc= ssh-ed25519 AAAAC3Nza\n');
+    expect(File('${home.path}/.ssh/known_hosts').readAsStringSync(), 'existing line\n|1|abc= ssh-ed25519 AAAAC3Nza\n');
   });
 
   // Linux only: it reads the file's mode, which Windows does not keep.
@@ -118,12 +120,14 @@ void main() {
     final home = Directory.systemTemp.createTempSync('host-keys-');
     addTearDown(() => home.deleteSync(recursive: true));
 
-    await SshHostKeys(home: home.path).accept(const HostKeyCheck(
-      destination: 'build',
-      host: 'build.example.test',
-      known: false,
-      scanned: <String>['|1|abc= ssh-ed25519 AAAAC3Nza'],
-    ));
+    await SshHostKeys(home: home.path).accept(
+      const HostKeyCheck(
+        destination: 'build',
+        host: 'build.example.test',
+        known: false,
+        scanned: <String>['|1|abc= ssh-ed25519 AAAAC3Nza'],
+      ),
+    );
 
     expect(FileStat.statSync('${home.path}/.ssh').mode & 0x1FF, 0x1C0); // 700
     expect(FileStat.statSync('${home.path}/.ssh/known_hosts').mode & 0x1FF, 0x180); // 600
@@ -135,14 +139,16 @@ void main() {
     final file = File('${(Directory('${home.path}/.ssh')..createSync()).path}/known_hosts')
       ..writeAsStringSync('203.0.113.10 ssh-ed25519 AAAAoldmachine\nother.example ssh-ed25519 AAAAkeep\n');
 
-    await SshHostKeys(home: home.path).accept(HostKeyCheck(
-      destination: 'root@203.0.113.10',
-      host: '203.0.113.10',
-      known: false,
-      changed: true,
-      knownIn: <String>[file.path],
-      scanned: const <String>['203.0.113.10 ssh-ed25519 AAAAnewmachine'],
-    ));
+    await SshHostKeys(home: home.path).accept(
+      HostKeyCheck(
+        destination: 'root@203.0.113.10',
+        host: '203.0.113.10',
+        known: false,
+        changed: true,
+        knownIn: <String>[file.path],
+        scanned: const <String>['203.0.113.10 ssh-ed25519 AAAAnewmachine'],
+      ),
+    );
 
     final now = file.readAsStringSync();
     expect(now, isNot(contains('AAAAoldmachine')));

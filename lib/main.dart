@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
+
 import 'src/app/egress.dart';
 import 'src/app/gate.dart';
 import 'src/app/host_readiness.dart';
@@ -66,6 +68,7 @@ WalkSession? _walk() {
   walkChoices.add((widget) => widget is ChoiceField ? widget.value != null : null);
   return walk..start();
 }
+
 Future<PoreloApp>? _composed;
 
 Future<PoreloApp> _compose() async {
@@ -84,8 +87,10 @@ Future<PoreloApp> _compose() async {
   // then leaves, saying so — a launch that simply vanished would read as one that crashed.
   final only = await OneInstance.take(comeForward: Window.comeForward);
   if (!only.inCharge) {
-    stderr.writeln('Porelo is already open, and has been brought to the front. '
-        'One interface watches each machine: a second would raise every decision twice.');
+    stderr.writeln(
+      'Porelo is already open, and has been brought to the front. '
+      'One interface watches each machine: a second would raise every decision twice.',
+    );
     exit(0);
   }
 
@@ -96,8 +101,7 @@ Future<PoreloApp> _compose() async {
   final whereYouWere = WhereYouWere(settings, machines, shell);
   final operations = Operations(store: FileOperationsStore());
   await operations.load();
-  final notifications = Notifications(DesktopNotifier(), settings)
-    ..watchOperations(operations, open: (_) {});
+  final notifications = Notifications(DesktopNotifier(), settings)..watchOperations(operations, open: (_) {});
   await notifications.load();
   final app = PoreloApp(
     machines: machines,
@@ -131,10 +135,14 @@ Future<PoreloApp> _compose() async {
   // Deliberately after the first frame: the window opens and says it is connecting, rather
   // than staying blank until a socket answers or does not. Every machine at once, because a
   // clearance prompt has a deadline and one nobody is connected to expires unseen.
-  WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(machines.load().then((_) async {
-    await whereYouWere.restore();
-    // Every machine, including one added later: a question has a deadline and is asked once.
-    notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
-  })));
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => unawaited(
+      machines.load().then((_) async {
+        await whereYouWere.restore();
+        // Every machine, including one added later: a question has a deadline and is asked once.
+        notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
+      }),
+    ),
+  );
   return app;
 }

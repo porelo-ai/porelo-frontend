@@ -84,9 +84,7 @@ class Pty implements SessionChannel {
     }
 
     final nameBuffer = c.malloc(_pathMax).cast<Uint8>();
-    final slave = c.ptsnameR(master, nameBuffer.cast(), _pathMax) == 0
-        ? _readString(nameBuffer)
-        : '';
+    final slave = c.ptsnameR(master, nameBuffer.cast(), _pathMax) == 0 ? _readString(nameBuffer) : '';
     c.free(nameBuffer.cast());
     if (slave.isEmpty) {
       c.close(master);
@@ -96,19 +94,15 @@ class Pty implements SessionChannel {
     // Set before the child starts, so nothing ever renders at a size it then has to correct.
     _setSize(c, master, columns, rows);
 
-    final environed = <String, String>{
-      ...Platform.environment,
-      'TERM': 'xterm-256color',
-      ...environment,
-    };
+    final environed = <String, String>{...Platform.environment, 'TERM': 'xterm-256color', ...environment};
     // Found here, before anything runs: under the shell a missing command would be its exit 127,
     // and "there is no such command" is a refusal to open, not a session that died at once.
     final found = _find(executable, environed['PATH'] ?? '');
     if (found.path == null) {
       c.close(master);
-      throw PtyRefused(found.executable
-          ? 'there is no `$executable` on this machine'
-          : '`$executable` is there and cannot be run');
+      throw PtyRefused(
+        found.executable ? 'there is no `$executable` on this machine' : '`$executable` is there and cannot be run',
+      );
     }
 
     final pipe = c.malloc(2 * sizeOf<Int32>()).cast<Int32>();
@@ -124,10 +118,7 @@ class Pty implements SessionChannel {
     final actions = c.malloc(_actionsBytes);
     final attributes = c.malloc(_attributesBytes);
     final argv = _stringArray(c, <String>['sh', '-c', _reportsItsCode, 'sh', found.path!, ...arguments]);
-    final envp = _stringArray(
-      c,
-      <String>[for (final entry in environed.entries) '${entry.key}=${entry.value}'],
-    );
+    final envp = _stringArray(c, <String>[for (final entry in environed.entries) '${entry.key}=${entry.value}']);
     final slaveName = _cString(c, slave);
     final program = _cString(c, '/bin/sh');
     final pid = c.malloc(sizeOf<Int32>()).cast<Int32>();
@@ -145,8 +136,7 @@ class Pty implements SessionChannel {
       // The far end has no business holding this side of the terminal open.
       c.addClose(actions, master);
 
-      final failed = c.posixSpawnp(
-          pid, program.cast(), actions, attributes, argv, envp);
+      final failed = c.posixSpawnp(pid, program.cast(), actions, attributes, argv, envp);
       // Only the shell holds the writing end now, so reading it ends when the shell has.
       c.close(statusWrite);
       if (failed != 0) {
@@ -265,13 +255,7 @@ class Pty implements SessionChannel {
   /// wrap a descriptor it did not create, so there is no stream to subscribe to; an isolate that
   /// sits in `read(2)` and posts what it gets is the whole of it. It also reaps the child, so
   /// nothing is left as a zombie when a session ends.
-  static void _pump(
-    int master,
-    int status,
-    int pid,
-    StreamController<List<int>> output,
-    Completer<int> ended,
-  ) {
+  static void _pump(int master, int status, int pid, StreamController<List<int>> output, Completer<int> ended) {
     final port = ReceivePort();
     late final StreamSubscription<dynamic> listening;
     listening = port.listen((dynamic message) async {
@@ -286,11 +270,12 @@ class Pty implements SessionChannel {
         port.close();
       }
     });
-    unawaited(Isolate.spawn(_readUntilItEnds, <Object>[port.sendPort, master, status, pid])
-        .catchError((Object _) {
-      if (!ended.isCompleted) ended.complete(-1);
-      return Isolate.current;
-    }));
+    unawaited(
+      Isolate.spawn(_readUntilItEnds, <Object>[port.sendPort, master, status, pid]).catchError((Object _) {
+        if (!ended.isCompleted) ended.complete(-1);
+        return Isolate.current;
+      }),
+    );
   }
 
   /// The isolate body: read until the far end is gone, then reap it.
@@ -324,8 +309,8 @@ class Pty implements SessionChannel {
       final waited = reaped <= 0
           ? -1
           : (status.value & 0x7f) == 0
-              ? (status.value >> 8) & 0xff
-              : 128 + (status.value & 0x7f);
+          ? (status.value >> 8) & 0xff
+          : 128 + (status.value & 0x7f);
       c.free(status.cast());
       send.send(code ?? waited);
     } finally {
@@ -371,8 +356,7 @@ class Pty implements SessionChannel {
   }
 
   static Pointer<Pointer<Uint8>> _stringArray(_Libc c, List<String> values) {
-    final array =
-        c.malloc((values.length + 1) * sizeOf<Pointer<Uint8>>()).cast<Pointer<Uint8>>();
+    final array = c.malloc((values.length + 1) * sizeOf<Pointer<Uint8>>()).cast<Pointer<Uint8>>();
     for (var index = 0; index < values.length; index++) {
       array[index] = _cString(c, values[index]);
     }
@@ -433,51 +417,81 @@ const int _attributesBytes = 512;
 /// The handful of libc calls a terminal is made of.
 class _Libc {
   _Libc(DynamicLibrary library)
-      : posixOpenpt =
-            library.lookupFunction<Int32 Function(Int32), int Function(int)>('posix_openpt'),
-        grantpt = library.lookupFunction<Int32 Function(Int32), int Function(int)>('grantpt'),
-        unlockpt = library.lookupFunction<Int32 Function(Int32), int Function(int)>('unlockpt'),
-        ptsnameR = library.lookupFunction<Int32 Function(Int32, Pointer<Void>, IntPtr),
-            int Function(int, Pointer<Void>, int)>('ptsname_r'),
-        ioctl = library.lookupFunction<Int32 Function(Int32, UnsignedLong, Pointer<Void>),
-            int Function(int, int, Pointer<Void>)>('ioctl'),
-        read = library.lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr),
-            int Function(int, Pointer<Uint8>, int)>('read'),
-        write = library.lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr),
-            int Function(int, Pointer<Uint8>, int)>('write'),
-        close = library.lookupFunction<Int32 Function(Int32), int Function(int)>('close'),
-        pipe2 = library.lookupFunction<Int32 Function(Pointer<Int32>, Int32),
-            int Function(Pointer<Int32>, int)>('pipe2'),
-        kill = library.lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>('kill'),
-        waitpid = library.lookupFunction<Int32 Function(Int32, Pointer<Int32>, Int32),
-            int Function(int, Pointer<Int32>, int)>('waitpid'),
-        malloc = library
-            .lookupFunction<Pointer<Void> Function(IntPtr), Pointer<Void> Function(int)>('malloc'),
-        free = library
-            .lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>('free'),
-        posixSpawnp = library.lookupFunction<
-            Int32 Function(Pointer<Int32>, Pointer<Void>, Pointer<Void>, Pointer<Void>,
-                Pointer<Pointer<Uint8>>, Pointer<Pointer<Uint8>>),
-            int Function(Pointer<Int32>, Pointer<Void>, Pointer<Void>, Pointer<Void>,
-                Pointer<Pointer<Uint8>>, Pointer<Pointer<Uint8>>)>('posix_spawnp'),
-        fileActionsInit = library.lookupFunction<Int32 Function(Pointer<Void>),
-            int Function(Pointer<Void>)>('posix_spawn_file_actions_init'),
-        fileActionsDestroy = library.lookupFunction<Int32 Function(Pointer<Void>),
-            int Function(Pointer<Void>)>('posix_spawn_file_actions_destroy'),
-        addOpen = library.lookupFunction<
+    : posixOpenpt = library.lookupFunction<Int32 Function(Int32), int Function(int)>('posix_openpt'),
+      grantpt = library.lookupFunction<Int32 Function(Int32), int Function(int)>('grantpt'),
+      unlockpt = library.lookupFunction<Int32 Function(Int32), int Function(int)>('unlockpt'),
+      ptsnameR = library
+          .lookupFunction<Int32 Function(Int32, Pointer<Void>, IntPtr), int Function(int, Pointer<Void>, int)>(
+            'ptsname_r',
+          ),
+      ioctl = library
+          .lookupFunction<Int32 Function(Int32, UnsignedLong, Pointer<Void>), int Function(int, int, Pointer<Void>)>(
+            'ioctl',
+          ),
+      read = library
+          .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>(
+            'read',
+          ),
+      write = library
+          .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>(
+            'write',
+          ),
+      close = library.lookupFunction<Int32 Function(Int32), int Function(int)>('close'),
+      pipe2 = library.lookupFunction<Int32 Function(Pointer<Int32>, Int32), int Function(Pointer<Int32>, int)>('pipe2'),
+      kill = library.lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>('kill'),
+      waitpid = library
+          .lookupFunction<Int32 Function(Int32, Pointer<Int32>, Int32), int Function(int, Pointer<Int32>, int)>(
+            'waitpid',
+          ),
+      malloc = library.lookupFunction<Pointer<Void> Function(IntPtr), Pointer<Void> Function(int)>('malloc'),
+      free = library.lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>('free'),
+      posixSpawnp = library
+          .lookupFunction<
+            Int32 Function(
+              Pointer<Int32>,
+              Pointer<Void>,
+              Pointer<Void>,
+              Pointer<Void>,
+              Pointer<Pointer<Uint8>>,
+              Pointer<Pointer<Uint8>>,
+            ),
+            int Function(
+              Pointer<Int32>,
+              Pointer<Void>,
+              Pointer<Void>,
+              Pointer<Void>,
+              Pointer<Pointer<Uint8>>,
+              Pointer<Pointer<Uint8>>,
+            )
+          >('posix_spawnp'),
+      fileActionsInit = library.lookupFunction<Int32 Function(Pointer<Void>), int Function(Pointer<Void>)>(
+        'posix_spawn_file_actions_init',
+      ),
+      fileActionsDestroy = library.lookupFunction<Int32 Function(Pointer<Void>), int Function(Pointer<Void>)>(
+        'posix_spawn_file_actions_destroy',
+      ),
+      addOpen = library
+          .lookupFunction<
             Int32 Function(Pointer<Void>, Int32, Pointer<Void>, Int32, UnsignedInt),
-            int Function(Pointer<Void>, int, Pointer<Void>, int,
-                int)>('posix_spawn_file_actions_addopen'),
-        addDup2 = library.lookupFunction<Int32 Function(Pointer<Void>, Int32, Int32),
-            int Function(Pointer<Void>, int, int)>('posix_spawn_file_actions_adddup2'),
-        addClose = library.lookupFunction<Int32 Function(Pointer<Void>, Int32),
-            int Function(Pointer<Void>, int)>('posix_spawn_file_actions_addclose'),
-        attributesInit = library.lookupFunction<Int32 Function(Pointer<Void>),
-            int Function(Pointer<Void>)>('posix_spawnattr_init'),
-        attributesDestroy = library.lookupFunction<Int32 Function(Pointer<Void>),
-            int Function(Pointer<Void>)>('posix_spawnattr_destroy'),
-        attributesSetFlags = library.lookupFunction<Int32 Function(Pointer<Void>, Int16),
-            int Function(Pointer<Void>, int)>('posix_spawnattr_setflags');
+            int Function(Pointer<Void>, int, Pointer<Void>, int, int)
+          >('posix_spawn_file_actions_addopen'),
+      addDup2 = library
+          .lookupFunction<Int32 Function(Pointer<Void>, Int32, Int32), int Function(Pointer<Void>, int, int)>(
+            'posix_spawn_file_actions_adddup2',
+          ),
+      addClose = library.lookupFunction<Int32 Function(Pointer<Void>, Int32), int Function(Pointer<Void>, int)>(
+        'posix_spawn_file_actions_addclose',
+      ),
+      attributesInit = library.lookupFunction<Int32 Function(Pointer<Void>), int Function(Pointer<Void>)>(
+        'posix_spawnattr_init',
+      ),
+      attributesDestroy = library.lookupFunction<Int32 Function(Pointer<Void>), int Function(Pointer<Void>)>(
+        'posix_spawnattr_destroy',
+      ),
+      attributesSetFlags = library
+          .lookupFunction<Int32 Function(Pointer<Void>, Int16), int Function(Pointer<Void>, int)>(
+            'posix_spawnattr_setflags',
+          );
 
   final int Function(int) posixOpenpt;
   final int Function(int) grantpt;
@@ -492,8 +506,15 @@ class _Libc {
   final int Function(int, Pointer<Int32>, int) waitpid;
   final Pointer<Void> Function(int) malloc;
   final void Function(Pointer<Void>) free;
-  final int Function(Pointer<Int32>, Pointer<Void>, Pointer<Void>, Pointer<Void>,
-      Pointer<Pointer<Uint8>>, Pointer<Pointer<Uint8>>) posixSpawnp;
+  final int Function(
+    Pointer<Int32>,
+    Pointer<Void>,
+    Pointer<Void>,
+    Pointer<Void>,
+    Pointer<Pointer<Uint8>>,
+    Pointer<Pointer<Uint8>>,
+  )
+  posixSpawnp;
   final int Function(Pointer<Void>) fileActionsInit;
   final int Function(Pointer<Void>) fileActionsDestroy;
   final int Function(Pointer<Void>, int, Pointer<Void>, int, int) addOpen;

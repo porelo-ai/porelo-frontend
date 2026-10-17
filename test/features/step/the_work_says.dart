@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> theWorkSays(WidgetTester tester, String words) async {
   await tester.pump();
   expect(
-      find.descendant(of: find.byKey(const Key('machine-area')), matching: find.textContaining(words)),
-      findsWidgets);
+    find.descendant(of: find.byKey(const Key('machine-area')), matching: find.textContaining(words)),
+    findsWidgets,
+  );
 }

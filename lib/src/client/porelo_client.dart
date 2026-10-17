@@ -34,13 +34,7 @@ class Backend {
   final Future<String?> Function()? whyNotNow;
 
   /// Constructor with the socket and how to name it.
-  const Backend({
-    required this.socketPath,
-    required this.label,
-    this.notReachable,
-    this.relay,
-    this.whyNotNow,
-  });
+  const Backend({required this.socketPath, required this.label, this.notReachable, this.relay, this.whyNotNow});
 
   /// Opens a connection to it, or says in [notReachable]'s words why there is none.
   Future<VarlinkConnection> open() async {
@@ -93,17 +87,13 @@ class FeatureNotSupported implements Exception {
   @override
   String toString() => 'this backend has no $method';
 }
+
 /// What one machine has to run agents with: the ones it can use, the ones it cannot, and the ones
 /// it will never reach.
 ///
 /// Named rather than positional, because three lists of different things in a row is three
 /// positions somebody has to remember at every call site.
-typedef AgentsOnTheMachine = ({
-  List<Agent> agents,
-  Map<String, String> failures,
-  List<ShadowedAgent> shadowed,
-});
-
+typedef AgentsOnTheMachine = ({List<Agent> agents, Map<String, String> failures, List<ShadowedAgent> shadowed});
 
 /// The Porelo backend, typed.
 ///
@@ -138,19 +128,20 @@ class PoreloClient {
   /// Throws [VarlinkDisconnected] when there is nothing there, and [StateError] when the backend
   /// serves no interface this build knows - which is a backend too new or too old to talk to at
   /// all, and is worth saying plainly rather than failing on the first call.
-  static Future<PoreloClient> connect(Backend backend,
-      {Duration answerWithin = VarlinkConnection.answerWithin}) async {
+  static Future<PoreloClient> connect(Backend backend, {Duration answerWithin = VarlinkConnection.answerWithin}) async {
     final connection = await backend.open();
     try {
       // Shorter than the default: "is there a daemon on the other end of this socket" has to
       // answer quickly, or the window sits on an empty frame saying it is connecting.
-      final info = ServiceInfo.from(await connection.call(
-          'org.varlink.service.GetInfo', const {}, const Duration(seconds: 5)));
+      final info = ServiceInfo.from(
+        await connection.call('org.varlink.service.GetInfo', const {}, const Duration(seconds: 5)),
+      );
       final agreed = supported.where(info.interfaces.contains);
       if (agreed.isEmpty) {
         throw StateError(
-            '${backend.label} serves ${info.interfaces}, none of which this build understands '
-            '(it knows $supported)');
+          '${backend.label} serves ${info.interfaces}, none of which this build understands '
+          '(it knows $supported)',
+        );
       }
       return PoreloClient._(backend, agreed.first, info, answerWithin);
     } finally {
@@ -162,8 +153,7 @@ class PoreloClient {
   ///
   /// Served by the daemon itself, so it always matches what is answering - unlike a copy.
   Future<String> contract() async {
-    final reply = await _call('org.varlink.service.GetInterfaceDescription',
-        {'interface': interfaceName}, false);
+    final reply = await _call('org.varlink.service.GetInterfaceDescription', {'interface': interfaceName}, false);
     final description = reply['description'];
     return description is String ? description : '';
   }
@@ -171,8 +161,7 @@ class PoreloClient {
   // --------------------------------------------------------------------- what exists
 
   /// Every task on the machine, running or stopped.
-  Future<List<Task>> tasks() async =>
-      _tasksOf(await _call('List'));
+  Future<List<Task>> tasks() async => _tasksOf(await _call('List'));
 
   /// The task list, again whenever it changes.
   ///
@@ -192,12 +181,8 @@ class PoreloClient {
     return (
       // One entry per name: they are keyed by name on the daemon side, and a copy that loses to
       // another is resolved away before this list is built rather than marked in it.
-      agents: found is List
-          ? found.whereType<Map<String, dynamic>>().map(Agent.from).toList()
-          : <Agent>[],
-      failures: failures is Map
-          ? failures.map((key, value) => MapEntry('$key', '$value'))
-          : <String, String>{},
+      agents: found is List ? found.whereType<Map<String, dynamic>>().map(Agent.from).toList() : <Agent>[],
+      failures: failures is Map ? failures.map((key, value) => MapEntry('$key', '$value')) : <String, String>{},
       shadowed: shadowed is List
           ? shadowed.whereType<Map<String, dynamic>>().map(ShadowedAgent.from).toList()
           : <ShadowedAgent>[],
@@ -218,17 +203,18 @@ class PoreloClient {
     String? source,
     String? fromFile,
     bool? dryRun,
-  }) async =>
-      CredentialDeclared.from(await _call('CredentialDeclare', {
-        'id': ?id,
-        'kind': kind,
-        'match': match,
-        'user': ?user,
-        'purpose': ?purpose,
-        'source': ?source,
-        'fromFile': ?fromFile,
-        'dryRun': ?dryRun,
-      }));
+  }) async => CredentialDeclared.from(
+    await _call('CredentialDeclare', {
+      'id': ?id,
+      'kind': kind,
+      'match': match,
+      'user': ?user,
+      'purpose': ?purpose,
+      'source': ?source,
+      'fromFile': ?fromFile,
+      'dryRun': ?dryRun,
+    }),
+  );
 
   /// Forgets a credential record. The secret stays where it is; the answer says what still holds it.
   Future<CredentialForgotten> credentialForget(String match) async =>
@@ -236,19 +222,16 @@ class PoreloClient {
 
   /// Which credential [url] would use, and whether it would work, without touching the network.
   Future<CredentialChecked> credentialCheck(String url, {String? purpose}) async =>
-      CredentialChecked.from(
-          await _call('CredentialCheck', {'url': url, 'purpose': ?purpose}));
+      CredentialChecked.from(await _call('CredentialCheck', {'url': url, 'purpose': ?purpose}));
 
   /// Records the one key of [host] a person confirmed, and only if the host still offers it.
-  Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => HostKeyTrusted.from(
-      await _call('TrustHostKey', <String, dynamic>{'host': host, 'fingerprint': fingerprint}));
+  Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async =>
+      HostKeyTrusted.from(await _call('TrustHostKey', <String, dynamic>{'host': host, 'fingerprint': fingerprint}));
 
   /// The ssh keys the account already has on the machine, never with a value.
   Future<List<SshKey>> sshKeys() async {
     final keys = (await _call('SshKeys', const <String, dynamic>{}))['keys'];
-    return keys is List
-        ? keys.whereType<Map<String, dynamic>>().map(SshKey.from).toList()
-        : const <SshKey>[];
+    return keys is List ? keys.whereType<Map<String, dynamic>>().map(SshKey.from).toList() : const <SshKey>[];
   }
 
   // --------------------------------------------------------------------- running tasks
@@ -324,19 +307,14 @@ class PoreloClient {
   }
 
   /// Stops a task, keeping it: its container is its workspace. Removing is [remove].
-  Future<Stopped> stop(String task) async =>
-      Stopped.from(await _call('Stop', {'task': task}));
+  Future<Stopped> stop(String task) async => Stopped.from(await _call('Stop', {'task': task}));
 
   /// Removes a task, or refuses rather than destroys.
   ///
   /// A task holding commits that never reached the gate comes back as [Outcome.holdsWork],
   /// untouched. That refusal needs a real place in the interface - it is the product working.
   Future<Removed> remove(String task, {bool? rescue, bool? force}) async =>
-      Removed.from(await _call('Remove', {
-        'task': task,
-        'rescue': ?rescue,
-        'force': ?force,
-      }));
+      Removed.from(await _call('Remove', {'task': task, 'rescue': ?rescue, 'force': ?force}));
 
   /// Every project on the machine.
   ///
@@ -345,9 +323,7 @@ class PoreloClient {
   Future<List<Project>> projects() async {
     final reply = await _call('Projects');
     final projects = reply['projects'];
-    return projects is List
-        ? projects.whereType<Map<String, dynamic>>().map(Project.from).toList()
-        : const <Project>[];
+    return projects is List ? projects.whereType<Map<String, dynamic>>().map(Project.from).toList() : const <Project>[];
   }
 
   /// The curated destination sets installed on this machine, and where they were found.
@@ -360,9 +336,7 @@ class PoreloClient {
     final sets = reply['sets'];
     final locations = reply['locations'];
     return (
-      sets is List
-          ? sets.whereType<Map<String, dynamic>>().map(EgressSet.from).toList()
-          : <EgressSet>[],
+      sets is List ? sets.whereType<Map<String, dynamic>>().map(EgressSet.from).toList() : <EgressSet>[],
       locations is List ? locations.whereType<String>().toList() : <String>[],
     );
   }
@@ -375,16 +349,12 @@ class PoreloClient {
   ///
   /// Without [repository] it is what every repository of the project may reach; with one, that and
   /// what the repository adds, each host naming where it came from.
-  Future<(List<EgressHost>, List<String>)> egress(String project,
-      {String? agent, String? repository}) async {
-    final reply =
-        await _call('Egress', {'project': project, 'agent': ?agent, 'repository': ?repository});
+  Future<(List<EgressHost>, List<String>)> egress(String project, {String? agent, String? repository}) async {
+    final reply = await _call('Egress', {'project': project, 'agent': ?agent, 'repository': ?repository});
     final hosts = reply['hosts'];
     final refused = reply['refused'];
     return (
-      hosts is List
-          ? hosts.whereType<Map<String, dynamic>>().map(EgressHost.from).toList()
-          : <EgressHost>[],
+      hosts is List ? hosts.whereType<Map<String, dynamic>>().map(EgressHost.from).toList() : <EgressHost>[],
       refused is List ? refused.whereType<String>().toList() : <String>[],
     );
   }
@@ -402,16 +372,17 @@ class PoreloClient {
     List<String>? removeDomains,
     bool? dryRun,
     String? repository,
-  }) async =>
-      EgressChange.from(await _call('SetEgress', {
-        'project': project,
-        'repository': ?repository,
-        'addSets': ?addSets,
-        'removeSets': ?removeSets,
-        'addDomains': ?addDomains,
-        'removeDomains': ?removeDomains,
-        'dryRun': ?dryRun,
-      }));
+  }) async => EgressChange.from(
+    await _call('SetEgress', {
+      'project': project,
+      'repository': ?repository,
+      'addSets': ?addSets,
+      'removeSets': ?removeSets,
+      'addDomains': ?addDomains,
+      'removeDomains': ?removeDomains,
+      'dryRun': ?dryRun,
+    }),
+  );
 
   /// Lets a **running** task reach names it could not reach before.
   ///
@@ -427,18 +398,10 @@ class PoreloClient {
   ///
   /// With [dryRun] it answers `PREVIEWED` with exactly the names a real call would grant, having
   /// changed nothing. Worth doing every time: this edit lands on work that is running.
-  Future<Widened> widenTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) async =>
-      Widened.from(await _call('WidenTask', {
-        'task': task,
-        'domains': domains,
-        'scope': scope.wire,
-        'dryRun': ?dryRun,
-      }));
+  Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
+      Widened.from(
+        await _call('WidenTask', {'task': task, 'domains': domains, 'scope': scope.wire, 'dryRun': ?dryRun}),
+      );
 
   /// Sets or clears the caption a task reads by.
   ///
@@ -453,26 +416,28 @@ class PoreloClient {
   /// Sends one part of a file handed to a running [task]: [part] starts at [offset] of a file of
   /// [bytes] with [sha256]. Each part is a call of its own, so a cut connection loses one part, and
   /// the machine's `PartOutOfOrder` says where to go on.
-  Future<HandInPart> handIn(String task,
-          {required String name,
-          required int bytes,
-          required String sha256,
-          required int offset,
-          required List<int> part}) async =>
-      HandInPart.from(await _call('HandIn', <String, dynamic>{
-        'task': task,
-        'name': name,
-        'bytes': bytes,
-        'sha256': sha256,
-        'offset': offset,
-        'part': base64.encode(part),
-      }));
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) async => HandInPart.from(
+    await _call('HandIn', <String, dynamic>{
+      'task': task,
+      'name': name,
+      'bytes': bytes,
+      'sha256': sha256,
+      'offset': offset,
+      'part': base64.encode(part),
+    }),
+  );
 
   /// Takes the file [name] out of a running [task] again.
   Future<HandedFile> takeBack(String task, String name) async {
     final reply = await _call('TakeBack', {'task': task, 'name': name});
-    return HandedFile.from(
-        reply['file'] is Map<String, dynamic> ? reply['file'] as Map<String, dynamic> : const {});
+    return HandedFile.from(reply['file'] is Map<String, dynamic> ? reply['file'] as Map<String, dynamic> : const {});
   }
 
   /// Every hand-in, replacement and removal under [task]'s name, oldest first, of every run that
@@ -497,42 +462,25 @@ class PoreloClient {
   /// **Proposed for Porelo's keyslots, not on `Tasks1` yet**: until it is built, this answers
   /// [FeatureNotSupported]. The share is base64 of 32 random bytes, is sent here and in
   /// [unlockWithShare] only, and appears in no reply.
-  Future<Enrolled> enrollDevice({
-    required String name,
-    required String share,
-    required KeyslotStorage storage,
-  }) async =>
-      Enrolled.from(await _call('EnrollDevice', {
-        'name': name,
-        'share': share,
-        'storage': storage.name,
-      }));
+  Future<Enrolled> enrollDevice({required String name, required String share, required KeyslotStorage storage}) async =>
+      Enrolled.from(await _call('EnrollDevice', {'name': name, 'share': share, 'storage': storage.name}));
 
   /// Every credential that can open the vault. **Proposed for Porelo's keyslots.**
   Future<List<Keyslot>> keyslots() async {
     final reply = await _call('Keyslots');
     final slots = reply['slots'];
-    return slots is List
-        ? slots.whereType<Map<String, dynamic>>().map(Keyslot.from).toList()
-        : const <Keyslot>[];
+    return slots is List ? slots.whereType<Map<String, dynamic>>().map(Keyslot.from).toList() : const <Keyslot>[];
   }
 
   /// Revokes one keyslot by [id]. **Proposed for Porelo's keyslots.**
-  Future<Revoked> revokeKeyslot(String id) async =>
-      Revoked.from(await _call('RevokeKeyslot', {'id': id}));
+  Future<Revoked> revokeKeyslot(String id) async => Revoked.from(await _call('RevokeKeyslot', {'id': id}));
 
   /// Opens the vault with this device's [share], for [minutes] or the node's own bound.
   ///
   /// **As Porelo built it**: the share and an optional bound, and no keyslot id —
   /// the node finds the slot the share opens, so a device that lost its id still opens the vault.
-  Future<UnlockedWithShare> unlockWithShare({
-    required String share,
-    int? minutes,
-  }) async =>
-      UnlockedWithShare.from(await _call('UnlockWithShare', {
-        'share': share,
-        'minutes': ?minutes,
-      }));
+  Future<UnlockedWithShare> unlockWithShare({required String share, int? minutes}) async =>
+      UnlockedWithShare.from(await _call('UnlockWithShare', {'share': share, 'minutes': ?minutes}));
 
   /// Whether work can start, asked **before anything is created**.
   ///
@@ -549,17 +497,18 @@ class PoreloClient {
     String? credentialType,
     String? repository,
     Map<String, String>? credentials,
-  }) async =>
-      Readiness.from(await _call('CanStart', {
-        'project': ?project,
-        'agent': ?agent,
-        'task': ?task,
-        'provider': ?provider,
-        'credentialType': ?credentialType,
-        'repository': ?repository,
-        // Sent only when there are some, so a machine older than them never meets the parameter.
-        if (credentials != null && credentials.isNotEmpty) 'credentials': credentials,
-      }));
+  }) async => Readiness.from(
+    await _call('CanStart', {
+      'project': ?project,
+      'agent': ?agent,
+      'task': ?task,
+      'provider': ?provider,
+      'credentialType': ?credentialType,
+      'repository': ?repository,
+      // Sent only when there are some, so a machine older than them never meets the parameter.
+      if (credentials != null && credentials.isNotEmpty) 'credentials': credentials,
+    }),
+  );
 
   /// Stops every running task and its helpers at once.
   ///
@@ -569,8 +518,7 @@ class PoreloClient {
   ///
   /// With [dryRun] it lists what it would stop and stops nothing. Worth doing every time: this is
   /// the action somebody reaches for without yet knowing what is wrong.
-  Future<Panicked> panic({bool? dryRun}) async =>
-      Panicked.from(await _call('Panic', {'dryRun': ?dryRun}));
+  Future<Panicked> panic({bool? dryRun}) async => Panicked.from(await _call('Panic', {'dryRun': ?dryRun}));
 
   /// Turns enforcement on or off on a task that is already running.
   ///
@@ -579,8 +527,7 @@ class PoreloClient {
   /// would make one method mean two unrelated things, and the quiet one would be the dangerous
   /// one.
   Future<ClearanceSet> setClearance(String task, String mode, {bool? dryRun}) async =>
-      ClearanceSet.from(await _call(
-          'SetClearance', {'task': task, 'mode': mode, 'dryRun': ?dryRun}));
+      ClearanceSet.from(await _call('SetClearance', {'task': task, 'mode': mode, 'dryRun': ?dryRun}));
 
   /// Takes names back from a running task, and optionally from its project file.
   ///
@@ -589,18 +536,10 @@ class PoreloClient {
   ///
   /// [scope] is required and has no default, exactly as for widening: narrowing only the run when
   /// somebody meant the project too leaves the next task starting with the host still open.
-  Future<Narrowed> narrowTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) async =>
-      Narrowed.from(await _call('NarrowTask', {
-        'task': task,
-        'domains': domains,
-        'scope': scope.wire,
-        'dryRun': ?dryRun,
-      }));
+  Future<Narrowed> narrowTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
+      Narrowed.from(
+        await _call('NarrowTask', {'task': task, 'domains': domains, 'scope': scope.wire, 'dryRun': ?dryRun}),
+      );
 
   /// What backups have been taken of a project's mirror.
   ///
@@ -613,9 +552,7 @@ class PoreloClient {
   Future<List<Backup>> backups(String project, {String? repository}) async {
     final reply = await _call('Backups', {'project': project, 'repository': ?repository});
     final backups = reply['backups'];
-    return backups is List
-        ? backups.whereType<Map<String, dynamic>>().map(Backup.from).toList()
-        : const <Backup>[];
+    return backups is List ? backups.whereType<Map<String, dynamic>>().map(Backup.from).toList() : const <Backup>[];
   }
 
   /// What a task holds that never reached the gate.
@@ -623,12 +560,11 @@ class PoreloClient {
   /// **Asked for one task, on demand** — never while drawing a list. A name that is no task at all
   /// raises `NoSuchTask` rather than answering unreadable: those are different failures, and
   /// collapsing them would make a client's wrong argument arrive as a legitimate answer.
-  Future<HeldWork> workHeld(String task) async =>
-      HeldWork.from(await _call('WorkHeld', {'task': task}));
+  Future<HeldWork> workHeld(String task) async => HeldWork.from(await _call('WorkHeld', {'task': task}));
 
   /// Asks the upstream how far behind a project's mirror is, now.
-  Future<Synced> syncUpstream(String project, {String? repository}) async => Synced.from(
-      await _call('SyncUpstream', {'project': project, 'repository': ?repository}));
+  Future<Synced> syncUpstream(String project, {String? repository}) async =>
+      Synced.from(await _call('SyncUpstream', {'project': project, 'repository': ?repository}));
 
   /// Restores a mirror from a backup, or says what restoring would take.
   ///
@@ -637,15 +573,21 @@ class PoreloClient {
   ///
   /// **[repository] is the one written into**, and a bundle is kept under the repository it was
   /// taken of — restoring one into another would put one history over the other's.
-  Future<Restored> restoreBackup(String project, String bundle,
-          {bool? dryRun, bool? force, String? repository}) async =>
-      Restored.from(await _call('RestoreBackup', {
-        'project': project,
-        'bundle': bundle,
-        'repository': ?repository,
-        'dryRun': ?dryRun,
-        'force': ?force,
-      }));
+  Future<Restored> restoreBackup(
+    String project,
+    String bundle, {
+    bool? dryRun,
+    bool? force,
+    String? repository,
+  }) async => Restored.from(
+    await _call('RestoreBackup', {
+      'project': project,
+      'bundle': bundle,
+      'repository': ?repository,
+      'dryRun': ?dryRun,
+      'force': ?force,
+    }),
+  );
 
   /// Removes a backup, or says what removing it would take.
   ///
@@ -654,8 +596,7 @@ class PoreloClient {
   /// refuses a path no record names, which is what keeps it from being a file-deletion primitive
   /// wearing a backup's name.
   Future<BackupDeleted> deleteBackup(String project, String bundle, {bool? dryRun}) async =>
-      BackupDeleted.from(await _call('DeleteBackup',
-          {'project': project, 'bundle': bundle, 'dryRun': ?dryRun}));
+      BackupDeleted.from(await _call('DeleteBackup', {'project': project, 'bundle': bundle, 'dryRun': ?dryRun}));
 
   /// Builds a project's task image without starting anything.
   ///
@@ -667,29 +608,19 @@ class PoreloClient {
   /// `AGENT` keeps the base image and its packages, and is a mechanism rather than a switch —
   /// there is no *"rebuild from here"*, so it works by changing a build argument placed where the
   /// agent's layers begin.
-  Stream<PrepareProgress> prepare(
-    String project, {
-    String? agent,
-    String? rebuild,
-    bool? dryRun,
-  }) =>
-      _callMore('Prepare', {
-        'project': project,
-        'agent': ?agent,
-        'rebuild': ?rebuild,
-        'dryRun': ?dryRun,
-      }).map(PrepareProgress.from);
+  Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) => _callMore(
+    'Prepare',
+    {'project': project, 'agent': ?agent, 'rebuild': ?rebuild, 'dryRun': ?dryRun},
+  ).map(PrepareProgress.from);
 
   /// Whether this machine can actually run a task, and what it is short of.
   ///
   /// **It runs external programs to find out, so it takes a moment and is not something to
   /// poll.** Still a read: nothing about it changes anything.
-  Future<Health> doctor() async =>
-      Health.from(await _call('Doctor', const <String, dynamic>{}));
+  Future<Health> doctor() async => Health.from(await _call('Doctor', const <String, dynamic>{}));
 
   /// Which providers this machine has, and where a credential for each belongs.
-  Future<Providers> providers() async =>
-      Providers.from(await _call('Providers', const <String, dynamic>{}));
+  Future<Providers> providers() async => Providers.from(await _call('Providers', const <String, dynamic>{}));
 
   /// Imports a credential an agent already holds on the machine.
   ///
@@ -697,8 +628,7 @@ class PoreloClient {
   /// its own disk, and only a name comes back. [agent] omitted means *the only one installed* —
   /// which is not the same as an empty string, and an empty string matches nothing.
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
-      Imported.from(await _call('ImportCredential',
-          {'agent': ?agent, 'configDirectory': ?configDirectory}));
+      Imported.from(await _call('ImportCredential', {'agent': ?agent, 'configDirectory': ?configDirectory}));
 
   /// Which node this is.
   ///
@@ -747,21 +677,27 @@ class PoreloClient {
   /// [signedBy] is the public key its commits must be signed with; [unverified] follows without
   /// one. Porelo refuses both together: they are two instructions, not a stricter setting.
   /// [acceptRewrite] is **only ever** a person's answer to `REWRITTEN`, never a retry.
-  Future<Followed> follow(String name, String url,
-          {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite, bool? dryRun}) async =>
-      Followed.from(<String, dynamic>{
-        'name': name,
-        'url': url,
-        ...await _call('Follow', {
-          'name': name,
-          'url': url,
-          'signedBy': ?signedBy,
-          'signers': ?signers,
-          'unverified': ?unverified,
-          'acceptRewrite': ?acceptRewrite,
-          'dryRun': ?dryRun,
-        }),
-      });
+  Future<Followed> follow(
+    String name,
+    String url, {
+    String? signedBy,
+    List<String>? signers,
+    bool? unverified,
+    bool? acceptRewrite,
+    bool? dryRun,
+  }) async => Followed.from(<String, dynamic>{
+    'name': name,
+    'url': url,
+    ...await _call('Follow', {
+      'name': name,
+      'url': url,
+      'signedBy': ?signedBy,
+      'signers': ?signers,
+      'unverified': ?unverified,
+      'acceptRewrite': ?acceptRewrite,
+      'dryRun': ?dryRun,
+    }),
+  });
 
   /// Stops following a project, and removes it and everything Porelo built for it from this machine.
   ///
@@ -794,9 +730,7 @@ class PoreloClient {
   Future<List<Log>> logsOf(String task) async {
     final reply = await _call('Logs', {'task': task});
     final logs = reply['logs'];
-    return logs is List
-        ? logs.whereType<Map<String, dynamic>>().map(Log.from).toList()
-        : const <Log>[];
+    return logs is List ? logs.whereType<Map<String, dynamic>>().map(Log.from).toList() : const <Log>[];
   }
 
   /// Reads a task's log once.
@@ -809,12 +743,7 @@ class PoreloClient {
   /// [formatted], every line comes as the task's agent shows it, hidden ones left out. Both are sent
   /// only when given, so a Porelo older than them is asked what it knows.
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
-      _callMore('Tail', {
-        'task': task,
-        'log': log,
-        'last': ?last,
-        if (formatted) 'formatted': true,
-      }).map(_linesOf);
+      _callMore('Tail', {'task': task, 'log': log, 'last': ?last, if (formatted) 'formatted': true}).map(_linesOf);
 
   /// What [task]'s terminal session shows now, its last [last] lines, without attaching: nobody in
   /// the session sees anything happen. With [escapes], the lines keep the terminal's colours.
@@ -828,11 +757,7 @@ class PoreloClient {
   /// [repository] is one of `Project.repositories`; without one a Porelo answers the project's own
   /// and an older one knows no other.
   Future<GateState> gate(String project, {String? upstream, String? repository}) async =>
-      GateState.from(await _call('Pending', {
-        'project': project,
-        'upstream': ?upstream,
-        'repository': ?repository,
-      }));
+      GateState.from(await _call('Pending', {'project': project, 'upstream': ?upstream, 'repository': ?repository}));
 
   /// What a pending push contains: a diff and a log, and, from a Porelo that ranks the review, its
   /// files in the order to show them and what the task that pushed was asked.
@@ -840,8 +765,12 @@ class PoreloClient {
   /// `asked` is null where the machine does not say, an empty string where the task was started
   /// without an instruction; `files` is empty from a Porelo older than the ranked review.
   Future<({String diff, String log, List<ReviewFile> files, String? asked})> review(
-      String project, String name,
-      {String? upstream, String? against, String? repository}) async {
+    String project,
+    String name, {
+    String? upstream,
+    String? against,
+    String? repository,
+  }) async {
     final reply = await _call('Review', {
       'project': project,
       'name': name,
@@ -866,24 +795,34 @@ class PoreloClient {
   /// Forwards a pending push upstream.
   ///
   /// The only call that sends anything anywhere, and it makes the caller name the branch.
-  Future<void> approve(String project, String name, String branch,
-          {String? upstream, String? repository, String? commit}) async =>
-      _call('Approve', {
-        'project': project,
-        'name': name,
-        'branch': branch,
-        'upstream': ?upstream,
-        'repository': ?repository,
-        'commit': ?commit,
-      });
+  Future<void> approve(
+    String project,
+    String name,
+    String branch, {
+    String? upstream,
+    String? repository,
+    String? commit,
+  }) async => _call('Approve', {
+    'project': project,
+    'name': name,
+    'branch': branch,
+    'upstream': ?upstream,
+    'repository': ?repository,
+    'commit': ?commit,
+  });
 
   /// Drops a pending push. The work stays in the mirror; only the request is gone.
   ///
   /// The task the work came from is told in its inbox, with [reason] when a person gave one. `told`
   /// is false when no task of that name has a mailbox any more, and null from a Porelo that does not
   /// say.
-  Future<({bool? told})> reject(String project, String name,
-      {String? upstream, String? repository, String? reason}) async {
+  Future<({bool? told})> reject(
+    String project,
+    String name, {
+    String? upstream,
+    String? repository,
+    String? reason,
+  }) async {
     final reply = await _call('Reject', {
       'project': project,
       'name': name,
@@ -920,38 +859,40 @@ class PoreloClient {
   /// all or keeps it refused.
   /// A refusal's [reason], the person's words, reaches the sender with it.
   Future<MessageRelease> release(String task, String id, {bool refuse = false, String? reason}) async =>
-      MessageRelease.from(await _call('Release', <String, dynamic>{
-        'task': task,
-        'id': id,
-        if (refuse) 'refuse': true,
-        if (refuse && reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
-      }));
+      MessageRelease.from(
+        await _call('Release', <String, dynamic>{
+          'task': task,
+          'id': id,
+          if (refuse) 'refuse': true,
+          if (refuse && reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+        }),
+      );
 
   /// The peers [task] may address, and what a person decided about each.
   Future<List<TalkPeer>> peers(String task, String project) async {
     final reply = await _call('Peers', <String, dynamic>{'task': task, 'project': project});
     final peers = reply['peers'];
-    return peers is List
-        ? peers.whereType<Map<String, dynamic>>().map(TalkPeer.from).toList()
-        : const <TalkPeer>[];
+    return peers is List ? peers.whereType<Map<String, dynamic>>().map(TalkPeer.from).toList() : const <TalkPeer>[];
   }
 
   /// Lets [person] into [project]'s conversation with an account made for them, or gives it a new
   /// password with [reset]. **Answered once**: the login is in this reply and nowhere else.
-  Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async =>
-      MessagesJoined.from(await _call('JoinMessages', <String, dynamic>{
-        'project': project,
-        'person': person,
-        if (reset) 'reset': true,
-      }));
+  Future<MessagesJoined> joinMessages(String project, String person, {bool reset = false}) async => MessagesJoined.from(
+    await _call('JoinMessages', <String, dynamic>{'project': project, 'person': person, if (reset) 'reset': true}),
+  );
 
   /// This machine's deploy key for [repository] of [project] (the project's own by default), made
   /// where it has none or where [renew] asks. Only the public half is answered.
   ///
   /// With [upstream], for a project this machine does not follow yet: the key a private repository
   /// needs registered at the forge before the machine can fetch it at all.
-  Future<MachineDeployKey> deployKey(String project,
-      {String? repository, String? upstream, bool? readOnly, bool renew = false}) async {
+  Future<MachineDeployKey> deployKey(
+    String project, {
+    String? repository,
+    String? upstream,
+    bool? readOnly,
+    bool renew = false,
+  }) async {
     final reply = await _call('DeployKey', <String, dynamic>{
       'project': project,
       'repository': ?repository,
@@ -959,13 +900,19 @@ class PoreloClient {
       'readOnly': ?readOnly,
       if (renew) 'new': true,
     });
-    return MachineDeployKey.from(reply['key'] is Map<String, dynamic> ? reply['key'] as Map<String, dynamic> : const <String, dynamic>{});
+    return MachineDeployKey.from(
+      reply['key'] is Map<String, dynamic> ? reply['key'] as Map<String, dynamic> : const <String, dynamic>{},
+    );
   }
 
   /// Pending work [name] at [project]'s gate as a git bundle: what is on the pending ref and not on
   /// [branch]. Refused as `BundleTooLarge` above what one reply may carry.
-  Future<({List<int> bundle, int bytes})> pendingBundle(String project, String name,
-      {String? repository, String? branch}) async {
+  Future<({List<int> bundle, int bytes})> pendingBundle(
+    String project,
+    String name, {
+    String? repository,
+    String? branch,
+  }) async {
     final reply = await _call('PendingBundle', <String, dynamic>{
       'project': project,
       'repository': ?repository,
@@ -980,8 +927,12 @@ class PoreloClient {
 
   /// Clears pending work [name] once [branch] on the upstream holds its commit, fetched with the
   /// machine's own key. Not landed changes nothing, and [detail] says why.
-  Future<({bool landed, String commit, String detail})> landed(String project, String name,
-      {String? repository, required String branch}) async {
+  Future<({bool landed, String commit, String detail})> landed(
+    String project,
+    String name, {
+    String? repository,
+    required String branch,
+  }) async {
     final reply = await _call('Landed', <String, dynamic>{
       'project': project,
       'repository': ?repository,
@@ -1071,13 +1022,15 @@ class PoreloClient {
 
   /// Writes a person's own message into [task]'s conversation with [peer]. Written, not sent.
   Future<Said> say(String task, String peer, String text, {String kind = 'question', String? context}) async =>
-      Said.from(await _call('Say', <String, dynamic>{
-        'task': task,
-        'peer': peer,
-        'kind': kind,
-        'text': text,
-        'context': ?context,
-      }));
+      Said.from(
+        await _call('Say', <String, dynamic>{
+          'task': task,
+          'peer': peer,
+          'kind': kind,
+          'text': text,
+          'context': ?context,
+        }),
+      );
 
   /// Puts a person's own words straight into [task]'s inbox, where its agent reads them. Never
   /// leaves the machine, so neither signed nor filtered. Answers the file written.
@@ -1090,9 +1043,7 @@ class PoreloClient {
   Future<List<Destination>> destinations() async {
     final reply = await _call('Destinations', const <String, dynamic>{});
     final list = reply['destinations'];
-    return list is List
-        ? list.whereType<Map<String, dynamic>>().map(Destination.from).toList()
-        : const <Destination>[];
+    return list is List ? list.whereType<Map<String, dynamic>>().map(Destination.from).toList() : const <Destination>[];
   }
 
   /// Declares a destination in the user's own directory; with [dryRun], says what would be written.
@@ -1155,12 +1106,14 @@ class PoreloClient {
 
   // --------------------------------------------------------------------- plumbing
 
-  Future<Map<String, dynamic>> _call(String method,
-      [Map<String, dynamic> parameters = const {}, bool qualify = true]) async {
+  Future<Map<String, dynamic>> _call(
+    String method, [
+    Map<String, dynamic> parameters = const {},
+    bool qualify = true,
+  ]) async {
     final connection = await backend.open();
     try {
-      return await connection.call(
-          qualify ? '$interfaceName.$method' : method, parameters, answerWithin);
+      return await connection.call(qualify ? '$interfaceName.$method' : method, parameters, answerWithin);
     } on VarlinkException catch (ex) {
       if (ex.isMethodNotFound) throw FeatureNotSupported(method);
       rethrow;
@@ -1169,11 +1122,12 @@ class PoreloClient {
     }
   }
 
-  Stream<Map<String, dynamic>> _callMore(String method,
-      [Map<String, dynamic> parameters = const {}]) async* {
+  Stream<Map<String, dynamic>> _callMore(String method, [Map<String, dynamic> parameters = const {}]) async* {
     final connection = await backend.open();
     try {
-      yield* connection.callMore('$interfaceName.$method', parameters).handleError(
+      yield* connection
+          .callMore('$interfaceName.$method', parameters)
+          .handleError(
             (Object error) => throw FeatureNotSupported(method),
             test: (dynamic error) => error is VarlinkException && error.isMethodNotFound,
           );
@@ -1184,9 +1138,7 @@ class PoreloClient {
 
   static List<Task> _tasksOf(Map<String, dynamic> reply) {
     final tasks = reply['tasks'];
-    return tasks is List
-        ? tasks.whereType<Map<String, dynamic>>().map(Task.from).toList()
-        : const [];
+    return tasks is List ? tasks.whereType<Map<String, dynamic>>().map(Task.from).toList() : const [];
   }
 
   static List<String> _linesOf(Map<String, dynamic> reply) {
@@ -1240,16 +1192,16 @@ class StartProgress {
 
   /// The same reply, carrying [lines] as what the launch printed.
   StartProgress withOutput(List<String> lines) => StartProgress(
-        line: line,
-        container: container,
-        exitCode: exitCode,
-        action: action,
-        helpersStarted: helpersStarted,
-        helpersRecorded: helpersRecorded,
-        problems: problems,
-        imageDrift: imageDrift,
-        output: List<String>.unmodifiable(lines),
-      );
+    line: line,
+    container: container,
+    exitCode: exitCode,
+    action: action,
+    helpersStarted: helpersStarted,
+    helpersRecorded: helpersRecorded,
+    problems: problems,
+    imageDrift: imageDrift,
+    output: List<String>.unmodifiable(lines),
+  );
 
   /// Reads one from a reply.
   factory StartProgress.from(Map<String, dynamic> map) {
@@ -1300,13 +1252,7 @@ class PrepareProgress {
   final String detail;
 
   /// Constructor taking every field.
-  const PrepareProgress({
-    this.line,
-    this.outcome,
-    this.image = '',
-    this.rebuild = '',
-    this.detail = '',
-  });
+  const PrepareProgress({this.line, this.outcome, this.image = '', this.rebuild = '', this.detail = ''});
 
   /// Reads one from a reply.
   factory PrepareProgress.from(Map<String, dynamic> map) {

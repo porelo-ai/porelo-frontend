@@ -10,17 +10,18 @@ bool get walkingAsANewPerson => Platform.environment['PORELO_E2E_NEW_PERSON'] ==
 /// What the window says now, every text on it in order: what a person reads at this step.
 /// A field shows what is typed in it as `[typed]`, and an answer that can be selected as itself.
 List<String> whatTheWindowSays(WidgetTester tester) => <String>[
-      for (final each in tester.widgetList<Widget>(find.byWidgetPredicate(
-          (widget) => widget is Text || widget is SelectableText || widget is EditableText)))
-        if (_said(each).trim().isNotEmpty) _said(each).trim(),
-    ];
+  for (final each in tester.widgetList<Widget>(
+    find.byWidgetPredicate((widget) => widget is Text || widget is SelectableText || widget is EditableText),
+  ))
+    if (_said(each).trim().isNotEmpty) _said(each).trim(),
+];
 
 String _said(Widget widget) => switch (widget) {
-      Text(:final data, :final textSpan) => data ?? textSpan?.toPlainText() ?? '',
-      SelectableText(:final data, :final textSpan) => data ?? textSpan?.toPlainText() ?? '',
-      EditableText(:final controller) => controller.text.isEmpty ? '' : '[${controller.text}]',
-      _ => '',
-    };
+  Text(:final data, :final textSpan) => data ?? textSpan?.toPlainText() ?? '',
+  SelectableText(:final data, :final textSpan) => data ?? textSpan?.toPlainText() ?? '',
+  EditableText(:final controller) => controller.text.isEmpty ? '' : '[${controller.text}]',
+  _ => '',
+};
 
 /// Writes what the window says at [step] to the walk's log, for the person reading the walk.
 void noteTheWindow(WidgetTester tester, String step) {

@@ -16,8 +16,7 @@ import 'package:porelo_frontend/src/app/pty.dart';
 /// terminal — and the way to know is to ask the far end, in its own words, rather than to assert
 /// that this code called the functions it calls.
 void main() {
-  Future<String> whatItPrinted(Pty pty) =>
-      pty.output.transform(utf8.decoder).join();
+  Future<String> whatItPrinted(Pty pty) => pty.output.transform(utf8.decoder).join();
 
   test('the far end is a terminal, and knows the size it was given', () async {
     // `stty` fails outright without a controlling terminal, so an answer at all is the proof
@@ -103,8 +102,13 @@ void main() {
     // that appeared for an instant. The two read differently on screen and should.
     expect(
       () => Pty.start('porelo-does-not-exist', const <String>[]),
-      throwsA(isA<PtyRefused>().having((refused) => refused.words, 'words',
-          contains('no `porelo-does-not-exist` on this machine'))),
+      throwsA(
+        isA<PtyRefused>().having(
+          (refused) => refused.words,
+          'words',
+          contains('no `porelo-does-not-exist` on this machine'),
+        ),
+      ),
     );
   });
 
@@ -128,8 +132,7 @@ void main() {
     // under CPU load: canonical mode hands a program at most 4095 characters of one line,
     // and the kernel drops echo it cannot get rid of, so that count moved between 120,542 and
     // 204,095 while every byte had been sent. A session is tmux in raw mode, where neither applies.
-    final pty = Pty.start(
-        'sh', <String>['-c', r"stty raw -echo; echo ready; head -c 200001 | tr -cd x | wc -c"]);
+    final pty = Pty.start('sh', <String>['-c', r"stty raw -echo; echo ready; head -c 200001 | tr -cd x | wc -c"]);
     addTearDown(pty.close);
     final said = StringBuffer();
     final ready = Completer<void>();
@@ -139,16 +142,23 @@ void main() {
       if (!ready.isCompleted && '$said'.contains('ready')) ready.complete();
     }, onDone: printed.complete);
     // stty has to have run before the paste, or the start of it meets canonical mode after all.
-    await ready.future.timeout(const Duration(seconds: 10),
-        onTimeout: () => fail('the far end never said raw mode was set'));
+    await ready.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => fail('the far end never said raw mode was set'),
+    );
 
     pty.send('${'x' * 200000}\n');
     // Inside the test's own 30 seconds, so a lost tail fails with this sentence, not a timeout.
-    await printed.future.timeout(const Duration(seconds: 20),
-        onTimeout: () => fail('the far end never received the whole paste'));
+    await printed.future.timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => fail('the far end never received the whole paste'),
+    );
 
-    expect(int.tryParse('$said'.trim().split(RegExp(r'\s+')).last), 200000,
-        reason: 'part of what was typed went nowhere');
+    expect(
+      int.tryParse('$said'.trim().split(RegExp(r'\s+')).last),
+      200000,
+      reason: 'part of what was typed went nowhere',
+    );
   });
 
   test('closing a session whose far end has ended signals nothing', () async {

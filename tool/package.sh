@@ -51,9 +51,9 @@ nfpm="${NFPM:-nfpm}"
 say() { printf '\n== %s\n' "$*"; }
 
 command -v "$nfpm" >/dev/null || {
-  echo "nfpm is not on PATH. It is one static binary:" >&2
-  echo "  https://github.com/goreleaser/nfpm/releases" >&2
-  exit 1
+    echo "nfpm is not on PATH. It is one static binary:" >&2
+    echo "  https://github.com/goreleaser/nfpm/releases" >&2
+    exit 1
 }
 
 # Asked of dpkg on the version actually built, rather than reasoned about. The trap is lexical
@@ -61,30 +61,44 @@ command -v "$nfpm" >/dev/null || {
 # quietly stop.
 say "Checking the version supersedes the last one: $version"
 case "$version" in
-  *~SNAPSHOT|*-SNAPSHOT)
-    echo "a flat snapshot never supersedes the last one: $version" >&2; exit 1 ;;
+*~SNAPSHOT | *-SNAPSHOT)
+    echo "a flat snapshot never supersedes the last one: $version" >&2
+    exit 1
+    ;;
 esac
 # A release is the version itself, so the ordering of snapshots says nothing about it.
 if [ "${RELEASE:-0}" != 1 ]; then
-  dpkg --compare-versions "$version" lt "$base" \
-    || { echo "$version should sort below the release $base" >&2; exit 1; }
-  dpkg --compare-versions "$version" lt "$base~snapshot.$((run + 1))" \
-    || { echo "$version should sort below the next build" >&2; exit 1; }
-  dpkg --compare-versions "$base~snapshot.9" lt "$base~snapshot.10" \
-    || { echo "digit runs are being compared lexically; build 10 would not beat build 9" >&2; exit 1; }
+    dpkg --compare-versions "$version" lt "$base" ||
+        {
+            echo "$version should sort below the release $base" >&2
+            exit 1
+        }
+    dpkg --compare-versions "$version" lt "$base~snapshot.$((run + 1))" ||
+        {
+            echo "$version should sort below the next build" >&2
+            exit 1
+        }
+    dpkg --compare-versions "$base~snapshot.9" lt "$base~snapshot.10" ||
+        {
+            echo "digit runs are being compared lexically; build 10 would not beat build 9" >&2
+            exit 1
+        }
 fi
 
 say "Building the release bundle"
 flutter build linux --release
 
-test -x "$bundle/porelo_frontend" || { echo "no bundle at $bundle" >&2; exit 1; }
+test -x "$bundle/porelo_frontend" || {
+    echo "no bundle at $bundle" >&2
+    exit 1
+}
 
 # The ELF objects that decide what this package needs: the launcher and everything shipped beside
 # it. libapp.so is our own AOT-compiled Dart and libflutter_linux_gtk.so is vendored, so neither is
 # a dependency — but both are scanned, because what *they* link is.
 mapfile -t objects < <(
-  printf '%s\n' "$bundle/porelo_frontend"
-  find "$bundle/lib" -name '*.so' | sort
+    printf '%s\n' "$bundle/porelo_frontend"
+    find "$bundle/lib" -name '*.so' | sort
 )
 
 say "Deriving Debian dependencies from ${#objects[@]} ELF objects"
@@ -96,18 +110,21 @@ trap 'rm -rf "$staging"' EXIT
 installed="$staging/debian/porelo-frontend/usr/lib/porelo-frontend"
 mkdir -p "$installed" "$staging/debian/porelo-frontend/DEBIAN"
 printf 'Source: porelo-frontend\n\nPackage: porelo-frontend\nArchitecture: amd64\n' \
-  > "$staging/debian/control"
+    >"$staging/debian/control"
 cp -r "$bundle/." "$installed/"
 
 # -O prints to stdout instead of writing debian/substvars; --ignore-missing-info keeps a vendored
 # .so with no shlibs entry from failing the run rather than being skipped.
 depends="$(
-  cd "$staging" && dpkg-shlibdeps -O --ignore-missing-info \
-    debian/porelo-frontend/usr/lib/porelo-frontend/porelo_frontend \
-    debian/porelo-frontend/usr/lib/porelo-frontend/lib/*.so 2>/dev/null |
-    sed -n 's/^shlibs:Depends=//p'
+    cd "$staging" && dpkg-shlibdeps -O --ignore-missing-info \
+        debian/porelo-frontend/usr/lib/porelo-frontend/porelo_frontend \
+        debian/porelo-frontend/usr/lib/porelo-frontend/lib/*.so 2>/dev/null |
+        sed -n 's/^shlibs:Depends=//p'
 )"
-test -n "$depends" || { echo "dpkg-shlibdeps derived nothing; refusing to ship a deb with no dependencies" >&2; exit 1; }
+test -n "$depends" || {
+    echo "dpkg-shlibdeps derived nothing; refusing to ship a deb with no dependencies" >&2
+    exit 1
+}
 echo "$depends"
 
 say "Deriving RPM requires from the same objects"
@@ -115,16 +132,19 @@ say "Deriving RPM requires from the same objects"
 # the ELF. Anything shipped inside this package is dropped: a package must not require itself.
 mapfile -t shipped < <(find "$bundle/lib" -name '*.so' -printf '%f\n')
 requires="$(
-  for object in "${objects[@]}"; do
-    objdump -p "$object" | awk '/NEEDED/ {print $2}'
-  done | sort -u | while read -r soname; do
-    for own in "${shipped[@]}"; do
-      [ "$soname" = "$own" ] && continue 2
+    for object in "${objects[@]}"; do
+        objdump -p "$object" | awk '/NEEDED/ {print $2}'
+    done | sort -u | while read -r soname; do
+        for own in "${shipped[@]}"; do
+            [ "$soname" = "$own" ] && continue 2
+        done
+        echo "${soname}()(64bit)"
     done
-    echo "${soname}()(64bit)"
-  done
 )"
-test -n "$requires" || { echo "no sonames found; refusing to ship an rpm with no dependencies" >&2; exit 1; }
+test -n "$requires" || {
+    echo "no sonames found; refusing to ship an rpm with no dependencies" >&2
+    exit 1
+}
 
 say "Holding the C library floor"
 # The floor both packages promise is the one dpkg-shlibdeps derived, `libc6 (>= …)`; the RPM side
@@ -135,11 +155,17 @@ say "Holding the C library floor"
 # libraries to the dependencies derived above.
 ceiling="${GLIBC_CEILING:-2.41}"
 floor="$(echo "$depends" | grep -oE 'libc6 \(>= [0-9.]+' | grep -oE '[0-9][0-9.]*$' || true)"
-test -n "$floor" || { echo "dpkg-shlibdeps named no libc6 floor; refusing to guess the C library floor" >&2; exit 1; }
+test -n "$floor" || {
+    echo "dpkg-shlibdeps named no libc6 floor; refusing to guess the C library floor" >&2
+    exit 1
+}
 tools="${JDK_CP:-build/jdk-cp.txt}"
-test -s "$tools" || { echo "no $tools: resolve Porelo's tools first (mvnw -Pci-tools dependency:build-classpath)" >&2; exit 1; }
+test -s "$tools" || {
+    echo "no $tools: resolve Porelo's tools first (mvnw -Pci-tools dependency:build-classpath)" >&2
+    exit 1
+}
 java -cp "$(cat "$tools")" org.fuin.porelo.release.Main check-linkage --declared-only \
-  --declare "libc.so.6=GLIBC:$floor" --ceiling "GLIBC=$ceiling" "${objects[@]}"
+    --declare "libc.so.6=GLIBC:$floor" --ceiling "GLIBC=$ceiling" "${objects[@]}"
 requires="$(printf '%s\nlibc.so.6(GLIBC_%s)(64bit)' "$requires" "$floor")"
 echo "$requires"
 
@@ -147,19 +173,19 @@ say "Writing the nfpm configuration"
 mkdir -p "$out"
 config="$out/nfpm.yaml"
 {
-  sed -e "s|@VERSION@|$version|g" packaging/nfpm.yaml.in
-  echo "depends:"
-  # One entry per constraint. `dpkg-shlibdeps` answers them comma-separated on one line.
-  echo "$depends" | tr ',' '\n' | sed 's/^ *//; s/ *$//' | while read -r one; do
-    [ -n "$one" ] && printf '  - %s\n' "\"$one\""
-  done
-  echo "overrides:"
-  echo "  rpm:"
-  echo "    depends:"
-  echo "$requires" | while read -r one; do
-    [ -n "$one" ] && printf '      - %s\n' "\"$one\""
-  done
-} > "$config"
+    sed -e "s|@VERSION@|$version|g" packaging/nfpm.yaml.in
+    echo "depends:"
+    # One entry per constraint. `dpkg-shlibdeps` answers them comma-separated on one line.
+    echo "$depends" | tr ',' '\n' | sed 's/^ *//; s/ *$//' | while read -r one; do
+        [ -n "$one" ] && printf '  - %s\n' "\"$one\""
+    done
+    echo "overrides:"
+    echo "  rpm:"
+    echo "    depends:"
+    echo "$requires" | while read -r one; do
+        [ -n "$one" ] && printf '      - %s\n' "\"$one\""
+    done
+} >"$config"
 
 say "Packaging"
 "$nfpm" package --config "$config" --packager deb --target "$out"

@@ -6,10 +6,8 @@ import 'package:xterm/xterm.dart';
 
 /// Holds what is copied out of a terminal to what a person sees there.
 void main() {
-  BufferRange all(Terminal terminal) => BufferRangeLine(
-        CellOffset(0, 0),
-        CellOffset(terminal.viewWidth - 1, terminal.buffer.height - 1),
-      );
+  BufferRange all(Terminal terminal) =>
+      BufferRangeLine(CellOffset(0, 0), CellOffset(terminal.viewWidth - 1, terminal.buffer.height - 1));
 
   test('a gap the program jumped over is copied as the spaces it shows', () {
     // Claude Code moves the cursor instead of writing spaces.
@@ -33,13 +31,15 @@ void main() {
     });
     final terminal = Terminal()..write('I\x1b[1Cchecked');
     final selection = TerminalController();
-    await tester.pumpWidget(MaterialApp(
-      home: CopiesAsShown(
-        terminal: terminal,
-        controller: selection,
-        child: TerminalView(terminal, controller: selection, shortcuts: copyAsShownShortcuts, autofocus: true),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CopiesAsShown(
+          terminal: terminal,
+          controller: selection,
+          child: TerminalView(terminal, controller: selection, shortcuts: copyAsShownShortcuts, autofocus: true),
+        ),
       ),
-    ));
+    );
     selection.setSelection(terminal.buffer.createAnchor(0, 0), terminal.buffer.createAnchor(9, 0));
     await tester.pump();
 

@@ -162,9 +162,7 @@ List<Command> workCommands({
   return <Command>[
     Command(
       id: 'work.resume',
-      label: task?.startAction == StartAction.create
-          ? 'Start it'
-          : 'Start it again',
+      label: task?.startAction == StartAction.create ? 'Start it' : 'Start it again',
       group: 'Work',
       home: Home.tileMenu,
       run: () => fleet.startAgain(task!),
@@ -209,9 +207,7 @@ List<Command> workCommands({
       run: () => openSession(task!),
       // **Both reasons are answerable from the task itself**, so this is offered as unavailable
       // with the reason rather than offered and refused.
-      unavailable: task == null
-          ? nothingSelected
-          : Sessions.whyNot(task, machine)?.words,
+      unavailable: task == null ? nothingSelected : Sessions.whyNot(task, machine)?.words,
     ),
     Command(
       id: 'work.log',
@@ -323,8 +319,8 @@ List<Command> workCommands({
       unavailable: refreshFromItsSource == null
           ? 'not offered here'
           : task == null
-              ? nothingSelected
-              : null,
+          ? nothingSelected
+          : null,
     ),
     Command(
       id: 'work.recreate',
@@ -364,20 +360,14 @@ String? whyNotStart(Task task) {
   return switch (task.startAction) {
     StartAction.create || StartAction.resume => null,
     StartAction.running => 'it is already running',
-    StartAction.needsVault =>
-      'the vault is locked; unlock it and this can start',
+    StartAction.needsVault => 'the vault is locked; unlock it and this can start',
     StartAction.supersededName =>
       'its name is from before one container per task, so it can '
           'only be removed${detail.isEmpty ? '' : ' (it belonged to $detail)'}',
-    StartAction.notReady =>
-      detail.isEmpty
-          ? 'its project is not ready'
-          : 'its project is not ready: $detail',
+    StartAction.notReady => detail.isEmpty ? 'its project is not ready' : 'its project is not ready: $detail',
     // The machine's own words carry the recovery, which is the one thing worth reading here.
     StartAction.predatesRestart =>
-      detail.isEmpty
-          ? 'it was started before this machine restarted, so it can only be recovered and removed'
-          : detail,
+      detail.isEmpty ? 'it was started before this machine restarted, so it can only be recovered and removed' : detail,
     // A daemon too old to say, or a value this build does not know: the runtime's answer decides.
     _ => task.running ? 'it is already running' : null,
   };
@@ -514,9 +504,7 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: checkWorkCanStart,
-      unavailable: fleet.reachability != Reachability.connected
-          ? 'the machine is not answering'
-          : noFile,
+      unavailable: fleet.reachability != Reachability.connected ? 'the machine is not answering' : noFile,
     ),
     Command(
       id: 'notifications.mute',
@@ -525,10 +513,7 @@ List<Command> projectCommands({
           : 'Stop telling me about this project',
       group: 'Project',
       home: Home.projectMenu,
-      run: () => notifications.setMuted(
-        project!.name,
-        muted: !notifications.mutedFor(project.name),
-      ),
+      run: () => notifications.setMuted(project!.name, muted: !notifications.mutedFor(project.name)),
       unavailable: project == null ? nothing : null,
     ),
     // Everything Porelo put on the machine and at the forge for the project, in one step (walk 8).
@@ -599,8 +584,8 @@ List<Command> machineCommands({
       unavailable: !reachedOverSsh && !canStart
           ? 'its socket is forwarded by somebody else'
           : connected
-              ? 'it is already answering'
-              : null,
+          ? 'it is already answering'
+          : null,
     ),
     // The other half of starting: what a console can do, this can. Tasks run on without their
     // daemon, so what it costs is said before it is done, and it is done only for a machine this
@@ -689,12 +674,13 @@ List<Command> machineCommands({
       group: 'Machine',
       home: Home.machineMenu,
       run: makeTheVault ?? () {},
-      unavailable: notConnected ??
+      unavailable:
+          notConnected ??
           (!vault.missing
               ? 'this machine has one already'
               : makeTheVault == null
-                  ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
-                  : null),
+              ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
+              : null),
     ),
     // The first opening is always by the passphrase: a device can only be enrolled into an open
     // vault. Typed into the machine's own `porelo`, never into this program.
@@ -704,12 +690,13 @@ List<Command> machineCommands({
       group: 'Machine',
       home: Home.machineMenu,
       run: unlockWithThePassphrase ?? () {},
-      unavailable: notConnected ??
+      unavailable:
+          notConnected ??
           (vault.readable
               ? 'it is already open'
               : unlockWithThePassphrase == null
-                  ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
-                  : null),
+              ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
+              : null),
     ),
     Command(
       id: 'agents.show',
@@ -886,19 +873,8 @@ List<Command> commandsFor({
       home: Home.appBar,
       run: askTheWorkUser,
     ),
-    Command(
-      id: 'refresh.all',
-      label: 'Refresh every machine now',
-      group: 'Machines',
-      run: refreshAll,
-    ),
-    Command(
-      id: 'about.show',
-      label: 'About $productName',
-      group: 'About',
-      home: Home.appBar,
-      run: showAbout,
-    ),
+    Command(id: 'refresh.all', label: 'Refresh every machine now', group: 'Machines', run: refreshAll),
+    Command(id: 'about.show', label: 'About $productName', group: 'About', home: Home.appBar, run: showAbout),
     Command(
       id: 'everywhere.panic',
       label: 'Stop everything on every machine',
@@ -912,15 +888,9 @@ List<Command> commandsFor({
       group: 'Machine',
       home: Home.machineTitle,
       // Shift as well as Control: nothing adjacent can be hit by mistake.
-      shortcut: const SingleActivator(
-        LogicalKeyboardKey.period,
-        control: true,
-        shift: true,
-      ),
+      shortcut: const SingleActivator(LogicalKeyboardKey.period, control: true, shift: true),
       run: stopEverything,
-      unavailable: fleet.reachability == Reachability.connected
-          ? null
-          : 'the machine is not answering',
+      unavailable: fleet.reachability == Reachability.connected ? null : 'the machine is not answering',
     ),
     ...machineCommands(
       fleet: fleet,
@@ -997,10 +967,7 @@ List<Command> commandsFor({
       unavailable: StartWork.whyNot(selectedProject?.project) ?? notAnswering(fleet),
     ),
     // One command per named job, so a template turns up in the finder like any other action.
-    for (final job
-        in selectedProject == null
-            ? const <Template>[]
-            : templates.forProject(selectedProject.name))
+    for (final job in selectedProject == null ? const <Template>[] : templates.forProject(selectedProject.name))
       Command(
         id: 'template.start/${job.project}/${job.name}',
         label: 'Run ${job.name} in ${job.project}',

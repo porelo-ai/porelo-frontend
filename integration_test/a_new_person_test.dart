@@ -20,21 +20,17 @@ import './step/i_am_offered_to_log_in_with.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  group('''A person new to Porelo, from an empty account, in the interface''',
-      () {
+  group('''A person new to Porelo, from an empty account, in the interface''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await theAccountOfAPersonNewToPoreloAsItWasGivenToThem(tester);
       await theInterfaceIsRunning(tester);
     }
 
-    testWidgets(
-        '''a new person goes from an empty account to work on a repository of theirs''',
-        (tester) async {
+    testWidgets('''a new person goes from an empty account to work on a repository of theirs''', (tester) async {
       await bddSetUp(tester);
       await iAddTheMachineIWasGivenKnowingOnlyHowILogIntoIt(tester);
       await theMachineIsAnswering(tester);
-      await iMakeTheVaultChoosingItsPassphraseInTheTerminalTheInterfaceOpens(
-          tester);
+      await iMakeTheVaultChoosingItsPassphraseInTheTerminalTheInterfaceOpens(tester);
       await theVaultIsOpen(tester);
       await iHaveARepositoryOnThatMachine(tester, 'my-first');
       await iStartWorkOnItInDefaultAsTheWindowOffers(tester);

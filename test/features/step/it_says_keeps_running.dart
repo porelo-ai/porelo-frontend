@@ -5,8 +5,5 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> itSaysKeepsRunning(WidgetTester tester, String work) async {
   // Both halves need saying: somebody who thinks quitting stops a run will not quit when they
   // should, and somebody who thinks it does not will be surprised the other way.
-  expect(
-    find.descendant(of: find.byType(AlertDialog), matching: find.textContaining(work)),
-    findsOneWidget,
-  );
+  expect(find.descendant(of: find.byType(AlertDialog), matching: find.textContaining(work)), findsOneWidget);
 }

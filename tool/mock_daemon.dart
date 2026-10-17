@@ -31,8 +31,7 @@ Future<void> main(List<String> args) async {
   final stableSocket = args.length > 1 ? args[1] : _defaultSocket;
   if (!MockMachine.situations.containsKey(situation)) {
     stderr.writeln('Unknown situation "$situation". One of:');
-    MockMachine.situations
-        .forEach((name, what) => stderr.writeln('  ${name.padRight(16)} $what'));
+    MockMachine.situations.forEach((name, what) => stderr.writeln('  ${name.padRight(16)} $what'));
     // EX_USAGE: the command was wrong, not the mock.
     exitCode = 64;
     return;
@@ -73,10 +72,7 @@ Future<void> main(List<String> args) async {
   var added = 0;
   var blocked = 0;
   Map<String, dynamic>? asked;
-  final typing = stdin
-      .transform(utf8.decoder)
-      .transform(const LineSplitter())
-      .listen((line) {
+  final typing = stdin.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
     switch (line.trim()) {
       case 'b':
         asked = machine.blocks('api${++blocked}.example.test:443');

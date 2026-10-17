@@ -99,10 +99,7 @@ Future<void> tryFromTheDialog(WidgetTester tester, String socket) async {
   await choose(tester, 'machine-kind-choice', 'machine-raise-it');
   await goOnInTheWizard(tester);
   await tester.enterText(find.byKey(const Key('machine-host')), E2e.host);
-  await tester.enterText(
-    find.byKey(const Key('machine-remote-socket')),
-    socket,
-  );
+  await tester.enterText(find.byKey(const Key('machine-remote-socket')), socket);
   await pumpFor(tester);
   await tester.tap(find.byKey(const Key('try-it')));
   await pumpUntil(
@@ -174,32 +171,40 @@ Future<void> choose(WidgetTester tester, String field, String choice) async {
   await pumpFor(tester);
   await tester.tap(find.descendant(of: find.byKey(Key(choice)).last, matching: find.byType(Text)));
   await pumpFor(tester);
-  final chosen = tester.widget<ChoiceField<Object?>>(find.ancestor(
-      of: find.byKey(Key(field)), matching: find.byWidgetPredicate((each) => each is ChoiceField)));
-  expect(chosen.choices.where((each) => each.value == chosen.value).map((each) => each.id), [choice],
-      reason: 'choosing $choice in $field');
+  final chosen = tester.widget<ChoiceField<Object?>>(
+    find.ancestor(of: find.byKey(Key(field)), matching: find.byWidgetPredicate((each) => each is ChoiceField)),
+  );
+  expect(chosen.choices.where((each) => each.value == chosen.value).map((each) => each.id), [
+    choice,
+  ], reason: 'choosing $choice in $field');
 }
 
 /// Opens the connection wizard for the test machine, from its menu, once the machine has answered.
 Future<void> openTheConnectionWizard(WidgetTester tester) async {
   await switchTo(tester, E2e.name);
   await tester.tap(find.byKey(const Key('machine-menu')).first);
-  await pumpUntil(tester,
-      () => find.text('Connections — how this machine connects out').evaluate().isNotEmpty,
-      what: 'the machine menu');
+  await pumpUntil(
+    tester,
+    () => find.text('Connections — how this machine connects out').evaluate().isNotEmpty,
+    what: 'the machine menu',
+  );
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
   await tester.tap(find.text('Connections — how this machine connects out').last);
   // Drawn while the machine is still being asked, and only pressable once it has answered.
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('add-connection')).evaluate().isNotEmpty &&
-          tester.widget<ButtonStyleButton>(find.byKey(const Key('add-connection'))).onPressed != null,
-      what: 'the connections of the machine, read');
+    tester,
+    () =>
+        find.byKey(const Key('add-connection')).evaluate().isNotEmpty &&
+        tester.widget<ButtonStyleButton>(find.byKey(const Key('add-connection'))).onPressed != null,
+    what: 'the connections of the machine, read',
+  );
   await tester.tap(find.byKey(const Key('add-connection')));
-  await pumpUntil(tester, () => find.byKey(const Key('connection-match')).evaluate().isNotEmpty,
-      what: 'the wizard asking what connection to add');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('connection-match')).evaluate().isNotEmpty,
+    what: 'the wizard asking what connection to add',
+  );
 }
 
 /// Opens the machine's destinations from its menu, unless they are open already.
@@ -213,22 +218,24 @@ Future<void> openTheDestinations(WidgetTester tester) async {
   await pumpFor(tester);
   await tester.tap(find.text(entry).last);
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('destinations-dialog')).evaluate().isNotEmpty &&
-          find.text('Asking the machine…').evaluate().isEmpty,
-      what: 'the destinations of the machine, read');
+    tester,
+    () =>
+        find.byKey(const Key('destinations-dialog')).evaluate().isNotEmpty &&
+        find.text('Asking the machine…').evaluate().isEmpty,
+    what: 'the destinations of the machine, read',
+  );
 }
 
 /// Waits for the real machine's dry run in the wizard's last step, and keeps what it said.
 Future<void> untilTheMachineChecked(WidgetTester tester) async {
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('connection-check-says')).evaluate().isNotEmpty ||
-          find.byKey(const Key('connection-check-failed')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30),
-      what: 'the machine to check it');
+    tester,
+    () =>
+        find.byKey(const Key('connection-check-says')).evaluate().isNotEmpty ||
+        find.byKey(const Key('connection-check-failed')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to check it',
+  );
   final detail = find.byKey(const Key('connection-check-detail'));
   theCheckSaid = detail.evaluate().isEmpty ? '' : tester.widget<Text>(detail).data;
 }
@@ -238,8 +245,17 @@ Future<void> untilTheMachineChecked(WidgetTester tester) async {
 Future<({String private, String public})> aThrowawayKeyPair() async {
   final directory = Directory.systemTemp.createTempSync('e2e-key-');
   try {
-    final made = await Process.run(
-        'ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-C', 'e2e throwaway', '-f', '${directory.path}/key']);
+    final made = await Process.run('ssh-keygen', <String>[
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-C',
+      'e2e throwaway',
+      '-f',
+      '${directory.path}/key',
+    ]);
     if (made.exitCode != 0) throw StateError('ssh-keygen: ${made.stderr}');
     return (
       private: File('${directory.path}/key').readAsStringSync(),

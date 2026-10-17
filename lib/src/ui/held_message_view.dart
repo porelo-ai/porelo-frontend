@@ -47,12 +47,18 @@ class HeldMessageRow extends StatelessWidget {
             const SizedBox(height: Space.small),
             OutlinedButton.icon(
               key: ValueKey<String>('read-message ${message.task}/${message.handle}'),
-              onPressed: () => unawaited(showDialog<void>(
-                context: context,
-                builder: (_) => HeldMessageDialog(fleet: fleet, message: message),
-              )),
+              onPressed: () => unawaited(
+                showDialog<void>(
+                  context: context,
+                  builder: (_) => HeldMessageDialog(fleet: fleet, message: message),
+                ),
+              ),
               icon: const Icon(Icons.mail_outline, size: Sizes.rowIcon),
-              label: Text(message.direction == 'in' ? 'Read it, and decide whether ${message.task} gets it' : 'Read it and decide'),
+              label: Text(
+                message.direction == 'in'
+                    ? 'Read it, and decide whether ${message.task} gets it'
+                    : 'Read it and decide',
+              ),
             ),
           ],
         ),
@@ -93,12 +99,12 @@ class HeldMessageRow extends StatelessWidget {
 
   /// What its standing means for what can be done with it.
   static String standingWords(String standing) => switch (standing) {
-        'held' => 'Held until somebody reads it and releases or refuses it.',
-        'refused-by-filter' => 'Refused by the filter. It can be read, and delivered after all.',
-        'refused-by-person' => 'Refused for good by a person. It is never sent.',
-        'unchecked' => 'The filter could not check it at all. It is never sent.',
-        _ => 'Standing: $standing.',
-      };
+    'held' => 'Held until somebody reads it and releases or refuses it.',
+    'refused-by-filter' => 'Refused by the filter. It can be read, and delivered after all.',
+    'refused-by-person' => 'Refused for good by a person. It is never sent.',
+    'unchecked' => 'The filter could not check it at all. It is never sent.',
+    _ => 'Standing: $standing.',
+  };
 }
 
 /// Reads one held message in full and decides about exactly what was read.
@@ -155,8 +161,13 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
     final reason = refuse ? _reason.text.trim() : '';
     setState(() => _deciding = true);
     try {
-      final done = await widget.fleet.mailboxes
-          .decide(widget.fleet.backend, read, widget.message.task, refuse: refuse, reason: reason);
+      final done = await widget.fleet.mailboxes.decide(
+        widget.fleet.backend,
+        read,
+        widget.message.task,
+        refuse: refuse,
+        reason: reason,
+      );
       if (!mounted) return;
       // Closed once decided, with what came of it said where the person goes back to: the dialog
       // left open after a decision read as if nothing had happened (walk 8).
@@ -202,16 +213,17 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
             children: <Widget>[
               if (_problem != null) Text(_problem!, key: const Key('held-message-problem')),
               if (read == null && _problem == null) const Text('Reading it from the machine…'),
-              if (read != null && !read.found)
-                Text(_notThere(read.outcome), key: const Key('held-message-gone')),
+              if (read != null && !read.found) Text(_notThere(read.outcome), key: const Key('held-message-gone')),
               if (read != null && read.found) ...<Widget>[
                 Text(HeldMessageRow.standingWords(read.standing), key: const Key('held-message-standing')),
                 const SizedBox(height: Space.tight),
                 Text(_facts(read), key: const Key('held-message-facts'), style: text.bodySmall),
                 if (read.reason.isNotEmpty) ...<Widget>[
                   const SizedBox(height: Space.small),
-                  Text(read.standing == 'refused-by-filter' ? 'What the filter said' : 'Why it is held',
-                      style: text.labelMedium),
+                  Text(
+                    read.standing == 'refused-by-filter' ? 'What the filter said' : 'Why it is held',
+                    style: text.labelMedium,
+                  ),
                   SelectableText(read.reason, key: const Key('held-message-reason')),
                 ],
                 const SizedBox(height: Space.small),
@@ -260,9 +272,11 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
               ],
               if (done != null) ...<Widget>[
                 const SizedBox(height: Space.small),
-                Text(_outcome(done, widget.message.direction, withWords: _refusedWith.isNotEmpty),
-                    key: const Key('held-message-outcome'),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  _outcome(done, widget.message.direction, withWords: _refusedWith.isNotEmpty),
+                  key: const Key('held-message-outcome'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 // The machine's own words under ours, where it says more.
                 if (done.outcome == 'RELEASED' && done.detail.isNotEmpty)
                   Text(done.detail, key: const Key('held-message-outcome-detail'), style: text.bodySmall),
@@ -296,36 +310,35 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
   static bool _decidable(String standing) => standing == 'held' || standing == 'refused-by-filter';
 
   static String _facts(HeldMessageRead read) => <String>[
-        if (read.role.isNotEmpty) read.role == 'ROLE_USER' ? 'Written by a person' : 'Written by the task',
-        if (read.peer.isNotEmpty) 'peer ${read.peer}',
-        if (read.kind.isNotEmpty) 'a ${read.kind}',
-        if (read.at.isNotEmpty) 'recorded ${read.at}',
-        if (read.id.isNotEmpty) 'id ${read.id}',
-      ].join(' · ');
+    if (read.role.isNotEmpty) read.role == 'ROLE_USER' ? 'Written by a person' : 'Written by the task',
+    if (read.peer.isNotEmpty) 'peer ${read.peer}',
+    if (read.kind.isNotEmpty) 'a ${read.kind}',
+    if (read.at.isNotEmpty) 'recorded ${read.at}',
+    if (read.id.isNotEmpty) 'id ${read.id}',
+  ].join(' · ');
 
   static String _notThere(String outcome) => switch (outcome) {
-        'NO_SUCH_MESSAGE' => 'It is no longer there: it was decided about, or its task took it, since it was listed.',
-        'AMBIGUOUS' => 'The machine could not tell which message this is, so nothing is shown.',
-        _ => 'The machine answered $outcome.',
-      };
+    'NO_SUCH_MESSAGE' => 'It is no longer there: it was decided about, or its task took it, since it was listed.',
+    'AMBIGUOUS' => 'The machine could not tell which message this is, so nothing is shown.',
+    _ => 'The machine answered $outcome.',
+  };
 
-  static String _outcome(MessageRelease done, String direction, {bool withWords = false}) =>
-      switch (done.outcome) {
-        // Which way it was going decides where a release sends it: one held on its way in reaches
-        // the task, checked as every arrival is, and never goes back out.
-        // Released is "try again", not "trust it" (Porelo 347f122): the same check can hold it again.
-        'RELEASED' when direction == 'in' =>
-          'Released. The next pass checks it again, as every arrival is checked: it reaches this task '
-              'unless the same check holds it again.',
-        'RELEASED' => 'Released. It goes out on the next pass, unless its peer is set to refuse everything.',
-        'REFUSED' => 'Refused for good. The task that wrote it is told${withWords ? ', with your words' : ''}.',
-        'DELIVERED_DESPITE_FILTER' =>
-          'Delivered despite the filter. The record says a person sent it after the filter refused it.',
-        'NOT_DELIVERABLE' => 'It cannot be sent${done.detail.isEmpty ? '' : ': ${done.detail}'}.',
-        'NO_SUCH_MESSAGE' => 'It was no longer there, so nothing was decided.',
-        'AMBIGUOUS' => 'The machine could not tell which message this is, so nothing was decided.',
-        _ => 'The machine answered ${done.outcome}.',
-      };
+  static String _outcome(MessageRelease done, String direction, {bool withWords = false}) => switch (done.outcome) {
+    // Which way it was going decides where a release sends it: one held on its way in reaches
+    // the task, checked as every arrival is, and never goes back out.
+    // Released is "try again", not "trust it" (Porelo 347f122): the same check can hold it again.
+    'RELEASED' when direction == 'in' =>
+      'Released. The next pass checks it again, as every arrival is checked: it reaches this task '
+          'unless the same check holds it again.',
+    'RELEASED' => 'Released. It goes out on the next pass, unless its peer is set to refuse everything.',
+    'REFUSED' => 'Refused for good. The task that wrote it is told${withWords ? ', with your words' : ''}.',
+    'DELIVERED_DESPITE_FILTER' =>
+      'Delivered despite the filter. The record says a person sent it after the filter refused it.',
+    'NOT_DELIVERABLE' => 'It cannot be sent${done.detail.isEmpty ? '' : ': ${done.detail}'}.',
+    'NO_SUCH_MESSAGE' => 'It was no longer there, so nothing was decided.',
+    'AMBIGUOUS' => 'The machine could not tell which message this is, so nothing was decided.',
+    _ => 'The machine answered ${done.outcome}.',
+  };
 }
 
 /// The start of a held message's text, read for the row: what it says tells more than that it waits
@@ -370,7 +383,12 @@ class _PreviewState extends State<_Preview> {
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.tight),
       // Shown as text and never interpreted, as in the dialog.
-      child: Text('“$start”', key: ValueKey<String>('held-preview ${widget.message.handle}'), maxLines: 3, overflow: TextOverflow.ellipsis),
+      child: Text(
+        '“$start”',
+        key: ValueKey<String>('held-preview ${widget.message.handle}'),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

@@ -8,12 +8,6 @@ Future<void> theProjectIsNotMarkedAsStale(WidgetTester tester, String project) a
   await lookingAtTheProjects(tester, () async {
     // A card that is not there has no mark either, which would pass this for the wrong reason.
     expect(cardFor(project), findsOneWidget);
-    expect(
-      find.descendant(
-        of: cardFor(project),
-        matching: find.byKey(const Key('project-stale')),
-      ),
-      findsNothing,
-    );
+    expect(find.descendant(of: cardFor(project), matching: find.byKey(const Key('project-stale'))), findsNothing);
   });
 }

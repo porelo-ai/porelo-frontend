@@ -16,11 +16,13 @@ Future<void> theWizardSetUpTheMachine(WidgetTester tester, String name) async {
   File('$key.pub').writeAsStringSync('ssh-ed25519 AAAA $name\n');
   File('$ssh/config').writeAsStringSync('Host kept\n    HostName kept.example.test\n\n', mode: FileMode.append);
   await World.machines.setup.addHostEntry(alias: alias, host: '203.0.113.7', user: 'agents', keyFile: key);
-  await World.machines.add(Machine(
-    name: name,
-    socketPath: Machine.endpointFor(name),
-    host: alias,
-    remoteSocket: '/run/user/1001/porelo/porelod.sock',
-  ));
+  await World.machines.add(
+    Machine(
+      name: name,
+      socketPath: Machine.endpointFor(name),
+      host: alias,
+      remoteSocket: '/run/user/1001/porelo/porelod.sock',
+    ),
+  );
   await World.settle(tester);
 }

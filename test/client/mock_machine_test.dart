@@ -22,9 +22,7 @@ void main() {
   late MockDaemon daemon;
   late MockMachine machine;
 
-  Future<PoreloClient> connect() => PoreloClient.connect(
-    Backend(socketPath: daemon.socketPath, label: 'mock'),
-  );
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Future<void> machineIn(String situation) async {
     daemon = MockDaemon();
@@ -43,9 +41,7 @@ void main() {
     final stopped = await client.stop('porelo-checkout-shell');
 
     expect(stopped.outcome, Outcome.stopped);
-    final task = (await client.tasks()).firstWhere(
-      (task) => task.name == 'porelo-checkout-shell',
-    );
+    final task = (await client.tasks()).firstWhere((task) => task.name == 'porelo-checkout-shell');
     expect(task.running, isFalse);
     expect(task.startAction, StartAction.resume);
   });
@@ -58,10 +54,7 @@ void main() {
 
     expect(refused.outcome, Outcome.stillRunning);
     expect(refused.removed, isFalse);
-    expect(
-      (await client.tasks()).map((task) => task.name),
-      contains('porelo-checkout-shell'),
-    );
+    expect((await client.tasks()).map((task) => task.name), contains('porelo-checkout-shell'));
   });
 
   test('a removed task stops being listed', () async {
@@ -72,10 +65,7 @@ void main() {
 
     expect(removed.outcome, Outcome.removed);
     expect(removed.removed, isTrue);
-    expect(
-      (await client.tasks()).map((task) => task.name),
-      isNot(contains('porelo-checkout-migrate')),
-    );
+    expect((await client.tasks()).map((task) => task.name), isNot(contains('porelo-checkout-migrate')));
   });
 
   test('a refused removal changes nothing at all', () async {
@@ -87,42 +77,29 @@ void main() {
     expect(refused.outcome, Outcome.holdsWork);
     expect(refused.removed, isFalse);
     expect(refused.work, isNotEmpty);
-    expect(
-      (await client.tasks()).map((task) => task.name),
-      contains('porelo-checkout-migrate'),
-    );
+    expect((await client.tasks()).map((task) => task.name), contains('porelo-checkout-migrate'));
   });
 
-  test(
-    'asking again with force gets through, because that is the point of asking',
-    () async {
-      await machineIn('holds-work');
-      final client = await connect();
-      await client.remove('porelo-checkout-migrate');
+  test('asking again with force gets through, because that is the point of asking', () async {
+    await machineIn('holds-work');
+    final client = await connect();
+    await client.remove('porelo-checkout-migrate');
 
-      final forced = await client.remove('porelo-checkout-migrate', force: true);
+    final forced = await client.remove('porelo-checkout-migrate', force: true);
 
-      expect(forced.removed, isTrue);
-      expect(
-        (await client.tasks()).map((task) => task.name),
-        isNot(contains('porelo-checkout-migrate')),
-      );
-    },
-  );
+    expect(forced.removed, isTrue);
+    expect((await client.tasks()).map((task) => task.name), isNot(contains('porelo-checkout-migrate')));
+  });
 
   test('a stopped task started again is listed as running', () async {
     await machineIn('work');
     final client = await connect();
 
-    final started = await client
-        .start(project: 'checkout', task: 'migrate', now: true)
-        .last;
+    final started = await client.start(project: 'checkout', task: 'migrate', now: true).last;
 
     expect(started.action, StartAction.resume);
     expect(started.helpersStarted, lessThan(started.helpersRecorded!));
-    final task = (await client.tasks()).firstWhere(
-      (task) => task.name == 'porelo-checkout-migrate',
-    );
+    final task = (await client.tasks()).firstWhere((task) => task.name == 'porelo-checkout-migrate');
     expect(task.running, isTrue);
     expect(task.startAction, StartAction.running);
   });
@@ -131,9 +108,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final refused = await client
-        .start(project: 'checkout', task: 'shell', now: true)
-        .last;
+    final refused = await client.start(project: 'checkout', task: 'shell', now: true).last;
 
     expect(refused.action, StartAction.running);
   });
@@ -165,21 +140,12 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final read = await client
-        .tailLog('porelo-checkout-shell', 'agent.log')
-        .take(2)
-        .toList();
+    final read = await client.tailLog('porelo-checkout-shell', 'agent.log').take(2).toList();
     expect(read.expand((lines) => lines), isNotEmpty);
 
     await expectLater(
       client.tailLog('porelo-checkout-shell', 'nowhere.log').first,
-      throwsA(
-        isA<VarlinkException>().having(
-          (refusal) => refusal.simpleName,
-          'simpleName',
-          'NoSuchLog',
-        ),
-      ),
+      throwsA(isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'NoSuchLog')),
     );
   });
 
@@ -213,67 +179,55 @@ void main() {
     await watching.cancel();
   });
 
-  test(
-    'a question that runs out says so, because nothing asks again',
-    () async {
-      await machineIn('work');
-      final client = await connect();
-      final seen = <Prompt>[];
-      final expired = Completer<void>();
-      final watching = client.prompts().listen((prompt) {
-        seen.add(prompt);
-        if (prompt.expired) expired.complete();
-      });
+  test('a question that runs out says so, because nothing asks again', () async {
+    await machineIn('work');
+    final client = await connect();
+    final seen = <Prompt>[];
+    final expired = Completer<void>();
+    final watching = client.prompts().listen((prompt) {
+      seen.add(prompt);
+      if (prompt.expired) expired.complete();
+    });
 
-      machine.expires(machine.blocks('api.example.test:443'));
-      await expired.future;
+    machine.expires(machine.blocks('api.example.test:443'));
+    await expired.future;
 
-      expect(seen.last.expired, isTrue);
-      await watching.cancel();
-    },
-  );
+    expect(seen.last.expired, isTrue);
+    await watching.cancel();
+  });
 
   test('a task says what it is doing, beside what the runtime says', () async {
     await machineIn('work');
     final client = await connect();
 
     final tasks = await client.tasks();
-    final waiting = tasks.firstWhere(
-      (task) => task.activity == Activity.waiting,
-    );
+    final waiting = tasks.firstWhere((task) => task.activity == Activity.waiting);
 
     expect(waiting.waitingFor, isNotEmpty);
-    expect(
-      waiting.state,
-      isNotEmpty,
-      reason: 'state stays the runtime own words',
-    );
+    expect(waiting.state, isNotEmpty, reason: 'state stays the runtime own words');
     expect(waiting.startedAt, isNotNull);
     expect(waiting.mode.recognized, isTrue);
     // A terminal attached means nothing on this side can see it, and that is its own answer.
     expect(tasks.map((task) => task.activity), contains(Activity.unknown));
   });
 
-  test(
-    'an activity from a later release renders rather than throwing',
-    () async {
-      await machineIn('work');
-      daemon.method(
-        'List',
-        (_) => <String, dynamic>{
-          'tasks': <Map<String, dynamic>>[
-            <String, dynamic>{'name': 'a-task', 'activity': 'QUIESCED'},
-          ],
-        },
-      );
-      final client = await connect();
+  test('an activity from a later release renders rather than throwing', () async {
+    await machineIn('work');
+    daemon.method(
+      'List',
+      (_) => <String, dynamic>{
+        'tasks': <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'a-task', 'activity': 'QUIESCED'},
+        ],
+      },
+    );
+    final client = await connect();
 
-      final task = (await client.tasks()).single;
+    final task = (await client.tasks()).single;
 
-      expect(task.activity.recognized, isFalse);
-      expect(task.activity.label, 'quiesced');
-    },
-  );
+    expect(task.activity.recognized, isFalse);
+    expect(task.activity.label, 'quiesced');
+  });
 
   test('a preview writes nothing, and the same change written does', () async {
     await machineIn('work');
@@ -281,27 +235,16 @@ void main() {
     const project = 'checkout';
 
     final (before, _) = await client.egress(project);
-    final previewed = await client.setEgress(
-      project,
-      addSets: <String>['containers'],
-      dryRun: true,
-    );
+    final previewed = await client.setEgress(project, addSets: <String>['containers'], dryRun: true);
 
     expect(previewed.outcome, EgressOutcome.previewed);
     expect(previewed.opens, isNotEmpty);
     // Hosts, not set names: adding one set opens three here.
     expect(previewed.opens.map((host) => host.host), contains('quay.io'));
     final (stillBefore, _) = await client.egress(project);
-    expect(
-      stillBefore.length,
-      before.length,
-      reason: 'a preview wrote something',
-    );
+    expect(stillBefore.length, before.length, reason: 'a preview wrote something');
 
-    final done = await client.setEgress(
-      project,
-      addSets: <String>['containers'],
-    );
+    final done = await client.setEgress(project, addSets: <String>['containers']);
     expect(done.outcome, EgressOutcome.changed);
     final (after, _) = await client.egress(project);
     expect(after.length, greaterThan(before.length));
@@ -313,9 +256,7 @@ void main() {
 
     final lines = <String>[];
     var code = -1;
-    await for (final progress in client.start(
-      project: 'checkout',
-    )) {
+    await for (final progress in client.start(project: 'checkout')) {
       if (progress.line != null) lines.add(progress.line!);
       if (progress.exitCode != null) code = progress.exitCode!;
     }
@@ -329,39 +270,34 @@ void main() {
     );
   });
 
-  test(
-    'a launch with a prompt runs the agent and streams what it writes',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a launch with a prompt runs the agent and streams what it writes', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final lines = <String>[];
-      var code = -1;
-      await for (final progress in client.start(
-        task: 'porelo-checkout-run',
-        project: 'checkout',
-        agent: 'an-agent',
-        mode: Mode.unattended,
-        prompt: 'Fix the rounding in Money.pennies',
-      )) {
-        if (progress.line != null) lines.add(progress.line!);
-        if (progress.exitCode != null) code = progress.exitCode!;
-      }
+    final lines = <String>[];
+    var code = -1;
+    await for (final progress in client.start(
+      task: 'porelo-checkout-run',
+      project: 'checkout',
+      agent: 'an-agent',
+      mode: Mode.unattended,
+      prompt: 'Fix the rounding in Money.pennies',
+    )) {
+      if (progress.line != null) lines.add(progress.line!);
+      if (progress.exitCode != null) code = progress.exitCode!;
+    }
 
-      expect(code, 0);
-      // The raw log, which is the same text `Tail` serves for `task.log`.
-      expect(lines, contains('agent: Fix the rounding in Money.pennies'));
+    expect(code, 0);
+    // The raw log, which is the same text `Tail` serves for `task.log`.
+    expect(lines, contains('agent: Fix the rounding in Money.pennies'));
 
-      // And it is listed afterwards, keeping what it was asked to do — which is what continuing it
-      // with a new prompt reads back.
-      final run = (await client.tasks()).firstWhere(
-        (task) => task.name == 'porelo-checkout-run',
-      );
-      expect(run.mode, Mode.unattended);
-      expect(run.prompt, 'Fix the rounding in Money.pennies');
-      expect(run.running, isFalse);
-    },
-  );
+    // And it is listed afterwards, keeping what it was asked to do — which is what continuing it
+    // with a new prompt reads back.
+    final run = (await client.tasks()).firstWhere((task) => task.name == 'porelo-checkout-run');
+    expect(run.mode, Mode.unattended);
+    expect(run.prompt, 'Fix the rounding in Money.pennies');
+    expect(run.running, isFalse);
+  });
 
   test('a run killed by its own time limit comes back 124, with its log kept', () async {
     await machineIn('out-of-time');
@@ -369,10 +305,7 @@ void main() {
 
     final lines = <String>[];
     var code = -1;
-    await for (final progress in client.start(
-      project: 'checkout',
-      prompt: 'Fix the rounding',
-    )) {
+    await for (final progress in client.start(project: 'checkout', prompt: 'Fix the rounding')) {
       if (progress.line != null) lines.add(progress.line!);
       if (progress.exitCode != null) code = progress.exitCode!;
     }
@@ -381,8 +314,7 @@ void main() {
     expect(
       lines,
       contains('agent: running the tests'),
-      reason:
-          'the log is kept, and what it managed to do is the interesting part',
+      reason: 'the log is kept, and what it managed to do is the interesting part',
     );
   });
 
@@ -392,68 +324,51 @@ void main() {
 
     var code = -1;
     final lines = <String>[];
-    await for (final progress in client.start(
-      project: 'checkout',
-      prompt: 'Fix the rounding',
-    )) {
+    await for (final progress in client.start(project: 'checkout', prompt: 'Fix the rounding')) {
       if (progress.line != null) lines.add(progress.line!);
       if (progress.exitCode != null) code = progress.exitCode!;
     }
 
     expect(code, 69);
-    expect(
-      lines.any((line) => line.startsWith('agent:')),
-      isFalse,
-      reason: 'nothing ran, so there is nothing to read',
-    );
+    expect(lines.any((line) => line.startsWith('agent:')), isFalse, reason: 'nothing ran, so there is nothing to read');
   });
 
-  test(
-    'the machine says what it can run, what it cannot, and what it never will',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('the machine says what it can run, what it cannot, and what it never will', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final answered = await client.agents();
+    final answered = await client.agents();
 
-      expect(answered.agents.map((agent) => agent.name), contains('an-agent'));
-      // Named rather than left out: missing from a list looks exactly like never installed.
-      expect(answered.failures.keys, contains('broken-agent'));
-      // Installed and never started, with the copy that wins named beside it.
-      expect(answered.shadowed, hasLength(1));
-      expect(answered.shadowed.single.usedInstead, isNotEmpty);
-    },
-  );
+    expect(answered.agents.map((agent) => agent.name), contains('an-agent'));
+    // Named rather than left out: missing from a list looks exactly like never installed.
+    expect(answered.failures.keys, contains('broken-agent'));
+    // Installed and never started, with the copy that wins named beside it.
+    expect(answered.shadowed, hasLength(1));
+    expect(answered.shadowed.single.usedInstead, isNotEmpty);
+  });
 
-  test(
-    'an agent says what it pins, what it refuses, and what it fetches',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('an agent says what it pins, what it refuses, and what it fetches', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final answered = await client.agents();
-      final agent = answered.agents.firstWhere(
-        (each) => each.name == 'an-agent',
-      );
+    final answered = await client.agents();
+    final agent = answered.agents.firstWhere((each) => each.name == 'an-agent');
 
-      // The pinned build, from the manifest. Nothing executes an agent to ask its version.
-      expect(agent.version, '2.4.0');
-      // Declared and deliberately not given — a decision, which a dropped packet cannot express.
-      expect(agent.refusedDomains, contains('telemetry.example.test'));
-      expect(agent.artifacts, hasLength(1));
-      expect(agent.artifacts.single.unverified, isFalse);
-      expect(agent.artifacts.single.sha256, hasLength(64));
-    },
-  );
+    // The pinned build, from the manifest. Nothing executes an agent to ask its version.
+    expect(agent.version, '2.4.0');
+    // Declared and deliberately not given — a decision, which a dropped packet cannot express.
+    expect(agent.refusedDomains, contains('telemetry.example.test'));
+    expect(agent.artifacts, hasLength(1));
+    expect(agent.artifacts.single.unverified, isFalse);
+    expect(agent.artifacts.single.sha256, hasLength(64));
+  });
 
   test('an artifact fetched without a digest always says why', () async {
     await machineIn('work');
     final client = await connect();
 
     final answered = await client.agents();
-    final agent = answered.agents.firstWhere(
-      (each) => each.name == 'other-agent',
-    );
+    final agent = answered.agents.firstWhere((each) => each.name == 'other-agent');
 
     // Two states, never three: the daemon refuses to build one with neither a digest nor a
     // reason, so nothing here has to render a blank with no explanation.
@@ -462,117 +377,85 @@ void main() {
     expect(agent.artifacts.single.reason, isNotEmpty);
   });
 
-  test(
-    'widening a running task grants the names, in the order asked for',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('widening a running task grants the names, in the order asked for', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final done = await client.widenTask('porelo-checkout-shell', <String>[
-        'files.example.test',
-        'docs.example.test',
-      ], scope: Scope.runAndProject);
+    final done = await client.widenTask('porelo-checkout-shell', <String>[
+      'files.example.test',
+      'docs.example.test',
+    ], scope: Scope.runAndProject);
 
-      expect(done.outcome, WidenOutcome.widened);
-      // Names, not addresses, and not sorted: a grant covers what is under a name.
-      expect(done.opens, <String>['files.example.test', 'docs.example.test']);
-      expect(done.persisted, isTrue, reason: 'RUN_AND_PROJECT was asked for');
-    },
-  );
+    expect(done.outcome, WidenOutcome.widened);
+    // Names, not addresses, and not sorted: a grant covers what is under a name.
+    expect(done.opens, <String>['files.example.test', 'docs.example.test']);
+    expect(done.persisted, isTrue, reason: 'RUN_AND_PROJECT was asked for');
+  });
 
-  test(
-    'a preview grants nothing, so the same call afterwards still opens them',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a preview grants nothing, so the same call afterwards still opens them', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final previewed = await client.widenTask(
-        'porelo-checkout-shell',
-        <String>['files.example.test'],
-        scope: Scope.run,
-        dryRun: true,
-      );
-      expect(previewed.outcome, WidenOutcome.previewed);
-      expect(previewed.opens, <String>['files.example.test']);
+    final previewed = await client.widenTask(
+      'porelo-checkout-shell',
+      <String>['files.example.test'],
+      scope: Scope.run,
+      dryRun: true,
+    );
+    expect(previewed.outcome, WidenOutcome.previewed);
+    expect(previewed.opens, <String>['files.example.test']);
 
-      // If the preview had written, this would come back NO_CHANGE.
-      final done = await client.widenTask('porelo-checkout-shell', <String>[
-        'files.example.test',
-      ], scope: Scope.run);
-      expect(done.outcome, WidenOutcome.widened);
-      expect(
-        done.persisted,
-        isFalse,
-        reason: 'RUN does not reach the project file',
-      );
-    },
-  );
+    // If the preview had written, this would come back NO_CHANGE.
+    final done = await client.widenTask('porelo-checkout-shell', <String>['files.example.test'], scope: Scope.run);
+    expect(done.outcome, WidenOutcome.widened);
+    expect(done.persisted, isFalse, reason: 'RUN does not reach the project file');
+  });
 
-  test(
-    'asking twice for the same name is no change, not a second grant',
-    () async {
-      await machineIn('work');
-      final client = await connect();
-      const asking = <String>['files.example.test'];
+  test('asking twice for the same name is no change, not a second grant', () async {
+    await machineIn('work');
+    final client = await connect();
+    const asking = <String>['files.example.test'];
 
-      await client.widenTask('porelo-checkout-shell', asking, scope: Scope.run);
-      final again = await client.widenTask(
-        'porelo-checkout-shell',
-        asking,
-        scope: Scope.run,
-      );
+    await client.widenTask('porelo-checkout-shell', asking, scope: Scope.run);
+    final again = await client.widenTask('porelo-checkout-shell', asking, scope: Scope.run);
 
-      expect(again.outcome, WidenOutcome.noChange);
-      expect(again.opens, isEmpty);
-    },
-  );
+    expect(again.outcome, WidenOutcome.noChange);
+    expect(again.opens, isEmpty);
+  });
 
-  test(
-    'a task that is not running is refused as an outcome, not an exception',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a task that is not running is refused as an outcome, not an exception', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final refused = await client.widenTask('porelo-checkout-migrate', <String>[
-        'files.example.test',
-      ], scope: Scope.run);
+    final refused = await client.widenTask('porelo-checkout-migrate', <String>['files.example.test'], scope: Scope.run);
 
-      expect(refused.outcome, WidenOutcome.notRunning);
-      expect(refused.opens, isEmpty);
-    },
-  );
+    expect(refused.outcome, WidenOutcome.notRunning);
+    expect(refused.opens, isEmpty);
+  });
 
-  test(
-    'an offline project is refused by its class, the way the editor refuses it',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('an offline project is refused by its class, the way the editor refuses it', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final refused = await client.widenTask('porelo-billing-shell', <String>[
-        'files.example.test',
-      ], scope: Scope.run);
+    final refused = await client.widenTask('porelo-billing-shell', <String>['files.example.test'], scope: Scope.run);
 
-      expect(refused.outcome, WidenOutcome.refusedByClass);
-    },
-  );
+    expect(refused.outcome, WidenOutcome.refusedByClass);
+  });
 
-  test(
-    'a project with no file widens the run and says the file was not written',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a project with no file widens the run and says the file was not written', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final partly = await client.widenTask('porelo-moved-work', <String>[
-        'files.example.test',
-      ], scope: Scope.runAndProject);
+    final partly = await client.widenTask('porelo-moved-work', <String>[
+      'files.example.test',
+    ], scope: Scope.runAndProject);
 
-      // The run *was* widened. Reading this as a failure would tell somebody the task still cannot
-      // reach the host when it can.
-      expect(partly.outcome, WidenOutcome.noProjectFile);
-      expect(partly.opens, <String>['files.example.test']);
-      expect(partly.persisted, isFalse);
-    },
-  );
+    // The run *was* widened. Reading this as a failure would tell somebody the task still cannot
+    // reach the host when it can.
+    expect(partly.outcome, WidenOutcome.noProjectFile);
+    expect(partly.opens, <String>['files.example.test']);
+    expect(partly.persisted, isFalse);
+  });
 
   test('a parameter of the wrong type is refused, not left unanswered', () async {
     // Sent raw, because the client cannot get a type wrong; a stand-in that hung on it would read
@@ -582,11 +465,13 @@ void main() {
     addTearDown(wire.close);
 
     await expectLater(
-      wire.call('org.fuin.porelo.Tasks1.NarrowTask', <String, dynamic>{
-        'task': 42,
-        'domains': <String>['files.example.test'],
-        'scope': 'RUN',
-      }).timeout(const Duration(seconds: 5)),
+      wire
+          .call('org.fuin.porelo.Tasks1.NarrowTask', <String, dynamic>{
+            'task': 42,
+            'domains': <String>['files.example.test'],
+            'scope': 'RUN',
+          })
+          .timeout(const Duration(seconds: 5)),
       throwsA(isA<VarlinkException>().having((ex) => ex.simpleName, 'simpleName', 'InvalidParameter')),
     );
   });
@@ -604,31 +489,19 @@ void main() {
         'task': 'porelo-checkout-shell',
         'domains': <String>['files.example.test'],
       }),
-      throwsA(
-        isA<VarlinkException>().having(
-          (ex) => ex.simpleName,
-          'simpleName',
-          'ScopeRequired',
-        ),
-      ),
+      throwsA(isA<VarlinkException>().having((ex) => ex.simpleName, 'simpleName', 'ScopeRequired')),
     );
   });
 
-  test(
-    'a set that is not installed is refused with its name, not an exception',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a set that is not installed is refused with its name, not an exception', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final refused = await client.setEgress(
-        'checkout',
-        addSets: <String>['nothing-like-this'],
-      );
+    final refused = await client.setEgress('checkout', addSets: <String>['nothing-like-this']);
 
-      expect(refused.outcome, EgressOutcome.noSuchSet);
-      expect(refused.detail, contains('nothing-like-this'));
-    },
-  );
+    expect(refused.outcome, EgressOutcome.noSuchSet);
+    expect(refused.detail, contains('nothing-like-this'));
+  });
 
   test('what is refused is answered beside what is reachable', () async {
     await machineIn('work');
@@ -649,50 +522,39 @@ void main() {
     final projects = await client.projects();
 
     expect(projects.map((project) => project.name), contains('never-run'));
-    expect(
-      projects.firstWhere((project) => project.name == 'never-run').tasks,
-      0,
-    );
+    expect(projects.firstWhere((project) => project.name == 'never-run').tasks, 0);
   });
 
-  test(
-    'a project with no file recorded is listed and cannot be acted on',
-    () async {
-      // A state to render, not an error. Every method that acts on a project takes its file.
-      await machineIn('work');
-      final client = await connect();
+  test('a project with no file recorded is listed and cannot be acted on', () async {
+    // A state to render, not an error. Every method that acts on a project takes its file.
+    await machineIn('work');
+    final client = await connect();
 
-      final moved = (await client.projects()).firstWhere(
-        (project) => project.name == 'moved-away',
-      );
+    final moved = (await client.projects()).firstWhere((project) => project.name == 'moved-away');
 
-      expect(moved.file, isEmpty);
-      expect(moved.canBeActedOn, isFalse);
-      expect(moved.pending, 1);
-    },
-  );
+    expect(moved.file, isEmpty);
+    expect(moved.canBeActedOn, isFalse);
+    expect(moved.pending, 1);
+  });
 
-  test(
-    'what is waiting at the gate can be read, judged and forwarded',
-    () async {
-      await machineIn('work');
-      final client = await connect();
-      const project = 'checkout';
+  test('what is waiting at the gate can be read, judged and forwarded', () async {
+    await machineIn('work');
+    final client = await connect();
+    const project = 'checkout';
 
-      final gate = await client.gate(project);
-      expect(gate.mode, 'gatekeeping');
-      expect(gate.pending, hasLength(2));
+    final gate = await client.gate(project);
+    expect(gate.mode, 'gatekeeping');
+    expect(gate.pending, hasLength(2));
 
-      final (:diff, :log, files: _, asked: _) = await client.review(project, gate.pending.first.name);
-      expect(diff, contains('diff --git'));
-      expect(log, contains('commit'));
+    final (:diff, :log, files: _, asked: _) = await client.review(project, gate.pending.first.name);
+    expect(diff, contains('diff --git'));
+    expect(log, contains('commit'));
 
-      await client.approve(project, gate.pending.first.name, 'fix-rounding');
+    await client.approve(project, gate.pending.first.name, 'fix-rounding');
 
-      // Forwarding takes it out of the gate: it has been decided about and is not waiting any more.
-      expect((await client.gate(project)).pending, hasLength(1));
-    },
-  );
+    // Forwarding takes it out of the gate: it has been decided about and is not waiting any more.
+    expect((await client.gate(project)).pending, hasLength(1));
+  });
 
   test('each waiting push is reviewed as its own change', () async {
     // Asked for by its short name, as the contract says; a whole-ref comparison served every push
@@ -714,13 +576,7 @@ void main() {
 
     await expectLater(
       client.approve('checkout', 'migrate', ''),
-      throwsA(
-        isA<VarlinkException>().having(
-          (refusal) => refusal.simpleName,
-          'simpleName',
-          'BranchRequired',
-        ),
-      ),
+      throwsA(isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'BranchRequired')),
     );
   });
 
@@ -731,10 +587,13 @@ void main() {
 
     await expectLater(
       client.approve('checkout', 'drop-dead-code', 'fix-rounding'),
-      throwsA(isA<VarlinkException>()
-          .having((refusal) => refusal.simpleName, 'simpleName', 'BranchExists')
-          .having((refusal) => refusal.parameters, 'parameters',
-              <String, dynamic>{'branch': 'fix-rounding', 'at': '9a3c1f2'})),
+      throwsA(
+        isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'BranchExists').having(
+          (refusal) => refusal.parameters,
+          'parameters',
+          <String, dynamic>{'branch': 'fix-rounding', 'at': '9a3c1f2'},
+        ),
+      ),
     );
     expect((await client.gate('checkout')).pending.map((push) => push.name), <String>['drop-dead-code']);
   });
@@ -746,28 +605,29 @@ void main() {
     await expectLater(
       // drop-dead-code's container is gone, so this is a new task, not one started again.
       client.start(task: 'drop-dead-code', project: 'checkout').drain<void>(),
-      throwsA(isA<VarlinkException>()
-          .having((refusal) => refusal.simpleName, 'simpleName', 'EarlierWorkWaits')
-          .having((refusal) => refusal.parameters, 'parameters', <String, dynamic>{
+      throwsA(
+        isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'EarlierWorkWaits').having(
+          (refusal) => refusal.parameters,
+          'parameters',
+          <String, dynamic>{
             'task': 'drop-dead-code',
             'commit': '7f21b0e',
             'subject': 'Delete the retry loop nothing calls any more',
-          })),
+          },
+        ),
+      ),
     );
   });
 
-  test(
-    'dropping a request takes it out of the gate and sends nothing',
-    () async {
-      await machineIn('work');
-      final client = await connect();
-      const project = 'checkout';
+  test('dropping a request takes it out of the gate and sends nothing', () async {
+    await machineIn('work');
+    final client = await connect();
+    const project = 'checkout';
 
-      await client.reject(project, 'drop-dead-code');
+    await client.reject(project, 'drop-dead-code');
 
-      expect((await client.gate(project)).pending, hasLength(1));
-    },
-  );
+    expect((await client.gate(project)).pending, hasLength(1));
+  });
 
   test('the machine says what it can run, and names one action per failure', () async {
     await machineIn('work');
@@ -793,28 +653,23 @@ void main() {
     final answer = await client.providers();
 
     expect(answer.readable, isTrue);
-    final fallback = answer.providers.firstWhere(
-      (each) => each.name == 'other-provider',
-    );
+    final fallback = answer.providers.firstWhere((each) => each.name == 'other-provider');
     // Stored under the *agent's* name rather than its own — the key a client would never have
     // found by intersecting providers with stored names, which is why it is computed there.
     expect(fallback.credentialName, 'an-agent');
     expect(fallback.storeCommand, contains('an-agent'));
   });
 
-  test(
-    'importing names an agent that is not there rather than failing vaguely',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('importing names an agent that is not there rather than failing vaguely', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final answer = await client.importCredential(agent: 'not-installed');
+    final answer = await client.importCredential(agent: 'not-installed');
 
-      expect(answer.outcome, 'NO_SUCH_AGENT');
-      expect(answer.stored, isFalse);
-      expect(answer.length, 0);
-    },
-  );
+    expect(answer.outcome, 'NO_SUCH_AGENT');
+    expect(answer.stored, isFalse);
+    expect(answer.length, 0);
+  });
 
   test('the backups it lists tell a record from the bundle', () async {
     await machineIn('work');
@@ -832,26 +687,23 @@ void main() {
     expect(taken.firstWhere((each) => !each.present).bytes, 0);
   });
 
-  test(
-    'restoring over unreviewed work refuses, and force says what it destroyed',
-    () async {
-      await machineIn('work');
-      final client = await connect();
-      const project = 'checkout';
-      const bundle = '/srv/checkout/backups/before-sync.bundle';
+  test('restoring over unreviewed work refuses, and force says what it destroyed', () async {
+    await machineIn('work');
+    final client = await connect();
+    const project = 'checkout';
+    const bundle = '/srv/checkout/backups/before-sync.bundle';
 
-      final refused = await client.restoreBackup(project, bundle);
+    final refused = await client.restoreBackup(project, bundle);
 
-      expect(refused.holdsWork, isTrue);
-      expect(refused.unreviewed, isNotEmpty);
+    expect(refused.holdsWork, isTrue);
+    expect(refused.unreviewed, isNotEmpty);
 
-      final forced = await client.restoreBackup(project, bundle, force: true);
+    final forced = await client.restoreBackup(project, bundle, force: true);
 
-      expect(forced.done, isTrue);
-      // Reported afterwards as well as before: somebody who forced needs it in the record.
-      expect(forced.unreviewed, isNotEmpty);
-    },
-  );
+    expect(forced.done, isTrue);
+    // Reported afterwards as well as before: somebody who forced needs it in the record.
+    expect(forced.unreviewed, isNotEmpty);
+  });
 
   test('an offline project is not reported as up to date', () async {
     await machineIn('work');
@@ -888,28 +740,23 @@ void main() {
     expect(followed.inForce, isFalse);
   });
 
-  test(
-    'asking for the enforcement it already has is not reported as a change',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('asking for the enforcement it already has is not reported as a change', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final first = await client.setClearance('porelo-billing-audit', 'off');
+    final first = await client.setClearance('porelo-billing-audit', 'off');
 
-      expect(first.outcome, 'UNCHANGED');
-      expect(first.settled, isTrue);
-      // Empty when nothing changed, exactly as the contract says.
-      expect(first.now, isEmpty);
-    },
-  );
+    expect(first.outcome, 'UNCHANGED');
+    expect(first.settled, isTrue);
+    // Empty when nothing changed, exactly as the contract says.
+    expect(first.now, isEmpty);
+  });
 
   test('taking back a name that was never granted changes nothing', () async {
     await machineIn('work');
     final client = await connect();
 
-    final said = await client.narrowTask('porelo-checkout-shell', <String>[
-      'never.granted.test',
-    ], scope: Scope.run);
+    final said = await client.narrowTask('porelo-checkout-shell', <String>['never.granted.test'], scope: Scope.run);
 
     expect(said.outcome, WidenOutcome.noChange);
   });
@@ -917,9 +764,7 @@ void main() {
   test('taking a name back from the project reaches the project file', () async {
     await machineIn('work');
     final client = await connect();
-    await client.widenTask('porelo-checkout-shell', <String>[
-      'files.example.test',
-    ], scope: Scope.runAndProject);
+    await client.widenTask('porelo-checkout-shell', <String>['files.example.test'], scope: Scope.runAndProject);
 
     final said = await client.narrowTask('porelo-checkout-shell', <String>[
       'files.example.test',
@@ -934,9 +779,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final replies = await client
-        .prepare('checkout', rebuild: 'AGENT')
-        .toList();
+    final replies = await client.prepare('checkout', rebuild: 'AGENT').toList();
 
     expect(replies.where((each) => each.line != null), isNotEmpty);
     final result = replies.last;
@@ -945,46 +788,33 @@ void main() {
     expect(result.rebuild, 'AGENT');
   });
 
-  test(
-    'what a task holds is three answers, and a wrong name is none of them',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('what a task holds is three answers, and a wrong name is none of them', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final running = await client.workHeld('porelo-checkout-shell');
-      expect(running.readable, isTrue);
-      // Current, so no instant: "holds" rather than "held".
-      expect(running.current, isTrue);
-      expect(running.holdsSomething, isTrue);
+    final running = await client.workHeld('porelo-checkout-shell');
+    expect(running.readable, isTrue);
+    // Current, so no instant: "holds" rather than "held".
+    expect(running.current, isTrue);
+    expect(running.holdsSomething, isTrue);
 
-      final unreadable = await client.workHeld('porelo-checkout-tests');
-      // Not "holds nothing": nobody could look.
-      expect(unreadable.readable, isFalse);
-      expect(unreadable.holdsSomething, isFalse);
+    final unreadable = await client.workHeld('porelo-checkout-tests');
+    // Not "holds nothing": nobody could look.
+    expect(unreadable.readable, isFalse);
+    expect(unreadable.holdsSomething, isFalse);
 
-      final stopped = await client.workHeld('porelo-checkout-migrate');
-      expect(stopped.readable, isTrue);
-      expect(
-        stopped.current,
-        isFalse,
-        reason: 'a stopped task answers as of when it stopped',
-      );
-      expect(stopped.asOf, isNotNull);
+    final stopped = await client.workHeld('porelo-checkout-migrate');
+    expect(stopped.readable, isTrue);
+    expect(stopped.current, isFalse, reason: 'a stopped task answers as of when it stopped');
+    expect(stopped.asOf, isNotNull);
 
-      // A name that is no task is a refusal, never an unreadable answer — collapsing them makes a
-      // client's mistake arrive as a legitimate reading.
-      await expectLater(
-        client.workHeld('porelo-never-existed'),
-        throwsA(
-          isA<VarlinkException>().having(
-            (refusal) => refusal.simpleName,
-            'simpleName',
-            'NoSuchTask',
-          ),
-        ),
-      );
-    },
-  );
+    // A name that is no task is a refusal, never an unreadable answer — collapsing them makes a
+    // client's mistake arrive as a legitimate reading.
+    await expectLater(
+      client.workHeld('porelo-never-existed'),
+      throwsA(isA<VarlinkException>().having((refusal) => refusal.simpleName, 'simpleName', 'NoSuchTask')),
+    );
+  });
 
   test('a node says which node it is, and says the same thing twice', () async {
     await machineIn('work');
@@ -999,120 +829,84 @@ void main() {
     expect(second, first);
   });
 
-  test(
-    'a deletion previews without removing, and names what it keeps',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a deletion previews without removing, and names what it keeps', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final would = await client.unfollow('billing', dryRun: true);
+    final would = await client.unfollow('billing', dryRun: true);
 
-      expect(would.outcome, DeleteOutcome.previewed);
-      expect(would.removes.map((each) => each.kind), contains('MIRROR'));
-      // The operator's own file, named by the contract rather than worked out by a client — which
-      // is what lets a confirmation say it survives.
-      expect(would.keeps, contains('/srv/billing/project.yml'));
+    expect(would.outcome, DeleteOutcome.previewed);
+    expect(would.removes.map((each) => each.kind), contains('MIRROR'));
+    // The operator's own file, named by the contract rather than worked out by a client — which
+    // is what lets a confirmation say it survives.
+    expect(would.keeps, contains('/srv/billing/project.yml'));
 
-      // Nothing went: the project is still listed and its work is still there.
-      expect(
-        (await client.projects()).map((each) => each.name),
-        contains('billing'),
-      );
-    },
-  );
+    // Nothing went: the project is still listed and its work is still there.
+    expect((await client.projects()).map((each) => each.name), contains('billing'));
+  });
 
-  test(
-    'unreviewed work refuses a deletion, and force is what goes past it',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('unreviewed work refuses a deletion, and force is what goes past it', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final refused = await client.unfollow('checkout');
+    final refused = await client.unfollow('checkout');
 
-      expect(refused.outcome, DeleteOutcome.holdsWork);
-      expect(refused.unreviewed, isNotEmpty);
-      expect(
-        (await client.projects()).map((each) => each.name),
-        contains('checkout'),
-      );
+    expect(refused.outcome, DeleteOutcome.holdsWork);
+    expect(refused.unreviewed, isNotEmpty);
+    expect((await client.projects()).map((each) => each.name), contains('checkout'));
 
-      final forced = await client.unfollow('checkout', force: true);
+    final forced = await client.unfollow('checkout', force: true);
 
-      expect(forced.outcome, DeleteOutcome.deleted);
-      expect(
-        (await client.projects()).map((each) => each.name),
-        isNot(contains('checkout')),
-      );
-    },
-  );
+    expect(forced.outcome, DeleteOutcome.deleted);
+    expect((await client.projects()).map((each) => each.name), isNot(contains('checkout')));
+  });
 
-  test(
-    'a project nothing knows is a named outcome, never an exception',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a project nothing knows is a named outcome, never an exception', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final answer = await client.unfollow('never-existed');
+    final answer = await client.unfollow('never-existed');
 
-      expect(answer.outcome, DeleteOutcome.noSuchProject);
-      expect(answer.removes, isEmpty);
-    },
-  );
+    expect(answer.outcome, DeleteOutcome.noSuchProject);
+    expect(answer.removes, isEmpty);
+  });
 
-  test(
-    'which logs a task has is asked, and an empty answer is normal',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('which logs a task has is asked, and an empty answer is normal', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final found = await client.logsOf('porelo-checkout-shell');
+    final found = await client.logsOf('porelo-checkout-shell');
 
-      expect(
-        found.map((log) => log.name),
-        containsAll(<String>['agent.log', 'gate.log']),
-      );
-      expect(found.first.bytes, greaterThan(0));
-      // The name goes to Tail unchanged; it is a file name and never a path.
-      expect(
-        await client.tailLog('porelo-checkout-shell', found.first.name).first,
-        isNotEmpty,
-      );
-    },
-  );
+    expect(found.map((log) => log.name), containsAll(<String>['agent.log', 'gate.log']));
+    expect(found.first.bytes, greaterThan(0));
+    // The name goes to Tail unchanged; it is a file name and never a path.
+    expect(await client.tailLog('porelo-checkout-shell', found.first.name).first, isNotEmpty);
+  });
 
-  test(
-    'a log whose name is not .log is offered and reads like any other',
-    () async {
-      await machineIn('work');
-      final client = await connect();
+  test('a log whose name is not .log is offered and reads like any other', () async {
+    await machineIn('work');
+    final client = await connect();
 
-      final found = await client.logsOf('porelo-checkout-shell');
-      final names = found.map((log) => log.name).toList();
+    final found = await client.logsOf('porelo-checkout-shell');
+    final names = found.map((log) => log.name).toList();
 
-      // **The file somebody needs when a task starts and then does nothing** is the firewall's
-      // record, and its name says nothing about that. A suffix rule at this end would hide exactly
-      // it, so the wire is asserted on a name that would not survive one.
-      expect(names, contains('events.jsonl'));
-      expect(
-        await client.tailLog('porelo-checkout-shell', 'events.jsonl').first,
-        isNotEmpty,
-      );
+    // **The file somebody needs when a task starts and then does nothing** is the firewall's
+    // record, and its name says nothing about that. A suffix rule at this end would hide exactly
+    // it, so the wire is asserted on a name that would not survive one.
+    expect(names, contains('events.jsonl'));
+    expect(await client.tailLog('porelo-checkout-shell', 'events.jsonl').first, isNotEmpty);
 
-      // And an empty one is still a log: a size rule would hide it as surely as a suffix rule.
-      final empty = found.firstWhere((log) => log.name == 'reader.err');
-      expect(empty.bytes, 0);
-      expect(names, contains('reader.err'));
+    // And an empty one is still a log: a size rule would hide it as surely as a suffix rule.
+    final empty = found.firstWhere((log) => log.name == 'reader.err');
+    expect(empty.bytes, 0);
+    expect(names, contains('reader.err'));
 
-      // The sentence that makes the name findable comes from the machine, for exactly the files
-      // whose names say nothing — and is absent, not blank, for the ones that speak for themselves.
-      expect(
-        found.firstWhere((log) => log.name == 'events.jsonl').what,
-        contains('firewall'),
-      );
-      expect(empty.what, isNotNull);
-      expect(found.firstWhere((log) => log.name == 'agent.log').what, isNull);
-    },
-  );
+    // The sentence that makes the name findable comes from the machine, for exactly the files
+    // whose names say nothing — and is absent, not blank, for the ones that speak for themselves.
+    expect(found.firstWhere((log) => log.name == 'events.jsonl').what, contains('firewall'));
+    expect(empty.what, isNotNull);
+    expect(found.firstWhere((log) => log.name == 'agent.log').what, isNull);
+  });
 
   test('a launch streams its lines and then its result', () async {
     await machineIn('failing-start');
@@ -1130,8 +924,7 @@ void main() {
     final client = await connect();
     final share = newShare();
 
-    final enrolled = await client.enrollDevice(
-        name: 'laptop', share: share, storage: KeyslotStorage.userScoped);
+    final enrolled = await client.enrollDevice(name: 'laptop', share: share, storage: KeyslotStorage.userScoped);
     expect(enrolled.outcome, KeyslotOutcome.enrolled);
     final id = enrolled.slot!.id;
     expect((await client.keyslots()).map((slot) => slot.id), <String>['slot-0', id]);
@@ -1149,8 +942,7 @@ void main() {
     expect((await client.credentials()).readable, isFalse);
   });
 
-  test('a share for a store that is already open re-arms the bound rather than being refused',
-      () async {
+  test('a share for a store that is already open re-arms the bound rather than being refused', () async {
     // Measured on the daemon: the unlock reads the vault again and
     // replaces what is cached, so asking for another hour is expressible. There is no outcome for
     // "it was open already", and this build carried one until that was measured.
@@ -1160,8 +952,7 @@ void main() {
     await client.enrollDevice(name: 'laptop', share: share, storage: KeyslotStorage.userScoped);
     await client.lock();
 
-    expect((await client.unlockWithShare(share: share, minutes: 30)).outcome,
-        KeyslotOutcome.unlocked);
+    expect((await client.unlockWithShare(share: share, minutes: 30)).outcome, KeyslotOutcome.unlocked);
     final again = await client.unlockWithShare(share: share, minutes: 60);
     expect(again.outcome, KeyslotOutcome.unlocked, reason: 'an open store is opened again, not refused');
     expect(again.until, isNotEmpty, reason: 'the new bound is what the second call is for');
@@ -1173,8 +964,7 @@ void main() {
     final share = newShare();
     await client.lock();
 
-    final refused = await client.enrollDevice(
-        name: 'laptop', share: share, storage: KeyslotStorage.userScoped);
+    final refused = await client.enrollDevice(name: 'laptop', share: share, storage: KeyslotStorage.userScoped);
     expect(refused.outcome, KeyslotOutcome.vaultLocked);
     expect(await client.keyslots(), hasLength(1));
 

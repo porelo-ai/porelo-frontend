@@ -89,16 +89,19 @@ void main() {
   });
 
   group('the Host entry', () {
-    Future<String> add({String alias = 'porelo-build', String user = 'agents'}) => setup.addHostEntry(
-        alias: alias, host: '203.0.113.10', user: user, keyFile: '${home.path}/.ssh/porelo-build');
+    Future<String> add({String alias = 'porelo-build', String user = 'agents'}) =>
+        setup.addHostEntry(alias: alias, host: '203.0.113.10', user: user, keyFile: '${home.path}/.ssh/porelo-build');
 
     String config() => File('${home.path}/.ssh/config').readAsStringSync();
 
     test('a first entry makes the file owner-only and names the work user and the key', () async {
       await add();
 
-      expect(config(), 'Host porelo-build\n    HostName 203.0.113.10\n    User agents\n'
-          '    IdentityFile ${home.path}/.ssh/porelo-build\n    IdentitiesOnly yes\n');
+      expect(
+        config(),
+        'Host porelo-build\n    HostName 203.0.113.10\n    User agents\n'
+        '    IdentityFile ${home.path}/.ssh/porelo-build\n    IdentitiesOnly yes\n',
+      );
       expect(mode('${home.path}/.ssh/config'), 0x180);
     });
 
@@ -109,8 +112,7 @@ void main() {
       await add();
 
       expect(config(), startsWith('Host mine\n    User me\n\nHost porelo-build\n'));
-      expect(File('${home.path}/.ssh/config.before-porelo-build').readAsStringSync(),
-          'Host mine\n    User me\n');
+      expect(File('${home.path}/.ssh/config.before-porelo-build').readAsStringSync(), 'Host mine\n    User me\n');
     });
 
     test('adding it twice changes nothing', () async {
@@ -159,9 +161,11 @@ void main() {
 
   group('what a machine could install', () {
     test('every field is read, and a missing one reads as nothing rather than failing', () {
-      final packages = MachineSetup.installableIn('{"packages": ['
-          '{"name": "porelo-agent-claude", "kind": "agent", "description": "Claude Code", '
-          '"installed": true, "version": "1.0"}, {"name": "porelo-agent-omp"}]}');
+      final packages = MachineSetup.installableIn(
+        '{"packages": ['
+        '{"name": "porelo-agent-claude", "kind": "agent", "description": "Claude Code", '
+        '"installed": true, "version": "1.0"}, {"name": "porelo-agent-omp"}]}',
+      );
 
       expect(packages.map((each) => each.name), <String>['porelo-agent-claude', 'porelo-agent-omp']);
       expect(packages.first.kind, 'agent');
@@ -172,8 +176,10 @@ void main() {
     });
 
     test('a name that could not be a package never reaches a root command line', () {
-      final packages = MachineSetup.installableIn('{"packages": ['
-          '{"name": "x\'; rm -rf / #"}, {"name": "Upper"}, {"name": "ok-1.0+b"}]}');
+      final packages = MachineSetup.installableIn(
+        '{"packages": ['
+        '{"name": "x\'; rm -rf / #"}, {"name": "Upper"}, {"name": "ok-1.0+b"}]}',
+      );
 
       expect(packages.map((each) => each.name), <String>['ok-1.0+b']);
     });
@@ -181,9 +187,11 @@ void main() {
     // Verbatim what Porelo measured on the Ubuntu VM (e582250): the
     // transport package, found because it declares Provides: porelo-transport.
     test("the script's own answer, as measured on a real machine, is read", () {
-      final packages = MachineSetup.installableIn('{"packages":[{"name":"porelo-message-transport-local",'
-          '"kind":"transport","description":"Carries agent messages between mailboxes on one machine",'
-          '"installed":true,"version":"1.0.0~snapshot.0+local.20260918T100444"}]}');
+      final packages = MachineSetup.installableIn(
+        '{"packages":[{"name":"porelo-message-transport-local",'
+        '"kind":"transport","description":"Carries agent messages between mailboxes on one machine",'
+        '"installed":true,"version":"1.0.0~snapshot.0+local.20260918T100444"}]}',
+      );
 
       expect(packages.single.name, 'porelo-message-transport-local');
       expect(packages.single.kind, 'transport');
@@ -196,17 +204,30 @@ void main() {
     });
 
     test('the choice is carried into both showing and running, the same way', () {
-      expect(MachineSetup.show('agents', <String>['porelo-agent-claude']),
-          contains("--user agents --with porelo-agent-claude --show"));
-      expect(MachineSetup.prepare('agents', <String>['porelo-agent-claude'], digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
-          endsWith("\nbash /root/porelo-setup.sh --user agents --with porelo-agent-claude\n"));
+      expect(
+        MachineSetup.show('agents', <String>['porelo-agent-claude']),
+        contains("--user agents --with porelo-agent-claude --show"),
+      );
+      expect(
+        MachineSetup.prepare('agents', <String>[
+          'porelo-agent-claude',
+        ], digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+        endsWith("\nbash /root/porelo-setup.sh --user agents --with porelo-agent-claude\n"),
+      );
     });
 
     test('only the script shown runs: its SHA-256 is checked first', () {
-      final shown = MachineSetup.digestIn('The script shown has the SHA-256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\nuseradd agents');
+      final shown = MachineSetup.digestIn(
+        'The script shown has the SHA-256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\nuseradd agents',
+      );
       expect(shown, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
       final script = MachineSetup.prepare('agents', <String>[], digest: shown!);
-      expect(script, startsWith("printf '%s  %s\\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' /root/porelo-setup.sh | sha256sum -c --status"));
+      expect(
+        script,
+        startsWith(
+          "printf '%s  %s\\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' /root/porelo-setup.sh | sha256sum -c --status",
+        ),
+      );
       expect(script, contains('exit ${MachineSetup.notTheScriptShown}'));
       expect(() => MachineSetup.prepare('agents', <String>[], digest: ''), throwsA(isA<MachineSetupFailed>()));
     });
@@ -235,8 +256,15 @@ void main() {
 
     test('a key with a passphrase is refused, never asked about', () async {
       final ssh = Directory('${home.path}/.ssh')..createSync();
-      final made = await Process.run(
-          'ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', 'secret', '-f', '${ssh.path}/locked']);
+      final made = await Process.run('ssh-keygen', <String>[
+        '-q',
+        '-t',
+        'ed25519',
+        '-N',
+        'secret',
+        '-f',
+        '${ssh.path}/locked',
+      ]);
       expect(made.exitCode, 0);
 
       await expectLater(
@@ -246,4 +274,3 @@ void main() {
     });
   });
 }
-

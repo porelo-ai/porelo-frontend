@@ -10,6 +10,10 @@ Future<void> theInterfaceShowsAMessageHeldIn(WidgetTester tester, String task) a
   await toThePlace(tester, 'attention');
   await pumpFor(tester);
   final row = find.byKey(ValueKey<String>('read-message $task/$theHeldMessage'));
-  await pumpUntil(tester, () => row.evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the held message in what needs a person');
+  await pumpUntil(
+    tester,
+    () => row.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the held message in what needs a person',
+  );
 }

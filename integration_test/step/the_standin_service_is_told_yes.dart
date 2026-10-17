@@ -10,6 +10,10 @@ Future<void> theStandinServiceIsToldYes(WidgetTester tester) async {
   // What a person deciding in the browser does, as far as the service is concerned.
   await onTheTestMachine('curl -fs http://127.0.0.1:$standInPort/approve >/dev/null');
   // The machine asks the service again at its own pace, and only then does the interface hear it.
-  await pumpUntil(tester, () => find.byKey(const Key('grant-settled')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 60), what: 'the machine to hear the decision');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('grant-settled')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 60),
+    what: 'the machine to hear the decision',
+  );
 }

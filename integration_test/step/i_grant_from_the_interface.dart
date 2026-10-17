@@ -20,8 +20,12 @@ Future<void> iGrantFromTheInterface(WidgetTester tester, String entry) async {
   await pumpFor(tester);
   await tester.tap(there.first);
   final grant = find.byKey(ValueKey<String>('grant $entry'));
-  await pumpUntil(tester, () => grant.evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the store listing $entry to grant');
+  await pumpUntil(
+    tester,
+    () => grant.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the store listing $entry to grant',
+  );
   await tester.ensureVisible(grant);
   await tester.tap(grant);
   await pumpUntilShown(tester, const Key('grant-dialog'));

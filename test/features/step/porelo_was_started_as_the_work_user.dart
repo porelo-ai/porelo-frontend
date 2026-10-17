@@ -12,6 +12,9 @@ Future<void> poreloWasStartedAsTheWorkUser(WidgetTester tester) async {
   expect(started, isNonNegative, reason: 'Porelo was not started');
   expect(registered, greaterThan(started), reason: 'porelo setup did not run after the start');
   expect(asked, greaterThan(registered), reason: 'porelo doctor was asked before porelo setup');
-  expect(World.setup.asRootRan.where((script) => script.contains('systemctl --user') || script.contains('porelo setup')), isEmpty,
-      reason: "root started another user's service");
+  expect(
+    World.setup.asRootRan.where((script) => script.contains('systemctl --user') || script.contains('porelo setup')),
+    isEmpty,
+    reason: "root started another user's service",
+  );
 }

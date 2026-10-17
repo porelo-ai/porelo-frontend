@@ -103,238 +103,182 @@ void main() {
       await theInterfaceIsRunning(tester);
     }
 
-    testWidgets('''a machine added with a forward raised here is reached''',
-        (tester) async {
+    testWidgets('''a machine added with a forward raised here is reached''', (tester) async {
       await bddSetUp(tester);
       await iWatchTheTestMachineThroughAForwardRaisedHere(tester);
       await theInterfaceSaysWhatTheTestMachineNeedsToRunWork(tester);
       await theTestMachineIsAnswering(tester);
     });
-    testWidgets(
-        '''every reply the interface reads can be read from the real daemon''',
-        (tester) async {
+    testWidgets('''every reply the interface reads can be read from the real daemon''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await everyReplyItGivesCanBeRead(tester);
     });
-    testWidgets('''a machine is tried from the dialog before it is watched''',
-        (tester) async {
+    testWidgets('''a machine is tried from the dialog before it is watched''', (tester) async {
       await bddSetUp(tester);
       await iTryTheTestMachineFromTheDialog(tester);
       await theTrialSays(tester, 'Reached Porelo');
       await noForwardRaisedForTheTrialIsLeft(tester);
       await iPutTheDialogAway(tester);
     });
-    testWidgets(
-        '''a socket nobody serves on the test machine is found by trying it''',
-        (tester) async {
+    testWidgets('''a socket nobody serves on the test machine is found by trying it''', (tester) async {
       await bddSetUp(tester);
-      await iTryTheTestMachineFromTheDialogWithASocketBesideItsOwnThatNobodyServes(
-          tester);
+      await iTryTheTestMachineFromTheDialogWithASocketBesideItsOwnThatNobodyServes(tester);
       await theTrialSays(tester, 'nothing answers at');
       await theTrialSays(tester, 'none.sock on that machine');
       await noForwardRaisedForTheTrialIsLeft(tester);
       await iPutTheDialogAway(tester);
     });
-    testWidgets(
-        '''a socket in another user's runtime directory on the test machine is named as that''',
-        (tester) async {
+    testWidgets('''a socket in another user's runtime directory on the test machine is named as that''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await iTryTheTestMachineFromTheDialogWithTheSocket(
-          tester, '/run/user/0/porelo/none.sock');
+      await iTryTheTestMachineFromTheDialogWithTheSocket(tester, '/run/user/0/porelo/none.sock');
       await theTrialSays(tester, 'runtime directory (uid 0)');
       await noForwardRaisedForTheTrialIsLeft(tester);
       await iPutTheDialogAway(tester);
     });
-    testWidgets(
-        '''a repository followed through the dialog becomes a project, and stops being one''',
-        (tester) async {
+    testWidgets('''a repository followed through the dialog becomes a project, and stops being one''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAProjectRepository(tester, 'e2e-follow');
       await iFollowItFromTheInterfaceUnverified(tester);
       await theInterfaceSaysItIsFollowingIt(tester);
-      await theMachineListsAsFollowedUnverifiedWithItsRepositoriesAndTheirLimits(
-          tester, 'e2e-follow');
+      await theMachineListsAsFollowedUnverifiedWithItsRepositoriesAndTheirLimits(tester, 'e2e-follow');
       await iStopFollowingFromTheInterface(tester, 'e2e-follow');
       await theMachineNoLongerLists(tester, 'e2e-follow');
     });
-    testWidgets(
-        '''a token is checked by the real machine, and leaving writes nothing''',
-        (tester) async {
+    testWidgets('''a token is checked by the real machine, and leaving writes nothing''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
-      await iCheckATokenForInTheWizardAndLeaveIt(
-          tester, 'https://e2e.invalid/');
+      await iCheckATokenForInTheWizardAndLeaveIt(tester, 'https://e2e.invalid/');
       await theWizardsCheckWasAnsweredByTheMachine(tester);
-      await theMachineNoLongerListsTheConnection(
-          tester, 'https://e2e.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'https://e2e.invalid/');
     });
-    testWidgets(
-        '''a key the machine has is picked from its list and declared where it lies''',
-        (tester) async {
+    testWidgets('''a key the machine has is picked from its list and declared where it lies''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnSshKeyOfItsOwn(tester, 'id_e2e');
-      await iDeclareTheMachinesOwnKeyForFromTheInterface(
-          tester, 'ssh://e2e.invalid/');
-      await theMachineListsTheConnectionAsTheKeyItHas(
-          tester, 'ssh://e2e.invalid/');
+      await iDeclareTheMachinesOwnKeyForFromTheInterface(tester, 'ssh://e2e.invalid/');
+      await theMachineListsTheConnectionAsTheKeyItHas(tester, 'ssh://e2e.invalid/');
       await iForgetTheConnectionFromTheInterface(tester, 'ssh://e2e.invalid/');
       await theInterfaceSaysWhatStillHoldsItsValue(tester);
       await theMachineNoLongerListsTheConnection(tester, 'ssh://e2e.invalid/');
     });
-    testWidgets(
-        '''a key the machine has is copied into the vault by the machine''',
-        (tester) async {
+    testWidgets('''a key the machine has is copied into the vault by the machine''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnSshKeyOfItsOwn(tester, 'id_e2e');
       await theTestMachineHasAnOpenVault(tester);
-      await iCopyTheMachinesOwnKeyIntoTheVaultForFromTheInterface(
-          tester, 'ssh://e2e-vault.invalid/');
-      await theMachineListsTheConnectionAsAKeyInItsVault(
-          tester, 'ssh://e2e-vault.invalid/');
-      await iForgetTheConnectionFromTheInterface(
-          tester, 'ssh://e2e-vault.invalid/');
-      await theMachineNoLongerListsTheConnection(
-          tester, 'ssh://e2e-vault.invalid/');
+      await iCopyTheMachinesOwnKeyIntoTheVaultForFromTheInterface(tester, 'ssh://e2e-vault.invalid/');
+      await theMachineListsTheConnectionAsAKeyInItsVault(tester, 'ssh://e2e-vault.invalid/');
+      await iForgetTheConnectionFromTheInterface(tester, 'ssh://e2e-vault.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'ssh://e2e-vault.invalid/');
       await theVaultEntryOfThatKeyIsRemovedAgain(tester);
     });
-    testWidgets(
-        '''a host never met is trusted from the follow, by the key its owner publishes''',
-        (tester) async {
+    testWidgets('''a host never met is trusted from the follow, by the key its owner publishes''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasNeverMet(tester, 'github.com');
       await theTestMachineHasAnSshKeyOfItsOwn(tester, 'id_e2e');
       await theTestMachineConnectsToWithItsOwnKey(tester, 'ssh://github.com/');
-      await iFollowAsFromTheInterfaceUnverified(
-          tester, 'git@github.com:porelo-ai/porelo-project.git', 'e2e-hostkey');
-      await theInterfaceShowsTheKeysOfWith(tester, 'github.com',
-          'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
-      await iTrustFromTheInterface(
-          tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
-      await theMachineKnowsByTheKey(tester, 'github.com',
-          'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await iFollowAsFromTheInterfaceUnverified(tester, 'git@github.com:porelo-ai/porelo-project.git', 'e2e-hostkey');
+      await theInterfaceShowsTheKeysOfWith(tester, 'github.com', 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await iTrustFromTheInterface(tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await theMachineKnowsByTheKey(tester, 'github.com', 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
       await theMachineNoLongerLists(tester, 'e2e-hostkey');
       await theConnectionIsForgottenAgain(tester, 'ssh://github.com/');
     });
-    testWidgets(
-        '''an ssh key for an https address is refused by the real check, and cannot be added''',
-        (tester) async {
+    testWidgets('''an ssh key for an https address is refused by the real check, and cannot be added''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnSshKeyOfItsOwn(tester, 'id_e2e');
-      await iCheckTheMachinesOwnKeyForInTheWizard(
-          tester, 'https://e2e-https.invalid/');
+      await iCheckTheMachinesOwnKeyForInTheWizard(tester, 'https://e2e-https.invalid/');
       await theMachineSaysItWouldNotWorkAndItCannotBeAdded(tester);
       await iLeaveTheWizard(tester);
-      await theMachineNoLongerListsTheConnection(
-          tester, 'https://e2e-https.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'https://e2e-https.invalid/');
     });
-    testWidgets(
-        '''a variable the machine does not have is refused by the real check, and back keeps it''',
-        (tester) async {
+    testWidgets('''a variable the machine does not have is refused by the real check, and back keeps it''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
-      await iCheckTheVariableAsATokenForInTheWizard(
-          tester, 'E2E_NOT_SET', 'https://e2e-var.invalid/');
+      await iCheckTheVariableAsATokenForInTheWizard(tester, 'E2E_NOT_SET', 'https://e2e-var.invalid/');
       await theMachineSaysItWouldNotWorkAndItCannotBeAdded(tester);
       await iGoBackAndTheVariableIsStillThere(tester, 'E2E_NOT_SET');
       await iLeaveTheWizard(tester);
-      await theMachineNoLongerListsTheConnection(
-          tester, 'https://e2e-var.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'https://e2e-var.invalid/');
     });
-    testWidgets(
-        '''the public half of a key of this computer is refused before anything is sent''',
-        (tester) async {
+    testWidgets('''the public half of a key of this computer is refused before anything is sent''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
-      await iOfferThePublicHalfOfAKeyOfThisComputerForInTheWizard(
-          tester, 'ssh://e2e-pub.invalid/');
+      await iOfferThePublicHalfOfAKeyOfThisComputerForInTheWizard(tester, 'ssh://e2e-pub.invalid/');
       await itIsRefusedBeforeAnythingIsSent(tester);
       await iLeaveTheWizard(tester);
-      await theMachineNoLongerListsTheConnection(
-          tester, 'ssh://e2e-pub.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'ssh://e2e-pub.invalid/');
     });
-    testWidgets(
-        '''a key of this computer is sent into the vault on the machine''',
-        (tester) async {
+    testWidgets('''a key of this computer is sent into the vault on the machine''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
-      await iSendAKeyOfThisComputerIntoTheVaultForFromTheInterface(
-          tester, 'ssh://e2e-sent.invalid/');
-      await theMachineListsTheConnectionAsAKeyInItsVault(
-          tester, 'ssh://e2e-sent.invalid/');
-      await iForgetTheConnectionFromTheInterface(
-          tester, 'ssh://e2e-sent.invalid/');
-      await theMachineNoLongerListsTheConnection(
-          tester, 'ssh://e2e-sent.invalid/');
+      await iSendAKeyOfThisComputerIntoTheVaultForFromTheInterface(tester, 'ssh://e2e-sent.invalid/');
+      await theMachineListsTheConnectionAsAKeyInItsVault(tester, 'ssh://e2e-sent.invalid/');
+      await iForgetTheConnectionFromTheInterface(tester, 'ssh://e2e-sent.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'ssh://e2e-sent.invalid/');
       await theVaultEntryOfThatKeyIsRemovedAgain(tester);
     });
-    testWidgets(
-        '''a token typed into a terminal on the machine lands in its vault''',
-        (tester) async {
+    testWidgets('''a token typed into a terminal on the machine lands in its vault''', (tester) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
-      await iStoreATokenForByTypingItIntoATerminalOnTheMachine(
-          tester, 'https://e2e-typed.invalid/');
-      await theMachineListsTheConnectionAsATokenInItsVault(
-          tester, 'https://e2e-typed.invalid/');
-      await iForgetTheConnectionFromTheInterface(
-          tester, 'https://e2e-typed.invalid/');
-      await theMachineNoLongerListsTheConnection(
-          tester, 'https://e2e-typed.invalid/');
+      await iStoreATokenForByTypingItIntoATerminalOnTheMachine(tester, 'https://e2e-typed.invalid/');
+      await theMachineListsTheConnectionAsATokenInItsVault(tester, 'https://e2e-typed.invalid/');
+      await iForgetTheConnectionFromTheInterface(tester, 'https://e2e-typed.invalid/');
+      await theMachineNoLongerListsTheConnection(tester, 'https://e2e-typed.invalid/');
       await theVaultEntryOfThatKeyIsRemovedAgain(tester);
     });
-    testWidgets(
-        '''a message held for a person is in what needs a person, read as written, and refused for good''',
-        (tester) async {
+    testWidgets('''a message held for a person is in what needs a person, read as written, and refused for good''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
-      await theTestMachineHasATaskWithAMessageHeldForSaying(tester, 'e2e-talk',
-          'reviewer', 'look at **this** https://evil.example/x');
+      await theTestMachineHasATaskWithAMessageHeldForSaying(
+        tester,
+        'e2e-talk',
+        'reviewer',
+        'look at **this** https://evil.example/x',
+      );
       await theInterfaceShowsAMessageHeldIn(tester, 'porelo-e2e-talk-e2e-talk');
       await theInterfaceSays(tester, 'you wrote, going out through');
-      await iReadItAndRefuseItFromTheInterfaceSaying(
-          tester, 'not before the tests pass');
+      await iReadItAndRefuseItFromTheInterfaceSaying(tester, 'not before the tests pass');
       await theMessageReadAs(tester, 'look at **this** https://evil.example/x');
-      await theInterfaceSays(tester,
-          'Refused for good. The task that wrote it is told, with your words.');
+      await theInterfaceSays(tester, 'Refused for good. The task that wrote it is told, with your words.');
       await theMachineListsThatMessageAsRefusedByAPerson(tester);
-      await theInboxOfHolds(
-          tester, 'porelo-e2e-talk-e2e-talk', 'not before the tests pass');
-      await iWriteToTheAgentOfFromTheInterface(
-          tester, 'stop, the schema changed', 'porelo-e2e-talk-e2e-talk');
-      await theInboxOfHoldsFromAPerson(
-          tester, 'porelo-e2e-talk-e2e-talk', 'stop, the schema changed');
-      await theTaskAndTheProjectAreRemovedAgain(
-          tester, 'porelo-e2e-talk-e2e-talk', 'e2e-talk');
+      await theInboxOfHolds(tester, 'porelo-e2e-talk-e2e-talk', 'not before the tests pass');
+      await iWriteToTheAgentOfFromTheInterface(tester, 'stop, the schema changed', 'porelo-e2e-talk-e2e-talk');
+      await theInboxOfHoldsFromAPerson(tester, 'porelo-e2e-talk-e2e-talk', 'stop, the schema changed');
+      await theTaskAndTheProjectAreRemovedAgain(tester, 'porelo-e2e-talk-e2e-talk', 'e2e-talk');
     });
-    testWidgets(
-        '''a destination is checked by the machine, written from the interface, and removed again''',
-        (tester) async {
+    testWidgets('''a destination is checked by the machine, written from the interface, and removed again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
-      await iAddTheDestinationAtFromTheInterface(
-          tester, 'e2e-weather', 'http://api.weather.invalid');
+      await iAddTheDestinationAtFromTheInterface(tester, 'e2e-weather', 'http://api.weather.invalid');
       await theInterfaceSays(tester, 'must be reached over https');
       await theMachineNoLongerListsTheDestination(tester, 'e2e-weather');
-      await iAddTheDestinationAtFromTheInterface(
-          tester, 'e2e-weather', 'https://api.weather.invalid/v1');
-      await theMachineListsTheDestinationAt(
-          tester, 'e2e-weather', 'https://api.weather.invalid/v1');
+      await iAddTheDestinationAtFromTheInterface(tester, 'e2e-weather', 'https://api.weather.invalid/v1');
+      await theMachineListsTheDestinationAt(tester, 'e2e-weather', 'https://api.weather.invalid/v1');
       await iRemoveTheDestinationFromTheInterface(tester, 'e2e-weather');
       await theInterfaceSays(tester, 'Removed e2e-weather');
       await theMachineNoLongerListsTheDestination(tester, 'e2e-weather');
     });
-    testWidgets(
-        '''an authorization is granted from the interface, and the machine records who granted it''',
-        (tester) async {
+    testWidgets('''an authorization is granted from the interface, and the machine records who granted it''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
@@ -343,32 +287,27 @@ void main() {
       await theInterfaceShowsThePageToDecideOnWhole(tester);
       await theStandinServiceIsToldYes(tester);
       await theInterfaceSays(tester, 'Granted. It is kept in the vault');
-      await theMachineRecordsAsGrantedByTheAccountTheMachineIsReachedAs(
-          tester, 'e2e-grant');
+      await theMachineRecordsAsGrantedByTheAccountTheMachineIsReachedAs(tester, 'e2e-grant');
       await theEntryAndItsStandinAreRemovedAgain(tester, 'e2e-grant');
     });
-    testWidgets(
-        '''an authorization that never expires is granted from the interface, as GitHub grants one''',
-        (tester) async {
+    testWidgets('''an authorization that never expires is granted from the interface, as GitHub grants one''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
-      await theTestMachineHasAnEntryAStandinServiceGrantsForGoodAsGithubDoes(
-          tester, 'e2e-lasting');
+      await theTestMachineHasAnEntryAStandinServiceGrantsForGoodAsGithubDoes(tester, 'e2e-lasting');
       await iGrantFromTheInterface(tester, 'e2e-lasting');
       await theInterfaceShowsThePageToDecideOnWhole(tester);
       await theStandinServiceIsToldYes(tester);
       await theInterfaceSays(tester, 'Granted. It is kept in the vault');
-      await theInterfaceSays(tester,
-          'a token that does not expire, which removing it here cannot revoke');
-      await theMachineRecordsAsGrantedByTheAccountTheMachineIsReachedAs(
-          tester, 'e2e-lasting');
-      await theMachineKeepsTheTokenOfItselfAndRemovingItNamesWhereItIsEnded(
-          tester, 'e2e-lasting');
+      await theInterfaceSays(tester, 'a token that does not expire, which removing it here cannot revoke');
+      await theMachineRecordsAsGrantedByTheAccountTheMachineIsReachedAs(tester, 'e2e-lasting');
+      await theMachineKeepsTheTokenOfItselfAndRemovingItNamesWhereItIsEnded(tester, 'e2e-lasting');
     });
-    testWidgets(
-        '''a person joins a project's conversation from the interface, and logs in through the forward''',
-        (tester) async {
+    testWidgets('''a person joins a project's conversation from the interface, and logs in through the forward''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
@@ -378,9 +317,9 @@ void main() {
       await theLoginShownLogsInToTheHomeserverThroughTheForward(tester);
       await theProjectAndItsTaskAreRemovedAgain(tester, 'e2e-mx');
     });
-    testWidgets(
-        '''work started without a grant it needs is in what needs a person, and granted from there''',
-        (tester) async {
+    testWidgets('''work started without a grant it needs is in what needs a person, and granted from there''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
@@ -392,33 +331,29 @@ void main() {
       await theWorkStartedWithoutIsRemovedAgain(tester, 'e2e-needed');
       await theEntryAndItsStandinAreRemovedAgain(tester, 'e2e-needed');
     });
-    testWidgets(
-        '''work whose provider refused its key needs a person, and its tile shows what its agent wrote''',
-        (tester) async {
+    testWidgets('''work whose provider refused its key needs a person, and its tile shows what its agent wrote''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
       await theTestMachineHasPorelosStubAgent(tester);
-      await workOnTheTestMachineWasStartedWithAKeyItsProviderRefuses(
-          tester, 'anthropic');
+      await workOnTheTestMachineWasStartedWithAKeyItsProviderRefuses(tester, 'anthropic');
       await whatNeedsAPersonSaysItsProviderRefusedIt(tester);
       await itsTileShowsWhatItsAgentWrote(tester);
-      await theWorkItsProviderRefusedIsRemovedAgainWithTheKey(
-          tester, 'anthropic');
+      await theWorkItsProviderRefusedIsRemovedAgainWithTheKey(tester, 'anthropic');
     });
-    testWidgets(
-        '''a repository goes into default as work starts on it from the interface, and is taken out again''',
-        (tester) async {
+    testWidgets('''a repository goes into default as work starts on it from the interface, and is taken out again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasARepositoryToWorkOn(tester, 'e2e-default');
-      await iStartWorkOnTheRepositoryInDefaultFromTheInterfaceAndPutTheStartAway(
-          tester, 'e2e-default');
+      await iStartWorkOnTheRepositoryInDefaultFromTheInterfaceAndPutTheStartAway(tester, 'e2e-default');
       await theMachineListsInDefault(tester, 'e2e-default');
       await iTakeOutOfDefaultFromTheInterface(tester, 'e2e-default');
       await theMachineListsNothingCalledInDefault(tester, 'e2e-default');
-      await theRepositoryIsRemovedAgainFromTheTestMachine(
-          tester, 'e2e-default');
+      await theRepositoryIsRemovedAgainFromTheTestMachine(tester, 'e2e-default');
     });
   });
 }

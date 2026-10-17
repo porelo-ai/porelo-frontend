@@ -12,8 +12,13 @@ void main() {
     ).transform(startRefusalsSaid);
     await expectLater(
       refused,
-      emitsError(isA<NoSuchDestination>().having((it) => '$it', 'words',
-          contains('The credential f56-extra is for a destination this machine does not declare. Nothing was started'))),
+      emitsError(
+        isA<NoSuchDestination>().having(
+          (it) => '$it',
+          'words',
+          contains('The credential f56-extra is for a destination this machine does not declare. Nothing was started'),
+        ),
+      ),
     );
   });
 
@@ -28,10 +33,17 @@ void main() {
     ).transform(startRefusalsSaid);
     await expectLater(
       refused,
-      emitsError(isA<EarlierWorkWaits>().having((it) => '$it', 'words', allOf(
-          contains('migrate was not started'),
-          contains('9a3c1f2 "Round to the nearest penny, not away from zero" still waits at the gate'),
-          contains('Forward it or drop it there, then start again')))),
+      emitsError(
+        isA<EarlierWorkWaits>().having(
+          (it) => '$it',
+          'words',
+          allOf(
+            contains('migrate was not started'),
+            contains('9a3c1f2 "Round to the nearest penny, not away from zero" still waits at the gate'),
+            contains('Forward it or drop it there, then start again'),
+          ),
+        ),
+      ),
     );
   });
 

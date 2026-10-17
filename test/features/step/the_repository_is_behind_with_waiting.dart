@@ -5,7 +5,11 @@ import '../support/world.dart';
 
 /// Usage: the repository {'payments-api'} is {'4'} behind with {'2'} waiting
 Future<void> theRepositoryIsBehindWithWaiting(
-    WidgetTester tester, String repository, String behind, String waiting) async {
+  WidgetTester tester,
+  String repository,
+  String behind,
+  String waiting,
+) async {
   World.backend.theProjectsItHas = <Project>[
     for (final project in World.backend.theProjectsItHas)
       Project(

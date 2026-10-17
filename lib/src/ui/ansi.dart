@@ -26,8 +26,7 @@ List<TextSpan> ansiSpans(String line, ColorScheme scheme) {
       break;
     }
     if (start > index) {
-      spans.add(
-          TextSpan(text: line.substring(index, start), style: style.toStyle(scheme)));
+      spans.add(TextSpan(text: line.substring(index, start), style: style.toStyle(scheme)));
     }
     final sequence = _control.matchAsPrefix(line, start)?.group(0);
     if (sequence == null) {
@@ -90,10 +89,8 @@ class _Sgr {
   }
 
   /// How this run should be drawn against [scheme].
-  TextStyle toStyle(ColorScheme scheme) => TextStyle(
-        color: _colorOf(scheme),
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-      );
+  TextStyle toStyle(ColorScheme scheme) =>
+      TextStyle(color: _colorOf(scheme), fontWeight: bold ? FontWeight.w700 : FontWeight.w400);
 
   Color? _colorOf(ColorScheme scheme) {
     if (faint) return scheme.onSurfaceVariant;

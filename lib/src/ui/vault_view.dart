@@ -50,11 +50,7 @@ class VaultView extends StatelessWidget {
       children: <Widget>[
         PaneHeader(
           title: 'The vault',
-          trailing: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close (Esc)',
-            onPressed: onClose,
-          ),
+          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         if (vault.problem != null)
           Container(
@@ -68,10 +64,7 @@ class VaultView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (vault.busy && state == null)
-                const Padding(
-                  padding: EdgeInsets.all(Space.normal),
-                  child: Text('Asking the machine…'),
-                )
+                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…'))
               else if (state != null) ...<Widget>[
                 _Field(name: 'Where it is', value: state.vault),
                 _Field(
@@ -97,19 +90,18 @@ class VaultView extends StatelessWidget {
                     id: 'shut-not-empty',
                   )
                 else if (vault.credentials.isEmpty)
-                  const _Line(
-                    'It is open and holds nothing. That is a state, not a failure.',
-                    id: 'open-and-empty',
-                  ),
+                  const _Line('It is open and holds nothing. That is a state, not a failure.', id: 'open-and-empty'),
                 // Names, kinds and lengths. **Never a value** — that is the whole promise of the
                 // method, and this interface reaches a socket that can be forwarded over ssh.
                 for (final credential in vault.credentials)
                   ListTile(
                     dense: true,
                     leading: const Icon(Icons.key_outlined, size: Sizes.mark),
-                    title: Text(credential.name,
-                        key: const Key('credential-name'),
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                    title: Text(
+                      credential.name,
+                      key: const Key('credential-name'),
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
                     // A service a person decides about in a browser, once, for later tasks.
                     trailing: credential.isGranted && onGrant != null
                         ? TextButton(
@@ -126,9 +118,11 @@ class VaultView extends StatelessWidget {
                               Text(_describe(credential)),
                               // What goes with the secret and is not secret, shown whole.
                               for (final setting in credential.settings.entries)
-                                SelectableText('${setting.key}: ${setting.value}',
-                                    key: ValueKey<String>('credential-setting ${credential.name} ${setting.key}'),
-                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                                SelectableText(
+                                  '${setting.key}: ${setting.value}',
+                                  key: ValueKey<String>('credential-setting ${credential.name} ${setting.key}'),
+                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                ),
                             ],
                           ),
                   ),
@@ -184,10 +178,7 @@ class VaultView extends StatelessWidget {
           key: const Key('revoke-says'),
         ),
         actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep it'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Keep it')),
           FilledButton(
             key: const Key('revoke-confirm'),
             onPressed: () => Navigator.of(context).pop(true),
@@ -209,7 +200,7 @@ class VaultView extends StatelessWidget {
     return grant == null
         ? '$described · not granted yet'
         : '$described · granted by ${grant.grantedBy.isEmpty ? 'an account not recorded' : grant.grantedBy}'
-            '${grant.grantedAt.isEmpty ? '' : ', ${grant.grantedAt}'}';
+              '${grant.grantedAt.isEmpty ? '' : ', ${grant.grantedAt}'}';
   }
 }
 
@@ -230,9 +221,11 @@ class _Devices extends StatelessWidget {
         if (devices.problem != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-            child: Text(devices.problem!,
-                key: const Key('devices-problem'),
-                style: small?.copyWith(color: Theme.of(context).colorScheme.error)),
+            child: Text(
+              devices.problem!,
+              key: const Key('devices-problem'),
+              style: small?.copyWith(color: Theme.of(context).colorScheme.error),
+            ),
           ),
         if (devices.said != null)
           Padding(
@@ -243,10 +236,8 @@ class _Devices extends StatelessWidget {
           ListTile(
             key: Key('keyslot-${slot.id}'),
             dense: true,
-            leading: Icon(slot.recovery ? Icons.password : Icons.devices_outlined,
-                size: Sizes.mark),
-            title: Text(
-                devices.mine?.slot == slot.id ? '${slot.name} — this device' : slot.name),
+            leading: Icon(slot.recovery ? Icons.password : Icons.devices_outlined, size: Sizes.mark),
+            title: Text(devices.mine?.slot == slot.id ? '${slot.name} — this device' : slot.name),
             subtitle: Text(_about(slot)),
             // The way in when every device is gone, changed at the machine; revoking it from a
             // window that may have lost its devices is not offered.
@@ -269,8 +260,7 @@ class _Devices extends StatelessWidget {
     return '${storageWords(slot.storage)} Enrolled ${_day(slot.enrolled)}, $used.';
   }
 
-  static String _day(String instant) =>
-      instant.length >= 10 ? instant.substring(0, 10) : instant;
+  static String _day(String instant) => instant.length >= 10 ? instant.substring(0, 10) : instant;
 }
 
 class _Line extends StatelessWidget {
@@ -281,9 +271,9 @@ class _Line extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
-        child: Text(words, key: Key(id), style: Theme.of(context).textTheme.bodySmall),
-      );
+    padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
+    child: Text(words, key: Key(id), style: Theme.of(context).textTheme.bodySmall),
+  );
 }
 
 class _Heading extends StatelessWidget {
@@ -293,9 +283,9 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
-        child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-      );
+    padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
+    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
+  );
 }
 
 class _Field extends StatelessWidget {
@@ -306,20 +296,22 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            SizedBox(
-              width: Sizes.label,
-              child: Text(name, style: Theme.of(context).textTheme.bodySmall),
-            ),
-            Expanded(
-              child: Text(value.isEmpty ? '—' : value,
-                  key: Key('vault-${name.toLowerCase().replaceAll(' ', '-')}'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: Sizes.label,
+          child: Text(name, style: Theme.of(context).textTheme.bodySmall),
         ),
-      );
+        Expanded(
+          child: Text(
+            value.isEmpty ? '—' : value,
+            key: Key('vault-${name.toLowerCase().replaceAll(' ', '-')}'),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
 }

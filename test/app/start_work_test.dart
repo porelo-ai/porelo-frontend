@@ -9,8 +9,13 @@ class _Older extends FakeBackend {
   _Older() : super(const <Task>[]);
 
   @override
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials}) async =>
-      throw const FeatureNotSupported('CanStart');
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) async => throw const FeatureNotSupported('CanStart');
 }
 
 /// A machine that never met github.com until a key of it is trusted, as Porelo answers from run 279.
@@ -23,19 +28,31 @@ class _NeverMetGitHub extends FakeBackend {
   }
 
   @override
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials}) async =>
-      trustedHostKeys.containsKey('github.com')
-          ? const Readiness(ready: true, outcome: StartOutcome('READY'), agent: '', provider: '', credential: '', detail: '')
-          : Readiness(
-              ready: false,
-              outcome: const StartOutcome('UNKNOWN_HOST_KEY'),
-              agent: '',
-              provider: '',
-              credential: '',
-              detail: 'this machine has never met github.com',
-              host: 'github.com',
-              hostKeys: hostsOffer['github.com']!,
-            );
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) async => trustedHostKeys.containsKey('github.com')
+      ? const Readiness(
+          ready: true,
+          outcome: StartOutcome('READY'),
+          agent: '',
+          provider: '',
+          credential: '',
+          detail: '',
+        )
+      : Readiness(
+          ready: false,
+          outcome: const StartOutcome('UNKNOWN_HOST_KEY'),
+          agent: '',
+          provider: '',
+          credential: '',
+          detail: 'this machine has never met github.com',
+          host: 'github.com',
+          hostKeys: hostsOffer['github.com']!,
+        );
 }
 
 void main() {
@@ -118,9 +135,16 @@ void main() {
   test("a suggested name never reuses one of the project's tasks, and is one a task can have", () async {
     final machine = FakeBackend(<Task>[
       // As a machine lists them: the container's name, and the name a person gave it as `task`.
-      Task.from(const <String, dynamic>{'name': 'porelo-checkout-payments-api', 'task': 'payments-api', 'project': 'checkout'}),
-      Task.from(
-          const <String, dynamic>{'name': 'porelo-checkout-payments-api-2', 'task': 'payments-api-2', 'project': 'checkout'}),
+      Task.from(const <String, dynamic>{
+        'name': 'porelo-checkout-payments-api',
+        'task': 'payments-api',
+        'project': 'checkout',
+      }),
+      Task.from(const <String, dynamic>{
+        'name': 'porelo-checkout-payments-api-2',
+        'task': 'payments-api-2',
+        'project': 'checkout',
+      }),
       Task.from(const <String, dynamic>{'name': 'porelo-another-github', 'task': 'github', 'project': 'another'}),
     ]);
     final project = Project.from(const <String, dynamic>{

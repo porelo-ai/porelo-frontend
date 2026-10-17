@@ -7,7 +7,9 @@ import 'package:xterm/xterm.dart';
 import '../app/desk.dart';
 import '../app/session.dart';
 import 'panes.dart';
+
 import 'package:guided_walk/guided_walk.dart';
+
 import 'tokens.dart';
 import 'terminal_copy.dart';
 import 'terminal_links.dart';
@@ -21,12 +23,7 @@ import 'terminal_look.dart';
 /// ends their work when they leave it is one they do not leave.
 class SessionView extends StatefulWidget {
   /// Constructor taking the session and the way out.
-  const SessionView({
-    required this.session,
-    required this.focusNode,
-    required this.onLeave,
-    super.key,
-  });
+  const SessionView({required this.session, required this.focusNode, required this.onLeave, super.key});
 
   /// The session being typed into.
   final Session session;
@@ -88,102 +85,105 @@ class _SessionViewState extends State<SessionView> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: session,
-        builder: (context, _) {
-          final over = session.state == SessionState.over;
-          final scheme = Theme.of(context).colorScheme;
+    animation: session,
+    builder: (context, _) {
+      final over = session.state == SessionState.over;
+      final scheme = Theme.of(context).colorScheme;
 
-          return Column(
-            children: <Widget>[
-              PaneHeader(
-                title: '${session.task} · ${session.machine.name}',
-                trailing: TextButton.icon(
-                  key: const Key('leave-session'),
-                  onPressed: widget.onLeave,
-                  icon: Icon(over ? Icons.arrow_back : Icons.logout, size: Sizes.rowIcon),
-                  label: Text(over ? 'Back to the work' : 'Leave'),
-                ),
+      return Column(
+        children: <Widget>[
+          PaneHeader(
+            title: '${session.task} · ${session.machine.name}',
+            trailing: TextButton.icon(
+              key: const Key('leave-session'),
+              onPressed: widget.onLeave,
+              icon: Icon(over ? Icons.arrow_back : Icons.logout, size: Sizes.rowIcon),
+              label: Text(over ? 'Back to the work' : 'Leave'),
+            ),
+          ),
+          if (session.problem != null)
+            Container(
+              width: double.infinity,
+              color: scheme.errorContainer,
+              padding: const EdgeInsets.all(Space.normal),
+              child: Text(session.problem!, key: const Key('session-problem')),
+            )
+          else if (session.state == SessionState.over)
+            Container(
+              width: double.infinity,
+              color: scheme.surfaceContainerHighest,
+              padding: const EdgeInsets.all(Space.normal),
+              child: const Text(
+                'The session has ended. The work is where you left it; going back to it…',
+                key: Key('session-over'),
               ),
-              if (session.problem != null)
-                Container(
-                  width: double.infinity,
-                  color: scheme.errorContainer,
-                  padding: const EdgeInsets.all(Space.normal),
-                  child: Text(session.problem!, key: const Key('session-problem')),
-                )
-              else if (session.state == SessionState.over)
-                Container(
-                  width: double.infinity,
-                  color: scheme.surfaceContainerHighest,
-                  padding: const EdgeInsets.all(Space.normal),
-                  child: const Text(
-                    'The session has ended. The work is where you left it; going back to it…',
-                    key: Key('session-over'),
-                  ),
-                ),
-              Expanded(
-                child: ColoredBox(
-                  color: scheme.surfaceContainerLowest,
-                  // On Windows the wheel is reported to tmux by the session itself; see
-                  // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
-                  child: Listener(
-                    onPointerSignal: desk.isWindows
-                        ? (event) {
-                            if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
-                              session.wheel(up: event.scrollDelta.dy < 0);
-                            }
-                          }
-                        : null,
-                    child: WalkSecret(child: CopiesAsShown(
+            ),
+          Expanded(
+            child: ColoredBox(
+              color: scheme.surfaceContainerLowest,
+              // On Windows the wheel is reported to tmux by the session itself; see
+              // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
+              child: Listener(
+                onPointerSignal: desk.isWindows
+                    ? (event) {
+                        if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+                          session.wheel(up: event.scrollDelta.dy < 0);
+                        }
+                      }
+                    : null,
+                child: WalkSecret(
+                  child: CopiesAsShown(
                     terminal: session.terminal,
                     controller: _selection,
                     child: TerminalView(
-                    session.terminal,
-                    key: const Key('terminal'),
-                    theme: TerminalLook.theme,
-                    controller: _selection,
-                    shortcuts: copyAsShownShortcuts,
-                    focusNode: widget.focusNode,
-                    autofocus: true,
-                    padding: const EdgeInsets.all(Space.small),
-                    // Read-only once it is over, so keys typed at a dead session do not look
-                    // like they went somewhere.
-                    readOnly: !session.live,
-                    // On Windows every key, letters included, is read from the keyboard's own
-                    // events: there the text-input path this widget uses elsewhere delivered
-                    // Enter, Backspace and the page keys and no letter at all.
-                    hardwareKeyboardOnly: desk.isWindows,
-                    textStyle: const TerminalStyle(fontSize: 13),
-                  )))),
+                      session.terminal,
+                      key: const Key('terminal'),
+                      theme: TerminalLook.theme,
+                      controller: _selection,
+                      shortcuts: copyAsShownShortcuts,
+                      focusNode: widget.focusNode,
+                      autofocus: true,
+                      padding: const EdgeInsets.all(Space.small),
+                      // Read-only once it is over, so keys typed at a dead session do not look
+                      // like they went somewhere.
+                      readOnly: !session.live,
+                      // On Windows every key, letters included, is read from the keyboard's own
+                      // events: there the text-input path this widget uses elsewhere delivered
+                      // Enter, Backspace and the page keys and no letter at all.
+                      hardwareKeyboardOnly: desk.isWindows,
+                      textStyle: const TerminalStyle(fontSize: 13),
+                    ),
+                  ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Space.normal),
-                child: TerminalLinks(session: session),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.normal),
+            child: TerminalLinks(session: session),
+          ),
+          // Said under the terminal rather than in a tooltip, because it is the one fact
+          // that decides whether somebody dares to close the window at all. Only while it runs:
+          // under a session that has ended it would say the opposite of the banner.
+          if (!over)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
+              child: Text(
+                // Two facts, and the second is the one asked for by name: coming back has to
+                // say what it can show. A figure is the honest form of that — a screen saying
+                // *as much as we have* leaves somebody to guess whether the quiet hour is
+                // missing or simply was quiet.
+                'Closing this window leaves the session running; it ends when the work does. '
+                'Coming back shows the last ${Session.scrollback} lines and no more.',
+                key: const Key('leaving-is-safe'),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              // Said under the terminal rather than in a tooltip, because it is the one fact
-              // that decides whether somebody dares to close the window at all. Only while it runs:
-              // under a session that has ended it would say the opposite of the banner.
-              if (!over)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: Space.normal, vertical: Space.tight),
-                child: Text(
-                  // Two facts, and the second is the one asked for by name: coming back has to
-                  // say what it can show. A figure is the honest form of that — a screen saying
-                  // *as much as we have* leaves somebody to guess whether the quiet hour is
-                  // missing or simply was quiet.
-                  'Closing this window leaves the session running; it ends when the work does. '
-                  'Coming back shows the last ${Session.scrollback} lines and no more.',
-                  key: const Key('leaving-is-safe'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            ],
-          );
-        },
+            ),
+        ],
       );
+    },
+  );
 }
 
 /// Which sessions are open, and which one this is.

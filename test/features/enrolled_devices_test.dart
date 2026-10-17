@@ -46,26 +46,22 @@ import './step/i_begin_revoking.dart';
 import './step/another_device_keeps_its_key.dart';
 
 void main() {
-  group(
-      '''Opening the store with an enrolled device, never with a passphrase''',
-      () {
+  group('''Opening the store with an enrolled device, never with a passphrase''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''a device that is not enrolled is offered enrolling in the machine's menu, not in the title''',
-        (tester) async {
+    testWidgets('''a device that is not enrolled is offered enrolling in the machine's menu, not in the title''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await enrollingIsOfferedInTheMachinesMenu(tester);
       await theTitleBarCarriesNoEnrolling(tester);
       await theStoresLockSays(tester, 'The vault is open. Shut it.');
     });
-    testWidgets(
-        '''enrolling keeps a key here and the machine lists this device''',
-        (tester) async {
+    testWidgets('''enrolling keeps a key here and the machine lists this device''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await itSays(tester, 'This device can open the vault now, as "laptop".');
@@ -73,12 +69,9 @@ void main() {
       await iShowTheVault(tester);
       await itSays(tester, 'laptop — this device');
       await thisDeviceKeepsTheKeyTheMachineWasGiven(tester);
-      await enrollingIsUnavailableInTheMachinesMenuBecause(
-          tester, 'enrolled already');
+      await enrollingIsUnavailableInTheMachinesMenuBecause(tester, 'enrolled already');
     });
-    testWidgets(
-        '''before a device is enrolled, it says what its key is kept in''',
-        (tester) async {
+    testWidgets('''before a device is enrolled, it says what its key is kept in''', (tester) async {
       await bddSetUp(tester);
       await iBeginEnrollingThisDevice(tester);
       await itSays(tester, 'anything running as this user can read it');
@@ -90,32 +83,25 @@ void main() {
       await iShowTheVault(tester);
       await theKeyThisDeviceKeepsIsNowhereOnScreen(tester);
     });
-    testWidgets(
-        '''a key kept for a slot the machine no longer has is not taken for an enrollment''',
-        (tester) async {
+    testWidgets('''a key kept for a slot the machine no longer has is not taken for an enrollment''', (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await thisDeviceKeepsAKeyTheMachineNoLongerHasASlotFor(tester);
-      await theStoresLockSays(tester,
-          'Shut. Open it with its passphrase, in a terminal on the machine');
-      await enrollingIsUnavailableInTheMachinesMenuBecause(
-          tester, 'the vault is shut');
+      await theStoresLockSays(tester, 'Shut. Open it with its passphrase, in a terminal on the machine');
+      await enrollingIsUnavailableInTheMachinesMenuBecause(tester, 'the vault is shut');
     });
-    testWidgets(
-        '''a shut store and a device that is not enrolled say where it is opened instead''',
-        (tester) async {
+    testWidgets('''a shut store and a device that is not enrolled say where it is opened instead''', (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await theMachineIsASocketSomebodyElseForwards(tester);
-      await theStoresLockSays(tester,
-          'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.');
+      await theStoresLockSays(
+        tester,
+        'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.',
+      );
       await theStoresLockDoesNothing(tester);
-      await enrollingIsUnavailableInTheMachinesMenuBecause(
-          tester, 'the vault is shut');
+      await enrollingIsUnavailableInTheMachinesMenuBecause(tester, 'the vault is shut');
     });
-    testWidgets(
-        '''opening it asks how long, and chooses nothing for the person''',
-        (tester) async {
+    testWidgets('''opening it asks how long, and chooses nothing for the person''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
@@ -124,9 +110,7 @@ void main() {
       await iBeginOpeningTheStoreWithThisDevice(tester);
       await itCannotBeOpenedUntilALengthIsChosen(tester);
     });
-    testWidgets(
-        '''opening it for an hour asks the machine for sixty minutes, and it is open''',
-        (tester) async {
+    testWidgets('''opening it for an hour asks the machine for sixty minutes, and it is open''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
@@ -138,8 +122,7 @@ void main() {
       await iCloseTheAnswer(tester);
       await theStoresLockSays(tester, 'The vault is open. Shut it.');
     });
-    testWidgets('''opening it until it is shut asks for no bound''',
-        (tester) async {
+    testWidgets('''opening it until it is shut asks for no bound''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
@@ -158,9 +141,7 @@ void main() {
       await itSays(tester, '"old phone" can no longer open the vault.');
       await thisDeviceKeepsTheKeyTheMachineWasGiven(tester);
     });
-    testWidgets(
-        '''revoking this device forgets its key here, and enrolling is offered again''',
-        (tester) async {
+    testWidgets('''revoking this device forgets its key here, and enrolling is offered again''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
@@ -169,22 +150,17 @@ void main() {
       await thisDeviceKeepsNoKeyForTheMachine(tester);
       await enrollingIsOfferedInTheMachinesMenu(tester);
     });
-    testWidgets(
-        '''the recovery passphrase is listed and cannot be revoked from here''',
-        (tester) async {
+    testWidgets('''the recovery passphrase is listed and cannot be revoked from here''', (tester) async {
       await bddSetUp(tester);
       await iShowTheVault(tester);
       await itSays(tester, 'The passphrase, used at the machine.');
       await theRecoveryPassphraseCannotBeRevokedFromHere(tester);
     });
-    testWidgets(
-        '''a machine whose Porelo predates devices has the lock, and says why not enrolling''',
-        (tester) async {
+    testWidgets('''a machine whose Porelo predates devices has the lock, and says why not enrolling''', (tester) async {
       await bddSetUp(tester);
       await theMachineCannotEnrollDevicesYet(tester);
       await theStoresLockSays(tester, 'The vault is open. Shut it.');
-      await enrollingIsUnavailableInTheMachinesMenuBecause(
-          tester, 'cannot enroll devices yet');
+      await enrollingIsUnavailableInTheMachinesMenuBecause(tester, 'cannot enroll devices yet');
       await iShowTheVault(tester);
       await itSays(tester, 'that arrives with a later Porelo');
     });
@@ -194,49 +170,44 @@ void main() {
       await iShutTheStoreFromTheMachinesMenu(tester);
       await itSays(tester, 'The vault is shut.');
       await iCloseTheAnswer(tester);
-      await theStoresLockSays(tester,
-          'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.');
+      await theStoresLockSays(
+        tester,
+        'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.',
+      );
     });
-    testWidgets(
-        '''a key the machine already took is said as enrolled already, and makes no second slot''',
-        (tester) async {
+    testWidgets('''a key the machine already took is said as enrolled already, and makes no second slot''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theKeyOfThisDeviceReachedTheMachineAsAndItsAnswerDidNot(
-          tester, 'desk');
+      await theKeyOfThisDeviceReachedTheMachineAsAndItsAnswerDidNot(tester, 'desk');
       await iEnrollThisDeviceAs(tester, 'laptop');
       await itSays(tester, 'This device was enrolled already, as "desk".');
       await theMachineHoldsDevices(tester, 1);
     });
-    testWidgets(
-        '''a keystore that refuses is said as that, and nothing is sent''',
-        (tester) async {
+    testWidgets('''a keystore that refuses is said as that, and nothing is sent''', (tester) async {
       await bddSetUp(tester);
-      await theKeystoreOfThisDeviceRefusesWith(
-          tester, 'no Secret Service is running');
+      await theKeystoreOfThisDeviceRefusesWith(tester, 'no Secret Service is running');
       await iEnrollThisDeviceAs(tester, 'laptop');
       await itSays(tester, 'keystore refused (no Secret Service is running)');
       await noKeyWasSentToTheMachine(tester);
     });
-    testWidgets('''a machine that refuses the enrollment leaves no key here''',
-        (tester) async {
+    testWidgets('''a machine that refuses the enrollment leaves no key here''', (tester) async {
       await bddSetUp(tester);
       await theMachineRefusesEnrollingWith(tester, 'VAULT_WITHOUT_KEYSLOTS');
       await iEnrollThisDeviceAs(tester, 'laptop');
       await itSays(tester, 'This machine has no vault that devices can open.');
       await thisDeviceKeepsNoKeyForTheMachine(tester);
     });
-    testWidgets(
-        '''a connection lost while enrolling keeps the key, for the same key to be sent again''',
-        (tester) async {
+    testWidgets('''a connection lost while enrolling keeps the key, for the same key to be sent again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theConnectionGoesWhileEnrolling(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await itSays(tester, 'Lost contact with the machine');
       await thisDeviceKeepsAKeyForTheMachine(tester);
     });
-    testWidgets(
-        '''a device whose slot was taken away elsewhere is told so when it opens the store''',
-        (tester) async {
+    testWidgets('''a device whose slot was taken away elsewhere is told so when it opens the store''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
@@ -246,9 +217,9 @@ void main() {
       await iOpenTheStoreWithThisDevice(tester, 'for an hour');
       await itSays(tester, 'it was revoked, or never enrolled on this machine');
     });
-    testWidgets(
-        '''the list says of each device when it was enrolled and when it last opened the store''',
-        (tester) async {
+    testWidgets('''the list says of each device when it was enrolled and when it last opened the store''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await anotherDeviceCanOpenTheStore(tester, 'old phone');
       await iEnrollThisDeviceAs(tester, 'laptop');
@@ -257,43 +228,36 @@ void main() {
       await itSays(tester, 'Enrolled 2026-09-10, last used 2026-09-17.');
       await itSays(tester, 'Enrolled 2026-09-18, not used yet.');
     });
-    testWidgets(
-        '''revoking this device says before it is done that this device will not open the store''',
-        (tester) async {
+    testWidgets('''revoking this device says before it is done that this device will not open the store''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
       await iShowTheVault(tester);
       await iBeginRevoking(tester, 'laptop');
-      await itSays(tester,
-          'This device will no longer open the vault, and forgets its key.');
+      await itSays(tester, 'This device will no longer open the vault, and forgets its key.');
     });
-    testWidgets('''revoking another device names it before it is done''',
-        (tester) async {
+    testWidgets('''revoking another device names it before it is done''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceCanOpenTheStore(tester, 'old phone');
       await iShowTheVault(tester);
       await iBeginRevoking(tester, 'old phone');
       await itSays(tester, '"old phone" will no longer open the vault.');
     });
-    testWidgets(
-        '''a key kept in a keyring that opens at login is said to be readable by this user''',
-        (tester) async {
+    testWidgets('''a key kept in a keyring that opens at login is said to be readable by this user''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceKeepsItsKey(tester, 'desk', 'USER_SCOPED');
       await iShowTheVault(tester);
-      await itSays(tester,
-          'Kept in a keyring that opens at login: anything running as this user can read it.');
+      await itSays(tester, 'Kept in a keyring that opens at login: anything running as this user can read it.');
     });
-    testWidgets('''a key only its application can read is said as that''',
-        (tester) async {
+    testWidgets('''a key only its application can read is said as that''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceKeepsItsKey(tester, 'phone', 'APPLICATION_SCOPED');
       await iShowTheVault(tester);
       await itSays(tester, 'Kept where only this application can read it.');
     });
-    testWidgets('''a key released by a security key is said as that''',
-        (tester) async {
+    testWidgets('''a key released by a security key is said as that''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceKeepsItsKey(tester, 'token', 'FIDO2');
       await iShowTheVault(tester);
@@ -305,32 +269,25 @@ void main() {
       await iShowTheVault(tester);
       await itSays(tester, 'Released only with a PIN, by this machine');
     });
-    testWidgets(
-        '''a way of keeping a key this build does not know claims nothing''',
-        (tester) async {
+    testWidgets('''a way of keeping a key this build does not know claims nothing''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceKeepsItsKey(tester, 'future', 'ENCLAVE');
       await iShowTheVault(tester);
-      await itSays(tester,
-          'Kept in a way this build cannot describe, so nothing is claimed for it.');
+      await itSays(tester, 'Kept in a way this build cannot describe, so nothing is claimed for it.');
     });
-    testWidgets('''the answer to enrolling says what the machine recorded''',
-        (tester) async {
+    testWidgets('''the answer to enrolling says what the machine recorded''', (tester) async {
       await bddSetUp(tester);
       await iEnrollThisDeviceAs(tester, 'laptop');
-      await itSays(
-          tester, 'Recorded as slot-1. Kept in a keyring that opens at login');
+      await itSays(tester, 'Recorded as slot-1. Kept in a keyring that opens at login');
     });
-    testWidgets('''the answer to revoking says what can still open the store''',
-        (tester) async {
+    testWidgets('''the answer to revoking says what can still open the store''', (tester) async {
       await bddSetUp(tester);
       await anotherDeviceCanOpenTheStore(tester, 'old phone');
       await iEnrollThisDeviceAs(tester, 'laptop');
       await iCloseTheAnswer(tester);
       await iShowTheVault(tester);
       await iRevoke(tester, 'old phone');
-      await itSays(tester,
-          'Still able to open it: "laptop" and the passphrase, at the machine.');
+      await itSays(tester, 'Still able to open it: "laptop" and the passphrase, at the machine.');
     });
   });
 }

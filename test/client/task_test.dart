@@ -9,14 +9,14 @@ import 'package:porelo_frontend/client.dart';
 /// pointing the other way, went to build it, and withdrew it for exactly that reason.
 void main() {
   Task taskWith(Map<String, dynamic> fields) => Task.from(<String, dynamic>{
-        'name': 'porelo-checkout-migrate',
-        'project': 'checkout',
-        'securityClass': 'guarded',
-        'state': 'Exited (0) 12 minutes ago',
-        'running': false,
-        'helpers': 0,
-        ...fields,
-      });
+    'name': 'porelo-checkout-migrate',
+    'project': 'checkout',
+    'securityClass': 'guarded',
+    'state': 'Exited (0) 12 minutes ago',
+    'running': false,
+    'helpers': 0,
+    ...fields,
+  });
 
   test('a task whose own ref is waiting says so', () {
     final task = taskWith(<String, dynamic>{'waiting': 1});
@@ -35,10 +35,7 @@ void main() {
   test('an online task is told apart from a gated one with nothing waiting', () {
     // The contract's own words: zero here is not a smaller number, it is a question the class
     // does not have. Saying "nothing of its own is waiting" would imply something could be.
-    final task = taskWith(<String, dynamic>{
-      'securityClass': 'online',
-      'waiting': 0,
-    });
+    final task = taskWith(<String, dynamic>{'securityClass': 'online', 'waiting': 0});
 
     expect(task.atTheGate, 'nothing is reviewed in an online project');
   });

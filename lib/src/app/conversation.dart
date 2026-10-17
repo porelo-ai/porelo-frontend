@@ -56,17 +56,17 @@ class ProjectConversation extends ChangeNotifier {
 
   /// Asks who has joined.
   Future<void> load() => _asking(() async {
-        members = await _backend.messageMembers(project.name);
-      });
+    members = await _backend.messageMembers(project.name);
+  });
 
   /// Lets [person] in, or gives their account a new password with [reset].
   Future<void> join(String person, {bool reset = false}) => _asking(() async {
-        alreadyJoined = null;
-        final answer = await _backend.joinMessages(project.name, person, reset: reset);
-        joined = answer;
-        members = await _backend.messageMembers(project.name);
-        await _forwardTheHomeserver(answer);
-      });
+    alreadyJoined = null;
+    final answer = await _backend.joinMessages(project.name, person, reset: reset);
+    joined = answer;
+    members = await _backend.messageMembers(project.name);
+    await _forwardTheHomeserver(answer);
+  });
 
   /// Where the homeserver is the machine's own loopback, a client on this computer reaches it only
   /// through a forward of the same port, held while this is open.
@@ -111,10 +111,12 @@ class ProjectConversation extends ChangeNotifier {
       switch (refusal.simpleName) {
         case 'MemberExists':
           alreadyJoined = '${said['person'] ?? ''}';
-          problem = '${said['person'] ?? 'They'} has joined already, as ${said['user'] ?? 'an account'}. '
+          problem =
+              '${said['person'] ?? 'They'} has joined already, as ${said['user'] ?? 'an account'}. '
               'A new password can be given; the one they have stops working.';
         case 'NoConversation':
-          problem = '${project.name} has no conversation: none of its peers is reached through a transport '
+          problem =
+              '${project.name} has no conversation: none of its peers is reached through a transport '
               'of its own.';
         case 'ConversationRefused':
           problem = 'The transport refused it: ${said['message'] ?? ''}';

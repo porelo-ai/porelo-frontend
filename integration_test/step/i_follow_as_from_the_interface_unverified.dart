@@ -17,11 +17,12 @@ Future<void> iFollowAsFromTheInterfaceUnverified(WidgetTester tester, String url
   await tester.ensureVisible(find.byKey(const Key('follow-it')));
   await tester.tap(find.byKey(const Key('follow-it')));
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('follow-says')).evaluate().isNotEmpty ||
-          find.byKey(const Key('follow-check-says')).evaluate().isNotEmpty ||
-          find.byKey(const Key('follow-problem')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 60),
-      what: 'the machine to answer the follow');
+    tester,
+    () =>
+        find.byKey(const Key('follow-says')).evaluate().isNotEmpty ||
+        find.byKey(const Key('follow-check-says')).evaluate().isNotEmpty ||
+        find.byKey(const Key('follow-problem')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 60),
+    what: 'the machine to answer the follow',
+  );
 }

@@ -14,11 +14,16 @@ issue's *Open questions*; what an agent finds out itself stands under *To be che
 counted. A finished issue's file is deleted once what outlives it is in `doc/` or `AGENTS.md`;
 its row stays under *Finished*, with one sentence of what was built; decisions are in [doc/decisions.md](../doc/decisions.md).
 
+### Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f124"></a>[F124](F124-The-Dart-Code-In-One-Format.md) | S | — | The Dart code in one format, `dart format` checked in the build. |
+
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f124"></a>[F124](F124-The-Dart-Code-In-One-Format.md) | S | `porelo-parent` `0.2.1-SNAPSHOT` with the shared `.editorconfig` | The Dart code in one format, `dart format` checked in the build. |
 | <a id="f125"></a>[F125](F125-The-Client-And-The-App-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the client and the app, fixed with a test each. |
 | <a id="f126"></a>[F126](F126-The-Frame-The-Tools-And-The-Workflows-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the frame, the tools and the workflows, fixed; the colours in the tokens. |
 | <a id="f127"></a>[F127](F127-The-Tests-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the tests, fixed; a red run leaves the test machine clean. |

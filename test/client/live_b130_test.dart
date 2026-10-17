@@ -24,34 +24,38 @@ void main() {
   final earlierRepository = Platform.environment['PORELO_EARLIER_REPOSITORY'] ?? '';
   final earlierTask = Platform.environment['PORELO_EARLIER_TASK'] ?? '';
 
-  test('a new task whose earlier work waits is refused in words, naming that work', () async {
-    final backend = PoreloBackend(Backend(socketPath: socket, label: 'live'));
-    await backend.open();
-    Object? refused;
-    try {
-      // A shell with a named agent, as new work is started from the interface: with several agents
-      // installed one has to be named, and a shell needs no credential, so neither refuses first.
-      await backend
-          .startTask(
+  test(
+    'a new task whose earlier work waits is refused in words, naming that work',
+    () async {
+      final backend = PoreloBackend(Backend(socketPath: socket, label: 'live'));
+      await backend.open();
+      Object? refused;
+      try {
+        // A shell with a named agent, as new work is started from the interface: with several agents
+        // installed one has to be named, and a shell needs no credential, so neither refuses first.
+        await backend
+            .startTask(
               task: earlierTask,
               project: earlierProject,
               repository: earlierRepository,
               agent: Platform.environment['PORELO_EARLIER_AGENT'],
-              mode: Mode.shell)
-          .drain<void>();
-    } on Object catch (error) {
-      refused = error;
-    }
+              mode: Mode.shell,
+            )
+            .drain<void>();
+      } on Object catch (error) {
+        refused = error;
+      }
 
-    // ignore: avoid_print
-    print(refused);
-    expect(refused, isA<EarlierWorkWaits>());
-    expect('$refused', contains('$earlierTask was not started: its earlier work'));
-    expect('$refused', contains('still waits at the gate'));
-  },
-      skip: socket.isEmpty || earlierProject.isEmpty || earlierRepository.isEmpty || earlierTask.isEmpty
-          ? 'needs PORELO_SOCKET, PORELO_EARLIER_PROJECT, PORELO_EARLIER_REPOSITORY and PORELO_EARLIER_TASK'
-          : null);
+      // ignore: avoid_print
+      print(refused);
+      expect(refused, isA<EarlierWorkWaits>());
+      expect('$refused', contains('$earlierTask was not started: its earlier work'));
+      expect('$refused', contains('still waits at the gate'));
+    },
+    skip: socket.isEmpty || earlierProject.isEmpty || earlierRepository.isEmpty || earlierTask.isEmpty
+        ? 'needs PORELO_SOCKET, PORELO_EARLIER_PROJECT, PORELO_EARLIER_REPOSITORY and PORELO_EARLIER_TASK'
+        : null,
+  );
 
   final project = Platform.environment['PORELO_TAKEN_PROJECT'] ?? '';
   final name = Platform.environment['PORELO_TAKEN_PUSH'] ?? '';

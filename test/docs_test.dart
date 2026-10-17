@@ -16,10 +16,7 @@ void main() {
     for (final file in Directory('.').listSync().whereType<File>())
       if (file.path.endsWith('.md') && !file.uri.pathSegments.last.startsWith('.')) file,
     for (final root in <String>['doc', 'issues'])
-      ...Directory(root)
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.md')),
+      ...Directory(root).listSync(recursive: true).whereType<File>().where((file) => file.path.endsWith('.md')),
   ];
 
   test('the docs and the issues were found at all', () {
@@ -45,15 +42,18 @@ void main() {
 
     test('every decision has a row and every row a decision, in the same order', () {
       expect(sections, isNotEmpty);
-      expect(rows, hasLength(sections.length),
-          reason: 'the table and the document disagree on how many decisions there are');
+      expect(
+        rows,
+        hasLength(sections.length),
+        reason: 'the table and the document disagree on how many decisions there are',
+      );
       for (final (index, section) in sections.indexed) {
-        final anchor = section
-            .toLowerCase()
-            .replaceAll(RegExp(r'[^a-z0-9 _-]'), '')
-            .replaceAll(' ', '-');
-        expect(rows[index], contains('(#$anchor)'),
-            reason: 'the link in row ${index + 1} does not reach section ${index + 1}, "$section"');
+        final anchor = section.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 _-]'), '').replaceAll(' ', '-');
+        expect(
+          rows[index],
+          contains('(#$anchor)'),
+          reason: 'the link in row ${index + 1} does not reach section ${index + 1}, "$section"',
+        );
       }
     });
 

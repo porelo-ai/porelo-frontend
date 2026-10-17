@@ -64,46 +64,35 @@ void main() {
       await iGoToWhatNeedsAPerson(tester);
     }
 
-    testWidgets(
-        '''what needs a person is one step from the work the window opens on''',
-        (tester) async {
+    testWidgets('''what needs a person is one step from the work the window opens on''', (tester) async {
       await bddSetUp(tester);
       await theViewShownIsWhatNeedsAPerson(tester);
     });
-    testWidgets('''work that needs nobody is not on what needs a person''',
-        (tester) async {
+    testWidgets('''work that needs nobody is not on what needs a person''', (tester) async {
       await bddSetUp(tester);
       await theFirstTileIs(tester, 'porelo-checkout-migrate');
       await noTileIsShownFor(tester, 'porelo-billing-shell');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''a question waiting for an answer is above work that is merely running''',
-        (tester) async {
+    testWidgets('''a question waiting for an answer is above work that is merely running''', (tester) async {
       await bddSetUp(tester);
       await otherWorkIsBlockedReaching(tester, 'files.example.test:22');
       await theFirstTileIs(tester, 'porelo-billing-shell');
     });
-    testWidgets(
-        '''a question says how long it has been blocked, not a deadline nobody sent''',
-        (tester) async {
+    testWidgets('''a question says how long it has been blocked, not a deadline nobody sent''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await theTileSays(tester, 'porelo-checkout-shell', 'blocked for');
       await theTileSays(tester, 'porelo-checkout-shell', 'does not say when');
     });
-    testWidgets(
-        '''a question is answered from its tile, without leaving the view''',
-        (tester) async {
+    testWidgets('''a question is answered from its tile, without leaving the view''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iLetItThroughFromItsTile(tester);
       await theAnswerSentWas(tester, 'allow');
       await theViewShownIsWhatNeedsAPerson(tester);
     });
-    testWidgets(
-        '''a question let through stays with its answer until it is put away''',
-        (tester) async {
+    testWidgets('''a question let through stays with its answer until it is put away''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iLetItThroughFromItsTile(tester);
@@ -112,9 +101,7 @@ void main() {
       await iPutAwayWhatTheTileSays(tester, 'porelo-checkout-shell');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''a question that ran out stays, saying so, until it is put away''',
-        (tester) async {
+    testWidgets('''a question that ran out stays, saying so, until it is put away''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await theQuestionRunsOut(tester);
@@ -122,18 +109,13 @@ void main() {
       await iPutAwayWhatTheTileSays(tester, 'porelo-checkout-shell');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''a question on another machine is in the same list, with its machine on it''',
-        (tester) async {
+    testWidgets('''a question on another machine is in the same list, with its machine on it''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
-      await workOnIsBlockedReaching(
-          tester, 'elsewhere', 'api.example.test:443');
+      await workOnIsBlockedReaching(tester, 'elsewhere', 'api.example.test:443');
       await theTileSays(tester, 'porelo-shared-shell', 'elsewhere');
     });
-    testWidgets(
-        '''a machine that cannot be reached says so above the tiles, not as one''',
-        (tester) async {
+    testWidgets('''a machine that cannot be reached says so above the tiles, not as one''', (tester) async {
       await bddSetUp(tester);
       await theTunnelDrops(tester);
       await aMachineNoticeSays(tester, 'cannot be reached');
@@ -141,9 +123,7 @@ void main() {
       await enoughTimePassesForAnotherTry(tester);
       await noMachineNoticeSays(tester, 'cannot be reached');
     });
-    testWidgets(
-        '''this computer, with no Porelo installed, is not said to be unreachable''',
-        (tester) async {
+    testWidgets('''this computer, with no Porelo installed, is not said to be unreachable''', (tester) async {
       await bddSetUp(tester);
       await poreloIsNotInstalledOnThisComputer(tester);
       await theTunnelDrops(tester);
@@ -151,103 +131,75 @@ void main() {
       await enoughTimePassesForAnotherTry(tester);
       await noMachineNoticeSays(tester, 'cannot be reached');
     });
-    testWidgets('''the keyboard works the moment the window opens''',
-        (tester) async {
+    testWidgets('''the keyboard works the moment the window opens''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheCommandFinder(tester);
       await theCommandFinderIsOpen(tester);
     });
-    testWidgets('''one node reached two ways asks each question once''',
-        (tester) async {
+    testWidgets('''one node reached two ways asks each question once''', (tester) async {
       await bddSetUp(tester);
       await theMachineIsTheSameNode(tester, 'elsewhere');
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await theSameQuestionArrivesThroughBoth(tester);
       await tileAsksToReach(tester, 1, 'api.example.test');
     });
-    testWidgets(
-        '''a finished run is continued from its tile, without going to its project''',
-        (tester) async {
+    testWidgets('''a finished run is continued from its tile, without going to its project''', (tester) async {
       await bddSetUp(tester);
-      await iChooseFromTheMenuOfTheTile(tester,
-          'Continue this work with a new prompt', 'porelo-checkout-migrate');
+      await iChooseFromTheMenuOfTheTile(tester, 'Continue this work with a new prompt', 'porelo-checkout-migrate');
       await whatToAskItSays(tester, 'Fix the rounding in Money.pennies');
     });
-    testWidgets(
-        '''work waiting at the gate is reviewed from its tile, over the view''',
-        (tester) async {
+    testWidgets('''work waiting at the gate is reviewed from its tile, over the view''', (tester) async {
       await bddSetUp(tester);
       await iReviewTheWorkFromItsTile(tester, 'porelo-checkout-migrate');
       await iOpenTheWaitingPush(tester);
       await theReviewShowsTheFile(tester, 'lib/money.dart');
     });
-    testWidgets('''a question with a deadline says how long is left''',
-        (tester) async {
+    testWidgets('''a question with a deadline says how long is left''', (tester) async {
       await bddSetUp(tester);
-      await workIsBlockedReachingWithMinutesLeft(
-          tester, 'api.example.test:443', 3);
+      await workIsBlockedReachingWithMinutesLeft(tester, 'api.example.test:443', 3);
       await theTileSays(tester, 'porelo-checkout-shell', '3 minutes left');
     });
-    testWidgets(
-        '''a question that never runs out says so, rather than counting down''',
-        (tester) async {
+    testWidgets('''a question that never runs out says so, rather than counting down''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReachingWithNoDeadline(tester, 'api.example.test:443');
       await theTileSays(tester, 'porelo-checkout-shell', 'does not run out');
     });
-    testWidgets(
-        '''a question past its deadline says its time is up, not how long is left''',
-        (tester) async {
+    testWidgets('''a question past its deadline says its time is up, not how long is left''', (tester) async {
       await bddSetUp(tester);
-      await workIsBlockedReachingPastItsDeadline(
-          tester, 'api.example.test:443');
+      await workIsBlockedReachingPastItsDeadline(tester, 'api.example.test:443');
       await theTileSays(tester, 'porelo-checkout-shell', 'out of time');
       await theTileDoesNotSay(tester, 'porelo-checkout-shell', 'left');
     });
-    testWidgets('''the question nearest its deadline comes first''',
-        (tester) async {
+    testWidgets('''the question nearest its deadline comes first''', (tester) async {
       await bddSetUp(tester);
-      await workIsBlockedReachingWithMinutesLeft(
-          tester, 'api.example.test:443', 2);
-      await otherWorkIsBlockedReachingWithMinutesLeft(
-          tester, 'files.example.test:22', 10);
+      await workIsBlockedReachingWithMinutesLeft(tester, 'api.example.test:443', 2);
+      await otherWorkIsBlockedReachingWithMinutesLeft(tester, 'files.example.test:22', 10);
       await theFirstTileIs(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''work reached through a forwarded socket offers no session, and says why''',
-        (tester) async {
+    testWidgets('''work reached through a forwarded socket offers no session, and says why''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
-      await workOnIsBlockedReaching(
-          tester, 'elsewhere', 'api.example.test:443');
+      await workOnIsBlockedReaching(tester, 'elsewhere', 'api.example.test:443');
       await iOpenTheMenuOfTheTile(tester, 'porelo-shared-shell');
-      await theMenuOffersAsUnavailableBecause(
-          tester, 'Work in it by hand', 'forwarded');
+      await theMenuOffersAsUnavailableBecause(tester, 'Work in it by hand', 'forwarded');
     });
-    testWidgets('''stopping from another machine's tile stops it there''',
-        (tester) async {
+    testWidgets('''stopping from another machine's tile stops it there''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
-      await workOnIsBlockedReaching(
-          tester, 'elsewhere', 'api.example.test:443');
-      await iChooseFromTheMenuOfTheTile(
-          tester, 'Stop it, keeping its workspace', 'porelo-shared-shell');
+      await workOnIsBlockedReaching(tester, 'elsewhere', 'api.example.test:443');
+      await iChooseFromTheMenuOfTheTile(tester, 'Stop it, keeping its workspace', 'porelo-shared-shell');
       await wasStoppedOnTheMachine(tester, 'porelo-shared-shell', 'elsewhere');
       await nothingWasStoppedOnThisMachine(tester);
     });
-    testWidgets('''every tile is headed by the machine its work is on''',
-        (tester) async {
+    testWidgets('''every tile is headed by the machine its work is on''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await workIsBlockedReaching(tester, 'api.example.test:443');
-      await workOnIsBlockedReaching(
-          tester, 'elsewhere', 'files.example.test:22');
+      await workOnIsBlockedReaching(tester, 'elsewhere', 'files.example.test:22');
       await theTileIsHeaded(tester, 'porelo-shared-shell', 'elsewhere');
       await theTileIsHeaded(tester, 'porelo-checkout-shell', 'this machine');
     });
-    testWidgets(
-        '''a silent machine can be marked as seen, until it has answered again''',
-        (tester) async {
+    testWidgets('''a silent machine can be marked as seen, until it has answered again''', (tester) async {
       await bddSetUp(tester);
       await theTunnelDrops(tester);
       await iMarkTheNoticeAboutAsSeen(tester, 'this machine');
@@ -259,26 +211,19 @@ void main() {
       await enoughTimePassesForAnotherTry(tester);
       await noMachineNoticeSays(tester, 'cannot be reached');
     });
-    testWidgets(
-        '''questions a machine dropped unseen are said, until marked seen''',
-        (tester) async {
+    testWidgets('''questions a machine dropped unseen are said, until marked seen''', (tester) async {
       await bddSetUp(tester);
       await theMachineDroppedQuestionsUnseen(tester, 2);
-      await itSays(tester,
-          'dropped 2 questions about a blocked connection before it was seen');
+      await itSays(tester, 'dropped 2 questions about a blocked connection before it was seen');
       await itSays(tester, 'A dropped question is not asked again');
       await iMarkTheDroppedQuestionsSeen(tester);
       await itDoesNotSay(tester, 'dropped 2 questions');
     });
-    testWidgets(
-        '''work whose agent was refused by its provider needs you, in the provider's words''',
-        (tester) async {
+    testWidgets('''work whose agent was refused by its provider needs you, in the provider's words''', (tester) async {
       await bddSetUp(tester);
-      await theAgentOfEndedWithTheProviders(tester, 'porelo-checkout-shell',
-          402, 'This request requires more credits');
+      await theAgentOfEndedWithTheProviders(tester, 'porelo-checkout-shell', 402, 'This request requires more credits');
       await theFirstTileIs(tester, 'porelo-checkout-shell');
-      await itSays(tester,
-          'The provider refused it: no credits left (402): This request requires more credits');
+      await itSays(tester, 'The provider refused it: no credits left (402): This request requires more credits');
       await itDoesNotSay(tester, 'Working');
     });
     testWidgets('''work whose agent finished needs nobody''', (tester) async {
@@ -286,15 +231,17 @@ void main() {
       await theAgentOfFinished(tester, 'porelo-checkout-shell');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''messages that wait because the vault is locked are said, with the projects they hold up''',
-        (tester) async {
+    testWidgets('''messages that wait because the vault is locked are said, with the projects they hold up''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theMessagesOfWaitBecause(tester, 'checkout',
-          'messages wait: the vault is locked, so no conversation can be read or written: porelo vault unlock lets them go on');
+      await theMessagesOfWaitBecause(
+        tester,
+        'checkout',
+        'messages wait: the vault is locked, so no conversation can be read or written: porelo vault unlock lets them go on',
+      );
       await itSays(tester, 'Messages wait on');
-      await itSays(tester,
-          'the vault is locked, so no conversation can be read or written');
+      await itSays(tester, 'the vault is locked, so no conversation can be read or written');
       await itSays(tester, 'Held up: checkout');
     });
   });

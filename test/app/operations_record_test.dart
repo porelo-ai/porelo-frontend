@@ -21,17 +21,16 @@ void main() {
   Operations over(OperationsStore store, {DateTime? now}) =>
       Operations(store: store, now: () => now ?? today, saveDelay: Duration.zero);
 
-  Map<String, Object?> stored(String id, DateTime startedAt, {String state = 'succeeded'}) =>
-      <String, Object?>{
-        'id': id,
-        'title': 'Build the environment for checkout',
-        'machine': 'this machine',
-        'startedAt': startedAt.toUtc().toIso8601String(),
-        'state': state,
-        'summary': 'Finished.',
-        'seen': false,
-        'output': <String>['one line'],
-      };
+  Map<String, Object?> stored(String id, DateTime startedAt, {String state = 'succeeded'}) => <String, Object?>{
+    'id': id,
+    'title': 'Build the environment for checkout',
+    'machine': 'this machine',
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'state': state,
+    'summary': 'Finished.',
+    'seen': false,
+    'output': <String>['one line'],
+  };
 
   test('what was run comes back after a restart, marked as earlier, with what it printed', () async {
     final store = MemoryOperationsStore();

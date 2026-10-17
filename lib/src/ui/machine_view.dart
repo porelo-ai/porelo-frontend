@@ -43,8 +43,10 @@ class _HighlightState extends State<Highlight> {
   /// Scrolled to once, when it is marked: what the finder went to is on screen, wherever it is on a
   /// long page (walk 9: a project's points pushed its start below the fold).
   void _bringIntoView() => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(Scrollable.ensureVisible(context, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd));
-      });
+    if (mounted) {
+      unawaited(Scrollable.ensureVisible(context, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd));
+    }
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +56,7 @@ class _HighlightState extends State<Highlight> {
       child: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          border: Border.all(
-            color: Theme.of(context).colorScheme.tertiary,
-            width: Sizes.highlightBorder,
-          ),
+          border: Border.all(color: Theme.of(context).colorScheme.tertiary, width: Sizes.highlightBorder),
           borderRadius: BorderRadius.circular(Radii.medium),
         ),
         child: widget.child,
@@ -117,17 +116,9 @@ class MachineTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final info = fleet.info;
-    final where = <String>[
-      machine.where,
-      if (info != null) '${info.product} ${info.version}',
-    ].join('  ·  ');
+    final where = <String>[machine.where, if (info != null) '${info.product} ${info.version}'].join('  ·  ');
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        Space.normal,
-        Space.small,
-        Space.small,
-        Space.small,
-      ),
+      padding: const EdgeInsets.fromLTRB(Space.normal, Space.small, Space.small, Space.small),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: theme.dividerColor)),
       ),
@@ -140,9 +131,7 @@ class MachineTitle extends StatelessWidget {
               machine.name,
               key: const Key('machine-title'),
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: Space.normal),
@@ -157,9 +146,7 @@ class MachineTitle extends StatelessWidget {
           ?vault,
           Highlight(
             active: highlight == 'machine.panic',
-            child: EmergencyStopButton(
-              onPressed: fleet.reachability == Reachability.connected ? onStop : null,
-            ),
+            child: EmergencyStopButton(onPressed: fleet.reachability == Reachability.connected ? onStop : null),
           ),
           CommandMenu(
             key: const Key('machine-menu'),
@@ -209,9 +196,7 @@ class StartTile extends StatelessWidget {
           key: const Key('start-work'),
           autofocus: highlighted,
           style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(Radii.medium),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.medium)),
           ),
           onPressed: unavailable == null ? onStart : null,
           // Said, not only shown: a bare plus beside "Add or remove a repository" read as a second

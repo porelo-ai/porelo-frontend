@@ -55,16 +55,13 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''what is on the machine is answered before anything is selected''',
-        (tester) async {
+    testWidgets('''what is on the machine is answered before anything is selected''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsListed(tester, 'checkout');
       await theProjectIsListed(tester, 'billing');
       await theStatusLineMentions(tester, 'Connected');
     });
-    testWidgets('''a project and its work are each one selection away''',
-        (tester) async {
+    testWidgets('''a project and its work are each one selection away''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await theWorkIsListed(tester, 'porelo-checkout-shell');
@@ -72,17 +69,13 @@ void main() {
       await iOpenTheSelection(tester);
       await theDetailForIsShown(tester, 'porelo-checkout-shell');
     });
-    testWidgets(
-        '''the frame is worked from the keyboard with no pointer at all''',
-        (tester) async {
+    testWidgets('''the frame is worked from the keyboard with no pointer at all''', (tester) async {
       await bddSetUp(tester);
       await iMoveTheKeyboardToTheProject(tester, 'billing');
       await iPressEnter(tester);
       await theProjectIsSelected(tester, 'billing');
     });
-    testWidgets(
-        '''closing a detail comes back with the same selection still made''',
-        (tester) async {
+    testWidgets('''closing a detail comes back with the same selection still made''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -92,59 +85,47 @@ void main() {
       await theWorkIsStillSelected(tester, 'porelo-checkout-shell');
       await theProjectIsSelected(tester, 'checkout');
     });
-    testWidgets(
-        '''one finder names actions belonging to a screen that is not open''',
-        (tester) async {
+    testWidgets('''one finder names actions belonging to a screen that is not open''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheCommandFinder(tester);
       await theCommandFinderNames(tester, 'Refresh from the backend');
       await theCommandFinderNames(tester, 'Open the selected work');
       await theCommandIsOfferedAsUnavailable(tester, 'Open the selected work');
     });
-    testWidgets('''every action is reachable with a pointer alone''',
-        (tester) async {
+    testWidgets('''every action is reachable with a pointer alone''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheMenu(tester, 'Options');
       await iChooseTheMenuEntry(tester, 'Appearance: dark');
       await theAppearanceIs(tester, 'dark');
     });
-    testWidgets('''the status line says in words what the last action did''',
-        (tester) async {
+    testWidgets('''the status line says in words what the last action did''', (tester) async {
       await bddSetUp(tester);
       await iChooseTheCommand(tester, 'Refresh from the backend');
       await theStatusLineMentions(tester, 'Refreshed');
     });
-    testWidgets('''appearance is a choice and it survives a restart''',
-        (tester) async {
+    testWidgets('''appearance is a choice and it survives a restart''', (tester) async {
       await bddSetUp(tester);
       await iChooseTheCommand(tester, 'Appearance: dark');
       await theAppearanceIs(tester, 'dark');
       await theAppIsRestarted(tester);
       await theAppearanceIs(tester, 'dark');
     });
-    testWidgets('''a narrow window keeps the rail behind the menu button''',
-        (tester) async {
+    testWidgets('''a narrow window keeps the rail behind the menu button''', (tester) async {
       await bddSetUp(tester);
       await theWindowIsPixelsWide(tester, 420);
       await theRailIsShown(tester, false);
       await iOpenTheMachines(tester);
       await theRailIsShown(tester, true);
     });
-    testWidgets(
-        '''the finder goes to where an action lives and marks it there''',
-        (tester) async {
+    testWidgets('''the finder goes to where an action lives and marks it there''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheCommandFinder(tester);
-      await iPickInTheFinder(
-          tester, 'Check whether this machine can run anything');
-      await theMenuThatHoldsIsOpenWithItMarked(
-          tester, 'Check whether this machine can run anything');
+      await iPickInTheFinder(tester, 'Check whether this machine can run anything');
+      await theMenuThatHoldsIsOpenWithItMarked(tester, 'Check whether this machine can run anything');
     });
-    testWidgets('''the title bar holds only what belongs to no machine''',
-        (tester) async {
+    testWidgets('''the title bar holds only what belongs to no machine''', (tester) async {
       await bddSetUp(tester);
-      await theTitleBarOffers(tester,
-          'Find a command (Ctrl+K), Watch another machine…, Options, About Porelo');
+      await theTitleBarOffers(tester, 'Find a command (Ctrl+K), Watch another machine…, Options, About Porelo');
     });
     testWidgets('''the title says where you are''', (tester) async {
       await bddSetUp(tester);
@@ -154,37 +135,30 @@ void main() {
       await iGoToThePlace(tester, 'work');
       await theTitleIs(tester, 'Work');
     });
-    testWidgets(
-        '''a machine that does not answer offers nothing that needs it, and says why''',
-        (tester) async {
+    testWidgets('''a machine that does not answer offers nothing that needs it, and says why''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await theTunnelDrops(tester);
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-          tester, 'Follow a project', 'not answering');
-      await theCommandIsUnavailableBecause(
-          tester, 'Build the environment for this project', 'not answering');
+      await theCommandIsUnavailableBecause(tester, 'Follow a project', 'not answering');
+      await theCommandIsUnavailableBecause(tester, 'Build the environment for this project', 'not answering');
       await iCloseWhatIsOpen(tester);
       await enoughTimePassesForAnotherTry(tester);
     });
-    testWidgets(
-        '''checking a machine that does not answer offers to start Porelo there first''',
-        (tester) async {
+    testWidgets('''checking a machine that does not answer offers to start Porelo there first''', (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await theTunnelDrops(tester);
-      await iChooseTheCommand(
-          tester, 'Check whether this machine can run anything');
+      await iChooseTheCommand(tester, 'Check whether this machine can run anything');
       await itSays(tester, 'Start Porelo on this computer?');
       await itSays(tester, 'This starts the daemon here, as you.');
       await iAgreeToStartIt(tester);
       await theMachineWasAskedToStart(tester, 'systemctl --user');
       await itSays(tester, 'What this machine can run');
     });
-    testWidgets(
-        '''following a repository and the stop for every machine wait for a machine that answers''',
-        (tester) async {
+    testWidgets('''following a repository and the stop for every machine wait for a machine that answers''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTunnelDrops(tester);
       await followingARepositoryOnThisMachineIsNotOffered(tester);

@@ -7,22 +7,15 @@ import 'package:porelo_frontend/client.dart';
 /// knows which files a task has and what each one is for; a table here would say nothing about a
 /// file added tomorrow while looking exactly as authoritative about it.
 void main() {
-  Log logWith(Map<String, dynamic> fields) => Log.from(<String, dynamic>{
-        'name': 'events.jsonl',
-        'bytes': 9212,
-        'at': '2026-09-07T14:12:00Z',
-        ...fields,
-      });
+  Log logWith(Map<String, dynamic> fields) =>
+      Log.from(<String, dynamic>{'name': 'events.jsonl', 'bytes': 9212, 'at': '2026-09-07T14:12:00Z', ...fields});
 
   test('a name that speaks for itself carries no description, and none is not blank', () {
     expect(logWith(<String, dynamic>{'name': 'agent.log'}).what, isNull);
   });
 
   test('a description the daemon gave is kept as written', () {
-    expect(
-      logWith(<String, dynamic>{'what': 'What the firewall blocked.'}).what,
-      'What the firewall blocked.',
-    );
+    expect(logWith(<String, dynamic>{'what': 'What the firewall blocked.'}).what, 'What the firewall blocked.');
   });
 
   test('an empty description is nothing said, never something said blankly', () {

@@ -37,22 +37,14 @@ class OperationsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final all = machine == null
-        ? operations.all
-        : operations.all.where((each) => each.machine == machine).toList();
+    final all = machine == null ? operations.all : operations.all.where((each) => each.machine == machine).toList();
     return Column(
       children: <Widget>[
         PaneHeader(
-          title: machine == null
-              ? 'This session'
-              : 'What was run on $machine',
+          title: machine == null ? 'This session' : 'What was run on $machine',
           trailing: onClose == null
               ? null
-              : IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Close (Esc)',
-                  onPressed: onClose,
-                ),
+              : IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         if (operations.file != null)
           Padding(
@@ -73,8 +65,7 @@ class OperationsList extends StatelessWidget {
             onActivate: onOpen,
             focusNode: focusNode,
             emptyMessage: 'Nothing has been run from here yet.',
-            rowOf: (context, operation, selected) =>
-                _OperationRow(operation: operation),
+            rowOf: (context, operation, selected) => _OperationRow(operation: operation),
           ),
         ),
       ],
@@ -124,12 +115,7 @@ class _OperationRow extends StatelessWidget {
 /// operation is watched by the session, not by whoever happens to be looking.
 class OperationOutputView extends StatefulWidget {
   /// Constructor taking what to show and the ways out.
-  const OperationOutputView({
-    required this.operation,
-    required this.onBack,
-    required this.onClose,
-    super.key,
-  });
+  const OperationOutputView({required this.operation, required this.onBack, required this.onClose, super.key});
 
   /// What is being watched.
   final Operation operation;
@@ -158,11 +144,7 @@ class _OperationOutputViewState extends State<OperationOutputView> {
         PaneHeader(
           title: operation.title,
           leading: BackButton(onPressed: widget.onBack),
-          trailing: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close (Esc)',
-            onPressed: widget.onClose,
-          ),
+          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: widget.onClose),
         ),
         _Summary(operation: operation),
         if (operation.linesNotKept > 0)
@@ -178,9 +160,7 @@ class _OperationOutputViewState extends State<OperationOutputView> {
           child: operation.output.isEmpty
               ? Center(
                   child: Text(
-                    operation.running
-                        ? 'Nothing printed yet.'
-                        : 'It printed nothing at all.',
+                    operation.running ? 'Nothing printed yet.' : 'It printed nothing at all.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 )
@@ -189,17 +169,11 @@ class _OperationOutputViewState extends State<OperationOutputView> {
                   child: ListView.builder(
                     controller: _scroll,
                     primary: false,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Space.normal,
-                      vertical: Space.small,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
                     itemCount: operation.output.length,
                     itemBuilder: (context, index) => SelectableText(
                       operation.output[index],
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                     ),
                   ),
                 ),
@@ -238,13 +212,8 @@ class _Summary extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      color: operation.failed
-          ? scheme.errorContainer
-          : scheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.normal,
-        vertical: Space.small,
-      ),
+      color: operation.failed ? scheme.errorContainer : scheme.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
       child: Row(
         children: <Widget>[
           OperationMark(operation: operation),

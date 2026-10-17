@@ -21,8 +21,8 @@ class HomeserverForwards extends ChangeNotifier {
     RaiseLoginForward? raise,
     Future<bool> Function(int port)? answers,
     this.lookEvery = const Duration(seconds: 30),
-  })  : _raise = raise ?? raiseForward,
-        _answers = answers ?? answering;
+  }) : _raise = raise ?? raiseForward,
+       _answers = answers ?? answering;
 
   /// Whether a forwarded port answers here: a connection to it, as a Matrix client makes one. Injectable,
   /// as [raiseLoginForward] is, so the frame is judged without a port.
@@ -55,7 +55,8 @@ class HomeserverForwards extends ChangeNotifier {
 
   /// Every homeserver that cannot be forwarded now, with why: said under *Needs you*, since a Matrix
   /// client here cannot reach it until it is.
-  List<({String machine, String project, String words})> get refused => <({String machine, String project, String words})>[
+  List<({String machine, String project, String words})> get refused =>
+      <({String machine, String project, String words})>[
         for (final each in _settings.homeservers)
           if (_problems[_key(each.machine, each.project)] case final words?)
             (machine: each.machine, project: each.project, words: words),
@@ -63,7 +64,9 @@ class HomeserverForwards extends ChangeNotifier {
 
   /// Tries [project]'s homeserver on [machine] again, as remembered.
   Future<void> retry(Machine machine, String project) async {
-    final kept = _settings.homeservers.where((each) => each.machine == machine.name && each.project == project).firstOrNull;
+    final kept = _settings.homeservers
+        .where((each) => each.machine == machine.name && each.project == project)
+        .firstOrNull;
     if (kept != null) await _raiseFor(machine, project, kept.port);
   }
 

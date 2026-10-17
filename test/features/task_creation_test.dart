@@ -127,9 +127,7 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets(
-        '''the start dialog opens at once, and says it is still asking the machine''',
-        (tester) async {
+    testWidgets('''the start dialog opens at once, and says it is still asking the machine''', (tester) async {
       await bddSetUp(tester);
       await readingTheAgentsIsSlow(tester);
       await iStartWorkInThisProject(tester);
@@ -137,9 +135,7 @@ void main() {
       await theMachineHasAnswered(tester);
       await itDoesNotSay(tester, 'Asking the machine what it has');
     });
-    testWidgets(
-        '''an agent the machine lists, refused once as not installed, is asked about again''',
-        (tester) async {
+    testWidgets('''an agent the machine lists, refused once as not installed, is asked about again''', (tester) async {
       await bddSetUp(tester);
       await theMachineRefusesTheAgentAsNotInstalledTimes(tester, 1);
       await iStartWorkInThisProject(tester);
@@ -149,17 +145,14 @@ void main() {
       await iStartIt(tester);
       await theLaunchWasCalled(tester, 'schema-work');
     });
-    testWidgets(
-        '''an agent refused as not installed is named in the sentence''',
-        (tester) async {
+    testWidgets('''an agent refused as not installed is named in the sentence''', (tester) async {
       await bddSetUp(tester);
       await theMachineRefusesTheAgentAsNotInstalledTimes(tester, 5);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await itSays(tester, 'an-agent is not installed on this machine');
     });
-    testWidgets('''work is started with a name, an agent and a mode''',
-        (tester) async {
+    testWidgets('''work is started with a name, an agent and a mode''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'schema-work');
@@ -169,12 +162,9 @@ void main() {
       await theLaunchAskedForTheMode(tester, 'AGENT');
       await theLaunchNamedTheProject(tester, 'checkout');
     });
-    testWidgets(
-        '''the name is filled in from the repository chosen, and is what the work is called''',
-        (tester) async {
+    testWidgets('''the name is filled in from the repository chosen, and is what the work is called''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iChooseTheRepository(tester, 'payments-api');
@@ -182,11 +172,9 @@ void main() {
       await iStartIt(tester);
       await theLaunchWasCalled(tester, 'payments-api');
     });
-    testWidgets('''a name somebody typed is kept when the repository changes''',
-        (tester) async {
+    testWidgets('''a name somebody typed is kept when the repository changes''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'schema-work');
       await iChooseTheRepository(tester, 'payments-api');
@@ -194,17 +182,14 @@ void main() {
     });
     testWidgets('''without a name nothing starts''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iChooseTheRepository(tester, 'payments-api');
       await iCallIt(tester, '');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a name the project's work has already is refused as it is typed''',
-        (tester) async {
+    testWidgets('''a name the project's work has already is refused as it is typed''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'shell');
@@ -212,9 +197,7 @@ void main() {
       await theNameIsRefusedSaying(tester, 'The name "shell" is taken');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a name no container could have is refused before anything starts''',
-        (tester) async {
+    testWidgets('''a name no container could have is refused before anything starts''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'Foo Bar');
@@ -222,9 +205,7 @@ void main() {
       await theNameIsRefusedSaying(tester, 'cannot hold a space');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a name in upper case is refused, because two of them could be one ref''',
-        (tester) async {
+    testWidgets('''a name in upper case is refused, because two of them could be one ref''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'Schema-Work');
@@ -232,15 +213,12 @@ void main() {
       await theNameIsRefusedSaying(tester, 'lowercase');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a name of other characters, or with a hyphen at its edge, is refused''',
-        (tester) async {
+    testWidgets('''a name of other characters, or with a hyphen at its edge, is refused''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'schema_work-');
       await iChooseTheAgent(tester, 'An Agent');
-      await theNameIsRefusedSaying(
-          tester, 'starts and ends with a letter or a digit');
+      await theNameIsRefusedSaying(tester, 'starts and ends with a letter or a digit');
       await startingIsNotOfferedYet(tester);
     });
     testWidgets('''a name of only digits is refused''', (tester) async {
@@ -251,22 +229,17 @@ void main() {
       await theNameIsRefusedSaying(tester, 'only digits');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a name too long for its project is refused, saying how long it may be''',
-        (tester) async {
+    testWidgets('''a name too long for its project is refused, saying how long it may be''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
-      await iCallIt(
-          tester, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+      await iCallIt(tester, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
       await iChooseTheAgent(tester, 'An Agent');
       await theNameIsRefusedSaying(tester, 'at most 65 fit');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets('''a name the machine refuses is refused in its words''',
-        (tester) async {
+    testWidgets('''a name the machine refuses is refused in its words''', (tester) async {
       await bddSetUp(tester);
-      await theMachineRefusesTheNameSaying(
-          tester, 'login-7', 'kept for login containers - login7 would do');
+      await theMachineRefusesTheNameSaying(tester, 'login-7', 'kept for login containers - login7 would do');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iCallIt(tester, 'login-7');
@@ -274,25 +247,20 @@ void main() {
       await startingIsNotOfferedYet(tester);
       await theMachineWasAskedAboutTheName(tester, 'login-7');
     });
-    testWidgets(
-        '''a start works through the agent's session unless somebody chooses otherwise''',
-        (tester) async {
+    testWidgets('''a start works through the agent's session unless somebody chooses otherwise''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await theWayOfTakingPartChosenIs(tester, 'A shell, driven by hand');
     });
-    testWidgets(
-        '''an unattended run is not started without being told what to do''',
-        (tester) async {
+    testWidgets('''an unattended run is not started without being told what to do''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iChoose(tester, 'Unattended, against a prompt');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets('''a prompt belongs to an unattended run and to nothing else''',
-        (tester) async {
+    testWidgets('''a prompt belongs to an unattended run and to nothing else''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
@@ -308,9 +276,9 @@ void main() {
       await theLaunchAskedForTheMode(tester, 'UNATTENDED');
       await theLaunchAskedItTo(tester, 'Fix the rounding and add a test');
     });
-    testWidgets(
-        '''an unattended run goes to the session, so leaving the dialog does not stop watching''',
-        (tester) async {
+    testWidgets('''an unattended run goes to the session, so leaving the dialog does not stop watching''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
@@ -320,33 +288,25 @@ void main() {
       await theOperationPrints(tester, 'agent: reading lib/money.dart');
       await theOperationShows(tester, 'agent: reading lib/money.dart');
     });
-    testWidgets(
-        '''a finished unattended run is continued with what it was asked to do last time''',
-        (tester) async {
+    testWidgets('''a finished unattended run is continued with what it was asked to do last time''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iContinueThisWork(tester);
       await whatToAskItSays(tester, 'Fix the rounding in Money.pennies');
     });
-    testWidgets('''work that is still running is not offered a new prompt''',
-        (tester) async {
+    testWidgets('''work that is still running is not offered a new prompt''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Continue this work with a new prompt');
+      await theCommandIsOfferedAsUnavailable(tester, 'Continue this work with a new prompt');
     });
-    testWidgets(
-        '''an agent that could not be read is named rather than left out''',
-        (tester) async {
+    testWidgets('''an agent that could not be read is named rather than left out''', (tester) async {
       await bddSetUp(tester);
       await oneAgentOnTheMachineCannotBeRead(tester);
       await iStartWorkInThisProject(tester);
       await itSays(tester, 'could not be read');
     });
-    testWidgets(
-        '''a prompt typed and then set aside is not sent with a mode that has no use for it''',
-        (tester) async {
+    testWidgets('''a prompt typed and then set aside is not sent with a mode that has no use for it''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
@@ -357,8 +317,7 @@ void main() {
       await theLaunchAskedForTheMode(tester, 'AGENT');
       await theLaunchWasAskedForNothingInParticular(tester);
     });
-    testWidgets('''a missing credential is named before anything is started''',
-        (tester) async {
+    testWidgets('''a missing credential is named before anything is started''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await iStartWorkInThisProject(tester);
@@ -366,22 +325,19 @@ void main() {
       await itSays(tester, 'The vault holds no credential called a-provider');
       await nothingWasStarted(tester);
     });
-    testWidgets(
-        '''a missing credential is stored from the start dialog, and starting is asked about again''',
-        (tester) async {
+    testWidgets('''a missing credential is stored from the start dialog, and starting is asked about again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iStoreTheCredentialFromTheStart(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'sh -c porelo vault put a-provider');
+      await aTerminalRunsOnTheMachine(tester, 'sh -c porelo vault put a-provider');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await whetherWorkCanStartIsAskedAgain(tester);
     });
-    testWidgets(
-        '''a machine that cannot say how to store a credential says so, rather than nothing''',
-        (tester) async {
+    testWidgets('''a machine that cannot say how to store a credential says so, rather than nothing''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await theMachineCannotSayItsProviders(tester);
@@ -390,24 +346,20 @@ void main() {
       await iStoreTheCredentialFromTheStart(tester);
       await theStatusLineMentions(tester, 'could not say how to store');
     });
-    testWidgets(
-        '''a link the terminal marks is opened in the browser here with a press, and only then''',
-        (tester) async {
+    testWidgets('''a link the terminal marks is opened in the browser here with a press, and only then''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iStoreTheCredentialFromTheStart(tester);
-      await theTerminalPrintsALinkTo(
-          tester, 'https://claude.com/cai/oauth/authorize?code=true');
+      await theTerminalPrintsALinkTo(tester, 'https://claude.com/cai/oauth/authorize?code=true');
       await nothingWasOpenedInTheBrowser(tester);
-      await iOpenTheLinkTo(
-          tester, 'https://claude.com/cai/oauth/authorize?code=true');
-      await theBrowserWasGiven(
-          tester, 'https://claude.com/cai/oauth/authorize?code=true');
+      await iOpenTheLinkTo(tester, 'https://claude.com/cai/oauth/authorize?code=true');
+      await theBrowserWasGiven(tester, 'https://claude.com/cai/oauth/authorize?code=true');
     });
-    testWidgets('''a link that is not a web address is never offered''',
-        (tester) async {
+    testWidgets('''a link that is not a web address is never offered''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await iStartWorkInThisProject(tester);
@@ -416,24 +368,19 @@ void main() {
       await theTerminalPrintsALinkThatWouldRun(tester, 'file:///usr/bin/xcalc');
       await theTerminalOffersNoLink(tester);
     });
-    testWidgets(
-        '''an agent that declares a login is logged in from the start, its reply forwarded''',
-        (tester) async {
+    testWidgets('''an agent that declares a login is logged in from the start, its reply forwarded''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iLogInWithTheAgentFromTheStart(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'porelo vault login --agent an-agent');
-      await theLoginPrintsItsPageAndItsReplyPort(
-          tester, 'https://claude.com/cai/oauth/authorize', '42017');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theLoginPrintsItsPageAndItsReplyPort(tester, 'https://claude.com/cai/oauth/authorize', '42017');
       await theReplyPortIsForwarded(tester, '42017');
       await nothingWasOpenedInTheBrowser(tester);
       await iOpenTheLinkTo(tester, 'https://claude.com/cai/oauth/authorize');
-      await theBrowserWasGiven(
-          tester, 'https://claude.com/cai/oauth/authorize');
+      await theBrowserWasGiven(tester, 'https://claude.com/cai/oauth/authorize');
       await theTerminalSays(tester, 'The first sign-in builds');
       await theTerminalOffersNoDoneWhileItRuns(tester);
       await iCancelTheSigninAndLetItRunAfterAll(tester);
@@ -442,57 +389,49 @@ void main() {
       await theReplyForwardIsTakenDown(tester);
       await whetherWorkCanStartIsAskedAgain(tester);
     });
-    testWidgets(
-        '''how an agent's login works is offered when its address is one''',
-        (tester) async {
+    testWidgets('''how an agent's login works is offered when its address is one''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
-      await theAgentDocumentsItsLoginAt(
-          tester, 'an-agent', 'https://docs.example.test/login');
+      await theAgentDocumentsItsLoginAt(tester, 'an-agent', 'https://docs.example.test/login');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await itSays(tester, 'How this login works');
     });
-    testWidgets('''an address that is not one is not offered as a link''',
-        (tester) async {
+    testWidgets('''an address that is not one is not offered as a link''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
-      await theAgentDocumentsItsLoginAt(
-          tester, 'an-agent', 'http://[not an address');
+      await theAgentDocumentsItsLoginAt(tester, 'an-agent', 'http://[not an address');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await itDoesNotSay(tester, 'How this login works');
     });
-    testWidgets(
-        '''the machine's login page is offered first, and a link of the agent's own below it''',
-        (tester) async {
+    testWidgets('''the machine's login page is offered first, and a link of the agent's own below it''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iLogInWithTheAgentFromTheStart(tester);
-      await theAgentPrintsALinkOfItsOwnTo(
-          tester, 'https://claude.com/cai/oauth/authorize?code=true');
-      await theLoginPrintsItsPageAndItsReplyPort(
-          tester, 'https://claude.com/cai/oauth/authorize', '42017');
+      await theAgentPrintsALinkOfItsOwnTo(tester, 'https://claude.com/cai/oauth/authorize?code=true');
+      await theLoginPrintsItsPageAndItsReplyPort(tester, 'https://claude.com/cai/oauth/authorize', '42017');
       await theFirstLinkOfferedSaysAndOpens(
-          tester,
-          'Sign in: the reply comes back here',
-          'https://claude.com/cai/oauth/authorize');
+        tester,
+        'Sign in: the reply comes back here',
+        'https://claude.com/cai/oauth/authorize',
+      );
       await itSays(tester, 'Another link the program printed');
     });
-    testWidgets(
-        '''Claude Code is chosen where it is installed and nobody chose another''',
-        (tester) async {
+    testWidgets('''Claude Code is chosen where it is installed and nobody chose another''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasClaudeCodeInstalledToo(tester);
       await iStartWorkInThisProject(tester);
       await theAgentChosenIs(tester, 'claude');
     });
-    testWidgets(
-        '''an agent with nothing to sign in with is signed in first, and no start of any kind is offered''',
-        (tester) async {
+    testWidgets('''an agent with nothing to sign in with is signed in first, and no start of any kind is offered''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
@@ -501,12 +440,9 @@ void main() {
       await theFormAsksToSignInToFirstAboveEverythingElse(tester, 'An Agent');
       await itOffersInsteadOfStarting(tester, 'Sign in first');
       await iPress(tester, 'Sign in first');
-      await aTerminalRunsOnTheMachine(
-          tester, 'porelo vault login --agent an-agent');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
     });
-    testWidgets(
-        '''a sign-in that stored the credential says so, and the form moves on to the start''',
-        (tester) async {
+    testWidgets('''a sign-in that stored the credential says so, and the form moves on to the start''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
@@ -515,56 +451,43 @@ void main() {
       await iLogInWithTheAgentFromTheStart(tester);
       await theLoginStoresWhatItSignedInWith(tester);
       await theUnlockTerminalEnds(tester);
-      await theTerminalEndsSaying(
-          tester, 'Signed in to An Agent: the credential is stored');
+      await theTerminalEndsSaying(tester, 'Signed in to An Agent: the credential is stored');
       await noLinkIsOfferedAnyMore(tester);
       await iPress(tester, 'Done');
       await theFormNoLongerAsksToSignIn(tester);
     });
-    testWidgets('''an agent that declares no login is not offered one''',
-        (tester) async {
+    testWidgets('''an agent that declares no login is not offered one''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await loggingInIsNotOffered(tester);
     });
-    testWidgets(
-        '''the credential is stored by the command the readiness answer names''',
-        (tester) async {
+    testWidgets('''the credential is stored by the command the readiness answer names''', (tester) async {
       await bddSetUp(tester);
-      await startingSaysTheCredentialIsStoredBy(
-          tester, 'porelo vault put a-provider');
+      await startingSaysTheCredentialIsStoredBy(tester, 'porelo vault put a-provider');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iStoreTheCredentialFromTheStart(tester);
       await aTerminalRunsOnTheMachine(tester, 'porelo vault put a-provider');
     });
-    testWidgets(
-        '''a machine that fails to say whether work can start is said in the dialog''',
-        (tester) async {
+    testWidgets('''a machine that fails to say whether work can start is said in the dialog''', (tester) async {
       await bddSetUp(tester);
-      await theMachineFailsToSayWhetherWorkCanStartWith(
-          tester, 'the vault could not be read');
+      await theMachineFailsToSayWhetherWorkCanStartWith(tester, 'the vault could not be read');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
-      await itSays(tester,
-          'The machine could not say whether work can start: the vault could not be read');
+      await itSays(tester, 'The machine could not say whether work can start: the vault could not be read');
     });
-    testWidgets(
-        '''work started to be driven by hand opens its session once it is up''',
-        (tester) async {
+    testWidgets('''work started to be driven by hand opens its session once it is up''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'schema-work');
       await iChooseTheAgent(tester, 'An Agent');
       await iStartIt(tester);
-      await theStartBringsUpInRunning(
-          tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
+      await theStartBringsUpInRunning(tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
       await theSessionOnScreenIs(tester, 'porelo-checkout-schema-work');
     });
-    testWidgets('''an unattended run opens no session when it is up''',
-        (tester) async {
+    testWidgets('''an unattended run opens no session when it is up''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'nightly');
@@ -572,13 +495,10 @@ void main() {
       await iChoose(tester, 'Unattended, against a prompt');
       await iAskItTo(tester, 'run the tests');
       await iStartIt(tester);
-      await theStartBringsUpInRunning(
-          tester, 'porelo-checkout-nightly', 'checkout', 'UNATTENDED');
+      await theStartBringsUpInRunning(tester, 'porelo-checkout-nightly', 'checkout', 'UNATTENDED');
       await noSessionWasOpened(tester);
     });
-    testWidgets(
-        '''a locked vault is a different sentence, and points at the machine''',
-        (tester) async {
+    testWidgets('''a locked vault is a different sentence, and points at the machine''', (tester) async {
       await bddSetUp(tester);
       await theVaultIsLocked(tester);
       await iStartWorkInThisProject(tester);
@@ -587,9 +507,9 @@ void main() {
       await itSays(tester, 'a daemon has no terminal');
       await openingItWithThisDeviceIsNotOffered(tester);
     });
-    testWidgets(
-        '''a missing credential is not answered by opening the vault, even on an enrolled device''',
-        (tester) async {
+    testWidgets('''a missing credential is not answered by opening the vault, even on an enrolled device''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await thisDeviceIsEnrolledOnTheMachine(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
@@ -597,9 +517,9 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await openingItWithThisDeviceIsNotOffered(tester);
     });
-    testWidgets(
-        '''a locked vault is opened from the start with this device, where it is enrolled, and asked again''',
-        (tester) async {
+    testWidgets('''a locked vault is opened from the start with this device, where it is enrolled, and asked again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await thisDeviceIsEnrolledOnTheMachine(tester);
       await theVaultIsLocked(tester);
@@ -609,17 +529,14 @@ void main() {
       await theMachineWasAskedToOpenItForMinutes(tester, 60);
       await whetherWorkCanStartIsAskedAgainOnceTheVaultIsOpen(tester);
     });
-    testWidgets('''choosing a provider is not storing a secret''',
-        (tester) async {
+    testWidgets('''choosing a provider is not storing a secret''', (tester) async {
       await bddSetUp(tester);
       await theAgentNamesNoDefaultProvider(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await itSays(tester, 'this is a provider, not a secret');
     });
-    testWidgets(
-        '''an unattended run that cannot authenticate is not offered at all''',
-        (tester) async {
+    testWidgets('''an unattended run that cannot authenticate is not offered at all''', (tester) async {
       await bddSetUp(tester);
       await theVaultIsLocked(tester);
       await iStartWorkInThisProject(tester);
@@ -629,21 +546,16 @@ void main() {
       await startingIsNotOfferedYet(tester);
       await itSays(tester, 'no container, no workspace, nothing to clear up');
     });
-    testWidgets(
-        '''an interactive run is offered anyway, and says what it will cost''',
-        (tester) async {
+    testWidgets('''an interactive run is offered anyway, and says what it will cost''', (tester) async {
       await bddSetUp(tester);
       await theVaultIsLocked(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await itSays(tester, 'a container you will have to clear up');
     });
-    testWidgets(
-        '''work starts in a repository somebody chose, never in one chosen for them''',
-        (tester) async {
+    testWidgets('''work starts in a repository somebody chose, never in one chosen for them''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api, billing');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api, billing');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await noRepositoryIsChosenYet(tester);
@@ -654,31 +566,23 @@ void main() {
       await iStartIt(tester);
       await theLaunchWasInTheRepository(tester, 'payments-api');
     });
-    testWidgets(
-        '''a project that names other repositories never offers its own to work in''',
-        (tester) async {
+    testWidgets('''a project that names other repositories never offers its own to work in''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api, billing');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api, billing');
       await iStartWorkInThisProject(tester);
       await theRepositoryIsNotOfferedToStartIn(tester, 'checkout');
       await noRepositoryIsChosenYet(tester);
     });
-    testWidgets('''a project with one repository to work in has it chosen''',
-        (tester) async {
+    testWidgets('''a project with one repository to work in has it chosen''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await iStartWorkInThisProject(tester);
       await theRepositoryIsNotOfferedToStartIn(tester, 'checkout');
       await theRepositoryChosenIs(tester, 'payments-api');
     });
-    testWidgets(
-        '''an unattended run waiting for its repository is not told it would be refused''',
-        (tester) async {
+    testWidgets('''an unattended run waiting for its repository is not told it would be refused''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api, billing');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api, billing');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iChoose(tester, 'Unattended, against a prompt');
@@ -686,64 +590,51 @@ void main() {
       await startingIsNotOfferedYet(tester);
       await nothingWarnsAboutStarting(tester);
     });
-    testWidgets('''a machine that names no repositories is asked for none''',
-        (tester) async {
+    testWidgets('''a machine that names no repositories is asked for none''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iStartIt(tester);
       await theLaunchNamedNoRepository(tester);
     });
-    testWidgets('''work continued goes on in the repository it worked in''',
-        (tester) async {
+    testWidgets('''work continued goes on in the repository it worked in''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
-      await theWorkWorksInTheRepository(
-          tester, 'porelo-checkout-migrate', 'payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
+      await theWorkWorksInTheRepository(tester, 'porelo-checkout-migrate', 'payments-api');
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iContinueThisWork(tester);
       await theRepositoryIsChosen(tester, 'payments-api');
     });
-    testWidgets(
-        '''work is given a vault entry for a destination, and says how it appears inside''',
-        (tester) async {
+    testWidgets('''work is given a vault entry for a destination, and says how it appears inside''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'weather');
-      await itSays(tester,
-          'a-provider for weather, reaching api.weather.example: inside the task as PORELO_TOKEN_A_PROVIDER');
+      await itSays(
+        tester,
+        'a-provider for weather, reaching api.weather.example: inside the task as PORELO_TOKEN_A_PROVIDER',
+      );
       await iStartIt(tester);
       await theLaunchWasGivenFor(tester, 'a-provider', 'weather');
     });
-    testWidgets(
-        '''work is given nothing beyond its project unless somebody gives it''',
-        (tester) async {
+    testWidgets('''work is given nothing beyond its project unless somebody gives it''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iStartIt(tester);
       await theLaunchWasGivenNothingBeyondItsProject(tester);
     });
-    testWidgets(
-        '''a machine without destinations says nothing more can be given''',
-        (tester) async {
+    testWidgets('''a machine without destinations says nothing more can be given''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iOpenMoreOptions(tester);
       await itSays(tester, 'No destination is declared on this machine.');
     });
-    testWidgets(
-        '''a vault entry given to work left unstarted is not given to the next''',
-        (tester) async {
+    testWidgets('''a vault entry given to work left unstarted is not given to the next''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'weather');
@@ -753,94 +644,71 @@ void main() {
       await iStartIt(tester);
       await theLaunchWasGivenNothingBeyondItsProject(tester);
     });
-    testWidgets(
-        '''a destination put in a package's place is offered once, where it is now''',
-        (tester) async {
+    testWidgets('''a destination put in a package's place is offered once, where it is now''', (tester) async {
       await bddSetUp(tester);
-      await aPackageDeclaresTheDestinationAt(
-          tester, 'search', 'https://api.search.example');
-      await theMachinesOwnTakesThePackagesPlaceAt(
-          tester, 'search', 'https://search.internal.example');
+      await aPackageDeclaresTheDestinationAt(tester, 'search', 'https://api.search.example');
+      await theMachinesOwnTakesThePackagesPlaceAt(tester, 'search', 'https://search.internal.example');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'search');
-      await itSays(
-          tester, 'a-provider for search, reaching search.internal.example');
+      await itSays(tester, 'a-provider for search, reaching search.internal.example');
     });
-    testWidgets('''work is given a vault entry for a provider''',
-        (tester) async {
+    testWidgets('''work is given a vault entry for a provider''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'A Provider, a provider');
-      await itSays(
-          tester, 'a-provider for a-provider, reaching api.example.test');
+      await itSays(tester, 'a-provider for a-provider, reaching api.example.test');
       await iStartIt(tester);
       await theLaunchWasGivenFor(tester, 'a-provider', 'a-provider');
     });
-    testWidgets(
-        '''the credentials a project names are named when starting, and not offered to give again''',
-        (tester) async {
+    testWidgets('''the credentials a project names are named when starting, and not offered to give again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
-      await theProjectNamesTheCredentialFor(
-          tester, 'checkout', 'a-provider', 'weather');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
+      await theProjectNamesTheCredentialFor(tester, 'checkout', 'a-provider', 'weather');
       await iStartWorkInThisProject(tester);
       await iOpenMoreOptions(tester);
-      await itSays(tester,
-          'a-provider for weather: inside the task as PORELO_TOKEN_A_PROVIDER');
+      await itSays(tester, 'a-provider for weather: inside the task as PORELO_TOKEN_A_PROVIDER');
       await theEntryIsNotOfferedToGive(tester, 'a-provider');
     });
-    testWidgets('''a project that names no credential of its own says so''',
-        (tester) async {
+    testWidgets('''a project that names no credential of its own says so''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await theProjectNamesNoCredentialOfItsOwn(tester, 'checkout');
       await iStartWorkInThisProject(tester);
       await iOpenMoreOptions(tester);
       await itSays(tester, 'Its project gives it no credential of its own.');
     });
-    testWidgets(
-        '''whether work can start is asked again with the credentials it is given''',
-        (tester) async {
+    testWidgets('''whether work can start is asked again with the credentials it is given''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'weather');
-      await theMachineWasLastAskedWhetherItCanStartWithFor(
-          tester, 'a-provider', 'weather');
+      await theMachineWasLastAskedWhetherItCanStartWithFor(tester, 'a-provider', 'weather');
     });
-    testWidgets(
-        '''a credential for a destination the machine does not declare stops even a shell''',
-        (tester) async {
+    testWidgets('''a credential for a destination the machine does not declare stops even a shell''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'weather');
       await theDestinationIsNoLongerDeclared(tester, 'weather');
-      await itSays(
-          tester, 'no destination or provider of that name is declared here');
+      await itSays(tester, 'no destination or provider of that name is declared here');
       await startingIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a machine that does not say what a project names says it is not said''',
-        (tester) async {
+    testWidgets('''a machine that does not say what a project names says it is not said''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iOpenMoreOptions(tester);
       await itSays(tester, 'this machine does not say what that is');
-      await itDoesNotSay(
-          tester, 'Its project gives it no credential of its own.');
+      await itDoesNotSay(tester, 'Its project gives it no credential of its own.');
     });
-    testWidgets(
-        '''an entry nobody has granted is granted from the start, and starting is asked about again''',
-        (tester) async {
+    testWidgets('''an entry nobody has granted is granted from the start, and starting is asked about again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await nobodyHasGrantedYet(tester, 'jira');
       await iStartWorkInThisProject(tester);
@@ -849,15 +717,12 @@ void main() {
       await itSays(tester, 'It starts, and jira is not granted');
       await startingIsOffered(tester);
       await iGrantItFromTheStart(tester);
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+      await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
       await theMachineSaysTheGrantIs(tester, 'granted');
       await iAmDoneGranting(tester);
       await itDoesNotSay(tester, 'Nobody has granted jira yet.');
     });
-    testWidgets(
-        '''an unattended run is not started without a grant nobody gave''',
-        (tester) async {
+    testWidgets('''an unattended run is not started without a grant nobody gave''', (tester) async {
       await bddSetUp(tester);
       await nobodyHasGrantedYet(tester, 'jira');
       await iStartWorkInThisProject(tester);

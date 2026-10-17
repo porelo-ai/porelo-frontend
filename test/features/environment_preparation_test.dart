@@ -31,35 +31,28 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets('''an environment is built without starting anything''',
-        (tester) async {
+    testWidgets('''an environment is built without starting anything''', (tester) async {
       await bddSetUp(tester);
       await iBuildTheEnvironmentForThisProject(tester);
       await iChooseToBuild(tester, 'what changed');
       await theBuildAskedFor(tester, 'CACHED');
       await nothingWasStarted(tester);
     });
-    testWidgets(
-        '''the depths say what each replaces and roughly what it costs''',
-        (tester) async {
+    testWidgets('''the depths say what each replaces and roughly what it costs''', (tester) async {
       await bddSetUp(tester);
       await iBuildTheEnvironmentForThisProject(tester);
       await itSays(tester, 'Keeps the base image and the packages on it');
       await itSays(tester, 'Roughly a minute or two.');
-      await itSays(
-          tester, 'Throws away the packages on the base image as well');
+      await itSays(tester, 'Throws away the packages on the base image as well');
       await itSays(tester, 'Roughly several minutes, and it downloads.');
     });
-    testWidgets('''the deepest rebuild is asked for as itself''',
-        (tester) async {
+    testWidgets('''the deepest rebuild is asked for as itself''', (tester) async {
       await bddSetUp(tester);
       await iBuildTheEnvironmentForThisProject(tester);
       await iChooseToBuild(tester, 'everything');
       await theBuildAskedFor(tester, 'EVERYTHING');
     });
-    testWidgets(
-        '''progress is visible while it runs, and the frame stays usable''',
-        (tester) async {
+    testWidgets('''progress is visible while it runs, and the frame stays usable''', (tester) async {
       await bddSetUp(tester);
       await iBuildTheEnvironmentForThisProject(tester);
       await iChooseToBuild(tester, 'what changed');
@@ -67,9 +60,7 @@ void main() {
       await iCloseWhatIsOpen(tester);
       await theProjectIsListed(tester, 'checkout');
     });
-    testWidgets(
-        '''a build that fails names the step, and it is still readable afterwards''',
-        (tester) async {
+    testWidgets('''a build that fails names the step, and it is still readable afterwards''', (tester) async {
       await bddSetUp(tester);
       await theNextBuildWillFail(tester);
       await iBuildTheEnvironmentForThisProject(tester);
@@ -78,14 +69,11 @@ void main() {
       await iShowWhatThisSessionHasRun(tester);
       await theRecordMarksItAsFailed(tester);
     });
-    testWidgets(
-        '''a project whose file nothing can find says why it cannot be built''',
-        (tester) async {
+    testWidgets('''a project whose file nothing can find says why it cannot be built''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'unrecorded');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Build the environment for this project');
+      await theCommandIsOfferedAsUnavailable(tester, 'Build the environment for this project');
     });
   });
 }

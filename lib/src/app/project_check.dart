@@ -42,9 +42,11 @@ class ProjectCheck extends ChangeNotifier {
         }
       }
     } on VarlinkException catch (refusal) {
-      said.add(refusal.simpleName == 'NoSuchProject'
-          ? '$project is no longer followed here.'
-          : 'Refused: ${refusal.simpleName}.');
+      said.add(
+        refusal.simpleName == 'NoSuchProject'
+            ? '$project is no longer followed here.'
+            : 'Refused: ${refusal.simpleName}.',
+      );
     } on VarlinkDisconnected catch (lost) {
       said.add('Lost contact with the machine: ${lost.message}');
     } on FeatureNotSupported catch (older) {

@@ -189,35 +189,39 @@ class FleetModel extends ChangeNotifier {
     for (final task in _tasks) {
       under.putIfAbsent(task.project, () => <Task>[]).add(task);
     }
-    final screen = <ProjectOnScreen>[
-      for (final project in _known)
-        ProjectOnScreen(
-          project: project,
-          tasks: (under.remove(project.name) ?? <Task>[])
-            ..sort((a, b) => a.name.compareTo(b.name)),
-        ),
-    ]..sort((a, b) => a.name == defaultProject
-        ? -1
-        : b.name == defaultProject
-        ? 1
-        : a.name.compareTo(b.name));
+    final screen =
+        <ProjectOnScreen>[
+          for (final project in _known)
+            ProjectOnScreen(
+              project: project,
+              tasks: (under.remove(project.name) ?? <Task>[])..sort((a, b) => a.name.compareTo(b.name)),
+            ),
+        ]..sort(
+          (a, b) => a.name == defaultProject
+              ? -1
+              : b.name == defaultProject
+              ? 1
+              : a.name.compareTo(b.name),
+        );
 
     // Whatever is left belongs to no project the daemon lists — a task that recorded no project,
     // or one recorded under a name it no longer knows. Listing it is the point: work that belongs
     // nowhere is not work that stops existing.
     for (final orphaned in under.entries) {
-      screen.add(ProjectOnScreen(
-        project: Project(
-          name: orphaned.key,
-          securityClass: orphaned.value.first.securityClass,
-          file: '',
-          mirror: '',
-          pending: 0,
-          tasks: orphaned.value.length,
-          running: orphaned.value.where((task) => task.running).length,
+      screen.add(
+        ProjectOnScreen(
+          project: Project(
+            name: orphaned.key,
+            securityClass: orphaned.value.first.securityClass,
+            file: '',
+            mirror: '',
+            pending: 0,
+            tasks: orphaned.value.length,
+            running: orphaned.value.where((task) => task.running).length,
+          ),
+          tasks: orphaned.value..sort((a, b) => a.name.compareTo(b.name)),
         ),
-        tasks: orphaned.value..sort((a, b) => a.name.compareTo(b.name)),
-      ));
+      );
     }
     return screen;
   }
@@ -321,11 +325,7 @@ class FleetModel extends ChangeNotifier {
   /// discards what never reached the gate. Neither is a default.
   Future<void> removeWork(String task, {bool rescue = false, bool force = false}) async {
     await _acting(about: task, () async {
-      final result = await backend.removeTask(
-        task,
-        rescue: rescue ? true : null,
-        force: force ? true : null,
-      );
+      final result = await backend.removeTask(task, rescue: rescue ? true : null, force: force ? true : null);
       _say(removeWords(task, result));
       _refusal = result.removed ? null : Refusal(task: task, result: result);
       await _readOnce();
@@ -379,9 +379,13 @@ class FleetModel extends ChangeNotifier {
     if (file == null || task.task.isEmpty) return;
     final repository = projectOf(task)?.repositoryOf(task);
     await _acting(about: task.name, () async {
-      _say(startWords(task.name,
+      _say(
+        startWords(
+          task.name,
           await backend.startAgain(project: file, task: task.task, repository: repository),
-          afterARestart: task.takenDownByARestart));
+          afterARestart: task.takenDownByARestart,
+        ),
+      );
       await _readOnce();
     });
   }

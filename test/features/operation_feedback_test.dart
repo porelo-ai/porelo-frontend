@@ -45,32 +45,25 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets('''the frame stays usable while a long operation runs''',
-        (tester) async {
+    testWidgets('''the frame stays usable while a long operation runs''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await iCloseWhatIsOpen(tester);
       await iSelectTheProject(tester, 'checkout');
       await theWorkIsListed(tester, 'porelo-checkout-shell');
       await theOperationIsStillRunning(tester);
     });
-    testWidgets('''output goes to the operation and disturbs nothing else''',
-        (tester) async {
+    testWidgets('''output goes to the operation and disturbs nothing else''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationPrints(tester, 'Building the image');
       await theOperationShows(tester, 'Building the image');
       await iCloseWhatIsOpen(tester);
       await isNowhereOnTheFrame(tester, 'Building the image');
     });
-    testWidgets(
-        '''an operation can be left and watched again without stopping it''',
-        (tester) async {
+    testWidgets('''an operation can be left and watched again without stopping it''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationPrints(tester, 'step one');
       await iCloseWhatIsOpen(tester);
       await theOperationPrints(tester, 'step two');
@@ -80,24 +73,20 @@ void main() {
       await theOperationShows(tester, 'step two');
       await theOperationIsStillRunning(tester);
     });
-    testWidgets(
-        '''everything this session ran is listed afterwards with its outcome''',
-        (tester) async {
+    testWidgets('''everything this session ran is listed afterwards with its outcome''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationFinishes(tester);
       await iCloseWhatIsOpen(tester);
       await iShowWhatThisSessionHasRun(tester);
       await theRecordShows(tester, 'would open');
       await theRecordShows(tester, 'Finished.');
     });
-    testWidgets(
-        '''failure is reported where success would have been, with the output that explains it''',
-        (tester) async {
+    testWidgets('''failure is reported where success would have been, with the output that explains it''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationPrints(tester, 'could not read project.yml');
       await theOperationFails(tester);
       await iCloseWhatIsOpen(tester);
@@ -107,12 +96,9 @@ void main() {
       await iOpenTheLastOperation(tester);
       await theOperationShows(tester, 'could not read project.yml');
     });
-    testWidgets(
-        '''a run stopped by its own time limit is not read as a run that went wrong''',
-        (tester) async {
+    testWidgets('''a run stopped by its own time limit is not read as a run that went wrong''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationPrints(tester, 'agent: editing lib/money.dart');
       await theOperationRunsOutOfTime(tester);
       await iCloseWhatIsOpen(tester);
@@ -121,23 +107,17 @@ void main() {
       await iOpenTheLastOperation(tester);
       await theOperationShows(tester, 'agent: editing lib/money.dart');
     });
-    testWidgets(
-        '''a run refused before it began says nothing was created, not that it failed''',
-        (tester) async {
+    testWidgets('''a run refused before it began says nothing was created, not that it failed''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theRunIsRefusedBeforeItBegins(tester);
       await iCloseWhatIsOpen(tester);
       await iShowWhatThisSessionHasRun(tester);
       await theRecordShows(tester, 'Nothing ran, and nothing was created');
     });
-    testWidgets(
-        '''a failure nobody watched waits under what needs a person until it is opened''',
-        (tester) async {
+    testWidgets('''a failure nobody watched waits under what needs a person until it is opened''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationPrints(tester, 'could not read project.yml');
       await iCloseWhatIsOpen(tester);
       await theOperationFails(tester);
@@ -151,11 +131,9 @@ void main() {
       await noFailedOperationWaits(tester);
       await theCountOfWhatNeedsAPersonIs(tester, 'nothing needs you');
     });
-    testWidgets('''a failure watched as it happened does not wait''',
-        (tester) async {
+    testWidgets('''a failure watched as it happened does not wait''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationFails(tester);
       await iCloseWhatIsOpen(tester);
       await iGoToWhatNeedsAPerson(tester);
@@ -163,18 +141,15 @@ void main() {
     });
     testWidgets('''an operation that finished never waits''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await iCloseWhatIsOpen(tester);
       await theOperationFinishes(tester);
       await iGoToWhatNeedsAPerson(tester);
       await noFailedOperationWaits(tester);
     });
-    testWidgets('''a failure opened from the session record no longer waits''',
-        (tester) async {
+    testWidgets('''a failure opened from the session record no longer waits''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await iCloseWhatIsOpen(tester);
       await theOperationFails(tester);
       await iShowWhatThisSessionHasRun(tester);
@@ -183,12 +158,9 @@ void main() {
       await iGoToWhatNeedsAPerson(tester);
       await noFailedOperationWaits(tester);
     });
-    testWidgets(
-        '''what was run is listed again after a restart, marked as earlier''',
-        (tester) async {
+    testWidgets('''what was run is listed again after a restart, marked as earlier''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theOperationFinishes(tester);
       await iCloseWhatIsOpen(tester);
       await theAppIsRestarted(tester);
@@ -196,11 +168,9 @@ void main() {
       await theRecordShows(tester, 'would open');
       await theRecordShows(tester, 'earlier');
     });
-    testWidgets('''a failure nobody opened still waits after a restart''',
-        (tester) async {
+    testWidgets('''a failure nobody opened still waits after a restart''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await iCloseWhatIsOpen(tester);
       await theOperationFails(tester);
       await theAppIsRestarted(tester);
@@ -212,28 +182,21 @@ void main() {
       await iShowWhatThisSessionHasRun(tester);
       await theRecordShows(tester, 'Kept for 30 days in');
     });
-    testWidgets('''the file of what was run is opened from the finder''',
-        (tester) async {
+    testWidgets('''the file of what was run is opened from the finder''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Open the file of everything that was run');
+      await iChooseTheCommand(tester, 'Open the file of everything that was run');
       await theFileOfWhatWasRunWasOpened(tester);
     });
-    testWidgets(
-        '''what one repository would open is shown on its own, creating nothing''',
-        (tester) async {
+    testWidgets('''what one repository would open is shown on its own, creating nothing''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await iShowWhatTheRepositoryWouldOpen(tester, 'payments-api');
       await theOperationIsOpen(tester);
       await theLaunchWasADryRunInTheRepository(tester, 'payments-api');
     });
-    testWidgets('''what the project would open names no repository''',
-        (tester) async {
+    testWidgets('''what the project would open names no repository''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Show what this project would open, creating nothing');
+      await iChooseTheCommand(tester, 'Show what this project would open, creating nothing');
       await theLaunchWasADryRunInNoRepository(tester);
     });
   });

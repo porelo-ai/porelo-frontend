@@ -34,14 +34,14 @@ class _DialogScrollState extends State<DialogScroll> {
 
   @override
   Widget build(BuildContext context) => Scrollbar(
-        key: const Key('dialog-scrollbar'),
-        controller: _position,
-        thumbVisibility: true,
-        child: SingleChildScrollView(
-          controller: _position,
-          // The right edge keeps the fields clear of the scrollbar drawn over them.
-          padding: const EdgeInsets.only(top: Space.small, right: Space.normal),
-          child: widget.child,
-        ),
-      );
+    key: const Key('dialog-scrollbar'),
+    controller: _position,
+    thumbVisibility: true,
+    child: SingleChildScrollView(
+      controller: _position,
+      // The right edge keeps the fields clear of the scrollbar drawn over them.
+      padding: const EdgeInsets.only(top: Space.small, right: Space.normal),
+      child: widget.child,
+    ),
+  );
 }

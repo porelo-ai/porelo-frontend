@@ -11,8 +11,7 @@ class _Wedged implements FleetBackend {
   String get label => 'the mock';
 
   @override
-  Future<ServiceInfo> open() async =>
-      throw const VarlinkDisconnected('the fake said nothing');
+  Future<ServiceInfo> open() async => throw const VarlinkDisconnected('the fake said nothing');
 
   @override
   Future<List<Task>> tasks() async => const <Task>[];
@@ -36,12 +35,10 @@ class _Wedged implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
-  }) =>
-      const Stream<String>.empty();
+  }) => const Stream<String>.empty();
 
   @override
-  Future<Stopped> stopTask(String task) async =>
-      throw const VarlinkDisconnected('nothing there');
+  Future<Stopped> stopTask(String task) async => throw const VarlinkDisconnected('nothing there');
 
   @override
   Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async =>
@@ -69,8 +66,7 @@ class _Wedged implements FleetBackend {
   Future<List<Log>> logsOf(String task) async => const <Log>[];
 
   @override
-  Future<GateState> gateOf(String projectFile, {String? repository}) async =>
-      GateState.from(const <String, dynamic>{});
+  Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{});
 
   @override
   Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
@@ -78,8 +74,7 @@ class _Wedged implements FleetBackend {
     String name, {
     String? against,
     String? repository,
-  }) async =>
-      (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {}
@@ -96,8 +91,7 @@ class _Wedged implements FleetBackend {
       (const <EgressHost>[], const <String>[]);
 
   @override
-  Future<(List<EgressSet>, List<String>)> egressSets() async =>
-      (const <EgressSet>[], const <String>[]);
+  Future<(List<EgressSet>, List<String>)> egressSets() async => (const <EgressSet>[], const <String>[]);
 
   @override
   Future<EgressChange> changeEgress(
@@ -108,9 +102,7 @@ class _Wedged implements FleetBackend {
     List<String>? removeDomains,
     bool? dryRun,
     String? repository,
-  }) async =>
-      EgressChange.from(const <String, dynamic>{});
-
+  }) async => EgressChange.from(const <String, dynamic>{});
 
   @override
   Stream<Prompt> prompts() => const Stream<Prompt>.empty();
@@ -143,9 +135,13 @@ class _Wedged implements FleetBackend {
   Future<List<MessageMember>> messageMembers(String project) async => const <MessageMember>[];
 
   @override
-  Future<MachineDeployKey> deployKey(String project,
-      {String? repository, String? upstream, bool? readOnly, bool renew = false}) async =>
-      throw UnimplementedError();
+  Future<MachineDeployKey> deployKey(
+    String project, {
+    String? repository,
+    String? upstream,
+    bool? readOnly,
+    bool renew = false,
+  }) async => throw UnimplementedError();
 
   @override
   Future<MachineKey> messageKey() async => throw UnimplementedError();
@@ -164,13 +160,20 @@ class _Wedged implements FleetBackend {
       (removed: false, keys: const <MachineDeployKey>[]);
 
   @override
-  Future<({List<int> bundle, int bytes})> pendingBundle(String project, String name, {String? repository, String? branch}) async =>
-      throw UnimplementedError();
+  Future<({List<int> bundle, int bytes})> pendingBundle(
+    String project,
+    String name, {
+    String? repository,
+    String? branch,
+  }) async => throw UnimplementedError();
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(String project, String name,
-          {String? repository, required String branch}) async =>
-      throw UnimplementedError();
+  Future<({bool landed, String commit, String detail})> landed(
+    String project,
+    String name, {
+    String? repository,
+    required String branch,
+  }) async => throw UnimplementedError();
 
   @override
   Future<ProjectFileSchema> projectFileSchema() async => throw UnimplementedError();
@@ -201,16 +204,13 @@ class _Wedged implements FleetBackend {
     String? authPrefix,
     String? authQuery,
     bool dryRun = false,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<({bool removed, String file})> removeDestination(String name) async => throw UnimplementedError();
 
   @override
   Future<void> decide(Prompt prompt, {required bool allow}) async {}
-
-
 
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async =>
@@ -220,20 +220,12 @@ class _Wedged implements FleetBackend {
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       const Stream<List<String>>.empty();
   @override
-  Future<Widened> widenTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) async =>
+  Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
       throw UnimplementedError();
 
   @override
-  Future<AgentsOnTheMachine> agentsOn() async => (
-        agents: const <Agent>[],
-        failures: const <String, String>{},
-        shadowed: const <ShadowedAgent>[],
-      );
+  Future<AgentsOnTheMachine> agentsOn() async =>
+      (agents: const <Agent>[], failures: const <String, String>{}, shadowed: const <ShadowedAgent>[]);
 
   @override
   Future<Panicked> panic({bool? dryRun}) async =>
@@ -243,8 +235,7 @@ class _Wedged implements FleetBackend {
   Future<String> node() async => '';
 
   @override
-  Stream<PrepareProgress> prepare(String project,
-          {String? agent, String? rebuild, bool? dryRun}) =>
+  Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
       const Stream<PrepareProgress>.empty();
 
   @override
@@ -252,22 +243,15 @@ class _Wedged implements FleetBackend {
       const ClearanceSet(outcome: 'CHANGED', was: 'prompt', now: 'off', detail: '');
 
   @override
-  Future<Narrowed> narrowTask(String task, List<String> domains,
-          {required Scope scope, bool? dryRun}) async =>
-      const Narrowed(
-          outcome: WidenOutcome.widened,
-          closes: <String>[],
-          addresses: 0,
-          persisted: false,
-          detail: '');
+  Future<Narrowed> narrowTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
+      const Narrowed(outcome: WidenOutcome.widened, closes: <String>[], addresses: 0, persisted: false, detail: '');
 
   @override
-  Future<HeldWork> workHeld(String task) async =>
-      const HeldWork(readable: true, changedFiles: 0, unpushedCommits: 0);
+  Future<HeldWork> workHeld(String task) async => const HeldWork(readable: true, changedFiles: 0, unpushedCommits: 0);
 
   @override
-  Future<Synced> syncUpstream(String project, {String? repository}) async => const Synced(
-      outcome: 'MEASURED', behind: 0, measured: true, reason: 'MEASURED', detail: '');
+  Future<Synced> syncUpstream(String project, {String? repository}) async =>
+      const Synced(outcome: 'MEASURED', behind: 0, measured: true, reason: 'MEASURED', detail: '');
 
   @override
   Future<List<Followed>> refreshProjects({String? project}) async => const <Followed>[];
@@ -276,10 +260,13 @@ class _Wedged implements FleetBackend {
   Future<TaskRefreshed> refreshTask(String task) async => const TaskRefreshed(outcome: 'UNCHANGED');
 
   @override
-  Future<Restored> restoreBackup(String project, String bundle,
-          {bool? dryRun, bool? force, String? repository}) async =>
-      const Restored(
-          outcome: 'RESTORED', mirror: '', unreviewed: <String>[], detail: '');
+  Future<Restored> restoreBackup(
+    String project,
+    String bundle, {
+    bool? dryRun,
+    bool? force,
+    String? repository,
+  }) async => const Restored(outcome: 'RESTORED', mirror: '', unreviewed: <String>[], detail: '');
 
   @override
   Future<List<Backup>> backups(String project, {String? repository}) async => const <Backup>[];
@@ -289,22 +276,24 @@ class _Wedged implements FleetBackend {
       const BackupDeleted(outcome: 'DELETED', fileRemoved: true, refs: 0, detail: '');
 
   @override
-  Future<Health> doctor() async =>
-      const Health(probes: <Probe>[], ready: true);
+  Future<Health> doctor() async => const Health(probes: <Probe>[], ready: true);
 
   @override
-  Future<Providers> providers() async =>
-      const Providers(providers: <Provider>[], readable: true);
+  Future<Providers> providers() async => const Providers(providers: <Provider>[], readable: true);
 
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
-      const Imported(
-          outcome: 'IMPORTED', name: '', type: '', length: 0, source: '', detail: '');
+      const Imported(outcome: 'IMPORTED', name: '', type: '', length: 0, source: '', detail: '');
 
   @override
-  Future<Followed> follow(String name, String url,
-          {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite}) async =>
-      Followed(name: name, url: url, outcome: 'APPLIED');
+  Future<Followed> follow(
+    String name,
+    String url, {
+    String? signedBy,
+    List<String>? signers,
+    bool? unverified,
+    bool? acceptRewrite,
+  }) async => Followed(name: name, url: url, outcome: 'APPLIED');
 
   @override
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) async => const Cleared();
@@ -319,12 +308,12 @@ class _Wedged implements FleetBackend {
     String? source,
     String? fromFile,
     bool? dryRun,
-  }) async =>
-      CredentialDeclared(connection: Connection(kind: kind, match: match));
+  }) async => CredentialDeclared(
+    connection: Connection(kind: kind, match: match),
+  );
 
   @override
-  Future<CredentialForgotten> credentialForget(String match) async =>
-      const CredentialForgotten(forgotten: true);
+  Future<CredentialForgotten> credentialForget(String match) async => const CredentialForgotten(forgotten: true);
 
   @override
   Future<CredentialChecked> credentialCheck(String url, {String? purpose}) async =>
@@ -337,53 +326,49 @@ class _Wedged implements FleetBackend {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => const HostKeyTrusted();
 
   @override
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async =>
-      const Deletion(
-          outcome: DeleteOutcome.deleted,
-          removes: <Removal>[],
-          keeps: <String>[],
-          unreviewed: <String>[],
-          running: <String>[],
-          detail: '');
+  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async => const Deletion(
+    outcome: DeleteOutcome.deleted,
+    removes: <Removal>[],
+    keeps: <String>[],
+    unreviewed: <String>[],
+    running: <String>[],
+    detail: '',
+  );
 
   @override
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials}) async => const Readiness(
-        ready: true,
-        outcome: StartOutcome.ready,
-        agent: '',
-        provider: '',
-        credential: '',
-        detail: '',
-      );
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) async =>
+      const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '');
 
   @override
   Future<VaultState> credentials() async => VaultState.from(const <String, dynamic>{});
 
   @override
-  Future<Locked> lock() async =>
-      const Locked(keyring: true, wasCached: false, holding: 0);
+  Future<Locked> lock() async => const Locked(keyring: true, wasCached: false, holding: 0);
 
   @override
-  Future<Labelled> labelTask(String task, {String? label}) async =>
-      const Labelled(outcome: 'LABELLED', label: '');
+  Future<Labelled> labelTask(String task, {String? label}) async => const Labelled(outcome: 'LABELLED', label: '');
 
   @override
-  Future<HandInPart> handIn(String task,
-          {required String name,
-          required int bytes,
-          required String sha256,
-          required int offset,
-          required List<int> part}) async =>
-      throw const FeatureNotSupported('HandIn');
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) async => throw const FeatureNotSupported('HandIn');
 
   @override
-  Future<HandedFile> takeBack(String task, String name) async =>
-      throw const FeatureNotSupported('TakeBack');
+  Future<HandedFile> takeBack(String task, String name) async => throw const FeatureNotSupported('TakeBack');
 
   @override
-  Future<List<HandInEvent>> handIns(String task) async =>
-      throw const FeatureNotSupported('HandIns');
-
+  Future<List<HandInEvent>> handIns(String task) async => throw const FeatureNotSupported('HandIns');
 }
 
 /// A machine that lists one project nothing has ever run on, and one task belonging to a project
@@ -393,25 +378,21 @@ class _Machine implements FleetBackend {
   String get label => 'the mock';
 
   @override
-  Future<ServiceInfo> open() async => const ServiceInfo(
-      product: 'Porelo', version: '0', vendor: 'fuin.org', interfaces: <String>[]);
+  Future<ServiceInfo> open() async =>
+      const ServiceInfo(product: 'Porelo', version: '0', vendor: 'fuin.org', interfaces: <String>[]);
 
   @override
   Future<List<Task>> tasks() async => <Task>[
-        Task.from(const <String, dynamic>{'name': 'porelo-orphan', 'project': 'vanished'}),
-      ];
+    Task.from(const <String, dynamic>{'name': 'porelo-orphan', 'project': 'vanished'}),
+  ];
 
   @override
   Future<List<Project>> projects() async => <Project>[
-        Project.from(const <String, dynamic>{'name': 'never-run', 'tasks': 0}),
-        // Counts that do not match what List returned, on purpose: the daemon assembles them from
-        // the mirrors and the tasks that exist, and knows about work this end has not matched.
-        Project.from(const <String, dynamic>{
-          'name': 'busy',
-          'tasks': 7,
-          'running': 3,
-        }),
-      ];
+    Project.from(const <String, dynamic>{'name': 'never-run', 'tasks': 0}),
+    // Counts that do not match what List returned, on purpose: the daemon assembles them from
+    // the mirrors and the tasks that exist, and knows about work this end has not matched.
+    Project.from(const <String, dynamic>{'name': 'busy', 'tasks': 7, 'running': 3}),
+  ];
 
   @override
   Stream<List<Task>> watch() => const Stream<List<Task>>.empty();
@@ -429,15 +410,13 @@ class _Machine implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
-  }) =>
-      const Stream<String>.empty();
+  }) => const Stream<String>.empty();
 
   @override
   Future<Stopped> stopTask(String task) async => throw UnimplementedError();
 
   @override
-  Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async =>
-      throw UnimplementedError();
+  Future<Removed> removeTask(String task, {bool? rescue, bool? force}) async => throw UnimplementedError();
 
   @override
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async =>
@@ -454,15 +433,13 @@ class _Machine implements FleetBackend {
   Future<Revoked> revokeKeyslot(String id) async => throw UnimplementedError();
 
   @override
-  Future<UnlockedWithShare> unlockWithShare({required String share, int? minutes}) async =>
-      throw UnimplementedError();
+  Future<UnlockedWithShare> unlockWithShare({required String share, int? minutes}) async => throw UnimplementedError();
 
   @override
   Future<List<Log>> logsOf(String task) async => const <Log>[];
 
   @override
-  Future<GateState> gateOf(String projectFile, {String? repository}) async =>
-      GateState.from(const <String, dynamic>{});
+  Future<GateState> gateOf(String projectFile, {String? repository}) async => GateState.from(const <String, dynamic>{});
 
   @override
   Future<({String diff, String log, List<ReviewFile> files, String? asked})> reviewOf(
@@ -470,8 +447,7 @@ class _Machine implements FleetBackend {
     String name, {
     String? against,
     String? repository,
-  }) async =>
-      (diff: '', log: '', files: const <ReviewFile>[], asked: null);
+  }) async => (diff: '', log: '', files: const <ReviewFile>[], asked: null);
 
   @override
   Future<void> approve(String projectFile, String name, String branch, {String? repository, String? commit}) async {}
@@ -514,9 +490,13 @@ class _Machine implements FleetBackend {
   Future<List<MessageMember>> messageMembers(String project) async => const <MessageMember>[];
 
   @override
-  Future<MachineDeployKey> deployKey(String project,
-      {String? repository, String? upstream, bool? readOnly, bool renew = false}) async =>
-      throw UnimplementedError();
+  Future<MachineDeployKey> deployKey(
+    String project, {
+    String? repository,
+    String? upstream,
+    bool? readOnly,
+    bool renew = false,
+  }) async => throw UnimplementedError();
 
   @override
   Future<MachineKey> messageKey() async => throw UnimplementedError();
@@ -535,13 +515,20 @@ class _Machine implements FleetBackend {
       (removed: false, keys: const <MachineDeployKey>[]);
 
   @override
-  Future<({List<int> bundle, int bytes})> pendingBundle(String project, String name, {String? repository, String? branch}) async =>
-      throw UnimplementedError();
+  Future<({List<int> bundle, int bytes})> pendingBundle(
+    String project,
+    String name, {
+    String? repository,
+    String? branch,
+  }) async => throw UnimplementedError();
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(String project, String name,
-          {String? repository, required String branch}) async =>
-      throw UnimplementedError();
+  Future<({bool landed, String commit, String detail})> landed(
+    String project,
+    String name, {
+    String? repository,
+    required String branch,
+  }) async => throw UnimplementedError();
 
   @override
   Future<ProjectFileSchema> projectFileSchema() async => throw UnimplementedError();
@@ -572,8 +559,7 @@ class _Machine implements FleetBackend {
     String? authPrefix,
     String? authQuery,
     bool dryRun = false,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<({bool removed, String file})> removeDestination(String name) async => throw UnimplementedError();
@@ -585,8 +571,7 @@ class _Machine implements FleetBackend {
       (const <EgressHost>[], const <String>[]);
 
   @override
-  Future<(List<EgressSet>, List<String>)> egressSets() async =>
-      (const <EgressSet>[], const <String>[]);
+  Future<(List<EgressSet>, List<String>)> egressSets() async => (const <EgressSet>[], const <String>[]);
 
   @override
   Future<EgressChange> changeEgress(
@@ -597,11 +582,7 @@ class _Machine implements FleetBackend {
     List<String>? removeDomains,
     bool? dryRun,
     String? repository,
-  }) async =>
-      EgressChange.from(const <String, dynamic>{});
-
-
-
+  }) async => EgressChange.from(const <String, dynamic>{});
 
   @override
   Future<Screen> screen(String task, {required int last, bool escapes = false}) async =>
@@ -611,20 +592,12 @@ class _Machine implements FleetBackend {
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       const Stream<List<String>>.empty();
   @override
-  Future<Widened> widenTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) async =>
+  Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
       throw UnimplementedError();
 
   @override
-  Future<AgentsOnTheMachine> agentsOn() async => (
-        agents: const <Agent>[],
-        failures: const <String, String>{},
-        shadowed: const <ShadowedAgent>[],
-      );
+  Future<AgentsOnTheMachine> agentsOn() async =>
+      (agents: const <Agent>[], failures: const <String, String>{}, shadowed: const <ShadowedAgent>[]);
 
   @override
   Future<Panicked> panic({bool? dryRun}) async =>
@@ -634,8 +607,7 @@ class _Machine implements FleetBackend {
   Future<String> node() async => '';
 
   @override
-  Stream<PrepareProgress> prepare(String project,
-          {String? agent, String? rebuild, bool? dryRun}) =>
+  Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
       const Stream<PrepareProgress>.empty();
 
   @override
@@ -643,22 +615,15 @@ class _Machine implements FleetBackend {
       const ClearanceSet(outcome: 'CHANGED', was: 'prompt', now: 'off', detail: '');
 
   @override
-  Future<Narrowed> narrowTask(String task, List<String> domains,
-          {required Scope scope, bool? dryRun}) async =>
-      const Narrowed(
-          outcome: WidenOutcome.widened,
-          closes: <String>[],
-          addresses: 0,
-          persisted: false,
-          detail: '');
+  Future<Narrowed> narrowTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) async =>
+      const Narrowed(outcome: WidenOutcome.widened, closes: <String>[], addresses: 0, persisted: false, detail: '');
 
   @override
-  Future<HeldWork> workHeld(String task) async =>
-      const HeldWork(readable: true, changedFiles: 0, unpushedCommits: 0);
+  Future<HeldWork> workHeld(String task) async => const HeldWork(readable: true, changedFiles: 0, unpushedCommits: 0);
 
   @override
-  Future<Synced> syncUpstream(String project, {String? repository}) async => const Synced(
-      outcome: 'MEASURED', behind: 0, measured: true, reason: 'MEASURED', detail: '');
+  Future<Synced> syncUpstream(String project, {String? repository}) async =>
+      const Synced(outcome: 'MEASURED', behind: 0, measured: true, reason: 'MEASURED', detail: '');
 
   @override
   Future<List<Followed>> refreshProjects({String? project}) async => const <Followed>[];
@@ -667,10 +632,13 @@ class _Machine implements FleetBackend {
   Future<TaskRefreshed> refreshTask(String task) async => const TaskRefreshed(outcome: 'UNCHANGED');
 
   @override
-  Future<Restored> restoreBackup(String project, String bundle,
-          {bool? dryRun, bool? force, String? repository}) async =>
-      const Restored(
-          outcome: 'RESTORED', mirror: '', unreviewed: <String>[], detail: '');
+  Future<Restored> restoreBackup(
+    String project,
+    String bundle, {
+    bool? dryRun,
+    bool? force,
+    String? repository,
+  }) async => const Restored(outcome: 'RESTORED', mirror: '', unreviewed: <String>[], detail: '');
 
   @override
   Future<List<Backup>> backups(String project, {String? repository}) async => const <Backup>[];
@@ -680,22 +648,24 @@ class _Machine implements FleetBackend {
       const BackupDeleted(outcome: 'DELETED', fileRemoved: true, refs: 0, detail: '');
 
   @override
-  Future<Health> doctor() async =>
-      const Health(probes: <Probe>[], ready: true);
+  Future<Health> doctor() async => const Health(probes: <Probe>[], ready: true);
 
   @override
-  Future<Providers> providers() async =>
-      const Providers(providers: <Provider>[], readable: true);
+  Future<Providers> providers() async => const Providers(providers: <Provider>[], readable: true);
 
   @override
   Future<Imported> importCredential({String? agent, String? configDirectory}) async =>
-      const Imported(
-          outcome: 'IMPORTED', name: '', type: '', length: 0, source: '', detail: '');
+      const Imported(outcome: 'IMPORTED', name: '', type: '', length: 0, source: '', detail: '');
 
   @override
-  Future<Followed> follow(String name, String url,
-          {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite}) async =>
-      Followed(name: name, url: url, outcome: 'APPLIED');
+  Future<Followed> follow(
+    String name,
+    String url, {
+    String? signedBy,
+    List<String>? signers,
+    bool? unverified,
+    bool? acceptRewrite,
+  }) async => Followed(name: name, url: url, outcome: 'APPLIED');
 
   @override
   Future<Cleared> clear({String? project, bool? dryRun, bool? force}) async => const Cleared();
@@ -710,12 +680,12 @@ class _Machine implements FleetBackend {
     String? source,
     String? fromFile,
     bool? dryRun,
-  }) async =>
-      CredentialDeclared(connection: Connection(kind: kind, match: match));
+  }) async => CredentialDeclared(
+    connection: Connection(kind: kind, match: match),
+  );
 
   @override
-  Future<CredentialForgotten> credentialForget(String match) async =>
-      const CredentialForgotten(forgotten: true);
+  Future<CredentialForgotten> credentialForget(String match) async => const CredentialForgotten(forgotten: true);
 
   @override
   Future<CredentialChecked> credentialCheck(String url, {String? purpose}) async =>
@@ -728,53 +698,49 @@ class _Machine implements FleetBackend {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) async => const HostKeyTrusted();
 
   @override
-  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async =>
-      const Deletion(
-          outcome: DeleteOutcome.deleted,
-          removes: <Removal>[],
-          keeps: <String>[],
-          unreviewed: <String>[],
-          running: <String>[],
-          detail: '');
+  Future<Deletion> unfollow(String project, {bool? dryRun, bool? force}) async => const Deletion(
+    outcome: DeleteOutcome.deleted,
+    removes: <Removal>[],
+    keeps: <String>[],
+    unreviewed: <String>[],
+    running: <String>[],
+    detail: '',
+  );
 
   @override
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials}) async => const Readiness(
-        ready: true,
-        outcome: StartOutcome.ready,
-        agent: '',
-        provider: '',
-        credential: '',
-        detail: '',
-      );
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) async =>
+      const Readiness(ready: true, outcome: StartOutcome.ready, agent: '', provider: '', credential: '', detail: '');
 
   @override
   Future<VaultState> credentials() async => VaultState.from(const <String, dynamic>{});
 
   @override
-  Future<Locked> lock() async =>
-      const Locked(keyring: true, wasCached: false, holding: 0);
+  Future<Locked> lock() async => const Locked(keyring: true, wasCached: false, holding: 0);
 
   @override
-  Future<Labelled> labelTask(String task, {String? label}) async =>
-      const Labelled(outcome: 'LABELLED', label: '');
+  Future<Labelled> labelTask(String task, {String? label}) async => const Labelled(outcome: 'LABELLED', label: '');
 
   @override
-  Future<HandInPart> handIn(String task,
-          {required String name,
-          required int bytes,
-          required String sha256,
-          required int offset,
-          required List<int> part}) async =>
-      throw const FeatureNotSupported('HandIn');
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) async => throw const FeatureNotSupported('HandIn');
 
   @override
-  Future<HandedFile> takeBack(String task, String name) async =>
-      throw const FeatureNotSupported('TakeBack');
+  Future<HandedFile> takeBack(String task, String name) async => throw const FeatureNotSupported('TakeBack');
 
   @override
-  Future<List<HandInEvent>> handIns(String task) async =>
-      throw const FeatureNotSupported('HandIns');
-
+  Future<List<HandInEvent>> handIns(String task) async => throw const FeatureNotSupported('HandIns');
 }
 
 /// A backend that answers nothing, for a test that must not reach one.
@@ -847,10 +813,8 @@ void main() {
 
     await fleet.connect();
 
-    expect(fleet.projects.map((project) => project.name),
-        containsAll(<String>['never-run', 'vanished']));
-    final vanished =
-        fleet.projects.firstWhere((project) => project.name == 'vanished');
+    expect(fleet.projects.map((project) => project.name), containsAll(<String>['never-run', 'vanished']));
+    final vanished = fleet.projects.firstWhere((project) => project.name == 'vanished');
     expect(vanished.tasks, hasLength(1));
     expect(vanished.canBeActedOn, isFalse);
     fleet.dispose();

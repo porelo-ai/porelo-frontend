@@ -28,9 +28,13 @@ void main() {
       for (final path in readers)
         if (!_tagged.hasMatch(File(path).readAsStringSync())) path,
     ];
-    expect(untagged, isEmpty,
-        reason: 'these read a document but are left out of `flutter test --tags documents`:\n'
-            '${untagged.join('\n')}');
+    expect(
+      untagged,
+      isEmpty,
+      reason:
+          'these read a document but are left out of `flutter test --tags documents`:\n'
+          '${untagged.join('\n')}',
+    );
   });
 }
 

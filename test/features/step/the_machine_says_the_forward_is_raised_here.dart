@@ -13,9 +13,10 @@ Future<void> theMachineSaysTheForwardIsRaisedHere(WidgetTester tester, String na
   await World.settle(tester);
   expect(
     find.descendant(
-        of: find.byKey(const Key('machine-kind')),
-        matching: find.textContaining('forward raised here'),
-        matchRoot: true),
+      of: find.byKey(const Key('machine-kind')),
+      matching: find.textContaining('forward raised here'),
+      matchRoot: true,
+    ),
     findsOneWidget,
   );
 }

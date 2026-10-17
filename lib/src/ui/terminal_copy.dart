@@ -43,9 +43,9 @@ class CopyAsShownIntent extends Intent {
 
 /// The terminal's own keys, but copying through [copiedText].
 Map<ShortcutActivator, Intent> get copyAsShownShortcuts => <ShortcutActivator, Intent>{
-      for (final entry in defaultTerminalShortcuts.entries)
-        entry.key: entry.value is CopySelectionTextIntent ? const CopyAsShownIntent() : entry.value,
-    };
+  for (final entry in defaultTerminalShortcuts.entries)
+    entry.key: entry.value is CopySelectionTextIntent ? const CopyAsShownIntent() : entry.value,
+};
 
 /// Answers [CopyAsShownIntent] for the terminal under it, with what [controller] has selected.
 class CopiesAsShown extends StatelessWidget {
@@ -57,13 +57,15 @@ class CopiesAsShown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Actions(
-        actions: <Type, Action<Intent>>{
-          CopyAsShownIntent: CallbackAction<CopyAsShownIntent>(onInvoke: (_) {
-            final selection = controller.selection;
-            if (selection != null) Clipboard.setData(ClipboardData(text: copiedText(terminal, selection)));
-            return null;
-          }),
+    actions: <Type, Action<Intent>>{
+      CopyAsShownIntent: CallbackAction<CopyAsShownIntent>(
+        onInvoke: (_) {
+          final selection = controller.selection;
+          if (selection != null) Clipboard.setData(ClipboardData(text: copiedText(terminal, selection)));
+          return null;
         },
-        child: child,
-      );
+      ),
+    },
+    child: child,
+  );
 }

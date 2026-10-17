@@ -69,9 +69,9 @@ class Tunnel {
     Future<Process> Function(List<String> command)? start,
     Future<ProcessResult> Function(List<String> command)? run,
     Duration appears = const Duration(seconds: 10),
-  })  : _launch = start ?? _runIt,
-        _tighten = run ?? _runAndWait,
-        _untilItBinds = appears;
+  }) : _launch = start ?? _runIt,
+       _tighten = run ?? _runAndWait,
+       _untilItBinds = appears;
 
   /// The machine this forwards to.
   final Machine machine;
@@ -102,18 +102,18 @@ class Tunnel {
   /// bind fails the process rather than leaving `ssh` up with no socket under it, which would
   /// read as connected.
   List<String> get command => <String>[
-        'ssh',
-        '-N',
-        '-o', 'BatchMode=yes',
-        '-o', 'ExitOnForwardFailure=yes',
-        '-o', 'ServerAliveInterval=15',
-        // A connection of its own, whatever the person's ssh config says: through their master the
-        // forward would live in the master, and letting go of this process would leave it running.
-        '-o', 'ControlMaster=no',
-        '-o', 'ControlPath=none',
-        '-L', '${machine.socketPath}:${machine.remoteSocket}',
-        machine.host,
-      ];
+    'ssh',
+    '-N',
+    '-o', 'BatchMode=yes',
+    '-o', 'ExitOnForwardFailure=yes',
+    '-o', 'ServerAliveInterval=15',
+    // A connection of its own, whatever the person's ssh config says: through their master the
+    // forward would live in the master, and letting go of this process would leave it running.
+    '-o', 'ControlMaster=no',
+    '-o', 'ControlPath=none',
+    '-L', '${machine.socketPath}:${machine.remoteSocket}',
+    machine.host,
+  ];
 
   /// Raises it, and waits until the socket is there or the transport says why not.
   Future<void> raise() async {
@@ -148,14 +148,13 @@ class Tunnel {
       // Collected as one future rather than read line by line, because **the process can exit
       // before a subscription has delivered anything**: `ssh` prints one line and dies, and the
       // first version of this reported "exit code 255" with the sentence still in the pipe.
-      final saying = process.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .toList();
-      unawaited(process.exitCode.then((code) async {
-        await _itEnded(code, saying);
-        if (!stopped.isCompleted) stopped.complete();
-      }));
+      final saying = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).toList();
+      unawaited(
+        process.exitCode.then((code) async {
+          await _itEnded(code, saying);
+          if (!stopped.isCompleted) stopped.complete();
+        }),
+      );
     } on ProcessException catch (ex) {
       state = TunnelState.down;
       problem = ex.message;
@@ -168,8 +167,7 @@ class Tunnel {
       if (stopped.isCompleted) return;
       // A *socket*, not merely a file. Anything left at that path would otherwise read as a
       // working forward — which is exactly what a leftover from a run that died looks like.
-      if (FileSystemEntity.typeSync(machine.socketPath) ==
-          FileSystemEntityType.unixDomainSock) {
+      if (FileSystemEntity.typeSync(machine.socketPath) == FileSystemEntityType.unixDomainSock) {
         if (!await _ownerOnly()) {
           // The one property of the transport that can be checked from here, and it is the one
           // the requirement names. A forward anybody on the machine can read is not the thing
@@ -228,10 +226,10 @@ class Tunnel {
 
   /// What is worth saying about it, or null when there is nothing.
   String? get words => switch (state) {
-        TunnelState.raising => 'raising the forward…',
-        TunnelState.down => problem,
-        _ => null,
-      };
+    TunnelState.raising => 'raising the forward…',
+    TunnelState.down => problem,
+    _ => null,
+  };
 
   Future<void> _itEnded(int code, Future<List<String>> saying) async {
     // Everything ssh printed, in order. It says one useful sentence and several unhelpful ones,
@@ -239,9 +237,7 @@ class Tunnel {
     final said = await saying;
     if (!_wanted) return;
     state = TunnelState.down;
-    problem = said.isEmpty
-        ? 'the forward stopped, exit code $code'
-        : said.join(' ');
+    problem = said.isEmpty ? 'the forward stopped, exit code $code' : said.join(' ');
   }
 
   void _clearTheWay() {
@@ -269,11 +265,9 @@ class Tunnel {
     return !machine.readableByOthers;
   }
 
-  static Future<Process> _runIt(List<String> command) =>
-      Process.start(command.first, command.sublist(1));
+  static Future<Process> _runIt(List<String> command) => Process.start(command.first, command.sublist(1));
 
-  static Future<ProcessResult> _runAndWait(List<String> command) =>
-      Process.run(command.first, command.sublist(1));
+  static Future<ProcessResult> _runAndWait(List<String> command) => Process.run(command.first, command.sublist(1));
 }
 
 /// Every forward this interface owns.
@@ -288,15 +282,14 @@ class Tunnels extends ChangeNotifier {
     Future<Process> Function(List<String> command)? start,
     Future<ProcessResult> Function(List<String> command)? run,
     Duration appears = const Duration(seconds: 10),
-  })  : _launch = start,
-        _run = run ?? _runIt,
-        _untilItBinds = appears;
+  }) : _launch = start,
+       _run = run ?? _runIt,
+       _untilItBinds = appears;
 
   final Future<Process> Function(List<String> command)? _launch;
   final Future<ProcessResult> Function(List<String> command) _run;
 
-  static Future<ProcessResult> _runIt(List<String> command) =>
-      Process.run(command.first, command.sublist(1));
+  static Future<ProcessResult> _runIt(List<String> command) => Process.run(command.first, command.sublist(1));
 
   /// How long a forward is given to bind before it is called down.
   final Duration _untilItBinds;
@@ -315,10 +308,7 @@ class Tunnels extends ChangeNotifier {
   Future<bool> raiseFor(Machine machine) async {
     // A machine this build cannot reach is said so where it is opened, never forwarded.
     if (!machine.needsATunnel || machine.whyNotReachableHere != null) return true;
-    final tunnel = _mine.putIfAbsent(
-      machine.name,
-      () => Tunnel(machine, start: _launch, appears: _untilItBinds),
-    );
+    final tunnel = _mine.putIfAbsent(machine.name, () => Tunnel(machine, start: _launch, appears: _untilItBinds));
     await tunnel.raise();
     notifyListeners();
     return tunnel.state == TunnelState.up;
@@ -356,13 +346,15 @@ class Tunnels extends ChangeNotifier {
       // This computer's own daemon: the same lines, in this user's login shell, with no login.
       ? <String>['sh', '-c', inTheLoginShell(startsIt)]
       : <String>[
-        'ssh',
-        '-n',
-        '-o', 'BatchMode=yes',
-        '-o', 'ConnectTimeout=10',
-        machine.host,
-        inTheLoginShell(startsIt),
-      ];
+          'ssh',
+          '-n',
+          '-o',
+          'BatchMode=yes',
+          '-o',
+          'ConnectTimeout=10',
+          machine.host,
+          inTheLoginShell(startsIt),
+        ];
 
   /// What is run at the far end. Held apart so a scenario can say what was asked of the machine.
   ///
@@ -400,13 +392,15 @@ class Tunnels extends ChangeNotifier {
   /// The line that would stop the daemon on [machine]: shown before anybody agrees, run unchanged
   /// after, like the start.
   static List<String> stopCommandFor(Machine machine) => <String>[
-        'ssh',
-        '-n',
-        '-o', 'BatchMode=yes',
-        '-o', 'ConnectTimeout=10',
-        machine.host,
-        inTheLoginShell(stopsIt),
-      ];
+    'ssh',
+    '-n',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ConnectTimeout=10',
+    machine.host,
+    inTheLoginShell(stopsIt),
+  ];
 
   /// What is run at the far end to stop it: the mirror of [startsIt].
   ///
@@ -469,8 +463,8 @@ class Tunnels extends ChangeNotifier {
         words: said.isNotEmpty
             ? said
             : went
-                ? 'It ran and said nothing.'
-                : 'ssh gave up, exit code ${result.exitCode}.',
+            ? 'It ran and said nothing.'
+            : 'ssh gave up, exit code ${result.exitCode}.',
       );
     } on ProcessException catch (ex) {
       return Started(went: false, words: ex.message);
@@ -485,13 +479,15 @@ class Tunnels extends ChangeNotifier {
 
   /// The same line for a login known only by where it is, before there is a machine to describe.
   static List<String> loginUidCommandAt(String host) => <String>[
-        'ssh',
-        '-n',
-        '-o', 'BatchMode=yes',
-        '-o', 'ConnectTimeout=10',
-        host,
-        'id -u',
-      ];
+    'ssh',
+    '-n',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ConnectTimeout=10',
+    host,
+    'id -u',
+  ];
 
   /// The uid of the account this interface logs in as on [machine], or null when it cannot say.
   ///
@@ -499,8 +495,7 @@ class Tunnels extends ChangeNotifier {
   /// reports the caller's own uid, needs no privilege and changes nothing, and it is only ever run
   /// as part of a trial somebody asked for. **Every failure is null**: a trial that cannot learn the
   /// uid says what it said before rather than guessing one.
-  Future<int?> loginUidOn(Machine machine) async =>
-      machine.needsATunnel ? loginUidAt(machine.host) : null;
+  Future<int?> loginUidOn(Machine machine) async => machine.needsATunnel ? loginUidAt(machine.host) : null;
 
   /// The uid of the account [host] logs in as, or null when it cannot say: what the wizard asks
   /// when a person knows only how they log in, and not where Porelo's socket is there.

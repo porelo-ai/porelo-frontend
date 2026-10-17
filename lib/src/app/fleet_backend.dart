@@ -87,12 +87,14 @@ abstract class FleetBackend {
   Future<Labelled> labelTask(String task, {String? label});
 
   /// Sends one part of a file handed to a running task; see [PoreloClient.handIn].
-  Future<HandInPart> handIn(String task,
-      {required String name,
-      required int bytes,
-      required String sha256,
-      required int offset,
-      required List<int> part});
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  });
 
   /// Takes a handed-in file out of a running task again.
   Future<HandedFile> takeBack(String task, String name);
@@ -107,11 +109,7 @@ abstract class FleetBackend {
   Future<Locked> lock();
 
   /// Enrolls this device as a keyslot. Proposed for Porelo's keyslots.
-  Future<Enrolled> enrollDevice({
-    required String name,
-    required String share,
-    required KeyslotStorage storage,
-  });
+  Future<Enrolled> enrollDevice({required String name, required String share, required KeyslotStorage storage});
 
   /// Every credential that can open the vault. Proposed for Porelo's keyslots.
   Future<List<Keyslot>> keyslots();
@@ -123,7 +121,13 @@ abstract class FleetBackend {
   Future<UnlockedWithShare> unlockWithShare({required String share, int? minutes});
 
   /// Whether work can start, asked before anything is created.
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials});
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  });
 
   /// Stops every running task and its helpers at once, or says what it would stop.
   ///
@@ -134,12 +138,7 @@ abstract class FleetBackend {
   Future<ClearanceSet> setClearance(String task, String mode, {bool? dryRun});
 
   /// Takes names back from a running task, and optionally from its project file.
-  Future<Narrowed> narrowTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  });
+  Future<Narrowed> narrowTask(String task, List<String> domains, {required Scope scope, bool? dryRun});
 
   /// What backups have been taken of a project's mirror. Newest first.
   Future<List<Backup>> backups(String project, {String? repository});
@@ -157,21 +156,13 @@ abstract class FleetBackend {
   Future<TaskRefreshed> refreshTask(String task);
 
   /// Restores a mirror from a backup, or says what restoring would take.
-  Future<Restored> restoreBackup(String project, String bundle,
-      {bool? dryRun, bool? force, String? repository});
+  Future<Restored> restoreBackup(String project, String bundle, {bool? dryRun, bool? force, String? repository});
 
   /// Removes a backup, or says what removing it would take.
   Future<BackupDeleted> deleteBackup(String project, String bundle, {bool? dryRun});
 
   /// Builds a project's task image without starting anything. Streamed: a build takes minutes.
-  Stream<PrepareProgress> prepare(
-    String project, {
-    String? agent,
-    String? rebuild,
-    bool? dryRun,
-  });
-
-
+  Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun});
 
   /// Whether this machine can run a task, and what it is short of.
   Future<Health> doctor();
@@ -222,8 +213,14 @@ abstract class FleetBackend {
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint);
 
   /// Follows a project's repository and reconciles once; what came of it is the answer.
-  Future<Followed> follow(String name, String url,
-      {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite});
+  Future<Followed> follow(
+    String name,
+    String url, {
+    String? signedBy,
+    List<String>? signers,
+    bool? unverified,
+    bool? acceptRewrite,
+  });
 
   /// Blocked connections from every task on this machine, as they happen.
   ///
@@ -255,8 +252,13 @@ abstract class FleetBackend {
   Future<List<MessageMember>> messageMembers(String project);
 
   /// This machine's deploy key for a repository of [project]; only the public half.
-  Future<MachineDeployKey> deployKey(String project,
-      {String? repository, String? upstream, bool? readOnly, bool renew = false});
+  Future<MachineDeployKey> deployKey(
+    String project, {
+    String? repository,
+    String? upstream,
+    bool? readOnly,
+    bool renew = false,
+  });
 
   /// This machine's message key, for its `machine-signers` line.
   Future<MachineKey> messageKey();
@@ -275,11 +277,20 @@ abstract class FleetBackend {
   Future<String> contract();
 
   /// Pending work at a project's gate as a git bundle, for a person to merge on their own computer.
-  Future<({List<int> bundle, int bytes})> pendingBundle(String project, String name, {String? repository, String? branch});
+  Future<({List<int> bundle, int bytes})> pendingBundle(
+    String project,
+    String name, {
+    String? repository,
+    String? branch,
+  });
 
   /// Clears pending work once the upstream's [branch] holds it.
-  Future<({bool landed, String commit, String detail})> landed(String project, String name,
-      {String? repository, required String branch});
+  Future<({bool landed, String commit, String detail})> landed(
+    String project,
+    String name, {
+    String? repository,
+    required String branch,
+  });
 
   /// The keys a project file may hold, as this machine's Porelo knows them.
   Future<ProjectFileSchema> projectFileSchema();
@@ -348,12 +359,7 @@ abstract class FleetBackend {
   ///
   /// The counterpart to [changeEgress], which reaches the next task and not this one. [scope] is
   /// required and has no default: this run, or this run and the project file.
-  Future<Widened> widenTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  });
+  Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun});
 
   /// What is waiting at a project's gate.
   ///
@@ -452,19 +458,21 @@ class PoreloBackend implements FleetBackend {
     // that did not ask to stream and is empty here.
     var exitCode = 0;
     StartAction? action;
-    final replies = _opened().start(
-      task: task,
-      project: project,
-      agent: agent,
-      dryRun: dryRun,
-      mode: mode,
-      prompt: prompt,
-      model: model,
-      maxTurns: maxTurns,
-      minutes: minutes,
-      repository: repository,
-      credentials: credentials,
-    ).transform(startRefusalsSaid);
+    final replies = _opened()
+        .start(
+          task: task,
+          project: project,
+          agent: agent,
+          dryRun: dryRun,
+          mode: mode,
+          prompt: prompt,
+          model: model,
+          maxTurns: maxTurns,
+          minutes: minutes,
+          repository: repository,
+          credentials: credentials,
+        )
+        .transform(startRefusalsSaid);
     await for (final progress in replies) {
       final line = progress.line;
       if (line != null) yield line;
@@ -487,8 +495,7 @@ class PoreloBackend implements FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
     var last = const StartProgress();
     final printed = <String>[];
-    await for (final progress
-        in _opened().start(project: project, task: task, now: true, repository: repository)) {
+    await for (final progress in _opened().start(project: project, task: task, now: true, repository: repository)) {
       final line = progress.line;
       if (line != null) printed.add(line);
       last = progress;
@@ -499,17 +506,17 @@ class PoreloBackend implements FleetBackend {
   }
 
   @override
-  Future<Labelled> labelTask(String task, {String? label}) =>
-      _opened().label(task, label: label);
+  Future<Labelled> labelTask(String task, {String? label}) => _opened().label(task, label: label);
 
   @override
-  Future<HandInPart> handIn(String task,
-          {required String name,
-          required int bytes,
-          required String sha256,
-          required int offset,
-          required List<int> part}) =>
-      _opened().handIn(task, name: name, bytes: bytes, sha256: sha256, offset: offset, part: part);
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) => _opened().handIn(task, name: name, bytes: bytes, sha256: sha256, offset: offset, part: part);
 
   @override
   Future<HandedFile> takeBack(String task, String name) => _opened().takeBack(task, name);
@@ -524,11 +531,7 @@ class PoreloBackend implements FleetBackend {
   Future<Locked> lock() => _opened().lock();
 
   @override
-  Future<Enrolled> enrollDevice({
-    required String name,
-    required String share,
-    required KeyslotStorage storage,
-  }) =>
+  Future<Enrolled> enrollDevice({required String name, required String share, required KeyslotStorage storage}) =>
       _opened().enrollDevice(name: name, share: share, storage: storage);
 
   @override
@@ -542,9 +545,14 @@ class PoreloBackend implements FleetBackend {
       _opened().unlockWithShare(share: share, minutes: minutes);
 
   @override
-  Future<Readiness> canStart({String? project, String? agent, String? task, String? repository, Map<String, String>? credentials}) =>
-      _opened().canStart(
-          project: project, agent: agent, task: task, repository: repository, credentials: credentials);
+  Future<Readiness> canStart({
+    String? project,
+    String? agent,
+    String? task,
+    String? repository,
+    Map<String, String>? credentials,
+  }) =>
+      _opened().canStart(project: project, agent: agent, task: task, repository: repository, credentials: credentials);
 
   @override
   Future<Panicked> panic({bool? dryRun}) => _opened().panic(dryRun: dryRun);
@@ -554,12 +562,7 @@ class PoreloBackend implements FleetBackend {
       _opened().setClearance(task, mode, dryRun: dryRun);
 
   @override
-  Future<Narrowed> narrowTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) =>
+  Future<Narrowed> narrowTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) =>
       _opened().narrowTask(task, domains, scope: scope, dryRun: dryRun);
 
   @override
@@ -580,18 +583,15 @@ class PoreloBackend implements FleetBackend {
   Future<TaskRefreshed> refreshTask(String task) => _opened().refreshTask(task);
 
   @override
-  Future<Restored> restoreBackup(String project, String bundle,
-          {bool? dryRun, bool? force, String? repository}) =>
-      _opened().restoreBackup(project, bundle,
-          dryRun: dryRun, force: force, repository: repository);
+  Future<Restored> restoreBackup(String project, String bundle, {bool? dryRun, bool? force, String? repository}) =>
+      _opened().restoreBackup(project, bundle, dryRun: dryRun, force: force, repository: repository);
 
   @override
   Future<BackupDeleted> deleteBackup(String project, String bundle, {bool? dryRun}) =>
       _opened().deleteBackup(project, bundle, dryRun: dryRun);
 
   @override
-  Stream<PrepareProgress> prepare(String project,
-          {String? agent, String? rebuild, bool? dryRun}) =>
+  Stream<PrepareProgress> prepare(String project, {String? agent, String? rebuild, bool? dryRun}) =>
       _opened().prepare(project, agent: agent, rebuild: rebuild, dryRun: dryRun);
 
   @override
@@ -625,16 +625,16 @@ class PoreloBackend implements FleetBackend {
     String? source,
     String? fromFile,
     bool? dryRun,
-  }) =>
-      _opened().credentialDeclare(
-          kind: kind,
-          match: match,
-          id: id,
-          user: user,
-          purpose: purpose,
-          source: source,
-          fromFile: fromFile,
-          dryRun: dryRun);
+  }) => _opened().credentialDeclare(
+    kind: kind,
+    match: match,
+    id: id,
+    user: user,
+    purpose: purpose,
+    source: source,
+    fromFile: fromFile,
+    dryRun: dryRun,
+  );
 
   @override
   Future<CredentialForgotten> credentialForget(String match) => _opened().credentialForget(match);
@@ -647,14 +647,24 @@ class PoreloBackend implements FleetBackend {
   Future<List<SshKey>> sshKeys() => _opened().sshKeys();
 
   @override
-  Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) =>
-      _opened().trustHostKey(host, fingerprint);
+  Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) => _opened().trustHostKey(host, fingerprint);
 
   @override
-  Future<Followed> follow(String name, String url,
-          {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite}) =>
-      _opened().follow(name, url,
-          signedBy: signedBy, signers: signers, unverified: unverified, acceptRewrite: acceptRewrite);
+  Future<Followed> follow(
+    String name,
+    String url, {
+    String? signedBy,
+    List<String>? signers,
+    bool? unverified,
+    bool? acceptRewrite,
+  }) => _opened().follow(
+    name,
+    url,
+    signedBy: signedBy,
+    signers: signers,
+    unverified: unverified,
+    acceptRewrite: acceptRewrite,
+  );
 
   @override
   Stream<Prompt> prompts() => _opened().prompts();
@@ -686,9 +696,13 @@ class PoreloBackend implements FleetBackend {
   Future<List<MessageMember>> messageMembers(String project) => _opened().messageMembers(project);
 
   @override
-  Future<MachineDeployKey> deployKey(String project,
-      {String? repository, String? upstream, bool? readOnly, bool renew = false}) =>
-      _opened().deployKey(project, repository: repository, upstream: upstream, readOnly: readOnly, renew: renew);
+  Future<MachineDeployKey> deployKey(
+    String project, {
+    String? repository,
+    String? upstream,
+    bool? readOnly,
+    bool renew = false,
+  }) => _opened().deployKey(project, repository: repository, upstream: upstream, readOnly: readOnly, renew: renew);
 
   @override
   Future<MachineKey> messageKey() => _opened().messageKey();
@@ -697,7 +711,8 @@ class PoreloBackend implements FleetBackend {
   Future<List<DefaultRepository>> defaultRepositories() => _opened().defaultRepositories();
 
   @override
-  Future<DefaultRepository> addToDefault(String upstream, {String? name}) => _opened().addToDefault(upstream, name: name);
+  Future<DefaultRepository> addToDefault(String upstream, {String? name}) =>
+      _opened().addToDefault(upstream, name: name);
 
   @override
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) =>
@@ -707,13 +722,20 @@ class PoreloBackend implements FleetBackend {
   Future<String> contract() => _opened().contract();
 
   @override
-  Future<({List<int> bundle, int bytes})> pendingBundle(String project, String name, {String? repository, String? branch}) =>
-      _opened().pendingBundle(project, name, repository: repository, branch: branch);
+  Future<({List<int> bundle, int bytes})> pendingBundle(
+    String project,
+    String name, {
+    String? repository,
+    String? branch,
+  }) => _opened().pendingBundle(project, name, repository: repository, branch: branch);
 
   @override
-  Future<({bool landed, String commit, String detail})> landed(String project, String name,
-          {String? repository, required String branch}) =>
-      _opened().landed(project, name, repository: repository, branch: branch);
+  Future<({bool landed, String commit, String detail})> landed(
+    String project,
+    String name, {
+    String? repository,
+    required String branch,
+  }) => _opened().landed(project, name, repository: repository, branch: branch);
 
   @override
   Future<ProjectFileSchema> projectFileSchema() => _opened().projectFileSchema();
@@ -733,15 +755,15 @@ class PoreloBackend implements FleetBackend {
     String? authPrefix,
     String? authQuery,
     bool dryRun = false,
-  }) =>
-      _opened().writeDestination(
-          name: name,
-          upstream: upstream,
-          label: label,
-          authHeader: authHeader,
-          authPrefix: authPrefix,
-          authQuery: authQuery,
-          dryRun: dryRun);
+  }) => _opened().writeDestination(
+    name: name,
+    upstream: upstream,
+    label: label,
+    authHeader: authHeader,
+    authPrefix: authPrefix,
+    authQuery: authQuery,
+    dryRun: dryRun,
+  );
 
   @override
   Future<({bool removed, String file})> removeDestination(String name) => _opened().removeDestination(name);
@@ -761,8 +783,7 @@ class PoreloBackend implements FleetBackend {
       _opened().say(task, peer, text, kind: kind);
 
   @override
-  Future<void> decide(Prompt prompt, {required bool allow}) async =>
-      _opened().decide(prompt, allow: allow);
+  Future<void> decide(Prompt prompt, {required bool allow}) async => _opened().decide(prompt, allow: allow);
 
   @override
   Future<(List<EgressHost>, List<String>)> egressOf(String projectFile, {String? repository}) =>
@@ -780,24 +801,18 @@ class PoreloBackend implements FleetBackend {
     List<String>? removeDomains,
     bool? dryRun,
     String? repository,
-  }) =>
-      _opened().setEgress(
-        projectFile,
-        addSets: addSets,
-        removeSets: removeSets,
-        addDomains: addDomains,
-        removeDomains: removeDomains,
-        dryRun: dryRun,
-        repository: repository,
-      );
+  }) => _opened().setEgress(
+    projectFile,
+    addSets: addSets,
+    removeSets: removeSets,
+    addDomains: addDomains,
+    removeDomains: removeDomains,
+    dryRun: dryRun,
+    repository: repository,
+  );
 
   @override
-  Future<Widened> widenTask(
-    String task,
-    List<String> domains, {
-    required Scope scope,
-    bool? dryRun,
-  }) =>
+  Future<Widened> widenTask(String task, List<String> domains, {required Scope scope, bool? dryRun}) =>
       _opened().widenTask(task, domains, scope: scope, dryRun: dryRun);
 
   @override
@@ -828,8 +843,12 @@ class PoreloBackend implements FleetBackend {
   @override
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) async* {
     final takes = await (_tailTakes ??= _whatTailTakes());
-    yield* _opened().tailLog(task, log,
-        last: takes.contains('last') ? last : null, formatted: formatted && takes.contains('formatted'));
+    yield* _opened().tailLog(
+      task,
+      log,
+      last: takes.contains('last') ? last : null,
+      formatted: formatted && takes.contains('formatted'),
+    );
   }
 
   Future<Set<String>>? _tailTakes;
@@ -871,11 +890,7 @@ extension BuildingAnEnvironment on FleetBackend {
   /// **The stream erroring is how a failure reaches an operation**, which is what puts the failed
   /// step in the record and keeps it readable afterwards. Nothing else has to know what an outcome
   /// means.
-  Stream<String> buildEnvironment(
-    String project, {
-    String? agent,
-    String? rebuild,
-  }) async* {
+  Stream<String> buildEnvironment(String project, {String? agent, String? rebuild}) async* {
     var failed = '';
     await for (final progress in prepare(project, agent: agent, rebuild: rebuild)) {
       final line = progress.line;
@@ -914,16 +929,15 @@ class StartRefused implements Exception {
 
   @override
   String toString() => switch (action) {
-        StartAction.running => 'It is already running, so nothing was started.',
-        StartAction.needsVault => 'The vault is locked. Unlock it, then start again.',
-        StartAction.supersededName =>
-          'It is from before one container per task, and can only be removed.',
-        StartAction.notReady => 'This project is not ready to start work.',
-        StartAction.predatesRestart =>
-          'It was started before this machine restarted, so it cannot be started again. '
-              'Copy its workspace out, then remove it.',
-        _ => 'Refused: ${action.label}.',
-      };
+    StartAction.running => 'It is already running, so nothing was started.',
+    StartAction.needsVault => 'The vault is locked. Unlock it, then start again.',
+    StartAction.supersededName => 'It is from before one container per task, and can only be removed.',
+    StartAction.notReady => 'This project is not ready to start work.',
+    StartAction.predatesRestart =>
+      'It was started before this machine restarted, so it cannot be started again. '
+          'Copy its workspace out, then remove it.',
+    _ => 'Refused: ${action.label}.',
+  };
 }
 
 /// Turns `Start`'s named refusals into exceptions that say them in words: `NoSuchDestination` into
@@ -931,18 +945,16 @@ class StartRefused implements Exception {
 /// came.
 final StreamTransformer<StartProgress, StartProgress> startRefusalsSaid =
     StreamTransformer<StartProgress, StartProgress>.fromHandlers(
-  handleError: (error, stack, sink) => sink.addError(
-      switch (error) {
-        VarlinkException(simpleName: 'NoSuchDestination') =>
-          NoSuchDestination('${error.parameters['name'] ?? ''}'),
+      handleError: (error, stack, sink) => sink.addError(switch (error) {
+        VarlinkException(simpleName: 'NoSuchDestination') => NoSuchDestination('${error.parameters['name'] ?? ''}'),
         VarlinkException(simpleName: 'EarlierWorkWaits') => EarlierWorkWaits(
-            '${error.parameters['task'] ?? ''}',
-            commit: '${error.parameters['commit'] ?? ''}',
-            subject: '${error.parameters['subject'] ?? ''}'),
+          '${error.parameters['task'] ?? ''}',
+          commit: '${error.parameters['commit'] ?? ''}',
+          subject: '${error.parameters['subject'] ?? ''}',
+        ),
         _ => error,
-      },
-      stack),
-);
+      }, stack),
+    );
 
 /// Start refused because the task's earlier work still waits at the gate, before anything was
 /// created. Said in words, naming that work: it is decided at the gate, and then the task starts.
@@ -962,10 +974,7 @@ class EarlierWorkWaits implements Exception {
   @override
   String toString() {
     final short = commit.length > 7 ? commit.substring(0, 7) : commit;
-    final work = <String>[
-      if (short.isNotEmpty) short,
-      if (subject.isNotEmpty) '"$subject"',
-    ].join(' ');
+    final work = <String>[if (short.isNotEmpty) short, if (subject.isNotEmpty) '"$subject"'].join(' ');
     return '${task.isEmpty ? 'It' : task} was not started: its earlier work '
         '${work.isEmpty ? '' : '$work '}still waits at the gate. Forward it or drop it there, then '
         'start again.';
@@ -986,7 +995,7 @@ class NoSuchDestination implements Exception {
   String toString() => credential.isEmpty
       ? 'A credential is for a destination this machine does not declare. Nothing was started.'
       : 'The credential $credential is for a destination this machine does not declare. Nothing was '
-          'started; add the destination under Destinations, or give the entry for another.';
+            'started; add the destination under Destinations, or give the entry for another.';
 }
 
 /// A launch that ran and came back with something other than zero.
@@ -1022,14 +1031,16 @@ class OperationFailed implements Exception {
 
   @override
   String toString() => switch (exitCode) {
-        // Four bands, not two. Reading every non-zero code as "it failed" throws away the two
-        // that are not failures of the work at all.
-        124 => 'It ran out of the time it was given and was stopped. What it managed to do is '
-            'in the log.',
-        // Not "no agent is installed": more than one refusal answers 69, and the daemon prints
-        // which. Naming one of them here would be wrong exactly when it was believed.
-        69 => 'Nothing ran, and nothing was created. It was refused before it began; '
-            'what was refused is in the output above.',
-        _ => 'The agent exited with code $exitCode.',
-      };
+    // Four bands, not two. Reading every non-zero code as "it failed" throws away the two
+    // that are not failures of the work at all.
+    124 =>
+      'It ran out of the time it was given and was stopped. What it managed to do is '
+          'in the log.',
+    // Not "no agent is installed": more than one refusal answers 69, and the daemon prints
+    // which. Naming one of them here would be wrong exactly when it was believed.
+    69 =>
+      'Nothing ran, and nothing was created. It was refused before it began; '
+          'what was refused is in the output above.',
+    _ => 'The agent exited with code $exitCode.',
+  };
 }

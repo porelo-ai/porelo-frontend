@@ -23,15 +23,12 @@ import 'wsl_machine.dart';
 /// What one machine says about itself: the kind of way in, and whether it is a second way in to
 /// a node already listed. **That is asked, not worked out**: a hostname has many spellings, and a
 /// forwarded socket looks nothing like a tunnel raised here.
-String describeMachine(Machines machines, Machine machine) =>
-    '${machine.name}${machineKind(machines, machine)}';
+String describeMachine(Machines machines, Machine machine) => '${machine.name}${machineKind(machines, machine)}';
 
 /// What [describeMachine] says after the name: empty for a plain socket.
 String machineKind(Machines machines, Machine machine) {
   final also = machines.sameNodeAs(machine);
-  final same = also.isEmpty
-      ? ''
-      : '  ·  the same node as ${also.map((each) => each.name).join(', ')}';
+  final same = also.isEmpty ? '' : '  ·  the same node as ${also.map((each) => each.name).join(', ')}';
   return machine.needsATunnel ? '  ·  forward raised here$same' : same;
 }
 
@@ -57,8 +54,7 @@ class ReachIcon extends StatelessWidget {
       Reachability.connecting => (Icons.cloud_queue, scheme.outline, 'Connecting'),
       Reachability.connected => (Icons.cloud_done, scheme.primary, 'Answering'),
       Reachability.unreachable => (Icons.cloud_off, scheme.error, 'Not answering'),
-      Reachability.incompatible =>
-        (Icons.warning_amber_outlined, scheme.error, 'Speaks nothing this build knows'),
+      Reachability.incompatible => (Icons.warning_amber_outlined, scheme.error, 'Speaks nothing this build knows'),
     };
     // The transport's own sentence wins over ours. "Host key verification failed" is a different
     // problem from a machine that is simply not there, and only one of them can be acted on.
@@ -95,43 +91,45 @@ enum MachineKind {
 /// is opened exactly as it always was — that path has no credential handling in it at all and
 /// must keep working untouched. A machine described by where it *is* has its forward raised here,
 /// supervised, and taken down when the window closes.
-Future<Machine?> askForAMachine(BuildContext context,
-        {Iterable<String> taken = const <String>[],
-        Future<Trial> Function(Machine)? trying,
-        Future<Started> Function(Machine)? starting,
-        HostKeys? hostKeys,
-        MachineSetup? setup,
-        String workUser = 'agent',
-        MachineKind? only,
-        Map<String, Object?>? draft,
-        Future<void> Function(Map<String, Object?>? draft)? remember,
-        OpenTerminal? openTerminal,
-        Future<int?> Function(Machine machine)? countKeyslots,
-        Future<String?> Function(String host)? socketAt,
-        String? Function()? whyNotLoggedIn,
-        VoidCallback? thenConnections,
-        bool? onWindows,
-        Widget Function(ValueChanged<Machine?> onReady)? wslSteps}) =>
-    showDialog<Machine>(
-      context: context,
-      builder: (context) => _AskForAMachine(
-          taken: taken.toList(),
-          trying: trying,
-          starting: starting,
-          hostKeys: hostKeys,
-          setup: setup,
-          workUser: workUser,
-          only: only,
-          draft: draft,
-          remember: remember,
-          openTerminal: openTerminal,
-          countKeyslots: countKeyslots,
-          socketAt: socketAt,
-          whyNotLoggedIn: whyNotLoggedIn,
-          thenConnections: thenConnections,
-          onWindows: onWindows ?? desk.isWindows,
-          wslSteps: wslSteps),
-    );
+Future<Machine?> askForAMachine(
+  BuildContext context, {
+  Iterable<String> taken = const <String>[],
+  Future<Trial> Function(Machine)? trying,
+  Future<Started> Function(Machine)? starting,
+  HostKeys? hostKeys,
+  MachineSetup? setup,
+  String workUser = 'agent',
+  MachineKind? only,
+  Map<String, Object?>? draft,
+  Future<void> Function(Map<String, Object?>? draft)? remember,
+  OpenTerminal? openTerminal,
+  Future<int?> Function(Machine machine)? countKeyslots,
+  Future<String?> Function(String host)? socketAt,
+  String? Function()? whyNotLoggedIn,
+  VoidCallback? thenConnections,
+  bool? onWindows,
+  Widget Function(ValueChanged<Machine?> onReady)? wslSteps,
+}) => showDialog<Machine>(
+  context: context,
+  builder: (context) => _AskForAMachine(
+    taken: taken.toList(),
+    trying: trying,
+    starting: starting,
+    hostKeys: hostKeys,
+    setup: setup,
+    workUser: workUser,
+    only: only,
+    draft: draft,
+    remember: remember,
+    openTerminal: openTerminal,
+    countKeyslots: countKeyslots,
+    socketAt: socketAt,
+    whyNotLoggedIn: whyNotLoggedIn,
+    thenConnections: thenConnections,
+    onWindows: onWindows ?? desk.isWindows,
+    wslSteps: wslSteps,
+  ),
+);
 
 class _AskForAMachine extends StatefulWidget {
   const _AskForAMachine({
@@ -242,10 +240,10 @@ class _AskForAMachineState extends State<_AskForAMachine> {
 
   /// Whether this interface raises the forward, for the two kinds that have one to reach.
   bool? get _raiseIt => switch (_kind) {
-        MachineKind.forwarded => false,
-        MachineKind.raiseIt => true,
-        _ => null,
-      };
+    MachineKind.forwarded => false,
+    MachineKind.raiseIt => true,
+    _ => null,
+  };
 
   /// Which page of the wizard is showing: the name and kind, or what that kind needs.
   int _page = 0;
@@ -275,14 +273,17 @@ class _AskForAMachineState extends State<_AskForAMachine> {
 
   SetupRun _newRun({Map<String, Object?>? from}) {
     final setup = widget.setup ?? MachineSetup();
-    final run = (from == null
+    final run =
+        (from == null
             ? null
-            : SetupRun.fromStored(from,
+            : SetupRun.fromStored(
+                from,
                 setup: setup,
                 hostKeys: widget.hostKeys,
                 trying: widget.trying,
                 remember: widget.remember,
-                countKeyslots: widget.countKeyslots)) ??
+                countKeyslots: widget.countKeyslots,
+              )) ??
         SetupRun(
           name: _name.text.trim(),
           workUser: _user.text.trim(),
@@ -306,7 +307,8 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   void _goOn() {
     if (_makesAUser) {
       final run = _run;
-      final same = run != null &&
+      final same =
+          run != null &&
           run.name == _name.text.trim() &&
           run.workUser == _user.text.trim() &&
           run.addingAUser == (_kind == MachineKind.newUser);
@@ -359,300 +361,317 @@ class _AskForAMachineState extends State<_AskForAMachine> {
 
   /// The line that forwards the socket, with the local end filled in.
   String get _recipe {
-    final local = _socket.text.trim().isEmpty
-        ? '/tmp/porelod-remote.sock'
-        : _socket.text.trim();
+    final local = _socket.text.trim().isEmpty ? '/tmp/porelod-remote.sock' : _socket.text.trim();
     return 'ssh -L $local:/run/user/<uid>/porelo/porelod.sock user@host -N';
   }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text(_page == 0
-            ? (widget.only == MachineKind.newUser ? 'Add a user to a machine' : 'Watch another machine')
-            : 'Watch ${_name.text.trim()}'),
-        content: SizedBox(
-          width: Sizes.dialogMedium,
-          child: DialogScroll(
-            controller: _scroll,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _page == 0 ? _firstPage(context) : _secondPage(context),
-            ),
-          ),
+    title: Text(
+      _page == 0
+          ? (widget.only == MachineKind.newUser ? 'Add a user to a machine' : 'Watch another machine')
+          : 'Watch ${_name.text.trim()}',
+    ),
+    content: SizedBox(
+      width: Sizes.dialogMedium,
+      child: DialogScroll(
+        controller: _scroll,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: _page == 0 ? _firstPage(context) : _secondPage(context),
         ),
-        actions: <Widget>[
-          // While something runs on the machine only Cancel is offered: going back or on in the
-          // middle of it would draw a step that is not true yet.
-          if (_page > 0)
-            TextButton(
-              key: const Key('wizard-back'),
-              onPressed: _run?.busy ?? false
-                  ? null
-                  : () {
-                      final run = _run;
-                      if (_makesAUser && run != null && !run.isFirst) {
-                        run.previous();
-                      } else {
-                        setState(() => _page = 0);
-                      }
-                    },
-              child: const Text('Back'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+      ),
+    ),
+    actions: <Widget>[
+      // While something runs on the machine only Cancel is offered: going back or on in the
+      // middle of it would draw a step that is not true yet.
+      if (_page > 0)
+        TextButton(
+          key: const Key('wizard-back'),
+          onPressed: _run?.busy ?? false
+              ? null
+              : () {
+                  final run = _run;
+                  if (_makesAUser && run != null && !run.isFirst) {
+                    run.previous();
+                  } else {
+                    setState(() => _page = 0);
+                  }
+                },
+          child: const Text('Back'),
+        ),
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+      if (_page == 0)
+        FilledButton(key: const Key('wizard-next'), onPressed: _canGoOn ? _goOn : null, child: const Text('Next'))
+      else if (_makesAUser && _run != null && !_run!.isLast)
+        FilledButton(
+          key: const Key('setup-next'),
+          onPressed: _run!.canGoOn && !_run!.busy ? _run!.next : null,
+          child: const Text('Next step'),
+        )
+      else if (_makesAUser && _run != null) ...<Widget>[
+        if (widget.thenConnections case final then?)
+          OutlinedButton(
+            key: const Key('watch-new-then-connections'),
+            onPressed: _run!.ready == null || _run!.busy
+                ? null
+                : () {
+                    final machine = _run!.ready!;
+                    unawaited(_run!.forget());
+                    then();
+                    Navigator.of(context).pop(machine);
+                  },
+            child: const Text('Watch it, then set up how it connects out'),
           ),
-          if (_page == 0)
-            FilledButton(
-              key: const Key('wizard-next'),
-              onPressed: _canGoOn ? _goOn : null,
-              child: const Text('Next'),
-            )
-          else if (_makesAUser && _run != null && !_run!.isLast)
-            FilledButton(
-              key: const Key('setup-next'),
-              onPressed: _run!.canGoOn && !_run!.busy ? _run!.next : null,
-              child: const Text('Next step'),
-            )
-          else if (_makesAUser && _run != null) ...<Widget>[
-            if (widget.thenConnections case final then?)
-              OutlinedButton(
-                key: const Key('watch-new-then-connections'),
-                onPressed: _run!.ready == null || _run!.busy
-                    ? null
-                    : () {
-                        final machine = _run!.ready!;
-                        unawaited(_run!.forget());
-                        then();
-                        Navigator.of(context).pop(machine);
-                      },
-                child: const Text('Watch it, then set up how it connects out'),
-              ),
-            FilledButton(
-              key: const Key('watch-new'),
-              onPressed: _run!.ready == null || _run!.busy
-                  ? null
-                  : () {
-                      final machine = _run!.ready!;
-                      unawaited(_run!.forget());
-                      Navigator.of(context).pop(machine);
-                    },
-              child: const Text('Watch it'),
-            ),
-          ]
-          else if (!_makesAUser)
-            FilledButton(
-              key: const Key('watch-it'),
-              onPressed: _ready ? _watchIt : null,
-              child: const Text('Watch it'),
-            ),
-        ],
-      );
+        FilledButton(
+          key: const Key('watch-new'),
+          onPressed: _run!.ready == null || _run!.busy
+              ? null
+              : () {
+                  final machine = _run!.ready!;
+                  unawaited(_run!.forget());
+                  Navigator.of(context).pop(machine);
+                },
+          child: const Text('Watch it'),
+        ),
+      ] else if (!_makesAUser)
+        FilledButton(key: const Key('watch-it'), onPressed: _ready ? _watchIt : null, child: const Text('Watch it')),
+    ],
+  );
 
   /// The name, and which kind of machine it is.
   List<Widget> _firstPage(BuildContext context) => <Widget>[
-        if (_offeredDraft case final draft?) ...<Widget>[
-          Container(
-            key: const Key('resume-setup'),
-            width: double.infinity,
-            padding: const EdgeInsets.all(Space.normal),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(Radii.small),
+    if (_offeredDraft case final draft?) ...<Widget>[
+      Container(
+        key: const Key('resume-setup'),
+        width: double.infinity,
+        padding: const EdgeInsets.all(Space.normal),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(Radii.small),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Setting up ${draft['name']}'
+              '${'${draft['host'] ?? ''}'.isEmpty ? '' : ' (${draft['host']})'} was not finished.',
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: Space.small),
+            Wrap(
+              spacing: Space.small,
               children: <Widget>[
-                Text(
-                  'Setting up ${draft['name']}'
-                  '${'${draft['host'] ?? ''}'.isEmpty ? '' : ' (${draft['host']})'} was not finished.',
+                FilledButton(
+                  key: const Key('resume-setup-continue'),
+                  onPressed: () => _continue(draft),
+                  child: const Text('Continue where it stopped'),
                 ),
-                const SizedBox(height: Space.small),
-                Wrap(
-                  spacing: Space.small,
-                  children: <Widget>[
-                    FilledButton(
-                      key: const Key('resume-setup-continue'),
-                      onPressed: () => _continue(draft),
-                      child: const Text('Continue where it stopped'),
-                    ),
-                    TextButton(
-                      key: const Key('resume-setup-discard'),
-                      onPressed: () {
-                        unawaited(widget.remember?.call(null));
-                        setState(() => _draftDismissed = true);
-                      },
-                      child: const Text('Discard it'),
-                    ),
-                  ],
+                TextButton(
+                  key: const Key('resume-setup-discard'),
+                  onPressed: () {
+                    unawaited(widget.remember?.call(null));
+                    setState(() => _draftDismissed = true);
+                  },
+                  child: const Text('Discard it'),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: Space.wide),
-        ],
-        // Always a tooltip, shown only when it has something to say: toggling the wrapper
-        // would rebuild the field and take the cursor out of it mid-word.
-        TooltipVisibility(
-          visible: _takenBy != null,
-          child: Tooltip(
-            message: 'A machine called ${_takenBy ?? ''} is already watched',
-            child: TextField(
-              key: const Key('machine-name'),
-              controller: _name,
-              focusNode: _nameFocus,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'What to call it',
-                hintText: 'the build machine',
-                errorText: _nameLeft && _takenBy != null ? 'Already taken' : null,
-                border: const OutlineInputBorder(),
-              ),
-            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: Space.wide),
+    ],
+    // Always a tooltip, shown only when it has something to say: toggling the wrapper
+    // would rebuild the field and take the cursor out of it mid-word.
+    TooltipVisibility(
+      visible: _takenBy != null,
+      child: Tooltip(
+        message: 'A machine called ${_takenBy ?? ''} is already watched',
+        child: TextField(
+          key: const Key('machine-name'),
+          controller: _name,
+          focusNode: _nameFocus,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'What to call it',
+            hintText: 'the build machine',
+            errorText: _nameLeft && _takenBy != null ? 'Already taken' : null,
+            border: const OutlineInputBorder(),
           ),
         ),
-        if (widget.only == null && widget.onWindows) ...<Widget>[
-          const SizedBox(height: Space.wide),
-          Text('How to reach it', style: Theme.of(context).textTheme.labelLarge),
-          ChoiceField<MachineKind>(
-            id: 'machine-kind-choice',
-            label: 'How to reach it',
-            value: _kind,
-            onChanged: (chosen) => setState(() => _kind = chosen),
-            choices: const <Choice<MachineKind>>[
-              Choice(MachineKind.wsl, 'A WSL distribution on this computer', id: 'machine-wsl',
-                  means: 'Reached through wsl.exe, with no ssh and no open port; only you reach it. '
-                      'Machines over ssh are reached from the Linux build, so far.'),
-            ],
+      ),
+    ),
+    if (widget.only == null && widget.onWindows) ...<Widget>[
+      const SizedBox(height: Space.wide),
+      Text('How to reach it', style: Theme.of(context).textTheme.labelLarge),
+      ChoiceField<MachineKind>(
+        id: 'machine-kind-choice',
+        label: 'How to reach it',
+        value: _kind,
+        onChanged: (chosen) => setState(() => _kind = chosen),
+        choices: const <Choice<MachineKind>>[
+          Choice(
+            MachineKind.wsl,
+            'A WSL distribution on this computer',
+            id: 'machine-wsl',
+            means:
+                'Reached through wsl.exe, with no ssh and no open port; only you reach it. '
+                'Machines over ssh are reached from the Linux build, so far.',
           ),
         ],
-        if (widget.only == null && !widget.onWindows) ...<Widget>[
-          const SizedBox(height: Space.wide),
-          Text('Are you an administrator there?', style: Theme.of(context).textTheme.labelLarge),
-          ChoiceField<bool>(
-            id: 'machine-admin',
-            label: 'Are you an administrator there?',
-            value: _admin,
-            onChanged: (chosen) => setState(() {
-              _admin = chosen;
-              // A way that sets the machine up is not left chosen once it is not offered.
-              if (chosen == false && _makesAUser) _kind = null;
-            }),
-            choices: const <Choice<bool>>[
-              Choice(true, 'Yes: I may run commands as root there', id: 'machine-admin-yes',
-                  means: 'With sudo, or because root logs in. Porelo can be set up there from here, every '
-                      'command shown before it runs.'),
-              Choice(false, 'No: somebody else set Porelo up there for me', id: 'machine-admin-no',
-                  means: 'Only connecting to a Porelo that already runs there is offered.'),
-            ],
+      ),
+    ],
+    if (widget.only == null && !widget.onWindows) ...<Widget>[
+      const SizedBox(height: Space.wide),
+      Text('Are you an administrator there?', style: Theme.of(context).textTheme.labelLarge),
+      ChoiceField<bool>(
+        id: 'machine-admin',
+        label: 'Are you an administrator there?',
+        value: _admin,
+        onChanged: (chosen) => setState(() {
+          _admin = chosen;
+          // A way that sets the machine up is not left chosen once it is not offered.
+          if (chosen == false && _makesAUser) _kind = null;
+        }),
+        choices: const <Choice<bool>>[
+          Choice(
+            true,
+            'Yes: I may run commands as root there',
+            id: 'machine-admin-yes',
+            means:
+                'With sudo, or because root logs in. Porelo can be set up there from here, every '
+                'command shown before it runs.',
           ),
-          if (_admin != null) ...<Widget>[
-          const SizedBox(height: Space.normal),
-          Text('How to reach it', style: Theme.of(context).textTheme.labelLarge),
-          ChoiceField<MachineKind>(
-            id: 'machine-kind-choice',
-            label: 'How to reach it',
-            value: _kind,
-            onChanged: (chosen) => setState(() => _kind = chosen),
-            choices: <Choice<MachineKind>>[
-              const Choice(MachineKind.forwarded, 'Its socket is already forwarded',
-                  id: 'machine-already-forwarded',
-                  means: 'Nothing is raised and nothing is managed. This is the way in with no '
-                      'credential handling anywhere near it.'),
-              const Choice(MachineKind.raiseIt, 'Raise the forward for me', id: 'machine-raise-it',
-                  means: 'An ssh forward, started here and taken down when this window closes. '
-                      'It never asks for a passphrase: use an agent, and accept the host key '
-                      'once in a shell.'),
-              if (_admin == true)
-              const Choice(MachineKind.newMachine, 'A new machine', id: 'machine-new',
-                  means: 'Just rented. The wizard makes a key, then logs in as root once to '
-                      'prepare it, showing every command before it runs.'),
-              if (_admin == true)
-              const Choice(MachineKind.newUser, 'Another user on a machine already prepared',
-                  id: 'machine-new-user',
-                  means: 'Its own daemon, tasks and vault, beside the ones there. Root logs in with '
-                      'the key the machine already knows.'),
-            ],
+          Choice(
+            false,
+            'No: somebody else set Porelo up there for me',
+            id: 'machine-admin-no',
+            means: 'Only connecting to a Porelo that already runs there is offered.',
           ),
-          ],
         ],
-        if (_makesAUser) ...<Widget>[
-          const SizedBox(height: Space.normal),
-          TextField(
-            key: const Key('work-user-name'),
-            controller: _user,
-            decoration: InputDecoration(
-              labelText: 'The user that runs work there',
-              helperText: "Created by Porelo's setup script, with its own daemon and vault.",
-              errorText: Settings.isUserName(_user.text.trim())
-                  ? null
-                  : 'Lower-case letters, digits, _ and -, starting with a letter',
-              border: const OutlineInputBorder(),
+      ),
+      if (_admin != null) ...<Widget>[
+        const SizedBox(height: Space.normal),
+        Text('How to reach it', style: Theme.of(context).textTheme.labelLarge),
+        ChoiceField<MachineKind>(
+          id: 'machine-kind-choice',
+          label: 'How to reach it',
+          value: _kind,
+          onChanged: (chosen) => setState(() => _kind = chosen),
+          choices: <Choice<MachineKind>>[
+            const Choice(
+              MachineKind.forwarded,
+              'Its socket is already forwarded',
+              id: 'machine-already-forwarded',
+              means:
+                  'Nothing is raised and nothing is managed. This is the way in with no '
+                  'credential handling anywhere near it.',
             ),
-          ),
-        ],
-      ];
+            const Choice(
+              MachineKind.raiseIt,
+              'Raise the forward for me',
+              id: 'machine-raise-it',
+              means:
+                  'An ssh forward, started here and taken down when this window closes. '
+                  'It never asks for a passphrase: use an agent, and accept the host key '
+                  'once in a shell.',
+            ),
+            if (_admin == true)
+              const Choice(
+                MachineKind.newMachine,
+                'A new machine',
+                id: 'machine-new',
+                means:
+                    'Just rented. The wizard makes a key, then logs in as root once to '
+                    'prepare it, showing every command before it runs.',
+              ),
+            if (_admin == true)
+              const Choice(
+                MachineKind.newUser,
+                'Another user on a machine already prepared',
+                id: 'machine-new-user',
+                means:
+                    'Its own daemon, tasks and vault, beside the ones there. Root logs in with '
+                    'the key the machine already knows.',
+              ),
+          ],
+        ),
+      ],
+    ],
+    if (_makesAUser) ...<Widget>[
+      const SizedBox(height: Space.normal),
+      TextField(
+        key: const Key('work-user-name'),
+        controller: _user,
+        decoration: InputDecoration(
+          labelText: 'The user that runs work there',
+          helperText: "Created by Porelo's setup script, with its own daemon and vault.",
+          errorText: Settings.isUserName(_user.text.trim())
+              ? null
+              : 'Lower-case letters, digits, _ and -, starting with a letter',
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    ],
+  ];
 
   /// What the chosen kind needs.
   List<Widget> _secondPage(BuildContext context) => <Widget>[
-        if (_kind == MachineKind.wsl)
-          widget.wslSteps?.call(_wslChanged) ?? WslSteps(onReady: _wslChanged),
-        if (_makesAUser && _run != null)
-          NewMachineSteps(run: _run!, onGrew: _showTheEnd, openTerminal: widget.openTerminal),
-        const SizedBox(height: Space.normal),
-        if (_raiseIt == true) ...<Widget>[
-          TextField(
-            controller: _host,
-            key: const Key('machine-host'),
-            decoration: const InputDecoration(
-              labelText: 'Where it is',
-              hintText: 'user@build.example.test',
-              helperText: 'Given to ssh as it stands, so anything in your ssh config '
-                  'works — including a Host alias.',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: Space.normal),
-          TextField(
-            controller: _remote,
-            key: const Key('machine-remote-socket'),
-            decoration: InputDecoration(
-              labelText: 'Its socket, on that machine',
-              hintText: '/run/user/<uid>/porelo/porelod.sock',
-              helperText: widget.socketAt == null
-                  ? 'The uid is that of the user you log in as, on that machine.'
-                  : 'Leave it empty and the machine is asked where Porelo serves the user you log in as.',
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ] else if (_raiseIt == false) ...<Widget>[
-          TextField(
-            controller: _socket,
-            key: const Key('machine-socket'),
-            decoration: const InputDecoration(
-              labelText: 'Forwarded socket',
-              hintText: '/tmp/porelod-remote.sock',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: Space.normal),
-          Text(
-            'Forward it first, and this opens it:',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: Space.tight),
-          _Recipe(command: _recipe),
-          const SizedBox(height: Space.normal),
-          Text(
-            'A remote Porelo is its own socket, forwarded — same calls, same replies, same '
-            'code.',
-            key: const Key('how-to-forward'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-        if (_raiseIt != null && widget.trying != null) ..._trialRow(context),
-      ];
+    if (_kind == MachineKind.wsl) widget.wslSteps?.call(_wslChanged) ?? WslSteps(onReady: _wslChanged),
+    if (_makesAUser && _run != null)
+      NewMachineSteps(run: _run!, onGrew: _showTheEnd, openTerminal: widget.openTerminal),
+    const SizedBox(height: Space.normal),
+    if (_raiseIt == true) ...<Widget>[
+      TextField(
+        controller: _host,
+        key: const Key('machine-host'),
+        decoration: const InputDecoration(
+          labelText: 'Where it is',
+          hintText: 'user@build.example.test',
+          helperText:
+              'Given to ssh as it stands, so anything in your ssh config '
+              'works — including a Host alias.',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: Space.normal),
+      TextField(
+        controller: _remote,
+        key: const Key('machine-remote-socket'),
+        decoration: InputDecoration(
+          labelText: 'Its socket, on that machine',
+          hintText: '/run/user/<uid>/porelo/porelod.sock',
+          helperText: widget.socketAt == null
+              ? 'The uid is that of the user you log in as, on that machine.'
+              : 'Leave it empty and the machine is asked where Porelo serves the user you log in as.',
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    ] else if (_raiseIt == false) ...<Widget>[
+      TextField(
+        controller: _socket,
+        key: const Key('machine-socket'),
+        decoration: const InputDecoration(
+          labelText: 'Forwarded socket',
+          hintText: '/tmp/porelod-remote.sock',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: Space.normal),
+      Text('Forward it first, and this opens it:', style: Theme.of(context).textTheme.bodySmall),
+      const SizedBox(height: Space.tight),
+      _Recipe(command: _recipe),
+      const SizedBox(height: Space.normal),
+      Text(
+        'A remote Porelo is its own socket, forwarded — same calls, same replies, same '
+        'code.',
+        key: const Key('how-to-forward'),
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    ],
+    if (_raiseIt != null && widget.trying != null) ..._trialRow(context),
+  ];
 
   /// The button that tries it, and what the last try found while the fields still say the same.
   List<Widget> _trialRow(BuildContext context) {
@@ -705,22 +724,21 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   }
 
   /// Whether a start is the answer to what the trial found.
-  bool _canStartIt(Trial? trial) =>
-      trial != null && !trial.reached && trial.nothingServing && widget.starting != null;
+  bool _canStartIt(Trial? trial) => trial != null && !trial.reached && trial.nothingServing && widget.starting != null;
 
   /// The way back to the offer, for somebody who turned it down and changed their mind.
   ///
   /// **One row, and never the question itself.** The question is a dialog, because an offer at the
   /// end of a scrolling panel is an offer nobody sees — which is exactly what happened.
   List<Widget> _offerToStart(BuildContext context) => <Widget>[
-        const SizedBox(height: Space.small),
-        OutlinedButton.icon(
-          key: const Key('offer-again'),
-          onPressed: _starting ? null : _askToStart,
-          icon: const Icon(Icons.play_arrow_outlined, size: Sizes.rowIcon),
-          label: const Text('Start Porelo there'),
-        ),
-      ];
+    const SizedBox(height: Space.small),
+    OutlinedButton.icon(
+      key: const Key('offer-again'),
+      onPressed: _starting ? null : _askToStart,
+      icon: const Icon(Icons.play_arrow_outlined, size: Sizes.rowIcon),
+      label: const Text('Start Porelo there'),
+    ),
+  ];
 
   /// Asks whether to start it, and starts it on a yes.
   ///
@@ -730,10 +748,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          'Nothing serves on ${_host.text.trim()}. Start Porelo there?',
-          key: const Key('offer-to-start'),
-        ),
+        title: Text('Nothing serves on ${_host.text.trim()}. Start Porelo there?', key: const Key('offer-to-start')),
         content: SizedBox(
           width: Sizes.dialogMedium,
           child: Column(
@@ -794,8 +809,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   }
 
   /// What the fields describe, so an answer about other fields is never shown against these.
-  String get _signature =>
-      '$_kind|${_host.text.trim()}|${_remote.text.trim()}|${_socket.text.trim()}';
+  String get _signature => '$_kind|${_host.text.trim()}|${_remote.text.trim()}|${_socket.text.trim()}';
 
   bool get _canTry {
     if (_raiseIt == null) return false;
@@ -821,7 +835,8 @@ class _AskForAMachineState extends State<_AskForAMachine> {
     setState(() {
       _trial = Trial(
         reached: false,
-        words: 'Could not log in to $host to ask where Porelo is for you there. '
+        words:
+            'Could not log in to $host to ask where Porelo is for you there. '
             '${widget.whyNotLoggedIn?.call() ?? 'Check that ssh $host works without a question, or type its socket.'}',
       );
       _triedFor = _signature;
@@ -902,8 +917,8 @@ class _AskForAMachineState extends State<_AskForAMachine> {
     if (_kind == MachineKind.wsl) {
       final ready = _wslReady;
       if (ready != null) {
-        Navigator.of(context).pop(Machine(
-            name: _name.text.trim(), socketPath: '', kind: 'wsl', distribution: ready.distribution));
+        Navigator.of(context)
+            .pop(Machine(name: _name.text.trim(), socketPath: '', kind: 'wsl', distribution: ready.distribution));
       }
       return;
     }

@@ -37,107 +37,79 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''a project says what it is and how much work it has''',
-        (tester) async {
+    testWidgets('''a project says what it is and how much work it has''', (tester) async {
       await bddSetUp(tester);
       await theProjectSays(tester, 'checkout', '1 of 2 running · guarded');
     });
-    testWidgets('''a project whose environment is not prepared is marked''',
-        (tester) async {
+    testWidgets('''a project whose environment is not prepared is marked''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsMarkedAsNotPrepared(tester, 'unrecorded');
       await theProjectIsNotMarkedAsNotPrepared(tester, 'checkout');
     });
-    testWidgets(
-        '''falling behind says by how much, and when that was measured''',
-        (tester) async {
+    testWidgets('''falling behind says by how much, and when that was measured''', (tester) async {
       await bddSetUp(tester);
-      await theProjectSays(
-          tester, 'checkout', '3 behind, as of 20 minutes ago');
+      await theProjectSays(tester, 'checkout', '3 behind, as of 20 minutes ago');
     });
-    testWidgets('''never checked is not the same sentence as up to date''',
-        (tester) async {
+    testWidgets('''never checked is not the same sentence as up to date''', (tester) async {
       await bddSetUp(tester);
-      await theProjectSays(
-          tester, 'unrecorded', 'Never checked against the upstream');
+      await theProjectSays(tester, 'unrecorded', 'Never checked against the upstream');
     });
-    testWidgets(
-        '''a project that reaches nothing says that, rather than reporting zero''',
-        (tester) async {
+    testWidgets('''a project that reaches nothing says that, rather than reporting zero''', (tester) async {
       await bddSetUp(tester);
-      await theProjectSays(
-          tester, 'billing', 'Not checked: this project reaches nothing');
+      await theProjectSays(tester, 'billing', 'Not checked: this project reaches nothing');
     });
-    testWidgets('''work waiting for review is said on the row''',
-        (tester) async {
+    testWidgets('''work waiting for review is said on the row''', (tester) async {
       await bddSetUp(tester);
       await theProjectSaysAreWaitingAtTheGate(tester, 'checkout', '2');
     });
-    testWidgets(
-        '''a project nothing can act on is listed and marked, never left out''',
-        (tester) async {
+    testWidgets('''a project nothing can act on is listed and marked, never left out''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsListed(tester, 'unrecorded');
       await theProjectIsMarkedAsUnusable(tester, 'unrecorded');
     });
-    testWidgets(
-        '''what changed elsewhere arrives without anybody asking for it''',
-        (tester) async {
+    testWidgets('''what changed elsewhere arrives without anybody asking for it''', (tester) async {
       await bddSetUp(tester);
       await workIsStartedElsewhereIn(tester, 'checkout');
       await theProjectSays(tester, 'checkout', '2 of 3 running · guarded');
     });
-    testWidgets('''selecting a project changes nothing about it''',
-        (tester) async {
+    testWidgets('''selecting a project changes nothing about it''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await nothingWasAskedOfTheBackendAbout(tester, 'checkout');
     });
-    testWidgets(
-        '''a count left over from an older measurement is not drawn as one''',
-        (tester) async {
+    testWidgets('''a count left over from an older measurement is not drawn as one''', (tester) async {
       await bddSetUp(tester);
       await theLastCheckForFailedLeavingAStaleCount(tester, 'billing');
       await iGoToTheWork(tester);
       await theProjectSays(tester, 'billing', 'The last check did not work');
       await theProjectDoesNotSay(tester, 'billing', '7 behind');
     });
-    testWidgets(
-        '''an environment built before the project file changed is marked''',
-        (tester) async {
+    testWidgets('''an environment built before the project file changed is marked''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsMarkedAsStale(tester, 'billing');
       await theProjectIsNotMarkedAsStale(tester, 'checkout');
     });
-    testWidgets(
-        '''an image that records nothing about itself is not called stale''',
-        (tester) async {
+    testWidgets('''an image that records nothing about itself is not called stale''', (tester) async {
       await bddSetUp(tester);
       await theProjectRecordsNothingAboutItsImage(tester, 'checkout');
       await theAppIsRestarted(tester);
       await iGoToTheWork(tester);
       await theProjectIsNotMarkedAsStale(tester, 'checkout');
     });
-    testWidgets(
-        '''a project removed at the machine goes when every machine is asked again''',
-        (tester) async {
+    testWidgets('''a project removed at the machine goes when every machine is asked again''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsRemovedAtTheMachine(tester, 'unrecorded');
       await iRefreshEveryMachine(tester);
       await theProjectIsNotListed(tester, 'unrecorded');
     });
-    testWidgets(
-        '''every machine is asked again on its own, as often as chosen''',
-        (tester) async {
+    testWidgets('''every machine is asked again on its own, as often as chosen''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsRemovedAtTheMachine(tester, 'unrecorded');
       await iChooseToRefreshAutomatically(tester, 'every 30 seconds');
       await secondsPass(tester, 31);
       await theProjectIsNotListed(tester, 'unrecorded');
     });
-    testWidgets(
-        '''asking again on its own can be turned off, and that survives a restart''',
-        (tester) async {
+    testWidgets('''asking again on its own can be turned off, and that survives a restart''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsRemovedAtTheMachine(tester, 'unrecorded');
       await iChooseToRefreshAutomatically(tester, 'off');

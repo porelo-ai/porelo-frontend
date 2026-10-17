@@ -64,42 +64,36 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets(
-        '''work whose own commits are waiting for review says so on its detail''',
-        (tester) async {
+    testWidgets('''work whose own commits are waiting for review says so on its detail''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
       await itSays(tester, 'its own work is waiting for review');
     });
-    testWidgets('''work with nothing of its own waiting says that instead''',
-        (tester) async {
+    testWidgets('''work with nothing of its own waiting says that instead''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'nothing of its own is waiting');
     });
-    testWidgets(
-        '''what a project pushed is readable file by file, without leaving the interface''',
-        (tester) async {
+    testWidgets('''what a project pushed is readable file by file, without leaving the interface''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await theReviewShowsTheFile(tester, 'lib/money.dart');
       await theReviewShows(tester, '(value * 100).round()');
     });
-    testWidgets('''a waiting push can be fetched into the person's own clone''',
-        (tester) async {
+    testWidgets('''a waiting push can be fetched into the person's own clone''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
-      await itSays(tester,
-          'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror refs/porelo/incoming/migrate:refs/remotes/porelo/migrate');
+      await itSays(
+        tester,
+        'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror refs/porelo/incoming/migrate:refs/remotes/porelo/migrate',
+      );
       await itSays(tester, 'safe mode');
     });
-    testWidgets(
-        '''the diff leaves the interface in one action, for reading somewhere else''',
-        (tester) async {
+    testWidgets('''the diff leaves the interface in one action, for reading somewhere else''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
@@ -107,61 +101,51 @@ void main() {
       await whatWasCopiedMentions(tester, 'lib/money.dart');
       await whatWasCopiedMentions(tester, '(value * 100).round()');
     });
-    testWidgets(
-        '''a waiting push is listed by its short commit, and forwarded by its full one''',
-        (tester) async {
+    testWidgets('''a waiting push is listed by its short commit, and forwarded by its full one''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await itSays(tester, '9a3c1f2');
       await itDoesNotSay(tester, '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
     });
-    testWidgets('''forwarding names the branch rather than guessing one''',
-        (tester) async {
+    testWidgets('''forwarding names the branch rather than guessing one''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await iForwardItOntoTheBranch(tester, 'fix-rounding');
       await itWasForwardedOnto(tester, 'fix-rounding');
-      await theForwardNamedTheCommitReviewed(
-          tester, '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
+      await theForwardNamedTheCommitReviewed(tester, '9a3c1f2e4b5d6a7c8e9f0a1b2c3d4e5f6a7b8c9d');
       await theStatusLineMentions(tester, 'was forwarded to fix-rounding');
       await theProjectsWereReadAgainAfterIt(tester);
     });
-    testWidgets(
-        '''a push that moved since it was reviewed is not forwarded, and that is said''',
-        (tester) async {
+    testWidgets('''a push that moved since it was reviewed is not forwarded, and that is said''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await thePushMovesBeforeItIsForwarded(tester);
       await iForwardItOntoTheBranch(tester, 'fix-rounding');
-      await itSays(tester,
-          'moved since you reviewed it: you read 9a3c1f2, and it holds b7e21d4 now');
+      await itSays(tester, 'moved since you reviewed it: you read 9a3c1f2, and it holds b7e21d4 now');
       await itSays(tester, 'Nothing was forwarded');
     });
-    testWidgets(
-        '''a branch that already holds earlier work is not forwarded onto, and another is named''',
-        (tester) async {
+    testWidgets('''a branch that already holds earlier work is not forwarded onto, and another is named''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await theBranchAlreadyHoldsEarlierWork(tester, 'fix-rounding');
       await iForwardItOntoTheBranch(tester, 'fix-rounding');
-      await itSays(
-          tester, 'fix-rounding already holds 4d2e9a1, from earlier work');
+      await itSays(tester, 'fix-rounding already holds 4d2e9a1, from earlier work');
       await itSays(tester, 'Nothing was forwarded');
       await itSays(tester, 'onto another branch, such as fix-rounding-2');
     });
-    testWidgets('''an empty branch is not an answer, however it is given''',
-        (tester) async {
+    testWidgets('''an empty branch is not an answer, however it is given''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await iPressReturnOnTheBranch(tester, '  ');
       await noPushWentUpstream(tester);
     });
-    testWidgets('''dropping the request leaves the work in the mirror''',
-        (tester) async {
+    testWidgets('''dropping the request leaves the work in the mirror''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
@@ -170,20 +154,15 @@ void main() {
       await theStatusLineMentions(tester, 'Its task was told.');
       await nothingWasForwarded(tester);
     });
-    testWidgets(
-        '''dropping the request can say why, and its task is told those words''',
-        (tester) async {
+    testWidgets('''dropping the request can say why, and its task is told those words''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await iDropTheRequestSaying(tester, 'the rounding is still wrong');
       await theDropGaveTheReason(tester, 'the rounding is still wrong');
-      await theStatusLineMentions(
-          tester, 'Its task was told, with your words.');
+      await theStatusLineMentions(tester, 'Its task was told, with your words.');
     });
-    testWidgets(
-        '''a push whose task is gone is dropped, and it says nobody was told''',
-        (tester) async {
+    testWidgets('''a push whose task is gone is dropped, and it says nobody was told''', (tester) async {
       await bddSetUp(tester);
       await theTaskTheWaitingPushCameFromIsGone(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
@@ -198,52 +177,39 @@ void main() {
       await iStartToDropTheRequestAndCancel(tester);
       await nothingWasDropped(tester);
     });
-    testWidgets(
-        '''a project with no file recorded offers no gate, and names the reason''',
-        (tester) async {
+    testWidgets('''a project with no file recorded offers no gate, and names the reason''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'unrecorded');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Review what is waiting at the gate');
+      await theCommandIsOfferedAsUnavailable(tester, 'Review what is waiting at the gate');
     });
-    testWidgets(
-        '''the gate says what it does not see, rather than reading as a wall''',
-        (tester) async {
+    testWidgets('''the gate says what it does not see, rather than reading as a wall''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await itSays(tester, 'Work can also be pushed straight upstream by hand');
       await itSays(tester, 'per clone, on the machine you push from');
     });
-    testWidgets(
-        '''where somebody asks what an agent was told, the answer is not here''',
-        (tester) async {
+    testWidgets('''where somebody asks what an agent was told, the answer is not here''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
-      await itSays(
-          tester, 'in the repository — nothing here has a view of them');
+      await itSays(tester, 'in the repository — nothing here has a view of them');
     });
-    testWidgets(
-        '''what a running task holds that never reached the gate is on its detail''',
-        (tester) async {
+    testWidgets('''what a running task holds that never reached the gate is on its detail''', (tester) async {
       await bddSetUp(tester);
       await theWorkHoldsUnpushedCommitsAndChangedFiles(tester, 2, 3);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'holds 2 unpushed commits and 3 changed files');
     });
-    testWidgets('''holding nothing is said as holding nothing''',
-        (tester) async {
+    testWidgets('''holding nothing is said as holding nothing''', (tester) async {
       await bddSetUp(tester);
       await theWorkHoldsUnpushedCommitsAndChangedFiles(tester, 0, 0);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'holds nothing that never reached the gate');
     });
-    testWidgets(
-        '''a task nobody could look inside says that, not that it holds nothing''',
-        (tester) async {
+    testWidgets('''a task nobody could look inside says that, not that it holds nothing''', (tester) async {
       await bddSetUp(tester);
       await nobodyCouldLookInsideTheWork(tester);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -251,9 +217,7 @@ void main() {
       await itSays(tester, 'nothing recorded what it held');
       await itSays(tester, 'killed, rebooted, or stopped by an older Porelo');
     });
-    testWidgets(
-        '''a stopped task says what it held when it stopped, and when that was''',
-        (tester) async {
+    testWidgets('''a stopped task says what it held when it stopped, and when that was''', (tester) async {
       await bddSetUp(tester);
       await theWorkHeldUnpushedCommitsWhenItStopped(tester, 4);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -261,23 +225,17 @@ void main() {
       await itSays(tester, 'held 4 unpushed commits when it stopped');
       await itSays(tester, 'minutes ago');
     });
-    testWidgets(
-        '''a name the machine does not know is refused rather than read as unreadable''',
-        (tester) async {
+    testWidgets('''a name the machine does not know is refused rather than read as unreadable''', (tester) async {
       await bddSetUp(tester);
       await theMachineKnowsNoSuchTask(tester);
       await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'does not know a task called');
     });
-    testWidgets(
-        '''what waits in every repository is shown, and each push is decided where it waits''',
-        (tester) async {
+    testWidgets('''what waits in every repository is shown, and each push is decided where it waits''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
-      await waitsInTheRepository(
-          tester, 'Retry a declined card once', 'payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
+      await waitsInTheRepository(tester, 'Retry a declined card once', 'payments-api');
       await iReviewWhatIsWaitingAtTheGate(tester);
       await itSays(tester, 'Round to the nearest penny, not away from zero');
       await itSays(tester, 'Retry a declined card once');
@@ -287,91 +245,67 @@ void main() {
       await iForwardItOntoTheBranch(tester, 'retry-once');
       await itWasForwardedFromTheRepository(tester, 'payments-api');
     });
-    testWidgets(
-        '''a repository whose gate cannot be read is named, and does not hide the others''',
-        (tester) async {
+    testWidgets('''a repository whose gate cannot be read is named, and does not hide the others''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await theGateOfTheRepositoryCannotBeRead(tester, 'payments-api');
       await iReviewWhatIsWaitingAtTheGate(tester);
       await itSays(tester, 'Round to the nearest penny, not away from zero');
       await itSays(tester, 'payments-api could not be read');
     });
-    testWidgets('''a machine that names no repositories is asked about none''',
-        (tester) async {
+    testWidgets('''a machine that names no repositories is asked about none''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await iForwardItOntoTheBranch(tester, 'fix-rounding');
       await theGateWasAskedAboutNoRepository(tester);
     });
-    testWidgets('''work names the repository it works in on its detail''',
-        (tester) async {
+    testWidgets('''work names the repository it works in on its detail''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
-      await theWorkWorksInTheRepository(
-          tester, 'porelo-checkout-migrate', 'payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
+      await theWorkWorksInTheRepository(tester, 'porelo-checkout-migrate', 'payments-api');
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
       await itSays(tester, 'payments-api');
     });
-    testWidgets(
-        '''a push is reviewed in the order that matters, dangerous by kind first and volume last''',
-        (tester) async {
+    testWidgets('''a push is reviewed in the order that matters, dangerous by kind first and volume last''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(
-          tester);
+      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
-      await theReviewListsInThatOrder(
-          tester, '.github/workflows/ci.yml, lib/money.dart, lib/money.g.dart');
-      await theFileIsMarked(
-          tester, '.github/workflows/ci.yml', 'dangerous by kind');
-      await itSays(
-          tester, 'a CI definition, which runs with the credentials of CI');
+      await theReviewListsInThatOrder(tester, '.github/workflows/ci.yml, lib/money.dart, lib/money.g.dart');
+      await theFileIsMarked(tester, '.github/workflows/ci.yml', 'dangerous by kind');
+      await itSays(tester, 'a CI definition, which runs with the credentials of CI');
       await theFileIsUnderWhatIsAlmostNeverAFinding(tester, 'lib/money.g.dart');
-      await itSays(
-          tester, 'detects nothing: no file here is judged safe or injected');
+      await itSays(tester, 'detects nothing: no file here is judged safe or injected');
     });
-    testWidgets(
-        '''what the task was asked is shown apart from what it touched''',
-        (tester) async {
+    testWidgets('''what the task was asked is shown apart from what it touched''', (tester) async {
       await bddSetUp(tester);
-      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(
-          tester);
-      await theTaskThatPushedWasAsked(
-          tester, 'Round money to the nearest penny');
+      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(tester);
+      await theTaskThatPushedWasAsked(tester, 'Round money to the nearest penny');
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await theReviewSaysItWasAsked(tester, 'Round money to the nearest penny');
       await itDoesNotSay(tester, 'not asked for');
     });
-    testWidgets(
-        '''a task started without an instruction is said to have had none''',
-        (tester) async {
+    testWidgets('''a task started without an instruction is said to have had none''', (tester) async {
       await bddSetUp(tester);
-      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(
-          tester);
+      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(tester);
       await theTaskThatPushedWasAskedNothing(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await itSays(tester, 'It was started without an instruction.');
     });
-    testWidgets(
-        '''a task gone from the machine is said to leave what it was asked unknown''',
-        (tester) async {
+    testWidgets('''a task gone from the machine is said to leave what it was asked unknown''', (tester) async {
       await bddSetUp(tester);
-      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(
-          tester);
+      await theMachineRanksTheWaitingPushWithACiDefinitionTheChangeAndAGeneratedFile(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await itSays(tester, 'what it was asked is not known here');
     });
-    testWidgets(
-        '''a machine that does not rank the review shows it as before''',
-        (tester) async {
+    testWidgets('''a machine that does not rank the review shows it as before''', (tester) async {
       await bddSetUp(tester);
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);

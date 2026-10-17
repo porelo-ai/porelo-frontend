@@ -58,8 +58,7 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''how its commits are checked is chosen, never assumed''',
-        (tester) async {
+    testWidgets('''how its commits are checked is chosen, never assumed''', (tester) async {
       await bddSetUp(tester);
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
@@ -69,37 +68,31 @@ void main() {
       await iGiveTheKey(tester, 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5');
       await followingItIsOffered(tester);
     });
-    testWidgets(
-        '''a pinned key goes with the follow, and the project is there at once''',
-        (tester) async {
+    testWidgets('''a pinned key goes with the follow, and the project is there at once''', (tester) async {
       await bddSetUp(tester);
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
       await iChooseToCheckItsCommitsAgainstAKey(tester);
       await iGiveTheKey(tester, 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5');
       await iFollowIt(tester);
-      await theFollowWasSentWithTheKey(
-          tester, 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5');
+      await theFollowWasSentWithTheKey(tester, 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5');
       await itSays(tester, 'Following, at c0ffee1');
       await iGoToTheProjectItMade(tester);
       await theProjectIsTheOneChosen(tester, 'payments');
       await theTitleIs(tester, 'this machine › payments');
     });
-    testWidgets(
-        '''following unverified says what that gives away the moment it is chosen, before following''',
-        (tester) async {
+    testWidgets('''following unverified says what that gives away the moment it is chosen, before following''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
       await iChooseToFollowItUnverified(tester);
-      await itSays(tester,
-          'Anybody who can push to the repository decides what this machine runs');
+      await itSays(tester, 'Anybody who can push to the repository decides what this machine runs');
       await iFollowIt(tester);
       await theFollowWasSentUnverified(tester);
     });
-    testWidgets(
-        '''a commit the machine will not take is said, and no project is made of it''',
-        (tester) async {
+    testWidgets('''a commit the machine will not take is said, and no project is made of it''', (tester) async {
       await bddSetUp(tester);
       await theNextFollowIsRefusedAs(tester, 'NOT_SIGNED');
       await iFollowARepository(tester);
@@ -109,8 +102,7 @@ void main() {
       await itSays(tester, 'is not signed');
       await thereIsNoProject(tester, 'payments');
     });
-    testWidgets('''a rewritten history is taken only as a second decision''',
-        (tester) async {
+    testWidgets('''a rewritten history is taken only as a second decision''', (tester) async {
       await bddSetUp(tester);
       await theNextFollowFindsARewrittenHistory(tester);
       await iFollowARepository(tester);
@@ -122,8 +114,7 @@ void main() {
       await iTakeTheRewrittenHistory(tester);
       await theFollowAcceptedTheRewrite(tester);
     });
-    testWidgets('''a key can be pinned by the fingerprint a refusal showed''',
-        (tester) async {
+    testWidgets('''a key can be pinned by the fingerprint a refusal showed''', (tester) async {
       await bddSetUp(tester);
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
@@ -133,23 +124,20 @@ void main() {
       await iFollowIt(tester);
       await theFollowWasSentWithTheKey(tester, 'SHA256:9xQeTbL1');
     });
-    testWidgets(
-        '''a repository nothing is set up to reach is not followed, and its connection is offered''',
-        (tester) async {
+    testWidgets('''a repository nothing is set up to reach is not followed, and its connection is offered''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'NO_CREDENTIAL');
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
       await iChooseToFollowItUnverified(tester);
       await iFollowIt(tester);
-      await itSays(
-          tester, 'Nothing on this machine is set up to reach this address');
+      await itSays(tester, 'Nothing on this machine is set up to reach this address');
       await noFollowWasSent(tester);
       await settingUpItsConnectionIsOffered(tester);
     });
-    testWidgets(
-        '''a credential in a shut vault offers to open it, and follows nothing''',
-        (tester) async {
+    testWidgets('''a credential in a shut vault offers to open it, and follows nothing''', (tester) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'VAULT_LOCKED');
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
@@ -159,12 +147,9 @@ void main() {
       await iFollowIt(tester);
       await noFollowWasSent(tester);
       await iOpenTheVaultFromTheFollow(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault unlock');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault unlock');
     });
-    testWidgets(
-        '''a connection whose value is not there offers the connection, and follows nothing''',
-        (tester) async {
+    testWidgets('''a connection whose value is not there offers the connection, and follows nothing''', (tester) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'MISSING_VALUE');
       await iFollowARepository(tester);
@@ -176,12 +161,9 @@ void main() {
       await iShowItsConnectionFromTheFollow(tester);
       await theConnectionsOfTheMachineAreOpen(tester);
       await iFollowARepository(tester);
-      await theFollowStillNamesAt(
-          tester, 'payments', 'git@example.org:payments.git');
+      await theFollowStillNamesAt(tester, 'payments', 'git@example.org:payments.git');
     });
-    testWidgets(
-        '''a repository that turned the machine away offers its connections''',
-        (tester) async {
+    testWidgets('''a repository that turned the machine away offers its connections''', (tester) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'READY');
       await theNextFollowIsRefusedAs(tester, 'UNREACHABLE');
@@ -193,21 +175,16 @@ void main() {
       await iShowTheConnectionsAfterTheFollow(tester);
       await theConnectionsOfTheMachineAreOpen(tester);
     });
-    testWidgets(
-        '''a follow turned away for want of a credential says so in words''',
-        (tester) async {
+    testWidgets('''a follow turned away for want of a credential says so in words''', (tester) async {
       await bddSetUp(tester);
       await theNextFollowIsRefusedAs(tester, 'NO_CREDENTIAL');
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
       await iChooseToFollowItUnverified(tester);
       await iFollowIt(tester);
-      await itSays(
-          tester, 'the machine says nothing it holds reaches the repository');
+      await itSays(tester, 'the machine says nothing it holds reaches the repository');
     });
-    testWidgets(
-        '''a credential that is there and cannot be used offers its connection''',
-        (tester) async {
+    testWidgets('''a credential that is there and cannot be used offers its connection''', (tester) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'UNUSABLE_VALUE');
       await iFollowARepository(tester);
@@ -219,9 +196,7 @@ void main() {
       await iShowItsConnectionFromTheFollow(tester);
       await theConnectionsOfTheMachineAreOpen(tester);
     });
-    testWidgets(
-        '''a host never met is said as that, never as a missing credential''',
-        (tester) async {
+    testWidgets('''a host never met is said as that, never as a missing credential''', (tester) async {
       await bddSetUp(tester);
       await theNextFollowIsRefusedAs(tester, 'UNKNOWN_HOST_KEY');
       await iFollowARepository(tester);
@@ -230,9 +205,9 @@ void main() {
       await iFollowIt(tester);
       await itSays(tester, 'this machine has never met that host');
     });
-    testWidgets(
-        '''a host never met shows its keys, and the one chosen is trusted before following again''',
-        (tester) async {
+    testWidgets('''a host never met shows its keys, and the one chosen is trusted before following again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineHasNeverMetTheHost(tester, 'example.org');
       await iFollowARepository(tester);
@@ -240,21 +215,20 @@ void main() {
       await iChooseToFollowItUnverified(tester);
       await iFollowIt(tester);
       await itSays(tester, 'this machine has never met that host');
-      await itSays(
-          tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await itSays(tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
       await itSays(tester, 'not with what this screen says');
       await trustingIsNotOfferedUntilAKeyIsChosen(tester);
       await followingItAgainIsNotOffered(tester);
-      await iTrustTheHostKeyFromTheFollow(
-          tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
-      await theMachineTrustsForAndNothingElse(tester,
-          'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU', 'example.org');
+      await iTrustTheHostKeyFromTheFollow(tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await theMachineTrustsForAndNothingElse(
+        tester,
+        'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU',
+        'example.org',
+      );
       await theFollowWasMadeAgainWithNothingRetyped(tester);
       await itSays(tester, 'Following');
     });
-    testWidgets(
-        '''a host that offers other keys by the time one is trusted records nothing''',
-        (tester) async {
+    testWidgets('''a host that offers other keys by the time one is trusted records nothing''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasNeverMetTheHost(tester, 'example.org');
       await iFollowARepository(tester);
@@ -262,14 +236,13 @@ void main() {
       await iChooseToFollowItUnverified(tester);
       await iFollowIt(tester);
       await thenOffersOtherKeys(tester, 'example.org');
-      await iTrustTheHostKeyFromTheFollow(
-          tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await iTrustTheHostKeyFromTheFollow(tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
       await itSays(tester, 'offers no key with that fingerprint right now');
       await theFollowWasNotMadeAgain(tester);
     });
-    testWidgets(
-        '''a host key that changed is said as possible interception, and nothing is offered to trust''',
-        (tester) async {
+    testWidgets('''a host key that changed is said as possible interception, and nothing is offered to trust''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineRemembersAnotherKeyOf(tester, 'example.org');
       await iFollowARepository(tester);
@@ -277,13 +250,11 @@ void main() {
       await iChooseToFollowItUnverified(tester);
       await iFollowIt(tester);
       await itSays(tester, 'somebody in between');
-      await itSays(
-          tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
+      await itSays(tester, 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
       await trustingAHostKeyIsNotOffered(tester);
       await followingItAgainIsNotOffered(tester);
     });
-    testWidgets('''what was typed is gone once the follow is left''',
-        (tester) async {
+    testWidgets('''what was typed is gone once the follow is left''', (tester) async {
       await bddSetUp(tester);
       await iFollowARepository(tester);
       await iNameItAt(tester, 'payments', 'git@example.org:payments.git');
@@ -291,9 +262,7 @@ void main() {
       await iFollowARepository(tester);
       await theFollowStillNamesAt(tester, '', '');
     });
-    testWidgets(
-        '''a machine older than the check is still followed, and says itself what is wrong''',
-        (tester) async {
+    testWidgets('''a machine older than the check is still followed, and says itself what is wrong''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasNoCredentialCheck(tester);
       await iFollowARepository(tester);
@@ -302,8 +271,7 @@ void main() {
       await iFollowIt(tester);
       await theFollowWasSentUnverified(tester);
     });
-    testWidgets('''a local repository needs nothing, and is followed''',
-        (tester) async {
+    testWidgets('''a local repository needs nothing, and is followed''', (tester) async {
       await bddSetUp(tester);
       await theCredentialCheckAnswers(tester, 'NOT_NEEDED');
       await iFollowARepository(tester);

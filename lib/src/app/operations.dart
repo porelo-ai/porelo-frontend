@@ -24,12 +24,7 @@ enum OperationState {
 /// not mean having missed it.
 class Operation {
   /// Constructor taking what it is and when it began.
-  Operation({
-    required this.id,
-    required this.title,
-    required this.startedAt,
-    this.machine = '',
-  });
+  Operation({required this.id, required this.title, required this.startedAt, this.machine = ''});
 
   /// Identifies it for the life of the session.
   final String id;
@@ -100,19 +95,17 @@ class Operation {
     final summary = stored['summary'];
     final output = stored['output'];
     final notKept = stored['linesNotKept'];
-    return Operation(
-      id: id,
-      title: title,
-      startedAt: started.toLocal(),
-      machine: machine is String ? machine : '',
-    )
+    return Operation(id: id, title: title, startedAt: started.toLocal(), machine: machine is String ? machine : '')
       ..state = state
       ..finishedAt = DateTime.tryParse('${stored['finishedAt']}')?.toLocal()
       ..summary = summary is String ? summary : ''
       ..seen = stored['seen'] == true
       ..fromBefore = true
       ..linesNotKept = notKept is int ? notKept : 0
-      ..output.addAll(<String>[if (output is List) for (final line in output) '$line']);
+      ..output.addAll(<String>[
+        if (output is List)
+          for (final line in output) '$line',
+      ]);
   }
 }
 
@@ -227,8 +220,8 @@ class Operations extends ChangeNotifier {
     DateTime Function()? now,
     Future<void> Function(String path)? open,
     this.saveDelay = const Duration(seconds: 1),
-  })  : _now = now ?? DateTime.now,
-        _open = open ?? _withTheDesktop;
+  }) : _now = now ?? DateTime.now,
+       _open = open ?? _withTheDesktop;
 
   /// Where what is run is kept between runs of the window, or null for nowhere.
   final OperationsStore? store;
@@ -255,8 +248,7 @@ class Operations extends ChangeNotifier {
   Future<void> _writing = Future<void>.value();
 
   final List<Operation> _all = <Operation>[];
-  final Map<String, StreamSubscription<String>> _running =
-      <String, StreamSubscription<String>>{};
+  final Map<String, StreamSubscription<String>> _running = <String, StreamSubscription<String>>{};
   int _counted = 0;
   bool _disposed = false;
 
@@ -354,11 +346,7 @@ class Operations extends ChangeNotifier {
   /// The stream completing is success and the stream erroring is failure — which is how a
   /// non-zero exit reaches here, because the thing that knows what an exit code means is the
   /// caller and not this.
-  Operation run({
-    required String title,
-    required Stream<String> output,
-    String machine = '',
-  }) {
+  Operation run({required String title, required Stream<String> output, String machine = ''}) {
     final operation = Operation(
       id: 'operation-${++_counted}',
       title: title,

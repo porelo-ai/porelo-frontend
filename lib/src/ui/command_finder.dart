@@ -9,11 +9,10 @@ import 'tokens.dart';
 /// One finder over the whole product, listing actions that belong to screens which are not
 /// open: an action nobody can find is an action nobody has. Unavailable ones are listed with
 /// the reason rather than hidden, because "not now, because X" is an answer and silence is not.
-Future<Command?> showCommandFinder(BuildContext context, List<Command> commands) =>
-    showDialog<Command>(
-      context: context,
-      builder: (context) => _CommandFinder(commands: commands),
-    );
+Future<Command?> showCommandFinder(BuildContext context, List<Command> commands) => showDialog<Command>(
+  context: context,
+  builder: (context) => _CommandFinder(commands: commands),
+);
 
 class _CommandFinder extends StatefulWidget {
   const _CommandFinder({required this.commands});
@@ -33,9 +32,7 @@ class _CommandFinderState extends State<_CommandFinder> {
     final query = _query.text.trim().toLowerCase();
     if (query.isEmpty) return widget.commands;
     return widget.commands
-        .where((command) =>
-            command.label.toLowerCase().contains(query) ||
-            command.group.toLowerCase().contains(query))
+        .where((command) => command.label.toLowerCase().contains(query) || command.group.toLowerCase().contains(query))
         .toList();
   }
 
@@ -54,8 +51,7 @@ class _CommandFinderState extends State<_CommandFinder> {
       case LogicalKeyboardKey.arrowDown:
         setState(() => _highlighted = (_highlighted + 1) % matches.length);
       case LogicalKeyboardKey.arrowUp:
-        setState(() =>
-            _highlighted = (_highlighted - 1 + matches.length) % matches.length);
+        setState(() => _highlighted = (_highlighted - 1 + matches.length) % matches.length);
       case LogicalKeyboardKey.enter:
       case LogicalKeyboardKey.numpadEnter:
         _choose(matches[_highlighted.clamp(0, matches.length - 1)]);
@@ -105,8 +101,7 @@ class _CommandFinderState extends State<_CommandFinder> {
                     : ListView.builder(
                         key: const Key('command-list'),
                         itemCount: matches.length,
-                        itemBuilder: (context, index) =>
-                            _CommandRow(
+                        itemBuilder: (context, index) => _CommandRow(
                           command: matches[index],
                           highlighted: index == _highlighted,
                           onTap: () => _choose(matches[index]),
@@ -129,11 +124,7 @@ class _CommandFinderState extends State<_CommandFinder> {
 }
 
 class _CommandRow extends StatelessWidget {
-  const _CommandRow({
-    required this.command,
-    required this.highlighted,
-    required this.onTap,
-  });
+  const _CommandRow({required this.command, required this.highlighted, required this.onTap});
 
   final Command command;
   final bool highlighted;
@@ -148,13 +139,8 @@ class _CommandRow extends StatelessWidget {
       selected: highlighted,
       selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
       title: Text(command.label),
-      subtitle: Text(
-        command.available
-            ? command.group
-            : '${command.group} · unavailable: ${command.unavailable}',
-      ),
-      trailing:
-          shortcut == null ? null : Text(describeShortcut(shortcut)),
+      subtitle: Text(command.available ? command.group : '${command.group} · unavailable: ${command.unavailable}'),
+      trailing: shortcut == null ? null : Text(describeShortcut(shortcut)),
       onTap: command.available ? onTap : null,
     );
   }

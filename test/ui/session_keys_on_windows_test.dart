@@ -27,9 +27,13 @@ void main() {
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
     );
     final focus = FocusNode();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: SessionView(session: session, focusNode: focus, onLeave: () {})),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SessionView(session: session, focusNode: focus, onLeave: () {}),
+        ),
+      ),
+    );
     await tester.pump();
     focus.requestFocus();
     await tester.pump();
@@ -53,9 +57,13 @@ void main() {
       machine: const Machine(name: 'laptop', socketPath: '', kind: 'wsl', distribution: 'Ubuntu'),
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
     );
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: SessionView(session: session, focusNode: FocusNode(), onLeave: () {})),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SessionView(session: session, focusNode: FocusNode(), onLeave: () {}),
+        ),
+      ),
+    );
     await tester.pump();
     final terminal = tester.getCenter(find.byKey(const Key('terminal')));
     final mouse = TestPointer(1, PointerDeviceKind.mouse);

@@ -14,8 +14,7 @@ import 'varlink_exception.dart';
 class VarlinkConnection {
   final StreamSink<List<int>> _out;
   final void Function() _end;
-  final StreamController<Map<String, dynamic>> _replies =
-      StreamController<Map<String, dynamic>>();
+  final StreamController<Map<String, dynamic>> _replies = StreamController<Map<String, dynamic>>();
 
   /// The most one reply may weigh before the connection is called broken.
   ///
@@ -36,8 +35,8 @@ class VarlinkConnection {
     required Stream<List<int>> incoming,
     required StreamSink<List<int>> outgoing,
     required void Function() destroy,
-  })  : _out = outgoing,
-        _end = destroy {
+  }) : _out = outgoing,
+       _end = destroy {
     final buffer = BytesBuilder();
     // A write to a peer that has gone fails here, not where it was written, and a failure nobody
     // waits for escapes unhandled. It is the same lost connection as a read error.
@@ -100,8 +99,7 @@ class VarlinkConnection {
   /// there" and "the tunnel dropped" are the same thing to whatever has to render it.
   static Future<VarlinkConnection> open(String socketPath) async {
     try {
-      final socket = await Socket.connect(
-          InternetAddress(socketPath, type: InternetAddressType.unix), 0);
+      final socket = await Socket.connect(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
       return VarlinkConnection.over(incoming: socket, outgoing: socket, destroy: socket.destroy);
     } on SocketException catch (ex) {
       throw VarlinkDisconnected('cannot reach $socketPath: ${ex.message}');
@@ -121,17 +119,18 @@ class VarlinkConnection {
   /// Only for calls that answer once. A stream deliberately has no deadline here: `Prompts` may
   /// legitimately have nothing to say for hours, and a timeout on it would report a working
   /// backend as a broken one.
-  Future<Map<String, dynamic>> call(String method,
-      [Map<String, dynamic> parameters = const {},
-      Duration timeout = answerWithin]) async {
+  Future<Map<String, dynamic>> call(
+    String method, [
+    Map<String, dynamic> parameters = const {},
+    Duration timeout = answerWithin,
+  ]) async {
     _send(method, parameters, more: false);
     try {
       await for (final reply in _replies.stream.timeout(timeout)) {
         return _parameters(reply);
       }
     } on TimeoutException {
-      throw VarlinkDisconnected(
-          '$method was not answered within ${timeout.inSeconds} seconds');
+      throw VarlinkDisconnected('$method was not answered within ${timeout.inSeconds} seconds');
     }
     throw const VarlinkDisconnected('the connection closed before the call was answered');
   }
@@ -147,8 +146,7 @@ class VarlinkConnection {
   /// interrupted while it waits**. A generator paused on one only notices it has been canceled
   /// when the next event arrives - so leaving a `Watch` or a `Tail` hung until the daemon
   /// happened to say something, which on a quiet machine is for ever.
-  Stream<Map<String, dynamic>> callMore(String method,
-      [Map<String, dynamic> parameters = const {}]) {
+  Stream<Map<String, dynamic>> callMore(String method, [Map<String, dynamic> parameters = const {}]) {
     final replies = StreamController<Map<String, dynamic>>();
     StreamSubscription<Map<String, dynamic>>? reading;
 
@@ -169,8 +167,7 @@ class VarlinkConnection {
         },
         onError: replies.addError,
         onDone: () {
-          replies.addError(
-              const VarlinkDisconnected('the stream ended without a final reply'));
+          replies.addError(const VarlinkDisconnected('the stream ended without a final reply'));
           unawaited(replies.close());
         },
       );
@@ -191,8 +188,7 @@ class VarlinkConnection {
     final error = reply['error'];
     if (error is String) {
       final parameters = reply['parameters'];
-      throw VarlinkException(
-          error, parameters is Map<String, dynamic> ? parameters : const {});
+      throw VarlinkException(error, parameters is Map<String, dynamic> ? parameters : const {});
     }
     final parameters = reply['parameters'];
     return parameters is Map<String, dynamic> ? parameters : const {};

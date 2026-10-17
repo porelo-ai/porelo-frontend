@@ -53,65 +53,53 @@ import './step/the_work_was_set_to.dart';
 import './step/the_status_line_mentions.dart';
 
 void main() {
-  group('''Answering blocked connections, and widening what work reaches''',
-      () {
+  group('''Answering blocked connections, and widening what work reaches''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''a blocked connection turns up without anybody going to look for it''',
-        (tester) async {
+    testWidgets('''a blocked connection turns up without anybody going to look for it''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await theRailSaysIsWaiting(tester, '1');
     });
-    testWidgets(
-        '''what was attempted, by which work, and which rule stopped it''',
-        (tester) async {
+    testWidgets('''what was attempted, by which work, and which rule stopped it''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iGoToWhatIsBlocked(tester);
       await itShowsTheDestination(tester, 'api.example.test:443');
       await itNamesTheWorkAndTheRule(tester);
     });
-    testWidgets(
-        '''several pieces of work are watched in one view, not one view each''',
-        (tester) async {
+    testWidgets('''several pieces of work are watched in one view, not one view each''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await otherWorkIsBlockedReaching(tester, 'files.example.test:22');
       await iGoToWhatIsBlocked(tester);
       await bothAreShownTogether(tester);
     });
-    testWidgets('''letting one through tells the work that is waiting''',
-        (tester) async {
+    testWidgets('''letting one through tells the work that is waiting''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iGoToWhatIsBlocked(tester);
       await iLetItThrough(tester);
       await theAnswerSentWas(tester, 'allow');
     });
-    testWidgets('''keeping one blocked is a separate answer, not a silence''',
-        (tester) async {
+    testWidgets('''keeping one blocked is a separate answer, not a silence''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iGoToWhatIsBlocked(tester);
       await iKeepItBlocked(tester);
       await theAnswerSentWas(tester, 'deny');
     });
-    testWidgets('''work nothing is enforcing is marked wherever it appears''',
-        (tester) async {
+    testWidgets('''work nothing is enforcing is marked wherever it appears''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await theWorkIsMarkedAsUnenforced(tester, 'porelo-billing-audit');
       await theWorkIsNotMarkedAsUnenforced(tester, 'porelo-billing-shell');
     });
-    testWidgets(
-        '''letting one through says the host is reachable, not that the attempt succeeded''',
-        (tester) async {
+    testWidgets('''letting one through says the host is reachable, not that the attempt succeeded''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iGoToWhatIsBlocked(tester);
@@ -119,9 +107,7 @@ void main() {
       await theAnswerComesBack(tester);
       await itSays(tester, 'the attempt that was refused is gone');
     });
-    testWidgets(
-        '''a destination asked about again says why that is not a mistake''',
-        (tester) async {
+    testWidgets('''a destination asked about again says why that is not a mistake''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'cdn.example.test:443');
       await iGoToWhatIsBlocked(tester);
@@ -130,9 +116,7 @@ void main() {
       await workIsBlockedReaching(tester, 'cdn.example.test:443');
       await itSays(tester, 'remembered per address');
     });
-    testWidgets(
-        '''a question that ran out says so rather than quietly disappearing''',
-        (tester) async {
+    testWidgets('''a question that ran out says so rather than quietly disappearing''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
       await iGoToWhatIsBlocked(tester);
@@ -140,9 +124,7 @@ void main() {
       await itSaysTheQuestionRanOut(tester);
       await nothingIsWaitingAnyMore(tester);
     });
-    testWidgets(
-        '''what running work may reach is changed from where that work is listed''',
-        (tester) async {
+    testWidgets('''what running work may reach is changed from where that work is listed''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -153,8 +135,7 @@ void main() {
       await itListsTheGrant(tester, 'files.example.test');
       await nothingHasBeenGrantedYet(tester);
     });
-    testWidgets('''how far the change goes is chosen, never defaulted''',
-        (tester) async {
+    testWidgets('''how far the change goes is chosen, never defaulted''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -162,8 +143,7 @@ void main() {
       await iAskItToReach(tester, 'files.example.test');
       await showingWhatItWouldGrantIsNotOfferedYet(tester);
     });
-    testWidgets('''the scope that was chosen is the scope that is sent''',
-        (tester) async {
+    testWidgets('''the scope that was chosen is the scope that is sent''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -174,9 +154,7 @@ void main() {
       await iGrantIt(tester);
       await theScopeSentWas(tester, 'RUN_AND_PROJECT');
     });
-    testWidgets(
-        '''a grant says the host is reachable next time, not that what failed will now work''',
-        (tester) async {
+    testWidgets('''a grant says the host is reachable next time, not that what failed will now work''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -188,9 +166,7 @@ void main() {
       await itSays(tester, 'Reachable from the next attempt');
       await itSays(tester, 'This run only');
     });
-    testWidgets(
-        '''a run widened with no project file to write is a partial success, not a failure''',
-        (tester) async {
+    testWidgets('''a run widened with no project file to write is a partial success, not a failure''', (tester) async {
       await bddSetUp(tester);
       await theProjectFileCannotBeFound(tester);
       await iSelectTheProject(tester, 'checkout');
@@ -203,9 +179,7 @@ void main() {
       await itSays(tester, 'Granted for this run');
       await itSays(tester, 'Reachable from the next attempt');
     });
-    testWidgets(
-        '''a name refused on purpose is said as a refusal, with the machine's reason''',
-        (tester) async {
+    testWidgets('''a name refused on purpose is said as a refusal, with the machine's reason''', (tester) async {
       await bddSetUp(tester);
       await theMachineRefusesTheNameOnPurpose(tester, 'www.iana.org');
       await iSelectTheProject(tester, 'checkout');
@@ -219,26 +193,21 @@ void main() {
       await itDoesNotSay(tester, 'Reachable from the next attempt');
       await grantingItIsNotOffered(tester);
     });
-    testWidgets('''work that is not running says why it cannot be widened''',
-        (tester) async {
+    testWidgets('''work that is not running says why it cannot be widened''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Let this work reach something new');
+      await theCommandIsOfferedAsUnavailable(tester, 'Let this work reach something new');
     });
-    testWidgets('''an offline project is never offered the action''',
-        (tester) async {
+    testWidgets('''an offline project is never offered the action''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await iSelectTheWork(tester, 'porelo-billing-shell');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Let this work reach something new');
+      await theCommandIsOfferedAsUnavailable(tester, 'Let this work reach something new');
     });
-    testWidgets('''taking a name back is previewed before anything changes''',
-        (tester) async {
+    testWidgets('''taking a name back is previewed before anything changes''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -250,9 +219,7 @@ void main() {
       await itSays(tester, '2 addresses come out of the firewall');
       await nothingHasBeenTakenBackYet(tester);
     });
-    testWidgets(
-        '''it says that new connections stop, never that the host is unreachable''',
-        (tester) async {
+    testWidgets('''it says that new connections stop, never that the host is unreachable''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -273,9 +240,7 @@ void main() {
       await itSays(tester, 'Taken back: files.example.test');
       await itSays(tester, 'The project file is changed too');
     });
-    testWidgets(
-        '''a name that was never reached takes nothing out of the firewall''',
-        (tester) async {
+    testWidgets('''a name that was never reached takes nothing out of the firewall''', (tester) async {
       await bddSetUp(tester);
       await takingBackWillFindNothingInTheFirewall(tester);
       await iSelectTheProject(tester, 'checkout');
@@ -286,17 +251,14 @@ void main() {
       await iShowWhatThatWouldTakeBack(tester);
       await itSays(tester, 'it was granted and never reached');
     });
-    testWidgets('''work that is not running is not offered it''',
-        (tester) async {
+    testWidgets('''work that is not running is not offered it''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Take something back from this work');
+      await theCommandIsOfferedAsUnavailable(tester, 'Take something back from this work');
     });
-    testWidgets('''enforcement is turned off on work that is already running''',
-        (tester) async {
+    testWidgets('''enforcement is turned off on work that is already running''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -305,8 +267,7 @@ void main() {
       await theWorkWasSetTo(tester, 'off');
       await theStatusLineMentions(tester, 'went from “prompt” to “off”');
     });
-    testWidgets('''it says what turning it off does not undo''',
-        (tester) async {
+    testWidgets('''it says what turning it off does not undo''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-shell');
@@ -314,9 +275,7 @@ void main() {
       await itSays(tester, 'a connection that was refused stays refused');
       await itSays(tester, 'The ruleset is loaded either way');
     });
-    testWidgets(
-        '''asking for the mode it is already in is not reported as a change''',
-        (tester) async {
+    testWidgets('''asking for the mode it is already in is not reported as a change''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await iSelectTheWork(tester, 'porelo-billing-audit');
@@ -324,14 +283,12 @@ void main() {
       await iChooseTo(tester, 'Stop asking entirely');
       await theStatusLineMentions(tester, 'was already doing that');
     });
-    testWidgets('''work that is not running is not offered it''',
-        (tester) async {
+    testWidgets('''work that is not running is not offered it''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'Change what this work does with a blocked connection');
+      await theCommandIsOfferedAsUnavailable(tester, 'Change what this work does with a blocked connection');
     });
   });
 }

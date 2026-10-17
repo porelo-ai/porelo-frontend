@@ -70,7 +70,8 @@ class Gate extends ChangeNotifier {
     asked = null;
     if (!project.canBeActedOn) {
       waiting = const <PendingPush>[];
-      problem = '${project.name} is not a project this machine follows, so it has no gate to '
+      problem =
+          '${project.name} is not a project this machine follows, so it has no gate to '
           'ask. Following its repository makes it one.';
       notifyListeners();
       return;
@@ -89,8 +90,7 @@ class Gate extends ChangeNotifier {
     final file = project?.name;
     if (file == null || file.isEmpty) return;
     await _asking(() async {
-      final review = await backend.reviewOf(file, push.name,
-          against: against, repository: _where(push));
+      final review = await backend.reviewOf(file, push.name, against: against, repository: _where(push));
       diff = review.diff;
       log = review.log;
       ranked = review.files;
@@ -201,8 +201,7 @@ class Gate extends ChangeNotifier {
     if (unread.isNotEmpty) problem = unread.join(' ');
   }
 
-  Future<(String, GateState?, String?)> _gateIn(
-      FleetBackend backend, String file, String repository) async {
+  Future<(String, GateState?, String?)> _gateIn(FleetBackend backend, String file, String repository) async {
     try {
       return (repository, await backend.gateOf(file, repository: repository), null);
     } on VarlinkException catch (refusal) {
@@ -240,18 +239,20 @@ class Gate extends ChangeNotifier {
   }
 
   static String _wordsFor(VarlinkException refusal) => switch (refusal.simpleName) {
-        'BranchRequired' => 'A branch has to be named. Nothing is forwarded onto a guess.',
-        'ProjectRequired' => 'No project file was given, and every gate call takes one.',
-        // The push moved after it was read: nothing went upstream, and what it holds now is unread.
-        'MovedSinceReview' => '${refusal.parameters['name'] ?? 'It'} moved since you reviewed it: you read '
-            '${_short(refusal.parameters['reviewed'])}, and it holds ${_short(refusal.parameters['now'])} now. '
-            'Nothing was forwarded. Open it again and review what it holds now.',
-        // The branch holds a commit the reviewed work did not grow from: nothing was pushed, and the
-        // machine never overwrites it. The next free name is the machine's own suggestion.
-        'BranchExists' => '${refusal.parameters['branch']} already holds '
-            '${_short(refusal.parameters['at'])}, from earlier work. Nothing was forwarded. Forward it '
-            'onto another branch, such as ${refusal.parameters['branch']}-2.',
-        'Failed' => '${refusal.parameters['message'] ?? 'It did not work.'}',
-        _ => 'Refused: ${refusal.simpleName}.',
-      };
+    'BranchRequired' => 'A branch has to be named. Nothing is forwarded onto a guess.',
+    'ProjectRequired' => 'No project file was given, and every gate call takes one.',
+    // The push moved after it was read: nothing went upstream, and what it holds now is unread.
+    'MovedSinceReview' =>
+      '${refusal.parameters['name'] ?? 'It'} moved since you reviewed it: you read '
+          '${_short(refusal.parameters['reviewed'])}, and it holds ${_short(refusal.parameters['now'])} now. '
+          'Nothing was forwarded. Open it again and review what it holds now.',
+    // The branch holds a commit the reviewed work did not grow from: nothing was pushed, and the
+    // machine never overwrites it. The next free name is the machine's own suggestion.
+    'BranchExists' =>
+      '${refusal.parameters['branch']} already holds '
+          '${_short(refusal.parameters['at'])}, from earlier work. Nothing was forwarded. Forward it '
+          'onto another branch, such as ${refusal.parameters['branch']}-2.',
+    'Failed' => '${refusal.parameters['message'] ?? 'It did not work.'}',
+    _ => 'Refused: ${refusal.simpleName}.',
+  };
 }

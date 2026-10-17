@@ -7,8 +7,7 @@ import '../support/remote.dart';
 
 /// Usage: the machine lists the connection {'ssh://e2e-vault.invalid/'} as a key in its vault
 Future<void> theMachineListsTheConnectionAsAKeyInItsVault(WidgetTester tester, String match) async {
-  final client = await PoreloClient.connect(
-      Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
+  final client = await PoreloClient.connect(Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
   // The interface runs the machine's own command to store it; it lands a moment after the record.
   Connection? connection;
   final until = DateTime.now().add(const Duration(seconds: 30));

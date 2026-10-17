@@ -29,8 +29,7 @@ enum WindowSize {
   }
 
   /// Classifies the window [context] is being laid out in.
-  static WindowSize fromContext(BuildContext context) =>
-      WindowSize.of(MediaQuery.sizeOf(context).width);
+  static WindowSize fromContext(BuildContext context) => WindowSize.of(MediaQuery.sizeOf(context).width);
 
   /// Whether the projects and the work under them fit side by side.
   ///

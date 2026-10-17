@@ -7,8 +7,10 @@ import '../support/e2e.dart';
 Future<void> theInterfaceListsTheProjectFirst(WidgetTester tester, String name) async {
   await toTheMachines(tester);
   await switchTo(tester, E2e.name);
-  final projects = find.byWidgetPredicate((widget) =>
-      widget.key is ValueKey<String> && RegExp(r'^project [^/]+$').hasMatch((widget.key! as ValueKey<String>).value));
+  final projects = find.byWidgetPredicate(
+    (widget) =>
+        widget.key is ValueKey<String> && RegExp(r'^project [^/]+$').hasMatch((widget.key! as ValueKey<String>).value),
+  );
   for (var i = 0; i < 12 && projects.evaluate().isEmpty; i++) {
     await showOnTheMachines(tester, projects);
     await pumpFor(tester, const Duration(seconds: 5));

@@ -20,7 +20,9 @@ void main() {
   });
 
   test('each state has a shape of its own, so it reads without colour', () {
-    final shapes = <IconData>{for (final state in <String>['OK', 'MISSING', 'DEGRADED', 'UNKNOWN']) probeLook(state, scheme).$1};
+    final shapes = <IconData>{
+      for (final state in <String>['OK', 'MISSING', 'DEGRADED', 'UNKNOWN']) probeLook(state, scheme).$1,
+    };
     expect(shapes, hasLength(4));
   });
 }

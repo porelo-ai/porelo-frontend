@@ -40,42 +40,34 @@ import './step/i_make_it_here_with_a_passphrase.dart';
 import './step/the_store_holds_with_the_setting_as.dart';
 
 void main() {
-  group('''Seeing and shutting the secret store, without showing a value''',
-      () {
+  group('''Seeing and shutting the secret store, without showing a value''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''what the store holds is visible without doing anything to it''',
-        (tester) async {
+    testWidgets('''what the store holds is visible without doing anything to it''', (tester) async {
       await bddSetUp(tester);
       await iShowTheVault(tester);
       await itListsTheCredential(tester, 'a-provider');
       await itSays(tester, 'open — its contents can be read');
       await nothingWasDoneToTheStore(tester);
     });
-    testWidgets('''a value is never shown, only that something is there''',
-        (tester) async {
+    testWidgets('''a value is never shown, only that something is there''', (tester) async {
       await bddSetUp(tester);
       await iShowTheVault(tester);
       await itSays(tester, 'api-key · 108 characters');
     });
-    testWidgets('''shutting it says what locking could not reach''',
-        (tester) async {
+    testWidgets('''shutting it says what locking could not reach''', (tester) async {
       await bddSetUp(tester);
       await twoRunningTasksStillHoldWhatTheyRead(tester);
       await iShowTheVault(tester);
       await iShutTheStore(tester);
       await itSays(tester, 'The vault is shut.');
-      await itSays(
-          tester, '2 running tasks still hold what they read at start');
+      await itSays(tester, '2 running tasks still hold what they read at start');
     });
-    testWidgets(
-        '''a store that was already shut says so rather than claiming it did something''',
-        (tester) async {
+    testWidgets('''a store that was already shut says so rather than claiming it did something''', (tester) async {
       await bddSetUp(tester);
       await theStoreWasAlreadyShut(tester);
       await iShowTheVault(tester);
@@ -89,102 +81,88 @@ void main() {
       await itSays(tester, 'That is not the same as it holding nothing');
       await itDoesNotListAnyCredential(tester);
     });
-    testWidgets('''an open store holding nothing says that, as a state''',
-        (tester) async {
+    testWidgets('''an open store holding nothing says that, as a state''', (tester) async {
       await bddSetUp(tester);
       await theStoreIsOpenAndHoldsNothing(tester);
       await iShowTheVault(tester);
-      await itSays(tester,
-          'It is open and holds nothing. That is a state, not a failure.');
+      await itSays(tester, 'It is open and holds nothing. That is a state, not a failure.');
     });
-    testWidgets('''what happens at the machine instead is said in one line''',
-        (tester) async {
+    testWidgets('''what happens at the machine instead is said in one line''', (tester) async {
       await bddSetUp(tester);
       await iShowTheVault(tester);
       await iReadToTheBottomOfTheStore(tester);
       await itSays(tester, '`porelo vault unlock` opens it without a device');
       await itSays(tester, '`porelo vault passphrase` changes its passphrase');
     });
-    testWidgets('''a slow answer never lands on top of a newer one''',
-        (tester) async {
+    testWidgets('''a slow answer never lands on top of a newer one''', (tester) async {
       await bddSetUp(tester);
       await readingTheStoreIsSlow(tester);
       await iAskAboutTheStoreTwice(tester);
       await theNewerAnswerIsTheOneOnScreen(tester);
     });
-    testWidgets(
-        '''a shut store is opened by its passphrase in a terminal on the machine, then asked again''',
-        (tester) async {
+    testWidgets('''a shut store is opened by its passphrase in a terminal on the machine, then asked again''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iShowTheVault(tester);
       await iOpenItHereWithItsPassphrase(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault unlock');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault unlock');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineIsAskedAgainWhetherTheStoreIsOpen(tester);
     });
-    testWidgets(
-        '''a shut store on a device that is not enrolled is opened from the lock by its passphrase''',
-        (tester) async {
+    testWidgets('''a shut store on a device that is not enrolled is opened from the lock by its passphrase''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault unlock');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault unlock');
     });
-    testWidgets(
-        '''a machine whose socket somebody else forwards is not offered a terminal to open it''',
-        (tester) async {
+    testWidgets('''a machine whose socket somebody else forwards is not offered a terminal to open it''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await theMachineIsASocketSomebodyElseForwards(tester);
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(
-          tester,
-          'Open the vault with its passphrase, in a terminal',
-          'forwarded by somebody else');
+        tester,
+        'Open the vault with its passphrase, in a terminal',
+        'forwarded by somebody else',
+      );
     });
-    testWidgets(
-        '''this machine's own daemon is opened by its own porelo, here''',
-        (tester) async {
+    testWidgets('''this machine's own daemon is opened by its own porelo, here''', (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await iShowTheVault(tester);
       await iOpenItHereWithItsPassphrase(tester);
       await aTerminalRunsOnTheMachine(tester, 'porelo vault unlock');
     });
-    testWidgets(
-        '''a machine with no store is offered to make one from the lock, in a terminal there''',
-        (tester) async {
+    testWidgets('''a machine with no store is offered to make one from the lock, in a terminal there''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theMachineHasNoStoreYet(tester);
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault init');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault init');
     });
-    testWidgets(
-        '''a machine with no store says making it is the next step, and makes it from there''',
-        (tester) async {
+    testWidgets('''a machine with no store says making it is the next step, and makes it from there''', (tester) async {
       await bddSetUp(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theMachineHasNoStoreYet(tester);
       await theWorkSays(tester, 'Next: make the vault on');
       await iMakeItFromTheNextStep(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault init');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault init');
     });
-    testWidgets('''a machine with a store says nothing about making one''',
-        (tester) async {
+    testWidgets('''a machine with a store says nothing about making one''', (tester) async {
       await bddSetUp(tester);
       await theWorkDoesNotSay(tester, 'Next: make the vault');
     });
-    testWidgets(
-        '''a machine with no store does not say one is open and empty''',
-        (tester) async {
+    testWidgets('''a machine with no store does not say one is open and empty''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasNoStoreYet(tester);
       await iShowTheVault(tester);
@@ -192,9 +170,9 @@ void main() {
       await itDoesNotSay(tester, 'It is open and holds nothing');
       await theLockDoesNotShowAnOpenStore(tester);
     });
-    testWidgets(
-        '''the store's own view makes one where there is none, and asks the machine afterwards''',
-        (tester) async {
+    testWidgets('''the store's own view makes one where there is none, and asks the machine afterwards''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineHasNoStoreYet(tester);
       await iShowTheVault(tester);
@@ -203,11 +181,9 @@ void main() {
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineIsAskedAgainWhetherTheStoreIsOpen(tester);
     });
-    testWidgets('''an entry's settings are shown whole beside it''',
-        (tester) async {
+    testWidgets('''an entry's settings are shown whole beside it''', (tester) async {
       await bddSetUp(tester);
-      await theStoreHoldsWithTheSettingAs(
-          tester, 'f56-api', 'token_url', 'https://auth.example.com/token');
+      await theStoreHoldsWithTheSettingAs(tester, 'f56-api', 'token_url', 'https://auth.example.com/token');
       await iShowTheVault(tester);
       await itSays(tester, 'token_url: https://auth.example.com/token');
     });

@@ -6,7 +6,9 @@ import 'package:xterm/xterm.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
 import 'dialog_scroll.dart';
+
 import 'package:guided_walk/guided_walk.dart';
+
 import 'tokens.dart';
 import 'terminal_links.dart';
 import 'terminal_look.dart';
@@ -20,16 +22,16 @@ Future<void> unlockInATerminal(
   required Machine machine,
   required List<String> command,
   OpenTerminal? open,
-}) =>
-    runInATerminal(
-      context,
-      title: 'Open the vault on ${machine.name}',
-      explanation: "Type the vault's passphrase into the terminal. It goes straight to the machine "
-          'and never through this program, and nothing here keeps it.',
-      machine: machine,
-      command: command,
-      open: open,
-    );
+}) => runInATerminal(
+  context,
+  title: 'Open the vault on ${machine.name}',
+  explanation:
+      "Type the vault's passphrase into the terminal. It goes straight to the machine "
+      'and never through this program, and nothing here keeps it.',
+  machine: machine,
+  command: command,
+  open: open,
+);
 
 /// Runs [command] on [machine] in a terminal a person types into, for a value this program must
 /// never hold. Returns once the dialog is put away; what came of it is asked of the machine then.
@@ -44,33 +46,34 @@ Future<void> runInATerminal(
   String stillWorking = 'Still running on the machine. It may print nothing for a while.',
   String cancel = 'Cancel it',
   Future<String?> Function()? whatCameOfIt,
-}) =>
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _UnlockTerminal(
-          title: title,
-          explanation: explanation,
-          machine: machine,
-          command: command,
-          open: open,
-          forwardsALoginReply: forwardsALoginReply,
-          stillWorking: stillWorking,
-          cancel: cancel,
-          whatCameOfIt: whatCameOfIt),
-    );
+}) => showDialog<void>(
+  context: context,
+  barrierDismissible: false,
+  builder: (context) => _UnlockTerminal(
+    title: title,
+    explanation: explanation,
+    machine: machine,
+    command: command,
+    open: open,
+    forwardsALoginReply: forwardsALoginReply,
+    stillWorking: stillWorking,
+    cancel: cancel,
+    whatCameOfIt: whatCameOfIt,
+  ),
+);
 
 class _UnlockTerminal extends StatefulWidget {
-  const _UnlockTerminal(
-      {required this.title,
-      required this.explanation,
-      required this.machine,
-      required this.command,
-      this.open,
-      this.forwardsALoginReply = false,
-      required this.stillWorking,
-      required this.cancel,
-      this.whatCameOfIt});
+  const _UnlockTerminal({
+    required this.title,
+    required this.explanation,
+    required this.machine,
+    required this.command,
+    this.open,
+    this.forwardsALoginReply = false,
+    required this.stillWorking,
+    required this.cancel,
+    this.whatCameOfIt,
+  });
 
   final String title;
   final String explanation;
@@ -147,9 +150,11 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
     final asking = widget.whatCameOfIt;
     if (asking != null && !_asked && _session.state == SessionState.over) {
       _asked = true;
-      unawaited(asking().then((said) {
-        if (mounted) setState(() => _cameOfIt = said);
-      }));
+      unawaited(
+        asking().then((said) {
+          if (mounted) setState(() => _cameOfIt = said);
+        }),
+      );
     }
   }
 
@@ -164,24 +169,28 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text(widget.title),
-        content: SizedBox(
-          width: Sizes.dialog,
-          child: DialogScroll(child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(widget.explanation, key: const Key('unlock-explained')),
-              const SizedBox(height: Space.small),
-              SelectableText(widget.command.join(' '),
-                  key: const Key('unlock-command'),
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-              const SizedBox(height: Space.small),
-              SizedBox(
-                height: Sizes.terminal,
-                child: ColoredBox(
-                  color: TerminalLook.background,
-                  child: WalkSecret(child: TerminalView(
+    title: Text(widget.title),
+    content: SizedBox(
+      width: Sizes.dialog,
+      child: DialogScroll(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(widget.explanation, key: const Key('unlock-explained')),
+            const SizedBox(height: Space.small),
+            SelectableText(
+              widget.command.join(' '),
+              key: const Key('unlock-command'),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+            const SizedBox(height: Space.small),
+            SizedBox(
+              height: Sizes.terminal,
+              child: ColoredBox(
+                color: TerminalLook.background,
+                child: WalkSecret(
+                  child: TerminalView(
                     _session.terminal,
                     key: const Key('unlock-terminal'),
                     theme: TerminalLook.theme,
@@ -194,46 +203,44 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
                     readOnly: !_session.live,
                     padding: const EdgeInsets.all(Space.small),
                     textStyle: const TerminalStyle(fontSize: 12),
-                  )),
+                  ),
                 ),
               ),
-              // A link left on offer after it ended invites doing it all again.
-              if (_session.state != SessionState.over) TerminalLinks(session: _session),
-              if (_session.state != SessionState.over) ...<Widget>[
-                const SizedBox(height: Space.small),
-                Text(widget.stillWorking, key: const Key('unlock-working')),
-              ],
-              if (_session.state == SessionState.over) ...<Widget>[
-                const SizedBox(height: Space.small),
-                Text(
-                  _cameOfIt ??
-                      _session.problem ??
-                      (widget.whatCameOfIt == null
-                          ? 'The terminal has ended. What came of it is asked of the machine when this is '
-                              'put away.'
-                          : 'The terminal has ended. Asking the machine what came of it…'),
-                  key: const Key('unlock-ended'),
-                  style: _cameOfIt == null ? null : Theme.of(context).textTheme.titleSmall,
-                ),
-              ],
-            ],
-          )),
-        ),
-        // Done once it has ended; before that only ending it early, asked first, and never the
-        // filled button: a sign-in nearly ended by a press while its image was building.
-        actions: <Widget>[
-          if (_session.state == SessionState.over)
-            FilledButton(
-              key: const Key('unlock-done'),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Done'),
-            )
-          else
-            TextButton(
-              key: const Key('unlock-cancel'),
-              onPressed: _cancelIt,
-              child: Text(widget.cancel),
             ),
-        ],
-      );
+            // A link left on offer after it ended invites doing it all again.
+            if (_session.state != SessionState.over) TerminalLinks(session: _session),
+            if (_session.state != SessionState.over) ...<Widget>[
+              const SizedBox(height: Space.small),
+              Text(widget.stillWorking, key: const Key('unlock-working')),
+            ],
+            if (_session.state == SessionState.over) ...<Widget>[
+              const SizedBox(height: Space.small),
+              Text(
+                _cameOfIt ??
+                    _session.problem ??
+                    (widget.whatCameOfIt == null
+                        ? 'The terminal has ended. What came of it is asked of the machine when this is '
+                              'put away.'
+                        : 'The terminal has ended. Asking the machine what came of it…'),
+                key: const Key('unlock-ended'),
+                style: _cameOfIt == null ? null : Theme.of(context).textTheme.titleSmall,
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+    // Done once it has ended; before that only ending it early, asked first, and never the
+    // filled button: a sign-in nearly ended by a press while its image was building.
+    actions: <Widget>[
+      if (_session.state == SessionState.over)
+        FilledButton(
+          key: const Key('unlock-done'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Done'),
+        )
+      else
+        TextButton(key: const Key('unlock-cancel'), onPressed: _cancelIt, child: Text(widget.cancel)),
+    ],
+  );
 }

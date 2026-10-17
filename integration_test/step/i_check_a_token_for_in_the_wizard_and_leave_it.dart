@@ -14,8 +14,12 @@ Future<void> iCheckATokenForInTheWizardAndLeaveIt(WidgetTester tester, String ma
   await choose(tester, 'connection-way', 'way-vault');
   await tester.tap(find.byKey(const Key('wizard-next')));
   // The real daemon's dry run, which writes nothing.
-  await pumpUntil(tester, () => find.byKey(const Key('connection-check-says')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the machine to check it');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('connection-check-says')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to check it',
+  );
   final detail = find.byKey(const Key('connection-check-detail'));
   theCheckSaid = detail.evaluate().isEmpty ? '' : tester.widget<Text>(detail).data;
   await tester.tap(find.byKey(const Key('connection-leave')));

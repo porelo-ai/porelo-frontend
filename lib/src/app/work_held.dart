@@ -90,9 +90,7 @@ class WorkHeld extends ChangeNotifier {
       return said.holdsSomething ? 'holds $what' : 'holds nothing that never reached the gate';
     }
     final ago = howLongAgo(said.asOf, now: now);
-    return said.holdsSomething
-        ? 'held $what when it stopped$ago'
-        : 'held nothing when it stopped$ago';
+    return said.holdsSomething ? 'held $what when it stopped$ago' : 'held nothing when it stopped$ago';
   }
 
   static String _counts(HeldWork said) {

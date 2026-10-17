@@ -17,29 +17,39 @@ void main() {
 
   group('on Windows', () {
     test('the machine list is under the roaming application data, where the plugin reads it', () {
-      expect(FileSettingsStore.defaultFile(windows, 'windows').path,
-          r'C:\Users\somebody\AppData\Roaming\porelo\frontend.json');
+      expect(
+        FileSettingsStore.defaultFile(windows, 'windows').path,
+        r'C:\Users\somebody\AppData\Roaming\porelo\frontend.json',
+      );
     });
 
     test('what the interface records itself is under the local application data', () {
-      expect(FileOperationsStore.defaultFile(windows, 'windows').path,
-          r'C:\Users\somebody\AppData\Local\porelo\operations.json');
+      expect(
+        FileOperationsStore.defaultFile(windows, 'windows').path,
+        r'C:\Users\somebody\AppData\Local\porelo\operations.json',
+      );
       expect(Desk.of('windows', windows).data, r'C:\Users\somebody\AppData\Local\porelo-frontend');
     });
 
     test('without the application data variables, the folders under the profile are taken', () {
       const bare = <String, String>{'USERPROFILE': r'C:\Users\somebody\'};
 
-      expect(FileSettingsStore.defaultFile(bare, 'windows').path,
-          r'C:\Users\somebody\AppData\Roaming\porelo\frontend.json');
+      expect(
+        FileSettingsStore.defaultFile(bare, 'windows').path,
+        r'C:\Users\somebody\AppData\Roaming\porelo\frontend.json',
+      );
     });
 
     test('a file is kept to its owner by cutting inheritance and granting the user alone', () async {
       final ran = <List<String>>[];
-      final here = Desk.of('windows', windows, run: (executable, arguments) async {
-        ran.add(<String>[executable, ...arguments]);
-        return ProcessResult(0, 0, '', '');
-      });
+      final here = Desk.of(
+        'windows',
+        windows,
+        run: (executable, arguments) async {
+          ran.add(<String>[executable, ...arguments]);
+          return ProcessResult(0, 0, '', '');
+        },
+      );
 
       await here.keepPrivate(r'C:\x\frontend.json.writing');
       await here.keepPrivate(r'C:\x\keys', directory: true);
@@ -52,9 +62,13 @@ void main() {
 
     test('a file or an address is opened as a double click opens it, with no shell reading it', () async {
       final started = <List<String>>[];
-      final here = Desk.of('windows', windows, startDetached: (executable, arguments) async {
-        started.add(<String>[executable, ...arguments]);
-      });
+      final here = Desk.of(
+        'windows',
+        windows,
+        startDetached: (executable, arguments) async {
+          started.add(<String>[executable, ...arguments]);
+        },
+      );
 
       await here.open(r'C:\x\a & b.json');
 
@@ -78,12 +92,17 @@ void main() {
     test('a file is kept to its owner with chmod, and opened with xdg-open', () async {
       final ran = <List<String>>[];
       final started = <List<String>>[];
-      final here = Desk.of('linux', linux, run: (executable, arguments) async {
-        ran.add(<String>[executable, ...arguments]);
-        return ProcessResult(0, 0, '', '');
-      }, startDetached: (executable, arguments) async {
-        started.add(<String>[executable, ...arguments]);
-      });
+      final here = Desk.of(
+        'linux',
+        linux,
+        run: (executable, arguments) async {
+          ran.add(<String>[executable, ...arguments]);
+          return ProcessResult(0, 0, '', '');
+        },
+        startDetached: (executable, arguments) async {
+          started.add(<String>[executable, ...arguments]);
+        },
+      );
 
       await here.keepPrivate('/x/frontend.json.writing');
       await here.keepPrivate('/x/keys', directory: true);
@@ -99,9 +118,13 @@ void main() {
     });
 
     test('nothing to open with is quiet: the target is on screen to be opened by hand', () async {
-      final here = Desk.of('linux', linux, startDetached: (executable, arguments) async {
-        throw ProcessException(executable, arguments);
-      });
+      final here = Desk.of(
+        'linux',
+        linux,
+        startDetached: (executable, arguments) async {
+          throw ProcessException(executable, arguments);
+        },
+      );
 
       await here.open('/x/operations.json');
     });

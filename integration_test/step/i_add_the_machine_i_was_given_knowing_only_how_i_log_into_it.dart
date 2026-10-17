@@ -30,14 +30,19 @@ Future<void> iAddTheMachineIWasGivenKnowingOnlyHowILogIntoIt(WidgetTester tester
     what: 'the trial or the host key question',
   );
   await trustTheHostKeyIfAsked(tester);
-  await pumpUntil(tester, () => find.byKey(const Key('trial-result')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the trial to say something');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('trial-result')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the trial to say something',
+  );
   noteTheWindow(tester, 'tried');
   if (find.byKey(const Key('start-it')).evaluate().isNotEmpty) {
     await tester.tap(find.byKey(const Key('start-it')));
     await pumpUntil(
       tester,
-      () => find.byKey(const Key('start-result')).evaluate().isNotEmpty &&
+      () =>
+          find.byKey(const Key('start-result')).evaluate().isNotEmpty &&
           !find.text('Trying…').evaluate().isNotEmpty &&
           find.byKey(const Key('trial-result')).evaluate().isNotEmpty,
       timeout: const Duration(seconds: 90),

@@ -14,7 +14,9 @@ void main() {
   final socket = Platform.environment['PORELO_SOCKET'] ?? '';
   final project = Platform.environment['PORELO_REFRESH_PROJECT'] ?? '';
   final task = Platform.environment['PORELO_REFRESH_TASK'] ?? '';
-  final skip = socket.isEmpty || project.isEmpty ? 'needs PORELO_SOCKET and PORELO_REFRESH_PROJECT, a followed project' : null;
+  final skip = socket.isEmpty || project.isEmpty
+      ? 'needs PORELO_SOCKET and PORELO_REFRESH_PROJECT, a followed project'
+      : null;
 
   late PoreloBackend backend;
   setUp(() async {
@@ -54,20 +56,32 @@ void main() {
     check.dispose();
   }, skip: skip);
 
-  test('a task is brought up to its source, with what moved and whether its agent heard', () async {
-    final refreshed = await backend.refreshTask(task);
+  test(
+    'a task is brought up to its source, with what moved and whether its agent heard',
+    () async {
+      final refreshed = await backend.refreshTask(task);
 
-    // ignore: avoid_print
-    print(refreshed.wordsFor(task));
-    expect(refreshed.outcome, anyOf('MOVED', 'UNCHANGED'));
-    if (refreshed.outcome == 'MOVED') expect(refreshed.moved, isNotEmpty);
-  }, skip: socket.isEmpty || task.isEmpty ? 'needs PORELO_SOCKET and PORELO_REFRESH_TASK, a task started in a checkout' : null);
+      // ignore: avoid_print
+      print(refreshed.wordsFor(task));
+      expect(refreshed.outcome, anyOf('MOVED', 'UNCHANGED'));
+      if (refreshed.outcome == 'MOVED') expect(refreshed.moved, isNotEmpty);
+    },
+    skip: socket.isEmpty || task.isEmpty
+        ? 'needs PORELO_SOCKET and PORELO_REFRESH_TASK, a task started in a checkout'
+        : null,
+  );
 
-  test('a repository started in a checkout says so, with the checkout as where its work goes', () async {
-    final repositories = await backend.defaultRepositories();
+  test(
+    'a repository started in a checkout says so, with the checkout as where its work goes',
+    () async {
+      final repositories = await backend.defaultRepositories();
 
-    // ignore: avoid_print
-    print([for (final each in repositories) '${each.name}: ${each.comesFromAndGoes}'].join('\n'));
-    expect(repositories.where((each) => each.source == 'CHECKOUT' && each.upstream == each.checkout), isNotEmpty);
-  }, skip: socket.isEmpty || task.isEmpty ? 'needs PORELO_SOCKET and PORELO_REFRESH_TASK, a task started in a checkout' : null);
+      // ignore: avoid_print
+      print([for (final each in repositories) '${each.name}: ${each.comesFromAndGoes}'].join('\n'));
+      expect(repositories.where((each) => each.source == 'CHECKOUT' && each.upstream == each.checkout), isNotEmpty);
+    },
+    skip: socket.isEmpty || task.isEmpty
+        ? 'needs PORELO_SOCKET and PORELO_REFRESH_TASK, a task started in a checkout'
+        : null,
+  );
 }

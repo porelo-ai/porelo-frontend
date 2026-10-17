@@ -7,8 +7,7 @@ Future<void> theNameIsMarkedAsTakenBy(WidgetTester tester, String machine) async
   final hover = find.byTooltip('A machine called $machine is already watched');
   expect(hover, findsOneWidget);
   expect(
-    tester.widget<TooltipVisibility>(
-        find.ancestor(of: hover, matching: find.byType(TooltipVisibility)).first).visible,
+    tester.widget<TooltipVisibility>(find.ancestor(of: hover, matching: find.byType(TooltipVisibility)).first).visible,
     isTrue,
   );
 }

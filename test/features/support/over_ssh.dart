@@ -6,6 +6,5 @@ String asRunOverSsh(String line) {
   final words = line.split(' ');
   if (words.first != 'ssh') return line;
   final host = words[1] == '-t' ? 2 : 1;
-  return <String>[...words.sublist(0, host + 1), inTheLoginShell(words.sublist(host + 1).join(' '))]
-      .join(' ');
+  return <String>[...words.sublist(0, host + 1), inTheLoginShell(words.sublist(host + 1).join(' '))].join(' ');
 }

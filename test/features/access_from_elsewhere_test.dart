@@ -40,46 +40,38 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''which machine an action will act on is always visible''',
-        (tester) async {
+    testWidgets('''which machine an action will act on is always visible''', (tester) async {
       await bddSetUp(tester);
       await theMachineShownIs(tester, 'this machine');
     });
-    testWidgets(
-        '''another machine is watched, and switching moves the whole frame to it''',
-        (tester) async {
+    testWidgets('''another machine is watched, and switching moves the whole frame to it''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iSwitchToTheMachine(tester, 'elsewhere');
       await theMachineShownIs(tester, 'elsewhere');
       await theProjectIsListed(tester, 'shared');
     });
-    testWidgets(
-        '''the command that forwards a socket is copied rather than retyped''',
-        (tester) async {
+    testWidgets('''the command that forwards a socket is copied rather than retyped''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iNameTheSocket(tester, '/tmp/porelo-elsewhere.sock');
       await iCopyTheForwardingCommand(tester);
-      await whatWasCopiedIs(tester,
-          'ssh -L /tmp/porelo-elsewhere.sock:/run/user/<uid>/porelo/porelod.sock user@host -N');
+      await whatWasCopiedIs(
+        tester,
+        'ssh -L /tmp/porelo-elsewhere.sock:/run/user/<uid>/porelo/porelod.sock user@host -N',
+      );
     });
-    testWidgets(
-        '''every machine is watched at once, not only the one being acted on''',
-        (tester) async {
+    testWidgets('''every machine is watched at once, not only the one being acted on''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await everyMachineIsBeingWatched(tester);
     });
-    testWidgets('''adding a machine does not move what is being acted on''',
-        (tester) async {
+    testWidgets('''adding a machine does not move what is being acted on''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await theMachineShownIs(tester, 'this machine');
     });
-    testWidgets(
-        '''a lost tunnel reads as a disconnection, never as a machine with nothing on it''',
-        (tester) async {
+    testWidgets('''a lost tunnel reads as a disconnection, never as a machine with nothing on it''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await theTunnelDrops(tester);
@@ -88,36 +80,27 @@ void main() {
       await enoughTimePassesForAnotherTry(tester);
       await theMachineIsShownAsAnswering(tester);
     });
-    testWidgets(
-        '''one node reached two ways is said, rather than counted as two machines''',
-        (tester) async {
+    testWidgets('''one node reached two ways is said, rather than counted as two machines''', (tester) async {
       await bddSetUp(tester);
       await theMachineIsTheSameNode(tester, 'elsewhere');
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iOpenTheMachineList(tester);
-      await theMachineIsShownAsTheSameNodeAs(
-          tester, 'elsewhere', 'this machine');
+      await theMachineIsShownAsTheSameNodeAs(tester, 'elsewhere', 'this machine');
     });
-    testWidgets(
-        '''two machines that really are two nodes say nothing about each other''',
-        (tester) async {
+    testWidgets('''two machines that really are two nodes say nothing about each other''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iOpenTheMachineList(tester);
       await noMachineIsShownAsTheSameNode(tester);
     });
-    testWidgets(
-        '''machines that cannot say which node they are are never merged''',
-        (tester) async {
+    testWidgets('''machines that cannot say which node they are are never merged''', (tester) async {
       await bddSetUp(tester);
       await noMachineCanSayWhichNodeItIs(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iOpenTheMachineList(tester);
       await noMachineIsShownAsTheSameNode(tester);
     });
-    testWidgets(
-        '''a name already watched is marked when the field is left, and nothing is added''',
-        (tester) async {
+    testWidgets('''a name already watched is marked when the field is left, and nothing is added''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iSayItIsCalled(tester, 'this machine');
@@ -125,9 +108,7 @@ void main() {
       await theNameIsMarkedAsTakenBy(tester, 'this machine');
       await theMachineCannotBeWatchedYet(tester);
     });
-    testWidgets(
-        '''two names that would share one forward count as the same name''',
-        (tester) async {
+    testWidgets('''two names that would share one forward count as the same name''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iSayItIsCalled(tester, 'this-machine');

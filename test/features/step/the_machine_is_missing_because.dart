@@ -4,8 +4,7 @@ import 'package:porelo_frontend/client.dart';
 import '../support/world.dart';
 
 /// Usage: the machine is missing {'nft'} because {'no nftables binary on PATH'}
-Future<void> theMachineIsMissingBecause(
-    WidgetTester tester, String what, String why) async {
+Future<void> theMachineIsMissingBecause(WidgetTester tester, String what, String why) async {
   World.backend.theHealthItReports = Health(
     probes: <Probe>[
       const Probe(name: 'podman', state: 'OK', detail: '5.2.1', action: ''),

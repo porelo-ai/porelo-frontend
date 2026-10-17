@@ -37,8 +37,7 @@ void main() {
   /// connection.
   Future<void> answering(List<int> bytes) async {
     await server.close();
-    server = await ServerSocket.bind(
-        InternetAddress(socketPath, type: InternetAddressType.unix), 0);
+    server = await ServerSocket.bind(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
     server.listen((client) {
       client.add(bytes);
       // Left open deliberately: a closing peer would end the call by itself and prove nothing.
@@ -51,8 +50,7 @@ void main() {
 
     await expectLater(
       connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 2)),
-      throwsA(isA<VarlinkDisconnected>().having(
-          (ex) => ex.message, 'message', contains('not readable'))),
+      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message', contains('not readable'))),
     );
   });
 
@@ -62,8 +60,7 @@ void main() {
 
     await expectLater(
       connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 2)),
-      throwsA(isA<VarlinkDisconnected>().having(
-          (ex) => ex.message, 'message', contains('not readable'))),
+      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message', contains('not readable'))),
     );
   });
 
@@ -73,8 +70,7 @@ void main() {
 
     await expectLater(
       connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 2)),
-      throwsA(isA<VarlinkDisconnected>().having(
-          (ex) => ex.message, 'message', contains('not an object'))),
+      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message', contains('not an object'))),
     );
   });
 
@@ -82,13 +78,11 @@ void main() {
     // More than the limit, in chunks, with no NUL anywhere: what a peer that has lost its framing
     // looks like. Without the bound this grows until the process dies.
     await server.close();
-    server = await ServerSocket.bind(
-        InternetAddress(socketPath, type: InternetAddressType.unix), 0);
+    server = await ServerSocket.bind(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
     final megabyte = Uint8List(1024 * 1024)..fillRange(0, 1024 * 1024, 0x61);
     server.listen((client) async {
       try {
-        for (var sent = 0; sent < VarlinkConnection.mostBytesPerReply + megabyte.length;
-            sent += megabyte.length) {
+        for (var sent = 0; sent < VarlinkConnection.mostBytesPerReply + megabyte.length; sent += megabyte.length) {
           client.add(megabyte);
           await client.flush();
         }
@@ -100,8 +94,7 @@ void main() {
 
     await expectLater(
       connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 10)),
-      throwsA(isA<VarlinkDisconnected>().having(
-          (ex) => ex.message, 'message', contains('without ending'))),
+      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message', contains('without ending'))),
     );
   });
 
@@ -110,8 +103,7 @@ void main() {
     // when it feels like it. Both halves of that matter — a reply arriving in pieces must not be
     // read as several, and several arriving together must not be read as one.
     await server.close();
-    server = await ServerSocket.bind(
-        InternetAddress(socketPath, type: InternetAddressType.unix), 0);
+    server = await ServerSocket.bind(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
     server.listen((client) async {
       client.add(utf8.encode('{"parameters": {"one'));
       await client.flush();
@@ -151,8 +143,7 @@ void main() {
   /// timeout and prove nothing.
   Future<void> halfAFrameThen(void Function(Socket) stop) async {
     await server.close();
-    server = await ServerSocket.bind(
-        InternetAddress(socketPath, type: InternetAddressType.unix), 0);
+    server = await ServerSocket.bind(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
     server.listen((client) async {
       client.add(utf8.encode('{"parameters": {"half": tr'));
       await client.flush();
@@ -167,8 +158,13 @@ void main() {
 
     await expectLater(
       connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 20)),
-      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message',
-          contains('closed before the call was answered'))),
+      throwsA(
+        isA<VarlinkDisconnected>().having(
+          (ex) => ex.message,
+          'message',
+          contains('closed before the call was answered'),
+        ),
+      ),
     );
   });
 
@@ -180,8 +176,7 @@ void main() {
       connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 20)),
       // The transport's own sentence — "Connection reset by peer" — rather than ours. What must
       // never appear is the deadline: that would mean nothing noticed the socket had gone.
-      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message',
-          isNot(contains('not answered within')))),
+      throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message', isNot(contains('not answered within')))),
     );
   });
 
@@ -189,10 +184,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
     // Written after the peer has gone, so the write itself fails.
     await Future<void>.delayed(const Duration(milliseconds: 100));
-    await expectLater(
-      connection.call('org.fuin.porelo.Tasks1.List'),
-      throwsA(isA<VarlinkDisconnected>()),
-    );
+    await expectLater(connection.call('org.fuin.porelo.Tasks1.List'), throwsA(isA<VarlinkDisconnected>()));
     // Long enough for a failed write to surface where nobody is waiting for it.
     await Future<void>.delayed(const Duration(milliseconds: 200));
   });

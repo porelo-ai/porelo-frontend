@@ -7,8 +7,5 @@ import '../support/tiles.dart';
 Future<void> theTileIsNotMarkedAsAGuess(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   expect(tileFor(work), findsOneWidget, reason: 'no tile for $work');
-  expect(
-    find.descendant(of: tileFor(work), matching: find.byKey(const Key('tile-inferred'))),
-    findsNothing,
-  );
+  expect(find.descendant(of: tileFor(work), matching: find.byKey(const Key('tile-inferred'))), findsNothing);
 }

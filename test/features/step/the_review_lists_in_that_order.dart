@@ -4,8 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Usage: the review lists {'a, b, c'} in that order
 Future<void> theReviewListsInThatOrder(WidgetTester tester, String paths) async {
   final expected = paths.split(',').map((each) => each.trim()).toList();
-  final rows = find.byWidgetPredicate((each) =>
-      each.key is ValueKey<String> && (each.key! as ValueKey<String>).value.startsWith('review-file '));
+  final rows = find.byWidgetPredicate(
+    (each) => each.key is ValueKey<String> && (each.key! as ValueKey<String>).value.startsWith('review-file '),
+  );
   final shown = <({String path, double y})>[
     for (final element in rows.evaluate())
       (

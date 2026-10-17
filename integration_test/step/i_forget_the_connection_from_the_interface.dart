@@ -9,6 +9,10 @@ Future<void> iForgetTheConnectionFromTheInterface(WidgetTester tester, String ma
   await pumpUntil(tester, () => forget.evaluate().isNotEmpty, what: 'the connection $match listed');
   await tester.ensureVisible(forget);
   await tester.tap(forget);
-  await pumpUntil(tester, () => find.byKey(const Key('connections-forgotten')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the machine to say what forgetting did');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('connections-forgotten')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to say what forgetting did',
+  );
 }

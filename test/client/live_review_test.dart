@@ -16,7 +16,10 @@ void main() {
   final socket = Platform.environment['PORELO_SOCKET'] ?? '';
   final project = Platform.environment['PORELO_REVIEW_PROJECT'] ?? '';
   final name = Platform.environment['PORELO_REVIEW_PUSH'] ?? '';
-  final files = (Platform.environment['PORELO_REVIEW_FILES'] ?? '').split(',').where((each) => each.isNotEmpty).toList();
+  final files = (Platform.environment['PORELO_REVIEW_FILES'] ?? '')
+      .split(',')
+      .where((each) => each.isNotEmpty)
+      .toList();
   final skip = socket.isEmpty || project.isEmpty || name.isEmpty || files.isEmpty
       ? 'needs PORELO_SOCKET, PORELO_REVIEW_PROJECT, PORELO_REVIEW_PUSH and PORELO_REVIEW_FILES'
       : null;

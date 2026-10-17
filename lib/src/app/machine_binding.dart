@@ -74,7 +74,9 @@ Future<void> removeAtTheForge(Forge forge, List<MachineDeployKey> keys, void Fun
       continue;
     }
     try {
-      final held = (await forge.deployKeys(there)).where((each) => keyPart(each.key) == keyPart(key.publicKey)).toList();
+      final held = (await forge.deployKeys(there))
+          .where((each) => keyPart(each.key) == keyPart(key.publicKey))
+          .toList();
       if (held.isEmpty) say('$what is not among the deploy keys of $there; nothing to remove there.');
       for (final each in held) {
         await forge.removeDeployKey(there, each.id);
@@ -98,12 +100,12 @@ String? withoutSigner(String text, String line, String machine) {
     final w = each.trim().split(RegExp(r'\s+'));
     return w.length >= 2 && w.sublist(w.length - 2).join(' ') == key;
   }
+
   final lines = text.split('\n');
   if (!lines.any(isIt)) return null;
   return <String>[
     for (var i = 0; i < lines.length; i++)
-      if (!isIt(lines[i]) && !(lines[i].trim() == '# $machine' && i + 1 < lines.length && isIt(lines[i + 1])))
-        lines[i],
+      if (!isIt(lines[i]) && !(lines[i].trim() == '# $machine' && i + 1 < lines.length && isIt(lines[i + 1]))) lines[i],
   ].join('\n');
 }
 
@@ -199,8 +201,10 @@ class MachineBinding extends ChangeNotifier {
   Future<void> _sayWhereItIsAProjectItself(String fullName, String project) async {
     try {
       if (await forge.hasProjectFile(await forge.repository(fullName))) {
-        _say('$fullName holds a project.yml of its own. As a work repository of $project it is only worked '
-            'in; its own project.yml is not read here.');
+        _say(
+          '$fullName holds a project.yml of its own. As a work repository of $project it is only worked '
+          'in; its own project.yml is not read here.',
+        );
       }
     } on Object {
       // Not knowing is no reason to stop a binding.
@@ -271,8 +275,10 @@ class MachineBinding extends ChangeNotifier {
         await forge.removeDeployKey(each.repository, each.key.id);
         _say('Took ${each.key.title} back from ${each.repository}, since the binding did not finish.');
       } catch (_) {
-        _say('${each.key.title} could not be taken back from ${each.repository}, though the binding did not '
-            "finish: remove it there by hand, under the repository's deploy keys.");
+        _say(
+          '${each.key.title} could not be taken back from ${each.repository}, though the binding did not '
+          "finish: remove it there by hand, under the repository's deploy keys.",
+        );
       }
     }
     _registeredNow.clear();
@@ -307,8 +313,10 @@ class MachineBinding extends ChangeNotifier {
     // the one registered for the project itself is taken back (walk 10: a repository whose commits
     // were not signed by the pinned key read as followed, and the next call found no project).
     if (!followed.recorded && followed.commit.isEmpty) {
-      throw BindingRefused('$machineName did not follow ${shape.name}: '
-          '${followed.detail.isNotEmpty ? followed.detail : followed.outcome}. Nothing of it is on $machineName.');
+      throw BindingRefused(
+        '$machineName did not follow ${shape.name}: '
+        '${followed.detail.isNotEmpty ? followed.detail : followed.outcome}. Nothing of it is on $machineName.',
+      );
     }
     pinnedAll = followed.pinned;
     pinned = followed.pinned.isNotEmpty ? followed.pinned.first : followed.signer;
@@ -350,7 +358,9 @@ class MachineBinding extends ChangeNotifier {
   Future<void> remove(SigningKey person) => _doing(() async {
     final shape = ProjectShape.of(await workspace.read() ?? '');
     final forgotten = await _machine.unfollow(shape.name, force: true);
-    if (forgotten.keys.isEmpty) _say('$machineName named no deploy keys for ${shape.name}; none removed at ${forge.name}.');
+    if (forgotten.keys.isEmpty) {
+      _say('$machineName named no deploy keys for ${shape.name}; none removed at ${forge.name}.');
+    }
     await removeAtTheForge(forge, forgotten.keys, _say);
     final signer = forgotten.signer;
     final text = await workspace.readFile('machine-signers');
@@ -493,7 +503,12 @@ class MachineBinding extends ChangeNotifier {
       _say('${key.title} is registered at $repository already.');
       return;
     }
-    final added = await forge.addDeployKey(repository, title: key.title, key: key.publicKey, readOnly: !key.writeAccess);
+    final added = await forge.addDeployKey(
+      repository,
+      title: key.title,
+      key: key.publicKey,
+      readOnly: !key.writeAccess,
+    );
     _registeredNow.add((repository: repository, key: added));
     _say('Registered ${key.title} at $repository, ${key.writeAccess ? 'with write access' : 'read-only'}.');
   }

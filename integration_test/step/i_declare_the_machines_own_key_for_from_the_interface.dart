@@ -13,11 +13,12 @@ Future<void> iDeclareTheMachinesOwnKeyForFromTheInterface(WidgetTester tester, S
   await pumpUntilShown(tester, const Key('connection-way'));
   await choose(tester, 'connection-way', 'way-machine');
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('connection-key')).evaluate().isNotEmpty ||
-          find.byKey(const Key('connection-keys-unavailable')).evaluate().isNotEmpty,
-      what: 'the machine to list its keys');
+    tester,
+    () =>
+        find.byKey(const Key('connection-key')).evaluate().isNotEmpty ||
+        find.byKey(const Key('connection-keys-unavailable')).evaluate().isNotEmpty,
+    what: 'the machine to list its keys',
+  );
   if (find.byKey(const Key('connection-key')).evaluate().isNotEmpty) {
     await choose(tester, 'connection-key', 'key $theKey');
   } else {
@@ -29,13 +30,18 @@ Future<void> iDeclareTheMachinesOwnKeyForFromTheInterface(WidgetTester tester, S
   await tester.tap(find.byKey(const Key('wizard-next')));
   // The real daemon's dry run: the check has to pass before adding is offered.
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('connection-check-says')).evaluate().isNotEmpty ||
-          find.byKey(const Key('connection-check-failed')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30),
-      what: 'the machine to check it');
+    tester,
+    () =>
+        find.byKey(const Key('connection-check-says')).evaluate().isNotEmpty ||
+        find.byKey(const Key('connection-check-failed')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to check it',
+  );
   await tester.tap(find.byKey(const Key('connection-add')));
-  await pumpUntil(tester, () => find.byKey(const Key('connection-declared')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the machine to say what it wrote');
+  await pumpUntil(
+    tester,
+    () => find.byKey(const Key('connection-declared')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to say what it wrote',
+  );
 }

@@ -17,12 +17,7 @@ import 'shell_model.dart';
 import 'wsl.dart';
 
 /// How a terminal is opened. Injectable, so everything above it runs without a process.
-typedef OpenTerminal = SessionChannel Function(
-  String executable,
-  List<String> arguments, {
-  int columns,
-  int rows,
-});
+typedef OpenTerminal = SessionChannel Function(String executable, List<String> arguments, {int columns, int rows});
 
 /// Why work cannot be worked in by hand, decided before anything is started.
 ///
@@ -39,13 +34,13 @@ enum WhyNot {
 
   /// What to say, in a sentence somebody can act on.
   String get words => switch (this) {
-        WhyNot.notRunning =>
-          'This is not running. Starting it again brings back the workspace, the branch and the '
-              'commits it had — and a session with it.',
-        WhyNot.noAddress =>
-          'This machine is reached through a socket something else forwarded, so a session has '
-              'nowhere to run. Add it with "Raise the forward for me" and its address.',
-      };
+    WhyNot.notRunning =>
+      'This is not running. Starting it again brings back the workspace, the branch and the '
+          'commits it had — and a session with it.',
+    WhyNot.noAddress =>
+      'This machine is reached through a socket something else forwarded, so a session has '
+          'nowhere to run. Add it with "Raise the forward for me" and its address.',
+  };
 }
 
 /// Where one session has got to.
@@ -181,12 +176,13 @@ class Session extends ChangeNotifier {
   /// There is deliberately **no `BatchMode=yes` here**, and the tunnel deliberately has one. A
   /// forward has no terminal, so a prompt there is a hang; this *is* a terminal, so a passphrase
   /// or an unknown host key can be answered by the person sitting in front of it.
-  List<String> get command => run ??
+  List<String> get command =>
+      run ??
       (machine.relay != null
           ? Wsl.runIn(machine.distribution, <String>['porelo', 'task', 'attach', task])
           : machine.needsATunnel
-              ? <String>['ssh', '-t', machine.host, inTheLoginShell('porelo task attach ${quoteForAShell(task)}')]
-              : <String>['porelo', 'task', 'attach', task]);
+          ? <String>['ssh', '-t', machine.host, inTheLoginShell('porelo task attach ${quoteForAShell(task)}')]
+          : <String>['porelo', 'task', 'attach', task]);
 
   /// Reports one turn of the mouse wheel to the far end as an SGR wheel report, the way tmux reads
   /// it: up is button 64, down 65.
@@ -231,15 +227,13 @@ class Session extends ChangeNotifier {
 
   void _start(int columns, int rows) {
     try {
-      final channel = _open(command.first, command.skip(1).toList(),
-          columns: columns, rows: rows);
+      final channel = _open(command.first, command.skip(1).toList(), columns: columns, rows: rows);
       _channel = channel;
       state = SessionState.live;
       // Decoded as a stream: a chunk can end in the middle of a character, and a decoder per
       // chunk would put a replacement mark on screen every few kilobytes of anything but ASCII.
       _reading = channel.output.listen(
-        (bytes) => terminal.write(
-            _modifiedKeys.take(const Utf8Decoder(allowMalformed: true).convert(bytes))),
+        (bytes) => terminal.write(_modifiedKeys.take(const Utf8Decoder(allowMalformed: true).convert(bytes))),
       );
       unawaited(channel.ended.then(_itEnded));
     } on PtyRefused catch (refused) {
@@ -247,7 +241,7 @@ class Session extends ChangeNotifier {
       problem = machine.needsATunnel
           ? 'The way in could not be opened: ${refused.words}.'
           : 'The way in could not be opened: ${refused.words}. A session lives in the container, '
-              'so it is reachable only from the machine the daemon runs on.';
+                'so it is reachable only from the machine the daemon runs on.';
     }
     notifyListeners();
   }
@@ -318,10 +312,7 @@ class ConsolePlace {
 
   @override
   bool operator ==(Object other) =>
-      other is ConsolePlace &&
-      other.section == section &&
-      other.machine == machine &&
-      other.project == project;
+      other is ConsolePlace && other.section == section && other.machine == machine && other.project == project;
 
   @override
   int get hashCode => Object.hash(section, machine, project);

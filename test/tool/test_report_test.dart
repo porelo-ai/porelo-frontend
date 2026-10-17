@@ -54,16 +54,8 @@ void main() {
     final junit = File('${scratch.path}/results.xml');
     final ran = Process.runSync(
       'dart',
-      <String>[
-        'tool/test_report.dart',
-        source.path,
-        '${scratch.path}/report.html',
-        junit.path,
-      ],
-      environment: <String, String>{
-        'GITHUB_ACTIONS': 'true',
-        'GITHUB_STEP_SUMMARY': summary.path,
-      },
+      <String>['tool/test_report.dart', source.path, '${scratch.path}/report.html', junit.path],
+      environment: <String, String>{'GITHUB_ACTIONS': 'true', 'GITHUB_STEP_SUMMARY': summary.path},
     );
     return (
       out: '${ran.stdout}',
@@ -76,11 +68,10 @@ void main() {
   tearDown(() => scratch.deleteSync(recursive: true));
 
   test('an annotation is one line, whatever the message contains', () {
-    final said = report(machineJson(
-      message: 'Expected: one\nActual: none\n100% of it, with a colon: here, and a comma, too',
-    ));
-    final annotations =
-        said.out.split('\n').where((line) => line.startsWith('::error')).toList();
+    final said = report(
+      machineJson(message: 'Expected: one\nActual: none\n100% of it, with a colon: here, and a comma, too'),
+    );
+    final annotations = said.out.split('\n').where((line) => line.startsWith('::error')).toList();
 
     expect(annotations, hasLength(1));
     // **A workflow command is one line.** A newline would end it and print the rest as ordinary
@@ -92,23 +83,19 @@ void main() {
 
   test('an annotation lands on the scenario in the feature file, not on generated code', () {
     final said = report(machineJson(message: 'Expected: one\nActual: none'));
-    final annotation =
-        said.out.split('\n').firstWhere((line) => line.startsWith('::error'));
+    final annotation = said.out.split('\n').firstWhere((line) => line.startsWith('::error'));
 
     // The `.feature` is what a person has to change; the generated test is regenerated, and an
     // edit there is the one edit that gets lost.
     expect(annotation, contains('file=test/features/live_logs.feature'));
-    final line = int.parse(
-        RegExp(r'line=(\d+)').firstMatch(annotation)!.group(1)!);
+    final line = int.parse(RegExp(r'line=(\d+)').firstMatch(annotation)!.group(1)!);
     final source = File('test/features/live_logs.feature').readAsLinesSync();
-    expect(source[line - 1].trim(),
-        'Scenario: only the logs the work actually has are offered');
+    expect(source[line - 1].trim(), 'Scenario: only the logs the work actually has are offered');
   });
 
   test('what the framework printed is the failure, not its own generic sentence', () {
     final said = report(machineJson(message: 'Expected: one\nActual: none'));
-    final annotation =
-        said.out.split('\n').firstWhere((line) => line.startsWith('::error'));
+    final annotation = said.out.split('\n').firstWhere((line) => line.startsWith('::error'));
 
     // A widget test's `error` says only "Test failed. See exception logs above." — the whole of
     // what went wrong is in the printed dump. A report built on `error` alone says nothing at
@@ -153,24 +140,20 @@ void main() {
     // contract; a tick beside them hid that it had not run.
     final suite = '${Directory.current.path}/test/client/live_daemon_test.dart';
     const name = 'the daemon declares every method this client calls';
-    final said = report(<Map<String, dynamic>>[
-      <String, dynamic>{
-        'type': 'suite',
-        'suite': <String, dynamic>{'id': 0, 'path': suite},
-      },
-      <String, dynamic>{
-        'type': 'testStart',
-        'test': <String, dynamic>{'id': 1, 'name': name, 'suiteID': 0, 'groupIDs': <int>[]},
-      },
-      <String, dynamic>{
-        'type': 'testDone',
-        'testID': 1,
-        'result': 'success',
-        'skipped': true,
-        'time': 3,
-      },
-      <String, dynamic>{'type': 'done', 'time': 3},
-    ].map(jsonEncode).join('\n'));
+    final said = report(
+      <Map<String, dynamic>>[
+        <String, dynamic>{
+          'type': 'suite',
+          'suite': <String, dynamic>{'id': 0, 'path': suite},
+        },
+        <String, dynamic>{
+          'type': 'testStart',
+          'test': <String, dynamic>{'id': 1, 'name': name, 'suiteID': 0, 'groupIDs': <int>[]},
+        },
+        <String, dynamic>{'type': 'testDone', 'testID': 1, 'result': 'success', 'skipped': true, 'time': 3},
+        <String, dynamic>{'type': 'done', 'time': 3},
+      ].map(jsonEncode).join('\n'),
+    );
     final page = File('${scratch.path}/report.html').readAsStringSync();
 
     expect(said.out, contains('1 skipped'));
@@ -193,10 +176,7 @@ void main() {
         '${scratch.path}/report.html',
         '${scratch.path}/results.xml',
       ],
-      environment: <String, String>{
-        'GITHUB_ACTIONS': 'true',
-        'GITHUB_STEP_SUMMARY': summary.path,
-      },
+      environment: <String, String>{'GITHUB_ACTIONS': 'true', 'GITHUB_STEP_SUMMARY': summary.path},
     );
 
     // **Silence covers three states**: no test step, a step that matched nothing, and a step whose
@@ -211,16 +191,8 @@ void main() {
     final summary = File('${scratch.path}/summary.md');
     final ran = Process.runSync(
       'dart',
-      <String>[
-        'tool/test_report.dart',
-        source.path,
-        '${scratch.path}/report.html',
-        '${scratch.path}/results.xml',
-      ],
-      environment: <String, String>{
-        'GITHUB_ACTIONS': 'true',
-        'GITHUB_STEP_SUMMARY': summary.path,
-      },
+      <String>['tool/test_report.dart', source.path, '${scratch.path}/report.html', '${scratch.path}/results.xml'],
+      environment: <String, String>{'GITHUB_ACTIONS': 'true', 'GITHUB_STEP_SUMMARY': summary.path},
     );
 
     expect(ran.exitCode, isNot(0));
@@ -233,12 +205,7 @@ void main() {
     final summary = File('${scratch.path}/summary.md');
     final ran = Process.runSync(
       'dart',
-      <String>[
-        'tool/test_report.dart',
-        source.path,
-        '${scratch.path}/report.html',
-        '${scratch.path}/results.xml',
-      ],
+      <String>['tool/test_report.dart', source.path, '${scratch.path}/report.html', '${scratch.path}/results.xml'],
       environment: <String, String>{'GITHUB_ACTIONS': 'false', 'GITHUB_STEP_SUMMARY': ''},
     );
 

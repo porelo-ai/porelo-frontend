@@ -75,8 +75,7 @@ class FileSettingsStore implements SettingsStore {
 /// A store that keeps values in memory, for tests that restart the interface.
 class MemorySettingsStore implements SettingsStore {
   /// Constructor, optionally starting from values as if written by an earlier run.
-  MemorySettingsStore([Map<String, Object?> initial = const {}])
-      : _values = Map<String, Object?>.of(initial);
+  MemorySettingsStore([Map<String, Object?> initial = const {}]) : _values = Map<String, Object?>.of(initial);
 
   Map<String, Object?> _values;
 
@@ -84,8 +83,7 @@ class MemorySettingsStore implements SettingsStore {
   Future<Map<String, Object?>> read() async => Map<String, Object?>.of(_values);
 
   @override
-  Future<void> write(Map<String, Object?> values) async =>
-      _values = Map<String, Object?>.of(values);
+  Future<void> write(Map<String, Object?> values) async => _values = Map<String, Object?>.of(values);
 }
 
 /// What the person chose about how the interface looks.
@@ -266,7 +264,8 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
-  List<({String machine, String project, int port})> _homeservers = const <({String machine, String project, int port})>[];
+  List<({String machine, String project, int port})> _homeservers =
+      const <({String machine, String project, int port})>[];
 
   /// Machines whose silence somebody has seen, until they answer again.
   Set<String> get seenSilent => Set<String>.unmodifiable(_seenSilent);
@@ -281,9 +280,7 @@ class Settings extends ChangeNotifier {
 
   /// Remembers which machines to open next time.
   Future<void> rememberMachines(List<Machine> machines) async {
-    _machines = <Map<String, Object?>>[
-      for (final machine in machines) machine.stored,
-    ];
+    _machines = <Map<String, Object?>>[for (final machine in machines) machine.stored];
     await _write();
   }
 
@@ -327,23 +324,22 @@ class Settings extends ChangeNotifier {
   List<Map<String, Object?>> _templates = const <Map<String, Object?>>[];
 
   Future<void> _write() => _store.write(<String, Object?>{
-        'refreshSeconds': _refreshSeconds,
-        'workUser': _workUser,
-        'setupDraft': _setupDraft,
-        'appearance': _appearance.name,
-        'machines': _machines,
-        'muted': _muted,
-        'homeservers': <Map<String, Object?>>[
-          for (final each in _homeservers) <String, Object?>{'machine': each.machine, 'project': each.project, 'port': each.port},
-        ],
-        'seenSilent': _seenSilent,
-        'place': _place,
-        'templates': _templates,
-        'forges': _forges,
-      });
+    'refreshSeconds': _refreshSeconds,
+    'workUser': _workUser,
+    'setupDraft': _setupDraft,
+    'appearance': _appearance.name,
+    'machines': _machines,
+    'muted': _muted,
+    'homeservers': <Map<String, Object?>>[
+      for (final each in _homeservers)
+        <String, Object?>{'machine': each.machine, 'project': each.project, 'port': each.port},
+    ],
+    'seenSilent': _seenSilent,
+    'place': _place,
+    'templates': _templates,
+    'forges': _forges,
+  });
 
-  static ThemeMode _appearanceNamed(Object? name) => ThemeMode.values.firstWhere(
-        (mode) => mode.name == name,
-        orElse: () => ThemeMode.system,
-      );
+  static ThemeMode _appearanceNamed(Object? name) =>
+      ThemeMode.values.firstWhere((mode) => mode.name == name, orElse: () => ThemeMode.system);
 }

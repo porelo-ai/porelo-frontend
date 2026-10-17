@@ -5,7 +5,12 @@ import 'package:porelo_frontend/client.dart';
 void main() {
   test("a peer's use of the day is read, and absent stays unknown rather than zero", () {
     final counted = TalkPeer.from(const <String, dynamic>{
-      'name': 'reviewer', 'perDay': 20, 'mode': 'prompt', 'held': false, 'sentToday': 3, 'receivedToday': 0,
+      'name': 'reviewer',
+      'perDay': 20,
+      'mode': 'prompt',
+      'held': false,
+      'sentToday': 3,
+      'receivedToday': 0,
     });
     expect(counted.sentToday, 3);
     expect(counted.receivedToday, 0);

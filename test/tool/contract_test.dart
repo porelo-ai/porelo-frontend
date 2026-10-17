@@ -20,10 +20,7 @@ void main() {
     scratch = Directory.systemTemp.createTempSync('porelo-contract-test');
     addTearDown(() => scratch.deleteSync(recursive: true));
     socketPath = '${scratch.path}/d.sock';
-    server = await ServerSocket.bind(
-      InternetAddress(socketPath, type: InternetAddressType.unix),
-      0,
-    );
+    server = await ServerSocket.bind(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
     addTearDown(server.close);
   });
 
@@ -45,9 +42,7 @@ void main() {
                     'version': '9.9',
                     'interfaces': <String>['org.fuin.porelo.Tasks1'],
                   }
-                : <String, dynamic>{
-                    'description': 'interface org.fuin.porelo.Tasks1',
-                  };
+                : <String, dynamic>{'description': 'interface org.fuin.porelo.Tasks1'};
             client.add(<int>[
               ...utf8.encode(jsonEncode({'parameters': parameters})),
               0,
@@ -73,15 +68,12 @@ void main() {
     expect(ran.stdout, contains('interface org.fuin.porelo.Tasks1'));
   });
 
-  test(
-    'a daemon that answers only one call fails the run and says so',
-    () async {
-      serve(after: Duration.zero, answering: 1);
+  test('a daemon that answers only one call fails the run and says so', () async {
+    serve(after: Duration.zero, answering: 1);
 
-      final ran = await contract(<String>['1']);
+    final ran = await contract(<String>['1']);
 
-      expect(ran.exitCode, 1);
-      expect(ran.stderr, contains('answered 1 of 2 calls within 1 seconds'));
-    },
-  );
+    expect(ran.exitCode, 1);
+    expect(ran.stderr, contains('answered 1 of 2 calls within 1 seconds'));
+  });
 }

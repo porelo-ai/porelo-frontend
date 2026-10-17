@@ -37,4 +37,5 @@ if [ ! -x "/usr/libexec/porelo/transports/$transport" ] && [ ! -x "$data/transpo
   done
 fi
 [ -x "/usr/libexec/porelo/transports/$transport" ] || [ -x "$data/transports/$transport" ] && echo yes || echo no
-''') == 'yes';
+''') ==
+    'yes';

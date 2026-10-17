@@ -4,6 +4,9 @@
 .*
 !.gitignore
 !.gitkeep
+# The shared code style and the commits `git blame` skips, both committed as the shared rules say.
+!.editorconfig
+!.git-blame-ignore-revs
 !.github
 # Java: the Maven wrapper's own directory, without which `./mvnw` picks a version nobody chose.
 !.mvn

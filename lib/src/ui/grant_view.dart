@@ -14,7 +14,10 @@ import 'tokens.dart';
 /// Asks the machine for an authorization and shows where it stands until it is settled.
 Future<void> showGranting(BuildContext context, Granting granting) async {
   granting.start();
-  await showDialog<void>(context: context, builder: (_) => GrantDialog(granting: granting));
+  await showDialog<void>(
+    context: context,
+    builder: (_) => GrantDialog(granting: granting),
+  );
   granting.dispose();
 }
 
@@ -31,101 +34,112 @@ class GrantDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: granting,
-        builder: (context, _) {
-          final text = Theme.of(context).textTheme;
-          final scheme = Theme.of(context).colorScheme;
-          return AlertDialog(
-            key: const Key('grant-dialog'),
-            title: Text('Grant ${granting.entry}'),
-            content: SizedBox(
-              width: Sizes.dialog,
-              child: DialogScroll(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Granted once, it is kept in the vault on ${granting.machine.name}, and later tasks '
-                      'use it without holding it or asking again.',
-                      style: text.bodySmall,
+    animation: granting,
+    builder: (context, _) {
+      final text = Theme.of(context).textTheme;
+      final scheme = Theme.of(context).colorScheme;
+      return AlertDialog(
+        key: const Key('grant-dialog'),
+        title: Text('Grant ${granting.entry}'),
+        content: SizedBox(
+          width: Sizes.dialog,
+          child: DialogScroll(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Granted once, it is kept in the vault on ${granting.machine.name}, and later tasks '
+                  'use it without holding it or asking again.',
+                  style: text.bodySmall,
+                ),
+                const SizedBox(height: Space.small),
+                if (granting.problem != null)
+                  Text(
+                    granting.problem!,
+                    key: const Key('grant-problem'),
+                    style: TextStyle(color: scheme.error),
+                  ),
+                if (granting.state.isEmpty && granting.problem == null)
+                  const Text('Asking the machine for the page to decide on…'),
+                if (granting.link.isNotEmpty) ...<Widget>[
+                  Text('Decide on this page, in any browser:', style: text.labelMedium),
+                  const SizedBox(height: Space.tight),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(Space.small),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: scheme.outlineVariant),
+                      borderRadius: BorderRadius.circular(Radii.small),
                     ),
-                    const SizedBox(height: Space.small),
-                    if (granting.problem != null)
-                      Text(granting.problem!, key: const Key('grant-problem'), style: TextStyle(color: scheme.error)),
-                    if (granting.state.isEmpty && granting.problem == null)
-                      const Text('Asking the machine for the page to decide on…'),
-                    if (granting.link.isNotEmpty) ...<Widget>[
-                      Text('Decide on this page, in any browser:', style: text.labelMedium),
-                      const SizedBox(height: Space.tight),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(Space.small),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: scheme.outlineVariant),
-                          borderRadius: BorderRadius.circular(Radii.small),
-                        ),
-                        // Whole, as it came: never shortened, never assembled here.
-                        child: SelectableText(granting.link,
-                            key: const Key('grant-link'),
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-                      ),
-                    ],
-                    if (granting.code.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: Space.small),
-                      Text('If the page asks for a code, it is:', style: text.labelMedium),
-                      SelectableText(granting.code,
-                          key: const Key('grant-code'),
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 18, letterSpacing: 2)),
-                    ],
-                    if (granting.port > 0 && granting.waiting) ...<Widget>[
-                      const SizedBox(height: Space.small),
-                      Text(
-                        granting.forwarded
-                            ? 'The page answers to port ${granting.port} on ${granting.machine.name}; that '
-                                'port is forwarded from here while this is open, so open it in a browser on '
-                                'this computer.'
-                            : granting.forwardProblem ??
-                                'Forwarding port ${granting.port} to ${granting.machine.name} first, so the '
-                                    "page's answer can reach it…",
-                        key: const Key('grant-forward'),
-                        style: granting.forwardProblem == null ? text.bodySmall : TextStyle(color: scheme.error),
-                      ),
-                    ],
-                    if (granting.waiting) ...<Widget>[
-                      const SizedBox(height: Space.small),
-                      Text(
-                        'Waiting for the decision in the browser. It is made there, not here: '
-                        '${granting.machine.name} hears the answer from the service, and this says what it '
-                        'heard.${_expiry(granting.expiresAt)}',
-                        key: const Key('grant-waiting'),
-                      ),
-                    ],
-                    if (granting.settled) ...<Widget>[
-                      const SizedBox(height: Space.small),
-                      Text(_settled(granting),
-                          key: const Key('grant-settled'), style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ],
-                ),
-              ),
+                    // Whole, as it came: never shortened, never assembled here.
+                    child: SelectableText(
+                      granting.link,
+                      key: const Key('grant-link'),
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ],
+                if (granting.code.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: Space.small),
+                  Text('If the page asks for a code, it is:', style: text.labelMedium),
+                  SelectableText(
+                    granting.code,
+                    key: const Key('grant-code'),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 18, letterSpacing: 2),
+                  ),
+                ],
+                if (granting.port > 0 && granting.waiting) ...<Widget>[
+                  const SizedBox(height: Space.small),
+                  Text(
+                    granting.forwarded
+                        ? 'The page answers to port ${granting.port} on ${granting.machine.name}; that '
+                              'port is forwarded from here while this is open, so open it in a browser on '
+                              'this computer.'
+                        : granting.forwardProblem ??
+                              'Forwarding port ${granting.port} to ${granting.machine.name} first, so the '
+                                  "page's answer can reach it…",
+                    key: const Key('grant-forward'),
+                    style: granting.forwardProblem == null ? text.bodySmall : TextStyle(color: scheme.error),
+                  ),
+                ],
+                if (granting.waiting) ...<Widget>[
+                  const SizedBox(height: Space.small),
+                  Text(
+                    'Waiting for the decision in the browser. It is made there, not here: '
+                    '${granting.machine.name} hears the answer from the service, and this says what it '
+                    'heard.${_expiry(granting.expiresAt)}',
+                    key: const Key('grant-waiting'),
+                  ),
+                ],
+                if (granting.settled) ...<Widget>[
+                  const SizedBox(height: Space.small),
+                  Text(
+                    _settled(granting),
+                    key: const Key('grant-settled'),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ],
             ),
-            actions: <Widget>[
-              if (granting.waiting && granting.address != null)
-                FilledButton(
-                  key: const Key('grant-open'),
-                  onPressed: granting.canOpen ? () => unawaited(granting.open(openLink)) : null,
-                  child: const Text('Open it in the browser here'),
-                ),
-              TextButton(
-                key: const Key('grant-close'),
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(granting.waiting ? 'Stop waiting' : 'Done'),
-              ),
-            ],
-          );
-        },
+          ),
+        ),
+        actions: <Widget>[
+          if (granting.waiting && granting.address != null)
+            FilledButton(
+              key: const Key('grant-open'),
+              onPressed: granting.canOpen ? () => unawaited(granting.open(openLink)) : null,
+              child: const Text('Open it in the browser here'),
+            ),
+          TextButton(
+            key: const Key('grant-close'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(granting.waiting ? 'Stop waiting' : 'Done'),
+          ),
+        ],
       );
+    },
+  );
 
   static String _expiry(DateTime? at) {
     if (at == null) return '';
@@ -139,8 +153,9 @@ class GrantDialog extends StatelessWidget {
     return switch (granting.state) {
       // With the machine's own words where it says more: a token that never expires, say, which
       // removing it from the vault cannot end at the service.
-      'granted' => 'Granted. It is kept in the vault on ${granting.machine.name}, and the next task uses it.'
-          '${granting.detail.isEmpty ? '' : ' ${granting.detail}.'}',
+      'granted' =>
+        'Granted. It is kept in the vault on ${granting.machine.name}, and the next task uses it.'
+            '${granting.detail.isEmpty ? '' : ' ${granting.detail}.'}',
       // Refused with a reason is the machine refusing what the service gave, not the person in the
       // browser: said as that.
       'refused' when granting.detail.isNotEmpty =>
@@ -152,7 +167,6 @@ class GrantDialog extends StatelessWidget {
     };
   }
 }
-
 
 /// An authorization somebody has to grant before work can use it, as a row in *Needs you*.
 ///
@@ -200,17 +214,19 @@ class AuthorizationRow extends StatelessWidget {
     final forWhat = needed.task.isNotEmpty
         ? ' for ${needed.task}'
         : needed.project.isNotEmpty
-            ? ' for work in ${needed.project}'
-            : '';
+        ? ' for work in ${needed.project}'
+        : '';
     return '${needed.credential} needs a grant$forWhat, on $machine';
   }
 
   /// Never granted, or granted and then ended at the service: two different stories.
   static String standing(String state) => switch (state) {
-        'never' => 'Nobody has granted it yet, so work that uses it cannot start unattended. It is granted '
-            'once, in a browser, and later work uses it.',
-        'ended' => 'It was granted, and the service has ended the grant: revoked, or expired. It needs '
-            'granting again.',
-        _ => 'The machine says: $state.',
-      };
+    'never' =>
+      'Nobody has granted it yet, so work that uses it cannot start unattended. It is granted '
+          'once, in a browser, and later work uses it.',
+    'ended' =>
+      'It was granted, and the service has ended the grant: revoked, or expired. It needs '
+          'granting again.',
+    _ => 'The machine says: $state.',
+  };
 }

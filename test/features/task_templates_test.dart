@@ -39,8 +39,7 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets('''a job is named, and becomes an action of its own''',
-        (tester) async {
+    testWidgets('''a job is named, and becomes an action of its own''', (tester) async {
       await bddSetUp(tester);
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
@@ -51,9 +50,7 @@ void main() {
       await iOpenTheCommandFinder(tester);
       await theCommandFinderNames(tester, 'Run nightly-tests in checkout');
     });
-    testWidgets(
-        '''starting from a named job is one action, and it runs what the job carried''',
-        (tester) async {
+    testWidgets('''starting from a named job is one action, and it runs what the job carried''', (tester) async {
       await bddSetUp(tester);
       await theJobIsAlreadyNamed(tester, 'nightly-tests');
       await iChooseTheCommand(tester, 'Run nightly-tests in checkout');
@@ -61,28 +58,23 @@ void main() {
       await theLaunchAskedForTheMode(tester, 'UNATTENDED');
       await theLaunchAskedItTo(tester, 'Run the nightly tests');
     });
-    testWidgets('''what the job asks for is editable before it runs''',
-        (tester) async {
+    testWidgets('''what the job asks for is editable before it runs''', (tester) async {
       await bddSetUp(tester);
       await theJobIsAlreadyNamed(tester, 'nightly-tests');
       await iChooseTheCommand(tester, 'Run nightly-tests in checkout');
       await whatToAskItSays(tester, 'Run the nightly tests');
       await iAskItTo(tester, 'Run the nightly tests, and the slow ones too');
       await iStartIt(tester);
-      await theLaunchAskedItTo(
-          tester, 'Run the nightly tests, and the slow ones too');
+      await theLaunchAskedItTo(tester, 'Run the nightly tests, and the slow ones too');
     });
-    testWidgets('''a job named in one project is not offered in another''',
-        (tester) async {
+    testWidgets('''a job named in one project is not offered in another''', (tester) async {
       await bddSetUp(tester);
       await theJobIsAlreadyNamed(tester, 'nightly-tests');
       await iSelectTheProject(tester, 'billing');
       await iOpenTheCommandFinder(tester);
-      await theCommandFinderDoesNotName(
-          tester, 'Run nightly-tests in checkout');
+      await theCommandFinderDoesNotName(tester, 'Run nightly-tests in checkout');
     });
-    testWidgets('''a named job outlives the run that named it''',
-        (tester) async {
+    testWidgets('''a named job outlives the run that named it''', (tester) async {
       await bddSetUp(tester);
       await theJobIsAlreadyNamed(tester, 'nightly-tests');
       await theAppIsRestarted(tester);
@@ -91,12 +83,9 @@ void main() {
       await iOpenTheCommandFinder(tester);
       await theCommandFinderNames(tester, 'Run nightly-tests in checkout');
     });
-    testWidgets(
-        '''a job keeps the repository it was named with, and starts there''',
-        (tester) async {
+    testWidgets('''a job keeps the repository it was named with, and starts there''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iChoose(tester, 'Unattended, against a prompt');
@@ -109,13 +98,10 @@ void main() {
       await iStartIt(tester);
       await theLaunchWasInTheRepository(tester, 'payments-api');
     });
-    testWidgets(
-        '''a job named without a repository has one chosen when it starts, not for it''',
-        (tester) async {
+    testWidgets('''a job named without a repository has one chosen when it starts, not for it''', (tester) async {
       await bddSetUp(tester);
       await theJobIsAlreadyNamed(tester, 'nightly-tests');
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api, billing');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api, billing');
       await iChooseTheCommand(tester, 'Run nightly-tests in checkout');
       await noRepositoryIsChosenYet(tester);
     });

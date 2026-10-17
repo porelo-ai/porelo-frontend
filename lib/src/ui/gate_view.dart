@@ -14,13 +14,7 @@ import 'tokens.dart';
 /// decides. This is the one screen in the product where the decision is taken.
 class GateView extends StatelessWidget {
   /// Constructor taking the gate, the keyboard and what a row opens.
-  const GateView({
-    required this.gate,
-    required this.focusNode,
-    required this.onOpen,
-    required this.onClose,
-    super.key,
-  });
+  const GateView({required this.gate, required this.focusNode, required this.onOpen, required this.onClose, super.key});
 
   /// What is waiting, and what is being made of it.
   final Gate gate;
@@ -36,69 +30,55 @@ class GateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        children: <Widget>[
-          PaneHeader(
-            title: 'Waiting at the gate · ${gate.project?.name ?? ''}',
-            trailing: IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close (Esc)',
-              onPressed: onClose,
-            ),
+    children: <Widget>[
+      PaneHeader(
+        title: 'Waiting at the gate · ${gate.project?.name ?? ''}',
+        trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
+      ),
+      if (gate.problem != null) GateProblem(words: gate.problem!),
+      if (gate.mode.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
+          child: Row(children: <Widget>[Text('Gate is ${gate.mode}', style: Theme.of(context).textTheme.labelMedium)]),
+        ),
+      Expanded(
+        child: SelectionList<PendingPush>(
+          items: gate.waiting,
+          idOf: (push) => push.id,
+          selected: gate.looking?.id,
+          onSelect: (id) => onOpen(gate.waiting.firstWhere((push) => push.id == id)),
+          onActivate: (id) => onOpen(gate.waiting.firstWhere((push) => push.id == id)),
+          focusNode: focusNode,
+          emptyMessage: gate.problem != null
+              ? 'Nothing could be read.'
+              : 'Nothing is waiting. Everything this project pushed has been decided.',
+          rowOf: (context, push, selected) => _WaitingRow(
+            push: push,
+            // Named where there is more than one to tell apart: each repository has a gate of
+            // its own, and a push is forwarded from the one it waits in.
+            repository: gate.repositories.length > 1 ? push.repository : null,
           ),
-          if (gate.problem != null) GateProblem(words: gate.problem!),
-          if (gate.mode.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.normal,
-                vertical: Space.small,
-              ),
-              child: Row(
-                children: <Widget>[
-                  Text('Gate is ${gate.mode}',
-                      style: Theme.of(context).textTheme.labelMedium),
-                ],
-              ),
-            ),
-          Expanded(
-            child: SelectionList<PendingPush>(
-              items: gate.waiting,
-              idOf: (push) => push.id,
-              selected: gate.looking?.id,
-              onSelect: (id) => onOpen(
-                  gate.waiting.firstWhere((push) => push.id == id)),
-              onActivate: (id) => onOpen(
-                  gate.waiting.firstWhere((push) => push.id == id)),
-              focusNode: focusNode,
-              emptyMessage: gate.problem != null
-                  ? 'Nothing could be read.'
-                  : 'Nothing is waiting. Everything this project pushed has been decided.',
-              rowOf: (context, push, selected) => _WaitingRow(
-                push: push,
-                // Named where there is more than one to tell apart: each repository has a gate of
-                // its own, and a push is forwarded from the one it waits in.
-                repository: gate.repositories.length > 1 ? push.repository : null,
-              ),
-            ),
-          ),
-          // **What the gate does not see, said where somebody would otherwise assume it is a
-          // wall.** Agent work can still be pushed straight upstream by hand, past this screen
-          // entirely. Porelo's guard against that is a pre-push hook, and it is installed **per
-          // clone, on the machine somebody pushes from** — which is very often not the machine
-          // this interface is talking to, and over a forwarded socket is not reachable from here
-          // at all. So this says where it happens rather than offering a control that would only
-          // ever protect one machine.
-          Padding(
-            padding: const EdgeInsets.all(Space.normal),
-            child: Text(
-              'This is what reached the gate. Work can also be pushed straight upstream by hand, '
-              'past it — `porelo gate protect` installs a guard against that, per clone, on the '
-              'machine you push from.',
-              key: const Key('what-the-gate-does-not-see'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      );
+        ),
+      ),
+      // **What the gate does not see, said where somebody would otherwise assume it is a
+      // wall.** Agent work can still be pushed straight upstream by hand, past this screen
+      // entirely. Porelo's guard against that is a pre-push hook, and it is installed **per
+      // clone, on the machine somebody pushes from** — which is very often not the machine
+      // this interface is talking to, and over a forwarded socket is not reachable from here
+      // at all. So this says where it happens rather than offering a control that would only
+      // ever protect one machine.
+      Padding(
+        padding: const EdgeInsets.all(Space.normal),
+        child: Text(
+          'This is what reached the gate. Work can also be pushed straight upstream by hand, '
+          'past it — `porelo gate protect` installs a guard against that, per clone, on the '
+          'machine you push from.',
+          key: const Key('what-the-gate-does-not-see'),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+    ],
+  );
 }
 
 class _WaitingRow extends StatelessWidget {
@@ -110,29 +90,29 @@ class _WaitingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: <Widget>[
-          const Icon(Icons.outbox_outlined, size: Sizes.rowIcon),
-          const SizedBox(width: Space.small),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(push.subject, style: Theme.of(context).textTheme.bodyLarge),
-                Text(
-                  <String>[
-                    if (repository != null) 'in $repository',
-                    // Porelo names it in full, for Approve; seven characters say which it is here.
-                    if (push.commit.isNotEmpty) push.commit.length > 7 ? push.commit.substring(0, 7) : push.commit,
-                    'waiting ${push.waiting}',
-                  ].join(' · '),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+    children: <Widget>[
+      const Icon(Icons.outbox_outlined, size: Sizes.rowIcon),
+      const SizedBox(width: Space.small),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(push.subject, style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              <String>[
+                if (repository != null) 'in $repository',
+                // Porelo names it in full, for Approve; seven characters say which it is here.
+                if (push.commit.isNotEmpty) push.commit.length > 7 ? push.commit.substring(0, 7) : push.commit,
+                'waiting ${push.waiting}',
+              ].join(' · '),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          ),
-          const Icon(Icons.chevron_right, size: Sizes.rowIcon),
-        ],
-      );
+          ],
+        ),
+      ),
+      const Icon(Icons.chevron_right, size: Sizes.rowIcon),
+    ],
+  );
 }
 
 /// The `git fetch` that brings a waiting push into the person's own clone, to read in their IDE:
@@ -170,8 +150,11 @@ class _OwnCloneState extends State<_OwnClone> {
           Row(
             children: <Widget>[
               Expanded(
-                child: SelectableText(widget.fetch,
-                    key: const Key('review-fetch'), style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                child: SelectableText(
+                  widget.fetch,
+                  key: const Key('review-fetch'),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
               ),
               TextButton.icon(
                 key: const Key('review-fetch-copy'),
@@ -233,11 +216,7 @@ class ReviewView extends StatelessWidget {
         PaneHeader(
           title: push.subject,
           leading: BackButton(onPressed: onBack),
-          trailing: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close (Esc)',
-            onPressed: onClose,
-          ),
+          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         if (gate.problem != null) GateProblem(words: gate.problem!),
         Expanded(
@@ -261,11 +240,7 @@ class ReviewView extends StatelessWidget {
                         ],
                 ),
         ),
-        _Decision(
-          gate: gate,
-          onApprove: onApprove,
-          onReject: onReject,
-        ),
+        _Decision(gate: gate, onApprove: onApprove, onReject: onReject),
       ],
     );
   }
@@ -276,8 +251,14 @@ class ReviewView extends StatelessWidget {
 List<Widget> _ranked(BuildContext context, Gate gate, List<ChangedFile> hunks) {
   final text = Theme.of(context).textTheme;
   final byPath = <String, ChangedFile>{for (final each in hunks) each.path: each};
-  final read = <ReviewFile>[for (final file in gate.ranked) if (!file.volume) file];
-  final volume = <ReviewFile>[for (final file in gate.ranked) if (file.volume) file];
+  final read = <ReviewFile>[
+    for (final file in gate.ranked)
+      if (!file.volume) file,
+  ];
+  final volume = <ReviewFile>[
+    for (final file in gate.ranked)
+      if (file.volume) file,
+  ];
   final asked = gate.asked;
   return <Widget>[
     // Kept apart from what it touched, and never compared with it: a person reads both.
@@ -289,8 +270,10 @@ List<Widget> _ranked(BuildContext context, Gate gate, List<ChangedFile> hunks) {
           Text('What the task was asked', style: text.labelMedium),
           const SizedBox(height: Space.tight),
           if (asked == null)
-            const Text('Its task is gone from this machine, so what it was asked is not known here.',
-                key: Key('review-asked-unknown'))
+            const Text(
+              'Its task is gone from this machine, so what it was asked is not known here.',
+              key: Key('review-asked-unknown'),
+            )
           else if (asked.isEmpty)
             const Text('It was started without an instruction.', key: Key('review-asked-nothing'))
           else
@@ -313,8 +296,11 @@ List<Widget> _ranked(BuildContext context, Gate gate, List<ChangedFile> hunks) {
     if (volume.isNotEmpty) ...<Widget>[
       Padding(
         padding: const EdgeInsets.fromLTRB(Space.normal, Space.normal, Space.normal, Space.tight),
-        child: Text('Almost never a finding: generated, or reformatting only',
-            key: const Key('review-volume'), style: text.labelMedium),
+        child: Text(
+          'Almost never a finding: generated, or reformatting only',
+          key: const Key('review-volume'),
+          style: text.labelMedium,
+        ),
       ),
       for (final file in volume) _RankedFile(file: file, hunks: byPath[file.path]),
     ],
@@ -359,26 +345,33 @@ class _RankedFileState extends State<_RankedFile> {
                       Icon(_open ? Icons.expand_more : Icons.chevron_right, size: Sizes.rowIcon),
                       const SizedBox(width: Space.small),
                       Expanded(
-                        child: Text(file.path,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                        child: Text(file.path, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
                       ),
-                      Text(_rankWords(file.rank),
-                          key: ValueKey<String>('review-rank ${file.path}'),
-                          style: text.labelSmall?.copyWith(
-                              fontWeight: file.dangerous ? FontWeight.bold : null,
-                              color: file.dangerous ? scheme.onErrorContainer : null)),
+                      Text(
+                        _rankWords(file.rank),
+                        key: ValueKey<String>('review-rank ${file.path}'),
+                        style: text.labelSmall?.copyWith(
+                          fontWeight: file.dangerous ? FontWeight.bold : null,
+                          color: file.dangerous ? scheme.onErrorContainer : null,
+                        ),
+                      ),
                       const SizedBox(width: Space.small),
                       Text('+${file.added}', style: TextStyle(color: scheme.primary, fontSize: 12)),
                       const SizedBox(width: Space.tight),
-                      Text(file.removed < 0 ? 'binary' : '−${file.removed}',
-                          style: TextStyle(color: scheme.error, fontSize: 12)),
+                      Text(
+                        file.removed < 0 ? 'binary' : '−${file.removed}',
+                        style: TextStyle(color: scheme.error, fontSize: 12),
+                      ),
                     ],
                   ),
                   if (file.reason.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(left: Space.loose),
-                      child: Text(file.reason,
-                          key: ValueKey<String>('review-reason ${file.path}'), style: text.bodySmall),
+                      child: Text(
+                        file.reason,
+                        key: ValueKey<String>('review-reason ${file.path}'),
+                        style: text.bodySmall,
+                      ),
                     ),
                 ],
               ),
@@ -399,12 +392,12 @@ class _RankedFileState extends State<_RankedFile> {
   }
 
   static String _rankWords(String rank) => switch (rank) {
-        'DANGEROUS' => 'dangerous by kind',
-        'ORDINARY' => 'ordinary',
-        'GENERATED' => 'generated',
-        'REFORMATTING' => 'reformatting only',
-        _ => rank.toLowerCase(),
-      };
+    'DANGEROUS' => 'dangerous by kind',
+    'ORDINARY' => 'ordinary',
+    'GENERATED' => 'generated',
+    'REFORMATTING' => 'reformatting only',
+    _ => rank.toLowerCase(),
+  };
 }
 
 /// One changed file and its hunks.
@@ -434,14 +427,10 @@ class _FileState extends State<_File> {
         InkWell(
           onTap: () => setState(() => _open = !_open),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.normal,
-              vertical: Space.small,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
             child: Row(
               children: <Widget>[
-                Icon(_open ? Icons.expand_more : Icons.chevron_right,
-                    size: Sizes.rowIcon),
+                Icon(_open ? Icons.expand_more : Icons.chevron_right, size: Sizes.rowIcon),
                 const SizedBox(width: Space.small),
                 Expanded(
                   child: Text(
@@ -451,11 +440,9 @@ class _FileState extends State<_File> {
                 ),
                 Text(file.what, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(width: Space.small),
-                Text('+${file.insertions}',
-                    style: TextStyle(color: scheme.primary, fontSize: 12)),
+                Text('+${file.insertions}', style: TextStyle(color: scheme.primary, fontSize: 12)),
                 const SizedBox(width: Space.tight),
-                Text('−${file.deletions}',
-                    style: TextStyle(color: scheme.error, fontSize: 12)),
+                Text('−${file.deletions}', style: TextStyle(color: scheme.error, fontSize: 12)),
               ],
             ),
           ),
@@ -466,9 +453,7 @@ class _FileState extends State<_File> {
             margin: const EdgeInsets.fromLTRB(Space.loose, 0, Space.normal, Space.small),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                for (final line in file.lines) _Line(line: line),
-              ],
+              children: <Widget>[for (final line in file.lines) _Line(line: line)],
             ),
           ),
       ],
@@ -496,11 +481,7 @@ class _Line extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.hairline),
       child: SelectableText(
         '$marker${line.text}',
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-          color: ink,
-        ),
+        style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: ink),
       ),
     );
   }
@@ -508,11 +489,7 @@ class _Line extends StatelessWidget {
 
 /// The decision, and the way to take the diff elsewhere.
 class _Decision extends StatelessWidget {
-  const _Decision({
-    required this.gate,
-    required this.onApprove,
-    required this.onReject,
-  });
+  const _Decision({required this.gate, required this.onApprove, required this.onReject});
 
   final Gate gate;
   final VoidCallback onApprove;
@@ -520,35 +497,30 @@ class _Decision extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+    decoration: BoxDecoration(
+      border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+    ),
+    padding: const EdgeInsets.all(Space.normal),
+    child: Wrap(
+      spacing: Space.small,
+      runSpacing: Space.small,
+      children: <Widget>[
+        // First and plain: the common case is somebody wanting the diff in the tool they
+        // review in, immediately. Nothing about it sends anything anywhere.
+        OutlinedButton.icon(
+          icon: const Icon(Icons.copy_outlined, size: Sizes.rowIcon),
+          label: const Text('Copy the diff'),
+          onPressed: gate.diff.isEmpty ? null : () => Clipboard.setData(ClipboardData(text: gate.diff)),
         ),
-        padding: const EdgeInsets.all(Space.normal),
-        child: Wrap(
-          spacing: Space.small,
-          runSpacing: Space.small,
-          children: <Widget>[
-            // First and plain: the common case is somebody wanting the diff in the tool they
-            // review in, immediately. Nothing about it sends anything anywhere.
-            OutlinedButton.icon(
-              icon: const Icon(Icons.copy_outlined, size: Sizes.rowIcon),
-              label: const Text('Copy the diff'),
-              onPressed: gate.diff.isEmpty
-                  ? null
-                  : () => Clipboard.setData(ClipboardData(text: gate.diff)),
-            ),
-            OutlinedButton(
-              onPressed: gate.looking == null ? null : onReject,
-              child: const Text('Drop the request'),
-            ),
-            FilledButton(
-              onPressed: gate.looking == null ? null : onApprove,
-              // Work without a project goes to its repository's origin, never to a project's upstream.
-              child: Text(gate.project?.name == defaultProject ? 'Forward it to its origin…' : 'Forward it upstream…'),
-            ),
-          ],
+        OutlinedButton(onPressed: gate.looking == null ? null : onReject, child: const Text('Drop the request')),
+        FilledButton(
+          onPressed: gate.looking == null ? null : onApprove,
+          // Work without a project goes to its repository's origin, never to a project's upstream.
+          child: Text(gate.project?.name == defaultProject ? 'Forward it to its origin…' : 'Forward it upstream…'),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 /// Why the gate could not be read or acted on.
@@ -561,24 +533,28 @@ class GateProblem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        color: Theme.of(context).colorScheme.errorContainer,
-        padding: const EdgeInsets.all(Space.normal),
-        child: Text(words, key: const Key('gate-problem')),
-      );
+    width: double.infinity,
+    color: Theme.of(context).colorScheme.errorContainer,
+    padding: const EdgeInsets.all(Space.normal),
+    child: Text(words, key: const Key('gate-problem')),
+  );
 }
 
 /// Asks which branch to forward onto.
 ///
 /// Named, never inferred: `Approve` requires a branch, and a push forwarded onto a guess is one
 /// nobody decided about.
-Future<String?> askWhichBranch(BuildContext context,
-        {required String subject, bool toOrigin = false, List<String> branches = const <String>[], String? defaultBranch}) =>
-    showDialog<String>(
-      context: context,
-      builder: (context) =>
-          _WhichBranch(subject: subject, toOrigin: toOrigin, branches: branches, defaultBranch: defaultBranch),
-    );
+Future<String?> askWhichBranch(
+  BuildContext context, {
+  required String subject,
+  bool toOrigin = false,
+  List<String> branches = const <String>[],
+  String? defaultBranch,
+}) => showDialog<String>(
+  context: context,
+  builder: (context) =>
+      _WhichBranch(subject: subject, toOrigin: toOrigin, branches: branches, defaultBranch: defaultBranch),
+);
 
 /// Why git would refuse [name] as a branch, in words, or null where it takes it: said before
 /// anything is sent, since a forge refused a commit's subject typed as a branch.
@@ -586,8 +562,14 @@ String? whyNotABranch(String name) {
   if (name.isEmpty) return null;
   if (RegExp(r'\s').hasMatch(name)) return 'A branch name has no spaces.';
   if (RegExp(r'[~^:?*\[\\\x00-\x1f\x7f]').hasMatch(name)) return 'A branch name has none of ~ ^ : ? * [ \\.';
-  if (name.contains('..') || name.contains('@{') || name.contains('//')) return 'A branch name has no "..", "@{" or "//".';
-  if (name.startsWith('-') || name.startsWith('/') || name.endsWith('/') || name.endsWith('.') || name.endsWith('.lock')) {
+  if (name.contains('..') || name.contains('@{') || name.contains('//')) {
+    return 'A branch name has no "..", "@{" or "//".';
+  }
+  if (name.startsWith('-') ||
+      name.startsWith('/') ||
+      name.endsWith('/') ||
+      name.endsWith('.') ||
+      name.endsWith('.lock')) {
     return 'A branch name does not start with "-" or "/", nor end with "/", "." or ".lock".';
   }
   if (name.split('/').any((part) => part.startsWith('.'))) return 'No part of a branch name starts with ".".';
@@ -595,8 +577,12 @@ String? whyNotABranch(String name) {
 }
 
 class _WhichBranch extends StatefulWidget {
-  const _WhichBranch(
-      {required this.subject, this.toOrigin = false, this.branches = const <String>[], this.defaultBranch});
+  const _WhichBranch({
+    required this.subject,
+    this.toOrigin = false,
+    this.branches = const <String>[],
+    this.defaultBranch,
+  });
 
   final String subject;
 
@@ -635,69 +621,63 @@ class _WhichBranchState extends State<_WhichBranch> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text(widget.toOrigin ? 'Forward it to its origin' : 'Forward it upstream'),
-        content: SizedBox(
-          width: Sizes.dialogSmall,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(widget.subject, style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: Space.normal),
-              // Chosen from the repository's own where its forge says them, the default first.
-              if (_offered.isNotEmpty) ...<Widget>[
-                DropdownButtonFormField<String?>(
-                  key: const Key('forward-branch'),
-                  initialValue: _chosen,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Branch to push to', border: OutlineInputBorder()),
-                  items: <DropdownMenuItem<String?>>[
-                    for (final each in _offered)
-                      DropdownMenuItem<String?>(
-                        value: each,
-                        child: Text(each == widget.defaultBranch ? '$each (its default branch)' : each),
-                      ),
-                    const DropdownMenuItem<String?>(value: null, child: Text('A new branch…')),
-                  ],
-                  onChanged: (chosen) => setState(() => _chosen = chosen),
-                ),
-                const SizedBox(height: Space.small),
-              ],
-              if (_chosen == null)
-                TextField(
-                  key: const Key('forward-new-branch'),
-                  controller: _branch,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: _offered.isEmpty ? 'Branch to push to' : 'The new branch',
-                    hintText: 'fix-rounding',
-                    border: const OutlineInputBorder(),
-                    errorText: whyNotABranch(_branch.text.trim()),
+    title: Text(widget.toOrigin ? 'Forward it to its origin' : 'Forward it upstream'),
+    content: SizedBox(
+      width: Sizes.dialogSmall,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(widget.subject, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: Space.normal),
+          // Chosen from the repository's own where its forge says them, the default first.
+          if (_offered.isNotEmpty) ...<Widget>[
+            DropdownButtonFormField<String?>(
+              key: const Key('forward-branch'),
+              initialValue: _chosen,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Branch to push to', border: OutlineInputBorder()),
+              items: <DropdownMenuItem<String?>>[
+                for (final each in _offered)
+                  DropdownMenuItem<String?>(
+                    value: each,
+                    child: Text(each == widget.defaultBranch ? '$each (its default branch)' : each),
                   ),
-                  onChanged: (_) => setState(() {}),
-                  onSubmitted: (_) => _submit(),
-                ),
-              const SizedBox(height: Space.normal),
-              Text(
-                'This is the only thing the interface does that sends anything anywhere. '
-                'The branch is named rather than guessed.',
-                key: const Key('only-thing-that-sends'),
-                style: Theme.of(context).textTheme.bodySmall,
+                const DropdownMenuItem<String?>(value: null, child: Text('A new branch…')),
+              ],
+              onChanged: (chosen) => setState(() => _chosen = chosen),
+            ),
+            const SizedBox(height: Space.small),
+          ],
+          if (_chosen == null)
+            TextField(
+              key: const Key('forward-new-branch'),
+              controller: _branch,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: _offered.isEmpty ? 'Branch to push to' : 'The new branch',
+                hintText: 'fix-rounding',
+                border: const OutlineInputBorder(),
+                errorText: whyNotABranch(_branch.text.trim()),
               ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: _submit,
-            child: const Text('Forward it'),
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _submit(),
+            ),
+          const SizedBox(height: Space.normal),
+          Text(
+            'This is the only thing the interface does that sends anything anywhere. '
+            'The branch is named rather than guessed.',
+            key: const Key('only-thing-that-sends'),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
-      );
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+      FilledButton(onPressed: _submit, child: const Text('Forward it')),
+    ],
+  );
 
   /// One answer for Return and the button, because an empty name is not a branch.
   void _submit() {

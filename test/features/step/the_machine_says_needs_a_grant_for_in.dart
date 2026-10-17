@@ -9,7 +9,8 @@ Future<void> theMachineSaysNeedsAGrantForIn(WidgetTester tester, String entry, S
 
 /// Streams that [entry] needs authorizing, as the machine raises it.
 Future<void> needing(WidgetTester tester, String entry, String task, String project, String state) async {
-  World.backend.needing.add(AuthorizationNeeded(
-      credential: entry, task: task, project: project, state: state, at: '2026-09-30T08:40:00Z'));
+  World.backend.needing.add(
+    AuthorizationNeeded(credential: entry, task: task, project: project, state: state, at: '2026-09-30T08:40:00Z'),
+  );
   await World.settle(tester);
 }

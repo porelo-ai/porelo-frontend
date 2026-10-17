@@ -49,11 +49,7 @@ class HostReadinessView extends StatelessWidget {
                 icon: const Icon(Icons.refresh, size: Sizes.rowIcon),
                 label: const Text('Check again'),
               ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                tooltip: 'Close (Esc)',
-                onPressed: onClose,
-              ),
+              IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
             ],
           ),
         ),
@@ -69,23 +65,21 @@ class HostReadinessView extends StatelessWidget {
             width: double.infinity,
             color: ready ? scheme.surfaceContainerHighest : scheme.errorContainer,
             padding: const EdgeInsets.all(Space.normal),
-            child: Text(readiness.verdict,
-                key: const Key('readiness-verdict'),
-                style: Theme.of(context).textTheme.titleSmall),
+            child: Text(
+              readiness.verdict,
+              key: const Key('readiness-verdict'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
           ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: Space.small),
             children: <Widget>[
               if (readiness.busy && ready == null)
-                const Padding(
-                  padding: EdgeInsets.all(Space.normal),
-                  child: Text('Asking the machine…'),
-                ),
+                const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…')),
               if (readiness.worthReading.isNotEmpty) ...<Widget>[
                 const _Heading(words: 'What is wrong'),
-                for (final probe in readiness.worthReading)
-                  _ProbeRow(probe: probe),
+                for (final probe in readiness.worthReading) _ProbeRow(probe: probe),
               ],
               if (readiness.probes.isNotEmpty) ...<Widget>[
                 const _Heading(words: 'Everything that was checked'),
@@ -138,9 +132,11 @@ class _ProbeRow extends StatelessWidget {
           if (probe.action.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: Space.tight),
-              child: Text(probe.action,
-                  key: const Key('what-to-do'),
-                  style: TextStyle(color: colour, fontFamily: 'monospace', fontSize: 12)),
+              child: Text(
+                probe.action,
+                key: const Key('what-to-do'),
+                style: TextStyle(color: colour, fontFamily: 'monospace', fontSize: 12),
+              ),
             ),
         ],
       ),
@@ -155,18 +151,17 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-            Space.normal, Space.wide, Space.normal, Space.small),
-        child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-      );
+    padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
+    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
+  );
 }
 
 /// How a probe's state is drawn, as `porelo doctor` colours it on a terminal: `OK` green, `DEGRADED`
 /// and `UNKNOWN` yellow, `MISSING` red. Each with a shape of its own, so it reads without colour too,
 /// and an unknown state never draws as the good case.
 (IconData, Color) probeLook(String state, ColorScheme scheme) => switch (state) {
-      'OK' => (Icons.check_circle_outline, StateColours.of(scheme).working),
-      'MISSING' => (Icons.error_outline, scheme.error),
-      'DEGRADED' => (Icons.warning_amber_outlined, StateColours.of(scheme).waiting),
-      _ => (Icons.help_outline, StateColours.of(scheme).waiting),
-    };
+  'OK' => (Icons.check_circle_outline, StateColours.of(scheme).working),
+  'MISSING' => (Icons.error_outline, scheme.error),
+  'DEGRADED' => (Icons.warning_amber_outlined, StateColours.of(scheme).waiting),
+  _ => (Icons.help_outline, StateColours.of(scheme).waiting),
+};

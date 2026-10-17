@@ -6,6 +6,5 @@ import '../support/world.dart';
 ///
 /// By hand, where the interface cannot see it happen: nothing pushes the project list.
 Future<void> theProjectIsRemovedAtTheMachine(WidgetTester tester, String project) async {
-  World.backend.theProjectsItHas =
-      World.backend.theProjectsItHas.where((each) => each.name != project).toList();
+  World.backend.theProjectsItHas = World.backend.theProjectsItHas.where((each) => each.name != project).toList();
 }

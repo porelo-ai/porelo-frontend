@@ -8,8 +8,10 @@ import 'dialog_scroll.dart';
 import 'tokens.dart';
 
 /// Shows the machine's destinations, and lets a person add, change and remove their own.
-Future<void> showDestinations(BuildContext context, FleetBackend backend) =>
-    showDialog<void>(context: context, builder: (_) => DestinationsDialog(backend: backend));
+Future<void> showDestinations(BuildContext context, FleetBackend backend) => showDialog<void>(
+  context: context,
+  builder: (_) => DestinationsDialog(backend: backend),
+);
 
 /// The services a credential can be for, as the machine declares them.
 ///
@@ -41,9 +43,9 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
   }
 
   Future<void> _read() => _asking(() async {
-        final read = await widget.backend.destinations();
-        if (mounted) setState(() => _destinations = read);
-      });
+    final read = await widget.backend.destinations();
+    if (mounted) setState(() => _destinations = read);
+  });
 
   Future<void> _asking(Future<void> Function() action) async {
     setState(() => _problem = null);
@@ -53,11 +55,13 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
       if (mounted) setState(() => _problem = 'This machine cannot list its destinations.');
     } on VarlinkException catch (refusal) {
       if (mounted) {
-        setState(() => _problem = switch (refusal.simpleName) {
-              'DestinationRefused' => '${refusal.parameters['message'] ?? 'The machine refused it.'}',
-              'NoSuchDestination' => 'There is no destination ${refusal.parameters['name'] ?? ''} on this machine.',
-              _ => 'The machine refused it: ${refusal.simpleName}.',
-            });
+        setState(
+          () => _problem = switch (refusal.simpleName) {
+            'DestinationRefused' => '${refusal.parameters['message'] ?? 'The machine refused it.'}',
+            'NoSuchDestination' => 'There is no destination ${refusal.parameters['name'] ?? ''} on this machine.',
+            _ => 'The machine refused it: ${refusal.simpleName}.',
+          },
+        );
       }
     } on VarlinkDisconnected catch (ex) {
       if (mounted) setState(() => _problem = 'Lost contact with the machine: ${ex.message}');
@@ -65,14 +69,16 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
   }
 
   Future<void> _remove(Destination destination) => _asking(() async {
-        final done = await widget.backend.removeDestination(destination.name);
-        if (mounted) {
-          setState(() => _said = done.removed
-              ? 'Removed ${destination.name}: ${done.file} is gone.'
-              : 'Nothing of your own was there to remove for ${destination.name}.');
-        }
-        await _read();
-      });
+    final done = await widget.backend.removeDestination(destination.name);
+    if (mounted) {
+      setState(
+        () => _said = done.removed
+            ? 'Removed ${destination.name}: ${done.file} is gone.'
+            : 'Nothing of your own was there to remove for ${destination.name}.',
+      );
+    }
+    await _read();
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -96,9 +102,11 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
               ),
               const SizedBox(height: Space.small),
               if (_problem != null)
-                Text(_problem!,
-                    key: const Key('destinations-problem'),
-                    style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                Text(
+                  _problem!,
+                  key: const Key('destinations-problem'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               if (_said != null) Text(_said!, key: const Key('destinations-said')),
               if (destinations == null && _problem == null) const Text('Asking the machine…'),
               if (destinations != null && destinations.isEmpty)
@@ -148,8 +156,10 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(each.label.isEmpty || each.label == each.name ? each.name : '${each.label} (${each.name})',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              each.label.isEmpty || each.label == each.name ? each.name : '${each.label} (${each.name})',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             SelectableText(each.upstream, style: text.bodySmall),
             Text('The key goes ${each.keyGoes}.', style: text.bodySmall),
             SelectableText(each.file, style: text.bodySmall),
@@ -157,9 +167,9 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
               Text(
                 each.inForce
                     ? 'Installed by a package: it cannot be changed or removed here, only have one of '
-                        'your own put in its place.'
+                          'your own put in its place.'
                     : 'Installed by a package, and not in force: one of your own of the same name takes '
-                        'its place.',
+                          'its place.',
                 key: ValueKey<String>('destination-packaged ${each.name}'),
                 style: text.bodySmall,
               ),
@@ -190,20 +200,20 @@ class _DestinationsDialogState extends State<DestinationsDialog> {
 /// What is being typed for a destination.
 class _Draft {
   _Draft()
-      : name = TextEditingController(),
-        label = TextEditingController(),
-        upstream = TextEditingController(),
-        header = TextEditingController(text: 'Authorization'),
-        prefix = TextEditingController(),
-        query = TextEditingController();
+    : name = TextEditingController(),
+      label = TextEditingController(),
+      upstream = TextEditingController(),
+      header = TextEditingController(text: 'Authorization'),
+      prefix = TextEditingController(),
+      query = TextEditingController();
 
   _Draft.of(Destination each)
-      : name = TextEditingController(text: each.name),
-        label = TextEditingController(text: each.label),
-        upstream = TextEditingController(text: each.upstream),
-        header = TextEditingController(text: each.authHeader),
-        prefix = TextEditingController(text: each.authPrefix),
-        query = TextEditingController(text: each.authQuery);
+    : name = TextEditingController(text: each.name),
+      label = TextEditingController(text: each.label),
+      upstream = TextEditingController(text: each.upstream),
+      header = TextEditingController(text: each.authHeader),
+      prefix = TextEditingController(text: each.authPrefix),
+      query = TextEditingController(text: each.authQuery);
 
   final TextEditingController name;
   final TextEditingController label;
@@ -213,9 +223,8 @@ class _Draft {
   final TextEditingController query;
 
   /// Everything typed, as one comparable value: a preview holds only for what it was asked about.
-  String get typed => <TextEditingController>[name, label, upstream, header, prefix, query]
-      .map((each) => each.text)
-      .join('\u0000');
+  String get typed =>
+      <TextEditingController>[name, label, upstream, header, prefix, query].map((each) => each.text).join('\u0000');
 }
 
 /// Typing a destination, checked by the machine before anything is written.
@@ -290,11 +299,11 @@ class _DraftFormState extends State<_DraftForm> {
     // Written only what the machine read back just now, and nothing typed since.
     final current = previewed != null && _previewedFor == draft.typed;
     Widget field(String key, String label, TextEditingController controller) => TextField(
-          key: Key(key),
-          controller: controller,
-          decoration: InputDecoration(labelText: label),
-          onChanged: (_) => setState(() {}),
-        );
+      key: Key(key),
+      controller: controller,
+      decoration: InputDecoration(labelText: label),
+      onChanged: (_) => setState(() {}),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -306,11 +315,16 @@ class _DraftFormState extends State<_DraftForm> {
         field('destination-query', 'Or the URL parameter it goes in instead (optional)', draft.query),
         const SizedBox(height: Space.small),
         if (_refused != null)
-          Text(_refused!,
-              key: const Key('destination-refused'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          Text(
+            _refused!,
+            key: const Key('destination-refused'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         if (current)
-          Text('The machine would read it back as ${previewed.upstream}, the key ${previewed.keyGoes}.',
-              key: const Key('destination-previewed')),
+          Text(
+            'The machine would read it back as ${previewed.upstream}, the key ${previewed.keyGoes}.',
+            key: const Key('destination-previewed'),
+          ),
         Wrap(
           spacing: Space.small,
           children: <Widget>[

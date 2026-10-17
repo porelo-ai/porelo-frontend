@@ -55,20 +55,21 @@ class ProjectsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final rows = <({Machine machine, ProjectOnScreen project})>[
-      // Default is not listed (walk 10): its work is under Work, and a repository is put
-      // into it from its card on the forge's page.
-      for (final machine in machines.all)
-        for (final project in machines.of(machine).projects)
-          if (project.name != defaultProject) (machine: machine, project: project),
-    ]..sort((a, b) {
-        // Work without a project first, as every machine's own.
-        final aDefault = a.project.name == defaultProject;
-        final bDefault = b.project.name == defaultProject;
-        if (aDefault != bDefault) return aDefault ? -1 : 1;
-        final byName = a.project.label.toLowerCase().compareTo(b.project.label.toLowerCase());
-        return byName != 0 ? byName : a.machine.name.compareTo(b.machine.name);
-      });
+    final rows =
+        <({Machine machine, ProjectOnScreen project})>[
+          // Default is not listed (walk 10): its work is under Work, and a repository is put
+          // into it from its card on the forge's page.
+          for (final machine in machines.all)
+            for (final project in machines.of(machine).projects)
+              if (project.name != defaultProject) (machine: machine, project: project),
+        ]..sort((a, b) {
+          // Work without a project first, as every machine's own.
+          final aDefault = a.project.name == defaultProject;
+          final bDefault = b.project.name == defaultProject;
+          if (aDefault != bDefault) return aDefault ? -1 : 1;
+          final byName = a.project.label.toLowerCase().compareTo(b.project.label.toLowerCase());
+          return byName != 0 ? byName : a.machine.name.compareTo(b.machine.name);
+        });
     return ListView(
       key: const Key('projects-page'),
       padding: const EdgeInsets.all(Space.normal),
@@ -104,8 +105,11 @@ class ProjectsPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: Space.tight),
-        Text('How work runs: its repositories, who reviews what it pushes, whom it may talk to. Its work is '
-            'under Work.', style: text.bodySmall),
+        Text(
+          'How work runs: its repositories, who reviews what it pushes, whom it may talk to. Its work is '
+          'under Work.',
+          style: text.bodySmall,
+        ),
         const SizedBox(height: Space.normal),
         if (rows.isEmpty) const Text('No project yet.', key: Key('projects-none')),
         // Each project once, however many machines it is on: Projects is the view of what projects
@@ -154,7 +158,8 @@ class ProjectsPage extends StatelessWidget {
             // Waiting for review is what makes a project need a person, so it is a number here.
             if (on.any((each) => each.project.project.pending > 0))
               Tooltip(
-                message: 'Pushes are waiting at the gate, and will not leave their machine until somebody '
+                message:
+                    'Pushes are waiting at the gate, and will not leave their machine until somebody '
                     'approves them.',
                 child: Chip(
                   avatar: Icon(Icons.outbox_outlined, size: Sizes.mark, color: scheme.onTertiaryContainer),
@@ -167,25 +172,39 @@ class ProjectsPage extends StatelessWidget {
             if (!project.project.prepared && project.name != defaultProject)
               Tooltip(
                 message: 'Its environment is not prepared: a task started here would have to build an image first.',
-                child: Icon(Icons.construction_outlined,
-                    key: const Key('project-unprepared'), size: Sizes.mark, color: scheme.tertiary),
+                child: Icon(
+                  Icons.construction_outlined,
+                  key: const Key('project-unprepared'),
+                  size: Sizes.mark,
+                  color: scheme.tertiary,
+                ),
               ),
             // Prepared and up to date are different questions.
             if (project.project.environmentIsStale)
               Tooltip(
                 message: 'Its environment was built before the project file changed.',
-                child: Icon(Icons.update_disabled, key: const Key('project-stale'), size: Sizes.mark, color: scheme.error),
+                child: Icon(
+                  Icons.update_disabled,
+                  key: const Key('project-stale'),
+                  size: Sizes.mark,
+                  color: scheme.error,
+                ),
               ),
             // Said wherever the project is: nothing checks what this machine is handed for it.
             if (project.project.following?.unverified ?? false)
               Tooltip(
                 message: 'Followed unverified: anybody who can push to its repository decides what this machine runs.',
-                child: Icon(Icons.gpp_maybe_outlined,
-                    key: const Key('project-unverified'), size: Sizes.mark, color: scheme.error),
+                child: Icon(
+                  Icons.gpp_maybe_outlined,
+                  key: const Key('project-unverified'),
+                  size: Sizes.mark,
+                  color: scheme.error,
+                ),
               ),
             if (!project.canBeActedOn)
               Tooltip(
-                message: 'This machine does not follow it, so nothing can act on it. Following its repository makes '
+                message:
+                    'This machine does not follow it, so nothing can act on it. Following its repository makes '
                     'it a project here.',
                 child: Icon(Icons.link_off, size: Sizes.mark, color: scheme.outline),
               ),

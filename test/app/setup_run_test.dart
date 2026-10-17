@@ -72,8 +72,7 @@ void main() {
   });
 
   test('something that is not a run is not picked up', () {
-    expect(SetupRun.fromStored(<String, Object?>{'name': ''}, setup: MachineSetup(home: home.path)),
-        isNull);
+    expect(SetupRun.fromStored(<String, Object?>{'name': ''}, setup: MachineSetup(home: home.path)), isNull);
   });
 
   test('while a script runs, the run says what it is doing and shows what it printed', () async {

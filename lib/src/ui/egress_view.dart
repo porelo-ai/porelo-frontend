@@ -10,11 +10,7 @@ import 'tokens.dart';
 /// the project.yml in the repository is the single source of truth).
 class EgressView extends StatelessWidget {
   /// Constructor taking the egress.
-  const EgressView({
-    required this.egress,
-    required this.onClose,
-    super.key,
-  });
+  const EgressView({required this.egress, required this.onClose, super.key});
 
   /// What the project may reach.
   final Egress egress;
@@ -35,11 +31,7 @@ class EgressView extends StatelessWidget {
           title: egress.repository == null
               ? 'What ${egress.project?.name ?? ''} may reach'
               : 'What ${egress.project?.name ?? ''} · ${egress.repository} may reach',
-          trailing: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close (Esc)',
-            onPressed: onClose,
-          ),
+          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         if (egress.problem != null)
           Container(
@@ -77,13 +69,11 @@ class EgressView extends StatelessWidget {
                 ),
               // In the order the sources granted them: the first grant wins, so the order is what
               // says where a host came from. Sorting would destroy the answer.
-              for (final host in egress.reachable)
-                _Reachable(host: host, added: egress.addedByTheRepository(host)),
+              for (final host in egress.reachable) _Reachable(host: host, added: egress.addedByTheRepository(host)),
               if (egress.refused.isNotEmpty) ...<Widget>[
                 _Heading(words: 'Asked for and refused'),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      Space.normal, 0, Space.normal, Space.small),
+                  padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
                   child: Text(
                     'The agent wants these and is deliberately not given them. A dropped packet '
                     'cannot tell that apart from nobody having added it.',
@@ -94,8 +84,7 @@ class EgressView extends StatelessWidget {
               ],
               _Heading(words: 'Sets installed on this machine'),
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    Space.normal, 0, Space.normal, Space.small),
+                padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
                 child: Text(
                   'Chosen one at a time, and deliberately: there is no "all sets, including '
                   'ones installed later". A set shipped in a later release would widen this '
@@ -109,8 +98,7 @@ class EgressView extends StatelessWidget {
                   padding: EdgeInsets.all(Space.normal),
                   child: Text('None is installed. That is a state, not a failure.'),
                 ),
-              for (final set in egress.sets)
-                _SetRow(set: set, inUse: using.contains(set.name)),
+              for (final set in egress.sets) _SetRow(set: set, inUse: using.contains(set.name)),
               if (egress.locations.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(Space.normal),
@@ -137,10 +125,9 @@ class _Heading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-            Space.normal, Space.wide, Space.normal, Space.small),
-        child: Text(words, style: Theme.of(context).textTheme.labelLarge),
-      );
+    padding: const EdgeInsets.fromLTRB(Space.normal, Space.wide, Space.normal, Space.small),
+    child: Text(words, style: Theme.of(context).textTheme.labelLarge),
+  );
 }
 
 class _Reachable extends StatelessWidget {
@@ -153,17 +140,14 @@ class _Reachable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        key: added ? ValueKey<String>('added ${host.host}') : null,
-        dense: true,
-        leading: added
-            ? Icon(Icons.add_circle_outline,
-                size: Sizes.rowIcon, color: Theme.of(context).colorScheme.tertiary)
-            : null,
-        title: Text(host.host,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-        trailing: Text(added ? 'added by this repository' : host.origin,
-            style: Theme.of(context).textTheme.bodySmall),
-      );
+    key: added ? ValueKey<String>('added ${host.host}') : null,
+    dense: true,
+    leading: added
+        ? Icon(Icons.add_circle_outline, size: Sizes.rowIcon, color: Theme.of(context).colorScheme.tertiary)
+        : null,
+    title: Text(host.host, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+    trailing: Text(added ? 'added by this repository' : host.origin, style: Theme.of(context).textTheme.bodySmall),
+  );
 }
 
 class _Refused extends StatelessWidget {
@@ -173,13 +157,14 @@ class _Refused extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        dense: true,
-        leading: Icon(Icons.block,
-            size: Sizes.mark, color: Theme.of(context).colorScheme.error),
-        title: Text(host,
-            key: const Key('refused-host'),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-      );
+    dense: true,
+    leading: Icon(Icons.block, size: Sizes.mark, color: Theme.of(context).colorScheme.error),
+    title: Text(
+      host,
+      key: const Key('refused-host'),
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+    ),
+  );
 }
 
 /// One installed set, with the hosts it grants.
@@ -194,17 +179,15 @@ class _SetRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ExpansionTile(
-        leading: Icon(inUse ? Icons.check_circle_outline : Icons.circle_outlined,
-            size: Sizes.mark),
-        title: Text(set.label),
-        subtitle: Text('${set.name} · ${set.domains.length} hosts${inUse ? ' · in use' : ''}'),
-        children: <Widget>[
-          for (final domain in set.domains)
-            ListTile(
-              dense: true,
-              title: Text(domain,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-            ),
-        ],
-      );
+    leading: Icon(inUse ? Icons.check_circle_outline : Icons.circle_outlined, size: Sizes.mark),
+    title: Text(set.label),
+    subtitle: Text('${set.name} · ${set.domains.length} hosts${inUse ? ' · in use' : ''}'),
+    children: <Widget>[
+      for (final domain in set.domains)
+        ListTile(
+          dense: true,
+          title: Text(domain, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+        ),
+    ],
+  );
 }

@@ -79,8 +79,15 @@ class ConPty implements SessionChannel {
       listMade = k.initializeProcThreadAttributeList(list, 1, 0, listSize) != 0;
       // The pseudoconsole's handle itself is the attribute's value, not a pointer to it.
       if (!listMade ||
-          k.updateProcThreadAttribute(list, 0, _attributePseudoConsole, Pointer<Void>.fromAddress(hpc),
-                  sizeOf<IntPtr>(), nullptr, nullptr) ==
+          k.updateProcThreadAttribute(
+                list,
+                0,
+                _attributePseudoConsole,
+                Pointer<Void>.fromAddress(hpc),
+                sizeOf<IntPtr>(),
+                nullptr,
+                nullptr,
+              ) ==
               0) {
         k.closePseudoConsole(hpc);
         k.closeHandle(inputWrite);
@@ -94,8 +101,18 @@ class ConPty implements SessionChannel {
       (bytes + _startupFlagsOffset).cast<Uint32>().value = _startfUseStdHandles;
       (bytes + _attributeListOffset).cast<IntPtr>().value = list.address;
 
-      final started = k.createProcess(nullptr, line, nullptr, nullptr, 0, _extendedStartupInfoPresent,
-          nullptr, nullptr, startup, information);
+      final started = k.createProcess(
+        nullptr,
+        line,
+        nullptr,
+        nullptr,
+        0,
+        _extendedStartupInfoPresent,
+        nullptr,
+        nullptr,
+        startup,
+        information,
+      );
       if (started == 0) {
         final error = k.getLastError();
         k.closePseudoConsole(hpc);
@@ -207,14 +224,18 @@ class ConPty implements SessionChannel {
         await finishWhenBoth();
       }
     });
-    unawaited(Isolate.spawn(_readUntilItEnds, <Object>[port.sendPort, outputRead]).catchError((Object _) {
-      drained = true;
-      return Isolate.current;
-    }));
-    unawaited(Isolate.spawn(_waitForIt, <Object>[port.sendPort, process]).catchError((Object _) {
-      if (!ended.isCompleted) ended.complete(-1);
-      return Isolate.current;
-    }));
+    unawaited(
+      Isolate.spawn(_readUntilItEnds, <Object>[port.sendPort, outputRead]).catchError((Object _) {
+        drained = true;
+        return Isolate.current;
+      }),
+    );
+    unawaited(
+      Isolate.spawn(_waitForIt, <Object>[port.sendPort, process]).catchError((Object _) {
+        if (!ended.isCompleted) ended.complete(-1);
+        return Isolate.current;
+      }),
+    );
   }
 
   static void _readUntilItEnds(List<Object> arguments) {
@@ -359,49 +380,101 @@ class _Kernel32 {
   factory _Kernel32() => _instance ??= _Kernel32._(DynamicLibrary.open('kernel32.dll'));
 
   _Kernel32._(DynamicLibrary k)
-      : createPipe = k.lookupFunction<Int32 Function(Pointer<IntPtr>, Pointer<IntPtr>, Pointer<Void>, Uint32),
-            int Function(Pointer<IntPtr>, Pointer<IntPtr>, Pointer<Void>, int)>('CreatePipe'),
-        createPseudoConsole = k.lookupFunction<Int32 Function(Uint32, IntPtr, IntPtr, Uint32, Pointer<IntPtr>),
-            int Function(int, int, int, int, Pointer<IntPtr>)>('CreatePseudoConsole'),
-        resizePseudoConsole =
-            k.lookupFunction<Int32 Function(IntPtr, Uint32), int Function(int, int)>('ResizePseudoConsole'),
-        closePseudoConsole =
-            k.lookupFunction<Void Function(IntPtr), void Function(int)>('ClosePseudoConsole'),
-        initializeProcThreadAttributeList = k.lookupFunction<
+    : createPipe = k
+          .lookupFunction<
+            Int32 Function(Pointer<IntPtr>, Pointer<IntPtr>, Pointer<Void>, Uint32),
+            int Function(Pointer<IntPtr>, Pointer<IntPtr>, Pointer<Void>, int)
+          >('CreatePipe'),
+      createPseudoConsole = k
+          .lookupFunction<
+            Int32 Function(Uint32, IntPtr, IntPtr, Uint32, Pointer<IntPtr>),
+            int Function(int, int, int, int, Pointer<IntPtr>)
+          >('CreatePseudoConsole'),
+      resizePseudoConsole = k.lookupFunction<Int32 Function(IntPtr, Uint32), int Function(int, int)>(
+        'ResizePseudoConsole',
+      ),
+      closePseudoConsole = k.lookupFunction<Void Function(IntPtr), void Function(int)>('ClosePseudoConsole'),
+      initializeProcThreadAttributeList = k
+          .lookupFunction<
             Int32 Function(Pointer<Void>, Uint32, Uint32, Pointer<IntPtr>),
-            int Function(Pointer<Void>, int, int, Pointer<IntPtr>)>('InitializeProcThreadAttributeList'),
-        updateProcThreadAttribute = k.lookupFunction<
+            int Function(Pointer<Void>, int, int, Pointer<IntPtr>)
+          >('InitializeProcThreadAttributeList'),
+      updateProcThreadAttribute = k
+          .lookupFunction<
             Int32 Function(Pointer<Void>, Uint32, IntPtr, Pointer<Void>, IntPtr, Pointer<Void>, Pointer<IntPtr>),
-            int Function(Pointer<Void>, int, int, Pointer<Void>, int, Pointer<Void>,
-                Pointer<IntPtr>)>('UpdateProcThreadAttribute'),
-        deleteProcThreadAttributeList = k.lookupFunction<Void Function(Pointer<Void>),
-            void Function(Pointer<Void>)>('DeleteProcThreadAttributeList'),
-        createProcess = k.lookupFunction<
-            Int32 Function(Pointer<Uint16>, Pointer<Uint16>, Pointer<Void>, Pointer<Void>, Int32, Uint32,
-                Pointer<Void>, Pointer<Uint16>, Pointer<Void>, Pointer<Void>),
-            int Function(Pointer<Uint16>, Pointer<Uint16>, Pointer<Void>, Pointer<Void>, int, int, Pointer<Void>,
-                Pointer<Uint16>, Pointer<Void>, Pointer<Void>)>('CreateProcessW'),
-        readFile = k.lookupFunction<Int32 Function(IntPtr, Pointer<Void>, Uint32, Pointer<Uint32>, Pointer<Void>),
-            int Function(int, Pointer<Void>, int, Pointer<Uint32>, Pointer<Void>)>('ReadFile'),
-        writeFile = k.lookupFunction<Int32 Function(IntPtr, Pointer<Void>, Uint32, Pointer<Uint32>, Pointer<Void>),
-            int Function(int, Pointer<Void>, int, Pointer<Uint32>, Pointer<Void>)>('WriteFile'),
-        waitForSingleObject =
-            k.lookupFunction<Uint32 Function(IntPtr, Uint32), int Function(int, int)>('WaitForSingleObject'),
-        getExitCodeProcess = k.lookupFunction<Int32 Function(IntPtr, Pointer<Uint32>),
-            int Function(int, Pointer<Uint32>)>('GetExitCodeProcess'),
-        closeHandle = k.lookupFunction<Int32 Function(IntPtr), int Function(int)>('CloseHandle'),
-        createJobObject = k.lookupFunction<IntPtr Function(Pointer<Void>, Pointer<Uint16>),
-            int Function(Pointer<Void>, Pointer<Uint16>)>('CreateJobObjectW'),
-        setInformationJobObject = k.lookupFunction<Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32),
-            int Function(int, int, Pointer<Void>, int)>('SetInformationJobObject'),
-        assignProcessToJobObject =
-            k.lookupFunction<Int32 Function(IntPtr, IntPtr), int Function(int, int)>('AssignProcessToJobObject'),
-        getLastError = k.lookupFunction<Uint32 Function(), int Function()>('GetLastError'),
-        _heap = k.lookupFunction<IntPtr Function(), int Function()>('GetProcessHeap')(),
-        _heapAlloc = k.lookupFunction<Pointer<Void> Function(IntPtr, Uint32, IntPtr),
-            Pointer<Void> Function(int, int, int)>('HeapAlloc'),
-        _heapFree = k.lookupFunction<Int32 Function(IntPtr, Uint32, Pointer<Void>),
-            int Function(int, int, Pointer<Void>)>('HeapFree');
+            int Function(Pointer<Void>, int, int, Pointer<Void>, int, Pointer<Void>, Pointer<IntPtr>)
+          >('UpdateProcThreadAttribute'),
+      deleteProcThreadAttributeList = k.lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>(
+        'DeleteProcThreadAttributeList',
+      ),
+      createProcess = k
+          .lookupFunction<
+            Int32 Function(
+              Pointer<Uint16>,
+              Pointer<Uint16>,
+              Pointer<Void>,
+              Pointer<Void>,
+              Int32,
+              Uint32,
+              Pointer<Void>,
+              Pointer<Uint16>,
+              Pointer<Void>,
+              Pointer<Void>,
+            ),
+            int Function(
+              Pointer<Uint16>,
+              Pointer<Uint16>,
+              Pointer<Void>,
+              Pointer<Void>,
+              int,
+              int,
+              Pointer<Void>,
+              Pointer<Uint16>,
+              Pointer<Void>,
+              Pointer<Void>,
+            )
+          >('CreateProcessW'),
+      readFile = k
+          .lookupFunction<
+            Int32 Function(IntPtr, Pointer<Void>, Uint32, Pointer<Uint32>, Pointer<Void>),
+            int Function(int, Pointer<Void>, int, Pointer<Uint32>, Pointer<Void>)
+          >('ReadFile'),
+      writeFile = k
+          .lookupFunction<
+            Int32 Function(IntPtr, Pointer<Void>, Uint32, Pointer<Uint32>, Pointer<Void>),
+            int Function(int, Pointer<Void>, int, Pointer<Uint32>, Pointer<Void>)
+          >('WriteFile'),
+      waitForSingleObject = k.lookupFunction<Uint32 Function(IntPtr, Uint32), int Function(int, int)>(
+        'WaitForSingleObject',
+      ),
+      getExitCodeProcess = k
+          .lookupFunction<Int32 Function(IntPtr, Pointer<Uint32>), int Function(int, Pointer<Uint32>)>(
+            'GetExitCodeProcess',
+          ),
+      closeHandle = k.lookupFunction<Int32 Function(IntPtr), int Function(int)>('CloseHandle'),
+      createJobObject = k
+          .lookupFunction<
+            IntPtr Function(Pointer<Void>, Pointer<Uint16>),
+            int Function(Pointer<Void>, Pointer<Uint16>)
+          >('CreateJobObjectW'),
+      setInformationJobObject = k
+          .lookupFunction<
+            Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32),
+            int Function(int, int, Pointer<Void>, int)
+          >('SetInformationJobObject'),
+      assignProcessToJobObject = k.lookupFunction<Int32 Function(IntPtr, IntPtr), int Function(int, int)>(
+        'AssignProcessToJobObject',
+      ),
+      getLastError = k.lookupFunction<Uint32 Function(), int Function()>('GetLastError'),
+      _heap = k.lookupFunction<IntPtr Function(), int Function()>('GetProcessHeap')(),
+      _heapAlloc = k
+          .lookupFunction<Pointer<Void> Function(IntPtr, Uint32, IntPtr), Pointer<Void> Function(int, int, int)>(
+            'HeapAlloc',
+          ),
+      _heapFree = k
+          .lookupFunction<Int32 Function(IntPtr, Uint32, Pointer<Void>), int Function(int, int, Pointer<Void>)>(
+            'HeapFree',
+          );
 
   static _Kernel32? _instance;
 
@@ -411,10 +484,21 @@ class _Kernel32 {
   final void Function(int) closePseudoConsole;
   final int Function(Pointer<Void>, int, int, Pointer<IntPtr>) initializeProcThreadAttributeList;
   final int Function(Pointer<Void>, int, int, Pointer<Void>, int, Pointer<Void>, Pointer<IntPtr>)
-      updateProcThreadAttribute;
+  updateProcThreadAttribute;
   final void Function(Pointer<Void>) deleteProcThreadAttributeList;
-  final int Function(Pointer<Uint16>, Pointer<Uint16>, Pointer<Void>, Pointer<Void>, int, int, Pointer<Void>,
-      Pointer<Uint16>, Pointer<Void>, Pointer<Void>) createProcess;
+  final int Function(
+    Pointer<Uint16>,
+    Pointer<Uint16>,
+    Pointer<Void>,
+    Pointer<Void>,
+    int,
+    int,
+    Pointer<Void>,
+    Pointer<Uint16>,
+    Pointer<Void>,
+    Pointer<Void>,
+  )
+  createProcess;
   final int Function(int, Pointer<Void>, int, Pointer<Uint32>, Pointer<Void>) readFile;
   final int Function(int, Pointer<Void>, int, Pointer<Uint32>, Pointer<Void>) writeFile;
   final int Function(int, int) waitForSingleObject;

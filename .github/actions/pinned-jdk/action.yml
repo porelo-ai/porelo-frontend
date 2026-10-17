@@ -8,22 +8,22 @@
 name: The pinned JDK
 description: Installs the GraalVM porelo-machines pins, checked against its digest, for Maven.
 runs:
-  using: composite
-  steps:
-    # Maven's repository, which setup-java cached before.
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.m2/repository
-        key: maven-${{ runner.os }}-${{ hashFiles('pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
-        restore-keys: maven-${{ runner.os }}-
+    using: composite
+    steps:
+        # Maven's repository, which setup-java cached before.
+        - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: ~/.m2/repository
+              key: maven-${{ runner.os }}-${{ hashFiles('pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+              restore-keys: maven-${{ runner.os }}-
 
-    - name: The pinned GraalVM
-      shell: bash
-      run: |
-        set -euo pipefail
-        mkdir -p build
-        # -U: the Porelo tools are snapshots, and a cache restored from earlier the same day would
-        # otherwise keep an older check-actions than the one published.
-        JAVA_HOME="$JAVA_HOME_25_X64" ./mvnw -B -q -U -s settings.xml -Pci-tools dependency:build-classpath \
-          -Dmdep.outputFile=build/jdk-cp.txt
-        "$JAVA_HOME_25_X64/bin/java" -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.machines.Main jdk --github
+        - name: The pinned GraalVM
+          shell: bash
+          run: |
+              set -euo pipefail
+              mkdir -p build
+              # -U: the Porelo tools are snapshots, and a cache restored from earlier the same day would
+              # otherwise keep an older check-actions than the one published.
+              JAVA_HOME="$JAVA_HOME_25_X64" ./mvnw -B -q -U -s settings.xml -Pci-tools dependency:build-classpath \
+                -Dmdep.outputFile=build/jdk-cp.txt
+              "$JAVA_HOME_25_X64/bin/java" -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.machines.Main jdk --github

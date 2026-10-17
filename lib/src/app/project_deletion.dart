@@ -71,12 +71,15 @@ class ProjectDeletion extends ChangeNotifier {
     final name = project;
     if (said == null || name == null) return '';
     return switch (said.outcome.name) {
-      'PREVIEWED' => 'This stops following $name and removes it from this machine. '
-          'Its repository is not touched.',
-      'DELETED' => '$name is no longer followed here, and what Porelo built for it is gone. '
-          'Its repository is not touched.',
-      'HOLDS_WORK' => 'Work reached the gate for $name and nobody has reviewed it. '
-          'Nothing was removed.',
+      'PREVIEWED' =>
+        'This stops following $name and removes it from this machine. '
+            'Its repository is not touched.',
+      'DELETED' =>
+        '$name is no longer followed here, and what Porelo built for it is gone. '
+            'Its repository is not touched.',
+      'HOLDS_WORK' =>
+        'Work reached the gate for $name and nobody has reviewed it. '
+            'Nothing was removed.',
       'TASKS_RUNNING' => 'Work is still running in $name. Nothing was removed.',
       'NO_SUCH_PROJECT' => 'Nothing on this machine knows a project called $name.',
       'FAILED' => 'Something could not be removed. ${said.detail}'.trim(),
@@ -116,12 +119,13 @@ class ProjectDeletion extends ChangeNotifier {
           // A project left from before following: the machine lists it and follows nothing by that
           // name, so it cannot say what clearing it would take — and nothing goes without that.
           ? 'Nothing follows $project here, so the machine cannot say what clearing it away would '
-              'take. Nothing was removed.'
+                'take. Nothing was removed.'
           : 'Refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
       // Deliberately does not say whether it happened. A removal that may or may not have run is
       // the one case where claiming either way sends somebody to the wrong place.
-      problem = 'Lost contact with the machine: ${ex.message}. '
+      problem =
+          'Lost contact with the machine: ${ex.message}. '
           'Whether anything was removed is not knowable from here — ask the machine.';
     } on FeatureNotSupported catch (ex) {
       problem = '$ex';

@@ -37,8 +37,7 @@ void main() {
     expect(typed(TerminalKey.enter, shift: true), '\r');
   });
 
-  test('once it asks, Shift, Ctrl and Alt with Enter are sent as themselves, and Enter as Enter',
-      () async {
+  test('once it asks, Shift, Ctrl and Alt with Enter are sent as themselves, and Enter as Enter', () async {
     await said('\x1b[>4;2m');
     expect(typed(TerminalKey.enter, shift: true), '\x1b[27;2;13~');
     expect(typed(TerminalKey.enter, ctrl: true), '\x1b[27;5;13~');

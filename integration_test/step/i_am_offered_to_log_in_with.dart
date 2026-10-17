@@ -10,8 +10,12 @@ import '../support/new_person.dart';
 Future<void> iAmOfferedToLogInWith(WidgetTester tester, String agent) async {
   if (!walkingAsANewPerson) return;
   final login = find.byKey(const Key('log-in-with-the-agent'));
-  await pumpUntil(tester, () => login.evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the offer to log in');
+  await pumpUntil(
+    tester,
+    () => login.evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the offer to log in',
+  );
   noteTheWindow(tester, 'the offer to log in');
   // Whatever kind of button it is drawn as: it is there, and it can be pressed.
   expect(tester.widget<ButtonStyleButton>(login).onPressed, isNotNull);

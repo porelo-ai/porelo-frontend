@@ -29,8 +29,8 @@ class _Node implements FleetBackend {
   @override
   Future<String> node() async => nodeId;
 
-  Keyslot _slot(String id, String name, KeyslotStorage storage) => Keyslot(
-      id: id, name: name, storage: storage, enrolled: 'e', lastUsed: '', self: false, recovery: false);
+  Keyslot _slot(String id, String name, KeyslotStorage storage) =>
+      Keyslot(id: id, name: name, storage: storage, enrolled: 'e', lastUsed: '', self: false, recovery: false);
 
   @override
   Future<Enrolled> enrollDevice({required String name, required String share, required KeyslotStorage storage}) async {
@@ -59,7 +59,11 @@ class _Node implements FleetBackend {
   @override
   Future<Revoked> revokeKeyslot(String id) async {
     held.removeWhere((each) => each.slot.id == id);
-    return Revoked(outcome: KeyslotOutcome.revoked, remaining: <Keyslot>[for (final each in held) each.slot], detail: '');
+    return Revoked(
+      outcome: KeyslotOutcome.revoked,
+      remaining: <Keyslot>[for (final each in held) each.slot],
+      detail: '',
+    );
   }
 
   ({String share, int? minutes})? lastUnlock;
@@ -160,7 +164,15 @@ void main() {
 
   test('revoking this device forgets its key, and revoking another keeps it', () async {
     await devices.enroll(node, 'laptop');
-    final other = Keyslot(id: 'slot-9', name: 'old phone', storage: KeyslotStorage.userScoped, enrolled: 'e', lastUsed: '', self: false, recovery: false);
+    final other = Keyslot(
+      id: 'slot-9',
+      name: 'old phone',
+      storage: KeyslotStorage.userScoped,
+      enrolled: 'e',
+      lastUsed: '',
+      self: false,
+      recovery: false,
+    );
     node.held.add((slot: other, share: 'x'));
 
     await devices.revoke(node, other);
@@ -222,5 +234,4 @@ void main() {
 class _Refusing extends MemoryDeviceKeyStore {
   @override
   Future<void> write(String node, DeviceKey key) async => throw const DeviceKeyStoreFailed('locked');
-
 }

@@ -1,5 +1,6 @@
 import 'connection_trial.dart';
 import 'desk.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -76,17 +77,17 @@ class Machine {
   /// understood here would lose a machine somebody set up elsewhere, the next time this list is
   /// saved.
   factory Machine.fromStored(Map<String, Object?> stored) => Machine(
-        name: _text(stored['name']),
-        socketPath: _text(stored['socket']),
-        host: _text(stored['host']),
-        remoteSocket: _text(stored['remoteSocket']),
-        kind: _text(stored['kind']),
-        distribution: _text(stored['distribution']),
-        unknownFields: <String, Object?>{
-          for (final entry in stored.entries)
-            if (!_knownFields.contains(entry.key)) entry.key: entry.value,
-        },
-      );
+    name: _text(stored['name']),
+    socketPath: _text(stored['socket']),
+    host: _text(stored['host']),
+    remoteSocket: _text(stored['remoteSocket']),
+    kind: _text(stored['kind']),
+    distribution: _text(stored['distribution']),
+    unknownFields: <String, Object?>{
+      for (final entry in stored.entries)
+        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
+    },
+  );
 
   static const Set<String> _knownFields = <String>{
     'name', 'socket', 'host', 'remoteSocket', 'kind', 'distribution', //
@@ -126,16 +127,19 @@ class Machine {
   /// Linux computer, and a machine over ssh is reached from the Linux build only so far. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
-        '' when windows && needsATunnel => 'A machine over ssh is reached from the Linux build of the '
-            'interface; this Windows build reaches WSL distributions only, so far.',
-        '' when windows => 'This entry names a socket on a Linux computer, which Windows cannot open.',
-        '' => null,
-        'wsl' when windows => null,
-        'wsl' => 'The WSL distribution ${distribution.isEmpty ? '' : '$distribution '}is reached from '
-            'Windows, through wsl.exe, and this build of the interface cannot do that.',
-        _ => 'This version of the interface does not know machines of the kind "$kind", so it '
-            'leaves this one as it is.',
-      };
+    '' when windows && needsATunnel =>
+      'A machine over ssh is reached from the Linux build of the '
+          'interface; this Windows build reaches WSL distributions only, so far.',
+    '' when windows => 'This entry names a socket on a Linux computer, which Windows cannot open.',
+    '' => null,
+    'wsl' when windows => null,
+    'wsl' =>
+      'The WSL distribution ${distribution.isEmpty ? '' : '$distribution '}is reached from '
+          'Windows, through wsl.exe, and this build of the interface cannot do that.',
+    _ =>
+      'This version of the interface does not know machines of the kind "$kind", so it '
+          'leaves this one as it is.',
+  };
 
   /// What its daemon is reached through instead of a socket: `porelo daemon connect` in the WSL
   /// distribution, on Windows. Null for a socket.
@@ -143,10 +147,10 @@ class Machine {
 
   /// Where it is, in a word or two: the host, the WSL distribution, or the socket.
   String get where => switch (kind) {
-        '' => needsATunnel ? host : socketPath,
-        'wsl' => 'WSL: $distribution',
-        _ => 'kind "$kind"',
-      };
+    '' => needsATunnel ? host : socketPath,
+    'wsl' => 'WSL: $distribution',
+    _ => 'kind "$kind"',
+  };
 
   /// Whether this interface raises the way in to it.
   ///
@@ -169,14 +173,14 @@ class Machine {
   /// A WSL entry carries no `socket`: the plugin, which reads this file too, drops an entry
   /// without one, rather than opening a Linux path on Windows.
   Map<String, Object?> get stored => <String, Object?>{
-        'name': name,
-        if (kind.isEmpty || socketPath.isNotEmpty) 'socket': socketPath,
-        if (host.isNotEmpty) 'host': host,
-        if (remoteSocket.isNotEmpty) 'remoteSocket': remoteSocket,
-        if (kind.isNotEmpty) 'kind': kind,
-        if (distribution.isNotEmpty) 'distribution': distribution,
-        ...unknownFields,
-      };
+    'name': name,
+    if (kind.isEmpty || socketPath.isNotEmpty) 'socket': socketPath,
+    if (host.isNotEmpty) 'host': host,
+    if (remoteSocket.isNotEmpty) 'remoteSocket': remoteSocket,
+    if (kind.isNotEmpty) 'kind': kind,
+    if (distribution.isNotEmpty) 'distribution': distribution,
+    ...unknownFields,
+  };
 
   /// Where Porelo serves the daemon of the account with [uid], on its machine.
   static String porelodSocketFor(int uid) => '/run/user/$uid/porelo/porelod.sock';
@@ -191,8 +195,8 @@ class Machine {
   /// to it afterwards.
   static String endpointFor(String name, {Map<String, String>? environment}) {
     final env = environment ?? Platform.environment;
-    final runtime = env['XDG_RUNTIME_DIR'] ??
-        '/run/user/${Process.runSync('id', const <String>['-u']).stdout.toString().trim()}';
+    final runtime =
+        env['XDG_RUNTIME_DIR'] ?? '/run/user/${Process.runSync('id', const <String>['-u']).stdout.toString().trim()}';
     return '$runtime/porelo-tunnel-${slug(name)}.sock';
   }
 
@@ -250,12 +254,12 @@ class Machines extends ChangeNotifier {
     HostKeys? hostKeys,
     MachineSetup? setup,
     bool Function()? poreloIsInstalledHere,
-  })  : _reach = reach ?? _overSocket,
-        _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
-        hostKeys = hostKeys ?? SshHostKeys(),
-        setup = setup ?? MachineSetup(),
-        _answers = answers ?? _answersAt,
-        tunnels = tunnels ?? Tunnels() {
+  }) : _reach = reach ?? _overSocket,
+       _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
+       hostKeys = hostKeys ?? SshHostKeys(),
+       setup = setup ?? MachineSetup(),
+       _answers = answers ?? _answersAt,
+       tunnels = tunnels ?? Tunnels() {
     _adopt(<Machine>[Machine.local()]);
   }
 
@@ -279,6 +283,7 @@ class Machines extends ChangeNotifier {
     ];
     return places.any((each) => File('$each/porelod').existsSync());
   }
+
   final FleetBackend Function(Machine) _reach;
 
   /// Confirms a machine's host key before the first login.
@@ -322,11 +327,12 @@ class Machines extends ChangeNotifier {
   /// Where [machine]'s daemon is: its socket, or the relay into its WSL distribution, which is
   /// asked before each connection whether the distribution runs.
   static Backend backendFor(Machine machine) => Backend(
-      socketPath: machine.socketPath,
-      label: machine.name,
-      notReachable: machine.whyNotReachableHere,
-      relay: machine.relay,
-      whyNotNow: machine.relay == null ? null : () => Wsl().whyNotNow(machine.distribution));
+    socketPath: machine.socketPath,
+    label: machine.name,
+    notReachable: machine.whyNotReachableHere,
+    relay: machine.relay,
+    whyNotNow: machine.relay == null ? null : () => Wsl().whyNotNow(machine.distribution),
+  );
 
   /// Tries [machine] as watching it would, without watching it or leaving anything running.
   /// Where Porelo's socket is for the account [host] logs in as, asked of the machine, or null when
@@ -336,12 +342,10 @@ class Machines extends ChangeNotifier {
     return uid == null ? null : Machine.porelodSocketFor(uid);
   }
 
-  Future<Trial> tryMachine(Machine machine) =>
-      tryAMachine(machine, reach: _reach, tunnels: tunnels);
+  Future<Trial> tryMachine(Machine machine) => tryAMachine(machine, reach: _reach, tunnels: tunnels);
 
   /// How many ways into [machine]'s vault there are, or null when it could not be asked.
-  Future<int?> keyslotsOn(Machine machine) =>
-      countKeyslots(machine, reach: _reach, tunnels: tunnels);
+  Future<int?> keyslotsOn(Machine machine) => countKeyslots(machine, reach: _reach, tunnels: tunnels);
 
   /// Starts a daemon on [machine], for somebody who has been asked and said yes.
   Future<Started> startPoreloOn(Machine machine) => tunnels.startPoreloOn(machine);
@@ -353,9 +357,7 @@ class Machines extends ChangeNotifier {
   List<Machine> get all => List<Machine>.unmodifiable(_machines);
 
   /// What is being acted on. There is always one.
-  Machine get current => _machines.firstWhere(
-      (machine) => machine.name == _selected,
-      orElse: () => _machines.first);
+  Machine get current => _machines.firstWhere((machine) => machine.name == _selected, orElse: () => _machines.first);
 
   /// The fleet of the machine being acted on.
   FleetModel get fleet => of(current);
@@ -381,9 +383,7 @@ class Machines extends ChangeNotifier {
   }
 
   /// How many machines are not answering.
-  int get unreachable => _watching.values
-      .where((fleet) => fleet.reachability == Reachability.unreachable)
-      .length;
+  int get unreachable => _watching.values.where((fleet) => fleet.reachability == Reachability.unreachable).length;
 
   /// Reads the machines an earlier run stored and opens all of them.
   ///
@@ -536,9 +536,9 @@ class Machines extends ChangeNotifier {
   Future<void> letGoOfTheTunnels() => tunnels.dropEverything();
 
   Future<void> _remember() => _settings.rememberMachines(<Machine>[
-        for (final machine in _machines)
-          if (!_passing.contains(machine.name)) machine,
-      ]);
+    for (final machine in _machines)
+      if (!_passing.contains(machine.name)) machine,
+  ]);
 
   void _notify() {
     if (_disposed) return;

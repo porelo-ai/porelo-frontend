@@ -27,27 +27,27 @@ void main() {
   });
 
   Machine machineAt(String socket) => Machine(
-        name: 'the build machine',
-        socketPath: socket,
-        host: 'user@build',
-        remoteSocket: '/run/user/1001/porelo/porelod.sock',
-      );
+    name: 'the build machine',
+    socketPath: socket,
+    host: 'user@build',
+    remoteSocket: '/run/user/1001/porelo/porelod.sock',
+  );
 
   /// A stand-in for `ssh` that binds the socket and stays up, as a working forward does.
   Future<Process> Function(List<String>) bindsAndStays(String socket) =>
       (_) => Process.start('sh', <String>[
-            '-c',
-            // A real unix socket, made by something other than this test, then held open. `nc -lU`
-            // is not everywhere; a two-line python is. **`exec`**, so that killing the process
-            // this returns kills the server: without it the shell dies and its child goes on
-            // serving, which is not how killing `ssh` behaves.
-            'exec python3 -c "'
-                'import socket,time;'
-                's=socket.socket(socket.AF_UNIX);'
-                's.bind(\'$socket\');'
-                's.listen(1);'
-                'time.sleep(300)"',
-          ]);
+        '-c',
+        // A real unix socket, made by something other than this test, then held open. `nc -lU`
+        // is not everywhere; a two-line python is. **`exec`**, so that killing the process
+        // this returns kills the server: without it the shell dies and its child goes on
+        // serving, which is not how killing `ssh` behaves.
+        'exec python3 -c "'
+            'import socket,time;'
+            's=socket.socket(socket.AF_UNIX);'
+            's.bind(\'$socket\');'
+            's.listen(1);'
+            'time.sleep(300)"',
+      ]);
 
   /// A stand-in that fails the way `ssh` fails: nothing bound, a sentence on stderr, non-zero.
   Future<Process> Function(List<String>) failsSaying(String words) =>
@@ -62,8 +62,11 @@ void main() {
 
     expect(option('ControlMaster'), 'ControlMaster=no');
     expect(option('ControlPath'), 'ControlPath=none');
-    expect(command.indexOf('ControlMaster=no'), lessThan(command.indexOf('-L')),
-        reason: 'options before the forward, as ssh reads them');
+    expect(
+      command.indexOf('ControlMaster=no'),
+      lessThan(command.indexOf('-L')),
+      reason: 'options before the forward, as ssh reads them',
+    );
   });
 
   test('a forward that binds is up, and the endpoint exists', () async {
@@ -79,10 +82,7 @@ void main() {
   });
 
   test('a forward that is refused says what the transport said', () async {
-    final tunnel = Tunnel(
-      machineAt('${where.path}/refused.sock'),
-      start: failsSaying('Host key verification failed.'),
-    );
+    final tunnel = Tunnel(machineAt('${where.path}/refused.sock'), start: failsSaying('Host key verification failed.'));
 
     await tunnel.raise();
 
@@ -154,14 +154,16 @@ void main() {
     // The endpoint may belong to another program of this user that happens to sit at that path.
     // Deleting it to put ours there would break it with nothing said anywhere.
     final socket = '${where.path}/somebody-elses.sock';
-    final theirs = await ServerSocket.bind(
-        InternetAddress(socket, type: InternetAddressType.unix), 0);
+    final theirs = await ServerSocket.bind(InternetAddress(socket, type: InternetAddressType.unix), 0);
     addTearDown(theirs.close);
     var started = false;
-    final tunnel = Tunnel(machineAt(socket), start: (_) async {
-      started = true;
-      return Process.start('sh', const <String>['-c', 'sleep 30']);
-    });
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (_) async {
+        started = true;
+        return Process.start('sh', const <String>['-c', 'sleep 30']);
+      },
+    );
     addTearDown(tunnel.drop);
 
     await tunnel.raise();
@@ -169,8 +171,11 @@ void main() {
     expect(tunnel.state, TunnelState.down);
     expect(tunnel.problem, contains('already serving'));
     expect(started, isFalse, reason: 'ssh was run over a live endpoint');
-    expect(FileSystemEntity.typeSync(socket), FileSystemEntityType.unixDomainSock,
-        reason: 'somebody else\'s endpoint was deleted');
+    expect(
+      FileSystemEntity.typeSync(socket),
+      FileSystemEntityType.unixDomainSock,
+      reason: 'somebody else\'s endpoint was deleted',
+    );
   });
 
   test('an endpoint anybody can read is refused, not reported as working', () async {
@@ -181,15 +186,15 @@ void main() {
       machineAt(socket),
       // Binds with no umask at all, so the socket comes up readable by everybody.
       start: (_) => Process.start('sh', <String>[
-            '-c',
-            'exec python3 -c "'
-                'import socket,os,time;'
-                'os.umask(0);'
-                's=socket.socket(socket.AF_UNIX);'
-                's.bind(\'$socket\');'
-                's.listen(1);'
-                'time.sleep(30)"',
-          ]),
+        '-c',
+        'exec python3 -c "'
+            'import socket,os,time;'
+            'os.umask(0);'
+            's=socket.socket(socket.AF_UNIX);'
+            's.bind(\'$socket\');'
+            's.listen(1);'
+            'time.sleep(30)"',
+      ]),
       // A chmod that does nothing, which is how a machine that refuses to tighten it behaves.
       run: (_) async => ProcessResult(0, 0, '', ''),
     );
@@ -207,10 +212,13 @@ void main() {
     // ours rather than somebody else's.
     final socket = '${where.path}/twice.sock';
     var starts = 0;
-    final tunnel = Tunnel(machineAt(socket), start: (command) {
-      starts++;
-      return bindsAndStays(socket)(command);
-    });
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (command) {
+        starts++;
+        return bindsAndStays(socket)(command);
+      },
+    );
     addTearDown(tunnel.drop);
 
     await tunnel.raise();
@@ -230,8 +238,7 @@ void main() {
     await tunnel.drop();
 
     expect(tunnel.state, TunnelState.idle);
-    expect(File(socket).existsSync(), isFalse,
-        reason: 'closing must leave no socket file behind');
+    expect(File(socket).existsSync(), isFalse, reason: 'closing must leave no socket file behind');
   });
 
   test('the endpoint it creates is readable by nobody else', () async {
@@ -283,14 +290,12 @@ void main() {
     /// A socket somebody else serves, at a path this test owns, so its surviving means something.
     Future<String> somebodyElsesSocket(String name) async {
       final path = '${where.path}/$name';
-      final server = await ServerSocket.bind(
-          InternetAddress(path, type: InternetAddressType.unix), 0);
+      final server = await ServerSocket.bind(InternetAddress(path, type: InternetAddressType.unix), 0);
       addTearDown(server.close);
       return path;
     }
 
-    bool stillServed(String path) =>
-        FileSystemEntity.typeSync(path) == FileSystemEntityType.unixDomainSock;
+    bool stillServed(String path) => FileSystemEntity.typeSync(path) == FileSystemEntityType.unixDomainSock;
 
     test('a machine somebody else forwarded is never raised or torn down', () async {
       // The path with no credential handling in it at all. It must keep working untouched, which
@@ -304,8 +309,11 @@ void main() {
       expect(ready, isTrue, reason: 'it is already reachable');
       expect(tunnels.manages(theirs), isFalse);
       await tunnels.dropEverything();
-      expect(stillServed(theirs.socketPath), isTrue,
-          reason: 'a socket somebody else forwarded must survive closing the window');
+      expect(
+        stillServed(theirs.socketPath),
+        isTrue,
+        reason: 'a socket somebody else forwarded must survive closing the window',
+      );
     });
 
     test('dropping everything takes down only what was raised here', () async {
@@ -313,8 +321,7 @@ void main() {
       final tunnels = Tunnels(start: bindsAndStays(socket));
       addTearDown(tunnels.dispose);
       final ours = machineAt(socket);
-      final theirs =
-          Machine(name: 'theirs', socketPath: await somebodyElsesSocket('not-ours.sock'));
+      final theirs = Machine(name: 'theirs', socketPath: await somebodyElsesSocket('not-ours.sock'));
 
       await tunnels.raiseFor(ours);
       await tunnels.raiseFor(theirs);
@@ -328,6 +335,7 @@ void main() {
       expect(stillServed(theirs.socketPath), isTrue);
     });
   });
+
   /// Starting a daemon at the far end.
   ///
   /// **The script is run, not mocked.** What can go wrong here is the line itself — a missing
@@ -336,13 +344,13 @@ void main() {
   /// the far end is this machine, with `PATH` deciding what it has.
   group('starting a daemon at the far end', () {
     Tunnels runningTheScript(String path) => Tunnels(
-          run: (command) => Process.run(
-            '/bin/sh',
-            <String>['-c', command.last],
-            environment: <String, String>{'PATH': path},
-            includeParentEnvironment: false,
-          ),
-        );
+      run: (command) => Process.run(
+        '/bin/sh',
+        <String>['-c', command.last],
+        environment: <String, String>{'PATH': path},
+        includeParentEnvironment: false,
+      ),
+    );
 
     /// A far end whose `systemctl` reports [loadState] for the unit and does [start] when asked to
     /// start it. In the test's own directory, so it shadows this machine's real one.
@@ -365,8 +373,11 @@ void main() {
       expect(command, contains('user@build'));
       // Batch mode, for the same reason the forward uses it: there is no terminal to prompt at.
       expect(command, contains('BatchMode=yes'));
-      expect(command.last.indexOf('systemctl'), lessThan(command.last.indexOf('setsid')),
-          reason: 'a supervised unit is preferred to a loose process');
+      expect(
+        command.last.indexOf('systemctl'),
+        lessThan(command.last.indexOf('setsid')),
+        reason: 'a supervised unit is preferred to a loose process',
+      );
     });
 
     // This computer's own daemon is started with the same lines, here, with no login to anywhere.
@@ -394,8 +405,11 @@ void main() {
 
       // The host travels as its own argument, never inside the script.
       expect(command.last, inTheLoginShell(Tunnels.startsIt));
-      expect(command.last, Tunnels.startCommandFor(machineAt('/tmp/other.sock')).last,
-          reason: 'the line differs between machines, so something of theirs is in it');
+      expect(
+        command.last,
+        Tunnels.startCommandFor(machineAt('/tmp/other.sock')).last,
+        reason: 'the line differs between machines, so something of theirs is in it',
+      );
       expect(command.where((each) => each.contains('rm -rf')), hasLength(1));
     });
 
@@ -447,8 +461,10 @@ void main() {
     test('a unit that refuses says what systemd said, and the binary is not run instead', () async {
       final marker = '${where.path}/binary-ran';
       porelodThat('echo ran > $marker\nsleep 5');
-      systemdThatSays('loaded',
-          start: 'echo "Job for porelod.service failed because the control process exited." >&2; exit 1');
+      systemdThatSays(
+        'loaded',
+        start: 'echo "Job for porelod.service failed because the control process exited." >&2; exit 1',
+      );
 
       final started = await runningTheScript('${where.path}:/usr/bin:/bin')
           .startPoreloOn(machineAt('/tmp/unused.sock'));
@@ -456,8 +472,11 @@ void main() {
       expect(started.went, isFalse);
       expect(started.words, contains('Job for porelod.service failed because the control process exited.'));
       expect(started.words, contains('exit 1'));
-      expect(File(marker).existsSync(), isFalse,
-          reason: 'a unit that refused was worked around by starting the binary behind it');
+      expect(
+        File(marker).existsSync(),
+        isFalse,
+        reason: 'a unit that refused was worked around by starting the binary behind it',
+      );
     });
 
     test('a daemon that ends as soon as it starts is a failure, with what it wrote', () async {
@@ -493,14 +512,15 @@ void main() {
 
     test('a machine somebody else forwards is refused before anything is run', () async {
       var asked = false;
-      final tunnels = Tunnels(run: (_) async {
-        asked = true;
-        return ProcessResult(0, 0, '', '');
-      });
+      final tunnels = Tunnels(
+        run: (_) async {
+          asked = true;
+          return ProcessResult(0, 0, '', '');
+        },
+      );
       addTearDown(tunnels.dispose);
 
-      final started = await tunnels
-          .startPoreloOn(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
+      final started = await tunnels.startPoreloOn(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
 
       expect(started.went, isFalse);
       expect(asked, isFalse, reason: 'there is no host to log into');
@@ -509,8 +529,7 @@ void main() {
 
     test('ssh that cannot be run at all is a refusal, not a crash', () async {
       final tunnels = Tunnels(
-        run: (_) => Future<ProcessResult>.error(
-            const ProcessException('ssh', <String>[], 'No such file or directory')),
+        run: (_) => Future<ProcessResult>.error(const ProcessException('ssh', <String>[], 'No such file or directory')),
       );
       addTearDown(tunnels.dispose);
 
@@ -520,6 +539,7 @@ void main() {
       expect(started.words, contains('No such file or directory'));
     });
   });
+
   /// Asking a machine which uid the login account has.
   ///
   /// ssh reports a missing daemon and somebody else's socket in the same words, so this is how a
@@ -538,8 +558,7 @@ void main() {
     });
 
     test('the uid it prints is the answer', () async {
-      final uid = await answering(ProcessResult(0, 0, '1000\n', ''))
-          .loginUidOn(machineAt('/tmp/unused.sock'));
+      final uid = await answering(ProcessResult(0, 0, '1000\n', '')).loginUidOn(machineAt('/tmp/unused.sock'));
 
       expect(uid, 1000);
     });
@@ -561,8 +580,7 @@ void main() {
 
     test('ssh that cannot be run at all says nothing', () async {
       final tunnels = Tunnels(
-        run: (_) => Future<ProcessResult>.error(
-            const ProcessException('ssh', <String>[], 'No such file or directory')),
+        run: (_) => Future<ProcessResult>.error(const ProcessException('ssh', <String>[], 'No such file or directory')),
       );
 
       expect(await tunnels.loginUidOn(machineAt('/tmp/unused.sock')), isNull);
@@ -570,13 +588,14 @@ void main() {
 
     test('a machine somebody else forwards is not asked', () async {
       var asked = false;
-      final tunnels = Tunnels(run: (_) async {
-        asked = true;
-        return ProcessResult(0, 0, '1000', '');
-      });
+      final tunnels = Tunnels(
+        run: (_) async {
+          asked = true;
+          return ProcessResult(0, 0, '1000', '');
+        },
+      );
 
-      final uid = await tunnels
-          .loginUidOn(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
+      final uid = await tunnels.loginUidOn(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
 
       expect(uid, isNull);
       expect(asked, isFalse, reason: 'there is no host to log into');

@@ -115,8 +115,7 @@ diff --git a/second.txt b/second.txt
 +d
 ''';
 
-    expect(parseUnifiedDiff(diff).map((file) => file.path),
-        <String>['first.txt', 'second.txt']);
+    expect(parseUnifiedDiff(diff).map((file) => file.path), <String>['first.txt', 'second.txt']);
   });
 
   test('nothing at all reads as no files, not as a broken review', () {

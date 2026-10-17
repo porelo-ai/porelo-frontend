@@ -8,6 +8,9 @@ Future<void> nothingHasBeenStopped(WidgetTester tester) async {
   // call carried `dryRun`, and a screen showing a preview while having stopped a machine is
   // exactly the failure this guards.
   expect(World.backend.panics, isNotEmpty);
-  expect(World.backend.panics.every((preview) => preview), isTrue,
-      reason: 'something was stopped before anybody agreed to it');
+  expect(
+    World.backend.panics.every((preview) => preview),
+    isTrue,
+    reason: 'something was stopped before anybody agreed to it',
+  );
 }

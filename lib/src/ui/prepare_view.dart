@@ -57,60 +57,61 @@ enum Depth {
 /// **The cost is on the choice, not in a warning afterwards.** Somebody deciding to rebuild is
 /// deciding what it will cost them, and *"rebuild"* with no answer to *"how much of it"* is a
 /// button people press once and then avoid.
-Future<Depth?> askHowMuchToBuild(BuildContext context, {required String project}) =>
-    showDialog<Depth>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Build the environment for $project'),
-        content: SizedBox(
-          width: Sizes.dialogMedium,
-          child: DialogScroll(child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                'Nothing is started. This builds the image a task here would otherwise build on '
-                'its way to running, which is where the first task in a project spends its '
-                'minutes.',
-                key: Key('nothing-is-started'),
-              ),
-              const SizedBox(height: Space.normal),
-              for (final depth in Depth.values)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Space.small),
-                  child: OutlinedButton(
-                    key: Key('depth-${depth.name}'),
-                    onPressed: () => Navigator.of(context).pop(depth),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          const SizedBox(height: Space.small),
-                          Text(depth.label,
-                              style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: Space.tight),
-                          Text(depth.what,
-                              style: Theme.of(context).textTheme.bodySmall),
-                          const SizedBox(height: Space.tight),
-                          Text('Roughly ${depth.cost}.',
-                              key: Key('cost-${depth.name}'),
-                              style: Theme.of(context).textTheme.bodySmall),
-                          const SizedBox(height: Space.small),
-                        ],
-                      ),
+Future<Depth?> askHowMuchToBuild(BuildContext context, {required String project}) => showDialog<Depth>(
+  context: context,
+  builder: (context) => AlertDialog(
+    title: Text('Build the environment for $project'),
+    content: SizedBox(
+      width: Sizes.dialogMedium,
+      child: DialogScroll(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Nothing is started. This builds the image a task here would otherwise build on '
+              'its way to running, which is where the first task in a project spends its '
+              'minutes.',
+              key: Key('nothing-is-started'),
+            ),
+            const SizedBox(height: Space.normal),
+            for (final depth in Depth.values)
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.small),
+                child: OutlinedButton(
+                  key: Key('depth-${depth.name}'),
+                  onPressed: () => Navigator.of(context).pop(depth),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const SizedBox(height: Space.small),
+                        Text(depth.label, style: Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: Space.tight),
+                        Text(depth.what, style: Theme.of(context).textTheme.bodySmall),
+                        const SizedBox(height: Space.tight),
+                        Text(
+                          'Roughly ${depth.cost}.',
+                          key: Key('cost-${depth.name}'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: Space.small),
+                      ],
                     ),
                   ),
                 ),
-            ],
-          )),
+              ),
+          ],
         ),
-        actions: <Widget>[
-          TextButton(
-            key: const Key('build-nothing'),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Not now'),
-          ),
-        ],
       ),
-    );
+    ),
+    actions: <Widget>[
+      TextButton(
+        key: const Key('build-nothing'),
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Not now'),
+      ),
+    ],
+  ),
+);

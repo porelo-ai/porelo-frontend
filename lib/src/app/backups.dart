@@ -98,8 +98,7 @@ class Backups extends ChangeNotifier {
     removed = null;
     considering = null;
     await _asking(() async {
-      restoring = await backend.restoreBackup(project, backup.bundle,
-          dryRun: true, repository: repository);
+      restoring = await backend.restoreBackup(project, backup.bundle, dryRun: true, repository: repository);
     });
   }
 
@@ -108,8 +107,7 @@ class Backups extends ChangeNotifier {
     final path = restoringFrom;
     if (path == null) return;
     await _asking(() async {
-      restoring = await backend.restoreBackup(project, path,
-          force: force ? true : null, repository: repository);
+      restoring = await backend.restoreBackup(project, path, force: force ? true : null, repository: repository);
       if (restoring?.done ?? false) taken = await backend.backups(project, repository: repository);
     });
   }
@@ -132,13 +130,13 @@ class Backups extends ChangeNotifier {
         'Refused: ${said.unreviewed.length} '
             '${said.unreviewed.length == 1 ? 'push' : 'pushes'} nobody has reviewed would be '
             'destroyed. Nothing was written.',
-      'RESTORED' when said.unreviewed.isEmpty =>
-        'The mirror is restored from that bundle.',
+      'RESTORED' when said.unreviewed.isEmpty => 'The mirror is restored from that bundle.',
       // Said after the fact as well as before it: somebody who forced needs it in the record,
       // not only in the warning they clicked past.
-      'RESTORED' => 'The mirror is restored, and ${said.unreviewed.length} unreviewed '
-          '${said.unreviewed.length == 1 ? 'push is' : 'pushes are'} gone: '
-          '${said.unreviewed.join(', ')}.',
+      'RESTORED' =>
+        'The mirror is restored, and ${said.unreviewed.length} unreviewed '
+            '${said.unreviewed.length == 1 ? 'push is' : 'pushes are'} gone: '
+            '${said.unreviewed.join(', ')}.',
       'NO_SUCH_BACKUP' => 'No record names that bundle, so nothing here will restore from it.',
       'FAILED' => 'It could not be restored. ${said.detail}'.trim(),
       _ => '${said.outcome}. ${said.detail}'.trim(),
@@ -197,7 +195,7 @@ class Backups extends ChangeNotifier {
     return said.behind == 0
         ? 'Up to date with the upstream, as of now.'
         : '${said.behind} ${said.behind == 1 ? 'commit' : 'commits'} behind the upstream, as of '
-            'now.';
+              'now.';
   }
 
   /// What to say about the last deletion, in one line.
@@ -211,10 +209,10 @@ class Backups extends ChangeNotifier {
       'DELETED' when said.fileRemoved =>
         'Gone: the bundle and the record of it. It held ${said.refs} '
             '${said.refs == 1 ? 'push' : 'pushes'}.',
-      'DELETED' => 'The record is cleared. The file was already gone — somebody had moved it, and '
-          'nothing here removed anything.',
-      'NO_SUCH_BACKUP' =>
-        'No record names that file, so nothing here will remove it. ${said.detail}'.trim(),
+      'DELETED' =>
+        'The record is cleared. The file was already gone — somebody had moved it, and '
+            'nothing here removed anything.',
+      'NO_SUCH_BACKUP' => 'No record names that file, so nothing here will remove it. ${said.detail}'.trim(),
       'FAILED' => 'It could not be removed. ${said.detail}'.trim(),
       _ => '${said.outcome}. ${said.detail}'.trim(),
     };

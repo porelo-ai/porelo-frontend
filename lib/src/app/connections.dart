@@ -54,7 +54,14 @@ class Connections extends ChangeNotifier {
     forgotten = null;
     await _asking(() async {
       declared = await backend.credentialDeclare(
-          kind: kind, match: match, id: id, user: user, purpose: purpose, source: source, fromFile: fromFile);
+        kind: kind,
+        match: match,
+        id: id,
+        user: user,
+        purpose: purpose,
+        source: source,
+        fromFile: fromFile,
+      );
       await _read(backend);
     });
   }
@@ -83,7 +90,7 @@ class Connections extends ChangeNotifier {
     return said.leftBehind.isEmpty
         ? 'Forgotten. Nothing else held its value.'
         : 'Forgotten. Its value is still there: ${said.leftBehind}. Remove that at the machine if '
-            'it should go too.';
+              'it should go too.';
   }
 
   Future<void> _read(FleetBackend backend) async {

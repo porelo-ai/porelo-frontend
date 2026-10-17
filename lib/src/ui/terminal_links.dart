@@ -16,54 +16,57 @@ class TerminalLinks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-        listenable: session,
-        builder: (context, _) => session.links.isEmpty && session.forwarded == null && session.forwardProblem == null
-            ? const SizedBox.shrink()
-            : Padding(
-                padding: const EdgeInsets.only(top: Space.small),
-                child: Wrap(
-                  spacing: Space.small,
-                  runSpacing: Space.tight,
-                  children: <Widget>[
-                    if (session.forwarded case final port?)
-                      Text(
-                        'The login’s reply is forwarded from port $port here to ${session.machine.name}, '
-                        'while this terminal is open.',
-                        key: const Key('login-reply-forwarded'),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    if (session.forwardProblem case final problem?)
-                      Text(problem,
-                          key: const Key('login-reply-refused'),
-                          style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    // The login's own page first, as the one to press; any other link below it, still
-                    // offered, because an agent without a redirect needs its own.
-                    for (final link in <TerminalLink>[
-                      ...session.links.where((each) => each.isTheLogin),
-                      ...session.links.where((each) => !each.isTheLogin),
-                    ])
-                      Tooltip(
-                        message: '${link.address}',
-                        child: link.isTheLogin
-                            ? FilledButton.icon(
-                                key: ValueKey<String>('terminal-link ${link.address}'),
-                                onPressed: () => unawaited(openLink(link.address)),
-                                icon: const Icon(Icons.login, size: Sizes.rowIcon),
-                                label: const Text('Sign in: the reply comes back here'),
-                              )
-                            : OutlinedButton.icon(
-                                key: ValueKey<String>('terminal-link ${link.address}'),
-                                onPressed: () => unawaited(openLink(link.address)),
-                                icon: const Icon(Icons.open_in_new, size: Sizes.rowIcon),
-                                label: Text(
-                                    session.links.any((each) => each.isTheLogin)
-                                        ? 'Another link the program printed: ${link.address.host}${link.address.path}'
-                                        : 'Open ${link.address.host}${link.address.path} in your browser',
-                                    overflow: TextOverflow.ellipsis),
-                              ),
-                      ),
-                  ],
-                ),
-              ),
-      );
+    listenable: session,
+    builder: (context, _) => session.links.isEmpty && session.forwarded == null && session.forwardProblem == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(top: Space.small),
+            child: Wrap(
+              spacing: Space.small,
+              runSpacing: Space.tight,
+              children: <Widget>[
+                if (session.forwarded case final port?)
+                  Text(
+                    'The login’s reply is forwarded from port $port here to ${session.machine.name}, '
+                    'while this terminal is open.',
+                    key: const Key('login-reply-forwarded'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                if (session.forwardProblem case final problem?)
+                  Text(
+                    problem,
+                    key: const Key('login-reply-refused'),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                // The login's own page first, as the one to press; any other link below it, still
+                // offered, because an agent without a redirect needs its own.
+                for (final link in <TerminalLink>[
+                  ...session.links.where((each) => each.isTheLogin),
+                  ...session.links.where((each) => !each.isTheLogin),
+                ])
+                  Tooltip(
+                    message: '${link.address}',
+                    child: link.isTheLogin
+                        ? FilledButton.icon(
+                            key: ValueKey<String>('terminal-link ${link.address}'),
+                            onPressed: () => unawaited(openLink(link.address)),
+                            icon: const Icon(Icons.login, size: Sizes.rowIcon),
+                            label: const Text('Sign in: the reply comes back here'),
+                          )
+                        : OutlinedButton.icon(
+                            key: ValueKey<String>('terminal-link ${link.address}'),
+                            onPressed: () => unawaited(openLink(link.address)),
+                            icon: const Icon(Icons.open_in_new, size: Sizes.rowIcon),
+                            label: Text(
+                              session.links.any((each) => each.isTheLogin)
+                                  ? 'Another link the program printed: ${link.address.host}${link.address.path}'
+                                  : 'Open ${link.address.host}${link.address.path} in your browser',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                  ),
+              ],
+            ),
+          ),
+  );
 }

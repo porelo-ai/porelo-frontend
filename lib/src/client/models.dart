@@ -41,8 +41,15 @@ class Outcome {
 
   /// Every value this build was written against.
   static const known = <Outcome>[
-    notATask, nothingToStop, stopped, holdsWork, nothingKnows,
-    rescueNeedsItRunning, rescueFailed, removed, stillRunning,
+    notATask,
+    nothingToStop,
+    stopped,
+    holdsWork,
+    nothingKnows,
+    rescueNeedsItRunning,
+    rescueFailed,
+    removed,
+    stillRunning,
   ];
 
   /// Whether this build knows what this value means.
@@ -98,9 +105,7 @@ class StartAction {
   static const predatesRestart = StartAction('PREDATES_RESTART');
 
   /// Every value this build was written against.
-  static const known = <StartAction>[
-    create, resume, running, needsVault, supersededName, notReady, predatesRestart,
-  ];
+  static const known = <StartAction>[create, resume, running, needsVault, supersededName, notReady, predatesRestart];
 
   /// Whether this build knows what this value means.
   bool get isKnown => known.contains(this);
@@ -167,15 +172,15 @@ class Activity {
 
   /// Words for a person, unrecognized values included.
   String get label => switch (name) {
-        'DEAD' => 'not running',
-        'WAITING' => 'waiting',
-        'WORKING' => 'working',
-        'IDLE' => 'idle',
-        'ENDED' => 'its agent ended',
-        'UNKNOWN' => 'cannot be seen',
-        '' => 'not recorded',
-        _ => name.toLowerCase().replaceAll('_', ' '),
-      };
+    'DEAD' => 'not running',
+    'WAITING' => 'waiting',
+    'WORKING' => 'working',
+    'IDLE' => 'idle',
+    'ENDED' => 'its agent ended',
+    'UNKNOWN' => 'cannot be seen',
+    '' => 'not recorded',
+    _ => name.toLowerCase().replaceAll('_', ' '),
+  };
 
   @override
   bool operator ==(Object other) => other is Activity && other.name == name;
@@ -212,12 +217,12 @@ class Mode {
 
   /// Words for a person.
   String get label => switch (name) {
-        'SHELL' => 'a shell, driven by hand',
-        'AGENT' => 'an agent session, worked through',
-        'UNATTENDED' => 'unattended, against a prompt',
-        '' => 'not recorded',
-        _ => name.toLowerCase().replaceAll('_', ' '),
-      };
+    'SHELL' => 'a shell, driven by hand',
+    'AGENT' => 'an agent session, worked through',
+    'UNATTENDED' => 'unattended, against a prompt',
+    '' => 'not recorded',
+    _ => name.toLowerCase().replaceAll('_', ' '),
+  };
 
   @override
   bool operator ==(Object other) => other is Mode && other.name == name;
@@ -363,8 +368,8 @@ class Task {
   String get atTheGate => hasWorkWaiting
       ? 'its own work is waiting for review'
       : securityClass == 'online'
-          ? 'nothing is reviewed in an online project'
-          : 'nothing of its own is waiting';
+      ? 'nothing is reviewed in an online project'
+      : 'nothing of its own is waiting';
 
   /// When the current state began, or null when the runtime could not say.
   DateTime? get startedAt => since.isEmpty ? null : DateTime.tryParse(since);
@@ -433,46 +438,46 @@ class Task {
 
   /// Reads one from a reply.
   factory Task.from(Map<String, dynamic> map) => Task(
-        name: _string(map, 'name'),
-        label: _string(map, 'label'),
-        project: _string(map, 'project'),
-        securityClass: _string(map, 'securityClass'),
-        state: _string(map, 'state'),
-        running: map['running'] == true,
-        helpers: _int(map, 'helpers'),
-        // A task started before these fields existed answers empty for all of them. That is an
-        // absence to render, not an error.
-        agent: _string(map, 'agent'),
-        provider: _string(map, 'provider'),
-        mode: Mode(_string(map, 'mode')),
-        prompt: _string(map, 'prompt'),
-        branch: _string(map, 'branch'),
-        since: _string(map, 'since'),
-        activity: Activity(_string(map, 'activity')),
-        waitingFor: _string(map, 'waitingFor'),
-        clearance: _string(map, 'clearance'),
-        waiting: _int(map, 'waiting'),
-        task: _string(map, 'task'),
-        startAction: StartAction(_string(map, 'startAction')),
-        startDetail: _string(map, 'startDetail'),
-        phase: _string(map, 'phase'),
-        repository: _string(map, 'repository'),
-        credentials: _stringMap(map, 'credentials'),
-        grants: Authorization.allIn(map, 'grants'),
-        agentEnded: map['agentEnded'] is Map<String, dynamic>
-            ? AgentEnded.from(map['agentEnded'] as Map<String, dynamic>)
-            : null,
-        run: map['run'] is String ? map['run'] as String : null,
-        handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
-        files: map['files'] is List
-            ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()
-            : null,
-        builds: map['builds'] is List
-            ? (map['builds'] as List).whereType<Map<String, dynamic>>().map(Build.from).toList()
-            : null,
-        buildReader: map['buildReader'] is String ? map['buildReader'] as String : null,
-        buildProblem: map['buildProblem'] is String ? map['buildProblem'] as String : null,
-      );
+    name: _string(map, 'name'),
+    label: _string(map, 'label'),
+    project: _string(map, 'project'),
+    securityClass: _string(map, 'securityClass'),
+    state: _string(map, 'state'),
+    running: map['running'] == true,
+    helpers: _int(map, 'helpers'),
+    // A task started before these fields existed answers empty for all of them. That is an
+    // absence to render, not an error.
+    agent: _string(map, 'agent'),
+    provider: _string(map, 'provider'),
+    mode: Mode(_string(map, 'mode')),
+    prompt: _string(map, 'prompt'),
+    branch: _string(map, 'branch'),
+    since: _string(map, 'since'),
+    activity: Activity(_string(map, 'activity')),
+    waitingFor: _string(map, 'waitingFor'),
+    clearance: _string(map, 'clearance'),
+    waiting: _int(map, 'waiting'),
+    task: _string(map, 'task'),
+    startAction: StartAction(_string(map, 'startAction')),
+    startDetail: _string(map, 'startDetail'),
+    phase: _string(map, 'phase'),
+    repository: _string(map, 'repository'),
+    credentials: _stringMap(map, 'credentials'),
+    grants: Authorization.allIn(map, 'grants'),
+    agentEnded: map['agentEnded'] is Map<String, dynamic>
+        ? AgentEnded.from(map['agentEnded'] as Map<String, dynamic>)
+        : null,
+    run: map['run'] is String ? map['run'] as String : null,
+    handInLimit: map['handInLimit'] is num ? (map['handInLimit'] as num).toInt() : null,
+    files: map['files'] is List
+        ? (map['files'] as List).whereType<Map<String, dynamic>>().map(HandedFile.from).toList()
+        : null,
+    builds: map['builds'] is List
+        ? (map['builds'] as List).whereType<Map<String, dynamic>>().map(Build.from).toList()
+        : null,
+    buildReader: map['buildReader'] is String ? map['buildReader'] as String : null,
+    buildProblem: map['buildProblem'] is String ? map['buildProblem'] as String : null,
+  );
 }
 
 /// The build of one commit a task pushed, as the machine follows it at the forge.
@@ -504,12 +509,12 @@ class Build {
 
   /// Reads one from a reply.
   factory Build.from(Map<String, dynamic> map) => Build(
-        commit: _string(map, 'commit'),
-        verdict: _string(map, 'verdict'),
-        jobs: _list(map, 'jobs').map(BuildJob.from).toList(),
-        since: _string(map, 'since'),
-        detail: _string(map, 'detail'),
-      );
+    commit: _string(map, 'commit'),
+    verdict: _string(map, 'verdict'),
+    jobs: _list(map, 'jobs').map(BuildJob.from).toList(),
+    since: _string(map, 'since'),
+    detail: _string(map, 'detail'),
+  );
 
   /// The commit as people read it: its first twelve characters.
   String get short => commit.length > 12 ? commit.substring(0, 12) : commit;
@@ -533,11 +538,8 @@ class BuildJob {
   const BuildJob({required this.name, required this.result, this.log = ''});
 
   /// Reads one from a reply.
-  factory BuildJob.from(Map<String, dynamic> map) => BuildJob(
-        name: _string(map, 'name'),
-        result: _string(map, 'result'),
-        log: _string(map, 'log'),
-      );
+  factory BuildJob.from(Map<String, dynamic> map) =>
+      BuildJob(name: _string(map, 'name'), result: _string(map, 'result'), log: _string(map, 'log'));
 }
 
 /// One file handed to a running task, as the machine's record holds it.
@@ -575,13 +577,13 @@ class HandedFile {
 
   /// Reads one from a reply.
   factory HandedFile.from(Map<String, dynamic> map) => HandedFile(
-        name: _string(map, 'name'),
-        bytes: _int(map, 'bytes'),
-        sha256: _string(map, 'sha256'),
-        at: _string(map, 'at'),
-        by: _string(map, 'by'),
-        run: _string(map, 'run'),
-      );
+    name: _string(map, 'name'),
+    bytes: _int(map, 'bytes'),
+    sha256: _string(map, 'sha256'),
+    at: _string(map, 'at'),
+    by: _string(map, 'by'),
+    run: _string(map, 'run'),
+  );
 
   /// Whether Porelo handed it in rather than a person; compared, never guessed from the name.
   bool get byPorelo => by == porelo;
@@ -603,10 +605,9 @@ class HandInEvent {
 
   /// Reads one from a reply.
   factory HandInEvent.from(Map<String, dynamic> map) => HandInEvent(
-        event: _string(map, 'event'),
-        file: HandedFile.from(
-            map['file'] is Map<String, dynamic> ? map['file'] as Map<String, dynamic> : const {}),
-      );
+    event: _string(map, 'event'),
+    file: HandedFile.from(map['file'] is Map<String, dynamic> ? map['file'] as Map<String, dynamic> : const {}),
+  );
 }
 
 /// What one part of a hand-in did: how far the machine is, and the file once it is complete.
@@ -622,11 +623,9 @@ class HandInPart {
 
   /// Reads one from a reply.
   factory HandInPart.from(Map<String, dynamic> map) => HandInPart(
-        received: _int(map, 'received'),
-        file: map['file'] is Map<String, dynamic>
-            ? HandedFile.from(map['file'] as Map<String, dynamic>)
-            : null,
-      );
+    received: _int(map, 'received'),
+    file: map['file'] is Map<String, dynamic> ? HandedFile.from(map['file'] as Map<String, dynamic>) : null,
+  );
 }
 
 /// What a task's terminal session shows: its last lines, and whether there is a session at all.
@@ -658,13 +657,13 @@ class AgentEnded {
 
   /// Reads one from a reply.
   factory AgentEnded.from(Map<String, dynamic> map) => AgentEnded(
-        at: _string(map, 'at'),
-        finished: map['finished'] == true,
-        error: _string(map, 'error'),
-        source: _string(map, 'source'),
-        status: map['status'] is int ? map['status'] as int : null,
-        unpushed: _int(map, 'unpushed'),
-      );
+    at: _string(map, 'at'),
+    finished: map['finished'] == true,
+    error: _string(map, 'error'),
+    source: _string(map, 'source'),
+    status: map['status'] is int ? map['status'] as int : null,
+    unpushed: _int(map, 'unpushed'),
+  );
 
   /// When the log's last line was written.
   final String at;
@@ -704,7 +703,9 @@ class AgentEnded {
 
   /// In words, for a tile and for *Needs you*.
   String get words {
-    final files = unpushed == 1 ? '1 changed file never reached the gate' : '$unpushed changed files never reached the gate';
+    final files = unpushed == 1
+        ? '1 changed file never reached the gate'
+        : '$unpushed changed files never reached the gate';
     if (finished) return unpushed > 0 ? 'The agent finished, but $files.' : 'The agent finished.';
     final said = error.trim().isEmpty ? '' : ': ${error.trim()}';
     return '$whose$said${unpushed > 0 ? '. $files' : ''}';
@@ -788,22 +789,22 @@ class Agent {
 
   /// Reads one from a reply.
   factory Agent.from(Map<String, dynamic> map) => Agent(
-        name: _string(map, 'name'),
-        label: _string(map, 'label'),
-        binary: _string(map, 'binary'),
-        version: _string(map, 'version'),
-        from: _string(map, 'from'),
-        allowedDomains: _strings(map, 'allowedDomains'),
-        refusedDomains: _strings(map, 'refusedDomains'),
-        artifacts: _list(map, 'artifacts').map(InstallArtifact.from).toList(),
-        commitsAs: map['commitsAs'] is Map<String, dynamic>
-            ? GitIdentity.from(map['commitsAs']! as Map<String, dynamic>)
-            : const GitIdentity(name: '', email: ''),
-        canLogIn: map['canLogIn'] == true,
-        loginArguments: _strings(map, 'loginArguments'),
-        loginDocumentation: _string(map, 'loginDocumentation'),
-        loginCommand: _strings(map, 'loginCommand'),
-      );
+    name: _string(map, 'name'),
+    label: _string(map, 'label'),
+    binary: _string(map, 'binary'),
+    version: _string(map, 'version'),
+    from: _string(map, 'from'),
+    allowedDomains: _strings(map, 'allowedDomains'),
+    refusedDomains: _strings(map, 'refusedDomains'),
+    artifacts: _list(map, 'artifacts').map(InstallArtifact.from).toList(),
+    commitsAs: map['commitsAs'] is Map<String, dynamic>
+        ? GitIdentity.from(map['commitsAs']! as Map<String, dynamic>)
+        : const GitIdentity(name: '', email: ''),
+    canLogIn: map['canLogIn'] == true,
+    loginArguments: _strings(map, 'loginArguments'),
+    loginDocumentation: _string(map, 'loginDocumentation'),
+    loginCommand: _strings(map, 'loginCommand'),
+  );
 }
 
 /// Who an agent's commits are attributed to.
@@ -860,12 +861,12 @@ class InstallArtifact {
 
   /// Reads one from a reply.
   factory InstallArtifact.from(Map<String, dynamic> map) => InstallArtifact(
-        url: _string(map, 'url'),
-        sha256: _string(map, 'sha256'),
-        target: _string(map, 'target'),
-        unverified: map['unverified'] == true,
-        reason: _string(map, 'reason'),
-      );
+    url: _string(map, 'url'),
+    sha256: _string(map, 'sha256'),
+    target: _string(map, 'target'),
+    unverified: map['unverified'] == true,
+    reason: _string(map, 'reason'),
+  );
 }
 
 /// An installed agent binary that is never started, because another copy wins.
@@ -885,10 +886,8 @@ class ShadowedAgent {
   const ShadowedAgent({required this.path, required this.usedInstead});
 
   /// Reads one from a reply.
-  factory ShadowedAgent.from(Map<String, dynamic> map) => ShadowedAgent(
-        path: _string(map, 'path'),
-        usedInstead: _string(map, 'usedInstead'),
-      );
+  factory ShadowedAgent.from(Map<String, dynamic> map) =>
+      ShadowedAgent(path: _string(map, 'path'), usedInstead: _string(map, 'usedInstead'));
 }
 
 /// One entry in the vault. Never its value.
@@ -927,12 +926,12 @@ class Credential {
   bool get isGranted => type == 'oauth-device' || type == 'oauth-code';
 
   factory Credential.from(Map<String, dynamic> map) => Credential(
-        name: _string(map, 'name'),
-        type: _string(map, 'type'),
-        characters: _int(map, 'characters'),
-        settings: _stringMap(map, 'settings'),
-        grant: Authorization.of(map['grant']),
-      );
+    name: _string(map, 'name'),
+    type: _string(map, 'type'),
+    characters: _int(map, 'characters'),
+    settings: _stringMap(map, 'settings'),
+    grant: Authorization.of(map['grant']),
+  );
 }
 
 /// The project every machine has, which Porelo keeps itself and nobody configures: work on a
@@ -964,31 +963,33 @@ class DefaultRepository {
   final String claimedBy;
 
   /// Constructor taking every field.
-  const DefaultRepository(
-      {required this.name,
-      required this.upstream,
-      required this.checkout,
-      required this.claimedBy,
-      this.source,
-      this.remote});
+  const DefaultRepository({
+    required this.name,
+    required this.upstream,
+    required this.checkout,
+    required this.claimedBy,
+    this.source,
+    this.remote,
+  });
 
   /// Where its work comes from and goes, in one line; the address alone from an older machine.
   String get comesFromAndGoes => switch (source) {
-        'CHECKOUT' => 'From the checkout $upstream, and back into it as porelo/<task>; '
-            '${(remote ?? '').isEmpty ? 'it has no remote' : 'its remote $remote is yours to pull and push'}',
-        'REMOTE' => 'From ${(remote ?? '').isEmpty ? upstream : remote}, and back there',
-        _ => upstream,
-      };
+    'CHECKOUT' =>
+      'From the checkout $upstream, and back into it as porelo/<task>; '
+          '${(remote ?? '').isEmpty ? 'it has no remote' : 'its remote $remote is yours to pull and push'}',
+    'REMOTE' => 'From ${(remote ?? '').isEmpty ? upstream : remote}, and back there',
+    _ => upstream,
+  };
 
   /// Reads one from a reply.
   factory DefaultRepository.from(Map<String, dynamic> map) => DefaultRepository(
-        name: _string(map, 'name'),
-        upstream: _string(map, 'upstream'),
-        checkout: _string(map, 'checkout'),
-        claimedBy: _string(map, 'claimedBy'),
-        source: map['source'] as String?,
-        remote: map['remote'] as String?,
-      );
+    name: _string(map, 'name'),
+    upstream: _string(map, 'upstream'),
+    checkout: _string(map, 'checkout'),
+    claimedBy: _string(map, 'claimedBy'),
+    source: map['source'] as String?,
+    remote: map['remote'] as String?,
+  );
 }
 
 /// What bringing a task up to its source did (`RefreshTask`).
@@ -1006,29 +1007,36 @@ class TaskRefreshed {
   final bool told;
 
   /// Constructor taking every field.
-  const TaskRefreshed({required this.outcome, this.moved = const <String, String>{}, this.detail = '', this.told = false});
+  const TaskRefreshed({
+    required this.outcome,
+    this.moved = const <String, String>{},
+    this.detail = '',
+    this.told = false,
+  });
 
   /// Reads one from a reply.
   factory TaskRefreshed.from(Map<String, dynamic> map) => TaskRefreshed(
-        outcome: _string(map, 'outcome'),
-        moved: <String, String>{
-          for (final each in ((map['moved'] as Map?) ?? const <String, dynamic>{}).entries) '${each.key}': '${each.value}',
-        },
-        detail: _string(map, 'detail'),
-        told: map['told'] == true,
-      );
+    outcome: _string(map, 'outcome'),
+    moved: <String, String>{
+      for (final each in ((map['moved'] as Map?) ?? const <String, dynamic>{}).entries) '${each.key}': '${each.value}',
+    },
+    detail: _string(map, 'detail'),
+    told: map['told'] == true,
+  );
 
   /// What it did, for [task], in one line.
   String wordsFor(String task) {
     String short(String commit) => commit.length > 12 ? commit.substring(0, 12) : commit;
     return switch (outcome) {
-      'MOVED' => '${[for (final each in moved.entries) '${each.key} moved to ${short(each.value)}'].join(', ')}; '
-          '${told ? 'its agent was told, and git fetch porelo brings it' : 'its agent was not told - git fetch porelo in $task brings it'}',
+      'MOVED' =>
+        '${[for (final each in moved.entries) '${each.key} moved to ${short(each.value)}'].join(', ')}; '
+            '${told ? 'its agent was told, and git fetch porelo brings it' : 'its agent was not told - git fetch porelo in $task brings it'}',
       'UNCHANGED' => '$task is up to date with its source.',
       // Only a task with no gate at all answers this: one started without a gate, or an offline one.
       // An online task has a gate too, and answers MOVED or UNCHANGED.
-      'NOT_GATED' => '$task has no gate, so there is nothing here to bring up to its source: '
-          'it was started without one, or it is offline.',
+      'NOT_GATED' =>
+        '$task has no gate, so there is nothing here to bring up to its source: '
+            'it was started without one, or it is offline.',
       'FAILED' => '$task could not be brought up to its source: $detail',
       _ => '$task: ${outcome.toLowerCase().replaceAll('_', ' ')}${detail.isEmpty ? '' : ': $detail'}',
     };
@@ -1077,15 +1085,15 @@ class MachineDeployKey {
 
   /// Reads one from a reply.
   factory MachineDeployKey.from(Map<String, dynamic> map) => MachineDeployKey(
-        entry: _string(map, 'entry'),
-        repository: _string(map, 'repository'),
-        upstream: _string(map, 'upstream'),
-        publicKey: _string(map, 'publicKey'),
-        fingerprint: _string(map, 'fingerprint'),
-        title: _string(map, 'title'),
-        writeAccess: map['writeAccess'] == true,
-        made: map['made'] == true,
-      );
+    entry: _string(map, 'entry'),
+    repository: _string(map, 'repository'),
+    upstream: _string(map, 'upstream'),
+    publicKey: _string(map, 'publicKey'),
+    fingerprint: _string(map, 'fingerprint'),
+    title: _string(map, 'title'),
+    writeAccess: map['writeAccess'] == true,
+    made: map['made'] == true,
+  );
 }
 
 /// A machine's message key: what a project's `machine-signers` names it by.
@@ -1107,11 +1115,11 @@ class MachineKey {
 
   /// Reads one from a reply.
   factory MachineKey.from(Map<String, dynamic> map) => MachineKey(
-        principal: _string(map, 'principal'),
-        key: _string(map, 'key'),
-        line: _string(map, 'line'),
-        fingerprint: _string(map, 'fingerprint'),
-      );
+    principal: _string(map, 'principal'),
+    key: _string(map, 'key'),
+    line: _string(map, 'line'),
+    fingerprint: _string(map, 'fingerprint'),
+  );
 }
 
 /// The keys a project file may hold in each section, as one machine's Porelo knows them.
@@ -1132,22 +1140,22 @@ class ProjectFileSchema {
 
   /// Reads one from a reply.
   factory ProjectFileSchema.from(Map<String, dynamic> map) => ProjectFileSchema(
-        keys: <ProjectFileKey>[
-          if (map['keys'] case final List<dynamic> keys)
-            for (final each in keys)
-              if (each is Map<String, dynamic>) ProjectFileKey.from(each),
-        ],
-        sections: <String, List<String>>{
-          if (map['sections'] case final Map<String, dynamic> sections)
-            for (final entry in sections.entries)
-              entry.key: <String>[
-                if (entry.value case final List<dynamic> keys)
-                  for (final each in keys)
-                    if (each is String) each,
-              ],
-        },
-        open: _strings(map, 'open'),
-      );
+    keys: <ProjectFileKey>[
+      if (map['keys'] case final List<dynamic> keys)
+        for (final each in keys)
+          if (each is Map<String, dynamic>) ProjectFileKey.from(each),
+    ],
+    sections: <String, List<String>>{
+      if (map['sections'] case final Map<String, dynamic> sections)
+        for (final entry in sections.entries)
+          entry.key: <String>[
+            if (entry.value case final List<dynamic> keys)
+              for (final each in keys)
+                if (each is String) each,
+          ],
+    },
+    open: _strings(map, 'open'),
+  );
 }
 
 /// One key a project file may hold, as the machine's Porelo describes it.
@@ -1184,14 +1192,14 @@ class ProjectFileKey {
 
   /// Reads one from a reply.
   factory ProjectFileKey.from(Map<String, dynamic> map) => ProjectFileKey(
-        section: _string(map, 'section'),
-        name: _string(map, 'name'),
-        describe: _string(map, 'describe'),
-        type: _string(map, 'type'),
-        values: _strings(map, 'values'),
-        defaultValue: _string(map, 'default'),
-        required: map['required'] == true,
-      );
+    section: _string(map, 'section'),
+    name: _string(map, 'name'),
+    describe: _string(map, 'describe'),
+    type: _string(map, 'type'),
+    values: _strings(map, 'values'),
+    defaultValue: _string(map, 'default'),
+    required: map['required'] == true,
+  );
 }
 
 /// What one machine says of a draft `project.yml`, before a person commits it.
@@ -1210,10 +1218,10 @@ class ProjectFileCheck {
 
   /// Reads one from a reply.
   factory ProjectFileCheck.from(Map<String, dynamic> map) => ProjectFileCheck(
-        refused: _strings(map, 'refused'),
-        refusedHere: _strings(map, 'refusedHere'),
-        warnings: _strings(map, 'warnings'),
-      );
+    refused: _strings(map, 'refused'),
+    refusedHere: _strings(map, 'refusedHere'),
+    warnings: _strings(map, 'warnings'),
+  );
 }
 
 /// A project's conversation, on a transport that keeps one: its room, for Matrix.
@@ -1298,10 +1306,10 @@ class MessagesJoined {
 
   /// Reads one from a reply.
   factory MessagesJoined.from(Map<String, dynamic> map) => MessagesJoined(
-        transport: _string(map, 'transport'),
-        login: _stringMap(map, 'login'),
-        shown: _string(map, 'shown'),
-      );
+    transport: _string(map, 'transport'),
+    login: _stringMap(map, 'login'),
+    shown: _string(map, 'shown'),
+  );
 
   /// Whether the homeserver is the machine's own loopback, so a client elsewhere needs [port] forwarded.
   bool get loopback => login['loopback'] == 'true';
@@ -1339,12 +1347,12 @@ class AuthorizationNeeded {
 
   /// Reads one from a reply.
   factory AuthorizationNeeded.from(Map<String, dynamic> map) => AuthorizationNeeded(
-        credential: _string(map, 'credential'),
-        task: _string(map, 'task'),
-        project: _string(map, 'project'),
-        state: _string(map, 'state'),
-        at: _string(map, 'at'),
-      );
+    credential: _string(map, 'credential'),
+    task: _string(map, 'task'),
+    project: _string(map, 'project'),
+    state: _string(map, 'state'),
+    at: _string(map, 'at'),
+  );
 }
 
 /// An authorization a person granted once: who, and when. **Never the grant itself**, which stays
@@ -1366,10 +1374,9 @@ class Authorization {
 
   /// Grants by the name of the entry they are for.
   static Map<String, Authorization> allIn(Map<String, dynamic> map, String key) => <String, Authorization>{
-        if (map[key] case final Map<String, dynamic> each)
-          for (final entry in each.entries)
-            entry.key: ?Authorization.of(entry.value),
-      };
+    if (map[key] case final Map<String, dynamic> each)
+      for (final entry in each.entries) entry.key: ?Authorization.of(entry.value),
+  };
 }
 
 /// One reply of `Authorize`: where granting an authorization stands.
@@ -1408,13 +1415,13 @@ class AuthorizeProgress {
 
   /// Reads one from a reply.
   factory AuthorizeProgress.from(Map<String, dynamic> map) => AuthorizeProgress(
-        state: _string(map, 'state'),
-        link: _string(map, 'link'),
-        code: _string(map, 'code'),
-        port: _int(map, 'port'),
-        expiresIn: _int(map, 'expiresIn'),
-        detail: _string(map, 'detail'),
-      );
+    state: _string(map, 'state'),
+    link: _string(map, 'link'),
+    code: _string(map, 'code'),
+    port: _int(map, 'port'),
+    expiresIn: _int(map, 'expiresIn'),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether this is the last reply: the question is settled one way or the other.
   bool get settled => state != 'needed';
@@ -1436,18 +1443,11 @@ class Locked {
   final int holding;
 
   /// Constructor taking every field.
-  const Locked({
-    required this.keyring,
-    required this.wasCached,
-    required this.holding,
-  });
+  const Locked({required this.keyring, required this.wasCached, required this.holding});
 
   /// Reads one from a reply.
-  factory Locked.from(Map<String, dynamic> map) => Locked(
-        keyring: map['keyring'] == true,
-        wasCached: map['wasCached'] == true,
-        holding: _int(map, 'holding'),
-      );
+  factory Locked.from(Map<String, dynamic> map) =>
+      Locked(keyring: map['keyring'] == true, wasCached: map['wasCached'] == true, holding: _int(map, 'holding'));
 
   /// What to say about it, in one sentence.
   String get words {
@@ -1548,8 +1548,18 @@ class KeyslotOutcome {
 
   /// The values this build knows.
   static const known = <KeyslotOutcome>[
-    enrolled, alreadyEnrolled, unknownStorage, badShare, vaultLocked, vaultWithoutKeyslots,
-    revoked, noSuchSlot, lastWayIn, unlocked, shareRejected, failed,
+    enrolled,
+    alreadyEnrolled,
+    unknownStorage,
+    badShare,
+    vaultLocked,
+    vaultWithoutKeyslots,
+    revoked,
+    noSuchSlot,
+    lastWayIn,
+    unlocked,
+    shareRejected,
+    failed,
   ];
 
   /// Whether this build knows what it means.
@@ -1604,14 +1614,14 @@ class Keyslot {
 
   /// Reads one from a reply.
   factory Keyslot.from(Map<String, dynamic> map) => Keyslot(
-        id: _string(map, 'id'),
-        name: _string(map, 'name'),
-        storage: KeyslotStorage(_string(map, 'storage')),
-        enrolled: _string(map, 'enrolled'),
-        lastUsed: _string(map, 'lastUsed'),
-        self: map['self'] == true,
-        recovery: map['recovery'] == true,
-      );
+    id: _string(map, 'id'),
+    name: _string(map, 'name'),
+    storage: KeyslotStorage(_string(map, 'storage')),
+    enrolled: _string(map, 'enrolled'),
+    lastUsed: _string(map, 'lastUsed'),
+    self: map['self'] == true,
+    recovery: map['recovery'] == true,
+  );
 }
 
 /// What enrolling a device did. **Proposed for Porelo's keyslots.**
@@ -1630,10 +1640,10 @@ class Enrolled {
 
   /// Reads one from a reply.
   factory Enrolled.from(Map<String, dynamic> map) => Enrolled(
-        outcome: KeyslotOutcome(_string(map, 'outcome')),
-        slot: map['slot'] is Map<String, dynamic> ? Keyslot.from(map['slot'] as Map<String, dynamic>) : null,
-        detail: _string(map, 'detail'),
-      );
+    outcome: KeyslotOutcome(_string(map, 'outcome')),
+    slot: map['slot'] is Map<String, dynamic> ? Keyslot.from(map['slot'] as Map<String, dynamic>) : null,
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What revoking a keyslot did. **Proposed for Porelo's keyslots.**
@@ -1652,10 +1662,10 @@ class Revoked {
 
   /// Reads one from a reply.
   factory Revoked.from(Map<String, dynamic> map) => Revoked(
-        outcome: KeyslotOutcome(_string(map, 'outcome')),
-        remaining: _list(map, 'remaining').map(Keyslot.from).toList(),
-        detail: _string(map, 'detail'),
-      );
+    outcome: KeyslotOutcome(_string(map, 'outcome')),
+    remaining: _list(map, 'remaining').map(Keyslot.from).toList(),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What unlocking with a share did. **Proposed for Porelo's keyslots.**
@@ -1673,20 +1683,15 @@ class UnlockedWithShare {
   final String detail;
 
   /// Constructor taking every field.
-  const UnlockedWithShare({
-    required this.outcome,
-    required this.until,
-    required this.slot,
-    required this.detail,
-  });
+  const UnlockedWithShare({required this.outcome, required this.until, required this.slot, required this.detail});
 
   /// Reads one from a reply.
   factory UnlockedWithShare.from(Map<String, dynamic> map) => UnlockedWithShare(
-        outcome: KeyslotOutcome(_string(map, 'outcome')),
-        until: _string(map, 'until'),
-        slot: map['slot'] is Map<String, dynamic> ? Keyslot.from(map['slot'] as Map<String, dynamic>) : null,
-        detail: _string(map, 'detail'),
-      );
+    outcome: KeyslotOutcome(_string(map, 'outcome')),
+    until: _string(map, 'until'),
+    slot: map['slot'] is Map<String, dynamic> ? Keyslot.from(map['slot'] as Map<String, dynamic>) : null,
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// One project on the machine.
@@ -1761,13 +1766,15 @@ class Project {
   /// **Nothing for `READY`, and nothing for a daemon that did not say.** A row that commented on
   /// every project would bury the one that matters.
   String get environmentWords => switch (preparedState) {
-        'ABSENT' => 'no environment yet — the first task here builds one, which takes minutes',
-        'STALE' => 'built before the project file changed: work would run in something the file '
-            'no longer describes',
-        'UNKNOWN' => 'nothing records what this image was built from, so whether it matches the '
-            'project file cannot be said',
-        _ => '',
-      };
+    'ABSENT' => 'no environment yet — the first task here builds one, which takes minutes',
+    'STALE' =>
+      'built before the project file changed: work would run in something the file '
+          'no longer describes',
+    'UNKNOWN' =>
+      'nothing records what this image was built from, so whether it matches the '
+          'project file cannot be said',
+    _ => '',
+  };
 
   /// How many commits its mirror is behind the upstream.
   ///
@@ -1830,12 +1837,14 @@ class Project {
   List<String> get workRepositories {
     if (repositories.length < 2) return repositories;
     final own = ownRepository;
-    return <String>[for (final each in repositories) if (each != own) each];
+    return <String>[
+      for (final each in repositories)
+        if (each != own) each,
+    ];
   }
 
   /// The project's own repository, or null where the machine names none.
-  String? get ownRepository =>
-      repositoryStates.where((each) => each.own).firstOrNull?.name ?? repositories.firstOrNull;
+  String? get ownRepository => repositoryStates.where((each) => each.own).firstOrNull?.name ?? repositories.firstOrNull;
 
   /// The repository [task] works in, as a start takes it: the project's own where the task says
   /// nothing, which is what saying nothing means — and so null where the machine names none.
@@ -1867,27 +1876,27 @@ class Project {
 
   /// Reads one from a reply.
   factory Project.from(Map<String, dynamic> map) => Project(
-        name: _string(map, 'name'),
-        securityClass: _string(map, 'securityClass'),
-        file: _string(map, 'file'),
-        mirror: _string(map, 'mirror'),
-        pending: _int(map, 'pending'),
-        tasks: _int(map, 'tasks'),
-        running: _int(map, 'running'),
-        prepared: map['prepared'] == true,
-        preparedState: _string(map, 'preparedState'),
-        behind: _int(map, 'behind'),
-        behindMeasured: _string(map, 'behindMeasured'),
-        behindReason: _string(map, 'behindReason'),
-        behindDetail: _string(map, 'behindDetail'),
-        repositories: <String>[for (final each in Repository.allIn(map)) each.name],
-        repositoryStates: Repository.allIn(map),
-        following: Followed.of(map['following']),
-        followingAnswered: map.containsKey('following'),
-        credentials: _stringMap(map, 'credentials'),
-        credentialsAnswered: map.containsKey('credentials'),
-        messages: ProjectMessages.of(map['messages']),
-      );
+    name: _string(map, 'name'),
+    securityClass: _string(map, 'securityClass'),
+    file: _string(map, 'file'),
+    mirror: _string(map, 'mirror'),
+    pending: _int(map, 'pending'),
+    tasks: _int(map, 'tasks'),
+    running: _int(map, 'running'),
+    prepared: map['prepared'] == true,
+    preparedState: _string(map, 'preparedState'),
+    behind: _int(map, 'behind'),
+    behindMeasured: _string(map, 'behindMeasured'),
+    behindReason: _string(map, 'behindReason'),
+    behindDetail: _string(map, 'behindDetail'),
+    repositories: <String>[for (final each in Repository.allIn(map)) each.name],
+    repositoryStates: Repository.allIn(map),
+    following: Followed.of(map['following']),
+    followingAnswered: map.containsKey('following'),
+    credentials: _stringMap(map, 'credentials'),
+    credentialsAnswered: map.containsKey('credentials'),
+    messages: ProjectMessages.of(map['messages']),
+  );
 
   /// Whether this project is behind its upstream by an amount somebody can act on.
   ///
@@ -1911,8 +1920,7 @@ class Project {
   ///
   /// **`default` is the exception**: followed by nobody, and acted on by its name like
   /// any followed project — work starts there, and waits at its gate.
-  bool get canBeActedOn =>
-      file.isNotEmpty && (!followingAnswered || following != null || name == defaultProject);
+  bool get canBeActedOn => file.isNotEmpty && (!followingAnswered || following != null || name == defaultProject);
 }
 
 /// One host a project's work may reach, and what granted it.
@@ -1949,18 +1957,11 @@ class EgressSet {
   final List<String> domains;
 
   /// Constructor taking every field.
-  const EgressSet({
-    required this.name,
-    required this.label,
-    required this.domains,
-  });
+  const EgressSet({required this.name, required this.label, required this.domains});
 
   /// Reads one from a reply.
-  factory EgressSet.from(Map<String, dynamic> map) => EgressSet(
-        name: _string(map, 'name'),
-        label: _string(map, 'label'),
-        domains: _strings(map, 'domains'),
-      );
+  factory EgressSet.from(Map<String, dynamic> map) =>
+      EgressSet(name: _string(map, 'name'), label: _string(map, 'label'), domains: _strings(map, 'domains'));
 }
 
 /// What a change to a project's egress did, or would do.
@@ -1997,15 +1998,7 @@ class EgressOutcome {
   static const notWritten = EgressOutcome('NOT_WRITTEN');
 
   /// The values this build knows.
-  static const known = <EgressOutcome>[
-    changed,
-    previewed,
-    noChange,
-    noSuchSet,
-    refusedByClass,
-    unreadable,
-    notWritten,
-  ];
+  static const known = <EgressOutcome>[changed, previewed, noChange, noSuchSet, refusedByClass, unreadable, notWritten];
 
   /// Whether this build knows what it means.
   bool get recognized => known.any((value) => value.name == name);
@@ -2062,12 +2055,12 @@ class EgressChange {
 
   /// Reads one from a reply.
   factory EgressChange.from(Map<String, dynamic> map) => EgressChange(
-        outcome: EgressOutcome(_string(map, 'outcome')),
-        opens: _list(map, 'opens').map(EgressHost.from).toList(),
-        closes: _list(map, 'closes').map(EgressHost.from).toList(),
-        cost: _string(map, 'cost'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: EgressOutcome(_string(map, 'outcome')),
+    opens: _list(map, 'opens').map(EgressHost.from).toList(),
+    closes: _list(map, 'closes').map(EgressHost.from).toList(),
+    cost: _string(map, 'cost'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// How far a widening goes.
@@ -2155,8 +2148,7 @@ class WidenOutcome {
   /// `NO_PROJECT_FILE` counts. It is a **partial success**: the run was changed and only the file
   /// was not written. Reading it as a failure tells somebody the task still cannot reach the host
   /// when it can, which is the wrong direction to be wrong in.
-  bool get reached =>
-      name == 'WIDENED' || name == 'NARROWED' || name == 'NO_PROJECT_FILE';
+  bool get reached => name == 'WIDENED' || name == 'NARROWED' || name == 'NO_PROJECT_FILE';
 
   /// Whether anything is left to put right.
   ///
@@ -2201,22 +2193,15 @@ class Widened {
   final String detail;
 
   /// Constructor taking every field.
-  const Widened({
-    required this.outcome,
-    required this.opens,
-    required this.persisted,
-    required this.detail,
-  });
+  const Widened({required this.outcome, required this.opens, required this.persisted, required this.detail});
 
   /// Reads one from a reply.
   factory Widened.from(Map<String, dynamic> map) => Widened(
-        outcome: WidenOutcome(_string(map, 'outcome')),
-        opens: (map['opens'] is List)
-            ? (map['opens']! as List).whereType<String>().toList()
-            : const <String>[],
-        persisted: map['persisted'] == true,
-        detail: _string(map, 'detail'),
-      );
+    outcome: WidenOutcome(_string(map, 'outcome')),
+    opens: (map['opens'] is List) ? (map['opens']! as List).whereType<String>().toList() : const <String>[],
+    persisted: map['persisted'] == true,
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What changing enforcement on a running task did.
@@ -2240,20 +2225,15 @@ class ClearanceSet {
   final String detail;
 
   /// Constructor taking every field.
-  const ClearanceSet({
-    required this.outcome,
-    required this.was,
-    required this.now,
-    required this.detail,
-  });
+  const ClearanceSet({required this.outcome, required this.was, required this.now, required this.detail});
 
   /// Reads one from a reply.
   factory ClearanceSet.from(Map<String, dynamic> map) => ClearanceSet(
-        outcome: _string(map, 'outcome'),
-        was: _string(map, 'was'),
-        now: _string(map, 'now'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    was: _string(map, 'was'),
+    now: _string(map, 'now'),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether the task is in the mode that was asked for.
   ///
@@ -2306,12 +2286,12 @@ class Narrowed {
 
   /// Reads one from a reply.
   factory Narrowed.from(Map<String, dynamic> map) => Narrowed(
-        outcome: WidenOutcome(_string(map, 'outcome')),
-        closes: _strings(map, 'closes'),
-        addresses: _int(map, 'addresses'),
-        persisted: map['persisted'] == true,
-        detail: _string(map, 'detail'),
-      );
+    outcome: WidenOutcome(_string(map, 'outcome')),
+    closes: _strings(map, 'closes'),
+    addresses: _int(map, 'addresses'),
+    persisted: map['persisted'] == true,
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// One backup that was taken of a project's mirror.
@@ -2352,12 +2332,12 @@ class Backup {
 
   /// Reads one from a reply.
   factory Backup.from(Map<String, dynamic> map) => Backup(
-        taken: _string(map, 'taken'),
-        bundle: _string(map, 'bundle'),
-        refs: _int(map, 'refs'),
-        present: map['present'] == true,
-        bytes: _int(map, 'bytes'),
-      );
+    taken: _string(map, 'taken'),
+    bundle: _string(map, 'bundle'),
+    refs: _int(map, 'refs'),
+    present: map['present'] == true,
+    bytes: _int(map, 'bytes'),
+  );
 
   /// When it was taken, or null when the record could not say.
   DateTime? get takenAt => taken.isEmpty ? null : DateTime.tryParse(taken);
@@ -2398,12 +2378,7 @@ class HeldWork {
   final DateTime? asOf;
 
   /// Constructor taking every field.
-  const HeldWork({
-    required this.readable,
-    required this.changedFiles,
-    required this.unpushedCommits,
-    this.asOf,
-  });
+  const HeldWork({required this.readable, required this.changedFiles, required this.unpushedCommits, this.asOf});
 
   /// Reads one from a reply.
   factory HeldWork.from(Map<String, dynamic> map) {
@@ -2417,8 +2392,7 @@ class HeldWork {
   }
 
   /// Whether it holds anything at all. **Meaningless unless [readable].**
-  bool get holdsSomething =>
-      readable && (changedFiles > 0 || unpushedCommits > 0);
+  bool get holdsSomething => readable && (changedFiles > 0 || unpushedCommits > 0);
 
   /// Whether the answer is what is true now rather than what was true when it stopped.
   bool get current => asOf == null;
@@ -2464,12 +2438,12 @@ class Synced {
 
   /// Reads one from a reply.
   factory Synced.from(Map<String, dynamic> map) => Synced(
-        outcome: _string(map, 'outcome'),
-        behind: _int(map, 'behind'),
-        measured: map['measured'] == true,
-        reason: _string(map, 'reason'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    behind: _int(map, 'behind'),
+    measured: map['measured'] == true,
+    reason: _string(map, 'reason'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What restoring a mirror from a backup did, or would do.
@@ -2492,20 +2466,15 @@ class Restored {
   final String detail;
 
   /// Constructor taking every field.
-  const Restored({
-    required this.outcome,
-    required this.mirror,
-    required this.unreviewed,
-    required this.detail,
-  });
+  const Restored({required this.outcome, required this.mirror, required this.unreviewed, required this.detail});
 
   /// Reads one from a reply.
   factory Restored.from(Map<String, dynamic> map) => Restored(
-        outcome: _string(map, 'outcome'),
-        mirror: _string(map, 'mirror'),
-        unreviewed: _strings(map, 'unreviewed'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    mirror: _string(map, 'mirror'),
+    unreviewed: _strings(map, 'unreviewed'),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether the mirror was written.
   bool get done => outcome == 'RESTORED';
@@ -2532,20 +2501,15 @@ class BackupDeleted {
   final String detail;
 
   /// Constructor taking every field.
-  const BackupDeleted({
-    required this.outcome,
-    required this.fileRemoved,
-    required this.refs,
-    required this.detail,
-  });
+  const BackupDeleted({required this.outcome, required this.fileRemoved, required this.refs, required this.detail});
 
   /// Reads one from a reply.
   factory BackupDeleted.from(Map<String, dynamic> map) => BackupDeleted(
-        outcome: _string(map, 'outcome'),
-        fileRemoved: map['fileRemoved'] == true,
-        refs: _int(map, 'refs'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    fileRemoved: map['fileRemoved'] == true,
+    refs: _int(map, 'refs'),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether it is gone.
   bool get gone => outcome == 'DELETED';
@@ -2569,11 +2533,8 @@ class Problem {
   const Problem({required this.field, required this.what, required this.fatal});
 
   /// Reads one from a reply.
-  factory Problem.from(Map<String, dynamic> map) => Problem(
-        field: _string(map, 'field'),
-        what: _string(map, 'what'),
-        fatal: map['fatal'] == true,
-      );
+  factory Problem.from(Map<String, dynamic> map) =>
+      Problem(field: _string(map, 'field'), what: _string(map, 'what'), fatal: map['fatal'] == true);
 }
 
 /// What creating a project did, or would do.
@@ -2606,12 +2567,12 @@ class Created {
 
   /// Reads one from a reply.
   factory Created.from(Map<String, dynamic> map) => Created(
-        outcome: _string(map, 'outcome'),
-        file: _string(map, 'file'),
-        content: _string(map, 'content'),
-        problems: _list(map, 'problems').map(Problem.from).toList(),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    file: _string(map, 'file'),
+    content: _string(map, 'content'),
+    problems: _list(map, 'problems').map(Problem.from).toList(),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether a project file now exists.
   bool get written => outcome == 'CREATED';
@@ -2623,12 +2584,10 @@ class Created {
   bool get blocked => problems.any((problem) => problem.fatal);
 
   /// What is wrong and does not block, which is worth showing beside what does.
-  List<Problem> get warnings =>
-      problems.where((problem) => !problem.fatal).toList();
+  List<Problem> get warnings => problems.where((problem) => !problem.fatal).toList();
 
   /// What is wrong and blocks.
-  List<Problem> get refusals =>
-      problems.where((problem) => problem.fatal).toList();
+  List<Problem> get refusals => problems.where((problem) => problem.fatal).toList();
 }
 
 /// One thing outside Porelo that a task depends on.
@@ -2654,20 +2613,15 @@ class Probe {
   final String action;
 
   /// Constructor taking every field.
-  const Probe({
-    required this.name,
-    required this.state,
-    required this.detail,
-    required this.action,
-  });
+  const Probe({required this.name, required this.state, required this.detail, required this.action});
 
   /// Reads one from a reply.
   factory Probe.from(Map<String, dynamic> map) => Probe(
-        name: _string(map, 'name'),
-        state: _string(map, 'state'),
-        detail: _string(map, 'detail'),
-        action: _string(map, 'action'),
-      );
+    name: _string(map, 'name'),
+    state: _string(map, 'state'),
+    detail: _string(map, 'detail'),
+    action: _string(map, 'action'),
+  );
 
   /// Whether this one stops the machine running tasks at all.
   bool get stopsIt => state == 'MISSING';
@@ -2677,14 +2631,14 @@ class Probe {
 
   /// Words for a person, unrecognized states included.
   String get label => switch (state) {
-        'OK' => 'fine',
-        'DEGRADED' => 'works, but not as well as it should',
-        'MISSING' => 'missing',
-        // **Its own answer, never the good case.** A probe that guesses well is indistinguishable
-        // from one that works, so this says so instead of rounding up.
-        'UNKNOWN' => 'could not be established',
-        _ => state.toLowerCase().replaceAll('_', ' '),
-      };
+    'OK' => 'fine',
+    'DEGRADED' => 'works, but not as well as it should',
+    'MISSING' => 'missing',
+    // **Its own answer, never the good case.** A probe that guesses well is indistinguishable
+    // from one that works, so this says so instead of rounding up.
+    'UNKNOWN' => 'could not be established',
+    _ => state.toLowerCase().replaceAll('_', ' '),
+  };
 }
 
 /// Whether a machine can actually run a task, and what it is short of.
@@ -2704,14 +2658,11 @@ class Health {
   const Health({required this.probes, required this.ready});
 
   /// Reads one from a reply.
-  factory Health.from(Map<String, dynamic> map) => Health(
-        probes: _list(map, 'probes').map(Probe.from).toList(),
-        ready: map['ready'] == true,
-      );
+  factory Health.from(Map<String, dynamic> map) =>
+      Health(probes: _list(map, 'probes').map(Probe.from).toList(), ready: map['ready'] == true);
 
   /// What is not fine, which is what a person came to read.
-  List<Probe> get worthReading =>
-      probes.where((probe) => !probe.fine).toList();
+  List<Probe> get worthReading => probes.where((probe) => !probe.fine).toList();
 
   /// Whether it runs tasks but has something worth knowing about.
   bool get readyWithCaveats => ready && worthReading.isNotEmpty;
@@ -2765,15 +2716,15 @@ class Provider {
 
   /// Reads one from a reply.
   factory Provider.from(Map<String, dynamic> map) => Provider(
-        name: _string(map, 'name'),
-        label: _string(map, 'label'),
-        upstream: _string(map, 'upstream'),
-        dialects: _strings(map, 'dialects'),
-        authenticated: map['authenticated'] == true,
-        credentialType: _string(map, 'credentialType'),
-        credentialName: _string(map, 'credentialName'),
-        storeCommand: _string(map, 'storeCommand'),
-      );
+    name: _string(map, 'name'),
+    label: _string(map, 'label'),
+    upstream: _string(map, 'upstream'),
+    dialects: _strings(map, 'dialects'),
+    authenticated: map['authenticated'] == true,
+    credentialType: _string(map, 'credentialType'),
+    credentialName: _string(map, 'credentialName'),
+    storeCommand: _string(map, 'storeCommand'),
+  );
 }
 
 /// What providers a machine has, and whether the answer can be believed.
@@ -2791,10 +2742,8 @@ class Providers {
   const Providers({required this.providers, required this.readable});
 
   /// Reads one from a reply.
-  factory Providers.from(Map<String, dynamic> map) => Providers(
-        providers: _list(map, 'providers').map(Provider.from).toList(),
-        readable: map['readable'] == true,
-      );
+  factory Providers.from(Map<String, dynamic> map) =>
+      Providers(providers: _list(map, 'providers').map(Provider.from).toList(), readable: map['readable'] == true);
 }
 
 /// What importing an agent's own credential did.
@@ -2831,13 +2780,13 @@ class Imported {
 
   /// Reads one from a reply.
   factory Imported.from(Map<String, dynamic> map) => Imported(
-        outcome: _string(map, 'outcome'),
-        name: _string(map, 'name'),
-        type: _string(map, 'type'),
-        length: _int(map, 'length'),
-        source: _string(map, 'source'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    name: _string(map, 'name'),
+    type: _string(map, 'type'),
+    length: _int(map, 'length'),
+    source: _string(map, 'source'),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether a credential is now in the vault.
   bool get stored => outcome == 'IMPORTED';
@@ -2865,19 +2814,18 @@ class Removal {
   const Removal({required this.kind, required this.what});
 
   /// Reads one from a reply.
-  factory Removal.from(Map<String, dynamic> map) =>
-      Removal(kind: _string(map, 'kind'), what: _string(map, 'what'));
+  factory Removal.from(Map<String, dynamic> map) => Removal(kind: _string(map, 'kind'), what: _string(map, 'what'));
 
   /// Words for a person, unrecognized kinds included.
   String get label => switch (kind) {
-        'MIRROR' => 'the mirror',
-        'IMAGE' => 'the image',
-        'BUILD' => 'the build directory',
-        'REGISTRY' => 'its entry in the registry',
-        'UPSTREAM_RECORD' => 'the recorded upstream distance',
-        'TASK' => 'a task, with its container, state and logs',
-        _ => kind.toLowerCase().replaceAll('_', ' '),
-      };
+    'MIRROR' => 'the mirror',
+    'IMAGE' => 'the image',
+    'BUILD' => 'the build directory',
+    'REGISTRY' => 'its entry in the registry',
+    'UPSTREAM_RECORD' => 'the recorded upstream distance',
+    'TASK' => 'a task, with its container, state and logs',
+    _ => kind.toLowerCase().replaceAll('_', ' '),
+  };
 }
 
 /// What removing what Porelo built for a project did, or would do.
@@ -2907,14 +2855,7 @@ class DeleteOutcome {
   static const failed = DeleteOutcome('FAILED');
 
   /// The values this build knows.
-  static const known = <DeleteOutcome>[
-    deleted,
-    previewed,
-    holdsWork,
-    tasksRunning,
-    noSuchProject,
-    failed,
-  ];
+  static const known = <DeleteOutcome>[deleted, previewed, holdsWork, tasksRunning, noSuchProject, failed];
 
   /// Whether this build knows what it means.
   bool get recognized => known.any((value) => value.name == name);
@@ -2990,24 +2931,21 @@ class Deletion {
 
   /// Reads one from a reply.
   factory Deletion.from(Map<String, dynamic> map) => Deletion(
-        outcome: DeleteOutcome(_string(map, 'outcome')),
-        removes: (map['removes'] is List)
-            ? (map['removes']! as List)
-                .whereType<Map<String, dynamic>>()
-                .map(Removal.from)
-                .toList()
-            : const <Removal>[],
-        keeps: _strings(map, 'keeps'),
-        unreviewed: _strings(map, 'unreviewed'),
-        running: _strings(map, 'running'),
-        detail: _string(map, 'detail'),
-        keys: <MachineDeployKey>[
-          if (map['keys'] case final List<dynamic> keys)
-            for (final each in keys)
-              if (each is Map<String, dynamic>) MachineDeployKey.from(each),
-        ],
-        signer: map['signer'] is Map<String, dynamic> ? MachineKey.from(map['signer'] as Map<String, dynamic>) : null,
-      );
+    outcome: DeleteOutcome(_string(map, 'outcome')),
+    removes: (map['removes'] is List)
+        ? (map['removes']! as List).whereType<Map<String, dynamic>>().map(Removal.from).toList()
+        : const <Removal>[],
+    keeps: _strings(map, 'keeps'),
+    unreviewed: _strings(map, 'unreviewed'),
+    running: _strings(map, 'running'),
+    detail: _string(map, 'detail'),
+    keys: <MachineDeployKey>[
+      if (map['keys'] case final List<dynamic> keys)
+        for (final each in keys)
+          if (each is Map<String, dynamic>) MachineDeployKey.from(each),
+    ],
+    signer: map['signer'] is Map<String, dynamic> ? MachineKey.from(map['signer'] as Map<String, dynamic>) : null,
+  );
 
   /// How many tasks would go with it, which is the number people react to.
   int get tasks => removes.where((each) => each.kind == 'TASK').length;
@@ -3028,26 +2966,23 @@ class Labelled {
   const Labelled({required this.outcome, required this.label});
 
   /// Reads one from a reply.
-  factory Labelled.from(Map<String, dynamic> map) => Labelled(
-        outcome: _string(map, 'outcome'),
-        label: _string(map, 'label'),
-      );
+  factory Labelled.from(Map<String, dynamic> map) =>
+      Labelled(outcome: _string(map, 'outcome'), label: _string(map, 'label'));
 
   /// Whether anything changed.
   bool get worked => outcome == 'LABELLED' || outcome == 'CLEARED';
 
   /// Words for a person.
   String get words => switch (outcome) {
-        'LABELLED' => 'It reads as "$label" now. Its real name has not moved.',
-        'CLEARED' => 'The caption is gone. It reads as its own name again.',
-        'NOT_A_TASK' => 'There is no work by that name here.',
-        // Started by an older Porelo, which recorded nothing to write a caption into. A state, not
-        // a failure of this action.
-        'NOT_RECORDED' =>
-          'This was started by an older Porelo, which kept nowhere to write a caption.',
-        'FAILED' => 'That did not work.',
-        _ => outcome.toLowerCase().replaceAll('_', ' '),
-      };
+    'LABELLED' => 'It reads as "$label" now. Its real name has not moved.',
+    'CLEARED' => 'The caption is gone. It reads as its own name again.',
+    'NOT_A_TASK' => 'There is no work by that name here.',
+    // Started by an older Porelo, which recorded nothing to write a caption into. A state, not
+    // a failure of this action.
+    'NOT_RECORDED' => 'This was started by an older Porelo, which kept nowhere to write a caption.',
+    'FAILED' => 'That did not work.',
+    _ => outcome.toLowerCase().replaceAll('_', ' '),
+  };
 }
 
 /// Whether work can start, and what stands in the way.
@@ -3221,61 +3156,63 @@ class Readiness {
           detail: detail,
           storeCommand: storeCommand,
           host: host,
-          hostKeys: hostKeys);
+          hostKeys: hostKeys,
+        );
 
   /// Reads one from a reply.
   factory Readiness.from(Map<String, dynamic> map) => Readiness(
-        ready: map['ready'] == true,
-        outcome: StartOutcome(_string(map, 'outcome')),
-        agent: _string(map, 'agent'),
-        provider: _string(map, 'provider'),
-        credential: _string(map, 'credential'),
-        detail: _string(map, 'detail'),
-        storeCommand: _strings(map, 'storeCommand'),
-        host: _string(map, 'host'),
-        hostKeys: map['hostKeys'] is List
-            ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()
-            : const <HostKey>[],
-      );
+    ready: map['ready'] == true,
+    outcome: StartOutcome(_string(map, 'outcome')),
+    agent: _string(map, 'agent'),
+    provider: _string(map, 'provider'),
+    credential: _string(map, 'credential'),
+    detail: _string(map, 'detail'),
+    storeCommand: _strings(map, 'storeCommand'),
+    host: _string(map, 'host'),
+    hostKeys: map['hostKeys'] is List
+        ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()
+        : const <HostKey>[],
+  );
 
   /// What to do about it, in one line, or empty when there is nothing to do.
   ///
   /// **Three of these are different actions**, and confusing them sends somebody to the wrong
   /// place: choosing a provider is not storing a secret, and neither is unlocking a vault.
   String get whatToDo => switch (outcome.name) {
-        'READY' => '',
-        'NO_PROVIDER_CHOSEN' =>
-          'This agent names no default provider. Choose one — this is a provider, not a secret.',
-        'CREDENTIAL_MISSING' => credential.isEmpty
-            ? 'The vault holds no credential for this.'
-            : 'The vault holds no credential called $credential. Store one and try again.',
-        'CREDENTIAL_UNUSABLE' =>
-          'There is a credential called $credential and it cannot be used the way this provider '
-              'needs it.',
-        'VAULT_LOCKED' =>
-          'The vault is shut, so nothing here can say what it holds. Unlock it at the machine: '
-              'a daemon has no terminal to take a passphrase at.',
-        'NO_AGENT' => 'Nothing is installed here to run work with.',
-        'UNKNOWN_AGENT' => '$agent is not installed on this machine.',
-        'UNKNOWN_HOST_KEY' => 'This machine has never met ${host.isEmpty ? 'the repository’s host' : host}, so '
-            'it cannot fetch from there yet. Trust its key first.',
-        'HOST_KEY_CHANGED' => '${host.isEmpty ? 'The repository’s host' : host} offers another key than the one '
-            'this machine remembers. That is what somebody in between looks like: find out why before going on.',
-        'SEVERAL_AGENTS' => 'More than one agent is installed. Choose which to run.',
-        'UNKNOWN_PROVIDER' => '$provider is not a provider this machine knows.',
-        'WRONG_DIALECT' => '$provider does not speak what $agent expects.',
-        'NO_PROJECT_FILE' => 'No project file is recorded, and starting takes one.',
-        'BAD_TASK_NAME' => detail.isEmpty ? 'This is not a name a task can have.' : detail,
-        'NO_REPOSITORY_CHOSEN' => 'Choose which repository the work starts in.',
-        'UNKNOWN_REPOSITORY' => detail.isEmpty ? 'The project has no repository of that name.' : detail,
-        'AUTHORIZATION_NEEDED' =>
-          'Nobody has granted $credential yet. It is granted once, in a browser, and later tasks use it.',
-        'UNKNOWN_DESTINATION' => detail.isEmpty
-            ? '$credential is for a destination this machine does not declare.'
-            : detail,
-        // Added after this build shipped: the daemon's own words rather than silence.
-        _ => detail.isEmpty ? 'This cannot start, and nothing said why.' : detail,
-      };
+    'READY' => '',
+    'NO_PROVIDER_CHOSEN' => 'This agent names no default provider. Choose one — this is a provider, not a secret.',
+    'CREDENTIAL_MISSING' =>
+      credential.isEmpty
+          ? 'The vault holds no credential for this.'
+          : 'The vault holds no credential called $credential. Store one and try again.',
+    'CREDENTIAL_UNUSABLE' =>
+      'There is a credential called $credential and it cannot be used the way this provider '
+          'needs it.',
+    'VAULT_LOCKED' =>
+      'The vault is shut, so nothing here can say what it holds. Unlock it at the machine: '
+          'a daemon has no terminal to take a passphrase at.',
+    'NO_AGENT' => 'Nothing is installed here to run work with.',
+    'UNKNOWN_AGENT' => '$agent is not installed on this machine.',
+    'UNKNOWN_HOST_KEY' =>
+      'This machine has never met ${host.isEmpty ? 'the repository’s host' : host}, so '
+          'it cannot fetch from there yet. Trust its key first.',
+    'HOST_KEY_CHANGED' =>
+      '${host.isEmpty ? 'The repository’s host' : host} offers another key than the one '
+          'this machine remembers. That is what somebody in between looks like: find out why before going on.',
+    'SEVERAL_AGENTS' => 'More than one agent is installed. Choose which to run.',
+    'UNKNOWN_PROVIDER' => '$provider is not a provider this machine knows.',
+    'WRONG_DIALECT' => '$provider does not speak what $agent expects.',
+    'NO_PROJECT_FILE' => 'No project file is recorded, and starting takes one.',
+    'BAD_TASK_NAME' => detail.isEmpty ? 'This is not a name a task can have.' : detail,
+    'NO_REPOSITORY_CHOSEN' => 'Choose which repository the work starts in.',
+    'UNKNOWN_REPOSITORY' => detail.isEmpty ? 'The project has no repository of that name.' : detail,
+    'AUTHORIZATION_NEEDED' =>
+      'Nobody has granted $credential yet. It is granted once, in a browser, and later tasks use it.',
+    'UNKNOWN_DESTINATION' =>
+      detail.isEmpty ? '$credential is for a destination this machine does not declare.' : detail,
+    // Added after this build shipped: the daemon's own words rather than silence.
+    _ => detail.isEmpty ? 'This cannot start, and nothing said why.' : detail,
+  };
 }
 
 /// One piece of work an emergency stop reached.
@@ -3293,18 +3230,11 @@ class PanickedTask {
   final List<String> surviving;
 
   /// Constructor taking every field.
-  const PanickedTask({
-    required this.name,
-    required this.helpers,
-    required this.surviving,
-  });
+  const PanickedTask({required this.name, required this.helpers, required this.surviving});
 
   /// Reads one from a reply.
-  factory PanickedTask.from(Map<String, dynamic> map) => PanickedTask(
-        name: _string(map, 'name'),
-        helpers: _int(map, 'helpers'),
-        surviving: _strings(map, 'surviving'),
-      );
+  factory PanickedTask.from(Map<String, dynamic> map) =>
+      PanickedTask(name: _string(map, 'name'), helpers: _int(map, 'helpers'), surviving: _strings(map, 'surviving'));
 }
 
 /// What an emergency stop did.
@@ -3340,18 +3270,14 @@ class Panicked {
   int get stopped => tasks.length;
 
   /// Constructor taking every field.
-  const Panicked({
-    required this.tasks,
-    required this.surviving,
-    required this.previewed,
-  });
+  const Panicked({required this.tasks, required this.surviving, required this.previewed});
 
   /// Reads one from a reply.
   factory Panicked.from(Map<String, dynamic> map) => Panicked(
-        tasks: _list(map, 'tasks').map(PanickedTask.from).toList(),
-        surviving: _strings(map, 'surviving'),
-        previewed: map['previewed'] == true,
-      );
+    tasks: _list(map, 'tasks').map(PanickedTask.from).toList(),
+    surviving: _strings(map, 'surviving'),
+    previewed: map['previewed'] == true,
+  );
 }
 
 /// One of a task's log files.
@@ -3379,13 +3305,13 @@ class Log {
 
   /// Reads one from a reply.
   factory Log.from(Map<String, dynamic> map) => Log(
-        name: _string(map, 'name'),
-        bytes: _int(map, 'bytes'),
-        at: _string(map, 'at'),
-        // Absent, empty and whitespace all mean the same thing: nothing to say. A blank line under
-        // a name would read as a description that failed rather than as one that was never given.
-        what: _optional(map, 'what'),
-      );
+    name: _string(map, 'name'),
+    bytes: _int(map, 'bytes'),
+    at: _string(map, 'at'),
+    // Absent, empty and whitespace all mean the same thing: nothing to say. A blank line under
+    // a name would read as a description that failed rather than as one that was never given.
+    what: _optional(map, 'what'),
+  );
 }
 
 /// A push waiting at the gate for a decision.
@@ -3436,14 +3362,14 @@ class PendingPush {
 
   /// The same push, waiting in [repository].
   PendingPush inRepository(String repository) => PendingPush(
-        name: name,
-        commit: commit,
-        subject: subject,
-        waiting: waiting,
-        at: at,
-        repository: repository,
-        fetch: fetch,
-      );
+    name: name,
+    commit: commit,
+    subject: subject,
+    waiting: waiting,
+    at: at,
+    repository: repository,
+    fetch: fetch,
+  );
 
   /// What tells it apart: the same ref name can wait in two repositories. A colon is not allowed
   /// in a ref name, so it cannot be part of one.
@@ -3451,13 +3377,13 @@ class PendingPush {
 
   /// Reads one from a reply.
   factory PendingPush.from(Map<String, dynamic> map) => PendingPush(
-        name: _string(map, 'name'),
-        commit: _string(map, 'commit'),
-        subject: _string(map, 'subject'),
-        waiting: _string(map, 'waiting'),
-        at: _string(map, 'at'),
-        fetch: map['fetch'] is String ? map['fetch'] as String : '',
-      );
+    name: _string(map, 'name'),
+    commit: _string(map, 'commit'),
+    subject: _string(map, 'subject'),
+    waiting: _string(map, 'waiting'),
+    at: _string(map, 'at'),
+    fetch: map['fetch'] is String ? map['fetch'] as String : '',
+  );
 }
 
 /// A connection a task tried to make and was stopped for.
@@ -3518,24 +3444,23 @@ class Prompt {
 
   /// Reads one from a reply.
   factory Prompt.from(Map<String, dynamic> map) => Prompt(
-        task: _string(map, 'task'),
-        key: _string(map, 'key'),
-        destination: _string(map, 'destination'),
-        protocol: _string(map, 'protocol'),
-        port: _int(map, 'port'),
-        at: _string(map, 'at'),
-        prefix: _string(map, 'prefix'),
-        // Genuinely absent rather than empty, which is the difference between an open question
-        // and one that was settled by something this build has never heard of.
-        verdict: map['verdict'] is String ? map['verdict'] as String : null,
-        // Not `_optional`: absent and empty are different answers here.
-        deadline: map['deadline'] is String ? map['deadline'] as String : null,
-        missed: _int(map, 'missed'),
-      );
+    task: _string(map, 'task'),
+    key: _string(map, 'key'),
+    destination: _string(map, 'destination'),
+    protocol: _string(map, 'protocol'),
+    port: _int(map, 'port'),
+    at: _string(map, 'at'),
+    prefix: _string(map, 'prefix'),
+    // Genuinely absent rather than empty, which is the difference between an open question
+    // and one that was settled by something this build has never heard of.
+    verdict: map['verdict'] is String ? map['verdict'] as String : null,
+    // Not `_optional`: absent and empty are different answers here.
+    deadline: map['deadline'] is String ? map['deadline'] as String : null,
+    missed: _int(map, 'missed'),
+  );
 
   /// When it runs out, or null when nothing says or it never does.
-  DateTime? get expiresAt =>
-      deadline == null || deadline!.isEmpty ? null : DateTime.tryParse(deadline!);
+  DateTime? get expiresAt => deadline == null || deadline!.isEmpty ? null : DateTime.tryParse(deadline!);
 
   /// Whether the daemon said this one never runs out, as opposed to saying nothing.
   bool get neverRunsOut => deadline != null && deadline!.isEmpty;
@@ -3582,11 +3507,11 @@ class Stopped {
 
   /// Reads one from a reply.
   factory Stopped.from(Map<String, dynamic> map) => Stopped(
-        outcome: Outcome(_string(map, 'outcome')),
-        helpers: _int(map, 'helpers'),
-        surviving: _int(map, 'surviving'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: Outcome(_string(map, 'outcome')),
+    helpers: _int(map, 'helpers'),
+    surviving: _int(map, 'surviving'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What a removal did, or refused to do.
@@ -3622,13 +3547,13 @@ class Removed {
 
   /// Reads one from a reply.
   factory Removed.from(Map<String, dynamic> map) => Removed(
-        outcome: Outcome(_string(map, 'outcome')),
-        work: _string(map, 'work'),
-        rescuedRef: _string(map, 'rescuedRef'),
-        removed: map['removed'] == true,
-        discarded: _int(map, 'discarded'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: Outcome(_string(map, 'outcome')),
+    work: _string(map, 'work'),
+    rescuedRef: _string(map, 'rescuedRef'),
+    removed: map['removed'] == true,
+    discarded: _int(map, 'discarded'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What the vault holds, without any of it.
@@ -3665,12 +3590,12 @@ class VaultState {
 
   /// Reads one from a reply.
   factory VaultState.from(Map<String, dynamic> map) => VaultState(
-        vault: _string(map, 'vault'),
-        exists: map['exists'] == true,
-        credentials: _list(map, 'credentials').map(Credential.from).toList(),
-        readable: map['readable'] == true,
-        connections: _list(map, 'connections').map(Connection.from).toList(),
-      );
+    vault: _string(map, 'vault'),
+    exists: map['exists'] == true,
+    credentials: _list(map, 'credentials').map(Credential.from).toList(),
+    readable: map['readable'] == true,
+    connections: _list(map, 'connections').map(Connection.from).toList(),
+  );
 }
 
 /// What the gate has waiting for a project.
@@ -3688,20 +3613,15 @@ class GateState {
   final List<PendingPush> pending;
 
   /// Constructor taking every field.
-  const GateState({
-    required this.mirror,
-    required this.mode,
-    required this.seededFrom,
-    required this.pending,
-  });
+  const GateState({required this.mirror, required this.mode, required this.seededFrom, required this.pending});
 
   /// Reads one from a reply.
   factory GateState.from(Map<String, dynamic> map) => GateState(
-        mirror: _string(map, 'mirror'),
-        mode: _string(map, 'mode'),
-        seededFrom: _string(map, 'seededFrom'),
-        pending: _list(map, 'pending').map(PendingPush.from).toList(),
-      );
+    mirror: _string(map, 'mirror'),
+    mode: _string(map, 'mode'),
+    seededFrom: _string(map, 'seededFrom'),
+    pending: _list(map, 'pending').map(PendingPush.from).toList(),
+  );
 }
 
 /// What a backend says it is.
@@ -3719,20 +3639,15 @@ class ServiceInfo {
   final List<String> interfaces;
 
   /// Constructor taking every field.
-  const ServiceInfo({
-    required this.product,
-    required this.version,
-    required this.vendor,
-    required this.interfaces,
-  });
+  const ServiceInfo({required this.product, required this.version, required this.vendor, required this.interfaces});
 
   /// Reads one from a reply.
   factory ServiceInfo.from(Map<String, dynamic> map) => ServiceInfo(
-        product: _string(map, 'product'),
-        version: _string(map, 'version'),
-        vendor: _string(map, 'vendor'),
-        interfaces: _strings(map, 'interfaces'),
-      );
+    product: _string(map, 'product'),
+    version: _string(map, 'version'),
+    vendor: _string(map, 'vendor'),
+    interfaces: _strings(map, 'interfaces'),
+  );
 }
 
 // Readers that never throw on a shape the backend did not promise. New reply fields are expected
@@ -3741,10 +3656,10 @@ class ServiceInfo {
 
 /// A map of strings from a reply, leaving out any value that is not one.
 Map<String, String> _stringMap(Map<String, dynamic> map, String key) => <String, String>{
-      if (map[key] case final Map<String, dynamic> each)
-        for (final entry in each.entries)
-          if (entry.value is String) entry.key: entry.value as String,
-    };
+  if (map[key] case final Map<String, dynamic> each)
+    for (final entry in each.entries)
+      if (entry.value is String) entry.key: entry.value as String,
+};
 
 String _string(Map<String, dynamic> map, String key) {
   final value = map[key];
@@ -3832,19 +3747,17 @@ class Repository {
 
   /// Reads one from a reply.
   factory Repository.from(Map<String, dynamic> map) => Repository(
-        name: _string(map, 'name'),
-        own: map['own'] == true,
-        upstream: _string(map, 'upstream'),
-        mirror: _string(map, 'mirror'),
-        pending: _int(map, 'pending'),
-        behind: _int(map, 'behind'),
-        behindMeasured: _string(map, 'behindMeasured'),
-        behindReason: _string(map, 'behindReason'),
-        behindDetail: _string(map, 'behindDetail'),
-        limits: map['limits'] is Map<String, dynamic>
-            ? ResolvedLimits.from(map['limits']! as Map<String, dynamic>)
-            : null,
-      );
+    name: _string(map, 'name'),
+    own: map['own'] == true,
+    upstream: _string(map, 'upstream'),
+    mirror: _string(map, 'mirror'),
+    pending: _int(map, 'pending'),
+    behind: _int(map, 'behind'),
+    behindMeasured: _string(map, 'behindMeasured'),
+    behindReason: _string(map, 'behindReason'),
+    behindDetail: _string(map, 'behindDetail'),
+    limits: map['limits'] is Map<String, dynamic> ? ResolvedLimits.from(map['limits']! as Map<String, dynamic>) : null,
+  );
 
   /// A project's repositories, **the project's own first**, from either shape Porelo has answered:
   /// names alone, as it first did, or an object each, as it does since. One without a name is
@@ -3854,10 +3767,7 @@ class Repository {
     if (value is! List) return const <Repository>[];
     final all = <Repository>[
       for (final each in value)
-        if (each is String)
-          Repository(name: each)
-        else if (each is Map<String, dynamic>)
-          Repository.from(each),
+        if (each is String) Repository(name: each) else if (each is Map<String, dynamic>) Repository.from(each),
     ].where((each) => each.name.isNotEmpty).toList();
     return <Repository>[...all.where((each) => each.own), ...all.where((each) => !each.own)];
   }
@@ -3882,9 +3792,7 @@ String _behindWords(String reason, int behind, String measured, String detail) {
     'NEVER_CHECKED' => 'Never checked against the upstream',
     'NO_UPSTREAM' => 'No upstream to fall behind',
     'OFFLINE' => 'Not checked: this project reaches nothing',
-    'FAILED' => detail.isEmpty
-        ? 'The last check did not work'
-        : 'The last check did not work: $detail',
+    'FAILED' => detail.isEmpty ? 'The last check did not work' : 'The last check did not work: $detail',
     // Added after this build shipped. Rendered, never thrown on.
     '' => 'Nothing said how far behind it is',
     _ => reason.toLowerCase().replaceAll('_', ' '),
@@ -3974,25 +3882,25 @@ class Followed {
 
   /// Reads one from a reply.
   factory Followed.from(Map<String, dynamic> map) => Followed(
-        name: _string(map, 'name'),
-        url: _string(map, 'url'),
-        commit: _string(map, 'commit'),
-        at: _string(map, 'at'),
-        outcome: _string(map, 'outcome'),
-        refused: _string(map, 'refused'),
-        signer: _string(map, 'signer'),
-        detail: _string(map, 'detail'),
-        needsAPerson: map['needsAPerson'] == true,
-        unverified: map['unverified'] == true,
-        storeCommand: _string(map, 'storeCommand'),
-        recorded: map['recorded'] == true,
-        signers: map['signers'] is List ? <String>[for (final each in map['signers'] as List) '$each'] : const <String>[],
-        pinned: map['pinned'] is List ? <String>[for (final each in map['pinned'] as List) '$each'] : const <String>[],
-        host: _string(map, 'host'),
-        hostKeys: map['hostKeys'] is List
-            ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()
-            : const <HostKey>[],
-      );
+    name: _string(map, 'name'),
+    url: _string(map, 'url'),
+    commit: _string(map, 'commit'),
+    at: _string(map, 'at'),
+    outcome: _string(map, 'outcome'),
+    refused: _string(map, 'refused'),
+    signer: _string(map, 'signer'),
+    detail: _string(map, 'detail'),
+    needsAPerson: map['needsAPerson'] == true,
+    unverified: map['unverified'] == true,
+    storeCommand: _string(map, 'storeCommand'),
+    recorded: map['recorded'] == true,
+    signers: map['signers'] is List ? <String>[for (final each in map['signers'] as List) '$each'] : const <String>[],
+    pinned: map['pinned'] is List ? <String>[for (final each in map['pinned'] as List) '$each'] : const <String>[],
+    host: _string(map, 'host'),
+    hostKeys: map['hostKeys'] is List
+        ? (map['hostKeys'] as List).whereType<Map<String, dynamic>>().map(HostKey.from).toList()
+        : const <HostKey>[],
+  );
 
   /// A project's `following`, or null when it follows nothing: absent, or an empty object — the
   /// contract has said both, and neither is a follow.
@@ -4010,8 +3918,7 @@ class Followed {
   String get words {
     final turnedAway = refused.isEmpty ? 'the newest commit' : 'commit ${_short(refused)}';
     final why = switch (outcome) {
-      'APPLIED' || 'UNCHANGED' =>
-        commit.isEmpty ? 'Following' : 'Following, at ${_short(commit)}',
+      'APPLIED' || 'UNCHANGED' => commit.isEmpty ? 'Following' : 'Following, at ${_short(commit)}',
       'NOT_SIGNED' => 'Not taken: $turnedAway is not signed',
       'UNKNOWN_KEY' => 'Not taken: $turnedAway is signed by a key this machine was never given',
       'NO_ANCHOR' => 'Not taken: no key is pinned here, so nothing can be verified',
@@ -4025,8 +3932,7 @@ class Followed {
       'HOST_KEY_CHANGED' =>
         'Not taken: the host offered a different key from the one this machine remembers — this can '
             'be somebody in between',
-      'VAULT_LOCKED' =>
-        "This account's store is shut, and the repository needs a credential from it",
+      'VAULT_LOCKED' => "This account's store is shut, and the repository needs a credential from it",
       'UNUSABLE' => 'Not taken: the project file in $turnedAway does not read as a project',
       'FAILED' => 'The last attempt did not work',
       '' => 'Followed, and not tried yet',
@@ -4075,13 +3981,13 @@ class ResolvedLimits {
 
   /// Reads one from a reply.
   factory ResolvedLimits.from(Map<String, dynamic> map) => ResolvedLimits(
-        memory: _string(map, 'memory'),
-        cpus: _string(map, 'cpus'),
-        pids: _int(map, 'pids'),
-        memoryFrom: _string(map, 'memoryFrom'),
-        cpusFrom: _string(map, 'cpusFrom'),
-        pidsFrom: _string(map, 'pidsFrom'),
-      );
+    memory: _string(map, 'memory'),
+    cpus: _string(map, 'cpus'),
+    pids: _int(map, 'pids'),
+    memoryFrom: _string(map, 'memoryFrom'),
+    cpusFrom: _string(map, 'cpusFrom'),
+    pidsFrom: _string(map, 'pidsFrom'),
+  );
 
   /// All three in one line, the ones the repository replaced marked as its own.
   String get words {
@@ -4095,8 +4001,7 @@ class ResolvedLimits {
   }
 
   /// Whether the repository replaced any of the project's keys.
-  bool get anyOfItsOwn =>
-      memoryFrom == 'repository' || cpusFrom == 'repository' || pidsFrom == 'repository';
+  bool get anyOfItsOwn => memoryFrom == 'repository' || cpusFrom == 'repository' || pidsFrom == 'repository';
 }
 
 /// One credential a machine may use to reach somewhere, described without its secret.
@@ -4145,34 +4050,34 @@ class Connection {
 
   /// Reads one from a reply.
   factory Connection.from(Map<String, dynamic> map) => Connection(
-        id: _string(map, 'id'),
-        kind: _string(map, 'kind'),
-        match: _string(map, 'match'),
-        user: _string(map, 'user'),
-        purpose: _string(map, 'purpose'),
-        source: _string(map, 'source'),
-        protected: map['protected'] == true,
-        present: map['present'] == true,
-        expires: _string(map, 'expires'),
-      );
+    id: _string(map, 'id'),
+    kind: _string(map, 'kind'),
+    match: _string(map, 'match'),
+    user: _string(map, 'user'),
+    purpose: _string(map, 'purpose'),
+    source: _string(map, 'source'),
+    protected: map['protected'] == true,
+    present: map['present'] == true,
+    expires: _string(map, 'expires'),
+  );
 
   /// The kind, for a person.
   String get kindWords => switch (kind) {
-        'SSH_KEY' => 'an ssh key',
-        'TOKEN' => 'a token',
-        'BASIC' => 'a user and password',
-        'OAUTH' => 'an OAuth token',
-        _ => kind.toLowerCase().replaceAll('_', ' '),
-      };
+    'SSH_KEY' => 'an ssh key',
+    'TOKEN' => 'a token',
+    'BASIC' => 'a user and password',
+    'OAUTH' => 'an OAuth token',
+    _ => kind.toLowerCase().replaceAll('_', ' '),
+  };
 
   /// Where the value is, for a person.
   String get sourceWords => switch (source) {
-        'VAULT' => 'in the vault as $id',
-        'FILE' => 'in the file $id',
-        'ENVIRONMENT' => 'in the variable $id',
-        'AGENT' => "from the account's own ssh agent",
-        _ => source.toLowerCase(),
-      };
+    'VAULT' => 'in the vault as $id',
+    'FILE' => 'in the file $id',
+    'ENVIRONMENT' => 'in the variable $id',
+    'AGENT' => "from the account's own ssh agent",
+    _ => source.toLowerCase(),
+  };
 }
 
 /// What declaring a connection wrote, and how its value is stored.
@@ -4221,17 +4126,17 @@ class CredentialDeclared {
 
   /// Reads one from a reply.
   factory CredentialDeclared.from(Map<String, dynamic> map) => CredentialDeclared(
-        connection: map['connection'] is Map<String, dynamic>
-            ? Connection.from(map['connection']! as Map<String, dynamic>)
-            : const Connection(),
-        storeCommand: _strings(map, 'storeCommand'),
-        storeStdin: _string(map, 'storeStdin'),
-        replaced: map['replaced'] == true,
-        recorded: map['recorded'] == true,
-        outcome: _string(map, 'outcome'),
-        identity: _string(map, 'identity'),
-        detail: _string(map, 'detail'),
-      );
+    connection: map['connection'] is Map<String, dynamic>
+        ? Connection.from(map['connection']! as Map<String, dynamic>)
+        : const Connection(),
+    storeCommand: _strings(map, 'storeCommand'),
+    storeStdin: _string(map, 'storeStdin'),
+    replaced: map['replaced'] == true,
+    recorded: map['recorded'] == true,
+    outcome: _string(map, 'outcome'),
+    identity: _string(map, 'identity'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// What forgetting a connection did. **The secret is not removed.**
@@ -4246,10 +4151,8 @@ class CredentialForgotten {
   const CredentialForgotten({required this.forgotten, this.leftBehind = ''});
 
   /// Reads one from a reply.
-  factory CredentialForgotten.from(Map<String, dynamic> map) => CredentialForgotten(
-        forgotten: map['forgotten'] == true,
-        leftBehind: _string(map, 'leftBehind'),
-      );
+  factory CredentialForgotten.from(Map<String, dynamic> map) =>
+      CredentialForgotten(forgotten: map['forgotten'] == true, leftBehind: _string(map, 'leftBehind'));
 }
 
 /// One key a host offers: what a person compares with what they were told, out of band.
@@ -4287,11 +4190,11 @@ class HostKeyTrusted {
 
   /// Reads one from a reply.
   factory HostKeyTrusted.from(Map<String, dynamic> map) => HostKeyTrusted(
-        recorded: map['recorded'] == true,
-        type: _string(map, 'type'),
-        fingerprint: _string(map, 'fingerprint'),
-        detail: _string(map, 'detail'),
-      );
+    recorded: map['recorded'] == true,
+    type: _string(map, 'type'),
+    fingerprint: _string(map, 'fingerprint'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// An ssh key the machine's account already has, described without its value.
@@ -4341,16 +4244,16 @@ class SshKey {
 
   /// Reads one from a reply.
   factory SshKey.from(Map<String, dynamic> map) => SshKey(
-        path: _string(map, 'path'),
-        type: _string(map, 'type'),
-        fingerprint: _string(map, 'fingerprint'),
-        comment: _string(map, 'comment'),
-        encrypted: map['encrypted'] == true,
-        privateHalf: map['privateHalf'] == true,
-        usable: map['usable'] == true,
-        found: _string(map, 'found'),
-        obstacle: _string(map, 'obstacle'),
-      );
+    path: _string(map, 'path'),
+    type: _string(map, 'type'),
+    fingerprint: _string(map, 'fingerprint'),
+    comment: _string(map, 'comment'),
+    encrypted: map['encrypted'] == true,
+    privateHalf: map['privateHalf'] == true,
+    usable: map['usable'] == true,
+    found: _string(map, 'found'),
+    obstacle: _string(map, 'obstacle'),
+  );
 
   /// Whether it can be named as a key kept where it lies: ssh signs with the private file itself.
   bool get servesWhereItLies => privateHalf;
@@ -4386,14 +4289,14 @@ class CredentialChecked {
 
   /// Reads one from a reply.
   factory CredentialChecked.from(Map<String, dynamic> map) => CredentialChecked(
-        outcome: _string(map, 'outcome'),
-        connection: map['connection'] is Map<String, dynamic>
-            ? Connection.from(map['connection']! as Map<String, dynamic>)
-            : const Connection(),
-        storeCommand: _strings(map, 'storeCommand'),
-        storeStdin: _string(map, 'storeStdin'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    connection: map['connection'] is Map<String, dynamic>
+        ? Connection.from(map['connection']! as Map<String, dynamic>)
+        : const Connection(),
+    storeCommand: _strings(map, 'storeCommand'),
+    storeStdin: _string(map, 'storeStdin'),
+    detail: _string(map, 'detail'),
+  );
 
   /// Whether nothing stands in the way — including a local path, which needs nothing.
   bool get clear => outcome == 'READY' || outcome == 'NOT_NEEDED';
@@ -4450,17 +4353,17 @@ class HeldMessage {
 
   /// Reads one from a reply.
   factory HeldMessage.from(Map<String, dynamic> map) => HeldMessage(
-        task: _string(map, 'task'),
-        standing: _string(map, 'standing'),
-        message: _string(map, 'message'),
-        id: _string(map, 'id'),
-        role: _string(map, 'role'),
-        peer: _string(map, 'peer'),
-        kind: _string(map, 'kind'),
-        at: _string(map, 'at'),
-        reason: _string(map, 'reason'),
-        direction: _string(map, 'direction'),
-      );
+    task: _string(map, 'task'),
+    standing: _string(map, 'standing'),
+    message: _string(map, 'message'),
+    id: _string(map, 'id'),
+    role: _string(map, 'role'),
+    peer: _string(map, 'peer'),
+    kind: _string(map, 'kind'),
+    at: _string(map, 'at'),
+    reason: _string(map, 'reason'),
+    direction: _string(map, 'direction'),
+  );
 
   /// Whether a person still has something to decide: held, or refused by the filter and so still
   /// deliverable after all. What a person refused for good, or the filter could not check, is only
@@ -4524,18 +4427,18 @@ class HeldMessageRead {
 
   /// Reads one from a reply.
   factory HeldMessageRead.from(Map<String, dynamic> map) => HeldMessageRead(
-        outcome: _string(map, 'outcome'),
-        standing: _string(map, 'standing'),
-        message: _string(map, 'message'),
-        id: _string(map, 'id'),
-        role: _string(map, 'role'),
-        peer: _string(map, 'peer'),
-        kind: _string(map, 'kind'),
-        at: _string(map, 'at'),
-        text: _strings(map, 'text'),
-        reason: _string(map, 'reason'),
-        direction: _string(map, 'direction'),
-      );
+    outcome: _string(map, 'outcome'),
+    standing: _string(map, 'standing'),
+    message: _string(map, 'message'),
+    id: _string(map, 'id'),
+    role: _string(map, 'role'),
+    peer: _string(map, 'peer'),
+    kind: _string(map, 'kind'),
+    at: _string(map, 'at'),
+    text: _strings(map, 'text'),
+    reason: _string(map, 'reason'),
+    direction: _string(map, 'direction'),
+  );
 
   /// Whether it was there to read.
   bool get found => outcome == 'FOUND';
@@ -4560,11 +4463,11 @@ class MessageRelease {
 
   /// Reads one from a reply.
   factory MessageRelease.from(Map<String, dynamic> map) => MessageRelease(
-        outcome: _string(map, 'outcome'),
-        message: _string(map, 'message'),
-        id: _string(map, 'id'),
-        detail: _string(map, 'detail'),
-      );
+    outcome: _string(map, 'outcome'),
+    message: _string(map, 'message'),
+    id: _string(map, 'id'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// Something that happened to a message in one mailbox, as `Talk` streams it. **Never what the
@@ -4604,14 +4507,14 @@ class TalkEvent {
 
   /// Reads one from a reply.
   factory TalkEvent.from(Map<String, dynamic> map) => TalkEvent(
-        task: _string(map, 'task'),
-        at: _string(map, 'at'),
-        event: _string(map, 'event'),
-        message: _string(map, 'message'),
-        id: _string(map, 'id'),
-        peer: _string(map, 'peer'),
-        detail: _string(map, 'detail'),
-      );
+    task: _string(map, 'task'),
+    at: _string(map, 'at'),
+    event: _string(map, 'event'),
+    message: _string(map, 'message'),
+    id: _string(map, 'id'),
+    peer: _string(map, 'peer'),
+    detail: _string(map, 'detail'),
+  );
 }
 
 /// One peer a task may address, and what a person decided about it, as `Peers` answers.
@@ -4654,16 +4557,16 @@ class TalkPeer {
 
   /// Reads one from a reply.
   factory TalkPeer.from(Map<String, dynamic> map) => TalkPeer(
-        name: _string(map, 'name'),
-        address: _string(map, 'address'),
-        trust: _string(map, 'trust'),
-        perDay: _int(map, 'perDay'),
-        mode: _string(map, 'mode'),
-        held: map['held'] == true,
-        // Absent is not zero: an older daemon cannot say, and zero would claim nothing was used.
-        sentToday: map['sentToday'] is num ? (map['sentToday'] as num).toInt() : null,
-        receivedToday: map['receivedToday'] is num ? (map['receivedToday'] as num).toInt() : null,
-      );
+    name: _string(map, 'name'),
+    address: _string(map, 'address'),
+    trust: _string(map, 'trust'),
+    perDay: _int(map, 'perDay'),
+    mode: _string(map, 'mode'),
+    held: map['held'] == true,
+    // Absent is not zero: an older daemon cannot say, and zero would claim nothing was used.
+    sentToday: map['sentToday'] is num ? (map['sentToday'] as num).toInt() : null,
+    receivedToday: map['receivedToday'] is num ? (map['receivedToday'] as num).toInt() : null,
+  );
 
   /// Whether a message to it goes without a person reading it first. Never while it is held.
   bool get reachable => !held && (mode == 'allow' || mode == 'off');
@@ -4721,13 +4624,13 @@ class ReviewFile {
 
   /// Reads one from a reply.
   factory ReviewFile.from(Map<String, dynamic> map) => ReviewFile(
-        path: _string(map, 'path'),
-        status: _string(map, 'status'),
-        added: _int(map, 'added'),
-        removed: map['removed'] is num ? (map['removed'] as num).toInt() : 0,
-        rank: _string(map, 'rank'),
-        reason: _string(map, 'reason'),
-      );
+    path: _string(map, 'path'),
+    status: _string(map, 'status'),
+    added: _int(map, 'added'),
+    removed: map['removed'] is num ? (map['removed'] as num).toInt() : 0,
+    rank: _string(map, 'rank'),
+    reason: _string(map, 'reason'),
+  );
 
   /// Whether it is dangerous by kind: named first, however small its change.
   bool get dangerous => rank == 'DANGEROUS';
@@ -4778,16 +4681,16 @@ class Destination {
 
   /// Reads one from a reply.
   factory Destination.from(Map<String, dynamic> map) => Destination(
-        name: _string(map, 'name'),
-        label: _string(map, 'label'),
-        upstream: _string(map, 'upstream'),
-        authHeader: _string(map, 'authHeader'),
-        authPrefix: _string(map, 'authPrefix'),
-        authQuery: _string(map, 'authQuery'),
-        file: _string(map, 'file'),
-        packaged: map['packaged'] == true,
-        inForce: map['inForce'] == true,
-      );
+    name: _string(map, 'name'),
+    label: _string(map, 'label'),
+    upstream: _string(map, 'upstream'),
+    authHeader: _string(map, 'authHeader'),
+    authPrefix: _string(map, 'authPrefix'),
+    authQuery: _string(map, 'authQuery'),
+    file: _string(map, 'file'),
+    packaged: map['packaged'] == true,
+    inForce: map['inForce'] == true,
+  );
 
   /// Where the key goes, in words.
   String get keyGoes => authQuery.isNotEmpty
@@ -4814,18 +4717,23 @@ class ClearedItem {
 
   /// Reads one from a reply.
   factory ClearedItem.from(Map<String, dynamic> map) => ClearedItem(
-      kind: _string(map, 'kind'), what: _string(map, 'what'), status: _string(map, 'status'), why: _string(map, 'why'));
+    kind: _string(map, 'kind'),
+    what: _string(map, 'what'),
+    status: _string(map, 'status'),
+    why: _string(map, 'why'),
+  );
 }
 
 /// What `Clear` answered: what it did, or with a dry run would do, on the machine, and what only the
 /// person's credentials remove at the forge.
 class Cleared {
   /// Constructor taking every field.
-  const Cleared(
-      {this.items = const <ClearedItem>[],
-      this.keys = const <MachineDeployKey>[],
-      this.signer = '',
-      this.refused = false});
+  const Cleared({
+    this.items = const <ClearedItem>[],
+    this.keys = const <MachineDeployKey>[],
+    this.signer = '',
+    this.refused = false,
+  });
 
   /// Each thing, in the order it was done.
   final List<ClearedItem> items;
@@ -4841,17 +4749,17 @@ class Cleared {
 
   /// Reads one from a reply.
   factory Cleared.from(Map<String, dynamic> map) => Cleared(
-        items: <ClearedItem>[
-          if (map['items'] case final List<dynamic> items)
-            for (final each in items)
-              if (each is Map<String, dynamic>) ClearedItem.from(each),
-        ],
-        keys: <MachineDeployKey>[
-          if (map['keys'] case final List<dynamic> keys)
-            for (final each in keys)
-              if (each is Map<String, dynamic>) MachineDeployKey.from(each),
-        ],
-        signer: _string(map, 'signer'),
-        refused: map['refused'] == true,
-      );
+    items: <ClearedItem>[
+      if (map['items'] case final List<dynamic> items)
+        for (final each in items)
+          if (each is Map<String, dynamic>) ClearedItem.from(each),
+    ],
+    keys: <MachineDeployKey>[
+      if (map['keys'] case final List<dynamic> keys)
+        for (final each in keys)
+          if (each is Map<String, dynamic>) MachineDeployKey.from(each),
+    ],
+    signer: _string(map, 'signer'),
+    refused: map['refused'] == true,
+  );
 }

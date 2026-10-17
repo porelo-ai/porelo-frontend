@@ -13,8 +13,7 @@ Future<void> workOnTheTestMachineWasStartedWithoutAGrantOf(WidgetTester tester, 
   // A destination for the entry, then a shell given it: it starts with a warning, since nobody has
   // granted it, and the machine raises the question. A shell needs no agent credential, and runs where
   // no agent is installed at all.
-  final client = await PoreloClient.connect(
-      Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
+  final client = await PoreloClient.connect(Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
   await client.writeDestination(name: 'e2e-api', upstream: 'https://api.example.com/v1', authPrefix: 'Bearer ');
   await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"

@@ -38,8 +38,7 @@ void main() {
     await here.delete(recursive: true);
   });
 
-  Future<Task> aRunningTask() async =>
-      (await backend.tasks()).firstWhere((each) => each.running);
+  Future<Task> aRunningTask() async => (await backend.tasks()).firstWhere((each) => each.running);
 
   Future<File> aFile(String name, int bytes) async {
     final file = File('${here.path}/$name');
@@ -56,11 +55,15 @@ void main() {
 
     expect(placed, isNotNull, reason: handing.said);
     expect(placed!.bytes, 300);
-    expect(placed.sha256, crypto.sha256.convert(await file.readAsBytes()).toString(),
-        reason: 'the machine checked the hash the client sent');
+    expect(
+      placed.sha256,
+      crypto.sha256.convert(await file.readAsBytes()).toString(),
+      reason: 'the machine checked the hash the client sent',
+    );
     final listed = (await backend.tasks()).firstWhere((each) => each.name == task.name);
-    expect(listed.files!.map((each) => each.name), ['notes.txt'],
-        reason: 'the task lists the file once the machine placed it');
+    expect(listed.files!.map((each) => each.name), [
+      'notes.txt',
+    ], reason: 'the task lists the file once the machine placed it');
   });
 
   test('a file larger than one part goes in several and arrives whole', () async {
@@ -81,22 +84,22 @@ void main() {
     final content = await file.readAsBytes();
     final sha256 = crypto.sha256.convert(content).toString();
     // An earlier attempt got one part through before its connection went.
-    await backend.handIn(task.name,
-        name: 'cut.bin',
-        bytes: content.length,
-        sha256: sha256,
-        offset: 0,
-        part: content.sublist(0, HandingIn.partBytes));
+    await backend.handIn(
+      task.name,
+      name: 'cut.bin',
+      bytes: content.length,
+      sha256: sha256,
+      offset: 0,
+      part: content.sublist(0, HandingIn.partBytes),
+    );
 
     final handing = HandingIn();
     backend.parts = 0;
     final placed = await handing.give(backend, task, file.path);
 
-    expect(backend.parts, 3,
-        reason: 'one refused at offset 0, then the two that were still missing');
+    expect(backend.parts, 3, reason: 'one refused at offset 0, then the two that were still missing');
     expect(placed?.sha256, sha256, reason: handing.said);
-    expect(placed?.bytes, content.length,
-        reason: 'resumed at the part the machine held, so nothing arrived twice');
+    expect(placed?.bytes, content.length, reason: 'resumed at the part the machine held, so nothing arrived twice');
   });
 
   test('a file larger than the task takes is refused before anything is sent', () async {
@@ -159,12 +162,14 @@ class _Counting extends PoreloBackend {
   int parts = 0;
 
   @override
-  Future<HandInPart> handIn(String task,
-      {required String name,
-      required int bytes,
-      required String sha256,
-      required int offset,
-      required List<int> part}) {
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) {
     parts++;
     return super.handIn(task, name: name, bytes: bytes, sha256: sha256, offset: offset, part: part);
   }

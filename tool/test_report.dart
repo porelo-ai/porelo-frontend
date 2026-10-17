@@ -20,9 +20,15 @@ Future<void> main(List<String> arguments) async {
   final args = <String>[
     for (final argument in arguments)
       if (argument.startsWith('--heading='))
-        ...(() { _heading = argument.substring('--heading='.length); return <String>[]; })()
+        ...(() {
+          _heading = argument.substring('--heading='.length);
+          return <String>[];
+        })()
       else if (argument.startsWith('--against='))
-        ...(() { _against = argument.substring('--against='.length); return <String>[]; })()
+        ...(() {
+          _against = argument.substring('--against='.length);
+          return <String>[];
+        })()
       else
         argument,
   ];
@@ -124,8 +130,7 @@ class Result {
   String get detail {
     final said = <String>[
       ...printed.map((line) => line.trimRight()),
-      ...problems.where((problem) =>
-          !problem.startsWith('Test failed. See exception logs above.')),
+      ...problems.where((problem) => !problem.startsWith('Test failed. See exception logs above.')),
     ].where((line) => line.trim().isNotEmpty);
     return said.join('\n').trim();
   }
@@ -147,8 +152,7 @@ class Result {
   }
 
   /// The scenario without the feature in front of it.
-  String get scenario =>
-      name.startsWith(group) ? name.substring(group.length).trim() : name;
+  String get scenario => name.startsWith(group) ? name.substring(group.length).trim() : name;
 }
 
 /// Everything one run produced.
@@ -193,10 +197,7 @@ Run _read(File source) {
           continue;
         }
         final ids = (test['groupIDs'] as List?)?.cast<int>() ?? const <int>[];
-        final named = ids
-            .map((id) => groups[id] ?? '')
-            .where((name) => name.isNotEmpty)
-            .toList();
+        final named = ids.map((id) => groups[id] ?? '').where((name) => name.isNotEmpty).toList();
         open[test['id'] as int] = Result(
           name: '${test['name']}',
           suite: suites[test['suiteID'] as int] ?? '',
@@ -219,8 +220,7 @@ Run _read(File source) {
         result?.printed.add('${decoded['message']}');
       case 'error':
         final result = open[decoded['testID'] as int];
-        result?.problems.add(
-            '${decoded['error']}\n${decoded['stackTrace'] ?? ''}'.trimRight());
+        result?.problems.add('${decoded['error']}\n${decoded['stackTrace'] ?? ''}'.trimRight());
       case 'done':
         run.took = Duration(milliseconds: (decoded['time'] as num? ?? 0).toInt());
     }
@@ -237,10 +237,11 @@ Future<void> _sayNothingRan(String because) async {
   final summaryFile = Platform.environment['GITHUB_STEP_SUMMARY'];
   if (summaryFile == null || summaryFile.isEmpty) return;
   await File(summaryFile).writeAsString(
-      '## $_heading\n\n**No tests ran.** $because\n\n'
-      'Check that the test step ran, that it wrote the machine JSON, and that the path this was '
-      'given is the one it wrote.\n\n',
-      mode: FileMode.append);
+    '## $_heading\n\n**No tests ran.** $because\n\n'
+    'Check that the test step ran, that it wrote the machine JSON, and that the path this was '
+    'given is the one it wrote.\n\n',
+    mode: FileMode.append,
+  );
 }
 
 /// Scenarios by the `.feature` they came from, and everything else by suite.
@@ -282,8 +283,10 @@ String _summary(Run run) {
 
   if (scenarios.isEmpty) {
     out
-      ..writeln('**No scenarios ran.** Nothing under `test/features` produced a result — check '
-          'that the generated tests are current.')
+      ..writeln(
+        '**No scenarios ran.** Nothing under `test/features` produced a result — check '
+        'that the generated tests are current.',
+      )
       ..writeln();
     _sayWhatWasSkipped(run, out);
     return out.toString();
@@ -298,8 +301,10 @@ String _summary(Run run) {
     // Any failure marks the whole row, with the ratio carrying the nuance.
     final mark = under.every((result) => result.passed) ? ':white_check_mark:' : ':x:';
     final took = under.fold(Duration.zero, (all, one) => all + one.took);
-    out.writeln('| $mark | ${_markdown(_titleOf(under))} | `${Result.shorten(path)}` '
-        '| $ran/${under.length} | ${_seconds(took)} |');
+    out.writeln(
+      '| $mark | ${_markdown(_titleOf(under))} | `${Result.shorten(path)}` '
+      '| $ran/${under.length} | ${_seconds(took)} |',
+    );
   }
 
   out
@@ -313,9 +318,11 @@ String _summary(Run run) {
     final elseBroken = everythingElse.where((test) => !test.passed).length;
     out
       ..writeln()
-      ..writeln('${elseBroken == 0 ? ':white_check_mark:' : ':x:'} '
-          '**${everythingElse.length}** tests guard the client, the wire and the rules rather '
-          'than a screen${elseBroken == 0 ? '.' : ', and $elseBroken failed.'}');
+      ..writeln(
+        '${elseBroken == 0 ? ':white_check_mark:' : ':x:'} '
+        '**${everythingElse.length}** tests guard the client, the wire and the rules rather '
+        'than a screen${elseBroken == 0 ? '.' : ', and $elseBroken failed.'}',
+      );
   }
   out.writeln();
   _sayWhatWasSkipped(run, out);
@@ -370,9 +377,7 @@ List<String> _annotations(Run run) {
     if (message.length > cap) {
       message = '${message.substring(0, cap)}… (see the run log)';
     }
-    final title = result.feature == null
-        ? result.name
-        : '${result.group}: ${result.scenario}';
+    final title = result.feature == null ? result.name : '${result.group}: ${result.scenario}';
     final properties = <String>[
       if (where != null) 'file=${_property(where.file)}',
       if (where != null) 'line=${where.line}',
@@ -390,8 +395,7 @@ List<String> _annotations(Run run) {
 ({String file, int line})? _whereScenarioIs(Result result) {
   final suite = result.suite;
   if (!suite.endsWith('_test.dart')) return null;
-  final feature = File(
-      '${suite.substring(0, suite.length - '_test.dart'.length)}.feature');
+  final feature = File('${suite.substring(0, suite.length - '_test.dart'.length)}.feature');
   if (!feature.existsSync()) return null;
 
   final wanted = result.scenario;
@@ -423,27 +427,32 @@ String _junit(Run run) {
   final suites = <String, List<Result>>{
     for (final path in grouped.features.keys.toList()..sort())
       _titleOf(grouped.features[path]!): grouped.features[path]!,
-    for (final suite in grouped.others.keys.toList()..sort())
-      _shorten(suite): grouped.others[suite]!,
+    for (final suite in grouped.others.keys.toList()..sort()) _shorten(suite): grouped.others[suite]!,
   };
 
   final out = StringBuffer()
     ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
-    ..writeln('<testsuites tests="${run.results.length}" '
-        'failures="${run.results.where((result) => !result.passed).length}" '
-        'time="${_plainSeconds(run.took)}">');
+    ..writeln(
+      '<testsuites tests="${run.results.length}" '
+      'failures="${run.results.where((result) => !result.passed).length}" '
+      'time="${_plainSeconds(run.took)}">',
+    );
 
   suites.forEach((name, results) {
     final failures = results.where((result) => !result.passed).length;
     final skipped = results.where((result) => result.skipped).length;
-    out.writeln('  <testsuite name="${_xml(name)}" tests="${results.length}" '
-        'failures="$failures" errors="0" skipped="$skipped" '
-        'time="${_plainSeconds(results.fold(Duration.zero, (all, one) => all + one.took))}" '
-        'timestamp="${run.at.toUtc().toIso8601String()}">');
+    out.writeln(
+      '  <testsuite name="${_xml(name)}" tests="${results.length}" '
+      'failures="$failures" errors="0" skipped="$skipped" '
+      'time="${_plainSeconds(results.fold(Duration.zero, (all, one) => all + one.took))}" '
+      'timestamp="${run.at.toUtc().toIso8601String()}">',
+    );
     for (final result in results) {
       final scenario = result.feature == null ? result.name : result.scenario;
-      out.write('    <testcase classname="${_xml(name)}" name="${_xml(scenario)}" '
-          'time="${_plainSeconds(result.took)}"');
+      out.write(
+        '    <testcase classname="${_xml(name)}" name="${_xml(scenario)}" '
+        'time="${_plainSeconds(result.took)}"',
+      );
       if (result.skipped) {
         out
           ..writeln('>')
@@ -454,8 +463,10 @@ String _junit(Run run) {
       } else {
         out
           ..writeln('>')
-          ..writeln('      <failure message="${_xml(_firstLine(result.detail))}">'
-              '${_xml(result.detail)}</failure>')
+          ..writeln(
+            '      <failure message="${_xml(_firstLine(result.detail))}">'
+            '${_xml(result.detail)}</failure>',
+          )
           ..writeln('    </testcase>');
       }
     }
@@ -473,27 +484,19 @@ String _firstLine(String detail) {
   return end < 0 ? said : said.substring(0, end);
 }
 
-String _plainSeconds(Duration took) =>
-    (took.inMilliseconds / 1000).toStringAsFixed(3);
+String _plainSeconds(Duration took) => (took.inMilliseconds / 1000).toStringAsFixed(3);
 
 /// A workflow command is one line, so what would end it is encoded rather than sent.
-String _command(String text) => text
-    .replaceAll('%', '%25')
-    .replaceAll('\r', '%0D')
-    .replaceAll('\n', '%0A');
+String _command(String text) => text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
 
 /// A property is inside a comma-separated list, so it loses two more characters.
-String _property(String text) =>
-    _command(text).replaceAll(':', '%3A').replaceAll(',', '%2C');
+String _property(String text) => _command(text).replaceAll(':', '%3A').replaceAll(',', '%2C');
 
 /// Enough escaping that a table cell holding a pipe stays one cell.
 String _markdown(String text) => text.replaceAll('|', r'\|').replaceAll('\n', ' ');
 
-String _xml(String text) => text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
+String _xml(String text) =>
+    text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 
 String _page(Run run) {
   final grouped = _group(run);
@@ -513,35 +516,43 @@ String _page(Run run) {
     ..writeln('</head><body>')
     ..writeln('<header>')
     ..writeln('<h1>Porelo frontend</h1>')
-    ..writeln('<p class="run ${failed == 0 ? 'ok' : 'bad'}">'
-        '${run.results.length} tests · '
-        '${_verdict(failed, skipped)} · '
-        '${_seconds(run.took)} · ${_when(run.at)}</p>')
+    ..writeln(
+      '<p class="run ${failed == 0 ? 'ok' : 'bad'}">'
+      '${run.results.length} tests · '
+      '${_verdict(failed, skipped)} · '
+      '${_seconds(run.took)} · ${_when(run.at)}</p>',
+    )
     ..writeln('</header>');
 
   page
     ..writeln('<section>')
     ..writeln('<h2>Scenarios</h2>')
-    ..writeln('<p class="note">One section per <code>.feature</code> file, named by what it says '
-        'it tests. Passing is not the same as covered: a file with one shallow scenario shows as '
-        'green as one with twelve.</p>');
+    ..writeln(
+      '<p class="note">One section per <code>.feature</code> file, named by what it says '
+      'it tests. Passing is not the same as covered: a file with one shallow scenario shows as '
+      'green as one with twelve.</p>',
+    );
 
   for (final path in ids) {
     final scenarios = covered[path]!;
     final broken = scenarios.where((result) => !result.passed).length;
     page
       ..writeln('<article class="${broken == 0 ? 'ok' : 'bad'}">')
-      ..writeln('<h3>${_escape(_titleOf(scenarios))}'
-          '<span class="id">${_escape(Result.shorten(path))}</span>'
-          '<span class="count">${scenarios.length} scenario'
-          '${scenarios.length == 1 ? '' : 's'}'
-          '${broken == 0 ? '' : ', $broken failed'}</span></h3>')
+      ..writeln(
+        '<h3>${_escape(_titleOf(scenarios))}'
+        '<span class="id">${_escape(Result.shorten(path))}</span>'
+        '<span class="count">${scenarios.length} scenario'
+        '${scenarios.length == 1 ? '' : 's'}'
+        '${broken == 0 ? '' : ', $broken failed'}</span></h3>',
+      )
       ..writeln('<ul>');
     for (final scenario in scenarios) {
-      page.writeln('<li class="${_class(scenario)}">'
-          '<span class="mark">${_mark(scenario)}</span>'
-          '${_escape(scenario.scenario)}'
-          '<span class="took">${_seconds(scenario.took)}</span></li>');
+      page.writeln(
+        '<li class="${_class(scenario)}">'
+        '<span class="mark">${_mark(scenario)}</span>'
+        '${_escape(scenario.scenario)}'
+        '<span class="took">${_seconds(scenario.took)}</span></li>',
+      );
       if (!scenario.passed && scenario.detail.isNotEmpty) {
         page.writeln('<pre>${_escape(scenario.detail)}</pre>');
       }
@@ -557,24 +568,30 @@ String _page(Run run) {
     page
       ..writeln('<section>')
       ..writeln('<h2>Everything else</h2>')
-      ..writeln('<p class="note">Tests that guard the client, the wire and the rules, rather '
-          'than a screen.</p>');
+      ..writeln(
+        '<p class="note">Tests that guard the client, the wire and the rules, rather '
+        'than a screen.</p>',
+      );
     final suites = others.keys.toList()..sort();
     for (final suite in suites) {
       final tests = others[suite]!;
       final broken = tests.where((result) => !result.passed).length;
       page
         ..writeln('<article class="${broken == 0 ? 'ok' : 'bad'}">')
-        ..writeln('<h3>${_escape(_shorten(suite))}'
-            '<span class="count">${tests.length} test'
-            '${tests.length == 1 ? '' : 's'}'
-            '${broken == 0 ? '' : ', $broken failed'}</span></h3>')
+        ..writeln(
+          '<h3>${_escape(_shorten(suite))}'
+          '<span class="count">${tests.length} test'
+          '${tests.length == 1 ? '' : 's'}'
+          '${broken == 0 ? '' : ', $broken failed'}</span></h3>',
+        )
         ..writeln('<ul>');
       for (final test in tests) {
-        page.writeln('<li class="${_class(test)}">'
-            '<span class="mark">${_mark(test)}</span>'
-            '${_escape(test.name)}'
-            '<span class="took">${_seconds(test.took)}</span></li>');
+        page.writeln(
+          '<li class="${_class(test)}">'
+          '<span class="mark">${_mark(test)}</span>'
+          '${_escape(test.name)}'
+          '<span class="took">${_seconds(test.took)}</span></li>',
+        );
         if (!test.passed && test.detail.isNotEmpty) {
           page.writeln('<pre>${_escape(test.detail)}</pre>');
         }
@@ -592,14 +609,22 @@ String _page(Run run) {
 
 /// How a run went, in the words every output uses: a skip is said, never folded into "passed".
 String _verdict(int failed, int skipped) => <String>[
-      if (failed > 0) '$failed failed',
-      if (skipped > 0) '$skipped skipped',
-      if (failed == 0) skipped == 0 ? 'all passed' : 'the rest passed',
-    ].join(', ');
+  if (failed > 0) '$failed failed',
+  if (skipped > 0) '$skipped skipped',
+  if (failed == 0) skipped == 0 ? 'all passed' : 'the rest passed',
+].join(', ');
 
-String _class(Result result) => result.skipped ? 'none' : result.passed ? 'ok' : 'bad';
+String _class(Result result) => result.skipped
+    ? 'none'
+    : result.passed
+    ? 'ok'
+    : 'bad';
 
-String _mark(Result result) => result.skipped ? '–' : result.passed ? '✓' : '✗';
+String _mark(Result result) => result.skipped
+    ? '–'
+    : result.passed
+    ? '✓'
+    : '✗';
 
 String _shorten(String path) {
   final index = path.indexOf('/test/');
@@ -609,15 +634,11 @@ String _shorten(String path) {
 String _seconds(Duration took) =>
     '${(took.inMilliseconds / 1000).toStringAsFixed(took.inMilliseconds < 1000 ? 2 : 1)} s';
 
-String _when(DateTime at) =>
-    '${at.year}-${_two(at.month)}-${_two(at.day)} ${_two(at.hour)}:${_two(at.minute)}';
+String _when(DateTime at) => '${at.year}-${_two(at.month)}-${_two(at.day)} ${_two(at.hour)}:${_two(at.minute)}';
 
 String _two(int value) => value.toString().padLeft(2, '0');
 
-String _escape(String text) => text
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+String _escape(String text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
 String _style() => '''
 :root {

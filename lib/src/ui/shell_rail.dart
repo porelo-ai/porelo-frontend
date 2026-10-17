@@ -101,11 +101,7 @@ class ShellRail extends StatelessWidget {
                   Section.attention,
                   Icons.notifications_active_outlined,
                   Icons.notifications_active,
-                  Badge(
-                    key: const Key('needing-count-badge'),
-                    isLabelVisible: needing > 0,
-                    label: Text('$needing'),
-                  ),
+                  Badge(key: const Key('needing-count-badge'), isLabelVisible: needing > 0, label: Text('$needing')),
                 ),
                 const Divider(height: Sizes.divider),
                 Padding(

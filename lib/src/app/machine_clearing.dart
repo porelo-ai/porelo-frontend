@@ -45,25 +45,25 @@ class MachineClearing extends ChangeNotifier {
 
   /// Asks the machine what clearing would remove, changing nothing.
   Future<void> look() => _doing(() async {
-        preview = await _machine.clear(project: project, dryRun: true);
-      });
+    preview = await _machine.clear(project: project, dryRun: true);
+  });
 
   /// Clears it: the machine's part, then the forge's. [force] clears unreviewed work and running
   /// tasks too, which a first call refuses.
   Future<void> clearIt({bool force = false}) => _doing(() async {
-        final answer = await _machine.clear(project: project, force: force);
-        cleared = answer;
-        if (answer.refused) return;
-        final forge = forges.forge;
-        if (forge == null) {
-          for (final key in answer.keys) {
-            done.add('Left ${key.title}: no forge is signed in here to remove it with.');
-          }
-          return;
-        }
-        await removeAtTheForge(forge, answer.keys, done.add);
-        await _takeOutTheSigner(forge, answer);
-      });
+    final answer = await _machine.clear(project: project, force: force);
+    cleared = answer;
+    if (answer.refused) return;
+    final forge = forges.forge;
+    if (forge == null) {
+      for (final key in answer.keys) {
+        done.add('Left ${key.title}: no forge is signed in here to remove it with.');
+      }
+      return;
+    }
+    await removeAtTheForge(forge, answer.keys, done.add);
+    await _takeOutTheSigner(forge, answer);
+  });
 
   /// Takes the machine's line out of `machine-signers` in each project's own repository: the one
   /// its read-only key is for.
@@ -96,7 +96,12 @@ class MachineClearing extends ChangeNotifier {
           continue;
         }
         await workspace.writeFile('machine-signers', kept);
-        await workspace.commitAndPush('Take $machineName out', person, login: login, files: const <String>['machine-signers']);
+        await workspace.commitAndPush(
+          'Take $machineName out',
+          person,
+          login: login,
+          files: const <String>['machine-signers'],
+        );
         done.add('Took $machineName’s line out of $fullName’s machine-signers, committed signed and pushed.');
       } on ForgeRefused catch (refused) {
         done.add('Left $machineName’s line in $fullName’s machine-signers: ${refused.words}');

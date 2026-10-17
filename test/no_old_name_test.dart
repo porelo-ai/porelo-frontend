@@ -11,13 +11,20 @@ import 'package:flutter_test/flutter_test.dart';
 /// stray spelling in a path, a socket or a package name is a contract nobody serves any more, and it
 /// reads as current to whoever finds it. Spelled in two halves here, so this file is no finding.
 void main() {
-  final oldName = RegExp('so' 'kar', caseSensitive: false);
+  final oldName = RegExp(
+    'so'
+    'kar',
+    caseSensitive: false,
+  );
   final tracked = _trackedFiles();
 
   test('the tracked files are the repository', () {
     // Without this every test below passes by examining nothing.
-    expect(tracked, containsAll(<String>['pubspec.yaml', 'AGENTS.md', 'CHANGELOG.md', 'lib/main.dart']),
-        reason: 'git ls-files did not list the repository');
+    expect(
+      tracked,
+      containsAll(<String>['pubspec.yaml', 'AGENTS.md', 'CHANGELOG.md', 'lib/main.dart']),
+      reason: 'git ls-files did not list the repository',
+    );
   });
 
   test('no tracked path says the old name', () {
@@ -44,8 +51,11 @@ void main() {
     for (final path in <String>['CHANGELOG.md']) {
       final lines = File(path).readAsLinesSync();
       final kept = _kept(path, lines);
-      expect(kept.where((i) => oldName.hasMatch(lines[i])), isNotEmpty,
-          reason: '$path is kept for the old name but says it nowhere');
+      expect(
+        kept.where((i) => oldName.hasMatch(lines[i])),
+        isNotEmpty,
+        reason: '$path is kept for the old name but says it nowhere',
+      );
     }
   });
 }
@@ -69,8 +79,11 @@ Set<int> _kept(String path, List<String> lines) {
 const _renameSentence = ' is now Porelo, ';
 
 List<String> _trackedFiles() {
-  final listed = Process.runSync('git', <String>['ls-files', '-z'],
-      environment: <String, String>{'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'});
+  final listed = Process.runSync(
+    'git',
+    <String>['ls-files', '-z'],
+    environment: <String, String>{'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+  );
   if (listed.exitCode != 0) throw StateError('git ls-files exited ${listed.exitCode}: ${listed.stderr}');
   return (listed.stdout as String).split('\x00').where((path) => path.isNotEmpty && File(path).existsSync()).toList();
 }

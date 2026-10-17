@@ -48,9 +48,7 @@ void main() {
       await iStartWatchingAnotherMachine(tester);
     }
 
-    testWidgets(
-        '''a machine that answers says what it is, and nothing is left running''',
-        (tester) async {
+    testWidgets('''a machine that answers says what it is, and nothing is left running''', (tester) async {
       await bddSetUp(tester);
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
@@ -59,11 +57,9 @@ void main() {
       await theTrialSays(tester, 'Reached Porelo 0.1.0-mock');
       await theForwardRaisedForTheTrialWasTakenDown(tester);
     });
-    testWidgets('''a forward ssh cannot raise says what ssh said''',
-        (tester) async {
+    testWidgets('''a forward ssh cannot raise says what ssh said''', (tester) async {
       await bddSetUp(tester);
-      await raisingAForwardWillFailWith(
-          tester, 'Host key verification failed.');
+      await raisingAForwardWillFailWith(tester, 'Host key verification failed.');
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
@@ -71,21 +67,17 @@ void main() {
       await theTrialSays(tester, 'Host key verification failed.');
       await theForwardRaisedForTheTrialWasTakenDown(tester);
     });
-    testWidgets('''a forward to a socket nobody serves points at the far end''',
-        (tester) async {
+    testWidgets('''a forward to a socket nobody serves points at the far end''', (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
-      await theTrialSays(tester,
-          'nothing answers at /run/user/1001/porelo/porelod.sock on that machine');
+      await theTrialSays(tester, 'nothing answers at /run/user/1001/porelo/porelod.sock on that machine');
       await theForwardRaisedForTheTrialWasTakenDown(tester);
     });
-    testWidgets(
-        '''a socket left empty is asked of the machine, shown filled in, and tried''',
-        (tester) async {
+    testWidgets('''a socket left empty is asked of the machine, shown filled in, and tried''', (tester) async {
       await bddSetUp(tester);
       await theAccountLogsInAsUid(tester, 1001);
       await iChoose(tester, 'Raise the forward for me');
@@ -95,21 +87,20 @@ void main() {
       await itsSocketThereReads(tester, '/run/user/1001/porelo/porelod.sock');
       await theTrialSays(tester, 'Reached Porelo 0.1.0-mock');
     });
-    testWidgets(
-        '''a socket left empty on a machine that cannot be asked says how to go on, and tries nothing''',
-        (tester) async {
+    testWidgets('''a socket left empty on a machine that cannot be asked says how to go on, and tries nothing''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await iTryTheConnection(tester);
-      await theTrialSays(tester,
-          'Could not log in to user@build.example.test to ask where Porelo is for you there');
+      await theTrialSays(tester, 'Could not log in to user@build.example.test to ask where Porelo is for you there');
       await theTrialSays(tester, 'or type its socket');
       await nothingWasRaisedForTheTrial(tester);
     });
-    testWidgets(
-        '''a socket in another user's runtime directory is named as that, with the path meant''',
-        (tester) async {
+    testWidgets('''a socket in another user's runtime directory is named as that, with the path meant''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await theAccountLogsInAsUid(tester, 1000);
@@ -118,13 +109,10 @@ void main() {
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
       await theTrialSays(tester, 'runtime directory (uid 1001)');
-      await theTrialSays(
-          tester, 'Did you mean /run/user/1000/porelo/porelod.sock');
+      await theTrialSays(tester, 'Did you mean /run/user/1000/porelo/porelod.sock');
       await startingPoreloThereIsNotOffered(tester);
     });
-    testWidgets(
-        '''a socket under the login's own uid still says that nothing answers''',
-        (tester) async {
+    testWidgets('''a socket under the login's own uid still says that nothing answers''', (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await theAccountLogsInAsUid(tester, 1001);
@@ -132,15 +120,14 @@ void main() {
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
-      await theTrialSays(tester,
-          'nothing answers at /run/user/1001/porelo/porelod.sock on that machine');
+      await theTrialSays(tester, 'nothing answers at /run/user/1001/porelo/porelod.sock on that machine');
       await startingPoreloThereIsOffered(tester);
       await iTurnTheOfferDown(tester);
       await nothingWasStartedOnThatMachine(tester);
     });
-    testWidgets(
-        '''a machine nobody serves is offered a start, and nothing runs until it is asked for''',
-        (tester) async {
+    testWidgets('''a machine nobody serves is offered a start, and nothing runs until it is asked for''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
@@ -157,8 +144,7 @@ void main() {
       await theMachineWasAskedToStart(tester, 'setsid porelod');
       await theTrialSays(tester, 'Reached Porelo');
     });
-    testWidgets('''the offer is turned down and nothing is run''',
-        (tester) async {
+    testWidgets('''the offer is turned down and nothing is run''', (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
@@ -180,9 +166,9 @@ void main() {
       await iStartPoreloThere(tester);
       await theStartSays(tester, 'no porelod is installed there');
     });
-    testWidgets(
-        '''a start that failed in the dialog waits under what needs a person once it is closed''',
-        (tester) async {
+    testWidgets('''a start that failed in the dialog waits under what needs a person once it is closed''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await startingPoreloWillFailWith(tester, 'no porelod is installed there');
@@ -193,23 +179,18 @@ void main() {
       await iStartPoreloThere(tester);
       await iCancelTheDialog(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await aFailedOperationWaitsSaying(
-          tester, 'no porelod is installed there');
+      await aFailedOperationWaitsSaying(tester, 'no porelod is installed there');
     });
-    testWidgets('''a forward ssh could not raise is never offered a start''',
-        (tester) async {
+    testWidgets('''a forward ssh could not raise is never offered a start''', (tester) async {
       await bddSetUp(tester);
-      await raisingAForwardWillFailWith(
-          tester, 'Host key verification failed.');
+      await raisingAForwardWillFailWith(tester, 'Host key verification failed.');
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
       await startingPoreloThereIsNotOffered(tester);
     });
-    testWidgets(
-        '''a socket somebody else forwarded names no host to log into''',
-        (tester) async {
+    testWidgets('''a socket somebody else forwarded names no host to log into''', (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iChoose(tester, 'Its socket is already forwarded');
@@ -217,8 +198,7 @@ void main() {
       await iTryTheConnection(tester);
       await startingPoreloThereIsNotOffered(tester);
     });
-    testWidgets('''a machine that speaks something else says so''',
-        (tester) async {
+    testWidgets('''a machine that speaks something else says so''', (tester) async {
       await bddSetUp(tester);
       await theMachineServesNothingThisBuildKnows(tester);
       await iChoose(tester, 'Its socket is already forwarded');
@@ -226,9 +206,7 @@ void main() {
       await iTryTheConnection(tester);
       await theTrialSays(tester, 'serves nothing this build understands');
     });
-    testWidgets(
-        '''a socket already forwarded is tried without raising anything''',
-        (tester) async {
+    testWidgets('''a socket already forwarded is tried without raising anything''', (tester) async {
       await bddSetUp(tester);
       await iChoose(tester, 'Its socket is already forwarded');
       await theForwardedSocketIs(tester, '/tmp/porelod-remote.sock');
@@ -236,8 +214,7 @@ void main() {
       await theTrialSays(tester, 'Reached Porelo');
       await nothingWasRaisedForTheTrial(tester);
     });
-    testWidgets('''changing where it is takes the old answer away''',
-        (tester) async {
+    testWidgets('''changing where it is takes the old answer away''', (tester) async {
       await bddSetUp(tester);
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');

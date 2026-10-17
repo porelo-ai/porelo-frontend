@@ -8,8 +8,7 @@ import '../support/e2e.dart';
 /// Usage: every reply it gives can be read
 Future<void> everyReplyItGivesCanBeRead(WidgetTester tester) async {
   // Through the same forward the interface raised, so this reads what the window reads.
-  final client = await PoreloClient.connect(
-      Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
+  final client = await PoreloClient.connect(Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
   final tasks = await client.tasks();
   final projects = await client.projects();
   // Said, so a green run shows it read a real machine rather than an empty one.

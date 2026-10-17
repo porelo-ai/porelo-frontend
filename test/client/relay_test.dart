@@ -25,9 +25,11 @@ void main() {
       client.listen((bytes) {
         if (!bytes.contains(0)) return;
         client.add(<int>[
-          ...utf8.encode(jsonEncode(<String, Object?>{
-            'parameters': <String, Object?>{'vendor': 'fuin.org', 'product': 'Porelo'},
-          })),
+          ...utf8.encode(
+            jsonEncode(<String, Object?>{
+              'parameters': <String, Object?>{'vendor': 'fuin.org', 'product': 'Porelo'},
+            }),
+          ),
           0,
         ]);
       });
@@ -38,7 +40,8 @@ void main() {
     });
   });
 
-  const joins = 'import socket,sys,threading\n'
+  const joins =
+      'import socket,sys,threading\n'
       's=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1])\n'
       'def back():\n'
       '  while True:\n'
@@ -73,7 +76,10 @@ void main() {
       },
     );
 
-    await expectLater(backend.open(), throwsA(isA<VarlinkDisconnected>().having((e) => e.message, 'message', 'Ubuntu is stopped.')));
+    await expectLater(
+      backend.open(),
+      throwsA(isA<VarlinkDisconnected>().having((e) => e.message, 'message', 'Ubuntu is stopped.')),
+    );
     expect(asked, 1);
   });
 

@@ -21,18 +21,17 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<PoreloClient> connect() => PoreloClient.connect(
-      Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Map<String, dynamic> slot(String id, {bool self = false}) => <String, dynamic>{
-        'id': id,
-        'name': 'laptop',
-        'storage': 'USER_SCOPED',
-        'enrolled': '2026-09-18T08:00:00Z',
-        'lastUsed': '',
-        'self': self,
-        'recovery': false,
-      };
+    'id': id,
+    'name': 'laptop',
+    'storage': 'USER_SCOPED',
+    'enrolled': '2026-09-18T08:00:00Z',
+    'lastUsed': '',
+    'self': self,
+    'recovery': false,
+  };
 
   test('enrolling sends the name, the share and the declared storage, and reads the slot back', () async {
     Map<String, dynamic>? asked;
@@ -41,8 +40,11 @@ void main() {
       return <String, dynamic>{'outcome': 'ENROLLED', 'slot': slot('slot-1'), 'detail': ''};
     });
 
-    final enrolled = await (await connect())
-        .enrollDevice(name: 'laptop', share: 'c2hhcmU=', storage: KeyslotStorage.userScoped);
+    final enrolled = await (await connect()).enrollDevice(
+      name: 'laptop',
+      share: 'c2hhcmU=',
+      storage: KeyslotStorage.userScoped,
+    );
 
     expect(asked, <String, dynamic>{'name': 'laptop', 'share': 'c2hhcmU=', 'storage': 'USER_SCOPED'});
     expect(enrolled.outcome, KeyslotOutcome.enrolled);
@@ -51,12 +53,15 @@ void main() {
   });
 
   test('the list reads every slot, the recovery passphrase marked as one', () async {
-    daemon.method('Keyslots', (_) => <String, dynamic>{
-          'slots': <Map<String, dynamic>>[
-            <String, dynamic>{...slot('slot-0'), 'name': 'recovery passphrase', 'recovery': true},
-            slot('slot-1', self: true),
-          ],
-        });
+    daemon.method(
+      'Keyslots',
+      (_) => <String, dynamic>{
+        'slots': <Map<String, dynamic>>[
+          <String, dynamic>{...slot('slot-0'), 'name': 'recovery passphrase', 'recovery': true},
+          slot('slot-1', self: true),
+        ],
+      },
+    );
 
     final slots = await (await connect()).keyslots();
 
@@ -69,7 +74,11 @@ void main() {
     Map<String, dynamic>? asked;
     daemon.method('RevokeKeyslot', (parameters) {
       asked = parameters;
-      return <String, dynamic>{'outcome': 'LAST_WAY_IN', 'remaining': <dynamic>[slot('slot-1')], 'detail': ''};
+      return <String, dynamic>{
+        'outcome': 'LAST_WAY_IN',
+        'remaining': <dynamic>[slot('slot-1')],
+        'detail': '',
+      };
     });
 
     final revoked = await (await connect()).revokeKeyslot('slot-1');
@@ -88,7 +97,10 @@ void main() {
 
     final unlocked = await (await connect()).unlockWithShare(share: 'c2hhcmU=', minutes: 30);
 
-    expect(asked, <String, dynamic>{'share': 'c2hhcmU=', 'minutes': 30}, reason: 'as built, unlocking takes no keyslot id, so none is sent');
+    expect(asked, <String, dynamic>{
+      'share': 'c2hhcmU=',
+      'minutes': 30,
+    }, reason: 'as built, unlocking takes no keyslot id, so none is sent');
     expect(unlocked.outcome, KeyslotOutcome.shareRejected);
     expect(unlocked.slot, isNull);
   });
@@ -97,9 +109,6 @@ void main() {
     final client = await connect();
 
     await expectLater(client.keyslots(), throwsA(isA<FeatureNotSupported>()));
-    await expectLater(
-      client.unlockWithShare(share: 'c2hhcmU='),
-      throwsA(isA<FeatureNotSupported>()),
-    );
+    await expectLater(client.unlockWithShare(share: 'c2hhcmU='), throwsA(isA<FeatureNotSupported>()));
   });
 }

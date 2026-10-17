@@ -1,6 +1,6 @@
 # A change to documents or issues runs only these: `flutter test --tags documents`.
 tags:
-  documents:
-  # A test that needs what only Linux has: a pty, a unix socket, `chmod`, a Bash tool. The Windows
-  # workflow leaves these out; each says why where it is marked.
-  linux:
+    documents:
+    # A test that needs what only Linux has: a pty, a unix socket, `chmod`, a Bash tool. The Windows
+    # workflow leaves these out; each says why where it is marked.
+    linux:

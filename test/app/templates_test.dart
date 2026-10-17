@@ -19,8 +19,7 @@ void main() {
   test('a template carries what a job is, and nothing that weakens what it is held to', () {
     // `Start` takes `clearance` and `noGate`, and either would let a job set up last month be
     // running today with the gate off. Neither is a field here, and this fails the moment one is.
-    expect(nightly.stored.keys.toSet(),
-        <String>{'name', 'project', 'agent', 'mode', 'prompt'});
+    expect(nightly.stored.keys.toSet(), <String>{'name', 'project', 'agent', 'mode', 'prompt'});
   });
 
   test('a setting nobody offered is not honored just because it is in the file', () async {
@@ -28,11 +27,7 @@ void main() {
     // by way of a template — which is why reading one names its fields rather than copying a map.
     final store = MemorySettingsStore(<String, Object?>{
       'templates': <Map<String, Object?>>[
-        <String, Object?>{
-          ...nightly.stored,
-          'noGate': true,
-          'clearance': 'off',
-        },
+        <String, Object?>{...nightly.stored, 'noGate': true, 'clearance': 'off'},
       ],
     });
     final templates = templatesOn(store);
@@ -77,13 +72,15 @@ void main() {
     final templates = templatesOn(MemorySettingsStore());
     await templates.keep(nightly);
 
-    await templates.keep(const Template(
-      name: 'nightly-tests',
-      project: 'checkout',
-      agent: 'other-agent',
-      mode: Mode.unattended,
-      prompt: 'Run them differently',
-    ));
+    await templates.keep(
+      const Template(
+        name: 'nightly-tests',
+        project: 'checkout',
+        agent: 'other-agent',
+        mode: Mode.unattended,
+        prompt: 'Run them differently',
+      ),
+    );
 
     // Two entries with one name in one project are two commands reading identically, and
     // whichever ran would be the wrong one half the time.
@@ -95,13 +92,15 @@ void main() {
     final templates = templatesOn(MemorySettingsStore());
 
     await templates.keep(nightly);
-    await templates.keep(const Template(
-      name: 'nightly-tests',
-      project: 'billing',
-      agent: 'an-agent',
-      mode: Mode.unattended,
-      prompt: 'Run the nightly tests',
-    ));
+    await templates.keep(
+      const Template(
+        name: 'nightly-tests',
+        project: 'billing',
+        agent: 'an-agent',
+        mode: Mode.unattended,
+        prompt: 'Run the nightly tests',
+      ),
+    );
 
     expect(templates.all, hasLength(2));
     expect(templates.forProject('checkout'), hasLength(1));
@@ -111,13 +110,15 @@ void main() {
   test('forgetting one leaves the others', () async {
     final templates = templatesOn(MemorySettingsStore());
     await templates.keep(nightly);
-    await templates.keep(const Template(
-      name: 'weekly-audit',
-      project: 'checkout',
-      agent: 'an-agent',
-      mode: Mode.unattended,
-      prompt: 'Audit the dependencies',
-    ));
+    await templates.keep(
+      const Template(
+        name: 'weekly-audit',
+        project: 'checkout',
+        agent: 'an-agent',
+        mode: Mode.unattended,
+        prompt: 'Audit the dependencies',
+      ),
+    );
 
     await templates.forget(nightly);
 

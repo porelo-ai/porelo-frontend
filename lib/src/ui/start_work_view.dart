@@ -29,13 +29,14 @@ Future<bool> openStartWork(
     await showDialog<bool>(
       context: context,
       builder: (context) => StartWorkDialog(
-          starting: starting,
-          onStart: onStart,
-          onKeep: onKeep,
-          onStoreTheCredential: onStoreTheCredential,
-          onLogIn: onLogIn,
-          onOpenWithThisDevice: onOpenWithThisDevice,
-          onGrant: onGrant),
+        starting: starting,
+        onStart: onStart,
+        onKeep: onKeep,
+        onStoreTheCredential: onStoreTheCredential,
+        onLogIn: onLogIn,
+        onOpenWithThisDevice: onOpenWithThisDevice,
+        onGrant: onGrant,
+      ),
     ) ??
     false;
 
@@ -81,15 +82,17 @@ class StartWorkDialog extends StatefulWidget {
 }
 
 class _StartWorkDialogState extends State<StartWorkDialog> {
-  late final TextEditingController _prompt =
-      TextEditingController(text: widget.starting.prompt);
+  late final TextEditingController _prompt = TextEditingController(text: widget.starting.prompt);
 
   late final TextEditingController _name = TextEditingController(text: widget.starting.name);
 
   /// The name field, showing a suggestion that came in since, but never replacing what is being typed.
   TextEditingController _nameShown(String name) {
     if (_name.text.trim() != name) {
-      _name.value = TextEditingValue(text: name, selection: TextSelection.collapsed(offset: name.length));
+      _name.value = TextEditingValue(
+        text: name,
+        selection: TextSelection.collapsed(offset: name.length),
+      );
     }
     return _name;
   }
@@ -103,222 +106,218 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: widget.starting,
-        builder: (context, _) {
-          final starting = widget.starting;
-          final continuing = starting.continuing;
+    animation: widget.starting,
+    builder: (context, _) {
+      final starting = widget.starting;
+      final continuing = starting.continuing;
 
-          return AlertDialog(
-            title: Text(switch ((continuing, starting.from)) {
-              (final Task task, _) => 'Continue ${task.name}',
-              (_, final Template job) =>
-                'Run ${job.name} in ${starting.project?.name ?? ''}',
-              _ => 'Start work in ${starting.project?.name ?? ''}',
-            }),
-            content: SizedBox(
-              width: Sizes.dialogMedium,
-              child: DialogScroll(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (continuing != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Space.normal),
-                        child: Text(
-                          'What it was asked to do last time is below. Continuing means asking '
-                          'for something more, so it is here to be edited rather than sent as '
-                          'it stands.',
-                          key: const Key('start-continuing'),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    if (starting.apartFromElsewhere case final apart?)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Space.normal),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(Space.normal),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(Radii.small),
-                          ),
-                          child: Text(apart, key: const Key('start-apart-from-elsewhere')),
-                        ),
-                      ),
-                    if (starting.problem != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Space.normal),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(Space.normal),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(Radii.small),
-                          ),
-                          child: Text(starting.problem!,
-                              key: const Key('start-problem')),
-                        ),
-                      ),
-                    // What a start needs comes first, above the fold: a sign-in nobody saw was why a
-                    // new person started a shell where the agent said "Not logged in".
-                    if (starting.needsASignIn && widget.onLogIn != null)
-                      _SignInFirst(
-                          starting: starting,
-                          onLogIn: widget.onLogIn!,
-                          onStoreTheCredential: widget.onStoreTheCredential),
-                    if (starting.needsARepository) ...<Widget>[
-                      const SizedBox(height: Space.wide),
-                      Text('Which repository', style: Theme.of(context).textTheme.labelLarge),
-                      _WhichRepository(starting: starting),
-                    ],
-                    // Required, and filled in from the repository.
-                    if (continuing == null) ...<Widget>[
-                      const SizedBox(height: Space.wide),
-                      TextField(
-                        key: const Key('start-name'),
-                        controller: _nameShown(starting.name),
-                        decoration: InputDecoration(
-                          labelText: 'A name for this run',
-                          border: const OutlineInputBorder(),
-                          helperText: 'Filled in from the repository; change it if you like. It names '
-                              'this piece of work and its container on the machine.',
-                          errorText: starting.nameProblem,
-                        ),
-                        onChanged: starting.callIt,
-                      ),
-                    ],
-                    const SizedBox(height: Space.wide),
-                    Text('Which agent', style: Theme.of(context).textTheme.labelLarge),
-                    if (starting.busy)
-                      const Padding(
-                        padding: EdgeInsets.all(Space.normal),
-                        child: Text('Asking the machine what it has…'),
-                      )
-                    else if (starting.agents.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: Space.small),
-                        child: Text(
-                          'None is installed on this machine. That is a state, not a failure, '
-                          'and nothing can be started until one is.',
-                          key: Key('start-no-agents'),
-                        ),
-                      )
-                    else
-                      DropdownButtonFormField<String>(
-                        key: const Key('start-agent'),
-                        initialValue: starting.agent,
-                        decoration: const InputDecoration(border: OutlineInputBorder()),
-                        items: <DropdownMenuItem<String>>[
-                          for (final agent in starting.agents)
-                            DropdownMenuItem<String>(
-                              value: agent.name,
-                              child: Text(agent.version.isEmpty
-                                  ? agent.label
-                                  : '${agent.label} · ${agent.version}'),
-                            ),
-                        ],
-                        onChanged: (chosen) =>
-                            chosen == null ? null : starting.chooseAgent(chosen),
-                      ),
-                    // Shown, never dropped: an agent missing from a list looks exactly like one
-                    // that was never installed, and only one of those is worth fixing.
-                    for (final failure in starting.failures.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Space.tight),
-                        child: Text('${failure.key} could not be read: ${failure.value}',
-                            key: const Key('start-agent-failure'),
-                            style: Theme.of(context).textTheme.bodySmall),
-                      ),
-                    const SizedBox(height: Space.wide),
-                    Text('How you are involved',
-                        style: Theme.of(context).textTheme.labelLarge),
-                    _WhichMode(starting: starting),
-                    // Only where it belongs: a greyed box for the two ways a person drives took the
-                    // room the start's buttons needed on a small window.
-                    if (starting.takesAPrompt) ...<Widget>[
-                      const SizedBox(height: Space.normal),
-                      TextField(
-                        key: const Key('start-prompt'),
-                        controller: _prompt,
-                        maxLines: 4,
-                        minLines: 2,
-                        decoration: const InputDecoration(
-                          labelText: 'What to ask it to do',
-                          border: OutlineInputBorder(),
-                          helperText: 'It runs on its own until this is done or its time is up.',
-                        ),
-                        onChanged: starting.ask,
-                      ),
-                    ],
-
-                    // Answered before anything is created, and shown before the button. Three of
-                    // its outcomes are different actions — choose a provider, store a secret,
-                    // unlock the vault — and sending somebody to the wrong one costs more than
-                    // saying nothing would.
-                    if (starting.readiness != null &&
-                        !starting.readiness!.ready &&
-                        !(starting.needsASignIn && widget.onLogIn != null) &&
-                        !starting.readinessIsAboutTheName &&
-                        !starting.readinessIsAboutTheRepository) ...<Widget>[
-                      const SizedBox(height: Space.wide),
-                      _NotReady(
-                          starting: starting,
-                          onStoreTheCredential: widget.onStoreTheCredential,
-                          onGrant: widget.onGrant,
-                          onLogIn: widget.onLogIn,
-                          onOpenWithThisDevice: widget.onOpenWithThisDevice),
-                    ],
-                    const SizedBox(height: Space.normal),
-                    // Out of the way of a first start: a name, more credentials, keeping it as a job.
-                    Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        key: const Key('start-more'),
-                        tilePadding: EdgeInsets.zero,
-                        childrenPadding: EdgeInsets.zero,
-                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                        initiallyExpanded: continuing != null || starting.from != null,
-                        title: const Text('More options'),
-                        subtitle: const Text('More credentials, keeping it to start again'),
-                        children: <Widget>[
-                          _MoreCredentials(starting: starting),
-                          const SizedBox(height: Space.wide),
-                          _KeepAsTemplate(starting: starting, onKeep: widget.onKeep),
-                        ],
-                      ),
+      return AlertDialog(
+        title: Text(switch ((continuing, starting.from)) {
+          (final Task task, _) => 'Continue ${task.name}',
+          (_, final Template job) => 'Run ${job.name} in ${starting.project?.name ?? ''}',
+          _ => 'Start work in ${starting.project?.name ?? ''}',
+        }),
+        content: SizedBox(
+          width: Sizes.dialogMedium,
+          child: DialogScroll(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (continuing != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.normal),
+                    child: Text(
+                      'What it was asked to do last time is below. Continuing means asking '
+                      'for something more, so it is here to be edited rather than sent as '
+                      'it stands.',
+                      key: const Key('start-continuing'),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ],
+                  ),
+                if (starting.apartFromElsewhere case final apart?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.normal),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(Space.normal),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(Radii.small),
+                      ),
+                      child: Text(apart, key: const Key('start-apart-from-elsewhere')),
+                    ),
+                  ),
+                if (starting.problem != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Space.normal),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(Space.normal),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(Radii.small),
+                      ),
+                      child: Text(starting.problem!, key: const Key('start-problem')),
+                    ),
+                  ),
+                // What a start needs comes first, above the fold: a sign-in nobody saw was why a
+                // new person started a shell where the agent said "Not logged in".
+                if (starting.needsASignIn && widget.onLogIn != null)
+                  _SignInFirst(
+                    starting: starting,
+                    onLogIn: widget.onLogIn!,
+                    onStoreTheCredential: widget.onStoreTheCredential,
+                  ),
+                if (starting.needsARepository) ...<Widget>[
+                  const SizedBox(height: Space.wide),
+                  Text('Which repository', style: Theme.of(context).textTheme.labelLarge),
+                  _WhichRepository(starting: starting),
+                ],
+                // Required, and filled in from the repository.
+                if (continuing == null) ...<Widget>[
+                  const SizedBox(height: Space.wide),
+                  TextField(
+                    key: const Key('start-name'),
+                    controller: _nameShown(starting.name),
+                    decoration: InputDecoration(
+                      labelText: 'A name for this run',
+                      border: const OutlineInputBorder(),
+                      helperText:
+                          'Filled in from the repository; change it if you like. It names '
+                          'this piece of work and its container on the machine.',
+                      errorText: starting.nameProblem,
+                    ),
+                    onChanged: starting.callIt,
+                  ),
+                ],
+                const SizedBox(height: Space.wide),
+                Text('Which agent', style: Theme.of(context).textTheme.labelLarge),
+                if (starting.busy)
+                  const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine what it has…'))
+                else if (starting.agents.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: Space.small),
+                    child: Text(
+                      'None is installed on this machine. That is a state, not a failure, '
+                      'and nothing can be started until one is.',
+                      key: Key('start-no-agents'),
+                    ),
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    key: const Key('start-agent'),
+                    initialValue: starting.agent,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                    items: <DropdownMenuItem<String>>[
+                      for (final agent in starting.agents)
+                        DropdownMenuItem<String>(
+                          value: agent.name,
+                          child: Text(agent.version.isEmpty ? agent.label : '${agent.label} · ${agent.version}'),
+                        ),
+                    ],
+                    onChanged: (chosen) => chosen == null ? null : starting.chooseAgent(chosen),
+                  ),
+                // Shown, never dropped: an agent missing from a list looks exactly like one
+                // that was never installed, and only one of those is worth fixing.
+                for (final failure in starting.failures.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.tight),
+                    child: Text(
+                      '${failure.key} could not be read: ${failure.value}',
+                      key: const Key('start-agent-failure'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                const SizedBox(height: Space.wide),
+                Text('How you are involved', style: Theme.of(context).textTheme.labelLarge),
+                _WhichMode(starting: starting),
+                // Only where it belongs: a greyed box for the two ways a person drives took the
+                // room the start's buttons needed on a small window.
+                if (starting.takesAPrompt) ...<Widget>[
+                  const SizedBox(height: Space.normal),
+                  TextField(
+                    key: const Key('start-prompt'),
+                    controller: _prompt,
+                    maxLines: 4,
+                    minLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'What to ask it to do',
+                      border: OutlineInputBorder(),
+                      helperText: 'It runs on its own until this is done or its time is up.',
+                    ),
+                    onChanged: starting.ask,
+                  ),
+                ],
+
+                // Answered before anything is created, and shown before the button. Three of
+                // its outcomes are different actions — choose a provider, store a secret,
+                // unlock the vault — and sending somebody to the wrong one costs more than
+                // saying nothing would.
+                if (starting.readiness != null &&
+                    !starting.readiness!.ready &&
+                    !(starting.needsASignIn && widget.onLogIn != null) &&
+                    !starting.readinessIsAboutTheName &&
+                    !starting.readinessIsAboutTheRepository) ...<Widget>[
+                  const SizedBox(height: Space.wide),
+                  _NotReady(
+                    starting: starting,
+                    onStoreTheCredential: widget.onStoreTheCredential,
+                    onGrant: widget.onGrant,
+                    onLogIn: widget.onLogIn,
+                    onOpenWithThisDevice: widget.onOpenWithThisDevice,
+                  ),
+                ],
+                const SizedBox(height: Space.normal),
+                // Out of the way of a first start: a name, more credentials, keeping it as a job.
+                Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    key: const Key('start-more'),
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: EdgeInsets.zero,
+                    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                    initiallyExpanded: continuing != null || starting.from != null,
+                    title: const Text('More options'),
+                    subtitle: const Text('More credentials, keeping it to start again'),
+                    children: <Widget>[
+                      _MoreCredentials(starting: starting),
+                      const SizedBox(height: Space.wide),
+                      _KeepAsTemplate(starting: starting, onKeep: widget.onKeep),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            actions: <Widget>[
-              TextButton(
-                key: const Key('start-not-now'),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Not now'),
-              ),
-              if (starting.needsASignIn && widget.onLogIn != null)
-                FilledButton(
-                  key: const Key('start-sign-in-first'),
-                  onPressed: () => widget.onLogIn!(starting.chosenAgent!),
-                  child: const Text('Sign in first'),
-                )
-              else
-              FilledButton(
-                key: const Key('start-go'),
-                onPressed: starting.ready
-                    ? () {
-                        widget.onStart();
-                        Navigator.of(context).pop(true);
-                      }
-                    : null,
-                child: Text(continuing == null ? 'Start it' : 'Continue it'),
-              ),
-            ],
-          );
-        },
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('start-not-now'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          if (starting.needsASignIn && widget.onLogIn != null)
+            FilledButton(
+              key: const Key('start-sign-in-first'),
+              onPressed: () => widget.onLogIn!(starting.chosenAgent!),
+              child: const Text('Sign in first'),
+            )
+          else
+            FilledButton(
+              key: const Key('start-go'),
+              onPressed: starting.ready
+                  ? () {
+                      widget.onStart();
+                      Navigator.of(context).pop(true);
+                    }
+                  : null,
+              child: Text(continuing == null ? 'Start it' : 'Continue it'),
+            ),
+        ],
       );
+    },
+  );
 }
 
 /// Credentials the work is given beyond what its project names, each a vault entry for one of the
@@ -327,7 +326,6 @@ class _MoreCredentials extends StatelessWidget {
   const _MoreCredentials({required this.starting});
 
   final StartWork starting;
-
 
   @override
   Widget build(BuildContext context) {
@@ -340,8 +338,11 @@ class _MoreCredentials extends StatelessWidget {
     ];
     for (final each in starting.providers) {
       if (places.every((place) => place.name != each.name)) {
-        places.add((name: each.name, label: '${each.label.isEmpty ? each.name : each.label}, a provider',
-            reaches: each.upstream));
+        places.add((
+          name: each.name,
+          label: '${each.label.isEmpty ? each.name : each.label}, a provider',
+          reaches: each.upstream,
+        ));
       }
     }
     return Column(
@@ -359,39 +360,45 @@ class _MoreCredentials extends StatelessWidget {
         if (starting.destinations == null)
           const Text('This machine cannot list destinations.', key: Key('start-credentials-unsupported')),
         if (starting.destinations != null && places.length == starting.providers.length)
-          const Text('No destination is declared on this machine. One is added under Destinations, in '
-              "the machine's menu.", key: Key('start-no-destinations')),
+          const Text(
+            'No destination is declared on this machine. One is added under Destinations, in '
+            "the machine's menu.",
+            key: Key('start-no-destinations'),
+          ),
         if (places.isNotEmpty && starting.vaultEntries.isEmpty)
-          const Text('The vault holds nothing that could be given, or cannot be read now.',
-              key: Key('start-no-vault-entries')),
+          const Text(
+            'The vault holds nothing that could be given, or cannot be read now.',
+            key: Key('start-no-vault-entries'),
+          ),
         if (places.isNotEmpty)
           for (final entry in starting.vaultEntries)
             // The project's own are given anyway and cannot be pointed elsewhere, so not offered.
             if (!(starting.project?.credentials.containsKey(entry.name) ?? false))
-            Padding(
-              padding: const EdgeInsets.only(top: Space.tight),
-              child: DropdownButtonFormField<String>(
-                key: ValueKey<String>('start-credential ${entry.name}'),
-                isExpanded: true,
-                initialValue: starting.credentials[entry.name] ?? '',
-                decoration: InputDecoration(labelText: entry.name, border: const OutlineInputBorder()),
-                items: <DropdownMenuItem<String>>[
-                  const DropdownMenuItem<String>(value: '', child: Text('Not given')),
-                  for (final place in places)
-                    DropdownMenuItem<String>(
-                      value: place.name,
-                      child: Text(
+              Padding(
+                padding: const EdgeInsets.only(top: Space.tight),
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey<String>('start-credential ${entry.name}'),
+                  isExpanded: true,
+                  initialValue: starting.credentials[entry.name] ?? '',
+                  decoration: InputDecoration(labelText: entry.name, border: const OutlineInputBorder()),
+                  items: <DropdownMenuItem<String>>[
+                    const DropdownMenuItem<String>(value: '', child: Text('Not given')),
+                    for (final place in places)
+                      DropdownMenuItem<String>(
+                        value: place.name,
+                        child: Text(
                           place.label.isEmpty || place.label == place.name
                               ? place.name
                               : '${place.label} (${place.name})',
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (chosen) => chosen == null || chosen.isEmpty
-                    ? starting.withdraw(entry.name)
-                    : starting.grant(entry.name, chosen),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (chosen) => chosen == null || chosen.isEmpty
+                      ? starting.withdraw(entry.name)
+                      : starting.grant(entry.name, chosen),
+                ),
               ),
-            ),
         // What it will be given, said before it starts: entry, host, and the names inside. Never a value.
         for (final given in starting.credentials.entries)
           Padding(
@@ -413,22 +420,31 @@ class _MoreCredentials extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     if (project == null || !project.credentialsAnswered) {
       return <Widget>[
-        Text("What its project names under credentials: in project.yml it is given anyway; this "
-            'machine does not say what that is.', key: const Key('start-project-credentials-unsaid'),
-            style: text.bodySmall),
+        Text(
+          "What its project names under credentials: in project.yml it is given anyway; this "
+          'machine does not say what that is.',
+          key: const Key('start-project-credentials-unsaid'),
+          style: text.bodySmall,
+        ),
       ];
     }
     if (project.credentials.isEmpty) {
       return <Widget>[
-        Text('Its project gives it no credential of its own.',
-            key: const Key('start-project-credentials-none'), style: text.bodySmall),
+        Text(
+          'Its project gives it no credential of its own.',
+          key: const Key('start-project-credentials-none'),
+          style: text.bodySmall,
+        ),
       ];
     }
     return <Widget>[
       Text('Its project gives it these, and they cannot be pointed elsewhere here:', style: text.bodySmall),
       for (final given in project.credentials.entries)
-        Text('${given.key} for ${given.value}: inside the task as PORELO_TOKEN_${Credential.variableOf(given.key)}',
-            key: ValueKey<String>('start-project-credential ${given.key}'), style: text.bodySmall),
+        Text(
+          '${given.key} for ${given.value}: inside the task as PORELO_TOKEN_${Credential.variableOf(given.key)}',
+          key: ValueKey<String>('start-project-credential ${given.key}'),
+          style: text.bodySmall,
+        ),
     ];
   }
 
@@ -460,11 +476,14 @@ class _WhichRepository extends StatelessWidget {
         // Only where work happens: a project naming others under `repositories:` is never worked
         // in itself, and the person found the two kinds side by side unclear.
         for (final name in project.workRepositories)
-          Choice(name, name,
-              id: 'start-repository-$name',
-              means: project.workRepositories.length < project.repositories.length
-                  ? ''
-                  : (name == project.ownRepository ? 'The project itself: its code, its file and its planning.' : '')),
+          Choice(
+            name,
+            name,
+            id: 'start-repository-$name',
+            means: project.workRepositories.length < project.repositories.length
+                ? ''
+                : (name == project.ownRepository ? 'The project itself: its code, its file and its planning.' : ''),
+          ),
       ],
     );
   }
@@ -478,28 +497,41 @@ class _WhichMode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ChoiceField<Mode>(
-        // `Start` would default this — `UNATTENDED` with a prompt, `SHELL` without. Not relied
-        // on: work is started *with* a mode, and a screen that picked one quietly
-        // would be deciding whether anybody is going to be there.
-        id: 'start-mode',
-        label: 'How you take part',
-        value: starting.mode,
-        onChanged: (chosen) => chosen == null ? null : starting.chooseMode(chosen),
-        // Two ways: an agent session ends in the container's
-        // shell when the agent is left, so a start into a bare shell was a third way to the same
-        // place. A shell is offered only to work that was started as one before.
-        choices: <Choice<Mode>>[
-          // Called a shell, as a person reads it, and the agent is started in it.
-          const Choice(Mode.agent, 'A shell, driven by hand', id: 'start-mode-agent',
-              means: 'A terminal in the container with the agent already started in it. Leaving the '
-                  'agent (/exit) leaves you in the shell.'),
-          const Choice(Mode.unattended, 'Unattended, against a prompt', id: 'start-mode-unattended',
-              means: 'It runs on its own. Nobody is expected to be watching.'),
-          if (starting.mode == Mode.shell)
-            const Choice(Mode.shell, 'A bare shell, without the agent', id: 'start-mode-shell',
-                means: 'A terminal in the container. The agent does not start: nothing runs until you run it.'),
-        ],
-      );
+    // `Start` would default this — `UNATTENDED` with a prompt, `SHELL` without. Not relied
+    // on: work is started *with* a mode, and a screen that picked one quietly
+    // would be deciding whether anybody is going to be there.
+    id: 'start-mode',
+    label: 'How you take part',
+    value: starting.mode,
+    onChanged: (chosen) => chosen == null ? null : starting.chooseMode(chosen),
+    // Two ways: an agent session ends in the container's
+    // shell when the agent is left, so a start into a bare shell was a third way to the same
+    // place. A shell is offered only to work that was started as one before.
+    choices: <Choice<Mode>>[
+      // Called a shell, as a person reads it, and the agent is started in it.
+      const Choice(
+        Mode.agent,
+        'A shell, driven by hand',
+        id: 'start-mode-agent',
+        means:
+            'A terminal in the container with the agent already started in it. Leaving the '
+            'agent (/exit) leaves you in the shell.',
+      ),
+      const Choice(
+        Mode.unattended,
+        'Unattended, against a prompt',
+        id: 'start-mode-unattended',
+        means: 'It runs on its own. Nobody is expected to be watching.',
+      ),
+      if (starting.mode == Mode.shell)
+        const Choice(
+          Mode.shell,
+          'A bare shell, without the agent',
+          id: 'start-mode-shell',
+          means: 'A terminal in the container. The agent does not start: nothing runs until you run it.',
+        ),
+    ],
+  );
 }
 
 /// Keeping what is on screen as a recurring job.
@@ -518,8 +550,7 @@ class _KeepAsTemplate extends StatefulWidget {
 }
 
 class _KeepAsTemplateState extends State<_KeepAsTemplate> {
-  late final TextEditingController _name =
-      TextEditingController(text: widget.starting.templateName);
+  late final TextEditingController _name = TextEditingController(text: widget.starting.templateName);
   bool _kept = false;
 
   @override
@@ -530,46 +561,47 @@ class _KeepAsTemplateState extends State<_KeepAsTemplate> {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: TextField(
-              key: const Key('template-name'),
-              controller: _name,
-              decoration: const InputDecoration(
-                // **Not "a recurring job".** That wording reads as *recurring on its own*, and
-                // it misled the backend into answering a question about schedules that nobody
-                // asked — there is no scheduler, and a job kept here starts when somebody starts
-                // it. Both facts a person would otherwise assume wrongly are said in the helper.
-                labelText: 'Save these choices as a job, under a name',
-                hintText: 'nightly-tests',
-                border: OutlineInputBorder(),
-                helperText: 'For starting the same again with one click: it keeps the repository, '
-                    'the agent, the mode and the prompt — nothing else. It stays with you rather '
-                    'than with the project, and nothing starts it but you. Not the name of this run.',
-              ),
-              onChanged: (typed) {
-                widget.starting.callTheTemplate(typed);
-                if (_kept) setState(() => _kept = false);
-              },
-            ),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Expanded(
+        child: TextField(
+          key: const Key('template-name'),
+          controller: _name,
+          decoration: const InputDecoration(
+            // **Not "a recurring job".** That wording reads as *recurring on its own*, and
+            // it misled the backend into answering a question about schedules that nobody
+            // asked — there is no scheduler, and a job kept here starts when somebody starts
+            // it. Both facts a person would otherwise assume wrongly are said in the helper.
+            labelText: 'Save these choices as a job, under a name',
+            hintText: 'nightly-tests',
+            border: OutlineInputBorder(),
+            helperText:
+                'For starting the same again with one click: it keeps the repository, '
+                'the agent, the mode and the prompt — nothing else. It stays with you rather '
+                'than with the project, and nothing starts it but you. Not the name of this run.',
           ),
-          const SizedBox(width: Space.small),
-          Padding(
-            padding: const EdgeInsets.only(top: Space.small),
-            child: OutlinedButton(
-              key: const Key('template-keep'),
-              onPressed: widget.starting.asTemplate == null
-                  ? null
-                  : () {
-                      widget.onKeep();
-                      setState(() => _kept = true);
-                    },
-              child: Text(_kept ? 'Kept' : 'Keep'),
-            ),
-          ),
-        ],
-      );
+          onChanged: (typed) {
+            widget.starting.callTheTemplate(typed);
+            if (_kept) setState(() => _kept = false);
+          },
+        ),
+      ),
+      const SizedBox(width: Space.small),
+      Padding(
+        padding: const EdgeInsets.only(top: Space.small),
+        child: OutlinedButton(
+          key: const Key('template-keep'),
+          onPressed: widget.starting.asTemplate == null
+              ? null
+              : () {
+                  widget.onKeep();
+                  setState(() => _kept = true);
+                },
+          child: Text(_kept ? 'Kept' : 'Keep'),
+        ),
+      ),
+    ],
+  );
 }
 
 /// What stands in the way of starting, and what to do about it.
@@ -612,9 +644,7 @@ class _NotReady extends StatelessWidget {
           // The daemon's own words, under ours. Never parsed, only shown.
           if (answer.detail.isNotEmpty) ...<Widget>[
             const SizedBox(height: Space.tight),
-            Text(answer.detail,
-                key: const Key('not-ready-detail'),
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(answer.detail, key: const Key('not-ready-detail'), style: Theme.of(context).textTheme.bodySmall),
           ],
           // A host the machine never met: its keys, the one the forge publishes marked and trusted with
           // one press, as binding a machine does; a changed key offers nothing.
@@ -652,7 +682,9 @@ class _NotReady extends StatelessWidget {
             ),
           ],
           // Granting, once, in a browser: not storing a secret, and not a terminal.
-          if (onGrant != null && answer.outcome.name == 'AUTHORIZATION_NEEDED' && answer.credential.isNotEmpty) ...<Widget>[
+          if (onGrant != null &&
+              answer.outcome.name == 'AUTHORIZATION_NEEDED' &&
+              answer.credential.isNotEmpty) ...<Widget>[
             const SizedBox(height: Space.small),
             OutlinedButton.icon(
               key: const Key('grant-to-start'),
@@ -669,8 +701,10 @@ class _NotReady extends StatelessWidget {
               key: const Key('store-the-credential'),
               onPressed: () => onStoreTheCredential!(),
               icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
-              label: Text('Store ${answer.credential.isEmpty ? 'it' : answer.credential} now, in a '
-                  'terminal on the machine'),
+              label: Text(
+                'Store ${answer.credential.isEmpty ? 'it' : answer.credential} now, in a '
+                'terminal on the machine',
+              ),
             ),
           ],
           if (starting.refusedOutright) ...<Widget>[
@@ -684,9 +718,11 @@ class _NotReady extends StatelessWidget {
           ],
           if (starting.whatItWouldCost != null) ...<Widget>[
             const SizedBox(height: Space.small),
-            Text(starting.whatItWouldCost!,
-                key: const Key('what-it-would-cost'),
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              starting.whatItWouldCost!,
+              key: const Key('what-it-would-cost'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ],
       ),
@@ -723,9 +759,11 @@ class _SignInFirst extends StatelessWidget {
         children: <Widget>[
           Text('Sign in to $label first', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: Space.tight),
-          Text('Nothing is stored for $label on this machine yet. Signing in runs its own login in a '
-              'terminal there: you sign in in your browser, and what it gives is kept in the vault, '
-              'never by this program. Then work can start.'),
+          Text(
+            'Nothing is stored for $label on this machine yet. Signing in runs its own login in a '
+            'terminal there: you sign in in your browser, and what it gives is kept in the vault, '
+            'never by this program. Then work can start.',
+          ),
           const SizedBox(height: Space.small),
           Wrap(
             spacing: Space.small,

@@ -5,13 +5,7 @@ import '../support/following.dart';
 
 /// Usage: the project {'checkout'} is followed unverified
 Future<void> theProjectIsFollowedUnverified(WidgetTester tester, String name) => theProjectFollows(
-      tester,
-      name,
-      Followed(
-        name: name,
-        url: 'git@example.org:$name.git',
-        commit: '4f2a9c1e0b77',
-        outcome: 'APPLIED',
-        unverified: true,
-      ),
-    );
+  tester,
+  name,
+  Followed(name: name, url: 'git@example.org:$name.git', commit: '4f2a9c1e0b77', outcome: 'APPLIED', unverified: true),
+);

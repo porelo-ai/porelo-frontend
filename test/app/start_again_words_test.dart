@@ -29,7 +29,8 @@ void main() {
     <String, dynamic>{'line': 'project        utils4j'},
     <String, dynamic>{'line': 'task image     porelo/utils4j'},
     <String, dynamic>{
-      'line': 'porelo: org.fuin.porelo.agent.api.AgentException: Several agents are installed '
+      'line':
+          'porelo: org.fuin.porelo.agent.api.AgentException: Several agents are installed '
           '(claude, stub), so --agent is required',
     },
     <String, dynamic>{'output': <String>[], 'container': '', 'exitCode': 70},
@@ -48,20 +49,25 @@ void main() {
 
     expect(result.exitCode, 70);
     expect(result.output, hasLength(4));
-    expect(startWords('porelo-utils4j-porelo-utils4j-shell', result),
-        contains('Several agents are installed (claude, stub), so --agent is required'));
+    expect(
+      startWords('porelo-utils4j-porelo-utils4j-shell', result),
+      contains('Several agents are installed (claude, stub), so --agent is required'),
+    );
   });
 
   test('the reason is the last thing said, not the plan printed on the way', () {
-    const result = StartProgress(exitCode: 69, output: <String>[
-      'task           porelo-utils4j-shell',
-      'reachable      deb.debian.org                 set os-packages-debian',
-      '               github.com                     set git-hosting',
-      'porelo: porelo-utils4j-porelo-utils4j-shell was started before this machine restarted, so it cannot be started again.',
-      '       Its sockets were under \$XDG_RUNTIME_DIR, which the system clears on restart.',
-      '',
-      '         podman cp porelo-utils4j-porelo-utils4j-shell:/workspace ./recovered',
-    ]);
+    const result = StartProgress(
+      exitCode: 69,
+      output: <String>[
+        'task           porelo-utils4j-shell',
+        'reachable      deb.debian.org                 set os-packages-debian',
+        '               github.com                     set git-hosting',
+        'porelo: porelo-utils4j-porelo-utils4j-shell was started before this machine restarted, so it cannot be started again.',
+        '       Its sockets were under \$XDG_RUNTIME_DIR, which the system clears on restart.',
+        '',
+        '         podman cp porelo-utils4j-porelo-utils4j-shell:/workspace ./recovered',
+      ],
+    );
 
     final words = startWords('porelo-utils4j-porelo-utils4j-shell', result);
 
@@ -76,13 +82,17 @@ void main() {
 
     expect(predates.isKnown, isTrue);
     expect(predates.starts, isFalse);
-    expect(startWords('porelo-predates-shell', const StartProgress(action: predates, exitCode: 69)),
-        contains('was started before this machine restarted'));
+    expect(
+      startWords('porelo-predates-shell', const StartProgress(action: predates, exitCode: 69)),
+      contains('was started before this machine restarted'),
+    );
     expect('${const StartRefused(predates)}', contains('started before this machine restarted'));
   });
 
   test('a failure that printed nothing still says its exit code, and no more', () {
-    expect(startWords('porelo-demo-shell', const StartProgress(exitCode: 70)),
-        'Starting porelo-demo-shell failed with exit code 70.');
+    expect(
+      startWords('porelo-demo-shell', const StartProgress(exitCode: 70)),
+      'Starting porelo-demo-shell failed with exit code 70.',
+    );
   });
 }

@@ -25,17 +25,16 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<PoreloClient> connect() => PoreloClient.connect(
-      Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Map<String, dynamic> task(String name, {bool running = true, int helpers = 4}) => {
-        'name': name,
-        'project': 'demo',
-        'securityClass': 'guarded',
-        'state': running ? 'Up 2 minutes' : 'Exited (143) 1 second ago',
-        'running': running,
-        'helpers': helpers,
-      };
+    'name': name,
+    'project': 'demo',
+    'securityClass': 'guarded',
+    'state': running ? 'Up 2 minutes' : 'Exited (143) 1 second ago',
+    'running': running,
+    'helpers': helpers,
+  };
 
   group('talking to a backend', () {
     test('a task name is asked about with readiness, and a bad one comes back as such', () async {
@@ -61,7 +60,12 @@ void main() {
     });
 
     test('reads the task list over the socket', () async {
-      daemon.method('List', (_) => {'tasks': [task('porelo-demo-shell-1')]});
+      daemon.method(
+        'List',
+        (_) => {
+          'tasks': [task('porelo-demo-shell-1')],
+        },
+      );
       final tasks = await (await connect()).tasks();
       expect(tasks, hasLength(1));
       expect(tasks.single.name, 'porelo-demo-shell-1');
@@ -71,15 +75,18 @@ void main() {
     test('a refusal arrives as an outcome, not as a failure', () async {
       // HOLDS_WORK is the gate working. A client that treated it as an error would show the one
       // answer that matters most as a generic failure.
-      daemon.method('Remove', (_) => {
-            'outcome': 'HOLDS_WORK',
-            'work': '2 commits on main',
-            'rescuedRef': '',
-            'removed': false,
-            'helpers': 0,
-            'surviving': 4,
-            'detail': '',
-          });
+      daemon.method(
+        'Remove',
+        (_) => {
+          'outcome': 'HOLDS_WORK',
+          'work': '2 commits on main',
+          'rescuedRef': '',
+          'removed': false,
+          'helpers': 0,
+          'surviving': 4,
+          'detail': '',
+        },
+      );
       final stopped = await (await connect()).remove('porelo-demo-shell-1');
       expect(stopped.outcome, Outcome.holdsWork);
       expect(stopped.removed, isFalse);
@@ -90,16 +97,19 @@ void main() {
       // The agent's own installs go with the container and have nowhere to arrive, unlike the
       // workspace. Nothing else records that any of it existed, so a removal that does not
       // mention it is the last chance to know, gone.
-      daemon.method('Remove', (_) => {
-            'outcome': 'REMOVED',
-            'work': '',
-            'rescuedRef': '',
-            'removed': true,
-            'helpers': 2,
-            'surviving': 0,
-            'detail': '',
-            'discarded': 1284,
-          });
+      daemon.method(
+        'Remove',
+        (_) => {
+          'outcome': 'REMOVED',
+          'work': '',
+          'rescuedRef': '',
+          'removed': true,
+          'helpers': 2,
+          'surviving': 0,
+          'detail': '',
+          'discarded': 1284,
+        },
+      );
 
       final stopped = await (await connect()).remove('porelo-demo-shell-1');
 
@@ -107,47 +117,63 @@ void main() {
     });
 
     test("a stop's survivors are a count, and what the machine adds is kept", () async {
-      daemon.method('Stop', (_) => {'outcome': 'STOPPED', 'helpers': 2, 'surviving': 1, 'detail': 'the gate helper would not end'});
+      daemon.method(
+        'Stop',
+        (_) => {'outcome': 'STOPPED', 'helpers': 2, 'surviving': 1, 'detail': 'the gate helper would not end'},
+      );
 
       final stopped = await (await connect()).stop('porelo-demo-shell-1');
 
       expect(stopped.surviving, 1);
       expect(stopped.detail, 'the gate helper would not end');
-      expect(stopWords('porelo-demo-shell-1', stopped),
-          allOf(contains('One helper outlived the stop'), contains('the gate helper would not end.')));
+      expect(
+        stopWords('porelo-demo-shell-1', stopped),
+        allOf(contains('One helper outlived the stop'), contains('the gate helper would not end.')),
+      );
     });
 
     test("a removal's discarded is a count of paths, never a size, and its detail is said", () async {
-      daemon.method('Remove', (_) => {
-            'outcome': 'RESCUE_FAILED',
-            'work': '',
-            'rescuedRef': '',
-            'removed': false,
-            'helpers': 0,
-            'surviving': 0,
-            'detail': 'the gate refused the push',
-            'discarded': 3,
-          });
+      daemon.method(
+        'Remove',
+        (_) => {
+          'outcome': 'RESCUE_FAILED',
+          'work': '',
+          'rescuedRef': '',
+          'removed': false,
+          'helpers': 0,
+          'surviving': 0,
+          'detail': 'the gate refused the push',
+          'discarded': 3,
+        },
+      );
 
       final removed = await (await connect()).remove('porelo-demo-shell-1');
 
       expect(removeWords('porelo-demo-shell-1', removed), contains('the gate refused the push.'));
-      expect(removeWords('t', const Removed(outcome: Outcome.removed, work: '', rescuedRef: '', removed: true, discarded: 3)),
-          allOf(contains('3 paths only it held went with it'), isNot(contains('bytes'))));
+      expect(
+        removeWords(
+          't',
+          const Removed(outcome: Outcome.removed, work: '', rescuedRef: '', removed: true, discarded: 3),
+        ),
+        allOf(contains('3 paths only it held went with it'), isNot(contains('bytes'))),
+      );
     });
 
     test('a reply from a daemon too old to count it reads as none', () async {
       // Additive: a backend that has not gained the field yet simply does not send it, and that
       // has to read as zero rather than as a client that cannot talk to it.
-      daemon.method('Remove', (_) => {
-            'outcome': 'REMOVED',
-            'work': '',
-            'rescuedRef': '',
-            'removed': true,
-            'helpers': 0,
-            'surviving': 0,
-            'detail': '',
-          });
+      daemon.method(
+        'Remove',
+        (_) => {
+          'outcome': 'REMOVED',
+          'work': '',
+          'rescuedRef': '',
+          'removed': true,
+          'helpers': 0,
+          'surviving': 0,
+          'detail': '',
+        },
+      );
 
       final stopped = await (await connect()).remove('porelo-demo-shell-1');
 
@@ -160,28 +186,38 @@ void main() {
       final client = await connect();
       await expectLater(
         client.decide(
-            const Prompt(
-                task: 'gone',
-                key: 'tcp/example.com/443',
-                destination: 'example.com',
-                protocol: 'tcp',
-                port: 443,
-                at: '',
-                prefix: ''),
-            allow: true),
-        throwsA(isA<VarlinkException>()
-            .having((e) => e.simpleName, 'simpleName', 'NoClearance')),
+          const Prompt(
+            task: 'gone',
+            key: 'tcp/example.com/443',
+            destination: 'example.com',
+            protocol: 'tcp',
+            port: 443,
+            at: '',
+            prefix: '',
+          ),
+          allow: true,
+        ),
+        throwsA(isA<VarlinkException>().having((e) => e.simpleName, 'simpleName', 'NoClearance')),
       );
     });
   });
 
   group('streaming', () {
     test('a watch delivers every event and then ends', () async {
-      daemon.stream('Watch', (_) => Stream.fromIterable([
-            {'tasks': [task('a')]},
-            {'tasks': [task('a'), task('b')]},
-            {'tasks': [task('b')]},
-          ]));
+      daemon.stream(
+        'Watch',
+        (_) => Stream.fromIterable([
+          {
+            'tasks': [task('a')],
+          },
+          {
+            'tasks': [task('a'), task('b')],
+          },
+          {
+            'tasks': [task('b')],
+          },
+        ]),
+      );
       final seen = await (await connect()).watchTasks().toList();
       expect(seen.map((tasks) => tasks.length), [1, 2, 1]);
     });
@@ -190,10 +226,14 @@ void main() {
       // The requirement is that tunnel loss shows as a disconnection and never as a machine with
       // nothing on it. A stream that completed normally here would render as an empty fleet.
       daemon.stream('Watch', (_) async* {
-        yield {'tasks': [task('a')]};
+        yield {
+          'tasks': [task('a')],
+        };
         daemon.severConnections();
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        yield {'tasks': [task('b')]};
+        yield {
+          'tasks': [task('b')],
+        };
       });
       final client = await connect();
       await expectLater(client.watchTasks(), emitsThrough(emitsError(anything)));
@@ -214,11 +254,14 @@ void main() {
     });
 
     test('a launch streams its output and then its result', () async {
-      daemon.stream('Start', (_) => Stream.fromIterable([
-            {'line': 'building the image'},
-            {'line': 'done'},
-            {'container': 'porelo-demo-shell-9', 'exitCode': 0},
-          ]));
+      daemon.stream(
+        'Start',
+        (_) => Stream.fromIterable([
+          {'line': 'building the image'},
+          {'line': 'done'},
+          {'container': 'porelo-demo-shell-9', 'exitCode': 0},
+        ]),
+      );
       final progress = await (await connect()).start(project: 'project.yml').toList();
       expect(progress.take(2).map((p) => p.line), ['building the image', 'done']);
       expect(progress.last.isResult, isTrue);
@@ -231,7 +274,12 @@ void main() {
     // and only ever sends values it knows about. This is why the mock is permanent.
 
     test('a missing method disables one feature instead of failing the client', () async {
-      daemon.method('List', (_) => {'tasks': [task('a')]});
+      daemon.method(
+        'List',
+        (_) => {
+          'tasks': [task('a')],
+        },
+      );
       daemon.remove('Credentials');
       final client = await connect();
 
@@ -243,15 +291,18 @@ void main() {
     test('an unrecognized outcome is carried, not thrown on', () async {
       // Adding an enum value is explicitly not a breaking change, so a client that cannot survive
       // one breaks on a routine backend release. A generated Dart enum would throw here.
-      daemon.method('Stop', (_) => {
-            'outcome': 'QUARANTINED_PENDING_REVIEW',
-            'work': '',
-            'rescuedRef': '',
-            'removed': false,
-            'helpers': 0,
-            'surviving': 0,
-            'detail': '',
-          });
+      daemon.method(
+        'Stop',
+        (_) => {
+          'outcome': 'QUARANTINED_PENDING_REVIEW',
+          'work': '',
+          'rescuedRef': '',
+          'removed': false,
+          'helpers': 0,
+          'surviving': 0,
+          'detail': '',
+        },
+      );
       final stopped = await (await connect()).stop('a');
       expect(stopped.outcome.isKnown, isFalse);
       expect(stopped.outcome.name, 'QUARANTINED_PENDING_REVIEW');
@@ -259,19 +310,20 @@ void main() {
     });
 
     test('an unrecognized reply field is ignored', () async {
-      daemon.method('List', (_) => {
-            'tasks': [ {...task('a'), 'somethingAddedLater': 42} ],
-            'anotherNewField': true,
-          });
+      daemon.method(
+        'List',
+        (_) => {
+          'tasks': [
+            {...task('a'), 'somethingAddedLater': 42},
+          ],
+          'anotherNewField': true,
+        },
+      );
       expect(await (await connect()).tasks(), hasLength(1));
     });
 
     test('the newest understood interface is chosen, not the newest offered', () async {
-      daemon.interfaces = const [
-        'org.varlink.service',
-        'org.fuin.porelo.Tasks1',
-        'org.fuin.porelo.Tasks2',
-      ];
+      daemon.interfaces = const ['org.varlink.service', 'org.fuin.porelo.Tasks1', 'org.fuin.porelo.Tasks2'];
       // Tasks2 is offered and this build does not know it, so Tasks1 is what gets used - which is
       // what lets an old interface keep working against a new backend.
       expect((await connect()).interfaceName, 'org.fuin.porelo.Tasks1');
@@ -291,8 +343,7 @@ void main() {
   group('when there is no backend', () {
     test('an absent socket is a disconnection, not a crash', () async {
       await expectLater(
-        PoreloClient.connect(
-            const Backend(socketPath: '/nonexistent/porelod.sock', label: 'nowhere')),
+        PoreloClient.connect(const Backend(socketPath: '/nonexistent/porelod.sock', label: 'nowhere')),
         throwsA(isA<VarlinkDisconnected>()),
       );
     });
@@ -300,15 +351,15 @@ void main() {
 
   group('a prompt and its answer', () {
     Map<String, dynamic> prompt({String? verdict, String prefix = 'egress/deny'}) => {
-          'task': 'porelo-demo-shell-1',
-          'key': 'tcp/example.com/443',
-          'destination': 'example.com',
-          'protocol': 'tcp',
-          'port': 443,
-          'at': '2026-09-07T09:12:00Z',
-          'prefix': verdict == null ? prefix : '',
-          'verdict': ?verdict,
-        };
+      'task': 'porelo-demo-shell-1',
+      'key': 'tcp/example.com/443',
+      'destination': 'example.com',
+      'protocol': 'tcp',
+      'port': 443,
+      'at': '2026-09-07T09:12:00Z',
+      'prefix': verdict == null ? prefix : '',
+      'verdict': ?verdict,
+    };
 
     test('an open question carries no verdict', () async {
       daemon.pushes('Prompts', (_) => Stream<Map<String, dynamic>>.value(prompt()));
@@ -392,7 +443,9 @@ void main() {
         if (seen.length == 2) second.complete();
       });
 
-      changes.add(<String, dynamic>{'tasks': <Map<String, dynamic>>[task('a')]});
+      changes.add(<String, dynamic>{
+        'tasks': <Map<String, dynamic>>[task('a')],
+      });
       await first.future;
       changes.add(<String, dynamic>{
         'tasks': <Map<String, dynamic>>[task('a'), task('b')],
@@ -416,13 +469,12 @@ void main() {
       final watching = client.watchTasks().listen((_) {
         if (!seen.isCompleted) seen.complete();
       });
-      changes.add(<String, dynamic>{'tasks': <Map<String, dynamic>>[task('a')]});
+      changes.add(<String, dynamic>{
+        'tasks': <Map<String, dynamic>>[task('a')],
+      });
       await seen.future;
 
-      await expectLater(
-        watching.cancel().timeout(const Duration(seconds: 5)),
-        completes,
-      );
+      await expectLater(watching.cancel().timeout(const Duration(seconds: 5)), completes);
       await changes.close();
     });
   });
@@ -436,8 +488,7 @@ void main() {
       final connection = await VarlinkConnection.open(daemon.socketPath);
 
       await expectLater(
-        connection.call('org.fuin.porelo.Tasks1.List', const {},
-            const Duration(milliseconds: 100)),
+        connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(milliseconds: 100)),
         throwsA(isA<VarlinkDisconnected>()),
       );
     });
@@ -447,8 +498,10 @@ void main() {
       // working backend as a broken one, which is why the deadline is on single calls only.
       daemon.neverAnswers('List');
       daemon.neverAnswers('Prompts');
-      final client = await PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'),
-          answerWithin: const Duration(milliseconds: 100));
+      final client = await PoreloClient.connect(
+        Backend(socketPath: daemon.socketPath, label: 'mock'),
+        answerWithin: const Duration(milliseconds: 100),
+      );
       // The same client gives up on a single call, so the silence below outlasts a real deadline.
       await expectLater(client.tasks(), throwsA(isA<VarlinkDisconnected>()));
 

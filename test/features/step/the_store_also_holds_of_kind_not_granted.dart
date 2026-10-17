@@ -9,7 +9,10 @@ Future<void> theStoreAlsoHoldsOfKindNotGranted(WidgetTester tester, String name,
   World.backend.theStoreIs = VaultState(
     vault: store.vault,
     exists: store.exists,
-    credentials: <Credential>[...store.credentials, Credential(name: name, type: kind, characters: 0)],
+    credentials: <Credential>[
+      ...store.credentials,
+      Credential(name: name, type: kind, characters: 0),
+    ],
     readable: store.readable,
   );
 }

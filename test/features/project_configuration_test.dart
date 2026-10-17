@@ -44,52 +44,38 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
     }
 
-    testWidgets('''what the work may reach says where each host came from''',
-        (tester) async {
+    testWidgets('''what the work may reach says where each host came from''', (tester) async {
       await bddSetUp(tester);
       await iOpenWhatThisProjectMayReach(tester);
       await itShowsGrantedBy(tester, 'api.anthropic.com', 'agent an-agent');
       await itShowsGrantedBy(tester, 'pub.dev', 'set dart-packages');
     });
-    testWidgets(
-        '''what is asked for and refused is told apart from what nobody added''',
-        (tester) async {
+    testWidgets('''what is asked for and refused is told apart from what nobody added''', (tester) async {
       await bddSetUp(tester);
       await iOpenWhatThisProjectMayReach(tester);
       await itSaysIsRefused(tester, 'telemetry.example.test');
     });
-    testWidgets(
-        '''a set says which hosts it grants, because the name alone does not''',
-        (tester) async {
+    testWidgets('''a set says which hosts it grants, because the name alone does not''', (tester) async {
       await bddSetUp(tester);
       await iOpenWhatThisProjectMayReach(tester);
       await iLookInsideTheSet(tester, 'Container registries');
       await itLists(tester, 'quay.io');
     });
-    testWidgets(
-        '''what a project may reach is shown, and said to be changed only in its repository''',
-        (tester) async {
+    testWidgets('''what a project may reach is shown, and said to be changed only in its repository''', (tester) async {
       await bddSetUp(tester);
       await iOpenWhatThisProjectMayReach(tester);
-      await itSays(
-          tester, 'under egress; a machine following it takes the change');
+      await itSays(tester, 'under egress; a machine following it takes the change');
       await itDoesNotSay(tester, 'Make this change');
     });
-    testWidgets(
-        '''a project that declares no egress at all is not offered it''',
-        (tester) async {
+    testWidgets('''a project that declares no egress at all is not offered it''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOfferedAsUnavailable(
-          tester, 'What this project may reach');
+      await theCommandIsOfferedAsUnavailable(tester, 'What this project may reach');
     });
-    testWidgets(
-        '''what a repository adds is shown on top of what every repository gets, and marked''',
-        (tester) async {
+    testWidgets('''what a repository adds is shown on top of what every repository gets, and marked''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasTheRepositories(
-          tester, 'checkout', 'checkout, payments-api');
+      await theProjectHasTheRepositories(tester, 'checkout', 'checkout, payments-api');
       await theRepositoryAdds(tester, 'payments-api', 'api.stripe.com');
       await iSelectTheProject(tester, 'checkout');
       await iOpenWhatTheRepositoryMayReach(tester, 'payments-api');
@@ -99,32 +85,25 @@ void main() {
       await isNotMarkedAsAddedByTheRepository(tester, 'github.com');
       await egressWasAskedAboutTheRepository(tester, 'payments-api');
     });
-    testWidgets(
-        '''choosing sets one at a time is explained, not merely how it works''',
-        (tester) async {
+    testWidgets('''choosing sets one at a time is explained, not merely how it works''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iOpenWhatThisProjectMayReach(tester);
       await itSays(tester, 'ones installed later');
     });
-    testWidgets('''what would go is shown, and asking removes nothing''',
-        (tester) async {
+    testWidgets('''what would go is shown, and asking removes nothing''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopFollowingThisProject(tester);
       await itSays(tester, 'This stops following checkout');
       await nothingWasRemoved(tester);
     });
-    testWidgets(
-        '''the repository is said to be untouched, and following it again brings it back''',
-        (tester) async {
+    testWidgets('''the repository is said to be untouched, and following it again brings it back''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopFollowingThisProject(tester);
       await itSays(tester, 'Its repository is not touched');
       await itSays(tester, 'Following its repository again brings it back');
     });
-    testWidgets(
-        '''agreeing is a second act, and it says what is still there afterwards''',
-        (tester) async {
+    testWidgets('''agreeing is a second act, and it says what is still there afterwards''', (tester) async {
       await bddSetUp(tester);
       await iAskToStopFollowingThisProject(tester);
       await iAgreeToStopFollowingIt(tester);
@@ -132,8 +111,7 @@ void main() {
       await itSays(tester, 'no longer followed here');
       await nothingWasForced(tester);
     });
-    testWidgets('''commits nobody reviewed stop it, and say where they exist''',
-        (tester) async {
+    testWidgets('''commits nobody reviewed stop it, and say where they exist''', (tester) async {
       await bddSetUp(tester);
       await stoppingFollowingWillRefuseBecause(tester, 'HOLDS_WORK');
       await iAskToStopFollowingThisProject(tester);
@@ -142,8 +120,7 @@ void main() {
       await itSays(tester, 'in the mirror and nowhere else');
       await nothingWasForced(tester);
     });
-    testWidgets('''running work stops it, and is not told the same way''',
-        (tester) async {
+    testWidgets('''running work stops it, and is not told the same way''', (tester) async {
       await bddSetUp(tester);
       await stoppingFollowingWillRefuseBecause(tester, 'TASKS_RUNNING');
       await iAskToStopFollowingThisProject(tester);
@@ -151,9 +128,7 @@ void main() {
       await itSays(tester, 'Work is still running');
       await itSays(tester, 'cut off where it stands');
     });
-    testWidgets(
-        '''going past a refusal is a second decision, and is what carries force''',
-        (tester) async {
+    testWidgets('''going past a refusal is a second decision, and is what carries force''', (tester) async {
       await bddSetUp(tester);
       await stoppingFollowingWillRefuseBecause(tester, 'HOLDS_WORK');
       await iAskToStopFollowingThisProject(tester);
@@ -162,34 +137,30 @@ void main() {
       await itWasForced(tester);
       await itSays(tester, 'is gone');
     });
-    testWidgets(
-        '''a project this machine does not follow can still be cleared away''',
-        (tester) async {
+    testWidgets('''a project this machine does not follow can still be cleared away''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'unrecorded');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOffered(tester, 'Stop following this project');
     });
-    testWidgets(
-        '''a project left from before following offers nothing but clearing it away''',
-        (tester) async {
+    testWidgets('''a project left from before following offers nothing but clearing it away''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsLeftOverFollowedByNothing(tester, 'checkout');
       await iSelectTheProject(tester, 'checkout');
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(
-          tester,
-          'Review what is waiting at the gate',
-          'not a project this machine follows');
+        tester,
+        'Review what is waiting at the gate',
+        'not a project this machine follows',
+      );
       await theCommandIsUnavailableBecause(
-          tester,
-          'Build the environment for this project',
-          'not a project this machine follows');
+        tester,
+        'Build the environment for this project',
+        'not a project this machine follows',
+      );
       await theCommandIsOffered(tester, 'Stop following this project');
     });
-    testWidgets(
-        '''a project the machine follows nothing by is said to be so, and nothing goes''',
-        (tester) async {
+    testWidgets('''a project the machine follows nothing by is said to be so, and nothing goes''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsLeftOverFollowedByNothing(tester, 'checkout');
       await theMachineFollowsNothingCalledIt(tester);

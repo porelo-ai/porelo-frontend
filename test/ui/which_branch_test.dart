@@ -7,15 +7,21 @@ import 'package:porelo_frontend/src/ui/gate_view.dart';
 void main() {
   Future<String?> ask(WidgetTester tester, {List<String> branches = const <String>[], String? defaultBranch}) async {
     String? answer;
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () async => answer = await askWhichBranch(context,
-              subject: 'Round to the nearest penny', branches: branches, defaultBranch: defaultBranch),
-          child: const Text('open'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => answer = await askWhichBranch(
+              context,
+              subject: 'Round to the nearest penny',
+              branches: branches,
+              defaultBranch: defaultBranch,
+            ),
+            child: const Text('open'),
+          ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     return answer;
@@ -23,15 +29,21 @@ void main() {
 
   testWidgets('the default branch is offered first and chosen', (tester) async {
     String? answer;
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () async => answer = await askWhichBranch(context,
-              subject: 'Round', branches: const <String>['dev', 'main'], defaultBranch: 'main'),
-          child: const Text('open'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async => answer = await askWhichBranch(
+              context,
+              subject: 'Round',
+              branches: const <String>['dev', 'main'],
+              defaultBranch: 'main',
+            ),
+            child: const Text('open'),
+          ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('main (its default branch)'), findsOneWidget);

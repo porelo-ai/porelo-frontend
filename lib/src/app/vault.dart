@@ -84,7 +84,7 @@ class Vault extends ChangeNotifier {
     if (devices.enrolledHere) return 'The vault is shut. Open it with this device.';
     return devices.canEnroll
         ? 'The vault is shut, and this device is not enrolled. Unlock it at the machine with '
-            '`porelo vault unlock`, then enroll this device.'
+              '`porelo vault unlock`, then enroll this device.'
         : 'The vault is shut. Unlock it at the machine with `porelo vault unlock`.';
   }
 
@@ -104,18 +104,20 @@ class Vault extends ChangeNotifier {
     if (state == null) return problem ?? 'the machine has not said yet';
     if (!state.exists) return 'there is no vault on this machine yet';
     return switch (what) {
-      VaultAct.enroll => !devices.canEnroll
-          ? devices.problem ?? 'this machine has not said whether it can'
-          : devices.enrolledHere
-              ? 'this device is enrolled already'
-              : !state.readable
-                  ? 'the vault is shut, and a device is enrolled into an open one'
-                  : null,
-      VaultAct.open => !devices.enrolledHere
-          ? 'this device is not enrolled on this machine'
-          : state.readable
-              ? 'it is open already'
-              : null,
+      VaultAct.enroll =>
+        !devices.canEnroll
+            ? devices.problem ?? 'this machine has not said whether it can'
+            : devices.enrolledHere
+            ? 'this device is enrolled already'
+            : !state.readable
+            ? 'the vault is shut, and a device is enrolled into an open one'
+            : null,
+      VaultAct.open =>
+        !devices.enrolledHere
+            ? 'this device is not enrolled on this machine'
+            : state.readable
+            ? 'it is open already'
+            : null,
       VaultAct.shut => state.readable ? null : 'it is shut already',
     };
   }

@@ -7,7 +7,6 @@ import '../support/tiles.dart';
 Future<void> theCardOfIsNotMarkedUnverified(WidgetTester tester, String project) async {
   await lookingAtTheProjects(tester, () async {
     expect(cardFor(project), findsOneWidget);
-    expect(find.descendant(of: cardFor(project), matching: find.byKey(const Key('project-unverified'))),
-        findsNothing);
+    expect(find.descendant(of: cardFor(project), matching: find.byKey(const Key('project-unverified'))), findsNothing);
   });
 }

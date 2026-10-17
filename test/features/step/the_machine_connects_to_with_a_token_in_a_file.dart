@@ -8,6 +8,12 @@ Future<void> theMachineConnectsToWithATokenInAFile(WidgetTester tester, String m
   World.backend.theConnections = <Connection>[
     ...World.backend.theConnections,
     Connection(
-        id: '/home/agent/.gitlab-token', kind: 'TOKEN', match: match, purpose: 'git', source: 'FILE', present: true),
+      id: '/home/agent/.gitlab-token',
+      kind: 'TOKEN',
+      match: match,
+      purpose: 'git',
+      source: 'FILE',
+      present: true,
+    ),
   ];
 }

@@ -27,77 +27,62 @@ import './step/i_press.dart';
 import './step/the_machine_was_asked_to_follow_taking_the_rewritten_history.dart';
 
 void main() {
-  group(
-      '''How far following a project's repository has got, and who must act''',
-      () {
+  group('''How far following a project's repository has got, and who must act''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''a project that is followed says which commit is in force''',
-        (tester) async {
+    testWidgets('''a project that is followed says which commit is in force''', (tester) async {
       await bddSetUp(tester);
-      await theProjectFollowsItsRepositoryAt(
-          tester, 'checkout', '4f2a9c1e0b77');
+      await theProjectFollowsItsRepositoryAt(tester, 'checkout', '4f2a9c1e0b77');
       await theProjectSays(tester, 'checkout', 'Following, at 4f2a9c1');
     });
-    testWidgets('''a project nobody follows says nothing about following''',
-        (tester) async {
+    testWidgets('''a project nobody follows says nothing about following''', (tester) async {
       await bddSetUp(tester);
       await theProjectSaysNothingAboutFollowing(tester, 'checkout');
     });
-    testWidgets(
-        '''a commit signed by an unknown key is refused, named, and put in front of a person''',
-        (tester) async {
+    testWidgets('''a commit signed by an unknown key is refused, named, and put in front of a person''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theNewestCommitOfIsSignedByTheUnknownKey(
-          tester, 'checkout', 'SHA256:9xQeTbL1');
-      await theProjectSays(
-          tester, 'checkout', 'signed by a key this machine was never given');
+      await theNewestCommitOfIsSignedByTheUnknownKey(tester, 'checkout', 'SHA256:9xQeTbL1');
+      await theProjectSays(tester, 'checkout', 'signed by a key this machine was never given');
       await theProjectSays(tester, 'checkout', 'still running 4f2a9c1');
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonNamesTheProject(tester, 'checkout');
       await itSays(tester, 'SHA256:9xQeTbL1');
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
-    testWidgets(
-        '''a repository that cannot be reached for now is said on the project, and needs nobody''',
-        (tester) async {
+    testWidgets('''a repository that cannot be reached for now is said on the project, and needs nobody''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theRepositoryOfCannotBeReachedForNow(tester, 'checkout');
-      await theProjectSays(
-          tester, 'checkout', 'The repository cannot be reached');
+      await theProjectSays(tester, 'checkout', 'The repository cannot be reached');
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonDoesNotNameTheProject(tester, 'checkout');
       await theCountOfWhatNeedsAPersonIs(tester, 'nothing needs you');
     });
-    testWidgets('''a shut store is not an unreachable repository''',
-        (tester) async {
+    testWidgets('''a shut store is not an unreachable repository''', (tester) async {
       await bddSetUp(tester);
       await theRepositoryOfNeedsACredentialFromAShutStore(tester, 'checkout');
       await theProjectSays(tester, 'checkout', "This account's store is shut");
       await theProjectDoesNotSay(tester, 'checkout', 'cannot be reached');
     });
-    testWidgets(
-        '''a project followed unverified says so, on its header and on its card''',
-        (tester) async {
+    testWidgets('''a project followed unverified says so, on its header and on its card''', (tester) async {
       await bddSetUp(tester);
       await theProjectIsFollowedUnverified(tester, 'checkout');
       await theProjectSays(tester, 'checkout', 'unverified');
       await theCardOfIsMarkedUnverified(tester, 'checkout');
     });
-    testWidgets('''a project followed with a key is not marked unverified''',
-        (tester) async {
+    testWidgets('''a project followed with a key is not marked unverified''', (tester) async {
       await bddSetUp(tester);
-      await theProjectFollowsItsRepositoryAt(
-          tester, 'checkout', '4f2a9c1e0b77');
+      await theProjectFollowsItsRepositoryAt(tester, 'checkout', '4f2a9c1e0b77');
       await theCardOfIsNotMarkedUnverified(tester, 'checkout');
     });
-    testWidgets(
-        '''a rewritten history is taken from what needs a person, after agreeing''',
-        (tester) async {
+    testWidgets('''a rewritten history is taken from what needs a person, after agreeing''', (tester) async {
       await bddSetUp(tester);
       await theHistoryOfWasRewritten(tester, 'checkout');
       await iGoToWhatNeedsAPerson(tester);
@@ -105,8 +90,7 @@ void main() {
       await iPress(tester, 'Take the rewritten history');
       await itSays(tester, 'Do this only if you rewrote the history yourself');
       await iPress(tester, 'Take it');
-      await theMachineWasAskedToFollowTakingTheRewrittenHistory(
-          tester, 'checkout');
+      await theMachineWasAskedToFollowTakingTheRewrittenHistory(tester, 'checkout');
     });
   });
 }

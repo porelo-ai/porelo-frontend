@@ -7,8 +7,7 @@ import '../support/world.dart';
 ///
 /// An image built by an older Porelo, or one whose project file has moved. **Not stale**: nothing
 /// knows either way, and rebuilding for no reason is how the word stops being read.
-Future<void> theProjectRecordsNothingAboutItsImage(
-    WidgetTester tester, String name) async {
+Future<void> theProjectRecordsNothingAboutItsImage(WidgetTester tester, String name) async {
   World.backend.theProjectsItHas = <Project>[
     for (final project in World.backend.theProjectsItHas)
       if (project.name != name)

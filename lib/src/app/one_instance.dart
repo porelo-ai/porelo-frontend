@@ -33,20 +33,13 @@ class OneInstance {
   ///
   /// [comeForward] runs when another launch asks for the window. [at] is injectable so this can be
   /// tested without fighting over the real one.
-  static Future<OneInstance> take({
-    required void Function() comeForward,
-    String? at,
-    bool? overLoopback,
-  }) async {
+  static Future<OneInstance> take({required void Function() comeForward, String? at, bool? overLoopback}) async {
     if (overLoopback ?? desk.isWindows) {
       return _takeOverLoopback(comeForward, at ?? desk.join(<String>[desk.state, 'frontend.port']));
     }
     final path = at ?? _besideTheRuntime();
     try {
-      final listening = await ServerSocket.bind(
-        InternetAddress(path, type: InternetAddressType.unix),
-        0,
-      );
+      final listening = await ServerSocket.bind(InternetAddress(path, type: InternetAddressType.unix), 0);
       listening.listen((from) {
         comeForward();
         from.destroy();
@@ -104,8 +97,7 @@ class OneInstance {
     }
     if (port == null) return false;
     try {
-      final socket = await Socket.connect(InternetAddress.loopbackIPv4, port,
-          timeout: const Duration(seconds: 1));
+      final socket = await Socket.connect(InternetAddress.loopbackIPv4, port, timeout: const Duration(seconds: 1));
       final said = await socket
           .cast<List<int>>()
           .transform(utf8.decoder)
@@ -133,8 +125,8 @@ class OneInstance {
   }
 
   static String _besideTheRuntime() {
-    final runtime = setIn('XDG_RUNTIME_DIR') ??
-        '/run/user/${Process.runSync('id', const <String>['-u']).stdout.toString().trim()}';
+    final runtime =
+        setIn('XDG_RUNTIME_DIR') ?? '/run/user/${Process.runSync('id', const <String>['-u']).stdout.toString().trim()}';
     return '$runtime/porelo-frontend.sock';
   }
 }

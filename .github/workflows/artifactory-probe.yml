@@ -11,48 +11,48 @@ run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.he
 # So this uploads a probe file, sets a property, reads it back, and fails loudly if it cannot.
 # Run it before trusting a first publish, and after any change to the token.
 on:
-  workflow_dispatch:
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 jobs:
-  probe:
-    name: Can the token annotate?
-    runs-on: ubuntu-22.04
-    timeout-minutes: 10
-    steps:
-      - uses: jfrog/setup-jfrog-cli@68c0efdc951dd2359bbbfa15c48bc67b3ae8e4d6 # v5.2.0
-        env:
-          JF_URL: ${{ vars.JF_URL }}
-          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-        with:
-          disable-auto-build-publish: true
+    probe:
+        name: Can the token annotate?
+        runs-on: ubuntu-22.04
+        timeout-minutes: 10
+        steps:
+            - uses: jfrog/setup-jfrog-cli@68c0efdc951dd2359bbbfa15c48bc67b3ae8e4d6 # v5.2.0
+              env:
+                  JF_URL: ${{ vars.JF_URL }}
+                  JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+              with:
+                  disable-auto-build-publish: true
 
-      - name: Upload a probe with a property, and read it back
-        run: |
-          set -euo pipefail
-          probe="probe-${GITHUB_RUN_ID}.txt"
-          echo "written by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}" > "$probe"
-          target="porelo-dist-deb/pool/main/p/porelo-frontend/"
+            - name: Upload a probe with a property, and read it back
+              run: |
+                  set -euo pipefail
+                  probe="probe-${GITHUB_RUN_ID}.txt"
+                  echo "written by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}" > "$probe"
+                  target="porelo-dist-deb/pool/main/p/porelo-frontend/"
 
-          jf rt upload "$probe" "$target" --flat=true \
-            --target-props="deb.distribution=probe;deb.component=main;deb.architecture=amd64"
+                  jf rt upload "$probe" "$target" --flat=true \
+                    --target-props="deb.distribution=probe;deb.component=main;deb.architecture=amd64"
 
-          # The upload succeeding proves nothing. What matters is whether the property is there.
-          properties="$(jf rt curl -s -XGET "/api/storage/${target}${probe}?properties")"
-          echo "$properties"
-          case "$properties" in
-            *deb.distribution*) echo "Annotate works: the property came back." ;;
-            *)
-              echo "::error::the upload succeeded and the property was dropped — the token can" \
-                   "Deploy but not Annotate, so every package would be stored and never indexed" >&2
-              exit 1
-              ;;
-          esac
+                  # The upload succeeding proves nothing. What matters is whether the property is there.
+                  properties="$(jf rt curl -s -XGET "/api/storage/${target}${probe}?properties")"
+                  echo "$properties"
+                  case "$properties" in
+                    *deb.distribution*) echo "Annotate works: the property came back." ;;
+                    *)
+                      echo "::error::the upload succeeded and the property was dropped — the token can" \
+                           "Deploy but not Annotate, so every package would be stored and never indexed" >&2
+                      exit 1
+                      ;;
+                  esac
 
-      - name: Take the probe away again
-        if: always()
-        run: |
-          jf rt delete "porelo-dist-deb/pool/main/p/porelo-frontend/probe-${GITHUB_RUN_ID}.txt" \
-            --quiet || true
+            - name: Take the probe away again
+              if: always()
+              run: |
+                  jf rt delete "porelo-dist-deb/pool/main/p/porelo-frontend/probe-${GITHUB_RUN_ID}.txt" \
+                    --quiet || true

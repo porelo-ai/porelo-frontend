@@ -212,8 +212,7 @@ class ShellModel extends ChangeNotifier {
   void openOperations() => _open(const OperationsOpened());
 
   /// Opens one of a task's logs.
-  void openLog(String task, String log, {bool formatted = false}) =>
-      _open(LogOpened(task, log, formatted: formatted));
+  void openLog(String task, String log, {bool formatted = false}) => _open(LogOpened(task, log, formatted: formatted));
 
   /// Opens what is waiting at the selected project's gate.
   void openGate() => _open(const GateOpened());
@@ -253,8 +252,7 @@ class ShellModel extends ChangeNotifier {
     final open = _opened;
     final same = switch ((open, what)) {
       (OperationOpened(:final id), OperationOpened(id: final next)) => id == next,
-      (LogOpened(:final task, :final log), LogOpened(task: final t, log: final l)) =>
-        task == t && log == l,
+      (LogOpened(:final task, :final log), LogOpened(task: final t, log: final l)) => task == t && log == l,
       (OperationOpened() || LogOpened(), _) => false,
       _ => open.runtimeType == what.runtimeType,
     };

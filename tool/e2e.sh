@@ -19,14 +19,14 @@ set -euo pipefail
 leased=build/leased.properties
 forget_host=''
 if [ -z "${PORELO_E2E_HOST:-}" ] && [ -f "$leased" ]; then
-  value() { grep "^$1=" "$leased" | cut -d= -f2-; }
-  address=$(value address)
-  export PORELO_E2E_HOST="$(value user)@$address" PORELO_E2E_REMOTE_SOCKET="$(value socket)"
-  export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${HETZNER_KEY:-}}"
-  # A fresh machine's host key is unknown, and the interface never accepts one on its own.
-  mkdir -p ~/.ssh
-  ssh-keyscan -H "$address" >> ~/.ssh/known_hosts 2>/dev/null
-  forget_host=$address
+    value() { grep "^$1=" "$leased" | cut -d= -f2-; }
+    address=$(value address)
+    export PORELO_E2E_HOST="$(value user)@$address" PORELO_E2E_REMOTE_SOCKET="$(value socket)"
+    export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${HETZNER_KEY:-}}"
+    # A fresh machine's host key is unknown, and the interface never accepts one on its own.
+    mkdir -p ~/.ssh
+    ssh-keyscan -H "$address" >>~/.ssh/known_hosts 2>/dev/null
+    forget_host=$address
 fi
 : "${PORELO_E2E_HOST:?name the machine as ssh would, e.g. user@host}"
 : "${PORELO_E2E_REMOTE_SOCKET:?the daemon socket on that machine}"
@@ -39,33 +39,36 @@ agent=''
 port_forwards() { pgrep -f -- "ssh -N .*-L [0-9]+:localhost:[0-9]+ $PORELO_E2E_HOST\$" || true; }
 before=" $(port_forwards | tr '\n' ' ') "
 cleanup() {
-  # The app raises its forwards with ssh, and a test ending is not a window closing: nothing takes
-  # them down. Every one raised under this run's directory goes, even after a crash.
-  pkill -f -- "-L $here/run/" 2>/dev/null || true
-  for pid in $(port_forwards); do
-    case "$before" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
-  done
-  if [ -n "$agent" ]; then kill "$agent" 2>/dev/null || true; fi
-  if [ -n "$forget_host" ]; then ssh-keygen -R "$forget_host" >/dev/null 2>&1 || true; fi
-  rm -rf "$here"
+    # The app raises its forwards with ssh, and a test ending is not a window closing: nothing takes
+    # them down. Every one raised under this run's directory goes, even after a crash.
+    pkill -f -- "-L $here/run/" 2>/dev/null || true
+    for pid in $(port_forwards); do
+        case "$before" in *" $pid "*) ;; *) kill "$pid" 2>/dev/null || true ;; esac
+    done
+    if [ -n "$agent" ]; then kill "$agent" 2>/dev/null || true; fi
+    if [ -n "$forget_host" ]; then ssh-keygen -R "$forget_host" >/dev/null 2>&1 || true; fi
+    rm -rf "$here"
 }
 trap cleanup EXIT
 mkdir -p "$here/run" "$here/config"
 chmod 700 "$here/run"
 
 if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${HETZNER_SSH:-}" ]; then
-  eval "$(ssh-agent -s -a "$here/agent.sock")" >/dev/null
-  agent=$SSH_AGENT_PID
-  if [ -n "${PORELO_E2E_KEY:-}" ]; then
-    ssh-add -q "${PORELO_E2E_KEY/#\~/$HOME}"
-  else
-    # CI hands the key over as material, and a secret is never written to a file: a pipe it is.
-    printf '%s\n' "$HETZNER_SSH" | ssh-add -q -
-  fi
+    eval "$(ssh-agent -s -a "$here/agent.sock")" >/dev/null
+    agent=$SSH_AGENT_PID
+    if [ -n "${PORELO_E2E_KEY:-}" ]; then
+        ssh-add -q "${PORELO_E2E_KEY/#\~/$HOME}"
+    else
+        # CI hands the key over as material, and a secret is never written to a file: a pipe it is.
+        printf '%s\n' "$HETZNER_SSH" | ssh-add -q -
+    fi
 fi
 
 # Headless only: a test window on somebody's desktop takes their keyboard mid-sentence.
-command -v xvfb-run >/dev/null || { echo "xvfb-run is missing: sudo apt install xvfb" >&2; exit 1; }
+command -v xvfb-run >/dev/null || {
+    echo "xvfb-run is missing: sudo apt install xvfb" >&2
+    exit 1
+}
 unset WAYLAND_DISPLAY
 export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$here/run" XDG_CONFIG_HOME="$here/config"
 
@@ -75,13 +78,13 @@ export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$here/run" XDG_CONFIG_HOME="$here/config
 #   PORELO_E2E_NEW_PERSON=1 PORELO_E2E_HOST=<an empty account>@host … tool/e2e.sh integration_test/a_new_person_test.dart
 target=integration_test/reaching_a_machine_test.dart
 for argument in "$@"; do
-  case "$argument" in -*) ;; *) target='' ;; esac
+    case "$argument" in -*) ;; *) target='' ;; esac
 done
 # Xvfb hides only the window: the app's notifications (notify-send) went to the person's desktop
 # ("grant needed on e2e machine"). A notify-send that shows nothing comes first on the
 # app's PATH. Not a D-Bus session of its own: flutter installed as a snap cannot start without theirs.
 mkdir -p "$here/bin"
-printf '#!/bin/sh\nexit 0\n' > "$here/bin/notify-send"
+printf '#!/bin/sh\nexit 0\n' >"$here/bin/notify-send"
 chmod 755 "$here/bin/notify-send"
 export PATH="$here/bin:$PATH"
 
@@ -92,27 +95,30 @@ export PATH="$here/bin:$PATH"
 ancestors=''
 pid=$PPID
 while [ "$pid" -gt 1 ]; do
-  ancestors="$ancestors $pid"
-  pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+    ancestors="$ancestors $pid"
+    pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
 done
 test_run=''
 watch=''
 stop() {
-  trap - INT TERM
-  if [ -n "$watch" ]; then kill "$watch" 2>/dev/null || true; fi
-  if [ -n "$test_run" ]; then kill -TERM -- "-$test_run" 2>/dev/null || true; fi
-  echo "e2e: stopped, the build that ran it was cancelled" >&2
-  exit 130
+    trap - INT TERM
+    if [ -n "$watch" ]; then kill "$watch" 2>/dev/null || true; fi
+    if [ -n "$test_run" ]; then kill -TERM -- "-$test_run" 2>/dev/null || true; fi
+    echo "e2e: stopped, the build that ran it was cancelled" >&2
+    exit 130
 }
 trap stop INT TERM
 setsid xvfb-run -a -s '-screen 0 1280x800x24' flutter test -d linux "$@" $target &
 test_run=$!
 (
-  while sleep 1; do
-    for ancestor in $ancestors; do
-      kill -0 "$ancestor" 2>/dev/null || { kill -TERM $$; exit 0; }
+    while sleep 1; do
+        for ancestor in $ancestors; do
+            kill -0 "$ancestor" 2>/dev/null || {
+                kill -TERM $$
+                exit 0
+            }
+        done
     done
-  done
 ) &
 watch=$!
 status=0

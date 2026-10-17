@@ -110,7 +110,8 @@ the features.
 A green row is not completeness: a feature with one shallow scenario shows as green as one
 with twelve. Only reading the scenarios fixes that, and no framework changes it.
 
-**Generated tests are committed**, and the build runs `build_runner` and fails on a diff. Left
+**Generated tests are committed**, formatted as the rest, and the build runs `build_runner` and
+`dart format` over them and fails on a diff. Left
 out, a build that did not generate them would find no tests and report green; committed and
 checked, they cannot drift or silently vanish.
 
@@ -121,7 +122,8 @@ checked, they cannot drift or silently vanish.
   step, referencing `MyApp`; replace it. A stub left unreplaced fails to compile, which is the
   right way round.
 - **Generated tests land beside their feature** as `<name>_test.dart`.
-- `dart run build_runner build` after adding or editing a feature. Its
+- `dart run build_runner build && dart format test/features integration_test` after adding or
+  editing a feature: the generator writes its own layout, which the format check refuses. Its
   `--delete-conflicting-outputs` flag has been removed and is silently ignored.
 - `avoid_print` is disabled per-file in `tool/contract.dart`: it is a command-line tool and
   printing is its output. That is the only lint exception, and it is stated in the file.

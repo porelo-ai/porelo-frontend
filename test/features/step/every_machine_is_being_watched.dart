@@ -9,7 +9,10 @@ Future<void> everyMachineIsBeingWatched(WidgetTester tester) async {
   // so work blocked on a machine nobody is connected to expires unseen.
   expect(World.machines.all, hasLength(2));
   for (final machine in World.machines.all) {
-    expect(World.machines.of(machine).reachability, Reachability.connected,
-        reason: '${machine.name} is not being watched');
+    expect(
+      World.machines.of(machine).reachability,
+      Reachability.connected,
+      reason: '${machine.name} is not being watched',
+    );
   }
 }

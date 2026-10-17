@@ -13,10 +13,8 @@ class NewerVersion extends ChangeNotifier {
   /// Constructor taking what to watch and how often to look.
   ///
   /// [what] and [every] are injectable so this can be tested without installing anything.
-  NewerVersion({
-    File? what,
-    this.every = const Duration(minutes: 5),
-  }) : _what = what ?? File(Platform.resolvedExecutable);
+  NewerVersion({File? what, this.every = const Duration(minutes: 5)})
+    : _what = what ?? File(Platform.resolvedExecutable);
 
   final File _what;
 

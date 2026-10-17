@@ -72,15 +72,12 @@ class _SelectionListState<T> extends State<SelectionList<T>> {
     });
   }
 
-  int get _selectedIndex =>
-      widget.items.indexWhere((item) => widget.idOf(item) == widget.selected);
+  int get _selectedIndex => widget.items.indexWhere((item) => widget.idOf(item) == widget.selected);
 
   void _move(int by) {
     if (widget.items.isEmpty) return;
     final from = _selectedIndex;
-    final to = from < 0
-        ? (by > 0 ? 0 : widget.items.length - 1)
-        : (from + by).clamp(0, widget.items.length - 1);
+    final to = from < 0 ? (by > 0 ? 0 : widget.items.length - 1) : (from + by).clamp(0, widget.items.length - 1);
     widget.onSelect(widget.idOf(widget.items[to]));
   }
 
@@ -148,13 +145,8 @@ class _SelectionListState<T> extends State<SelectionList<T>> {
               // The selection is what a test can see, and what a person can see: one row is
               // marked, and it is the same mark whichever pane it is in.
               key: isSelected ? const Key('selected-row') : null,
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primaryContainer
-                  : Colors.transparent,
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.normal,
-                vertical: Space.small,
-              ),
+              color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
               child: widget.rowOf(context, item, isSelected),
             ),
           );

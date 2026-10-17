@@ -1,9 +1,9 @@
 # The generator reads features in `integration_test` as well as `test`; by default it reads only
 # `test` and `lib`.
 targets:
-  $default:
-    sources:
-      - integration_test/**
-      - test/**
-      - lib/**
-      - $package$
+    $default:
+        sources:
+            - integration_test/**
+            - test/**
+            - lib/**
+            - $package$

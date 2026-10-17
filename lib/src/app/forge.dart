@@ -100,8 +100,7 @@ class ForgeRefused implements Exception {
 typedef ForgeReply = ({int status, String body, Map<String, String> headers});
 
 /// Sends one request to a forge. Injectable, so a test judges the rules without a network.
-typedef ForgeHttp = Future<ForgeReply> Function(
-    String method, Uri uri, Map<String, String> headers, String? body);
+typedef ForgeHttp = Future<ForgeReply> Function(String method, Uri uri, Map<String, String> headers, String? body);
 
 /// One forge, behind what making a project from a repository needs of it: who the token is, which repositories it reaches,
 /// whether one is a project already, and its deploy keys. **GitHub first; GitLab, Gitea, Forgejo
@@ -142,7 +141,12 @@ abstract interface class Forge {
   Future<String?> whyNoKeys(String repository);
 
   /// Adds a machine's public key to [repository] as a deploy key; answers what the forge made.
-  Future<ForgeDeployKey> addDeployKey(String repository, {required String title, required String key, required bool readOnly});
+  Future<ForgeDeployKey> addDeployKey(
+    String repository, {
+    required String title,
+    required String key,
+    required bool readOnly,
+  });
 
   /// Removes the deploy key [id] from [repository]. One already gone is no failure.
   Future<void> removeDeployKey(String repository, int id);
@@ -155,8 +159,8 @@ abstract interface class Forge {
 class GitHub implements Forge {
   /// Constructor taking the token and, for a test or GitHub Enterprise, the API's address.
   GitHub(this._token, {Uri? api, ForgeHttp? http})
-      : _api = api ?? Uri.parse('https://api.github.com'),
-        _http = http ?? _Network().send;
+    : _api = api ?? Uri.parse('https://api.github.com'),
+      _http = http ?? _Network().send;
 
   /// The API of the GitHub at [address]: `api.github.com` for `github.com`, `/api/v3` on a
   /// self-hosted instance.
@@ -180,10 +184,10 @@ class GitHub implements Forge {
   Future<List<ForgeRepository>> repositories() async {
     final all = <ForgeRepository>[];
     // Every page the forge has, as its Link header says; a person with many repositories sees them all.
-    Uri? next = _api.replace(path: '/user/repos', queryParameters: <String, String>{
-      'per_page': '100',
-      'sort': 'full_name',
-    });
+    Uri? next = _api.replace(
+      path: '/user/repos',
+      queryParameters: <String, String>{'per_page': '100', 'sort': 'full_name'},
+    );
     while (next != null) {
       final reply = await _send('GET', next);
       for (final each in jsonDecode(reply.body) as List<dynamic>) {
@@ -205,9 +209,14 @@ class GitHub implements Forge {
 
   @override
   Future<bool> hasProjectFile(ForgeRepository repository) async {
-    final reply = await _send('GET', _api.replace(
+    final reply = await _send(
+      'GET',
+      _api.replace(
         path: '/repos/${repository.fullName}/contents/project.yml',
-        queryParameters: <String, String>{'ref': repository.defaultBranch}), allow404: true);
+        queryParameters: <String, String>{'ref': repository.defaultBranch},
+      ),
+      allow404: true,
+    );
     return reply.status == 200;
   }
 
@@ -264,9 +273,10 @@ class GitHub implements Forge {
     // Reading the keys needs what adding one needs: administration of the repository. GitHub
     // answers 403 for a token without it, and 404 for one that may not see the repository at all.
     try {
-      await _send('GET', _api.replace(path: '/repos/$repository/keys', queryParameters: <String, String>{
-        'per_page': '1',
-      }));
+      await _send(
+        'GET',
+        _api.replace(path: '/repos/$repository/keys', queryParameters: <String, String>{'per_page': '1'}),
+      );
       return null;
     } on ForgeRefused catch (refused) {
       if (refused.status == 403 || refused.status == 404) return refused.words;
@@ -275,10 +285,17 @@ class GitHub implements Forge {
   }
 
   @override
-  Future<ForgeDeployKey> addDeployKey(String repository,
-      {required String title, required String key, required bool readOnly}) async {
-    final reply = await _send('POST', _api.replace(path: '/repos/$repository/keys'),
-        body: jsonEncode(<String, Object>{'title': title, 'key': key, 'read_only': readOnly}));
+  Future<ForgeDeployKey> addDeployKey(
+    String repository, {
+    required String title,
+    required String key,
+    required bool readOnly,
+  }) async {
+    final reply = await _send(
+      'POST',
+      _api.replace(path: '/repos/$repository/keys'),
+      body: jsonEncode(<String, Object>{'title': title, 'key': key, 'read_only': readOnly}),
+    );
     return _deployKey(jsonDecode(reply.body) as Map<String, dynamic>);
   }
 
@@ -288,11 +305,11 @@ class GitHub implements Forge {
   }
 
   static ForgeDeployKey _deployKey(Map<String, dynamic> map) => ForgeDeployKey(
-        id: map['id'] is int ? map['id'] as int : 0,
-        title: '${map['title'] ?? ''}',
-        key: '${map['key'] ?? ''}',
-        readOnly: map['read_only'] == true,
-      );
+    id: map['id'] is int ? map['id'] as int : 0,
+    title: '${map['title'] ?? ''}',
+    key: '${map['key'] ?? ''}',
+    readOnly: map['read_only'] == true,
+  );
 
   /// Whether [fullName] is `owner/name` and nothing else: it becomes a folder here and a path on
   /// the forge, so `..`, a slash too many or a character outside GitHub's names is never one.
@@ -334,8 +351,10 @@ class GitHub implements Forge {
           next.host != _api.host ||
           next.port != _api.port ||
           !next.path.startsWith(_api.path)) {
-        throw ForgeRefused('GitHub pointed its next page at ${next?.host ?? 'an address it did not write out'}, '
-            'which is not its own; the token is not sent there.');
+        throw ForgeRefused(
+          'GitHub pointed its next page at ${next?.host ?? 'an address it did not write out'}, '
+          'which is not its own; the token is not sent there.',
+        );
       }
       return next;
     }
@@ -402,8 +421,8 @@ class GitHub implements Forge {
       final right = path.endsWith('/keys') || path.contains('/keys/')
           ? 'Administration: Read and write'
           : path.contains('/contents') || path.contains('/git/')
-              ? 'Contents: Read and write'
-              : null;
+          ? 'Contents: Read and write'
+          : null;
       if (right != null) {
         return 'This token lacks $right$what. Give it that at GitHub → Settings → Developer settings → '
             'Fine-grained tokens → this token → Repository permissions, with$what among its '
@@ -412,7 +431,6 @@ class GitHub implements Forge {
     }
     return said.isEmpty ? ours : '$ours ($said)';
   }
-
 }
 
 /// The forge over the network, with connections kept open and reused between requests: one per

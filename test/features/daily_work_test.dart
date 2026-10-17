@@ -62,49 +62,39 @@ void main() {
       await theAppIsRunning(tester);
     }
 
-    testWidgets(
-        '''the window opens on the work of every machine, what waits for a person first''',
-        (tester) async {
+    testWidgets('''the window opens on the work of every machine, what waits for a person first''', (tester) async {
       await bddSetUp(tester);
       await theSectionShownIs(tester, 'Work');
       await theWorkIsInTheGroup(tester, 'porelo-checkout-migrate', 'waiting');
       await theWorkIsInTheGroup(tester, 'porelo-checkout-shell', 'running');
       await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
     });
-    testWidgets('''stopped work is shown apart, its group shut until opened''',
-        (tester) async {
+    testWidgets('''stopped work is shown apart, its group shut until opened''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasStopped(tester, 'porelo-billing-shell');
       await theGroupIsShut(tester, 'stopped', true);
       await iOpenTheGroup(tester, 'stopped');
       await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'stopped');
     });
-    testWidgets(
-        '''a tile on the work page is folded to its work and machine, and opened for the rest''',
-        (tester) async {
+    testWidgets('''a tile on the work page is folded to its work and machine, and opened for the rest''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theTileIsFolded(tester, 'porelo-billing-shell', true);
       await iOpenTheTile(tester, 'porelo-billing-shell');
       await theTileIsFolded(tester, 'porelo-billing-shell', false);
     });
-    testWidgets('''a tile that asks something of a person is never folded''',
-        (tester) async {
+    testWidgets('''a tile that asks something of a person is never folded''', (tester) async {
       await bddSetUp(tester);
       await theTileIsFolded(tester, 'porelo-checkout-migrate', false);
     });
-    testWidgets(
-        '''the work in a group is in the order of its last activity, newest first''',
-        (tester) async {
+    testWidgets('''the work in a group is in the order of its last activity, newest first''', (tester) async {
       await bddSetUp(tester);
-      await theWorkHasBeenInItsStateSince(
-          tester, 'porelo-billing-shell', '2026-10-03T08:00:00Z');
-      await theWorkHasBeenInItsStateSince(
-          tester, 'porelo-checkout-shell', '2026-10-01T08:00:00Z');
-      await theWorkComesBefore(
-          tester, 'porelo-billing-shell', 'porelo-checkout-shell');
+      await theWorkHasBeenInItsStateSince(tester, 'porelo-billing-shell', '2026-10-03T08:00:00Z');
+      await theWorkHasBeenInItsStateSince(tester, 'porelo-checkout-shell', '2026-10-01T08:00:00Z');
+      await theWorkComesBefore(tester, 'porelo-billing-shell', 'porelo-checkout-shell');
     });
-    testWidgets('''the work is narrowed to one project, and widened back''',
-        (tester) async {
+    testWidgets('''the work is narrowed to one project, and widened back''', (tester) async {
       await bddSetUp(tester);
       await iNarrowTheWorkToTheProject(tester, 'billing');
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
@@ -112,9 +102,7 @@ void main() {
       await iNarrowTheWorkToEveryProject(tester);
       await theWorkIsInTheGroup(tester, 'porelo-checkout-shell', 'running');
     });
-    testWidgets(
-        '''new work asks in which project, and opens the start for it''',
-        (tester) async {
+    testWidgets('''new work asks in which project, and opens the start for it''', (tester) async {
       await bddSetUp(tester);
       await iStartNewWork(tester);
       await iChooseTheProjectForIt(tester, 'billing');
@@ -126,114 +114,83 @@ void main() {
       await iChooseNoProjectForIt(tester);
       await itSays(tester, 'Start work without a project');
     });
-    testWidgets(
-        '''machines are a page of setting up, each with its projects under it''',
-        (tester) async {
+    testWidgets('''machines are a page of setting up, each with its projects under it''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'machines');
       await theSectionShownIs(tester, 'Machines');
       await theProjectIsListed(tester, 'checkout');
       await theProjectIsListed(tester, 'billing');
     });
-    testWidgets(
-        '''projects are a page of setting up, each opened on its machine''',
-        (tester) async {
+    testWidgets('''projects are a page of setting up, each opened on its machine''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'projects');
       await theProjectsPageListsOn(tester, 'checkout', 'this machine');
       await iOpenOnFromTheProjectsPage(tester, 'billing', 'this machine');
       await theProjectIsTheOneShown(tester, 'billing');
     });
-    testWidgets(
-        '''starting work of a project that runs on another machine says they cannot talk''',
-        (tester) async {
+    testWidgets('''starting work of a project that runs on another machine says they cannot talk''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasAConversationOverReachingReady(
-          tester, 'checkout', 'matrix', '127.0.0.1:8008');
+      await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
       await theMachineRunsWorkOf(tester, 'elsewhere', 'checkout');
       await iStartNewWorkOnIn(tester, 'this machine', 'checkout');
       await itSays(tester, 'Work of checkout runs on elsewhere already');
-      await itSays(tester,
-          'only through a central Matrix server, and this project names none');
+      await itSays(tester, 'only through a central Matrix server, and this project names none');
     });
-    testWidgets(
-        '''a project on a central server is said not to be joined by a second machine yet''',
-        (tester) async {
+    testWidgets('''a project on a central server is said not to be joined by a second machine yet''', (tester) async {
       await bddSetUp(tester);
-      await theProjectHasAConversationOverReachingReady(
-          tester, 'checkout', 'matrix', 'https://matrix.example.org');
+      await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', 'https://matrix.example.org');
       await theMachineRunsWorkOf(tester, 'elsewhere', 'checkout');
       await iStartNewWorkOnIn(tester, 'this machine', 'checkout');
       await itSays(tester, 'a second machine cannot join it yet');
     });
-    testWidgets(
-        '''a project without a conversation says nothing about another machine''',
-        (tester) async {
+    testWidgets('''a project without a conversation says nothing about another machine''', (tester) async {
       await bddSetUp(tester);
       await theMachineRunsWorkOf(tester, 'elsewhere', 'checkout');
       await iStartNewWorkOnIn(tester, 'this machine', 'checkout');
       await itDoesNotSay(tester, 'runs on elsewhere already');
     });
-    testWidgets(
-        '''what an action from a tile answers is said on the work page''',
-        (tester) async {
+    testWidgets('''what an action from a tile answers is said on the work page''', (tester) async {
       await bddSetUp(tester);
-      await iChooseFromTheMenuOfTheTile(
-          tester, 'Write to its agent', 'porelo-checkout-migrate');
+      await iChooseFromTheMenuOfTheTile(tester, 'Write to its agent', 'porelo-checkout-migrate');
       await iPutInItsInbox(tester, 'the schema changed');
       await theSectionShownIs(tester, 'Work');
-      await theStatusLineMentions(
-          tester, 'Written into the inbox of porelo-checkout-migrate');
+      await theStatusLineMentions(tester, 'Written into the inbox of porelo-checkout-migrate');
     });
-    testWidgets(
-        '''the order follows the last activity, whichever work it was''',
-        (tester) async {
+    testWidgets('''the order follows the last activity, whichever work it was''', (tester) async {
       await bddSetUp(tester);
-      await theWorkHasBeenInItsStateSince(
-          tester, 'porelo-checkout-shell', '2026-10-03T08:00:00Z');
-      await theWorkHasBeenInItsStateSince(
-          tester, 'porelo-billing-shell', '2026-10-01T08:00:00Z');
-      await theWorkComesBefore(
-          tester, 'porelo-checkout-shell', 'porelo-billing-shell');
+      await theWorkHasBeenInItsStateSince(tester, 'porelo-checkout-shell', '2026-10-03T08:00:00Z');
+      await theWorkHasBeenInItsStateSince(tester, 'porelo-billing-shell', '2026-10-01T08:00:00Z');
+      await theWorkComesBefore(tester, 'porelo-checkout-shell', 'porelo-billing-shell');
     });
-    testWidgets('''removing stopped work counts it out of its group''',
-        (tester) async {
+    testWidgets('''removing stopped work counts it out of its group''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasStopped(tester, 'porelo-billing-shell');
       await theWorkHasStopped(tester, 'porelo-billing-audit');
       await iOpenTheGroup(tester, 'stopped');
       await itSays(tester, 'Stopped (2)');
-      await iChooseFromTheMenuOfTheTile(
-          tester, 'Remove it', 'porelo-billing-shell');
+      await iChooseFromTheMenuOfTheTile(tester, 'Remove it', 'porelo-billing-shell');
       await iPress(tester, 'Remove it');
       await itSays(tester, 'Stopped (1)');
     });
-    testWidgets(
-        '''a removal the machine refuses is put in front of the person on the work page''',
-        (tester) async {
+    testWidgets('''a removal the machine refuses is put in front of the person on the work page''', (tester) async {
       await bddSetUp(tester);
       await theWorkHasStopped(tester, 'porelo-billing-shell');
       await removingWillRefuseBecauseTheWorkIsHeld(tester);
       await iOpenTheGroup(tester, 'stopped');
-      await iChooseFromTheMenuOfTheTile(
-          tester, 'Remove it', 'porelo-billing-shell');
+      await iChooseFromTheMenuOfTheTile(tester, 'Remove it', 'porelo-billing-shell');
       await iPress(tester, 'Remove it');
       await whatIsHeldIsShown(tester);
       await iChoose(tester, 'Leave it alone');
       await theGroupIsShut(tester, 'stopped', false);
     });
-    testWidgets(
-        '''machines are a list, and a machine's details show no projects and no work''',
-        (tester) async {
+    testWidgets('''machines are a list, and a machine's details show no projects and no work''', (tester) async {
       await bddSetUp(tester);
       await theMachinesPageListsOnlyMachines(tester);
       await iOpenTheDetailsOf(tester, 'this machine');
       await theTitleIs(tester, 'this machine');
       await noWorkIsShownOnThisPage(tester);
     });
-    testWidgets(
-        '''a project's page shows no work, and leads to its work on the work page''',
-        (tester) async {
+    testWidgets('''a project's page shows no work, and leads to its work on the work page''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await theTitleIs(tester, 'this machine › billing');
@@ -243,60 +200,48 @@ void main() {
       await noTileIsShownFor(tester, 'porelo-checkout-shell');
       await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
     });
-    testWidgets('''removing a machine from the list stays on the list''',
-        (tester) async {
+    testWidgets('''removing a machine from the list stays on the list''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iRemoveFromTheListOfMachines(tester, 'elsewhere');
       await theSectionShownIs(tester, 'Machines');
       await theMachineIsListed(tester, 'elsewhere', false);
     });
-    testWidgets(
-        '''a project's page whose project went goes back to the list of projects''',
-        (tester) async {
+    testWidgets('''a project's page whose project went goes back to the list of projects''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await theMachineNoLongerHasTheProject(tester, 'billing');
       await theSectionShownIs(tester, 'Projects');
     });
-    testWidgets(
-        '''this computer cannot be removed from the list of machines, another can''',
-        (tester) async {
+    testWidgets('''this computer cannot be removed from the list of machines, another can''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await theMachineCanBeRemovedFromTheList(tester, 'this machine', false);
       await theMachineCanBeRemovedFromTheList(tester, 'elsewhere', true);
     });
-    testWidgets(
-        '''a project's row carries its menu, and its page the points to change it''',
-        (tester) async {
+    testWidgets('''a project's row carries its menu, and its page the points to change it''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'projects');
-      await iChooseFromTheMenuOfTheProject(
-          tester, 'Stop telling me about this project', 'checkout');
+      await iChooseFromTheMenuOfTheProject(tester, 'Stop telling me about this project', 'checkout');
       await theProjectIsMarkedAsSilent(tester, 'checkout');
       await iSelectTheProject(tester, 'checkout');
-      await theProjectsPageOffers(
-          tester, 'Show what this project would open, creating nothing');
+      await theProjectsPageOffers(tester, 'Show what this project would open, creating nothing');
       await theProjectsPageOffers(tester, 'What this project may reach');
     });
-    testWidgets(
-        '''a project's page shows the project, not a bar of its machine''',
-        (tester) async {
+    testWidgets('''a project's page shows the project, not a bar of its machine''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
       await theMachinesBarIsShown(tester, false);
       await iOpenTheDetailsOf(tester, 'this machine');
       await theMachinesBarIsShown(tester, true);
     });
-    testWidgets(
-        '''a project on two machines is listed once, saying both, and its page chooses between them''',
-        (tester) async {
+    testWidgets('''a project on two machines is listed once, saying both, and its page chooses between them''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineRunsWorkOf(tester, 'elsewhere', 'checkout');
       await iGoToThePlace(tester, 'projects');
-      await theCardOfListsTheMachines(
-          tester, 'checkout', 'this machine, elsewhere');
+      await theCardOfListsTheMachines(tester, 'checkout', 'this machine, elsewhere');
       await iOpenOnFromTheProjectsPage(tester, 'checkout', 'elsewhere');
       await theTitleIs(tester, 'elsewhere › checkout');
     });

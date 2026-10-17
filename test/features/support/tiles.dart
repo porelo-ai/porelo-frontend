@@ -12,7 +12,8 @@ Finder tileFor(String work) {
   final here = find.byKey(ValueKey<String>('tile ${World.machines.current.name} $work'));
   if (here.evaluate().isNotEmpty) return here;
   return find.byWidgetPredicate(
-      (widget) => widget is Card && '${widget.key}'.contains("'tile ") && '${widget.key}'.endsWith(" $work'>]"));
+    (widget) => widget is Card && '${widget.key}'.contains("'tile ") && '${widget.key}'.endsWith(" $work'>]"),
+  );
 }
 
 /// The entry of one project under the machine being looked at.
@@ -40,10 +41,9 @@ Future<void> tapOnScreen(WidgetTester tester, Finder target) async {
 
 /// Everything a piece of work's tile says, as one line.
 String whatItSaysAbout(WidgetTester tester, String work) => <String>[
-      for (final text in tester.widgetList<Text>(
-          find.descendant(of: tileFor(work), matching: find.byType(Text))))
-        text.data ?? text.textSpan?.toPlainText() ?? '',
-    ].join(' ');
+  for (final text in tester.widgetList<Text>(find.descendant(of: tileFor(work), matching: find.byType(Text))))
+    text.data ?? text.textSpan?.toPlainText() ?? '',
+].join(' ');
 
 /// Presses what the finder marked where it went, when it went somewhere rather than running.
 Future<void> followTheFinder(WidgetTester tester) async {

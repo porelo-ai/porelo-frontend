@@ -8,8 +8,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   const channel = MethodChannel('porelo/window');
-  final messenger =
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
@@ -26,8 +25,7 @@ void main() {
   });
 
   test('a desktop that will not raise the window is not a failure', () async {
-    messenger.setMockMethodCallHandler(
-        channel, (call) async => throw PlatformException(code: 'no'));
+    messenger.setMockMethodCallHandler(channel, (call) async => throw PlatformException(code: 'no'));
 
     await expectLater(Window.comeForward(), completes);
   });

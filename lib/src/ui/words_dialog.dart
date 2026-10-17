@@ -12,11 +12,10 @@ Future<String?> askForWords(
   required String label,
   required String confirm,
   bool required = false,
-}) =>
-    showDialog<String>(
-      context: context,
-      builder: (_) => WordsDialog(title: title, explain: explain, label: label, confirm: confirm, required: required),
-    );
+}) => showDialog<String>(
+  context: context,
+  builder: (_) => WordsDialog(title: title, explain: explain, label: label, confirm: confirm, required: required),
+);
 
 /// The dialog [askForWords] shows.
 class WordsDialog extends StatefulWidget {
@@ -53,41 +52,41 @@ class _WordsDialogState extends State<WordsDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        key: const Key('words-dialog'),
-        title: Text(widget.title),
-        content: SizedBox(
-          width: Sizes.dialog,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(widget.explain, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: Space.small),
-              TextField(
-                key: const Key('words'),
-                controller: _words,
-                autofocus: true,
-                minLines: 2,
-                maxLines: 8,
-                decoration: InputDecoration(labelText: widget.label),
-                onChanged: (_) => setState(() {}),
-              ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            key: const Key('words-cancel'),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('words-confirm'),
-            onPressed: widget.required && _words.text.trim().isEmpty
-                ? null
-                : () => Navigator.of(context).pop(_words.text.trim()),
-            child: Text(widget.confirm),
+    key: const Key('words-dialog'),
+    title: Text(widget.title),
+    content: SizedBox(
+      width: Sizes.dialog,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(widget.explain, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: Space.small),
+          TextField(
+            key: const Key('words'),
+            controller: _words,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 8,
+            decoration: InputDecoration(labelText: widget.label),
+            onChanged: (_) => setState(() {}),
           ),
         ],
-      );
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(
+        key: const Key('words-cancel'),
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('words-confirm'),
+        onPressed: widget.required && _words.text.trim().isEmpty
+            ? null
+            : () => Navigator.of(context).pop(_words.text.trim()),
+        child: Text(widget.confirm),
+      ),
+    ],
+  );
 }

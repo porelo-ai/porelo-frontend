@@ -47,28 +47,28 @@ class VaultButtons extends StatelessWidget {
         Tooltip(
           message: make != null
               ? 'There is no vault here yet. Make one, with a passphrase, in a terminal '
-                  'on the machine'
+                    'on the machine'
               : byPassphrase != null
-                  ? 'Shut. Open it with its passphrase, in a terminal on the machine'
-                  : vault.lockSays,
+              ? 'Shut. Open it with its passphrase, in a terminal on the machine'
+              : vault.lockSays,
           child: IconButton(
             key: const Key('vault-act'),
             onPressed: make ?? (vault.lockWorks ? onLock : byPassphrase),
             // No store answers readable, and an open lock over nothing would claim one is open.
             icon: Icon(
-                vault.missing
-                    ? Icons.enhanced_encryption_outlined
-                    : open
-                        ? Icons.lock_open_outlined
-                        : Icons.lock_outline,
-                size: Sizes.rowIcon),
+              vault.missing
+                  ? Icons.enhanced_encryption_outlined
+                  : open
+                  ? Icons.lock_open_outlined
+                  : Icons.lock_outline,
+              size: Sizes.rowIcon,
+            ),
             visualDensity: VisualDensity.compact,
           ),
         ),
       ],
     );
   }
-
 }
 
 /// Asks, does it, then says what happened **in the same dialog**, like the emergency stop: an
@@ -97,33 +97,28 @@ abstract class _ActState<T extends StatefulWidget> extends State<T> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: Sizes.dialogNarrow,
-          child: _answer != null
-              ? Text(_answer!, key: const Key('vault-answer'))
-              : ask(context),
-        ),
-        actions: _answer != null
-            ? <Widget>[
-                FilledButton(
-                  key: const Key('vault-done'),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
-                ),
-              ]
-            : <Widget>[
-                TextButton(
-                  onPressed: _doing ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  key: const Key('vault-confirm'),
-                  onPressed: ready && !_doing ? _go : null,
-                  child: Text(confirm),
-                ),
-              ],
-      );
+    title: Text(title),
+    content: SizedBox(
+      width: Sizes.dialogNarrow,
+      child: _answer != null ? Text(_answer!, key: const Key('vault-answer')) : ask(context),
+    ),
+    actions: _answer != null
+        ? <Widget>[
+            FilledButton(
+              key: const Key('vault-done'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ]
+        : <Widget>[
+            TextButton(onPressed: _doing ? null : () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            FilledButton(
+              key: const Key('vault-confirm'),
+              onPressed: ready && !_doing ? _go : null,
+              child: Text(confirm),
+            ),
+          ],
+  );
 }
 
 /// Names this device and enrolls it, saying **before** what its key is kept in.
@@ -179,20 +174,20 @@ class _EnrollDialogState extends _ActState<EnrollDialog> {
 
   @override
   Widget ask(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          TextField(
-            key: const Key('device-name'),
-            controller: _name,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'What to call it'),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: Space.normal),
-          Text('Its key: ${storageWords(widget.storage)}', key: const Key('enroll-storage')),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      TextField(
+        key: const Key('device-name'),
+        controller: _name,
+        autofocus: true,
+        decoration: const InputDecoration(labelText: 'What to call it'),
+        onChanged: (_) => setState(() {}),
+      ),
+      const SizedBox(height: Space.normal),
+      Text('Its key: ${storageWords(widget.storage)}', key: const Key('enroll-storage')),
+    ],
+  );
 }
 
 /// How long an unlock lasts, including not bounding it.
@@ -244,14 +239,12 @@ class _OpenDialogState extends _ActState<OpenDialog> {
 
   @override
   Widget ask(BuildContext context) => ChoiceField<_For>(
-        id: 'open-for',
-        label: 'For how long',
-        value: _chosen,
-        onChanged: (chosen) => setState(() => _chosen = chosen),
-        choices: <Choice<_For>>[
-          for (final each in _For.values) Choice(each, each.words, id: 'open-${each.name}'),
-        ],
-      );
+    id: 'open-for',
+    label: 'For how long',
+    value: _chosen,
+    onChanged: (chosen) => setState(() => _chosen = chosen),
+    choices: <Choice<_For>>[for (final each in _For.values) Choice(each, each.words, id: 'open-${each.name}')],
+  );
 }
 
 /// Shuts the store, and then says what locking could not reach.
@@ -283,7 +276,5 @@ class _ShutDialogState extends _ActState<ShutDialog> {
   String answer() => widget.answer();
 
   @override
-  Widget ask(BuildContext context) => const Text(
-        'Work that needs a credential cannot start until it is opened again.',
-      );
+  Widget ask(BuildContext context) => const Text('Work that needs a credential cannot start until it is opened again.');
 }

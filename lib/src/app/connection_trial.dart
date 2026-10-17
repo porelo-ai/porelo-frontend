@@ -60,7 +60,8 @@ Future<Trial> tryAMachine(
     if (!info.interfaces.contains(_tasks)) {
       return Trial(
         reached: false,
-        words: 'It answers, but serves nothing this build understands: '
+        words:
+            'It answers, but serves nothing this build understands: '
             '${info.interfaces.join(', ')}.',
       );
     }
@@ -81,7 +82,8 @@ Future<Trial> tryAMachine(
         // No start is offered: a daemon started for this login would still not serve that path.
         return Trial(
           reached: false,
-          words: "That socket is in another user's runtime directory (uid $typed), but you log in "
+          words:
+              "That socket is in another user's runtime directory (uid $typed), but you log in "
               'as uid $login, so nothing there can be reached. Did you mean $meant?',
         );
       }
@@ -94,14 +96,11 @@ Future<Trial> tryAMachine(
       nothingServing: machine.needsATunnel,
       words: machine.needsATunnel
           ? 'The forward came up, but nothing answers at ${machine.remoteSocket} on that '
-              'machine. Is porelod running there, for the user you log in as? (${ex.message})'
+                'machine. Is porelod running there, for the user you log in as? (${ex.message})'
           : 'Nothing answers at ${machine.socketPath}: ${ex.message}',
     );
   } on StateError catch (ex) {
-    return Trial(
-      reached: false,
-      words: 'It answers, but serves nothing this build understands: ${ex.message}',
-    );
+    return Trial(reached: false, words: 'It answers, but serves nothing this build understands: ${ex.message}');
   } finally {
     await tunnel?.drop();
   }
@@ -145,4 +144,3 @@ Future<int?> countKeyslots(
     await tunnel?.drop();
   }
 }
-

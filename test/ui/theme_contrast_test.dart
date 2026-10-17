@@ -38,8 +38,11 @@ void main() {
       ]) {
         test('$role reads as text on every surface', () {
           for (final MapEntry(key: where, value: ground) in surfaces.entries) {
-            expect(_contrast(colour, ground), greaterThanOrEqualTo(4.5),
-                reason: '$role ${_hex(colour)} on $where ${_hex(ground)}');
+            expect(
+              _contrast(colour, ground),
+              greaterThanOrEqualTo(4.5),
+              reason: '$role ${_hex(colour)} on $where ${_hex(ground)}',
+            );
           }
         });
       }
@@ -69,8 +72,11 @@ void main() {
       ]) {
         test('$role stands out as a mark on every surface', () {
           for (final MapEntry(key: where, value: ground) in surfaces.entries) {
-            expect(_contrast(colour, ground), greaterThanOrEqualTo(3),
-                reason: '$role ${_hex(colour)} on $where ${_hex(ground)}');
+            expect(
+              _contrast(colour, ground),
+              greaterThanOrEqualTo(3),
+              reason: '$role ${_hex(colour)} on $where ${_hex(ground)}',
+            );
           }
         });
       }
@@ -97,8 +103,11 @@ void main() {
       ('bright white', t.brightWhite),
     ]) {
       test('$role reads on its background', () {
-        expect(_contrast(colour, t.background), greaterThanOrEqualTo(4.5),
-            reason: '$role ${_hex(colour)} on ${_hex(t.background)}');
+        expect(
+          _contrast(colour, t.background),
+          greaterThanOrEqualTo(4.5),
+          reason: '$role ${_hex(colour)} on ${_hex(t.background)}',
+        );
       });
     }
   });

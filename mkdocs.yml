@@ -3,11 +3,11 @@
 site_name: Porelo interface
 docs_dir: doc
 exclude_docs: |
-  walks/
+    walks/
 nav:
-  - index.md
-  - design.md
-  - decisions.md
-  - Backend-API.md
-  - Contract-Gaps.md
-  - guided-walk.md
+    - index.md
+    - design.md
+    - decisions.md
+    - Backend-API.md
+    - Contract-Gaps.md
+    - guided-walk.md

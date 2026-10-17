@@ -20,14 +20,16 @@ void main() {
     String version = windows11,
   }) {
     final ran = <String>[];
-    final wsl = Wsl(run: (arguments) async => (
-          code: 0,
-          printed: switch (arguments.join(' ')) {
-            '-l -q' || '-l --running -q' => 'Ubuntu\n'.codeUnits,
-            '-l -v' => '  NAME   STATE   VERSION\n* Ubuntu Running 2\n'.codeUnits,
-            _ => <int>[],
-          }
-        ));
+    final wsl = Wsl(
+      run: (arguments) async => (
+        code: 0,
+        printed: switch (arguments.join(' ')) {
+          '-l -q' || '-l --running -q' => 'Ubuntu\n'.codeUnits,
+          '-l -v' => '  NAME   STATE   VERSION\n* Ubuntu Running 2\n'.codeUnits,
+          _ => <int>[],
+        },
+      ),
+    );
     final setup = WslSetup(
       distribution: 'Ubuntu',
       operatingSystemVersion: version,
@@ -42,8 +44,10 @@ void main() {
           'systemctl is-system-running' => (code: systemd == 'offline' ? 1 : 0, said: systemd),
           'porelo --version' => (code: porelo ? 0 : 127, said: porelo ? 'porelo 0.4.2' : 'not found'),
           'id -un' => (code: 0, said: 'somebody\n'),
-          'gpg --show-keys --with-colons /tmp/porelo.asc' =>
-            (code: 0, said: 'pub:-:4096:1:6B488A9326920DBE:::::\nfpr:::::::::$fingerprint:\n'),
+          'gpg --show-keys --with-colons /tmp/porelo.asc' => (
+            code: 0,
+            said: 'pub:-:4096:1:6B488A9326920DBE:::::\nfpr:::::::::$fingerprint:\n',
+          ),
           _ => (code: 0, said: ''),
         };
       },

@@ -6,9 +6,7 @@ import '../support/e2e.dart';
 ///
 /// In the login's own runtime directory, so the only thing missing is a daemon at that path — the
 /// case a socket in another user's directory must not be mistaken for, and never the other way.
-Future<void> iTryTheTestMachineFromTheDialogWithASocketBesideItsOwnThatNobodyServes(
-  WidgetTester tester,
-) {
+Future<void> iTryTheTestMachineFromTheDialogWithASocketBesideItsOwnThatNobodyServes(WidgetTester tester) {
   final own = E2e.remoteSocket;
   return tryFromTheDialog(tester, '${own.substring(0, own.lastIndexOf('/'))}/none.sock');
 }

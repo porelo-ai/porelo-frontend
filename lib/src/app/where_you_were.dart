@@ -54,10 +54,12 @@ class WhereYouWere {
 
   void _remember() {
     final fleet = _machines.fleet;
-    unawaited(_settings.rememberWhereYouWere(<String, String>{
-      'machine': _machines.current.name,
-      if (fleet.selectedProject != null) 'project': fleet.selectedProject!.name,
-      if (fleet.selectedTask != null) 'task': fleet.selectedTask!.name,
-    }));
+    unawaited(
+      _settings.rememberWhereYouWere(<String, String>{
+        'machine': _machines.current.name,
+        if (fleet.selectedProject != null) 'project': fleet.selectedProject!.name,
+        if (fleet.selectedTask != null) 'task': fleet.selectedTask!.name,
+      }),
+    );
   }
 }

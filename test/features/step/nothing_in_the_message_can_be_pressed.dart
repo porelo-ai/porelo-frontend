@@ -7,6 +7,9 @@ Future<void> nothingInTheMessageCanBePressed(WidgetTester tester) async {
   // Plain data, not spans: a span is where a recognizer or a style from markup would live.
   expect(tester.widget<SelectableText>(part).textSpan, isNull);
   expect(find.descendant(of: part, matching: find.byType(InkWell)), findsNothing);
-  expect(find.descendant(of: part, matching: find.byType(GestureDetector)).evaluate().length,
-      lessThanOrEqualTo(1), reason: 'only the selection itself may listen');
+  expect(
+    find.descendant(of: part, matching: find.byType(GestureDetector)).evaluate().length,
+    lessThanOrEqualTo(1),
+    reason: 'only the selection itself may listen',
+  );
 }

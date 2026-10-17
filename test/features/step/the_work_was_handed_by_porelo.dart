@@ -8,9 +8,12 @@ Future<void> theWorkWasHandedByPorelo(WidgetTester tester, String work, String n
   World.backend.publish(<Task>[
     for (final task in World.backend.tasksNow)
       if (task.name == work)
-        FakeBackend.withHandIn(task, files: <HandedFile>[
-          HandedFile(name: name, bytes: 120, sha256: 'ab' * 32, by: HandedFile.porelo, run: task.run ?? ''),
-        ])
+        FakeBackend.withHandIn(
+          task,
+          files: <HandedFile>[
+            HandedFile(name: name, bytes: 120, sha256: 'ab' * 32, by: HandedFile.porelo, run: task.run ?? ''),
+          ],
+        )
       else
         task,
   ]);

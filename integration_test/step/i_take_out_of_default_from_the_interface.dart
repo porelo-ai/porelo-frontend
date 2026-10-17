@@ -9,8 +9,12 @@ Future<void> iTakeOutOfDefaultFromTheInterface(WidgetTester tester, String name)
   // From default's own menu, where taking one out lives.
   await openTheDefault(tester);
   await tester.tap(find.byKey(ValueKey<String>('default-remove $name')));
-  await pumpUntil(tester, () => find.byKey(ValueKey<String>('default-repository $name')).evaluate().isEmpty,
-      timeout: const Duration(seconds: 30), what: 'the machine to take $name out of default');
+  await pumpUntil(
+    tester,
+    () => find.byKey(ValueKey<String>('default-repository $name')).evaluate().isEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to take $name out of default',
+  );
   expect(find.textContaining('is out of default'), findsOneWidget);
   await tester.tap(find.byKey(const Key('default-close')));
   await pumpFor(tester);

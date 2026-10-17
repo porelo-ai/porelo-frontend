@@ -16,18 +16,24 @@ Future<void> theLoginShownLogsInToTheHomeserverThroughTheForward(WidgetTester te
   final homeserver = shown('homeserver');
   final user = shown('user');
   final password = shown('password');
-  await pumpUntil(tester, () => find.textContaining('is forwarded from this computer').evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30), what: 'the homeserver forwarded here');
+  await pumpUntil(
+    tester,
+    () => find.textContaining('is forwarded from this computer').evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the homeserver forwarded here',
+  );
   // What a person's Matrix client does with it: log in, on this computer, through the forward.
   final client = HttpClient();
   try {
     final request = await client.postUrl(Uri.parse('$homeserver/_matrix/client/v3/login'));
     request.headers.contentType = ContentType.json;
-    request.write(jsonEncode(<String, dynamic>{
-      'type': 'm.login.password',
-      'identifier': <String, dynamic>{'type': 'm.id.user', 'user': user},
-      'password': password,
-    }));
+    request.write(
+      jsonEncode(<String, dynamic>{
+        'type': 'm.login.password',
+        'identifier': <String, dynamic>{'type': 'm.id.user', 'user': user},
+        'password': password,
+      }),
+    );
     final response = await request.close();
     final body = await response.transform(utf8.decoder).join();
     expect(response.statusCode, 200, reason: body);

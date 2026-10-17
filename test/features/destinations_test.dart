@@ -34,103 +34,71 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''the machine's menu opens its destinations''',
-        (tester) async {
+    testWidgets('''the machine's menu opens its destinations''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheMenu(tester, 'What this machine can be told to do');
-      await theMenuOffers(
-          tester, 'Destinations — the services a credential can be for');
-      await iChooseTheMenuEntry(
-          tester, 'Destinations — the services a credential can be for');
+      await theMenuOffers(tester, 'Destinations — the services a credential can be for');
+      await iChooseTheMenuEntry(tester, 'Destinations — the services a credential can be for');
       await theDestinationsOfTheMachineAreOpen(tester);
     });
-    testWidgets('''each destination says where it is and where its key goes''',
-        (tester) async {
+    testWidgets('''each destination says where it is and where its key goes''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
       await itSays(tester, 'https://api.weather.example/v1');
-      await itSays(
-          tester, 'The key goes in the header Authorization, after "Bearer ".');
+      await itSays(tester, 'The key goes in the header Authorization, after "Bearer ".');
     });
-    testWidgets(
-        '''a destination is checked by the machine before it is written''',
-        (tester) async {
+    testWidgets('''a destination is checked by the machine before it is written''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
-      await iAddTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
+      await iAddTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await theDestinationCannotBeWrittenYet(tester);
       await iCheckTheDestination(tester);
-      await itSays(tester,
-          'The machine would read it back as https://api.weather.example/v1');
+      await itSays(tester, 'The machine would read it back as https://api.weather.example/v1');
       await nothingWasWrittenToTheMachine(tester);
       await iWriteTheDestination(tester);
       await theMachineWroteTheDestination(tester, 'weather');
       await itSays(tester, 'Written: weather');
     });
-    testWidgets(
-        '''a destination changed after its check is checked again before it is written''',
-        (tester) async {
+    testWidgets('''a destination changed after its check is checked again before it is written''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
-      await iAddTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
+      await iAddTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
       await iCheckTheDestination(tester);
-      await iTypeTheDestinationsAddress(
-          tester, 'https://api.weather.example/v2');
+      await iTypeTheDestinationsAddress(tester, 'https://api.weather.example/v2');
       await theDestinationCannotBeWrittenYet(tester);
     });
-    testWidgets(
-        '''a destination the machine refuses is said in its words, and nothing is written''',
-        (tester) async {
+    testWidgets('''a destination the machine refuses is said in its words, and nothing is written''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
-      await iAddTheDestinationAt(
-          tester, 'weather', 'http://api.weather.example');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
+      await iAddTheDestinationAt(tester, 'weather', 'http://api.weather.example');
       await iCheckTheDestination(tester);
       await itSays(tester, 'must be reached over https');
       await theDestinationCannotBeWrittenYet(tester);
       await nothingWasWrittenToTheMachine(tester);
     });
-    testWidgets(
-        '''a destination of one's own is removed, and the file it was is named''',
-        (tester) async {
+    testWidgets('''a destination of one's own is removed, and the file it was is named''', (tester) async {
       await bddSetUp(tester);
-      await theMachineDeclaresTheDestinationAt(
-          tester, 'weather', 'https://api.weather.example/v1');
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
+      await theMachineDeclaresTheDestinationAt(tester, 'weather', 'https://api.weather.example/v1');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
       await iRemoveTheDestination(tester, 'weather');
       await itSays(tester, 'Removed weather');
       await itSays(tester, 'No destination is declared on this machine.');
     });
-    testWidgets(
-        '''a destination a package installed is not removed or changed here''',
-        (tester) async {
+    testWidgets('''a destination a package installed is not removed or changed here''', (tester) async {
       await bddSetUp(tester);
-      await aPackageDeclaresTheDestinationAt(
-          tester, 'search', 'https://api.search.example');
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
+      await aPackageDeclaresTheDestinationAt(tester, 'search', 'https://api.search.example');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
       await theDestinationOffersNoRemoval(tester, 'search');
       await itSays(tester, 'Put your own in its place');
     });
-    testWidgets(
-        '''one's own destination put in the place of a package's says the package's is not in force''',
-        (tester) async {
+    testWidgets('''one's own destination put in the place of a package's says the package's is not in force''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await aPackageDeclaresTheDestinationAt(
-          tester, 'search', 'https://api.search.example');
-      await iChooseTheCommand(
-          tester, 'Destinations — the services a credential can be for');
-      await iPutMyOwnInThePlaceOfAt(
-          tester, 'search', 'https://search.internal.example');
+      await aPackageDeclaresTheDestinationAt(tester, 'search', 'https://api.search.example');
+      await iChooseTheCommand(tester, 'Destinations — the services a credential can be for');
+      await iPutMyOwnInThePlaceOfAt(tester, 'search', 'https://search.internal.example');
       await itSays(tester, 'Installed by a package, and not in force');
     });
   });

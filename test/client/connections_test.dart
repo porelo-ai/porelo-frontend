@@ -16,8 +16,7 @@ void main() {
   late MockDaemon daemon;
   late MockMachine machine;
 
-  Future<PoreloClient> connect() =>
-      PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   setUp(() async {
     daemon = MockDaemon();
@@ -51,8 +50,7 @@ void main() {
     expect(again.storeStdin, isEmpty, reason: 'a token is asked for at the prompt');
   });
 
-  test('connections are listed with the store shut, and forgetting says what still holds the value',
-      () async {
+  test('connections are listed with the store shut, and forgetting says what still holds the value', () async {
     final client = await connect();
     await client.credentialDeclare(kind: 'TOKEN', match: 'https://gitlab.example/acme/');
 
@@ -64,8 +62,7 @@ void main() {
     expect(forgotten.leftBehind, contains('git.token.gitlab.example'));
   });
 
-  test('a check answers without following: a local path needs nothing, an unknown host has nothing',
-      () async {
+  test('a check answers without following: a local path needs nothing, an unknown host has nothing', () async {
     final client = await connect();
 
     expect((await client.credentialCheck('/home/somebody/repo')).outcome, 'NOT_NEEDED');
@@ -74,8 +71,7 @@ void main() {
     expect(github.connection.id, 'git.ssh.github.com', reason: 'the longest match it has');
   });
 
-  test('the keys a machine has are described, never read out, each saying what stands in its way',
-      () async {
+  test('the keys a machine has are described, never read out, each saying what stands in its way', () async {
     final client = await connect();
 
     final keys = await client.sshKeys();
@@ -94,21 +90,41 @@ void main() {
     const remote = Machine(name: 'vm', socketPath: '/tmp/x.sock', host: 'alice@vm', remoteSocket: '/run/s.sock');
     const elsewhere = Machine(name: 'forwarded', socketPath: '/tmp/y.sock');
 
-    expect(onTheMachine(remote, <String>['porelo', 'vault', 'put', 'a b'], terminal: true),
-        <String>['ssh', '-t', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo vault put '\''a b'\'''"]);
-    expect(onTheMachine(remote, <String>['porelo', 'vault', 'put', 'k'], terminal: false),
-        <String>['ssh', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo vault put k'"],
-        reason: 'a command fed on standard input must not have a terminal');
-    expect(onTheMachine(elsewhere, <String>['porelo'], terminal: true), isNull,
-        reason: 'a socket somebody else forwards has no machine here to run it on');
+    expect(onTheMachine(remote, <String>['porelo', 'vault', 'put', 'a b'], terminal: true), <String>[
+      'ssh',
+      '-t',
+      'alice@vm',
+      r'exec "${SHELL:-/bin/sh}" -lc '
+          r"'porelo vault put '\''a b'\'''",
+    ]);
+    expect(onTheMachine(remote, <String>['porelo', 'vault', 'put', 'k'], terminal: false), <String>[
+      'ssh',
+      'alice@vm',
+      r'exec "${SHELL:-/bin/sh}" -lc '
+          r"'porelo vault put k'",
+    ], reason: 'a command fed on standard input must not have a terminal');
+    expect(
+      onTheMachine(elsewhere, <String>['porelo'], terminal: true),
+      isNull,
+      reason: 'a socket somebody else forwards has no machine here to run it on',
+    );
     expect(quoteForAShell("it's"), r"'it'\''s'");
   });
 
   test('a command on a machine runs in its login shell, so the account finds its own porelo', () {
     // A command over ssh gets no login shell and no ~/.local/bin, and so the machine-wide porelo.
-    expect(inTheLoginShell('porelo task attach w'), r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo task attach w'");
+    expect(
+      inTheLoginShell('porelo task attach w'),
+      r'exec "${SHELL:-/bin/sh}" -lc '
+      r"'porelo task attach w'",
+    );
     const remote = Machine(name: 'vm', socketPath: '/tmp/x.sock', host: 'alice@vm', remoteSocket: '/run/s.sock');
-    expect(onTheMachineAsWritten(remote, "porelo vault put 'my key'"),
-        <String>['ssh', '-t', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo vault put '\''my key'\'''"]);
+    expect(onTheMachineAsWritten(remote, "porelo vault put 'my key'"), <String>[
+      'ssh',
+      '-t',
+      'alice@vm',
+      r'exec "${SHELL:-/bin/sh}" -lc '
+          r"'porelo vault put '\''my key'\'''",
+    ]);
   });
 }

@@ -72,9 +72,7 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''a machine is described by where it is, and the forward is raised here''',
-        (tester) async {
+    testWidgets('''a machine is described by where it is, and the forward is raised here''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
@@ -85,39 +83,32 @@ void main() {
       await theForwardWasRaisedFor(tester, 'the build machine');
       await theMachineSaysTheForwardIsRaisedHere(tester, 'the build machine');
     });
-    testWidgets('''how it is reached is chosen, never assumed''',
-        (tester) async {
+    testWidgets('''how it is reached is chosen, never assumed''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheMachineDialog(tester);
       await iSayItIsCalled(tester, 'the build machine');
       await watchingItIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a machine whose socket is already forwarded has nothing raised for it''',
-        (tester) async {
+    testWidgets('''a machine whose socket is already forwarded has nothing raised for it''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await nothingWasRaisedFor(tester, 'elsewhere');
       await theMachineDoesNotSayTheForwardIsRaisedHere(tester, 'elsewhere');
     });
-    testWidgets(
-        '''a forward that cannot be raised says what the transport said''',
-        (tester) async {
+    testWidgets('''a forward that cannot be raised says what the transport said''', (tester) async {
       await bddSetUp(tester);
-      await raisingAForwardWillFailWith(
-          tester, 'Host key verification failed.');
+      await raisingAForwardWillFailWith(tester, 'Host key verification failed.');
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
-      await theMachineSays(
-          tester, 'the build machine', 'Host key verification failed.');
+      await theMachineSays(tester, 'the build machine', 'Host key verification failed.');
     });
-    testWidgets(
-        '''a watched machine that is silent can be started from its menu, once somebody agrees''',
-        (tester) async {
+    testWidgets('''a watched machine that is silent can be started from its menu, once somebody agrees''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iStartWatchingAnotherMachine(tester);
@@ -131,8 +122,7 @@ void main() {
       await nothingWasStartedOnThatMachine(tester);
       await iAgreeToStartIt(tester);
       await theMachineWasAskedToStart(tester, 'setsid porelod');
-      await theSessionRecorded(
-          tester, 'Start Porelo on user@build.example.test');
+      await theSessionRecorded(tester, 'Start Porelo on user@build.example.test');
       await theMachineAnswersAgain(tester, 'the build machine');
     });
     testWidgets('''a start nobody agreed to runs nothing''', (tester) async {
@@ -151,8 +141,7 @@ void main() {
       await theMachineCanAnswerAgain(tester);
       await theMachineAnswersAgain(tester, 'the build machine');
     });
-    testWidgets('''a machine that answers is offered no start at all''',
-        (tester) async {
+    testWidgets('''a machine that answers is offered no start at all''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
@@ -162,22 +151,18 @@ void main() {
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-          tester, 'Start Porelo on this machine', 'already answering');
+      await theCommandIsUnavailableBecause(tester, 'Start Porelo on this machine', 'already answering');
     });
-    testWidgets(
-        '''a machine somebody else forwards is offered no start, because there is no host''',
-        (tester) async {
+    testWidgets('''a machine somebody else forwards is offered no start, because there is no host''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iSwitchToTheMachine(tester, 'elsewhere');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-          tester, 'Start Porelo on this machine', 'somebody else');
+      await theCommandIsUnavailableBecause(tester, 'Start Porelo on this machine', 'somebody else');
     });
-    testWidgets(
-        '''a machine that answers can be stopped from its menu, told first what stopping costs''',
-        (tester) async {
+    testWidgets('''a machine that answers can be stopped from its menu, told first what stopping costs''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
@@ -193,8 +178,7 @@ void main() {
       await nothingWasStoppedOnThatMachine(tester);
       await iAgreeToStopIt(tester);
       await theMachineWasAskedToStop(tester, 'systemctl --user stop porelod');
-      await theSessionRecorded(
-          tester, 'Stop Porelo on user@build.example.test');
+      await theSessionRecorded(tester, 'Stop Porelo on user@build.example.test');
       await theMachineNoLongerAnswers(tester, 'the build machine');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOffered(tester, 'Start Porelo on this machine');
@@ -215,8 +199,7 @@ void main() {
       await nothingWasStoppedOnThatMachine(tester);
       await theMachineAnswersAgain(tester, 'the build machine');
     });
-    testWidgets('''a machine that is not answering is offered no stop''',
-        (tester) async {
+    testWidgets('''a machine that is not answering is offered no stop''', (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await iStartWatchingAnotherMachine(tester);
@@ -227,24 +210,18 @@ void main() {
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-          tester, 'Stop Porelo on this machine', 'not answering');
+      await theCommandIsUnavailableBecause(tester, 'Stop Porelo on this machine', 'not answering');
       await theMachineCanAnswerAgain(tester);
       await theMachineAnswersAgain(tester, 'the build machine');
     });
-    testWidgets(
-        '''a machine somebody else forwards is offered no stop, because there is no host''',
-        (tester) async {
+    testWidgets('''a machine somebody else forwards is offered no stop, because there is no host''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iSwitchToTheMachine(tester, 'elsewhere');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-          tester, 'Stop Porelo on this machine', 'somebody else');
+      await theCommandIsUnavailableBecause(tester, 'Stop Porelo on this machine', 'somebody else');
     });
-    testWidgets(
-        '''closing the interface leaves no forward it raised still running''',
-        (tester) async {
+    testWidgets('''closing the interface leaves no forward it raised still running''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
@@ -255,25 +232,21 @@ void main() {
       await iCloseTheInterface(tester);
       await noForwardThisInterfaceRaisedIsStillRunning(tester);
     });
-    testWidgets(
-        '''a forward the interface did not raise is never torn down by it''',
-        (tester) async {
+    testWidgets('''a forward the interface did not raise is never torn down by it''', (tester) async {
       await bddSetUp(tester);
       await iWatchAnotherMachineCalled(tester, 'elsewhere');
       await iCloseTheInterface(tester);
       await nothingWasTornDownFor(tester, 'elsewhere');
     });
-    testWidgets(
-        '''the socket on the other machine is asked for, never guessed''',
-        (tester) async {
+    testWidgets('''the socket on the other machine is asked for, never guessed''', (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
       await iChoose(tester, 'Raise the forward for me');
       await itsSocketThereIsNotFilledIn(tester);
     });
-    testWidgets(
-        '''a socket left empty is asked of the machine when it is watched, and the forward goes there''',
-        (tester) async {
+    testWidgets('''a socket left empty is asked of the machine when it is watched, and the forward goes there''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theAccountLogsInAsUid(tester, 1007);
       await iStartWatchingAnotherMachine(tester);
@@ -282,25 +255,23 @@ void main() {
       await iSayItIsAt(tester, 'user@build.example.test');
       await iWatchIt(tester);
       await theMachineWasAskedWhoLogsInAs(tester, 'user@build.example.test');
-      await theForwardWasRaisedThroughTo(tester, 'user@build.example.test',
-          '/run/user/1007/porelo/porelod.sock');
+      await theForwardWasRaisedThroughTo(tester, 'user@build.example.test', '/run/user/1007/porelo/porelod.sock');
     });
     testWidgets(
-        '''forgetting a machine the wizard set up offers its Host entry and key, and removes neither unasked''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theWizardSetUpTheMachine(tester, 'build');
-      await iSwitchToTheMachine(tester, 'build');
-      await iAskToForgetThisMachine(tester);
-      await itSays(tester, 'Also remove Host porelo-build from ~/.ssh/config');
-      await itSays(tester, 'Also delete its key');
-      await iForgetIt(tester);
-      await theSshConfigStillHasTheHost(tester, 'porelo-build');
-      await theKeyOfIsStillThere(tester, 'build');
-    });
-    testWidgets(
-        '''forgetting a machine the wizard set up removes its Host entry and key when asked''',
-        (tester) async {
+      '''forgetting a machine the wizard set up offers its Host entry and key, and removes neither unasked''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theWizardSetUpTheMachine(tester, 'build');
+        await iSwitchToTheMachine(tester, 'build');
+        await iAskToForgetThisMachine(tester);
+        await itSays(tester, 'Also remove Host porelo-build from ~/.ssh/config');
+        await itSays(tester, 'Also delete its key');
+        await iForgetIt(tester);
+        await theSshConfigStillHasTheHost(tester, 'porelo-build');
+        await theKeyOfIsStillThere(tester, 'build');
+      },
+    );
+    testWidgets('''forgetting a machine the wizard set up removes its Host entry and key when asked''', (tester) async {
       await bddSetUp(tester);
       await theWizardSetUpTheMachine(tester, 'build');
       await iSwitchToTheMachine(tester, 'build');
@@ -312,22 +283,18 @@ void main() {
       await theSshConfigAsItWasBeforeIsKept(tester);
       await theKeyOfIsGone(tester, 'build');
     });
-    testWidgets('''a key another Host entry uses is not offered for deleting''',
-        (tester) async {
+    testWidgets('''a key another Host entry uses is not offered for deleting''', (tester) async {
       await bddSetUp(tester);
       await theWizardSetUpTheMachine(tester, 'build');
       await anotherHostEntryUsesTheKeyOf(tester, 'build');
       await iSwitchToTheMachine(tester, 'build');
       await iAskToForgetThisMachine(tester);
-      await itSays(
-          tester, 'Another entry in ~/.ssh/config uses it, so it stays.');
+      await itSays(tester, 'Another entry in ~/.ssh/config uses it, so it stays.');
       await deletingItsKeyCannotBeChosen(tester);
     });
-    testWidgets('''a Host entry written by hand is never offered for removal''',
-        (tester) async {
+    testWidgets('''a Host entry written by hand is never offered for removal''', (tester) async {
       await bddSetUp(tester);
-      await theMachineIsReachedThroughAHostEntryWrittenByHand(
-          tester, 'handmade');
+      await theMachineIsReachedThroughAHostEntryWrittenByHand(tester, 'handmade');
       await iSwitchToTheMachine(tester, 'handmade');
       await iAskToForgetThisMachine(tester);
       await theSshConfigStillHasTheHost(tester, 'handmade');

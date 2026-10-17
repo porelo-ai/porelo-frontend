@@ -89,13 +89,14 @@ void main() {
       ..mine = const DeviceKey(slot: 'slot-1', share: 's')
       ..slots = const <Keyslot>[
         Keyslot(
-            id: 'slot-1',
-            name: 'laptop',
-            storage: KeyslotStorage('USER_SCOPED'),
-            enrolled: '',
-            lastUsed: '',
-            self: false,
-            recovery: false),
+          id: 'slot-1',
+          name: 'laptop',
+          storage: KeyslotStorage('USER_SCOPED'),
+          enrolled: '',
+          lastUsed: '',
+          self: false,
+          recovery: false,
+        ),
       ];
     expect(vault.offersEnrolling, isFalse);
     expect(vault.lockDoes, VaultAct.open);

@@ -96,12 +96,7 @@ class _AttentionViewState extends State<AttentionView> {
       final authorizing = widget.attention.authorizationsNeeded;
       final needing = widget.attention.needingSomebody;
       final missed = widget.attention.missedQuestions;
-      _keepTicking(
-        tiles.any(
-          (tile) =>
-              tile.questions.any((question) => question.expiresAt != null),
-        ),
-      );
+      _keepTicking(tiles.any((tile) => tile.questions.any((question) => question.expiresAt != null)));
       return Column(
         children: <Widget>[
           PaneHeader(
@@ -117,7 +112,8 @@ class _AttentionViewState extends State<AttentionView> {
             ),
           ),
           Expanded(
-            child: tiles.isEmpty &&
+            child:
+                tiles.isEmpty &&
                     missed.isEmpty &&
                     silent.isEmpty &&
                     failed.isEmpty &&
@@ -129,10 +125,7 @@ class _AttentionViewState extends State<AttentionView> {
                     authorizing.isEmpty
                 ? const Center(
                     // Not "no work": the work that needs nobody is still there, in its machine.
-                    child: Text(
-                      'Nothing needs you on any machine.',
-                      key: Key('nothing-needs-you'),
-                    ),
+                    child: Text('Nothing needs you on any machine.', key: Key('nothing-needs-you')),
                   )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(Space.normal),
@@ -147,10 +140,10 @@ class _AttentionViewState extends State<AttentionView> {
                           ),
                         for (final machine in silent)
                           _MachineNotice(
-                                machine: machine,
-                                fleet: widget.attention.fleetOf(machine),
-                                onSeen: () => widget.attention.markSeen(machine),
-                              ),
+                            machine: machine,
+                            fleet: widget.attention.fleetOf(machine),
+                            onSeen: () => widget.attention.markSeen(machine),
+                          ),
                         for (final stopped in notFollowing)
                           _NotFollowing(
                             machine: stopped.machine,
@@ -166,13 +159,19 @@ class _AttentionViewState extends State<AttentionView> {
                             color: Theme.of(context).colorScheme.errorContainer,
                             child: ListTile(
                               leading: const Icon(Icons.link_off),
-                              title: Text('The homeserver of ${each.project} on ${each.machine} is not reachable from here'),
-                              subtitle: Text('${each.words}\nA Matrix client on this computer cannot reach it until it is.'),
+                              title: Text(
+                                'The homeserver of ${each.project} on ${each.machine} is not reachable from here',
+                              ),
+                              subtitle: Text(
+                                '${each.words}\nA Matrix client on this computer cannot reach it until it is.',
+                              ),
                               trailing: TextButton(
                                 key: ValueKey<String>('homeserver-retry ${each.machine}/${each.project}'),
                                 onPressed: () {
                                   final machine = widget.attention.machineNamed(each.machine);
-                                  if (machine != null) unawaited(widget.attention.homeservers?.retry(machine, each.project));
+                                  if (machine != null) {
+                                    unawaited(widget.attention.homeservers?.retry(machine, each.project));
+                                  }
                                 },
                                 child: const Text('Try again'),
                               ),
@@ -247,13 +246,13 @@ class _AttentionViewState extends State<AttentionView> {
 
 extension on _AttentionViewState {
   Widget _tile(Tile tile) => TaskTile(
-        tile: tile,
-        actions: tile.task == null ? const <Command>[] : widget.actionsFor(tile),
-        onDecide: widget.onDecide,
-        onReview: widget.onReview,
-        onPutAway: widget.onPutAway,
-        onSelect: widget.onSelect == null ? null : () => widget.onSelect!(tile),
-      );
+    tile: tile,
+    actions: tile.task == null ? const <Command>[] : widget.actionsFor(tile),
+    onDecide: widget.onDecide,
+    onReview: widget.onReview,
+    onPutAway: widget.onPutAway,
+    onSelect: widget.onSelect == null ? null : () => widget.onSelect!(tile),
+  );
 }
 
 /// A followed project whose newest commit was not taken, and will not be until somebody acts.
@@ -284,15 +283,12 @@ class _NotFollowing extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('${project.name} on ${machine.name}',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('${project.name} on ${machine.name}', style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: Space.tight),
             Text(followed.words),
-            if (followed.signer.isNotEmpty)
-              SelectableText('Signed by ${followed.signer}', style: text.bodySmall),
+            if (followed.signer.isNotEmpty) SelectableText('Signed by ${followed.signer}', style: text.bodySmall),
             if (followed.detail.isNotEmpty) Text(followed.detail, style: text.bodySmall),
-            if (followed.url.isNotEmpty)
-              SelectableText(followed.url, style: text.bodySmall),
+            if (followed.url.isNotEmpty) SelectableText(followed.url, style: text.bodySmall),
             // Walk 10: the card said what to do, with nothing to do it with. A rewritten
             // history is taken only by a second, deliberate act; a refused signature has no button.
             if (followed.outcome == 'REWRITTEN' && followed.url.isNotEmpty) ...<Widget>[
@@ -320,9 +316,11 @@ extension on _NotFollowing {
         title: Text('Take the rewritten history of ${project.name}?'),
         content: SizedBox(
           width: Sizes.dialogMedium,
-          child: Text('${machine.name} then works with ${followed.refused.isEmpty ? 'the newest commit' : followed.refused}, '
-              'which does not descend from what it took before. Do this only if you rewrote the history '
-              'yourself (an amend and a force push); otherwise somebody else did.'),
+          child: Text(
+            '${machine.name} then works with ${followed.refused.isEmpty ? 'the newest commit' : followed.refused}, '
+            'which does not descend from what it took before. Do this only if you rewrote the history '
+            'yourself (an amend and a force push); otherwise somebody else did.',
+          ),
         ),
         actions: <Widget>[
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Leave it')),
@@ -411,10 +409,14 @@ class _MissedQuestions extends StatelessWidget {
       key: ValueKey<String>('missed-questions ${machine.name}'),
       child: ListTile(
         leading: Icon(Icons.help_center_outlined, color: scheme.error),
-        title: Text('${machine.name} dropped ${count == 1 ? 'a question' : '$count questions'} about a blocked '
-            'connection before it was seen'),
-        subtitle: const Text('A dropped question is not asked again: work may be waiting for an answer until it '
-            'runs out. Look at its work under Work, or at the connections it is blocked on.'),
+        title: Text(
+          '${machine.name} dropped ${count == 1 ? 'a question' : '$count questions'} about a blocked '
+          'connection before it was seen',
+        ),
+        subtitle: const Text(
+          'A dropped question is not asked again: work may be waiting for an answer until it '
+          'runs out. Look at its work under Work, or at the connections it is blocked on.',
+        ),
         trailing: TextButton(
           key: ValueKey<String>('missed-questions-seen ${machine.name}'),
           onPressed: onSeen,
@@ -446,21 +448,11 @@ class _MachineNotice extends StatelessWidget {
     return Container(
       key: ValueKey<String>('machine-notice ${machine.name}'),
       margin: const EdgeInsets.only(bottom: Space.small),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.normal,
-        vertical: Space.small,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(Radii.small),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
+      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(Radii.small)),
       child: Row(
         children: <Widget>[
-          Icon(
-            Icons.cloud_off,
-            size: Sizes.rowIcon,
-            color: scheme.onErrorContainer,
-          ),
+          Icon(Icons.cloud_off, size: Sizes.rowIcon, color: scheme.onErrorContainer),
           const SizedBox(width: Space.small),
           Expanded(
             child: Text.rich(
@@ -470,11 +462,8 @@ class _MachineNotice extends StatelessWidget {
                     text: machine.name,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  TextSpan(
-                    text: ' $what, and anything it is asking waits unseen.',
-                  ),
-                  if (fleet.status.isNotEmpty)
-                    TextSpan(text: '  ${fleet.status}', style: text.bodySmall),
+                  TextSpan(text: ' $what, and anything it is asking waits unseen.'),
+                  if (fleet.status.isNotEmpty) TextSpan(text: '  ${fleet.status}', style: text.bodySmall),
                 ],
               ),
             ),
@@ -573,9 +562,7 @@ class TaskTile extends StatelessWidget {
     final answers = tile.fleet.reachability == Reachability.connected;
     final aboutTheDeadline = first == null ? null : _deadlineLine(first);
     // The tile's button and its menu run the same command, so they cannot disagree about it.
-    final session = actions
-        .where((command) => command.id == 'work.session')
-        .firstOrNull;
+    final session = actions.where((command) => command.id == 'work.session').firstOrNull;
     final folding = TileFolding.maybeOf(context);
     final id = '${tile.machine.name}/${task?.name ?? first?.task ?? ''}';
     final asks = first != null || urgent || (task?.hasWorkWaiting ?? false) || tile.demand == Demand.ended;
@@ -587,14 +574,13 @@ class TaskTile extends StatelessWidget {
       child: GestureDetector(
         onSecondaryTapDown: actions.isEmpty
             ? null
-            : (details) =>
-                  showCommandMenu(context, details.globalPosition, actions),
+            : (details) => showCommandMenu(context, details.globalPosition, actions),
         child: Card(
-          key: ValueKey<String>(
-            'tile ${tile.machine.name} ${task?.name ?? first?.task ?? ''}',
-          ),
+          key: ValueKey<String>('tile ${tile.machine.name} ${task?.name ?? first?.task ?? ''}'),
           // A stopped piece of work is greyed as a whole, not only by its mark (walk 8).
-          color: urgent ? scheme.errorContainer : (tile.demand == Demand.stopped ? scheme.surfaceContainerHighest : null),
+          color: urgent
+              ? scheme.errorContainer
+              : (tile.demand == Demand.stopped ? scheme.surfaceContainerHighest : null),
           shape: selected
               ? RoundedRectangleBorder(
                   side: BorderSide(color: scheme.primary, width: Sizes.selectedBorder),
@@ -625,23 +611,12 @@ class TaskTile extends StatelessWidget {
                             // Selectable, because the name is what somebody types into `porelo` on the machine.
                             if (task != null || first != null)
                               SelectableText(
-                                task == null
-                                    ? first!.task
-                                    : (task.label.isEmpty ? task.name : task.label),
+                                task == null ? first!.task : (task.label.isEmpty ? task.name : task.label),
                                 key: const Key('tile-what'),
                                 style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                               ),
-                            Text(
-                              tile.machine.name,
-                              key: const Key('tile-machine'),
-                              style: text.bodySmall,
-                            ),
-                            if (!folded)
-                              Text(
-                                _headline(tile),
-                                key: const Key('tile-headline'),
-                                style: text.titleSmall,
-                              ),
+                            Text(tile.machine.name, key: const Key('tile-machine'), style: text.bodySmall),
+                            if (!folded) Text(_headline(tile), key: const Key('tile-headline'), style: text.titleSmall),
                           ],
                         ),
                       ),
@@ -656,10 +631,7 @@ class TaskTile extends StatelessWidget {
                       if (onOpen != null && task != null)
                         IconButton(
                           key: const Key('tile-open'),
-                          icon: const Icon(
-                            Icons.chevron_right,
-                            size: Sizes.rowIcon,
-                          ),
+                          icon: const Icon(Icons.chevron_right, size: Sizes.rowIcon),
                           tooltip: 'Open ${task.name}',
                           visualDensity: VisualDensity.compact,
                           onPressed: onOpen,
@@ -669,8 +641,7 @@ class TaskTile extends StatelessWidget {
                           // Its own per work, so a walk can point at one tile's menu among several.
                           key: ValueKey<String>('tile-menu ${task?.name ?? first?.task ?? ''}'),
                           commands: actions,
-                          tooltip:
-                              'What ${task?.name ?? 'this'} can be told to do',
+                          tooltip: 'What ${task?.name ?? 'this'} can be told to do',
                           highlight: highlight,
                           onShown: onShown,
                         ),
@@ -680,163 +651,122 @@ class TaskTile extends StatelessWidget {
                   // line of its own under the head, folded or not, since a build is a step that matters;
                   // the commit, the jobs and the age only when opened.
                   if (task != null)
-                    if (BuildsSaid.onTheTile(task) case final said?)
-                      _BuildLine(said, scheme, folded: folded),
+                    if (BuildsSaid.onTheTile(task) case final said?) _BuildLine(said, scheme, folded: folded),
                   // Folded, the tile is its work, its machine and its mark; the rest when opened.
                   if (!folded) ...<Widget>[
-                  // What its agent writes, small, while there is an agent to write.
-                  if (task != null && onEnlargeConsole != null && (task.running || task.agentEnded != null))
-                    TileConsole(
-                      key: ValueKey<String>('tile-console-of ${tile.machine.name} ${task.name}'),
-                      backend: tile.fleet.backend,
-                      task: task.name,
-                      inATerminal: task.mode != Mode.unattended,
-                      // Work in a terminal is enlarged into its session itself, as "Work in it by hand"
-                      // does (walk 10: the tile's "Open" is the work's details, not its terminal).
-                      onEnlarge: task.mode != Mode.unattended && session != null && session.available
-                          ? session.run
-                          : () => onEnlargeConsole!(tile),
-                    ),
-                  // Why it is down, when a restart of its machine took it: in the machine's words.
-                  if (task != null && task.takenDownByARestart)
-                    Text(
-                      task.startDetail,
-                      key: const Key('tile-why-down'),
-                      style: text.bodySmall,
-                    ),
-                  if (tile.inferred)
-                    Text(
-                      'a guess, not a question',
-                      key: const Key('tile-inferred'),
-                      style: text.labelSmall?.copyWith(
-                        fontStyle: FontStyle.italic,
+                    // What its agent writes, small, while there is an agent to write.
+                    if (task != null && onEnlargeConsole != null && (task.running || task.agentEnded != null))
+                      TileConsole(
+                        key: ValueKey<String>('tile-console-of ${tile.machine.name} ${task.name}'),
+                        backend: tile.fleet.backend,
+                        task: task.name,
+                        inATerminal: task.mode != Mode.unattended,
+                        // Work in a terminal is enlarged into its session itself, as "Work in it by hand"
+                        // does (walk 10: the tile's "Open" is the work's details, not its terminal).
+                        onEnlarge: task.mode != Mode.unattended && session != null && session.available
+                            ? session.run
+                            : () => onEnlargeConsole!(tile),
                       ),
-                    ),
-                  if (aboutTheDeadline != null)
-                    Text(
-                      aboutTheDeadline,
-                      key: const Key('tile-deadline'),
-                      style: text.bodySmall,
-                    ),
-                  // What was attempted and which rule stopped it: a destination alone does not say
-                  // whose it was, and five tasks can be asking at once.
-                  if (first != null) ...<Widget>[
-                    Text(
-                      first.shown,
-                      key: const Key('blocked-destination'),
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      '${first.protocol}${first.prefix.isEmpty ? '' : ' · stopped by ${first.prefix}'}',
-                      style: text.bodySmall,
-                    ),
-                    if (tile.fleet.clearance.askedBefore(first))
+                    // Why it is down, when a restart of its machine took it: in the machine's words.
+                    if (task != null && task.takenDownByARestart)
+                      Text(task.startDetail, key: const Key('tile-why-down'), style: text.bodySmall),
+                    if (tile.inferred)
                       Text(
-                        'This was let through before. A decision is remembered per address, so a '
-                        'host that answers on several addresses asks again for each one.',
-                        key: const Key('asked-before'),
+                        'a guess, not a question',
+                        key: const Key('tile-inferred'),
+                        style: text.labelSmall?.copyWith(fontStyle: FontStyle.italic),
+                      ),
+                    if (aboutTheDeadline != null)
+                      Text(aboutTheDeadline, key: const Key('tile-deadline'), style: text.bodySmall),
+                    // What was attempted and which rule stopped it: a destination alone does not say
+                    // whose it was, and five tasks can be asking at once.
+                    if (first != null) ...<Widget>[
+                      Text(
+                        first.shown,
+                        key: const Key('blocked-destination'),
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                      ),
+                      Text(
+                        '${first.protocol}${first.prefix.isEmpty ? '' : ' · stopped by ${first.prefix}'}',
                         style: text.bodySmall,
                       ),
-                  ],
-                  const SizedBox(height: Space.small),
-                  if (task != null && task.label.isNotEmpty)
-                    SelectableText(
-                      task.name,
-                      key: const Key('tile-name'),
-                      style: text.bodySmall,
-                    ),
-                  Text(
-                    _where(tile),
-                    key: const Key('tile-where'),
-                    style: text.bodySmall,
-                  ),
-                  // Said here as well: the status line is easy to miss from a tile.
-                  if (task != null && tile.fleet.saidAbout(task.name) != null)
-                    Text(
-                      tile.fleet.saidAbout(task.name)!,
-                      key: const Key('tile-said'),
-                      style: text.bodySmall,
-                    ),
-                  if (task != null &&
-                      task.activity == Activity.waiting &&
-                      task.waitingFor.isNotEmpty)
-                    Text(
-                      'waiting on ${task.waitingFor}',
-                      key: const Key('waiting-for'),
-                      style: text.bodySmall?.copyWith(
-                        color: scheme.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  // Nothing asks and nothing is refused for this one, and somebody chose that.
-                  if (task != null && task.unenforced)
-                    Tooltip(
-                      message:
-                          'Nothing is enforcing what this work may reach. '
-                          'No connection will be refused and nothing will be asked.',
-                      child: Chip(
-                        key: const Key('unenforced'),
-                        avatar: Icon(
-                          Icons.gpp_bad_outlined,
-                          size: Sizes.rowIcon,
-                          color: scheme.onErrorContainer,
+                      if (tile.fleet.clearance.askedBefore(first))
+                        Text(
+                          'This was let through before. A decision is remembered per address, so a '
+                          'host that answers on several addresses asks again for each one.',
+                          key: const Key('asked-before'),
+                          style: text.bodySmall,
                         ),
-                        label: const Text('unenforced'),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: scheme.errorContainer,
-                      ),
-                    ),
-                  // The last answer, so a question that ran out does not quietly disappear.
-                  if (first == null && tile.settled != null)
-                    Text(
-                      _settledWords(tile.settled!),
-                      key: const Key('tile-settled'),
-                      style: text.bodySmall,
-                    ),
-                  // Until then it stays on what needs a person, so nobody misses it.
-                  if (first == null && tile.settled != null && onPutAway != null)
-                    TextButton(
-                      key: const Key('tile-put-away'),
-                      onPressed: () => onPutAway!(tile, tile.settled!),
-                      child: const Text('Got it'),
-                    ),
-                  if (first != null ||
-                      (session?.available ?? false) ||
-                      (task?.hasWorkWaiting ?? false)) ...<Widget>[
+                    ],
                     const SizedBox(height: Space.small),
-                    Wrap(
-                      spacing: Space.small,
-                      children: <Widget>[
-                        if (first != null) ...<Widget>[
-                          TextButton(
-                            key: const Key('tile-let-through'),
-                            onPressed: answering || !answers ? null : () => onDecide(tile, first, allow: true),
-                            child: const Text('Let it through'),
-                          ),
-                          TextButton(
-                            key: const Key('tile-keep-blocked'),
-                            onPressed: answering || !answers ? null : () => onDecide(tile, first, allow: false),
-                            child: const Text('Keep it blocked'),
-                          ),
+                    if (task != null && task.label.isNotEmpty)
+                      SelectableText(task.name, key: const Key('tile-name'), style: text.bodySmall),
+                    Text(_where(tile), key: const Key('tile-where'), style: text.bodySmall),
+                    // Said here as well: the status line is easy to miss from a tile.
+                    if (task != null && tile.fleet.saidAbout(task.name) != null)
+                      Text(tile.fleet.saidAbout(task.name)!, key: const Key('tile-said'), style: text.bodySmall),
+                    if (task != null && task.activity == Activity.waiting && task.waitingFor.isNotEmpty)
+                      Text(
+                        'waiting on ${task.waitingFor}',
+                        key: const Key('waiting-for'),
+                        style: text.bodySmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w600),
+                      ),
+                    // Nothing asks and nothing is refused for this one, and somebody chose that.
+                    if (task != null && task.unenforced)
+                      Tooltip(
+                        message:
+                            'Nothing is enforcing what this work may reach. '
+                            'No connection will be refused and nothing will be asked.',
+                        child: Chip(
+                          key: const Key('unenforced'),
+                          avatar: Icon(Icons.gpp_bad_outlined, size: Sizes.rowIcon, color: scheme.onErrorContainer),
+                          label: const Text('unenforced'),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: scheme.errorContainer,
+                        ),
+                      ),
+                    // The last answer, so a question that ran out does not quietly disappear.
+                    if (first == null && tile.settled != null)
+                      Text(_settledWords(tile.settled!), key: const Key('tile-settled'), style: text.bodySmall),
+                    // Until then it stays on what needs a person, so nobody misses it.
+                    if (first == null && tile.settled != null && onPutAway != null)
+                      TextButton(
+                        key: const Key('tile-put-away'),
+                        onPressed: () => onPutAway!(tile, tile.settled!),
+                        child: const Text('Got it'),
+                      ),
+                    if (first != null || (session?.available ?? false) || (task?.hasWorkWaiting ?? false)) ...<Widget>[
+                      const SizedBox(height: Space.small),
+                      Wrap(
+                        spacing: Space.small,
+                        children: <Widget>[
+                          if (first != null) ...<Widget>[
+                            TextButton(
+                              key: const Key('tile-let-through'),
+                              onPressed: answering || !answers ? null : () => onDecide(tile, first, allow: true),
+                              child: const Text('Let it through'),
+                            ),
+                            TextButton(
+                              key: const Key('tile-keep-blocked'),
+                              onPressed: answering || !answers ? null : () => onDecide(tile, first, allow: false),
+                              child: const Text('Keep it blocked'),
+                            ),
+                          ],
+                          if (session != null && session.available)
+                            TextButton(
+                              key: const Key('tile-attach'),
+                              onPressed: session.run,
+                              child: Text(session.label),
+                            ),
+                          if (task?.hasWorkWaiting ?? false)
+                            TextButton(
+                              key: const Key('tile-review'),
+                              onPressed: answers ? () => onReview(tile) : null,
+                              child: const Text('Review at the gate'),
+                            ),
                         ],
-                        if (session != null && session.available)
-                          TextButton(
-                            key: const Key('tile-attach'),
-                            onPressed: session.run,
-                            child: Text(session.label),
-                          ),
-                        if (task?.hasWorkWaiting ?? false)
-                          TextButton(
-                            key: const Key('tile-review'),
-                            onPressed: answers ? () => onReview(tile) : null,
-                            child: const Text('Review at the gate'),
-                          ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -845,9 +775,7 @@ class TaskTile extends StatelessWidget {
         ),
       ),
     );
-    return selected
-        ? KeyedSubtree(key: const Key('selected-row'), child: card)
-        : card;
+    return selected ? KeyedSubtree(key: const Key('selected-row'), child: card) : card;
   }
 
   static String _settledWords(Prompt prompt) => prompt.expired
@@ -861,9 +789,7 @@ class TaskTile extends StatelessWidget {
     final since = task == null ? null : howLong(task);
     final forHowLong = since == null ? '' : ' for $since';
     return switch (tile.demand) {
-      Demand.question when tile.questions.isNotEmpty => _question(
-        tile.questions,
-      ),
+      Demand.question when tile.questions.isNotEmpty => _question(tile.questions),
       Demand.question =>
         'Waiting on '
             '${(task?.waitingFor ?? '').isEmpty ? 'an answer' : task!.waitingFor}$forHowLong',
@@ -898,9 +824,7 @@ class TaskTile extends StatelessWidget {
     if (ends == null) {
       return 'The machine gives up on its own timeout, and does not say when.';
     }
-    return howLongUntil(ends) == null
-        ? 'Its time is up; the machine may already have given up on it.'
-        : null;
+    return howLongUntil(ends) == null ? 'Its time is up; the machine may already have given up on it.' : null;
   }
 
   static String _where(Tile tile) {
@@ -997,8 +921,7 @@ class _BuildLine extends StatelessWidget {
               ),
             ],
           ),
-          if (!folded)
-            Text(said.detail, key: const Key('tile-build-detail'), style: text.bodySmall),
+          if (!folded) Text(said.detail, key: const Key('tile-build-detail'), style: text.bodySmall),
         ],
       ),
     );

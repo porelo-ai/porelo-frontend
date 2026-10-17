@@ -20,9 +20,7 @@ void main() {
   tearDown(() => daemon.stop());
 
   Future<PoreloBackend> open() async {
-    final backend = PoreloBackend(
-      Backend(socketPath: daemon.socketPath, label: 'mock'),
-    );
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
     await backend.open();
     return backend;
   }
@@ -37,29 +35,17 @@ void main() {
 
     await expectLater(
       backend.startTask(task: 'porelo-demo-shell').toList(),
-      throwsA(
-        isA<StartRefused>().having(
-          (refused) => '$refused',
-          'words',
-          contains('vault is locked'),
-        ),
-      ),
+      throwsA(isA<StartRefused>().having((refused) => '$refused', 'words', contains('vault is locked'))),
     );
   });
 
   test('a start that created the task completes', () async {
     daemon.stream('Start', (_) async* {
       yield <String, dynamic>{'line': 'Resolving project.yml'};
-      yield <String, dynamic>{
-        'action': 'CREATE',
-        'container': 'porelo-demo-shell',
-        'exitCode': 0,
-      };
+      yield <String, dynamic>{'action': 'CREATE', 'container': 'porelo-demo-shell', 'exitCode': 0};
     });
     final backend = await open();
 
-    expect(await backend.startTask(task: 'porelo-demo-shell').toList(), <String>[
-      'Resolving project.yml',
-    ]);
+    expect(await backend.startTask(task: 'porelo-demo-shell').toList(), <String>['Resolving project.yml']);
   });
 }

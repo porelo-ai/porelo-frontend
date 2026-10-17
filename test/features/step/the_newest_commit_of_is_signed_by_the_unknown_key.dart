@@ -4,8 +4,7 @@ import 'package:porelo_frontend/client.dart';
 import '../support/following.dart';
 
 /// Usage: the newest commit of {'checkout'} is signed by the unknown key {'SHA256:9xQeTbL1'}
-Future<void> theNewestCommitOfIsSignedByTheUnknownKey(
-        WidgetTester tester, String name, String signer) =>
+Future<void> theNewestCommitOfIsSignedByTheUnknownKey(WidgetTester tester, String name, String signer) =>
     theProjectFollows(
       tester,
       name,

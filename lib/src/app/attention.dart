@@ -1,4 +1,5 @@
 import 'homeserver_forwards.dart';
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -92,9 +93,9 @@ class Attention extends ChangeNotifier {
   /// **Waiting until seen**: a start that failed while its
   /// view was closed was found only by going to that machine, and nobody looked there.
   List<Operation> get failedUnseen => <Operation>[
-        for (final operation in _operations?.all ?? const <Operation>[])
-          if (operation.failed && !operation.seen) operation,
-      ];
+    for (final operation in _operations?.all ?? const <Operation>[])
+      if (operation.failed && !operation.seen) operation,
+  ];
   final Set<Listenable> _following = <Listenable>{};
 
   /// Every machine that is not answering. Said about the machine, above the tiles, never as one:
@@ -102,12 +103,12 @@ class Attention extends ChangeNotifier {
   ///
   /// This computer, where no Porelo is installed, is not one: nothing was ever going to answer there.
   List<Machine> get silent => <Machine>[
-        for (final machine in _counted)
-          if (_machines.of(machine).reachability != Reachability.connected &&
-            !(_settings?.seenSilent.contains(machine.name) ?? false) &&
-            !(machine.isThisComputer && !_machines.poreloIsInstalledHere))
-          machine,
-      ];
+    for (final machine in _counted)
+      if (_machines.of(machine).reachability != Reachability.connected &&
+          !(_settings?.seenSilent.contains(machine.name) ?? false) &&
+          !(machine.isThisComputer && !_machines.poreloIsInstalledHere))
+        machine,
+  ];
 
   /// Every machine once: one node reached two ways would deliver every question twice.
   List<Machine> get _counted {
@@ -173,12 +174,10 @@ class Attention extends ChangeNotifier {
   /// Every message waiting for a person to read it and decide, on every machine, oldest first.
   /// Said as messages, never as a tile: a message is not work, and the task that wrote it may be
   /// busy with something else entirely.
-  List<({Machine machine, HeldMessage message})> get heldMessages =>
-      <({Machine machine, HeldMessage message})>[
-        for (final machine in _counted)
-          for (final message in _machines.of(machine).mailboxes.waiting)
-            (machine: machine, message: message),
-      ];
+  List<({Machine machine, HeldMessage message})> get heldMessages => <({Machine machine, HeldMessage message})>[
+    for (final machine in _counted)
+      for (final message in _machines.of(machine).mailboxes.waiting) (machine: machine, message: message),
+  ];
 
   /// Every authorization a person has to grant before work can use it, on every machine, oldest first.
   List<({Machine machine, AuthorizationNeeded needed})> get authorizationsNeeded =>
@@ -188,13 +187,12 @@ class Attention extends ChangeNotifier {
       ];
 
   /// Every machine that cannot say what is held for a person, so its silence is not read as none.
-  List<({Machine machine, String problem})> get unlistedMessages =>
-      <({Machine machine, String problem})>[
-        for (final machine in _counted)
-          if (_machines.of(machine).reachability == Reachability.connected &&
-              _machines.of(machine).mailboxes.problem != null)
-            (machine: machine, problem: _machines.of(machine).mailboxes.problem!),
-      ];
+  List<({Machine machine, String problem})> get unlistedMessages => <({Machine machine, String problem})>[
+    for (final machine in _counted)
+      if (_machines.of(machine).reachability == Reachability.connected &&
+          _machines.of(machine).mailboxes.problem != null)
+        (machine: machine, problem: _machines.of(machine).mailboxes.problem!),
+  ];
 
   /// Stops saying that [machine] is silent, until it has answered again.
   Future<void> markSeen(Machine machine) async {
@@ -224,9 +222,7 @@ class Attention extends ChangeNotifier {
   FleetModel fleetOf(Machine machine) => _machines.of(machine);
 
   /// Every tile, most urgent first.
-  List<Tile> get tiles => <Tile>[
-        for (final machine in _counted) ..._tilesOf(machine),
-      ]..sort(_byDemand);
+  List<Tile> get tiles => <Tile>[for (final machine in _counted) ..._tilesOf(machine)]..sort(_byDemand);
 
   /// The tiles that need a person: an open question, work waiting at the gate, or the outcome of a
   /// question that was answered or ran out and has not been put away.
@@ -240,13 +236,13 @@ class Attention extends ChangeNotifier {
   /// nobody looked would otherwise leave without a trace, and an answer's confirmation would go with
   /// the click that gave it.
   List<Tile> get needing => <Tile>[
-        for (final tile in tiles)
-          if (tile.demand == Demand.question ||
-              tile.demand == Demand.ended ||
-              tile.demand == Demand.gate ||
-              tile.settled != null)
-            tile,
-      ];
+    for (final tile in tiles)
+      if (tile.demand == Demand.question ||
+          tile.demand == Demand.ended ||
+          tile.demand == Demand.gate ||
+          tile.settled != null)
+        tile,
+  ];
 
   /// One machine's tiles, most urgent first. While it is not answering they are what it last
   /// said: a lost tunnel is a disconnection, never a machine with nothing on it.
@@ -266,23 +262,20 @@ class Attention extends ChangeNotifier {
       }
       for (final task in fleet.tasks) {
         final questions = asked.remove(task.name) ?? const <Prompt>[];
-        out.add(Tile(
-          machine: machine,
-          fleet: fleet,
-          demand: demandOf(task, questions),
-          task: task,
-          questions: questions,
-          settled: settled.where((each) => each.task == task.name).firstOrNull,
-        ));
+        out.add(
+          Tile(
+            machine: machine,
+            fleet: fleet,
+            demand: demandOf(task, questions),
+            task: task,
+            questions: questions,
+            settled: settled.where((each) => each.task == task.name).firstOrNull,
+          ),
+        );
       }
       // A question can arrive before the list names its task. It is shown, not held back.
       for (final questions in asked.values) {
-        out.add(Tile(
-          machine: machine,
-          fleet: fleet,
-          demand: Demand.question,
-          questions: questions,
-        ));
+        out.add(Tile(machine: machine, fleet: fleet, demand: Demand.question, questions: questions));
       }
     }
     return out;
@@ -293,9 +286,9 @@ class Attention extends ChangeNotifier {
   /// Machines that dropped questions about blocked connections unseen: those are not asked again,
   /// so work may be held until its deadline with nobody told (the contracts review).
   List<Machine> get missedQuestions => <Machine>[
-        for (final machine in _counted)
-          if (_machines.of(machine).clearance.missed > 0) machine,
-      ];
+    for (final machine in _counted)
+      if (_machines.of(machine).clearance.missed > 0) machine,
+  ];
 
   int get needingSomebody =>
       tiles.where((tile) => tile.demand == Demand.question || tile.demand == Demand.ended).length +
@@ -337,8 +330,7 @@ class Attention extends ChangeNotifier {
 
   static final _never = DateTime.utc(9999);
 
-  static DateTime _endOf(Tile tile) =>
-      tile.questions.isEmpty ? _never : tile.questions.first.expiresAt ?? _never;
+  static DateTime _endOf(Tile tile) => tile.questions.isEmpty ? _never : tile.questions.first.expiresAt ?? _never;
 
   static int _nearestFirst(Prompt a, Prompt b) {
     final byEnd = (a.expiresAt ?? _never).compareTo(b.expiresAt ?? _never);
@@ -348,8 +340,8 @@ class Attention extends ChangeNotifier {
   static String _oldest(Tile tile) => tile.questions.isNotEmpty
       ? tile.questions.first.at
       : tile.demand == Demand.question
-          ? tile.task?.since ?? ''
-          : '';
+      ? tile.task?.since ?? ''
+      : '';
 
   void _follow() {
     final wanted = <Listenable>{

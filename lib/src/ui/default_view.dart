@@ -22,27 +22,28 @@ Future<void> showTheDefault(
   Future<({ForgeRepository repository, Forge forge})?> Function()? pickAtAForge,
   Future<void> Function(String repository)? onStartWork,
   Future<({Forge forge, String fullName})?> Function(String upstream)? forgeHolding,
-}) =>
-    showDialog<void>(
-      context: context,
-      builder: (_) => DefaultDialog(
-          machine: machine,
-          machineName: machineName,
-          pickAtAForge: pickAtAForge,
-          onStartWork: onStartWork,
-          forgeHolding: forgeHolding),
-    );
+}) => showDialog<void>(
+  context: context,
+  builder: (_) => DefaultDialog(
+    machine: machine,
+    machineName: machineName,
+    pickAtAForge: pickAtAForge,
+    onStartWork: onStartWork,
+    forgeHolding: forgeHolding,
+  ),
+);
 
 /// `default`: what a machine works on without a project, with Porelo's own settings, fixed.
 class DefaultDialog extends StatefulWidget {
   /// Constructor taking the machine and what it is called.
-  const DefaultDialog(
-      {required this.machine,
-      required this.machineName,
-      this.pickAtAForge,
-      this.onStartWork,
-      this.forgeHolding,
-      super.key});
+  const DefaultDialog({
+    required this.machine,
+    required this.machineName,
+    this.pickAtAForge,
+    this.onStartWork,
+    this.forgeHolding,
+    super.key,
+  });
 
   final FleetBackend machine;
   final String machineName;
@@ -88,64 +89,62 @@ class _DefaultDialogState extends State<DefaultDialog> {
   }
 
   Future<void> _read() => _asking(() async {
-        final found = await widget.machine.defaultRepositories();
-        if (mounted) setState(() => _repositories = found);
-      });
+    final found = await widget.machine.defaultRepositories();
+    if (mounted) setState(() => _repositories = found);
+  });
 
   /// Puts [address] into `default`, unless it is there already, and starts work on it.
   Future<void> _startOn(String address, {String? name}) => _asking(() async {
-        final picked = _picked?.repository.sshUrl == address ? _picked : null;
-        // Where the repository is at a forge set up here, the machine gets a key of its own there,
-        // as working on a project gives it - picked or not, and before it goes into default: a row
-        // started from, or a first try whose key was refused, left the machine with none and the
-        // start refused by GitHub (on a rented machine).
-        final at = picked != null
-            ? (forge: picked.forge, fullName: picked.repository.fullName)
-            : await widget.forgeHolding?.call(address);
-        final there = (_repositories ?? const <DefaultRepository>[]).where((each) => each.upstream == address).firstOrNull;
-        final added = there ?? await widget.machine.addToDefault(address, name: name);
-        if (at != null) {
-          final key = await widget.machine.deployKey(defaultProject, repository: added.name);
-          final held = await at.forge.deployKeys(at.fullName);
-          if (!held.any((each) => _keyPart(each.key) == _keyPart(key.publicKey))) {
-            await at.forge.addDeployKey(at.fullName, title: key.title, key: key.publicKey, readOnly: false);
-          }
-        }
-        if (!mounted) return;
-        Navigator.of(context).pop();
-        unawaited(widget.onStartWork!(added.name));
-      });
+    final picked = _picked?.repository.sshUrl == address ? _picked : null;
+    // Where the repository is at a forge set up here, the machine gets a key of its own there,
+    // as working on a project gives it - picked or not, and before it goes into default: a row
+    // started from, or a first try whose key was refused, left the machine with none and the
+    // start refused by GitHub (on a rented machine).
+    final at = picked != null
+        ? (forge: picked.forge, fullName: picked.repository.fullName)
+        : await widget.forgeHolding?.call(address);
+    final there = (_repositories ?? const <DefaultRepository>[]).where((each) => each.upstream == address).firstOrNull;
+    final added = there ?? await widget.machine.addToDefault(address, name: name);
+    if (at != null) {
+      final key = await widget.machine.deployKey(defaultProject, repository: added.name);
+      final held = await at.forge.deployKeys(at.fullName);
+      if (!held.any((each) => _keyPart(each.key) == _keyPart(key.publicKey))) {
+        await at.forge.addDeployKey(at.fullName, title: key.title, key: key.publicKey, readOnly: false);
+      }
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    unawaited(widget.onStartWork!(added.name));
+  });
 
   Future<void> _remove(DefaultRepository repository) => _asking(() async {
-        final done = await widget.machine.removeFromDefault(repository.name);
-        _said = done.removed
-            ? '${repository.name} is out of default. Its mirror, and anything waiting in it, stay on ${widget.machineName}.'
-            : '${repository.name} was not in default any more.';
-        // The key the machine forgot still opens the repository at its forge until it is removed there.
-        final forge = done.keys.isEmpty ? null : await widget.forgeHolding?.call(repository.upstream);
-        _keysLeft = forge == null
-            ? null
-            : (forge: forge.forge, repository: forge.fullName, keys: done.keys);
-        final found = await widget.machine.defaultRepositories();
-        if (mounted) setState(() => _repositories = found);
-      });
+    final done = await widget.machine.removeFromDefault(repository.name);
+    _said = done.removed
+        ? '${repository.name} is out of default. Its mirror, and anything waiting in it, stay on ${widget.machineName}.'
+        : '${repository.name} was not in default any more.';
+    // The key the machine forgot still opens the repository at its forge until it is removed there.
+    final forge = done.keys.isEmpty ? null : await widget.forgeHolding?.call(repository.upstream);
+    _keysLeft = forge == null ? null : (forge: forge.forge, repository: forge.fullName, keys: done.keys);
+    final found = await widget.machine.defaultRepositories();
+    if (mounted) setState(() => _repositories = found);
+  });
 
   /// Removes the keys the machine forgot at the forge they were registered at.
   Future<void> _removeKeysThere() => _asking(() async {
-        final left = _keysLeft;
-        if (left == null) return;
-        var removed = 0;
-        for (final held in await left.forge.deployKeys(left.repository)) {
-          if (left.keys.any((each) => _keyPart(each.publicKey) == _keyPart(held.key))) {
-            await left.forge.removeDeployKey(left.repository, held.id);
-            removed++;
-          }
-        }
-        _said = removed == 0
-            ? 'Its key was not at ${left.forge.name} any more.'
-            : '${widget.machineName}’s key to ${left.repository} is removed at ${left.forge.name}.';
-        _keysLeft = null;
-      });
+    final left = _keysLeft;
+    if (left == null) return;
+    var removed = 0;
+    for (final held in await left.forge.deployKeys(left.repository)) {
+      if (left.keys.any((each) => _keyPart(each.publicKey) == _keyPart(held.key))) {
+        await left.forge.removeDeployKey(left.repository, held.id);
+        removed++;
+      }
+    }
+    _said = removed == 0
+        ? 'Its key was not at ${left.forge.name} any more.'
+        : '${widget.machineName}’s key to ${left.repository} is removed at ${left.forge.name}.';
+    _keysLeft = null;
+  });
 
   static String _keyPart(String key) => key.trim().split(RegExp(r'\s+')).take(2).join(' ');
 
@@ -205,7 +204,12 @@ class _DefaultDialogState extends State<DefaultDialog> {
                 style: text.bodySmall,
               ),
               const SizedBox(height: Space.small),
-              if (_problem != null) Text(_problem!, key: const Key('default-problem'), style: TextStyle(color: scheme.error)),
+              if (_problem != null)
+                Text(
+                  _problem!,
+                  key: const Key('default-problem'),
+                  style: TextStyle(color: scheme.error),
+                ),
               if (_said != null) Text(_said!, key: const Key('default-said')),
               if (_keysLeft case final left?)
                 TextButton(
@@ -223,10 +227,12 @@ class _DefaultDialogState extends State<DefaultDialog> {
                   key: ValueKey<String>('default-repository ${each.name}'),
                   contentPadding: EdgeInsets.zero,
                   title: Text(each.name),
-                  subtitle: Text(each.claimedBy.isEmpty
-                      ? each.comesFromAndGoes
-                      : '${each.comesFromAndGoes} · ${each.claimedBy} names it too: its next task starts there, '
-                          'so it can be taken out of default'),
+                  subtitle: Text(
+                    each.claimedBy.isEmpty
+                        ? each.comesFromAndGoes
+                        : '${each.comesFromAndGoes} · ${each.claimedBy} names it too: its next task starts there, '
+                              'so it can be taken out of default',
+                  ),
                   // Taking one out is offered when starting too: since Default left Projects, this is the
                   // one place a repository named by its address is taken out again (walk 10).
                   trailing: starting

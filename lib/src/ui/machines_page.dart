@@ -97,18 +97,18 @@ class MachinesPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             if (!thisComputer)
-            PopupMenuButton<String>(
-              key: ValueKey<String>('machines-menu ${machine.name}'),
-              tooltip: 'What can be done with ${machine.name}',
-              onSelected: (_) => onForget(machine),
-              itemBuilder: (context) => <PopupMenuEntry<String>>[
-                PopupMenuItem<String>(
-                  value: 'forget',
-                  enabled: machines.all.length > 1,
-                  child: const Text('Remove from this list'),
-                ),
-              ],
-            ),
+              PopupMenuButton<String>(
+                key: ValueKey<String>('machines-menu ${machine.name}'),
+                tooltip: 'What can be done with ${machine.name}',
+                onSelected: (_) => onForget(machine),
+                itemBuilder: (context) => <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'forget',
+                    enabled: machines.all.length > 1,
+                    child: const Text('Remove from this list'),
+                  ),
+                ],
+              ),
             const Icon(Icons.chevron_right),
           ],
         ),

@@ -12,10 +12,7 @@ void main() {
   final features = <File>[
     for (final root in <String>['test/features', 'integration_test'])
       if (Directory(root).existsSync())
-        ...Directory(root)
-            .listSync(recursive: true)
-            .whereType<File>()
-            .where((file) => file.path.endsWith('.feature')),
+        ...Directory(root).listSync(recursive: true).whereType<File>().where((file) => file.path.endsWith('.feature')),
   ];
 
   test('the feature directory was found at all', () {
@@ -35,8 +32,11 @@ void main() {
       expect(named.single, isNotEmpty, reason: '${file.path} names nothing');
       // Seventy, because the row is a table cell beside a path and a count. A title that wraps
       // makes the table unreadable at exactly the width somebody scans it.
-      expect(named.single.length, lessThanOrEqualTo(70),
-          reason: '${file.path}: "${named.single}" is ${named.single.length} characters');
+      expect(
+        named.single.length,
+        lessThanOrEqualTo(70),
+        reason: '${file.path}: "${named.single}" is ${named.single.length} characters',
+      );
     }
   });
 
@@ -48,8 +48,7 @@ void main() {
         final title = line.substring('Feature:'.length).trim();
         // The title is the group key in the summary, the JUnit file and the annotation. Two files
         // sharing one would silently merge into a row that is right about neither.
-        expect(named, isNot(contains(title)),
-            reason: '${file.path} and ${named[title]} are named the same');
+        expect(named, isNot(contains(title)), reason: '${file.path} and ${named[title]} are named the same');
         named[title] = file.path;
       }
     }
@@ -68,9 +67,13 @@ void main() {
         if (question.hasMatch(line)) offending.add('${file.path}: ${line.trim()}');
       }
     }
-    expect(offending, isEmpty,
-        reason: 'these cite a question in the agent channel, which no reader of the code can '
-            'follow:\n${offending.join('\n')}');
+    expect(
+      offending,
+      isEmpty,
+      reason:
+          'these cite a question in the agent channel, which no reader of the code can '
+          'follow:\n${offending.join('\n')}',
+    );
   });
 }
 

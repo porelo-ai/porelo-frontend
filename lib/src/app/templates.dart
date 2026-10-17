@@ -49,23 +49,23 @@ class Template {
   /// Tolerant in the same way a reply is: a template stored by a later build with fields this one
   /// does not know renders rather than throwing, and one missing a field reads as empty.
   factory Template.fromStored(Map<String, Object?> stored) => Template(
-        name: _text(stored['name']),
-        project: _text(stored['project']),
-        agent: _text(stored['agent']),
-        mode: Mode(_text(stored['mode'])),
-        prompt: _text(stored['prompt']),
-        repository: _text(stored['repository']),
-      );
+    name: _text(stored['name']),
+    project: _text(stored['project']),
+    agent: _text(stored['agent']),
+    mode: Mode(_text(stored['mode'])),
+    prompt: _text(stored['prompt']),
+    repository: _text(stored['repository']),
+  );
 
   /// How it is written down.
   Map<String, Object?> get stored => <String, Object?>{
-        'name': name,
-        'project': project,
-        'agent': agent,
-        'mode': mode.name,
-        'prompt': prompt,
-        if (repository.isNotEmpty) 'repository': repository,
-      };
+    'name': name,
+    'project': project,
+    'agent': agent,
+    'mode': mode.name,
+    'prompt': prompt,
+    if (repository.isNotEmpty) 'repository': repository,
+  };
 
   /// Whether this template could start anything at all.
   ///
@@ -99,14 +99,14 @@ class Templates extends ChangeNotifier {
   List<Template> get all => List<Template>.unmodifiable(_all);
 
   /// The templates for one project.
-  List<Template> forProject(String project) =>
-      <Template>[for (final each in _all) if (each.project == project) each];
+  List<Template> forProject(String project) => <Template>[
+    for (final each in _all)
+      if (each.project == project) each,
+  ];
 
   /// Reads back what an earlier run stored.
   Future<void> load() async {
-    _all = <Template>[
-      for (final stored in await _settings.templates()) Template.fromStored(stored),
-    ];
+    _all = <Template>[for (final stored in await _settings.templates()) Template.fromStored(stored)];
     notifyListeners();
   }
 
@@ -133,9 +133,7 @@ class Templates extends ChangeNotifier {
   }
 
   Future<void> _write() async {
-    await _settings.rememberTemplates(<Map<String, Object?>>[
-      for (final each in _all) each.stored,
-    ]);
+    await _settings.rememberTemplates(<Map<String, Object?>>[for (final each in _all) each.stored]);
     notifyListeners();
   }
 }

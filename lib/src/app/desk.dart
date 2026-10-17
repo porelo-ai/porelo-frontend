@@ -20,8 +20,8 @@ typedef StartDetached = Future<void> Function(String executable, List<String> ar
 /// here: they are the machine's, whatever this computer is.
 abstract class Desk {
   Desk(this.environment, {RunProgram? run, StartDetached? startDetached})
-      : run = run ?? Process.run,
-        startDetached = startDetached ?? _detached;
+    : run = run ?? Process.run,
+      startDetached = startDetached ?? _detached;
 
   /// The desk for [operatingSystem], as `Platform.operatingSystem` names it.
   factory Desk.of(
@@ -29,10 +29,9 @@ abstract class Desk {
     Map<String, String> environment, {
     RunProgram? run,
     StartDetached? startDetached,
-  }) =>
-      operatingSystem == 'windows'
-          ? WindowsDesk(environment, run: run, startDetached: startDetached)
-          : LinuxDesk(environment, run: run, startDetached: startDetached);
+  }) => operatingSystem == 'windows'
+      ? WindowsDesk(environment, run: run, startDetached: startDetached)
+      : LinuxDesk(environment, run: run, startDetached: startDetached);
 
   /// The environment the folders are read from.
   final Map<String, String> environment;
@@ -119,8 +118,11 @@ class LinuxDesk extends Desk {
   String get data => '${_set('XDG_DATA_HOME') ?? '$_home/.local/share'}/porelo-frontend';
 
   @override
-  List<String> privateCommand(String path, {bool directory = false}) =>
-      <String>['chmod', directory ? '700' : '600', path];
+  List<String> privateCommand(String path, {bool directory = false}) => <String>[
+    'chmod',
+    directory ? '700' : '600',
+    path,
+  ];
 
   @override
   List<String> openCommand(String target) => <String>['xdg-open', target];

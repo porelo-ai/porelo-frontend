@@ -8,6 +8,12 @@ Future<void> theMachineConnectsToWithAKeyInTheVault(WidgetTester tester, String 
   World.backend.theConnections = <Connection>[
     ...World.backend.theConnections,
     Connection(
-        id: 'git.ssh.github.com', kind: 'SSH_KEY', match: match, purpose: 'git', source: 'VAULT', protected: true),
+      id: 'git.ssh.github.com',
+      kind: 'SSH_KEY',
+      match: match,
+      purpose: 'git',
+      source: 'VAULT',
+      protected: true,
+    ),
   ];
 }

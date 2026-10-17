@@ -69,12 +69,14 @@ void main() {
     test('a transfer cut off after one part resumes where the machine holds it', () async {
       final file = await aFile('resumed.bin', HandingIn.partBytes * 2 + 17);
       final content = await file.readAsBytes();
-      await backend.handIn(task,
-          name: 'resumed.bin',
-          bytes: content.length,
-          sha256: sha256Of(content),
-          offset: 0,
-          part: content.sublist(0, HandingIn.partBytes));
+      await backend.handIn(
+        task,
+        name: 'resumed.bin',
+        bytes: content.length,
+        sha256: sha256Of(content),
+        offset: 0,
+        part: content.sublist(0, HandingIn.partBytes),
+      );
       backend.parts = 0;
       final handing = HandingIn();
 
@@ -84,16 +86,17 @@ void main() {
       expect(backend.parts, 3, reason: 'one refused at offset 0, then the two still missing');
     });
 
-    test('a second file under a name still in flight is refused, with how far the first got',
-        () async {
+    test('a second file under a name still in flight is refused, with how far the first got', () async {
       final first = await aFile('busy.bin', HandingIn.partBytes * 2);
       final content = await first.readAsBytes();
-      await backend.handIn(task,
-          name: 'busy.bin',
-          bytes: content.length,
-          sha256: sha256Of(content),
-          offset: 0,
-          part: content.sublist(0, HandingIn.partBytes));
+      await backend.handIn(
+        task,
+        name: 'busy.bin',
+        bytes: content.length,
+        sha256: sha256Of(content),
+        offset: 0,
+        part: content.sublist(0, HandingIn.partBytes),
+      );
       final other = await aFile('other.bin', 10);
       final handing = HandingIn();
 
@@ -140,8 +143,10 @@ void main() {
       });
       Future<void> until(bool Function(List<String>? names) holds, String what) => seen.stream
           .firstWhere(holds)
-          .timeout(const Duration(seconds: 20),
-              onTimeout: () => fail('the open Watch never showed $what; it sent: $events'));
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => fail('the open Watch never showed $what; it sent: $events'),
+          );
       try {
         await until((names) => names != null, 'the task at all');
         final file = await aFile('watched.txt', 64);
@@ -180,12 +185,14 @@ class _Counting extends PoreloBackend {
   int parts = 0;
 
   @override
-  Future<HandInPart> handIn(String task,
-      {required String name,
-      required int bytes,
-      required String sha256,
-      required int offset,
-      required List<int> part}) {
+  Future<HandInPart> handIn(
+    String task, {
+    required String name,
+    required int bytes,
+    required String sha256,
+    required int offset,
+    required List<int> part,
+  }) {
     parts++;
     return super.handIn(task, name: name, bytes: bytes, sha256: sha256, offset: offset, part: part);
   }

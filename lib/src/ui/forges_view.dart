@@ -21,11 +21,17 @@ Uri tokenPage(String address) => Uri.parse('https://$address/settings/personal-a
 /// Opens the forges set up on this computer. [usedBy] answers, for an entry, the repositories of
 /// the projects the watched machines follow there: what removing it would leave without a way to
 /// take their keys off again.
-Future<void> showForges(BuildContext context, ForgeConnection forges,
-    {List<String> Function(ForgeEntry entry)? usedBy}) async {
+Future<void> showForges(
+  BuildContext context,
+  ForgeConnection forges, {
+  List<String> Function(ForgeEntry entry)? usedBy,
+}) async {
   // Read again each time: a token kept before the list existed, or another window's change, shows.
   unawaited(forges.readList());
-  await showDialog<void>(context: context, builder: (_) => ForgesDialog(forges: forges, usedBy: usedBy));
+  await showDialog<void>(
+    context: context,
+    builder: (_) => ForgesDialog(forges: forges, usedBy: usedBy),
+  );
 }
 
 /// Every forge set up here: added, renamed, given a new token, or removed.
@@ -48,98 +54,103 @@ class _ForgesDialogState extends State<ForgesDialog> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: widget.forges,
-        builder: (context, _) {
-          final forges = widget.forges;
-          final text = Theme.of(context).textTheme;
-          final scheme = Theme.of(context).colorScheme;
-          return AlertDialog(
-            key: const Key('forges-dialog'),
-            title: const Text('Your forges'),
-            content: SizedBox(
-              width: Sizes.dialog,
-              child: DialogScroll(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'The places your repositories are, each with the token that reaches them. Several of one '
-                      'kind are fine: name them apart, “GitHub private” and “GitHub work”.',
-                      style: text.bodySmall,
-                    ),
-                    if (forges.problem != null)
-                      Text(forges.problem!, key: const Key('forges-problem'), style: TextStyle(color: scheme.error)),
-                    if (_said != null) Text(_said!, key: const Key('forges-said')),
-                    if (forges.loaded && forges.entries.isEmpty && !_adding)
-                      const Text('None yet.', key: Key('forges-none')),
-                    for (final entry in forges.entries)
-                      if (_editing?.id == entry.id)
-                        ForgeForm(
-                          key: ValueKey<String>('forge-edit ${entry.id}'),
-                          forges: forges,
-                          editing: entry,
-                          onDone: (said) => setState(() {
-                            _editing = null;
-                            _said = said;
-                          }),
-                        )
-                      else
-                        ListTile(
-                          key: ValueKey<String>('forge ${entry.name}'),
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(entry.name),
-                          subtitle: Text(<String>[
-                            entry.kindWords,
-                            entry.address,
-                            if (forges.current?.id == entry.id && forges.account != null)
-                              'as ${forges.account!.login}',
-                          ].join(' · ')),
-                          trailing: Wrap(
-                            spacing: Space.tight,
-                            children: <Widget>[
-                              TextButton(
-                                key: ValueKey<String>('forge-change ${entry.name}'),
-                                onPressed: forges.busy ? null : () => setState(() => _editing = entry),
-                                child: const Text('Change'),
-                              ),
-                              TextButton(
-                                key: ValueKey<String>('forge-remove ${entry.name}'),
-                                onPressed: forges.busy ? null : () => unawaited(_remove(context, entry)),
-                                child: const Text('Remove'),
-                              ),
-                            ],
-                          ),
-                        ),
-                    if (_adding)
-                      ForgeForm(
-                        key: const Key('forge-add-form'),
-                        forges: forges,
-                        onDone: (said) => setState(() {
-                          _adding = false;
-                          _said = said;
-                        }),
+    animation: widget.forges,
+    builder: (context, _) {
+      final forges = widget.forges;
+      final text = Theme.of(context).textTheme;
+      final scheme = Theme.of(context).colorScheme;
+      return AlertDialog(
+        key: const Key('forges-dialog'),
+        title: const Text('Your forges'),
+        content: SizedBox(
+          width: Sizes.dialog,
+          child: DialogScroll(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'The places your repositories are, each with the token that reaches them. Several of one '
+                  'kind are fine: name them apart, “GitHub private” and “GitHub work”.',
+                  style: text.bodySmall,
+                ),
+                if (forges.problem != null)
+                  Text(
+                    forges.problem!,
+                    key: const Key('forges-problem'),
+                    style: TextStyle(color: scheme.error),
+                  ),
+                if (_said != null) Text(_said!, key: const Key('forges-said')),
+                if (forges.loaded && forges.entries.isEmpty && !_adding)
+                  const Text('None yet.', key: Key('forges-none')),
+                for (final entry in forges.entries)
+                  if (_editing?.id == entry.id)
+                    ForgeForm(
+                      key: ValueKey<String>('forge-edit ${entry.id}'),
+                      forges: forges,
+                      editing: entry,
+                      onDone: (said) => setState(() {
+                        _editing = null;
+                        _said = said;
+                      }),
+                    )
+                  else
+                    ListTile(
+                      key: ValueKey<String>('forge ${entry.name}'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(entry.name),
+                      subtitle: Text(
+                        <String>[
+                          entry.kindWords,
+                          entry.address,
+                          if (forges.current?.id == entry.id && forges.account != null) 'as ${forges.account!.login}',
+                        ].join(' · '),
                       ),
-                  ],
-                ),
-              ),
+                      trailing: Wrap(
+                        spacing: Space.tight,
+                        children: <Widget>[
+                          TextButton(
+                            key: ValueKey<String>('forge-change ${entry.name}'),
+                            onPressed: forges.busy ? null : () => setState(() => _editing = entry),
+                            child: const Text('Change'),
+                          ),
+                          TextButton(
+                            key: ValueKey<String>('forge-remove ${entry.name}'),
+                            onPressed: forges.busy ? null : () => unawaited(_remove(context, entry)),
+                            child: const Text('Remove'),
+                          ),
+                        ],
+                      ),
+                    ),
+                if (_adding)
+                  ForgeForm(
+                    key: const Key('forge-add-form'),
+                    forges: forges,
+                    onDone: (said) => setState(() {
+                      _adding = false;
+                      _said = said;
+                    }),
+                  ),
+              ],
             ),
-            actions: <Widget>[
-              if (!_adding)
-                TextButton(
-                  key: const Key('forge-add'),
-                  onPressed: forges.busy ? null : () => setState(() => _adding = true),
-                  child: const Text('Add a forge'),
-                ),
-              TextButton(
-                key: const Key('forges-close'),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Done'),
-              ),
-            ],
-          );
-        },
+          ),
+        ),
+        actions: <Widget>[
+          if (!_adding)
+            TextButton(
+              key: const Key('forge-add'),
+              onPressed: forges.busy ? null : () => setState(() => _adding = true),
+              child: const Text('Add a forge'),
+            ),
+          TextButton(
+            key: const Key('forges-close'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
       );
+    },
+  );
 
   Future<void> _remove(BuildContext context, ForgeEntry entry) async {
     final said = await removeForge(context, widget.forges, entry, widget.usedBy?.call(entry) ?? const <String>[]);
@@ -161,8 +172,10 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('Its token is taken out of this computer’s keychain. Nothing at ${entry.address} '
-                'changes: the token stays valid there until you revoke it.'),
+            Text(
+              'Its token is taken out of this computer’s keychain. Nothing at ${entry.address} '
+              'changes: the token stays valid there until you revoke it.',
+            ),
             if (used.isNotEmpty) ...<Widget>[
               const SizedBox(height: Space.small),
               Text(
@@ -255,84 +268,89 @@ class _ForgeFormState extends State<ForgeForm> {
     if (editing == null) {
       final made = await forges.add(name: _name.text, address: _address.text, token: _token.text);
       if (made != null && mounted) {
-        widget.onDone('${made.name} is set up: logged in as ${forges.account?.login ?? '?'}, '
-            'it reaches ${forges.repositories?.length ?? 0} repositories.');
+        widget.onDone(
+          '${made.name} is set up: logged in as ${forges.account?.login ?? '?'}, '
+          'it reaches ${forges.repositories?.length ?? 0} repositories.',
+        );
       }
       return;
     }
     await forges.edit(editing, name: _name.text, token: _token.text);
     if (forges.problem == null && mounted) {
-      widget.onDone(_token.text.trim().isEmpty ? '${_name.text.trim()} is renamed.' : '${_name.text.trim()} has its new token.');
+      widget.onDone(
+        _token.text.trim().isEmpty ? '${_name.text.trim()} is renamed.' : '${_name.text.trim()} has its new token.',
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: widget.forges,
-        builder: (context, _) {
-          final editing = widget.editing;
-          final text = Theme.of(context).textTheme;
-          final address = _address.text.trim().isEmpty ? 'github.com' : _address.text.trim();
-          return Container(
-            margin: const EdgeInsets.symmetric(vertical: Space.small),
-            padding: const EdgeInsets.all(Space.small),
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-              borderRadius: BorderRadius.circular(Radii.small),
+    animation: widget.forges,
+    builder: (context, _) {
+      final editing = widget.editing;
+      final text = Theme.of(context).textTheme;
+      final address = _address.text.trim().isEmpty ? 'github.com' : _address.text.trim();
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: Space.small),
+        padding: const EdgeInsets.all(Space.small),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(Radii.small),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(editing == null ? 'A GitHub to work with' : 'Change ${editing.name}', style: text.titleSmall),
+            TextField(
+              key: const Key('forge-name'),
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'What you call it'),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            if (editing == null)
+              TextField(
+                key: const Key('forge-address'),
+                controller: _address,
+                decoration: const InputDecoration(labelText: 'Where it is: github.com, or your own GitHub’s host'),
+                onChanged: (_) => setState(() {}),
+              ),
+            TextField(
+              key: const Key('forge-token'),
+              controller: _token,
+              obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: editing == null ? 'Personal access token' : 'A new token, only to replace it',
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: Space.tight),
+            Text(tokenRightsWords('GitHub'), style: text.bodySmall),
+            TextButton(
+              key: const Key('forge-token-page'),
+              onPressed: () => unawaited(openLink(tokenPage(address))),
+              child: Text('Make a token at $address'),
+            ),
+            Wrap(
+              spacing: Space.tight,
               children: <Widget>[
-                Text(editing == null ? 'A GitHub to work with' : 'Change ${editing.name}', style: text.titleSmall),
-                TextField(
-                  key: const Key('forge-name'),
-                  controller: _name,
-                  decoration: const InputDecoration(labelText: 'What you call it'),
+                FilledButton(
+                  key: const Key('forge-connect'),
+                  onPressed: widget.forges.busy || (editing == null && _token.text.trim().isEmpty)
+                      ? null
+                      : () => unawaited(_save()),
+                  child: Text(editing == null ? 'Connect it' : 'Keep the change'),
                 ),
-                if (editing == null)
-                  TextField(
-                    key: const Key('forge-address'),
-                    controller: _address,
-                    decoration: const InputDecoration(labelText: 'Where it is: github.com, or your own GitHub’s host'),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                TextField(
-                  key: const Key('forge-token'),
-                  controller: _token,
-                  obscureText: true,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  decoration: InputDecoration(
-                      labelText: editing == null ? 'Personal access token' : 'A new token, only to replace it'),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: Space.tight),
-                Text(tokenRightsWords('GitHub'), style: text.bodySmall),
                 TextButton(
-                  key: const Key('forge-token-page'),
-                  onPressed: () => unawaited(openLink(tokenPage(address))),
-                  child: Text('Make a token at $address'),
-                ),
-                Wrap(
-                  spacing: Space.tight,
-                  children: <Widget>[
-                    FilledButton(
-                      key: const Key('forge-connect'),
-                      onPressed: widget.forges.busy || (editing == null && _token.text.trim().isEmpty)
-                          ? null
-                          : () => unawaited(_save()),
-                      child: Text(editing == null ? 'Connect it' : 'Keep the change'),
-                    ),
-                    TextButton(
-                      key: const Key('forge-cancel'),
-                      onPressed: () => widget.onDone(''),
-                      child: const Text('Cancel'),
-                    ),
-                  ],
+                  key: const Key('forge-cancel'),
+                  onPressed: () => widget.onDone(''),
+                  child: const Text('Cancel'),
                 ),
               ],
             ),
-          );
-        },
+          ],
+        ),
       );
+    },
+  );
 }

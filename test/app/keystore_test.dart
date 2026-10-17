@@ -7,10 +7,16 @@ import 'package:porelo_frontend/src/app/keystore.dart';
 /// A keystore that refuses, and quotes what it was given the way a platform message can.
 class _Refusing implements FlutterSecureStorage {
   @override
-  Future<void> write({required String key, required String? value, AppleOptions? iOptions,
-          AndroidOptions? aOptions, LinuxOptions? lOptions, WebOptions? webOptions,
-          AppleOptions? mOptions, WindowsOptions? wOptions}) async =>
-      throw PlatformException(code: 'no secret service', message: 'could not store $value');
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async => throw PlatformException(code: 'no secret service', message: 'could not store $value');
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

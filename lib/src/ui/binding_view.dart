@@ -11,8 +11,12 @@ import 'tokens.dart';
 
 /// Opens working on the repository's project on a machine. Answers the project's name where the
 /// person asked to start work in it on the machine, and null otherwise.
-Future<String?> showBinding(BuildContext context, MachineBinding binding,
-    {bool startFollows = false, Future<({Forge forge, ProjectWorkspace workspace})?> Function()? changeToken}) async {
+Future<String?> showBinding(
+  BuildContext context,
+  MachineBinding binding, {
+  bool startFollows = false,
+  Future<({Forge forge, ProjectWorkspace workspace})?> Function()? changeToken,
+}) async {
   final start = await showDialog<String>(
     context: context,
     builder: (_) => BindingDialog(binding: binding, startFollows: startFollows, changeToken: changeToken),
@@ -64,7 +68,8 @@ class _BindingDialogState extends State<BindingDialog> {
     if (!widget.startFollows || _followed || bound == null || !mounted) return;
     final key = _key;
     final pinned = binding.pinned;
-    final another = binding.pinnedAll.isEmpty && pinned != null && pinned.isNotEmpty && key != null && pinned != key.fingerprint;
+    final another =
+        binding.pinnedAll.isEmpty && pinned != null && pinned.isNotEmpty && key != null && pinned != key.fingerprint;
     if (another) return;
     _followed = true;
     final machine = binding.machineName;
@@ -75,11 +80,13 @@ class _BindingDialogState extends State<BindingDialog> {
     Navigator.of(context).pop(bound);
     // What an earlier binding said is put away: this one's words are the ones that matter now.
     messenger?.removeCurrentSnackBar();
-    messenger?.showSnackBar(SnackBar(
-      key: const Key('binding-followed'),
-      content: Text(<String>[said, ...binding.done].join(' ')),
-      duration: const Duration(seconds: 12),
-    ));
+    messenger?.showSnackBar(
+      SnackBar(
+        key: const Key('binding-followed'),
+        content: Text(<String>[said, ...binding.done].join(' ')),
+        duration: const Duration(seconds: 12),
+      ),
+    );
   }
 
   @override

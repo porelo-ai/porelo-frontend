@@ -69,11 +69,7 @@ class Narrowing extends ChangeNotifier {
 
   /// Takes what somebody typed and makes names of it.
   void ask(String typed) {
-    asking = typed
-        .split(RegExp(r'[\s,]+'))
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList();
+    asking = typed.split(RegExp(r'[\s,]+')).map((name) => name.trim()).where((name) => name.isNotEmpty).toList();
     preview = null;
     applied = null;
     notifyListeners();
@@ -133,10 +129,8 @@ class Narrowing extends ChangeNotifier {
     final removed = said.addresses == 0
         ? 'Nothing was in the firewall for $names — the name was granted and never reached.'
         : '${said.addresses} ${said.addresses == 1 ? 'address' : 'addresses'} came out of the '
-            'firewall.';
-    final file = said.persisted
-        ? ' The project file is changed too, so the next task starts without them.'
-        : '';
+              'firewall.';
+    final file = said.persisted ? ' The project file is changed too, so the next task starts without them.' : '';
     return 'Taken back: ${said.closes.join(', ')}. $removed$file';
   }
 

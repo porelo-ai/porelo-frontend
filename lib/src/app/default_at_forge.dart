@@ -30,7 +30,7 @@ class DefaultAtForge {
     return there != null
         ? '${repository.fullName} is worked on without a project on $machineName already; its key is there.'
         : '${repository.fullName} is worked on without a project on $machineName now, with a key of its own at '
-            '${_forge.name}. Start work on it under Work.';
+              '${_forge.name}. Start work on it under Work.';
   }
 
   /// Takes [repository] out of `default`, and the keys the machine forgot off the forge.

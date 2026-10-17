@@ -48,14 +48,14 @@ class VaultDevices extends ChangeNotifier {
 
   /// Reads the machine's keyslots and this device's key for it.
   Future<void> look(FleetBackend backend) => _ask((mine) async {
-        final node = await backend.node();
-        final slots = await backend.keyslots();
-        final key = node.isEmpty ? null : await store.read(node);
-        if (mine != _asked) return;
-        this.slots = slots;
-        this.mine = key;
-        canEnroll = true;
-      });
+    final node = await backend.node();
+    final slots = await backend.keyslots();
+    final key = node.isEmpty ? null : await store.read(node);
+    if (mine != _asked) return;
+    this.slots = slots;
+    this.mine = key;
+    canEnroll = true;
+  });
 
   /// Forgets what was known, for a machine other than the one this described.
   void forget() {
@@ -75,66 +75,68 @@ class VaultDevices extends ChangeNotifier {
   /// still has a device that holds it; a refusal removes it again. A second try sends the same share,
   /// which the node recognizes as already enrolled rather than making a second keyslot.
   Future<void> enroll(FleetBackend backend, String name) => _ask((mine) async {
-        final node = await backend.node();
-        if (node.isEmpty) {
-          problem = 'This machine does not say which node it is, so a key kept for it could not be '
-              'found again. Nothing was enrolled.';
-          return;
-        }
-        final pending = await store.read(node);
-        final share = pending?.share ?? newShare();
-        await store.write(node, DeviceKey(slot: pending?.slot ?? '', share: share));
-        try {
-          final answer = await backend.enrollDevice(name: name, share: share, storage: store.storage);
-          final slot = answer.slot;
-          final kept = (answer.outcome == KeyslotOutcome.enrolled ||
-                  answer.outcome == KeyslotOutcome.alreadyEnrolled) &&
-              slot != null;
-          if (kept) {
-            await store.write(node, DeviceKey(slot: slot.id, share: share));
-          } else {
-            await store.delete(node);
-          }
-          // The key is kept per node whatever happens; what is on screen belongs to the machine asked.
-          if (mine != _asked) return;
-          said = keyslotWords(answer.outcome, name: slot?.name ?? name, detail: answer.detail);
-          // What the node recorded, not what this device meant to declare: the two can differ.
-          if (kept) said = '$said Recorded as ${slot.id}. ${storageWords(slot.storage)}';
-        } on FeatureNotSupported {
-          await store.delete(node);
-          rethrow;
-        }
-        await _reread(backend, node, mine);
-      });
+    final node = await backend.node();
+    if (node.isEmpty) {
+      problem =
+          'This machine does not say which node it is, so a key kept for it could not be '
+          'found again. Nothing was enrolled.';
+      return;
+    }
+    final pending = await store.read(node);
+    final share = pending?.share ?? newShare();
+    await store.write(node, DeviceKey(slot: pending?.slot ?? '', share: share));
+    try {
+      final answer = await backend.enrollDevice(name: name, share: share, storage: store.storage);
+      final slot = answer.slot;
+      final kept =
+          (answer.outcome == KeyslotOutcome.enrolled || answer.outcome == KeyslotOutcome.alreadyEnrolled) &&
+          slot != null;
+      if (kept) {
+        await store.write(node, DeviceKey(slot: slot.id, share: share));
+      } else {
+        await store.delete(node);
+      }
+      // The key is kept per node whatever happens; what is on screen belongs to the machine asked.
+      if (mine != _asked) return;
+      said = keyslotWords(answer.outcome, name: slot?.name ?? name, detail: answer.detail);
+      // What the node recorded, not what this device meant to declare: the two can differ.
+      if (kept) said = '$said Recorded as ${slot.id}. ${storageWords(slot.storage)}';
+    } on FeatureNotSupported {
+      await store.delete(node);
+      rethrow;
+    }
+    await _reread(backend, node, mine);
+  });
 
   /// Opens the vault with this device's key for [minutes], or until it is shut when null.
   Future<void> unlock(FleetBackend backend, {required int? minutes}) => _ask((mine) async {
-        final node = await backend.node();
-        final key = node.isEmpty ? null : await store.read(node);
-        if (key == null) {
-          problem = 'This device is not enrolled on this machine, so it has nothing to open the vault '
-              'with.';
-          return;
-        }
-        final answer = await backend.unlockWithShare(share: key.share, minutes: minutes);
-        if (mine != _asked) return;
-        said = keyslotWords(answer.outcome, until: clockTime(answer.until), detail: answer.detail);
-      });
+    final node = await backend.node();
+    final key = node.isEmpty ? null : await store.read(node);
+    if (key == null) {
+      problem =
+          'This device is not enrolled on this machine, so it has nothing to open the vault '
+          'with.';
+      return;
+    }
+    final answer = await backend.unlockWithShare(share: key.share, minutes: minutes);
+    if (mine != _asked) return;
+    said = keyslotWords(answer.outcome, until: clockTime(answer.until), detail: answer.detail);
+  });
 
   /// Revokes [slot]. **Revoking this device forgets its key here too**, since it opens nothing now.
   Future<void> revoke(FleetBackend backend, Keyslot slot) => _ask((mine) async {
-        final node = await backend.node();
-        final answer = await backend.revokeKeyslot(slot.id);
-        if (answer.outcome == KeyslotOutcome.revoked && node.isNotEmpty) {
-          final key = await store.read(node);
-          if (key != null && key.slot == slot.id) await store.delete(node);
-        }
-        if (mine != _asked) return;
-        said = keyslotWords(answer.outcome, name: slot.name, detail: answer.detail);
-        if (answer.outcome == KeyslotOutcome.revoked) said = '$said ${stillOpens(answer.remaining)}';
-        slots = answer.remaining;
-        this.mine = node.isEmpty ? null : await store.read(node);
-      });
+    final node = await backend.node();
+    final answer = await backend.revokeKeyslot(slot.id);
+    if (answer.outcome == KeyslotOutcome.revoked && node.isNotEmpty) {
+      final key = await store.read(node);
+      if (key != null && key.slot == slot.id) await store.delete(node);
+    }
+    if (mine != _asked) return;
+    said = keyslotWords(answer.outcome, name: slot.name, detail: answer.detail);
+    if (answer.outcome == KeyslotOutcome.revoked) said = '$said ${stillOpens(answer.remaining)}';
+    slots = answer.remaining;
+    this.mine = node.isEmpty ? null : await store.read(node);
+  });
 
   Future<void> _reread(FleetBackend backend, String node, int asked) async {
     final now = await backend.keyslots();
@@ -158,7 +160,8 @@ class VaultDevices extends ChangeNotifier {
       if (mine == _asked) problem = 'Lost contact with the machine: ${ex.message}';
     } on DeviceKeyStoreFailed catch (ex) {
       if (mine == _asked) {
-        problem = "This device's keystore refused (${ex.reason}), so no key could be kept or read. "
+        problem =
+            "This device's keystore refused (${ex.reason}), so no key could be kept or read. "
             'Is a keyring running and unlocked?';
       }
     } on FeatureNotSupported {
@@ -188,8 +191,7 @@ String keyslotWords(KeyslotOutcome outcome, {String name = '', String until = ''
     switch (outcome.name) {
       'ENROLLED' => 'This device can open the vault now, as "$name".',
       'ALREADY_ENROLLED' => 'This device was enrolled already, as "$name".',
-      'UNKNOWN_STORAGE' =>
-        'The machine does not know how this device keeps its key, so it enrolled nothing.',
+      'UNKNOWN_STORAGE' => 'The machine does not know how this device keeps its key, so it enrolled nothing.',
       'BAD_SHARE' => 'The machine refused the key this device holds: it is not a key it can read.',
       'VAULT_LOCKED' =>
         'The vault is locked. A device is enrolled into an open vault, so unlock it at the machine '
@@ -199,8 +201,9 @@ String keyslotWords(KeyslotOutcome outcome, {String name = '', String until = ''
       'NO_SUCH_SLOT' => '"$name" was already gone.',
       'LAST_WAY_IN' => '"$name" is the last way into the vault, so the machine kept it.',
       'UNLOCKED' => until.isEmpty ? 'The vault is open.' : 'The vault is open until $until.',
-      'SHARE_REJECTED' => "The machine did not accept this device's key: it was revoked, or never "
-          'enrolled on this machine.',
+      'SHARE_REJECTED' =>
+        "The machine did not accept this device's key: it was revoked, or never "
+            'enrolled on this machine.',
       _ => detail.isEmpty ? 'That did not work, and the machine did not say why.' : detail,
     };
 
@@ -211,17 +214,15 @@ String stillOpens(List<Keyslot> remaining) {
     if (remaining.any((slot) => slot.recovery)) 'the passphrase, at the machine',
   ];
   if (ways.isEmpty) return 'Nothing can open it now.';
-  final listed = ways.length == 1
-      ? ways.single
-      : '${ways.sublist(0, ways.length - 1).join(', ')} and ${ways.last}';
+  final listed = ways.length == 1 ? ways.single : '${ways.sublist(0, ways.length - 1).join(', ')} and ${ways.last}';
   return 'Still able to open it: $listed.';
 }
 
 /// What a device's way of keeping its key protects against, **never said stronger than it is**.
 String storageWords(KeyslotStorage storage) => switch (storage.name) {
-      'USER_SCOPED' => 'Kept in a keyring that opens at login: anything running as this user can read it.',
-      'APPLICATION_SCOPED' => 'Kept where only this application can read it.',
-      'FIDO2' => 'Released only with a touch on a security key.',
-      'TPM2' => "Released only with a PIN, by this machine's TPM.",
-      _ => 'Kept in a way this build cannot describe, so nothing is claimed for it.',
-    };
+  'USER_SCOPED' => 'Kept in a keyring that opens at login: anything running as this user can read it.',
+  'APPLICATION_SCOPED' => 'Kept where only this application can read it.',
+  'FIDO2' => 'Released only with a touch on a security key.',
+  'TPM2' => "Released only with a PIN, by this machine's TPM.",
+  _ => 'Kept in a way this build cannot describe, so nothing is claimed for it.',
+};

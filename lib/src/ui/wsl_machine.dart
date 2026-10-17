@@ -17,13 +17,7 @@ import 'terminal_look.dart';
 /// **Nothing runs as root but lines a person read and said yes to**, and a distribution is started
 /// only by the restart for systemd, after a question of its own whose answer is no until changed.
 class WslSteps extends StatefulWidget {
-  const WslSteps({
-    required this.onReady,
-    this.wsl,
-    this.setupFor,
-    this.record,
-    super.key,
-  });
+  const WslSteps({required this.onReady, this.wsl, this.setupFor, this.record, super.key});
 
   /// Told the machine to watch once every check passed, or null while not.
   final ValueChanged<Machine?> onReady;
@@ -80,17 +74,18 @@ class _WslStepsState extends State<WslSteps> {
       _chosen = name;
       _showLines = false;
       _restart = false;
-      _setup = name == null
-          ? null
-          : (widget.setupFor?.call(name) ??
-              WslSetup(
-                distribution: name,
-                operatingSystemVersion: Platform.operatingSystemVersion,
-                wsl: _wsl,
-                answers: _answers,
-                record: (line, said) => widget.record?.call(name, line, said),
-              ))
-        ?..addListener(_changed);
+      _setup =
+          name == null
+                ? null
+                : (widget.setupFor?.call(name) ??
+                      WslSetup(
+                        distribution: name,
+                        operatingSystemVersion: Platform.operatingSystemVersion,
+                        wsl: _wsl,
+                        answers: _answers,
+                        record: (line, said) => widget.record?.call(name, line, said),
+                      ))
+            ?..addListener(_changed);
     });
     widget.onReady(null);
   }
@@ -173,8 +168,11 @@ class _WslStepsState extends State<WslSteps> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(finding.passed ? Icons.check_circle_outline : Icons.error_outline,
-              size: Sizes.rowIcon, color: finding.passed ? scheme.primary : scheme.error),
+          Icon(
+            finding.passed ? Icons.check_circle_outline : Icons.error_outline,
+            size: Sizes.rowIcon,
+            color: finding.passed ? scheme.primary : scheme.error,
+          ),
           const SizedBox(width: Space.small),
           Expanded(
             child: SelectableText(
@@ -189,36 +187,37 @@ class _WslStepsState extends State<WslSteps> {
 
   /// The question of its own: systemd on, and the distribution restarted, ending what runs in it.
   List<Widget> _systemd(BuildContext context, WslSetup setup) => <Widget>[
-        const SizedBox(height: Space.normal),
-        Text(
-          'Turning systemd on means restarting ${setup.distribution}. Everything running in it ends: '
-          'its shells, its services, and any Porelo task running there.',
-          key: const Key('wsl-systemd-cost'),
-        ),
-        const SizedBox(height: Space.tight),
-        SelectableText(WslSetup.turnSystemdOn.shown, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-        SelectableText('wsl.exe --terminate ${setup.distribution}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-        SwitchListTile(
-          key: const Key('wsl-restart-yes'),
-          contentPadding: EdgeInsets.zero,
-          title: Text('Restart ${setup.distribution} to turn systemd on'),
-          value: _restart,
-          onChanged: setup.busy ? null : (yes) => setState(() => _restart = yes),
-        ),
-        FilledButton(
-          key: const Key('wsl-restart'),
-          onPressed: _restart && !setup.busy
-              ? () async {
-                  await setup.turnOnSystemdAndRestart(
-                      wslExe: (arguments) async => (await Wsl.runWslExe(arguments)).code);
-                  if (setup.stopped == null) await _check();
-                }
-              : null,
-          child: const Text('Turn systemd on and restart it'),
-        ),
-        if (setup.stopped case final why?) SelectableText(why, key: const Key('wsl-stopped')),
-      ];
+    const SizedBox(height: Space.normal),
+    Text(
+      'Turning systemd on means restarting ${setup.distribution}. Everything running in it ends: '
+      'its shells, its services, and any Porelo task running there.',
+      key: const Key('wsl-systemd-cost'),
+    ),
+    const SizedBox(height: Space.tight),
+    SelectableText(WslSetup.turnSystemdOn.shown, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+    SelectableText(
+      'wsl.exe --terminate ${setup.distribution}',
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+    ),
+    SwitchListTile(
+      key: const Key('wsl-restart-yes'),
+      contentPadding: EdgeInsets.zero,
+      title: Text('Restart ${setup.distribution} to turn systemd on'),
+      value: _restart,
+      onChanged: setup.busy ? null : (yes) => setState(() => _restart = yes),
+    ),
+    FilledButton(
+      key: const Key('wsl-restart'),
+      onPressed: _restart && !setup.busy
+          ? () async {
+              await setup.turnOnSystemdAndRestart(wslExe: (arguments) async => (await Wsl.runWslExe(arguments)).code);
+              if (setup.stopped == null) await _check();
+            }
+          : null,
+      child: const Text('Turn systemd on and restart it'),
+    ),
+    if (setup.stopped case final why?) SelectableText(why, key: const Key('wsl-stopped')),
+  ];
 
   /// The offer to set Porelo up: the agents to choose, then every line shown, run only after a yes.
   List<Widget> _offer(BuildContext context, WslSetup setup) {
@@ -237,7 +236,8 @@ class _WslStepsState extends State<WslSteps> {
           value: setup.agents.contains(agent.package),
           onChanged: setup.busy
               ? null
-              : (yes) => setState(() => yes == true ? setup.agents.add(agent.package) : setup.agents.remove(agent.package)),
+              : (yes) =>
+                    setState(() => yes == true ? setup.agents.add(agent.package) : setup.agents.remove(agent.package)),
         ),
       const SizedBox(height: Space.tight),
       Text(
@@ -283,8 +283,11 @@ class _WslStepsState extends State<WslSteps> {
       if (_showLines) const Text('Copied. Run them in the distribution, then check it again.'),
       if (setup.said.isNotEmpty) ...<Widget>[
         const SizedBox(height: Space.small),
-        SelectableText(setup.said.join('\n'),
-            key: const Key('wsl-said'), style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+        SelectableText(
+          setup.said.join('\n'),
+          key: const Key('wsl-said'),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
       ],
       if (setup.stopped case final why?) SelectableText(why, key: const Key('wsl-stopped')),
     ];

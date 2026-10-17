@@ -24,60 +24,47 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets('''whether this machine can run anything is one action away''',
-        (tester) async {
+    testWidgets('''whether this machine can run anything is one action away''', (tester) async {
       await bddSetUp(tester);
       await iCheckWhetherThisMachineCanRunAnything(tester);
       await itSays(tester, 'This machine can run work. Nothing is missing.');
     });
-    testWidgets('''something missing is named, with what to do about it''',
-        (tester) async {
+    testWidgets('''something missing is named, with what to do about it''', (tester) async {
       await bddSetUp(tester);
-      await theMachineIsMissingBecause(
-          tester, 'nft', 'no nftables binary on PATH');
+      await theMachineIsMissingBecause(tester, 'nft', 'no nftables binary on PATH');
       await iCheckWhetherThisMachineCanRunAnything(tester);
-      await itSays(tester,
-          'This machine cannot run work: one thing it needs is missing.');
+      await itSays(tester, 'This machine cannot run work: one thing it needs is missing.');
       await itSays(tester, 'no nftables binary on PATH');
       await itSays(tester, 'install nftables');
     });
-    testWidgets(
-        '''a machine that runs work with something worth knowing is not called fine''',
-        (tester) async {
+    testWidgets('''a machine that runs work with something worth knowing is not called fine''', (tester) async {
       await bddSetUp(tester);
-      await theMachineIsDegradedAtBecause(
-          tester, 'rootless network backend', 'slirp4netns rather than pasta');
+      await theMachineIsDegradedAtBecause(tester, 'rootless network backend', 'slirp4netns rather than pasta');
       await iCheckWhetherThisMachineCanRunAnything(tester);
-      await itSays(
-          tester, 'This machine runs work. One thing is worth knowing about.');
+      await itSays(tester, 'This machine runs work. One thing is worth knowing about.');
       await itSays(tester, 'slirp4netns rather than pasta');
     });
-    testWidgets(
-        '''a check that could not be established says so rather than passing''',
-        (tester) async {
+    testWidgets('''a check that could not be established says so rather than passing''', (tester) async {
       await bddSetUp(tester);
       await theMachineCannotEstablish(tester, 'SELinux policy');
       await iCheckWhetherThisMachineCanRunAnything(tester);
       await itSays(tester, 'could not be established');
-      await itSays(
-          tester, 'This machine runs work. One thing is worth knowing about.');
+      await itSays(tester, 'This machine runs work. One thing is worth knowing about.');
     });
-    testWidgets('''the same check can be run again on demand''',
-        (tester) async {
+    testWidgets('''the same check can be run again on demand''', (tester) async {
       await bddSetUp(tester);
       await iCheckWhetherThisMachineCanRunAnything(tester);
       await iCheckTheMachineAgain(tester);
       await theMachineWasAskedTwiceWhetherItCanRunAnything(tester);
     });
-    testWidgets('''nothing here offers to fix the machine, and says so''',
-        (tester) async {
+    testWidgets('''nothing here offers to fix the machine, and says so''', (tester) async {
       await bddSetUp(tester);
       await iCheckWhetherThisMachineCanRunAnything(tester);
       await itSays(tester, 'Nothing here installs or configures anything');
     });
-    testWidgets(
-        '''a daemon too old to answer says so rather than showing a machine with nothing wrong''',
-        (tester) async {
+    testWidgets('''a daemon too old to answer says so rather than showing a machine with nothing wrong''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await theMachineCannotAnswerWhetherItCanRunAnything(tester);
       await iCheckWhetherThisMachineCanRunAnything(tester);

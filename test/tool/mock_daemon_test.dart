@@ -11,45 +11,24 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late Directory scratch;
 
-  setUp(
-    () => scratch = Directory.systemTemp.createTempSync('porelo-mock-tool-test'),
-  );
+  setUp(() => scratch = Directory.systemTemp.createTempSync('porelo-mock-tool-test'));
   tearDown(() => scratch.deleteSync(recursive: true));
 
   test('ctrl-c stops it and takes its socket and directory with it', () async {
     final link = '${scratch.path}/mock.sock';
-    final mock = await Process.start('dart', <String>[
-      'tool/mock_daemon.dart',
-      'work',
-      link,
-    ]);
+    final mock = await Process.start('dart', <String>['tool/mock_daemon.dart', 'work', link]);
     addTearDown(() => mock.kill(ProcessSignal.sigkill));
-    final said = mock.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter());
+    final said = mock.stdout.transform(utf8.decoder).transform(const LineSplitter());
     // Its instructions come after the socket is up and the link to it is made.
-    await said
-        .firstWhere((line) => line.contains('stops'))
-        .timeout(const Duration(seconds: 60));
+    await said.firstWhere((line) => line.contains('stops')).timeout(const Duration(seconds: 60));
     final served = Link(link).targetSync();
-    expect(
-      FileSystemEntity.typeSync(served),
-      FileSystemEntityType.unixDomainSock,
-    );
+    expect(FileSystemEntity.typeSync(served), FileSystemEntityType.unixDomainSock);
 
     mock.kill(ProcessSignal.sigint);
 
     expect(await mock.exitCode.timeout(const Duration(seconds: 20)), 0);
-    expect(
-      Link(link).existsSync(),
-      isFalse,
-      reason: 'the link at the stable name was left',
-    );
-    expect(
-      Directory(File(served).parent.path).existsSync(),
-      isFalse,
-      reason: "the daemon's directory was left",
-    );
+    expect(Link(link).existsSync(), isFalse, reason: 'the link at the stable name was left');
+    expect(Directory(File(served).parent.path).existsSync(), isFalse, reason: "the daemon's directory was left");
   });
 
   test('a situation it does not know is a usage error', () async {

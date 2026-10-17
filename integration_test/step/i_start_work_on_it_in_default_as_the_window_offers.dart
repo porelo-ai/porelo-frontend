@@ -19,13 +19,14 @@ Future<void> iStartWorkOnItInDefaultAsTheWindowOffers(WidgetTester tester) async
   await pumpFor(tester);
   await tester.tap(find.byKey(const Key('default-start-new')));
   await pumpUntil(
-      tester,
-      () =>
-          find.byKey(const Key('start-agent')).evaluate().isNotEmpty ||
-          find.byKey(const Key('start-no-agents')).evaluate().isNotEmpty ||
-          find.byKey(const Key('default-problem')).evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 60),
-      what: 'the start to open');
+    tester,
+    () =>
+        find.byKey(const Key('start-agent')).evaluate().isNotEmpty ||
+        find.byKey(const Key('start-no-agents')).evaluate().isNotEmpty ||
+        find.byKey(const Key('default-problem')).evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 60),
+    what: 'the start to open',
+  );
   await pumpFor(tester, const Duration(seconds: 3));
   noteTheWindow(tester, 'starting work, as it opens');
 }

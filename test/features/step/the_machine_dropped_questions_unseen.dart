@@ -7,7 +7,8 @@ import '../support/world.dart';
 ///
 /// What the machine sends when the stream was read too slowly: how many it dropped, asking nothing.
 Future<void> theMachineDroppedQuestionsUnseen(WidgetTester tester, int count) async {
-  World.backend.asking.add(Prompt(
-      task: '', key: '', destination: '', protocol: '', port: 0, at: '', prefix: '', missed: count));
+  World.backend.asking.add(
+    Prompt(task: '', key: '', destination: '', protocol: '', port: 0, at: '', prefix: '', missed: count),
+  );
   await World.settle(tester);
 }

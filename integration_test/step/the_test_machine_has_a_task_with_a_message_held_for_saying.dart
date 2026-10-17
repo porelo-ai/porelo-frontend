@@ -9,7 +9,11 @@ import '../support/remote.dart';
 /// A project declaring one peer, a task of it with a shell and no agent (no credential needed),
 /// the peer held, and a person's message to it moved along once: held for a person, not sent.
 Future<void> theTestMachineHasATaskWithAMessageHeldForSaying(
-    WidgetTester tester, String name, String peer, String text) async {
+  WidgetTester tester,
+  String name,
+  String peer,
+  String text,
+) async {
   // The project messages through Matrix, the transport that keeps a conversation: without one it
   // would have no peers to hold a message for.
   expect(await matrixInTheAccount(), isTrue, reason: 'the Matrix transport could not be installed');

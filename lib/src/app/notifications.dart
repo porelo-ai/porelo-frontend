@@ -109,10 +109,9 @@ class DesktopNotifier implements Notifier {
         note.title,
         note.body,
       ]);
-      unawaited(process.stdout
-          .transform(utf8.decoder)
-          .join()
-          .then((chosen) => chosen.trim() == 'open' ? onOpened() : null));
+      unawaited(
+        process.stdout.transform(utf8.decoder).join().then((chosen) => chosen.trim() == 'open' ? onOpened() : null),
+      );
       problem = null;
     } on ProcessException {
       // Said once rather than silently: believing notifications are on when they are not is worse
@@ -235,19 +234,15 @@ class Notifications extends ChangeNotifier {
 
   final List<void Function()> _stopWatching = <void Function()>[];
 
-  static String _projectOf(FleetModel fleet, String task) => fleet.tasks
-      .firstWhere((each) => each.name == task, orElse: () => Task.from(const <String, dynamic>{}))
-      .project;
+  static String _projectOf(FleetModel fleet, String task) =>
+      fleet.tasks.firstWhere((each) => each.name == task, orElse: () => Task.from(const <String, dynamic>{})).project;
 
   /// Tells somebody when something this session started has finished.
   ///
   /// Success and failure are told apart because the session knows what it ran. A *task* that ends
   /// cannot be told apart the same way: `activity` says `DEAD` for stopped, finished and killed
   /// alike, and `state` is prose that must not be parsed.
-  void watchOperations(
-    Operations operations, {
-    required void Function(Operation operation) open,
-  }) {
+  void watchOperations(Operations operations, {required void Function(Operation operation) open}) {
     operations.addListener(() {
       for (final operation in operations.all) {
         // Read back from an earlier run: whatever it had to say was said then, or waits in Needs you.
@@ -257,8 +252,7 @@ class Notifications extends ChangeNotifier {
             id: 'operation/${operation.id}',
             title: operation.failed ? 'That did not work' : 'That is done',
             body: '${operation.title}. ${operation.summary}',
-            urgency:
-                operation.failed ? Urgency.finishedBadly : Urgency.finishedWell,
+            urgency: operation.failed ? Urgency.finishedBadly : Urgency.finishedWell,
           ),
           () => open(operation),
         );

@@ -66,8 +66,10 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
     };
     _terminal.write('Type here, turn the wheel over this pane, then send what was typed into WSL.\r\n');
     HardwareKeyboard.instance.addHandler(_keyEvent);
-    _say('started on ${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
-        'logging to ${_log.path}');
+    _say(
+      'started on ${Platform.operatingSystem} ${Platform.operatingSystemVersion}, '
+      'logging to ${_log.path}',
+    );
     unawaited(_readDistributions());
   }
 
@@ -81,25 +83,38 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
   Future<void> _readDistributions() async {
     final found = await (widget.wsl ?? Wsl()).distributions();
     if (!mounted) return;
-    setState(() => _distributions = <String>[for (final each in found) if (each.running) each.name]);
+    setState(
+      () => _distributions = <String>[
+        for (final each in found)
+          if (each.running) each.name,
+      ],
+    );
     _say('running WSL distributions: ${_distributions.isEmpty ? 'none' : _distributions.join(', ')}');
   }
 
   bool _keyEvent(KeyEvent event) {
-    final kind = switch (event) { KeyDownEvent() => 'down', KeyUpEvent() => 'up', _ => 'repeat' };
-    _say('key $kind: logical ${event.logicalKey.debugName ?? event.logicalKey.keyId} '
-        '(0x${event.logicalKey.keyId.toRadixString(16)}), physical ${event.physicalKey.debugName ?? event.physicalKey.usbHidUsage}, '
-        'character ${event.character == null ? 'none' : _shown(event.character!)}');
+    final kind = switch (event) {
+      KeyDownEvent() => 'down',
+      KeyUpEvent() => 'up',
+      _ => 'repeat',
+    };
+    _say(
+      'key $kind: logical ${event.logicalKey.debugName ?? event.logicalKey.keyId} '
+      '(0x${event.logicalKey.keyId.toRadixString(16)}), physical ${event.physicalKey.debugName ?? event.physicalKey.usbHidUsage}, '
+      'character ${event.character == null ? 'none' : _shown(event.character!)}',
+    );
     return false;
   }
 
   void _wheel(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     final up = event.scrollDelta.dy < 0;
-    _say('wheel ${event.kind.name}: delta ${event.scrollDelta.dy.toStringAsFixed(1)} '
-        '(${up ? 'up' : 'down'}); terminal in the alternate buffer: ${_terminal.isUsingAltBuffer}, '
-        'mouse reports asked for: ${_terminal.mouseMode.name}; '
-        'tmux would be sent ${_shown('\x1b[<${up ? 64 : 65};1;1M')}');
+    _say(
+      'wheel ${event.kind.name}: delta ${event.scrollDelta.dy.toStringAsFixed(1)} '
+      '(${up ? 'up' : 'down'}); terminal in the alternate buffer: ${_terminal.isUsingAltBuffer}, '
+      'mouse reports asked for: ${_terminal.mouseMode.name}; '
+      'tmux would be sent ${_shown('\x1b[<${up ? 64 : 65};1;1M')}',
+    );
   }
 
   Future<void> _sendThrough({required bool pseudoconsole}) async {
@@ -107,11 +122,16 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
     if (distribution == null || _sent.isEmpty) return;
     setState(() => _busy = true);
     final bytes = List<int>.of(_sent);
-    _say('into $distribution ${pseudoconsole ? 'through a pseudoconsole, as the attach' : 'through pipes, as the relay'}: '
-        '${bytes.length} bytes ${_shown(String.fromCharCodes(bytes))}');
+    _say(
+      'into $distribution ${pseudoconsole ? 'through a pseudoconsole, as the attach' : 'through pipes, as the relay'}: '
+      '${bytes.length} bytes ${_shown(String.fromCharCodes(bytes))}',
+    );
     try {
-      final read = await (widget.throughWsl ?? throughWslForReal)(distribution, bytes, pseudoconsole: pseudoconsole)
-          .timeout(const Duration(seconds: 30));
+      final read = await (widget.throughWsl ?? throughWslForReal)(
+        distribution,
+        bytes,
+        pseudoconsole: pseudoconsole,
+      ).timeout(const Duration(seconds: 30));
       _say('od -c read in $distribution:\n$read');
     } on Object catch (failed) {
       _say('could not be sent: $failed');
@@ -135,109 +155,128 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
   }
 
   /// [text] with every control character spelled out, so an escape or a carriage return is seen.
-  static String _shown(String text) => text.runes.map((rune) {
+  static String _shown(String text) => text.runes
+      .map((rune) {
         if (rune == 0x1b) return r'\e';
         if (rune == 0x0d) return r'\r';
         if (rune == 0x0a) return r'\n';
         if (rune == 0x09) return r'\t';
         if (rune < 0x20 || rune == 0x7f) return '\\x${rune.toRadixString(16).padLeft(2, '0')}';
         return String.fromCharCode(rune);
-      }).join().replaceAll(' ', '␠');
+      })
+      .join()
+      .replaceAll(' ', '␠');
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Terminal diagnosis')),
-        body: Padding(
-          padding: const EdgeInsets.all(Space.small),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    appBar: AppBar(title: const Text('Terminal diagnosis')),
+    body: Padding(
+      padding: const EdgeInsets.all(Space.small),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: Space.wide,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              Wrap(
-                spacing: Space.wide,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                    Switch(
-                      key: const Key('diagnose-key-events-only'),
-                      value: _keyEventsOnly,
-                      onChanged: (on) {
-                        setState(() => _keyEventsOnly = on);
-                        _say('input path: ${on ? 'key events alone' : 'text input, as on Linux'}');
-                      },
-                    ),
-                    const Text('Key events alone'),
-                  ]),
-                  DropdownButton<String>(
-                    key: const Key('diagnose-distribution'),
-                    hint: const Text('No WSL distribution'),
-                    value: _distribution,
-                    items: <DropdownMenuItem<String>>[
-                      for (final each in _distributions) DropdownMenuItem(value: each, child: Text(each)),
-                    ],
-                    onChanged: (chosen) => setState(() => _distribution = chosen),
-                  ),
-                  OutlinedButton(
-                    key: const Key('diagnose-through-pipes'),
-                    onPressed: _distribution == null || _sent.isEmpty || _busy ? null : () => _sendThrough(pseudoconsole: false),
-                    child: const Text('Send through wsl.exe (pipes)'),
-                  ),
-                  OutlinedButton(
-                    key: const Key('diagnose-through-pseudoconsole'),
-                    onPressed: _distribution == null || _sent.isEmpty || _busy ? null : () => _sendThrough(pseudoconsole: true),
-                    child: const Text('Send through wsl.exe (pseudoconsole)'),
-                  ),
-                  TextButton(
-                    key: const Key('diagnose-clear'),
-                    onPressed: () {
-                      _sent.clear();
-                      _say('what was typed is cleared');
+                  Switch(
+                    key: const Key('diagnose-key-events-only'),
+                    value: _keyEventsOnly,
+                    onChanged: (on) {
+                      setState(() => _keyEventsOnly = on);
+                      _say('input path: ${on ? 'key events alone' : 'text input, as on Linux'}');
                     },
-                    child: const Text('Clear what was typed'),
                   ),
+                  const Text('Key events alone'),
                 ],
               ),
-              SizedBox(
-                height: Sizes.diagnosisTerminal,
-                child: Listener(
-                  key: const Key('diagnose-wheel'),
-                  onPointerSignal: _wheel,
-                  child: ColoredBox(
-                    color: TerminalLook.background,
-                    child: TerminalView(
-                      _terminal,
-                      key: ValueKey<bool>(_keyEventsOnly),
-                      theme: TerminalLook.theme,
-                      focusNode: _focus,
-                      autofocus: true,
-                      hardwareKeyboardOnly: _keyEventsOnly,
-                    ),
-                  ),
-                ),
+              DropdownButton<String>(
+                key: const Key('diagnose-distribution'),
+                hint: const Text('No WSL distribution'),
+                value: _distribution,
+                items: <DropdownMenuItem<String>>[
+                  for (final each in _distributions) DropdownMenuItem(value: each, child: Text(each)),
+                ],
+                onChanged: (chosen) => setState(() => _distribution = chosen),
               ),
-              const SizedBox(height: Space.small),
-              Text('Logged to ${_log.path}', style: Theme.of(context).textTheme.bodySmall),
-              Expanded(
-                child: ListView(
-                  key: const Key('diagnose-lines'),
-                  reverse: true,
-                  children: <Widget>[
-                    for (final line in _lines.reversed)
-                      SelectableText(line, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-                  ],
-                ),
+              OutlinedButton(
+                key: const Key('diagnose-through-pipes'),
+                onPressed: _distribution == null || _sent.isEmpty || _busy
+                    ? null
+                    : () => _sendThrough(pseudoconsole: false),
+                child: const Text('Send through wsl.exe (pipes)'),
+              ),
+              OutlinedButton(
+                key: const Key('diagnose-through-pseudoconsole'),
+                onPressed: _distribution == null || _sent.isEmpty || _busy
+                    ? null
+                    : () => _sendThrough(pseudoconsole: true),
+                child: const Text('Send through wsl.exe (pseudoconsole)'),
+              ),
+              TextButton(
+                key: const Key('diagnose-clear'),
+                onPressed: () {
+                  _sent.clear();
+                  _say('what was typed is cleared');
+                },
+                child: const Text('Clear what was typed'),
               ),
             ],
           ),
-        ),
-      );
+          SizedBox(
+            height: Sizes.diagnosisTerminal,
+            child: Listener(
+              key: const Key('diagnose-wheel'),
+              onPointerSignal: _wheel,
+              child: ColoredBox(
+                color: TerminalLook.background,
+                child: TerminalView(
+                  _terminal,
+                  key: ValueKey<bool>(_keyEventsOnly),
+                  theme: TerminalLook.theme,
+                  focusNode: _focus,
+                  autofocus: true,
+                  hardwareKeyboardOnly: _keyEventsOnly,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: Space.small),
+          Text('Logged to ${_log.path}', style: Theme.of(context).textTheme.bodySmall),
+          Expanded(
+            child: ListView(
+              key: const Key('diagnose-lines'),
+              reverse: true,
+              children: <Widget>[
+                for (final line in _lines.reversed)
+                  SelectableText(line, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// What `wsl.exe` carries, read back in the distribution: a raw terminal, so nothing is turned into
 /// something else on the way, and exactly as many bytes as were sent, so `od` ends by itself.
-Future<String> throughWslForReal(String distribution, List<int> bytes,
-    {required bool pseudoconsole, @visibleForTesting String wslExe = 'wsl.exe'}) async {
-  final command = Wsl.runIn(
-      distribution, <String>['sh', '-c', r'stty raw -echo 2>/dev/null; head -c "$1" | od -c', 'sh', '${bytes.length}']);
+Future<String> throughWslForReal(
+  String distribution,
+  List<int> bytes, {
+  required bool pseudoconsole,
+  @visibleForTesting String wslExe = 'wsl.exe',
+}) async {
+  final command = Wsl.runIn(distribution, <String>[
+    'sh',
+    '-c',
+    r'stty raw -echo 2>/dev/null; head -c "$1" | od -c',
+    'sh',
+    '${bytes.length}',
+  ]);
   command[0] = wslExe;
   if (!pseudoconsole) {
     final process = await Process.start(command.first, command.sublist(1));

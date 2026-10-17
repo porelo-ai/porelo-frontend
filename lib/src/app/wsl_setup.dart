@@ -7,8 +7,7 @@ import 'wsl.dart';
 
 /// Runs a command in a WSL distribution, as its user or as root, and answers its exit code and
 /// what it printed. Injectable, so a test's distribution is whatever it says.
-typedef RunInWsl = Future<({int code, String said})> Function(String distribution, List<String> command,
-    {bool asRoot});
+typedef RunInWsl = Future<({int code, String said})> Function(String distribution, List<String> command, {bool asRoot});
 
 /// The fingerprint of the key Porelo's package repository is signed with. **Carried here**, so a key
 /// that arrives from the repository is checked against what this build was given, not against
@@ -84,11 +83,11 @@ class OsRelease {
 
   /// Whether Porelo supports it: Ubuntu 26.04 or later, Debian 13, Fedora 43 or 44.
   bool get supported => switch (id) {
-        'ubuntu' => _atLeast(version, 26, 4),
-        'debian' => version == '13',
-        'fedora' => version == '43' || version == '44',
-        _ => false,
-      };
+    'ubuntu' => _atLeast(version, 26, 4),
+    'debian' => version == '13',
+    'fedora' => version == '43' || version == '44',
+    _ => false,
+  };
 
   /// Whether its packages come through `apt`; `dnf` else.
   bool get usesApt => id == 'ubuntu' || id == 'debian';
@@ -144,8 +143,8 @@ class WslSetup extends ChangeNotifier {
     RunInWsl? run,
     this.answers,
     this.record,
-  })  : _wsl = wsl ?? Wsl(),
-        _run = run ?? _runForReal;
+  }) : _wsl = wsl ?? Wsl(),
+       _run = run ?? _runForReal;
 
   /// The distribution's name, as `wsl.exe -d` takes it.
   final String distribution;
@@ -155,6 +154,7 @@ class WslSetup extends ChangeNotifier {
 
   final Wsl _wsl;
   final RunInWsl _run;
+
   /// Whether a machine's daemon answers; null where nothing can ask.
   final Future<bool> Function(Machine machine)? answers;
 
@@ -194,8 +194,7 @@ class WslSetup extends ChangeNotifier {
   }
 
   /// Whether the failure is one the setup offer answers: Porelo missing, or its daemon silent.
-  bool get offersTheSetup =>
-      failed?.check == WslCheck.porelo || failed?.check == WslCheck.daemon;
+  bool get offersTheSetup => failed?.check == WslCheck.porelo || failed?.check == WslCheck.daemon;
 
   /// Whether the failure is systemd, answered by the separate question with the restart.
   bool get asksForSystemd => failed?.check == WslCheck.systemd;
@@ -224,14 +223,24 @@ class WslSetup extends ChangeNotifier {
       case WslCheck.windows:
         final build = windowsBuild(operatingSystemVersion);
         return build != null && build < firstWsl2Build
-            ? WslFinding(check, passed: false, words: 'This Windows is build $build. WSL2 needs Windows 10 '
-                'version 2004 (build $firstWsl2Build) or later, or Windows 11; there is no WSL way here.')
+            ? WslFinding(
+                check,
+                passed: false,
+                words:
+                    'This Windows is build $build. WSL2 needs Windows 10 '
+                    'version 2004 (build $firstWsl2Build) or later, or Windows 11; there is no WSL way here.',
+              )
             : WslFinding(check, passed: true, words: build == null ? '' : 'build $build');
       case WslCheck.installed:
         final all = await _wsl.distributions();
         return all.isEmpty
-            ? WslFinding(check, passed: false, words: 'WSL answers with no distribution. Install WSL '
-                'and a distribution from a terminal: wsl --install -d Ubuntu-26.04 — then come back here.')
+            ? WslFinding(
+                check,
+                passed: false,
+                words:
+                    'WSL answers with no distribution. Install WSL '
+                    'and a distribution from a terminal: wsl --install -d Ubuntu-26.04 — then come back here.',
+              )
             : WslFinding(check, passed: true);
       case WslCheck.wsl2:
         final why = await _wsl.whyNotNow(distribution);
@@ -242,15 +251,25 @@ class WslSetup extends ChangeNotifier {
         system = release;
         return release.supported
             ? WslFinding(check, passed: true, words: release.name)
-            : WslFinding(check, passed: false, words: '$distribution is ${release.name}. Porelo supports '
-                'Ubuntu 26.04 or later, Debian 13, and Fedora 43 and 44, so nothing is offered to set it up here.');
+            : WslFinding(
+                check,
+                passed: false,
+                words:
+                    '$distribution is ${release.name}. Porelo supports '
+                    'Ubuntu 26.04 or later, Debian 13, and Fedora 43 and 44, so nothing is offered to set it up here.',
+              );
       case WslCheck.systemd:
         final state = await _run(distribution, const <String>['systemctl', 'is-system-running'], asRoot: false);
         final running = <String>{'running', 'degraded', 'starting'}.contains(state.said.trim());
         return running
             ? WslFinding(check, passed: true, words: state.said.trim())
-            : WslFinding(check, passed: false, words: 'systemd does not run in it. Porelo runs as a '
-                'user service, so systemd must be turned on, and the distribution restarted.');
+            : WslFinding(
+                check,
+                passed: false,
+                words:
+                    'systemd does not run in it. Porelo runs as a '
+                    'user service, so systemd must be turned on, and the distribution restarted.',
+              );
       case WslCheck.porelo:
         final version = await _run(distribution, const <String>['porelo', '--version'], asRoot: false);
         return version.code == 0
@@ -260,8 +279,13 @@ class WslSetup extends ChangeNotifier {
         final answering = await (answers?.call(machine) ?? Future<bool>.value(false));
         return answering
             ? WslFinding(check, passed: true)
-            : WslFinding(check, passed: false, words: 'Porelo is installed, and its daemon does not '
-                'answer. Setting it up as its user starts it.');
+            : WslFinding(
+                check,
+                passed: false,
+                words:
+                    'Porelo is installed, and its daemon does not '
+                    'answer. Setting it up as its user starts it.',
+              );
     }
   }
 
@@ -273,44 +297,81 @@ class WslSetup extends ChangeNotifier {
   List<SetupLine> setupLines(String user, {bool snapshots = false}) {
     final release = system;
     final apt = release?.usesApt ?? true;
-    final chosen = <String>[for (final agent in poreloAgents) if (agents.contains(agent.package)) agent.package];
+    final chosen = <String>[
+      for (final agent in poreloAgents)
+        if (agents.contains(agent.package)) agent.package,
+    ];
     return <SetupLine>[
-      SetupLine(<String>['sh', '-c', 'curl -fsSL $poreloKeyAddress -o /tmp/porelo.asc'],
-          asRoot: true, why: "Fetches the key Porelo's packages are signed with."),
+      SetupLine(
+        <String>['sh', '-c', 'curl -fsSL $poreloKeyAddress -o /tmp/porelo.asc'],
+        asRoot: true,
+        why: "Fetches the key Porelo's packages are signed with.",
+      ),
       if (apt) ...<SetupLine>[
-        const SetupLine(<String>['gpg', '--dearmor', '--yes', '-o', '/usr/share/keyrings/porelo.gpg', '/tmp/porelo.asc'],
-            asRoot: true, why: 'Keeps the key where apt reads it, once its fingerprint is checked.'),
-        SetupLine(<String>[
-          'sh',
-          '-c',
-          'echo "deb [signed-by=/usr/share/keyrings/porelo.gpg] $poreloDebRepository ${snapshots ? 'snapshots' : 'releases'} main" '
-              '> /etc/apt/sources.list.d/porelo.list'
-        ], asRoot: true, why: "Adds Porelo's package repository."),
-        SetupLine(<String>['sh', '-c', 'apt-get update && apt-get install -y porelo ${chosen.join(' ')}'.trim()],
-            asRoot: true, why: 'Installs Porelo and the agents chosen.'),
+        const SetupLine(
+          <String>['gpg', '--dearmor', '--yes', '-o', '/usr/share/keyrings/porelo.gpg', '/tmp/porelo.asc'],
+          asRoot: true,
+          why: 'Keeps the key where apt reads it, once its fingerprint is checked.',
+        ),
+        SetupLine(
+          <String>[
+            'sh',
+            '-c',
+            'echo "deb [signed-by=/usr/share/keyrings/porelo.gpg] $poreloDebRepository ${snapshots ? 'snapshots' : 'releases'} main" '
+                '> /etc/apt/sources.list.d/porelo.list',
+          ],
+          asRoot: true,
+          why: "Adds Porelo's package repository.",
+        ),
+        SetupLine(
+          <String>['sh', '-c', 'apt-get update && apt-get install -y porelo ${chosen.join(' ')}'.trim()],
+          asRoot: true,
+          why: 'Installs Porelo and the agents chosen.',
+        ),
       ] else ...<SetupLine>[
-        const SetupLine(<String>['install', '-D', '-m', '0644', '/tmp/porelo.asc', '/etc/pki/rpm-gpg/porelo.asc'],
-            asRoot: true, why: 'Keeps the key where dnf reads it, once its fingerprint is checked.'),
-        SetupLine(<String>[
-          'sh',
-          '-c',
-          "printf '[porelo]\\nname=Porelo\\nbaseurl=$poreloRpmRepository/${snapshots ? 'snapshots' : 'releases'}\\n"
-              "enabled=1\\ngpgcheck=0\\nrepo_gpgcheck=1\\ngpgkey=file:///etc/pki/rpm-gpg/porelo.asc\\n' "
-              '> /etc/yum.repos.d/porelo.repo'
-        ], asRoot: true, why: "Adds Porelo's package repository, its index checked against the key."),
-        SetupLine(<String>['sh', '-c', 'dnf install -y porelo ${chosen.join(' ')}'.trim()],
-            asRoot: true, why: 'Installs Porelo and the agents chosen.'),
+        const SetupLine(
+          <String>['install', '-D', '-m', '0644', '/tmp/porelo.asc', '/etc/pki/rpm-gpg/porelo.asc'],
+          asRoot: true,
+          why: 'Keeps the key where dnf reads it, once its fingerprint is checked.',
+        ),
+        SetupLine(
+          <String>[
+            'sh',
+            '-c',
+            "printf '[porelo]\\nname=Porelo\\nbaseurl=$poreloRpmRepository/${snapshots ? 'snapshots' : 'releases'}\\n"
+                "enabled=1\\ngpgcheck=0\\nrepo_gpgcheck=1\\ngpgkey=file:///etc/pki/rpm-gpg/porelo.asc\\n' "
+                '> /etc/yum.repos.d/porelo.repo',
+          ],
+          asRoot: true,
+          why: "Adds Porelo's package repository, its index checked against the key.",
+        ),
+        SetupLine(
+          <String>['sh', '-c', 'dnf install -y porelo ${chosen.join(' ')}'.trim()],
+          asRoot: true,
+          why: 'Installs Porelo and the agents chosen.',
+        ),
       ],
-      SetupLine(<String>['loginctl', 'enable-linger', user], asRoot: true,
-          why: "Keeps $user's services running when no session is open, Porelo's daemon among them."),
-      const SetupLine(<String>['porelo', 'setup'], asRoot: false, why: 'Sets Porelo up for this user and starts its daemon.'),
+      SetupLine(
+        <String>['loginctl', 'enable-linger', user],
+        asRoot: true,
+        why: "Keeps $user's services running when no session is open, Porelo's daemon among them.",
+      ),
+      const SetupLine(
+        <String>['porelo', 'setup'],
+        asRoot: false,
+        why: 'Sets Porelo up for this user and starts its daemon.',
+      ),
     ];
   }
 
   /// The fingerprint of the key fetched to `/tmp/porelo.asc`, or null where none could be read.
   Future<String?> fetchedFingerprint() async {
-    final shown = await _run(distribution,
-        const <String>['gpg', '--show-keys', '--with-colons', '/tmp/porelo.asc'], asRoot: true);
+    final shown = await _run(distribution, const <String>[
+      'gpg',
+      '--show-keys',
+      '--with-colons',
+      '/tmp/porelo.asc',
+    ], asRoot: true);
     for (final line in const LineSplitter().convert(shown.said)) {
       if (line.startsWith('fpr:')) {
         final fields = line.split(':');
@@ -343,7 +404,8 @@ class WslSetup extends ChangeNotifier {
         if (line.command.join(' ').contains('-o /tmp/porelo.asc')) {
           final came = await fetchedFingerprint();
           if (came != poreloKeyFingerprint) {
-            stopped = 'The key that came is not the one this interface carries. Expected '
+            stopped =
+                'The key that came is not the one this interface carries. Expected '
                 '$poreloKeyFingerprint, and it came as ${came ?? 'no key at all'}. Nothing was written.';
             record?.call('check the key', stopped!);
             return;
@@ -375,9 +437,18 @@ class WslSetup extends ChangeNotifier {
     notifyListeners();
   }
 
-  static Future<({int code, String said})> _runForReal(String distribution, List<String> command,
-      {bool asRoot = false}) async {
-    final arguments = <String>['-d', distribution, if (asRoot) ...<String>['-u', 'root'], '--exec', ...command];
+  static Future<({int code, String said})> _runForReal(
+    String distribution,
+    List<String> command, {
+    bool asRoot = false,
+  }) async {
+    final arguments = <String>[
+      '-d',
+      distribution,
+      if (asRoot) ...<String>['-u', 'root'],
+      '--exec',
+      ...command,
+    ];
     final result = await Wsl.runWslExe(arguments);
     return (code: result.code, said: decodeWsl(result.printed));
   }

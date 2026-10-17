@@ -10,12 +10,7 @@ import 'tokens.dart';
 /// The heading over a pane, so a pane is identifiable when it is the only one on screen.
 class PaneHeader extends StatelessWidget {
   /// Constructor taking what the pane is called and anything to show beside it.
-  const PaneHeader({
-    required this.title,
-    this.trailing,
-    this.leading,
-    super.key,
-  });
+  const PaneHeader({required this.title, this.trailing, this.leading, super.key});
 
   /// What the pane is.
   final String title;
@@ -28,21 +23,14 @@ class PaneHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.fromLTRB(
-      leading == null ? Space.normal : Space.tight,
-      Space.small,
-      Space.normal,
-      Space.small,
-    ),
+    padding: EdgeInsets.fromLTRB(leading == null ? Space.normal : Space.tight, Space.small, Space.normal, Space.small),
     decoration: BoxDecoration(
       border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
     ),
     child: Row(
       children: <Widget>[
         ?leading,
-        Expanded(
-          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
-        ),
+        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
         ?trailing,
       ],
     ),
@@ -95,11 +83,7 @@ class WorkDetail extends StatelessWidget {
       children: <Widget>[
         PaneHeader(
           title: task.label.isEmpty ? task.name : task.label,
-          trailing: IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close (Esc)',
-            onPressed: onClose,
-          ),
+          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
         ),
         Expanded(
           child: ListView(
@@ -108,32 +92,16 @@ class WorkDetail extends StatelessWidget {
               // Only when a caption is standing in front of it: the heading is the name when
               // there is no caption, and repeating it would be noise. When there is one, the
               // identity has to be somewhere — it is what every other call takes.
-              if (task.label.isNotEmpty)
-                _Field(name: 'Its name', value: task.name),
-              _Field(
-                name: 'Project',
-                value: task.project.isEmpty ? '—' : task.project,
-              ),
+              if (task.label.isNotEmpty) _Field(name: 'Its name', value: task.name),
+              _Field(name: 'Project', value: task.project.isEmpty ? '—' : task.project),
               if (repository != null) _Field(name: 'Repository', value: repository!),
-              _Field(
-                name: 'Security class',
-                value: task.securityClass.isEmpty ? '—' : task.securityClass,
-              ),
-              _Field(
-                name: 'Agent',
-                value: task.agent.isEmpty ? '—' : task.agent,
-              ),
+              _Field(name: 'Security class', value: task.securityClass.isEmpty ? '—' : task.securityClass),
+              _Field(name: 'Agent', value: task.agent.isEmpty ? '—' : task.agent),
               // Where its model traffic went, from the task's own record: what a person asks
               // afterwards, and the machine answers once rather than this end guessing.
-              _Field(
-                name: 'Provider',
-                value: task.provider.isEmpty ? '—' : task.provider,
-              ),
+              _Field(name: 'Provider', value: task.provider.isEmpty ? '—' : task.provider),
               _Field(name: 'Mode', value: task.mode.label),
-              _Field(
-                name: 'Branch',
-                value: task.branch.isEmpty ? '—' : task.branch,
-              ),
+              _Field(name: 'Branch', value: task.branch.isEmpty ? '—' : task.branch),
               // **Answered by the task, never joined.** `Task.name` is a container name and a
               // pending push carries a task name, and several containers over time share one
               // ref — so a client lining the two up would be right for at most one of them.
@@ -148,8 +116,7 @@ class WorkDetail extends StatelessWidget {
               //
               // Three answers rather than two: *holds nothing* and *nobody could look* are
               // different, and only one of them makes it safe to remove a task without asking.
-              if (held.words(task.name).isNotEmpty)
-                _Field(name: 'Never pushed', value: held.words(task.name)),
+              if (held.words(task.name).isNotEmpty) _Field(name: 'Never pushed', value: held.words(task.name)),
               _Field(name: 'Doing', value: task.activity.label),
               // Absent from a machine without hand-in, rather than *nothing*: it cannot say.
               if (task.files != null || _sending(task) != null)
@@ -162,8 +129,7 @@ class WorkDetail extends StatelessWidget {
                       if (files.isEmpty)
                         'nothing, under /porelo/files'
                       else
-                        for (final file in files)
-                          '${file.name}, ${HandingIn.inWords(file.bytes)}, by ${file.from}',
+                        for (final file in files) '${file.name}, ${HandingIn.inWords(file.bytes)}, by ${file.from}',
                   ].join('\n'),
                 ),
               if (BuildsSaid.inTheDetail(task) case final lines when lines.isNotEmpty)
@@ -191,14 +157,12 @@ class WorkDetail extends StatelessWidget {
                   _ => 'not recorded',
                 },
               ),
-              if (task.activity == Activity.waiting &&
-                  task.waitingFor.isNotEmpty)
+              if (task.activity == Activity.waiting && task.waitingFor.isNotEmpty)
                 _Field(name: 'Waiting on', value: task.waitingFor),
               _Field(name: 'For', value: howLong(task) ?? 'not recorded'),
               _Field(name: 'Runtime says', value: task.state),
               _Field(name: 'Helpers alive', value: '${task.helpers}'),
-              if (task.prompt.isNotEmpty)
-                _Field(name: 'Asked to', value: task.prompt),
+              if (task.prompt.isNotEmpty) _Field(name: 'Asked to', value: task.prompt),
               // **Where somebody asks what this agent was told, and the honest answer is "not
               // here".** Standing instructions live in the repository, checked in or not, and
               // Porelo does not know what they are called — `CLAUDE.md`, `AGENTS.md`, whatever an
@@ -206,10 +170,7 @@ class WorkDetail extends StatelessWidget {
               //
               // A screen that guessed a set of filenames would answer *"no instructions"* with
               // confidence for a task that had them, which is worse than saying nothing.
-              const _Field(
-                name: 'Standing instructions',
-                value: 'in the repository — nothing here has a view of them',
-              ),
+              const _Field(name: 'Standing instructions', value: 'in the repository — nothing here has a view of them'),
               if (ungated) ...<Widget>[
                 const SizedBox(height: Space.wide),
                 Card(
@@ -245,7 +206,7 @@ extension on WorkDetail {
 String _grantedBy(Authorization? grant) => grant == null
     ? ''
     : ', granted by ${grant.grantedBy.isEmpty ? 'an account not recorded' : grant.grantedBy}'
-        '${grant.grantedAt.isEmpty ? '' : ' at ${grant.grantedAt}'}';
+          '${grant.grantedAt.isEmpty ? '' : ' at ${grant.grantedAt}'}';
 
 class _Field extends StatelessWidget {
   const _Field({required this.name, required this.value, super.key});
@@ -276,11 +237,7 @@ class _Field extends StatelessWidget {
 /// says it cannot see.
 class ActivityMark extends StatelessWidget {
   /// Constructor taking what the work is doing and whether the container is up.
-  const ActivityMark({
-    required this.activity,
-    required this.running,
-    super.key,
-  });
+  const ActivityMark({required this.activity, required this.running, super.key});
 
   /// What the work is doing.
   final Activity activity;
@@ -299,10 +256,7 @@ class ActivityMark extends StatelessWidget {
       Activity.unknown => (Icons.help_outline, scheme.outline),
       // A value from a later release, or a task older than these fields. Fall back to the one
       // thing that has always been there rather than picking a meaning.
-      _ => (
-        running ? Icons.play_circle_outline : Icons.stop_circle_outlined,
-        scheme.outlineVariant,
-      ),
+      _ => (running ? Icons.play_circle_outline : Icons.stop_circle_outlined, scheme.outlineVariant),
     };
     return Tooltip(
       message: activity.label,
@@ -317,11 +271,10 @@ class ActivityMark extends StatelessWidget {
 /// takes, and what the gate ref, the workspace and the log files are built from — so it is shown
 /// here rather than edited, and emptying the box takes the caption away rather than storing
 /// nothing under a name.
-Future<String?> askWhatItReadsAs(BuildContext context, {required Task task}) =>
-    showDialog<String>(
-      context: context,
-      builder: (context) => _WhatItReadsAs(task: task),
-    );
+Future<String?> askWhatItReadsAs(BuildContext context, {required Task task}) => showDialog<String>(
+  context: context,
+  builder: (context) => _WhatItReadsAs(task: task),
+);
 
 class _WhatItReadsAs extends StatefulWidget {
   const _WhatItReadsAs({required this.task});
@@ -333,9 +286,7 @@ class _WhatItReadsAs extends StatefulWidget {
 }
 
 class _WhatItReadsAsState extends State<_WhatItReadsAs> {
-  late final TextEditingController _caption = TextEditingController(
-    text: widget.task.label,
-  );
+  late final TextEditingController _caption = TextEditingController(text: widget.task.label);
 
   @override
   void dispose() {
@@ -376,10 +327,7 @@ class _WhatItReadsAsState extends State<_WhatItReadsAs> {
       ),
     ),
     actions: <Widget>[
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Leave it'),
-      ),
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Leave it')),
       FilledButton(
         key: const Key('name-it'),
         onPressed: () => Navigator.of(context).pop(_caption.text.trim()),

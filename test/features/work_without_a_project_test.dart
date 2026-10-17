@@ -54,19 +54,16 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''default is the project shown first, and cannot be stopped following''',
-        (tester) async {
+    testWidgets('''default is the project shown first, and cannot be stopped following''', (tester) async {
       await bddSetUp(tester);
       await theFirstProjectOnTheMachineIs(tester, 'default');
       await iSelectTheProject(tester, 'default');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-          tester, 'Stop following this project', 'default is always there');
+      await theCommandIsUnavailableBecause(tester, 'Stop following this project', 'default is always there');
     });
-    testWidgets(
-        '''work in default starts on a repository named by its address, which goes into default on the way''',
-        (tester) async {
+    testWidgets('''work in default starts on a repository named by its address, which goes into default on the way''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'default');
       await iPressTheStartTile(tester);
@@ -76,24 +73,20 @@ void main() {
       await defaultHoldsAt(tester, 'tools', 'git@example.org:acme/tools.git');
       await theRepositoryIsChosen(tester, 'tools');
     });
-    testWidgets(
-        '''a repository worked on before in default is started on again without naming it''',
-        (tester) async {
+    testWidgets('''a repository worked on before in default is started on again without naming it''', (tester) async {
       await bddSetUp(tester);
-      await defaultHoldsAtAlready(
-          tester, 'tools', 'git@example.org:acme/tools.git');
+      await defaultHoldsAtAlready(tester, 'tools', 'git@example.org:acme/tools.git');
       await iSelectTheProject(tester, 'default');
       await iStartWorkInThisProject(tester);
       await iStartWorkInDefaultOnTheOneCalled(tester, 'tools');
       await theRepositoryIsChosen(tester, 'tools');
       await nothingWasPutIntoDefaultAgain(tester);
     });
-    testWidgets(
-        '''a repository picked at a forge beside the address fills it, and the machine gets its key there''',
-        (tester) async {
+    testWidgets('''a repository picked at a forge beside the address fills it, and the machine gets its key there''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theForgeReachesAsAnAdminAndWithoutAdminRights(
-          tester, 'acme/api', 'acme/web');
+      await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
       await theKeychainHereKeepsTheTokenForTheForge(tester, 'ghp_accepted');
       await iSelectTheProject(tester, 'default');
       await iStartWorkInThisProject(tester);
@@ -103,48 +96,38 @@ void main() {
       await defaultHoldsAt(tester, 'api', 'git@github.com:acme/api.git');
       await theForgeHoldsAtOnce(tester, 'porelo vm default/api', 'acme/api');
       await iPutTheStartAway(tester);
-      await iChooseTheCommand(
-          tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories worked on without a project');
       await iTakeOutOfDefault(tester, 'api');
       await iRemoveItsKeyAtTheForgeToo(tester);
-      await theForgeHoldsNoKeyTitledAt(
-          tester, 'porelo vm default/api', 'acme/api');
+      await theForgeHoldsNoKeyTitledAt(tester, 'porelo vm default/api', 'acme/api');
     });
-    testWidgets(
-        '''default opened from its row says what it is and offers its repositories, and nothing it lacks''',
-        (tester) async {
+    testWidgets('''default opened from its row says what it is and offers its repositories, and nothing it lacks''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'default');
       await theProjectHeaderDoesNotSay(tester, 'not followed here');
       await theProjectHeaderDoesNotSay(tester, 'environment not prepared');
-      await theProjectHeaderSays(
-          tester, 'worked on with Porelo’s own settings');
+      await theProjectHeaderSays(tester, 'worked on with Porelo’s own settings');
       await theStartTileSays(tester, 'Start work');
     });
-    testWidgets(
-        '''a repository a followed project names too is offered to be taken out of default''',
-        (tester) async {
+    testWidgets('''a repository a followed project names too is offered to be taken out of default''', (tester) async {
       await bddSetUp(tester);
-      await defaultHoldsAtNamedByToo(
-          tester, 'api', 'git@github.com:acme/api.git', 'payments');
+      await defaultHoldsAtNamedByToo(tester, 'api', 'git@github.com:acme/api.git', 'payments');
       await iSelectTheProject(tester, 'default');
-      await iChooseTheCommand(
-          tester, 'Repositories worked on without a project');
+      await iChooseTheCommand(tester, 'Repositories worked on without a project');
       await itSays(tester, 'payments names it too: its next task starts there');
       await iTakeOutOfDefault(tester, 'api');
       await defaultNoLongerHolds(tester, 'api');
       await itSays(tester, 'Its mirror, and anything waiting in it, stay');
     });
-    testWidgets('''only default holds repositories without a project''',
-        (tester) async {
+    testWidgets('''only default holds repositories without a project''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(tester,
-          'Repositories worked on without a project', 'only default holds');
+      await theCommandIsUnavailableBecause(tester, 'Repositories worked on without a project', 'only default holds');
     });
-    testWidgets('''work waiting in default is forwarded to its origin''',
-        (tester) async {
+    testWidgets('''work waiting in default is forwarded to its origin''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'default');
       await iReviewWhatIsWaitingAtTheGate(tester);
@@ -153,8 +136,7 @@ void main() {
       await iStartForwardingItToItsOrigin(tester);
       await theForwardingAsks(tester, 'Forward it to its origin');
     });
-    testWidgets('''work without a project is not listed among the projects''',
-        (tester) async {
+    testWidgets('''work without a project is not listed among the projects''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'projects');
       await itDoesNotSay(tester, 'Default');

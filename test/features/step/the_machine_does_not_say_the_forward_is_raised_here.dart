@@ -15,9 +15,10 @@ Future<void> theMachineDoesNotSayTheForwardIsRaisedHere(WidgetTester tester, Str
   expect(find.byKey(const Key('machine-kind')), findsOneWidget);
   expect(
     find.descendant(
-        of: find.byKey(const Key('machine-kind')),
-        matching: find.textContaining('forward raised here'),
-        matchRoot: true),
+      of: find.byKey(const Key('machine-kind')),
+      matching: find.textContaining('forward raised here'),
+      matchRoot: true,
+    ),
     findsNothing,
   );
 }

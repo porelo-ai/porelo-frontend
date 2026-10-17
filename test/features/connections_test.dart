@@ -82,38 +82,27 @@ void main() {
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''connections are listed with the vault shut, one outside it marked not protected''',
-        (tester) async {
+    testWidgets('''connections are listed with the vault shut, one outside it marked not protected''', (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await theMachineConnectsToWithAKeyInTheVault(tester, 'ssh://github.com');
-      await theMachineConnectsToWithATokenInAFile(
-          tester, 'https://gitlab.example/acme/');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await theMachineConnectsToWithATokenInAFile(tester, 'https://gitlab.example/acme/');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await itSays(tester, 'ssh://github.com');
-      await itSays(tester,
-          'the vault is shut, so nothing can say whether its value is there');
-      await theConnectionIsMarkedNotProtected(
-          tester, 'https://gitlab.example/acme/');
+      await itSays(tester, 'the vault is shut, so nothing can say whether its value is there');
+      await theConnectionIsMarkedNotProtected(tester, 'https://gitlab.example/acme/');
       await theConnectionIsNotMarkedNotProtected(tester, 'ssh://github.com');
     });
     testWidgets('''the machine's menu opens its connections''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheMenu(tester, 'What this machine can be told to do');
-      await theMenuOffers(
-          tester, 'Connections — how this machine connects out');
-      await iChooseTheMenuEntry(
-          tester, 'Connections — how this machine connects out');
+      await theMenuOffers(tester, 'Connections — how this machine connects out');
+      await iChooseTheMenuEntry(tester, 'Connections — how this machine connects out');
       await theConnectionsOfTheMachineAreOpen(tester);
     });
-    testWidgets(
-        '''what a connection is, is chosen and never read off its address''',
-        (tester) async {
+    testWidgets('''what a connection is, is chosen and never read off its address''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await goingOnIsNotOfferedYet(tester);
       await theDialogOffers(tester, 'any use');
@@ -123,12 +112,9 @@ void main() {
       await noTwoFieldsOfTheDialogOverlap(tester);
       await theDialogShowsItsScrollbarAndItsFirstLabelWhole(tester);
     });
-    testWidgets(
-        '''a token in the vault is typed into a terminal on the machine, after the check''',
-        (tester) async {
+    testWidgets('''a token in the vault is typed into a terminal on the machine, after the check''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'TOKEN');
       await iGoOn(tester);
@@ -138,19 +124,14 @@ void main() {
       await itSays(tester, 'Nothing stands in the way');
       await nothingWasDeclared(tester);
       await iAddIt(tester);
-      await itWasDeclaredAsForKeptIn(
-          tester, 'TOKEN', 'https://gitlab.example/acme/', 'VAULT');
-      await aTerminalRunsOnTheMachine(
-          tester, 'porelo vault put git.token.example --type token');
+      await itWasDeclaredAsForKeptIn(tester, 'TOKEN', 'https://gitlab.example/acme/', 'VAULT');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault put git.token.example --type token');
     });
-    testWidgets(
-        '''an ssh key of this computer is filled from its file and sent into the vault''',
-        (tester) async {
+    testWidgets('''an ssh key of this computer is filled from its file and sent into the vault''', (tester) async {
       await bddSetUp(tester);
       await thisComputerHasTheKey(tester, 'id_work');
       await theFileDialogWillAnswerWithTheKey(tester, 'id_work');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -158,18 +139,14 @@ void main() {
       await iFillTheKeyFromAFile(tester);
       await iGoOn(tester);
       await iAddIt(tester);
-      await theMachineWasGivenAKeyBy(
-          tester, 'porelo vault put git.ssh.example');
+      await theMachineWasGivenAKeyBy(tester, 'porelo vault put git.ssh.example');
       await theStatusLineMentions(tester, 'is stored on');
     });
-    testWidgets(
-        '''the public half chosen from this computer is refused before anything is sent''',
-        (tester) async {
+    testWidgets('''the public half chosen from this computer is refused before anything is sent''', (tester) async {
       await bddSetUp(tester);
       await thisComputerHasTheKey(tester, 'id_work');
       await theFileDialogWillAnswerWithTheKey(tester, 'id_work.pub');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -180,12 +157,9 @@ void main() {
       await goingOnIsNotOfferedYet(tester);
       await nothingWasGivenToTheMachine(tester);
     });
-    testWidgets(
-        '''pasted text that is no key at all is refused, and leaves the field''',
-        (tester) async {
+    testWidgets('''pasted text that is no key at all is refused, and leaves the field''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -199,12 +173,9 @@ void main() {
       await thePrivateKeyFieldIsEmpty(tester);
       await nothingWasDeclared(tester);
     });
-    testWidgets(
-        '''going back from the check takes the pasted key out of its field''',
-        (tester) async {
+    testWidgets('''going back from the check takes the pasted key out of its field''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -216,15 +187,11 @@ void main() {
       await theWizardIsAtStep(tester, '2');
       await thePrivateKeyFieldIsEmpty(tester);
     });
-    testWidgets(
-        '''a key already on the machine is picked from its list and used where it lies''',
-        (tester) async {
+    testWidgets('''a key already on the machine is picked from its list and used where it lies''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasTheKey(tester, '/home/me/.ssh/id_ed25519');
-      await theMachineHasOnlyThePublicHalfOf(
-          tester, '/home/me/.ssh/company_key');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await theMachineHasOnlyThePublicHalfOf(tester, '/home/me/.ssh/company_key');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -239,13 +206,10 @@ void main() {
       await itWasDeclaredWithTheKey(tester, '/home/me/.ssh/id_ed25519');
       await itSays(tester, 'Its value is already where it says');
     });
-    testWidgets(
-        '''a key already on the machine is copied into the vault by the machine''',
-        (tester) async {
+    testWidgets('''a key already on the machine is copied into the vault by the machine''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasTheKey(tester, '/home/me/.ssh/id_ed25519');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -254,18 +218,17 @@ void main() {
       await iChoose(tester, 'Copied into the vault by the machine');
       await iGoOn(tester);
       await iAddIt(tester);
-      await itWasDeclaredIntoTheVaultFromTheFile(
-          tester, '/home/me/.ssh/id_ed25519');
-      await theMachineRanWithNothingOnItsStandardInput(tester,
-          'porelo vault put git.ssh.example --from-file /home/me/.ssh/id_ed25519');
+      await itWasDeclaredIntoTheVaultFromTheFile(tester, '/home/me/.ssh/id_ed25519');
+      await theMachineRanWithNothingOnItsStandardInput(
+        tester,
+        'porelo vault put git.ssh.example --from-file /home/me/.ssh/id_ed25519',
+      );
     });
     testWidgets('''the check says who a key logs in as''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasTheKey(tester, '/home/me/.ssh/id_ed25519');
-      await theForgeSaysLogsInAs(
-          tester, '/home/me/.ssh/id_ed25519', 'Hi fuinorg/utils4j!');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await theForgeSaysLogsInAs(tester, '/home/me/.ssh/id_ed25519', 'Hi fuinorg/utils4j!');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://github.com/');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -274,13 +237,10 @@ void main() {
       await iGoOn(tester);
       await itSays(tester, 'logs in as: Hi fuinorg/utils4j!');
     });
-    testWidgets(
-        '''an ssh key for an https address is refused by the check, and cannot be added''',
-        (tester) async {
+    testWidgets('''an ssh key for an https address is refused by the check, and cannot be added''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasTheKey(tester, '/home/me/.ssh/id_ed25519');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://github.com/acme/');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -293,14 +253,10 @@ void main() {
       await iGoBack(tester);
       await theWizardIsAtStep(tester, '2');
     });
-    testWidgets(
-        '''a machine without a private key says so, rather than showing an empty list''',
-        (tester) async {
+    testWidgets('''a machine without a private key says so, rather than showing an empty list''', (tester) async {
       await bddSetUp(tester);
-      await theMachineHasOnlyThePublicHalfOf(
-          tester, '/home/me/.ssh/company_key');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await theMachineHasOnlyThePublicHalfOf(tester, '/home/me/.ssh/company_key');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -308,13 +264,10 @@ void main() {
       await itSays(tester, 'This machine has no private key');
       await goingOnIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a machine that cannot list its keys takes a typed path, never its public half''',
-        (tester) async {
+    testWidgets('''a machine that cannot list its keys takes a typed path, never its public half''', (tester) async {
       await bddSetUp(tester);
       await theMachineCannotListItsKeys(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -323,13 +276,10 @@ void main() {
       await itSays(tester, 'That is the public half');
       await goingOnIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a public half typed with a space after it is still the public half''',
-        (tester) async {
+    testWidgets('''a public half typed with a space after it is still the public half''', (tester) async {
       await bddSetUp(tester);
       await theMachineCannotListItsKeys(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -337,12 +287,9 @@ void main() {
       await itSays(tester, 'That is the public half');
       await goingOnIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''a variable the machine does not have is refused by the check''',
-        (tester) async {
+    testWidgets('''a variable the machine does not have is refused by the check''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'TOKEN');
       await iGoOn(tester);
@@ -352,14 +299,11 @@ void main() {
       await itSays(tester, 'This would not work as it is');
       await addingItIsNotOfferedYet(tester);
     });
-    testWidgets(
-        '''an answer to an earlier check never replaces the answer to the one on screen''',
-        (tester) async {
+    testWidgets('''an answer to an earlier check never replaces the answer to the one on screen''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasTheVariable(tester, 'GITLAB_PASSWORD');
       await theMachineAnswersEachCheckOnlyWhenTold(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'TOKEN');
       await iGoOn(tester);
@@ -371,16 +315,12 @@ void main() {
       await iGoOn(tester);
       await theMachineAnswersTheLaterCheckThenTheEarlierOne(tester);
       await iAddIt(tester);
-      await itWasDeclaredAsForKeptIn(
-          tester, 'TOKEN', 'https://gitlab.example/acme/', 'ENVIRONMENT');
+      await itWasDeclaredAsForKeptIn(tester, 'TOKEN', 'https://gitlab.example/acme/', 'ENVIRONMENT');
     });
-    testWidgets(
-        '''a user and password from two variables are declared by their names''',
-        (tester) async {
+    testWidgets('''a user and password from two variables are declared by their names''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasTheVariable(tester, 'GITLAB_PASSWORD');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'BASIC');
       await iGoOn(tester);
@@ -390,15 +330,11 @@ void main() {
       await iGoOn(tester);
       await iAddIt(tester);
       await itWasDeclaredWithTheUserTakenFromTheVariable(tester, 'GITLAB_USER');
-      await itWasDeclaredAsForKeptIn(
-          tester, 'BASIC', 'https://gitlab.example/acme/', 'ENVIRONMENT');
+      await itWasDeclaredAsForKeptIn(tester, 'BASIC', 'https://gitlab.example/acme/', 'ENVIRONMENT');
     });
-    testWidgets(
-        '''a user and password in the vault have the password typed at the machine''',
-        (tester) async {
+    testWidgets('''a user and password in the vault have the password typed at the machine''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'BASIC');
       await iGoOn(tester);
@@ -406,17 +342,13 @@ void main() {
       await iNameTheUser(tester, 'me');
       await iGoOn(tester);
       await iAddIt(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'porelo vault put git.token.example');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault put git.token.example');
     });
-    testWidgets(
-        '''an account without a vault is sent to make one, and checked again''',
-        (tester) async {
+    testWidgets('''an account without a vault is sent to make one, and checked again''', (tester) async {
       await bddSetUp(tester);
       await theMachineHasNoStoreYet(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'TOKEN');
       await iGoOn(tester);
@@ -425,18 +357,15 @@ void main() {
       await itSays(tester, 'no vault yet');
       await addingItIsNotOfferedYet(tester);
       await iMakeTheVaultFromTheCheck(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault init');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault init');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineWasAskedAgainWhetherItWouldWork(tester);
     });
-    testWidgets('''a shut vault is opened from the check, and checked again''',
-        (tester) async {
+    testWidgets('''a shut vault is opened from the check, and checked again''', (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'TOKEN');
       await iGoOn(tester);
@@ -444,15 +373,13 @@ void main() {
       await iGoOn(tester);
       await itSays(tester, 'the vault is shut');
       await iOpenTheVaultFromTheCheck(tester);
-      await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm porelo vault unlock');
+      await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault unlock');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineWasAskedAgainWhetherItWouldWork(tester);
     });
     testWidgets('''leaving the wizard declares nothing''', (tester) async {
       await bddSetUp(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'https://gitlab.example/acme/');
       await iChooseItToBe(tester, 'TOKEN');
       await iGoOn(tester);
@@ -461,23 +388,18 @@ void main() {
       await iChoose(tester, 'Leave it');
       await nothingWasDeclared(tester);
     });
-    testWidgets('''forgetting a connection says the value is still there''',
-        (tester) async {
+    testWidgets('''forgetting a connection says the value is still there''', (tester) async {
       await bddSetUp(tester);
       await theMachineConnectsToWithAKeyInTheVault(tester, 'ssh://github.com');
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iForgetTheConnection(tester, 'ssh://github.com');
       await itSays(tester, 'Its value is still there');
       await itSays(tester, 'Remove that at the machine');
     });
-    testWidgets(
-        '''a key that could not be stored leaves the way to try again''',
-        (tester) async {
+    testWidgets('''a key that could not be stored leaves the way to try again''', (tester) async {
       await bddSetUp(tester);
       await storingOnTheMachineWillFail(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);
@@ -489,13 +411,10 @@ void main() {
       await theWayToStoreItIsStillOffered(tester);
       await nothingPastedIsLeftOnScreen(tester);
     });
-    testWidgets(
-        '''trying again with a public half is refused beside the way to try again''',
-        (tester) async {
+    testWidgets('''trying again with a public half is refused beside the way to try again''', (tester) async {
       await bddSetUp(tester);
       await storingOnTheMachineWillFail(tester);
-      await iChooseTheCommand(
-          tester, 'Connections — how this machine connects out');
+      await iChooseTheCommand(tester, 'Connections — how this machine connects out');
       await iAddAConnectionTo(tester, 'ssh://gitlab.example');
       await iChooseItToBe(tester, 'SSH_KEY');
       await iGoOn(tester);

@@ -98,10 +98,9 @@ abstract final class Primitives {
 /// Each comes in a dark and a light tone, since the lime and amber that glow on black vanish on white.
 abstract final class StateColours {
   /// Working, waiting or quiet, and stopped, for the brightness of [scheme].
-  static ({Color working, Color waiting, Color stopped}) of(ColorScheme scheme) =>
-      scheme.brightness == Brightness.dark
-          ? (working: Primitives.lime, waiting: Primitives.amber, stopped: Primitives.muted)
-          : (working: Primitives.olive, waiting: Primitives.brown, stopped: Primitives.steel);
+  static ({Color working, Color waiting, Color stopped}) of(ColorScheme scheme) => scheme.brightness == Brightness.dark
+      ? (working: Primitives.lime, waiting: Primitives.amber, stopped: Primitives.muted)
+      : (working: Primitives.olive, waiting: Primitives.brown, stopped: Primitives.steel);
 }
 
 /// Space between things, in logical pixels.

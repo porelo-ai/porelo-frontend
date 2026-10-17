@@ -48,150 +48,134 @@ class BackupsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: backups,
-        builder: (context, _) {
-          final scheme = Theme.of(context).colorScheme;
+    animation: backups,
+    builder: (context, _) {
+      final scheme = Theme.of(context).colorScheme;
 
-          return Column(
-            children: <Widget>[
-              PaneHeader(
-                title: backups.repository == null
-                    ? 'Backups of ${backups.project}'
-                    : 'Backups of ${backups.project} · ${backups.repository}',
-                trailing: IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Close (Esc)',
-                  onPressed: onClose,
-                ),
-              ),
-              if (backups.problem != null)
-                _Block(
-                  colour: scheme.errorContainer,
-                  child: Text(backups.problem!, key: const Key('backups-problem')),
-                ),
-              if (backups.removed != null)
-                _Block(
-                  colour: scheme.surfaceContainerHighest,
-                  child: Text(backups.words, key: const Key('backup-says')),
-                ),
-              if (backups.restoring != null)
-                _Block(
-                  colour: backups.restoring!.done
-                      ? scheme.surfaceContainerHighest
-                      : scheme.errorContainer,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(backups.restoreWords, key: const Key('restore-says')),
-                      if (!backups.restoring!.done) ...<Widget>[
-                        const SizedBox(height: Space.small),
-                        Row(
-                          children: <Widget>[
-                            // Leaving is the default, as everywhere else that destroys something
-                            // no other copy of exists.
-                            FilledButton(
-                              key: const Key('leave-the-mirror'),
-                              autofocus: true,
-                              onPressed: onLetItBe,
-                              child: const Text('Leave it'),
-                            ),
-                            const SizedBox(width: Space.small),
-                            TextButton(
-                              key: const Key('restore-it'),
-                              onPressed: backups.busy
-                                  ? null
-                                  // Forcing is a second decision about something the machine
-                                  // declined, not a retry: the word changes with what it means.
-                                  : () => onRestore(
-                                      force: backups.restoring!.holdsWork),
-                              style: TextButton.styleFrom(foregroundColor: scheme.error),
-                              child: Text(backups.restoring!.holdsWork
-                                  ? 'Restore it anyway'
-                                  : 'Restore it'),
-                            ),
-                          ],
+      return Column(
+        children: <Widget>[
+          PaneHeader(
+            title: backups.repository == null
+                ? 'Backups of ${backups.project}'
+                : 'Backups of ${backups.project} · ${backups.repository}',
+            trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: onClose),
+          ),
+          if (backups.problem != null)
+            _Block(
+              colour: scheme.errorContainer,
+              child: Text(backups.problem!, key: const Key('backups-problem')),
+            ),
+          if (backups.removed != null)
+            _Block(
+              colour: scheme.surfaceContainerHighest,
+              child: Text(backups.words, key: const Key('backup-says')),
+            ),
+          if (backups.restoring != null)
+            _Block(
+              colour: backups.restoring!.done ? scheme.surfaceContainerHighest : scheme.errorContainer,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(backups.restoreWords, key: const Key('restore-says')),
+                  if (!backups.restoring!.done) ...<Widget>[
+                    const SizedBox(height: Space.small),
+                    Row(
+                      children: <Widget>[
+                        // Leaving is the default, as everywhere else that destroys something
+                        // no other copy of exists.
+                        FilledButton(
+                          key: const Key('leave-the-mirror'),
+                          autofocus: true,
+                          onPressed: onLetItBe,
+                          child: const Text('Leave it'),
+                        ),
+                        const SizedBox(width: Space.small),
+                        TextButton(
+                          key: const Key('restore-it'),
+                          onPressed: backups.busy
+                              ? null
+                              // Forcing is a second decision about something the machine
+                              // declined, not a retry: the word changes with what it means.
+                              : () => onRestore(force: backups.restoring!.holdsWork),
+                          style: TextButton.styleFrom(foregroundColor: scheme.error),
+                          child: Text(backups.restoring!.holdsWork ? 'Restore it anyway' : 'Restore it'),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-              if (backups.considering != null)
-                _Block(
-                  colour: scheme.errorContainer,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Remove this backup? It held ${backups.considering!.refs} '
-                        '${backups.considering!.refs == 1 ? 'push' : 'pushes'} nobody had '
-                        'reviewed — that is what a restore from it would bring back.',
-                        key: const Key('what-removing-costs'),
-                      ),
-                      const SizedBox(height: Space.small),
-                      Row(
-                        children: <Widget>[
-                          // Leaving is the default, as everywhere else that destroys something.
-                          FilledButton(
-                            key: const Key('keep-the-backup'),
-                            autofocus: true,
-                            onPressed: onLetItBe,
-                            child: const Text('Keep it'),
-                          ),
-                          const SizedBox(width: Space.small),
-                          TextButton(
-                            key: const Key('remove-the-backup'),
-                            onPressed: backups.busy ? null : onRemove,
-                            style: TextButton.styleFrom(foregroundColor: scheme.error),
-                            child: const Text('Remove it'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: Space.small),
-                  children: <Widget>[
-                    if (backups.busy && backups.taken.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(Space.normal),
-                        child: Text('Asking the machine…'),
-                      )
-                    else if (backups.taken.isEmpty && backups.problem == null)
-                      const Padding(
-                        padding: EdgeInsets.all(Space.normal),
-                        // **Nothing recorded, never nothing exists.** A bundle written by hand, or
-                        // before the record existed, is invisible here and always will be.
-                        child: Text(
-                          'Nothing is recorded for this project. That is not the same as no '
-                          'bundle existing: one written by hand, or before Porelo kept a record, '
-                          'is not listed here and never will be.',
-                          key: Key('nothing-recorded'),
-                        ),
-                      ),
-                    for (final backup in backups.taken)
-                      _BackupRow(
-                        backup: backup,
-                        onConsider: () => onConsider(backup),
-                        onConsiderRestoring: () => onConsiderRestoring(backup),
-                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-          );
-        },
+            ),
+          if (backups.considering != null)
+            _Block(
+              colour: scheme.errorContainer,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Remove this backup? It held ${backups.considering!.refs} '
+                    '${backups.considering!.refs == 1 ? 'push' : 'pushes'} nobody had '
+                    'reviewed — that is what a restore from it would bring back.',
+                    key: const Key('what-removing-costs'),
+                  ),
+                  const SizedBox(height: Space.small),
+                  Row(
+                    children: <Widget>[
+                      // Leaving is the default, as everywhere else that destroys something.
+                      FilledButton(
+                        key: const Key('keep-the-backup'),
+                        autofocus: true,
+                        onPressed: onLetItBe,
+                        child: const Text('Keep it'),
+                      ),
+                      const SizedBox(width: Space.small),
+                      TextButton(
+                        key: const Key('remove-the-backup'),
+                        onPressed: backups.busy ? null : onRemove,
+                        style: TextButton.styleFrom(foregroundColor: scheme.error),
+                        child: const Text('Remove it'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: Space.small),
+              children: <Widget>[
+                if (backups.busy && backups.taken.isEmpty)
+                  const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Asking the machine…'))
+                else if (backups.taken.isEmpty && backups.problem == null)
+                  const Padding(
+                    padding: EdgeInsets.all(Space.normal),
+                    // **Nothing recorded, never nothing exists.** A bundle written by hand, or
+                    // before the record existed, is invisible here and always will be.
+                    child: Text(
+                      'Nothing is recorded for this project. That is not the same as no '
+                      'bundle existing: one written by hand, or before Porelo kept a record, '
+                      'is not listed here and never will be.',
+                      key: Key('nothing-recorded'),
+                    ),
+                  ),
+                for (final backup in backups.taken)
+                  _BackupRow(
+                    backup: backup,
+                    onConsider: () => onConsider(backup),
+                    onConsiderRestoring: () => onConsiderRestoring(backup),
+                  ),
+              ],
+            ),
+          ),
+        ],
       );
+    },
+  );
 }
 
 /// One backup, with what was true then and what is true now.
 class _BackupRow extends StatelessWidget {
-  const _BackupRow({
-    required this.backup,
-    required this.onConsider,
-    required this.onConsiderRestoring,
-  });
+  const _BackupRow({required this.backup, required this.onConsider, required this.onConsiderRestoring});
 
   final Backup backup;
   final VoidCallback onConsider;
@@ -210,9 +194,7 @@ class _BackupRow extends StatelessWidget {
         color: backup.present ? scheme.primary : scheme.error,
       ),
       title: Text(
-        when == null
-            ? backup.bundle
-            : '${howLongSince(when) ?? ''} ago · ${backup.bundle}',
+        when == null ? backup.bundle : '${howLongSince(when) ?? ''} ago · ${backup.bundle}',
         key: const Key('backup'),
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
       ),
@@ -220,9 +202,9 @@ class _BackupRow extends StatelessWidget {
         backup.present
             // What was true then, and what is true now, in that order and told apart.
             ? '${backup.refs} ${backup.refs == 1 ? 'push' : 'pushes'} when it was taken · '
-                '${backup.size} now'
+                  '${backup.size} now'
             : '${backup.refs} ${backup.refs == 1 ? 'push' : 'pushes'} when it was taken · '
-                'the file is not there any more',
+                  'the file is not there any more',
         key: const Key('backup-detail'),
       ),
       trailing: Row(
@@ -255,10 +237,6 @@ class _Block extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(Space.normal),
-        color: colour,
-        child: child,
-      );
+  Widget build(BuildContext context) =>
+      Container(width: double.infinity, padding: const EdgeInsets.all(Space.normal), color: colour, child: child);
 }

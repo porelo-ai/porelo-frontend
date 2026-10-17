@@ -45,55 +45,44 @@ import './step/nothing_needs_me.dart';
 import './step/i_grant_from_what_needs_a_person.dart';
 
 void main() {
-  group('''Granting an authorization once, in a browser, for later tasks''',
-      () {
+  group('''Granting an authorization once, in a browser, for later tasks''', () {
     Future<void> bddSetUp(WidgetTester tester) async {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
     }
 
-    testWidgets(
-        '''an entry that names a service offers to grant it, and one that does not, does not''',
-        (tester) async {
+    testWidgets('''an entry that names a service offers to grant it, and one that does not, does not''', (
+      tester,
+    ) async {
       await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
+      await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
       await iShowTheVault(tester);
       await grantingIsOffered(tester, 'jira');
       await grantingIsNotOffered(tester, 'a-provider');
     });
-    testWidgets(
-        '''a device code's page is shown whole with its code, and opened as it came''',
-        (tester) async {
+    testWidgets('''a device code's page is shown whole with its code, and opened as it came''', (tester) async {
       await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
+      await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
       await iGrantFromTheStore(tester, 'jira');
       await theMachineWasAskedToGrant(tester, 'jira');
       await theMachineAsksForADecisionOnWithTheCode(
-          tester,
-          'https://auth.example.com/device?user_code=WDJB-MJHT&x=1',
-          'WDJB-MJHT');
-      await itSays(
-          tester, 'https://auth.example.com/device?user_code=WDJB-MJHT&x=1');
+        tester,
+        'https://auth.example.com/device?user_code=WDJB-MJHT&x=1',
+        'WDJB-MJHT',
+      );
+      await itSays(tester, 'https://auth.example.com/device?user_code=WDJB-MJHT&x=1');
       await itSays(tester, 'WDJB-MJHT');
       await itSays(tester, 'It is made there, not here');
       await iOpenThePageInTheBrowserHere(tester);
-      await theBrowserWasGiven(
-          tester, 'https://auth.example.com/device?user_code=WDJB-MJHT&x=1');
-      await itSays(
-          tester, 'https://auth.example.com/device?user_code=WDJB-MJHT&x=1');
+      await theBrowserWasGiven(tester, 'https://auth.example.com/device?user_code=WDJB-MJHT&x=1');
+      await itSays(tester, 'https://auth.example.com/device?user_code=WDJB-MJHT&x=1');
     });
-    testWidgets(
-        '''a grant settled in the browser is said, and the store is asked again''',
-        (tester) async {
+    testWidgets('''a grant settled in the browser is said, and the store is asked again''', (tester) async {
       await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
+      await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
       await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+      await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
       await theMachineSaysTheGrantIs(tester, 'granted');
       await itSays(tester, 'Granted. It is kept in the vault');
       await openingThePageIsNotOffered(tester);
@@ -101,201 +90,164 @@ void main() {
       await theMachineIsAskedAgainWhetherTheStoreIsOpen(tester);
     });
     testWidgets(
-        '''Outline: how a grant ends is said in words ('refused', 'Refused in the browser. Nothing was granted.')''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
-      await theMachineSaysTheGrantIs(tester, 'refused');
-      await itSays(tester, 'Refused in the browser. Nothing was granted.');
-    });
+      '''Outline: how a grant ends is said in words ('refused', 'Refused in the browser. Nothing was granted.')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+        await theMachineSaysTheGrantIs(tester, 'refused');
+        await itSays(tester, 'Refused in the browser. Nothing was granted.');
+      },
+    );
     testWidgets(
-        '''Outline: how a grant ends is said in words ('expired', 'The question expired before anybody decided.')''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
-      await theMachineSaysTheGrantIs(tester, 'expired');
-      await itSays(tester, 'The question expired before anybody decided.');
-    });
+      '''Outline: how a grant ends is said in words ('expired', 'The question expired before anybody decided.')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+        await theMachineSaysTheGrantIs(tester, 'expired');
+        await itSays(tester, 'The question expired before anybody decided.');
+      },
+    );
     testWidgets(
-        '''Outline: how a grant ends is said in words ('failed', 'It failed: the service answered invalid_client')''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
-      await theMachineSaysTheGrantIs(tester, 'failed');
-      await itSays(tester, 'It failed: the service answered invalid_client');
-    });
+      '''Outline: how a grant ends is said in words ('failed', 'It failed: the service answered invalid_client')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+        await theMachineSaysTheGrantIs(tester, 'failed');
+        await itSays(tester, 'It failed: the service answered invalid_client');
+      },
+    );
     testWidgets(
-        '''a grant the machine adds words to says them, and one the machine refused is not said as the person's''',
-        (tester) async {
+      '''a grant the machine adds words to says them, and one the machine refused is not said as the person's''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+        await theMachineSaysTheGrantIsAdding(
+          tester,
+          'granted',
+          'the service gave a token that does not expire, which removing it here cannot revoke',
+        );
+        await itSays(tester, 'and the next task uses it. the service gave a token that does not expire');
+      },
+    );
+    testWidgets('''a grant the machine would not keep is said as the machine's refusal''', (tester) async {
       await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
+      await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
       await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
-      await theMachineSaysTheGrantIsAdding(tester, 'granted',
-          'the service gave a token that does not expire, which removing it here cannot revoke');
-      await itSays(tester,
-          'and the next task uses it. the service gave a token that does not expire');
-    });
-    testWidgets(
-        '''a grant the machine would not keep is said as the machine's refusal''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https://auth.example.com/device', 'WDJB-MJHT');
-      await theMachineSaysTheGrantIsAdding(
-          tester, 'refused', 'the service granted no refresh token');
-      await itSays(tester,
-          'did not keep what the service granted: the service granted no refresh token');
+      await theMachineAsksForADecisionOnWithTheCode(tester, 'https://auth.example.com/device', 'WDJB-MJHT');
+      await theMachineSaysTheGrantIsAdding(tester, 'refused', 'the service granted no refresh token');
+      await itSays(tester, 'did not keep what the service granted: the service granted no refresh token');
       await itDoesNotSay(tester, 'Refused in the browser');
     });
     testWidgets(
-        '''a redirect's page is offered only once its answer can reach the machine, and the forward goes after''',
-        (tester) async {
+      '''a redirect's page is offered only once its answer can reach the machine, and the forward goes after''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theMachineIsReachedOverSshAs(tester, 'alice@vm');
+        await theStoreHoldsOfKindBeside(tester, 'forge', 'oauth-code', 'a-provider');
+        await iGrantFromTheStore(tester, 'forge');
+        await theMachineAsksForADecisionOnAnsweredOnPort(tester, 'https://forge.example/authorize?state=s1', '8765');
+        await aForwardOfPortIsHeld(tester, '8765');
+        await openingThePageIsOffered(tester);
+        await theMachineSaysTheGrantIs(tester, 'granted');
+        await theForwardOfPortIsTakenDown(tester, '8765');
+      },
+    );
+    testWidgets(
+      '''Outline: a link that is not a web address is shown and never offered to open ('file:///etc/passwd')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'file:///etc/passwd', 'WDJB-MJHT');
+        await itSays(tester, 'file:///etc/passwd');
+        await openingThePageIsNotOffered(tester);
+        await nothingWasOpenedInTheBrowser(tester);
+      },
+    );
+    testWidgets(
+      '''Outline: a link that is not a web address is shown and never offered to open ('ftp://auth.example.com/device')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'ftp://auth.example.com/device', 'WDJB-MJHT');
+        await itSays(tester, 'ftp://auth.example.com/device');
+        await openingThePageIsNotOffered(tester);
+        await nothingWasOpenedInTheBrowser(tester);
+      },
+    );
+    testWidgets(
+      '''Outline: a link that is not a web address is shown and never offered to open ('https:///device')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
+        await iGrantFromTheStore(tester, 'jira');
+        await theMachineAsksForADecisionOnWithTheCode(tester, 'https:///device', 'WDJB-MJHT');
+        await itSays(tester, 'https:///device');
+        await openingThePageIsNotOffered(tester);
+        await nothingWasOpenedInTheBrowser(tester);
+      },
+    );
+    testWidgets('''a redirect whose answer cannot be forwarded is not offered to open, and says why''', (tester) async {
       await bddSetUp(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
-      await theStoreHoldsOfKindBeside(
-          tester, 'forge', 'oauth-code', 'a-provider');
+      await forwardingAPortFailsWith(tester, 'Port 8765 is already in use on this computer');
+      await theStoreHoldsOfKindBeside(tester, 'forge', 'oauth-code', 'a-provider');
       await iGrantFromTheStore(tester, 'forge');
-      await theMachineAsksForADecisionOnAnsweredOnPort(
-          tester, 'https://forge.example/authorize?state=s1', '8765');
-      await aForwardOfPortIsHeld(tester, '8765');
-      await openingThePageIsOffered(tester);
-      await theMachineSaysTheGrantIs(tester, 'granted');
-      await theForwardOfPortIsTakenDown(tester, '8765');
-    });
-    testWidgets(
-        '''Outline: a link that is not a web address is shown and never offered to open ('file:///etc/passwd')''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'file:///etc/passwd', 'WDJB-MJHT');
-      await itSays(tester, 'file:///etc/passwd');
-      await openingThePageIsNotOffered(tester);
-      await nothingWasOpenedInTheBrowser(tester);
-    });
-    testWidgets(
-        '''Outline: a link that is not a web address is shown and never offered to open ('ftp://auth.example.com/device')''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'ftp://auth.example.com/device', 'WDJB-MJHT');
-      await itSays(tester, 'ftp://auth.example.com/device');
-      await openingThePageIsNotOffered(tester);
-      await nothingWasOpenedInTheBrowser(tester);
-    });
-    testWidgets(
-        '''Outline: a link that is not a web address is shown and never offered to open ('https:///device')''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
-      await iGrantFromTheStore(tester, 'jira');
-      await theMachineAsksForADecisionOnWithTheCode(
-          tester, 'https:///device', 'WDJB-MJHT');
-      await itSays(tester, 'https:///device');
-      await openingThePageIsNotOffered(tester);
-      await nothingWasOpenedInTheBrowser(tester);
-    });
-    testWidgets(
-        '''a redirect whose answer cannot be forwarded is not offered to open, and says why''',
-        (tester) async {
-      await bddSetUp(tester);
-      await theMachineIsReachedOverSshAs(tester, 'alice@vm');
-      await forwardingAPortFailsWith(
-          tester, 'Port 8765 is already in use on this computer');
-      await theStoreHoldsOfKindBeside(
-          tester, 'forge', 'oauth-code', 'a-provider');
-      await iGrantFromTheStore(tester, 'forge');
-      await theMachineAsksForADecisionOnAnsweredOnPort(
-          tester, 'https://forge.example/authorize?state=s1', '8765');
+      await theMachineAsksForADecisionOnAnsweredOnPort(tester, 'https://forge.example/authorize?state=s1', '8765');
       await openingThePageWaitsForItsAnswersWayBack(tester);
       await itSays(tester, 'Port 8765 is already in use on this computer');
     });
-    testWidgets(
-        '''a grant that cannot be asked for says why in the machine's words''',
-        (tester) async {
+    testWidgets('''a grant that cannot be asked for says why in the machine's words''', (tester) async {
       await bddSetUp(tester);
-      await theStoreHoldsOfKindBeside(
-          tester, 'jira', 'oauth-device', 'a-provider');
+      await theStoreHoldsOfKindBeside(tester, 'jira', 'oauth-device', 'a-provider');
       await iGrantFromTheStore(tester, 'jira');
-      await theMachineRefusesTheGrantSaying(
-          tester, 'the service at auth.example.com could not be reached');
-      await itSays(tester,
-          'It could not be asked for: the service at auth.example.com could not be reached');
+      await theMachineRefusesTheGrantSaying(tester, 'the service at auth.example.com could not be reached');
+      await itSays(tester, 'It could not be asked for: the service at auth.example.com could not be reached');
     });
-    testWidgets(
-        '''an entry says who granted it and when, or that nobody has yet''',
-        (tester) async {
+    testWidgets('''an entry says who granted it and when, or that nobody has yet''', (tester) async {
       await bddSetUp(tester);
-      await theStoreHoldsOfKindGrantedByAt(
-          tester, 'jira', 'oauth-device', 'alice', '2026-09-30T05:40:00Z');
+      await theStoreHoldsOfKindGrantedByAt(tester, 'jira', 'oauth-device', 'alice', '2026-09-30T05:40:00Z');
       await theStoreAlsoHoldsOfKindNotGranted(tester, 'forge', 'oauth-code');
       await iShowTheVault(tester);
-      await itSays(
-          tester, 'oauth-device · granted by alice, 2026-09-30T05:40:00Z');
+      await itSays(tester, 'oauth-device · granted by alice, 2026-09-30T05:40:00Z');
       await itSays(tester, 'oauth-code · not granted yet');
       await grantingIsOfferedAgain(tester, 'jira');
     });
-    testWidgets(
-        '''an authorization work waits for is in what needs a person, and told''',
-        (tester) async {
+    testWidgets('''an authorization work waits for is in what needs a person, and told''', (tester) async {
       await bddSetUp(tester);
-      await theMachineSaysNeedsAGrantForIn(
-          tester, 'jira', 'porelo-checkout-shell', 'checkout');
+      await theMachineSaysNeedsAGrantForIn(tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await itSays(tester, 'jira needs a grant for porelo-checkout-shell');
       await itSays(tester, 'Nobody has granted it yet');
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
-      await somebodyWasTold(
-          tester, 'jira needs a grant for porelo-checkout-shell');
+      await somebodyWasTold(tester, 'jira needs a grant for porelo-checkout-shell');
     });
-    testWidgets('''a grant the service ended says it needs granting again''',
-        (tester) async {
+    testWidgets('''a grant the service ended says it needs granting again''', (tester) async {
       await bddSetUp(tester);
-      await theMachineSaysNeedsGrantingAgainForIn(
-          tester, 'jira', 'porelo-checkout-shell', 'checkout');
+      await theMachineSaysNeedsGrantingAgainForIn(tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await itSays(tester, 'the service has ended the grant');
     });
-    testWidgets(
-        '''an authorization granted anywhere leaves what needs a person''',
-        (tester) async {
+    testWidgets('''an authorization granted anywhere leaves what needs a person''', (tester) async {
       await bddSetUp(tester);
-      await theMachineSaysNeedsAGrantForIn(
-          tester, 'jira', 'porelo-checkout-shell', 'checkout');
+      await theMachineSaysNeedsAGrantForIn(tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await theMachineSaysIsGranted(tester, 'jira');
       await itDoesNotSay(tester, 'jira needs a grant');
       await nothingNeedsMe(tester);
     });
-    testWidgets('''an authorization is granted from what needs a person''',
-        (tester) async {
+    testWidgets('''an authorization is granted from what needs a person''', (tester) async {
       await bddSetUp(tester);
-      await theMachineSaysNeedsAGrantForIn(
-          tester, 'jira', 'porelo-checkout-shell', 'checkout');
+      await theMachineSaysNeedsAGrantForIn(tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await iGrantFromWhatNeedsAPerson(tester, 'jira');
       await theMachineWasAskedToGrant(tester, 'jira');

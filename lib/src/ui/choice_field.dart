@@ -83,8 +83,7 @@ class ChoiceField<T> extends StatelessWidget {
           if (chosen != null && chosen.means.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: Space.tight),
-              child: Text(chosen.means,
-                  key: Key('$id-means'), style: Theme.of(context).textTheme.bodySmall),
+              child: Text(chosen.means, key: Key('$id-means'), style: Theme.of(context).textTheme.bodySmall),
             ),
         ],
       ),

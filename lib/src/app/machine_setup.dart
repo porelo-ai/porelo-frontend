@@ -5,6 +5,7 @@ import 'connections.dart';
 
 import 'host_keys.dart';
 import 'settings.dart';
+
 import 'package:porelo_frontend/src/app/desk.dart';
 
 /// An ssh key pair as text: what a person pastes, or what the wizard generates.
@@ -32,9 +33,9 @@ class KeyPair {
 class MachineSetup {
   /// Constructor, optionally with what runs a program, whose home `~/.ssh` is in, and the desk.
   MachineSetup({RunWith? run, String? home, Desk? on})
-      : _run = run ?? _runForReal,
-        _desk = on ?? desk,
-        _home = home ?? (on ?? desk).home;
+    : _run = run ?? _runForReal,
+      _desk = on ?? desk,
+      _home = home ?? (on ?? desk).home;
 
   final RunWith _run;
   final Desk _desk;
@@ -57,13 +58,13 @@ class MachineSetup {
   }
 
   /// Where Porelo publishes its setup script, for a machine that has nothing installed yet.
-  static const String setupScript =
-      'https://fuinorg.jfrog.io/artifactory/porelo-dist-deb/setup/porelo-setup-latest.sh';
+  static const String setupScript = 'https://fuinorg.jfrog.io/artifactory/porelo-dist-deb/setup/porelo-setup-latest.sh';
 
   /// Fetches Porelo's setup script onto the machine, where every later step runs it from. It lands
   /// in root's own directory and replaces the old one whole, so nothing but root changes it there,
   /// and it says the SHA-256 of what it fetched: [prepare] runs it only while it is still that.
-  static String _fetch() => '''set -e
+  static String _fetch() =>
+      '''set -e
 f=/root/porelo-setup.sh
 t=\$(mktemp /root/porelo-setup.XXXXXX)
 if command -v curl >/dev/null 2>&1; then curl -fsSL -o "\$t" '$setupScript'
@@ -143,7 +144,8 @@ printf 'The script shown has the SHA-256 %s.\\n' "\$(sha256sum "\$f" | cut -d' '
   /// sshd is told so for that user alone. The rule ends with `Match all`, so it cannot reach into
   /// the rest of sshd's configuration, and sshd checks it before it is loaded: a rule it refuses is
   /// taken out again rather than left to lock anybody out.
-  static String authorize(String user, String publicKey) => '''set -e
+  static String authorize(String user, String publicKey) =>
+      '''set -e
 user=${quoteForAShell(user)}
 key=${quoteForAShell(publicKey)}
 home=\$(getent passwd "\$user" | cut -d: -f6)
@@ -168,22 +170,33 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
 
   /// What each exit of the setup script means, as Porelo promises them.
   static String whatTheScriptSaid(int exitCode) => switch (exitCode) {
-        0 => 'The machine is prepared.',
-        2 => 'The setup script did not understand what it was asked.',
-        3 => 'The setup script does not know this operating system, so nothing was installed.',
-        4 => 'The setup script did not run as root.',
-        5 => 'A check failed and the machine is not usable yet; what it said is above.',
-        notTheScriptShown => 'The setup script on the machine changed after it was shown, so nothing ran. '
-            'Show it again.',
-        _ => 'The setup script ended with $exitCode.',
-      };
+    0 => 'The machine is prepared.',
+    2 => 'The setup script did not understand what it was asked.',
+    3 => 'The setup script does not know this operating system, so nothing was installed.',
+    4 => 'The setup script did not run as root.',
+    5 => 'A check failed and the machine is not usable yet; what it said is above.',
+    notTheScriptShown =>
+      'The setup script on the machine changed after it was shown, so nothing ran. '
+          'Show it again.',
+    _ => 'The setup script ended with $exitCode.',
+  };
 
   /// Runs [script] as root on [host] with the key at [keyFile], on standard input: nothing of it
   /// is in a command line, and it is exactly the text that was shown.
   Future<ProcessResult> asRoot(String host, String keyFile, String script) => _run(<String>[
-        'ssh', '-i', keyFile, '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
-        '-o', 'ConnectTimeout=10', 'root@$host', 'bash', '-s',
-      ], input: script);
+    'ssh',
+    '-i',
+    keyFile,
+    '-o',
+    'IdentitiesOnly=yes',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ConnectTimeout=10',
+    'root@$host',
+    'bash',
+    '-s',
+  ], input: script);
 
   /// [asRoot], with every line handed to [onLine] as it arrives, so a person watching a script that
   /// takes minutes sees it working rather than a window that looks stuck.
@@ -194,28 +207,34 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     void Function(String line) onLine,
   ) async {
     final process = await Process.start('ssh', <String>[
-      '-i', keyFile, '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
-      '-o', 'ConnectTimeout=10', 'root@$host', 'bash', '-s',
+      '-i',
+      keyFile,
+      '-o',
+      'IdentitiesOnly=yes',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      'root@$host',
+      'bash',
+      '-s',
     ]);
     process.stdin.write(script);
     await process.stdin.close();
     final out = StringBuffer();
     final err = StringBuffer();
-    Future<void> follow(Stream<List<int>> stream, StringBuffer into) => stream
-        .transform(const SystemEncoding().decoder)
-        .transform(const LineSplitter())
-        .forEach((line) {
-      into.writeln(line);
-      onLine(line);
-    });
+    Future<void> follow(Stream<List<int>> stream, StringBuffer into) =>
+        stream.transform(const SystemEncoding().decoder).transform(const LineSplitter()).forEach((line) {
+          into.writeln(line);
+          onLine(line);
+        });
     await Future.wait(<Future<void>>[follow(process.stdout, out), follow(process.stderr, err)]);
     return ProcessResult(process.pid, await process.exitCode, '$out', '$err');
   }
 
   /// Runs [command] as the work user through the `Host` entry [alias].
-  Future<ProcessResult> asUser(String alias, String command) => _run(<String>[
-        'ssh', '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', alias, command,
-      ]);
+  Future<ProcessResult> asUser(String alias, String command) =>
+      _run(<String>['ssh', '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', alias, command]);
 
   /// Adds a `Host` entry for the machine to `~/.ssh/config`: **as the work user, never root**.
   ///
@@ -227,7 +246,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     required String user,
     required String keyFile,
   }) async {
-    final entry = 'Host $alias\n'
+    final entry =
+        'Host $alias\n'
         '    HostName $host\n'
         '    User $user\n'
         '    IdentityFile $keyFile\n'
@@ -242,7 +262,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     if (before.contains(entry)) return '~/.ssh/config already has $alias.';
     if (RegExp('^Host\\s+${RegExp.escape(alias)}\\s*\$', multiLine: true).hasMatch(before)) {
       throw MachineSetupFailed(
-          '~/.ssh/config already has a Host $alias that says something else, so nothing was written.');
+        '~/.ssh/config already has a Host $alias that says something else, so nothing was written.',
+      );
     }
     if (before.isNotEmpty) {
       final kept = '${config.path}.before-$alias';
@@ -312,36 +333,33 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
 
   /// Generates an ed25519 pair with no passphrase — the interface never asks for one — named [comment].
   Future<KeyPair> generate(String comment) => _inAPrivateDirectory((directory) async {
-        final file = '${directory.path}/key';
-        final made = await _run(<String>['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-C', comment, '-f', file]);
-        if (made.exitCode != 0) {
-          throw MachineSetupFailed('ssh-keygen could not make a key: ${'${made.stderr}'.trim()}');
-        }
-        return KeyPair(
-          privateKey: File(file).readAsStringSync(),
-          publicKey: File('$file.pub').readAsStringSync().trim(),
-        );
-      });
+    final file = '${directory.path}/key';
+    final made = await _run(<String>['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-C', comment, '-f', file]);
+    if (made.exitCode != 0) {
+      throw MachineSetupFailed('ssh-keygen could not make a key: ${'${made.stderr}'.trim()}');
+    }
+    return KeyPair(privateKey: File(file).readAsStringSync(), publicKey: File('$file.pub').readAsStringSync().trim());
+  });
 
   /// Why [pair]'s halves do not belong together, or null when they do.
   ///
   /// Asked of `ssh-keygen` rather than parsed here: it reads the private key and derives the public
   /// one, which is the only comparison that proves the two are a pair.
   Future<String?> mismatch(KeyPair pair) => _inAPrivateDirectory((directory) async {
-        // Owner-only before it holds anything: ssh-keygen refuses a private key others could read.
-        final file = File('${directory.path}/key')..createSync();
-        await _keepPrivate(file.path);
-        file.writeAsStringSync(_ending(pair.privateKey));
-        final derived = await _run(<String>['ssh-keygen', '-y', '-P', '', '-f', file.path]);
-        if (derived.exitCode != 0) {
-          return 'That private key cannot be read. It needs to be an OpenSSH private key with no '
-              'passphrase.';
-        }
-        if (_keyOf('${derived.stdout}') != _keyOf(pair.publicKey)) {
-          return 'The public key does not belong to that private key.';
-        }
-        return null;
-      });
+    // Owner-only before it holds anything: ssh-keygen refuses a private key others could read.
+    final file = File('${directory.path}/key')..createSync();
+    await _keepPrivate(file.path);
+    file.writeAsStringSync(_ending(pair.privateKey));
+    final derived = await _run(<String>['ssh-keygen', '-y', '-P', '', '-f', file.path]);
+    if (derived.exitCode != 0) {
+      return 'That private key cannot be read. It needs to be an OpenSSH private key with no '
+          'passphrase.';
+    }
+    if (_keyOf('${derived.stdout}') != _keyOf(pair.publicKey)) {
+      return 'The public key does not belong to that private key.';
+    }
+    return null;
+  });
 
   /// Writes [pair] to `~/.ssh/<name>` and `<name>.pub`, owner-only, and answers the private key's path.
   ///
@@ -378,8 +396,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     if (!directory.existsSync()) return const <String>[];
     return <String>[
       for (final file in directory.listSync().whereType<File>())
-        if (file.uri.pathSegments.last.startsWith('porelo-') && !file.path.endsWith('.pub'))
-          file.path,
+        if (file.uri.pathSegments.last.startsWith('porelo-') && !file.path.endsWith('.pub')) file.path,
     ]..sort();
   }
 
@@ -414,9 +431,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
 
     return <String>[
       for (final file in directory.listSync().whereType<File>())
-        if (!file.path.endsWith('.pub') &&
-            (File('${file.path}.pub').existsSync() || looksPrivate(file)))
-          file.path,
+        if (!file.path.endsWith('.pub') && (File('${file.path}.pub').existsSync() || looksPrivate(file))) file.path,
     ]..sort();
   }
 
@@ -427,8 +442,10 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   Future<String> publicKeyOf(String keyFile) async {
     final derived = await _run(<String>['ssh-keygen', '-y', '-P', '', '-f', keyFile]);
     if (derived.exitCode != 0) {
-      throw MachineSetupFailed('$keyFile cannot be read as a private key with no passphrase: '
-          '${'${derived.stderr}'.trim()}');
+      throw MachineSetupFailed(
+        '$keyFile cannot be read as a private key with no passphrase: '
+        '${'${derived.stderr}'.trim()}',
+      );
     }
     return '${derived.stdout}'.trim();
   }
@@ -436,8 +453,17 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   /// Why logging in as root on [host] with the key at [keyFile] failed, or null when it worked.
   Future<String?> loginAsRoot(String host, String keyFile) async {
     final login = await _run(<String>[
-      'ssh', '-i', keyFile, '-o', 'IdentitiesOnly=yes', '-o', 'BatchMode=yes',
-      '-o', 'ConnectTimeout=10', 'root@$host', 'true',
+      'ssh',
+      '-i',
+      keyFile,
+      '-o',
+      'IdentitiesOnly=yes',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      'root@$host',
+      'true',
     ]);
     if (login.exitCode == 0) return null;
     final said = '${login.stderr}'.trim();

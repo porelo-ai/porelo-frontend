@@ -18,11 +18,12 @@ Future<void> iSendAKeyOfThisComputerIntoTheVaultForFromTheInterface(WidgetTester
   await untilTheMachineChecked(tester);
   await tester.tap(find.byKey(const Key('connection-add')));
   await pumpUntil(
-      tester,
-      () =>
-          find.textContaining('is stored on').evaluate().isNotEmpty ||
-          find.textContaining('Storing the key did not work').evaluate().isNotEmpty,
-      timeout: const Duration(seconds: 30),
-      what: 'the machine to say whether the key is stored');
+    tester,
+    () =>
+        find.textContaining('is stored on').evaluate().isNotEmpty ||
+        find.textContaining('Storing the key did not work').evaluate().isNotEmpty,
+    timeout: const Duration(seconds: 30),
+    what: 'the machine to say whether the key is stored',
+  );
   expect(find.textContaining('Storing the key did not work'), findsNothing);
 }
