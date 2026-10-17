@@ -28,7 +28,7 @@ void main() {
       program,
       arguments,
       inDirectory: inDirectory,
-      environment: <String, String>{...environment, 'SSH_AUTH_SOCK': agentSocket, 'HOME': here.path},
+      environment: <String, String>{...environment, 'SSH_AUTH_SOCK': agentSocket, ..._alone(here.path)},
       input: input,
     );
   }
@@ -38,12 +38,7 @@ void main() {
     here = await Directory.systemTemp.createTemp('porelo-workspace-');
     // The forge: a bare repository with a first commit on main.
     Future<void> git(List<String> args, [String? dir]) async {
-      final ran = await Process.run(
-        'git',
-        args,
-        workingDirectory: dir,
-        environment: <String, String>{'HOME': here.path},
-      );
+      final ran = await Process.run('git', args, workingDirectory: dir, environment: _alone(here.path));
       expect(ran.exitCode, 0, reason: '${ran.stderr}');
     }
 
@@ -63,24 +58,28 @@ void main() {
     ], '${here.path}/seed');
     await git(<String>['push', '-q', 'origin', 'HEAD:main'], '${here.path}/seed');
     // The person's key, in an agent of this test's own.
-    await Process.run('ssh-keygen', <String>[
-      '-q',
-      '-t',
-      'ed25519',
-      '-N',
-      '',
-      '-C',
-      'person@test',
-      '-f',
-      '${here.path}/key',
-    ]);
+    _ran(
+      await Process.run('ssh-keygen', <String>[
+        '-q',
+        '-t',
+        'ed25519',
+        '-N',
+        '',
+        '-C',
+        'person@test',
+        '-f',
+        '${here.path}/key',
+      ]),
+    );
     agentSocket = '${here.path}/agent.sock';
     final agent = await Process.run('ssh-agent', <String>['-a', agentSocket]);
     agentPid = int.parse(RegExp(r'SSH_AGENT_PID=(\d+)').firstMatch('${agent.stdout}')!.group(1)!);
-    await Process.run(
-      'ssh-add',
-      <String>['${here.path}/key'],
-      environment: <String, String>{'SSH_AUTH_SOCK': agentSocket},
+    _ran(
+      await Process.run(
+        'ssh-add',
+        <String>['${here.path}/key'],
+        environment: <String, String>{'SSH_AUTH_SOCK': agentSocket},
+      ),
     );
   });
 
@@ -139,15 +138,20 @@ void main() {
 
     // On the forge, signed by exactly that key.
     await File('${here.path}/allowed').writeAsString('person@test ${keys.single.publicKey}\n');
-    final verified = await Process.run('git', <String>[
-      '-c',
-      'gpg.ssh.allowedSignersFile=${here.path}/allowed',
-      'verify-commit',
-      commit,
-    ], workingDirectory: '${here.path}/forge.git');
+    final verified = await Process.run(
+      'git',
+      <String>['-c', 'gpg.ssh.allowedSignersFile=${here.path}/allowed', 'verify-commit', commit],
+      workingDirectory: '${here.path}/forge.git',
+      environment: _alone(here.path),
+    );
     expect(verified.exitCode, 0, reason: '${verified.stderr}');
     expect('${verified.stderr}', contains('Good "git" signature for person@test'));
-    final onMain = await Process.run('git', <String>['rev-parse', 'main'], workingDirectory: '${here.path}/forge.git');
+    final onMain = await Process.run(
+      'git',
+      <String>['rev-parse', 'main'],
+      workingDirectory: '${here.path}/forge.git',
+      environment: _alone(here.path),
+    );
     expect('${onMain.stdout}'.trim(), commit);
   });
 
@@ -170,11 +174,12 @@ void main() {
     await hook.delete();
     final commit = await work.commitAndPush('Make api a Porelo project', key, login: 'alice');
 
-    final onMain = await Process.run('git', <String>[
-      'log',
-      '--format=%H %s',
-      'main',
-    ], workingDirectory: '${here.path}/forge.git');
+    final onMain = await Process.run(
+      'git',
+      <String>['log', '--format=%H %s', 'main'],
+      workingDirectory: '${here.path}/forge.git',
+      environment: _alone(here.path),
+    );
     expect('${onMain.stdout}'.trim().split('\n').first, '$commit Make api a Porelo project');
     expect('${onMain.stdout}', isNot(contains('First words')));
   });
@@ -192,18 +197,19 @@ void main() {
   // offering one to sign a project with was what was met.
   test('the keys made for machines are never offered, and the one git signs with comes first', () async {
     Future<void> key(String name, String comment) async {
-      await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-C', comment, '-f', name]);
-      await Process.run('ssh-add', <String>[name], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket});
+      _ran(await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-C', comment, '-f', name]));
+      _ran(await Process.run('ssh-add', <String>[name], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
     }
 
     await Directory('${here.path}/.ssh').create();
     await key('${here.path}/.ssh/porelo-build', 'porelo build');
     await key('${here.path}/second', 'person@other');
-    await Process.run(
-      'git',
-      <String>['config', '--global', 'user.signingkey', '${here.path}/second.pub'],
-      environment: <String, String>{'HOME': here.path},
-    );
+    await Process.run('git', <String>[
+      'config',
+      '--global',
+      'user.signingkey',
+      '${here.path}/second.pub',
+    ], environment: _alone(here.path));
 
     final keys = await workspace().signingKeys();
 
@@ -213,23 +219,27 @@ void main() {
   });
 
   test('an agent holding only the keys made for machines says so', () async {
-    await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket});
+    _ran(await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
     await Directory('${here.path}/.ssh').create();
-    await Process.run('ssh-keygen', <String>[
-      '-q',
-      '-t',
-      'ed25519',
-      '-N',
-      '',
-      '-C',
-      'porelo build',
-      '-f',
-      '${here.path}/.ssh/porelo-build',
-    ]);
-    await Process.run(
-      'ssh-add',
-      <String>['${here.path}/.ssh/porelo-build'],
-      environment: <String, String>{'SSH_AUTH_SOCK': agentSocket},
+    _ran(
+      await Process.run('ssh-keygen', <String>[
+        '-q',
+        '-t',
+        'ed25519',
+        '-N',
+        '',
+        '-C',
+        'porelo build',
+        '-f',
+        '${here.path}/.ssh/porelo-build',
+      ]),
+    );
+    _ran(
+      await Process.run(
+        'ssh-add',
+        <String>['${here.path}/.ssh/porelo-build'],
+        environment: <String, String>{'SSH_AUTH_SOCK': agentSocket},
+      ),
     );
 
     await expectLater(
@@ -239,7 +249,7 @@ void main() {
   });
 
   test('an agent with no key is said as that, not as a failure of git', () async {
-    await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket});
+    _ran(await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
 
     await expectLater(
       workspace().signingKeys(),
@@ -251,7 +261,7 @@ void main() {
   // merged here signed with the person's key and pushed.
   test('pending work from a gate is taken as a bundle, merged signed and pushed', () async {
     Future<ProcessResult> git(List<String> args, String dir) =>
-        Process.run('git', args, workingDirectory: dir, environment: <String, String>{'HOME': here.path});
+        Process.run('git', args, workingDirectory: dir, environment: _alone(here.path));
     // What a machine's task made: one commit on top of main, handed over as a bundle.
     await git(<String>['checkout', '-q', '-b', 'task'], '${here.path}/seed');
     await File('${here.path}/seed/project.yml').writeAsString('project:\n  name: "api"\n');
@@ -285,17 +295,32 @@ void main() {
     final merged = await work.mergeAndPush('work', 'Take the planning task’s project file', key, login: 'alice');
 
     await File('${here.path}/allowed').writeAsString('person@test ${key.publicKey}\n');
-    final verified = await Process.run('git', <String>[
-      '-c',
-      'gpg.ssh.allowedSignersFile=${here.path}/allowed',
-      'verify-commit',
-      merged,
-    ], workingDirectory: '${here.path}/forge.git');
+    final verified = await Process.run(
+      'git',
+      <String>['-c', 'gpg.ssh.allowedSignersFile=${here.path}/allowed', 'verify-commit', merged],
+      workingDirectory: '${here.path}/forge.git',
+      environment: _alone(here.path),
+    );
     expect(verified.exitCode, 0, reason: '${verified.stderr}');
-    final onMain = await Process.run('git', <String>[
-      'show',
-      'main:project.yml',
-    ], workingDirectory: '${here.path}/forge.git');
+    final onMain = await Process.run(
+      'git',
+      <String>['show', 'main:project.yml'],
+      workingDirectory: '${here.path}/forge.git',
+      environment: _alone(here.path),
+    );
     expect('${onMain.stdout}', contains('name: "api"'));
   });
 }
+
+/// The environment git and ssh run in here: the test's own home, and none of the host's git
+/// configuration, neither `/etc/gitconfig` nor `$XDG_CONFIG_HOME/git/config`, which would sign, rewrite
+/// or refuse as the host says.
+Map<String, String> _alone(String home) => <String, String>{
+  'HOME': home,
+  'XDG_CONFIG_HOME': '$home/.config',
+  'GIT_CONFIG_NOSYSTEM': '1',
+};
+
+/// [ran]'s exit code held to 0: a key not made, or not added to the agent, would make every test
+/// after it pass for the wrong reason.
+void _ran(ProcessResult ran) => expect(ran.exitCode, 0, reason: '${ran.stderr}');

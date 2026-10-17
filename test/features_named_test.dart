@@ -80,7 +80,13 @@ void main() {
 /// Every text file this repository keeps outside its Markdown, this test excepted: it names the
 /// shapes it refuses, so scanning itself would fail on its own rules.
 Iterable<File> _sources() {
-  final tracked = Process.runSync('git', <String>['ls-files', '-z']).stdout as String;
+  final listed = Process.runSync(
+    'git',
+    <String>['ls-files', '-z'],
+    environment: <String, String>{'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+  );
+  if (listed.exitCode != 0) throw StateError('git ls-files exited ${listed.exitCode}: ${listed.stderr}');
+  final tracked = listed.stdout as String;
   return tracked
       .split('\x00')
       .where((path) => path.isNotEmpty && !path.endsWith('.md') && !path.startsWith('doc/walks/'))

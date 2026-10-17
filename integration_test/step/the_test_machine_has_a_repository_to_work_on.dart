@@ -23,4 +23,9 @@ git push -q origin HEAD:main
 echo "\$HOME/$name.git"
 ''')).trim();
   expect(theRepositoryThere, endsWith('$name.git'));
+  removeAfterwards(
+    remove: 'porelo project default remove "$name" >/dev/null 2>&1 || true; rm -rf "\$HOME/$name" "\$HOME/$name.git"',
+    leftOver: '[ -e "\$HOME/$name" ] && echo "LEFT:$name"; [ -e "\$HOME/$name.git" ] && echo "LEFT:$name.git"; true',
+    names: <String>['LEFT:$name', 'LEFT:$name.git'],
+  );
 }

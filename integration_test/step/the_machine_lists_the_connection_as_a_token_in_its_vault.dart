@@ -21,4 +21,10 @@ Future<void> theMachineListsTheConnectionAsATokenInItsVault(WidgetTester tester,
   expect(connection.source, 'VAULT');
   expect(connection.present, isTrue, reason: 'what was typed in the terminal did not reach the vault');
   theVaultEntry = connection.id;
+  final entry = connection.id;
+  removeAfterwards(
+    remove: 'porelo vault remove $entry >/dev/null 2>&1 || true',
+    leftOver: 'porelo vault list 2>/dev/null | sed "s/^/ENTRY:/"',
+    names: <String>['ENTRY:$entry '],
+  );
 }

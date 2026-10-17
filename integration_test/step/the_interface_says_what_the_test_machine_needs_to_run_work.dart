@@ -22,5 +22,6 @@ Future<void> theInterfaceSaysWhatTheTestMachineNeedsToRunWork(WidgetTester teste
     timeout: const Duration(seconds: 45),
     what: 'what the machine says about itself',
   );
-  expect(find.textContaining('This machine'), findsWidgets);
+  // The harm: a machine that cannot run work shown as one that can. Its verdict is there, in its own place.
+  expect(find.byKey(const Key('readiness-verdict')), findsOneWidget);
 }

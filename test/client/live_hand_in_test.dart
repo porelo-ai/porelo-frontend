@@ -124,6 +124,10 @@ void main() {
 
     test('a file taken back is gone, and the record says given and taken back', () async {
       final handing = HandingIn();
+      // Its own file, so it does not need the first test to have run: it is given, then taken back.
+      if (!(await theTask()).files!.any((each) => each.name == 'small.txt')) {
+        await handing.give(backend, await theTask(), (await aFile('small.txt', 300)).path);
+      }
 
       final taken = await handing.takeBack(backend, await theTask(), 'small.txt');
 

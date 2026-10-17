@@ -29,8 +29,10 @@ void main() {
       if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
       return null;
     });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
     final terminal = Terminal()..write('I\x1b[1Cchecked');
     final selection = TerminalController();
+    addTearDown(selection.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: CopiesAsShown(
@@ -51,6 +53,5 @@ void main() {
     await tester.pump();
 
     expect(copied, 'I checked');
-    selection.dispose();
   });
 }

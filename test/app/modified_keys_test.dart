@@ -19,6 +19,7 @@ void main() {
       open: (executable, arguments, {columns = 80, rows = 24}) =>
           far = FakeTerminal(<String>[executable, ...arguments]),
     );
+    addTearDown(session.dispose);
   });
 
   Future<void> said(String output) async {

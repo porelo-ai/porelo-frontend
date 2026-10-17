@@ -6,11 +6,13 @@ import '../support/remote.dart';
 Future<void> theTaskAndTheProjectAreRemovedAgain(WidgetTester tester, String task, String project) async {
   await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"
-porelo task stop "$task" >/dev/null 2>&1 || true
-porelo task remove "$task" >/dev/null 2>&1 || true
-porelo project unfollow --force "$project" >/dev/null 2>&1 || true
+set -e
+porelo task stop "$task" >/dev/null
+porelo task remove "$task" >/dev/null
+porelo project unfollow --force "$project" >/dev/null
 rm -rf "\$HOME/$project" "\$HOME/$project-backend.git"
 ''');
   final left = await onTheTestMachine('PATH="\$HOME/.local/bin:\$PATH"; porelo task list; porelo project list');
   expect(left, isNot(contains(task)));
+  expect(left, isNot(contains(RegExp('\\b${RegExp.escape(project)}\\b'))), reason: '$project is still followed');
 }

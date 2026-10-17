@@ -21,12 +21,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f124"></a>[F124](F124-The-Dart-Code-In-One-Format.md) | S | — | The Dart code in one format, `dart format` checked in the build. |
 | <a id="f125"></a>[F125](F125-The-Client-And-The-App-Cleared-Of-The-Readings-Findings.md) | L | — | What the reading found in the client and the app, fixed with a test each. |
 | <a id="f126"></a>[F126](F126-The-Frame-The-Tools-And-The-Workflows-Cleared-Of-The-Readings-Findings.md) | L | — | What the reading found in the frame, the tools and the workflows, fixed; the colours in the tokens. |
+| <a id="f127"></a>[F127](F127-The-Tests-Cleared-Of-The-Readings-Findings.md) | L | — | What the reading found in the tests, fixed; a red run leaves the test machine clean. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f127"></a>[F127](F127-The-Tests-Cleared-Of-The-Readings-Findings.md) | L | [F124](README.md#f124) | What the reading found in the tests, fixed; a red run leaves the test machine clean. |
 | <a id="f119"></a>[F119](F119-The-Code-Changed-Since-The-Skills-Reading-Read-Against-Them.md) | XL | [F125](README.md#f125), [F126](README.md#f126), [F127](README.md#f127) | The code changed since the last skills reading read against the sixteen skills; its findings built in three parts. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | — | An upstream that cannot be read said before a start, with what fixes it. |
 

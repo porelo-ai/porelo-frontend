@@ -45,6 +45,14 @@ void main() {
       } on Object catch (error) {
         refused = error;
       }
+      // The harm: the refusal this exists to catch gone, and a real task left running on the machine.
+      if (refused == null) {
+        addTearDown(() async {
+          final client = await PoreloClient.connect(Backend(socketPath: socket, label: 'live'));
+          await client.stop(earlierTask);
+          await client.remove(earlierTask, force: true);
+        });
+      }
 
       // ignore: avoid_print
       print(refused);

@@ -82,6 +82,12 @@ esac
     expect(result.exitCode, isNot(0), reason: 'took other packages for this one:\n${result.stdout}');
   });
 
+  // The harm: the deb indexed and the rpm not yet, and the build saying the release is served.
+  test('an upload is not believed indexed while only the deb index names it', () async {
+    final result = await run('Wait until it is actually indexed', deb: others + ours, rpm: othersRpm);
+    expect(result.exitCode, isNot(0), reason: 'took the deb alone for both:\n${result.stdout}');
+  });
+
   test('an upload is believed indexed once both indexes name its own files', () async {
     final result = await run('Wait until it is actually indexed', deb: others + ours, rpm: othersRpm + oursRpm);
     expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');

@@ -10,6 +10,12 @@ const refusedProject = 'e2e-auth';
 
 /// Usage: work on the test machine was started without a grant of {'e2e-needed'}
 Future<void> workOnTheTestMachineWasStartedWithoutAGrantOf(WidgetTester tester, String entry) async {
+  const destination = '\${XDG_DATA_HOME:-\$HOME/.local/share}/porelo/destinations/e2e-api.yaml';
+  removeAfterwards(
+    remove: '${removingTheWork('porelo-$refusedProject-auth', refusedProject)}rm -f "$destination"',
+    leftOver: '$listingTheWork; [ -e "$destination" ] && echo LEFT:e2e-api; true',
+    names: <String>['porelo-$refusedProject-auth', 'LEFT:e2e-api'],
+  );
   // A destination for the entry, then a shell given it: it starts with a warning, since nobody has
   // granted it, and the machine raises the question. A shell needs no agent credential, and runs where
   // no agent is installed at all.

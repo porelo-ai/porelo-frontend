@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/e2e.dart';
+import '../support/remote.dart';
 
 /// Usage: I add the destination {'e2e-weather'} at {'https://api.weather.invalid/v1'} from the interface
 Future<void> iAddTheDestinationAtFromTheInterface(WidgetTester tester, String name, String upstream) async {
@@ -32,6 +33,12 @@ Future<void> iAddTheDestinationAtFromTheInterface(WidgetTester tester, String na
     what: 'the machine to check the destination',
   );
   if (find.byKey(const Key('destination-refused')).evaluate().isNotEmpty) return;
+  const file = '\${XDG_DATA_HOME:-\$HOME/.local/share}/porelo/destinations';
+  removeAfterwards(
+    remove: 'rm -f "$file/$name.yaml"',
+    leftOver: '[ -e "$file/$name.yaml" ] && echo LEFT:$name; true',
+    names: <String>['LEFT:$name'],
+  );
   await tester.ensureVisible(find.byKey(const Key('write-destination')));
   await tester.tap(find.byKey(const Key('write-destination')));
   await pumpUntil(

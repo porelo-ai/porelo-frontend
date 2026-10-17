@@ -23,4 +23,10 @@ Future<void> theMachineListsTheConnectionAsAKeyInItsVault(WidgetTester tester, S
   expect(connection.protected, isTrue, reason: 'in the vault it is where the machine can shut it');
   expect(connection.present, isTrue, reason: 'the machine read the file into its vault');
   theVaultEntry = connection.id;
+  final entry = connection.id;
+  removeAfterwards(
+    remove: 'porelo vault remove $entry >/dev/null 2>&1 || true',
+    leftOver: 'porelo vault list 2>/dev/null | sed "s/^/ENTRY:/"',
+    names: <String>['ENTRY:$entry '],
+  );
 }

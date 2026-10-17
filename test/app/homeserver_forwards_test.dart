@@ -46,14 +46,14 @@ void main() {
       },
       answers: (port) async => true,
     );
+    addTearDown(forwards.dispose);
     final machines = await machinesWithVm(settings);
+    addTearDown(machines.dispose);
 
     await forwards.restore(machines);
 
     expect(raised, <int>[8010]);
     expect(forwards.portOf(vm, 'checkout'), 8010);
-    forwards.dispose();
-    machines.dispose();
   });
 
   test('a forward that cannot be raised says why, and is kept to try again', () async {
@@ -63,13 +63,13 @@ void main() {
       raise: (machine, port) async => throw const ForwardRefused('Port 8010 is already in use on this computer.'),
       answers: (port) async => false,
     );
+    addTearDown(forwards.dispose);
 
     await forwards.hold(vm, 'checkout', 8010);
 
     expect(forwards.portOf(vm, 'checkout'), isNull);
     expect(forwards.problemOf(vm, 'checkout'), contains('already in use'));
     expect(settings.homeservers.single.port, 8010);
-    forwards.dispose();
   });
 
   test('one held forward per project: joining again replaces what was kept, never doubles it', () async {
@@ -80,13 +80,13 @@ void main() {
       raise: (machine, port) async => _Forward(() => closed.add(port)),
       answers: (port) async => false,
     );
+    addTearDown(forwards.dispose);
 
     await forwards.hold(vm, 'checkout', 8010);
     await forwards.hold(vm, 'checkout', 8010);
 
     expect(settings.homeservers, hasLength(1));
     expect(closed, <int>[8010], reason: 'the first one, no longer answering, was let go before the second');
-    forwards.dispose();
   });
 
   // The harm: an ssh forward that came up after the window closed its forwards was kept by nobody,

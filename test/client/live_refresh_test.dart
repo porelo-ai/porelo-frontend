@@ -25,7 +25,8 @@ void main() {
   });
 
   test('a followed project is fetched now, and its record says when', () async {
-    final before = DateTime.now().toUtc().subtract(const Duration(seconds: 2));
+    // The far machine's clock, not this one's, says when: a minute's slack keeps a VM's drift out.
+    final before = DateTime.now().toUtc().subtract(const Duration(minutes: 1));
 
     final records = await backend.refreshProjects(project: project);
 
@@ -45,14 +46,21 @@ void main() {
     final check = ProjectCheck();
     final listed = (await backend.projects()).singleWhere((each) => each.name == project);
 
-    await check.checkNow(backend, project, <String>[for (final each in listed.repositoryStates) each.name]);
+    final names = <String>[for (final each in listed.repositoryStates) each.name];
+    await check.checkNow(backend, project, names);
 
+    // The harm: a repository the machine refused, or a call the contract no longer answers, reported
+    // as checked. One line for the follow, then one per repository, none of them a refusal.
     final said = check.saidAbout(project);
-    // ignore: avoid_print
-    print(said.join('\n'));
-    expect(said, isNotEmpty);
-    expect(said.first, isNot(startsWith('Refused')));
-    expect(said.first, isNot(startsWith('Lost contact')));
+    expect(said, hasLength(1 + (names.isEmpty ? 1 : names.length)), reason: said.join('\n'));
+    expect(said.first, isNot(anyOf(startsWith('Refused'), startsWith('Lost contact'))));
+    for (final name in names.isEmpty ? <String>[project] : names) {
+      expect(
+        said.where((line) => line.startsWith('$name: ') && !line.contains(': refused: ')),
+        hasLength(1),
+        reason: '$name was not said as checked:\n${said.join('\n')}',
+      );
+    }
     check.dispose();
   }, skip: skip);
 

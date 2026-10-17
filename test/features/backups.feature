@@ -112,13 +112,6 @@ Feature: Backups of a mirror: listing, removing, restoring, and upstream
         And the repository {'payments-api'} is {'4'} behind with {'2'} waiting
         Then the repository {'payments-api'} says {'2 waiting at the gate · 4 behind'}
         And the project's own repository {'checkout'} is not listed
-        And the repositories are listed, a card each
-
-    # A project of many repositories is taller than the window: its header scrolls with the work
-    # rather than growing over it.
-    Scenario: a project with many repositories fits, and its work stays reachable
-        Given the project {'checkout'} has the repositories {'checkout, core, frontend, sluice, claude, pi, omp, docs, site, api, web, cli, ops, db, ui, qa'}
-        Then the repositories are listed, a card each
 
     Scenario: a repository's upstream is asked about on its own
         Given the project {'checkout'} has the repositories {'checkout, payments-api'}

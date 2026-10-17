@@ -31,8 +31,15 @@ void main() {
     return space > 0 && code.contains("'${plain.substring(0, space + 1)}\${");
   }
 
-  for (final file in Directory('doc/walks').listSync().whereType<File>()) {
-    if (!file.path.endsWith('.json')) continue;
+  final walks = <File>[
+    for (final file in Directory('doc/walks').listSync().whereType<File>())
+      if (file.path.endsWith('.json')) file,
+  ];
+
+  // Without this a moved or emptied directory makes no test below, and the suite green.
+  test('there are walks to check', () => expect(walks, isNotEmpty));
+
+  for (final file in walks) {
     test('${file.uri.pathSegments.last} points only at what the interface has', () {
       final walk = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       final steps = walk['steps'] as List<dynamic>;

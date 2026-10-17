@@ -343,14 +343,20 @@ void main() {
   /// redirected — and a stand-in for `ssh` that echoed a fixed answer would prove none of it. So
   /// the far end is this machine, with `PATH` deciding what it has.
   group('starting a daemon at the far end', () {
-    Tunnels runningTheScript(String path) => Tunnels(
-      run: (command) => Process.run(
-        '/bin/sh',
-        <String>['-c', command.last],
-        environment: <String, String>{'PATH': path},
-        includeParentEnvironment: false,
-      ),
-    );
+    /// The line runs through a login shell, which reads this machine's `/etc/profile` first. A
+    /// `.profile` of the test's own puts [path] back last, so a profile that sets `PATH` outright
+    /// cannot hand the line this machine's real `systemctl` and `porelod`, and start a daemon here.
+    Tunnels runningTheScript(String path) {
+      File('${where.path}/.profile').writeAsStringSync('PATH=\'$path\'\nexport PATH\n');
+      return Tunnels(
+        run: (command) => Process.run(
+          '/bin/sh',
+          <String>['-c', command.last],
+          environment: <String, String>{'PATH': path, 'HOME': where.path},
+          includeParentEnvironment: false,
+        ),
+      );
+    }
 
     /// A far end whose `systemctl` reports [loadState] for the unit and does [start] when asked to
     /// start it. In the test's own directory, so it shadows this machine's real one.

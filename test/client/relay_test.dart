@@ -58,10 +58,11 @@ void main() {
     final backend = Backend(socketPath: '', label: 'relayed', relay: <String>['python3', '-c', joins, socket]);
 
     final connection = await backend.open();
+    // Closing is what ends the relay's process, so it is closed after a red expect too.
+    addTearDown(connection.close);
     final reply = await connection.call('org.varlink.service.GetInfo');
 
     expect(reply['product'], 'Porelo');
-    connection.close();
   });
 
   test('a relay that may not run now is not started, and why is said', () async {

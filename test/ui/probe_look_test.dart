@@ -15,10 +15,6 @@ void main() {
     expect(probeLook('UNKNOWN', scheme).$2, StateColours.of(scheme).waiting);
   });
 
-  test('a state this build does not know never draws as the good case', () {
-    expect(probeLook('SOMETHING-NEW', scheme), isNot(probeLook('OK', scheme)));
-  });
-
   test('each state has a shape of its own, so it reads without colour', () {
     final shapes = <IconData>{
       for (final state in <String>['OK', 'MISSING', 'DEGRADED', 'UNKNOWN']) probeLook(state, scheme).$1,

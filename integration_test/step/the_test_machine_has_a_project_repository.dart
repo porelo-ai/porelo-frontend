@@ -20,4 +20,9 @@ git add project.yml
 git -c user.name=e2e -c user.email=e2e@example.invalid commit -q -m "The project $name"
 echo "\$repo"
 ''');
+  removeAfterwards(
+    remove: 'rm -rf "\$HOME/$name"',
+    leftOver: '[ -e "\$HOME/$name" ] && echo "LEFT:$name"; true',
+    names: <String>['LEFT:$name'],
+  );
 }

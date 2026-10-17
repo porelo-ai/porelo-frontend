@@ -17,6 +17,11 @@ Future<void> theTestMachineHasATaskWithAMessageHeldForSaying(
   // The project messages through Matrix, the transport that keeps a conversation: without one it
   // would have no peers to hold a message for.
   expect(await matrixInTheAccount(), isTrue, reason: 'the Matrix transport could not be installed');
+  removeAfterwards(
+    remove: removingTheWork('porelo-$name-$name', name),
+    leftOver: listingTheWork,
+    names: <String>['porelo-$name-$name'],
+  );
   theHeldMessage = await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"

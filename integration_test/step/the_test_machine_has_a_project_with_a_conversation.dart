@@ -15,6 +15,11 @@ Future<void> theTestMachineHasAProjectWithAConversation(WidgetTester tester, Str
     markTestSkipped(noConversationHere!);
     return;
   }
+  removeAfterwards(
+    remove: removingTheWork('porelo-$name-write', name),
+    leftOver: listingTheWork,
+    names: <String>['porelo-$name-write'],
+  );
   await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"

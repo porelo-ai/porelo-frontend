@@ -2991,7 +2991,7 @@ class World {
         held: held,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
   }
 
   static Operations _operationsFrom(OperationsStore store) => Operations(
@@ -3062,7 +3062,7 @@ class World {
         held: held,
       ),
     );
-    await tester.pumpAndSettle();
+    await settle(tester);
   }
 
   /// Builds the interface again with whatever the scenario has just replaced.
@@ -3236,20 +3236,20 @@ class World {
     await tester.pump();
   }
 
+  /// Chooses [what] (`sync`, `backups`, `opens`, `reach`, `start-in`) from [repository]'s row menu
+  /// on the project's page.
+  static Future<void> fromARepositorysMenu(WidgetTester tester, String repository, String what) async {
+    await tester.tap(find.byKey(Key('repository-menu $repository')));
+    await settle(tester);
+    await tester.tap(find.byKey(Key('$what-$repository')));
+    await settle(tester);
+  }
+
   /// Redraws until things have stopped moving.
   ///
   /// Not [WidgetTester.pumpAndSettle]: an operation that is still running shows a spinner, and an
   /// animation with no end means pumpAndSettle never returns. Two frames, the second long enough
   /// to carry a dialog transition, is all any of this needs.
-  /// Chooses [what] (`sync`, `backups`, `opens`, `reach`, `start-in`) from [repository]'s row menu
-  /// on the project's page.
-  static Future<void> fromARepositorysMenu(WidgetTester tester, String repository, String what) async {
-    await tester.tap(find.byKey(Key('repository-menu $repository')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(Key('$what-$repository')));
-    await settle(tester);
-  }
-
   static Future<void> settle(WidgetTester tester) async {
     // Three frames, not two: a theme change animates, and the frame that ends the animation is
     // not the frame that draws its result.

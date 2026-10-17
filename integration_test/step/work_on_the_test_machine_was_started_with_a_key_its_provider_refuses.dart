@@ -14,6 +14,13 @@ const refusedTask = 'porelo-$refusedByItsProvider-ended';
 /// its provider's entry. Its last act is one call to the provider, which refuses the key, and the
 /// stub reads that answer as its end.
 Future<void> workOnTheTestMachineWasStartedWithAKeyItsProviderRefuses(WidgetTester tester, String entry) async {
+  removeAfterwards(
+    remove:
+        '${removingTheWork(refusedTask, refusedByItsProvider)}'
+        'porelo vault remove --without-revoking $entry >/dev/null 2>&1 || true',
+    leftOver: '$listingTheWork; porelo vault list 2>/dev/null | sed "s/^/ENTRY:/"',
+    names: <String>[refusedTask, 'ENTRY:$entry '],
+  );
   await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"

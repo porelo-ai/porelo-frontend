@@ -1,6 +1,6 @@
 # F127 — The Tests Cleared Of The Reading's Findings
 
-**Status:** Backlog; blocked by [F124](README.md#f124).
+**Status:** Implementing; Review once it is pushed and published as a snapshot.
 **Size:** L - six groups of findings across `test` and `integration_test`: the integration leg's
 cleanup moved into tear-downs and made to fail when it fails, the tests that cannot fail repaired
 where they guard a harm and deleted where they do not, and the host kept out of the suite.
@@ -43,3 +43,17 @@ none is gone, and no test reaches the host's own configuration, daemon or clock.
   deleted one is named in its commit with why it guarded no harm.
 - **A scenario failed midway leaves nothing in the test machine's account**, measured on the VM.
 - **The whole workflow is green on the VM** on the commit handed over.
+
+## Outcome
+
+| Finding | Outcome |
+|---|---|
+| 25, the integration leg | Each step that makes something on the test machine, or has the interface make it (a vault entry, a destination), registers its removal as a tear-down that runs after a red step too and fails naming what is left; the scenarios' own clean-up steps no longer hide a failed removal behind `\|\| true`, and check what is left. The leg reads a script's output and errors at once. `matrixInTheAccount` and the stub agent stay installed in the account on purpose, as their comments say, for the runs after. |
+| 26, a static left at zero | Restored in a tear-down. |
+| 27, `pumpAndSettle` | `World.settle` in the World and the six steps; `settle`'s doc back on it. |
+| 28, tests that could not fail | Repaired, each seen red with what it guards taken out: the rpm half of the index wait; the live contract checks, through one reading that ends a declaration where it closes and finds a field by its whole name (`idl_test`); Check it now's live test, a line per repository and none refused; quitting's warning held to its sentence that work goes on; the emergency stop to its row of what was stopped; the machine's readiness to its verdict. Deleted, as each held only layout or a colour: the scenario counting a card per repository, its step, and `probe_look`'s test of an unknown state's colour. `held()`'s live test is kept: it fails where the daemon no longer answers the call. |
+| 29, the host | The workspace tests run git with no host configuration, `features_named_test` too and checks git's exit; the far-end start tests' login shell gets a `.profile` of the test's own after `/etc/profile`. The three steps on the wall clock are kept: a step and the frame it is read in are milliseconds apart, against slacks of thirty seconds and more. |
+| 30, clean-up and order | Tear-downs for the forwards, a session, the relay and the clipboard handler; a live take-back hands in its own file; a live start that should have been refused removes the task it made; `ssh-keygen` and `ssh-add` held to their exit; `walks_test` fails when it finds no walk. The fixed 300 ms in `openTheDestinations` is kept: it is what lets a growing menu settle on the VM, and nothing has shown it short. |
+
+`doc/decisions.md` names what the suite does otherwise than `dart-build-cli-app` asks.
+

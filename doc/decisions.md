@@ -523,6 +523,11 @@ was measured here and the skill was written for an application that is not this 
 - **`World.settle`, never `pumpAndSettle`**; **stand-ins that act, never `mockito`**; **`integration_test`
   under xvfb, never `flutter drive`**; **no breakpoint compared outside `window_size.dart`** — each
   recorded in `AGENTS.md` with what it costs.
+- **Processes are driven with stand-in scripts in temporary folders, not `package:test_process` and
+  `test_descriptor`** (`dart-build-cli-app`): the scripts are the far end's own programs, `ssh`,
+  `systemctl`, `xvfb-run`, put first on a `PATH` the test builds, and what is held is what the real
+  script does with them. `tool/contract.dart` stays one dependency-free file, run as
+  `dart tool/contract.dart <socket>`, with no `bin/` and no command framework around it.
 
 **Not done, on purpose:**
 

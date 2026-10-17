@@ -5,6 +5,8 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 
+import 'support/idl.dart';
+
 /// Runs this client against a **real** `porelod`.
 ///
 /// Skipped unless one is there, because it needs the whole backend up:
@@ -60,12 +62,9 @@ void main() {
       // what the device screens are built on, so each one is looked for in its own declaration.
       final contract = await client.contract();
       String declaration(String head) {
-        final start = contract.indexOf(head);
-        expect(start, isNot(-1), reason: '"$head" is not in the served contract');
-        // A method closes twice: its parameters, then ") -> (" and its reply.
-        var end = contract.indexOf('\n)', start);
-        if (contract.startsWith('\n) -> (', end)) end = contract.indexOf('\n)', end + 1);
-        return contract.substring(start, end);
+        final found = declarationIn(contract, head);
+        expect(found, isNotNull, reason: '"$head" is not in the served contract');
+        return found!;
       }
 
       final expected = <String, List<String>>{
@@ -77,11 +76,7 @@ void main() {
       for (final MapEntry(key: head, value: names) in expected.entries) {
         final text = declaration(head);
         for (final name in names) {
-          expect(
-            text,
-            contains(RegExp('\\b$name: ')),
-            reason: '$name is used by this client and not declared in "$head"',
-          );
+          expect(declares(text, name), isTrue, reason: '$name is used by this client and not declared in "$head"');
         }
       }
       for (final value in [
@@ -155,10 +150,9 @@ void main() {
     test('declares every name this client sends to and reads from held messages', () async {
       final contract = await client.contract();
       String declaration(String what) {
-        final start = contract.indexOf(what);
-        expect(start, isNonNegative, reason: '$what is not in the served contract');
-        final end = contract.indexOf(')', contract.indexOf(')', start) + 1);
-        return contract.substring(start, end);
+        final found = declarationIn(contract, what);
+        expect(found, isNotNull, reason: '$what is not in the served contract');
+        return found!;
       }
 
       final held = declaration('type HeldMessage (');
@@ -174,24 +168,24 @@ void main() {
         'reason',
         'direction',
       ]) {
-        expect(held, contains('$field:'), reason: 'HeldMessage has no $field');
+        expect(declares(held, field), isTrue, reason: 'HeldMessage has no $field');
       }
       final read = declaration('method ReadHeld(');
       for (final field in <String>['outcome', 'standing', 'message', 'text', 'reason', 'direction']) {
-        expect(read, contains('$field:'), reason: 'ReadHeld answers no $field');
+        expect(declares(read, field), isTrue, reason: 'ReadHeld answers no $field');
       }
       final release = declaration('method Release(');
       for (final field in <String>['refuse', 'outcome', 'detail']) {
-        expect(release, contains('$field:'), reason: 'Release has no $field');
+        expect(declares(release, field), isTrue, reason: 'Release has no $field');
       }
     });
 
     test('declares every name this client sends to and reads from peers and what a person says', () async {
       final contract = await client.contract();
       String declaration(String what) {
-        final start = contract.indexOf(what);
-        expect(start, isNonNegative, reason: '$what is not in the served contract');
-        return contract.substring(start, contract.indexOf(')', contract.indexOf(')', start) + 1));
+        final found = declarationIn(contract, what);
+        expect(found, isNotNull, reason: '$what is not in the served contract');
+        return found!;
       }
 
       final peer = declaration('type TalkPeer (');
@@ -205,16 +199,16 @@ void main() {
         'sentToday',
         'receivedToday',
       ]) {
-        expect(peer, contains('$field:'), reason: 'TalkPeer has no $field');
+        expect(declares(peer, field), isTrue, reason: 'TalkPeer has no $field');
       }
-      expect(declaration('method Peers('), contains('project:'));
+      expect(declares(declaration('method Peers('), 'project'), isTrue);
       final moderate = declaration('method Moderate(');
       for (final field in <String>['task', 'project', 'name', 'held', 'mode']) {
-        expect(moderate, contains('$field:'), reason: 'Moderate has no $field');
+        expect(declares(moderate, field), isTrue, reason: 'Moderate has no $field');
       }
       final say = declaration('method Say(');
       for (final field in <String>['task', 'peer', 'kind', 'text', 'context', 'message', 'outcome']) {
-        expect(say, contains('$field:'), reason: 'Say has no $field');
+        expect(declares(say, field), isTrue, reason: 'Say has no $field');
       }
     });
 

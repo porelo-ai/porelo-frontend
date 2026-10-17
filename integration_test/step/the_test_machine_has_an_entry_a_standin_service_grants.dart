@@ -18,6 +18,16 @@ Future<void> anEntryAStandInGrants(String entry, {bool lasting = false}) async {
   // A device flow with nothing real behind it, on loopback in this account only: what Porelo allows
   // over plain http. It says "pending" until it is told yes, as a person deciding would.
   final service = File('integration_test/support/stand_in_authorization.py').readAsStringSync();
+  removeAfterwards(
+    remove:
+        'porelo vault remove --without-revoking $entry >/dev/null 2>&1 || true\n'
+        'pkill -f "stand_in_authorization.py $standInPort" 2>/dev/null || true\n'
+        'rm -f "\$HOME/stand_in_authorization.py"',
+    leftOver:
+        'porelo vault list 2>/dev/null | sed "s/^/ENTRY:/"\n'
+        'pgrep -f "stand_in_authorization.py $standInPort" >/dev/null && echo STANDIN; true',
+    names: <String>['ENTRY:$entry ', 'STANDIN'],
+  );
   await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"
