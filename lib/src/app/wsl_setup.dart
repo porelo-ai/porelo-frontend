@@ -13,7 +13,7 @@ typedef RunInWsl = Future<({int code, String said})> Function(String distributio
 /// The fingerprint of the key Porelo's package repository is signed with. **Carried here**, so a key
 /// that arrives from the repository is checked against what this build was given, not against
 /// itself: a key change needs a new version of the interface.
-const poreloKeyFingerprint = '10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE';
+const poreloKeyFingerprint = 'BF27A2FA637F505CAFBE431768D19D175D904415';
 
 /// Where the repository's key and packages are.
 const poreloKeyAddress = 'https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public';

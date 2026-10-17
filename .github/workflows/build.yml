@@ -129,6 +129,9 @@ jobs:
       # reports; the report's exit code and Maven's both fail the job.
       - name: Build and test
         timeout-minutes: 35
+        # Online here, so the fingerprint this build carries is held to the key the repository serves.
+        env:
+          PORELO_PUBLISHED_KEY: '1'
         run: |
           set +e
           ./mvnw -B -s settings.xml verify

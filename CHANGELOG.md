@@ -67,6 +67,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Setting Porelo up in a WSL distribution checks the package key against `porelo-packages`'
+  fingerprint `BF27A2FA637F505CAFBE431768D19D175D904415`, the key the repository serves, and no
+  longer stops before writing anything.
 - Bringing work up to its source no longer says that an online task fetches its upstream itself:
   an online task has a gate now and is brought up like any other. A task with no gate at all, one
   started without a gate or an offline one, is told as that.
