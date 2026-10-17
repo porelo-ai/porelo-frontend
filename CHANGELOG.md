@@ -7,6 +7,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The code is in the shared style: `dart format` at 120 columns, the YAML and the feature files at
+  four spaces, and the scripts as `shfmt` writes them, each checked in the build; the build stands
+  on `porelo-parent` `0.2.1` and its tools `0.5.1`, and no checkout keeps the job's token.
+
 ## [0.5.0] - 2026-10-17
 
 ### Added

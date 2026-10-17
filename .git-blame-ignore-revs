@@ -1,0 +1,5 @@
+# The commits `git blame` skips: each only reformats, changing whitespace and line breaks.
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Reformat to the shared code style.
+e855f60f1822f792e835aa1854afca43c959e37c
