@@ -11,9 +11,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - The Windows interface also comes as an MSIX, signed by `CN=porelo.ai` with a certificate of the
   project's own, beside the ZIP in Artifactory with the certificate's public half, in the same
-  `SHA256SUMS` and under the same attestation. Installed, it writes the same `%APPDATA%\sokar\frontend.json`
+  `SHA256SUMS` and under the same attestation. Installed, it writes the same `%APPDATA%\porelo\frontend.json`
   as the ZIP, which the IntelliJ plugin reads.
-- `sokar_frontend --diagnose-terminal` shows and logs every key and wheel event the terminal widget
+- `porelo_frontend --diagnose-terminal` shows and logs every key and wheel event the terminal widget
   receives, the bytes it would send, and what of them arrives in a WSL distribution, through pipes
   as the relay and through a pseudoconsole as the attach: for finding out what a system delivers.
 - Every build of `main` makes the Windows interface as a ZIP, beside the Linux packages, with a
@@ -23,19 +23,19 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nothing.
 - A machine added is asked what it needs to run work the first time it is the one shown and
   answers, and what it says is shown at once: each check in the daemon's own words, green when it is fine, yellow when it is
-  degraded or could not be established, red when it is missing, as `sokar doctor` colours them.
+  degraded or could not be established, red when it is missing, as `porelo doctor` colours them.
 - On Windows, a WSL distribution is a machine. The interface lists the distributions with
   `wsl.exe`, never starting a stopped one, and reaches the chosen one's daemon through
-  `wsl.exe -d <distribution> --exec sokar daemon connect`, the same Varlink over the relay's standard
+  `wsl.exe -d <distribution> --exec porelo daemon connect`, the same Varlink over the relay's standard
   input and output, with no ssh and no open port. Terminals and commands run there through
-  `wsl.exe --exec`. Before connecting it checks the Windows version, WSL, WSL2, a system Sokar
-  supports, systemd, Sokar and its daemon, and says in words where it stops. Where Sokar is missing
+  `wsl.exe --exec`. Before connecting it checks the Windows version, WSL, WSL2, a system Porelo
+  supports, systemd, Porelo and its daemon, and says in words where it stops. Where Porelo is missing
   it offers to set it up: every line shown first, run as root only after a yes, the repository's key
   checked against the fingerprint the interface carries, the agents chosen with none chosen in
   advance, and each line kept in the operations record. Turning systemd on, which restarts the
   distribution, is asked on its own, and the answer is no until changed.
-- A Windows build of the interface, the first part of reaching a Sokar in WSL from Windows. Its
-  files are under the user's profile: the machine list at `%APPDATA%\sokar\frontend.json`, where the
+- A Windows build of the interface, the first part of reaching a Porelo in WSL from Windows. Its
+  files are under the user's profile: the machine list at `%APPDATA%\porelo\frontend.json`, where the
   IntelliJ plugin reads it, and what it records under `%LOCALAPPDATA%`. A file is kept to its owner
   with `icacls` and opened as a double click opens it, with no shell reading its name. A task's
   terminal runs in a Windows pseudoconsole, and a second launch joins the first over a loopback
@@ -44,19 +44,24 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The machine list keeps a WSL distribution, `{"name", "kind": "wsl", "distribution"}`, and any
   entry of a kind this version does not know, every field of it, instead of dropping it on the next
   save. On Linux such a machine is shown as not reachable, with the reason in words. The connection
-  to a daemon speaks over any byte stream, the first step to reaching a Sokar in WSL from Windows.
+  to a daemon speaks over any byte stream, the first step to reaching a Porelo in WSL from Windows.
 
 ### Changed
 
-- The packages are proven to install on the systems Sokar supports, Ubuntu 26.04, Debian 13,
+- Sokar is now Porelo, and nothing of Sokar's is read or kept: the interface is installed afresh.
+  It installs as `porelo-frontend`, starts as `porelo_frontend`, speaks `org.fuin.porelo.Tasks1` to
+  `porelod` over `$XDG_RUNTIME_DIR/porelo/`, keeps its settings in
+  `$XDG_CONFIG_HOME/porelo/frontend.json` (`%APPDATA%\porelo\` on Windows) and comes from
+  `porelo-dist-deb`, `porelo-dist-rpm` and `porelo-dist-windows`.
+- The packages are proven to install on the systems Porelo supports, Ubuntu 26.04, Debian 13,
   Fedora 43 and Fedora 44, each image pinned by its digest, instead of Debian 12 and Fedora 40.
   The `.rpm` declares the oldest C library it needs, as the `.deb` does, and a build that would need
-  more than Debian 13's glibc 2.41 is refused before anything is published, by Sokar's shared
+  more than Debian 13's glibc 2.41 is refused before anything is published, by Porelo's shared
   `check-linkage`.
 - Every workflow run is titled with its workflow, its branch or tag and its commit's subject; the
   shared rules' workflow is called "Shared rules check" and the Artifactory probe "Artifactory probe
   test".
-- The build takes `sokar-parent` `0.1.4-SNAPSHOT` and with it the build tools' snapshot, and its
+- The build takes `porelo-parent` `0.2.0-SNAPSHOT` and with it the build tools' snapshot, and its
   Maven build and tests read the project's `settings.xml` like every other Maven call, so the
   snapshots come from Central's snapshot repository.
 

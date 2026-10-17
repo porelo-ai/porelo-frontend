@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
 
 import '../support/world.dart';
 

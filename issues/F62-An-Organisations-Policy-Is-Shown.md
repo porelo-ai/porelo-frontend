@@ -1,23 +1,23 @@
 # F62 — An Organisation's Policy Is Shown
 
-**Status:** Estimated; blocked by Sokar's part of `sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).
-**Size:** M - one contract change read from `sokar` (the policy and its refusals) across the
+**Status:** Estimated; blocked by Porelo's part of `porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16).
+**Size:** M - one contract change read from `porelo` (the policy and its refusals) across the
 machine, starting work, the clearance prompt and following, with the mock daemon and the docs; waits
-for `sokar`'s part of [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16).
+for `porelo`'s part of [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16).
 
 **What must be true.** A person on a machine whose organisation set a policy sees that it is in
 force and what it allows, and is told why when it refuses something, rather than being surprised.
 
 ## Why
 
-`sokar-project` [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16), *An organisation decides which providers its machines use*. Sokar's part is
+`porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16), *An organisation decides which providers its machines use*. Porelo's part is
 the policy file, its refusals and `doctor`; the contract carries none of it yet: not the policy, its
 refusals, or whether a prompt may be allowed.
 
 ## Plan
 
-- **The contract first:** once `sokar` carries it, the policy is read in
-  `lib/src/client/sokar_client.dart` into a model in `lib/src/client/models.dart`, answered by
+- **The contract first:** once `porelo` carries it, the policy is read in
+  `lib/src/client/porelo_client.dart` into a model in `lib/src/client/models.dart`, answered by
   `lib/src/mock/mock_daemon.dart`, and written into `doc/Backend-API.md` and `doc/Contract-Gaps.md`.
 - **With the machine:** under `MachineTitle` in `lib/src/ui/machine_view.dart`; nothing where there
   is none.

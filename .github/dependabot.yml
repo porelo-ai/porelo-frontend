@@ -13,7 +13,7 @@ updates:
       - /.github/actions/*
     schedule:
       interval: weekly
-    # A release is taken once it is three days old, as every Sokar repository takes an upstream.
+    # A release is taken once it is three days old, as every Porelo repository takes an upstream.
     cooldown:
       default-days: 3
     # One pull request for every action that moved, reviewed together, never merged automatically.

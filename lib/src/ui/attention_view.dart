@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/builds.dart';
 import '../app/attention.dart';
@@ -622,7 +622,7 @@ class TaskTile extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            // Selectable, because the name is what somebody types into `sokar` on the machine.
+                            // Selectable, because the name is what somebody types into `porelo` on the machine.
                             if (task != null || first != null)
                               SelectableText(
                                 task == null

@@ -42,7 +42,7 @@ void main() {
       await iChooseTheCommand(
           tester, 'Repositories worked on without a project');
       await itSays(tester,
-          'From the checkout /home/somebody/work/app, and back into it as sokar/<task>');
+          'From the checkout /home/somebody/work/app, and back into it as porelo/<task>');
       await itSays(tester,
           'its remote git@example.org:app.git is yours to pull and push');
     });
@@ -76,11 +76,11 @@ void main() {
       await bddSetUp(tester);
       await aRefreshMovesTo(tester, 'main', '111df4193e7e0011');
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Bring it up to its source');
-      await theMachineWasAskedToRefreshTheTask(tester, 'sokar-checkout-shell');
+      await theMachineWasAskedToRefreshTheTask(tester, 'porelo-checkout-shell');
       await theStatusLineMentions(tester,
-          'main moved to 111df4193e7e; its agent was told, and git fetch sokar brings it');
+          'main moved to 111df4193e7e; its agent was told, and git fetch porelo brings it');
     });
     testWidgets(
         '''a task without a gate says there is nothing to bring up, rather than nothing''',
@@ -88,7 +88,7 @@ void main() {
       await bddSetUp(tester);
       await aRefreshAnswers(tester, 'NOT_GATED');
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Bring it up to its source');
       await theStatusLineMentions(tester,
           'has no gate, so there is nothing here to bring up to its source');
@@ -101,7 +101,7 @@ void main() {
       await aRefreshAnswersBecause(
           tester, 'FAILED', 'the checkout /home/somebody/work/app is gone');
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Bring it up to its source');
       await theStatusLineMentions(tester,
           'could not be brought up to its source: the checkout /home/somebody/work/app is gone');

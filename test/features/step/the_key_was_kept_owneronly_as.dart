@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: the key was kept owner-only as {'sokar-the-build-machine'}
+/// Usage: the key was kept owner-only as {'porelo-the-build-machine'}
 Future<void> theKeyWasKeptOwneronlyAs(WidgetTester tester, String name) async {
   final path = '${World.setup.home.path}/.ssh/$name';
   expect(File(path).existsSync(), isTrue, reason: 'no private key at $path');

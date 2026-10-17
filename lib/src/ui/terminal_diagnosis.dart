@@ -16,13 +16,13 @@ import 'tokens.dart';
 /// Sends [bytes] into a WSL distribution and answers what `od -c` read there.
 typedef ThroughWsl = Future<String> Function(String distribution, List<int> bytes, {required bool pseudoconsole});
 
-/// `sokar_frontend --diagnose-terminal`: the terminal widget the app uses, with every event that
+/// `porelo_frontend --diagnose-terminal`: the terminal widget the app uses, with every event that
 /// reaches it shown and logged, and the bytes it would send carried through `wsl.exe` as the attach
 /// carries them.
 ///
 /// **For finding out what Windows delivers**, not for work: it starts no task and changes nothing.
 /// Each key event (its logical and physical key and its character), each wheel event, and each
-/// byte string the terminal would send is listed, and written to `sokar-terminal-diagnose.txt` in
+/// byte string the terminal would send is listed, and written to `porelo-terminal-diagnose.txt` in
 /// the system's temporary folder (`%TEMP%` on Windows) for the person to send back.
 ///
 /// Two switches answer the two questions: which input path the widget uses (the text-input path,
@@ -37,7 +37,7 @@ class TerminalDiagnosis extends StatefulWidget {
   /// How bytes are sent into a distribution; null for the real way.
   final ThroughWsl? throughWsl;
 
-  /// Where the lines are written; null for `sokar-terminal-diagnose.txt` in the temporary folder.
+  /// Where the lines are written; null for `porelo-terminal-diagnose.txt` in the temporary folder.
   final File? log;
 
   @override
@@ -50,7 +50,7 @@ class _TerminalDiagnosisState extends State<TerminalDiagnosis> {
   final List<String> _lines = <String>[];
   final List<int> _sent = <int>[];
   late final File _log =
-      widget.log ?? File('${Directory.systemTemp.path}${Platform.pathSeparator}sokar-terminal-diagnose.txt');
+      widget.log ?? File('${Directory.systemTemp.path}${Platform.pathSeparator}porelo-terminal-diagnose.txt');
   List<String> _distributions = const <String>[];
   String? _distribution;
   bool _keyEventsOnly = false;
@@ -266,5 +266,5 @@ class TerminalDiagnosisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const MaterialApp(title: 'Sokar terminal diagnosis', home: TerminalDiagnosis());
+      const MaterialApp(title: 'Porelo terminal diagnosis', home: TerminalDiagnosis());
 }

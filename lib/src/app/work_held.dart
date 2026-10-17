@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 
@@ -83,7 +83,7 @@ class WorkHeld extends ChangeNotifier {
 
     if (!said.readable) {
       return 'nothing recorded what it held — it was killed, rebooted, or stopped by an older '
-          'Sokar';
+          'Porelo';
     }
     final what = said.holdsSomething ? _counts(said) : 'nothing';
     if (said.current) {

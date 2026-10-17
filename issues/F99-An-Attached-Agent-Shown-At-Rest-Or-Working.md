@@ -1,24 +1,24 @@
 # F99 — An Attached Agent Shown At Rest Or Working
 
-**Status:** Estimated; blocked by `sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118).
+**Status:** Estimated; blocked by `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118).
 **Size:** S - one derivation, its tile words, the stand-in and two feature files; waits for
-`sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118)'s answer on the wire.
+`porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118)'s answer on the wire.
 
 **What must be true.** A person sees on a work tile whether the agent in an attached session is at
 rest or working, as the machine reads it from the agent's screen, never as a guess from silence.
 
 ## Why
 
-For an attached session the machine says neither today, so a quiet tile is shown as a guess; `sokar`
-[B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) has the machine read the agent's declared rest from its screen, as it reads waiting.
+For an attached session the machine says neither today, so a quiet tile is shown as a guess; `porelo`
+[B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) has the machine read the agent's declared rest from its screen, as it reads waiting.
 
 ## Plan
 
 - **Red first:** a scenario in `test/features/work_tiles.feature` whose stand-in answers at rest for
   an attached task (`Mode.agent`) and expects the tile to say *at rest* and not be marked as a
   guess; one beside it that answers working.
-- **The value:** in `lib/src/client/models.dart`, `Activity` gains the value [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) settles on, if it
-  is one of its own, with its `label`; if it is `IDLE` read from the screen, the field [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118) adds to
+- **The value:** in `lib/src/client/models.dart`, `Activity` gains the value [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) settles on, if it
+  is one of its own, with its `label`; if it is `IDLE` read from the screen, the field [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) adds to
   `Task` that says so is read in `Task.from`. Absent, it reads as today.
 - **The demand:** `Attention.demandOf` in `lib/src/app/attention.dart` maps the machine's at rest to
   a demand that is not `Demand.quiet`, so `Tile.inferred` stays false; waiting, ended, the gate and
@@ -39,7 +39,7 @@ For an attached session the machine says neither today, so a quiet tile is shown
   working, each finding the other word or neither.
 - Waiting, ended and stopped still win over it, as on the machine. Seen to fail: a scenario with an
   agent waiting on a person whose tile says *at rest*.
-- A machine older than [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118), or an agent that declares no rest, is shown as today, never as at rest.
+- A machine older than [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118), or an agent that declares no rest, is shown as today, never as at rest.
   Seen to fail: a scenario against such an answer that shows *at rest* or *working*.
 - `doc/Contract-Gaps.md` no longer lists a quiet attached task as a guess. Seen to fail: the page
   still says it once this is built.
@@ -47,4 +47,4 @@ For an attached session the machine says neither today, so a quiet tile is shown
 ## To be checked
 
 - Whether *at rest* arrives as an `activity` value of its own or as `idle` read from the screen
-  (`sokar` [B118](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b118)'s own question); the tile follows the machine's answer either way (Agent Core's).
+  (`porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118)'s own question); the tile follows the machine's answer either way (Agent Core's).

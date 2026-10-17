@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/vault.dart';
 import '../app/vault_devices.dart';
@@ -26,11 +26,11 @@ class VaultButtons extends StatelessWidget {
   final VoidCallback? onLock;
 
   /// Opens the store by its passphrase in a terminal on the machine; null where nothing here can
-  /// reach that machine's `sokar`, or while it is not answering.
+  /// reach that machine's `porelo`, or while it is not answering.
   final VoidCallback? onOpenWithThePassphrase;
 
   /// Makes the store in a terminal on the machine, for a machine that has none; null where nothing
-  /// here can reach that machine's `sokar`, or while it is not answering.
+  /// here can reach that machine's `porelo`, or while it is not answering.
   final VoidCallback? onMakeIt;
 
   @override

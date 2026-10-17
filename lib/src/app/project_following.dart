@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 
@@ -122,7 +122,7 @@ class ProjectFollowing extends ChangeNotifier {
     }
   }
 
-  /// A Sokar without the check is not a reason to stop: the follow itself still says what is wrong.
+  /// A Porelo without the check is not a reason to stop: the follow itself still says what is wrong.
   Future<CredentialChecked?> _checked(FleetBackend backend) async {
     try {
       return await backend.credentialCheck(url.trim());

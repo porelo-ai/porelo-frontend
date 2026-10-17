@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
 
-/// What this device keeps to open a vault, proposed for Sokar's keyslots.
+/// What this device keeps to open a vault, proposed for Porelo's keyslots.
 void main() {
   test('a share is 32 random bytes, in base64, and never the same twice', () {
     final one = newShare();

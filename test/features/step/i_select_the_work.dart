@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/tiles.dart';
 import '../support/world.dart';
 
-/// Usage: I select the work {'sokar-checkout-shell'}
+/// Usage: I select the work {'porelo-checkout-shell'}
 Future<void> iSelectTheWork(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   await tapOnScreen(

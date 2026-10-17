@@ -1,8 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
-import 'package:sokar_frontend/src/app/keystore.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/src/app/keystore.dart';
 
 /// A keystore that refuses, and quotes what it was given the way a platform message can.
 class _Refusing implements FlutterSecureStorage {
@@ -44,7 +44,7 @@ void main() {
   });
 
   test('an entry this did not write is no key, so enrolling again replaces it', () async {
-    FlutterSecureStorage.setMockInitialValues(<String, String>{'sokar-device-key:node-a': 'not json'});
+    FlutterSecureStorage.setMockInitialValues(<String, String>{'porelo-device-key:node-a': 'not json'});
 
     expect(await PlatformDeviceKeyStore().read('node-a'), isNull);
   });

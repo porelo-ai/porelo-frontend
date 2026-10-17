@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 
@@ -102,7 +102,7 @@ class HandingIn extends ChangeNotifier {
           received = answer.received;
           final placed = answer.file;
           if (placed != null) {
-            _tell('$named is in ${to.name} now, as /sokar/files/$named.');
+            _tell('$named is in ${to.name} now, as /porelo/files/$named.');
             return placed;
           }
           if (answer.received <= offset) {

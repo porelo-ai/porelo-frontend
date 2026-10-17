@@ -1,6 +1,6 @@
-# The interface's section of the Sokar documentation (sokar-ai.github.io, built there from doc/).
+# The interface's section of the Porelo documentation (porelo-ai.github.io, built there from doc/).
 # Only its order is decided here; the walk files in doc/walks/ are no pages.
-site_name: Sokar interface
+site_name: Porelo interface
 docs_dir: doc
 exclude_docs: |
   walks/

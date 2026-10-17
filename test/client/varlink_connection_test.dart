@@ -7,8 +7,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/wire/varlink_connection.dart';
-import 'package:sokar_frontend/src/wire/varlink_exception.dart';
+import 'package:porelo_frontend/src/wire/varlink_connection.dart';
+import 'package:porelo_frontend/src/wire/varlink_exception.dart';
 
 /// The transport against a peer that goes away, which a forward does when its far end has no
 /// socket: ssh accepts the connection here, then hangs up.
@@ -19,7 +19,7 @@ void main() {
 
   setUp(() async {
     scratch = Directory.systemTemp.createTempSync('varlink');
-    socketPath = '${scratch.path}/sokard.sock';
+    socketPath = '${scratch.path}/porelod.sock';
     server = await ServerSocket.bind(InternetAddress(socketPath, type: InternetAddressType.unix), 0);
     server.listen((client) => client.destroy());
   });
@@ -50,7 +50,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List', const {}, const Duration(seconds: 2)),
+      connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 2)),
       throwsA(isA<VarlinkDisconnected>().having(
           (ex) => ex.message, 'message', contains('not readable'))),
     );
@@ -61,7 +61,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List', const {}, const Duration(seconds: 2)),
+      connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 2)),
       throwsA(isA<VarlinkDisconnected>().having(
           (ex) => ex.message, 'message', contains('not readable'))),
     );
@@ -72,7 +72,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List', const {}, const Duration(seconds: 2)),
+      connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 2)),
       throwsA(isA<VarlinkDisconnected>().having(
           (ex) => ex.message, 'message', contains('not an object'))),
     );
@@ -99,7 +99,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List', const {}, const Duration(seconds: 10)),
+      connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 10)),
       throwsA(isA<VarlinkDisconnected>().having(
           (ex) => ex.message, 'message', contains('without ending'))),
     );
@@ -130,7 +130,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     final replies = await connection
-        .callMore('org.fuin.sokar.Tasks1.Watch')
+        .callMore('org.fuin.porelo.Tasks1.Watch')
         .toList()
         .timeout(const Duration(seconds: 10));
 
@@ -166,7 +166,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List', const {}, const Duration(seconds: 20)),
+      connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 20)),
       throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message',
           contains('closed before the call was answered'))),
     );
@@ -177,7 +177,7 @@ void main() {
     final connection = await VarlinkConnection.open(socketPath);
 
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List', const {}, const Duration(seconds: 20)),
+      connection.call('org.fuin.porelo.Tasks1.List', const {}, const Duration(seconds: 20)),
       // The transport's own sentence — "Connection reset by peer" — rather than ours. What must
       // never appear is the deadline: that would mean nothing noticed the socket had gone.
       throwsA(isA<VarlinkDisconnected>().having((ex) => ex.message, 'message',
@@ -190,7 +190,7 @@ void main() {
     // Written after the peer has gone, so the write itself fails.
     await Future<void>.delayed(const Duration(milliseconds: 100));
     await expectLater(
-      connection.call('org.fuin.sokar.Tasks1.List'),
+      connection.call('org.fuin.porelo.Tasks1.List'),
       throwsA(isA<VarlinkDisconnected>()),
     );
     // Long enough for a failed write to surface where nobody is waiting for it.

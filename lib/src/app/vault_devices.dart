@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'device_key.dart';
 import 'fleet_backend.dart';
 
-/// The devices that open a machine's vault, and this device among them: Sokar's keyslots.
+/// The devices that open a machine's vault, and this device among them: Porelo's keyslots.
 ///
 /// **Built against the keyslots' proposal**, which is not on `Tasks1` yet; until it is, every call answers
 /// [FeatureNotSupported] and this says so rather than showing an empty list.
@@ -26,7 +26,7 @@ class VaultDevices extends ChangeNotifier {
   DeviceKey? mine;
 
   /// Whether the machine knows about devices at all: it answered `Keyslots`. False until it has,
-  /// and false for a Sokar from before keyslots.
+  /// and false for a Porelo from before keyslots.
   bool canEnroll = false;
 
   /// Whether a call is outstanding.
@@ -164,7 +164,7 @@ class VaultDevices extends ChangeNotifier {
     } on FeatureNotSupported {
       if (mine == _asked) {
         canEnroll = false;
-        problem = "This machine's Sokar cannot enroll devices yet: that arrives with a later Sokar.";
+        problem = "This machine's Porelo cannot enroll devices yet: that arrives with a later Porelo.";
       }
     } finally {
       if (mine == _asked) {

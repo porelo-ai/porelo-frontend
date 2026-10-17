@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Runs the GUI integration tests against a real Sokar machine.
+# Runs the GUI integration tests against a real Porelo machine.
 #
-#   SOKAR_E2E_HOST=user@host \
-#   SOKAR_E2E_REMOTE_SOCKET=/run/user/<uid>/sokar/sokard.sock \
-#   SOKAR_E2E_KEY=~/.ssh/the_key_for_that_host \
+#   PORELO_E2E_HOST=user@host \
+#   PORELO_E2E_REMOTE_SOCKET=/run/user/<uid>/porelo/porelod.sock \
+#   PORELO_E2E_KEY=~/.ssh/the_key_for_that_host \
 #   tool/e2e.sh [integration_test/connecting_test.dart]
 #
 # The app gets a config and runtime directory of its own and ssh a private agent holding only that
 # key, so a running interface, its settings and the person's ssh setup are all left alone.
 #
 # Shell, not Java: what it builds is the environment of external programs - the app's own ssh, an
-# ssh-agent, known_hosts, Xvfb - and Sokar's Java tooling speaks ssh inside the JVM, with no agent,
+# ssh-agent, known_hosts, Xvfb - and Porelo's Java tooling speaks ssh inside the JVM, with no agent,
 # no known_hosts and no forwards, and starts no program against a machine.
 # The lease and the sweep around it are Java, in pom.xml.
 set -euo pipefail
@@ -18,25 +18,25 @@ set -euo pipefail
 # A machine leased by the build (-Phetzner) names itself in this file; otherwise the caller does.
 leased=build/leased.properties
 forget_host=''
-if [ -z "${SOKAR_E2E_HOST:-}" ] && [ -f "$leased" ]; then
+if [ -z "${PORELO_E2E_HOST:-}" ] && [ -f "$leased" ]; then
   value() { grep "^$1=" "$leased" | cut -d= -f2-; }
   address=$(value address)
-  export SOKAR_E2E_HOST="$(value user)@$address" SOKAR_E2E_REMOTE_SOCKET="$(value socket)"
-  export SOKAR_E2E_KEY="${SOKAR_E2E_KEY:-${HETZNER_KEY:-}}"
+  export PORELO_E2E_HOST="$(value user)@$address" PORELO_E2E_REMOTE_SOCKET="$(value socket)"
+  export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${HETZNER_KEY:-}}"
   # A fresh machine's host key is unknown, and the interface never accepts one on its own.
   mkdir -p ~/.ssh
   ssh-keyscan -H "$address" >> ~/.ssh/known_hosts 2>/dev/null
   forget_host=$address
 fi
-: "${SOKAR_E2E_HOST:?name the machine as ssh would, e.g. user@host}"
-: "${SOKAR_E2E_REMOTE_SOCKET:?the daemon socket on that machine}"
+: "${PORELO_E2E_HOST:?name the machine as ssh would, e.g. user@host}"
+: "${PORELO_E2E_REMOTE_SOCKET:?the daemon socket on that machine}"
 
 here=$(mktemp -d)
 agent=''
 # A homeserver's port is forwarded while the window runs, no longer only while its dialog is open,
 # and a test ending is not a window closing. The port forwards to the test machine that run before
 # this one are somebody else's and stay; the ones this run raised go.
-port_forwards() { pgrep -f -- "ssh -N .*-L [0-9]+:localhost:[0-9]+ $SOKAR_E2E_HOST\$" || true; }
+port_forwards() { pgrep -f -- "ssh -N .*-L [0-9]+:localhost:[0-9]+ $PORELO_E2E_HOST\$" || true; }
 before=" $(port_forwards | tr '\n' ' ') "
 cleanup() {
   # The app raises its forwards with ssh, and a test ending is not a window closing: nothing takes
@@ -53,11 +53,11 @@ trap cleanup EXIT
 mkdir -p "$here/run" "$here/config"
 chmod 700 "$here/run"
 
-if [ -n "${SOKAR_E2E_KEY:-}" ] || [ -n "${HETZNER_SSH:-}" ]; then
+if [ -n "${PORELO_E2E_KEY:-}" ] || [ -n "${HETZNER_SSH:-}" ]; then
   eval "$(ssh-agent -s -a "$here/agent.sock")" >/dev/null
   agent=$SSH_AGENT_PID
-  if [ -n "${SOKAR_E2E_KEY:-}" ]; then
-    ssh-add -q "${SOKAR_E2E_KEY/#\~/$HOME}"
+  if [ -n "${PORELO_E2E_KEY:-}" ]; then
+    ssh-add -q "${PORELO_E2E_KEY/#\~/$HOME}"
   else
     # CI hands the key over as material, and a secret is never written to a file: a pipe it is.
     printf '%s\n' "$HETZNER_SSH" | ssh-add -q -
@@ -71,8 +71,8 @@ export GDK_BACKEND=x11 XDG_RUNTIME_DIR="$here/run" XDG_CONFIG_HOME="$here/config
 
 # Options pass through (CI adds --machine); the target is added when none was named, or
 # flutter would run `test/` instead. One file: a desktop app is started once per run, and a second
-# file's start fails. The walk of a person new to Sokar empties its account, so it runs only named:
-#   SOKAR_E2E_NEW_PERSON=1 SOKAR_E2E_HOST=<an empty account>@host … tool/e2e.sh integration_test/a_new_person_test.dart
+# file's start fails. The walk of a person new to Porelo empties its account, so it runs only named:
+#   PORELO_E2E_NEW_PERSON=1 PORELO_E2E_HOST=<an empty account>@host … tool/e2e.sh integration_test/a_new_person_test.dart
 target=integration_test/reaching_a_machine_test.dart
 for argument in "$@"; do
   case "$argument" in -*) ;; *) target='' ;; esac

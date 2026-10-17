@@ -30,7 +30,7 @@ import 'src/app/project_deletion.dart';
 import 'src/app/session.dart';
 import 'src/app/settings.dart';
 import 'src/app/shell_model.dart';
-import 'src/app/sokar_app.dart';
+import 'src/app/porelo_app.dart';
 import 'src/ui/choice_field.dart';
 import 'src/ui/terminal_diagnosis.dart';
 import 'src/ui/theme.dart';
@@ -46,29 +46,29 @@ Future<void> main(List<String> arguments) async {
   // Started by the interface as the guided walk's own window: the panel and nothing else, before the
   // interface's one-instance lock would send it away.
   if (walkWindowPath() case final path?) {
-    runApp(WalkWindowApp(path, theme: SokarTheme.light, darkTheme: SokarTheme.dark, texts: sokarWalkTexts));
+    runApp(WalkWindowApp(path, theme: PoreloTheme.light, darkTheme: PoreloTheme.dark, texts: poreloWalkTexts));
     return;
   }
-  runApp(await sokar());
+  runApp(await porelo());
 }
 
 /// The interface, composed once per process and handed back again on every later call.
 ///
 /// An integration test shows it anew for each scenario, because the test framework clears the
 /// widget tree between them; composing it again would find its own instance lock and leave.
-Future<SokarApp> sokar() => _composed ??= _compose();
+Future<PoreloApp> porelo() => _composed ??= _compose();
 
-/// The guided walk named by `SOKAR_WALK`, in a development build started with one; else null. A
-/// step waiting for one of Sokar's own choices to be made sees it made.
+/// The guided walk named by `PORELO_WALK`, in a development build started with one; else null. A
+/// step waiting for one of Porelo's own choices to be made sees it made.
 WalkSession? _walk() {
-  final walk = WalkSession.fromEnvironment(variable: 'SOKAR_WALK');
+  final walk = WalkSession.fromEnvironment(variable: 'PORELO_WALK');
   if (walk == null) return null;
   walkChoices.add((widget) => widget is ChoiceField ? widget.value != null : null);
   return walk..start();
 }
-Future<SokarApp>? _composed;
+Future<PoreloApp>? _composed;
 
-Future<SokarApp> _compose() async {
+Future<PoreloApp> _compose() async {
   final settings = Settings(FileSettingsStore());
   await settings.load();
 
@@ -84,7 +84,7 @@ Future<SokarApp> _compose() async {
   // then leaves, saying so — a launch that simply vanished would read as one that crashed.
   final only = await OneInstance.take(comeForward: Window.comeForward);
   if (!only.inCharge) {
-    stderr.writeln('Sokar is already open, and has been brought to the front. '
+    stderr.writeln('Porelo is already open, and has been brought to the front. '
         'One interface watches each machine: a second would raise every decision twice.');
     exit(0);
   }
@@ -99,7 +99,7 @@ Future<SokarApp> _compose() async {
   final notifications = Notifications(DesktopNotifier(), settings)
     ..watchOperations(operations, open: (_) {});
   await notifications.load();
-  final app = SokarApp(
+  final app = PoreloApp(
     machines: machines,
     shell: shell,
     settings: settings,
@@ -124,7 +124,7 @@ Future<SokarApp> _compose() async {
     backups: Backups(),
     narrowing: Narrowing(),
     held: WorkHeld(),
-    // A development build started with SOKAR_WALK=<folder>; a release build never has one.
+    // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );
 

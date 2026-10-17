@@ -1,17 +1,17 @@
-# F109 — The Interface On macOS, With Sokar In A Local VM
+# F109 — The Interface On macOS, With Porelo In A Local VM
 
 **Status:** Estimated.
 **Size:** XL - a third desktop build, its signing and its package, and a VM set up from the window;
 it splits into three issues of L or smaller, as *Plan* says.
 
-**What must be true.** A person on a Mac installs the interface and works with a Sokar that runs in
+**What must be true.** A person on a Mac installs the interface and works with a Porelo that runs in
 a local Linux VM on that Mac, set up from the window, as [F102](README.md#f102) does for Windows with WSL; and with
-Sokar on remote machines over ssh, as on Linux.
+Porelo on remote machines over ssh, as on Linux.
 
 ## Why
 
-Many developers work on a Mac. Sokar does not run natively on macOS and will not soon (`sokar-project`
-[PJ25](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj25) stays parked), so on
+Many developers work on a Mac. Porelo does not run natively on macOS and will not soon (`porelo-project`
+[PJ25](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj25) stays parked), so on
 a Mac it runs in a Linux VM, and the interface on the Mac is how a person works with it.
 
 ## The shape
@@ -21,18 +21,18 @@ a Mac it runs in a Linux VM, and the interface on the Mac is how a person works 
   the Mac (`portForwards` with `guestSocket` and `hostSocket`). It is the one VM the window sets up,
   on Apple silicon and on Intel; UTM, Parallels, OrbStack and any other VM are reached over ssh as a
   remote machine. The interface drives `limactl` as it drives `wsl.exe` on Windows.
-- **How the interface reaches it:** the daemon's socket in the VM, `/run/user/<uid>/sokar/sokard.sock`,
+- **How the interface reaches it:** the daemon's socket in the VM, `/run/user/<uid>/porelo/porelod.sock`,
   forwarded by Lima to a socket on the Mac, which the interface opens as it opens a local socket on
   Linux: no ssh, no open port. Terminals and commands go `limactl shell <name> …` in a pseudoterminal.
 - **Set up from the window, as [F102](README.md#f102)'s WSL wizard:** a VM is made from Lima's Ubuntu template with the
-  socket forward in its configuration; Sokar is installed in it with the same lines `doc/getting-started.md`
+  socket forward in its configuration; Porelo is installed in it with the same lines `doc/getting-started.md`
   gives, each shown before it runs, the repository's key checked against the fingerprint the interface
-  carries; lingering on; `sokar setup` as the VM's user.
+  carries; lingering on; `porelo setup` as the VM's user.
 - **Any other VM** (UTM, Parallels, OrbStack, a Lima set up by hand) is reached as a remote machine
   over ssh, which the macOS build does as the Linux build does: `dart:io` opens unix sockets on macOS.
 - **The build:** Flutter's macOS release, a universal binary (arm64 and x86_64), in a `.dmg` with its
-  SHA-256 and the build's attestation, in `sokar-dist-macos` in Artifactory, `<channel>/<version>/`,
-  as `sokar-dist-windows`. **Not signed by a Developer ID for now**: there is no Apple Developer
+  SHA-256 and the build's attestation, in `porelo-dist-macos` in Artifactory, `<channel>/<version>/`,
+  as `porelo-dist-windows`. **Not signed by a Developer ID for now**: there is no Apple Developer
   account. The download page says how to open it past Gatekeeper (Control-click → Open, or System
   Settings → Privacy & Security → Open Anyway), how to check it first by `SHA256SUMS` and the
   attestation, and that Intel Macs run it untested. The packing step is shaped so that signing and
@@ -55,8 +55,8 @@ Three issues, in this order; this one is split before any is built:
      a later notarisation needs, with a keychain group for `flutter_secure_storage`. The build signs
      ad hoc, as Flutter does, which Apple silicon needs to run it at all.
    - `lib/src/app/desk.dart`: a `MacDesk` beside `LinuxDesk` and `WindowsDesk` (`Desk.of` on
-     `'macos'`): the configuration where Linux keeps it, `$XDG_CONFIG_HOME/sokar`, else
-     `~/.config/sokar`, which is where the IntelliJ plugin reads `frontend.json` on a Mac too; `open`
+     `'macos'`): the configuration where Linux keeps it, `$XDG_CONFIG_HOME/porelo`, else
+     `~/.config/porelo`, which is where the IntelliJ plugin reads `frontend.json` on a Mac too; `open`
      instead of `xdg-open`.
    - `lib/src/app/pty.dart`: the libc constants are Linux's (`_oCloexec`, `_tiocswinsz`,
      `_spawnSetsid`, the status layout); they become per system, with macOS's values.
@@ -67,7 +67,7 @@ Three issues, in this order; this one is split before any is built:
    - `.github/workflows/build.yml`: a job "macOS" on `macos-15`: analyze, the unit tests, the build,
      `tool/macos-package.sh` (the `.dmg` with `hdiutil`, `SHA256SUMS`; `codesign`, `notarytool` and
      `stapler` only where a Developer ID's secrets are set, which today they are nowhere), the
-     attestation, and the upload to `sokar-dist-macos`. `doc/index.md` gains a macOS section beside
+     attestation, and the upload to `porelo-dist-macos`. `doc/index.md` gains a macOS section beside
      Windows'. Red first: a `MacDesk` test for its folders and opener, and `pty_test.dart` run on the
      macOS runner, which fails today on Linux's constants.
 2. **A VM over ssh from the Mac (S).** Nothing new beyond the build: the leg over ssh in the Build's
@@ -79,7 +79,7 @@ Three issues, in this order; this one is split before any is built:
      the VM's configuration.
    - `lib/src/app/machines.dart`: a kind `lima` beside `wsl`, its socket the forwarded one.
    - `lib/src/app/lima_setup.dart`, as `wsl_setup.dart`: Lima missing (installed by the person, with
-     Homebrew's line shown), no VM, no Sokar, no daemon - each said and offered; the VM's
+     Homebrew's line shown), no VM, no Porelo, no daemon - each said and offered; the VM's
      architecture follows the Mac's, `aarch64` or `x86_64`.
    - `Session.command` through `limactl shell`.
    - Red first: `test/features/lima_machine.feature`, with a stand-in `limactl` as [F102](README.md#f102)'s tests have
@@ -90,12 +90,12 @@ Three issues, in this order; this one is split before any is built:
 - **On a Mac, the `.dmg` installs and opens after the one Gatekeeper step the download page names,
   and is the project's:** its checksum and attestation beside it, checked as the page says. Seen to
   fail: an app not signed even ad hoc, which Apple silicon refuses to start.
-- **From the window, a Lima VM is made, Sokar set up in it, and its daemon reached** through the
+- **From the window, a Lima VM is made, Porelo set up in it, and its daemon reached** through the
   forwarded socket: a project followed, work started, a terminal attached and typed into, a push
   approved at the gate. Seen to fail: today's build, which has no macOS target.
 - **A remote machine is reached over ssh from the Mac** as from Linux. Seen to fail: the pty with
   Linux's constants, which opens no terminal on macOS.
-- **Built and its unit tests run in the Build on `main`**, the `.dmg` published in `sokar-dist-macos`.
+- **Built and its unit tests run in the Build on `main`**, the `.dmg` published in `porelo-dist-macos`.
 
 ## To be checked
 

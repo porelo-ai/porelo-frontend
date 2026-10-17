@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Usage: the title bar offers {'Find a command (Ctrl+K), Watch another machine…, Options, About Sokar'}
+/// Usage: the title bar offers {'Find a command (Ctrl+K), Watch another machine…, Options, About Porelo'}
 Future<void> theTitleBarOffers(WidgetTester tester, String actions) async {
   final bar = find.byType(AppBar);
   final buttons = tester

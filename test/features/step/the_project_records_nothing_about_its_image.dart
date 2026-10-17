@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
 /// Usage: the project {'checkout'} records nothing about its image
 ///
-/// An image built by an older Sokar, or one whose project file has moved. **Not stale**: nothing
+/// An image built by an older Porelo, or one whose project file has moved. **Not stale**: nothing
 /// knows either way, and rebuilding for no reason is how the word stops being read.
 Future<void> theProjectRecordsNothingAboutItsImage(
     WidgetTester tester, String name) async {

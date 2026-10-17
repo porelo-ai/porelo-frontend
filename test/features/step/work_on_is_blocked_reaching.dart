@@ -6,6 +6,6 @@ import '../support/world.dart';
 Future<void> workOnIsBlockedReaching(WidgetTester tester, String machine, String where) async {
   // The other machine has one piece of work, and a question is always about work.
   expect(machine, 'elsewhere', reason: 'only elsewhere is a second machine here');
-  World.elsewhere.asking.add(World.blocked(where, task: 'sokar-shared-shell'));
+  World.elsewhere.asking.add(World.blocked(where, task: 'porelo-shared-shell'));
   await World.settle(tester);
 }

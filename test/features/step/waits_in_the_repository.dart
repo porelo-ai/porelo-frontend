@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
 /// Usage: {'Retry a declined card once'} waits in the repository {'payments-api'}
 Future<void> waitsInTheRepository(WidgetTester tester, String subject, String repository) async {
   World.backend.theGatesIn[repository] = GateState.from(<String, dynamic>{
-    'mirror': '/srv/checkout/.sokar/repositories/$repository/mirror',
+    'mirror': '/srv/checkout/.porelo/repositories/$repository/mirror',
     'mode': 'gatekeeping',
     'seededFrom': '',
     'pending': <Map<String, dynamic>>[

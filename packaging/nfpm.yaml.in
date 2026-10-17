@@ -1,7 +1,7 @@
 # What a person installs. Rendered by tool/package.sh, which appends the dependency lists it
 # derives from the binary — they are deliberately not written here, because a written list goes
 # stale the first time Flutter changes what it links.
-name: sokar-frontend
+name: porelo-frontend
 arch: amd64
 platform: linux
 version: "@VERSION@"
@@ -9,19 +9,19 @@ section: devel
 priority: optional
 maintainer: "Michael Schnell <michael@fuin.org>"
 description: |
-  Interface for Sokar, which runs AI coding agents in locked-down containers.
+  Interface for Porelo, which runs AI coding agents in locked-down containers.
   Watches what work is doing, reviews what it produced before anything leaves the
   machine, and answers what it is refused while it runs.
 vendor: fuin.org
-homepage: https://github.com/sokar-ai/sokar-frontend
-# The same licence as the rest of Sokar.
+homepage: https://github.com/porelo-ai/porelo-frontend
+# The same licence as the rest of Porelo.
 license: GPL-3.0-only
 
 # Not `depends`. An interface pointed at a remote daemon over an SSH-forwarded socket is useful
 # with no local backend at all, so pulling the daemon in would be wrong for a real way people use
 # this — and would put a backend on a laptop that only ever talks to a server.
 recommends:
-  - sokar
+  - porelo
 
 contents:
   # The bundle installs as a directory. `flutter build linux --release` produces one, and the
@@ -33,32 +33,32 @@ contents:
   # installs. The application then opens no window, which is the exact failure this requirement
   # names.
   - src: build/linux/x64/release/bundle
-    dst: /usr/lib/sokar-frontend
+    dst: /usr/lib/porelo-frontend
     type: tree
 
-  - src: /usr/lib/sokar-frontend/sokar_frontend
-    dst: /usr/bin/sokar-frontend
+  - src: /usr/lib/porelo-frontend/porelo_frontend
+    dst: /usr/bin/porelo-frontend
     type: symlink
 
   # Shipped on every machine, including ones nobody logs into graphically. A .desktop entry on a
   # headless server is inert rather than wrong, and splitting the package to avoid one inert file
   # costs more than it saves.
-  - src: packaging/sokar-frontend.desktop
-    dst: /usr/share/applications/sokar-frontend.desktop
+  - src: packaging/porelo-frontend.desktop
+    dst: /usr/share/applications/porelo-frontend.desktop
 
-  - src: packaging/sokar-frontend.svg
-    dst: /usr/share/icons/hicolor/scalable/apps/sokar-frontend.svg
+  - src: packaging/porelo-frontend.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/porelo-frontend.svg
 
   # The licence text travels with the package, where each packaging system looks for it.
   - src: LICENSE
-    dst: /usr/share/doc/sokar-frontend/copyright
+    dst: /usr/share/doc/porelo-frontend/copyright
     packager: deb
 
   - src: LICENSE
-    dst: /usr/share/licenses/sokar-frontend/LICENSE
+    dst: /usr/share/licenses/porelo-frontend/LICENSE
     type: license
     packager: rpm
 
 # Nothing is listed as a config file, so nothing is left behind on removal. What a person chose
-# lives in their own ~/.config/sokar/frontend.json, which no package may touch: an upgrade must
+# lives in their own ~/.config/porelo/frontend.json, which no package may touch: an upgrade must
 # keep it and a removal must not go looking for it.

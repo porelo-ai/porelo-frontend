@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// What a project says about itself, held to the contract rather than to a screen.
 ///
@@ -94,7 +94,7 @@ void main() {
     );
   });
 
-  // Measured on Sokar 221: a project with a `matrix:` peer answers its conversation this way.
+  // Measured on Porelo 221: a project with a `matrix:` peer answers its conversation this way.
   test("a project's conversation is read whole, and a project without one has none", () {
     final talking = projectWith(<String, dynamic>{
       'messages': <String, dynamic>{

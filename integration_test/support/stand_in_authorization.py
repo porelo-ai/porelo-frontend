@@ -1,4 +1,4 @@
-# A stand-in authorization service for measuring Sokar's Authorize, on loopback only.
+# A stand-in authorization service for measuring Porelo's Authorize, on loopback only.
 # Device flow (RFC 8628) and the code flow's token exchange, with nothing real behind them.
 # Started with "lasting" after the port, it grants as GitHub's OAuth apps do: an access token with
 # no refresh token and no expiry, which only the person can end at the service.

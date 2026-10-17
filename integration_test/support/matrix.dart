@@ -11,12 +11,12 @@ import 'remote.dart';
 Future<bool> matrixInTheAccount() async =>
     await onTheTestMachine(r'''
 set -eu
-data="${XDG_DATA_HOME:-$HOME/.local/share}/sokar"; units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-transport=sokar-message-transport-matrix
-if [ ! -x "/usr/libexec/sokar/transports/$transport" ] && [ ! -x "$data/transports/$transport" ]; then
-  repo=https://fuinorg.jfrog.io/artifactory/sokar-dist-deb
+data="${XDG_DATA_HOME:-$HOME/.local/share}/porelo"; units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+transport=porelo-message-transport-matrix
+if [ ! -x "/usr/libexec/porelo/transports/$transport" ] && [ ! -x "$data/transports/$transport" ]; then
+  repo=https://fuinorg.jfrog.io/artifactory/porelo-dist-deb
   index=$(curl -fsSL "$repo/dists/snapshots/main/binary-amd64/Packages")
-  for package in $transport sokar-matrix-homeserver; do
+  for package in $transport porelo-matrix-homeserver; do
     set -- $(printf '%s\n' "$index" | awk -v p="$package" '$0 == "Package: " p {x = 1}
       x && /^Filename:/ {f = $2} x && /^SHA256:/ {h = $2} /^$/ {x = 0} END {print f, h}')
     [ -n "${1:-}" ] || { echo "$package is not in the index" >&2; exit 1; }
@@ -26,15 +26,15 @@ if [ ! -x "/usr/libexec/sokar/transports/$transport" ] && [ ! -x "$data/transpor
     dpkg-deb -x "$work/p.deb" "$work/x"
     case $package in
       $transport) mkdir -p "$data/transports"
-                  install -m 755 "$work/x/usr/libexec/sokar/transports/$transport" "$data/transports/";;
-      *) mkdir -p "$units/sokar-matrix-homeserver.service.d"
-         install -m 644 "$work/x/usr/lib/systemd/user/sokar-matrix-homeserver.service" "$units/"
-         printf '[Service]\nExecStartPre=\nExecStartPre=%%h/.local/share/sokar/transports/%s homeserver-token\n' \
-           "$transport" > "$units/sokar-matrix-homeserver.service.d/account.conf"
+                  install -m 755 "$work/x/usr/libexec/porelo/transports/$transport" "$data/transports/";;
+      *) mkdir -p "$units/porelo-matrix-homeserver.service.d"
+         install -m 644 "$work/x/usr/lib/systemd/user/porelo-matrix-homeserver.service" "$units/"
+         printf '[Service]\nExecStartPre=\nExecStartPre=%%h/.local/share/porelo/transports/%s homeserver-token\n' \
+           "$transport" > "$units/porelo-matrix-homeserver.service.d/account.conf"
          systemctl --user daemon-reload;;
     esac
     rm -rf "$work"
   done
 fi
-[ -x "/usr/libexec/sokar/transports/$transport" ] || [ -x "$data/transports/$transport" ] && echo yes || echo no
+[ -x "/usr/libexec/porelo/transports/$transport" ] || [ -x "$data/transports/$transport" ] && echo yes || echo no
 ''') == 'yes';

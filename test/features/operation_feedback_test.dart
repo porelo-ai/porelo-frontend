@@ -52,7 +52,7 @@ void main() {
           tester, 'Show what this project would open, creating nothing');
       await iCloseWhatIsOpen(tester);
       await iSelectTheProject(tester, 'checkout');
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
       await theOperationIsStillRunning(tester);
     });
     testWidgets('''output goes to the operation and disturbs nothing else''',

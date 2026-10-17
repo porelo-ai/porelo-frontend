@@ -15,7 +15,7 @@ Feature: Where a repository's work comes from and goes, and catching up
     Given default holds {'app'} from the checkout {'/home/somebody/work/app'} whose remote is {'git@example.org:app.git'}
     When I select the project {'default'}
     And I choose the command {'Repositories worked on without a project'}
-    Then it says {'From the checkout /home/somebody/work/app, and back into it as sokar/<task>'}
+    Then it says {'From the checkout /home/somebody/work/app, and back into it as porelo/<task>'}
     And it says {'its remote git@example.org:app.git is yours to pull and push'}
 
   Scenario: a repository added by its address says its work comes from that remote and goes there
@@ -34,15 +34,15 @@ Feature: Where a repository's work comes from and goes, and catching up
   Scenario: a running task is brought up to its source, and its agent is told
     Given a refresh moves {'main'} to {'111df4193e7e0011'}
     When I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
     And I choose the command {'Bring it up to its source'}
-    Then the machine was asked to refresh the task {'sokar-checkout-shell'}
-    And the status line mentions {'main moved to 111df4193e7e; its agent was told, and git fetch sokar brings it'}
+    Then the machine was asked to refresh the task {'porelo-checkout-shell'}
+    And the status line mentions {'main moved to 111df4193e7e; its agent was told, and git fetch porelo brings it'}
 
   Scenario: a task without a gate says there is nothing to bring up, rather than nothing
     Given a refresh answers {'NOT_GATED'}
     When I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
     And I choose the command {'Bring it up to its source'}
     Then the status line mentions {'has no gate, so there is nothing here to bring up to its source'}
     And the status line mentions {'started without one, or it is offline'}
@@ -50,6 +50,6 @@ Feature: Where a repository's work comes from and goes, and catching up
   Scenario: a refresh that failed says why, in the machine's words
     Given a refresh answers {'FAILED'} because {'the checkout /home/somebody/work/app is gone'}
     When I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
     And I choose the command {'Bring it up to its source'}
     Then the status line mentions {'could not be brought up to its source: the checkout /home/somebody/work/app is gone'}

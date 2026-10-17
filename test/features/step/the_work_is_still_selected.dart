@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/tiles.dart';
 
 
-/// Usage: the work {'sokar-checkout-shell'} is still selected
+/// Usage: the work {'porelo-checkout-shell'} is still selected
 Future<void> theWorkIsStillSelected(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   expect(

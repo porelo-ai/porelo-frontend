@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/tiles.dart';
 import '../support/world.dart';
 
-/// Usage: I click the tile {'sokar-checkout-shell'} with the right button
+/// Usage: I click the tile {'porelo-checkout-shell'} with the right button
 Future<void> iClickTheTileWithTheRightButton(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   // On the headline, not the name: the name is selectable text with its own menu.

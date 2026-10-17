@@ -8,10 +8,10 @@ hand-in after the task is gone - on this machine and on one reached over ssh ali
 
 ## Why
 
-`sokar` lets a file be put in front of a running task once, without a repository. The contract,
-as `org.fuin.sokar.Tasks1` says it:
+`porelo` lets a file be put in front of a running task once, without a repository. The contract,
+as `org.fuin.porelo.Tasks1` says it:
 
-    # Hands a file to a running task. It appears in the container as /sokar/files/<name>, owned by root and
+    # Hands a file to a running task. It appears in the container as /porelo/files/<name>, owned by root and
     # readable by the agent, which cannot change or remove it, and it appears whole or not at all: nothing reaches
     # the task until the last part has arrived and the content's sha256 is what the caller said.
     #
@@ -24,7 +24,7 @@ as `org.fuin.sokar.Tasks1` says it:
 
 `Task` gains `files`, `handInLimit` ("A client refuses a larger file before reading it") and `run`;
 `TakeBack` removes a file; `HandIns` returns the record of every run that carried the name, also
-after the task is gone. `by` is the account that handed a file in, or `"sokar"` for Sokar's own.
+after the task is gone. `by` is the account that handed a file in, or `"porelo"` for Porelo's own.
 
 ## Acceptance
 
@@ -41,12 +41,12 @@ after the task is gone. `by` is the account that handed a file in, or `"sokar"` 
   error, each finding a generic failure.
 - A file is taken back with a second decision; the record shows it given, replaced and taken back.
   Seen to fail: a scenario whose file is still listed after the machine answered.
-- Sokar's own hand-ins (`by` `"sokar"`) read as Sokar's, never as a person's. Seen to fail: a
-  stand-in file by `"sokar"` shown with an account's name.
+- Porelo's own hand-ins (`by` `"porelo"`) read as Porelo's, never as a person's. Seen to fail: a
+  stand-in file by `"porelo"` shown with an account's name.
 - On a machine without hand-in, the action is listed as not supported there, and an absent `files`
   reads as absent, never as empty. Seen to fail: a scenario against an older answer that shows
   *no files*.
-- Measured end to end on the local VM against a daemon handed over from `sokar`: a small and a large
+- Measured end to end on the local VM against a daemon handed over from `porelo`: a small and a large
   file in parts, a resumed transfer, the limit refused before the first byte, a file taken back, and
   the record after the task is removed.
 

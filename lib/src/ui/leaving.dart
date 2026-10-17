@@ -16,7 +16,7 @@ Future<bool> confirmQuit(
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Close Sokar?'),
+        title: const Text('Close Porelo?'),
         content: SizedBox(
           width: Sizes.dialogSmall,
           child: DialogScroll(child: Column(
@@ -97,7 +97,7 @@ class NewerVersionBanner extends StatelessWidget {
             const SizedBox(width: Space.small),
             const Expanded(
               child: Text(
-                'A newer Sokar has been installed. This window is still running the old one.',
+                'A newer Porelo has been installed. This window is still running the old one.',
                 key: Key('newer-version'),
               ),
             ),

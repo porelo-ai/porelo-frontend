@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/machine_clearing.dart';
 import 'dialog_scroll.dart';
@@ -26,7 +26,7 @@ class _ClearingDialog extends StatelessWidget {
         builder: (context, _) {
           final text = Theme.of(context).textTheme;
           final scheme = Theme.of(context).colorScheme;
-          final what = clearing.project ?? 'everything Sokar put there';
+          final what = clearing.project ?? 'everything Porelo put there';
           final preview = clearing.preview;
           final cleared = clearing.cleared;
           final over = cleared != null && !cleared.refused;
@@ -105,7 +105,7 @@ class _ClearingDialog extends StatelessWidget {
         },
       );
 
-  /// The machine's kind of thing, as a person reads it: Sokar names them in lower case, `task`,
+  /// The machine's kind of thing, as a person reads it: Porelo names them in lower case, `task`,
   /// `mirror`, `image`, `follow`, `conversation`, `transport`, `deploy key`, `signer` (measured on run 278).
   static String _kind(String kind) => switch (kind.toLowerCase().replaceAll('_', ' ')) {
         'task' => 'the work',

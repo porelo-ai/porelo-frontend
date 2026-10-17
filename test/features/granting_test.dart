@@ -264,19 +264,19 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theMachineSaysNeedsAGrantForIn(
-          tester, 'jira', 'sokar-checkout-shell', 'checkout');
+          tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
-      await itSays(tester, 'jira needs a grant for sokar-checkout-shell');
+      await itSays(tester, 'jira needs a grant for porelo-checkout-shell');
       await itSays(tester, 'Nobody has granted it yet');
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
       await somebodyWasTold(
-          tester, 'jira needs a grant for sokar-checkout-shell');
+          tester, 'jira needs a grant for porelo-checkout-shell');
     });
     testWidgets('''a grant the service ended says it needs granting again''',
         (tester) async {
       await bddSetUp(tester);
       await theMachineSaysNeedsGrantingAgainForIn(
-          tester, 'jira', 'sokar-checkout-shell', 'checkout');
+          tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await itSays(tester, 'the service has ended the grant');
     });
@@ -285,7 +285,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theMachineSaysNeedsAGrantForIn(
-          tester, 'jira', 'sokar-checkout-shell', 'checkout');
+          tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await theMachineSaysIsGranted(tester, 'jira');
       await itDoesNotSay(tester, 'jira needs a grant');
@@ -295,7 +295,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theMachineSaysNeedsAGrantForIn(
-          tester, 'jira', 'sokar-checkout-shell', 'checkout');
+          tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await iGrantFromWhatNeedsAPerson(tester, 'jira');
       await theMachineWasAskedToGrant(tester, 'jira');

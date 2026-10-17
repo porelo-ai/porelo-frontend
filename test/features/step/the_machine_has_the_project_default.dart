@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -7,11 +7,11 @@ import '../support/world.dart';
 Future<void> theMachineHasTheProjectDefault(WidgetTester tester) async {
   World.backend.theProjectsItHas = <Project>[
     ...World.backend.theProjectsItHas,
-    // As Sokar lists it: a file of Sokar's own, where nobody writes, and followed by nobody.
+    // As Porelo lists it: a file of Porelo's own, where nobody writes, and followed by nobody.
     Project.from(const <String, dynamic>{
       'name': defaultProject,
       'securityClass': 'guarded',
-      'file': '/home/me/.local/state/sokar/default/project.yml',
+      'file': '/home/me/.local/state/porelo/default/project.yml',
       'following': null,
     }),
   ];

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'diff.dart';
 import 'fleet_backend.dart';
@@ -24,7 +24,7 @@ class Gate extends ChangeNotifier {
   List<PendingPush> waiting = const <PendingPush>[];
 
   /// The repositories that were asked about and answered, the project's own first. Empty where the
-  /// machine names none, which a Sokar older than repositories per project does.
+  /// machine names none, which a Porelo older than repositories per project does.
   List<String> repositories = const <String>[];
 
   /// Whether something is being asked for right now.
@@ -46,7 +46,7 @@ class Gate extends ChangeNotifier {
   List<ChangedFile> get changed => parseUnifiedDiff(diff);
 
   /// The push's files as the machine ranked them, in the order to show them: dangerous by kind
-  /// first, the volume that is almost never a finding last. Empty from a Sokar older than the ranked
+  /// first, the volume that is almost never a finding last. Empty from a Porelo older than the ranked
   /// review, which is then shown as before.
   List<ReviewFile> ranked = const <ReviewFile>[];
 
@@ -106,7 +106,7 @@ class Gate extends ChangeNotifier {
     var said = '';
     await _asking(() async {
       // The commit that was reviewed, where the machine takes it: a push that moved since is then
-      // refused, not forwarded unseen. An older Sokar is not sent it.
+      // refused, not forwarded unseen. An older Porelo is not sent it.
       final commit = push.commit.isNotEmpty && await _takesTheCommit(backend) ? push.commit : null;
       try {
         await backend.approve(file, push.name, branch, repository: _where(push), commit: commit);

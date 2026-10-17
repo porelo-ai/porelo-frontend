@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Usage: the first tile is {'sokar-billing-shell'}
+/// Usage: the first tile is {'porelo-billing-shell'}
 Future<void> theFirstTileIs(WidgetTester tester, String work) async {
   final tiles = tester
       .widgetList<Card>(find.byType(Card))

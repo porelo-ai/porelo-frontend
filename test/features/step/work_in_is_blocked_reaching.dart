@@ -6,6 +6,6 @@ import '../support/world.dart';
 Future<void> workInIsBlockedReaching(
     WidgetTester tester, String project, String where) async {
   // Turning one project off must not turn the others off with it.
-  World.backend.asking.add(World.blocked(where, task: 'sokar-billing-shell'));
+  World.backend.asking.add(World.blocked(where, task: 'porelo-billing-shell'));
   await World.settle(tester);
 }

@@ -116,7 +116,7 @@ class ProjectWorkspace {
       : _run = run ?? runHere,
         sshDirectory = sshDirectory ?? '${Platform.environment['HOME'] ?? '.'}/.ssh';
 
-  /// Where the keys this interface made for machines are kept, `sokar-<machine>` each.
+  /// Where the keys this interface made for machines are kept, `porelo-<machine>` each.
   final String sshDirectory;
 
   /// The repository on the forge.
@@ -171,13 +171,13 @@ class ProjectWorkspace {
   Future<void> writeFile(String name, String text) => File('$folder/$name').writeAsString(text);
 
   /// Takes pending work [name] from a machine's gate, as the bundle it handed out, into this clone
-  /// at `refs/sokar/incoming/<name>`, and answers what it changes against the default branch.
+  /// at `refs/porelo/incoming/<name>`, and answers what it changes against the default branch.
   Future<String> takeBundle(List<int> bundle, String name) async {
-    final here = await Directory.systemTemp.createTemp('sokar-bundle-');
+    final here = await Directory.systemTemp.createTemp('porelo-bundle-');
     try {
       final file = File('${here.path}/pending.bundle');
       await file.writeAsBytes(bundle);
-      final ref = 'refs/sokar/incoming/$name';
+      final ref = 'refs/porelo/incoming/$name';
       await _git(<String>['fetch', file.path, '$ref:$ref']);
       return (await _git(<String>['diff', 'HEAD...$ref'])).out;
     } finally {
@@ -193,7 +193,7 @@ class ProjectWorkspace {
       '-c', 'gpg.format=ssh',
       '-c', 'user.signingkey=key::${key.publicKey}',
       if (named.out.trim().isEmpty) ...<String>['-c', 'user.name=$login', '-c', 'user.email=$login@users.noreply.github.com'],
-      'merge', '--no-ff', '-S', '-m', message, 'refs/sokar/incoming/$name',
+      'merge', '--no-ff', '-S', '-m', message, 'refs/porelo/incoming/$name',
     ]);
     final commit = (await _git(<String>['rev-parse', 'HEAD'])).out.trim();
     await _git(<String>['push', 'origin', 'HEAD:${repository.defaultBranch}'], withToken: true);
@@ -208,7 +208,7 @@ class ProjectWorkspace {
 
   /// The keys in the person's ssh agent they can sign with, each with its fingerprint: **the one git
   /// signs their commits with first**, and **never a key this interface made to log into a machine**
-  /// (`~/.ssh/sokar-<machine>`), which a desktop keyring loads into the agent all the same.
+  /// (`~/.ssh/porelo-<machine>`), which a desktop keyring loads into the agent all the same.
   Future<List<SigningKey>> signingKeys() async {
     final all = await _agentKeys();
     final machines = _machineKeys();
@@ -230,7 +230,7 @@ class ProjectWorkspace {
     if (!directory.existsSync()) return const <String>{};
     return <String>{
       for (final file in directory.listSync().whereType<File>())
-        if (file.uri.pathSegments.last.startsWith('sokar-') && file.path.endsWith('.pub'))
+        if (file.uri.pathSegments.last.startsWith('porelo-') && file.path.endsWith('.pub'))
           file.readAsStringSync().trim().split(RegExp(r'\s+')).take(2).join(' '),
     };
   }
@@ -306,12 +306,12 @@ class ProjectWorkspace {
       if (withToken) {
         // An askpass program private to this one git process: the token reaches git through its
         // environment, never an argument another user of this computer could read.
-        asking = await Directory.systemTemp.createTemp('sokar-askpass-');
+        asking = await Directory.systemTemp.createTemp('porelo-askpass-');
         final program = File('${asking.path}/askpass');
-        await program.writeAsString('#!/bin/sh\ncase "\$1" in\n  Username*) echo x-access-token ;;\n  *) printf \'%s\\n\' "\$SOKAR_FORGE_TOKEN" ;;\nesac\n');
+        await program.writeAsString('#!/bin/sh\ncase "\$1" in\n  Username*) echo x-access-token ;;\n  *) printf \'%s\\n\' "\$PORELO_FORGE_TOKEN" ;;\nesac\n');
         await Process.run('chmod', <String>['700', asking.path, program.path]);
         environment['GIT_ASKPASS'] = program.path;
-        environment['SOKAR_FORGE_TOKEN'] = _token;
+        environment['PORELO_FORGE_TOKEN'] = _token;
       }
       final ran = await _run('git', arguments, inDirectory: inFolder ? folder : null, environment: environment);
       if (ran.code != 0) {

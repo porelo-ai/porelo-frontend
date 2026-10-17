@@ -6,27 +6,27 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
-/// A daemon reached through a relay process, as a Sokar in WSL is reached from Windows through
-/// `wsl.exe -d <distribution> -- sokar daemon connect`: the same Varlink over the relay's standard
+/// A daemon reached through a relay process, as a Porelo in WSL is reached from Windows through
+/// `wsl.exe -d <distribution> -- porelo daemon connect`: the same Varlink over the relay's standard
 /// input and output. Here the relay is a small program joining them to a unix socket, as
-/// `sokar daemon connect` does, and the daemon one that answers `GetInfo`.
+/// `porelo daemon connect` does, and the daemon one that answers `GetInfo`.
 void main() {
   late Directory place;
   late ServerSocket daemon;
   late String socket;
 
   setUp(() async {
-    place = Directory.systemTemp.createTempSync('sokar-relay-');
-    socket = '${place.path}/sokard.sock';
+    place = Directory.systemTemp.createTempSync('porelo-relay-');
+    socket = '${place.path}/porelod.sock';
     daemon = await ServerSocket.bind(InternetAddress(socket, type: InternetAddressType.unix), 0);
     daemon.listen((client) {
       client.listen((bytes) {
         if (!bytes.contains(0)) return;
         client.add(<int>[
           ...utf8.encode(jsonEncode(<String, Object?>{
-            'parameters': <String, Object?>{'vendor': 'fuin.org', 'product': 'Sokar'},
+            'parameters': <String, Object?>{'vendor': 'fuin.org', 'product': 'Porelo'},
           })),
           0,
         ]);
@@ -57,7 +57,7 @@ void main() {
     final connection = await backend.open();
     final reply = await connection.call('org.varlink.service.GetInfo');
 
-    expect(reply['product'], 'Sokar');
+    expect(reply['product'], 'Porelo');
     connection.close();
   });
 

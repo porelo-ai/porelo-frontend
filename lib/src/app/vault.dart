@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'device_key.dart';
 import 'fleet_backend.dart';
@@ -59,7 +59,7 @@ class Vault extends ChangeNotifier {
   /// Whether the list of names can be believed.
   ///
   /// A locked store and an empty one both answer with no names, and an interface must not show
-  /// them the same way. Corrected on the Sokar side: an unlocked, empty store now
+  /// them the same way. Corrected on the Porelo side: an unlocked, empty store now
   /// answers `readable: true`.
   bool get readable => state?.readable ?? false;
 
@@ -84,8 +84,8 @@ class Vault extends ChangeNotifier {
     if (devices.enrolledHere) return 'The vault is shut. Open it with this device.';
     return devices.canEnroll
         ? 'The vault is shut, and this device is not enrolled. Unlock it at the machine with '
-            '`sokar vault unlock`, then enroll this device.'
-        : 'The vault is shut. Unlock it at the machine with `sokar vault unlock`.';
+            '`porelo vault unlock`, then enroll this device.'
+        : 'The vault is shut. Unlock it at the machine with `porelo vault unlock`.';
   }
 
   /// Whether enrolling is offered beside the lock: **only while this device is not enrolled** on a
@@ -96,7 +96,7 @@ class Vault extends ChangeNotifier {
   /// What enrolling says, and why it cannot happen yet when it cannot.
   String get enrollSays => whyNot(VaultAct.enroll) == null
       ? 'This device cannot open the vault yet. Enroll it so it can.'
-      : 'Enrolling needs the vault open. Unlock it at the machine with `sokar vault unlock` first.';
+      : 'Enrolling needs the vault open. Unlock it at the machine with `porelo vault unlock` first.';
 
   /// Why [what] cannot be done now, or null when it can.
   String? whyNot(VaultAct what) {

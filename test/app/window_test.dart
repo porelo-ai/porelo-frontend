@@ -1,13 +1,13 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/window.dart';
+import 'package:porelo_frontend/src/app/window.dart';
 
 /// A second launch joins the one already running, which is only true if something comes forward.
 /// A window that stays behind whatever the person was looking at reads as a launch that failed.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('sokar/window');
+  const channel = MethodChannel('porelo/window');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 
 import '../support/tiles.dart';
 import '../support/world.dart';
@@ -11,7 +11,7 @@ Future<void> theMachineIsReachedOverSshAs(WidgetTester tester, String host) asyn
     name: 'vm',
     socketPath: '/tmp/world-vm.sock',
     host: host,
-    remoteSocket: '/run/user/1000/sokar/sokard.sock',
+    remoteSocket: '/run/user/1000/porelo/porelod.sock',
   );
   await World.machines.add(machine);
   await World.settle(tester);

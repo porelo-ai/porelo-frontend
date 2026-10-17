@@ -13,7 +13,7 @@ Future<void> noForwardRaisedForTheTrialIsLeft(WidgetTester tester) async {
   expect(files, isEmpty, reason: 'the trial left its socket behind');
   final ssh = Process.runSync('pgrep', <String>[
     '-af',
-    '$runtime/sokar-tunnel-[^ ]*trial',
+    '$runtime/porelo-tunnel-[^ ]*trial',
   ]);
   expect(
     ssh.exitCode,

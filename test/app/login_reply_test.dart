@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/login_forward.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/app/login_forward.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/session.dart';
 
 import '../features/support/world.dart';
 
@@ -19,7 +19,7 @@ void main() {
   Session login({bool forwards = true}) => Session(
         task: 'login',
         machine: vm,
-        run: const <String>['ssh', '-t', 'alice@vm', 'sokar', 'vault', 'login', 'claude'],
+        run: const <String>['ssh', '-t', 'alice@vm', 'porelo', 'vault', 'login', 'claude'],
         forwardsALoginReply: forwards,
         open: (executable, arguments, {columns = 80, rows = 24}) => far = FakeTerminal(<String>[executable, ...arguments]),
       );

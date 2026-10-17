@@ -73,27 +73,27 @@ void main() {
         '''a quiet task is marked as a guess, and a known state never is''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkIsIdle(tester, 'sokar-checkout-shell');
+      await theWorkIsIdle(tester, 'porelo-checkout-shell');
       await theWorkIsWaitingOn(
-          tester, 'sokar-billing-shell', 'api.example.test:443');
-      await theTileIsMarkedAsAGuess(tester, 'sokar-checkout-shell');
-      await theTileIsNotMarkedAsAGuess(tester, 'sokar-billing-shell');
+          tester, 'porelo-billing-shell', 'api.example.test:443');
+      await theTileIsMarkedAsAGuess(tester, 'porelo-checkout-shell');
+      await theTileIsNotMarkedAsAGuess(tester, 'porelo-billing-shell');
     });
     testWidgets(
         '''work says which provider its agent was brokered to, and nothing where none is recorded''',
         (tester) async {
       await bddSetUp(tester);
       await theWorkRunsBrokeredTo(
-          tester, 'sokar-checkout-shell', 'an-agent', 'github-copilot');
+          tester, 'porelo-checkout-shell', 'an-agent', 'github-copilot');
       await theWorkRunsBrokeredTo(
-          tester, 'sokar-billing-shell', 'an-agent', '');
+          tester, 'porelo-billing-shell', 'an-agent', '');
       await theTileSays(
-          tester, 'sokar-checkout-shell', 'an-agent via github-copilot');
-      await theTileSays(tester, 'sokar-billing-shell', 'an-agent');
-      await theTileDoesNotSay(tester, 'sokar-billing-shell', 'via');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell', 'an-agent via github-copilot');
+      await theTileSays(tester, 'porelo-billing-shell', 'an-agent');
+      await theTileDoesNotSay(tester, 'porelo-billing-shell', 'via');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
-      await theDetailForIsShown(tester, 'sokar-checkout-shell');
+      await theDetailForIsShown(tester, 'porelo-checkout-shell');
       await itSays(tester, 'github-copilot');
     });
     testWidgets(
@@ -101,92 +101,92 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theWorkIsWaitingOn(
-          tester, 'sokar-billing-shell', 'api.example.test:443');
-      await theTileIsHeadedByItsWork(tester, 'sokar-billing-shell');
-      await theTileShowsTheState(tester, 'sokar-billing-shell', 'question');
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+          tester, 'porelo-billing-shell', 'api.example.test:443');
+      await theTileIsHeadedByItsWork(tester, 'porelo-billing-shell');
+      await theTileShowsTheState(tester, 'porelo-billing-shell', 'question');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await theTileIsHeadedByItsWork(tester, 'sokar-checkout-shell');
-      await theTileShowsTheState(tester, 'sokar-checkout-shell', 'stopped');
+      await theTileIsHeadedByItsWork(tester, 'porelo-checkout-shell');
+      await theTileShowsTheState(tester, 'porelo-checkout-shell', 'stopped');
     });
     testWidgets('''work nothing can see is never drawn as quiet''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkCannotBeSeen(tester, 'sokar-checkout-shell');
-      await theTileSays(tester, 'sokar-checkout-shell', 'Running');
-      await theTileIsNotMarkedAsAGuess(tester, 'sokar-checkout-shell');
+      await theWorkCannotBeSeen(tester, 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell', 'Running');
+      await theTileIsNotMarkedAsAGuess(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''work is opened by hand from the work page, and leaving it comes back there''',
         (tester) async {
       await bddSetUp(tester);
-      await iWorkInByHandFromItsTile(tester, 'sokar-checkout-shell');
-      await theSessionRuns(tester, 'sokar task attach sokar-checkout-shell');
+      await iWorkInByHandFromItsTile(tester, 'porelo-checkout-shell');
+      await theSessionRuns(tester, 'porelo task attach porelo-checkout-shell');
       await iLeaveTheSession(tester);
       await theViewShownIsTheWork(tester);
     });
     testWidgets('''the name on a tile can be selected and copied''',
         (tester) async {
       await bddSetUp(tester);
-      await theNameOnTheTileCanBeCopied(tester, 'sokar-checkout-shell');
+      await theNameOnTheTileCanBeCopied(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''a tile offers what its work can be told to do, from its menu''',
         (tester) async {
       await bddSetUp(tester);
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffers(tester, 'Work in it by hand');
     });
     testWidgets('''clicking a tile with the right button opens the same menu''',
         (tester) async {
       await bddSetUp(tester);
-      await iClickTheTileWithTheRightButton(tester, 'sokar-checkout-shell');
+      await iClickTheTileWithTheRightButton(tester, 'porelo-checkout-shell');
       await theMenuOffers(tester, 'Work in it by hand');
     });
     testWidgets(
         '''work started again from its tile says what came of it, on the tile''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
-      await wasStartedAgain(tester, 'sokar-checkout-shell');
-      await theTileSays(tester, 'sokar-checkout-shell', 'is running again');
+          tester, 'Start it again', 'porelo-checkout-shell');
+      await wasStartedAgain(tester, 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell', 'is running again');
     });
     testWidgets(
         '''a start the machine refused when pressed says so on the tile''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await startingItAgainWillBeRefusedBecauseTheVaultIsLocked(tester);
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
-      await theTileSays(tester, 'sokar-checkout-shell', 'the vault is locked');
+          tester, 'Start it again', 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell', 'the vault is locked');
     });
     testWidgets(
         '''a start that failed with an exit code says what the machine printed, on the tile''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await startingItAgainWillFailWithExitCodeSaying(
           tester, 70, 'Several agents are installed');
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
+          tester, 'Start it again', 'porelo-checkout-shell');
       await theTileSays(
-          tester, 'sokar-checkout-shell', 'Several agents are installed');
+          tester, 'porelo-checkout-shell', 'Several agents are installed');
     });
     testWidgets(
         '''a start the machine would refuse is unavailable on the tile, with its reason''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysStartingNeedsTheVaultUnlocked(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffersAsUnavailableBecause(
           tester, 'Start it again', 'vault is locked');
     });
@@ -194,23 +194,23 @@ void main() {
         '''work started before its machine restarted can only be recovered, and says how''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysWasStartedBeforeTheMachineRestarted(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffersAsUnavailableBecause(tester, 'Start it again',
-          'podman cp sokar-checkout-shell:/workspace');
+          'podman cp porelo-checkout-shell:/workspace');
     });
     testWidgets(
         '''a container named from before one per task can only be removed''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysHasANameFromBeforeOneContainerPerTask(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffersAsUnavailableBecause(
           tester, 'Start it again', 'can only be removed');
     });
@@ -221,8 +221,8 @@ void main() {
       await theProjectHasTheRepositories(
           tester, 'checkout', 'checkout, payments-api');
       await theWorkWorksInTheRepository(
-          tester, 'sokar-checkout-shell', 'payments-api');
-      await theTileSays(tester, 'sokar-checkout-shell', 'in payments-api');
+          tester, 'porelo-checkout-shell', 'payments-api');
+      await theTileSays(tester, 'porelo-checkout-shell', 'in payments-api');
     });
     testWidgets('''work started again starts in the repository it worked in''',
         (tester) async {
@@ -230,11 +230,11 @@ void main() {
       await theProjectHasTheRepositories(
           tester, 'checkout', 'checkout, payments-api');
       await theWorkWorksInTheRepository(
-          tester, 'sokar-checkout-shell', 'payments-api');
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell', 'payments-api');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
+          tester, 'Start it again', 'porelo-checkout-shell');
       await itWasStartedAgainInTheRepository(tester, 'payments-api');
     });
     testWidgets('''work that names no repository is in the project's own''',
@@ -242,81 +242,81 @@ void main() {
       await bddSetUp(tester);
       await theProjectHasTheRepositories(
           tester, 'checkout', 'checkout, payments-api');
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await theTileSays(tester, 'sokar-checkout-shell', 'in checkout');
+      await theTileSays(tester, 'porelo-checkout-shell', 'in checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
+          tester, 'Start it again', 'porelo-checkout-shell');
       await itWasStartedAgainInTheRepository(tester, 'checkout');
     });
     testWidgets(
         '''a machine that names no repositories is started again in none''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
+          tester, 'Start it again', 'porelo-checkout-shell');
       await itWasStartedAgainInNoRepository(tester);
     });
     testWidgets(
         '''work a restart took down says why on its tile, and can be started again''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysARestartOfItsMachineTookDown(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await theTileSays(tester, 'sokar-checkout-shell',
+      await theTileSays(tester, 'porelo-checkout-shell',
           'the machine restarted; starting it brings it back whole');
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffers(tester, 'Start it again');
     });
     testWidgets(
         '''work a restart took down, started again, says what was restored''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysARestartOfItsMachineTookDown(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Start it again', 'sokar-checkout-shell');
-      await theTileSays(tester, 'sokar-checkout-shell',
+          tester, 'Start it again', 'porelo-checkout-shell');
+      await theTileSays(tester, 'porelo-checkout-shell',
           'its records, its egress and its tokens were restored');
     });
     testWidgets(
         '''work whose start needs the vault unlocked offers to unlock it''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysStartingNeedsTheVaultUnlocked(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(tester,
-          'Unlock the vault, so this can start', 'sokar-checkout-shell');
-      await aTerminalRunsOnTheMachine(tester, 'sokar vault unlock');
+          'Unlock the vault, so this can start', 'porelo-checkout-shell');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault unlock');
     });
     testWidgets(
         '''work that can simply be started again says nothing about a restart''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
       await noTileSays(tester, 'restarted');
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuDoesNotOffer(tester, 'Unlock the vault, so this can start');
     });
     testWidgets('''work a restart took down says why in its detail too''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysARestartOfItsMachineTookDown(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
-      await theDetailForIsShown(tester, 'sokar-checkout-shell');
+      await theDetailForIsShown(tester, 'porelo-checkout-shell');
       await itSays(tester, 'Why it is down');
       await itSays(
           tester, 'the machine restarted; starting it brings it back whole');
@@ -325,13 +325,13 @@ void main() {
         '''work a restart took down while the vault is locked says why, and offers to unlock''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await theMachineSaysARestartTookDownAndItsTokensWaitInTheLockedVault(
-          tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell');
       await iSelectTheProject(tester, 'checkout');
-      await theTileSays(tester, 'sokar-checkout-shell',
+      await theTileSays(tester, 'porelo-checkout-shell',
           'the machine restarted; starting it brings it back whole');
-      await iOpenTheMenuOfTheTile(tester, 'sokar-checkout-shell');
+      await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffersAsUnavailableBecause(
           tester, 'Start it again', 'vault is locked');
       await theMenuOffers(tester, 'Unlock the vault, so this can start');
@@ -340,36 +340,36 @@ void main() {
         '''a tile shows the newest lines its agent writes, drawn only now and then''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkRunsUnattended(tester, 'sokar-billing-shell');
+      await theWorkRunsUnattended(tester, 'porelo-billing-shell');
       await theTileOfShows(
-          tester, 'sokar-billing-shell', 'Nothing written yet.');
+          tester, 'porelo-billing-shell', 'Nothing written yet.');
       await theAgentOfWrites(
-          tester, 'sokar-billing-shell', 'reading the contracts');
+          tester, 'porelo-billing-shell', 'reading the contracts');
       await theTileOfShows(
-          tester, 'sokar-billing-shell', 'reading the contracts');
+          tester, 'porelo-billing-shell', 'reading the contracts');
       await theAgentOfWrites(
-          tester, 'sokar-billing-shell', '[read] doc/Backend-API.md');
+          tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
       await theTileOfDoesNotShowYet(
-          tester, 'sokar-billing-shell', '[read] doc/Backend-API.md');
+          tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
       await secondsPass(tester, 3);
       await theTileOfShows(
-          tester, 'sokar-billing-shell', '[read] doc/Backend-API.md');
+          tester, 'porelo-billing-shell', '[read] doc/Backend-API.md');
       await itsTailWasAskedForFromItsLastLinesFormatted(tester, 20);
     });
     testWidgets(
         '''a tile's console is enlarged to the right side, following, and made small again''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkRunsUnattended(tester, 'sokar-billing-shell');
-      await iEnlargeTheConsoleOf(tester, 'sokar-billing-shell');
+      await theWorkRunsUnattended(tester, 'porelo-billing-shell');
+      await iEnlargeTheConsoleOf(tester, 'porelo-billing-shell');
       await theViewShownIs(
-          tester, 'sokar-billing-shell · what its agent writes');
+          tester, 'porelo-billing-shell · what its agent writes');
     });
     testWidgets(
         '''a tile of work in a terminal says where its agent's lines are, and reads no log''',
         (tester) async {
       await bddSetUp(tester);
-      await theTileOfShows(tester, 'sokar-billing-shell',
+      await theTileOfShows(tester, 'porelo-billing-shell',
           'Its agent works in its terminal - open it to see.');
     });
     testWidgets(
@@ -377,24 +377,25 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theTerminalOfShows(
-          tester, 'sokar-billing-shell', 'agent> make test');
-      await theTileOfShows(tester, 'sokar-billing-shell',
+          tester, 'porelo-billing-shell', 'agent> make test');
+      await theTileOfShows(tester, 'porelo-billing-shell',
           'Its agent works in its terminal - open it to see.');
       await secondsPass(tester, 3);
-      await theTileOfShows(tester, 'sokar-billing-shell', 'agent> make test');
+      await theTileOfShows(tester, 'porelo-billing-shell', 'agent> make test');
       await secondsPass(tester, 9);
-      await theScreenOfWasAskedForAtMostTimes(tester, 'sokar-billing-shell', 5);
+      await theScreenOfWasAskedForAtMostTimes(
+          tester, 'porelo-billing-shell', 5);
     });
     testWidgets(
         '''enlarging the console of work in a terminal opens its session''',
         (tester) async {
       await bddSetUp(tester);
       await theTerminalOfShows(
-          tester, 'sokar-billing-shell', 'agent> make test');
-      await theTileOfShows(tester, 'sokar-billing-shell',
+          tester, 'porelo-billing-shell', 'agent> make test');
+      await theTileOfShows(tester, 'porelo-billing-shell',
           'Its agent works in its terminal - open it to see.');
       await secondsPass(tester, 3);
-      await iEnlargeTheConsoleOf(tester, 'sokar-billing-shell');
+      await iEnlargeTheConsoleOf(tester, 'porelo-billing-shell');
       await sessionsAreOpen(tester, 1);
     });
   });

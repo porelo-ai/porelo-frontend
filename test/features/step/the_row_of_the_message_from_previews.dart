@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: the row of the message from {'sokar-checkout-shell'} previews {'please look'}
+/// Usage: the row of the message from {'porelo-checkout-shell'} previews {'please look'}
 ///
 /// Empty words: it previews nothing at all.
 Future<void> theRowOfTheMessageFromPreviews(WidgetTester tester, String task, String words) async {

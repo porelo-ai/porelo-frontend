@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 
 import '../support/world.dart';
 
@@ -10,7 +10,7 @@ Future<void> theWizardSetUpTheMachine(WidgetTester tester, String name) async {
   // What setting it up leaves on this computer: its key, and the Host entry naming it.
   final ssh = World.machines.setup.sshDirectory;
   Directory(ssh).createSync(recursive: true);
-  final alias = 'sokar-$name';
+  final alias = 'porelo-$name';
   final key = '$ssh/$alias-agent';
   File(key).writeAsStringSync('a private key\n');
   File('$key.pub').writeAsStringSync('ssh-ed25519 AAAA $name\n');
@@ -20,7 +20,7 @@ Future<void> theWizardSetUpTheMachine(WidgetTester tester, String name) async {
     name: name,
     socketPath: Machine.endpointFor(name),
     host: alias,
-    remoteSocket: '/run/user/1001/sokar/sokard.sock',
+    remoteSocket: '/run/user/1001/porelo/porelod.sock',
   ));
   await World.settle(tester);
 }

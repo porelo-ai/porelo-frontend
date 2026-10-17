@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
-import 'package:sokar_frontend/src/app/templates.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/templates.dart';
 
 /// A template is a convenience, and a convenience that can quietly widen what work may reach is
 /// not one. That is the part with teeth, and it is what most of this file is about.

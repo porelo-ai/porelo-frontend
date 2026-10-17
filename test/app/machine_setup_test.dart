@@ -5,8 +5,8 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machine_setup.dart';
-import 'package:sokar_frontend/src/app/setup_run.dart';
+import 'package:porelo_frontend/src/app/machine_setup.dart';
+import 'package:porelo_frontend/src/app/setup_run.dart';
 
 /// Against the real `ssh-keygen`: the pair it makes, and the check that two pasted halves belong
 /// together, are only worth as much as the tool that answers them.
@@ -24,15 +24,15 @@ void main() {
   int mode(String path) => FileStat.statSync(path).mode & 0x1FF;
 
   test('a generated pair belongs together and is written owner-only', () async {
-    final pair = await setup.generate('sokar build machine');
+    final pair = await setup.generate('porelo build machine');
 
     expect(pair.publicKey, startsWith('ssh-ed25519 '));
-    expect(pair.publicKey, endsWith('sokar build machine'));
+    expect(pair.publicKey, endsWith('porelo build machine'));
     expect(await setup.mismatch(pair), isNull);
 
-    final path = await setup.save(pair, 'sokar-build');
+    final path = await setup.save(pair, 'porelo-build');
 
-    expect(path, '${home.path}/.ssh/sokar-build');
+    expect(path, '${home.path}/.ssh/porelo-build');
     expect(mode('${home.path}/.ssh'), 0x1C0, reason: '~/.ssh is not 700');
     expect(mode(path), 0x180, reason: 'the private key is not 600');
     expect(mode('$path.pub'), 0x1A4, reason: 'the public key is not 644');
@@ -65,12 +65,12 @@ void main() {
 
   test('saving twice is harmless, and another key under that name is never overwritten', () async {
     final pair = await setup.generate('first');
-    await setup.save(pair, 'sokar-build');
-    await setup.save(pair, 'sokar-build');
+    await setup.save(pair, 'porelo-build');
+    await setup.save(pair, 'porelo-build');
 
     final other = await setup.generate('second');
-    await expectLater(setup.save(other, 'sokar-build'), throwsA(isA<MachineSetupFailed>()));
-    expect(File('${home.path}/.ssh/sokar-build').readAsStringSync(), pair.privateKey);
+    await expectLater(setup.save(other, 'porelo-build'), throwsA(isA<MachineSetupFailed>()));
+    expect(File('${home.path}/.ssh/porelo-build').readAsStringSync(), pair.privateKey);
   });
 
   test('a pair never says its private half', () async {
@@ -89,16 +89,16 @@ void main() {
   });
 
   group('the Host entry', () {
-    Future<String> add({String alias = 'sokar-build', String user = 'agents'}) => setup.addHostEntry(
-        alias: alias, host: '203.0.113.10', user: user, keyFile: '${home.path}/.ssh/sokar-build');
+    Future<String> add({String alias = 'porelo-build', String user = 'agents'}) => setup.addHostEntry(
+        alias: alias, host: '203.0.113.10', user: user, keyFile: '${home.path}/.ssh/porelo-build');
 
     String config() => File('${home.path}/.ssh/config').readAsStringSync();
 
     test('a first entry makes the file owner-only and names the work user and the key', () async {
       await add();
 
-      expect(config(), 'Host sokar-build\n    HostName 203.0.113.10\n    User agents\n'
-          '    IdentityFile ${home.path}/.ssh/sokar-build\n    IdentitiesOnly yes\n');
+      expect(config(), 'Host porelo-build\n    HostName 203.0.113.10\n    User agents\n'
+          '    IdentityFile ${home.path}/.ssh/porelo-build\n    IdentitiesOnly yes\n');
       expect(mode('${home.path}/.ssh/config'), 0x180);
     });
 
@@ -108,8 +108,8 @@ void main() {
 
       await add();
 
-      expect(config(), startsWith('Host mine\n    User me\n\nHost sokar-build\n'));
-      expect(File('${home.path}/.ssh/config.before-sokar-build').readAsStringSync(),
+      expect(config(), startsWith('Host mine\n    User me\n\nHost porelo-build\n'));
+      expect(File('${home.path}/.ssh/config.before-porelo-build').readAsStringSync(),
           'Host mine\n    User me\n');
     });
 
@@ -148,7 +148,7 @@ void main() {
 
   test('a key whose comment holds a quote reaches root exactly as it is', () async {
     // The comment is a machine name somebody typed; "Alice's box" once broke the root script.
-    const key = "ssh-ed25519 AAAA Alice's box'; touch /tmp/sokar-pwned; '";
+    const key = "ssh-ed25519 AAAA Alice's box'; touch /tmp/porelo-pwned; '";
     final lines = MachineSetup.authorize("o'brien", key).split('\n').take(3).join('\n');
 
     final ran = await Process.run('bash', <String>['-c', '$lines\nprintf "%s\\n" "\$user" "\$key"']);
@@ -160,10 +160,10 @@ void main() {
   group('what a machine could install', () {
     test('every field is read, and a missing one reads as nothing rather than failing', () {
       final packages = MachineSetup.installableIn('{"packages": ['
-          '{"name": "sokar-agent-claude", "kind": "agent", "description": "Claude Code", '
-          '"installed": true, "version": "1.0"}, {"name": "sokar-agent-omp"}]}');
+          '{"name": "porelo-agent-claude", "kind": "agent", "description": "Claude Code", '
+          '"installed": true, "version": "1.0"}, {"name": "porelo-agent-omp"}]}');
 
-      expect(packages.map((each) => each.name), <String>['sokar-agent-claude', 'sokar-agent-omp']);
+      expect(packages.map((each) => each.name), <String>['porelo-agent-claude', 'porelo-agent-omp']);
       expect(packages.first.kind, 'agent');
       expect(packages.first.installed, isTrue);
       expect(packages.first.version, '1.0');
@@ -178,14 +178,14 @@ void main() {
       expect(packages.map((each) => each.name), <String>['ok-1.0+b']);
     });
 
-    // Verbatim what Sokar measured on the Ubuntu VM (e582250): the
-    // transport package, found because it declares Provides: sokar-transport.
+    // Verbatim what Porelo measured on the Ubuntu VM (e582250): the
+    // transport package, found because it declares Provides: porelo-transport.
     test("the script's own answer, as measured on a real machine, is read", () {
-      final packages = MachineSetup.installableIn('{"packages":[{"name":"sokar-message-transport-local",'
+      final packages = MachineSetup.installableIn('{"packages":[{"name":"porelo-message-transport-local",'
           '"kind":"transport","description":"Carries agent messages between mailboxes on one machine",'
           '"installed":true,"version":"1.0.0~snapshot.0+local.20260918T100444"}]}');
 
-      expect(packages.single.name, 'sokar-message-transport-local');
+      expect(packages.single.name, 'porelo-message-transport-local');
       expect(packages.single.kind, 'transport');
       expect(packages.single.installed, isTrue);
       expect(packages.single.version, '1.0.0~snapshot.0+local.20260918T100444');
@@ -196,17 +196,17 @@ void main() {
     });
 
     test('the choice is carried into both showing and running, the same way', () {
-      expect(MachineSetup.show('agents', <String>['sokar-agent-claude']),
-          contains("--user agents --with sokar-agent-claude --show"));
-      expect(MachineSetup.prepare('agents', <String>['sokar-agent-claude'], digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
-          endsWith("\nbash /root/sokar-setup.sh --user agents --with sokar-agent-claude\n"));
+      expect(MachineSetup.show('agents', <String>['porelo-agent-claude']),
+          contains("--user agents --with porelo-agent-claude --show"));
+      expect(MachineSetup.prepare('agents', <String>['porelo-agent-claude'], digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+          endsWith("\nbash /root/porelo-setup.sh --user agents --with porelo-agent-claude\n"));
     });
 
     test('only the script shown runs: its SHA-256 is checked first', () {
       final shown = MachineSetup.digestIn('The script shown has the SHA-256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\nuseradd agents');
       expect(shown, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
       final script = MachineSetup.prepare('agents', <String>[], digest: shown!);
-      expect(script, startsWith("printf '%s  %s\\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' /root/sokar-setup.sh | sha256sum -c --status"));
+      expect(script, startsWith("printf '%s  %s\\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' /root/porelo-setup.sh | sha256sum -c --status"));
       expect(script, contains('exit ${MachineSetup.notTheScriptShown}'));
       expect(() => MachineSetup.prepare('agents', <String>[], digest: ''), throwsA(isA<MachineSetupFailed>()));
     });

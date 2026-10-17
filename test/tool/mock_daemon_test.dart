@@ -12,7 +12,7 @@ void main() {
   late Directory scratch;
 
   setUp(
-    () => scratch = Directory.systemTemp.createTempSync('sokar-mock-tool-test'),
+    () => scratch = Directory.systemTemp.createTempSync('porelo-mock-tool-test'),
   );
   tearDown(() => scratch.deleteSync(recursive: true));
 

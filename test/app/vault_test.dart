@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
-import 'package:sokar_frontend/src/app/vault.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/src/app/vault.dart';
 
 import '../features/support/world.dart';
 
@@ -25,7 +25,7 @@ class _Refusing extends FakeBackend {
   _Refusing() : super(const <Task>[]);
 
   @override
-  Future<Locked> lock() async => throw const VarlinkException('org.fuin.sokar.Tasks1.VaultBusy');
+  Future<Locked> lock() async => throw const VarlinkException('org.fuin.porelo.Tasks1.VaultBusy');
 }
 
 void main() {

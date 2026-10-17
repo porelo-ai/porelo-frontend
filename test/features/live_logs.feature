@@ -7,7 +7,7 @@ Feature: Reading a task's logs as they are written
     And the app is running
     And I go to the work
     And I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
 
   Scenario: a log is read inside the interface, without dropping to another tool
     When I read the log {'agent.log'}

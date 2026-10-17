@@ -7,29 +7,29 @@ Feature: Working inside a container by hand, locally or over ssh
     And the app is running
     And I go to the work
     And I select the project {'billing'}
-    And I select the work {'sokar-billing-shell'}
+    And I select the work {'porelo-billing-shell'}
 
   Scenario: a session is one action from where the work is listed
     When I work in it by hand
-    Then the session runs {'sokar task attach sokar-billing-shell'}
+    Then the session runs {'porelo task attach porelo-billing-shell'}
 
   Scenario: a machine reached over ssh runs the same verb, through a terminal of its own
     When I start watching another machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
     And I select the project {'billing'}
-    And I select the work {'sokar-billing-shell'}
+    And I select the work {'porelo-billing-shell'}
     And I work in it by hand
-    Then the session runs {'ssh -t user@build.example.test sokar task attach sokar-billing-shell'}
+    Then the session runs {'ssh -t user@build.example.test porelo task attach porelo-billing-shell'}
 
   Scenario: what the far end prints is what is on the screen
     When I work in it by hand
-    And the session prints {'root@sokar-billing-shell:/work#'}
-    Then the session shows {'root@sokar-billing-shell:/work#'}
+    And the session prints {'root@porelo-billing-shell:/work#'}
+    Then the session shows {'root@porelo-billing-shell:/work#'}
 
   Scenario: what is typed reaches the far end
     When I work in it by hand
@@ -43,7 +43,7 @@ Feature: Working inside a container by hand, locally or over ssh
     When I open the command finder
     Then the command {'Let this work reach something new'} is offered as unavailable
     When I work in it by hand
-    Then the session runs {'sokar task attach sokar-billing-shell'}
+    Then the session runs {'porelo task attach porelo-billing-shell'}
 
   # Once refused here, on the strength of "the agent is the main process, so there is
   # no session to attach to". Wrong: `AGENT` and `SHELL` are the same task — same container, same
@@ -52,16 +52,16 @@ Feature: Working inside a container by hand, locally or over ssh
   # task there is.
   Scenario: work an agent is driving can be worked in by hand like any other
     Given I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
     When I work in it by hand
-    Then the session runs {'sokar task attach sokar-checkout-shell'}
+    Then the session runs {'porelo task attach porelo-checkout-shell'}
 
   # Against work whose mode nothing recorded, deliberately: nothing else can take the action
   # away, so what is measured is the running check on its own. A scenario against a stopped
   # unattended run passed with that check deleted — the agent rule was doing the work.
   Scenario: work that has stopped has no session, and points at starting it again
-    When I select the work {'sokar-billing-audit'}
-    And the work {'sokar-billing-audit'} is dead
+    When I select the work {'porelo-billing-audit'}
+    And the work {'porelo-billing-audit'} is dead
     And I open the command finder
     Then the command {'Work in it by hand'} is unavailable because {'Starting it again brings back the workspace'}
 
@@ -78,7 +78,7 @@ Feature: Working inside a container by hand, locally or over ssh
   Scenario: leaving a session puts somebody back where they were, with the same work selected
     When I work in it by hand
     And I leave the session
-    Then the work {'sokar-billing-shell'} is still selected
+    Then the work {'porelo-billing-shell'} is still selected
 
   # Found by asking where the key went rather than by assuming: the frame's `Escape` closed the
   # pane and the far end never saw it, which would have made `vim` unusable inside a session.
@@ -94,9 +94,9 @@ Feature: Working inside a container by hand, locally or over ssh
   Scenario: a session left and another opened from a tile keeps one open, and stops no work
     When I work in it by hand
     And I leave the session
-    And I work in {'sokar-billing-audit'} by hand from its tile
+    And I work in {'porelo-billing-audit'} by hand from its tile
     Then {1} sessions are open
-    And the session on screen is {'sokar-billing-audit'}
+    And the session on screen is {'porelo-billing-audit'}
     And the first session was left
     And the work was never stopped
     When I select the project {'billing'}
@@ -110,13 +110,13 @@ Feature: Working inside a container by hand, locally or over ssh
     And I go to the place {'work'}
     Then {1} sessions are open
     And only one terminal was ever opened
-    And the session on screen is {'sokar-billing-shell'}
+    And the session on screen is {'porelo-billing-shell'}
 
   Scenario: the screen says that closing the window leaves the session running
     When I work in it by hand
     Then it says {'Closing this window leaves the session running'}
 
-  # The figure is Sokar's, pinned in the image rather than left to tmux's default, so coming back
+  # The figure is Porelo's, pinned in the image rather than left to tmux's default, so coming back
   # can say what it shows instead of leaving somebody to guess whether a quiet hour is missing.
   Scenario: coming back says how much of the missed time it can show
     When I work in it by hand
@@ -133,11 +133,11 @@ Feature: Working inside a container by hand, locally or over ssh
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
     And I select the project {'billing'}
-    And I select the work {'sokar-billing-shell'}
+    And I select the work {'porelo-billing-shell'}
     And I work in it by hand
     And the session ends with {255}
     Then it says {'The connection to the build machine failed'}

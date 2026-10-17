@@ -26,13 +26,13 @@ jobs:
       - uses: ./.github/actions/pinned-jdk
 
       - name: Check that the shared rules are unchanged copies
-        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-shared AGENTS.md
+        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-shared AGENTS.md
 
       - name: Check the citations, the documentation site and the READMEs
         run: |
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-citations .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-readmes .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-doc-site doc mkdocs.yml
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
 
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/connections.dart';
 import 'connection_wizard.dart';
@@ -41,11 +41,11 @@ class ConnectionsView extends StatelessWidget {
   final VoidCallback onClose;
 
   /// Stores the last declared value by typing it into a terminal on the machine; null where
-  /// nothing here reaches that machine's `sokar`.
+  /// nothing here reaches that machine's `porelo`.
   final VoidCallback? onStoreInATerminal;
 
   /// Sends a key to the machine's store command on its standard input — a file of this computer's,
-  /// by path, or what was pasted. Null where nothing here reaches that machine's `sokar`.
+  /// by path, or what was pasted. Null where nothing here reaches that machine's `porelo`.
   final SendAKey? onSendAKey;
 
   /// Where this computer keeps its ssh keys, for the file dialog to start in.

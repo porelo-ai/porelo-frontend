@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/ansi.dart';
+import 'package:porelo_frontend/src/ui/ansi.dart';
 
 /// The escape an agent's output arrives carrying, spelled out so it survives an editor.
 const esc = '\u001B';

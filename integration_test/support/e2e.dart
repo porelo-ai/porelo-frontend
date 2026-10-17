@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/main.dart' as app;
-import 'package:sokar_frontend/src/app/sokar_app.dart';
-import 'package:sokar_frontend/src/ui/choice_field.dart';
+import 'package:porelo_frontend/main.dart' as app;
+import 'package:porelo_frontend/src/app/porelo_app.dart';
+import 'package:porelo_frontend/src/ui/choice_field.dart';
 
 import 'remote.dart';
 
@@ -14,10 +14,10 @@ abstract final class E2e {
   static const name = 'e2e machine';
 
   /// Where it is, as ssh would be given it.
-  static String get host => _required('SOKAR_E2E_HOST');
+  static String get host => _required('PORELO_E2E_HOST');
 
   /// Its daemon's socket, on that machine. Asked of the machine, never guessed: the uid differs.
-  static String get remoteSocket => _required('SOKAR_E2E_REMOTE_SOCKET');
+  static String get remoteSocket => _required('PORELO_E2E_REMOTE_SOCKET');
 
   static String _required(String variable) {
     final value = Platform.environment[variable] ?? '';
@@ -27,8 +27,8 @@ abstract final class E2e {
 }
 
 /// Shows the interface, composed once for the whole run and shown again for each scenario.
-Future<SokarApp> showTheInterface(WidgetTester tester) async {
-  final interface = await app.sokar();
+Future<PoreloApp> showTheInterface(WidgetTester tester) async {
+  final interface = await app.porelo();
   await tester.pumpWidget(interface);
   await pumpUntil(tester, () => find.byKey(const Key('shell-rail')).evaluate().isNotEmpty);
   return interface;
@@ -94,7 +94,7 @@ Future<void> switchTo(WidgetTester tester, String name) async {
 Future<void> tryFromTheDialog(WidgetTester tester, String socket) async {
   await watchAnotherMachine(tester);
   await tester.enterText(find.byKey(const Key('machine-name')), 'e2e trial');
-  // Sokar runs there already, set up by somebody else: only connecting to it is offered and wanted.
+  // Porelo runs there already, set up by somebody else: only connecting to it is offered and wanted.
   await choose(tester, 'machine-admin', 'machine-admin-no');
   await choose(tester, 'machine-kind-choice', 'machine-raise-it');
   await goOnInTheWizard(tester);

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/e2e.dart';
 
-/// Usage: I write {'stop, the schema changed'} to the agent of {'sokar-e2e-talk-e2e-talk'} from the interface
+/// Usage: I write {'stop, the schema changed'} to the agent of {'porelo-e2e-talk-e2e-talk'} from the interface
 Future<void> iWriteToTheAgentOfFromTheInterface(WidgetTester tester, String words, String task) async {
   // The message dialog is closed first, and the task is acted on from its tile's menu, as a person
   // would: its machine, then its project.

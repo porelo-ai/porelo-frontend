@@ -13,8 +13,8 @@ without one gets re-argued every time somebody new reads it.
   phone cannot without a tunnel it has no way to raise. Phone is not designed out; it is simply
   not reachable until there is a way for a device without a shell to get
   a socket, and the layouts do not assume it never will.
-- **Contract:** the Sokar backend and its API contract — the varlink interface
-  `org.fuin.sokar.Tasks1`, over one unix socket. **No REST, no HTTP, no shared code with the
+- **Contract:** the Porelo backend and its API contract — the varlink interface
+  `org.fuin.porelo.Tasks1`, over one unix socket. **No REST, no HTTP, no shared code with the
   backend at all**: the only thing crossing the boundary is the IDL, which the daemon serves
   from itself. See [Backend API](Backend-API.md) before writing a call.
 - **Client:** hand-written, in one package, against the contract. There is no varlink code
@@ -32,10 +32,10 @@ without one gets re-argued every time somebody new reads it.
 
   **What it costs is a JDK.** The interface builds, tests and releases on its own, and needs a JDK
   to do it, for one reason: an end-to-end test that drives this interface against a real machine
-  has to lease one, and leasing is `org.fuin.sokar.machines`, which is Java. With Maven here it is
+  has to lease one, and leasing is `org.fuin.porelo.machines`, which is Java. With Maven here it is
   a library call; without it, a downloaded jar and a command.
 
-  **This repository is still not in the backend's reactor.** It resolves `sokar-machines` as a
+  **This repository is still not in the backend's reactor.** It resolves `porelo-machines` as a
   published artifact like any other dependency. The split that matters — that the interface
   releases on its own schedule, against a published contract rather than a checkout of the
   backend — is unchanged. What changed is the tool that runs the build, not who owns it.
@@ -96,7 +96,7 @@ the features.
 - **Results on the build server:** `tool/test_report.dart` reads `flutter test --machine` once and
   writes the HTML page, JUnit XML grouped by feature, a table on the run's summary page, and an
   `::error` on the line of each failing scenario. Why each is shaped that way is in
-  [AGENTS.md](https://github.com/sokar-ai/sokar-frontend/blob/main/AGENTS.md), under *What the build reports*.
+  [AGENTS.md](https://github.com/porelo-ai/porelo-frontend/blob/main/AGENTS.md), under *What the build reports*.
 - **The `Feature` line says what the file tests**, in one short sentence of 70 characters at most.
   It is the group name in every report, so a reworded scenario never moves a row.
 - **Steps are shared by name.** `Given the app is running` resolves to
@@ -154,8 +154,8 @@ so it runs on any hosted runner.
   outlive it.
 - **Events are driven by the test, never by wall clock.** Otherwise stream tests are flaky, and
   flaky tests get deleted.
-- **Drift is caught by one CI job with a real daemon**: install the `sokar` package, start
-  `sokard`, compare the mock's method and field set against `GetInterfaceDescription`. The mock
+- **Drift is caught by one CI job with a real daemon**: install the `porelo` package, start
+  `porelod`, compare the mock's method and field set against `GetInterfaceDescription`. The mock
   proves the client handles what it is sent; that job proves the contract is what we think it is.
   Neither substitutes for the other, and a drifted mock is worse than no mock.
 - **Watch the socket path length.** Unix paths are limited to about 108 bytes on Linux and
@@ -163,7 +163,7 @@ so it runs on any hosted runner.
 
 ## Packaging
 
-On Linux, delivered as a `.deb` and an `.rpm`, from the same repository as the `sokar` package —
+On Linux, delivered as a `.deb` and an `.rpm`, from the same repository as the `porelo` package —
 The packaging requirement is met and retired; this is what it is made of.
 
 - **Output:** `flutter build linux --release` produces a bundle directory — the binary,
@@ -175,23 +175,23 @@ The packaging requirement is met and retired; this is what it is made of.
 - **Tool:** [nfpm](https://nfpm.goreleaser.com/) — one static binary, one YAML, both formats.
   **Not `rpm-maven-plugin` and jdeb**, which is what the backend uses: those plugins need
   `rpmbuild` on a Debian runner, where nfpm writes both formats from one binary. What matches the
-  rest of Sokar is the package a person installs, not the tool that wrote it; that Maven runs the
+  rest of Porelo is the package a person installs, not the tool that wrote it; that Maven runs the
   build here is no reason to change it.
-- **Relationship to the backend:** `Recommends: sokar`, not `Depends:`. An interface talking to
+- **Relationship to the backend:** `Recommends: porelo`, not `Depends:`. An interface talking to
   a remote daemon over SSH is useful with no local backend, and a hard dependency would be wrong
   for that.
-- **Where it is published:** into the same Artifactory repository as `sokar` and the agent
+- **Where it is published:** into the same Artifactory repository as `porelo` and the agent
   packages. A dependency between packages does not resolve when they are split across configured
   sources — this is recorded in the backend's own notes and applies here unchanged.
 - **Build machine:** Ubuntu, never Fedora, because the bundle links glibc dynamically — the
   backend's own rule. Flutter adds one the CLI never had: the bundle links the GTK3 stack too,
   so the build machine's GTK is the oldest GTK the package can run against, and the build runs on
   the oldest distribution that must be supported. That is `ubuntu-22.04`: measured on 2026-10-10,
-  its packages install on every system Sokar supports, Ubuntu 26.04, Debian 13, Fedora 43 and
+  its packages install on every system Porelo supports, Ubuntu 26.04, Debian 13, Fedora 43 and
   Fedora 44, and the workflow proves that on each build in those four images, pinned by digest.
 - **The C library floor:** both packages declare the oldest glibc they need, the `.deb` as
   `libc6 (>= …)` from `dpkg-shlibdeps`, the `.rpm` as `libc.so.6(GLIBC_…)(64bit)`. `tool/package.sh`
-  holds it with `sokar-release`'s `check-linkage --declared-only`, as Sokar's own packages hold
+  holds it with `porelo-release`'s `check-linkage --declared-only`, as Porelo's own packages hold
   theirs: no object may need a newer glibc symbol than declared, and the floor may not rise above
   Debian 13's glibc 2.41.
 - **Architecture:** Flutter has no cross-compile for Linux desktop. Every architecture shipped
@@ -199,15 +199,15 @@ The packaging requirement is met and retired; this is what it is made of.
 
 ### Where it lives
 
-**`lib/` at the root, one package named `sokar_frontend`**, organization `org.fuin`, Linux and
+**`lib/` at the root, one package named `porelo_frontend`**, organization `org.fuin`, Linux and
 Windows the enabled platforms. A `packages/` split pays for itself only once something is shared, and nothing
 is; a second consumer of the client code is what would change that.
 
 ## Windows
 
-On Windows the interface reaches a Sokar in a WSL2 distribution of the same Windows user. A unix
+On Windows the interface reaches a Porelo in a WSL2 distribution of the same Windows user. A unix
 socket does not cross the boundary of WSL2's virtual machine, so the way in is a relay:
-`wsl.exe -d <distribution> --exec sokar daemon connect`, which joins its standard input and output to
+`wsl.exe -d <distribution> --exec porelo daemon connect`, which joins its standard input and output to
 the daemon's socket. `VarlinkConnection` speaks over that byte stream as over a socket file. No ssh,
 no open port, no key: `wsl.exe` runs as the Windows user, so only that user reaches the
 distribution.
@@ -222,11 +222,11 @@ distribution.
   a distribution is preceded by that reading.
 - **What runs on a machine over ssh on Linux runs through `wsl.exe` on Windows:** a task's terminal
   (through ConPTY, `lib/src/app/conpty.dart`), attaching, a sign-in, and the connection trial's checks.
-- **Setting up Sokar in a distribution that lacks it** checks, in order, the Windows build, WSL
-  installed, WSL2 and not WSL1, a supported distribution from `/etc/os-release`, systemd, and Sokar
-  and its daemon, and says in words where it stops. Then it offers the lines Sokar's
+- **Setting up Porelo in a distribution that lacks it** checks, in order, the Windows build, WSL
+  installed, WSL2 and not WSL1, a supported distribution from `/etc/os-release`, systemd, and Porelo
+  and its daemon, and says in words where it stops. Then it offers the lines Porelo's
   `doc/getting-started.md` gives for the distribution's package manager, with `loginctl
-  enable-linger` and `sokar setup`, each shown before it runs. Root inside the distribution
+  enable-linger` and `porelo setup`, each shown before it runs. Root inside the distribution
   (`wsl.exe -u root`) is used only for exactly the lines the person said yes to, and recorded in the
   operations record. The repository's key is checked against a fingerprint the interface carries.
 - **A machine over ssh is reached from the Linux build only, so far:** `dart:io` opens no unix socket
@@ -234,20 +234,20 @@ distribution.
   name a path Windows cannot open.
 - **Notifications are not raised on Windows yet**, and that is said once: Windows' own need the
   application registered with the shell, which the MSIX's identity would give.
-- **The files:** `%APPDATA%\sokar\frontend.json`; the operations record under
-  `%LOCALAPPDATA%\sokar`; a file kept to its owner with `icacls`; one window over a loopback port
-  named in `%LOCALAPPDATA%\sokar\frontend.port`.
+- **The files:** `%APPDATA%\porelo\frontend.json`; the operations record under
+  `%LOCALAPPDATA%\porelo`; a file kept to its owner with `icacls`; one window over a loopback port
+  named in `%LOCALAPPDATA%\porelo\frontend.port`.
 - **The packages,** made by `tool/windows-package.ps1` in the Build's job *Windows* on GitHub's
   Windows runner: a ZIP, not signed, and an MSIX signed by `CN=porelo.ai`, with one `SHA256SUMS` and
-  the build's provenance attestation, in Artifactory's `sokar-dist-windows`. The MSIX's writes to
+  the build's provenance attestation, in Artifactory's `porelo-dist-windows`. The MSIX's writes to
   AppData are not redirected (`unvirtualizedResources`), so it reads the same `frontend.json` as the
   ZIP and the IntelliJ plugin. The MSIX version takes four numbers: `0.4.2~snapshot.141` becomes
   `0.4.2.141`.
 
 ### The machine file, which the IntelliJ plugin reads too
 
-The interface keeps its machines in `frontend.json` (`$XDG_CONFIG_HOME/sokar/` on Linux), and
-`sokar-intellij` reads the same file, so a new kind of entry is a contract between the two
+The interface keeps its machines in `frontend.json` (`$XDG_CONFIG_HOME/porelo/` on Linux), and
+`porelo-intellij` reads the same file, so a new kind of entry is a contract between the two
 repositories, changed only after agreement in both.
 
 - **Without `kind`:** a plain `socket`, or a machine behind ssh when `host` and `remoteSocket` are set.
@@ -260,24 +260,24 @@ repositories, changed only after agreement in both.
 ### A test on a Windows machine
 
 Not required before a push; welcome from time to time, since GitHub's runner has no WSL
-distribution with Sokar. On a Windows 10 2004 or later, or Windows 11, with WSL2:
+distribution with Porelo. On a Windows 10 2004 or later, or Windows 11, with WSL2:
 
 1. **Install** from the newest folder of
-   [`sokar-dist-windows/snapshots/`](https://fuinorg.jfrog.io/artifactory/sokar-dist-windows/snapshots/)
+   [`porelo-dist-windows/snapshots/`](https://fuinorg.jfrog.io/artifactory/porelo-dist-windows/snapshots/)
    the ZIP or the MSIX, checked as the download page says; in a fresh WSL distribution (Ubuntu
-   26.04, Debian 13, or Fedora 43 or 44), nothing of Sokar yet.
+   26.04, Debian 13, or Fedora 43 or 44), nothing of Porelo yet.
 2. **Add the distribution** with *Watch another machine…* → WSL: the setup is offered, every line
-   shown, the snapshot channel chosen as Sokar's `doc/getting-started.md` says under "Snapshots";
+   shown, the snapshot channel chosen as Porelo's `doc/getting-started.md` says under "Snapshots";
    the distribution is reached afterwards.
 3. **Follow a project, start work, attach its terminal**: type, resize, scroll, and go back.
 4. **Approve a push at the gate**; it arrives at the upstream.
-5. **No ssh and no port:** in the distribution, `ss -ltnp` shows no `sshd` and no `sokard` on TCP
+5. **No ssh and no port:** in the distribution, `ss -ltnp` shows no `sshd` and no `porelod` on TCP
    while the interface works with it.
 6. **Only the owner:** a second Windows user on the same machine does not reach the distribution.
 7. **Stopped stays stopped:** `wsl --terminate <distribution>`; the interface shows it as stopped,
    and `wsl -l -v` still says *Stopped* afterwards.
 
-Where typing or scrolling fails, `sokar_frontend.exe --diagnose-terminal` writes what arrives to
-`%TEMP%\sokar-terminal-diagnose.txt`. The result, with the version tested, goes in the channel; the
+Where typing or scrolling fails, `porelo_frontend.exe --diagnose-terminal` writes what arrives to
+`%TEMP%\porelo-terminal-diagnose.txt`. The result, with the version tested, goes in the channel; the
 download page and the issue's row then say "tested on Windows on <version>".
 

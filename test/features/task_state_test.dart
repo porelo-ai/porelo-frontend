@@ -38,59 +38,60 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theWorkIsWaitingOn(
-          tester, 'sokar-checkout-shell', 'api.example.test:443');
-      await theWorkIsShownAs(tester, 'sokar-checkout-shell', 'waiting');
+          tester, 'porelo-checkout-shell', 'api.example.test:443');
+      await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'waiting');
       await itSaysItIsWaitingOn(tester, 'api.example.test:443');
     });
     testWidgets('''idle is told apart from finished''', (tester) async {
       await bddSetUp(tester);
-      await theWorkIsIdle(tester, 'sokar-checkout-shell');
-      await theWorkIsDead(tester, 'sokar-checkout-migrate');
-      await theWorkIsShownAs(tester, 'sokar-checkout-shell', 'Quiet');
-      await theWorkIsShownAs(tester, 'sokar-checkout-migrate', 'Not running');
+      await theWorkIsIdle(tester, 'porelo-checkout-shell');
+      await theWorkIsDead(tester, 'porelo-checkout-migrate');
+      await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Quiet');
+      await theWorkIsShownAs(tester, 'porelo-checkout-migrate', 'Not running');
     });
     testWidgets('''how long it has been that way is answerable''',
         (tester) async {
       await bddSetUp(tester);
       await theWorkHasBeenIdleSinceMinutesAgo(
-          tester, 'sokar-checkout-shell', '40');
+          tester, 'porelo-checkout-shell', '40');
       await theWorkIsShownAs(
-          tester, 'sokar-checkout-shell', 'Quiet for 40 minutes');
+          tester, 'porelo-checkout-shell', 'Quiet for 40 minutes');
     });
     testWidgets('''work nothing can see is not reported as idle''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkCannotBeSeen(tester, 'sokar-checkout-shell');
-      await theWorkIsShownAs(tester, 'sokar-checkout-shell', 'Running');
-      await theWorkIsNotShownAs(tester, 'sokar-checkout-shell', 'Quiet');
+      await theWorkCannotBeSeen(tester, 'porelo-checkout-shell');
+      await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'Running');
+      await theWorkIsNotShownAs(tester, 'porelo-checkout-shell', 'Quiet');
     });
     testWidgets(
         '''a change of activity arrives without anybody asking for it''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkIsIdle(tester, 'sokar-checkout-shell');
+      await theWorkIsIdle(tester, 'porelo-checkout-shell');
       await theBackendSaysItIsWaitingOn(tester, 'api.example.test:443');
-      await theWorkIsShownAs(tester, 'sokar-checkout-shell', 'waiting');
+      await theWorkIsShownAs(tester, 'porelo-checkout-shell', 'waiting');
     });
     testWidgets('''the credentials a task holds are shown with it''',
         (tester) async {
       await bddSetUp(tester);
       await theWorkHoldsFor(
-          tester, 'sokar-checkout-migrate', 'a-provider', 'weather');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+          tester, 'porelo-checkout-migrate', 'a-provider', 'weather');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
-      await theDetailForIsShown(tester, 'sokar-checkout-migrate');
-      await itSays(tester, 'a-provider for weather, as SOKAR_TOKEN_A_PROVIDER');
+      await theDetailForIsShown(tester, 'porelo-checkout-migrate');
+      await itSays(
+          tester, 'a-provider for weather, as PORELO_TOKEN_A_PROVIDER');
     });
     testWidgets('''a credential a person granted says who the task acts as''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHoldsForGrantedByAt(tester, 'sokar-checkout-migrate', 'jira',
-          'jira', 'alice', '2026-09-30T05:40:00Z');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+      await theWorkHoldsForGrantedByAt(tester, 'porelo-checkout-migrate',
+          'jira', 'jira', 'alice', '2026-09-30T05:40:00Z');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
       await itSays(tester,
-          'jira for jira, as SOKAR_TOKEN_JIRA, granted by alice at 2026-09-30T05:40:00Z');
+          'jira for jira, as PORELO_TOKEN_JIRA, granted by alice at 2026-09-30T05:40:00Z');
     });
   });
 }

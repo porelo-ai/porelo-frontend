@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/terminal_copy.dart';
+import 'package:porelo_frontend/src/ui/terminal_copy.dart';
 import 'package:xterm/xterm.dart';
 
 /// Holds what is copied out of a terminal to what a person sees there.

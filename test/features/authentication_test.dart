@@ -50,7 +50,7 @@ void main() {
       await iOpenTheProvider(tester, 'Another Provider');
       await itSays(tester, 'an-agent');
       await theCommandToStoreOneIs(
-          tester, 'sokar vault put an-agent --type oauth');
+          tester, 'porelo vault put an-agent --type oauth');
     });
     testWidgets(
         '''nothing here asks for a secret, and it says where one is typed instead''',

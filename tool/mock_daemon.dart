@@ -7,12 +7,12 @@
 //   flutter run -d linux
 //
 // The interface shows a running mock as the machine "mock", beside any it has stored, and never
-// stores it. SOKAR_SOCKET moves where it looks.
+// stores it. PORELO_SOCKET moves where it looks.
 //
 // A second one, to try reaching several machines at once — the interface watches all of them,
 // lists each on the rail, and acts on the one whose place is open:
 //
-//   dart tool/mock_daemon.dart work /tmp/sokar-elsewhere.sock
+//   dart tool/mock_daemon.dart work /tmp/porelo-elsewhere.sock
 //
 // What it answers is MockMachine, which the tests hold to the same behavior. This file is only
 // the socket, the situation and the keyboard.
@@ -20,11 +20,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:sokar_frontend/src/mock/machine.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/src/mock/machine.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// A name that does not move between runs, so the command to open the interface does not either.
-const _defaultSocket = '/tmp/sokar-mock.sock';
+const _defaultSocket = '/tmp/porelo-mock.sock';
 
 Future<void> main(List<String> args) async {
   final situation = args.isEmpty ? 'work' : args.first;
@@ -59,9 +59,9 @@ Future<void> main(List<String> args) async {
       }),
   ];
 
-  print('mock sokard — ${MockMachine.situations[situation]}');
+  print('mock porelod — ${MockMachine.situations[situation]}');
   print('');
-  print('  SOKAR_SOCKET=$stableSocket flutter run -d linux');
+  print('  PORELO_SOCKET=$stableSocket flutter run -d linux');
   print('');
   print('  RETURN adds a task and pushes the change');
   print('  b blocks a connection, a allows it, d denies it, x lets it run out');
@@ -89,7 +89,7 @@ Future<void> main(List<String> args) async {
           print('that question ran out — it stays blocked and is never asked again');
         }
       default:
-        machine.addTask('sokar-checkout-fix-${++added}', 'checkout');
+        machine.addTask('porelo-checkout-fix-${++added}', 'checkout');
         print('published ${machine.tasks.length} tasks');
     }
   });

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:guided_walk/guided_walk.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/connections.dart';
 import 'choice_field.dart';
@@ -59,7 +59,7 @@ class NewConnection {
   final String? key;
 }
 
-/// The purposes a machine accepts, from Sokar's own list: only `git` is read today.
+/// The purposes a machine accepts, from Porelo's own list: only `git` is read today.
 const _purposes = <Choice<String>>[
   Choice('git', 'git — fetching and pushing repositories', id: 'purpose-git'),
   Choice('any', 'any use', id: 'purpose-any'),
@@ -504,7 +504,7 @@ class _ConnectionWizardState extends State<_ConnectionWizard> {
 
 /// The keys the machine's account already has, one picked rather than a path typed blind.
 ///
-/// **Only a key with its private half is offered**: ssh signs with that file. A Sokar that cannot
+/// **Only a key with its private half is offered**: ssh signs with that file. A Porelo that cannot
 /// list keys is not a machine without any, so it falls back to a typed path and says why.
 class KeyOnTheMachine extends StatelessWidget {
   /// Constructor taking every field.
@@ -523,7 +523,7 @@ class KeyOnTheMachine extends StatelessWidget {
           final small = Theme.of(context).textTheme.bodySmall;
           if (answer.hasError) {
             final why = answer.error is FeatureNotSupported
-                ? "This machine's Sokar cannot list its keys yet, so its path is typed."
+                ? "This machine's Porelo cannot list its keys yet, so its path is typed."
                 : 'The machine could not list its keys (${answer.error}), so its path is typed.';
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,

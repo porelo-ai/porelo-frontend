@@ -18,9 +18,9 @@ Feature: Watching several machines at once, and telling nodes apart
 
   Scenario: the command that forwards a socket is copied rather than retyped
     When I start watching another machine
-    And I name the socket {'/tmp/sokar-elsewhere.sock'}
+    And I name the socket {'/tmp/porelo-elsewhere.sock'}
     And I copy the forwarding command
-    Then what was copied is {'ssh -L /tmp/sokar-elsewhere.sock:/run/user/<uid>/sokar/sokard.sock user@host -N'}
+    Then what was copied is {'ssh -L /tmp/porelo-elsewhere.sock:/run/user/<uid>/porelo/porelod.sock user@host -N'}
 
   Scenario: every machine is watched at once, not only the one being acted on
     When I watch another machine called {'elsewhere'}
@@ -34,7 +34,7 @@ Feature: Watching several machines at once, and telling nodes apart
     When I select the project {'checkout'}
     And the tunnel drops
     Then the machine is shown as not answering
-    And the work {'sokar-checkout-shell'} is listed
+    And the work {'porelo-checkout-shell'} is listed
     When enough time passes for another try
     Then the machine is shown as answering
 

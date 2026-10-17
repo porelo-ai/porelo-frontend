@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:sokar_frontend/src/client/environment.dart';
+import 'package:porelo_frontend/src/client/environment.dart';
 
 /// Runs a program and answers what it printed. Injectable, so a test records what would run.
 typedef RunProgram = Future<ProcessResult> Function(String executable, List<String> arguments);
@@ -50,7 +50,7 @@ abstract class Desk {
   String get home;
 
   /// Where the interface keeps what a person configured, `frontend.json` among it: the folder
-  /// `sokar` under the user's configuration folder.
+  /// `porelo` under the user's configuration folder.
   String get configuration;
 
   /// Where the interface keeps what it recorded itself, the operations record among it.
@@ -110,13 +110,13 @@ class LinuxDesk extends Desk {
   String get home => _set('HOME') ?? '';
 
   @override
-  String get configuration => '${_set('XDG_CONFIG_HOME') ?? '$_home/.config'}/sokar';
+  String get configuration => '${_set('XDG_CONFIG_HOME') ?? '$_home/.config'}/porelo';
 
   @override
-  String get state => '${_set('XDG_STATE_HOME') ?? '$_home/.local/state'}/sokar';
+  String get state => '${_set('XDG_STATE_HOME') ?? '$_home/.local/state'}/porelo';
 
   @override
-  String get data => '${_set('XDG_DATA_HOME') ?? '$_home/.local/share'}/sokar-frontend';
+  String get data => '${_set('XDG_DATA_HOME') ?? '$_home/.local/share'}/porelo-frontend';
 
   @override
   List<String> privateCommand(String path, {bool directory = false}) =>
@@ -143,13 +143,13 @@ class WindowsDesk extends Desk {
   String get home => _set('USERPROFILE') ?? '';
 
   @override
-  String get configuration => '$_roaming\\sokar';
+  String get configuration => '$_roaming\\porelo';
 
   @override
-  String get state => '$_local\\sokar';
+  String get state => '$_local\\porelo';
 
   @override
-  String get data => '$_local\\sokar-frontend';
+  String get data => '$_local\\porelo-frontend';
 
   /// The profile's folders are the user's already. Inheritance is cut and the user alone is
   /// granted the file, so a file copied or moved elsewhere keeps to its owner too.

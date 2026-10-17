@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -7,8 +7,8 @@ import '../support/world.dart';
 Future<void> oneAgentIsShadowedByAnotherCopy(WidgetTester tester) async {
   World.backend.theAgentsItNeverUses = const <ShadowedAgent>[
     ShadowedAgent(
-      path: '/usr/libexec/sokar/agents/an-agent',
-      usedInstead: '/home/somebody/.local/share/sokar/agents/an-agent',
+      path: '/usr/libexec/porelo/agents/an-agent',
+      usedInstead: '/home/somebody/.local/share/porelo/agents/an-agent',
     ),
   ];
 }

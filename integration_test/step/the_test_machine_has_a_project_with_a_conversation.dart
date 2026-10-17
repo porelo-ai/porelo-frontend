@@ -18,9 +18,9 @@ Future<void> theTestMachineHasAProjectWithAConversation(WidgetTester tester, Str
   await onTheTestMachine('''
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"
-sokar task stop sokar-$name-write >/dev/null 2>&1 || true
-sokar task remove sokar-$name-write >/dev/null 2>&1 || true
-sokar project unfollow --force $name >/dev/null 2>&1 || true
+porelo task stop porelo-$name-write >/dev/null 2>&1 || true
+porelo task remove porelo-$name-write >/dev/null 2>&1 || true
+porelo project unfollow --force $name >/dev/null 2>&1 || true
 repo="\$HOME/$name"; rm -rf "\$repo"; mkdir -p "\$repo"; cd "\$repo"; git init -q -b main
 cat > project.yml <<'YAML'
 project:
@@ -36,8 +36,8 @@ mail:
 YAML
 git add project.yml
 git -c user.name=e2e -c user.email=e2e@example.invalid commit -q -m "The project $name"
-sokar project follow --unverified $name "\$repo" >/dev/null
-agent=\$(sokar agents | awk '\$1 == "NAME" {table = 1; next} table && NF {print \$1; exit}')
-sokar task start -p $name -r $name \${agent:+--agent "\$agent"} --attach shell --no-gate --detach write >/dev/null
+porelo project follow --unverified $name "\$repo" >/dev/null
+agent=\$(porelo agents | awk '\$1 == "NAME" {table = 1; next} table && NF {print \$1; exit}')
+porelo task start -p $name -r $name \${agent:+--agent "\$agent"} --attach shell --no-gate --detach write >/dev/null
 ''');
 }

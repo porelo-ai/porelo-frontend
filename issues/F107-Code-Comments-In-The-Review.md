@@ -1,13 +1,13 @@
 # F107 — Code Comments In The Review
 
-**Status:** Estimated; blocked by `sokar`'s [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166), "Line Comments Sent Back To The Agent", for the comment
-model, comments with their origin and the local review, and by [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171), "Forge Review Comments To And
-From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172), "A
+**Status:** Estimated; blocked by `porelo`'s [B166](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b166), "Line Comments Sent Back To The Agent", for the comment
+model, comments with their origin and the local review, and by [B171](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b171), "Forge Review Comments To And
+From A Task", for held forge comments and releasing outgoing ones. An agent as reviewer is [B172](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b172), "A
 Task That Reviews". Blocked by [F78](README.md#f78) too: comments are written only in its
 forge-like review.
-**Size:** L - crosses repositories: a new part of `Tasks1` from `sokar`, the review, *Needs you*,
-the stand-in and the docs; it is built in parts, the [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166) part (ways A and B), the [B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171) part (C and
-outgoing release), and D once `sokar` [B172](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b172) is built.
+**Size:** L - crosses repositories: a new part of `Tasks1` from `porelo`, the review, *Needs you*,
+the stand-in and the docs; it is built in parts, the [B166](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b166) part (ways A and B), the [B171](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b171) part (C and
+outgoing release), and D once `porelo` [B172](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b172) is built.
 
 **What must be true.** In the review of a waiting push, a person writes comments on lines and reads
 the comments of agents and of people on the forge, each marked with where it came from. A comment
@@ -17,7 +17,7 @@ switched that off.
 
 ## Why
 
-**A comment is a message.** Sokar passes it through the same controls as any other message: the
+**A comment is a message.** Porelo passes it through the same controls as any other message: the
 sluice, a person's release, the journal. Code and commits still travel only through the gate. Four
 ways carry comments, and the interface is where a person meets three of them:
 
@@ -46,32 +46,32 @@ person's release by default.
 - **Outgoing comments waiting for release** are listed in *Needs you*, as a held message is, with the
   pull request, the line and the text; releasing one sends exactly that one. Where the project
   switched the release off, that is said in the review, and nothing waits.
-- **A refusal is Sokar's:** a comment on a line that is not in the named commit, a suggestion beyond
-  its anchor or its size, or text the sluice refused, is shown in Sokar's words.
+- **A refusal is Porelo's:** a comment on a line that is not in the named commit, a suggestion beyond
+  its anchor or its size, or text the sluice refused, is shown in Porelo's words.
 
 ## Plan
 
-- **Waits for the contract:** nothing is built before [B166](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b166)'s methods and fields are in `Tasks1`;
+- **Waits for the contract:** nothing is built before [B166](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b166)'s methods and fields are in `Tasks1`;
   `doc/Backend-API.md` and `doc/Contract-Gaps.md` take them first.
 - **Red first:** a scenario in `test/features/work_handover.feature` that opens a waiting push,
   comments on an added line and finds the comment in the task's thread on the stand-in.
 - **The anchor:** `parseUnifiedDiff` in `lib/src/app/diff.dart` keeps each line's old and new
   number from its hunk header, so `DiffLine` can name a side and a line; `test/app/diff_test.dart`
   proves it.
-- **The client:** `SokarClient` in `lib/src/client/sokar_client.dart` and `FleetBackend` in
+- **The client:** `PoreloClient` in `lib/src/client/porelo_client.dart` and `FleetBackend` in
   `lib/src/app/fleet_backend.dart` gain the comment calls; `lib/src/client/models.dart` a comment
   model with its origin (person, agent with task and role, forge account) and a suggestion.
 - **The review:** only [F78](README.md#f78)'s forge-like review, once it is built. `Gate` in `lib/src/app/gate.dart`
   reads the push's threads beside `changed`; the review's file and line widgets draw a thread under
   its line,
   each comment with its origin, a suggestion as the lines it puts in place, and a way to comment.
-- **Held forge comments ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** listed apart in the review and in *Needs you* beside held
+- **Held forge comments ([B171](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b171)):** listed apart in the review and in *Needs you* beside held
   messages (`Attention` in `lib/src/app/attention.dart`), each released alone, as
   `HeldMessageDialog` in `lib/src/ui/held_message_view.dart` releases a held message.
-- **Outgoing ones ([B171](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b171)):** `Attention` in `lib/src/app/attention.dart` lists them beside
+- **Outgoing ones ([B171](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b171)):** `Attention` in `lib/src/app/attention.dart` lists them beside
   `heldMessages` and counts them in `needingSomebody`; `lib/src/ui/attention_view.dart` draws them.
 - **The stand-in:** `lib/src/mock/machine.dart` holds threads, held and outgoing comments, and the
-  project's switch; refusals come back in Sokar's words through `RefusalView` in
+  project's switch; refusals come back in Porelo's words through `RefusalView` in
   `lib/src/ui/refusal.dart`.
 
 ## Acceptance
@@ -89,5 +89,5 @@ person's release by default.
 
 ## To be checked
 
-- **The contract:** which methods and fields `sokar`'s comment model brings to `Tasks1`, once its
+- **The contract:** which methods and fields `porelo`'s comment model brings to `Tasks1`, once its
   requirements say so (Agent Core's).

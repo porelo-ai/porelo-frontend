@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:sokar_frontend/src/app/desk.dart';
-import 'package:sokar_frontend/src/client/environment.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/client/environment.dart';
 
 /// Keeps one interface in charge of a machine.
 ///
@@ -77,7 +77,7 @@ class OneInstance {
   }
 
   /// What the running interface says to whoever connects on the loopback port.
-  static const String _greeting = 'sokar-frontend\n';
+  static const String _greeting = 'porelo-frontend\n';
 
   static Future<OneInstance> _takeOverLoopback(void Function() comeForward, String portFile) async {
     if (await _answeredOnLoopback(portFile)) return OneInstance._(null, portFile);
@@ -135,6 +135,6 @@ class OneInstance {
   static String _besideTheRuntime() {
     final runtime = setIn('XDG_RUNTIME_DIR') ??
         '/run/user/${Process.runSync('id', const <String>['-u']).stdout.toString().trim()}';
-    return '$runtime/sokar-frontend.sock';
+    return '$runtime/porelo-frontend.sock';
   }
 }

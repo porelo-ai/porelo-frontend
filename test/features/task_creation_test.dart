@@ -324,14 +324,14 @@ void main() {
         '''a finished unattended run is continued with what it was asked to do last time''',
         (tester) async {
       await bddSetUp(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iContinueThisWork(tester);
       await whatToAskItSays(tester, 'Fix the rounding in Money.pennies');
     });
     testWidgets('''work that is still running is not offered a new prompt''',
         (tester) async {
       await bddSetUp(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOfferedAsUnavailable(
           tester, 'Continue this work with a new prompt');
@@ -375,7 +375,7 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await iStoreTheCredentialFromTheStart(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'sh -c sokar vault put a-provider');
+          tester, 'sh -c porelo vault put a-provider');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await whetherWorkCanStartIsAskedAgain(tester);
     });
@@ -426,7 +426,7 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await iLogInWithTheAgentFromTheStart(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'sokar vault login --agent an-agent');
+          tester, 'porelo vault login --agent an-agent');
       await theLoginPrintsItsPageAndItsReplyPort(
           tester, 'https://claude.com/cai/oauth/authorize', '42017');
       await theReplyPortIsForwarded(tester, '42017');
@@ -502,7 +502,7 @@ void main() {
       await itOffersInsteadOfStarting(tester, 'Sign in first');
       await iPress(tester, 'Sign in first');
       await aTerminalRunsOnTheMachine(
-          tester, 'sokar vault login --agent an-agent');
+          tester, 'porelo vault login --agent an-agent');
     });
     testWidgets(
         '''a sign-in that stored the credential says so, and the form moves on to the start''',
@@ -534,11 +534,11 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await startingSaysTheCredentialIsStoredBy(
-          tester, 'sokar vault put a-provider');
+          tester, 'porelo vault put a-provider');
       await iStartWorkInThisProject(tester);
       await iChooseTheAgent(tester, 'An Agent');
       await iStoreTheCredentialFromTheStart(tester);
-      await aTerminalRunsOnTheMachine(tester, 'sokar vault put a-provider');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault put a-provider');
     });
     testWidgets(
         '''a machine that fails to say whether work can start is said in the dialog''',
@@ -560,8 +560,8 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await iStartIt(tester);
       await theStartBringsUpInRunning(
-          tester, 'sokar-checkout-schema-work', 'checkout', 'SHELL');
-      await theSessionOnScreenIs(tester, 'sokar-checkout-schema-work');
+          tester, 'porelo-checkout-schema-work', 'checkout', 'SHELL');
+      await theSessionOnScreenIs(tester, 'porelo-checkout-schema-work');
     });
     testWidgets('''an unattended run opens no session when it is up''',
         (tester) async {
@@ -573,7 +573,7 @@ void main() {
       await iAskItTo(tester, 'run the tests');
       await iStartIt(tester);
       await theStartBringsUpInRunning(
-          tester, 'sokar-checkout-nightly', 'checkout', 'UNATTENDED');
+          tester, 'porelo-checkout-nightly', 'checkout', 'UNATTENDED');
       await noSessionWasOpened(tester);
     });
     testWidgets(
@@ -700,8 +700,8 @@ void main() {
       await theProjectHasTheRepositories(
           tester, 'checkout', 'checkout, payments-api');
       await theWorkWorksInTheRepository(
-          tester, 'sokar-checkout-migrate', 'payments-api');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+          tester, 'porelo-checkout-migrate', 'payments-api');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iContinueThisWork(tester);
       await theRepositoryIsChosen(tester, 'payments-api');
     });
@@ -715,7 +715,7 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await iGiveItTheEntryFor(tester, 'a-provider', 'weather');
       await itSays(tester,
-          'a-provider for weather, reaching api.weather.example: inside the task as SOKAR_TOKEN_A_PROVIDER');
+          'a-provider for weather, reaching api.weather.example: inside the task as PORELO_TOKEN_A_PROVIDER');
       await iStartIt(tester);
       await theLaunchWasGivenFor(tester, 'a-provider', 'weather');
     });
@@ -789,7 +789,7 @@ void main() {
       await iStartWorkInThisProject(tester);
       await iOpenMoreOptions(tester);
       await itSays(tester,
-          'a-provider for weather: inside the task as SOKAR_TOKEN_A_PROVIDER');
+          'a-provider for weather: inside the task as PORELO_TOKEN_A_PROVIDER');
       await theEntryIsNotOfferedToGive(tester, 'a-provider');
     });
     testWidgets('''a project that names no credential of its own says so''',

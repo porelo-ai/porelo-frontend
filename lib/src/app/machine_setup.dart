@@ -5,7 +5,7 @@ import 'connections.dart';
 
 import 'host_keys.dart';
 import 'settings.dart';
-import 'package:sokar_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 
 /// An ssh key pair as text: what a person pastes, or what the wizard generates.
 ///
@@ -56,16 +56,16 @@ class MachineSetup {
     return ProcessResult(process.pid, await process.exitCode, await out, await err);
   }
 
-  /// Where Sokar publishes its setup script, for a machine that has nothing installed yet.
+  /// Where Porelo publishes its setup script, for a machine that has nothing installed yet.
   static const String setupScript =
-      'https://fuinorg.jfrog.io/artifactory/sokar-dist-deb/setup/sokar-setup-latest.sh';
+      'https://fuinorg.jfrog.io/artifactory/porelo-dist-deb/setup/porelo-setup-latest.sh';
 
-  /// Fetches Sokar's setup script onto the machine, where every later step runs it from. It lands
+  /// Fetches Porelo's setup script onto the machine, where every later step runs it from. It lands
   /// in root's own directory and replaces the old one whole, so nothing but root changes it there,
   /// and it says the SHA-256 of what it fetched: [prepare] runs it only while it is still that.
   static String _fetch() => '''set -e
-f=/root/sokar-setup.sh
-t=\$(mktemp /root/sokar-setup.XXXXXX)
+f=/root/porelo-setup.sh
+t=\$(mktemp /root/porelo-setup.XXXXXX)
 if command -v curl >/dev/null 2>&1; then curl -fsSL -o "\$t" '$setupScript'
 else wget -qO "\$t" '$setupScript'; fi
 mv -f "\$t" "\$f"
@@ -80,7 +80,7 @@ printf 'The script shown has the SHA-256 %s.\\n' "\$(sha256sum "\$f" | cut -d' '
   static const int notTheScriptShown = 97;
 
   /// Fetches the script and asks it what this machine could install, installing nothing: the
-  /// machine's own package source is the catalog, never this interface — Sokar's answer,
+  /// machine's own package source is the catalog, never this interface — Porelo's answer,
   /// since a client that named a repository would name one the machine does not trust.
   static String listInstallable() => '${_fetch()}bash "\$f" --list --json\n';
 
@@ -90,16 +90,16 @@ printf 'The script shown has the SHA-256 %s.\\n' "\$(sha256sum "\$f" | cut -d' '
   static String show(String user, Iterable<String> packages) =>
       '${_fetch()}bash "\$f" ${_arguments(user, packages)} --show\n';
 
-  /// Runs the setup script fetched by [show]: it creates [user] and installs Sokar and [packages].
+  /// Runs the setup script fetched by [show]: it creates [user] and installs Porelo and [packages].
   /// **Exactly the bytes shown run**: the script is checked against the SHA-256 [show] said, and
   /// nothing runs where it differs.
   static String prepare(String user, Iterable<String> packages, {required String digest}) {
     if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(digest)) {
       throw const MachineSetupFailed('What the setup script would do has to be shown first.');
     }
-    return "printf '%s  %s\\n' '$digest' /root/sokar-setup.sh | sha256sum -c --status"
+    return "printf '%s  %s\\n' '$digest' /root/porelo-setup.sh | sha256sum -c --status"
         " || { echo 'The setup script on the machine is not the one shown.' >&2; exit $notTheScriptShown; }\n"
-        'bash /root/sokar-setup.sh ${_arguments(user, packages)}\n';
+        'bash /root/porelo-setup.sh ${_arguments(user, packages)}\n';
   }
 
   /// The script's arguments, each checked and quoted for a shell, so nothing but a user and package
@@ -154,7 +154,7 @@ chmod 600 "\$home/.ssh/authorized_keys"
 grep -qxF "\$key" "\$home/.ssh/authorized_keys" || printf '%s\\n' "\$key" >> "\$home/.ssh/authorized_keys"
 passwd -l "\$user" >/dev/null
 mkdir -p /etc/ssh/sshd_config.d
-rule="/etc/ssh/sshd_config.d/20-sokar-\$user.conf"
+rule="/etc/ssh/sshd_config.d/20-porelo-\$user.conf"
 printf 'Match User %s\\n    AuthenticationMethods publickey\\n    PasswordAuthentication no\\n    KbdInteractiveAuthentication no\\nMatch all\\n' "\$user" > "\$rule"
 if ! sshd -t; then rm -f "\$rule"; echo "sshd refused the rule for \$user, so it was taken out again" >&2; exit 1; fi
 systemctl reload ssh 2>/dev/null || systemctl reload sshd
@@ -162,11 +162,11 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
 
   /// Turns off logging in as root and with a password, once the work user has logged in.
   static const String harden = '''set -e
-printf 'PermitRootLogin no\\nPasswordAuthentication no\\n' > /etc/ssh/sshd_config.d/10-sokar.conf
+printf 'PermitRootLogin no\\nPasswordAuthentication no\\n' > /etc/ssh/sshd_config.d/10-porelo.conf
 systemctl reload ssh 2>/dev/null || systemctl reload sshd
 ''';
 
-  /// What each exit of the setup script means, as Sokar promises them.
+  /// What each exit of the setup script means, as Porelo promises them.
   static String whatTheScriptSaid(int exitCode) => switch (exitCode) {
         0 => 'The machine is prepared.',
         2 => 'The setup script did not understand what it was asked.',
@@ -372,18 +372,18 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     return private.path;
   }
 
-  /// The keys a wizard kept here before, newest name first: `~/.ssh/sokar-*` without `.pub`.
+  /// The keys a wizard kept here before, newest name first: `~/.ssh/porelo-*` without `.pub`.
   List<String> existingKeys() {
     final directory = Directory(sshDirectory);
     if (!directory.existsSync()) return const <String>[];
     return <String>[
       for (final file in directory.listSync().whereType<File>())
-        if (file.uri.pathSegments.last.startsWith('sokar-') && !file.path.endsWith('.pub'))
+        if (file.uri.pathSegments.last.startsWith('porelo-') && !file.path.endsWith('.pub'))
           file.path,
     ]..sort();
   }
 
-  /// Runs [command] — the machine's own, as Sokar named it — with [value] on its standard input, and
+  /// Runs [command] — the machine's own, as Porelo named it — with [value] on its standard input, and
   /// answers null when it worked or what it said when it did not.
   ///
   /// **The value is on standard input and nowhere else**: never an argument, never a file here. It
@@ -446,7 +446,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
 
   /// Runs [body] with a directory only this user can enter, removed afterwards whatever happened.
   Future<T> _inAPrivateDirectory<T>(Future<T> Function(Directory directory) body) async {
-    final directory = Directory.systemTemp.createTempSync('sokar-key-');
+    final directory = Directory.systemTemp.createTempSync('porelo-key-');
     try {
       await _keepPrivate(directory.path, directory: true);
       return await body(directory);

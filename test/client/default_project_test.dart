@@ -4,8 +4,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// `default`, the project work goes to without a project: its repositories listed,
 /// added by address and taken out, as the contract names each field.
@@ -20,7 +20,7 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<SokarClient> connect() => SokarClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   void answering(String method, Map<String, dynamic> reply) => daemon.method(method, (parameters) {
         asked = parameters;
@@ -64,9 +64,9 @@ void main() {
           'entry': 'deploy/default/api',
           'repository': 'api',
           'upstream': 'git@github.com:acme/api.git',
-          'publicKey': 'ssh-ed25519 AAAAapi sokar@vm',
+          'publicKey': 'ssh-ed25519 AAAAapi porelo@vm',
           'fingerprint': 'SHA256:api',
-          'title': 'sokar vm default/api',
+          'title': 'porelo vm default/api',
           'writeAccess': true,
           'made': false,
         },
@@ -77,7 +77,7 @@ void main() {
 
     expect(asked, <String, dynamic>{'name': 'api'});
     expect(done.removed, isTrue);
-    expect(done.keys.single.title, 'sokar vm default/api');
+    expect(done.keys.single.title, 'porelo vm default/api');
   });
 
   test('one that was not there any more is said as not taken out, with no key', () async {

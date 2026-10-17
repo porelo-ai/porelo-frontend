@@ -17,7 +17,7 @@ together by hand.
 
 - **A `Timeline`** in `lib/src/app/` beside `Logs` (`lib/src/app/logs.dart`): one `LogTail` per log
   `logsOf` names, their lines merged by a time read from each line, and a filter by source.
-- **The time of a line:** `SokarClient.tailLog` answers plain strings with no time of their own, so
+- **The time of a line:** `PoreloClient.tailLog` answers plain strings with no time of their own, so
   each source's own format is read here (`events.jsonl` and `task.log` are JSON with a time field,
   the others start with one); a line with none keeps its place after the line before it.
 - **The view:** `LogView` (`lib/src/ui/log_view.dart`) shows the timeline first; the logs by source

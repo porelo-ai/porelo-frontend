@@ -1,7 +1,7 @@
 # F79 — What Walk 8 Found In The Interface
 
 **Status:** Review; to be walked. Split off as not built: a tile's repository in its heading, a
-release Sokar refuses said as an error that stays, and the project file taken after one's own
+release Porelo refuses said as an error that stays, and the project file taken after one's own
 push, [F117](README.md#f117).
 
 **What must be true.** A person reads tiles, *Needs you*, *Join* and talking at a glance, and sees the
@@ -11,11 +11,11 @@ effect of their own action at once; each point below is fixed, or decided agains
 ## Why
 
 Every point is built; what remains is to walk each one. Offering the project's other tasks as peers
-needs Sokar's `Peers` to list them, which is built but not published yet.
+needs Porelo's `Peers` to list them, which is built but not published yet.
 
 ## Acceptance
 
-Each is judged in a walk on the VM against Sokar's handover.
+Each is judged in a walk on the VM against Porelo's handover.
 
 - Tiles: a tile is headed by its work, with the machine under it. Seen to fail: a scenario in
   `work_tiles.feature` where the machine is the heading.
@@ -31,7 +31,7 @@ Each is judged in a walk on the VM against Sokar's handover.
   Seen to fail: a `moderating_messages.feature` scenario where the writer is missing.
 - *Needs you*: the dialog closes after a decision and says what came of it. Seen to fail: a scenario
   where it stays open.
-- Talking: *Whom this work may talk to* offers the project's other tasks once Sokar's `Peers` lists
+- Talking: *Whom this work may talk to* offers the project's other tasks once Porelo's `Peers` lists
   them. Seen to fail: a scenario in `project_messages.feature` with two tasks where the other is not
   offered.
 - Talking: it says who a peer is: a person or machine reading the room in a Matrix client, or another

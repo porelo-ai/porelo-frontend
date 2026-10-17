@@ -70,8 +70,8 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
     setState(() {});
   }
 
-  /// Opens the terminal for `sokar vault init`. **The passphrase goes keyboard → terminal → ssh →
-  /// sokar**; this program never holds it. When the terminal ends, the daemon is asked.
+  /// Opens the terminal for `porelo vault init`. **The passphrase goes keyboard → terminal → ssh →
+  /// porelo**; this program never holds it. When the terminal ends, the daemon is asked.
   void _openVault() {
     final machine = run.ready;
     if (machine == null) return;
@@ -151,7 +151,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
         const SizedBox(height: Space.small),
         Text(
           'The key the machine already knows for root — for one this wizard prepared, '
-          '~/.ssh/sokar-<its name>-admin. It is used only to set ${run.workUser} up; '
+          '~/.ssh/porelo-<its name>-admin. It is used only to set ${run.workUser} up; '
           '${run.workUser} gets a key of its own.',
         ),
         const SizedBox(height: Space.normal),
@@ -309,11 +309,11 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
         const SizedBox(height: Space.small),
         Text(
           run.addingAUser
-              ? "Sokar's setup script runs as root. Sokar is there already, so it creates the user "
+              ? "Porelo's setup script runs as root. Porelo is there already, so it creates the user "
                   '${run.workUser} beside the others, with its own daemon and vault. It shows every '
                   'command before it runs; nothing changes until you run it.'
-              : "Sokar's setup script runs as root. It creates the user ${run.workUser}, which runs "
-                  'work, and installs Sokar and whatever you choose below: agents, and for messages '
+              : "Porelo's setup script runs as root. It creates the user ${run.workUser}, which runs "
+                  'work, and installs Porelo and whatever you choose below: agents, and for messages '
                   'between work the Matrix transport and a homeserver of the machine’s own. It shows '
                   'every command before it runs; nothing changes until you run it.',
         ),
@@ -402,8 +402,8 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
           '${run.workUser} gets a key of its own, and logs in with it and nothing else: its password '
           'stays locked, and ssh is told so for ${run.workUser} alone (as root, below). Then Host '
           "${run.alias} goes into ~/.ssh/config with that key — as ${run.workUser}, never root — "
-          "Sokar starts in ${run.workUser}'s own session, sokar setup registers its hooks there, "
-          'sokar doctor is asked, and it connects the way watching it will.',
+          "Porelo starts in ${run.workUser}'s own session, porelo setup registers its hooks there, "
+          'porelo doctor is asked, and it connects the way watching it will.',
         ),
         const SizedBox(height: Space.normal),
         Text('The key ${run.workUser} logs in with', style: Theme.of(context).textTheme.labelMedium),
@@ -444,7 +444,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
         if (run.doctorFound != null) ...<Widget>[
           const SizedBox(height: Space.normal),
           Text(
-            'It answers and can be watched, but tasks cannot run there yet. sokar doctor found:',
+            'It answers and can be watched, but tasks cannot run there yet. porelo doctor found:',
             key: const Key('doctor-found'),
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
@@ -455,7 +455,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
             key: const Key('ask-doctor-again'),
             onPressed: run.busy ? null : run.askDoctorAgain,
             icon: const Icon(Icons.refresh, size: Sizes.rowIcon),
-            label: const Text('Ask sokar doctor again'),
+            label: const Text('Ask porelo doctor again'),
           ),
         ],
         if (run.messages case final messages?) ...<Widget>[

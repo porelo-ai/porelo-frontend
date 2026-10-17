@@ -57,7 +57,7 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
     }
 
     testWidgets(
@@ -71,7 +71,7 @@ void main() {
       await theStatusLineMentions(
           tester, 'holds work that never reached the gate');
       await iChoose(tester, 'Leave it alone');
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''a long list of what is held still leaves the choice within reach''',
@@ -81,7 +81,7 @@ void main() {
       await iAskToRemoveTheSelectedWork(tester);
       await iConfirm(tester);
       await iChoose(tester, 'Leave it alone');
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''what is held can be pushed to the mirror before it is removed''',
@@ -110,7 +110,7 @@ void main() {
       await iConfirm(tester);
       await iChoose(tester, 'Leave it alone');
       await nothingMoreWasAskedOfTheBackend(tester);
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
       await theStatusLineMentions(tester, 'nothing was touched');
     });
     testWidgets(
@@ -119,11 +119,11 @@ void main() {
       await bddSetUp(tester);
       await iAskToRemoveTheSelectedWork(tester);
       await iConfirm(tester);
-      await theStopAskedFor(tester, 'sokar-checkout-shell');
-      await theRemovalAskedFor(tester, 'sokar-checkout-shell');
+      await theStopAskedFor(tester, 'porelo-checkout-shell');
+      await theRemovalAskedFor(tester, 'porelo-checkout-shell');
       await theStatusLineMentions(tester, 'was removed');
       await theStatusLineMentions(tester, '3 paths only it held went with it');
-      await theWorkIsNoLongerListed(tester, 'sokar-checkout-shell');
+      await theWorkIsNoLongerListed(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''running work that holds commits is asked about before anything stops it''',
@@ -139,21 +139,21 @@ void main() {
         '''a removal the machine says still runs is stopped, then removed''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-checkout-shell');
+      await theWorkHasStopped(tester, 'porelo-checkout-shell');
       await removingWillRefuseBecauseTheWorkStillRuns(tester);
       await iAskToRemoveTheSelectedWork(tester);
       await iConfirm(tester);
-      await theStopAskedFor(tester, 'sokar-checkout-shell');
-      await theRemovalAskedFor(tester, 'sokar-checkout-shell');
+      await theStopAskedFor(tester, 'porelo-checkout-shell');
+      await theRemovalAskedFor(tester, 'porelo-checkout-shell');
     });
     testWidgets('''stopping keeps the work, to be started again''',
         (tester) async {
       await bddSetUp(tester);
       await iStopTheSelectedWork(tester);
-      await theStopAskedFor(tester, 'sokar-checkout-shell');
+      await theStopAskedFor(tester, 'porelo-checkout-shell');
       await theWorkWasNotRemoved(tester);
       await theStatusLineMentions(tester, 'It is kept, workspace and all');
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''the confirmation names what is destroyed along with the work''',
@@ -166,14 +166,14 @@ void main() {
         '''an action the state does not allow is offered as unavailable, not hidden''',
         (tester) async {
       await bddSetUp(tester);
-      await iOpenTheActionsFor(tester, 'sokar-checkout-shell');
+      await iOpenTheActionsFor(tester, 'porelo-checkout-shell');
       await theActionIsOfferedAsUnavailable(tester, 'Start it again');
     });
     testWidgets(
         '''an action with no method behind it says so rather than going missing''',
         (tester) async {
       await bddSetUp(tester);
-      await iOpenTheActionsFor(tester, 'sokar-checkout-shell');
+      await iOpenTheActionsFor(tester, 'porelo-checkout-shell');
       await theActionIsOfferedAsUnavailable(tester, 'Rename it');
     });
     testWidgets(
@@ -183,13 +183,13 @@ void main() {
       await iGiveThisWorkSomethingToReadBy(
           tester, 'schema migration, second attempt');
       await theWorkReadsAs(tester, 'schema migration, second attempt');
-      await itsNameIsStillShownAs(tester, 'sokar-checkout-shell');
+      await itsNameIsStillShownAs(tester, 'porelo-checkout-shell');
     });
     testWidgets('''the caption never becomes the identity''', (tester) async {
       await bddSetUp(tester);
       await iGiveThisWorkSomethingToReadBy(tester, 'schema migration');
       await iOpenTheSelection(tester);
-      await itSaysItsNameIs(tester, 'sokar-checkout-shell');
+      await itSaysItsNameIs(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''an empty caption takes it away rather than storing nothing''',
@@ -197,13 +197,13 @@ void main() {
       await bddSetUp(tester);
       await thisWorkAlreadyReadsAs(tester, 'schema migration');
       await iGiveThisWorkSomethingToReadBy(tester, '');
-      await theWorkReadsAs(tester, 'sokar-checkout-shell');
+      await theWorkReadsAs(tester, 'porelo-checkout-shell');
       await theCaptionSentWasEmpty(tester);
     });
     testWidgets('''the dialog says the name will not move''', (tester) async {
       await bddSetUp(tester);
       await iAskWhatThisWorkShouldReadAs(tester);
-      await itSays(tester, 'Its name stays sokar-checkout-shell');
+      await itSays(tester, 'Its name stays porelo-checkout-shell');
     });
     testWidgets('''recreating says why it exists, and what it costs''',
         (tester) async {
@@ -217,7 +217,7 @@ void main() {
       await bddSetUp(tester);
       await iAskToRecreateTheSelectedWork(tester);
       await iAgreeToRecreateIt(tester);
-      await theRemovalAskedFor(tester, 'sokar-checkout-shell');
+      await theRemovalAskedFor(tester, 'porelo-checkout-shell');
       await theLaunchWasCalled(tester, 'shell');
     });
     testWidgets(
@@ -237,7 +237,7 @@ void main() {
       await theProjectHasTheRepositories(
           tester, 'checkout', 'checkout, payments-api');
       await theWorkWorksInTheRepository(
-          tester, 'sokar-checkout-shell', 'payments-api');
+          tester, 'porelo-checkout-shell', 'payments-api');
       await iAskToRecreateTheSelectedWork(tester);
       await iAgreeToRecreateIt(tester);
       await theLaunchWasInTheRepository(tester, 'payments-api');

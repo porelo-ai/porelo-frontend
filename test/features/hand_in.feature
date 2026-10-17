@@ -8,13 +8,13 @@ Feature: Handing a file to running work, taking it back, and its record
     And the app is running
     And I go to the work
     And I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
 
   Scenario: a file handed in is listed with its size and who handed it in
     Given a file {'notes.txt'} of {300} bytes is picked
-    When I choose {'Hand it a file from this computer'} from the menu of the tile {'sokar-checkout-shell'}
+    When I choose {'Hand it a file from this computer'} from the menu of the tile {'porelo-checkout-shell'}
     And the file is read and sent
-    Then the status line mentions {'notes.txt is in sokar-checkout-shell now'}
+    Then the status line mentions {'notes.txt is in porelo-checkout-shell now'}
     When I open the selection
     Then it says {'notes.txt, 300 bytes, by somebody'}
     And it says {'notes.txt given by somebody'}
@@ -22,7 +22,7 @@ Feature: Handing a file to running work, taking it back, and its record
   Scenario: a file the machine never places is not shown as handed in
     Given a file {'notes.txt'} of {300} bytes is picked
     And the machine will keep the parts but never place the file
-    When I choose {'Hand it a file from this computer'} from the menu of the tile {'sokar-checkout-shell'}
+    When I choose {'Hand it a file from this computer'} from the menu of the tile {'porelo-checkout-shell'}
     And the file is read and sent
     Then the status line mentions {'placed nothing'}
     When I open the selection
@@ -30,7 +30,7 @@ Feature: Handing a file to running work, taking it back, and its record
 
   Scenario: a file larger than the work takes is refused before anything is sent
     Given a file {'big.bin'} of {9000000} bytes is picked
-    When I choose {'Hand it a file from this computer'} from the menu of the tile {'sokar-checkout-shell'}
+    When I choose {'Hand it a file from this computer'} from the menu of the tile {'porelo-checkout-shell'}
     And the file is read and sent
     Then the status line mentions {'takes at most 8 MiB. Nothing was sent.'}
     And no part was sent
@@ -38,7 +38,7 @@ Feature: Handing a file to running work, taking it back, and its record
   Scenario: a transfer cut off goes on where the machine says, not from the start
     Given a file {'cut.bin'} of {2500000} bytes is picked
     And the machine will lose the reply to the next part
-    When I choose {'Hand it a file from this computer'} from the menu of the tile {'sokar-checkout-shell'}
+    When I choose {'Hand it a file from this computer'} from the menu of the tile {'porelo-checkout-shell'}
     And the file is read and sent
     Then the parts sent started at {'0, 0, 1048576, 2097152'}
     And the file {'cut.bin'} arrived whole
@@ -46,7 +46,7 @@ Feature: Handing a file to running work, taking it back, and its record
   Scenario Outline: a refusal says what to do about it, in its own words
     Given a file {'notes.txt'} of {300} bytes is picked
     And the machine will refuse the next file with {<refusal>}
-    When I choose {'Hand it a file from this computer'} from the menu of the tile {'sokar-checkout-shell'}
+    When I choose {'Hand it a file from this computer'} from the menu of the tile {'porelo-checkout-shell'}
     And the file is read and sent
     Then the status line mentions {<words>}
 
@@ -59,23 +59,23 @@ Feature: Handing a file to running work, taking it back, and its record
 
   Scenario: a file taken back is gone, and the record keeps both
     Given a file {'brief.txt'} of {40} bytes is picked
-    When I choose {'Hand it a file from this computer'} from the menu of the tile {'sokar-checkout-shell'}
+    When I choose {'Hand it a file from this computer'} from the menu of the tile {'porelo-checkout-shell'}
     And the file is read and sent
-    And I choose {'Take back a file it was handed'} from the menu of the tile {'sokar-checkout-shell'}
+    And I choose {'Take back a file it was handed'} from the menu of the tile {'porelo-checkout-shell'}
     And I choose {'brief.txt, 40 bytes, by somebody'}
-    Then the status line mentions {'brief.txt is out of sokar-checkout-shell again'}
+    Then the status line mentions {'brief.txt is out of porelo-checkout-shell again'}
     When I open the selection
-    Then it says {'nothing, under /sokar/files'}
+    Then it says {'nothing, under /porelo/files'}
     And it says {'brief.txt taken back by somebody'}
 
-  Scenario: what Sokar hands in itself reads as Sokar's, never as a person's
-    Given the work {'sokar-checkout-shell'} was handed {'verdict.json'} by Sokar
+  Scenario: what Porelo hands in itself reads as Porelo's, never as a person's
+    Given the work {'porelo-checkout-shell'} was handed {'verdict.json'} by Porelo
     When I open the selection
-    Then it says {'verdict.json, 120 bytes, by Sokar'}
+    Then it says {'verdict.json, 120 bytes, by Porelo'}
 
   Scenario: a machine without hand-in offers it as unavailable, with why
     Given this machine cannot hand files to work
-    When I open the actions for {'sokar-checkout-shell'}
+    When I open the actions for {'porelo-checkout-shell'}
     Then the action {'Hand it a file from this computer'} is offered as unavailable
 
   Scenario: a machine without hand-in shows no files, rather than none

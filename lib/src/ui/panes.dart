@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/builds.dart';
 import '../app/hand_in.dart';
@@ -160,7 +160,7 @@ class WorkDetail extends StatelessWidget {
                     ?_sending(task),
                     if (task.files case final files?)
                       if (files.isEmpty)
-                        'nothing, under /sokar/files'
+                        'nothing, under /porelo/files'
                       else
                         for (final file in files)
                           '${file.name}, ${HandingIn.inWords(file.bytes)}, by ${file.from}',
@@ -177,7 +177,7 @@ class WorkDetail extends StatelessWidget {
                   name: 'Credentials',
                   value: <String>[
                     for (final given in task.credentials.entries)
-                      '${given.key} for ${given.value}, as SOKAR_TOKEN_${Credential.variableOf(given.key)}'
+                      '${given.key} for ${given.value}, as PORELO_TOKEN_${Credential.variableOf(given.key)}'
                           '${_grantedBy(task.grants[given.key])}',
                   ].join('\n'),
                 ),
@@ -201,7 +201,7 @@ class WorkDetail extends StatelessWidget {
                 _Field(name: 'Asked to', value: task.prompt),
               // **Where somebody asks what this agent was told, and the honest answer is "not
               // here".** Standing instructions live in the repository, checked in or not, and
-              // Sokar does not know what they are called — `CLAUDE.md`, `AGENTS.md`, whatever an
+              // Porelo does not know what they are called — `CLAUDE.md`, `AGENTS.md`, whatever an
               // agent invents next year — nor how a given agent combines several of them.
               //
               // A screen that guessed a set of filenames would answer *"no instructions"* with

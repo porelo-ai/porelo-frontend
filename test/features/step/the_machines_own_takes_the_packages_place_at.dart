@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -18,6 +18,6 @@ Future<void> theMachinesOwnTakesThePackagesPlaceAt(WidgetTester tester, String n
       0,
       Destination(
           name: name, label: name, upstream: upstream, authHeader: 'Authorization', authPrefix: 'Bearer ',
-          authQuery: '', file: '/home/somebody/.local/share/sokar/destinations/$name.yaml',
+          authQuery: '', file: '/home/somebody/.local/share/porelo/destinations/$name.yaml',
           packaged: false, inForce: true));
 }

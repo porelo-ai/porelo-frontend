@@ -5,19 +5,19 @@
 unit tests and a scenario against a real task; no contract changes.
 
 **What must be true.** A task's terminal in the interface behaves as the same task in a plain
-terminal, now that Sokar has set its tmux up for that: keys, colours, the clipboard and scrolling
+terminal, now that Porelo has set its tmux up for that: keys, colours, the clipboard and scrolling
 reach the task and come back as they do outside the interface.
 
 ## Why
 
-Sokar's [B134](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b134), built on 2026-10-09 and 2026-10-10, set a task's tmux up to behave as the terminal
+Porelo's [B134](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b134), built on 2026-10-09 and 2026-10-10, set a task's tmux up to behave as the terminal
 outside it, measured per key in a plain terminal:
 - Esc arrives at once.
 - Shift+Enter and focus events come through.
 - Truecolor and OSC 52 come through.
 - Shift+PageUp scrolls back in tmux's copy mode, and Shift+PageDown scrolls down again and leaves it.
 
-Each person can add their own settings in `~/.config/sokar/tmux.conf`.
+Each person can add their own settings in `~/.config/porelo/tmux.conf`.
 
 The interface is one of those outside terminals, and it was not measured. Its terminal is the `xterm`
 library with a scrollback of its own of 10,000 lines (`lib/src/app/session.dart`). What it sends for
@@ -27,7 +27,7 @@ passed through it, not tmux's history.
 
 ## The shape
 
-- **Measure first**, through the interface on the VM, for the same keys and capabilities as [B134](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b134):
+- **Measure first**, through the interface on the VM, for the same keys and capabilities as [B134](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b134):
   Esc, Shift+Enter, Ctrl and Alt with the arrows, truecolor, OSC 52, focus events, the mouse wheel,
   and Shift+PageUp/PageDown. Do it once in a plain terminal and once in the interface, against the
   same task.

@@ -1,30 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
-/// The machine list in `frontend.json` is read by another repository: `sokar-intellij`'s plugin takes
+/// The machine list in `frontend.json` is read by another repository: `porelo-intellij`'s plugin takes
 /// `machines[]` with `name`, `socket`, `host` and `remoteSocket`. A rename here
 /// is a break there, so it is said in the channel first, and this test is what makes it deliberate.
 void main() {
   test('a machine reached through a tunnel is stored with the four fields the plugin reads', () {
     const machine = Machine(
         name: 'vm',
-        socketPath: '/run/user/1000/sokar-tunnel-vm.sock',
+        socketPath: '/run/user/1000/porelo-tunnel-vm.sock',
         host: 'somebody@192.0.2.10',
-        remoteSocket: '/run/user/1012/sokar/sokard.sock');
+        remoteSocket: '/run/user/1012/porelo/porelod.sock');
 
     expect(machine.stored, <String, Object?>{
       'name': 'vm',
-      'socket': '/run/user/1000/sokar-tunnel-vm.sock',
+      'socket': '/run/user/1000/porelo-tunnel-vm.sock',
       'host': 'somebody@192.0.2.10',
-      'remoteSocket': '/run/user/1012/sokar/sokard.sock',
+      'remoteSocket': '/run/user/1012/porelo/porelod.sock',
     });
   });
 
   test('a machine somebody else forwards, or this computer, is stored without host and remote socket', () {
-    const machine = Machine(name: 'here', socketPath: '/run/user/1000/sokar/sokard.sock');
+    const machine = Machine(name: 'here', socketPath: '/run/user/1000/porelo/porelod.sock');
 
-    expect(machine.stored, <String, Object?>{'name': 'here', 'socket': '/run/user/1000/sokar/sokard.sock'});
+    expect(machine.stored, <String, Object?>{'name': 'here', 'socket': '/run/user/1000/porelo/porelod.sock'});
     expect(Machine.fromStored(machine.stored).needsATunnel, isFalse);
   });
 
@@ -49,12 +49,12 @@ void main() {
         contains('WSL distribution Ubuntu is reached from Windows'));
     expect(Machine.fromStored(const <String, Object?>{'name': 'l', 'kind': 'teleport'}).whyNotReachableHere,
         contains('"teleport"'));
-    expect(const Machine(name: 'here', socketPath: '/run/user/1000/sokar/sokard.sock').whyNotReachableHere, isNull);
+    expect(const Machine(name: 'here', socketPath: '/run/user/1000/porelo/porelod.sock').whyNotReachableHere, isNull);
   });
 
   test('loading and saving the list keeps a WSL entry and an unknown kind beside the others', () async {
     final entries = <Map<String, Object?>>[
-      <String, Object?>{'name': 'here', 'socket': '/run/user/1000/sokar/sokard.sock'},
+      <String, Object?>{'name': 'here', 'socket': '/run/user/1000/porelo/porelod.sock'},
       <String, Object?>{'name': 'Ubuntu on this PC', 'kind': 'wsl', 'distribution': 'Ubuntu'},
       <String, Object?>{'name': 'later', 'kind': 'teleport', 'cluster': 'x'},
     ];

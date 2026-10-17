@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:xterm/xterm.dart';
 
 import 'connections.dart';
@@ -63,7 +63,7 @@ enum SessionState {
 /// One session against one piece of work.
 ///
 /// **The session is not this object and does not end with it.** What is being drawn here is a way
-/// in to `tmux new-session -A -s sokar` inside the container: closing this window leaves that
+/// in to `tmux new-session -A -s porelo` inside the container: closing this window leaves that
 /// running, and opening it again finds the same session rather than a new one. Everything on
 /// screen has to keep saying so, because the opposite assumption — that leaving ends things — is
 /// what stops people leaving.
@@ -108,7 +108,7 @@ class Session extends ChangeNotifier {
 
   HeldForward? _forward;
 
-  /// A command of its own instead of attaching to [task] — the wizard's `sokar vault init`, typed
+  /// A command of its own instead of attaching to [task] — the wizard's `porelo vault init`, typed
   /// into by a person so the passphrase never passes through this program.
   final List<String>? run;
 
@@ -158,7 +158,7 @@ class Session extends ChangeNotifier {
 
   /// What went wrong, in words. Null while nothing has.
   ///
-  /// **Never a rewording of what the far end said.** `sokar` and `ssh` both say why in their own
+  /// **Never a rewording of what the far end said.** `porelo` and `ssh` both say why in their own
   /// sentences, and those are already on the terminal where somebody can read them; what this
   /// adds is what kind of ending it was, which the terminal cannot say.
   String? problem;
@@ -183,10 +183,10 @@ class Session extends ChangeNotifier {
   /// or an unknown host key can be answered by the person sitting in front of it.
   List<String> get command => run ??
       (machine.relay != null
-          ? Wsl.runIn(machine.distribution, <String>['sokar', 'task', 'attach', task])
+          ? Wsl.runIn(machine.distribution, <String>['porelo', 'task', 'attach', task])
           : machine.needsATunnel
-              ? <String>['ssh', '-t', machine.host, inTheLoginShell('sokar task attach ${quoteForAShell(task)}')]
-              : <String>['sokar', 'task', 'attach', task]);
+              ? <String>['ssh', '-t', machine.host, inTheLoginShell('porelo task attach ${quoteForAShell(task)}')]
+              : <String>['porelo', 'task', 'attach', task]);
 
   /// Reports one turn of the mouse wheel to the far end as an SGR wheel report, the way tmux reads
   /// it: up is button 64, down 65.
@@ -276,7 +276,7 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// What `sokar task attach` refuses with, for both of its reasons.
+  /// What `porelo task attach` refuses with, for both of its reasons.
   static const int _refused = 69;
 
   /// ssh's own code for "the connection did not happen".
@@ -287,8 +287,8 @@ class Session extends ChangeNotifier {
 
   /// How much a session can show of what happened while nobody was watching.
   ///
-  /// **10,000 lines, and the figure is Sokar's rather than ours.** It is written into
-  /// `/etc/sokar/tmux.conf` when the image is built and read explicitly by `task attach`, so a
+  /// **10,000 lines, and the figure is Porelo's rather than ours.** It is written into
+  /// `/etc/porelo/tmux.conf` when the image is built and read explicitly by `task attach`, so a
   /// base image or somebody's dotfile cannot change it underneath the one process that has to
   /// state it. Confirmed as `09cae48`; before that it was tmux's default, a number
   /// nobody had chosen.
@@ -355,7 +355,7 @@ class Sessions extends ChangeNotifier {
   ///
   /// **The mode is not a reason.** This end refused `AGENT` and `UNATTENDED` once,
   /// on the strength of *"the agent is the main process, so there is no session to
-  /// attach to"*. That was wrong, and the Sokar side said so: **`AGENT` and `SHELL` are the same
+  /// attach to"*. That was wrong, and the Porelo side said so: **`AGENT` and `SHELL` are the same
   /// task** — same container, same egress, same gate, same credential — and `--attach agent` only
   /// runs the agent's binary first and drops into the shell when it exits. Attaching starts its
   /// own `tmux` by `podman exec`, which does not care what the container's main process is.

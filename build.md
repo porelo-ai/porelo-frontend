@@ -1,7 +1,7 @@
 # Building it and working on it
 
-The interface is Flutter, on Linux. It talks to Sokar's daemon over one unix socket, and to a
-machine elsewhere over an ssh forward of that socket. It never runs the `sokar` command line and
+The interface is Flutter, on Linux. It talks to Porelo's daemon over one unix socket, and to a
+machine elsewhere over an ssh forward of that socket. It never runs the `porelo` command line and
 parses it: that would be a second implementation of every refusal the product makes.
 
 Where to read on:
@@ -32,14 +32,14 @@ flutter build linux --release   # the bundle is in build/linux/x64/release/bundl
 `build_runner` after editing a `.feature` file; the generated test beside it is committed, and CI
 fails on a difference.
 
-With a real `sokard` running, one more suite checks that this client agrees with it:
+With a real `porelod` running, one more suite checks that this client agrees with it:
 
 ```bash
-SOKAR_SOCKET=$XDG_RUNTIME_DIR/sokar/sokard.sock flutter test test/client/live_daemon_test.dart
+PORELO_SOCKET=$XDG_RUNTIME_DIR/porelo/porelod.sock flutter test test/client/live_daemon_test.dart
 ```
 
 One of its tests enrolls a device in the vault and revokes it again, so it also needs
-`SOKAR_VAULT_TEST=1`, and belongs only on a machine whose vault is a test's own.
+`PORELO_VAULT_TEST=1`, and belongs only on a machine whose vault is a test's own.
 
 To see what a running backend offers: `dart tool/contract.dart`.
 
@@ -54,7 +54,7 @@ flutter run -d linux
 
 It appears as the machine **mock**. Pressing RETURN in the mock's terminal adds a task, so live
 updates can be watched arriving; `b` blocks a connection, and `x` lets that question run out.
-`SOKAR_SOCKET` moves where the interface looks for it.
+`PORELO_SOCKET` moves where the interface looks for it.
 
 Situations no real daemon can be asked for on demand:
 
@@ -74,7 +74,7 @@ A second mock, to watch several machines at once, is added in the interface with
 machine…*:
 
 ```bash
-dart tool/mock_daemon.dart work /tmp/sokar-elsewhere.sock
+dart tool/mock_daemon.dart work /tmp/porelo-elsewhere.sock
 ```
 
 **A second launch** does not open a second window: it asks the one running to come forward, and

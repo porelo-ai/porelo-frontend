@@ -59,10 +59,10 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iStartWatchingAnotherMachine(tester);
-      await iNameTheSocket(tester, '/tmp/sokar-elsewhere.sock');
+      await iNameTheSocket(tester, '/tmp/porelo-elsewhere.sock');
       await iCopyTheForwardingCommand(tester);
       await whatWasCopiedIs(tester,
-          'ssh -L /tmp/sokar-elsewhere.sock:/run/user/<uid>/sokar/sokard.sock user@host -N');
+          'ssh -L /tmp/porelo-elsewhere.sock:/run/user/<uid>/porelo/porelod.sock user@host -N');
     });
     testWidgets(
         '''every machine is watched at once, not only the one being acted on''',
@@ -84,7 +84,7 @@ void main() {
       await iSelectTheProject(tester, 'checkout');
       await theTunnelDrops(tester);
       await theMachineIsShownAsNotAnswering(tester);
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
       await enoughTimePassesForAnotherTry(tester);
       await theMachineIsShownAsAnswering(tester);
     });

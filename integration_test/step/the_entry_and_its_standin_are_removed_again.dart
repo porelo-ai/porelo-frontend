@@ -8,10 +8,10 @@ Future<void> theEntryAndItsStandinAreRemovedAgain(WidgetTester tester, String en
   // Removing revokes at the service first, which the stand-in answers; nothing is left behind.
   final left = await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"
-sokar vault remove $entry >/dev/null
+porelo vault remove $entry >/dev/null
 pkill -f "stand_in_authorization.py $standInPort" || true
 rm -f "\$HOME/stand_in_authorization.py"
-sokar vault list
+porelo vault list
 ''');
   expect(left, isNot(contains(entry)));
 }

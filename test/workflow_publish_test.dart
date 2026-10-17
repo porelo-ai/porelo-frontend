@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Holds the publish steps of `.github/workflows/build.yml` to this package's own files.
 ///
-/// The `releases` index holds every Sokar package, many at the same version. A step that asks
+/// The `releases` index holds every Porelo package, many at the same version. A step that asks
 /// only whether some package has that version refuses a release nobody made, and believes an
 /// upload indexed that is not. Each step's script is taken from the workflow itself and run
 /// against a stand-in `curl` that answers with a chosen index.
@@ -19,8 +19,8 @@ void main() {
   setUp(() {
     scratch = Directory.systemTemp.createTempSync('publish-steps-');
     Directory('${scratch.path}/packages').createSync();
-    File('${scratch.path}/packages/sokar-frontend_0.4.0_amd64.deb').writeAsStringSync('');
-    File('${scratch.path}/packages/sokar-frontend-0.4.0-1.x86_64.rpm').writeAsStringSync('');
+    File('${scratch.path}/packages/porelo-frontend_0.4.0_amd64.deb').writeAsStringSync('');
+    File('${scratch.path}/packages/porelo-frontend-0.4.0-1.x86_64.rpm').writeAsStringSync('');
     final bin = Directory('${scratch.path}/bin')..createSync();
     _script('${bin.path}/curl', r'''
 for url; do :; done
@@ -51,14 +51,14 @@ esac
         });
   }
 
-  const others = 'Package: sokar\nVersion: 0.4.0\nFilename: pool/main/s/sokar/sokar_0.4.0_amd64.deb\n\n'
-      'Package: sokar-agent-claude\nVersion: 0.4.0\n'
-      'Filename: pool/main/s/sokar-agent-claude/sokar-agent-claude_0.4.0_amd64.deb\n\n';
-  const ours = 'Package: sokar-frontend\nVersion: 0.4.0\n'
-      'Filename: pool/main/s/sokar-frontend/sokar-frontend_0.4.0_amd64.deb\n\n';
-  const othersRpm = '<package><name>sokar-frontend</name><location href="sokar-frontend-0.3.9-1.x86_64.rpm"/>'
-      '</package><package><name>sokar</name><location href="sokar-0.4.0-1.x86_64.rpm"/></package>';
-  const oursRpm = '<package><name>sokar-frontend</name><location href="sokar-frontend-0.4.0-1.x86_64.rpm"/></package>';
+  const others = 'Package: porelo\nVersion: 0.4.0\nFilename: pool/main/p/porelo/porelo_0.4.0_amd64.deb\n\n'
+      'Package: porelo-agent-claude\nVersion: 0.4.0\n'
+      'Filename: pool/main/p/porelo-agent-claude/porelo-agent-claude_0.4.0_amd64.deb\n\n';
+  const ours = 'Package: porelo-frontend\nVersion: 0.4.0\n'
+      'Filename: pool/main/p/porelo-frontend/porelo-frontend_0.4.0_amd64.deb\n\n';
+  const othersRpm = '<package><name>porelo-frontend</name><location href="porelo-frontend-0.3.9-1.x86_64.rpm"/>'
+      '</package><package><name>porelo</name><location href="porelo-0.4.0-1.x86_64.rpm"/></package>';
+  const oursRpm = '<package><name>porelo-frontend</name><location href="porelo-frontend-0.4.0-1.x86_64.rpm"/></package>';
 
   test('a release is not refused because another package has its version', () async {
     final result = await run('Refuse a release that is there already', deb: others, rpm: othersRpm);

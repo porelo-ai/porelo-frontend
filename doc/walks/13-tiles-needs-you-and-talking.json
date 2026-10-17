@@ -2,7 +2,7 @@
   "title": "Walk 13: what walk 8 found, in tiles, Needs you, talking and Join",
   "steps": [
     {
-      "say": "Walk 13: was Walk 8 gefunden hat – Kacheln, „Needs you“, Reden und „Join“ –, mit dem echten Claude Code auf testmaschine. Bestanden ist ein Schritt, wenn Du siehst, was er nennt. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar project following\"'\n\n„project following“ zeigt sokar-test-project. Dann „Next“ hier.",
+      "say": "Walk 13: was Walk 8 gefunden hat – Kacheln, „Needs you“, Reden und „Join“ –, mit dem echten Claude Code auf testmaschine. Bestanden ist ein Schritt, wenn Du siehst, was er nennt. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"porelo vault unlock && porelo project following\"'\n\n„project following“ zeigt porelo-test-project. Dann „Next“ hier.",
       "at": []
     },
     {
@@ -14,7 +14,7 @@
       ]
     },
     {
-      "say": "Zwei Arbeiten starten. Links „Work“ → „New work“: testmaschine, sokar-test-project, Repository sokar-test-1, Name alpha, Claude Code, „A shell, driven by hand“. Fragt das Formular nach der Anmeldung: „Sign in first“.",
+      "say": "Zwei Arbeiten starten. Links „Work“ → „New work“: testmaschine, porelo-test-project, Repository porelo-test-1, Name alpha, Claude Code, „A shell, driven by hand“. Fragt das Formular nach der Anmeldung: „Sign in first“.",
       "at": [
         "new-work",
         "rail work",
@@ -50,7 +50,7 @@
       ]
     },
     {
-      "say": "An der Kachel von alpha ⋮ → „Hold its project's messages to a peer“. Bestanden: jeder Peer sagt, wer er ist – „Whoever reads this project’s conversation in a matrix client …“ für people, „Another piece of work in this project …“ für eine andere Arbeit des Projekts, sobald Sokar sie als Peer listet.",
+      "say": "An der Kachel von alpha ⋮ → „Hold its project's messages to a peer“. Bestanden: jeder Peer sagt, wer er ist – „Whoever reads this project’s conversation in a matrix client …“ für people, „Another piece of work in this project …“ für eine andere Arbeit des Projekts, sobald Porelo sie als Peer listet.",
       "at": [
         "peer-who *",
         "work.talk",
@@ -96,11 +96,11 @@
       ]
     },
     {
-      "say": "Links „Projects“, sokar-test-project öffnen, ⋮ oben rechts → „Messages — the conversation of this project …“. Dein Name, „Join“ (oder „Give a new password“, wenn Du schon beigetreten bist).",
+      "say": "Links „Projects“, porelo-test-project öffnen, ⋮ oben rechts → „Messages — the conversation of this project …“. Dein Name, „Join“ (oder „Give a new password“, wenn Du schon beigetreten bist).",
       "at": [
         "join-it",
         "project-menu",
-        "project sokar-test-project",
+        "project porelo-test-project",
         "rail projects",
         "open-rail"
       ]
@@ -113,19 +113,19 @@
       ]
     },
     {
-      "say": "Ein Push an das Tor: alphas Terminal öffnen und Claude bitten: „Add a line to README.md, commit it and push.“ Dann „Leave“. Links „Projects“: sokar-test-project zeigt einen wartenden Push.",
+      "say": "Ein Push an das Tor: alphas Terminal öffnen und Claude bitten: „Add a line to README.md, commit it and push.“ Dann „Leave“. Links „Projects“: porelo-test-project zeigt einen wartenden Push.",
       "at": [
         "tile-fold *alpha",
         "leave-session"
       ]
     },
     {
-      "say": "Auf der Seite von sokar-test-project ⋮ → „Review what is waiting at the gate“, den Push öffnen, „Forward it upstream…“. Bestanden: „Branch to push to“ bietet die Branches des Repositories zur Auswahl an, der Standard als „(its default branch)“, und „A new branch…“ – getippt werden muss nichts.",
+      "say": "Auf der Seite von porelo-test-project ⋮ → „Review what is waiting at the gate“, den Push öffnen, „Forward it upstream…“. Bestanden: „Branch to push to“ bietet die Branches des Repositories zur Auswahl an, der Standard als „(its default branch)“, und „A new branch…“ – getippt werden muss nichts.",
       "at": [
         "forward-branch",
         "gate.open",
         "project-menu",
-        "project sokar-test-project",
+        "project porelo-test-project",
         "rail projects",
         "open-rail"
       ]
@@ -137,11 +137,11 @@
       ]
     },
     {
-      "say": "Ein Repository, das selbst ein Projekt ist: lege in Deinem Klon von sokar-test-1 eine project.yml an, die nur „name: x“ enthält, committe und pushe sie. Dann links „Forges“ → „GitHub“, im Filter test-project, an sokar-ai/sokar-test-project ⋮ → „Work on it on testmaschine“ → „Work on it on testmaschine“. Bestanden: eine Zeile sagt „sokar-ai/sokar-test-1 holds a project.yml of its own … its own project.yml is not read here.“ Danach die project.yml in sokar-test-1 wieder löschen und pushen.",
+      "say": "Ein Repository, das selbst ein Projekt ist: lege in Deinem Klon von porelo-test-1 eine project.yml an, die nur „name: x“ enthält, committe und pushe sie. Dann links „Forges“ → „GitHub“, im Filter test-project, an porelo-ai/porelo-test-project ⋮ → „Work on it on testmaschine“ → „Work on it on testmaschine“. Bestanden: eine Zeile sagt „porelo-ai/porelo-test-1 holds a project.yml of its own … its own project.yml is not read here.“ Danach die project.yml in porelo-test-1 wieder löschen und pushen.",
       "at": [
         "binding-done *",
         "binding-bind",
-        "forge-repository-menu *sokar-test-project",
+        "forge-repository-menu *porelo-test-project",
         "forge GitHub",
         "rail forges",
         "open-rail"

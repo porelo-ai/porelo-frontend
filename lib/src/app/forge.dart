@@ -59,7 +59,7 @@ class ForgeDeployKey {
   /// The forge's own id for it, which removing it takes.
   final int id;
 
-  /// What it is called: `sokar <machine> <project>/<repository>` for one a machine made.
+  /// What it is called: `porelo <machine> <project>/<repository>` for one a machine made.
   final String title;
 
   /// The public key, `ssh-ed25519 AAAA…`.
@@ -71,8 +71,8 @@ class ForgeDeployKey {
   /// Constructor taking every field.
   const ForgeDeployKey({required this.id, required this.title, required this.key, required this.readOnly});
 
-  /// Whether a Sokar machine made it, by its title.
-  bool get isSokars => title.startsWith('sokar ');
+  /// Whether a Porelo machine made it, by its title.
+  bool get isPorelos => title.startsWith('porelo ');
 }
 
 /// Who a token logs in as.
@@ -352,7 +352,7 @@ class GitHub implements Forge {
         'Authorization': 'Bearer $_token',
         'Accept': 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'sokar-frontend',
+        'User-Agent': 'porelo-frontend',
         if (body != null) 'Content-Type': 'application/json',
       }, body);
     } on SocketException catch (ex) {
@@ -454,7 +454,7 @@ class PlatformForgeTokens implements ForgeTokens {
 
   final FlutterSecureStorage _storage;
 
-  static String _entry(String forge) => 'sokar-forge-token:$forge';
+  static String _entry(String forge) => 'porelo-forge-token:$forge';
 
   @override
   Future<String?> read(String forge) => _guarded(() => _storage.read(key: _entry(forge)));

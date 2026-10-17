@@ -60,11 +60,11 @@ void main() {
         '''a message held before the interface started is in what needs a person, and counted''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await whatNeedsAPersonShowsAMessageFrom(tester, 'sokar-checkout-shell');
+      await whatNeedsAPersonShowsAMessageFrom(tester, 'porelo-checkout-shell');
       await theCountOfWhatNeedsAPersonIs(tester, '1 need you');
     });
     testWidgets(
@@ -74,18 +74,18 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
       await hasAMessageHeldForWhileIWatch(
-          tester, 'sokar-checkout-shell', 'reviewer');
-      await whatNeedsAPersonShowsAMessageFrom(tester, 'sokar-checkout-shell');
+          tester, 'porelo-checkout-shell', 'reviewer');
+      await whatNeedsAPersonShowsAMessageFrom(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''a held message is read in full, as text, and nothing in it is interpreted''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          '**now** [see](https://evil.example/x) <b>here</b>');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', '**now** [see](https://evil.example/x) <b>here</b>');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await theMessageReadsExactly(
           tester, '**now** [see](https://evil.example/x) <b>here</b>');
       await nothingInTheMessageCanBePressed(tester);
@@ -94,14 +94,14 @@ void main() {
     testWidgets('''releasing a message names the message that was read''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await iReleaseTheMessage(tester);
       await theMachineWasToldToReleaseOf(
-          tester, 'msg-1.json', 'sokar-checkout-shell');
+          tester, 'msg-1.json', 'porelo-checkout-shell');
       await itSays(tester,
           'Released. It goes out on the next pass, unless its peer is set to refuse everything.');
       await theMessageIsNoLongerOpen(tester);
@@ -110,14 +110,14 @@ void main() {
     });
     testWidgets('''refusing a message refuses it for good''', (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await iRefuseTheMessage(tester);
       await theMachineWasToldToRefuseOf(
-          tester, 'msg-1.json', 'sokar-checkout-shell');
+          tester, 'msg-1.json', 'porelo-checkout-shell');
       await itSays(tester, 'Refused for good');
       await itDoesNotSay(tester, 'with your words');
     });
@@ -125,14 +125,14 @@ void main() {
         '''a refusal can say why, and the one that wrote it is told those words''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await iRefuseTheMessageSaying(tester, 'not before the tests pass');
       await theMachineWasToldToRefuseOf(
-          tester, 'msg-1.json', 'sokar-checkout-shell');
+          tester, 'msg-1.json', 'porelo-checkout-shell');
       await theRefusalGaveTheReason(tester, 'not before the tests pass');
       await itSays(tester, 'The task that wrote it is told, with your words.');
     });
@@ -144,12 +144,12 @@ void main() {
       await iGoToTheWork(tester);
       await iSelectTheProject(tester, 'checkout');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Write to its agent', 'sokar-checkout-migrate');
+          tester, 'Write to its agent', 'porelo-checkout-migrate');
       await iPutInItsInbox(tester, 'stop the migration, the schema changed');
-      await aPersonTold(tester, 'sokar-checkout-migrate',
+      await aPersonTold(tester, 'porelo-checkout-migrate',
           'stop the migration, the schema changed');
       await theStatusLineMentions(
-          tester, 'Written into the inbox of sokar-checkout-migrate');
+          tester, 'Written into the inbox of porelo-checkout-migrate');
     });
     testWidgets(
         '''writing to a task's agent needs words, and cancelling writes nothing''',
@@ -157,7 +157,7 @@ void main() {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Write to its agent', 'sokar-checkout-migrate');
+          tester, 'Write to its agent', 'porelo-checkout-migrate');
       await puttingItInItsInboxIsNotOfferedYet(tester);
       await iCancelTheWords(tester);
       await nobodyToldAnyTaskAnything(tester);
@@ -165,52 +165,52 @@ void main() {
     testWidgets('''leaving a message for now decides nothing''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await iLeaveTheMessageForNow(tester);
       await nothingWasDecidedAboutAnyMessage(tester);
-      await whatNeedsAPersonShowsAMessageFrom(tester, 'sokar-checkout-shell');
+      await whatNeedsAPersonShowsAMessageFrom(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''a held message shows the start of its text in its row, one the filter refused never does''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await hasAMessageTheFilterRefusedForSaying(
-          tester, 'sokar-billing-shell', 'partner', 'key AKIA0000');
+          tester, 'porelo-billing-shell', 'partner', 'key AKIA0000');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
       await theRowOfTheMessageFromPreviews(
-          tester, 'sokar-checkout-shell', 'please look at the diff');
-      await theRowOfTheMessageFromPreviews(tester, 'sokar-billing-shell', '');
+          tester, 'porelo-checkout-shell', 'please look at the diff');
+      await theRowOfTheMessageFromPreviews(tester, 'porelo-billing-shell', '');
     });
     testWidgets(
         '''a message the filter refused is read in full, and can be delivered despite the filter''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await hasAMessageTheFilterRefusedForSaying(
-          tester, 'sokar-checkout-shell', 'partner', 'key AKIA0000');
+          tester, 'porelo-checkout-shell', 'partner', 'key AKIA0000');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await theMessageReadsExactly(tester, 'key AKIA0000');
       await itSays(tester, 'rule aws-key');
       await itSays(tester, 'checks it again with its own filter');
       await theMessageCanBeDeliveredDespiteTheFilterOrKeptRefused(tester);
       await iReleaseTheMessage(tester);
       await theMachineWasToldToReleaseOf(
-          tester, 'msg-1.json', 'sokar-checkout-shell');
+          tester, 'msg-1.json', 'porelo-checkout-shell');
       await itSays(tester, 'Delivered despite the filter');
     });
     testWidgets(
         '''a message the filter could not check is not offered for delivery''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageTheFilterCouldNotCheck(tester, 'sokar-checkout-shell');
+      await hasAMessageTheFilterCouldNotCheck(tester, 'porelo-checkout-shell');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
       await whatNeedsAPersonShowsNoMessage(tester);
@@ -220,12 +220,12 @@ void main() {
         '''a message decided somewhere else meanwhile is said to be gone, and nothing is decided''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
       await theMessageWasDecidedSomewhereElse(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await itSays(tester, 'It is no longer there');
       await theMessageCannotBeDecidedHere(tester);
     });
@@ -243,12 +243,12 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToIn(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'vouched', 'prompt');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'vouched', 'prompt');
       await mayTalkToInHeld(
-          tester, 'sokar-checkout-migrate', 'partner', 'external', 'allow');
+          tester, 'porelo-checkout-migrate', 'partner', 'external', 'allow');
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await thePeerIsNotHeld(tester, 'reviewer');
       await thePeerIsHeld(tester, 'partner');
       await itSays(tester,
@@ -263,12 +263,12 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToThroughTheProjectsConversation(
-          tester, 'sokar-checkout-migrate', 'alice', 'external');
+          tester, 'porelo-checkout-migrate', 'alice', 'external');
       await mayTalkToThroughTheProjectsConversation(
-          tester, 'sokar-checkout-migrate', 'reader', 'vouched');
+          tester, 'porelo-checkout-migrate', 'reader', 'vouched');
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await itSays(tester,
           'Whoever reads this project’s conversation in a matrix client, by the name alice');
       await itSays(tester, 'Another piece of work in this project');
@@ -278,13 +278,13 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToIn(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'vouched', 'allow');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'vouched', 'allow');
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await iHoldEverythingFor(tester, 'reviewer');
       await theMachineWasToldToHoldOfIn(
-          tester, 'reviewer', 'sokar-checkout-migrate', 'checkout');
+          tester, 'reviewer', 'porelo-checkout-migrate', 'checkout');
       await thePeerIsHeld(tester, 'reviewer');
     });
     testWidgets(
@@ -293,7 +293,7 @@ void main() {
       await aBackendWithWorkOnIt(tester);
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await itSays(tester, 'names no peers, so it may talk to nobody');
     });
     testWidgets(
@@ -301,14 +301,14 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToIn(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'vouched', 'prompt');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'vouched', 'prompt');
       await theAppIsRunning(tester);
       await theMachineSaysOfWas(
-          tester, 'msg-7.json', 'sokar-checkout-migrate', 'overridden');
+          tester, 'msg-7.json', 'porelo-checkout-migrate', 'overridden');
       await theMachineSaysOfWas(
-          tester, 'msg-8.json', 'sokar-checkout-shell', 'sent');
+          tester, 'msg-8.json', 'porelo-checkout-shell', 'sent');
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await itSays(tester,
           'msg-7.json (reviewer) delivered by a person despite the filter');
       await itDoesNotSay(tester, 'msg-8.json');
@@ -317,32 +317,32 @@ void main() {
     testWidgets('''a held message says which way it was going''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
-      await hasAMessageHeldForSaying(tester, 'sokar-checkout-shell', 'reviewer',
-          'please look at the diff');
+      await hasAMessageHeldForSaying(tester, 'porelo-checkout-shell',
+          'reviewer', 'please look at the diff');
       await hasAMessageHeldComingInFromSaying(
-          tester, 'sokar-checkout-shell', 'partner', 'here is the file');
+          tester, 'porelo-checkout-shell', 'partner', 'here is the file');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await itSays(tester, 'going out from sokar-checkout-shell to reviewer');
-      await itSays(tester, 'coming in from partner to sokar-checkout-shell');
+      await itSays(tester, 'going out from porelo-checkout-shell to reviewer');
+      await itSays(tester, 'coming in from partner to porelo-checkout-shell');
       await itSays(tester,
-          'Whoever wrote it has sent it already; it only waits to reach sokar-checkout-shell.');
+          'Whoever wrote it has sent it already; it only waits to reach porelo-checkout-shell.');
       await itSays(
-          tester, 'Read it, and decide whether sokar-checkout-shell gets it');
+          tester, 'Read it, and decide whether porelo-checkout-shell gets it');
     });
     testWidgets(
         '''a peer says how many messages with it wait for a person now''',
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToIn(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'vouched', 'prompt');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'vouched', 'prompt');
       await hasAMessageHeldForSaying(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'first');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'first');
       await hasAMessageHeldForSaying(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'second');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'second');
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await itSays(tester, '2 messages with it wait for a person now');
     });
     testWidgets(
@@ -350,16 +350,16 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToIn(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'vouched', 'prompt');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'vouched', 'prompt');
       await theAppIsRunning(tester);
       await theMachineSaysOfWas(
-          tester, 'msg-7.json', 'sokar-checkout-migrate', 'held');
+          tester, 'msg-7.json', 'porelo-checkout-migrate', 'held');
       await theMachineSaysOfWas(
-          tester, 'msg-8.json', 'sokar-checkout-shell', 'sent');
+          tester, 'msg-8.json', 'porelo-checkout-shell', 'sent');
       await theMachineSaysOfWas(
-          tester, 'msg-9.json', 'sokar-billing-shell', 'sent');
+          tester, 'msg-9.json', 'porelo-billing-shell', 'sent');
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await itSays(tester, 'msg-7.json');
       await itDoesNotSay(tester, 'msg-8.json');
       await iFollowWhatHappensForTheWholeProject(tester);
@@ -371,10 +371,10 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await hasAMessageHeldComingInFromSaying(
-          tester, 'sokar-checkout-shell', 'partner', 'here is the review');
+          tester, 'porelo-checkout-shell', 'partner', 'here is the review');
       await theAppIsRunning(tester);
       await iGoToWhatNeedsAPerson(tester);
-      await iReadTheMessageFrom(tester, 'sokar-checkout-shell');
+      await iReadTheMessageFrom(tester, 'porelo-checkout-shell');
       await iReleaseTheMessage(tester);
       await itSays(tester,
           'Released. The next pass checks it again, as every arrival is checked');
@@ -386,10 +386,10 @@ void main() {
         (tester) async {
       await aBackendWithWorkOnIt(tester);
       await mayTalkToIn(
-          tester, 'sokar-checkout-migrate', 'reviewer', 'vouched', 'prompt');
+          tester, 'porelo-checkout-migrate', 'reviewer', 'vouched', 'prompt');
       await theAppIsRunning(tester);
       await iChooseFromTheMenuOfTheTile(tester,
-          "Hold its project's messages to a peer", 'sokar-checkout-migrate');
+          "Hold its project's messages to a peer", 'porelo-checkout-migrate');
       await itSays(tester,
           'Nothing goes to it unless a person releases it, or until this is off again');
     });

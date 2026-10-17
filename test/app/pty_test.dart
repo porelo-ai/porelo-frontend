@@ -7,7 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/pty.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
 
 /// The terminal, against the real kernel.
 ///
@@ -52,7 +52,7 @@ void main() {
     final pty = Pty.start('sh', <String>['-c', 'exit 69']);
     await whatItPrinted(pty);
 
-    // 69 is the code `sokar task attach` refuses with, so this is the number a session reads to
+    // 69 is the code `porelo task attach` refuses with, so this is the number a session reads to
     // tell "it would not open" from "somebody typed exit".
     expect(await pty.ended, 69);
   });
@@ -102,9 +102,9 @@ void main() {
     // so before anything runs, so **the missing CLI is a refusal to open** and never a session
     // that appeared for an instant. The two read differently on screen and should.
     expect(
-      () => Pty.start('sokar-does-not-exist', const <String>[]),
+      () => Pty.start('porelo-does-not-exist', const <String>[]),
       throwsA(isA<PtyRefused>().having((refused) => refused.words, 'words',
-          contains('no `sokar-does-not-exist` on this machine'))),
+          contains('no `porelo-does-not-exist` on this machine'))),
     );
   });
 

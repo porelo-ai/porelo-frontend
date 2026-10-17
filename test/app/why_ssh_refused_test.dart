@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/tunnel.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
 
 /// A refused login says what to change, from ssh's own words.
 void main() {

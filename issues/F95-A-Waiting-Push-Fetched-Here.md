@@ -18,7 +18,7 @@ and copied with one button.
   `PendingPush.fetchFrom(login)` (`lib/src/client/models.dart`) with a Copy button; `ReviewView`
   builds it, and `_ShellState` in `lib/src/ui/shell.dart` passes `login`.
 - **Choosing the clone.** `lib/src/ui/pick_a_file.dart` gets a folder twin of `PickAFile`, on
-  `file_selector`'s `getDirectoryPath`, injected through `SokarApp` (`lib/src/app/sokar_app.dart`)
+  `file_selector`'s `getDirectoryPath`, injected through `PoreloApp` (`lib/src/app/porelo_app.dart`)
   and `Shell` as `pickAFile` is, so a scenario answers it.
 - **Running it.** A small class in `lib/src/app/` runs the fetch with `RunHere` from
   `lib/src/app/project_workspace.dart`, in the chosen folder. It never hands the string to a shell:

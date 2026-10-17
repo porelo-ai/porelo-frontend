@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: the work {'sokar-checkout-migrate'} holds {'a-provider'} for {'weather'}
+/// Usage: the work {'porelo-checkout-migrate'} holds {'a-provider'} for {'weather'}
 Future<void> theWorkHoldsFor(WidgetTester tester, String work, String entry, String destination) async {
   World.backend.publish(<Task>[
     for (final task in World.backend.tasksNow)

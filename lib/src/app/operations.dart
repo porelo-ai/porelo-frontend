@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 
 /// Where a long operation got to.
 enum OperationState {

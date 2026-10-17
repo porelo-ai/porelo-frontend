@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the work {'sokar-billing-audit'} is marked as unenforced
+/// Usage: the work {'porelo-billing-audit'} is marked as unenforced
 Future<void> theWorkIsMarkedAsUnenforced(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   // Wherever the work appears: nothing will ever be asked about what it reaches, by choice.

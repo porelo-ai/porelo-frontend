@@ -14,7 +14,7 @@ The plugin `guided_walk` is in the public repository `fuinorg/flutter-guided-wal
 Apache-2.0, and this interface takes it by git at a version tag. The app gives it the variable that
 names the folder, the theme of the panel's window, the panel's words and its own choice widgets; a
 Linux part names and sizes the panel's window. An agent reaches the walk through its files or
-through an MCP server over them, and the walk exists in development builds only. Sokar's backend
+through an MCP server over them, and the walk exists in development builds only. Porelo's backend
 has no part in it.
 
 ## Plan
@@ -33,10 +33,10 @@ has no part in it.
 - **Here, after that release:** `pubspec.yaml` takes `guided_walk` from pub.dev. `WalkSecret`
   becomes `Sensitive` in `lib/src/ui/new_machine.dart`, `connection_wizard.dart`,
   `connections_view.dart`, `messages_view.dart` (`_secretIf`), `unlock_terminal.dart` and
-  `session_view.dart`. `sokarWalkTexts` in `lib/src/ui/walk_texts.dart` gains the German waiting
+  `session_view.dart`. `poreloWalkTexts` in `lib/src/ui/walk_texts.dart` gains the German waiting
   words. `doc/guided-walk.md` follows.
-- **What else stays in `lib/`:** `walkWindowPath` and `_walk` in `lib/main.dart` (`SOKAR_WALK`,
-  the `walkChoices` hook for `ChoiceField`), `WalkFrame` in `lib/src/app/sokar_app.dart`, the
+- **What else stays in `lib/`:** `walkWindowPath` and `_walk` in `lib/main.dart` (`PORELO_WALK`,
+  the `walkChoices` hook for `ChoiceField`), `WalkFrame` in `lib/src/app/porelo_app.dart`, the
   `walk-show` button in `lib/src/ui/shell.dart`. The first acceptance item has to be read against
   these.
 - **Red first:** in the plugin, the Semantics test over the example app, which today's widget
@@ -51,8 +51,8 @@ has no part in it.
   and its choice hook. Seen to fail: `pubspec.yaml` still takes it by git, or walk code beyond
   that remains in `lib/`.
 - **The variable that starts a walk is the plugin's own**, read by `guided_walk` (e.g.
-  `GUIDED_WALK`), so no app reads one of its own; this interface drops `SOKAR_WALK`. Seen to fail:
-  `SOKAR_WALK` read anywhere in `lib/`.
+  `GUIDED_WALK`), so no app reads one of its own; this interface drops `PORELO_WALK`. Seen to fail:
+  `PORELO_WALK` read anywhere in `lib/`.
 - **The window's state is read from Flutter's Semantics tree**, so it describes any app, not this
   one's own widgets. Seen to fail: a test in the package describing its example app built from
   plain Material widgets with no knowledge of them.
@@ -73,5 +73,5 @@ has no part in it.
 
 ## To be checked
 
-- **Whether the Semantics tree carries what `filled:<key>` reads today** from Sokar's own choice
+- **Whether the Semantics tree carries what `filled:<key>` reads today** from Porelo's own choice
   fields, so the `walkChoices` hook can go. Measured in the plugin. (Agent Frontend's)

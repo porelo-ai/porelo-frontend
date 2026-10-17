@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import './step/the_account_of_a_person_new_to_sokar_as_it_was_given_to_them.dart';
+import './step/the_account_of_a_person_new_to_porelo_as_it_was_given_to_them.dart';
 import './step/the_interface_is_running.dart';
 import './step/i_add_the_machine_i_was_given_knowing_only_how_i_log_into_it.dart';
 import './step/the_machine_is_answering.dart';
@@ -20,10 +20,10 @@ import './step/i_am_offered_to_log_in_with.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  group('''A person new to Sokar, from an empty account, in the interface''',
+  group('''A person new to Porelo, from an empty account, in the interface''',
       () {
     Future<void> bddSetUp(WidgetTester tester) async {
-      await theAccountOfAPersonNewToSokarAsItWasGivenToThem(tester);
+      await theAccountOfAPersonNewToPoreloAsItWasGivenToThem(tester);
       await theInterfaceIsRunning(tester);
     }
 

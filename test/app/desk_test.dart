@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/desk.dart';
-import 'package:sokar_frontend/src/app/operations.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/operations.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
 /// Where the interface keeps its files, how it keeps them to their owner, and how it opens a file
 /// or an address, on Linux and on Windows, without either system under the test.
@@ -18,20 +18,20 @@ void main() {
   group('on Windows', () {
     test('the machine list is under the roaming application data, where the plugin reads it', () {
       expect(FileSettingsStore.defaultFile(windows, 'windows').path,
-          r'C:\Users\somebody\AppData\Roaming\sokar\frontend.json');
+          r'C:\Users\somebody\AppData\Roaming\porelo\frontend.json');
     });
 
     test('what the interface records itself is under the local application data', () {
       expect(FileOperationsStore.defaultFile(windows, 'windows').path,
-          r'C:\Users\somebody\AppData\Local\sokar\operations.json');
-      expect(Desk.of('windows', windows).data, r'C:\Users\somebody\AppData\Local\sokar-frontend');
+          r'C:\Users\somebody\AppData\Local\porelo\operations.json');
+      expect(Desk.of('windows', windows).data, r'C:\Users\somebody\AppData\Local\porelo-frontend');
     });
 
     test('without the application data variables, the folders under the profile are taken', () {
       const bare = <String, String>{'USERPROFILE': r'C:\Users\somebody\'};
 
       expect(FileSettingsStore.defaultFile(bare, 'windows').path,
-          r'C:\Users\somebody\AppData\Roaming\sokar\frontend.json');
+          r'C:\Users\somebody\AppData\Roaming\porelo\frontend.json');
     });
 
     test('a file is kept to its owner by cutting inheritance and granting the user alone', () async {
@@ -70,9 +70,9 @@ void main() {
     test('the folders are the XDG ones', () {
       final here = Desk.of('linux', linux);
 
-      expect(here.configuration, '/home/somebody/.config/sokar');
-      expect(here.state, '/home/somebody/.local/state/sokar');
-      expect(here.data, '/home/somebody/.local/share/sokar-frontend');
+      expect(here.configuration, '/home/somebody/.config/porelo');
+      expect(here.state, '/home/somebody/.local/state/porelo');
+      expect(here.data, '/home/somebody/.local/share/porelo-frontend');
     });
 
     test('a file is kept to its owner with chmod, and opened with xdg-open', () async {

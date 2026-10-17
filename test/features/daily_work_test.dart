@@ -67,50 +67,50 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theSectionShownIs(tester, 'Work');
-      await theWorkIsInTheGroup(tester, 'sokar-checkout-migrate', 'waiting');
-      await theWorkIsInTheGroup(tester, 'sokar-checkout-shell', 'running');
-      await theWorkIsInTheGroup(tester, 'sokar-billing-shell', 'running');
+      await theWorkIsInTheGroup(tester, 'porelo-checkout-migrate', 'waiting');
+      await theWorkIsInTheGroup(tester, 'porelo-checkout-shell', 'running');
+      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
     });
     testWidgets('''stopped work is shown apart, its group shut until opened''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-billing-shell');
+      await theWorkHasStopped(tester, 'porelo-billing-shell');
       await theGroupIsShut(tester, 'stopped', true);
       await iOpenTheGroup(tester, 'stopped');
-      await theWorkIsInTheGroup(tester, 'sokar-billing-shell', 'stopped');
+      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'stopped');
     });
     testWidgets(
         '''a tile on the work page is folded to its work and machine, and opened for the rest''',
         (tester) async {
       await bddSetUp(tester);
-      await theTileIsFolded(tester, 'sokar-billing-shell', true);
-      await iOpenTheTile(tester, 'sokar-billing-shell');
-      await theTileIsFolded(tester, 'sokar-billing-shell', false);
+      await theTileIsFolded(tester, 'porelo-billing-shell', true);
+      await iOpenTheTile(tester, 'porelo-billing-shell');
+      await theTileIsFolded(tester, 'porelo-billing-shell', false);
     });
     testWidgets('''a tile that asks something of a person is never folded''',
         (tester) async {
       await bddSetUp(tester);
-      await theTileIsFolded(tester, 'sokar-checkout-migrate', false);
+      await theTileIsFolded(tester, 'porelo-checkout-migrate', false);
     });
     testWidgets(
         '''the work in a group is in the order of its last activity, newest first''',
         (tester) async {
       await bddSetUp(tester);
       await theWorkHasBeenInItsStateSince(
-          tester, 'sokar-billing-shell', '2026-10-03T08:00:00Z');
+          tester, 'porelo-billing-shell', '2026-10-03T08:00:00Z');
       await theWorkHasBeenInItsStateSince(
-          tester, 'sokar-checkout-shell', '2026-10-01T08:00:00Z');
+          tester, 'porelo-checkout-shell', '2026-10-01T08:00:00Z');
       await theWorkComesBefore(
-          tester, 'sokar-billing-shell', 'sokar-checkout-shell');
+          tester, 'porelo-billing-shell', 'porelo-checkout-shell');
     });
     testWidgets('''the work is narrowed to one project, and widened back''',
         (tester) async {
       await bddSetUp(tester);
       await iNarrowTheWorkToTheProject(tester, 'billing');
-      await noTileIsShownFor(tester, 'sokar-checkout-shell');
-      await theWorkIsInTheGroup(tester, 'sokar-billing-shell', 'running');
+      await noTileIsShownFor(tester, 'porelo-checkout-shell');
+      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
       await iNarrowTheWorkToEveryProject(tester);
-      await theWorkIsInTheGroup(tester, 'sokar-checkout-shell', 'running');
+      await theWorkIsInTheGroup(tester, 'porelo-checkout-shell', 'running');
     });
     testWidgets(
         '''new work asks in which project, and opens the start for it''',
@@ -179,32 +179,32 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Write to its agent', 'sokar-checkout-migrate');
+          tester, 'Write to its agent', 'porelo-checkout-migrate');
       await iPutInItsInbox(tester, 'the schema changed');
       await theSectionShownIs(tester, 'Work');
       await theStatusLineMentions(
-          tester, 'Written into the inbox of sokar-checkout-migrate');
+          tester, 'Written into the inbox of porelo-checkout-migrate');
     });
     testWidgets(
         '''the order follows the last activity, whichever work it was''',
         (tester) async {
       await bddSetUp(tester);
       await theWorkHasBeenInItsStateSince(
-          tester, 'sokar-checkout-shell', '2026-10-03T08:00:00Z');
+          tester, 'porelo-checkout-shell', '2026-10-03T08:00:00Z');
       await theWorkHasBeenInItsStateSince(
-          tester, 'sokar-billing-shell', '2026-10-01T08:00:00Z');
+          tester, 'porelo-billing-shell', '2026-10-01T08:00:00Z');
       await theWorkComesBefore(
-          tester, 'sokar-checkout-shell', 'sokar-billing-shell');
+          tester, 'porelo-checkout-shell', 'porelo-billing-shell');
     });
     testWidgets('''removing stopped work counts it out of its group''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-billing-shell');
-      await theWorkHasStopped(tester, 'sokar-billing-audit');
+      await theWorkHasStopped(tester, 'porelo-billing-shell');
+      await theWorkHasStopped(tester, 'porelo-billing-audit');
       await iOpenTheGroup(tester, 'stopped');
       await itSays(tester, 'Stopped (2)');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Remove it', 'sokar-billing-shell');
+          tester, 'Remove it', 'porelo-billing-shell');
       await iPress(tester, 'Remove it');
       await itSays(tester, 'Stopped (1)');
     });
@@ -212,11 +212,11 @@ void main() {
         '''a removal the machine refuses is put in front of the person on the work page''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkHasStopped(tester, 'sokar-billing-shell');
+      await theWorkHasStopped(tester, 'porelo-billing-shell');
       await removingWillRefuseBecauseTheWorkIsHeld(tester);
       await iOpenTheGroup(tester, 'stopped');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Remove it', 'sokar-billing-shell');
+          tester, 'Remove it', 'porelo-billing-shell');
       await iPress(tester, 'Remove it');
       await whatIsHeldIsShown(tester);
       await iChoose(tester, 'Leave it alone');
@@ -240,8 +240,8 @@ void main() {
       await noWorkIsShownOnThisPage(tester);
       await iGoToItsWork(tester);
       await theSectionShownIs(tester, 'Work');
-      await noTileIsShownFor(tester, 'sokar-checkout-shell');
-      await theWorkIsInTheGroup(tester, 'sokar-billing-shell', 'running');
+      await noTileIsShownFor(tester, 'porelo-checkout-shell');
+      await theWorkIsInTheGroup(tester, 'porelo-billing-shell', 'running');
     });
     testWidgets('''removing a machine from the list stays on the list''',
         (tester) async {

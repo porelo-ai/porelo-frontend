@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
   test('new machines run work as agent until somebody says otherwise, and it is kept', () async {

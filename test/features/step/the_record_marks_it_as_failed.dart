@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/operations.dart';
+import 'package:porelo_frontend/src/ui/operations.dart';
 
 /// Usage: the record marks it as failed
 Future<void> theRecordMarksItAsFailed(WidgetTester tester) async {

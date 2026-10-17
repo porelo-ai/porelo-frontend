@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// What a task says about its own work at the gate, held to the contract rather than to a screen.
 ///
 /// **There is no join to make here, and that is the whole point.** `Task.name` is a *container*
 /// name and `PendingPush.name` is a *task* name; several containers over time push to one ref, so
-/// anything lined up from the two would be right for at most one of them. Sokar offered a field
+/// anything lined up from the two would be right for at most one of them. Porelo offered a field
 /// pointing the other way, went to build it, and withdrew it for exactly that reason.
 void main() {
   Task taskWith(Map<String, dynamic> fields) => Task.from(<String, dynamic>{
-        'name': 'sokar-checkout-migrate',
+        'name': 'porelo-checkout-migrate',
         'project': 'checkout',
         'securityClass': 'guarded',
         'state': 'Exited (0) 12 minutes ago',

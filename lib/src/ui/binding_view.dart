@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/forge.dart';
 import '../app/machine_binding.dart';
@@ -51,7 +51,7 @@ class _BindingDialogState extends State<BindingDialog> {
   String? _problem;
   bool _hasProject = false;
 
-  /// Whether the machine's Sokar can do this at all, read before anything is asked of it.
+  /// Whether the machine's Porelo can do this at all, read before anything is asked of it.
   bool? _canBeBound;
 
   bool _followed = false;
@@ -164,8 +164,8 @@ class _BindingDialogState extends State<BindingDialog> {
                 const SizedBox(height: Space.small),
                 if (_canBeBound == false)
                   Text(
-                    '$machine runs a Sokar that cannot do this yet. Update the sokar package on $machine '
-                    'and restart it (systemctl --user restart sokard), then open this again.',
+                    '$machine runs a Porelo that cannot do this yet. Update the porelo package on $machine '
+                    'and restart it (systemctl --user restart porelod), then open this again.',
                     key: const Key('binding-too-old'),
                     style: TextStyle(color: scheme.error),
                   ),
@@ -219,7 +219,7 @@ class _BindingDialogState extends State<BindingDialog> {
                     style: text.bodySmall,
                   ),
                 // The trust anchor, compared at a glance and never typed: what the machine took
-                // beside the key the person signs with. Measured on Sokar 234: a follow that
+                // beside the key the person signs with. Measured on Porelo 234: a follow that
                 // applied may not repeat the fingerprint; not saying it is not a different key.
                 if (binding.pinnedAll.length > 1)
                   Text(

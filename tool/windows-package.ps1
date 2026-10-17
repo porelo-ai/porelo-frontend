@@ -18,13 +18,13 @@ if ($env:GITHUB_REF -like 'refs/tags/v*') { $version = $base } else { $version =
 $msixVersion = "$base.$run"
 $release = 'build/windows/x64/runner/Release'
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
-$name = "sokar-frontend-$version-windows-x64"
+$name = "porelo-frontend-$version-windows-x64"
 
 # The ZIP: the built folder as it is.
 Compress-Archive -Path "$release/*" -DestinationPath "$Out/$name.zip" -Force
 
 # The MSIX: the same folder, the manifest and its logos.
-$layout = Join-Path ([System.IO.Path]::GetTempPath()) "sokar-msix-$run"
+$layout = Join-Path ([System.IO.Path]::GetTempPath()) "porelo-msix-$run"
 if (Test-Path $layout) { Remove-Item -Recurse -Force $layout }
 New-Item -ItemType Directory -Path $layout | Out-Null
 Copy-Item -Recurse "$release/*" $layout
@@ -42,7 +42,7 @@ if ($LASTEXITCODE -ne 0) { Write-Error "MakeAppx refused the package (exit $LAST
 Remove-Item -Recurse -Force $layout
 
 if ($env:WINDOWS_SIGNING_PFX) {
-  $pfx = Join-Path $env:RUNNER_TEMP 'sokar-msix.pfx'
+  $pfx = Join-Path $env:RUNNER_TEMP 'porelo-msix.pfx'
   try {
     [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX))
     & "$bin\signtool.exe" sign /fd SHA256 /f $pfx /p $env:WINDOWS_SIGNING_PFX_PASSWORD $msix
@@ -50,7 +50,7 @@ if ($env:WINDOWS_SIGNING_PFX) {
     # The public half beside it, for a person to trust once on their machine.
     $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
       $pfx, $env:WINDOWS_SIGNING_PFX_PASSWORD)
-    [IO.File]::WriteAllBytes("$Out/sokar-msix.cer", $certificate.Export('Cert'))
+    [IO.File]::WriteAllBytes("$Out/porelo-msix.cer", $certificate.Export('Cert'))
     # The certificate the project made, and no other: by its thumbprint, which names it, not only by
     # its subject, which anybody can write into a certificate of their own.
     $pinned = '8BD1F34465EDC9B11A162B39C6644231851DEE24'

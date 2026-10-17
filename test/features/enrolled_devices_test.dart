@@ -108,7 +108,7 @@ void main() {
       await theStoreIsShut(tester);
       await theMachineIsASocketSomebodyElseForwards(tester);
       await theStoresLockSays(tester,
-          'The vault is shut, and this device is not enrolled. Unlock it at the machine with `sokar vault unlock`, then enroll this device.');
+          'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.');
       await theStoresLockDoesNothing(tester);
       await enrollingIsUnavailableInTheMachinesMenuBecause(
           tester, 'the vault is shut');
@@ -178,7 +178,7 @@ void main() {
       await theRecoveryPassphraseCannotBeRevokedFromHere(tester);
     });
     testWidgets(
-        '''a machine whose Sokar predates devices has the lock, and says why not enrolling''',
+        '''a machine whose Porelo predates devices has the lock, and says why not enrolling''',
         (tester) async {
       await bddSetUp(tester);
       await theMachineCannotEnrollDevicesYet(tester);
@@ -186,7 +186,7 @@ void main() {
       await enrollingIsUnavailableInTheMachinesMenuBecause(
           tester, 'cannot enroll devices yet');
       await iShowTheVault(tester);
-      await itSays(tester, 'that arrives with a later Sokar');
+      await itSays(tester, 'that arrives with a later Porelo');
     });
     testWidgets('''the machine's menu shuts the store too''', (tester) async {
       await bddSetUp(tester);
@@ -195,7 +195,7 @@ void main() {
       await itSays(tester, 'The vault is shut.');
       await iCloseTheAnswer(tester);
       await theStoresLockSays(tester,
-          'The vault is shut, and this device is not enrolled. Unlock it at the machine with `sokar vault unlock`, then enroll this device.');
+          'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.');
     });
     testWidgets(
         '''a key the machine already took is said as enrolled already, and makes no second slot''',

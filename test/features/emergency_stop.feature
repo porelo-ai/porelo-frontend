@@ -38,7 +38,7 @@ Feature: Stopping everything on a machine, and naming what survives
     Given one helper will outlive the stop
     When I ask to stop everything
     And I agree to stop everything
-    Then it names the helper {'sokar-checkout-shell-gate (pid 4711)'}
+    Then it names the helper {'porelo-checkout-shell-gate (pid 4711)'}
     And it says {'killed on the machine by hand'}
 
   Scenario: losing the machine mid-stop says nothing was stopped
@@ -50,7 +50,7 @@ Feature: Stopping everything on a machine, and naming what survives
   Scenario: what was stopped is named, because the name is how it comes back
     When I ask to stop everything
     And I agree to stop everything
-    Then it names the work {'sokar-checkout-shell'} among what was stopped
+    Then it names the work {'porelo-checkout-shell'} among what was stopped
 
   Scenario: a preview promises nothing about what will survive
     When I ask to stop everything

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/host_keys.dart';
+import 'package:porelo_frontend/src/app/host_keys.dart';
 
 /// OpenSSH as far as these checks ask it: `ssh -G`, `ssh-keygen -F` and `-l`, `ssh-keyscan`.
 class _Ssh {

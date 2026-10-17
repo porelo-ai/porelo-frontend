@@ -4,10 +4,10 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
-/// The keyslot methods proposed for Sokar, spoken over a real socket to a stand-in daemon.
+/// The keyslot methods proposed for Porelo, spoken over a real socket to a stand-in daemon.
 ///
 /// **Built against the proposal, not against a daemon that has them**: when the keyslots are built, the names
 /// and fields here are what has to match, and nothing above this layer should change.
@@ -21,7 +21,7 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<SokarClient> connect() => SokarClient.connect(
+  Future<PoreloClient> connect() => PoreloClient.connect(
       Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Map<String, dynamic> slot(String id, {bool self = false}) => <String, dynamic>{
@@ -93,7 +93,7 @@ void main() {
     expect(unlocked.slot, isNull);
   });
 
-  test('until Sokar builds keyslots, every keyslot method says it is not there', () async {
+  test('until Porelo builds keyslots, every keyslot method says it is not there', () async {
     final client = await connect();
 
     await expectLater(client.keyslots(), throwsA(isA<FeatureNotSupported>()));

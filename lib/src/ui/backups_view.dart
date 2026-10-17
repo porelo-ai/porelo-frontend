@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/backups.dart';
 import 'how_long.dart';
@@ -165,7 +165,7 @@ class BackupsView extends StatelessWidget {
                         // before the record existed, is invisible here and always will be.
                         child: Text(
                           'Nothing is recorded for this project. That is not the same as no '
-                          'bundle existing: one written by hand, or before Sokar kept a record, '
+                          'bundle existing: one written by hand, or before Porelo kept a record, '
                           'is not listed here and never will be.',
                           key: Key('nothing-recorded'),
                         ),

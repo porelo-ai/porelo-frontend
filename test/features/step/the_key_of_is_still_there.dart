@@ -6,5 +6,5 @@ import '../support/world.dart';
 
 /// Usage: the key of {'build'} is still there
 Future<void> theKeyOfIsStillThere(WidgetTester tester, String name) async {
-  expect(File('${World.machines.setup.sshDirectory}/sokar-$name-agent').existsSync(), isTrue);
+  expect(File('${World.machines.setup.sshDirectory}/porelo-$name-agent').existsSync(), isTrue);
 }

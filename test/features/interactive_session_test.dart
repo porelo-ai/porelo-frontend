@@ -53,14 +53,14 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
       await iSelectTheProject(tester, 'billing');
-      await iSelectTheWork(tester, 'sokar-billing-shell');
+      await iSelectTheWork(tester, 'porelo-billing-shell');
     }
 
     testWidgets('''a session is one action from where the work is listed''',
         (tester) async {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
-      await theSessionRuns(tester, 'sokar task attach sokar-billing-shell');
+      await theSessionRuns(tester, 'porelo task attach porelo-billing-shell');
     });
     testWidgets(
         '''a machine reached over ssh runs the same verb, through a terminal of its own''',
@@ -70,21 +70,21 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
       await iSelectTheProject(tester, 'billing');
-      await iSelectTheWork(tester, 'sokar-billing-shell');
+      await iSelectTheWork(tester, 'porelo-billing-shell');
       await iWorkInItByHand(tester);
       await theSessionRuns(tester,
-          'ssh -t user@build.example.test sokar task attach sokar-billing-shell');
+          'ssh -t user@build.example.test porelo task attach porelo-billing-shell');
     });
     testWidgets('''what the far end prints is what is on the screen''',
         (tester) async {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
-      await theSessionPrints(tester, 'root@sokar-billing-shell:/work#');
-      await theSessionShows(tester, 'root@sokar-billing-shell:/work#');
+      await theSessionPrints(tester, 'root@porelo-billing-shell:/work#');
+      await theSessionShows(tester, 'root@porelo-billing-shell:/work#');
     });
     testWidgets('''what is typed reaches the far end''', (tester) async {
       await bddSetUp(tester);
@@ -100,23 +100,23 @@ void main() {
       await theCommandIsOfferedAsUnavailable(
           tester, 'Let this work reach something new');
       await iWorkInItByHand(tester);
-      await theSessionRuns(tester, 'sokar task attach sokar-billing-shell');
+      await theSessionRuns(tester, 'porelo task attach porelo-billing-shell');
     });
     testWidgets(
         '''work an agent is driving can be worked in by hand like any other''',
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iWorkInItByHand(tester);
-      await theSessionRuns(tester, 'sokar task attach sokar-checkout-shell');
+      await theSessionRuns(tester, 'porelo task attach porelo-checkout-shell');
     });
     testWidgets(
         '''work that has stopped has no session, and points at starting it again''',
         (tester) async {
       await bddSetUp(tester);
-      await iSelectTheWork(tester, 'sokar-billing-audit');
-      await theWorkIsDead(tester, 'sokar-billing-audit');
+      await iSelectTheWork(tester, 'porelo-billing-audit');
+      await theWorkIsDead(tester, 'porelo-billing-audit');
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(tester, 'Work in it by hand',
           'Starting it again brings back the workspace');
@@ -139,7 +139,7 @@ void main() {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
       await iLeaveTheSession(tester);
-      await theWorkIsStillSelected(tester, 'sokar-billing-shell');
+      await theWorkIsStillSelected(tester, 'porelo-billing-shell');
     });
     testWidgets(
         '''Escape belongs to what is running, and never closes the session''',
@@ -156,9 +156,9 @@ void main() {
       await bddSetUp(tester);
       await iWorkInItByHand(tester);
       await iLeaveTheSession(tester);
-      await iWorkInByHandFromItsTile(tester, 'sokar-billing-audit');
+      await iWorkInByHandFromItsTile(tester, 'porelo-billing-audit');
       await sessionsAreOpen(tester, 1);
-      await theSessionOnScreenIs(tester, 'sokar-billing-audit');
+      await theSessionOnScreenIs(tester, 'porelo-billing-audit');
       await theFirstSessionWasLeft(tester);
       await theWorkWasNeverStopped(tester);
       await iSelectTheProject(tester, 'billing');
@@ -173,7 +173,7 @@ void main() {
       await iGoToThePlace(tester, 'work');
       await sessionsAreOpen(tester, 1);
       await onlyOneTerminalWasEverOpened(tester);
-      await theSessionOnScreenIs(tester, 'sokar-billing-shell');
+      await theSessionOnScreenIs(tester, 'porelo-billing-shell');
     });
     testWidgets(
         '''the screen says that closing the window leaves the session running''',
@@ -205,11 +205,11 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
       await iSelectTheProject(tester, 'billing');
-      await iSelectTheWork(tester, 'sokar-billing-shell');
+      await iSelectTheWork(tester, 'porelo-billing-shell');
       await iWorkInItByHand(tester);
       await theSessionEndsWith(tester, 255);
       await itSays(tester, 'The connection to the build machine failed');

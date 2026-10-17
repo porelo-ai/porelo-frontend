@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: the work {'sokar-checkout-shell'} works in the repository {'payments-api'}
+/// Usage: the work {'porelo-checkout-shell'} works in the repository {'payments-api'}
 Future<void> theWorkWorksInTheRepository(WidgetTester tester, String work, String repository) async {
   World.backend.publish(<Task>[
     for (final task in World.backend.tasksNow)

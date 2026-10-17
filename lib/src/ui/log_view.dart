@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/logs.dart';
 import 'ansi.dart';
@@ -226,7 +226,7 @@ class _WhichLog extends StatelessWidget {
                   padding: EdgeInsets.all(Space.normal),
                   child: Text(
                     'This task has no logs. One that has been removed keeps none, and neither '
-                    'does a name that is not a Sokar task.',
+                    'does a name that is not a Porelo task.',
                     key: Key('no-logs'),
                   ),
                 );

@@ -10,7 +10,7 @@ Feature: Leaving and reopening the window without losing where you were
   Scenario: leaving says what carries on without the window
     When I select the project {'checkout'}
     And I ask to close it
-    Then it says {'sokar-checkout-shell'} keeps running
+    Then it says {'porelo-checkout-shell'} keeps running
 
   Scenario: a decision that nothing will be listening for is said before leaving
     When work is blocked reaching {'api.example.test:443'}
@@ -24,11 +24,11 @@ Feature: Leaving and reopening the window without losing where you were
 
   Scenario: reopening comes back to the same selection
     When I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
     And the app is restarted
     And I go to the work
     Then the project {'checkout'} is selected
-    And the work {'sokar-checkout-shell'} is still selected
+    And the work {'porelo-checkout-shell'} is still selected
 
   Scenario: reopening opens on the work, whichever section was left
     When I show what this session has run

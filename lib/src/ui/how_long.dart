@@ -1,4 +1,4 @@
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// How long a task has been in the state it is in, in words.
 ///

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 
@@ -73,7 +73,7 @@ class ProjectDeletion extends ChangeNotifier {
     return switch (said.outcome.name) {
       'PREVIEWED' => 'This stops following $name and removes it from this machine. '
           'Its repository is not touched.',
-      'DELETED' => '$name is no longer followed here, and what Sokar built for it is gone. '
+      'DELETED' => '$name is no longer followed here, and what Porelo built for it is gone. '
           'Its repository is not touched.',
       'HOLDS_WORK' => 'Work reached the gate for $name and nobody has reviewed it. '
           'Nothing was removed.',

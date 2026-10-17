@@ -1,6 +1,6 @@
 # A guided walk through the interface
 
-When the operator walks the interface as someone new to Sokar, the agent leading the walk can sit
+When the operator walks the interface as someone new to Porelo, the agent leading the walk can sit
 beside it. A panel says each step, beside the window or in a window of its own. A ball and a frame
 mark what to click, and he writes what he finds without leaving the interface. Each comment is
 written down with the window's state as text and an image of the interface's own window, never of
@@ -15,22 +15,22 @@ says how a walk file is written, which files the walk's folder holds, and how a 
 it only when started with a folder:
 
 ```bash
-SOKAR_WALK=$HOME/.sokar/walk flutter run -d linux
+PORELO_WALK=$HOME/.porelo/walk flutter run -d linux
 ```
 
-What Sokar adds to the plugin:
-- the variable `SOKAR_WALK` names the folder;
-- the panel's own window has Sokar's theme;
+What Porelo adds to the plugin:
+- the variable `PORELO_WALK` names the folder;
+- the panel's own window has Porelo's theme;
 - the note about terminals is in German;
-- a step waiting for `filled:<key>` sees Sokar's own choice fields;
+- a step waiting for `filled:<key>` sees Porelo's own choice fields;
 - the terminals are wrapped in `WalkSecret`;
 - a symbol beside the information button shows the walk again once it was put away.
 
-**The walks of the MVP's paths** are in [`doc/walks/`](https://github.com/sokar-ai/sokar-frontend/tree/main/doc/walks). A test checks that every key they
+**The walks of the MVP's paths** are in [`doc/walks/`](https://github.com/porelo-ai/porelo-frontend/tree/main/doc/walks). A test checks that every key they
 name is in the interface. One is started by copying it over the walk file:
 
 ```bash
-cp doc/walks/3-first-task-in-default.json ~/.sokar/walk/walk.json
+cp doc/walks/3-first-task-in-default.json ~/.porelo/walk/walk.json
 ```
 
 A walk that has been walked is deleted; what it found is in the issues. A walk names no machine,
@@ -45,7 +45,7 @@ account or address: it says "the test machine" and `<Konto>`, which the agent wa
   once in Claude Code, in this repository's folder, it starts in the version `pubspec.yaml` pins:
 
   ```bash
-  claude mcp add guided-walk -- dart run guided_walk:guided_walk_mcp $HOME/.sokar/walk
+  claude mcp add guided-walk -- dart run guided_walk:guided_walk_mcp $HOME/.porelo/walk
   ```
 
   After starting Claude Code again, `/mcp` shows `guided-walk` as connected. The plugin's README

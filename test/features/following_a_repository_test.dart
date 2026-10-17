@@ -160,7 +160,7 @@ void main() {
       await noFollowWasSent(tester);
       await iOpenTheVaultFromTheFollow(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm porelo vault unlock');
     });
     testWidgets(
         '''a connection whose value is not there offers the connection, and follows nothing''',

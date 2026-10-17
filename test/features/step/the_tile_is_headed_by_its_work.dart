@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the tile {'sokar-checkout-shell'} is headed by its work
+/// Usage: the tile {'porelo-checkout-shell'} is headed by its work
 Future<void> theTileIsHeadedByItsWork(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   final heading = tester.widget<SelectableText>(

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/forge.dart';
-import 'package:sokar_frontend/src/app/project_workspace.dart';
+import 'package:porelo_frontend/src/app/forge.dart';
+import 'package:porelo_frontend/src/app/project_workspace.dart';
 
 /// The person's key is found, not asked for: theirs at the forge first and chosen, then the one git
 /// signs with, then any other.

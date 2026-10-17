@@ -17,8 +17,8 @@ forge's own API is the interface's; the backend is short of nothing known.
 ## Bitbucket Data Center first
 
 The operator chose it on 2026-10-11, Bitbucket Cloud later. The build side, a push's builds read
-from Bitbucket Data Center and Jenkins, is `sokar-project`
-[PJ36](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj36).
+from Bitbucket Data Center and Jenkins, is `porelo-project`
+[PJ36](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj36).
 
 - **On the organisation's own host:** its REST API is `https://<host>/rest/api/1.0/…`, so a forge is
   added with its address, not recognised by one; an upstream is Bitbucket's when its host is one of
@@ -40,7 +40,7 @@ from Bitbucket Data Center and Jenkins, is `sokar-project`
 - **The operator provides** the evaluation licence, made at Atlassian for the installation's server
   ID; it is typed into the installation's setup on the VM, and never into a file in a repository or
   the channel. The agent sets up the container, a project, the test repositories as at GitHub
-  (`sokar-test-project`, `sokar-test-1`, `sokar-test-2`), a test user and its token.
+  (`porelo-test-project`, `porelo-test-1`, `porelo-test-2`), a test user and its token.
 - The leg runs `project_from_repository.feature`'s Bitbucket scenarios against it, on the operator's
   word for a release, not in every build, since the evaluation licence runs out and is renewed by
   hand.

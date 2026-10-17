@@ -65,25 +65,25 @@ Feature: A project from a repository a person already has on a forge
   Scenario: removing a forge that a followed project uses offers to take the machines' keys off first
     Given the keychain here keeps the token {'ghp_accepted'} for the forge
     And the machine follows the project {'checkout'} from {'git@github.com:acme/api.git'}
-    And the forge holds the key {'sokar vm api/api'} at {'acme/api'} from a machine that is gone
+    And the forge holds the key {'porelo vm api/api'} at {'acme/api'} from a machine that is gone
     When I open my forges
     And I remove the forge {'GitHub'}
     Then it says {'Projects your machines follow use it: acme/api'}
     When I remove the machines' keys there first
-    Then the forge holds no key titled {'sokar vm api/api'} at {'acme/api'}
+    Then the forge holds no key titled {'porelo vm api/api'} at {'acme/api'}
     And the forges set up here are {''}
     And the keychain here keeps no token
 
   # Asked before the step, not refused after the person filled everything in.
-  Scenario: a machine whose Sokar cannot be bound says so before anything is asked of it
+  Scenario: a machine whose Porelo cannot be bound says so before anything is asked of it
     Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
     And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
-    And the machine's Sokar cannot work on a project from here yet
+    And the machine's Porelo cannot work on a project from here yet
     When I choose the command {'A project from a repository you have'}
     And I connect the forge with the token {'ghp_accepted'}
     And I look at the forge's repository {'acme/api'}
     And I start working on {'acme/api'} on the machine
-    Then it says {'runs a Sokar that cannot do this yet'}
+    Then it says {'runs a Porelo that cannot do this yet'}
     And working on it on the machine is not offered
     And nothing was asked of the machine to work on it
 
@@ -127,12 +127,12 @@ Feature: A project from a repository a person already has on a forge
 
   # Choosing one says what comes next under it, rather than a click that seems to do nothing.
   # Walk 10: a project.yml is written in its repository only, never from here.
-  Scenario: a repository with no project.yml is said to be no Sokar project, and nothing is offered for it
+  Scenario: a repository with no project.yml is said to be no Porelo project, and nothing is offered for it
     Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
     When I choose the command {'A project from a repository you have'}
     And I connect the forge with the token {'ghp_accepted'}
     And I look at the forge's repository {'acme/api'}
-    Then what comes next for {'acme/api'} says {'It has no project.yml, so it is no Sokar project. Add one in the repository itself'}
+    Then what comes next for {'acme/api'} says {'It has no project.yml, so it is no Porelo project. Add one in the repository itself'}
     And binding is not offered for {'acme/api'}
 
   Scenario: a project the token may bind is offered to be bound, saying what that does
@@ -250,8 +250,8 @@ Feature: A project from a repository a person already has on a forge
     When I choose the command {'A project from a repository you have'}
     And I connect the forge with the token {'ghp_accepted'}
     And I bind the machine to {'acme/api'}
-    Then the forge holds {'sokar vm api/api'} at {'acme/api'}, read-only
-    And the forge holds {'sokar vm api/backend'} at {'acme/backend'}, with write access
+    Then the forge holds {'porelo vm api/api'} at {'acme/api'}, read-only
+    And the forge holds {'porelo vm api/backend'} at {'acme/backend'}, with write access
     And the machine followed {'api'} pinned to the person's key
     And it says {'accepts changes to the project signed with your key'}
     And machine-signers holds the machine's line, committed signed with {'SHA256:person'}
@@ -266,7 +266,7 @@ Feature: A project from a repository a person already has on a forge
     And I connect the forge with the token {'ghp_accepted'}
     And I bind the machine to {'acme/api'}
     Then it says {'refused a deploy key at acme/backend'}
-    And it says {'Took sokar vm api/api back from acme/api, since the binding did not finish.'}
+    And it says {'Took porelo vm api/api back from acme/api, since the binding did not finish.'}
     And the forge holds no key at {'acme/api'}
 
   # Walk 10: a repository whose commits were not signed by the pinned key read as followed, and the
@@ -280,7 +280,7 @@ Feature: A project from a repository a person already has on a forge
     And I bind the machine to {'acme/api'}
     Then it says {'did not follow api: NOT_SIGNED_BY_PIN. Nothing of it is on'}
     And it does not say {'follows api'}
-    And it says {'Took sokar vm api/api back from acme/api, since the binding did not finish.'}
+    And it says {'Took porelo vm api/api back from acme/api, since the binding did not finish.'}
     And the forge holds no key at {'acme/backend'}
 
   Scenario: a key that cannot be taken back is said, to be removed by hand
@@ -291,7 +291,7 @@ Feature: A project from a repository a person already has on a forge
     When I choose the command {'A project from a repository you have'}
     And I connect the forge with the token {'ghp_accepted'}
     And I bind the machine to {'acme/api'}
-    Then it says {'sokar vm api/api could not be taken back from acme/api'}
+    Then it says {'porelo vm api/api could not be taken back from acme/api'}
     And it says {'remove it there by hand'}
 
   # The person's keys are found at the forge, not chosen from what the agent holds, and all of them
@@ -331,13 +331,13 @@ Feature: A project from a repository a person already has on a forge
     And I connect the forge with the token {'ghp_accepted'}
     And I bind the machine to {'acme/api'}
     And I close the binding and the repositories
-    And I choose the command {'Clear this machine of everything Sokar put there, and its keys at the forge…'}
+    And I choose the command {'Clear this machine of everything Porelo put there, and its keys at the forge…'}
     Then it says {'This goes, on'}
-    And it says {'the deploy key sokar vm api/backend'}
+    And it says {'the deploy key porelo vm api/backend'}
     When I press {'Clear it'}
     Then the machine was cleared {'everything'}, after a dry run
     And the forge holds no key of the machine at {'acme/api'} or {'acme/backend'}
-    And it says {'Removed sokar vm api/backend from acme/backend'}
+    And it says {'Removed porelo vm api/backend from acme/backend'}
     And machine-signers no longer holds the machine's line
 
   # Walk 8: a work repository still held a project.yml of its own from an earlier test, and nothing said so.
@@ -362,7 +362,7 @@ Feature: A project from a repository a person already has on a forge
     When I change the token of {'GitHub'} from the binding to {'ghp_admin'}
     Then it does not say {'Administration: Read and write'}
     When I go on with the binding
-    Then the forge holds {'sokar vm api/api'} at {'acme/api'} once
+    Then the forge holds {'porelo vm api/api'} at {'acme/api'} once
 
   Scenario: binding twice registers nothing twice
     Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
@@ -371,7 +371,7 @@ Feature: A project from a repository a person already has on a forge
     And I connect the forge with the token {'ghp_accepted'}
     And I bind the machine to {'acme/api'}
     And I bind it again
-    Then the forge holds {'sokar vm api/api'} at {'acme/api'} once
+    Then the forge holds {'porelo vm api/api'} at {'acme/api'} once
     And it says {'is in machine-signers already'}
 
   Scenario: a work repository on another forge is said, not registered
@@ -399,7 +399,7 @@ Feature: A project from a repository a person already has on a forge
     Then the forge holds no key of the machine at {'acme/api'} or {'acme/backend'}
     And machine-signers no longer holds the machine's line
     And it says {'no longer follows api'}
-    And it says {'Removed sokar vm api/backend from acme/backend'}
+    And it says {'Removed porelo vm api/backend from acme/backend'}
 
   # Two keys stayed at GitHub after walk 8, and nothing on screen said which or why.
   Scenario: a key the forge will not remove is said as left, and the others are removed all the same
@@ -410,8 +410,8 @@ Feature: A project from a repository a person already has on a forge
     And I bind the machine to {'acme/api'}
     And the token may not remove deploy keys at {'acme/backend'}
     And I remove the machine
-    Then it says {'Left sokar vm api/backend at acme/backend: GitHub refused it'}
-    And it says {'Removed sokar vm api/api from acme/api'}
+    Then it says {'Left porelo vm api/backend at acme/backend: GitHub refused it'}
+    And it says {'Removed porelo vm api/api from acme/api'}
     And machine-signers no longer holds the machine's line
 
   # The trust anchor is compared, never taken on trust: a different pin is said, loudly.
@@ -436,22 +436,22 @@ Feature: A project from a repository a person already has on a forge
     And the project {'api'} is the one shown
 
   # A machine that is gone for good is removed from what grants it access all the same.
-  Scenario: every Sokar key and signer is listed, and one no machine claims is removed from here
+  Scenario: every Porelo key and signer is listed, and one no machine claims is removed from here
     Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
     And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
-    And the forge holds the key {'sokar old-box api/api'} at {'acme/api'} from a machine that is gone
+    And the forge holds the key {'porelo old-box api/api'} at {'acme/api'} from a machine that is gone
     And the forge holds the key {'ci deploy'} at {'acme/api'} of somebody else
-    And machine-signers names {'old-box'} as {'sokar@old-box ssh-ed25519 AAAAold'}
+    And machine-signers names {'old-box'} as {'porelo@old-box ssh-ed25519 AAAAold'}
     When I choose the command {'A project from a repository you have'}
     And I connect the forge with the token {'ghp_accepted'}
-    And I look at every Sokar key and signer of {'acme/api'}
-    Then it says {'sokar old-box api/api at acme/api, read-only'}
-    And it says {'old-box (sokar@old-box)'}
+    And I look at every Porelo key and signer of {'acme/api'}
+    Then it says {'porelo old-box api/api at acme/api, read-only'}
+    And it says {'old-box (porelo@old-box)'}
     And it does not say {'ci deploy'}
-    When I remove the key {'sokar old-box api/api'} at {'acme/api'}
-    And I remove the signer {'sokar@old-box'}
-    Then the forge holds no key titled {'sokar old-box api/api'} at {'acme/api'}
-    And machine-signers no longer names {'sokar@old-box'}, committed signed
+    When I remove the key {'porelo old-box api/api'} at {'acme/api'}
+    And I remove the signer {'porelo@old-box'}
+    Then the forge holds no key titled {'porelo old-box api/api'} at {'acme/api'}
+    And machine-signers no longer names {'porelo@old-box'}, committed signed
 
   # The machine only reads the project's repository: its change is merged here, signed, and it is told.
   Scenario: a configuration change waiting at a machine's gate is reviewed, merged signed here, and cleared there
@@ -484,7 +484,7 @@ Feature: A project from a repository a person already has on a forge
     Then it says {'push the merge first'}
     And the change {'plan'} is still listed
 
-  # Measured on Sokar 234: an applied follow does not repeat what it pinned; that is no warning.
+  # Measured on Porelo 234: an applied follow does not repeat what it pinned; that is no warning.
   Scenario: a machine that does not repeat what it pinned is not said to have pinned another key
     Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
     And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
@@ -516,4 +516,4 @@ Feature: A project from a repository a person already has on a forge
     And I look at the forge's repository {'acme/api'}
     And I choose {'default-add'} from the card of {'acme/api'}
     Then default holds {'api'} at {'git@github.com:acme/api.git'}
-    And the forge holds {'sokar vm default/api'} at {'acme/api'} once
+    And the forge holds {'porelo vm default/api'} at {'acme/api'} once

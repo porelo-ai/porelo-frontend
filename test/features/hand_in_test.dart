@@ -24,7 +24,7 @@ import './step/the_parts_sent_started_at.dart';
 import './step/the_file_arrived_whole.dart';
 import './step/the_machine_will_refuse_the_next_file_with.dart';
 import './step/i_choose.dart';
-import './step/the_work_was_handed_by_sokar.dart';
+import './step/the_work_was_handed_by_porelo.dart';
 import './step/this_machine_cannot_hand_files_to_work.dart';
 import './step/i_open_the_actions_for.dart';
 import './step/the_action_is_offered_as_unavailable.dart';
@@ -38,7 +38,7 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
     }
 
     testWidgets(
@@ -47,10 +47,10 @@ void main() {
       await bddSetUp(tester);
       await aFileOfBytesIsPicked(tester, 'notes.txt', 300);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(
-          tester, 'notes.txt is in sokar-checkout-shell now');
+          tester, 'notes.txt is in porelo-checkout-shell now');
       await iOpenTheSelection(tester);
       await itSays(tester, 'notes.txt, 300 bytes, by somebody');
       await itSays(tester, 'notes.txt given by somebody');
@@ -61,7 +61,7 @@ void main() {
       await aFileOfBytesIsPicked(tester, 'notes.txt', 300);
       await theMachineWillKeepThePartsButNeverPlaceTheFile(tester);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(tester, 'placed nothing');
       await iOpenTheSelection(tester);
@@ -73,7 +73,7 @@ void main() {
       await bddSetUp(tester);
       await aFileOfBytesIsPicked(tester, 'big.bin', 9000000);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(
           tester, 'takes at most 8 MiB. Nothing was sent.');
@@ -86,7 +86,7 @@ void main() {
       await aFileOfBytesIsPicked(tester, 'cut.bin', 2500000);
       await theMachineWillLoseTheReplyToTheNextPart(tester);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await thePartsSentStartedAt(tester, '0, 0, 1048576, 2097152');
       await theFileArrivedWhole(tester, 'cut.bin');
@@ -98,7 +98,7 @@ void main() {
       await aFileOfBytesIsPicked(tester, 'notes.txt', 300);
       await theMachineWillRefuseTheNextFileWith(tester, 'NotRunning');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(tester, 'a file goes only to running work');
     });
@@ -109,7 +109,7 @@ void main() {
       await aFileOfBytesIsPicked(tester, 'notes.txt', 300);
       await theMachineWillRefuseTheNextFileWith(tester, 'FileNameRefused');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(tester, 'Hand it in under another name');
     });
@@ -120,7 +120,7 @@ void main() {
       await aFileOfBytesIsPicked(tester, 'notes.txt', 300);
       await theMachineWillRefuseTheNextFileWith(tester, 'HandInInProgress');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(
           tester, 'Wait for it, or hand this one in under another name');
@@ -132,7 +132,7 @@ void main() {
       await aFileOfBytesIsPicked(tester, 'notes.txt', 300);
       await theMachineWillRefuseTheNextFileWith(tester, 'FileDiffers');
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await theStatusLineMentions(
           tester, 'nothing was placed. Hand it in again');
@@ -142,32 +142,32 @@ void main() {
       await bddSetUp(tester);
       await aFileOfBytesIsPicked(tester, 'brief.txt', 40);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Hand it a file from this computer', 'sokar-checkout-shell');
+          tester, 'Hand it a file from this computer', 'porelo-checkout-shell');
       await theFileIsReadAndSent(tester);
       await iChooseFromTheMenuOfTheTile(
-          tester, 'Take back a file it was handed', 'sokar-checkout-shell');
+          tester, 'Take back a file it was handed', 'porelo-checkout-shell');
       await iChoose(tester, 'brief.txt, 40 bytes, by somebody');
       await theStatusLineMentions(
-          tester, 'brief.txt is out of sokar-checkout-shell again');
+          tester, 'brief.txt is out of porelo-checkout-shell again');
       await iOpenTheSelection(tester);
-      await itSays(tester, 'nothing, under /sokar/files');
+      await itSays(tester, 'nothing, under /porelo/files');
       await itSays(tester, 'brief.txt taken back by somebody');
     });
     testWidgets(
-        '''what Sokar hands in itself reads as Sokar's, never as a person's''',
+        '''what Porelo hands in itself reads as Porelo's, never as a person's''',
         (tester) async {
       await bddSetUp(tester);
-      await theWorkWasHandedBySokar(
-          tester, 'sokar-checkout-shell', 'verdict.json');
+      await theWorkWasHandedByPorelo(
+          tester, 'porelo-checkout-shell', 'verdict.json');
       await iOpenTheSelection(tester);
-      await itSays(tester, 'verdict.json, 120 bytes, by Sokar');
+      await itSays(tester, 'verdict.json, 120 bytes, by Porelo');
     });
     testWidgets(
         '''a machine without hand-in offers it as unavailable, with why''',
         (tester) async {
       await bddSetUp(tester);
       await thisMachineCannotHandFilesToWork(tester);
-      await iOpenTheActionsFor(tester, 'sokar-checkout-shell');
+      await iOpenTheActionsFor(tester, 'porelo-checkout-shell');
       await theActionIsOfferedAsUnavailable(
           tester, 'Hand it a file from this computer');
     });

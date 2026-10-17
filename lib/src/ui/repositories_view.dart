@@ -37,7 +37,7 @@ Future<void> showRepositories(BuildContext context, ForgeConnection forges,
           onPick: onPick));
 }
 
-/// A person's repositories on a forge: the start of making one a Sokar project.
+/// A person's repositories on a forge: the start of making one a Porelo project.
 class RepositoriesDialog extends StatefulWidget {
   /// Constructor taking the connection.
   const RepositoriesDialog(
@@ -401,18 +401,18 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
     } else if (!isProject) {
       // Made a project in its repository, never here (walk 10: the project.yml in the
       // repository is the one place it is written).
-      says = 'It has no project.yml, so it is no Sokar project. Add one in the repository itself; then '
+      says = 'It has no project.yml, so it is no Porelo project. Add one in the repository itself; then '
           'choose it again here.';
       actions = const <Widget>[];
     } else {
       says = !repository.admin
-          ? 'It is a Sokar project. Only an admin of it can let a machine work on it, since that gives the '
+          ? 'It is a Porelo project. Only an admin of it can let a machine work on it, since that gives the '
               'machine keys there.'
           : mayBind == false
-              ? 'It is a Sokar project, but this token may not give a machine keys to it. Give the token '
+              ? 'It is a Porelo project, but this token may not give a machine keys to it. Give the token '
                   'Administration (read and write) on this repository, then choose it again. '
                   '${forges.whyNot[repository.fullName] ?? ''}'
-              : 'It is a Sokar project. ${widget.machineName} gets keys of its own for it, and work can '
+              : 'It is a Porelo project. ${widget.machineName} gets keys of its own for it, and work can '
                   'start there.';
       actions = <Widget>[
         // The tools for later, also for a project no machine here follows: a machine that is gone is

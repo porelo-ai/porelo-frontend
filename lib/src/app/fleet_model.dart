@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'clearance.dart';
 import 'authorizations.dart';

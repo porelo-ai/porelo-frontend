@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/newer_version.dart';
+import 'package:porelo_frontend/src/app/newer_version.dart';
 
 /// A package upgrade replaces the binary under a running interface, so what somebody has open is
 /// quietly out of date — with a bug they are about to report already fixed in what is installed.
@@ -9,7 +9,7 @@ void main() {
   late File binary;
 
   setUp(() {
-    binary = File('${Directory.systemTemp.path}/sokar-build-${DateTime.now().microsecondsSinceEpoch}');
+    binary = File('${Directory.systemTemp.path}/porelo-build-${DateTime.now().microsecondsSinceEpoch}');
     binary.writeAsStringSync('the build that is running');
     addTearDown(() => binary.existsSync() ? binary.deleteSync() : null);
   });

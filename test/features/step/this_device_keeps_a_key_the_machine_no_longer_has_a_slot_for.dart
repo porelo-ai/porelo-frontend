@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
 
 import '../support/world.dart';
 

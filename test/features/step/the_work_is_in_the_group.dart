@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the work {'sokar-checkout-shell'} is in the group {'running'}
+/// Usage: the work {'porelo-checkout-shell'} is in the group {'running'}
 ///
 /// `waiting`, `running` or `stopped`: the tile is drawn after that group's heading and before the
 /// next one's.

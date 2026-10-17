@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// What this device keeps to open one machine's vault: which keyslot it is, and its share.
 ///

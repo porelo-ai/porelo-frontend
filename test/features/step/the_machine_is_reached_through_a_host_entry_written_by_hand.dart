@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 
 import '../support/world.dart';
 
@@ -14,7 +14,7 @@ Future<void> theMachineIsReachedThroughAHostEntryWrittenByHand(WidgetTester test
     name: name,
     socketPath: Machine.endpointFor(name),
     host: name,
-    remoteSocket: '/run/user/1000/sokar/sokard.sock',
+    remoteSocket: '/run/user/1000/porelo/porelod.sock',
   ));
   await World.settle(tester);
 }

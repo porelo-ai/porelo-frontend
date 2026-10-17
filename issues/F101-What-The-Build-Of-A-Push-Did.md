@@ -8,8 +8,8 @@ machine reads it from the forge, and why when it cannot.
 
 ## Why
 
-`sokar` follows each commit an `online` task pushes at the forge and hands the verdict and the
-logs into the task as Sokar's own files. The contract, as `org.fuin.sokar.Tasks1` says it:
+`porelo` follows each commit an `online` task pushes at the forge and hands the verdict and the
+logs into the task as Porelo's own files. The contract, as `org.fuin.porelo.Tasks1` says it:
 
     # The forge whose builds of this task's pushes are followed, as the project names it under builds.forge
     # ("github"); "" when the project names none, or the task is not online. With builds empty and buildProblem
@@ -21,7 +21,7 @@ logs into the task as Sokar's own files. The contract, as `org.fuin.sokar.Tasks1
 
 `Build` carries `commit`, `verdict`, `jobs`, `since` and `detail`; `jobs` lists every job the forge
 reports once the verdict is `failure` or final, each with `name`, `result` and the name of its log
-in `/sokar/files`, empty where none was delivered.
+in `/porelo/files`, empty where none was delivered.
 
 ## Acceptance
 
@@ -33,5 +33,5 @@ in `/sokar/files`, empty where none was delivered.
   Seen to fail: a scenario whose failed job's log is not named.
 - `unknown` says why, a reader that does not work says why, and a verdict or result this interface
   does not know is shown as it comes. Seen to fail: one scenario each.
-- Measured end to end on the local VM against a daemon handed over from `sokar`, with its stub
+- Measured end to end on the local VM against a daemon handed over from `porelo`, with its stub
   reader: `Watch` carries each verdict of a push to the tile, and the jobs once it failed.

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the tile of {'sokar-billing-shell'} shows {'reading the contracts'}
+/// Usage: the tile of {'porelo-billing-shell'} shows {'reading the contracts'}
 Future<void> theTileOfShows(WidgetTester tester, String work, String line) async {
   await toTheTile(tester, work);
   expect(consoleSaying(work, line), findsOneWidget);

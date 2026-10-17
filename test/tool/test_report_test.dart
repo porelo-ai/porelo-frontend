@@ -120,7 +120,7 @@ void main() {
   test('the summary carries no failure detail, which is what keeps it a summary', () {
     final said = report(machineJson(message: 'Expected: one\nActual: none'));
 
-    // Sokar's rule and the reason for it: the detail is in the annotation, capped, and in the
+    // Porelo's rule and the reason for it: the detail is in the annotation, capped, and in the
     // HTML report in full. A table that grows a stack trace stops being scannable at the first
     // red build — which is the build somebody most needs to scan.
     expect(said.summary, isNot(contains('Actual: none')));
@@ -133,7 +133,7 @@ void main() {
     // The id on the `Feature:` line is the whole reason it is there. Grouping by path leaves it
     // an unread prefix inside a test name, which is what a generic converter does.
     expect(said.junit, contains('classname="$feature"'));
-    expect(said.junit, isNot(contains('sokar_frontend.test.features')));
+    expect(said.junit, isNot(contains('porelo_frontend.test.features')));
     expect(said.junit, contains('<failure'));
   });
 

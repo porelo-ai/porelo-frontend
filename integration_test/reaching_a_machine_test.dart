@@ -83,7 +83,7 @@ import './step/work_on_the_test_machine_was_started_without_a_grant_of.dart';
 import './step/i_grant_from_what_needs_a_person_in_the_interface.dart';
 import './step/what_needs_a_person_no_longer_asks_for.dart';
 import './step/the_work_started_without_is_removed_again.dart';
-import './step/the_test_machine_has_sokars_stub_agent.dart';
+import './step/the_test_machine_has_porelos_stub_agent.dart';
 import './step/work_on_the_test_machine_was_started_with_a_key_its_provider_refuses.dart';
 import './step/what_needs_a_person_says_its_provider_refused_it.dart';
 import './step/its_tile_shows_what_its_agent_wrote.dart';
@@ -121,7 +121,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iTryTheTestMachineFromTheDialog(tester);
-      await theTrialSays(tester, 'Reached Sokar');
+      await theTrialSays(tester, 'Reached Porelo');
       await noForwardRaisedForTheTrialIsLeft(tester);
       await iPutTheDialogAway(tester);
     });
@@ -141,7 +141,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iTryTheTestMachineFromTheDialogWithTheSocket(
-          tester, '/run/user/0/sokar/none.sock');
+          tester, '/run/user/0/porelo/none.sock');
       await theTrialSays(tester, 'runtime directory (uid 0)');
       await noForwardRaisedForTheTrialIsLeft(tester);
       await iPutTheDialogAway(tester);
@@ -210,7 +210,7 @@ void main() {
       await theTestMachineHasAnSshKeyOfItsOwn(tester, 'id_e2e');
       await theTestMachineConnectsToWithItsOwnKey(tester, 'ssh://github.com/');
       await iFollowAsFromTheInterfaceUnverified(
-          tester, 'git@github.com:sokar-ai/sokar-project.git', 'e2e-hostkey');
+          tester, 'git@github.com:porelo-ai/porelo-project.git', 'e2e-hostkey');
       await theInterfaceShowsTheKeysOfWith(tester, 'github.com',
           'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU');
       await iTrustFromTheInterface(
@@ -298,7 +298,7 @@ void main() {
       await theTestMachineHasAnOpenVault(tester);
       await theTestMachineHasATaskWithAMessageHeldForSaying(tester, 'e2e-talk',
           'reviewer', 'look at **this** https://evil.example/x');
-      await theInterfaceShowsAMessageHeldIn(tester, 'sokar-e2e-talk-e2e-talk');
+      await theInterfaceShowsAMessageHeldIn(tester, 'porelo-e2e-talk-e2e-talk');
       await theInterfaceSays(tester, 'you wrote, going out through');
       await iReadItAndRefuseItFromTheInterfaceSaying(
           tester, 'not before the tests pass');
@@ -307,13 +307,13 @@ void main() {
           'Refused for good. The task that wrote it is told, with your words.');
       await theMachineListsThatMessageAsRefusedByAPerson(tester);
       await theInboxOfHolds(
-          tester, 'sokar-e2e-talk-e2e-talk', 'not before the tests pass');
+          tester, 'porelo-e2e-talk-e2e-talk', 'not before the tests pass');
       await iWriteToTheAgentOfFromTheInterface(
-          tester, 'stop, the schema changed', 'sokar-e2e-talk-e2e-talk');
+          tester, 'stop, the schema changed', 'porelo-e2e-talk-e2e-talk');
       await theInboxOfHoldsFromAPerson(
-          tester, 'sokar-e2e-talk-e2e-talk', 'stop, the schema changed');
+          tester, 'porelo-e2e-talk-e2e-talk', 'stop, the schema changed');
       await theTaskAndTheProjectAreRemovedAgain(
-          tester, 'sokar-e2e-talk-e2e-talk', 'e2e-talk');
+          tester, 'porelo-e2e-talk-e2e-talk', 'e2e-talk');
     });
     testWidgets(
         '''a destination is checked by the machine, written from the interface, and removed again''',
@@ -398,7 +398,7 @@ void main() {
       await bddSetUp(tester);
       await theTestMachineIsBeingWatched(tester);
       await theTestMachineHasAnOpenVault(tester);
-      await theTestMachineHasSokarsStubAgent(tester);
+      await theTestMachineHasPorelosStubAgent(tester);
       await workOnTheTestMachineWasStartedWithAKeyItsProviderRefuses(
           tester, 'anthropic');
       await whatNeedsAPersonSaysItsProviderRefusedIt(tester);

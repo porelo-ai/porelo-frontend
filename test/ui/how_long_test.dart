@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/ui/how_long.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/ui/how_long.dart';
 
 Task at(String since) =>
     Task.from(<String, dynamic>{'name': 'a-task', 'since': since});

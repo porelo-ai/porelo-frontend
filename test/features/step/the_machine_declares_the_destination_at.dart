@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -12,7 +12,7 @@ Future<void> theMachineDeclaresTheDestinationAt(WidgetTester tester, String name
     authHeader: 'Authorization',
     authPrefix: 'Bearer ',
     authQuery: '',
-    file: '/home/somebody/.local/share/sokar/destinations/$name.yaml',
+    file: '/home/somebody/.local/share/porelo/destinations/$name.yaml',
     packaged: false,
     inForce: true,
   ));

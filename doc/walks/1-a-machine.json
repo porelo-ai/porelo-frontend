@@ -7,8 +7,8 @@
     {"say": "Klick „Next“.", "at": "wizard-next", "then": "machine-host"},
     {"say": "Gib bei „Where it is“ deinen Login ein, etwa benutzer@host. Das Socket-Feld darunter bleibt leer: Die Maschine wird selbst gefragt.", "at": "machine-host"},
     {"say": "Klick „Try the connection“.", "at": "try-it", "then": "trial-result"},
-    {"say": "Läuft dort noch kein Sokar, fragt die Oberfläche „Start Sokar there?“. Klick „Start it“. Sonst weiter mit „Next“.", "at": "start-it", "then": "!start-it"},
-    {"say": "Steht „Reached Sokar …“ da, klick „Watch it“.", "at": "watch-it", "then": "!watch-it"},
+    {"say": "Läuft dort noch kein Porelo, fragt die Oberfläche „Start Porelo there?“. Klick „Start it“. Sonst weiter mit „Next“.", "at": "start-it", "then": "!start-it"},
+    {"say": "Steht „Reached Porelo …“ da, klick „Watch it“.", "at": "watch-it", "then": "!watch-it"},
     {"say": "Die Maschine ist jetzt links in der Liste. Schreib mir, was dir aufgefallen ist."}
   ]
 }

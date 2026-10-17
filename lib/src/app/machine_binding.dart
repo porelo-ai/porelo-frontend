@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:yaml/yaml.dart';
 
 import 'fleet_backend.dart';
@@ -194,7 +194,7 @@ class MachineBinding extends ChangeNotifier {
   List<String> pinnedAll = const <String>[];
 
   /// Says where a work repository holds a `project.yml` of its own: here it is only worked in, and
-  /// its file means nothing to this project (walk 8: `sokar-test-1` still held one from an earlier
+  /// its file means nothing to this project (walk 8: `porelo-test-1` still held one from an earlier
   /// test, and nothing said so).
   Future<void> _sayWhereItIsAProjectItself(String fullName, String project) async {
     try {
@@ -226,7 +226,7 @@ class MachineBinding extends ChangeNotifier {
   /// Whether a step is running.
   bool busy = false;
 
-  /// Whether the machine's Sokar can be bound from here at all, read off its contract **before**
+  /// Whether the machine's Porelo can be bound from here at all, read off its contract **before**
   /// anything is asked of it: a deploy key made from an upstream alone, and a follow pinned to a
   /// key. Null where the contract could not be read.
   Future<bool?> canBeBound() async {
@@ -369,7 +369,7 @@ class MachineBinding extends ChangeNotifier {
     bound = null;
   });
 
-  /// Every `sokar …` deploy key the forge holds for the project's repositories, including one no
+  /// Every `porelo …` deploy key the forge holds for the project's repositories, including one no
   /// machine claims any more, by repository.
   List<({String repository, ForgeDeployKey key})>? keys;
 
@@ -386,7 +386,7 @@ class MachineBinding extends ChangeNotifier {
       for (final upstream in shape.repositories.values) ?onGitHub(upstream),
     }) {
       for (final key in await forge.deployKeys(repository)) {
-        if (key.isSokars) found.add((repository: repository, key: key));
+        if (key.isPorelos) found.add((repository: repository, key: key));
       }
     }
     keys = found;
@@ -516,7 +516,7 @@ class MachineBinding extends ChangeNotifier {
     } on WorkspaceRefused catch (refused) {
       problem = refused.words;
     } on FeatureNotSupported {
-      problem = '$machineName cannot be bound from here: its Sokar is older than that.';
+      problem = '$machineName cannot be bound from here: its Porelo is older than that.';
     } on VarlinkException catch (refusal) {
       problem = refusal.simpleName == 'BundleTooLarge'
           ? 'It is too large to review here (${refusal.parameters['bytes']} bytes, at most '

@@ -7,11 +7,11 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/hand_in.dart';
-import 'package:sokar_frontend/src/mock/machine.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/hand_in.dart';
+import 'package:porelo_frontend/src/mock/machine.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// Holds handing a file to a running task to what the machine answers, over a real socket.
 ///
@@ -153,7 +153,7 @@ void main() {
 }
 
 /// The real backend, counting the parts it sends.
-class _Counting extends SokarBackend {
+class _Counting extends PoreloBackend {
   _Counting(super.backend);
 
   int parts = 0;

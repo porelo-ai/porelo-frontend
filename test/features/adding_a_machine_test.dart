@@ -62,14 +62,14 @@ import './step/the_setup_script_will_end_with.dart';
 import './step/i_set_it_up_and_connect.dart';
 import './step/the_key_was_allowed_for.dart';
 import './step/ssh_config_reaches_as_with.dart';
-import './step/sokar_was_started_as_the_work_user.dart';
-import './step/nothing_sokar_doctor_found_is_shown.dart';
+import './step/porelo_was_started_as_the_work_user.dart';
+import './step/nothing_porelo_doctor_found_is_shown.dart';
 import './step/i_watch_the_new_machine.dart';
 import './step/the_forward_was_raised_through_to.dart';
-import './step/sokar_doctor_will_refuse_with.dart';
-import './step/what_sokar_doctor_found_is_shown.dart';
-import './step/sokar_doctor_passes_now.dart';
-import './step/i_ask_sokar_doctor_again.dart';
+import './step/porelo_doctor_will_refuse_with.dart';
+import './step/what_porelo_doctor_found_is_shown.dart';
+import './step/porelo_doctor_passes_now.dart';
+import './step/i_ask_porelo_doctor_again.dart';
 import './step/root_login_was_not_turned_off.dart';
 import './step/i_turn_off_root_and_password_login.dart';
 import './step/root_login_was_turned_off.dart';
@@ -77,7 +77,7 @@ import './step/new_machines_run_work_as.dart';
 import './step/the_setup_script_was_shown_for.dart';
 import './step/allowing_the_key_for_the_work_user_will_fail_with.dart';
 import './step/ssh_config_was_not_touched.dart';
-import './step/sokar_was_not_started.dart';
+import './step/porelo_was_not_started.dart';
 import './step/it_offers_the_package.dart';
 import './step/the_package_is_shown_installed_and_cannot_be_unticked.dart';
 import './step/nothing_was_installed_by_asking.dart';
@@ -109,7 +109,7 @@ import './step/the_host_key_of_changed_since_it_was_last_seen.dart';
 import './step/i_am_warned_that_the_key_is_not_the_one_known_for_that_address.dart';
 import './step/nothing_is_shown_below_the_run_yet.dart';
 import './step/what_running_it_printed_is_shown_below_it.dart';
-import './step/registering_sokars_hooks_will_fail_with.dart';
+import './step/registering_porelos_hooks_will_fail_with.dart';
 import './step/the_machine_has_no_vault.dart';
 import './step/i_open_the_terminal_to_make_the_vault.dart';
 import './step/the_terminal_runs.dart';
@@ -140,7 +140,7 @@ void main() {
       await bddSetUp(tester);
       await theDialogOffers(tester, 'Yes: I may run commands as root there');
       await theDialogOffers(
-          tester, 'No: somebody else set Sokar up there for me');
+          tester, 'No: somebody else set Porelo up there for me');
       await iChoose(tester, 'Yes: I may run commands as root there');
       await theDialogOffers(tester, 'Its socket is already forwarded');
       await theDialogOffers(tester, 'Raise the forward for me');
@@ -152,7 +152,7 @@ void main() {
         '''one who is not an administrator there is offered only to connect''',
         (tester) async {
       await bddSetUp(tester);
-      await iChoose(tester, 'No: somebody else set Sokar up there for me');
+      await iChoose(tester, 'No: somebody else set Porelo up there for me');
       await theDialogOffers(tester, 'Raise the forward for me');
       await theDialogOffers(tester, 'Its socket is already forwarded');
       await theDialogDoesNotOffer(tester, 'A new machine');
@@ -185,7 +185,7 @@ void main() {
       await iGoBack(tester);
       await iChoose(tester, 'Its socket is already forwarded');
       await iGoOn(tester);
-      await theForwardedSocketIs(tester, '/tmp/sokar-build.sock');
+      await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iWatchIt(tester);
       await nothingWasRaisedFor(tester, 'the build machine');
     });
@@ -196,7 +196,7 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Its socket is already forwarded');
       await iGoOn(tester);
-      await theForwardedSocketIs(tester, '/tmp/sokar-build.sock');
+      await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iWatchIt(tester);
       await itDoesNotSay(tester, 'This machine can run work');
       await iSwitchToTheMachine(tester, 'the build machine');
@@ -210,14 +210,14 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
       await iAmShownTheHostKey(
           tester, 'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789');
       await nothingWasRaisedForTheTrial(tester);
       await iTrustTheHostKey(tester);
       await theHostKeyOfWasWritten(tester, 'build.example.test');
-      await theTrialSays(tester, 'Reached Sokar');
+      await theTrialSays(tester, 'Reached Porelo');
     });
     testWidgets(
         '''a host key that is not trusted is never written, and nothing is tried''',
@@ -227,7 +227,7 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
       await iDoNotTrustTheHostKey(tester);
       await noHostKeyWasWritten(tester);
@@ -241,7 +241,7 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iAmShownTheHostKey(
           tester, 'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789');
@@ -254,9 +254,9 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iTryTheConnection(tester);
-      await theTrialSays(tester, 'Reached Sokar');
+      await theTrialSays(tester, 'Reached Porelo');
       await noHostKeyWasWritten(tester);
     });
     testWidgets(
@@ -265,7 +265,7 @@ void main() {
       await bddSetUp(tester);
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'Its socket is already forwarded');
-      await theForwardedSocketIs(tester, '/tmp/sokar-build.sock');
+      await theForwardedSocketIs(tester, '/tmp/porelo-build.sock');
       await iTryTheConnection(tester);
       await iWatchIt(tester);
       await noHostKeyWasAskedAbout(tester);
@@ -280,7 +280,7 @@ void main() {
       await theWizardCannotGoToTheNextStepYet(tester);
       await iGenerateAKeyPair(tester);
       await iKeepTheKey(tester);
-      await theKeyWasKeptOwneronlyAs(tester, 'sokar-the-build-machine-admin');
+      await theKeyWasKeptOwneronlyAs(tester, 'porelo-the-build-machine-admin');
       await itSays(tester,
           'Give this admin key to the provider when the server is created');
       await thePublicKeyIsShownToCopy(tester);
@@ -317,10 +317,10 @@ void main() {
           tester, 'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789');
       await iTrustTheHostKey(tester);
       await rootLoggedInToWith(
-          tester, '203.0.113.10', 'sokar-the-build-machine-admin');
+          tester, '203.0.113.10', 'porelo-the-build-machine-admin');
       await itSays(tester, 'Logged in as root on 203.0.113.10');
       await iGoToTheNextStep(tester);
-      await itSays(tester, "Sokar's setup script runs as root");
+      await itSays(tester, "Porelo's setup script runs as root");
     });
     testWidgets(
         '''a root login that fails says what ssh said, and the wizard does not go on''',
@@ -403,22 +403,22 @@ void main() {
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
       await theKeyWasAllowedFor(tester, 'agent');
-      await sshConfigReachesAsWith(tester, 'sokar-the-build-machine', 'agent',
-          'sokar-the-build-machine-agent');
-      await sokarWasStartedAsTheWorkUser(tester);
-      await itSays(tester, 'Reached Sokar');
+      await sshConfigReachesAsWith(tester, 'porelo-the-build-machine', 'agent',
+          'porelo-the-build-machine-agent');
+      await poreloWasStartedAsTheWorkUser(tester);
+      await itSays(tester, 'Reached Porelo');
       await itSays(tester, 'Ready to watch.');
-      await nothingSokarDoctorFoundIsShown(tester);
+      await nothingPoreloDoctorFoundIsShown(tester);
       await iWatchTheNewMachine(tester);
-      await theForwardWasRaisedThroughTo(tester, 'sokar-the-build-machine',
-          '/run/user/1001/sokar/sokard.sock');
+      await theForwardWasRaisedThroughTo(tester, 'porelo-the-build-machine',
+          '/run/user/1001/porelo/porelod.sock');
     }, tags: ['linux']);
     testWidgets(
-        '''a machine sokar doctor refuses can be watched, and what doctor found is said''',
+        '''a machine porelo doctor refuses can be watched, and what doctor found is said''',
         (tester) async {
       await bddSetUp(tester);
       await aNewMachineWhoseRootLogsIn(tester);
-      await sokarDoctorWillRefuseWith(tester, 'podman 4.9.3 is too old');
+      await poreloDoctorWillRefuseWith(tester, 'podman 4.9.3 is too old');
       await iSeeWhatItCanInstall(tester);
       await iFetchTheSetupScript(tester);
       await iRunTheSetupScript(tester);
@@ -426,26 +426,26 @@ void main() {
       await iSetItUpAndConnect(tester);
       await itSays(tester, 'tasks cannot run there yet');
       await itDoesNotSay(tester, 'Ready to watch.');
-      await whatSokarDoctorFoundIsShown(tester, 'podman 4.9.3 is too old');
+      await whatPoreloDoctorFoundIsShown(tester, 'podman 4.9.3 is too old');
       await iWatchTheNewMachine(tester);
-      await theForwardWasRaisedThroughTo(tester, 'sokar-the-build-machine',
-          '/run/user/1001/sokar/sokard.sock');
+      await theForwardWasRaisedThroughTo(tester, 'porelo-the-build-machine',
+          '/run/user/1001/porelo/porelod.sock');
     });
     testWidgets(
-        '''sokar doctor asked again after a fix at the machine says it is ready''',
+        '''porelo doctor asked again after a fix at the machine says it is ready''',
         (tester) async {
       await bddSetUp(tester);
       await aNewMachineWhoseRootLogsIn(tester);
-      await sokarDoctorWillRefuseWith(tester, 'podman 4.9.3 is too old');
+      await poreloDoctorWillRefuseWith(tester, 'podman 4.9.3 is too old');
       await iSeeWhatItCanInstall(tester);
       await iFetchTheSetupScript(tester);
       await iRunTheSetupScript(tester);
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
-      await sokarDoctorPassesNow(tester);
-      await iAskSokarDoctorAgain(tester);
+      await poreloDoctorPassesNow(tester);
+      await iAskPoreloDoctorAgain(tester);
       await itSays(tester, 'Ready to watch.');
-      await nothingSokarDoctorFoundIsShown(tester);
+      await nothingPoreloDoctorFoundIsShown(tester);
     });
     testWidgets(
         '''turning off root login is offered, and done only when asked''',
@@ -486,7 +486,7 @@ void main() {
       await itSays(tester,
           'The key could not be allowed for agent: getent: no such user');
       await sshConfigWasNotTouched(tester);
-      await sokarWasNotStarted(tester);
+      await poreloWasNotStarted(tester);
     });
     testWidgets(
         '''what it can install is offered as choices, and what is there is shown fixed''',
@@ -494,10 +494,10 @@ void main() {
       await bddSetUp(tester);
       await aNewMachineWhoseRootLogsIn(tester);
       await iSeeWhatItCanInstall(tester);
-      await itOffersThePackage(tester, 'sokar-agent-claude');
-      await itOffersThePackage(tester, 'sokar-agent-omp');
+      await itOffersThePackage(tester, 'porelo-agent-claude');
+      await itOffersThePackage(tester, 'porelo-agent-omp');
       await thePackageIsShownInstalledAndCannotBeUnticked(
-          tester, 'sokar-message-transport-matrix');
+          tester, 'porelo-message-transport-matrix');
       await nothingWasInstalledByAsking(tester);
     });
     testWidgets('''a chosen agent is shown and run with the rest''',
@@ -505,11 +505,11 @@ void main() {
       await bddSetUp(tester);
       await aNewMachineWhoseRootLogsIn(tester);
       await iSeeWhatItCanInstall(tester);
-      await iChooseThePackage(tester, 'sokar-agent-claude');
+      await iChooseThePackage(tester, 'porelo-agent-claude');
       await iFetchTheSetupScript(tester);
-      await theSetupScriptWasShownWith(tester, 'sokar-agent-claude');
+      await theSetupScriptWasShownWith(tester, 'porelo-agent-claude');
       await iRunTheSetupScript(tester);
-      await theSetupScriptRanWith(tester, 'sokar-agent-claude');
+      await theSetupScriptRanWith(tester, 'porelo-agent-claude');
     });
     testWidgets(
         '''changing the choice after it was shown asks for it to be shown again''',
@@ -518,7 +518,7 @@ void main() {
       await aNewMachineWhoseRootLogsIn(tester);
       await iSeeWhatItCanInstall(tester);
       await iFetchTheSetupScript(tester);
-      await iChooseThePackage(tester, 'sokar-agent-omp');
+      await iChooseThePackage(tester, 'porelo-agent-omp');
       await itSays(tester, 'Show it again before it runs');
       await theSetupScriptCannotBeRun(tester);
     });
@@ -555,7 +555,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await aKeyTheMachineAlreadyKnowsIsKeptAs(
-          tester, 'sokar-the-build-machine');
+          tester, 'porelo-the-build-machine');
       await iCancelTheDialog(tester);
       await iChooseTheCommand(tester, 'Add another user that runs work…');
       await theWizardOffersNoKindToChoose(tester);
@@ -573,13 +573,13 @@ void main() {
       await theSetupScriptRanFor(tester, 'other');
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
-      await sshConfigReachesAsWith(tester, 'sokar-the-build-machine-as-other',
-          'other', 'sokar-the-build-machine-as-other-other');
+      await sshConfigReachesAsWith(tester, 'porelo-the-build-machine-as-other',
+          'other', 'porelo-the-build-machine-as-other-other');
       await iWatchTheNewMachine(tester);
       await theForwardWasRaisedThroughTo(
           tester,
-          'sokar-the-build-machine-as-other',
-          '/run/user/1001/sokar/sokard.sock');
+          'porelo-the-build-machine-as-other',
+          '/run/user/1001/porelo/porelod.sock');
     }, tags: ['linux']);
     testWidgets(
         '''going back and on again keeps the key and where the machine is''',
@@ -622,7 +622,7 @@ void main() {
       await theNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
       await iGoToTheNextStep(tester);
-      await itSays(tester, "Sokar's setup script runs as root");
+      await itSays(tester, "Porelo's setup script runs as root");
     });
     testWidgets(
         '''an unfinished setup that is discarded is not offered again''',
@@ -647,7 +647,7 @@ void main() {
       await itShowsTheFirstLineTheMachinePrinted(tester);
       await onlyCancelIsOffered(tester);
       await theMachineAnswers(tester);
-      await itOffersThePackage(tester, 'sokar-agent-claude');
+      await itOffersThePackage(tester, 'porelo-agent-claude');
     });
     testWidgets(
         '''a key already in ~/.ssh can be chosen by name and used as it is''',
@@ -683,7 +683,7 @@ void main() {
       await iTrustTheHostKey(tester);
       await theHostKeyOfWasWritten(tester, '203.0.113.10');
       await rootLoggedInToWith(
-          tester, '203.0.113.10', 'sokar-the-build-machine-admin');
+          tester, '203.0.113.10', 'porelo-the-build-machine-admin');
     });
     testWidgets('''nothing is shown below the run until it was run''',
         (tester) async {
@@ -695,14 +695,14 @@ void main() {
           tester, 'useradd --create-home agent');
       await nothingIsShownBelowTheRunYet(tester);
       await iRunTheSetupScript(tester);
-      await whatRunningItPrintedIsShownBelowIt(tester, 'sokar installed');
+      await whatRunningItPrintedIsShownBelowIt(tester, 'porelo installed');
     });
     testWidgets(
         '''hooks that cannot be registered stop the wizard before anything is watched''',
         (tester) async {
       await bddSetUp(tester);
       await aNewMachineWhoseRootLogsIn(tester);
-      await registeringSokarsHooksWillFailWith(
+      await registeringPorelosHooksWillFailWith(
           tester, 'podman: cannot write hooks.d');
       await iSeeWhatItCanInstall(tester);
       await iFetchTheSetupScript(tester);
@@ -710,7 +710,7 @@ void main() {
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
       await itSays(tester,
-          'sokar setup did not register what a task needs: podman: cannot write hooks.d');
+          'porelo setup did not register what a task needs: podman: cannot write hooks.d');
       await theWizardCannotGoToTheNextStepYet(tester);
     });
     testWidgets(
@@ -727,7 +727,7 @@ void main() {
       await iGoToTheNextStep(tester);
       await iOpenTheTerminalToMakeTheVault(tester);
       await theTerminalRuns(
-          tester, 'ssh -t sokar-the-build-machine sokar vault init');
+          tester, 'ssh -t porelo-the-build-machine porelo vault init');
       await theTerminalEndsWith(tester, 0);
       await itSays(tester,
           'The vault is there, and it opens with the passphrase typed.');
@@ -757,11 +757,11 @@ void main() {
       await iSeeWhatItCanInstall(tester);
       await itSays(tester,
           'With no transport chosen, its work cannot send or receive messages');
-      await iChooseThePackage(tester, 'sokar-message-transport-matrix');
+      await iChooseThePackage(tester, 'porelo-message-transport-matrix');
       await itDoesNotSay(tester, 'With no transport chosen');
       await itSays(tester,
           'The transport alone carries messages only for a project that names a homeserver');
-      await iChooseThePackage(tester, 'sokar-matrix-homeserver');
+      await iChooseThePackage(tester, 'porelo-matrix-homeserver');
       await itDoesNotSay(tester, 'The transport alone');
     });
     testWidgets('''choosing the homeserver alone is enough to carry messages''',
@@ -770,7 +770,7 @@ void main() {
       await aNewMachineWhoseRootLogsIn(tester);
       await theMachineHasNoTransportYet(tester);
       await iSeeWhatItCanInstall(tester);
-      await iChooseThePackage(tester, 'sokar-matrix-homeserver');
+      await iChooseThePackage(tester, 'porelo-matrix-homeserver');
       await itDoesNotSay(tester, 'With no transport chosen');
       await itDoesNotSay(tester, 'The transport alone');
     });

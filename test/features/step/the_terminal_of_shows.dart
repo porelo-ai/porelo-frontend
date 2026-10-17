@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: the terminal of {'sokar-billing-shell'} shows {'agent> make test'}
+/// Usage: the terminal of {'porelo-billing-shell'} shows {'agent> make test'}
 ///
 /// What the machine's `Screen` answers for the work's session, from now on.
 Future<void> theTerminalOfShows(WidgetTester tester, String work, String line) async {

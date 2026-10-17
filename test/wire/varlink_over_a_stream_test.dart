@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/wire/varlink_connection.dart';
-import 'package:sokar_frontend/src/wire/varlink_exception.dart';
+import 'package:porelo_frontend/src/wire/varlink_connection.dart';
+import 'package:porelo_frontend/src/wire/varlink_exception.dart';
 
-/// Varlink spoken over any byte stream, not only over a socket file: the way a Sokar in WSL is
+/// Varlink spoken over any byte stream, not only over a socket file: the way a Porelo in WSL is
 /// reached from Windows, through a relay's standard input and output.
 void main() {
   late StreamController<List<int>> fromDaemon;
@@ -35,13 +35,13 @@ void main() {
     expect(utf8.decode(sent.sublist(0, sent.length - 1)), '{"method":"org.varlink.service.GetInfo","parameters":{}}');
     expect(sent.last, 0);
 
-    answer(<String, dynamic>{'parameters': <String, dynamic>{'product': 'Sokar'}});
+    answer(<String, dynamic>{'parameters': <String, dynamic>{'product': 'Porelo'}});
 
-    expect(await reply, <String, dynamic>{'product': 'Sokar'});
+    expect(await reply, <String, dynamic>{'product': 'Porelo'});
   });
 
   test('a stream of replies arrives as it comes, and ends with the last one', () async {
-    final replies = connection().callMore('org.fuin.sokar.Tasks1.Watch').toList();
+    final replies = connection().callMore('org.fuin.porelo.Tasks1.Watch').toList();
     await pumpEventQueue();
     answer(<String, dynamic>{'parameters': <String, dynamic>{'n': 1}, 'continues': true});
     answer(<String, dynamic>{'parameters': <String, dynamic>{'n': 2}});

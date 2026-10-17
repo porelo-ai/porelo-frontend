@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: starting says the credential is stored by {'sokar vault put a-provider'}
+/// Usage: starting says the credential is stored by {'porelo vault put a-provider'}
 Future<void> startingSaysTheCredentialIsStoredBy(WidgetTester tester, String command) async {
   World.backend.nextReadiness = Readiness(
     ready: false,

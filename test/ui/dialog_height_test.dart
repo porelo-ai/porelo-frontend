@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/host_keys.dart';
-import 'package:sokar_frontend/src/ui/host_key_dialog.dart';
-import 'package:sokar_frontend/src/ui/leaving.dart';
-import 'package:sokar_frontend/src/ui/prepare_view.dart';
+import 'package:porelo_frontend/src/app/host_keys.dart';
+import 'package:porelo_frontend/src/ui/host_key_dialog.dart';
+import 'package:porelo_frontend/src/ui/leaving.dart';
+import 'package:porelo_frontend/src/ui/prepare_view.dart';
 
 /// Dialogs whose content grows with what a machine has, in a window shorter than that content.
 void main() {
@@ -24,7 +24,7 @@ void main() {
   testWidgets('closing with a lot running still reaches the answer', (tester) async {
     await open(tester, (context) => confirmQuit(
           context,
-          running: <String>[for (var each = 0; each < 60; each++) 'sokar-project-task-$each'],
+          running: <String>[for (var each = 0; each < 60; each++) 'porelo-project-task-$each'],
           waiting: 2,
         ));
 

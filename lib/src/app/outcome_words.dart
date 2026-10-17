@@ -1,4 +1,4 @@
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// What a `Stop` did, in words.
 ///
@@ -15,7 +15,7 @@ String stopWords(String task, Stopped result) {
   return switch (result.outcome) {
     Outcome.stopped =>
       '$task was stopped. It is kept, workspace and all, and can be started again.$surviving$said',
-    Outcome.notATask => '$task is not a task Sokar created. Nothing was touched.$said',
+    Outcome.notATask => '$task is not a task Porelo created. Nothing was touched.$said',
     Outcome.nothingToStop => 'There was nothing of $task to stop.$said',
     _ => '$task: ${result.outcome.label}.$surviving$said'
   };
@@ -40,7 +40,7 @@ String removeWords(String task, Removed result) {
     Outcome.nothingKnows =>
       'Nothing could say whether $task holds work, so it was left as it was.$said',
     Outcome.stillRunning => '$task is still running, so nothing was removed.$said',
-    Outcome.notATask => '$task is not a task Sokar created. Nothing was touched.$said',
+    Outcome.notATask => '$task is not a task Porelo created. Nothing was touched.$said',
     Outcome.rescueNeedsItRunning =>
       '$task is already down, so what it holds cannot be read out of it.$said',
     Outcome.rescueFailed => 'Rescuing $task failed, so nothing was removed.$said',
@@ -64,7 +64,7 @@ String startWords(String task, StartProgress result, {bool afterARestart = false
   final restored = '$task is back after the machine restarted: its records, its egress and its '
       'tokens were restored';
   return switch (action) {
-    // A start that worked answers with no action at all, measured on Sokar 199.1: what the task
+    // A start that worked answers with no action at all, measured on Porelo 199.1: what the task
     // said before it was started is what tells a restart's return from any other.
     null when afterARestart && (result.exitCode ?? 0) == 0 => '$restored.$drift',
     null => (result.exitCode ?? 0) == 0

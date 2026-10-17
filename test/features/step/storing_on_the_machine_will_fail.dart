@@ -4,5 +4,5 @@ import '../support/world.dart';
 
 /// Usage: storing on the machine will fail
 Future<void> storingOnTheMachineWillFail(WidgetTester tester) async {
-  World.setup.storingFails = 'sokar: the vault is shut';
+  World.setup.storingFails = 'porelo: the vault is shut';
 }

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/diff.dart';
+import 'package:porelo_frontend/src/app/diff.dart';
 
 /// The gate answers `Review` with a diff as one string. This is what turns it into something a
 /// person can look through file by file — the honest ceiling, since nothing can read a file at a

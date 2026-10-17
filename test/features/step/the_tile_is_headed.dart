@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the tile {'sokar-shared-shell'} is headed {'elsewhere'}
+/// Usage: the tile {'porelo-shared-shell'} is headed {'elsewhere'}
 Future<void> theTileIsHeaded(WidgetTester tester, String work, String machine) async {
   await toTheTile(tester, work);
   final heading = tester.widget<Text>(

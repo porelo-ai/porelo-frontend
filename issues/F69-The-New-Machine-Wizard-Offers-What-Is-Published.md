@@ -10,12 +10,12 @@ today's words, and lets a step be left only once it is done.
 In place: the preparing step lists the index's packages as the setup script does, each with its
 kind and description; the homeserver is a choice of its own (`kind: homeserver`) and the filter
 comes with the transport by its package's dependency; once the machine answers, the wizard says
-whether it can carry messages from `sokar doctor`'s transports line and the homeserver unit; the
+whether it can carry messages from `porelo doctor`'s transports line and the homeserver unit; the
 vault step asks for the vault as it opens.
 
 ## Acceptance
 
-- **The words name what is installed**: Sokar, its filter, and the transports the index offers; no
+- **The words name what is installed**: Porelo, its filter, and the transports the index offers; no
   retired transport. Seen to fail: a widget test against an index stand-in, and the wizard walked on
   a fresh machine.
 - **The local homeserver is a choice of its own beside Matrix**, for a machine that carries a
@@ -26,7 +26,7 @@ vault step asks for the vault as it opens.
   transport and no homeserver, or the transport without the homeserver (then only a project naming
   its own homeserver can talk); the homeserver alone is enough. Seen to fail: widget tests of each
   combination.
-- **Whether the machine can carry messages is shown**, as `sokar doctor` reports it; with the
+- **Whether the machine can carry messages is shown**, as `porelo doctor` reports it; with the
   transport and no homeserver it says one is needed. Seen to fail: tests with each `doctor` answer,
   and the walk.
 - **The vault step cannot be left before the vault exists.** Seen to fail: a widget test where the
@@ -35,5 +35,5 @@ vault step asks for the vault as it opens.
 ## To be checked
 
 - **Messaging between the users of one machine** was to be offered as a step of its own, never
-  ticked (`sokar-setup.sh --between-users on|off`), when messages went over a transport that stayed
-  on the machine. Whether it still applies now that they go over Matrix is `sokar`'s answer.
+  ticked (`porelo-setup.sh --between-users on|off`), when messages went over a transport that stayed
+  on the machine. Whether it still applies now that they go over Matrix is `porelo`'s answer.

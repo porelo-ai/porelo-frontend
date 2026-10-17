@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 
 import '../support/e2e.dart';
 import '../support/remote.dart';
 
 /// Usage: the machine lists the connection {'ssh://e2e-vault.invalid/'} as a key in its vault
 Future<void> theMachineListsTheConnectionAsAKeyInItsVault(WidgetTester tester, String match) async {
-  final client = await SokarClient.connect(
+  final client = await PoreloClient.connect(
       Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
   // The interface runs the machine's own command to store it; it lands a moment after the record.
   Connection? connection;

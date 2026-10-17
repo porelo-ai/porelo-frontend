@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
 import 'ansi.dart';
@@ -126,8 +126,8 @@ class _TileConsoleState extends State<TileConsole> {
           ..addAll(lines);
       });
     } on FeatureNotSupported {
-      // A Sokar without Screen: the tile keeps saying where to look. It goes on asking, since an
-      // updated Sokar on the same machine has it, and one unanswered call every few seconds is cheap.
+      // A Porelo without Screen: the tile keeps saying where to look. It goes on asking, since an
+      // updated Porelo on the same machine has it, and one unanswered call every few seconds is cheap.
     } on Object {
       // Not answering now: what was shown stays, and the next look asks again.
     }

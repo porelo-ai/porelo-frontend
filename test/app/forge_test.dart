@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/forge.dart';
-import 'package:sokar_frontend/src/app/forge_connection.dart';
+import 'package:porelo_frontend/src/app/forge.dart';
+import 'package:porelo_frontend/src/app/forge_connection.dart';
 
 void main() {
   late List<({String method, Uri uri, Map<String, String> headers})> asked;
@@ -136,7 +136,7 @@ void main() {
 
   test('a machine’s key is added read-only or with write access, titled, and one already gone is no failure', () async {
     answers['POST /repos/acme/api/keys'] = reply(201,
-        <String, Object>{'id': 7, 'title': 'sokar vm acme/api', 'key': 'ssh-ed25519 AAAA', 'read_only': true});
+        <String, Object>{'id': 7, 'title': 'porelo vm acme/api', 'key': 'ssh-ed25519 AAAA', 'read_only': true});
     late String sent;
     final forge = GitHub('ghp_secret-token', http: (method, uri, headers, body) async {
       asked.add((method: method, uri: uri, headers: headers));
@@ -144,10 +144,10 @@ void main() {
       return answers['$method ${uri.path}'] ?? reply(404, <String, String>{'message': 'Not Found'});
     });
 
-    final made = await forge.addDeployKey('acme/api', title: 'sokar vm acme/api', key: 'ssh-ed25519 AAAA', readOnly: true);
+    final made = await forge.addDeployKey('acme/api', title: 'porelo vm acme/api', key: 'ssh-ed25519 AAAA', readOnly: true);
     expect(made.id, 7);
-    expect(made.isSokars, isTrue);
-    expect(jsonDecode(sent), <String, Object>{'title': 'sokar vm acme/api', 'key': 'ssh-ed25519 AAAA', 'read_only': true});
+    expect(made.isPorelos, isTrue);
+    expect(jsonDecode(sent), <String, Object>{'title': 'porelo vm acme/api', 'key': 'ssh-ed25519 AAAA', 'read_only': true});
     expect(asked.last.headers['Content-Type'], 'application/json');
 
     await forge.removeDeployKey('acme/api', 7);

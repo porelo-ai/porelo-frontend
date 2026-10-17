@@ -19,7 +19,7 @@ enum SetupStep {
   /// Where it is, and root logging in.
   where,
 
-  /// Sokar's setup script.
+  /// Porelo's setup script.
   prepare,
 
   /// Reaching it as the work user.
@@ -172,7 +172,7 @@ class SetupRun extends ChangeNotifier {
     final listed = offered;
     if (listed == null || listed.isEmpty) return null;
     bool has(InstallablePackage each) => each.installed || chosen.contains(each.name);
-    // Its kind is the virtual name it provides, without `sokar-`, as the setup script has it. It
+    // Its kind is the virtual name it provides, without `porelo-`, as the setup script has it. It
     // depends on the transport, so choosing it brings the transport, which the list does not
     // mark; the packages' metadata says so. The filter comes with the
     // transport by the package's own dependency, so it needs no rule here.
@@ -215,7 +215,7 @@ class SetupRun extends ChangeNotifier {
   /// The machine as it will be watched, once it answered.
   Machine? ready;
 
-  /// What `sokar doctor` refused, line by line, when it did not pass; null when it passed or was
+  /// What `porelo doctor` refused, line by line, when it did not pass; null when it passed or was
   /// not asked. **A machine that answers but fails `doctor` can be watched, and cannot run a task**:
   /// the setup script's exit says only that its steps ran, and `doctor` is the check.
   List<String>? doctorFound;
@@ -233,13 +233,13 @@ class SetupRun extends ChangeNotifier {
   bool get busy => doing != null;
 
   /// The admin key's file name under `~/.ssh`: root's, for setting up, never the daily one.
-  String get keyName => 'sokar-${Machine.slug(name)}-admin';
+  String get keyName => 'porelo-${Machine.slug(name)}-admin';
 
   /// The work user's own key's file name: the only key its `Host` entry and the interface use.
-  String get userKeyName => 'sokar-${Machine.slug(name)}-${Machine.slug(workUser)}';
+  String get userKeyName => 'porelo-${Machine.slug(name)}-${Machine.slug(workUser)}';
 
   /// The `Host` entry the machine is reached through.
-  String get alias => 'sokar-${Machine.slug(name)}';
+  String get alias => 'porelo-${Machine.slug(name)}';
 
   /// The choice as one comparable word.
   String get choice => (chosen.toList()..sort()).join(' ');
@@ -299,7 +299,7 @@ class SetupRun extends ChangeNotifier {
   Future<void> forget() async => remember?.call(null);
 
   Future<void> generate() => _doing('Generating a key pair…', () async {
-        final pair = await setup.generate('sokar $name');
+        final pair = await setup.generate('porelo $name');
         privateKey = pair.privateKey;
         publicKey = pair.publicKey;
         return null;
@@ -355,7 +355,7 @@ class SetupRun extends ChangeNotifier {
         return offered!.isEmpty && why.isNotEmpty ? why : null;
       });
 
-  Future<void> show() => _doing("Fetching Sokar's setup script and asking what it would do…", () async {
+  Future<void> show() => _doing("Fetching Porelo's setup script and asking what it would do…", () async {
         shown = null;
         shownDigest = null;
         final now = choice;
@@ -370,7 +370,7 @@ class SetupRun extends ChangeNotifier {
         return null;
       });
 
-  Future<void> prepare() => _doing("Running Sokar's setup script as root…", () async {
+  Future<void> prepare() => _doing("Running Porelo's setup script as root…", () async {
         final digest = shownDigest;
         if (digest == null) throw const MachineSetupFailed('What the setup script would do has to be shown first.');
         final ran = await _root(
@@ -394,7 +394,7 @@ class SetupRun extends ChangeNotifier {
         if (userKey == null) {
           final made = '${setup.sshDirectory}/$userKeyName';
           if (!File(made).existsSync()) {
-            await setup.save(await setup.generate('sokar $name $workUser'), userKeyName);
+            await setup.save(await setup.generate('porelo $name $workUser'), userKeyName);
             _logged('Made a key of its own for $workUser: $made.');
           }
           userKey = made;
@@ -408,26 +408,26 @@ class SetupRun extends ChangeNotifier {
         }
         _logged('$workUser logs in with its own key only; its password stays locked.');
         _logged(await setup.addHostEntry(alias: alias, host: loggedInTo!, user: workUser, keyFile: userKey));
-        final started = await setup.asUser(alias, 'systemctl --user enable --now sokard');
+        final started = await setup.asUser(alias, 'systemctl --user enable --now porelod');
         if (started.exitCode != 0) {
-          throw MachineSetupFailed('Sokar did not start as $workUser: ${both(started)}');
+          throw MachineSetupFailed('Porelo did not start as $workUser: ${both(started)}');
         }
-        _logged('Sokar runs as $workUser.');
+        _logged('Porelo runs as $workUser.');
         // The work user's step, never root's: podman reads its hook descriptors per user, so only
         // that account knows whose configuration to write. Without it a task runs with no firewall
-        // until the first start registers them, and `sokar doctor` says so.
-        final registered = await setup.asUser(alias, 'sokar setup');
+        // until the first start registers them, and `porelo doctor` says so.
+        final registered = await setup.asUser(alias, 'porelo setup');
         if (registered.exitCode != 0) {
-          throw MachineSetupFailed('sokar setup did not register what a task needs: ${both(registered)}');
+          throw MachineSetupFailed('porelo setup did not register what a task needs: ${both(registered)}');
         }
-        _logged("Sokar's hooks are registered for $workUser.");
+        _logged("Porelo's hooks are registered for $workUser.");
         final uid = await setup.asUser(alias, 'id -u');
         final id = '${uid.stdout}'.trim();
         if (uid.exitCode != 0 || int.tryParse(id) == null) {
           throw MachineSetupFailed('Which uid $workUser has could not be asked: ${both(uid)}');
         }
-        final doctor = await setup.asUser(alias, 'sokar doctor');
-        _logged('sokar doctor${doctor.exitCode == 0 ? '' : ' (ended with ${doctor.exitCode})'}:');
+        final doctor = await setup.asUser(alias, 'porelo doctor');
+        _logged('porelo doctor${doctor.exitCode == 0 ? '' : ' (ended with ${doctor.exitCode})'}:');
         _logged(both(doctor));
         doctorFound = refusedBy(doctor);
         messages = await _canCarryMessages(both(doctor));
@@ -435,7 +435,7 @@ class SetupRun extends ChangeNotifier {
           name: name,
           socketPath: Machine.endpointFor(name),
           host: alias,
-          remoteSocket: '/run/user/$id/sokar/sokard.sock',
+          remoteSocket: '/run/user/$id/porelo/porelod.sock',
         );
         final trying = this.trying;
         if (trying != null) {
@@ -447,28 +447,28 @@ class SetupRun extends ChangeNotifier {
         return _readiness();
       });
 
-  /// Asks `sokar doctor` again, for a finding fixed at the machine since.
-  Future<void> askDoctorAgain() => _doing('Asking sokar doctor again…', () async {
-        final doctor = await setup.asUser(alias, 'sokar doctor');
+  /// Asks `porelo doctor` again, for a finding fixed at the machine since.
+  Future<void> askDoctorAgain() => _doing('Asking porelo doctor again…', () async {
+        final doctor = await setup.asUser(alias, 'porelo doctor');
         doctorFound = refusedBy(doctor);
         return _readiness();
       });
 
   /// Whether the machine can carry its projects' messages, in one sentence: the Matrix transport as
-  /// `sokar doctor` lists it, and a homeserver on the machine as its unit says; null where neither
+  /// `porelo doctor` lists it, and a homeserver on the machine as its unit says; null where neither
   /// could be asked.
   String? messages;
 
   Future<String?> _canCarryMessages(String doctorSaid) async {
     final transport = doctorSaid.split('\n').where((line) => line.contains('transports')).join(' ');
     final hasMatrix = transport.contains('matrix');
-    final unit = await setup.asUser(alias, 'systemctl --user show sokar-matrix-homeserver -p LoadState --value');
+    final unit = await setup.asUser(alias, 'systemctl --user show porelo-matrix-homeserver -p LoadState --value');
     final homeserver = unit.exitCode == 0 && '${unit.stdout}'.trim() == 'loaded';
     return switch ((hasMatrix, homeserver)) {
       (true, true) => 'It can carry its projects’ messages: the Matrix transport is installed, and a homeserver can '
           'run here; the first task of a project with messages starts it.',
       (true, false) => 'The Matrix transport is installed, but no homeserver is: a project’s messages need one '
-          'named in its project.yml, or the package sokar-matrix-homeserver here.',
+          'named in its project.yml, or the package porelo-matrix-homeserver here.',
       (false, _) => 'It cannot carry messages: no transport is installed. Choose the Matrix transport (and a '
           'homeserver) when preparing it, or install them later.',
     };
@@ -476,7 +476,7 @@ class SetupRun extends ChangeNotifier {
 
   String _readiness() => doctorFound == null
       ? 'Ready to watch.'
-      : 'It answers and can be watched, but tasks cannot run there yet: see what sokar doctor found.';
+      : 'It answers and can be watched, but tasks cannot run there yet: see what porelo doctor found.';
 
   /// What [doctor] refused, or null when it passed: the lines it marks MISSING, UNKNOWN, FAILED or
   /// ERROR, each with the advice that follows it, or everything it said when none is marked.
@@ -495,11 +495,11 @@ class SetupRun extends ChangeNotifier {
     }
     if (found.isNotEmpty) return found;
     final said = lines.where((line) => line.trim().isNotEmpty).toList();
-    return said.isEmpty ? <String>['sokar doctor ended with ${doctor.exitCode} and said nothing.'] : said;
+    return said.isEmpty ? <String>['porelo doctor ended with ${doctor.exitCode} and said nothing.'] : said;
   }
 
   /// The command the person runs in the terminal: as the work user, so the vault is that user's.
-  List<String> get vaultCommand => <String>['ssh', '-t', alias, inTheLoginShell('sokar vault init')];
+  List<String> get vaultCommand => <String>['ssh', '-t', alias, inTheLoginShell('porelo vault init')];
 
   /// Asks the daemon whether the vault is there now. **Never read out of the terminal**: its exit
   /// says only that the command ran, and `Keyslots` says what is true.
@@ -513,7 +513,7 @@ class SetupRun extends ChangeNotifier {
         return hasVault!
             ? 'The vault is there, and it opens with the passphrase typed.'
             : 'There is no vault yet. Open the terminal again, or make it later at the machine with '
-                '`sokar vault init`.';
+                '`porelo vault init`.';
       });
 
   /// Asks whether the vault is there without holding the wizard up: a machine slow to answer keeps

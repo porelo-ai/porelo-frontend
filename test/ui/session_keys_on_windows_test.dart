@@ -4,11 +4,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/desk.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/pty.dart';
-import 'package:sokar_frontend/src/app/session.dart';
-import 'package:sokar_frontend/src/ui/session_view.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
+import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/ui/session_view.dart';
 
 /// On Windows the terminal reads every key from the keyboard's own events, letters included: there,
 /// the text-input path the terminal widget uses elsewhere delivered Enter, Backspace and the page
@@ -22,7 +22,7 @@ void main() {
     desk = Desk.of(operatingSystem, const <String, String>{});
     final channel = _Channel();
     final session = Session(
-      task: 'sokar-x-work',
+      task: 'porelo-x-work',
       machine: const Machine(name: 'laptop', socketPath: '', kind: 'wsl', distribution: 'Ubuntu'),
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
     );
@@ -49,7 +49,7 @@ void main() {
     desk = Desk.of(operatingSystem, const <String, String>{});
     final channel = _Channel();
     final session = Session(
-      task: 'sokar-x-work',
+      task: 'porelo-x-work',
       machine: const Machine(name: 'laptop', socketPath: '', kind: 'wsl', distribution: 'Ubuntu'),
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
     );

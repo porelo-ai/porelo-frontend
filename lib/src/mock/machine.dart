@@ -41,14 +41,14 @@ class MockMachine {
                   'label': 'An Agent',
                   'binary': '/usr/bin/an-agent',
                   'version': '2.4.0',
-                  'from': '/usr/share/sokar/agents/an-agent.yml',
+                  'from': '/usr/share/porelo/agents/an-agent.yml',
                   'allowedDomains': <String>['api.anthropic.com'],
                   'refusedDomains': <String>['telemetry.example.test'],
                   // What its commits are attributed to, which is what tells somebody looking at
                   // one whether an agent or a person wrote it.
                   'commitsAs': <String, dynamic>{
                     'name': 'An Agent',
-                    'email': 'an-agent@sokar.invalid',
+                    'email': 'an-agent@porelo.invalid',
                   },
                   'artifacts': <Map<String, dynamic>>[
                     <String, dynamic>{
@@ -65,10 +65,10 @@ class MockMachine {
                   'label': 'Another Agent',
                   'binary': '/usr/bin/other-agent',
                   'version': '',
-                  'from': '/etc/sokar/agents/other-agent.yml',
+                  'from': '/etc/porelo/agents/other-agent.yml',
                   'allowedDomains': <String>['api.example.test'],
                   'refusedDomains': <String>[],
-                  // Installed by a Sokar older than the field: absent, which is a state to
+                  // Installed by a Porelo older than the field: absent, which is a state to
                   // render rather than a blank to fill in.
                   // Knowingly unverified, with the reason that makes it a decision rather than
                   // an oversight. The daemon refuses to build one with neither.
@@ -94,8 +94,8 @@ class MockMachine {
         // was found on a real machine the day the field landed.
         'shadowed': <Map<String, dynamic>>[
           <String, dynamic>{
-            'path': '/usr/libexec/sokar/agents/an-agent',
-            'usedInstead': '/home/somebody/.local/share/sokar/agents/an-agent',
+            'path': '/usr/libexec/porelo/agents/an-agent',
+            'usedInstead': '/home/somebody/.local/share/porelo/agents/an-agent',
           },
         ],
       },
@@ -177,8 +177,8 @@ class MockMachine {
       case 'newer-interface':
         daemon.interfaces = const <String>[
           'org.varlink.service',
-          'org.fuin.sokar.Tasks1',
-          'org.fuin.sokar.Tasks2',
+          'org.fuin.porelo.Tasks1',
+          'org.fuin.porelo.Tasks2',
         ];
     }
   }
@@ -270,7 +270,7 @@ class MockMachine {
   /// Driven by whoever is testing, never by a clock — the same rule the automated tests follow.
   Map<String, dynamic> blocks(
     String destination, {
-    String task = 'sokar-checkout-shell',
+    String task = 'porelo-checkout-shell',
   }) {
     final parts = destination.split(':');
     final asked = <String, dynamic>{
@@ -318,7 +318,7 @@ class MockMachine {
 
   /// What is waiting at the gate, by ref name. Approving or dropping one takes it out.
   ///
-  /// **The name is the ref *under* `refs/sokar/incoming/`, never the whole ref** — the contract
+  /// **The name is the ref *under* `refs/porelo/incoming/`, never the whole ref** — the contract
   /// says so and `Review`, `Approve` and `Reject` take the short form. This served whole refs
   /// once, which is a fixture describing something the daemon cannot produce.
   ///
@@ -333,8 +333,8 @@ class MockMachine {
           'subject': 'Round to the nearest penny, not away from zero',
           'waiting': '4 minutes',
           'at': '2026-09-07T14:12:00Z',
-          'fetch': 'git fetch ssh://sokar@build-01/srv/checkout/.sokar/mirror '
-              'refs/sokar/incoming/migrate:refs/remotes/sokar/migrate',
+          'fetch': 'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror '
+              'refs/porelo/incoming/migrate:refs/remotes/porelo/migrate',
         },
         'drop-dead-code': <String, dynamic>{
           'name': 'drop-dead-code',
@@ -354,7 +354,7 @@ class MockMachine {
 
   Map<String, dynamic> _pending(Map<String, dynamic> parameters) =>
       <String, dynamic>{
-        'mirror': '/srv/checkout/.sokar/mirror',
+        'mirror': '/srv/checkout/.porelo/mirror',
         'mode': 'gatekeeping',
         'seededFrom': '',
         'pending': _waiting.values.toList(),
@@ -366,7 +366,7 @@ class MockMachine {
       'diff': oneFile ? _deletionDiff : _changeDiff,
       'log':
           'commit ${oneFile ? '7f21b0e' : '9a3c1f2'}\n'
-          'Author: an agent <agent@sokar>\n\n'
+          'Author: an agent <agent@porelo>\n\n'
           '    ${_waiting[parameters['name']]?['subject'] ?? ''}',
     };
   }
@@ -375,12 +375,12 @@ class MockMachine {
     final name = '${parameters['name']}';
     final branch = '${parameters['branch']}';
     if (branch.isEmpty) {
-      throw const MockRefusal('org.fuin.sokar.Tasks1.BranchRequired');
+      throw const MockRefusal('org.fuin.porelo.Tasks1.BranchRequired');
     }
-    // As Sokar does: a branch already holding other work is never overwritten, and nothing is pushed.
+    // As Porelo does: a branch already holding other work is never overwritten, and nothing is pushed.
     final holder = _branchHolds[branch];
     if (holder != null && holder.name != name) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.BranchExists', <String, dynamic>{
+      throw MockRefusal('org.fuin.porelo.Tasks1.BranchExists', <String, dynamic>{
         'branch': branch,
         'at': holder.commit,
       });
@@ -426,7 +426,7 @@ class MockMachine {
     Map<String, dynamic> parameters,
   ) => <String, dynamic>{
     'sets': _installed,
-    'locations': <String>['/etc/sokar/egress.d', '/usr/share/sokar/egress.d'],
+    'locations': <String>['/etc/porelo/egress.d', '/usr/share/porelo/egress.d'],
   };
 
   Map<String, dynamic> _egress(Map<String, dynamic> parameters) =>
@@ -531,7 +531,7 @@ class MockMachine {
 
   Map<String, dynamic> _credentials(Map<String, dynamic> parameters) =>
       <String, dynamic>{
-        'vault': '/home/somebody/.local/share/sokar/vault.bin',
+        'vault': '/home/somebody/.local/share/porelo/vault.bin',
         'exists': true,
         // Names, kinds and lengths. **Never a value.**
         'credentials': _open || situation == 'vault-locked'
@@ -595,7 +595,7 @@ class MockMachine {
     _connections[key] = connection;
     return <String, dynamic>{
       'connection': connection,
-      'storeCommand': source == 'VAULT' ? <String>['sokar', 'vault', 'put', id] : <String>[],
+      'storeCommand': source == 'VAULT' ? <String>['porelo', 'vault', 'put', id] : <String>[],
       'storeStdin': source == 'VAULT' && kind == 'SSH_KEY' ? 'the private key file' : '',
       'replaced': replaced,
     };
@@ -614,7 +614,7 @@ class MockMachine {
     };
   }
 
-  /// The account's ssh keys, in the four shapes Sokar's own listing showed: one it signs
+  /// The account's ssh keys, in the four shapes Porelo's own listing showed: one it signs
   /// with, one only ssh itself can use, one behind a passphrase, and a public half with no private.
   static const List<Map<String, dynamic>> _sshKeys = <Map<String, dynamic>>[
     <String, dynamic>{
@@ -703,7 +703,7 @@ class MockMachine {
     };
   }
 
-  /// The vault's keyslots, as Sokar's proposal has them: the recovery passphrase, and every device
+  /// The vault's keyslots, as Porelo's proposal has them: the recovery passphrase, and every device
   /// enrolled here, each with the share that opens it. **The share is never in a reply.**
   final List<({Map<String, dynamic> slot, String share})> _slots =
       <({Map<String, dynamic> slot, String share})>[
@@ -877,11 +877,11 @@ class MockMachine {
     'detail': detail,
   };
 
-  /// Removes what Sokar built for a project, or says what it would remove.
+  /// Removes what Porelo built for a project, or says what it would remove.
   ///
   /// **It refuses rather than decides**, on the same two things the daemon does: a ref nobody has
   /// reviewed, and a task that is up. `keeps` names the operator's own file so a confirmation can
-  /// say it survives without this end having to know which things are Sokar's.
+  /// say it survives without this end having to know which things are Porelo's.
   Map<String, dynamic> _deleteProject(Map<String, dynamic> parameters) {
     final name = parameters['name'] as String? ?? '';
     final preview = parameters['dryRun'] == true;
@@ -904,9 +904,9 @@ class MockMachine {
 
     // What a person recognizes, in the order somebody would think of them.
     final removes = <Map<String, dynamic>>[
-      <String, dynamic>{'kind': 'MIRROR', 'what': '/srv/$name/.sokar/mirror'},
-      <String, dynamic>{'kind': 'IMAGE', 'what': 'sokar/$name:latest'},
-      <String, dynamic>{'kind': 'BUILD', 'what': '/srv/$name/.sokar/build'},
+      <String, dynamic>{'kind': 'MIRROR', 'what': '/srv/$name/.porelo/mirror'},
+      <String, dynamic>{'kind': 'IMAGE', 'what': 'porelo/$name:latest'},
+      <String, dynamic>{'kind': 'BUILD', 'what': '/srv/$name/.porelo/build'},
       <String, dynamic>{'kind': 'REGISTRY', 'what': name},
       for (final task in its)
         <String, dynamic>{'kind': 'TASK', 'what': task['name']},
@@ -940,7 +940,7 @@ class MockMachine {
     return <String, dynamic>{
       'outcome': outcome,
       'removes': removes,
-      // Named by the contract, because a client cannot know which things are Sokar's — and one
+      // Named by the contract, because a client cannot know which things are Porelo's — and one
       // that guessed would sooner or later name the operator's own file among the casualties.
       'keeps': <String>['/srv/$name/project.yml'],
       'unreviewed': unreviewed,
@@ -990,15 +990,15 @@ class MockMachine {
             'surviving':
                 situation == 'helper-survives' &&
                     !preview &&
-                    task['name'] == 'sokar-checkout-shell'
-                ? <String>['sokar-checkout-shell-gate (pid 4711)']
+                    task['name'] == 'porelo-checkout-shell'
+                ? <String>['porelo-checkout-shell-gate (pid 4711)']
                 : <String>[],
           },
       ],
       // A helper that outlived its stop. Named rather than counted, because somebody has to kill
       // it by hand — and a machine where this is empty proves nothing about one where it is not.
       'surviving': situation == 'helper-survives' && !preview
-          ? <String>['sokar-checkout-shell-gate (pid 4711)']
+          ? <String>['porelo-checkout-shell-gate (pid 4711)']
           : <String>[],
       'previewed': preview,
     };
@@ -1013,15 +1013,15 @@ class MockMachine {
   /// Repositories this mock has been asked to follow, by project name, with what came of it.
   final Map<String, Map<String, dynamic>> _followed = <String, Map<String, dynamic>>{};
 
-  /// Follows a repository and takes it at once, as Sokar does — so the project can be worked in
+  /// Follows a repository and takes it at once, as Porelo does — so the project can be worked in
   /// straight after. A URL saying `unsigned` is refused as `NOT_SIGNED`, which needs a person; the
   /// same name at another address is refused, because that is a different project wearing a name.
-  /// Fetches now, as Sokar does: the records as they are afterwards, and `NoSuchProject` for a name
+  /// Fetches now, as Porelo does: the records as they are afterwards, and `NoSuchProject` for a name
   /// this account does not follow. A commit already in force comes back `UNCHANGED`.
   Map<String, dynamic> _refreshProjects(Map<String, dynamic> parameters) {
     final name = parameters['project'] as String?;
     if (name != null && !_followed.containsKey(name)) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.NoSuchProject', <String, dynamic>{'project': name});
+      throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchProject', <String, dynamic>{'project': name});
     }
     final now = DateTime.now().toUtc().toIso8601String();
     return <String, dynamic>{
@@ -1042,13 +1042,13 @@ class MockMachine {
     final url = parameters['url'] as String? ?? '';
     final unverified = parameters['unverified'] == true;
     if (unverified && (parameters['signedBy'] as String? ?? '').isNotEmpty) {
-      throw const MockRefusal('org.fuin.sokar.Tasks1.Failed', <String, dynamic>{
+      throw const MockRefusal('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{
         'message': 'signedBy and unverified are two different instructions; give one',
       });
     }
     final before = _followed[name];
     if (before != null && before['url'] != url) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.Failed', <String, dynamic>{
+      throw MockRefusal('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{
         'message': '$name is already followed at ${before['url']}',
       });
     }
@@ -1202,7 +1202,7 @@ class MockMachine {
   static String _scope(Map<String, dynamic> parameters) {
     final scope = parameters['scope'] as String? ?? '';
     if (scope.isEmpty) {
-      throw const MockRefusal('org.fuin.sokar.Tasks1.ScopeRequired');
+      throw const MockRefusal('org.fuin.porelo.Tasks1.ScopeRequired');
     }
     if (scope != 'RUN' && scope != 'RUN_AND_PROJECT') {
       throw const MockRefusal(
@@ -1351,7 +1351,7 @@ class MockMachine {
             'authenticated': true,
             'credentialType': 'api-key',
             'credentialName': 'a-provider',
-            'storeCommand': 'sokar vault put a-provider',
+            'storeCommand': 'porelo vault put a-provider',
           },
           // Stored under the *agent's* name, which is the fallback a client could never work out
           // by intersecting two lists.
@@ -1363,7 +1363,7 @@ class MockMachine {
             'authenticated': false,
             'credentialType': '',
             'credentialName': 'an-agent',
-            'storeCommand': 'sokar vault put an-agent --type oauth',
+            'storeCommand': 'porelo vault put an-agent --type oauth',
           },
         ],
         'readable': true,
@@ -1437,7 +1437,7 @@ class MockMachine {
     );
     // A name that is no task at all is a refusal, never an unreadable answer: those are different
     // failures, and merging them makes a wrong argument arrive as a legitimate reading.
-    if (task.isEmpty) throw MockRefusal('org.fuin.sokar.Tasks1.NoSuchTask');
+    if (task.isEmpty) throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchTask');
 
     if (task['running'] == true) {
       // Current, so no instant: "holds" rather than "held".
@@ -1447,8 +1447,8 @@ class MockMachine {
         'unpushedCommits': name.endsWith('-shell') ? 2 : 0,
       };
     }
-    if (name == 'sokar-checkout-tests') {
-      // Killed, or stopped by a Sokar that left no note. Not "nothing".
+    if (name == 'porelo-checkout-tests') {
+      // Killed, or stopped by a Porelo that left no note. Not "nothing".
       return <String, dynamic>{
         'readable': false,
         'changedFiles': 0,
@@ -1532,7 +1532,7 @@ class MockMachine {
           : refused
           ? 'HOLDS_WORK'
           : 'RESTORED',
-      'mirror': '/srv/$project/.sokar/mirror',
+      'mirror': '/srv/$project/.porelo/mirror',
       // Filled under force too: it is what force destroyed, and that belongs in the record
       // afterwards rather than only in the warning.
       'unreviewed': unreviewed,
@@ -1595,7 +1595,7 @@ class MockMachine {
                 'name': name,
                 'securityClass': 'guarded',
                 'file': (state['commit'] as String).isEmpty ? '' : '/srv/$name/project.yml',
-                'mirror': '/srv/$name/.sokar/mirror',
+                'mirror': '/srv/$name/.porelo/mirror',
                 'pending': 0,
                 'tasks': 0,
                 'running': 0,
@@ -1612,7 +1612,7 @@ class MockMachine {
       'name': 'checkout',
       'securityClass': 'guarded',
       'file': '/srv/checkout/project.yml',
-      'mirror': '/srv/checkout/.sokar/mirror',
+      'mirror': '/srv/checkout/.porelo/mirror',
       'prepared': true,
       'preparedState': 'READY',
       'behind': 3,
@@ -1670,7 +1670,7 @@ class MockMachine {
       'name': 'moved-away',
       'securityClass': 'guarded',
       'file': '',
-      'mirror': '/srv/moved/.sokar/mirror',
+      'mirror': '/srv/moved/.porelo/mirror',
       'prepared': true,
       'preparedState': 'UNKNOWN',
       'behind': 0,
@@ -1729,7 +1729,7 @@ class MockMachine {
   Stream<Map<String, dynamic>> _tail(Map<String, dynamic> parameters) async* {
     final log = parameters['log'];
     if (!logs.contains(log)) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.NoSuchLog', <String, dynamic>{
+      throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{
         'task': parameters['task'],
         'log': log,
       });
@@ -1739,7 +1739,7 @@ class MockMachine {
     const plain = '\u001B[0m';
     final lines = switch (log) {
       'gate.log' => <String>[
-        'gate: mirror at refs/sokar/incoming',
+        'gate: mirror at refs/porelo/incoming',
         'gate: waiting for a decision',
         '${green}gate: 2 commits accepted$plain',
       ],
@@ -1810,22 +1810,22 @@ class MockMachine {
     final offset = parameters['offset'] as int? ?? 0;
     final task = _runningOrRefused(name);
     if (file.isEmpty || file.contains('/') || file.startsWith('.')) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.FileNameRefused',
+      throw MockRefusal('org.fuin.porelo.Tasks1.FileNameRefused',
           <String, dynamic>{'name': file, 'reason': 'not a plain file name'});
     }
     if (bytes > handInLimit) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.FileTooLarge',
+      throw MockRefusal('org.fuin.porelo.Tasks1.FileTooLarge',
           <String, dynamic>{'bytes': bytes, 'limit': handInLimit});
     }
     final key = '$name/$file';
     var coming = _incoming[key];
     if (coming != null && (coming.bytes != bytes || coming.sha256 != sha256)) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.HandInInProgress',
+      throw MockRefusal('org.fuin.porelo.Tasks1.HandInInProgress',
           <String, dynamic>{'name': file, 'received': coming.got.length, 'bytes': coming.bytes});
     }
     coming ??= _incoming[key] = (bytes: bytes, sha256: sha256, got: <int>[]);
     if (offset != coming.got.length) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.PartOutOfOrder',
+      throw MockRefusal('org.fuin.porelo.Tasks1.PartOutOfOrder',
           <String, dynamic>{'name': file, 'received': coming.got.length});
     }
     coming.got.addAll(base64.decode(parameters['part'] as String? ?? ''));
@@ -1833,7 +1833,7 @@ class MockMachine {
     _incoming.remove(key);
     final actual = crypto.sha256.convert(coming.got).toString();
     if (coming.got.length != bytes || actual != sha256) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.FileDiffers',
+      throw MockRefusal('org.fuin.porelo.Tasks1.FileDiffers',
           <String, dynamic>{'expected': sha256, 'actual': actual});
     }
     final placed = <String, dynamic>{
@@ -1865,7 +1865,7 @@ class MockMachine {
     final taken = files.where((each) => each['name'] == file).firstOrNull;
     if (taken == null) {
       throw MockRefusal(
-          'org.fuin.sokar.Tasks1.NoSuchFile', <String, dynamic>{'task': name, 'name': file});
+          'org.fuin.porelo.Tasks1.NoSuchFile', <String, dynamic>{'task': name, 'name': file});
     }
     _putFiles(name, <Map<String, dynamic>>[
       for (final each in files)
@@ -1881,13 +1881,13 @@ class MockMachine {
         'record': _handInRecord[parameters['task'] as String? ?? ''] ?? <Map<String, dynamic>>[],
       };
 
-  /// Brings a task up to its source, as Sokar does: an offline task has no gate to bring up, and
+  /// Brings a task up to its source, as Porelo does: an offline task has no gate to bring up, and
   /// the stand-in's gate never moves, so any other task, an online one included, is up to date.
   Map<String, dynamic> _refreshTask(Map<String, dynamic> parameters) {
     final name = parameters['task'] as String? ?? '';
     final task = tasks.where((each) => each['name'] == name).firstOrNull;
     if (task == null) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.NoSuchTask', <String, dynamic>{'task': name});
+      throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchTask', <String, dynamic>{'task': name});
     }
     return <String, dynamic>{
       'outcome': task['securityClass'] == 'offline' ? 'NOT_GATED' : 'UNCHANGED',
@@ -1900,10 +1900,10 @@ class MockMachine {
   Map<String, dynamic> _runningOrRefused(String name) {
     final task = tasks.where((each) => each['name'] == name).firstOrNull;
     if (task == null) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.NoSuchTask', <String, dynamic>{'task': name});
+      throw MockRefusal('org.fuin.porelo.Tasks1.NoSuchTask', <String, dynamic>{'task': name});
     }
     if (task['running'] != true) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.NotRunning', <String, dynamic>{'task': name});
+      throw MockRefusal('org.fuin.porelo.Tasks1.NotRunning', <String, dynamic>{'task': name});
     }
     return task;
   }
@@ -1988,7 +1988,7 @@ class MockMachine {
     return <String, dynamic>{
       'outcome': situation == 'newer-outcome' ? 'QUARANTINED' : 'REMOVED',
       'work': '',
-      'rescuedRef': rescue ? 'refs/sokar/rescued/$name' : '',
+      'rescuedRef': rescue ? 'refs/porelo/rescued/$name' : '',
       'removed': true,
       // Counted only when it was removed, and nothing else ever records that any of it existed.
       'discarded': 3 * 1024 * 1024,
@@ -2046,7 +2046,7 @@ class MockMachine {
         '  --> installing packages'
       else
         '  --> using cache',
-      'STEP 4/6: ARG SOKAR_AGENT_LAYER',
+      'STEP 4/6: ARG PORELO_AGENT_LAYER',
       if (depth == 'CACHED')
         '  --> using cache'
       else
@@ -2061,7 +2061,7 @@ class MockMachine {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     yield <String, dynamic>{
       'outcome': 'PREPARED',
-      'image': 'sokar/${parameters['project']}:latest',
+      'image': 'porelo/${parameters['project']}:latest',
       // Read back rather than echoed blindly: a depth this daemon did not recognize has to be
       // visible instead of silently defaulted.
       'rebuild': depth,
@@ -2089,10 +2089,10 @@ class MockMachine {
       yield _startAgain(existing);
       return;
     }
-    // As Sokar does: a task whose earlier work still waits at the gate is not started beside it.
+    // As Porelo does: a task whose earlier work still waits at the gate is not started beside it.
     final waits = _waiting[parameters['task']];
     if (waits != null) {
-      throw MockRefusal('org.fuin.sokar.Tasks1.EarlierWorkWaits', <String, dynamic>{
+      throw MockRefusal('org.fuin.porelo.Tasks1.EarlierWorkWaits', <String, dynamic>{
         'task': parameters['task'],
         'commit': waits['commit'],
         'subject': waits['subject'],
@@ -2125,7 +2125,7 @@ class MockMachine {
     }
     if (failing || prompt.isEmpty) {
       yield <String, dynamic>{
-        'container': 'sokar-checkout-shell',
+        'container': 'porelo-checkout-shell',
         'exitCode': failing ? 1 : 0,
       };
       return;
@@ -2149,7 +2149,7 @@ class MockMachine {
       yield <String, dynamic>{'line': line};
     }
 
-    final container = parameters['task'] as String? ?? 'sokar-checkout-run';
+    final container = parameters['task'] as String? ?? 'porelo-checkout-run';
     if (situation == 'out-of-time') {
       // Killed by its own limit. The log is kept, which is why the lines above still stand.
       yield <String, dynamic>{'container': container, 'exitCode': 124};
@@ -2221,7 +2221,7 @@ deleted file mode 100644
         // One of each: telling the states apart is the point, and a machine with only
         // working tasks on it proves nothing.
         _task(
-          'sokar-checkout-shell',
+          'porelo-checkout-shell',
           'checkout',
           activity: 'WAITING',
           waitingFor: 'api.example.test:443',
@@ -2230,14 +2230,14 @@ deleted file mode 100644
         // Its own ref is waiting at the gate, which is what `waiting` says and what nothing
         // could be joined to work out.
         _task(
-          'sokar-checkout-migrate',
+          'porelo-checkout-migrate',
           'checkout',
           running: false,
           helpers: 0,
           waiting: 1,
         ),
         _task(
-          'sokar-billing-shell',
+          'porelo-billing-shell',
           'billing',
           securityClass: 'offline',
           helpers: 1,
@@ -2251,7 +2251,7 @@ deleted file mode 100644
         // Started with enforcement off: nothing will ever be asked about what it reaches, which
         // is a choice somebody made and the interface has to show.
         _task(
-          'sokar-billing-audit',
+          'porelo-billing-audit',
           'billing',
           helpers: 0,
           activity: 'UNKNOWN',
@@ -2261,11 +2261,11 @@ deleted file mode 100644
         // A failed run is no longer swept away: a non-zero exit stops the container and leaves it
         // in place, workspace and logs intact, because the run worth looking at is the one that
         // went wrong. So a list has more exited tasks on it than it used to.
-        _task('sokar-checkout-tests', 'checkout', running: false, helpers: 0),
+        _task('porelo-checkout-tests', 'checkout', running: false, helpers: 0),
         // Running, in a project whose file nothing can find any more. Widening its run works and
         // writing to its project does not, which is the one outcome most likely to be read as a
         // failure when it is not.
-        _task('sokar-moved-work', 'moved-away'),
+        _task('porelo-moved-work', 'moved-away'),
       ];
 
   static Map<String, dynamic> _task(
@@ -2285,7 +2285,7 @@ deleted file mode 100644
   }) => <String, dynamic>{
     'name': name,
     // The stand-in's own naming rule; a client never derives this.
-    'task': name.replaceFirst('sokar-$project-', ''),
+    'task': name.replaceFirst('porelo-$project-', ''),
     'label': '',
     'project': project,
     'securityClass': securityClass,
@@ -2301,7 +2301,7 @@ deleted file mode 100644
             : ''),
     // The ref carries the *task* name, which is the container name without the project
     // prefix — not the container name itself, which has the run in it.
-    'branch': 'refs/sokar/incoming/${name.replaceFirst('sokar-$project-', '')}',
+    'branch': 'refs/porelo/incoming/${name.replaceFirst('porelo-$project-', '')}',
     'since': DateTime.now()
         .toUtc()
         .subtract(Duration(minutes: minutesAgo))

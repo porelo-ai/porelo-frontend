@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -21,7 +21,7 @@ Future<void> theAgentLogsInByItsOwnLogin(WidgetTester tester, String name) async
               commitsAs: agent.commitsAs,
               canLogIn: true,
               // Named differently from what this end would spell, so a scenario can tell which ran.
-              loginCommand: <String>['sokar', 'vault', 'login', '--agent', agent.name],
+              loginCommand: <String>['porelo', 'vault', 'login', '--agent', agent.name],
               loginDocumentation: 'https://docs.example.test/login',
             ),
   ];

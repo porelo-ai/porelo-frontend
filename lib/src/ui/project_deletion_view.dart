@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/project_deletion.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
 
-/// Asks before removing what Sokar built for a project, then says what is left.
+/// Asks before removing what Porelo built for a project, then says what is left.
 ///
 /// Three things it will not do. **It never removes on the first press** — what would go is asked
 /// for and shown first. **Leaving is the default**, so a stray Return carries nothing. And **it
@@ -127,7 +127,7 @@ class ProjectDeletionDialog extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelLarge),
                         const SizedBox(height: Space.tight),
                         // **Named by the contract rather than worked out here.** This end does not
-                        // know which things are Sokar's, and a confirmation that guessed would
+                        // know which things are Porelo's, and a confirmation that guessed would
                         // sooner or later name the operator's own file among the casualties.
                         for (final kept in answer.keeps)
                           Padding(

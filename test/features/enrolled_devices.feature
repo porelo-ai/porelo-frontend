@@ -33,7 +33,7 @@ Feature: Opening the store with an enrolled device, never with a passphrase
     And I show the vault
     Then the key this device keeps is nowhere on screen
 
-  # On a machine whose socket somebody else forwards: nothing here can reach its sokar, so there is
+  # On a machine whose socket somebody else forwards: nothing here can reach its porelo, so there is
   # no terminal to open it in either, and the lock can only say where it is opened.
   # A vault made again keeps the node and loses its devices: a key kept here for the old one is not
   # an enrollment, and the lock must not send it.
@@ -46,7 +46,7 @@ Feature: Opening the store with an enrolled device, never with a passphrase
   Scenario: a shut store and a device that is not enrolled say where it is opened instead
     Given the store is shut
     And the machine is a socket somebody else forwards
-    Then the store's lock says {'The vault is shut, and this device is not enrolled. Unlock it at the machine with `sokar vault unlock`, then enroll this device.'}
+    Then the store's lock says {'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.'}
     And the store's lock does nothing
     And enrolling is unavailable in the machine's menu because {'the vault is shut'}
 
@@ -103,12 +103,12 @@ Feature: Opening the store with an enrolled device, never with a passphrase
     Then it says {'The passphrase, used at the machine.'}
     And the recovery passphrase cannot be revoked from here
 
-  Scenario: a machine whose Sokar predates devices has the lock, and says why not enrolling
+  Scenario: a machine whose Porelo predates devices has the lock, and says why not enrolling
     Given the machine cannot enroll devices yet
     Then the store's lock says {'The vault is open. Shut it.'}
     And enrolling is unavailable in the machine's menu because {'cannot enroll devices yet'}
     When I show the vault
-    Then it says {'that arrives with a later Sokar'}
+    Then it says {'that arrives with a later Porelo'}
 
   # Whatever the title shows, the machine's menu has all three.
   Scenario: the machine's menu shuts the store too
@@ -116,7 +116,7 @@ Feature: Opening the store with an enrolled device, never with a passphrase
     When I shut the store from the machine's menu
     Then it says {'The vault is shut.'}
     When I close the answer
-    Then the store's lock says {'The vault is shut, and this device is not enrolled. Unlock it at the machine with `sokar vault unlock`, then enroll this device.'}
+    Then the store's lock says {'The vault is shut, and this device is not enrolled. Unlock it at the machine with `porelo vault unlock`, then enroll this device.'}
 
   Scenario: a key the machine already took is said as enrolled already, and makes no second slot
     Given the key of this device reached the machine as {'desk'} and its answer did not

@@ -51,7 +51,7 @@ Feature: How a machine connects out, and giving it a credential
     And nothing was declared
     When I add it
     Then it was declared as {'TOKEN'} for {'https://gitlab.example/acme/'}, kept in {'VAULT'}
-    And a terminal runs {'sokar vault put git.token.example --type token'} on the machine
+    And a terminal runs {'porelo vault put git.token.example --type token'} on the machine
 
   # The one secret this interface carries: a private key of this computer, sent once into the vault.
   Scenario: an ssh key of this computer is filled from its file and sent into the vault
@@ -65,7 +65,7 @@ Feature: How a machine connects out, and giving it a credential
     And I fill the key from a file
     And I go on
     And I add it
-    Then the machine was given a key by {'sokar vault put git.ssh.example'}
+    Then the machine was given a key by {'porelo vault put git.ssh.example'}
     And the status line mentions {'is stored on'}
 
   # Only the private key is sent: the machine works out the public half, and a public one stored in
@@ -146,7 +146,7 @@ Feature: How a machine connects out, and giving it a credential
     And I go on
     And I add it
     Then it was declared into the vault from the file {'/home/me/.ssh/id_ed25519'}
-    And the machine ran {'sokar vault put git.ssh.example --from-file /home/me/.ssh/id_ed25519'} with nothing on its standard input
+    And the machine ran {'porelo vault put git.ssh.example --from-file /home/me/.ssh/id_ed25519'} with nothing on its standard input
 
   # A key for another account or another repository looks good until the first fetch; only the
   # machine can ask the forge, and what the forge says is put beside the key.
@@ -188,7 +188,7 @@ Feature: How a machine connects out, and giving it a credential
     Then it says {'This machine has no private key'}
     And going on is not offered yet
 
-  # A Sokar older than the listing is not a machine without keys: the path is typed, and why is said.
+  # A Porelo older than the listing is not a machine without keys: the path is typed, and why is said.
   Scenario: a machine that cannot list its keys takes a typed path, never its public half
     Given the machine cannot list its keys
     When I choose the command {'Connections — how this machine connects out'}
@@ -263,7 +263,7 @@ Feature: How a machine connects out, and giving it a credential
     And I name the user {'me'}
     And I go on
     And I add it
-    Then a terminal runs {'sokar vault put git.token.example'} on the machine
+    Then a terminal runs {'porelo vault put git.token.example'} on the machine
 
   # A vault that is not there is made at the machine, from the check, and then asked about again.
   Scenario: an account without a vault is sent to make one, and checked again
@@ -278,7 +278,7 @@ Feature: How a machine connects out, and giving it a credential
     Then it says {'no vault yet'}
     And adding it is not offered yet
     When I make the vault from the check
-    Then a terminal runs {'ssh -t alice@vm sokar vault init'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault init'} on the machine
     When the unlock terminal ends and is put away
     Then the machine was asked again whether it would work
 
@@ -293,7 +293,7 @@ Feature: How a machine connects out, and giving it a credential
     And I go on
     Then it says {'the vault is shut'}
     When I open the vault from the check
-    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault unlock'} on the machine
     When the unlock terminal ends and is put away
     Then the machine was asked again whether it would work
 

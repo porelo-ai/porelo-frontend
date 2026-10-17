@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/emergency_stop.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/emergency_stop.dart';
 
 import '../features/support/world.dart';
 

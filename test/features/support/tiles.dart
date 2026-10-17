@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import 'world.dart';
 

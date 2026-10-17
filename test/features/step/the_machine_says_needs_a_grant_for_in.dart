@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: the machine says {'jira'} needs a grant for {'sokar-checkout-shell'} in {'checkout'}
+/// Usage: the machine says {'jira'} needs a grant for {'porelo-checkout-shell'} in {'checkout'}
 Future<void> theMachineSaysNeedsAGrantForIn(WidgetTester tester, String entry, String task, String project) =>
     needing(tester, entry, task, project, 'never');
 

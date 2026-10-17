@@ -4,7 +4,7 @@
 /// is gone, a method an older backend does not have - each is something the interface has to
 /// show, so each arrives here with its name intact rather than flattened into a message.
 class VarlinkException implements Exception {
-  /// Fully-qualified error name, such as `org.fuin.sokar.Tasks1.NoSuchLog`.
+  /// Fully-qualified error name, such as `org.fuin.porelo.Tasks1.NoSuchLog`.
   final String name;
 
   /// Whatever the service sent with it.

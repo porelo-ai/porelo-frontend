@@ -15,14 +15,14 @@ Future<void> theProjectAndItsTaskAreRemovedAgain(WidgetTester tester, String nam
     await tester.tap(done);
     await pumpFor(tester);
   }
-  // The account's homeserver stays, as Sokar left it enabled for the account; its accounts with it.
+  // The account's homeserver stays, as Porelo left it enabled for the account; its accounts with it.
   final left = await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"
-sokar task stop sokar-$name-write >/dev/null 2>&1
-sokar task remove sokar-$name-write >/dev/null 2>&1
-sokar project unfollow --force $name >/dev/null 2>&1
+porelo task stop porelo-$name-write >/dev/null 2>&1
+porelo task remove porelo-$name-write >/dev/null 2>&1
+porelo project unfollow --force $name >/dev/null 2>&1
 rm -rf "\$HOME/$name"
-sokar task list
+porelo task list
 ''');
-  expect(left, isNot(contains('sokar-$name-')));
+  expect(left, isNot(contains('porelo-$name-')));
 }

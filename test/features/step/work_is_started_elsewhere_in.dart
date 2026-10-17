@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -30,7 +30,7 @@ Future<void> workIsStartedElsewhereIn(WidgetTester tester, String project) async
   World.backend.publish(<Task>[
     ...World.backend.tasksNow,
     Task.from(<String, dynamic>{
-      'name': 'sokar-$project-elsewhere',
+      'name': 'porelo-$project-elsewhere',
       'project': project,
       'securityClass': 'guarded',
       'state': 'Up 1 minute',

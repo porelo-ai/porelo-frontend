@@ -6,10 +6,10 @@ library;
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
-import 'package:sokar_frontend/src/mock/machine.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/src/mock/machine.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// Holds the stand-in to the behavior the interface is built on, over a real socket.
 ///
@@ -22,7 +22,7 @@ void main() {
   late MockDaemon daemon;
   late MockMachine machine;
 
-  Future<SokarClient> connect() => SokarClient.connect(
+  Future<PoreloClient> connect() => PoreloClient.connect(
     Backend(socketPath: daemon.socketPath, label: 'mock'),
   );
 
@@ -40,11 +40,11 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final stopped = await client.stop('sokar-checkout-shell');
+    final stopped = await client.stop('porelo-checkout-shell');
 
     expect(stopped.outcome, Outcome.stopped);
     final task = (await client.tasks()).firstWhere(
-      (task) => task.name == 'sokar-checkout-shell',
+      (task) => task.name == 'porelo-checkout-shell',
     );
     expect(task.running, isFalse);
     expect(task.startAction, StartAction.resume);
@@ -54,13 +54,13 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final refused = await client.remove('sokar-checkout-shell');
+    final refused = await client.remove('porelo-checkout-shell');
 
     expect(refused.outcome, Outcome.stillRunning);
     expect(refused.removed, isFalse);
     expect(
       (await client.tasks()).map((task) => task.name),
-      contains('sokar-checkout-shell'),
+      contains('porelo-checkout-shell'),
     );
   });
 
@@ -68,13 +68,13 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final removed = await client.remove('sokar-checkout-migrate');
+    final removed = await client.remove('porelo-checkout-migrate');
 
     expect(removed.outcome, Outcome.removed);
     expect(removed.removed, isTrue);
     expect(
       (await client.tasks()).map((task) => task.name),
-      isNot(contains('sokar-checkout-migrate')),
+      isNot(contains('porelo-checkout-migrate')),
     );
   });
 
@@ -82,14 +82,14 @@ void main() {
     await machineIn('holds-work');
     final client = await connect();
 
-    final refused = await client.remove('sokar-checkout-migrate');
+    final refused = await client.remove('porelo-checkout-migrate');
 
     expect(refused.outcome, Outcome.holdsWork);
     expect(refused.removed, isFalse);
     expect(refused.work, isNotEmpty);
     expect(
       (await client.tasks()).map((task) => task.name),
-      contains('sokar-checkout-migrate'),
+      contains('porelo-checkout-migrate'),
     );
   });
 
@@ -98,14 +98,14 @@ void main() {
     () async {
       await machineIn('holds-work');
       final client = await connect();
-      await client.remove('sokar-checkout-migrate');
+      await client.remove('porelo-checkout-migrate');
 
-      final forced = await client.remove('sokar-checkout-migrate', force: true);
+      final forced = await client.remove('porelo-checkout-migrate', force: true);
 
       expect(forced.removed, isTrue);
       expect(
         (await client.tasks()).map((task) => task.name),
-        isNot(contains('sokar-checkout-migrate')),
+        isNot(contains('porelo-checkout-migrate')),
       );
     },
   );
@@ -121,7 +121,7 @@ void main() {
     expect(started.action, StartAction.resume);
     expect(started.helpersStarted, lessThan(started.helpersRecorded!));
     final task = (await client.tasks()).firstWhere(
-      (task) => task.name == 'sokar-checkout-migrate',
+      (task) => task.name == 'porelo-checkout-migrate',
     );
     expect(task.running, isTrue);
     expect(task.startAction, StartAction.running);
@@ -153,7 +153,7 @@ void main() {
     });
 
     await first.future;
-    await client.remove('sokar-checkout-migrate');
+    await client.remove('porelo-checkout-migrate');
     await second.future;
 
     expect(seen.first, 6);
@@ -166,13 +166,13 @@ void main() {
     final client = await connect();
 
     final read = await client
-        .tailLog('sokar-checkout-shell', 'agent.log')
+        .tailLog('porelo-checkout-shell', 'agent.log')
         .take(2)
         .toList();
     expect(read.expand((lines) => lines), isNotEmpty);
 
     await expectLater(
-      client.tailLog('sokar-checkout-shell', 'nowhere.log').first,
+      client.tailLog('porelo-checkout-shell', 'nowhere.log').first,
       throwsA(
         isA<VarlinkException>().having(
           (refusal) => refusal.simpleName,
@@ -338,7 +338,7 @@ void main() {
       final lines = <String>[];
       var code = -1;
       await for (final progress in client.start(
-        task: 'sokar-checkout-run',
+        task: 'porelo-checkout-run',
         project: 'checkout',
         agent: 'an-agent',
         mode: Mode.unattended,
@@ -355,7 +355,7 @@ void main() {
       // And it is listed afterwards, keeping what it was asked to do — which is what continuing it
       // with a new prompt reads back.
       final run = (await client.tasks()).firstWhere(
-        (task) => task.name == 'sokar-checkout-run',
+        (task) => task.name == 'porelo-checkout-run',
       );
       expect(run.mode, Mode.unattended);
       expect(run.prompt, 'Fix the rounding in Money.pennies');
@@ -468,7 +468,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final done = await client.widenTask('sokar-checkout-shell', <String>[
+      final done = await client.widenTask('porelo-checkout-shell', <String>[
         'files.example.test',
         'docs.example.test',
       ], scope: Scope.runAndProject);
@@ -487,7 +487,7 @@ void main() {
       final client = await connect();
 
       final previewed = await client.widenTask(
-        'sokar-checkout-shell',
+        'porelo-checkout-shell',
         <String>['files.example.test'],
         scope: Scope.run,
         dryRun: true,
@@ -496,7 +496,7 @@ void main() {
       expect(previewed.opens, <String>['files.example.test']);
 
       // If the preview had written, this would come back NO_CHANGE.
-      final done = await client.widenTask('sokar-checkout-shell', <String>[
+      final done = await client.widenTask('porelo-checkout-shell', <String>[
         'files.example.test',
       ], scope: Scope.run);
       expect(done.outcome, WidenOutcome.widened);
@@ -515,9 +515,9 @@ void main() {
       final client = await connect();
       const asking = <String>['files.example.test'];
 
-      await client.widenTask('sokar-checkout-shell', asking, scope: Scope.run);
+      await client.widenTask('porelo-checkout-shell', asking, scope: Scope.run);
       final again = await client.widenTask(
-        'sokar-checkout-shell',
+        'porelo-checkout-shell',
         asking,
         scope: Scope.run,
       );
@@ -533,7 +533,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final refused = await client.widenTask('sokar-checkout-migrate', <String>[
+      final refused = await client.widenTask('porelo-checkout-migrate', <String>[
         'files.example.test',
       ], scope: Scope.run);
 
@@ -548,7 +548,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final refused = await client.widenTask('sokar-billing-shell', <String>[
+      final refused = await client.widenTask('porelo-billing-shell', <String>[
         'files.example.test',
       ], scope: Scope.run);
 
@@ -562,7 +562,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final partly = await client.widenTask('sokar-moved-work', <String>[
+      final partly = await client.widenTask('porelo-moved-work', <String>[
         'files.example.test',
       ], scope: Scope.runAndProject);
 
@@ -582,7 +582,7 @@ void main() {
     addTearDown(wire.close);
 
     await expectLater(
-      wire.call('org.fuin.sokar.Tasks1.NarrowTask', <String, dynamic>{
+      wire.call('org.fuin.porelo.Tasks1.NarrowTask', <String, dynamic>{
         'task': 42,
         'domains': <String>['files.example.test'],
         'scope': 'RUN',
@@ -600,8 +600,8 @@ void main() {
     addTearDown(wire.close);
 
     await expectLater(
-      wire.call('org.fuin.sokar.Tasks1.WidenTask', <String, dynamic>{
-        'task': 'sokar-checkout-shell',
+      wire.call('org.fuin.porelo.Tasks1.WidenTask', <String, dynamic>{
+        'task': 'porelo-checkout-shell',
         'domains': <String>['files.example.test'],
       }),
       throwsA(
@@ -894,7 +894,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final first = await client.setClearance('sokar-billing-audit', 'off');
+      final first = await client.setClearance('porelo-billing-audit', 'off');
 
       expect(first.outcome, 'UNCHANGED');
       expect(first.settled, isTrue);
@@ -907,7 +907,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final said = await client.narrowTask('sokar-checkout-shell', <String>[
+    final said = await client.narrowTask('porelo-checkout-shell', <String>[
       'never.granted.test',
     ], scope: Scope.run);
 
@@ -917,11 +917,11 @@ void main() {
   test('taking a name back from the project reaches the project file', () async {
     await machineIn('work');
     final client = await connect();
-    await client.widenTask('sokar-checkout-shell', <String>[
+    await client.widenTask('porelo-checkout-shell', <String>[
       'files.example.test',
     ], scope: Scope.runAndProject);
 
-    final said = await client.narrowTask('sokar-checkout-shell', <String>[
+    final said = await client.narrowTask('porelo-checkout-shell', <String>[
       'files.example.test',
     ], scope: Scope.runAndProject);
 
@@ -951,18 +951,18 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final running = await client.workHeld('sokar-checkout-shell');
+      final running = await client.workHeld('porelo-checkout-shell');
       expect(running.readable, isTrue);
       // Current, so no instant: "holds" rather than "held".
       expect(running.current, isTrue);
       expect(running.holdsSomething, isTrue);
 
-      final unreadable = await client.workHeld('sokar-checkout-tests');
+      final unreadable = await client.workHeld('porelo-checkout-tests');
       // Not "holds nothing": nobody could look.
       expect(unreadable.readable, isFalse);
       expect(unreadable.holdsSomething, isFalse);
 
-      final stopped = await client.workHeld('sokar-checkout-migrate');
+      final stopped = await client.workHeld('porelo-checkout-migrate');
       expect(stopped.readable, isTrue);
       expect(
         stopped.current,
@@ -974,7 +974,7 @@ void main() {
       // A name that is no task is a refusal, never an unreadable answer — collapsing them makes a
       // client's mistake arrive as a legitimate reading.
       await expectLater(
-        client.workHeld('sokar-never-existed'),
+        client.workHeld('porelo-never-existed'),
         throwsA(
           isA<VarlinkException>().having(
             (refusal) => refusal.simpleName,
@@ -1065,7 +1065,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final found = await client.logsOf('sokar-checkout-shell');
+      final found = await client.logsOf('porelo-checkout-shell');
 
       expect(
         found.map((log) => log.name),
@@ -1074,7 +1074,7 @@ void main() {
       expect(found.first.bytes, greaterThan(0));
       // The name goes to Tail unchanged; it is a file name and never a path.
       expect(
-        await client.tailLog('sokar-checkout-shell', found.first.name).first,
+        await client.tailLog('porelo-checkout-shell', found.first.name).first,
         isNotEmpty,
       );
     },
@@ -1086,7 +1086,7 @@ void main() {
       await machineIn('work');
       final client = await connect();
 
-      final found = await client.logsOf('sokar-checkout-shell');
+      final found = await client.logsOf('porelo-checkout-shell');
       final names = found.map((log) => log.name).toList();
 
       // **The file somebody needs when a task starts and then does nothing** is the firewall's
@@ -1094,7 +1094,7 @@ void main() {
       // it, so the wire is asserted on a name that would not survive one.
       expect(names, contains('events.jsonl'));
       expect(
-        await client.tailLog('sokar-checkout-shell', 'events.jsonl').first,
+        await client.tailLog('porelo-checkout-shell', 'events.jsonl').first,
         isNotEmpty,
       );
 

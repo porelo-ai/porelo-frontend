@@ -4,9 +4,9 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// The real backend over a real socket, where a reply's meaning is decided.
 void main() {
@@ -19,8 +19,8 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<SokarBackend> open() async {
-    final backend = SokarBackend(
+  Future<PoreloBackend> open() async {
+    final backend = PoreloBackend(
       Backend(socketPath: daemon.socketPath, label: 'mock'),
     );
     await backend.open();
@@ -36,7 +36,7 @@ void main() {
     final backend = await open();
 
     await expectLater(
-      backend.startTask(task: 'sokar-demo-shell').toList(),
+      backend.startTask(task: 'porelo-demo-shell').toList(),
       throwsA(
         isA<StartRefused>().having(
           (refused) => '$refused',
@@ -52,13 +52,13 @@ void main() {
       yield <String, dynamic>{'line': 'Resolving project.yml'};
       yield <String, dynamic>{
         'action': 'CREATE',
-        'container': 'sokar-demo-shell',
+        'container': 'porelo-demo-shell',
         'exitCode': 0,
       };
     });
     final backend = await open();
 
-    expect(await backend.startTask(task: 'sokar-demo-shell').toList(), <String>[
+    expect(await backend.startTask(task: 'porelo-demo-shell').toList(), <String>[
       'Resolving project.yml',
     ]);
   });

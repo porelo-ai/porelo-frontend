@@ -33,9 +33,9 @@ import 'settings.dart';
 import 'shell_model.dart';
 
 /// The application: one window, one frame, one backend at a time.
-class SokarApp extends StatelessWidget {
+class PoreloApp extends StatelessWidget {
   /// Constructor taking the state the whole interface is drawn from.
-  const SokarApp({
+  const PoreloApp({
     required this.machines,
     required this.shell,
     required this.settings,
@@ -117,7 +117,7 @@ class SokarApp extends StatelessWidget {
   /// The shells somebody has open inside running work.
   final Sessions sessions;
 
-  /// Removing what Sokar built for a project.
+  /// Removing what Porelo built for a project.
   final ProjectDeletion deleting;
 
   /// Whether the machine being acted on can run anything.
@@ -153,13 +153,13 @@ class SokarApp extends StatelessWidget {
         // A status line changing must not rebuild a theme.
         listenable: settings,
         builder: (context, _) => MaterialApp(
-          title: 'Sokar',
+          title: 'Porelo',
           debugShowCheckedModeBanner: false,
-          theme: SokarTheme.light,
-          darkTheme: SokarTheme.dark,
+          theme: PoreloTheme.light,
+          darkTheme: PoreloTheme.dark,
           themeMode: settings.appearance,
           // Around the navigator, so the walk's panel stays usable while a dialog is open.
-          builder: walk == null ? null : (context, child) => WalkFrame(walk: walk!, texts: sokarWalkTexts, child: child!),
+          builder: walk == null ? null : (context, child) => WalkFrame(walk: walk!, texts: poreloWalkTexts, child: child!),
           home: ListenableBuilder(
             listenable:
                 Listenable.merge(

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// The license is the rest of Sokar's, and the package says the same as the file.
+/// The license is the rest of Porelo's, and the package says the same as the file.
 void main() {
   test('the license text is the GPL 3', () {
     final text = File('LICENSE').readAsStringSync();
@@ -13,7 +13,7 @@ void main() {
   test('the package declares the license the file holds, and carries the text', () {
     final package = File('packaging/nfpm.yaml.in').readAsStringSync();
     expect(package, contains('license: GPL-3.0-only'));
-    expect(package, contains('dst: /usr/share/doc/sokar-frontend/copyright'));
-    expect(package, contains('dst: /usr/share/licenses/sokar-frontend/LICENSE'));
+    expect(package, contains('dst: /usr/share/doc/porelo-frontend/copyright'));
+    expect(package, contains('dst: /usr/share/licenses/porelo-frontend/LICENSE'));
   });
 }

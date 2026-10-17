@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/session.dart';
 import 'package:xterm/xterm.dart';
 
 import '../features/support/world.dart';
@@ -14,7 +14,7 @@ void main() {
 
   setUp(() {
     session = Session(
-      task: 'sokar-work',
+      task: 'porelo-work',
       machine: vm,
       open: (executable, arguments, {columns = 80, rows = 24}) =>
           far = FakeTerminal(<String>[executable, ...arguments]),

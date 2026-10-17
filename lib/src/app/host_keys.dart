@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:sokar_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 
 /// Runs a program and answers what it printed, the way [Process.run] does, with optional input.
 typedef RunWith = Future<ProcessResult> Function(List<String> command, {String? input});

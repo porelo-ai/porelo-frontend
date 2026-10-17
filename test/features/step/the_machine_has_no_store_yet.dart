@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -7,7 +7,7 @@ import '../support/world.dart';
 Future<void> theMachineHasNoStoreYet(WidgetTester tester) async {
   // What a fresh machine answers: no file, and readable and empty, because there is nothing to open.
   World.backend.theStoreIs = VaultState.from(const <String, dynamic>{
-    'vault': '/home/somebody/.local/share/sokar/vault.bin',
+    'vault': '/home/somebody/.local/share/porelo/vault.bin',
     'exists': false,
     'credentials': <Map<String, dynamic>>[],
     'readable': true,

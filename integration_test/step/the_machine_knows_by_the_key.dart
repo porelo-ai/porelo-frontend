@@ -6,7 +6,7 @@ import '../support/remote.dart';
 Future<void> theMachineKnowsByTheKey(WidgetTester tester, String host, String fingerprint) async {
   final listed = await onTheTestMachine('''
 set -eu
-ssh-keygen -l -F "$host" -f "\$HOME/.local/state/sokar/known_hosts" 2>/dev/null | grep -v '^#' || true
+ssh-keygen -l -F "$host" -f "\$HOME/.local/state/porelo/known_hosts" 2>/dev/null | grep -v '^#' || true
 ''');
   expect(listed, contains(fingerprint), reason: 'known_hosts has: $listed');
 }

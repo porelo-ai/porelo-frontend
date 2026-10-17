@@ -17,13 +17,13 @@ the runner is the nearest thing to that test which runs on every build.
 
 ## Plan
 
-- **`tool/windows-install-check.ps1`**, given the MSIX and `sokar-msix.cer`:
+- **`tool/windows-install-check.ps1`**, given the MSIX and `porelo-msix.cer`:
   - `Import-Certificate` of the `.cer` into `Cert:\LocalMachine\TrustedPeople`, as `doc/index.md`
     tells a person to;
-  - `Add-AppxPackage` of the MSIX; `Get-AppxPackage ai.porelo.sokar.frontend` must then name the
+  - `Add-AppxPackage` of the MSIX; `Get-AppxPackage ai.porelo.frontend` must then name the
     version just built (the identity in `packaging/windows/AppxManifest.xml.in`);
   - the installed application started through its identity,
-    `shell:AppsFolder\<PackageFamilyName>!SokarInterface`, and `sokar_frontend.exe` seen running
+    `shell:AppsFolder\<PackageFamilyName>!PoreloInterface`, and `porelo_frontend.exe` seen running
     from the package's install folder after a few seconds, then stopped;
   - `Remove-AppxPackage` at the end, whatever happened.
 - **Its own red, in the same step, every build:** a copy of the MSIX re-signed with a throwaway

@@ -4,25 +4,25 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- What every Sokar Maven repository shares: the JDK, the build tools' version, the plugin versions, and the
-         ci-tools profile that puts sokar-release and sokar-machines on a classpath. -->
+    <!-- What every Porelo Maven repository shares: the JDK, the build tools' version, the plugin versions, and the
+         ci-tools profile that puts porelo-release and porelo-machines on a classpath. -->
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-parent</artifactId>
-        <version>0.1.4-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-parent</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
     <!-- Never published. The package version is pubspec.yaml's, read by tool/package.sh. -->
-    <groupId>org.fuin.sokar</groupId>
-    <artifactId>sokar-frontend</artifactId>
+    <groupId>org.fuin.porelo</groupId>
+    <artifactId>porelo-frontend</artifactId>
     <version>0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>sokar-frontend</name>
-    <description>The Sokar interface. Maven drives Flutter so an end-to-end run can lease a machine.</description>
+    <name>porelo-frontend</name>
+    <description>The Porelo interface. Maven drives Flutter so an end-to-end run can lease a machine.</description>
 
-    <!-- The same licence as the rest of Sokar; the text is in LICENSE. -->
+    <!-- The same licence as the rest of Porelo; the text is in LICENSE. -->
     <licenses>
         <license>
             <name>GPL-3.0-only</name>
@@ -125,7 +125,7 @@
     </build>
 
     <profiles>
-        <!-- Against the machine SOKAR_E2E_* names. Failsafe's shape: the run never fails its phase, so
+        <!-- Against the machine PORELO_E2E_* names. Failsafe's shape: the run never fails its phase, so
              whatever follows it still runs, and verify fails the build from the status it left. -->
         <profile>
             <id>e2e</id>
@@ -171,16 +171,16 @@
         <!-- A machine leased for the run and swept after it, whether the tests passed or not. With
              e2e: ./mvnw verify -Pe2e,hetzner, HETZNER_API set, and the key as HETZNER_SSH (CI) or a
              file named by HETZNER_KEY (a person). Only here, so no other build fetches the tool.
-             SOKAR_CANDIDATE names a directory of locally built sokar packages to install over the
-             published ones, so the leg can test a sokar nobody has pushed yet. Not the parent's ci-tools,
+             PORELO_CANDIDATE names a directory of locally built porelo packages to install over the
+             published ones, so the leg can test a porelo nobody has pushed yet. Not the parent's ci-tools,
              which only puts the tools on a classpath: this one also rents and sweeps. Its tool's version is
              the parent's. -->
         <profile>
             <id>hetzner</id>
             <dependencies>
                 <dependency>
-                    <groupId>org.fuin.sokar</groupId>
-                    <artifactId>sokar-machines</artifactId>
+                    <groupId>org.fuin.porelo</groupId>
+                    <artifactId>porelo-machines</artifactId>
                 </dependency>
             </dependencies>
             <build>
@@ -201,7 +201,7 @@
                                     <executable>bash</executable>
                                     <arguments>
                                         <argument>-c</argument>
-                                        <argument>test -z "$HETZNER_KEY" || set -- --key "$HETZNER_KEY"; test -z "$SOKAR_CANDIDATE" || set -- "$@" --candidate "$SOKAR_CANDIDATE"; exec java -classpath "$0" org.fuin.sokar.machines.Main lease --os ubuntu "$@" --write build/leased.properties</argument>
+                                        <argument>test -z "$HETZNER_KEY" || set -- --key "$HETZNER_KEY"; test -z "$PORELO_CANDIDATE" || set -- "$@" --candidate "$PORELO_CANDIDATE"; exec java -classpath "$0" org.fuin.porelo.machines.Main lease --os ubuntu "$@" --write build/leased.properties</argument>
                                         <classpath/>
                                     </arguments>
                                 </configuration>
@@ -217,7 +217,7 @@
                                     <arguments>
                                         <argument>-classpath</argument>
                                         <classpath/>
-                                        <argument>org.fuin.sokar.machines.Main</argument>
+                                        <argument>org.fuin.porelo.machines.Main</argument>
                                         <argument>sweep</argument>
                                         <argument>--from</argument>
                                         <argument>build/leased.properties</argument>

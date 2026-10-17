@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -9,7 +9,7 @@ Future<void> oneHelperWillOutliveTheStop(WidgetTester tester) async {
   // the case that matters: somebody has to kill it by hand.
   World.backend.nextPanic = const Panicked(
     tasks: <PanickedTask>[],
-    surviving: <String>['sokar-checkout-shell-gate (pid 4711)'],
+    surviving: <String>['porelo-checkout-shell-gate (pid 4711)'],
     previewed: false,
   );
 }

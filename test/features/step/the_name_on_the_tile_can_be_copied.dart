@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the name on the tile {'sokar-checkout-shell'} can be copied
+/// Usage: the name on the tile {'porelo-checkout-shell'} can be copied
 Future<void> theNameOnTheTileCanBeCopied(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   expect(

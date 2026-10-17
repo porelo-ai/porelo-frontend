@@ -37,7 +37,7 @@ void main() {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
       await iAskToCloseIt(tester);
-      await itSaysKeepsRunning(tester, 'sokar-checkout-shell');
+      await itSaysKeepsRunning(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''a decision that nothing will be listening for is said before leaving''',
@@ -58,11 +58,11 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await theAppIsRestarted(tester);
       await iGoToTheWork(tester);
       await theProjectIsSelected(tester, 'checkout');
-      await theWorkIsStillSelected(tester, 'sokar-checkout-shell');
+      await theWorkIsStillSelected(tester, 'porelo-checkout-shell');
     });
     testWidgets('''reopening opens on the work, whichever section was left''',
         (tester) async {

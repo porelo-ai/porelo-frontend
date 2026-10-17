@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
@@ -12,7 +12,7 @@ Future<void> theMachineHasClaudeCodeInstalledToo(WidgetTester tester) async {
       'label': 'Claude Code',
       'binary': '/usr/bin/claude',
       'version': '2.1.267',
-      'from': '/usr/libexec/sokar/agents/sokar-agent-claude',
+      'from': '/usr/libexec/porelo/agents/porelo-agent-claude',
     }),
   ];
 }

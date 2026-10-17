@@ -1,19 +1,19 @@
 import 'dart:async';
 
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 import 'machines.dart';
 import 'tunnel.dart';
 
-const _tasks = 'org.fuin.sokar.Tasks1';
+const _tasks = 'org.fuin.porelo.Tasks1';
 
 /// What trying a machine found, before anybody watches it.
 class Trial {
   /// Constructor taking the verdict and the words for it.
   const Trial({required this.reached, required this.words, this.nothingServing = false});
 
-  /// Whether a Sokar this build understands answered.
+  /// Whether a Porelo this build understands answered.
   final bool reached;
 
   /// What was found, in a sentence somebody can act on.
@@ -94,7 +94,7 @@ Future<Trial> tryAMachine(
       nothingServing: machine.needsATunnel,
       words: machine.needsATunnel
           ? 'The forward came up, but nothing answers at ${machine.remoteSocket} on that '
-              'machine. Is sokard running there, for the user you log in as? (${ex.message})'
+              'machine. Is porelod running there, for the user you log in as? (${ex.message})'
           : 'Nothing answers at ${machine.socketPath}: ${ex.message}',
     );
   } on StateError catch (ex) {

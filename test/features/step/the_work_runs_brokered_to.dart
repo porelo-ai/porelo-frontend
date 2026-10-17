@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../support/world.dart';
 
-/// Usage: the work {'sokar-checkout-shell'} runs {'an-agent'} brokered to {'github-copilot'}
+/// Usage: the work {'porelo-checkout-shell'} runs {'an-agent'} brokered to {'github-copilot'}
 Future<void> theWorkRunsBrokeredTo(WidgetTester tester, String work, String agent, String provider) async {
   World.backend.publish(<Task>[
     for (final each in World.backend.tasksNow)

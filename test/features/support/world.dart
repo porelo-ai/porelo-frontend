@@ -6,47 +6,47 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/homeserver_forwards.dart';
-import 'package:sokar_frontend/src/app/forge.dart';
-import 'package:sokar_frontend/src/app/forge_connection.dart';
-import 'package:sokar_frontend/src/app/project_workspace.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/fleet_model.dart';
-import 'package:sokar_frontend/src/app/host_keys.dart';
-import 'package:sokar_frontend/src/app/machine_setup.dart';
-import 'package:sokar_frontend/src/app/egress.dart';
-import 'package:sokar_frontend/src/app/agent_inventory.dart';
-import 'package:sokar_frontend/src/app/emergency_stop.dart';
-import 'package:sokar_frontend/src/app/start_work.dart';
-import 'package:sokar_frontend/src/app/templates.dart';
-import 'package:sokar_frontend/src/app/project_deletion.dart';
-import 'package:sokar_frontend/src/app/pty.dart';
-import 'package:sokar_frontend/src/app/session.dart';
-import 'package:sokar_frontend/src/app/vault.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
-import 'package:sokar_frontend/src/app/tunnel.dart';
-import 'package:sokar_frontend/src/app/widening.dart';
-import 'package:sokar_frontend/src/app/work_held.dart';
-import 'package:sokar_frontend/src/app/gate.dart';
-import 'package:sokar_frontend/src/app/authentication.dart';
-import 'package:sokar_frontend/src/app/backups.dart';
-import 'package:sokar_frontend/src/app/host_readiness.dart';
-import 'package:sokar_frontend/src/app/logs.dart';
-import 'package:sokar_frontend/src/app/links.dart';
-import 'package:sokar_frontend/src/app/login_forward.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/narrowing.dart';
-import 'package:sokar_frontend/src/app/connections.dart';
-import 'package:sokar_frontend/src/ui/choice_field.dart';
-import 'package:sokar_frontend/src/app/project_following.dart';
-import 'package:sokar_frontend/src/app/newer_version.dart';
-import 'package:sokar_frontend/src/app/where_you_were.dart';
-import 'package:sokar_frontend/src/app/notifications.dart';
-import 'package:sokar_frontend/src/app/operations.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
-import 'package:sokar_frontend/src/app/shell_model.dart';
-import 'package:sokar_frontend/src/app/sokar_app.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/homeserver_forwards.dart';
+import 'package:porelo_frontend/src/app/forge.dart';
+import 'package:porelo_frontend/src/app/forge_connection.dart';
+import 'package:porelo_frontend/src/app/project_workspace.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/fleet_model.dart';
+import 'package:porelo_frontend/src/app/host_keys.dart';
+import 'package:porelo_frontend/src/app/machine_setup.dart';
+import 'package:porelo_frontend/src/app/egress.dart';
+import 'package:porelo_frontend/src/app/agent_inventory.dart';
+import 'package:porelo_frontend/src/app/emergency_stop.dart';
+import 'package:porelo_frontend/src/app/start_work.dart';
+import 'package:porelo_frontend/src/app/templates.dart';
+import 'package:porelo_frontend/src/app/project_deletion.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
+import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/app/vault.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
+import 'package:porelo_frontend/src/app/widening.dart';
+import 'package:porelo_frontend/src/app/work_held.dart';
+import 'package:porelo_frontend/src/app/gate.dart';
+import 'package:porelo_frontend/src/app/authentication.dart';
+import 'package:porelo_frontend/src/app/backups.dart';
+import 'package:porelo_frontend/src/app/host_readiness.dart';
+import 'package:porelo_frontend/src/app/logs.dart';
+import 'package:porelo_frontend/src/app/links.dart';
+import 'package:porelo_frontend/src/app/login_forward.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/narrowing.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/ui/choice_field.dart';
+import 'package:porelo_frontend/src/app/project_following.dart';
+import 'package:porelo_frontend/src/app/newer_version.dart';
+import 'package:porelo_frontend/src/app/where_you_were.dart';
+import 'package:porelo_frontend/src/app/notifications.dart';
+import 'package:porelo_frontend/src/app/operations.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/porelo_app.dart';
 
 /// A backend that answers whatever a scenario needs it to.
 ///
@@ -64,10 +64,10 @@ class FakeBackend implements FleetBackend {
 
   /// What `GetInfo` answers.
   ServiceInfo whatItIs = const ServiceInfo(
-    product: 'Sokar',
+    product: 'Porelo',
     version: '0.1.0-mock',
     vendor: 'fuin.org',
-    interfaces: <String>['org.varlink.service', 'org.fuin.sokar.Tasks1'],
+    interfaces: <String>['org.varlink.service', 'org.fuin.porelo.Tasks1'],
   );
 
   /// Set to refuse [open], the way a machine with no daemon on it does.
@@ -98,14 +98,14 @@ class FakeBackend implements FleetBackend {
       'label': 'An Agent',
       'binary': '/usr/bin/an-agent',
       'version': '2.4.0',
-      'from': '/usr/share/sokar/agents/an-agent.yml',
+      'from': '/usr/share/porelo/agents/an-agent.yml',
       'allowedDomains': <String>['api.anthropic.com'],
       'refusedDomains': <String>['telemetry.example.test'],
       // What its commits are attributed to. The second agent has none, which is what an agent
-      // installed by a Sokar older than the field answers — a state to render, not a blank.
+      // installed by a Porelo older than the field answers — a state to render, not a blank.
       'commitsAs': <String, dynamic>{
         'name': 'An Agent',
-        'email': 'an-agent@sokar.invalid',
+        'email': 'an-agent@porelo.invalid',
       },
       'artifacts': <Map<String, dynamic>>[
         <String, dynamic>{
@@ -122,7 +122,7 @@ class FakeBackend implements FleetBackend {
       'label': 'Another Agent',
       'binary': '/usr/bin/other-agent',
       'version': '',
-      'from': '/etc/sokar/agents/other-agent.yml',
+      'from': '/etc/porelo/agents/other-agent.yml',
       'allowedDomains': <String>['api.example.test'],
       'artifacts': <Map<String, dynamic>>[
         <String, dynamic>{
@@ -186,7 +186,7 @@ class FakeBackend implements FleetBackend {
       'name': 'checkout',
       'securityClass': 'guarded',
       'file': '/srv/checkout/project.yml',
-      'mirror': '/srv/checkout/.sokar/mirror',
+      'mirror': '/srv/checkout/.porelo/mirror',
       'prepared': true,
       'preparedState': 'READY',
       'behind': 3,
@@ -204,7 +204,7 @@ class FakeBackend implements FleetBackend {
       'name': 'unrecorded',
       'securityClass': 'guarded',
       'file': '',
-      'mirror': '/srv/unrecorded/.sokar/mirror',
+      'mirror': '/srv/unrecorded/.porelo/mirror',
       // Nothing has run here, so no image was built and nothing was ever checked.
       'prepared': false,
       'preparedState': 'ABSENT',
@@ -242,7 +242,7 @@ class FakeBackend implements FleetBackend {
 
   List<Project> _projects() => <Project>[
         for (final each in theProjectsItHas)
-          // As Sokar lists it (measured on 254): default names the repositories added to it.
+          // As Porelo lists it (measured on 254): default names the repositories added to it.
           if (each.name == defaultProject && each.repositories.isEmpty && inDefault.isNotEmpty)
             Project.from(<String, dynamic>{
               'name': defaultProject,
@@ -364,7 +364,7 @@ class FakeBackend implements FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
     mustBeAProject(project);
     startedAgain.add((project: project, task: task, repository: repository));
-    // A start that worked answers RESUME, or, as Sokar 199.1 does for a task a restart took down,
+    // A start that worked answers RESUME, or, as Porelo 199.1 does for a task a restart took down,
     // no action at all with exit 0.
     if (nextStart.action == StartAction.resume || (nextStart.action == null && (nextStart.exitCode ?? 0) == 0)) {
       _tasks = <Task>[
@@ -505,18 +505,18 @@ class FakeBackend implements FleetBackend {
     final to = _runningOrRefused(task);
     final limit = to.handInLimit ?? 0;
     if (bytes > limit) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.FileTooLarge', {'bytes': bytes, 'limit': limit});
+      throw VarlinkException('org.fuin.porelo.Tasks1.FileTooLarge', {'bytes': bytes, 'limit': limit});
     }
     final key = '$task/$name';
     var coming = _incoming[key];
     if (coming != null && (coming.bytes != bytes || coming.sha256 != sha256)) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.HandInInProgress',
+      throw VarlinkException('org.fuin.porelo.Tasks1.HandInInProgress',
           {'name': name, 'received': coming.got.length, 'bytes': coming.bytes});
     }
     coming ??= _incoming[key] = (bytes: bytes, sha256: sha256, got: <int>[]);
     if (offset != coming.got.length) {
       throw VarlinkException(
-          'org.fuin.sokar.Tasks1.PartOutOfOrder', {'name': name, 'received': coming.got.length});
+          'org.fuin.porelo.Tasks1.PartOutOfOrder', {'name': name, 'received': coming.got.length});
     }
     coming.got.addAll(part);
     if (loseTheNextReply) {
@@ -527,7 +527,7 @@ class FakeBackend implements FleetBackend {
     _incoming.remove(key);
     final actual = crypto.sha256.convert(coming.got).toString();
     if (coming.got.length != bytes || actual != sha256) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.FileDiffers', {'expected': sha256, 'actual': actual});
+      throw VarlinkException('org.fuin.porelo.Tasks1.FileDiffers', {'expected': sha256, 'actual': actual});
     }
     final placed = HandedFile(
         name: name, bytes: bytes, sha256: sha256, at: '2026-10-06T10:00:00Z', by: 'somebody', run: to.run ?? '');
@@ -551,7 +551,7 @@ class FakeBackend implements FleetBackend {
     final files = from.files ?? const <HandedFile>[];
     final file = files.where((each) => each.name == name).firstOrNull;
     if (file == null) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.NoSuchFile', {'task': task, 'name': name});
+      throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchFile', {'task': task, 'name': name});
     }
     _withFiles(task, [for (final each in files) if (each.name != name) each]);
     (_handInRecord[task] ??= <HandInEvent>[]).add(HandInEvent(event: 'taken back', file: file));
@@ -566,8 +566,8 @@ class FakeBackend implements FleetBackend {
 
   Task _runningOrRefused(String task) {
     final found = _tasks.where((each) => each.name == task).firstOrNull;
-    if (found == null) throw VarlinkException('org.fuin.sokar.Tasks1.NoSuchTask', {'task': task});
-    if (!found.running) throw VarlinkException('org.fuin.sokar.Tasks1.NotRunning', {'task': task});
+    if (found == null) throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchTask', {'task': task});
+    if (!found.running) throw VarlinkException('org.fuin.porelo.Tasks1.NotRunning', {'task': task});
     return found;
   }
 
@@ -634,7 +634,7 @@ class FakeBackend implements FleetBackend {
   /// What `Credentials` answers. A scenario sets it to produce a shut store, which is a state no
   /// contrived list of names can express.
   VaultState theStoreIs = VaultState.from(const <String, dynamic>{
-    'vault': '/home/somebody/.local/share/sokar/vault.bin',
+    'vault': '/home/somebody/.local/share/porelo/vault.bin',
     'exists': true,
     'credentials': <Map<String, dynamic>>[
       <String, dynamic>{'name': 'a-provider', 'type': 'api-key', 'characters': 108},
@@ -690,7 +690,7 @@ class FakeBackend implements FleetBackend {
   bool holdingChecks = false;
   final List<Completer<void>> heldChecks = <Completer<void>>[];
 
-  /// Acts like Sokar: the record is kept, a vault entry needs storing, and the same address and
+  /// Acts like Porelo: the record is kept, a vault entry needs storing, and the same address and
   /// purpose declared again replaces the first.
   @override
   Future<CredentialDeclared> credentialDeclare({
@@ -761,7 +761,7 @@ class FakeBackend implements FleetBackend {
   List<String> _storeCommand(String kind, String where, String name, String? fromFile) => where != 'VAULT'
       ? const <String>[]
       : <String>[
-          'sokar', 'vault', 'put', name,
+          'porelo', 'vault', 'put', name,
           if (kind == 'TOKEN') ...<String>['--type', 'token'],
           if (fromFile != null) ...<String>['--from-file', fromFile],
         ];
@@ -835,7 +835,7 @@ class FakeBackend implements FleetBackend {
     );
   }
 
-  /// Whether the machine is a Sokar older than the check.
+  /// Whether the machine is a Porelo older than the check.
   bool checkIsMissing = false;
 
   /// A host whose remembered key no longer matches, so a follow is refused as a possible interception.
@@ -857,7 +857,7 @@ class FakeBackend implements FleetBackend {
     return HostKeyTrusted(recorded: true, type: offered.first.type, fingerprint: fingerprint);
   }
 
-  /// The keys the machine's account has; null answers as a Sokar older than the method.
+  /// The keys the machine's account has; null answers as a Porelo older than the method.
   List<SshKey>? keysOnTheMachine = const <SshKey>[];
 
   @override
@@ -903,7 +903,7 @@ class FakeBackend implements FleetBackend {
   /// What the machine says when it fails to answer whether work can start; null while it answers.
   String? canStartFails;
 
-  /// The vault's keyslots, as Sokar's proposal has them: the recovery passphrase, and every device
+  /// The vault's keyslots, as Porelo's proposal has them: the recovery passphrase, and every device
   /// enrolled here. Behaves like the node — a share it has seen opens its slot, nothing else does —
   /// so a screen that ignored an answer would fail a scenario rather than pass one.
   final List<({Keyslot slot, String share})> keyslotsHeld = <({Keyslot slot, String share})>[
@@ -927,7 +927,7 @@ class FakeBackend implements FleetBackend {
   /// How long each unlock asked for, null where it asked for no bound.
   final List<int?> unlocksFor = <int?>[];
 
-  /// Set for a Sokar from before keyslots, which does not know the four methods.
+  /// Set for a Porelo from before keyslots, which does not know the four methods.
   bool keyslotsUnknown = false;
 
   /// What the next enrollment answers instead of enrolling, as a node with a reason of its own.
@@ -1006,7 +1006,7 @@ class FakeBackend implements FleetBackend {
   /// A name this machine refuses, and its words, the way a daemon with a rule of its own would.
   ({String name, String words})? refusedName;
 
-  /// Refuses anything but the name of a project this machine has, as Sokar does since projects are
+  /// Refuses anything but the name of a project this machine has, as Porelo does since projects are
   /// named rather than pointed at. Loud rather than a refusal a screen could render: a path sent
   /// here is this interface being wrong, never the machine answering.
   void mustBeAProject(String project) {
@@ -1052,7 +1052,7 @@ class FakeBackend implements FleetBackend {
     canStartAsked++;
     askedAboutCredentials.add(credentials ?? const <String, String>{});
     final failing = canStartFails;
-    if (failing != null) throw VarlinkException('org.fuin.sokar.Tasks1.Failed', <String, dynamic>{'message': failing});
+    if (failing != null) throw VarlinkException('org.fuin.porelo.Tasks1.Failed', <String, dynamic>{'message': failing});
     if (project != null) mustBeAProject(project);
     askedAboutNames.add(task);
     askedAboutRepositories.add(repository);
@@ -1067,7 +1067,7 @@ class FakeBackend implements FleetBackend {
         detail: "No agent named '$agent' is installed. Found: none",
       );
     }
-    // As a Sokar with repositories per project answers: a project that names repositories needs one chosen.
+    // As a Porelo with repositories per project answers: a project that names repositories needs one chosen.
     final named = theProjectsItHas.where((each) => each.name == project).firstOrNull?.repositories;
     if (repository == null && named != null && named.isNotEmpty) {
       return Readiness(
@@ -1087,10 +1087,10 @@ class FakeBackend implements FleetBackend {
         agent: agent ?? '',
         provider: '',
         credential: ungranted,
-        detail: 'sokar vault authorize $ungranted',
+        detail: 'porelo vault authorize $ungranted',
       );
     }
-    // As Sokar answers it: a credential for a destination nobody declared refuses every mode.
+    // As Porelo answers it: a credential for a destination nobody declared refuses every mode.
     for (final given in (credentials ?? const <String, String>{}).entries) {
       if (!declaredPlaces.contains(given.value)) {
         return Readiness(
@@ -1184,7 +1184,7 @@ class FakeBackend implements FleetBackend {
     // A wrong name is a refusal, never an unreadable answer: collapsing them would make a
     // client's mistake arrive as a legitimate reading.
     if (workHeldIsNoSuchTask) {
-      throw const VarlinkException('org.fuin.sokar.Tasks1.NoSuchTask');
+      throw const VarlinkException('org.fuin.porelo.Tasks1.NoSuchTask');
     }
     return theWorkItHolds;
   }
@@ -1227,12 +1227,12 @@ class FakeBackend implements FleetBackend {
   /// Projects this account no longer follows, so a refresh of one is refused.
   final Set<String> noLongerFollowed = <String>{};
 
-  /// Acts like Sokar: fetches now and answers the records as they are afterwards.
+  /// Acts like Porelo: fetches now and answers the records as they are afterwards.
   @override
   Future<List<Followed>> refreshProjects({String? project}) async {
     refreshes.add(project);
     if (project != null && noLongerFollowed.contains(project)) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.NoSuchProject', {'project': project});
+      throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchProject', {'project': project});
     }
     await refreshHeld?.future;
     return <Followed>[
@@ -1271,7 +1271,7 @@ class FakeBackend implements FleetBackend {
           : refused
               ? 'HOLDS_WORK'
               : 'RESTORED',
-      mirror: '/srv/$project/.sokar/mirror',
+      mirror: '/srv/$project/.porelo/mirror',
       // Filled under force too: it is what force destroyed, and somebody who forced needs it
       // afterwards rather than only in the warning they clicked past.
       unreviewed: theRestoreWouldDestroy,
@@ -1315,7 +1315,7 @@ class FakeBackend implements FleetBackend {
   /// What the machine says is wrong with the answers. Set by the scenario.
   List<Problem> theCreationProblems = const <Problem>[];
 
-  /// Set for a Sokar too old to choose where a project file goes, which a current daemon
+  /// Set for a Porelo too old to choose where a project file goes, which a current daemon
   /// does.
   bool choosesNoPlace = false;
 
@@ -1327,7 +1327,7 @@ class FakeBackend implements FleetBackend {
   List<String> theBuildPrints = <String>[
     'STEP 1/6: FROM ubuntu:24.04',
     'STEP 4/6: RUN apt-get install -y git',
-    'COMMIT sokar/checkout:latest',
+    'COMMIT porelo/checkout:latest',
   ];
 
   /// How the next build ends.
@@ -1347,7 +1347,7 @@ class FakeBackend implements FleetBackend {
     }
     yield PrepareProgress(
       outcome: theBuildEndsWith,
-      image: theBuildEndsWith == 'PREPARED' ? 'sokar/checkout:latest' : '',
+      image: theBuildEndsWith == 'PREPARED' ? 'porelo/checkout:latest' : '',
       // Read back rather than echoed: a depth the daemon did not recognize has to be visible.
       rebuild: rebuild ?? 'CACHED',
       detail: theBuildEndsWith == 'FAILED'
@@ -1394,7 +1394,7 @@ class FakeBackend implements FleetBackend {
         authenticated: true,
         credentialType: 'api-key',
         credentialName: 'a-provider',
-        storeCommand: 'sokar vault put a-provider',
+        storeCommand: 'porelo vault put a-provider',
       ),
       // Not authenticated, and stored under the *agent's* name rather than its own — the fallback
       // key a client could never have worked out.
@@ -1406,7 +1406,7 @@ class FakeBackend implements FleetBackend {
         authenticated: false,
         credentialType: '',
         credentialName: 'an-agent',
-        storeCommand: 'sokar vault put an-agent --type oauth',
+        storeCommand: 'porelo vault put an-agent --type oauth',
       ),
     ],
     readable: true,
@@ -1414,7 +1414,7 @@ class FakeBackend implements FleetBackend {
 
   @override
   Future<Providers> providers() async {
-    if (providersRefused) throw const VarlinkException('org.fuin.sokar.Tasks1.Failed');
+    if (providersRefused) throw const VarlinkException('org.fuin.porelo.Tasks1.Failed');
     return theProvidersItHas;
   }
 
@@ -1466,7 +1466,7 @@ class FakeBackend implements FleetBackend {
   final List<({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>
       follows = <({String name, String url, String? signedBy, List<String>? signers, bool unverified, bool acceptRewrite})>[];
 
-  /// Acts like Sokar: a follow that is taken makes the project, listed with its follow state.
+  /// Acts like Porelo: a follow that is taken makes the project, listed with its follow state.
   @override
   Future<Followed> follow(String name, String url,
       {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite}) async {
@@ -1506,7 +1506,7 @@ class FakeBackend implements FleetBackend {
           name: name,
           securityClass: 'guarded',
           file: '/srv/$name/project.yml',
-          mirror: '/srv/$name/.sokar/mirror',
+          mirror: '/srv/$name/.porelo/mirror',
           pending: 0,
           tasks: 0,
           running: 0,
@@ -1536,7 +1536,7 @@ class FakeBackend implements FleetBackend {
       refused: refused && dryRun != true,
       items: <ClearedItem>[
         for (final name in projects) ...<ClearedItem>[
-          ClearedItem(kind: 'task', what: 'sokar-$name-shell', status: status),
+          ClearedItem(kind: 'task', what: 'porelo-$name-shell', status: status),
           ClearedItem(kind: 'follow', what: name, status: status),
         ],
         if (project == null) ClearedItem(kind: 'transport', what: 'what the matrix transport and this machine keep for this account', status: status),
@@ -1566,17 +1566,17 @@ class FakeBackend implements FleetBackend {
               : DeleteOutcome.deleted,
       // Filled for a refusal too, so the cost can be shown beside the reason it was stopped.
       removes: const <Removal>[
-        Removal(kind: 'MIRROR', what: '/srv/checkout/.sokar/mirror'),
-        Removal(kind: 'IMAGE', what: 'sokar/checkout:latest'),
-        Removal(kind: 'TASK', what: 'sokar-checkout-shell'),
-        Removal(kind: 'TASK', what: 'sokar-checkout-migrate'),
+        Removal(kind: 'MIRROR', what: '/srv/checkout/.porelo/mirror'),
+        Removal(kind: 'IMAGE', what: 'porelo/checkout:latest'),
+        Removal(kind: 'TASK', what: 'porelo-checkout-shell'),
+        Removal(kind: 'TASK', what: 'porelo-checkout-migrate'),
       ],
       keeps: const <String>['/srv/checkout/project.yml'],
       unreviewed: deletionAnswers == DeleteOutcome.holdsWork
           ? const <String>['migrate']
           : const <String>[],
       running: deletionAnswers == DeleteOutcome.tasksRunning
-          ? const <String>['sokar-checkout-shell']
+          ? const <String>['porelo-checkout-shell']
           : const <String>[],
       detail: refused ? 'nothing was removed' : '',
       // What it forgot with the project, as Unfollow answers: its deploy keys and its signer.
@@ -1662,7 +1662,7 @@ class FakeBackend implements FleetBackend {
       'outcome': outcome,
       'message': message.message,
       'id': message.id,
-      // As Sokar 347f122 words it: an incoming one released is checked again, never trusted.
+      // As Porelo 347f122 words it: an incoming one released is checked again, never trusted.
       'detail': switch (outcome) {
         'NOT_DELIVERABLE' => 'the filter could not check it at all',
         'RELEASED' when message.direction == 'in' =>
@@ -1691,19 +1691,19 @@ class FakeBackend implements FleetBackend {
     joins.add((project: project, person: person, reset: reset));
     final messages = theProjectsItHas.where((each) => each.name == project).firstOrNull?.messages;
     if (messages == null) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.NoConversation', <String, dynamic>{'project': project});
+      throw VarlinkException('org.fuin.porelo.Tasks1.NoConversation', <String, dynamic>{'project': project});
     }
     final members = membersOf.putIfAbsent(project, () => <MessageMember>[]);
     final user = '@$person:localhost';
     if (members.any((each) => each.person == person) && !reset) {
       throw VarlinkException(
-          'org.fuin.sokar.Tasks1.MemberExists', <String, dynamic>{'person': person, 'user': user});
+          'org.fuin.porelo.Tasks1.MemberExists', <String, dynamic>{'person': person, 'user': user});
     }
     if (!members.any((each) => each.person == person)) members.add(MessageMember(person: person, user: user));
     return MessagesJoined(transport: 'matrix', shown: 'shown on a terminal', login: <String, String>{
       'homeserver': joinsOnLoopback ? 'http://127.0.0.1:8008' : 'https://matrix.example.org',
       'user': user,
-      'room': '#sokar-$project:localhost',
+      'room': '#porelo-$project:localhost',
       'password': 'pw-${joins.length}-once',
       if (joinsOnLoopback) 'loopback': 'true',
       if (joinsOnLoopback) 'port': '8008',
@@ -1731,9 +1731,9 @@ class FakeBackend implements FleetBackend {
       entry: 'deploy/$project/${repository ?? project}',
       repository: repository ?? project,
       upstream: upstream ?? workUpstreams[repository] ?? '',
-      publicKey: 'ssh-ed25519 AAAAmachine-${repository ?? project} sokar@vm',
+      publicKey: 'ssh-ed25519 AAAAmachine-${repository ?? project} porelo@vm',
       fingerprint: 'SHA256:machine-${repository ?? project}',
-      title: 'sokar vm $project/${repository ?? project}',
+      title: 'porelo vm $project/${repository ?? project}',
       // Read-only for the project's own repository, write access for a work repository.
       writeAccess: readOnly == null ? !own : !readOnly,
       made: true,
@@ -1744,7 +1744,7 @@ class FakeBackend implements FleetBackend {
 
   /// This machine's message key.
   MachineKey theMessageKey = const MachineKey(
-      principal: 'sokar@vm', key: 'ssh-ed25519 AAAAmsg', line: 'sokar@vm ssh-ed25519 AAAAmsg', fingerprint: 'SHA256:msg');
+      principal: 'porelo@vm', key: 'ssh-ed25519 AAAAmsg', line: 'porelo@vm ssh-ed25519 AAAAmsg', fingerprint: 'SHA256:msg');
 
   @override
   Future<MachineKey> messageKey() async => theMessageKey;
@@ -1778,7 +1778,7 @@ class FakeBackend implements FleetBackend {
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name) async {
     final before = inDefault.length;
     inDefault = <DefaultRepository>[for (final each in inDefault) if (each.name != name) each];
-    // The key the machine made for it, as Sokar b08d211 answers it once it is forgotten.
+    // The key the machine made for it, as Porelo b08d211 answers it once it is forgotten.
     final forgotten = <MachineDeployKey>[
       for (final each in deployKeysMade)
         if (each.entry == 'deploy/$defaultProject/$name') each,
@@ -1786,7 +1786,7 @@ class FakeBackend implements FleetBackend {
     return (removed: inDefault.length != before, keys: forgotten);
   }
 
-  /// What the machine's contract says of binding: a Sokar that can, unless a scenario says it is older.
+  /// What the machine's contract says of binding: a Porelo that can, unless a scenario says it is older.
   bool canBind = true;
 
   @override
@@ -1824,7 +1824,7 @@ class FakeBackend implements FleetBackend {
         '': <String>['credentials', 'egress', 'image', 'limits', 'mail', 'project', 'repositories'],
         'project': <String>['name', 'security_class'],
       }, open: <String>['credentials', 'repositories', 'mail.transports.<scheme>'], keys: <ProjectFileKey>[
-        // As Sokar describes them (measured on 244), the ones a first project's form shows.
+        // As Porelo describes them (measured on 244), the ones a first project's form shows.
         ProjectFileKey(section: '', name: 'project', describe: 'Who the project is and how far its agents are trusted.',
             type: 'map', values: <String>[], defaultValue: '', required: true),
         ProjectFileKey(section: '', name: 'image', describe: 'What a task\'s container is built from.',
@@ -1847,7 +1847,7 @@ class FakeBackend implements FleetBackend {
   @override
   Future<ProjectFileCheck> checkProjectFile(String text) async {
     checkedDrafts.add(text);
-    // As Sokar answers it: a misspelt key is refused anywhere; an egress set this machine lacks only here.
+    // As Porelo answers it: a misspelt key is refused anywhere; an egress set this machine lacks only here.
     return ProjectFileCheck(
       refused: <String>[
         if (text.contains('secruity_class')) "project.yml: 'secruity_class' is not a setting; did you mean 'security_class'?",
@@ -1912,7 +1912,7 @@ class FakeBackend implements FleetBackend {
     destinationWrites.add((name: name, upstream: upstream, authPrefix: authPrefix, dryRun: dryRun));
     // As the machine refuses it: a destination is reached over https only.
     if (!upstream.startsWith('https://')) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.DestinationRefused',
+      throw VarlinkException('org.fuin.porelo.Tasks1.DestinationRefused',
           <String, dynamic>{'message': "Destination '$name' must be reached over https, not '$upstream'"});
     }
     final written = Destination(
@@ -1922,7 +1922,7 @@ class FakeBackend implements FleetBackend {
       authHeader: authHeader ?? 'Authorization',
       authPrefix: authPrefix ?? '',
       authQuery: authQuery ?? '',
-      file: '/home/you/.local/share/sokar/destinations/$name.yaml',
+      file: '/home/you/.local/share/porelo/destinations/$name.yaml',
       packaged: false,
       inForce: true,
     );
@@ -2007,12 +2007,12 @@ class FakeBackend implements FleetBackend {
 
   /// What is waiting at the gate. Set by the scenario.
   GateState theGate = GateState.from(const <String, dynamic>{
-    'mirror': '/srv/checkout/.sokar/mirror',
+    'mirror': '/srv/checkout/.porelo/mirror',
     'mode': 'gatekeeping',
     'seededFrom': '',
     'pending': <Map<String, dynamic>>[
       <String, dynamic>{
-        // The ref *under* `refs/sokar/incoming/`, which is what the contract answers and what
+        // The ref *under* `refs/porelo/incoming/`, which is what the contract answers and what
         // `Review`, `Approve` and `Reject` take. It was once the whole ref here —
         // a fixture describing something the daemon cannot produce.
         'name': 'migrate',
@@ -2020,8 +2020,8 @@ class FakeBackend implements FleetBackend {
         'subject': 'Round to the nearest penny, not away from zero',
         'waiting': '4 minutes',
         'at': '2026-09-07T14:12:00Z',
-        'fetch': 'git fetch ssh://sokar@build-01/srv/checkout/.sokar/mirror '
-            'refs/sokar/incoming/migrate:refs/remotes/sokar/migrate',
+        'fetch': 'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror '
+            'refs/porelo/incoming/migrate:refs/remotes/porelo/migrate',
       },
     ],
   });
@@ -2038,7 +2038,7 @@ diff --git a/lib/money.dart b/lib/money.dart
  }
 ''';
 
-  /// How `Review` ranks the push's files, in the order to show them. Empty is a Sokar older than
+  /// How `Review` ranks the push's files, in the order to show them. Empty is a Porelo older than
   /// the ranked review.
   List<ReviewFile> theRanking = const <ReviewFile>[];
 
@@ -2125,7 +2125,7 @@ diff --git a/lib/money.dart b/lib/money.dart
 
   @override
   Future<(List<EgressSet>, List<String>)> egressSets() async =>
-      (theSetsItHas, <String>['/etc/sokar/egress.d', '/usr/share/sokar/egress.d']);
+      (theSetsItHas, <String>['/etc/porelo/egress.d', '/usr/share/porelo/egress.d']);
 
   @override
   Future<EgressChange> changeEgress(
@@ -2288,7 +2288,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     approvedCommits.add(commit);
     projectsListedAtTheGate = projectsListed;
     theGate = GateState.from(const <String, dynamic>{
-      'mirror': '/srv/checkout/.sokar/mirror',
+      'mirror': '/srv/checkout/.porelo/mirror',
       'mode': 'gatekeeping',
       'seededFrom': '',
       'pending': <Map<String, dynamic>>[],
@@ -2301,7 +2301,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     rejections.add(repository == null ? name : '$repository:$name');
     if (reason != null && reason.isNotEmpty) rejectionReasons.add(reason);
     theGate = GateState.from(const <String, dynamic>{
-      'mirror': '/srv/checkout/.sokar/mirror',
+      'mirror': '/srv/checkout/.porelo/mirror',
       'mode': 'gatekeeping',
       'seededFrom': '',
       'pending': <Map<String, dynamic>>[],
@@ -2324,7 +2324,7 @@ diff --git a/lib/money.dart b/lib/money.dart
   @override
   Future<String> tell(String task, String text) async {
     if (!_tasks.any((each) => each.name == task)) {
-      throw VarlinkException('org.fuin.sokar.Tasks1.NoSuchTask', <String, dynamic>{'task': task});
+      throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchTask', <String, dynamic>{'task': task});
     }
     toldByAPerson.add((task: task, text: text));
     return '/inbox/told-1.json';
@@ -2373,7 +2373,7 @@ diff --git a/lib/money.dart b/lib/money.dart
     tailing = StreamController<List<String>>();
     if (!theLogsItHas.contains(log)) {
       tailing.addError(
-          const VarlinkException('org.fuin.sokar.Tasks1.NoSuchLog', <String, dynamic>{}));
+          const VarlinkException('org.fuin.porelo.Tasks1.NoSuchLog', <String, dynamic>{}));
       tailing.close();
     }
     return tailing.stream;
@@ -2505,8 +2505,8 @@ class World {
   /// The uid a machine reports for the account logged in as, or null when it says nothing.
   static int? loginUid;
 
-  /// Whether this computer has a Sokar of its own; it has, unless a scenario says not.
-  static bool sokarIsInstalledHere = true;
+  /// Whether this computer has a Porelo of its own; it has, unless a scenario says not.
+  static bool poreloIsInstalledHere = true;
 
   /// Every login whose uid the interface asked, by where it is.
   static final List<String> uidsAsked = <String>[];
@@ -2551,7 +2551,7 @@ class World {
   /// The shells somebody has open inside running work.
   static late Sessions sessions;
 
-  /// Removing what Sokar built for a project.
+  /// Removing what Porelo built for a project.
   static late ProjectDeletion deleting;
 
   /// Whether the machine being acted on can run anything.
@@ -2608,21 +2608,21 @@ class World {
   static List<Task> get work => <Task>[
         // Running, unattended, and carrying its prompt: continuing it is refused because it is
         // still going, which is a different refusal from "it was never an unattended run".
-        _task('sokar-checkout-shell', 'checkout',
+        _task('porelo-checkout-shell', 'checkout',
             mode: 'UNATTENDED', prompt: 'Bring the schema up to date'),
         // A finished unattended run that kept what it was asked to do, which is what continuing
         // it with a new prompt reads back.
         // Its own ref is the one waiting at the gate, which `waiting` says on the task itself.
         // Nothing joins the two: this container's name is not that ref, and never was.
-        _task('sokar-checkout-migrate', 'checkout',
+        _task('porelo-checkout-migrate', 'checkout',
             running: false,
             helpers: 0,
             mode: 'UNATTENDED',
             waiting: 1,
             prompt: 'Fix the rounding in Money.pennies and add a test for it'),
-        _task('sokar-billing-shell', 'billing', securityClass: 'offline', helpers: 1),
+        _task('porelo-billing-shell', 'billing', securityClass: 'offline', helpers: 1),
         // Started with enforcement off: nothing will ever be asked about what it reaches.
-        _task('sokar-billing-audit', 'billing', helpers: 0, clearance: 'off'),
+        _task('porelo-billing-audit', 'billing', helpers: 0, clearance: 'off'),
       ];
 
   /// A task as the machine lists it, for a step to put on the machine.
@@ -2645,7 +2645,7 @@ class World {
       Task.from(<String, dynamic>{
         'name': name,
         // The stand-in's own naming rule; the interface never derives this.
-        'task': name.replaceFirst('sokar-$project-', ''),
+        'task': name.replaceFirst('porelo-$project-', ''),
         'project': project,
         'securityClass': securityClass,
         'state': running ? 'Up 4 minutes' : 'Exited (0) 12 minutes ago',
@@ -2663,7 +2663,7 @@ class World {
   /// Wire-shaped, and driven by the scenario rather than by a clock: this is the one event with a
   /// deadline, and a flaky test of it is a flaky test of the thing that matters most.
   static Prompt blocked(String destination,
-      {String task = 'sokar-checkout-shell', String? deadline}) {
+      {String task = 'porelo-checkout-shell', String? deadline}) {
     final parts = destination.split(':');
     return Prompt.from(<String, dynamic>{
       'task': task,
@@ -2719,7 +2719,7 @@ class World {
             'helpers': was.helpers,
             'agent': 'an-agent',
             'mode': 'UNATTENDED',
-            'branch': 'refs/sokar/incoming/shell',
+            'branch': 'refs/porelo/incoming/shell',
             'since': since,
             'activity': activity,
             'waitingFor': waitingFor,
@@ -2764,7 +2764,7 @@ class World {
     store = MemorySettingsStore();
     settings = Settings(store);
     shell = ShellModel();
-    operationsStore = MemoryOperationsStore(file: File('/home/somebody/.local/state/sokar/operations.json'));
+    operationsStore = MemoryOperationsStore(file: File('/home/somebody/.local/state/porelo/operations.json'));
     filesOpened.clear();
     operations = _operationsFrom(operationsStore);
     logs = Logs();
@@ -2783,12 +2783,12 @@ class World {
     stopFailsWith = null;
     loginUid = null;
     uidsAsked.clear();
-    sokarIsInstalledHere = true;
+    poreloIsInstalledHere = true;
     templates = Templates(settings);
     await templates.load();
     stopping = EmergencyStop();
     vault = Vault(keys: keys = MemoryDeviceKeyStore());
-    newerVersion = NewerVersion(what: File('/tmp/sokar-not-a-build'));
+    newerVersion = NewerVersion(what: File('/tmp/porelo-not-a-build'));
     terminals.clear();
     deleting = ProjectDeletion();
     addTearDown(deleting.dispose);
@@ -2845,7 +2845,7 @@ class World {
       ..watchOperations(operations, open: (operation) => shell.openOperation(operation.id));
     addTearDown(notifications.dispose);
     await notifications.load();
-    elsewhere = FakeBackend(<Task>[_task('sokar-shared-shell', 'shared')])
+    elsewhere = FakeBackend(<Task>[_task('porelo-shared-shell', 'shared')])
       ..nodeId = 'node-b';
     addTearDown(elsewhere.stop);
 
@@ -2861,7 +2861,7 @@ class World {
       tunnels: FakeTunnels(),
       hostKeys: hostKeys,
       setup: setup,
-      sokarIsInstalledHere: () => World.sokarIsInstalledHere,
+      poreloIsInstalledHere: () => World.poreloIsInstalledHere,
     );
     await machines.load();
     addTearDown(() => machines.dispose());
@@ -2874,7 +2874,7 @@ class World {
     // As the application does it: every machine, including one added later.
     notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
 
-    await tester.pumpWidget(SokarApp(
+    await tester.pumpWidget(PoreloApp(
       machines: machines,
       shell: shell,
       settings: settings,
@@ -2933,7 +2933,7 @@ class World {
       reach: (machine) => machine.name == 'elsewhere' ? elsewhere : backend,
       tunnels: FakeTunnels(),
       hostKeys: hostKeys,
-      sokarIsInstalledHere: () => World.sokarIsInstalledHere,
+      poreloIsInstalledHere: () => World.poreloIsInstalledHere,
     );
     await machines.load();
     whereYouWere = WhereYouWere(settings, machines, shell);
@@ -2943,7 +2943,7 @@ class World {
     // As the application does it: every machine, including one added later.
     notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
 
-    await tester.pumpWidget(SokarApp(
+    await tester.pumpWidget(PoreloApp(
       machines: machines,
       shell: shell,
       settings: settings,
@@ -2976,7 +2976,7 @@ class World {
 
   /// Builds the interface again with whatever the scenario has just replaced.
   static Future<void> rebuild(WidgetTester tester) async {
-    await tester.pumpWidget(SokarApp(
+    await tester.pumpWidget(PoreloApp(
       machines: machines,
       shell: shell,
       settings: settings,
@@ -3344,18 +3344,18 @@ class FakeMachineSetup extends MachineSetup {
 
   /// What the setup script's `--list --json` prints.
   String lists = '{"packages": ['
-      '{"name": "sokar-agent-claude", "kind": "agent", "description": "Claude Code", '
+      '{"name": "porelo-agent-claude", "kind": "agent", "description": "Claude Code", '
       '"installed": false, "version": "1.0.0~snapshot.12"}, '
-      '{"name": "sokar-agent-omp", "kind": "agent", "description": "oh-my-pi", '
+      '{"name": "porelo-agent-omp", "kind": "agent", "description": "oh-my-pi", '
       '"installed": false, "version": ""}, '
-      '{"name": "sokar-message-transport-matrix", "kind": "transport", '
+      '{"name": "porelo-message-transport-matrix", "kind": "transport", '
       '"description": "Matrix transport", "installed": true, "version": "1.0.0"}, '
-      '{"name": "sokar-matrix-homeserver", "kind": "homeserver", '
+      '{"name": "porelo-matrix-homeserver", "kind": "homeserver", '
       '"description": "A Matrix homeserver on this machine", "installed": true, "version": "1.0.0"}]}';
 
   /// What the setup script's `--show` prints.
   String shows = "The script shown has the SHA-256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n"
-      "useradd --create-home agent\napt-get install -y sokar\nloginctl enable-linger agent";
+      "useradd --create-home agent\napt-get install -y porelo\nloginctl enable-linger agent";
 
   @override
   Future<ProcessResult> asRoot(String host, String keyFile, String script) async {
@@ -3370,8 +3370,8 @@ class FakeMachineSetup extends MachineSetup {
       return ProcessResult(0, showEnds, showEnds == 3 ? '' : shows,
           showEnds == 3 ? 'This is Arch Linux, which this script does not know.' : '');
     }
-    if (script.contains('\nbash /root/sokar-setup.sh --user')) {
-      return ProcessResult(0, prepareEnds, 'agents exists\nsokar installed', '');
+    if (script.contains('\nbash /root/porelo-setup.sh --user')) {
+      return ProcessResult(0, prepareEnds, 'agents exists\nporelo installed', '');
     }
     if (script.contains('authorized_keys') && allowFails != null) {
       return ProcessResult(0, 1, '', allowFails!);
@@ -3401,26 +3401,26 @@ class FakeMachineSetup extends MachineSetup {
   /// Set to keep a root script running until it is completed.
   Completer<void>? holdRoot;
 
-  /// What `sokar setup` says when it fails, or null when it works.
+  /// What `porelo setup` says when it fails, or null when it works.
   String? registeringFails;
 
-  /// What `sokar doctor` answers when it refuses, or null when it passes.
+  /// What `porelo doctor` answers when it refuses, or null when it passes.
   ProcessResult? doctorRefuses;
 
   /// Every command run as the work user.
   final List<String> asUserRan = <String>[];
 
-  /// Whether the package sokar-matrix-homeserver is installed, as its unit answers.
+  /// Whether the package porelo-matrix-homeserver is installed, as its unit answers.
   bool homeserverInstalled = true;
 
   @override
   Future<ProcessResult> asUser(String alias, String command) async {
     asUserRan.add(command);
     return switch (command) {
-      'sokar setup' when registeringFails != null => ProcessResult(0, 1, '', registeringFails!),
+      'porelo setup' when registeringFails != null => ProcessResult(0, 1, '', registeringFails!),
       'id -u' => ProcessResult(0, 0, '1001\n', ''),
-      'sokar doctor' => doctorRefuses ?? ProcessResult(0, 0, 'transports  OK  matrix\nready', ''),
-      'systemctl --user show sokar-matrix-homeserver -p LoadState --value' =>
+      'porelo doctor' => doctorRefuses ?? ProcessResult(0, 0, 'transports  OK  matrix\nready', ''),
+      'systemctl --user show porelo-matrix-homeserver -p LoadState --value' =>
         ProcessResult(0, 0, homeserverInstalled ? 'loaded\n' : 'not-found\n', ''),
       _ => ProcessResult(0, 0, '', ''),
     };
@@ -3543,20 +3543,20 @@ class FakeTunnels extends Tunnels {
   }
 
   @override
-  Future<Started> startSokarOn(Machine machine) async {
+  Future<Started> startPoreloOn(Machine machine) async {
     // A machine with no host behind it is refused before anything is run, by the real thing.
-    if (!machine.canBeStartedHere) return super.startSokarOn(machine);
+    if (!machine.canBeStartedHere) return super.startPoreloOn(machine);
     World.startsAsked.add(Tunnels.startCommandFor(machine));
     final failing = World.startFailsWith;
     if (failing != null) return Started(went: false, words: failing);
     // The daemon that was missing is there now, so the try that follows finds it.
     World.backend.absent = null;
-    return const Started(went: true, words: 'started sokard itself');
+    return const Started(went: true, words: 'started porelod itself');
   }
 
   @override
-  Future<Started> stopSokarOn(Machine machine) async {
-    if (!machine.needsATunnel) return super.stopSokarOn(machine);
+  Future<Started> stopPoreloOn(Machine machine) async {
+    if (!machine.needsATunnel) return super.stopPoreloOn(machine);
     World.stopsAsked.add(Tunnels.stopCommandFor(machine));
     final failing = World.stopFailsWith;
     if (failing != null) return Started(went: false, words: failing);
@@ -3793,7 +3793,7 @@ class FakeWorkspace implements ProjectWorkspace {
       <({String file, String message, String fingerprint})>[];
 
   @override
-  String get root => '/home/somebody/.local/share/sokar-frontend/projects';
+  String get root => '/home/somebody/.local/share/porelo-frontend/projects';
 
   @override
   String get folder => '$root/${repository.fullName}';

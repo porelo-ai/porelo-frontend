@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/one_instance.dart';
+import 'package:porelo_frontend/src/app/one_instance.dart';
 
 /// Two interfaces running is not untidy, it is wrong: each watches every configured machine, so a
 /// clearance question is raised twice and answered by whichever window somebody happened to see.
@@ -10,7 +10,7 @@ void main() {
   late String path;
 
   setUp(() {
-    path = '/tmp/sokar-one-${DateTime.now().microsecondsSinceEpoch}.sock';
+    path = '/tmp/porelo-one-${DateTime.now().microsecondsSinceEpoch}.sock';
     addTearDown(() {
       final socket = File(path);
       if (socket.existsSync()) socket.deleteSync();
@@ -61,7 +61,7 @@ void main() {
     late String portFile;
 
     setUp(() {
-      portFile = '${Directory.systemTemp.path}/sokar-one-${DateTime.now().microsecondsSinceEpoch}.port';
+      portFile = '${Directory.systemTemp.path}/porelo-one-${DateTime.now().microsecondsSinceEpoch}.port';
       addTearDown(() {
         final file = File(portFile);
         if (file.existsSync()) file.deleteSync();

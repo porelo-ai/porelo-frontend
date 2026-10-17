@@ -30,7 +30,7 @@ class VarlinkConnection {
   /// Speaks over [incoming] and [outgoing], ending both with [destroy].
   ///
   /// **The bytes are the protocol, whatever carries them.** A relay's standard input and output
-  /// (`wsl.exe -d <distro> -- sokar daemon connect`) are as good a way to a daemon as its socket,
+  /// (`wsl.exe -d <distro> -- porelo daemon connect`) are as good a way to a daemon as its socket,
   /// and a socket is only one way to get such a pair.
   VarlinkConnection.over({
     required Stream<List<int>> incoming,

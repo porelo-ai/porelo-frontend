@@ -40,7 +40,7 @@ void main() {
       await theAppIsRunning(tester);
       await iGoToTheWork(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
     }
 
     testWidgets(

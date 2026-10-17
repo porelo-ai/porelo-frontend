@@ -100,7 +100,7 @@ Feature: Granting an authorization once, in a browser, for later tasks
     Then opening the page waits for its answer's way back
     And it says {'Port 8765 is already in use on this computer'}
 
-  # Measured on Sokar 213: a wrong kind and a service out of reach both come back this way.
+  # Measured on Porelo 213: a wrong kind and a service out of reach both come back this way.
   Scenario: a grant that cannot be asked for says why in the machine's words
     Given the store holds {'jira'} of kind {'oauth-device'} beside {'a-provider'}
     When I grant {'jira'} from the store
@@ -118,27 +118,27 @@ Feature: Granting an authorization once, in a browser, for later tasks
 
   # Raised by the machine, for whoever can answer it: not only the person who was starting the work.
   Scenario: an authorization work waits for is in what needs a person, and told
-    Given the machine says {'jira'} needs a grant for {'sokar-checkout-shell'} in {'checkout'}
+    Given the machine says {'jira'} needs a grant for {'porelo-checkout-shell'} in {'checkout'}
     When I go to what needs a person
-    Then it says {'jira needs a grant for sokar-checkout-shell'}
+    Then it says {'jira needs a grant for porelo-checkout-shell'}
     And it says {'Nobody has granted it yet'}
     And the count of what needs a person is {'1 need you'}
-    And somebody was told {'jira needs a grant for sokar-checkout-shell'}
+    And somebody was told {'jira needs a grant for porelo-checkout-shell'}
 
   Scenario: a grant the service ended says it needs granting again
-    Given the machine says {'jira'} needs granting again for {'sokar-checkout-shell'} in {'checkout'}
+    Given the machine says {'jira'} needs granting again for {'porelo-checkout-shell'} in {'checkout'}
     When I go to what needs a person
     Then it says {'the service has ended the grant'}
 
   Scenario: an authorization granted anywhere leaves what needs a person
-    Given the machine says {'jira'} needs a grant for {'sokar-checkout-shell'} in {'checkout'}
+    Given the machine says {'jira'} needs a grant for {'porelo-checkout-shell'} in {'checkout'}
     When I go to what needs a person
     And the machine says {'jira'} is granted
     Then it does not say {'jira needs a grant'}
     And nothing needs me
 
   Scenario: an authorization is granted from what needs a person
-    Given the machine says {'jira'} needs a grant for {'sokar-checkout-shell'} in {'checkout'}
+    Given the machine says {'jira'} needs a grant for {'porelo-checkout-shell'} in {'checkout'}
     When I go to what needs a person
     And I grant {'jira'} from what needs a person
     Then the machine was asked to grant {'jira'}

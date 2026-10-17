@@ -9,10 +9,10 @@ Feature: Adding a machine through a wizard that starts from what you have
     When I open the machine dialog
 
   # Walk 9: whether the person may run commands as root there is asked first. Only
-  # then is the machine set up from here; otherwise a Sokar somebody else set up is connected to.
+  # then is the machine set up from here; otherwise a Porelo somebody else set up is connected to.
   Scenario: the first page asks whether the person is an administrator there, then how to reach it
     Then the dialog offers {'Yes: I may run commands as root there'}
-    And the dialog offers {'No: somebody else set Sokar up there for me'}
+    And the dialog offers {'No: somebody else set Porelo up there for me'}
     When I choose {'Yes: I may run commands as root there'}
     Then the dialog offers {'Its socket is already forwarded'}
     And the dialog offers {'Raise the forward for me'}
@@ -20,7 +20,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     And the dialog offers {'Another user on a machine already prepared'}
 
   Scenario: one who is not an administrator there is offered only to connect
-    When I choose {'No: somebody else set Sokar up there for me'}
+    When I choose {'No: somebody else set Porelo up there for me'}
     Then the dialog offers {'Raise the forward for me'}
     And the dialog offers {'Its socket is already forwarded'}
     And the dialog does not offer {'A new machine'}
@@ -46,18 +46,18 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I go back
     And I choose {'Its socket is already forwarded'}
     And I go on
-    And the forwarded socket is {'/tmp/sokar-build.sock'}
+    And the forwarded socket is {'/tmp/porelo-build.sock'}
     And I watch it
     Then nothing was raised for {'the build machine'}
 
   # A machine that cannot run a task is said so before the first start. What it says is the daemon's
-  # own answer, as `sokar doctor` gives it, and it is added either way. Adding it does not move what
+  # own answer, as `porelo doctor` gives it, and it is added either way. Adding it does not move what
   # is being acted on, so it is read when the person goes there.
   Scenario: a machine added is asked whether it can run work when the person goes there
     When I say it is called {'the build machine'}
     And I choose {'Its socket is already forwarded'}
     And I go on
-    And the forwarded socket is {'/tmp/sokar-build.sock'}
+    And the forwarded socket is {'/tmp/porelo-build.sock'}
     And I watch it
     Then it does not say {'This machine can run work'}
     When I switch to the machine {'the build machine'}
@@ -70,20 +70,20 @@ Feature: Adding a machine through a wizard that starts from what you have
     When I say it is called {'the build machine'}
     And I choose {'Raise the forward for me'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I try the connection
     Then I am shown the host key {'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789'}
     And nothing was raised for the trial
     When I trust the host key
     Then the host key of {'build.example.test'} was written
-    And the trial says {'Reached Sokar'}
+    And the trial says {'Reached Porelo'}
 
   Scenario: a host key that is not trusted is never written, and nothing is tried
     Given the host key of {'user@build.example.test'} is not known yet
     When I say it is called {'the build machine'}
     And I choose {'Raise the forward for me'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I try the connection
     And I do not trust the host key
     Then no host key was written
@@ -95,7 +95,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     When I say it is called {'the build machine'}
     And I choose {'Raise the forward for me'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     Then I am shown the host key {'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789'}
     When I do not trust the host key
@@ -106,16 +106,16 @@ Feature: Adding a machine through a wizard that starts from what you have
     When I say it is called {'the build machine'}
     And I choose {'Raise the forward for me'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I try the connection
-    Then the trial says {'Reached Sokar'}
+    Then the trial says {'Reached Porelo'}
     And no host key was written
 
   # A socket somebody else forwarded names no host, so there is no key of one to ask about.
   Scenario: a socket already forwarded is never asked about a host key
     When I say it is called {'the build machine'}
     And I choose {'Its socket is already forwarded'}
-    And the forwarded socket is {'/tmp/sokar-build.sock'}
+    And the forwarded socket is {'/tmp/porelo-build.sock'}
     And I try the connection
     And I watch it
     Then no host key was asked about
@@ -131,7 +131,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then the wizard cannot go to the next step yet
     When I generate a key pair
     And I keep the key
-    Then the key was kept owner-only as {'sokar-the-build-machine-admin'}
+    Then the key was kept owner-only as {'porelo-the-build-machine-admin'}
     And it says {'Give this admin key to the provider when the server is created'}
     And the public key is shown to copy
 
@@ -159,10 +159,10 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I try logging in as root
     Then I am shown the host key {'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789'}
     When I trust the host key
-    Then root logged in to {'203.0.113.10'} with {'sokar-the-build-machine-admin'}
+    Then root logged in to {'203.0.113.10'} with {'porelo-the-build-machine-admin'}
     And it says {'Logged in as root on 203.0.113.10'}
     When I go to the next step
-    Then it says {"Sokar's setup script runs as root"}
+    Then it says {"Porelo's setup script runs as root"}
 
   Scenario: a root login that fails says what ssh said, and the wizard does not go on
     Given logging in as root will fail with {'root@203.0.113.10: Permission denied (publickey).'}
@@ -232,19 +232,19 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I go to the next step
     And I set it up and connect
     Then the key was allowed for {'agent'}
-    And ssh config reaches {'sokar-the-build-machine'} as {'agent'} with {'sokar-the-build-machine-agent'}
-    And Sokar was started as the work user
-    And it says {'Reached Sokar'}
+    And ssh config reaches {'porelo-the-build-machine'} as {'agent'} with {'porelo-the-build-machine-agent'}
+    And Porelo was started as the work user
+    And it says {'Reached Porelo'}
     And it says {'Ready to watch.'}
-    And nothing sokar doctor found is shown
+    And nothing porelo doctor found is shown
     When I watch the new machine
-    Then the forward was raised through {'sokar-the-build-machine'} to {'/run/user/1001/sokar/sokard.sock'}
+    Then the forward was raised through {'porelo-the-build-machine'} to {'/run/user/1001/porelo/porelod.sock'}
 
-  # The setup script's exit says its steps ran; sokar doctor is the check. Measured on a rented
+  # The setup script's exit says its steps ran; porelo doctor is the check. Measured on a rented
   # Ubuntu 24.04: prepared, answering, and podman too old for any task.
-  Scenario: a machine sokar doctor refuses can be watched, and what doctor found is said
+  Scenario: a machine porelo doctor refuses can be watched, and what doctor found is said
     Given a new machine whose root logs in
-    And sokar doctor will refuse with {'podman 4.9.3 is too old'}
+    And porelo doctor will refuse with {'podman 4.9.3 is too old'}
     When I see what it can install
     And I fetch the setup script
     And I run the setup script
@@ -252,22 +252,22 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I set it up and connect
     Then it says {'tasks cannot run there yet'}
     And it does not say {'Ready to watch.'}
-    And what sokar doctor found is shown {'podman 4.9.3 is too old'}
+    And what porelo doctor found is shown {'podman 4.9.3 is too old'}
     When I watch the new machine
-    Then the forward was raised through {'sokar-the-build-machine'} to {'/run/user/1001/sokar/sokard.sock'}
+    Then the forward was raised through {'porelo-the-build-machine'} to {'/run/user/1001/porelo/porelod.sock'}
 
-  Scenario: sokar doctor asked again after a fix at the machine says it is ready
+  Scenario: porelo doctor asked again after a fix at the machine says it is ready
     Given a new machine whose root logs in
-    And sokar doctor will refuse with {'podman 4.9.3 is too old'}
+    And porelo doctor will refuse with {'podman 4.9.3 is too old'}
     When I see what it can install
     And I fetch the setup script
     And I run the setup script
     And I go to the next step
     And I set it up and connect
-    And sokar doctor passes now
-    And I ask sokar doctor again
+    And porelo doctor passes now
+    And I ask porelo doctor again
     Then it says {'Ready to watch.'}
-    And nothing sokar doctor found is shown
+    And nothing porelo doctor found is shown
 
   Scenario: turning off root login is offered, and done only when asked
     Given a new machine whose root logs in
@@ -299,32 +299,32 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I set it up and connect
     Then it says {'The key could not be allowed for agent: getent: no such user'}
     And ssh config was not touched
-    And Sokar was not started
+    And Porelo was not started
 
   # The machine's own package source is the catalog; the interface never asks a repository.
   Scenario: what it can install is offered as choices, and what is there is shown fixed
     Given a new machine whose root logs in
     When I see what it can install
-    Then it offers the package {'sokar-agent-claude'}
-    And it offers the package {'sokar-agent-omp'}
-    And the package {'sokar-message-transport-matrix'} is shown installed and cannot be unticked
+    Then it offers the package {'porelo-agent-claude'}
+    And it offers the package {'porelo-agent-omp'}
+    And the package {'porelo-message-transport-matrix'} is shown installed and cannot be unticked
     And nothing was installed by asking
 
   Scenario: a chosen agent is shown and run with the rest
     Given a new machine whose root logs in
     When I see what it can install
-    And I choose the package {'sokar-agent-claude'}
+    And I choose the package {'porelo-agent-claude'}
     And I fetch the setup script
-    Then the setup script was shown with {'sokar-agent-claude'}
+    Then the setup script was shown with {'porelo-agent-claude'}
     When I run the setup script
-    Then the setup script ran with {'sokar-agent-claude'}
+    Then the setup script ran with {'porelo-agent-claude'}
 
   # What runs is only ever what was shown.
   Scenario: changing the choice after it was shown asks for it to be shown again
     Given a new machine whose root logs in
     When I see what it can install
     And I fetch the setup script
-    And I choose the package {'sokar-agent-omp'}
+    And I choose the package {'porelo-agent-omp'}
     Then it says {'Show it again before it runs'}
     And the setup script cannot be run
 
@@ -358,7 +358,7 @@ Feature: Adding a machine through a wizard that starts from what you have
   # Windows the wizard offers a WSL distribution.
   @linux
   Scenario: another user is added to a machine prepared before, and watched as a machine of its own
-    Given a key the machine already knows is kept as {'sokar-the-build-machine'}
+    Given a key the machine already knows is kept as {'porelo-the-build-machine'}
     When I cancel the dialog
     And I choose the command {'Add another user that runs work…'}
     Then the wizard offers no kind to choose
@@ -376,9 +376,9 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then the setup script ran for {'other'}
     When I go to the next step
     And I set it up and connect
-    Then ssh config reaches {'sokar-the-build-machine-as-other'} as {'other'} with {'sokar-the-build-machine-as-other-other'}
+    Then ssh config reaches {'porelo-the-build-machine-as-other'} as {'other'} with {'porelo-the-build-machine-as-other-other'}
     When I watch the new machine
-    Then the forward was raised through {'sokar-the-build-machine-as-other'} to {'/run/user/1001/sokar/sokard.sock'}
+    Then the forward was raised through {'porelo-the-build-machine-as-other'} to {'/run/user/1001/porelo/porelod.sock'}
 
   Scenario: going back and on again keeps the key and where the machine is
     When I say it is called {'the build machine'}
@@ -413,7 +413,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then the new machine is at {'203.0.113.10'}
     When I try logging in as root
     And I go to the next step
-    Then it says {"Sokar's setup script runs as root"}
+    Then it says {"Porelo's setup script runs as root"}
 
   Scenario: an unfinished setup that is discarded is not offered again
     Given a new machine whose root logs in
@@ -433,7 +433,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     And it shows the first line the machine printed
     And only Cancel is offered
     When the machine answers
-    Then it offers the package {'sokar-agent-claude'}
+    Then it offers the package {'porelo-agent-claude'}
 
   # The third way to a key: one already in ~/.ssh, used where it is rather than copied.
   # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
@@ -467,7 +467,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then I am warned that the key is not the one known for that address
     When I trust the host key
     Then the host key of {'203.0.113.10'} was written
-    And root logged in to {'203.0.113.10'} with {'sokar-the-build-machine-admin'}
+    And root logged in to {'203.0.113.10'} with {'porelo-the-build-machine-admin'}
 
   # What is shown before running is shown once, in its box; below "Run it as root" is only what running printed.
   Scenario: nothing is shown below the run until it was run
@@ -477,20 +477,20 @@ Feature: Adding a machine through a wizard that starts from what you have
     Then it shows what the setup script would run {'useradd --create-home agent'}
     And nothing is shown below the run yet
     When I run the setup script
-    Then what running it printed is shown below it {'sokar installed'}
+    Then what running it printed is shown below it {'porelo installed'}
 
   Scenario: hooks that cannot be registered stop the wizard before anything is watched
     Given a new machine whose root logs in
-    And registering Sokar's hooks will fail with {'podman: cannot write hooks.d'}
+    And registering Porelo's hooks will fail with {'podman: cannot write hooks.d'}
     When I see what it can install
     And I fetch the setup script
     And I run the setup script
     And I go to the next step
     And I set it up and connect
-    Then it says {'sokar setup did not register what a task needs: podman: cannot write hooks.d'}
+    Then it says {'porelo setup did not register what a task needs: podman: cannot write hooks.d'}
     And the wizard cannot go to the next step yet
 
-  # Decided: the passphrase goes keyboard → terminal → ssh → sokar, never
+  # Decided: the passphrase goes keyboard → terminal → ssh → porelo, never
   # through this program, and whether the vault is there is asked of the daemon, not read off the terminal.
   Scenario: the vault is made in a terminal as the work user, and the daemon says it is there
     Given a new machine whose root logs in
@@ -502,7 +502,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     And I set it up and connect
     And I go to the next step
     And I open the terminal to make the vault
-    Then the terminal runs {'ssh -t sokar-the-build-machine sokar vault init'}
+    Then the terminal runs {'ssh -t porelo-the-build-machine porelo vault init'}
     When the terminal ends with {0}
     Then it says {'The vault is there, and it opens with the passphrase typed.'}
 
@@ -528,10 +528,10 @@ Feature: Adding a machine through a wizard that starts from what you have
     And the machine has no transport yet
     When I see what it can install
     Then it says {'With no transport chosen, its work cannot send or receive messages'}
-    When I choose the package {'sokar-message-transport-matrix'}
+    When I choose the package {'porelo-message-transport-matrix'}
     Then it does not say {'With no transport chosen'}
     But it says {'The transport alone carries messages only for a project that names a homeserver'}
-    When I choose the package {'sokar-matrix-homeserver'}
+    When I choose the package {'porelo-matrix-homeserver'}
     Then it does not say {'The transport alone'}
 
   # The homeserver depends on the transport, so it brings it.
@@ -539,7 +539,7 @@ Feature: Adding a machine through a wizard that starts from what you have
     Given a new machine whose root logs in
     And the machine has no transport yet
     When I see what it can install
-    And I choose the package {'sokar-matrix-homeserver'}
+    And I choose the package {'porelo-matrix-homeserver'}
     Then it does not say {'With no transport chosen'}
     And it does not say {'The transport alone'}
 

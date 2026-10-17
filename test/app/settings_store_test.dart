@@ -5,7 +5,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
 /// How the preferences file is written.
 ///
@@ -17,8 +17,8 @@ void main() {
   late File file;
 
   setUp(() {
-    where = Directory.systemTemp.createTempSync('sokar-settings-test');
-    file = File('${where.path}/sokar/frontend.json');
+    where = Directory.systemTemp.createTempSync('porelo-settings-test');
+    file = File('${where.path}/porelo/frontend.json');
     addTearDown(() {
       if (where.existsSync()) where.deleteSync(recursive: true);
     });
@@ -58,7 +58,7 @@ void main() {
     final left = where
         .listSync(recursive: true)
         .map((each) => each.path.split('/').last)
-        .where((name) => name != 'frontend.json' && name != 'sokar');
+        .where((name) => name != 'frontend.json' && name != 'porelo');
     expect(left, isEmpty);
   });
 

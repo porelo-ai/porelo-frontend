@@ -72,6 +72,6 @@ terminal and knowing where to look.
 
 - Where does a new key lie by default, and what is it called? (Agent Frontend's)
 - What does the file dialog refuse: a public half, a key this window made to log into a machine
-  (`~/.ssh/sokar-*`), a key type git cannot sign with? (Agent Frontend's)
+  (`~/.ssh/porelo-*`), a key type git cannot sign with? (Agent Frontend's)
 - **What runs the terminal on Windows**, where `ssh-add` talks to the OpenSSH Authentication Agent
   service. (Agent Frontend's)

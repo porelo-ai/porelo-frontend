@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/vault.dart';
 import '../app/vault_devices.dart';
@@ -32,7 +32,7 @@ class VaultView extends StatelessWidget {
   final VoidCallback onClose;
 
   /// Opens the vault by its passphrase in a terminal on the machine, or null where nothing here
-  /// can reach that machine's own `sokar`.
+  /// can reach that machine's own `porelo`.
   final VoidCallback? onUnlockHere;
 
   /// Makes the vault by a passphrase chosen in a terminal on the machine, for a machine with none.
@@ -138,7 +138,7 @@ class VaultView extends StatelessWidget {
               // One line for everything that happens at the machine instead: a daemon has no
               // terminal to take a passphrase at.
               const _Line(
-                'At the machine: `sokar vault unlock` opens it without a device, `sokar vault '
+                'At the machine: `porelo vault unlock` opens it without a device, `porelo vault '
                 'passphrase` changes its passphrase.',
                 id: 'at-the-machine',
               ),

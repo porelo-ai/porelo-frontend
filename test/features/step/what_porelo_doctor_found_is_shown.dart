@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Usage: what sokar doctor found is shown {'podman 4.9.3 is too old'}
-Future<void> whatSokarDoctorFoundIsShown(WidgetTester tester, String line) async {
+/// Usage: what porelo doctor found is shown {'podman 4.9.3 is too old'}
+Future<void> whatPoreloDoctorFoundIsShown(WidgetTester tester, String line) async {
   expect(find.byKey(const Key('doctor-found')), findsOneWidget);
   final found = tester.widget<SelectableText>(find.byKey(const Key('doctor-found-lines'))).data!;
   expect(found, contains(line));

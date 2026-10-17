@@ -1,31 +1,31 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/gate.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/gate.dart';
 
 /// The two refusals a real machine answers by name for work that already exists, said in words.
 ///
 /// Forwards a waiting push onto a branch that already holds other work, as the interface's gate view
-/// does, and holds that nothing was forwarded: the push still waits. Runs only when `SOKAR_SOCKET`
-/// names a daemon's socket, `SOKAR_TAKEN_PROJECT` a project with a waiting push, `SOKAR_TAKEN_PUSH`
-/// its name, and `SOKAR_TAKEN_BRANCH` a branch at its upstream that holds a commit the push did not
+/// does, and holds that nothing was forwarded: the push still waits. Runs only when `PORELO_SOCKET`
+/// names a daemon's socket, `PORELO_TAKEN_PROJECT` a project with a waiting push, `PORELO_TAKEN_PUSH`
+/// its name, and `PORELO_TAKEN_BRANCH` a branch at its upstream that holds a commit the push did not
 /// grow from.
 ///
 /// Starts a new task under a name whose earlier work waits at the gate, as the interface starts work,
 /// and holds that the start is refused naming that work, before anything is created. Runs only when
-/// `SOKAR_SOCKET`, `SOKAR_EARLIER_PROJECT`, `SOKAR_EARLIER_REPOSITORY` and `SOKAR_EARLIER_TASK` name
+/// `PORELO_SOCKET`, `PORELO_EARLIER_PROJECT`, `PORELO_EARLIER_REPOSITORY` and `PORELO_EARLIER_TASK` name
 /// such a task: no container of that name, its incoming ref holding a commit, in a class other than
 /// online.
 void main() {
-  final socket = Platform.environment['SOKAR_SOCKET'] ?? '';
-  final earlierProject = Platform.environment['SOKAR_EARLIER_PROJECT'] ?? '';
-  final earlierRepository = Platform.environment['SOKAR_EARLIER_REPOSITORY'] ?? '';
-  final earlierTask = Platform.environment['SOKAR_EARLIER_TASK'] ?? '';
+  final socket = Platform.environment['PORELO_SOCKET'] ?? '';
+  final earlierProject = Platform.environment['PORELO_EARLIER_PROJECT'] ?? '';
+  final earlierRepository = Platform.environment['PORELO_EARLIER_REPOSITORY'] ?? '';
+  final earlierTask = Platform.environment['PORELO_EARLIER_TASK'] ?? '';
 
   test('a new task whose earlier work waits is refused in words, naming that work', () async {
-    final backend = SokarBackend(Backend(socketPath: socket, label: 'live'));
+    final backend = PoreloBackend(Backend(socketPath: socket, label: 'live'));
     await backend.open();
     Object? refused;
     try {
@@ -36,7 +36,7 @@ void main() {
               task: earlierTask,
               project: earlierProject,
               repository: earlierRepository,
-              agent: Platform.environment['SOKAR_EARLIER_AGENT'],
+              agent: Platform.environment['PORELO_EARLIER_AGENT'],
               mode: Mode.shell)
           .drain<void>();
     } on Object catch (error) {
@@ -50,18 +50,18 @@ void main() {
     expect('$refused', contains('still waits at the gate'));
   },
       skip: socket.isEmpty || earlierProject.isEmpty || earlierRepository.isEmpty || earlierTask.isEmpty
-          ? 'needs SOKAR_SOCKET, SOKAR_EARLIER_PROJECT, SOKAR_EARLIER_REPOSITORY and SOKAR_EARLIER_TASK'
+          ? 'needs PORELO_SOCKET, PORELO_EARLIER_PROJECT, PORELO_EARLIER_REPOSITORY and PORELO_EARLIER_TASK'
           : null);
 
-  final project = Platform.environment['SOKAR_TAKEN_PROJECT'] ?? '';
-  final name = Platform.environment['SOKAR_TAKEN_PUSH'] ?? '';
-  final branch = Platform.environment['SOKAR_TAKEN_BRANCH'] ?? '';
+  final project = Platform.environment['PORELO_TAKEN_PROJECT'] ?? '';
+  final name = Platform.environment['PORELO_TAKEN_PUSH'] ?? '';
+  final branch = Platform.environment['PORELO_TAKEN_BRANCH'] ?? '';
   final skip = socket.isEmpty || project.isEmpty || name.isEmpty || branch.isEmpty
-      ? 'needs SOKAR_SOCKET, SOKAR_TAKEN_PROJECT, SOKAR_TAKEN_PUSH and SOKAR_TAKEN_BRANCH'
+      ? 'needs PORELO_SOCKET, PORELO_TAKEN_PROJECT, PORELO_TAKEN_PUSH and PORELO_TAKEN_BRANCH'
       : null;
 
   test('a push forwarded onto a taken branch is refused in words, and still waits', () async {
-    final backend = SokarBackend(Backend(socketPath: socket, label: 'live'));
+    final backend = PoreloBackend(Backend(socketPath: socket, label: 'live'));
     await backend.open();
     final listed = (await backend.projects()).singleWhere((each) => each.name == project);
     final gate = Gate();

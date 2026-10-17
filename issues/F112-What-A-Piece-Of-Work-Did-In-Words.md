@@ -1,8 +1,8 @@
 # F112 — What A Piece Of Work Did, In Words
 
-**Status:** Estimated; blocked by `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174), "A Running Task's Commits And Their Diff".
+**Status:** Estimated; blocked by `porelo` [B174](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b174), "A Running Task's Commits And Their Diff".
 **Size:** L - five kinds of facts at the top of every tile, one of which needs a new method of
-`sokar`'s; crosses repositories.
+`porelo`'s; crosses repositories.
 
 **What must be true.** At the top of every piece of work a person reads what it did, in words: the
 agent's last answer, its commits and their diff since it started, what of it waits at the gate, its
@@ -16,12 +16,12 @@ easily left unread.
 
 ## Plan
 
-- **The last answer:** `Task.lastMessage`, which `sokar` answers already; shown as text.
+- **The last answer:** `Task.lastMessage`, which `porelo` answers already; shown as text.
 - **The commits and their diff since it started:** no method answers them for a running task today
   (`workHeld` in `lib/src/app/work_held.dart` answers counts, `Review` only a push at the gate);
-  `sokar` [B174](https://github.com/sokar-ai/sokar/blob/main/issues/base/README.md#b174) answers them: `TaskCommits(task)` the commits `WorkHeld` counts (commit, time, subject; for a
+  `porelo` [B174](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b174) answers them: `TaskCommits(task)` the commits `WorkHeld` counts (commit, time, subject; for a
   stopped task from the note its stop wrote, with `asOf`), and `TaskDiff(task, commit?)` the patch
-  of one or of all, cut at a file boundary with `files` whole. `SokarClient`, `FleetBackend` and the
+  of one or of all, cut at a file boundary with `files` whole. `PoreloClient`, `FleetBackend` and the
   stand-in take both; a running task's diff is asked only when the person opens it.
 - **What waits at the gate:** `Gate.waiting`. **Its messages:** `Mailboxes`. **What the firewall
   stopped:** the task's `events.jsonl`, shown only where it holds a line.

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/host_readiness_view.dart';
-import 'package:sokar_frontend/src/ui/tokens.dart';
+import 'package:porelo_frontend/src/ui/host_readiness_view.dart';
+import 'package:porelo_frontend/src/ui/tokens.dart';
 
-/// Each check a machine reports is drawn as `sokar doctor` colours it on a terminal, with a shape of
+/// Each check a machine reports is drawn as `porelo doctor` colours it on a terminal, with a shape of
 /// its own so it reads without colour too.
 void main() {
   final scheme = ColorScheme.fromSeed(seedColor: Colors.indigo);

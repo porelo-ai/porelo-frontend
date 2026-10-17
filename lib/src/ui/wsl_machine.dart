@@ -11,7 +11,7 @@ import 'choice_field.dart';
 import 'tokens.dart';
 
 /// The WSL way to a machine, on Windows: the distributions of this Windows user, the checks before
-/// one is connected to, and the offer to set Sokar up in one that lacks it.
+/// one is connected to, and the offer to set Porelo up in one that lacks it.
 ///
 /// **Nothing runs as root but lines a person read and said yes to**, and a distribution is started
 /// only by the restart for systemd, after a question of its own whose answer is no until changed.
@@ -121,7 +121,7 @@ class _WslStepsState extends State<WslSteps> {
     if (found == null) return const Text('Asking WSL which distributions there are…', key: Key('wsl-reading'));
     if (found.isEmpty) {
       return const SelectableText(
-        'WSL answers with no distribution. Install WSL and a distribution Sokar supports from a terminal, '
+        'WSL answers with no distribution. Install WSL and a distribution Porelo supports from a terminal, '
         'for example: wsl --install -d Ubuntu-26.04 — then open this again.',
         key: Key('wsl-none'),
       );
@@ -191,7 +191,7 @@ class _WslStepsState extends State<WslSteps> {
         const SizedBox(height: Space.normal),
         Text(
           'Turning systemd on means restarting ${setup.distribution}. Everything running in it ends: '
-          'its shells, its services, and any Sokar task running there.',
+          'its shells, its services, and any Porelo task running there.',
           key: const Key('wsl-systemd-cost'),
         ),
         const SizedBox(height: Space.tight),
@@ -219,15 +219,15 @@ class _WslStepsState extends State<WslSteps> {
         if (setup.stopped case final why?) SelectableText(why, key: const Key('wsl-stopped')),
       ];
 
-  /// The offer to set Sokar up: the agents to choose, then every line shown, run only after a yes.
+  /// The offer to set Porelo up: the agents to choose, then every line shown, run only after a yes.
   List<Widget> _offer(BuildContext context, WslSetup setup) {
     final lines = setup.setupLines(_user.isEmpty ? '<user>' : _user);
     return <Widget>[
       const SizedBox(height: Space.normal),
-      Text('Set Sokar up in ${setup.distribution}?', style: Theme.of(context).textTheme.labelLarge),
+      Text('Set Porelo up in ${setup.distribution}?', style: Theme.of(context).textTheme.labelLarge),
       const SizedBox(height: Space.tight),
       const Text('Which agents? None is chosen for you.'),
-      for (final agent in sokarAgents)
+      for (final agent in poreloAgents)
         CheckboxListTile(
           key: Key('wsl-agent-${agent.package}'),
           contentPadding: EdgeInsets.zero,
@@ -242,7 +242,7 @@ class _WslStepsState extends State<WslSteps> {
       Text(
         'These lines run in ${setup.distribution}, those with sudo as root through wsl.exe -u root, '
         "which asks no password of the distribution's owner. The key is checked against "
-        '$sokarKeyFingerprint before anything is written.',
+        '$poreloKeyFingerprint before anything is written.',
       ),
       const SizedBox(height: Space.tight),
       Container(

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: machine-signers no longer names {'sokar@old-box'}, committed signed
+/// Usage: machine-signers no longer names {'porelo@old-box'}, committed signed
 Future<void> machinesignersNoLongerNamesCommittedSigned(WidgetTester tester, String principal) async {
   expect(World.workspace.files['machine-signers'], isNot(contains(principal)));
   expect(World.workspace.files['machine-signers'], isNot(contains('# old-box')));

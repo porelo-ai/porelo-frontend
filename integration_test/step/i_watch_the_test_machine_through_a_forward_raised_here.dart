@@ -7,7 +7,7 @@ import '../support/e2e.dart';
 Future<void> iWatchTheTestMachineThroughAForwardRaisedHere(WidgetTester tester) async {
   await watchAnotherMachine(tester);
   await tester.enterText(find.byKey(const Key('machine-name')), E2e.name);
-  // Sokar runs there already, set up by somebody else: only connecting to it is offered and wanted.
+  // Porelo runs there already, set up by somebody else: only connecting to it is offered and wanted.
   await choose(tester, 'machine-admin', 'machine-admin-no');
   await choose(tester, 'machine-kind-choice', 'machine-raise-it');
   await goOnInTheWizard(tester);

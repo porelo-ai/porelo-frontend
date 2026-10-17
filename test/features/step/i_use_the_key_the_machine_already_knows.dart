@@ -7,6 +7,6 @@ import '../support/world.dart';
 Future<void> iUseTheKeyTheMachineAlreadyKnows(WidgetTester tester) async {
   // Chosen already: of the keys in ~/.ssh, one the wizard kept before comes first.
   final chosen = tester.widget<DropdownButton<String>>(find.byKey(const Key('existing-key'))).value;
-  expect(chosen, endsWith('/.ssh/sokar-the-build-machine'));
+  expect(chosen, endsWith('/.ssh/porelo-the-build-machine'));
   await World.tapInView(tester, 'use-key');
 }

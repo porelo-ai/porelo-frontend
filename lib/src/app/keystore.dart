@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'device_key.dart';
 
@@ -21,7 +21,7 @@ class PlatformDeviceKeyStore implements DeviceKeyStore {
   @override
   KeyslotStorage get storage => storageHere;
 
-  static String _entry(String node) => 'sokar-device-key:$node';
+  static String _entry(String node) => 'porelo-device-key:$node';
 
   @override
   Future<DeviceKey?> read(String node) async {

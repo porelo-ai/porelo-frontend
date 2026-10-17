@@ -1,14 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 
 import '../support/e2e.dart';
 
 /// Usage: every reply it gives can be read
 Future<void> everyReplyItGivesCanBeRead(WidgetTester tester) async {
   // Through the same forward the interface raised, so this reads what the window reads.
-  final client = await SokarClient.connect(
+  final client = await PoreloClient.connect(
       Backend(socketPath: Machine.endpointFor(E2e.name), label: E2e.name));
   final tasks = await client.tasks();
   final projects = await client.projects();

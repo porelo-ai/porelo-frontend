@@ -102,8 +102,8 @@ void main() {
       await bddSetUp(tester);
       await iShowTheVault(tester);
       await iReadToTheBottomOfTheStore(tester);
-      await itSays(tester, '`sokar vault unlock` opens it without a device');
-      await itSays(tester, '`sokar vault passphrase` changes its passphrase');
+      await itSays(tester, '`porelo vault unlock` opens it without a device');
+      await itSays(tester, '`porelo vault passphrase` changes its passphrase');
     });
     testWidgets('''a slow answer never lands on top of a newer one''',
         (tester) async {
@@ -121,7 +121,7 @@ void main() {
       await iShowTheVault(tester);
       await iOpenItHereWithItsPassphrase(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm porelo vault unlock');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineIsAskedAgainWhetherTheStoreIsOpen(tester);
     });
@@ -133,7 +133,7 @@ void main() {
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm porelo vault unlock');
     });
     testWidgets(
         '''a machine whose socket somebody else forwards is not offered a terminal to open it''',
@@ -148,13 +148,13 @@ void main() {
           'forwarded by somebody else');
     });
     testWidgets(
-        '''this machine's own daemon is opened by its own sokar, here''',
+        '''this machine's own daemon is opened by its own porelo, here''',
         (tester) async {
       await bddSetUp(tester);
       await theStoreIsShut(tester);
       await iShowTheVault(tester);
       await iOpenItHereWithItsPassphrase(tester);
-      await aTerminalRunsOnTheMachine(tester, 'sokar vault unlock');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault unlock');
     });
     testWidgets(
         '''a machine with no store is offered to make one from the lock, in a terminal there''',
@@ -164,7 +164,7 @@ void main() {
       await theMachineHasNoStoreYet(tester);
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault init');
+          tester, 'ssh -t alice@vm porelo vault init');
     });
     testWidgets(
         '''a machine with no store says making it is the next step, and makes it from there''',
@@ -175,7 +175,7 @@ void main() {
       await theWorkSays(tester, 'Next: make the vault on');
       await iMakeItFromTheNextStep(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault init');
+          tester, 'ssh -t alice@vm porelo vault init');
     });
     testWidgets('''a machine with a store says nothing about making one''',
         (tester) async {
@@ -199,7 +199,7 @@ void main() {
       await theMachineHasNoStoreYet(tester);
       await iShowTheVault(tester);
       await iMakeItHereWithAPassphrase(tester);
-      await aTerminalRunsOnTheMachine(tester, 'sokar vault init');
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault init');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineIsAskedAgainWhetherTheStoreIsOpen(tester);
     });

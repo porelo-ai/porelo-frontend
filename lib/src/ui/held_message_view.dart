@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
@@ -313,7 +313,7 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
       switch (done.outcome) {
         // Which way it was going decides where a release sends it: one held on its way in reaches
         // the task, checked as every arrival is, and never goes back out.
-        // Released is "try again", not "trust it" (Sokar 347f122): the same check can hold it again.
+        // Released is "try again", not "trust it" (Porelo 347f122): the same check can hold it again.
         'RELEASED' when direction == 'in' =>
           'Released. The next pass checks it again, as every arrival is checked: it reaches this task '
               'unless the same check holds it again.',

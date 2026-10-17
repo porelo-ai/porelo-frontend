@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: sokar doctor will refuse with {'podman 4.9.3 is too old'}
+/// Usage: porelo doctor will refuse with {'podman 4.9.3 is too old'}
 ///
 /// Shaped like what `doctor` printed on a rented Ubuntu 24.04: the refusal, its advice, and a
 /// DEGRADED line that a machine passing `doctor` has as well.
-Future<void> sokarDoctorWillRefuseWith(WidgetTester tester, String why) async {
+Future<void> poreloDoctorWillRefuseWith(WidgetTester tester, String why) async {
   World.setup.doctorRefuses = ProcessResult(
     0,
     69,

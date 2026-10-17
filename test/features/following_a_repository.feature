@@ -90,7 +90,7 @@ Feature: A project comes to a machine by following its repository
     And I follow it
     Then no follow was sent
     When I open the vault from the follow
-    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault unlock'} on the machine
 
   # A key is sent from its connection and a file on the machine is replaced there, so neither is
   # a terminal's to store — the way out is the connection itself.

@@ -24,7 +24,7 @@ import './step/raising_a_forward_will_fail_with.dart';
 import './step/the_machine_says.dart';
 import './step/nothing_answers_on_that_machine.dart';
 import './step/i_switch_to_the_machine.dart';
-import './step/i_ask_to_start_sokar_on_this_machine.dart';
+import './step/i_ask_to_start_porelo_on_this_machine.dart';
 import './step/nothing_was_started_on_that_machine.dart';
 import './step/i_agree_to_start_it.dart';
 import './step/the_machine_was_asked_to_start.dart';
@@ -34,7 +34,7 @@ import './step/i_do_not_agree_to_start_it.dart';
 import './step/the_machine_can_answer_again.dart';
 import './step/i_open_the_command_finder.dart';
 import './step/the_command_is_unavailable_because.dart';
-import './step/i_ask_to_stop_sokar_on_this_machine.dart';
+import './step/i_ask_to_stop_porelo_on_this_machine.dart';
 import './step/it_says.dart';
 import './step/nothing_was_stopped_on_that_machine.dart';
 import './step/i_agree_to_stop_it.dart';
@@ -80,7 +80,7 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await theForwardWasRaisedFor(tester, 'the build machine');
       await theMachineSaysTheForwardIsRaisedHere(tester, 'the build machine');
@@ -110,7 +110,7 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await theMachineSays(
           tester, 'the build machine', 'Host key verification failed.');
@@ -124,15 +124,15 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
-      await iAskToStartSokarOnThisMachine(tester);
+      await iAskToStartPoreloOnThisMachine(tester);
       await nothingWasStartedOnThatMachine(tester);
       await iAgreeToStartIt(tester);
-      await theMachineWasAskedToStart(tester, 'setsid sokard');
+      await theMachineWasAskedToStart(tester, 'setsid porelod');
       await theSessionRecorded(
-          tester, 'Start Sokar on user@build.example.test');
+          tester, 'Start Porelo on user@build.example.test');
       await theMachineAnswersAgain(tester, 'the build machine');
     });
     testWidgets('''a start nobody agreed to runs nothing''', (tester) async {
@@ -142,10 +142,10 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
-      await iAskToStartSokarOnThisMachine(tester);
+      await iAskToStartPoreloOnThisMachine(tester);
       await iDoNotAgreeToStartIt(tester);
       await nothingWasStartedOnThatMachine(tester);
       await theMachineCanAnswerAgain(tester);
@@ -158,12 +158,12 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(
-          tester, 'Start Sokar on this machine', 'already answering');
+          tester, 'Start Porelo on this machine', 'already answering');
     });
     testWidgets(
         '''a machine somebody else forwards is offered no start, because there is no host''',
@@ -173,7 +173,7 @@ void main() {
       await iSwitchToTheMachine(tester, 'elsewhere');
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(
-          tester, 'Start Sokar on this machine', 'somebody else');
+          tester, 'Start Porelo on this machine', 'somebody else');
     });
     testWidgets(
         '''a machine that answers can be stopped from its menu, told first what stopping costs''',
@@ -183,20 +183,21 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
-      await iAskToStopSokarOnThisMachine(tester);
+      await iAskToStopPoreloOnThisMachine(tester);
       await itSays(tester, 'What runs there goes on running');
       await itSays(tester, 'nothing here watches it');
       await itSays(tester, 'goes unanswered and runs out');
       await nothingWasStoppedOnThatMachine(tester);
       await iAgreeToStopIt(tester);
-      await theMachineWasAskedToStop(tester, 'systemctl --user stop sokard');
-      await theSessionRecorded(tester, 'Stop Sokar on user@build.example.test');
+      await theMachineWasAskedToStop(tester, 'systemctl --user stop porelod');
+      await theSessionRecorded(
+          tester, 'Stop Porelo on user@build.example.test');
       await theMachineNoLongerAnswers(tester, 'the build machine');
       await iOpenTheCommandFinder(tester);
-      await theCommandIsOffered(tester, 'Start Sokar on this machine');
+      await theCommandIsOffered(tester, 'Start Porelo on this machine');
       await theMachineCanAnswerAgain(tester);
       await theMachineAnswersAgain(tester, 'the build machine');
     });
@@ -206,10 +207,10 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
-      await iAskToStopSokarOnThisMachine(tester);
+      await iAskToStopPoreloOnThisMachine(tester);
       await iDoNotAgreeToStopIt(tester);
       await nothingWasStoppedOnThatMachine(tester);
       await theMachineAnswersAgain(tester, 'the build machine');
@@ -222,12 +223,12 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iSwitchToTheMachine(tester, 'the build machine');
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(
-          tester, 'Stop Sokar on this machine', 'not answering');
+          tester, 'Stop Porelo on this machine', 'not answering');
       await theMachineCanAnswerAgain(tester);
       await theMachineAnswersAgain(tester, 'the build machine');
     });
@@ -239,7 +240,7 @@ void main() {
       await iSwitchToTheMachine(tester, 'elsewhere');
       await iOpenTheCommandFinder(tester);
       await theCommandIsUnavailableBecause(
-          tester, 'Stop Sokar on this machine', 'somebody else');
+          tester, 'Stop Porelo on this machine', 'somebody else');
     });
     testWidgets(
         '''closing the interface leaves no forward it raised still running''',
@@ -249,7 +250,7 @@ void main() {
       await iChoose(tester, 'Raise the forward for me');
       await iSayItIsCalled(tester, 'the build machine');
       await iSayItIsAt(tester, 'user@build.example.test');
-      await itsSocketThereIs(tester, '/run/user/1001/sokar/sokard.sock');
+      await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
       await iCloseTheInterface(tester);
       await noForwardThisInterfaceRaisedIsStillRunning(tester);
@@ -282,7 +283,7 @@ void main() {
       await iWatchIt(tester);
       await theMachineWasAskedWhoLogsInAs(tester, 'user@build.example.test');
       await theForwardWasRaisedThroughTo(tester, 'user@build.example.test',
-          '/run/user/1007/sokar/sokard.sock');
+          '/run/user/1007/porelo/porelod.sock');
     });
     testWidgets(
         '''forgetting a machine the wizard set up offers its Host entry and key, and removes neither unasked''',
@@ -291,10 +292,10 @@ void main() {
       await theWizardSetUpTheMachine(tester, 'build');
       await iSwitchToTheMachine(tester, 'build');
       await iAskToForgetThisMachine(tester);
-      await itSays(tester, 'Also remove Host sokar-build from ~/.ssh/config');
+      await itSays(tester, 'Also remove Host porelo-build from ~/.ssh/config');
       await itSays(tester, 'Also delete its key');
       await iForgetIt(tester);
-      await theSshConfigStillHasTheHost(tester, 'sokar-build');
+      await theSshConfigStillHasTheHost(tester, 'porelo-build');
       await theKeyOfIsStillThere(tester, 'build');
     });
     testWidgets(
@@ -307,7 +308,7 @@ void main() {
       await iAlsoRemoveItsHostEntry(tester);
       await iAlsoDeleteItsKey(tester);
       await iForgetIt(tester);
-      await theSshConfigNoLongerHasTheHost(tester, 'sokar-build');
+      await theSshConfigNoLongerHasTheHost(tester, 'porelo-build');
       await theSshConfigAsItWasBeforeIsKept(tester);
       await theKeyOfIsGone(tester, 'build');
     });

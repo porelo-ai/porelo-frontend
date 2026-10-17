@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/connections.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
 
 /// A machine whose socket has not answered yet, as a backend refuses every call until then.
 class _NotOpenYet implements FleetBackend {

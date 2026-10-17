@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/wsl.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/wsl.dart';
 
 /// The WSL distributions of a Windows user, read without starting any of them, and what the
 /// interface says before it calls into one.
@@ -59,15 +59,15 @@ void main() {
     expect(decodeWsl(<int>[0xff, 0xfe, ..._utf16('Ubuntu\r\n')]), 'Ubuntu\n');
   });
 
-  test('the relay is wsl.exe running sokar daemon connect in the distribution, with no shell', () {
+  test('the relay is wsl.exe running porelo daemon connect in the distribution, with no shell', () {
     expect(Wsl.relayTo('Ubuntu 26.04'),
-        <String>['wsl.exe', '-d', 'Ubuntu 26.04', '--exec', 'sokar', 'daemon', 'connect']);
+        <String>['wsl.exe', '-d', 'Ubuntu 26.04', '--exec', 'porelo', 'daemon', 'connect']);
   });
 
   group('a machine in the list', () {
     const wsl = Machine(name: 'laptop', socketPath: '', kind: 'wsl', distribution: 'Ubuntu');
-    const overSsh = Machine(name: 'box', socketPath: '/run/x.sock', host: 'me@box', remoteSocket: '/run/user/1000/sokar/sokard.sock');
-    const socket = Machine(name: 'here', socketPath: '/run/user/1000/sokar/sokard.sock');
+    const overSsh = Machine(name: 'box', socketPath: '/run/x.sock', host: 'me@box', remoteSocket: '/run/user/1000/porelo/porelod.sock');
+    const socket = Machine(name: 'here', socketPath: '/run/user/1000/porelo/porelod.sock');
 
     test('on Windows a WSL distribution is reached, and the Linux ways are said not to be', () {
       expect(wsl.whyNotReachableOn(windows: true), isNull);

@@ -45,8 +45,8 @@ Feature: Seeing and shutting the secret store, without showing a value
   Scenario: what happens at the machine instead is said in one line
     When I show the vault
     And I read to the bottom of the store
-    Then it says {'`sokar vault unlock` opens it without a device'}
-    And it says {'`sokar vault passphrase` changes its passphrase'}
+    Then it says {'`porelo vault unlock` opens it without a device'}
+    And it says {'`porelo vault passphrase` changes its passphrase'}
 
   Scenario: a slow answer never lands on top of a newer one
     Given reading the store is slow
@@ -60,7 +60,7 @@ Feature: Seeing and shutting the secret store, without showing a value
     And the machine is reached over ssh as {'alice@vm'}
     When I show the vault
     And I open it here with its passphrase
-    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault unlock'} on the machine
     When the unlock terminal ends and is put away
     Then the machine is asked again whether the store is open
 
@@ -68,35 +68,35 @@ Feature: Seeing and shutting the secret store, without showing a value
     Given the store is shut
     And the machine is reached over ssh as {'alice@vm'}
     When I open the store with its passphrase from the lock
-    Then a terminal runs {'ssh -t alice@vm sokar vault unlock'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault unlock'} on the machine
 
-  # A socket somebody else forwarded has no host behind it; a sokar run here would open another vault.
+  # A socket somebody else forwarded has no host behind it; a porelo run here would open another vault.
   Scenario: a machine whose socket somebody else forwards is not offered a terminal to open it
     Given the store is shut
     And the machine is a socket somebody else forwards
     When I open the command finder
     Then the command {'Open the vault with its passphrase, in a terminal'} is unavailable because {'forwarded by somebody else'}
 
-  Scenario: this machine's own daemon is opened by its own sokar, here
+  Scenario: this machine's own daemon is opened by its own porelo, here
     Given the store is shut
     When I show the vault
     And I open it here with its passphrase
-    Then a terminal runs {'sokar vault unlock'} on the machine
+    Then a terminal runs {'porelo vault unlock'} on the machine
 
   # A fresh machine has no store, and enrolling and opening both start from one being there.
   Scenario: a machine with no store is offered to make one from the lock, in a terminal there
     Given the machine is reached over ssh as {'alice@vm'}
     And the machine has no store yet
     When I open the store with its passphrase from the lock
-    Then a terminal runs {'ssh -t alice@vm sokar vault init'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault init'} on the machine
 
-  # A person new to Sokar looks at the work, not at a mark in the header: the first step is said there.
+  # A person new to Porelo looks at the work, not at a mark in the header: the first step is said there.
   Scenario: a machine with no store says making it is the next step, and makes it from there
     Given the machine is reached over ssh as {'alice@vm'}
     And the machine has no store yet
     Then the work says {'Next: make the vault on'}
     When I make it from the next step
-    Then a terminal runs {'ssh -t alice@vm sokar vault init'} on the machine
+    Then a terminal runs {'ssh -t alice@vm porelo vault init'} on the machine
 
   Scenario: a machine with a store says nothing about making one
     Then the work does not say {'Next: make the vault'}
@@ -114,7 +114,7 @@ Feature: Seeing and shutting the secret store, without showing a value
     Given the machine has no store yet
     When I show the vault
     And I make it here with a passphrase
-    Then a terminal runs {'sokar vault init'} on the machine
+    Then a terminal runs {'porelo vault init'} on the machine
     When the unlock terminal ends and is put away
     Then the machine is asked again whether the store is open
 

@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Sokar
+Name=Porelo
 GenericName=AI Agent Supervision
 Comment=Watch and control AI coding agents running in locked-down containers
-Exec=sokar-frontend
-Icon=sokar-frontend
+Exec=porelo-frontend
+Icon=porelo-frontend
 Terminal=false
 Categories=Development;
-Keywords=sokar;agent;container;
-StartupWMClass=sokar_frontend
+Keywords=porelo;agent;container;
+StartupWMClass=porelo_frontend

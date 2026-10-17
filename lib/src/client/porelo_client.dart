@@ -11,7 +11,7 @@ import 'environment.dart';
 /// Local and remote differ by one string - the socket path - because a remote daemon is reached
 /// by forwarding its socket over SSH. **There is no second protocol, and there must never be
 /// one**: where no socket can be opened, as from Windows into a WSL distribution, the same Varlink
-/// runs over the standard input and output of [relay], `sokar daemon connect` on the far side,
+/// runs over the standard input and output of [relay], `porelo daemon connect` on the far side,
 /// which joins them to the daemon's socket.
 class Backend {
   /// Path to the daemon's unix socket.
@@ -68,11 +68,11 @@ class Backend {
   /// Worked out once: it is compared against every machine, and asking `id` each time ran a
   /// process on the interface's own thread.
   ///
-  /// On Windows there is no local daemon: Sokar runs in a WSL distribution, a machine of its own, and
+  /// On Windows there is no local daemon: Porelo runs in a WSL distribution, a machine of its own, and
   /// `id` is not asked there.
   static final String _localSocket = Platform.isWindows
       ? ''
-      : '${setIn('XDG_RUNTIME_DIR') ?? '/run/user/${_uid()}'}/sokar/sokard.sock';
+      : '${setIn('XDG_RUNTIME_DIR') ?? '/run/user/${_uid()}'}/porelo/porelod.sock';
 
   static String _uid() => Process.runSync('id', const ['-u']).stdout.toString().trim();
 }
@@ -105,19 +105,19 @@ typedef AgentsOnTheMachine = ({
 });
 
 
-/// The Sokar backend, typed.
+/// The Porelo backend, typed.
 ///
 /// One [Backend] per instance. Every call opens its own connection, because the framing has no
 /// request ids and a connection therefore carries one call at a time - which costs nothing and
 /// means a stream can be canceled without disturbing anything else.
-class SokarClient {
+class PoreloClient {
   /// Interface versions this build understands, newest first.
   ///
   /// The trailing number is the compatibility promise. A backend serving a newer one also serves
   /// this one for at least a release, so taking the newest *understood* name - rather than the
   /// newest offered, and never a version comparison - is what keeps an old interface working
   /// against a new backend and the other way round.
-  static const supported = <String>['org.fuin.sokar.Tasks1'];
+  static const supported = <String>['org.fuin.porelo.Tasks1'];
 
   /// Where this is pointed.
   final Backend backend;
@@ -131,14 +131,14 @@ class SokarClient {
   /// How long a single call may go unanswered. Never applied to a stream.
   final Duration answerWithin;
 
-  SokarClient._(this.backend, this.interfaceName, this.info, this.answerWithin);
+  PoreloClient._(this.backend, this.interfaceName, this.info, this.answerWithin);
 
   /// Connects and agrees an interface.
   ///
   /// Throws [VarlinkDisconnected] when there is nothing there, and [StateError] when the backend
   /// serves no interface this build knows - which is a backend too new or too old to talk to at
   /// all, and is worth saying plainly rather than failing on the first call.
-  static Future<SokarClient> connect(Backend backend,
+  static Future<PoreloClient> connect(Backend backend,
       {Duration answerWithin = VarlinkConnection.answerWithin}) async {
     final connection = await backend.open();
     try {
@@ -152,7 +152,7 @@ class SokarClient {
             '${backend.label} serves ${info.interfaces}, none of which this build understands '
             '(it knows $supported)');
       }
-      return SokarClient._(backend, agreed.first, info, answerWithin);
+      return PoreloClient._(backend, agreed.first, info, answerWithin);
     } finally {
       await connection.close();
     }
@@ -316,7 +316,7 @@ class SokarClient {
       'minutes': ?minutes,
       // A vault entry's name to the destination or provider it is for, beyond the project's own.
       if (credentials != null && credentials.isNotEmpty) 'credentials': credentials,
-      // Required by a Sokar with repositories per project, with no default; sent only when named, so an older one never
+      // Required by a Porelo with repositories per project, with no default; sent only when named, so an older one never
       // meets a parameter it does not know.
       'repository': ?repository,
     };
@@ -494,7 +494,7 @@ class SokarClient {
 
   /// Enrolls this device as a keyslot, sending its [share] once.
   ///
-  /// **Proposed for Sokar's keyslots, not on `Tasks1` yet**: until it is built, this answers
+  /// **Proposed for Porelo's keyslots, not on `Tasks1` yet**: until it is built, this answers
   /// [FeatureNotSupported]. The share is base64 of 32 random bytes, is sent here and in
   /// [unlockWithShare] only, and appears in no reply.
   Future<Enrolled> enrollDevice({
@@ -508,7 +508,7 @@ class SokarClient {
         'storage': storage.name,
       }));
 
-  /// Every credential that can open the vault. **Proposed for Sokar's keyslots.**
+  /// Every credential that can open the vault. **Proposed for Porelo's keyslots.**
   Future<List<Keyslot>> keyslots() async {
     final reply = await _call('Keyslots');
     final slots = reply['slots'];
@@ -517,13 +517,13 @@ class SokarClient {
         : const <Keyslot>[];
   }
 
-  /// Revokes one keyslot by [id]. **Proposed for Sokar's keyslots.**
+  /// Revokes one keyslot by [id]. **Proposed for Porelo's keyslots.**
   Future<Revoked> revokeKeyslot(String id) async =>
       Revoked.from(await _call('RevokeKeyslot', {'id': id}));
 
   /// Opens the vault with this device's [share], for [minutes] or the node's own bound.
   ///
-  /// **As Sokar built it**: the share and an optional bound, and no keyslot id —
+  /// **As Porelo built it**: the share and an optional bound, and no keyslot id —
   /// the node finds the slot the share opens, so a device that lost its id still opens the vault.
   Future<UnlockedWithShare> unlockWithShare({
     required String share,
@@ -606,7 +606,7 @@ class SokarClient {
   ///
   /// **Read from a record written when each was taken**, because a bundle is written wherever an
   /// operator names it and nothing could work that out afterwards. Newest first, and **empty is an
-  /// ordinary answer**: a project nobody has backed up, or one backed up by a Sokar older than the
+  /// ordinary answer**: a project nobody has backed up, or one backed up by a Porelo older than the
   /// record. It never means no bundle exists.
   ///
   /// [repository] names one of the project's repositories; without one, the project's own.
@@ -745,7 +745,7 @@ class SokarClient {
   /// back as taken can have work started in it at once.
   ///
   /// [signedBy] is the public key its commits must be signed with; [unverified] follows without
-  /// one. Sokar refuses both together: they are two instructions, not a stricter setting.
+  /// one. Porelo refuses both together: they are two instructions, not a stricter setting.
   /// [acceptRewrite] is **only ever** a person's answer to `REWRITTEN`, never a retry.
   Future<Followed> follow(String name, String url,
           {String? signedBy, List<String>? signers, bool? unverified, bool? acceptRewrite, bool? dryRun}) async =>
@@ -763,7 +763,7 @@ class SokarClient {
         }),
       });
 
-  /// Stops following a project, and removes it and everything Sokar built for it from this machine.
+  /// Stops following a project, and removes it and everything Porelo built for it from this machine.
   ///
   /// It **refuses rather than decides**: unreviewed pushes exist only in the mirror and a running
   /// task is work cut off mid-flight. [force] is how somebody says they meant it. The project's own
@@ -790,7 +790,7 @@ class SokarClient {
   /// it.
   ///
   /// An empty list is a normal answer. A task whose state directory is gone, which is what `Stop`
-  /// with purge does, has no logs; so does a name that is not a Sokar task.
+  /// with purge does, has no logs; so does a name that is not a Porelo task.
   Future<List<Log>> logsOf(String task) async {
     final reply = await _call('Logs', {'task': task});
     final logs = reply['logs'];
@@ -807,7 +807,7 @@ class SokarClient {
   ///
   /// With [last], it starts from the log's last that many lines rather than its first; with
   /// [formatted], every line comes as the task's agent shows it, hidden ones left out. Both are sent
-  /// only when given, so a Sokar older than them is asked what it knows.
+  /// only when given, so a Porelo older than them is asked what it knows.
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false}) =>
       _callMore('Tail', {
         'task': task,
@@ -825,7 +825,7 @@ class SokarClient {
 
   /// What is waiting at a project's gate.
   ///
-  /// [repository] is one of `Project.repositories`; without one a Sokar answers the project's own
+  /// [repository] is one of `Project.repositories`; without one a Porelo answers the project's own
   /// and an older one knows no other.
   Future<GateState> gate(String project, {String? upstream, String? repository}) async =>
       GateState.from(await _call('Pending', {
@@ -834,11 +834,11 @@ class SokarClient {
         'repository': ?repository,
       }));
 
-  /// What a pending push contains: a diff and a log, and, from a Sokar that ranks the review, its
+  /// What a pending push contains: a diff and a log, and, from a Porelo that ranks the review, its
   /// files in the order to show them and what the task that pushed was asked.
   ///
   /// `asked` is null where the machine does not say, an empty string where the task was started
-  /// without an instruction; `files` is empty from a Sokar older than the ranked review.
+  /// without an instruction; `files` is empty from a Porelo older than the ranked review.
   Future<({String diff, String log, List<ReviewFile> files, String? asked})> review(
       String project, String name,
       {String? upstream, String? against, String? repository}) async {
@@ -880,7 +880,7 @@ class SokarClient {
   /// Drops a pending push. The work stays in the mirror; only the request is gone.
   ///
   /// The task the work came from is told in its inbox, with [reason] when a person gave one. `told`
-  /// is false when no task of that name has a mailbox any more, and null from a Sokar that does not
+  /// is false when no task of that name has a mailbox any more, and null from a Porelo that does not
   /// say.
   Future<({bool? told})> reject(String project, String name,
       {String? upstream, String? repository, String? reason}) async {
@@ -1031,7 +1031,7 @@ class SokarClient {
     );
   }
 
-  /// The keys a project file may hold, as this machine's Sokar knows them.
+  /// The keys a project file may hold, as this machine's Porelo knows them.
   Future<ProjectFileSchema> projectFileSchema() async => ProjectFileSchema.from(await _call('ProjectFileSchema'));
 
   /// Checks a draft `project.yml` against this machine.

@@ -142,7 +142,7 @@ Feature: Backups of a mirror: listing, removing, restoring, and upstream
     Then no repository was named for the backups or the upstream
 
   # A repository's limits replace the project's key by key. Which keys it replaced is the part worth
-  # saying; the rest may be the project's or Sokar's own default, and nothing can tell which.
+  # saying; the rest may be the project's or Porelo's own default, and nothing can tell which.
   Scenario: a repository's limits are shown, the keys it replaced marked as its own
     Given the project {'checkout'} has the repositories {'checkout, payments-api'}
     And the repository {'payments-api'} limits its memory to {'4g'}

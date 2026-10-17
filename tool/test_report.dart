@@ -262,7 +262,7 @@ Future<void> _sayNothingRan(String because) async {
 
 /// The run's page on GitHub: one row per feature, its scenarios folded into a ratio.
 ///
-/// **Sokar's table, column for column**, so two reports of the same kind of run read the same way.
+/// **Porelo's table, column for column**, so two reports of the same kind of run read the same way.
 /// The path is the last two segments only: the table is scanned and the annotation is navigated,
 /// and a full path in every row crowds out the sentence that says what broke.
 ///
@@ -508,11 +508,11 @@ String _page(Run run) {
     ..writeln('<!doctype html>')
     ..writeln('<html lang="en"><head><meta charset="utf-8">')
     ..writeln('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    ..writeln('<title>Sokar frontend — test report</title>')
+    ..writeln('<title>Porelo frontend — test report</title>')
     ..writeln('<style>${_style()}</style>')
     ..writeln('</head><body>')
     ..writeln('<header>')
-    ..writeln('<h1>Sokar frontend</h1>')
+    ..writeln('<h1>Porelo frontend</h1>')
     ..writeln('<p class="run ${failed == 0 ? 'ok' : 'bad'}">'
         '${run.results.length} tests · '
         '${_verdict(failed, skipped)} · '

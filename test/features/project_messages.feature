@@ -30,7 +30,7 @@ Feature: A project's conversation, and a person joining it
     And it says {'pw-1-once'}
     And what a walk writes down does not hold {'pw-1-once'}
     And the {'login password'} is blanked in a walk's picture
-    And it says {'#sokar-checkout:localhost'}
+    And it says {'#porelo-checkout:localhost'}
     And it says {'Matrix ID'}
     And it says {'Homeserver URL'}
     And it says {'anna, as @anna:localhost'}

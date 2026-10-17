@@ -1,4 +1,4 @@
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// What the builds of a task's pushes say, in words, as the machine follows them at the forge.
 ///
@@ -71,7 +71,7 @@ abstract final class BuildsSaid {
           '  no jobs yet'
         else
           for (final job in build.jobs)
-            '  ${job.name}: ${job.result}, ${job.log.isEmpty ? 'no log here' : 'log in /sokar/files/${job.log}'}',
+            '  ${job.name}: ${job.result}, ${job.log.isEmpty ? 'no log here' : 'log in /porelo/files/${job.log}'}',
       ],
     ];
   }

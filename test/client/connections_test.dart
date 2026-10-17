@@ -4,11 +4,11 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/connections.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/mock/machine.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/mock/machine.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// How a machine connects out, over a real socket against the stand-in: the description travels,
 /// the value never does, and the command that stores it is the machine's, as arguments.
@@ -16,8 +16,8 @@ void main() {
   late MockDaemon daemon;
   late MockMachine machine;
 
-  Future<SokarClient> connect() =>
-      SokarClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() =>
+      PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   setUp(() async {
     daemon = MockDaemon();
@@ -36,7 +36,7 @@ void main() {
     final declared = await client.credentialDeclare(kind: 'SSH_KEY', match: 'git@gitlab.example:acme/x.git');
 
     expect(declared.connection.match, 'ssh://gitlab.example/acme/x.git', reason: 'normalized by the machine');
-    expect(declared.storeCommand, <String>['sokar', 'vault', 'put', 'git.ssh.gitlab.example']);
+    expect(declared.storeCommand, <String>['porelo', 'vault', 'put', 'git.ssh.gitlab.example']);
     expect(declared.storeStdin, 'the private key file', reason: 'a key is a file, not a prompt');
     expect(declared.replaced, isFalse);
   });
@@ -70,7 +70,7 @@ void main() {
 
     expect((await client.credentialCheck('/home/somebody/repo')).outcome, 'NOT_NEEDED');
     expect((await client.credentialCheck('git@nowhere.example:a/b.git')).outcome, 'NO_CREDENTIAL');
-    final github = await client.credentialCheck('git@github.com:sokar-ai/sokar-project.git');
+    final github = await client.credentialCheck('git@github.com:porelo-ai/porelo-project.git');
     expect(github.connection.id, 'git.ssh.github.com', reason: 'the longest match it has');
   });
 
@@ -94,21 +94,21 @@ void main() {
     const remote = Machine(name: 'vm', socketPath: '/tmp/x.sock', host: 'alice@vm', remoteSocket: '/run/s.sock');
     const elsewhere = Machine(name: 'forwarded', socketPath: '/tmp/y.sock');
 
-    expect(onTheMachine(remote, <String>['sokar', 'vault', 'put', 'a b'], terminal: true),
-        <String>['ssh', '-t', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'sokar vault put '\''a b'\'''"]);
-    expect(onTheMachine(remote, <String>['sokar', 'vault', 'put', 'k'], terminal: false),
-        <String>['ssh', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'sokar vault put k'"],
+    expect(onTheMachine(remote, <String>['porelo', 'vault', 'put', 'a b'], terminal: true),
+        <String>['ssh', '-t', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo vault put '\''a b'\'''"]);
+    expect(onTheMachine(remote, <String>['porelo', 'vault', 'put', 'k'], terminal: false),
+        <String>['ssh', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo vault put k'"],
         reason: 'a command fed on standard input must not have a terminal');
-    expect(onTheMachine(elsewhere, <String>['sokar'], terminal: true), isNull,
+    expect(onTheMachine(elsewhere, <String>['porelo'], terminal: true), isNull,
         reason: 'a socket somebody else forwards has no machine here to run it on');
     expect(quoteForAShell("it's"), r"'it'\''s'");
   });
 
-  test('a command on a machine runs in its login shell, so the account finds its own sokar', () {
-    // A command over ssh gets no login shell and no ~/.local/bin, and so the machine-wide sokar.
-    expect(inTheLoginShell('sokar task attach w'), r'exec "${SHELL:-/bin/sh}" -lc ' r"'sokar task attach w'");
+  test('a command on a machine runs in its login shell, so the account finds its own porelo', () {
+    // A command over ssh gets no login shell and no ~/.local/bin, and so the machine-wide porelo.
+    expect(inTheLoginShell('porelo task attach w'), r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo task attach w'");
     const remote = Machine(name: 'vm', socketPath: '/tmp/x.sock', host: 'alice@vm', remoteSocket: '/run/s.sock');
-    expect(onTheMachineAsWritten(remote, "sokar vault put 'my key'"),
-        <String>['ssh', '-t', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'sokar vault put '\''my key'\'''"]);
+    expect(onTheMachineAsWritten(remote, "porelo vault put 'my key'"),
+        <String>['ssh', '-t', 'alice@vm', r'exec "${SHELL:-/bin/sh}" -lc ' r"'porelo vault put '\''my key'\'''"]);
   });
 }

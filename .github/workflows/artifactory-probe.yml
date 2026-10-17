@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           probe="probe-${GITHUB_RUN_ID}.txt"
           echo "written by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}" > "$probe"
-          target="sokar-dist-deb/pool/main/s/sokar-frontend/"
+          target="porelo-dist-deb/pool/main/p/porelo-frontend/"
 
           jf rt upload "$probe" "$target" --flat=true \
             --target-props="deb.distribution=probe;deb.component=main;deb.architecture=amd64"
@@ -54,5 +54,5 @@ jobs:
       - name: Take the probe away again
         if: always()
         run: |
-          jf rt delete "sokar-dist-deb/pool/main/s/sokar-frontend/probe-${GITHUB_RUN_ID}.txt" \
+          jf rt delete "porelo-dist-deb/pool/main/p/porelo-frontend/probe-${GITHUB_RUN_ID}.txt" \
             --quiet || true

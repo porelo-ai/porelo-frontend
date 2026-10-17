@@ -100,7 +100,7 @@ Feature: Starting work with an agent, a mode and a credential
     Then the name is refused saying {'starts and ends with a letter or a digit'}
     And starting is not offered yet
 
-  # A login container is sokar-login-<digits>.
+  # A login container is porelo-login-<digits>.
   Scenario: a name of only digits is refused
     When I start work in this project
     And I call it {'123'}
@@ -163,12 +163,12 @@ Feature: Starting work with an agent, a mode and a credential
     Then the operation shows {'agent: reading lib/money.dart'}
 
   Scenario: a finished unattended run is continued with what it was asked to do last time
-    When I select the work {'sokar-checkout-migrate'}
+    When I select the work {'porelo-checkout-migrate'}
     And I continue this work
     Then what to ask it says {'Fix the rounding in Money.pennies'}
 
   Scenario: work that is still running is not offered a new prompt
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the command finder
     Then the command {'Continue this work with a new prompt'} is offered as unavailable
 
@@ -201,7 +201,7 @@ Feature: Starting work with an agent, a mode and a credential
     When I start work in this project
     And I choose the agent {'An Agent'}
     And I store the credential from the start
-    Then a terminal runs {'sh -c sokar vault put a-provider'} on the machine
+    Then a terminal runs {'sh -c porelo vault put a-provider'} on the machine
     When the unlock terminal ends and is put away
     Then whether work can start is asked again
 
@@ -241,7 +241,7 @@ Feature: Starting work with an agent, a mode and a credential
     When I start work in this project
     And I choose the agent {'An Agent'}
     And I log in with the agent from the start
-    Then a terminal runs {'sokar vault login --agent an-agent'} on the machine
+    Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
     When the login prints its page {'https://claude.com/cai/oauth/authorize'} and its reply port {'42017'}
     Then the reply port {'42017'} is forwarded
     And nothing was opened in the browser
@@ -300,7 +300,7 @@ Feature: Starting work with an agent, a mode and a credential
     Then the form asks to sign in to {'An Agent'} first, above everything else
     And it offers {'Sign in first'} instead of starting
     When I press {'Sign in first'}
-    Then a terminal runs {'sokar vault login --agent an-agent'} on the machine
+    Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
 
   Scenario: a sign-in that stored the credential says so, and the form moves on to the start
     Given the vault holds no credential for what a run would use
@@ -322,11 +322,11 @@ Feature: Starting work with an agent, a mode and a credential
     Then logging in is not offered
 
   Scenario: the credential is stored by the command the readiness answer names
-    Given starting says the credential is stored by {'sokar vault put a-provider'}
+    Given starting says the credential is stored by {'porelo vault put a-provider'}
     When I start work in this project
     And I choose the agent {'An Agent'}
     And I store the credential from the start
-    Then a terminal runs {'sokar vault put a-provider'} on the machine
+    Then a terminal runs {'porelo vault put a-provider'} on the machine
 
   # Asked behind an open dialog nobody awaits: a failure let through there reaches nobody but the
   # console, and the dialog sits as if it had asked nothing.
@@ -343,8 +343,8 @@ Feature: Starting work with an agent, a mode and a credential
     And I call it {'schema-work'}
     And I choose the agent {'An Agent'}
     And I start it
-    And the start brings up {'sokar-checkout-schema-work'} in {'checkout'}, running {'SHELL'}
-    Then the session on screen is {'sokar-checkout-schema-work'}
+    And the start brings up {'porelo-checkout-schema-work'} in {'checkout'}, running {'SHELL'}
+    Then the session on screen is {'porelo-checkout-schema-work'}
 
   # An unattended run has nobody at it: its log is what there is to watch.
   Scenario: an unattended run opens no session when it is up
@@ -354,7 +354,7 @@ Feature: Starting work with an agent, a mode and a credential
     And I choose {'Unattended, against a prompt'}
     And I ask it to {'run the tests'}
     And I start it
-    And the start brings up {'sokar-checkout-nightly'} in {'checkout'}, running {'UNATTENDED'}
+    And the start brings up {'porelo-checkout-nightly'} in {'checkout'}, running {'UNATTENDED'}
     Then no session was opened
 
   Scenario: a locked vault is a different sentence, and points at the machine
@@ -441,7 +441,7 @@ Feature: Starting work with an agent, a mode and a credential
     Then starting is not offered yet
     And nothing warns about starting
 
-  # A Sokar older than repositories per project names no repositories and is sent none.
+  # A Porelo older than repositories per project names no repositories and is sent none.
   Scenario: a machine that names no repositories is asked for none
     When I start work in this project
     And I choose the agent {'An Agent'}
@@ -451,8 +451,8 @@ Feature: Starting work with an agent, a mode and a credential
   # Continuing is more of the same work, so it goes on where that work is — not a new choice.
   Scenario: work continued goes on in the repository it worked in
     Given the project {'checkout'} has the repositories {'checkout, payments-api'}
-    And the work {'sokar-checkout-migrate'} works in the repository {'payments-api'}
-    When I select the work {'sokar-checkout-migrate'}
+    And the work {'porelo-checkout-migrate'} works in the repository {'payments-api'}
+    When I select the work {'porelo-checkout-migrate'}
     And I continue this work
     Then the repository {'payments-api'} is chosen
 
@@ -462,7 +462,7 @@ Feature: Starting work with an agent, a mode and a credential
     When I start work in this project
     And I choose the agent {'An Agent'}
     And I give it the entry {'a-provider'} for {'weather'}
-    Then it says {'a-provider for weather, reaching api.weather.example: inside the task as SOKAR_TOKEN_A_PROVIDER'}
+    Then it says {'a-provider for weather, reaching api.weather.example: inside the task as PORELO_TOKEN_A_PROVIDER'}
     When I start it
     Then the launch was given {'a-provider'} for {'weather'}
 
@@ -514,7 +514,7 @@ Feature: Starting work with an agent, a mode and a credential
     And the project {'checkout'} names the credential {'a-provider'} for {'weather'}
     When I start work in this project
     And I open more options
-    Then it says {'a-provider for weather: inside the task as SOKAR_TOKEN_A_PROVIDER'}
+    Then it says {'a-provider for weather: inside the task as PORELO_TOKEN_A_PROVIDER'}
     And the entry {'a-provider'} is not offered to give
 
   Scenario: a project that names no credential of its own says so

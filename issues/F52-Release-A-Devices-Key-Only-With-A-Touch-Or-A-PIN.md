@@ -12,7 +12,7 @@ supply.
 ## Why
 
 On Linux and Windows a device keeps the key that opens a vault in a store that unlocks at login, so
-anything running as that user can read it. Sokar's keyslots already carry `FIDO2` and `TPM2`
+anything running as that user can read it. Porelo's keyslots already carry `FIDO2` and `TPM2`
 (`EnrollDevice`, `Keyslot.storage`), and this interface already says what each is worth when a
 device declares one; nothing here can enroll a device that way.
 

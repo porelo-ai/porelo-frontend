@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/builds.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/builds.dart';
 
 /// Holds what a task's builds say to the answer the machine gives, field by field.
 void main() {
   Map<String, dynamic> aTask(Map<String, dynamic> builds) => <String, dynamic>{
-        'name': 'sokar-shop-1',
+        'name': 'porelo-shop-1',
         'project': 'shop',
         'securityClass': 'online',
         'state': 'Up 2 minutes',
@@ -48,7 +48,7 @@ void main() {
     expect(line.detail, '7e066aa5635c · 2 jobs, 1 failed · 2 min ago');
     expect(BuildsSaid.inTheDetail(task), <String>[
       '7e066aa5635c: failure, 2 jobs, 1 failed, since 2026-10-06T12:58:00Z',
-      '  Build / unit tests: failure, log in /sokar/files/build-7e066aa5635c-1.log',
+      '  Build / unit tests: failure, log in /porelo/files/build-7e066aa5635c-1.log',
       '  Build / lint: success, no log here',
     ]);
   });

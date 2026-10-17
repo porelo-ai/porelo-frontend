@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/gate_view.dart';
+import 'package:porelo_frontend/src/ui/gate_view.dart';
 
 /// Forwarding offers the repository's branches, the default first and chosen, and a new branch is
 /// checked before anything is sent.

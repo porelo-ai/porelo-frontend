@@ -18,7 +18,7 @@ class MockRefusal implements Exception {
   final Map<String, dynamic> parameters;
 }
 
-/// A stand-in for `sokard`, speaking real varlink over a real unix socket.
+/// A stand-in for `porelod`, speaking real varlink over a real unix socket.
 ///
 /// **Not scaffolding until the backend is ready.** It is permanent, because it produces states a
 /// real daemon cannot be made to produce on demand, and those are the hard ones: a method missing
@@ -32,10 +32,10 @@ class MockDaemon {
   ///
   /// Set it to something newer to check that a client picks the highest name it understands, or
   /// to something older to check it refuses politely.
-  List<String> interfaces = const ['org.varlink.service', 'org.fuin.sokar.Tasks1'];
+  List<String> interfaces = const ['org.varlink.service', 'org.fuin.porelo.Tasks1'];
 
   /// Interface the methods below are registered under.
-  String interfaceName = 'org.fuin.sokar.Tasks1';
+  String interfaceName = 'org.fuin.porelo.Tasks1';
 
   /// Version reported by `GetInfo`.
   String version = '0.1.0-mock';
@@ -178,7 +178,7 @@ class MockDaemon {
       return _send(client, {
         'parameters': {
           'vendor': 'fuin.org',
-          'product': 'Sokar',
+          'product': 'Porelo',
           'version': version,
           'interfaces': interfaces,
         }

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/start_work.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/start_work.dart';
 
 import '../features/support/world.dart';
 
@@ -13,7 +13,7 @@ class _Older extends FakeBackend {
       throw const FeatureNotSupported('CanStart');
 }
 
-/// A machine that never met github.com until a key of it is trusted, as Sokar answers from run 279.
+/// A machine that never met github.com until a key of it is trusted, as Porelo answers from run 279.
 class _NeverMetGitHub extends FakeBackend {
   _NeverMetGitHub() : super(const <Task>[]) {
     hostsOffer['github.com'] = const <HostKey>[
@@ -88,7 +88,7 @@ void main() {
   });
 
   test('a shell is not started either while the agent has nothing to sign in with', () async {
-    // Wherever the form is shown, a shell is the one start Sokar lets through without a credential.
+    // Wherever the form is shown, a shell is the one start Porelo lets through without a credential.
     final machine = FakeBackend(const <Task>[])
       ..nextReadiness = const Readiness(
         ready: false,
@@ -118,10 +118,10 @@ void main() {
   test("a suggested name never reuses one of the project's tasks, and is one a task can have", () async {
     final machine = FakeBackend(<Task>[
       // As a machine lists them: the container's name, and the name a person gave it as `task`.
-      Task.from(const <String, dynamic>{'name': 'sokar-checkout-payments-api', 'task': 'payments-api', 'project': 'checkout'}),
+      Task.from(const <String, dynamic>{'name': 'porelo-checkout-payments-api', 'task': 'payments-api', 'project': 'checkout'}),
       Task.from(
-          const <String, dynamic>{'name': 'sokar-checkout-payments-api-2', 'task': 'payments-api-2', 'project': 'checkout'}),
-      Task.from(const <String, dynamic>{'name': 'sokar-another-github', 'task': 'github', 'project': 'another'}),
+          const <String, dynamic>{'name': 'porelo-checkout-payments-api-2', 'task': 'payments-api-2', 'project': 'checkout'}),
+      Task.from(const <String, dynamic>{'name': 'porelo-another-github', 'task': 'github', 'project': 'another'}),
     ]);
     final project = Project.from(const <String, dynamic>{
       'name': 'checkout',

@@ -21,8 +21,8 @@ Future<void> iDeclareTheMachinesOwnKeyForFromTheInterface(WidgetTester tester, S
   if (find.byKey(const Key('connection-key')).evaluate().isNotEmpty) {
     await choose(tester, 'connection-key', 'key $theKey');
   } else {
-    // A published Sokar older than the listing: the path is typed, and the run says so.
-    debugPrint('this Sokar lists no keys; the path of $theKey was typed');
+    // A published Porelo older than the listing: the path is typed, and the run says so.
+    debugPrint('this Porelo lists no keys; the path of $theKey was typed');
     await tester.enterText(find.byKey(const Key('connection-id')), theKey!);
     await pumpFor(tester);
   }

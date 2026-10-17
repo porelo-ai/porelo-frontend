@@ -141,7 +141,7 @@ void main() {
       await itWasDeclaredAsForKeptIn(
           tester, 'TOKEN', 'https://gitlab.example/acme/', 'VAULT');
       await aTerminalRunsOnTheMachine(
-          tester, 'sokar vault put git.token.example --type token');
+          tester, 'porelo vault put git.token.example --type token');
     });
     testWidgets(
         '''an ssh key of this computer is filled from its file and sent into the vault''',
@@ -158,7 +158,8 @@ void main() {
       await iFillTheKeyFromAFile(tester);
       await iGoOn(tester);
       await iAddIt(tester);
-      await theMachineWasGivenAKeyBy(tester, 'sokar vault put git.ssh.example');
+      await theMachineWasGivenAKeyBy(
+          tester, 'porelo vault put git.ssh.example');
       await theStatusLineMentions(tester, 'is stored on');
     });
     testWidgets(
@@ -256,7 +257,7 @@ void main() {
       await itWasDeclaredIntoTheVaultFromTheFile(
           tester, '/home/me/.ssh/id_ed25519');
       await theMachineRanWithNothingOnItsStandardInput(tester,
-          'sokar vault put git.ssh.example --from-file /home/me/.ssh/id_ed25519');
+          'porelo vault put git.ssh.example --from-file /home/me/.ssh/id_ed25519');
     });
     testWidgets('''the check says who a key logs in as''', (tester) async {
       await bddSetUp(tester);
@@ -406,7 +407,7 @@ void main() {
       await iGoOn(tester);
       await iAddIt(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'sokar vault put git.token.example');
+          tester, 'porelo vault put git.token.example');
     });
     testWidgets(
         '''an account without a vault is sent to make one, and checked again''',
@@ -425,7 +426,7 @@ void main() {
       await addingItIsNotOfferedYet(tester);
       await iMakeTheVaultFromTheCheck(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault init');
+          tester, 'ssh -t alice@vm porelo vault init');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineWasAskedAgainWhetherItWouldWork(tester);
     });
@@ -444,7 +445,7 @@ void main() {
       await itSays(tester, 'the vault is shut');
       await iOpenTheVaultFromTheCheck(tester);
       await aTerminalRunsOnTheMachine(
-          tester, 'ssh -t alice@vm sokar vault unlock');
+          tester, 'ssh -t alice@vm porelo vault unlock');
       await theUnlockTerminalEndsAndIsPutAway(tester);
       await theMachineWasAskedAgainWhetherItWouldWork(tester);
     });

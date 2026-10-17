@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/e2e.dart';
 
-/// Usage: I follow {'git@github.com:sokar-ai/sokar-project.git'} as {'e2e-hostkey'} from the interface, unverified
+/// Usage: I follow {'git@github.com:porelo-ai/porelo-project.git'} as {'e2e-hostkey'} from the interface, unverified
 Future<void> iFollowAsFromTheInterfaceUnverified(WidgetTester tester, String url, String name) async {
   await toTheMachines(tester);
   await switchTo(tester, E2e.name);

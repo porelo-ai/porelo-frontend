@@ -36,8 +36,8 @@ void main() {
   Map<String, String> environment({String? exit}) => <String, String>{
         'PATH': '${shims.path}:${Platform.environment['PATH']}',
         'HOME': scratch.path,
-        'SOKAR_E2E_HOST': 'nobody@e2e.invalid',
-        'SOKAR_E2E_REMOTE_SOCKET': '/run/user/0/sokar/sokard.sock',
+        'PORELO_E2E_HOST': 'nobody@e2e.invalid',
+        'PORELO_E2E_REMOTE_SOCKET': '/run/user/0/porelo/porelod.sock',
         'E2E_FAKE_EXIT': ?exit,
       };
 

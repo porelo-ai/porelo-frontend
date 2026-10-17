@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/setup_run.dart';
+import 'package:porelo_frontend/src/app/setup_run.dart';
 
-/// What the wizard says `sokar doctor` refused, read from what it printed.
+/// What the wizard says `porelo doctor` refused, read from what it printed.
 void main() {
   test('a passing doctor refuses nothing, DEGRADED or not', () {
     expect(SetupRun.refusedBy(ProcessResult(0, 0, 'configuration key   DEGRADED - none pinned', '')), isNull);
@@ -27,8 +27,8 @@ configuration key   DEGRADED - none pinned
   });
 
   test('a refusal in words doctor did not mark is shown whole rather than lost', () {
-    expect(SetupRun.refusedBy(ProcessResult(0, 70, '', 'sokar: cannot read the configuration\n')),
-        <String>['sokar: cannot read the configuration']);
-    expect(SetupRun.refusedBy(ProcessResult(0, 70, '', '')), <String>['sokar doctor ended with 70 and said nothing.']);
+    expect(SetupRun.refusedBy(ProcessResult(0, 70, '', 'porelo: cannot read the configuration\n')),
+        <String>['porelo: cannot read the configuration']);
+    expect(SetupRun.refusedBy(ProcessResult(0, 70, '', '')), <String>['porelo doctor ended with 70 and said nothing.']);
   });
 }

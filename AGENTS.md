@@ -3,11 +3,11 @@
 `AGENTS.md` is this file, checked in and shared; `.AGENTS.md` holds what is true only on one machine
 and is never committed.
 
-## Shared across the Sokar repositories
+## Shared across the Porelo repositories
 
-> **BEGIN Shared Area** · sha256 `32234366c7b349ec` · changed 2026-10-14T17:28Z
+> **BEGIN Shared Area** · sha256 `8f49d85552af3cd1` · changed 2026-10-16T16:20Z
 
-Identical in every repository `project.yml` names but `sokar-parent`, which holds only the parent pom
+Identical in every repository `project.yml` names but `porelo-parent`, which holds only the parent pom
 and no `AGENTS.md`. The markers carry the SHA-256 of the lines between them (the first 16 hex digits)
 and the UTC time that text last changed; change it in the channel first, never in one copy.
 
@@ -140,7 +140,7 @@ and the UTC time that text last changed; change it in the channel first, never i
 - **`doc/decisions.md` opens with an index** - subject, one line of what holds, link - and a row is
   written with its decision. An accepted risk states the exposure, why it stays, and what would
   change the answer.
-- **A requirement not yet placed waits in `sokar-project`** until it is clear which repository builds
+- **A requirement not yet placed waits in `porelo-project`** until it is clear which repository builds
   it, then moves there as an issue.
 - **Every row of an index opens with an anchor named after its number**, `<a id="<number>"></a>`,
   the number lower case; a *Finished* or *Rejected* row keeps it.
@@ -193,7 +193,7 @@ and the UTC time that text last changed; change it in the channel first, never i
   machine - never which ought to have. A change to documents or issues only needs the tests tagged
   `documents`, which run alone; every test that reads a document carries that tag, and a test fails
   when one does not.
-- **A repository with a workflow runs `sokar-release`'s `check-shared`, `check-citations` and, where
+- **A repository with a workflow runs `porelo-release`'s `check-shared`, `check-citations` and, where
   there is a documentation chapter, `check-doc-site`, with the tests tagged `documents`, on every
   push and pull request**, on a GitHub runner; the build skips a change to documents only.
 - **A test result names every skipped test**, never just a count.
@@ -284,16 +284,16 @@ and the UTC time that text last changed; change it in the channel first, never i
   Grouping changes only `parent` and `relativePath`, never a `groupId` or `artifactId`.
 - **Every directory with a `pom.xml` has a `README.md`**: two or three sentences on what the module is
   and is not, a link to each of its submodules, and only the few technical facts that matter most, such
-  as what it must never depend on; details are linked in `doc/`, never repeated. `sokar-release
+  as what it must never depend on; details are linked in `doc/`, never repeated. `porelo-release
   check-readmes` holds it.
 - **Only what another repository or an outsider builds against is published to Maven Central, each such
   module opting in; the root and every grouping module are never published.** Every published pom is
-  flattened, so it names no parent and a consumer needs nothing but the module itself; `sokar-release
+  flattened, so it names no parent and a consumer needs nothing but the module itself; `porelo-release
   check-releases` refuses a release whose published pom still names one. A BOM is imported, never a
   parent.
-- **Every Sokar Maven repository takes `org.fuin.sokar:sokar-parent` as its parent** and declares only what
+- **Every Porelo Maven repository takes `org.fuin.porelo:porelo-parent` as its parent** and declares only what
   is its own; one that publishes declares `flatten-maven-plugin` by name in its root, and the parent's
-  management flattens every module. `sokar-parent` names no parent and uses nothing of another Sokar
+  management flattens every module. `porelo-parent` names no parent and uses nothing of another Porelo
   repository.
 - **Every Java package with main code is `@NullMarked` and checked by NullAway as an error when it
   compiles**, with a test that fails on an unmarked package.
@@ -304,10 +304,10 @@ and the UTC time that text last changed; change it in the channel first, never i
   sentence (never `testXxx`) and an assertion states its reason (`.as(...)`).** Every build call in
   CI names its repositories in the repository itself (Maven: `-s settings.xml`).
 - **Everything a build runs is pinned and moved only by review**: actions by commit with the version
-  beside it, the JDK (from `sokar-machines jdk --github`), the build tool's wrapper (Maven, Gradle) and
+  beside it, the JDK (from `porelo-machines jdk --github`), the build tool's wrapper (Maven, Gradle) and
   images by version and digest, updated by Dependabot weekly, in one group, after three days.
-  `sokar-release check-actions` enforces it.
-- **While it is developed, a repository may build against another Sokar repository's snapshot from
+  `porelo-release check-actions` enforces it.
+- **While it is developed, a repository may build against another Porelo repository's snapshot from
   Sonatype**, and its build may fail for a while when that snapshot moves; a release depends only on
   releases, which the release build checks.
 - **Packages are built online**: offline, the CycloneDX bill of materials skips itself with only a
@@ -318,11 +318,11 @@ and the UTC time that text last changed; change it in the channel first, never i
 - **Every native executable is built with `-march=x86-64`**, so it starts on any x86-64 CPU, and the
   build checks each executable for exactly that instruction set.
 
-> **END Shared Area** · sha256 `32234366c7b349ec`
+> **END Shared Area** · sha256 `8f49d85552af3cd1`
 
 ## This repository
 
-The Sokar interface: a Flutter desktop app (Linux) that watches and drives the Sokar daemons of
+The Porelo interface: a Flutter desktop app (Linux) that watches and drives the Porelo daemons of
 several machines over their varlink socket. Its issues carry the prefix `F`; its design is in
 `doc/design.md`, the daemon calls it uses in `doc/Backend-API.md`, what the daemon cannot do yet in
 `doc/Contract-Gaps.md`, its decisions in `doc/decisions.md`, and the guided walk in
@@ -331,12 +331,12 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 ### Running it
 
     dart tool/mock_daemon.dart                  # prints a socket and a situation to choose
-    SOKAR_SOCKET=<that socket> flutter run -d linux
+    PORELO_SOCKET=<that socket> flutter run -d linux
     dart run build_runner build                 # after adding or editing a feature file
     dart analyze                                # stays at "No issues found!"
     flutter test                                # the whole suite
     flutter test --tags documents               # a change to documents or issues alone
-    tool/e2e.sh                                 # the integration leg, against SOKAR_E2E_HOST
+    tool/e2e.sh                                 # the integration leg, against PORELO_E2E_HOST
     flutter build linux --release && tool/package.sh
 
 - **`dart analyze`, never `flutter analyze`**, which rewrites `analysis_options.yaml` with an exclude
@@ -354,8 +354,8 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 
 ### The contract
 
-- **Everything reaches a daemon through `org.fuin.sokar.Tasks1` over its socket; nothing parses the
-  `sokar` CLI and no code is shared with the backend.** `ssh` (transport), `sokar task attach` in a
+- **Everything reaches a daemon through `org.fuin.porelo.Tasks1` over its socket; nothing parses the
+  `porelo` CLI and no code is shared with the backend.** `ssh` (transport), `porelo task attach` in a
   pty (a session the contract cannot carry), a command the machine itself names, and `notify-send`
   (the desktop) are not breaches. Nothing reads or writes a backend's files.
 - **No design here needs a token, a session or a login screen**; one that seems to is said in the
@@ -365,8 +365,8 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **A requirement is checked against the IDL parameter by parameter and field by field**, never
   against a method's name or a field named in prose. `doc/Contract-Gaps.md` is read before a
   requirement is picked up; what the daemon lacks goes there and is raised as a requirement in
-  `sokar`, never designed around, and comes off the page once it has landed.
-- **Take the highest `org.fuin.sokar.TasksN` `GetInfo` offers, turn `MethodNotFound` into
+  `porelo`, never designed around, and comes off the page once it has landed.
+- **Take the highest `org.fuin.porelo.TasksN` `GetInfo` offers, turn `MethodNotFound` into
   `FeatureNotSupported` for that feature alone, ignore unknown fields, and render an unknown enum
   value rather than throwing** (`Outcome` is no Dart enum); a feature is never gated on the build
   version.
@@ -392,7 +392,7 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   believed only once a connection through it arrives**, and only what was raised here is ever taken
   down.
 - **A command run on a machine over ssh goes through its login shell** (`inTheLoginShell`), or it
-  meets the machine-wide `sokar` instead of the account's own.
+  meets the machine-wide `porelo` instead of the account's own.
 - **Nothing forks out of Dart**: a pty child is made with `posix_spawn` and `POSIX_SPAWN_SETSID` and
   takes the terminal by opening it without `O_NOCTTY`.
 - **The settings file is written beside itself and renamed over, and every stored field is checked
@@ -412,8 +412,8 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **A spacing, width or radius is spelled only in `tokens.dart`, a width compared only in
   `window_size.dart`**, which reads the window, never the pane; icons are outlined, filled only when
   selected.
-- **`SOKAR_SOCKET` is read only in `Machine.local()`.**
-- **A node is an OS user with a `sokard`, so nothing is keyed by hostname alone; a host is an egress
+- **`PORELO_SOCKET` is read only in `Machine.local()`.**
+- **A node is an OS user with a `porelod`, so nothing is keyed by hostname alone; a host is an egress
   destination, never a machine.**
 - **No credential value is shown, stored, logged or sent over the socket**; credentials are listed by
   name, kind and length, a value reaches a machine by its own command, and nothing promises to wipe
@@ -429,14 +429,14 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **Features are Gherkin files generated into widget tests by `bdd_widget_test`, and the generated
   tests are committed.** A `Feature` line is one short sentence, step wording is an API reused as
   is, and an apostrophe or a `$` in a step's text breaks the generated Dart.
-- **No requirement id appears outside `issues/`**: `sokar-release check-citations .` enforces it, and
+- **No requirement id appears outside `issues/`**: `porelo-release check-citations .` enforces it, and
   `check-doc-site doc mkdocs.yml` holds `doc/` to the site's navigation, and `check-readmes .` the
   `README.md` beside `pom.xml`; all three run on the host before every hand-over, and
   `shared-rules` once a day. A channel question number is kept out of the code by
   `test/features_named_test.dart`.
 - **Three levels**: the frame against `FakeBackend` in `testWidgets`; the client against `MockDaemon`
   over a real unix socket in plain `test()`; `test/client/live_daemon_test.dart` against a real
-  `sokard` when `SOKAR_SOCKET` is set (and `SOKAR_VAULT_TEST=1` for the vault round trip).
+  `porelod` when `PORELO_SOCKET` is set (and `PORELO_VAULT_TEST=1` for the vault round trip).
 - **A socket never completes inside `testWidgets`**, which runs on a fake clock.
 - **A stand-in acts on what it is told and is never canned**; the mock serves `pushes` for `Watch` and
   `Prompts` and `stream` for anything finite, driven by the test, never by the clock.
@@ -445,12 +445,12 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **A unix socket path is limited to about 108 bytes.**
 - **The integration leg runs headless under `xvfb-run` inside `dbus-run-session`**, the app with its
   own config and runtime directories; `./mvnw verify -Pe2e,hetzner` rents a machine through
-  `sokar-machines` and sweeps it after a red run too.
+  `porelo-machines` and sweeps it after a red run too.
 
 ### Building and publishing
 
 - **Packages are `.deb` and `.rpm` from `tool/package.sh` with nfpm**, `type: tree`, dependencies
-  derived from the ELF files (never listed), `recommends: sokar`, `amd64` only;
+  derived from the ELF files (never listed), `recommends: porelo`, `amd64` only;
   `test/packaging_test.dart` asserts the template with comments stripped.
 - **Every build job runs on `ubuntu-22.04`**, because the bundle links the system GTK, so the build
   machine is the oldest one the package installs on.

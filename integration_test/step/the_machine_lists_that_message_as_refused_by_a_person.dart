@@ -7,7 +7,7 @@ import '../support/remote.dart';
 /// Usage: the machine lists that message as refused by a person
 Future<void> theMachineListsThatMessageAsRefusedByAPerson(WidgetTester tester) async {
   final listed = await onTheTestMachine(
-      'PATH="\$HOME/.local/bin:\$PATH"; sokar talk held sokar-e2e-talk-e2e-talk');
+      'PATH="\$HOME/.local/bin:\$PATH"; porelo talk held porelo-e2e-talk-e2e-talk');
   expect(listed, contains(theHeldMessage));
   expect(listed.split('\n').firstWhere((line) => line.contains(theHeldMessage!)), contains('refused'));
   // The dialog closed itself once decided; closed here only where it stayed.

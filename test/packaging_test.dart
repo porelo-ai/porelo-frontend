@@ -23,7 +23,7 @@ void main() {
       .split('\n')
       .where((line) => !line.trimLeft().startsWith('#'))
       .join('\n');
-  final desktop = File('packaging/sokar-frontend.desktop').readAsStringSync();
+  final desktop = File('packaging/porelo-frontend.desktop').readAsStringSync();
 
   String desktopField(String key) => desktop
       .split('\n')
@@ -32,11 +32,11 @@ void main() {
       .trim();
 
   test('the desktop entry starts the binary the package actually installs', () {
-    // The entry in /usr/bin is a symlink named sokar-frontend; the bundle's own launcher is
-    // sokar_frontend, with an underscore. Pointing Exec at the wrong one gives a menu entry that
+    // The entry in /usr/bin is a symlink named porelo-frontend; the bundle's own launcher is
+    // porelo_frontend, with an underscore. Pointing Exec at the wrong one gives a menu entry that
     // does nothing, and nothing about installing the package would say so.
-    expect(desktopField('Exec'), 'sokar-frontend');
-    expect(template, contains('dst: /usr/bin/sokar-frontend'));
+    expect(desktopField('Exec'), 'porelo-frontend');
+    expect(template, contains('dst: /usr/bin/porelo-frontend'));
     expect(template, contains('type: symlink'));
   });
 
@@ -68,7 +68,7 @@ void main() {
     // An interface pointed at a remote daemon over a forwarded socket is useful with no local
     // backend at all, so a hard dependency would put one on a laptop that never needed it.
     expect(template, contains('recommends:'));
-    expect(template, contains('- sokar'));
+    expect(template, contains('- porelo'));
   });
 
   test('the bundle is installed as a tree, not flattened into one directory', () {
@@ -121,8 +121,8 @@ void main() {
 
     test('it publishes to the distribution the channel names, which consumers name', () {
       // A consumer puts that word in their sources.list, so snapshots and a release can never mix.
-      expect(workflow, contains('sokar-dist-deb/pool/main/s/sokar-frontend/'));
-      expect(workflow, contains(r'sokar-dist-rpm/${CHANNEL}/'));
+      expect(workflow, contains('porelo-dist-deb/pool/main/p/porelo-frontend/'));
+      expect(workflow, contains(r'porelo-dist-rpm/${CHANNEL}/'));
       expect(workflow, contains(r'dists/${CHANNEL}/main'));
     });
 
@@ -185,16 +185,16 @@ void main() {
       expect('uses: ./.github/actions/pinned-jdk'.allMatches(build).length, 2,
           reason: 'both jobs that run Maven take the pinned JDK');
       final action = File('.github/actions/pinned-jdk/action.yml').readAsStringSync();
-      expect(action, contains('org.fuin.sokar.machines.Main jdk --github'));
+      expect(action, contains('org.fuin.porelo.machines.Main jdk --github'));
       expect(action, contains(r'"$JAVA_HOME_25_X64/bin/java"'),
           reason: "the runner's own Java only runs the tool");
     });
 
     test('check-actions runs in the build', () {
-      // The one test for what a build runs being pinned, for every Sokar repository alike: the
+      // The one test for what a build runs being pinned, for every Porelo repository alike: the
       // pins, Dependabot with its cooldown and group, and the digest of what mvnw downloads.
       expect(File('.github/workflows/build.yml').readAsStringSync(),
-          contains('org.fuin.sokar.release.Main check-actions'));
+          contains('org.fuin.porelo.release.Main check-actions'));
     });
 
     test('the builder that writes the packages is pinned by digest', () {
@@ -273,8 +273,8 @@ void main() {
       for (final system in <String>['ubuntu:26.04@sha256:', 'debian:13@sha256:', 'fedora:43@sha256:', 'fedora:44@sha256:']) {
         expect(workflow, contains(system), reason: 'each supported system, pinned by its digest');
       }
-      expect(workflow, isNot(contains('debian:12')), reason: 'below what Sokar supports');
-      expect(workflow, isNot(contains('fedora:40')), reason: 'below what Sokar supports');
+      expect(workflow, isNot(contains('debian:12')), reason: 'below what Porelo supports');
+      expect(workflow, isNot(contains('fedora:40')), reason: 'below what Porelo supports');
     });
 
     // A release is never replaced, so it is never published beside a leg still

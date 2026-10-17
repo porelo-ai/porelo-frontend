@@ -4,8 +4,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/wsl.dart';
-import 'package:sokar_frontend/src/ui/terminal_diagnosis.dart';
+import 'package:porelo_frontend/src/app/wsl.dart';
+import 'package:porelo_frontend/src/ui/terminal_diagnosis.dart';
 
 /// `--diagnose-terminal`: every key and wheel event that reaches the terminal widget is shown and
 /// logged, with the bytes the terminal would send, and those bytes are carried into WSL to be read
@@ -15,7 +15,7 @@ void main() {
   late File log;
   setUp(() {
     place = Directory.systemTemp.createTempSync('diagnose-');
-    log = File('${place.path}/sokar-terminal-diagnose.txt');
+    log = File('${place.path}/porelo-terminal-diagnose.txt');
   });
   tearDown(() => place.deleteSync(recursive: true));
 

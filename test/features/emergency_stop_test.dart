@@ -82,7 +82,7 @@ void main() {
       await oneHelperWillOutliveTheStop(tester);
       await iAskToStopEverything(tester);
       await iAgreeToStopEverything(tester);
-      await itNamesTheHelper(tester, 'sokar-checkout-shell-gate (pid 4711)');
+      await itNamesTheHelper(tester, 'porelo-checkout-shell-gate (pid 4711)');
       await itSays(tester, 'killed on the machine by hand');
     });
     testWidgets('''losing the machine mid-stop says nothing was stopped''',
@@ -99,7 +99,7 @@ void main() {
       await bddSetUp(tester);
       await iAskToStopEverything(tester);
       await iAgreeToStopEverything(tester);
-      await itNamesTheWorkAmongWhatWasStopped(tester, 'sokar-checkout-shell');
+      await itNamesTheWorkAmongWhatWasStopped(tester, 'porelo-checkout-shell');
     });
     testWidgets('''a preview promises nothing about what will survive''',
         (tester) async {

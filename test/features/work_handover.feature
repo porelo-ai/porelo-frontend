@@ -11,12 +11,12 @@ Feature: Reviewing what work pushed, and what it holds back
   # Answered on the task itself. Nothing joins it to the gate: this container's
   # name is not the ref, and several containers over time share one.
   Scenario: work whose own commits are waiting for review says so on its detail
-    When I select the work {'sokar-checkout-migrate'}
+    When I select the work {'porelo-checkout-migrate'}
     And I open the selection
     Then it says {'its own work is waiting for review'}
 
   Scenario: work with nothing of its own waiting says that instead
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'nothing of its own is waiting'}
 
@@ -30,7 +30,7 @@ Feature: Reviewing what work pushed, and what it holds back
   Scenario: a waiting push can be fetched into the person's own clone
     When I review what is waiting at the gate
     And I open the waiting push
-    Then it says {'git fetch ssh://sokar@build-01/srv/checkout/.sokar/mirror refs/sokar/incoming/migrate:refs/remotes/sokar/migrate'}
+    Then it says {'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror refs/porelo/incoming/migrate:refs/remotes/porelo/migrate'}
     And it says {'safe mode'}
 
   Scenario: the diff leaves the interface in one action, for reading somewhere else
@@ -40,7 +40,7 @@ Feature: Reviewing what work pushed, and what it holds back
     Then what was copied mentions {'lib/money.dart'}
     And what was copied mentions {'(value * 100).round()'}
 
-  # Sokar names a waiting commit in full, and takes only the full id back (seven characters can be met
+  # Porelo names a waiting commit in full, and takes only the full id back (seven characters can be met
   # by another commit ground out while the person reads); the list shows it short.
   Scenario: a waiting push is listed by its short commit, and forwarded by its full one
     When I review what is waiting at the gate
@@ -124,12 +124,12 @@ Feature: Reviewing what work pushed, and what it holds back
     Then it says {'Work can also be pushed straight upstream by hand'}
     And it says {'per clone, on the machine you push from'}
 
-  # Withdrawn entirely, not reworded into a smaller feature: Sokar does not know
+  # Withdrawn entirely, not reworded into a smaller feature: Porelo does not know
   # what instruction files are called, and cannot merge them, because how an agent combines
   # several is that agent's rule. A screen guessing a set of filenames would answer "no
   # instructions" with confidence for a task that had them.
   Scenario: where somebody asks what an agent was told, the answer is not here
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'in the repository — nothing here has a view of them'}
 
@@ -138,7 +138,7 @@ Feature: Reviewing what work pushed, and what it holds back
   # per row.
   Scenario: what a running task holds that never reached the gate is on its detail
     Given the work holds {2} unpushed commits and {3} changed files
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'holds 2 unpushed commits and 3 changed files'}
 
@@ -146,22 +146,22 @@ Feature: Reviewing what work pushed, and what it holds back
   # safe to remove a task without asking.
   Scenario: holding nothing is said as holding nothing
     Given the work holds {0} unpushed commits and {0} changed files
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'holds nothing that never reached the gate'}
 
   Scenario: a task nobody could look inside says that, not that it holds nothing
     Given nobody could look inside the work
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'nothing recorded what it held'}
-    And it says {'killed, rebooted, or stopped by an older Sokar'}
+    And it says {'killed, rebooted, or stopped by an older Porelo'}
 
   # "Holds" and "held" are different sentences: a stopped task's workspace is inside a container
   # that is no longer up, so the only source is what the stop wrote down.
   Scenario: a stopped task says what it held when it stopped, and when that was
     Given the work held {4} unpushed commits when it stopped
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'held 4 unpushed commits when it stopped'}
     And it says {'minutes ago'}
@@ -170,7 +170,7 @@ Feature: Reviewing what work pushed, and what it holds back
   # mistake arrive as a legitimate reading.
   Scenario: a name the machine does not know is refused rather than read as unreadable
     Given the machine knows no such task
-    When I select the work {'sokar-checkout-shell'}
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
     Then it says {'does not know a task called'}
 
@@ -195,7 +195,7 @@ Feature: Reviewing what work pushed, and what it holds back
     Then it says {'Round to the nearest penny, not away from zero'}
     And it says {'payments-api could not be read'}
 
-  # A Sokar older than repositories per project names no repositories and knows no repository field.
+  # A Porelo older than repositories per project names no repositories and knows no repository field.
   Scenario: a machine that names no repositories is asked about none
     When I review what is waiting at the gate
     And I open the waiting push
@@ -204,8 +204,8 @@ Feature: Reviewing what work pushed, and what it holds back
 
   Scenario: work names the repository it works in on its detail
     Given the project {'checkout'} has the repositories {'checkout, payments-api'}
-    And the work {'sokar-checkout-migrate'} works in the repository {'payments-api'}
-    When I select the work {'sokar-checkout-migrate'}
+    And the work {'porelo-checkout-migrate'} works in the repository {'payments-api'}
+    When I select the work {'porelo-checkout-migrate'}
     And I open the selection
     Then it says {'payments-api'}
 
@@ -244,7 +244,7 @@ Feature: Reviewing what work pushed, and what it holds back
     And I open the waiting push
     Then it says {'what it was asked is not known here'}
 
-  # A Sokar older than the ranked review answers no files: the review is what it was before.
+  # A Porelo older than the ranked review answers no files: the review is what it was before.
   Scenario: a machine that does not rank the review shows it as before
     When I review what is waiting at the gate
     And I open the waiting push

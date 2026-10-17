@@ -12,7 +12,7 @@ Feature: Listing the agents a machine has, and what each one may reach
     Then it lists the agent {'An Agent'}
     And it says {'2.4.0'}
     When I open the agent {'An Agent'}
-    Then it says {'/usr/share/sokar/agents/an-agent.yml'}
+    Then it says {'/usr/share/porelo/agents/an-agent.yml'}
 
   Scenario: an agent that reports no version says so rather than showing a blank
     When I show the agents installed here
@@ -59,7 +59,7 @@ Feature: Listing the agents a machine has, and what each one may reach
   Scenario: a copy that is installed and never used names the one that runs instead
     Given one agent is shadowed by another copy
     When I show the agents installed here
-    Then it lists the unused copy {'/usr/libexec/sokar/agents/an-agent'}
+    Then it lists the unused copy {'/usr/libexec/porelo/agents/an-agent'}
     And it says {'runs instead'}
 
   # The answer to "did a person or an agent write this commit?", which had nowhere to be looked up
@@ -68,7 +68,7 @@ Feature: Listing the agents a machine has, and what each one may reach
   Scenario: an agent says who its commits are attributed to
     When I show the agents installed here
     And I open the agent {'An Agent'}
-    Then it says {'An Agent <an-agent@sokar.invalid>'}
+    Then it says {'An Agent <an-agent@porelo.invalid>'}
 
   Scenario: an agent installed before that was reported says so rather than showing a blank
     When I show the agents installed here

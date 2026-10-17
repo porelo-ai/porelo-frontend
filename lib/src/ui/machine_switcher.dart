@@ -193,7 +193,7 @@ class _AskForAMachine extends StatefulWidget {
   /// How many ways into a machine's vault there are, asked over its socket.
   final Future<int?> Function(Machine machine)? countKeyslots;
 
-  /// Where Sokar's socket is for the account a login reaches, asked of that machine; null where
+  /// Where Porelo's socket is for the account a login reaches, asked of that machine; null where
   /// nothing can ask, and the socket must then be typed.
   final Future<String?> Function(String host)? socketAt;
 
@@ -236,7 +236,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   MachineKind? _kind;
 
   /// Whether the person may run commands as root on that machine - sudo, or root logging in. Asked
-  /// first: only then is Sokar set up there from here (walk 9); without it, a Sokar
+  /// first: only then is Porelo set up there from here (walk 9); without it, a Porelo
   /// somebody else set up is connected to. **Nothing is preselected.**
   bool? _admin;
 
@@ -360,9 +360,9 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   /// The line that forwards the socket, with the local end filled in.
   String get _recipe {
     final local = _socket.text.trim().isEmpty
-        ? '/tmp/sokard-remote.sock'
+        ? '/tmp/porelod-remote.sock'
         : _socket.text.trim();
-    return 'ssh -L $local:/run/user/<uid>/sokar/sokard.sock user@host -N';
+    return 'ssh -L $local:/run/user/<uid>/porelo/porelod.sock user@host -N';
   }
 
   @override
@@ -541,10 +541,10 @@ class _AskForAMachineState extends State<_AskForAMachine> {
             }),
             choices: const <Choice<bool>>[
               Choice(true, 'Yes: I may run commands as root there', id: 'machine-admin-yes',
-                  means: 'With sudo, or because root logs in. Sokar can be set up there from here, every '
+                  means: 'With sudo, or because root logs in. Porelo can be set up there from here, every '
                       'command shown before it runs.'),
-              Choice(false, 'No: somebody else set Sokar up there for me', id: 'machine-admin-no',
-                  means: 'Only connecting to a Sokar that already runs there is offered.'),
+              Choice(false, 'No: somebody else set Porelo up there for me', id: 'machine-admin-no',
+                  means: 'Only connecting to a Porelo that already runs there is offered.'),
             ],
           ),
           if (_admin != null) ...<Widget>[
@@ -584,7 +584,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
             controller: _user,
             decoration: InputDecoration(
               labelText: 'The user that runs work there',
-              helperText: "Created by Sokar's setup script, with its own daemon and vault.",
+              helperText: "Created by Porelo's setup script, with its own daemon and vault.",
               errorText: Settings.isUserName(_user.text.trim())
                   ? null
                   : 'Lower-case letters, digits, _ and -, starting with a letter',
@@ -619,10 +619,10 @@ class _AskForAMachineState extends State<_AskForAMachine> {
             key: const Key('machine-remote-socket'),
             decoration: InputDecoration(
               labelText: 'Its socket, on that machine',
-              hintText: '/run/user/<uid>/sokar/sokard.sock',
+              hintText: '/run/user/<uid>/porelo/porelod.sock',
               helperText: widget.socketAt == null
                   ? 'The uid is that of the user you log in as, on that machine.'
-                  : 'Leave it empty and the machine is asked where Sokar serves the user you log in as.',
+                  : 'Leave it empty and the machine is asked where Porelo serves the user you log in as.',
               border: const OutlineInputBorder(),
             ),
           ),
@@ -632,7 +632,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
             key: const Key('machine-socket'),
             decoration: const InputDecoration(
               labelText: 'Forwarded socket',
-              hintText: '/tmp/sokard-remote.sock',
+              hintText: '/tmp/porelod-remote.sock',
               border: OutlineInputBorder(),
             ),
           ),
@@ -645,7 +645,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
           _Recipe(command: _recipe),
           const SizedBox(height: Space.normal),
           Text(
-            'A remote Sokar is its own socket, forwarded — same calls, same replies, same '
+            'A remote Porelo is its own socket, forwarded — same calls, same replies, same '
             'code.',
             key: const Key('how-to-forward'),
             style: Theme.of(context).textTheme.bodySmall,
@@ -718,7 +718,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
           key: const Key('offer-again'),
           onPressed: _starting ? null : _askToStart,
           icon: const Icon(Icons.play_arrow_outlined, size: Sizes.rowIcon),
-          label: const Text('Start Sokar there'),
+          label: const Text('Start Porelo there'),
         ),
       ];
 
@@ -731,7 +731,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'Nothing serves on ${_host.text.trim()}. Start Sokar there?',
+          'Nothing serves on ${_host.text.trim()}. Start Porelo there?',
           key: const Key('offer-to-start'),
         ),
         content: SizedBox(
@@ -746,7 +746,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
               ),
               const SizedBox(height: Space.small),
               // There to be read, not in the way: a screen of shell is the first thing somebody new
-              // to Sokar would otherwise meet, and the sentence above says what it does.
+              // to Porelo would otherwise meet, and the sentence above says what it does.
               Theme(
                 data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
@@ -821,7 +821,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
     setState(() {
       _trial = Trial(
         reached: false,
-        words: 'Could not log in to $host to ask where Sokar is for you there. '
+        words: 'Could not log in to $host to ask where Porelo is for you there. '
             '${widget.whyNotLoggedIn?.call() ?? 'Check that ssh $host works without a question, or type its socket.'}',
       );
       _triedFor = _signature;

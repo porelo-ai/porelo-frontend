@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/gate.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/gate.dart';
 
 import 'fleet_model_test.dart' show aBackendThatRefusesEverything;
 
@@ -54,7 +54,7 @@ class _OneOfTwoGatesReadable implements FleetBackend {
   Future<GateState> gateOf(String projectFile, {String? repository}) async {
     if (repository == 'payments-api') {
       throw const VarlinkException(
-          'org.fuin.sokar.Tasks1.Failed', <String, dynamic>{'message': 'the mirror is missing'});
+          'org.fuin.porelo.Tasks1.Failed', <String, dynamic>{'message': 'the mirror is missing'});
     }
     return GateState.from(const <String, dynamic>{
       'mode': 'gatekeeping',

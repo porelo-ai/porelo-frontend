@@ -10,38 +10,38 @@ Feature: Daily work in front, setting up machines and projects apart
 
   Scenario: the window opens on the work of every machine, what waits for a person first
     Then the section shown is {'Work'}
-    And the work {'sokar-checkout-migrate'} is in the group {'waiting'}
-    And the work {'sokar-checkout-shell'} is in the group {'running'}
-    And the work {'sokar-billing-shell'} is in the group {'running'}
+    And the work {'porelo-checkout-migrate'} is in the group {'waiting'}
+    And the work {'porelo-checkout-shell'} is in the group {'running'}
+    And the work {'porelo-billing-shell'} is in the group {'running'}
 
   # Walk 9: stopped work is rarely what a person looks for, so its group starts shut.
   Scenario: stopped work is shown apart, its group shut until opened
-    Given the work {'sokar-billing-shell'} has stopped
+    Given the work {'porelo-billing-shell'} has stopped
     Then the group {'stopped'} is shut {true}
     When I open the group {'stopped'}
-    Then the work {'sokar-billing-shell'} is in the group {'stopped'}
+    Then the work {'porelo-billing-shell'} is in the group {'stopped'}
 
   # Walk 9: a tile is its work, its machine and its mark; the rest when opened.
   Scenario: a tile on the work page is folded to its work and machine, and opened for the rest
-    Then the tile {'sokar-billing-shell'} is folded {true}
-    When I open the tile {'sokar-billing-shell'}
-    Then the tile {'sokar-billing-shell'} is folded {false}
+    Then the tile {'porelo-billing-shell'} is folded {true}
+    When I open the tile {'porelo-billing-shell'}
+    Then the tile {'porelo-billing-shell'} is folded {false}
 
   Scenario: a tile that asks something of a person is never folded
-    Then the tile {'sokar-checkout-migrate'} is folded {false}
+    Then the tile {'porelo-checkout-migrate'} is folded {false}
 
   # Walk 9: within each group, the work active last comes first.
   Scenario: the work in a group is in the order of its last activity, newest first
-    Given the work {'sokar-billing-shell'} has been in its state since {'2026-10-03T08:00:00Z'}
-    And the work {'sokar-checkout-shell'} has been in its state since {'2026-10-01T08:00:00Z'}
-    Then the work {'sokar-billing-shell'} comes before {'sokar-checkout-shell'}
+    Given the work {'porelo-billing-shell'} has been in its state since {'2026-10-03T08:00:00Z'}
+    And the work {'porelo-checkout-shell'} has been in its state since {'2026-10-01T08:00:00Z'}
+    Then the work {'porelo-billing-shell'} comes before {'porelo-checkout-shell'}
 
   Scenario: the work is narrowed to one project, and widened back
     When I narrow the work to the project {'billing'}
-    Then no tile is shown for {'sokar-checkout-shell'}
-    And the work {'sokar-billing-shell'} is in the group {'running'}
+    Then no tile is shown for {'porelo-checkout-shell'}
+    And the work {'porelo-billing-shell'} is in the group {'running'}
     When I narrow the work to every project
-    Then the work {'sokar-checkout-shell'} is in the group {'running'}
+    Then the work {'porelo-checkout-shell'} is in the group {'running'}
 
   Scenario: new work asks in which project, and opens the start for it
     When I start new work
@@ -88,33 +88,33 @@ Feature: Daily work in front, setting up machines and projects apart
   # What a tile's action answered was said only on the machine's page, and from the work page an
   # action seemed to do nothing (found running the leased machine's leg against the new window).
   Scenario: what an action from a tile answers is said on the work page
-    When I choose {'Write to its agent'} from the menu of the tile {'sokar-checkout-migrate'}
+    When I choose {'Write to its agent'} from the menu of the tile {'porelo-checkout-migrate'}
     And I put {'the schema changed'} in its inbox
     Then the section shown is {'Work'}
-    And the status line mentions {'Written into the inbox of sokar-checkout-migrate'}
+    And the status line mentions {'Written into the inbox of porelo-checkout-migrate'}
 
   Scenario: the order follows the last activity, whichever work it was
-    Given the work {'sokar-checkout-shell'} has been in its state since {'2026-10-03T08:00:00Z'}
-    And the work {'sokar-billing-shell'} has been in its state since {'2026-10-01T08:00:00Z'}
-    Then the work {'sokar-checkout-shell'} comes before {'sokar-billing-shell'}
+    Given the work {'porelo-checkout-shell'} has been in its state since {'2026-10-03T08:00:00Z'}
+    And the work {'porelo-billing-shell'} has been in its state since {'2026-10-01T08:00:00Z'}
+    Then the work {'porelo-checkout-shell'} comes before {'porelo-billing-shell'}
 
   # Walk 9: "Stopped (10)" stayed at 10 after one was removed.
   Scenario: removing stopped work counts it out of its group
-    Given the work {'sokar-billing-shell'} has stopped
-    And the work {'sokar-billing-audit'} has stopped
+    Given the work {'porelo-billing-shell'} has stopped
+    And the work {'porelo-billing-audit'} has stopped
     When I open the group {'stopped'}
     Then it says {'Stopped (2)'}
-    When I choose {'Remove it'} from the menu of the tile {'sokar-billing-shell'}
+    When I choose {'Remove it'} from the menu of the tile {'porelo-billing-shell'}
     And I press {'Remove it'}
     Then it says {'Stopped (1)'}
 
   # Walk 9: a removal the machine refused was said only in the status line of the
   # work page, and "nothing happens" was what was seen.
   Scenario: a removal the machine refuses is put in front of the person on the work page
-    Given the work {'sokar-billing-shell'} has stopped
+    Given the work {'porelo-billing-shell'} has stopped
     And removing will refuse because the work is held
     When I open the group {'stopped'}
-    And I choose {'Remove it'} from the menu of the tile {'sokar-billing-shell'}
+    And I choose {'Remove it'} from the menu of the tile {'porelo-billing-shell'}
     And I press {'Remove it'}
     Then what is held is shown
     # Walk 9: the group that had been opened was shut again once the refusal was decided.
@@ -135,8 +135,8 @@ Feature: Daily work in front, setting up machines and projects apart
     And no work is shown on this page
     When I go to its work
     Then the section shown is {'Work'}
-    And no tile is shown for {'sokar-checkout-shell'}
-    And the work {'sokar-billing-shell'} is in the group {'running'}
+    And no tile is shown for {'porelo-checkout-shell'}
+    And the work {'porelo-billing-shell'} is in the group {'running'}
 
   # Walk 9: removing a machine from the list sent the window to Needs you.
   Scenario: removing a machine from the list stays on the list

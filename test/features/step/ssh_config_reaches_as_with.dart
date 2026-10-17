@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: ssh config reaches {'sokar-the-build-machine'} as {'agent'} with {'sokar-the-build-machine'}
+/// Usage: ssh config reaches {'porelo-the-build-machine'} as {'agent'} with {'porelo-the-build-machine'}
 Future<void> sshConfigReachesAsWith(WidgetTester tester, String alias, String user, String key) async {
   final config = '${World.setup.home.path}/.ssh/config';
   final text = File(config).readAsStringSync();

@@ -2,7 +2,7 @@
 
 **Status:** Estimated.
 **Size:** M - the review's model and view are rewritten in one repository, with a new dependency for
-syntax colors; it becomes L if showing the whole file needs a method from `sokar`.
+syntax colors; it becomes L if showing the whole file needs a method from `porelo`.
 
 **What must be true.** A person reads a waiting push the way they read a pull request at a forge,
 not as git's change format.
@@ -21,7 +21,7 @@ per file opening to its `_Line`s, with `_OwnClone` and *Copy the diff* in `_Deci
 lives for the whole app (`lib/main.dart`), so what it keeps survives leaving the review.
 
 - **Two panes.** `ReviewView` becomes a file list on the left, in `gate.ranked` order (or
-  `gate.changed` from a Sokar that does not rank), and the chosen file on the right. Red first: the
+  `gate.changed` from a Porelo that does not rank), and the chosen file on the right. Red first: the
   scenario "a push is reviewed in the order that matters" in `work_handover.feature`, asserting the
   left list's order.
 - **Side by side or inline.** `diff.dart` gains a pairing of removed and added lines into rows for

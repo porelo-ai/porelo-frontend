@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/conpty.dart';
+import 'package:porelo_frontend/src/app/conpty.dart';
 
 /// The one string a Windows program is started with, quoted so that it splits back into exactly the
 /// arguments the interface meant: a task's name, a distribution's or a host's is never cut in two
 /// or joined with the next.
 void main() {
   test('plain arguments are written as they are', () {
-    expect(windowsCommandLine(<String>['wsl.exe', '-d', 'Ubuntu', '--', 'sokar', 'task', 'attach', 'fix-it']),
-        'wsl.exe -d Ubuntu -- sokar task attach fix-it');
+    expect(windowsCommandLine(<String>['wsl.exe', '-d', 'Ubuntu', '--', 'porelo', 'task', 'attach', 'fix-it']),
+        'wsl.exe -d Ubuntu -- porelo task attach fix-it');
   });
 
   test('an argument with a space or a tab is quoted, and an empty one is kept', () {

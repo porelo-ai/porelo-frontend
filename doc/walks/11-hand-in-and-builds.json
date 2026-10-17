@@ -2,11 +2,11 @@
   "title": "Walk 11: a file handed to the work, and the build of its push",
   "steps": [
     {
-      "say": "Walk 11: eine Datei an die Arbeit geben und zurücknehmen, und was der Build ihres Pushs sagt, mit dem echten Claude Code auf testmaschine. Zuerst den Tresor von testmaschine öffnen (er ist seit dem Neustart der VM zu), in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar vault list && sokar project following\"'\n\n„vault list“ nennt sokar-test-actions und die drei deploy:sokar-test-project:…; „project following“ zeigt c42f9cd, nicht mehr vault_locked. Dann „Next“ hier.",
+      "say": "Walk 11: eine Datei an die Arbeit geben und zurücknehmen, und was der Build ihres Pushs sagt, mit dem echten Claude Code auf testmaschine. Zuerst den Tresor von testmaschine öffnen (er ist seit dem Neustart der VM zu), in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"porelo vault unlock && porelo vault list && porelo project following\"'\n\n„vault list“ nennt porelo-test-actions und die drei deploy:porelo-test-project:…; „project following“ zeigt c42f9cd, nicht mehr vault_locked. Dann „Next“ hier.",
       "at": []
     },
     {
-      "say": "Links „Machines“: testmaschine antwortet mit Sokar 0.4.1~snapshot.259. Fehlt testmaschine in der Liste: „Watch another machine…“, Name testmaschine, „Raise the forward for me“, „Where it is“ <Konto>@<Adresse der Testmaschine>, das Socket-Feld leer lassen (die Maschine wird gefragt).",
+      "say": "Links „Machines“: testmaschine antwortet mit Porelo 0.4.1~snapshot.259. Fehlt testmaschine in der Liste: „Watch another machine…“, Name testmaschine, „Raise the forward for me“, „Where it is“ <Konto>@<Adresse der Testmaschine>, das Socket-Feld leer lassen (die Maschine wird gefragt).",
       "at": [
         "rail-machine testmaschine",
         "rail machines",
@@ -14,15 +14,15 @@
       ]
     },
     {
-      "say": "Links „Projects“, die Zeile sokar-test-project: online, drei Repositories.",
+      "say": "Links „Projects“, die Zeile porelo-test-project: online, drei Repositories.",
       "at": [
-        "project sokar-test-project",
+        "project porelo-test-project",
         "rail projects",
         "open-rail"
       ]
     },
     {
-      "say": "Die rote Arbeit starten: auf der Seite von sokar-test-project an der Zeile sokar-test-2 rechts ⋮ → „Start work in sokar-test-2“ (oder links „Work“ → „New work“, testmaschine, sokar-test-project, sokar-test-2).",
+      "say": "Die rote Arbeit starten: auf der Seite von porelo-test-project an der Zeile porelo-test-2 rechts ⋮ → „Start work in porelo-test-2“ (oder links „Work“ → „New work“, testmaschine, porelo-test-project, porelo-test-2).",
       "at": [
         "start-in-*test-2",
         "repository-menu *test-2",
@@ -30,7 +30,7 @@
       ]
     },
     {
-      "say": "„Which repository“: sokar-test-2. Name: ganz löschen, red tippen. „Which agent“: Claude Code, „How you take part“: „A shell, driven by hand“. Fragt das Formular nach der Anmeldung bei Claude: „Sign in first“, Link öffnen, Code einfügen, „Done“.",
+      "say": "„Which repository“: porelo-test-2. Name: ganz löschen, red tippen. „Which agent“: Claude Code, „How you take part“: „A shell, driven by hand“. Fragt das Formular nach der Anmeldung bei Claude: „Sign in first“, Link öffnen, Code einfügen, „Done“.",
       "at": [
         "start-name",
         "start-repository-*",
@@ -40,7 +40,7 @@
       ]
     },
     {
-      "say": "„Start it“. Das Terminal von red öffnet sich, Claude Code startet. Es bekommt Sokars Leitfaden /run/sokar/guide/README.md mit: was in /sokar/files ankommt und was nach einem Push zu lesen ist.",
+      "say": "„Start it“. Das Terminal von red öffnet sich, Claude Code startet. Es bekommt Porelos Leitfaden /run/porelo/guide/README.md mit: was in /porelo/files ankommt und was nach einem Push zu lesen ist.",
       "at": "start-go"
     },
     {
@@ -64,7 +64,7 @@
       ]
     },
     {
-      "say": "Die Statuszeile sagt „note.txt is in sokar-sokar-test-project-red now, as /sokar/files/note.txt.“ Die Arbeit öffnen mit › rechts an der Kachel: „Handed in“ zeigt note.txt, 21 bytes, by testmaschine; „Hand-in record“ note.txt given by testmaschine.",
+      "say": "Die Statuszeile sagt „note.txt is in porelo-porelo-test-project-red now, as /porelo/files/note.txt.“ Die Arbeit öffnen mit › rechts an der Kachel: „Handed in“ zeigt note.txt, 21 bytes, by testmaschine; „Hand-in record“ note.txt given by testmaschine.",
       "at": [
         "handed-in",
         "hand-in-record",
@@ -72,7 +72,7 @@
       ]
     },
     {
-      "say": "Claudes Terminal (der Knopf neben der Mini-Konsole der Kachel): ruht Claude an seinem Prompt, steht dort „A file arrived in /sokar/files: note.txt - read /run/sokar/guide/README.md if you do not know what it is for.“ Schau, was Claude damit macht.",
+      "say": "Claudes Terminal (der Knopf neben der Mini-Konsole der Kachel): ruht Claude an seinem Prompt, steht dort „A file arrived in /porelo/files: note.txt - read /run/porelo/guide/README.md if you do not know what it is for.“ Schau, was Claude damit macht.",
       "at": [
         "tile-fold *red",
         "leave-session"
@@ -87,7 +87,7 @@
       ]
     },
     {
-      "say": "Der rote Build: auf den Branch der Arbeit pushen, wie der Agent es täte (der Branch heisst wie die Arbeit, red), im Terminal auf dem Desktop:\n\ncd ~/.sokar/git/sokar-test-2 && git fetch -q origin && git switch -c red origin/main && git commit -q --allow-empty -m \"A push the task's build watch follows\" && git push -q origin red\n\nDann „Next“ hier.",
+      "say": "Der rote Build: auf den Branch der Arbeit pushen, wie der Agent es täte (der Branch heisst wie die Arbeit, red), im Terminal auf dem Desktop:\n\ncd ~/.porelo/git/porelo-test-2 && git fetch -q origin && git switch -c red origin/main && git commit -q --allow-empty -m \"A push the task's build watch follows\" && git push -q origin red\n\nDann „Next“ hier.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
@@ -98,7 +98,7 @@
       ]
     },
     {
-      "say": "In der geöffneten Arbeit: „Builds“ listet jeden Job mit seinem Ergebnis – Build / unit tests: failure, mit der Log-Datei in /sokar/files, die beiden anderen success, no log here. „Handed in“ zeigt build-….txt und das Log, by Sokar.",
+      "say": "In der geöffneten Arbeit: „Builds“ listet jeden Job mit seinem Ergebnis – Build / unit tests: failure, mit der Log-Datei in /porelo/files, die beiden anderen success, no log here. „Handed in“ zeigt build-….txt und das Log, by Porelo.",
       "at": [
         "builds",
         "handed-in",
@@ -106,14 +106,14 @@
       ]
     },
     {
-      "say": "Claudes Terminal: „A file arrived in /sokar/files: build-….txt …“ (und für das Log). Wie sein Leitfaden sagt, liest Claude das Ergebnis und das Log, das die job:-Zeile nennt – es endet mit „FooTest expected 1 but was 2“. Schau, was Claude daraus macht.",
+      "say": "Claudes Terminal: „A file arrived in /porelo/files: build-….txt …“ (und für das Log). Wie sein Leitfaden sagt, liest Claude das Ergebnis und das Log, das die job:-Zeile nennt – es endet mit „FooTest expected 1 but was 2“. Schau, was Claude daraus macht.",
       "at": [
         "tile-fold *red",
         "leave-session"
       ]
     },
     {
-      "say": "Die grüne Arbeit, auf testmaschine: links „Work“ → „New work“ → „Where should it run?“ testmaschine, dann sokar-test-project (oder links „Projects“ → sokar-test-project, an der Zeile sokar-test-1 ⋮ → „Start work in sokar-test-1“). Repository sokar-test-1, Name green, Claude Code, „A shell, driven by hand“, „Start it“, dann „Leave“.",
+      "say": "Die grüne Arbeit, auf testmaschine: links „Work“ → „New work“ → „Where should it run?“ testmaschine, dann porelo-test-project (oder links „Projects“ → porelo-test-project, an der Zeile porelo-test-1 ⋮ → „Start work in porelo-test-1“). Repository porelo-test-1, Name green, Claude Code, „A shell, driven by hand“, „Start it“, dann „Leave“.",
       "at": [
         "start-in-*test-1",
         "repository-menu *test-1",
@@ -121,12 +121,12 @@
       ]
     },
     {
-      "say": "Der grüne Build, im Terminal auf dem Desktop:\n\ncd ~/.sokar/git/sokar-test-1 && git fetch -q origin && git switch -c green origin/main && git commit -q --allow-empty -m \"A push the task's build watch follows\" && git push -q origin green\n\nDann „Next“ hier.",
+      "say": "Der grüne Build, im Terminal auf dem Desktop:\n\ncd ~/.porelo/git/porelo-test-1 && git fetch -q origin && git switch -c green origin/main && git commit -q --allow-empty -m \"A push the task's build watch follows\" && git push -q origin green\n\nDann „Next“ hier.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "Die Kachel von green: „Build passed“ (grün, ✓), darunter „<Commit> · 3 jobs · …“; in der geöffneten Arbeit unter „Builds“ jeder Job success, no log here (Logs kommen nur von fehlgeschlagenen Jobs), unter „Handed in“ build-….txt by Sokar, in Claudes Terminal die Zeile dazu.",
+      "say": "Die Kachel von green: „Build passed“ (grün, ✓), darunter „<Commit> · 3 jobs · …“; in der geöffneten Arbeit unter „Builds“ jeder Job success, no log here (Logs kommen nur von fehlgeschlagenen Jobs), unter „Handed in“ build-….txt by Porelo, in Claudes Terminal die Zeile dazu.",
       "at": [
         "tile-build",
         "builds",
@@ -134,7 +134,7 @@
       ]
     },
     {
-      "say": "Aufräumen: an beiden Kacheln ⋮ → „Stop it, keeping its workspace“, dann „Remove it“. Die Branches bei GitHub, im Terminal auf dem Desktop:\n\ncd ~/.sokar/git/sokar-test-2 && git switch -q main && git push -q origin --delete red\ncd ~/.sokar/git/sokar-test-1 && git switch -q main && git push -q origin --delete green\n\nDie Anmeldung bei Claude Code bleibt im Tresor von testmaschine, wie Du willst.",
+      "say": "Aufräumen: an beiden Kacheln ⋮ → „Stop it, keeping its workspace“, dann „Remove it“. Die Branches bei GitHub, im Terminal auf dem Desktop:\n\ncd ~/.porelo/git/porelo-test-2 && git switch -q main && git push -q origin --delete red\ncd ~/.porelo/git/porelo-test-1 && git switch -q main && git push -q origin --delete green\n\nDie Anmeldung bei Claude Code bleibt im Tresor von testmaschine, wie Du willst.",
       "at": [
         "text:Remove it",
         "text:Stop it, keeping its workspace",

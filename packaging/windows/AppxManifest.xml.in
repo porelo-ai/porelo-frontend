@@ -8,7 +8,7 @@
 
   A full-trust desktop app: it starts wsl.exe, OpenSSH and a pseudoconsole. Its writes to the user's
   AppData are not redirected into a package-private folder (unvirtualizedResources), so
-  %APPDATA%\sokar\frontend.json is the one file the ZIP, the MSIX and the IntelliJ plugin all read.
+  %APPDATA%\porelo\frontend.json is the one file the ZIP, the MSIX and the IntelliJ plugin all read.
 -->
 <Package
     xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -16,10 +16,10 @@
     xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
     xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
     IgnorableNamespaces="uap rescap desktop6">
-  <Identity Name="ai.porelo.sokar.frontend" Publisher="CN=porelo.ai" Version="@VERSION@"
+  <Identity Name="ai.porelo.frontend" Publisher="CN=porelo.ai" Version="@VERSION@"
       ProcessorArchitecture="x64"/>
   <Properties>
-    <DisplayName>Sokar interface</DisplayName>
+    <DisplayName>Porelo interface</DisplayName>
     <PublisherDisplayName>porelo.ai</PublisherDisplayName>
     <Logo>assets\StoreLogo.png</Logo>
     <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
@@ -32,8 +32,8 @@
     <Resource Language="en-us"/>
   </Resources>
   <Applications>
-    <Application Id="SokarInterface" Executable="sokar_frontend.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Sokar interface" Description="The desktop interface for Sokar"
+    <Application Id="PoreloInterface" Executable="porelo_frontend.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="Porelo interface" Description="The desktop interface for Porelo"
           BackgroundColor="transparent" Square150x150Logo="assets\Square150x150Logo.png"
           Square44x44Logo="assets\Square44x44Logo.png"/>
     </Application>

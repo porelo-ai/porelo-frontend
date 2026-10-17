@@ -101,14 +101,14 @@ void main() {
       await theAddressForDefaultReads(tester, 'git@github.com:acme/api.git');
       await iStartWorkOnItFromDefault(tester);
       await defaultHoldsAt(tester, 'api', 'git@github.com:acme/api.git');
-      await theForgeHoldsAtOnce(tester, 'sokar vm default/api', 'acme/api');
+      await theForgeHoldsAtOnce(tester, 'porelo vm default/api', 'acme/api');
       await iPutTheStartAway(tester);
       await iChooseTheCommand(
           tester, 'Repositories worked on without a project');
       await iTakeOutOfDefault(tester, 'api');
       await iRemoveItsKeyAtTheForgeToo(tester);
       await theForgeHoldsNoKeyTitledAt(
-          tester, 'sokar vm default/api', 'acme/api');
+          tester, 'porelo vm default/api', 'acme/api');
     });
     testWidgets(
         '''default opened from its row says what it is and offers its repositories, and nothing it lacks''',
@@ -117,7 +117,8 @@ void main() {
       await iSelectTheProject(tester, 'default');
       await theProjectHeaderDoesNotSay(tester, 'not followed here');
       await theProjectHeaderDoesNotSay(tester, 'environment not prepared');
-      await theProjectHeaderSays(tester, 'worked on with Sokar’s own settings');
+      await theProjectHeaderSays(
+          tester, 'worked on with Porelo’s own settings');
       await theStartTileSays(tester, 'Start work');
     });
     testWidgets(

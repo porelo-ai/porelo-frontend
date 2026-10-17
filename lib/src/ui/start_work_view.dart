@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/start_work.dart';
 import '../app/templates.dart';
@@ -398,8 +398,8 @@ class _MoreCredentials extends StatelessWidget {
             padding: const EdgeInsets.only(top: Space.tight),
             child: Text(
               '${given.key} for ${given.value}'
-              '${_host(places, given.value)}: inside the task as SOKAR_TOKEN_${Credential.variableOf(given.key)} '
-              'and SOKAR_URL_${Credential.variableOf(given.key)}, a token worthless anywhere else.',
+              '${_host(places, given.value)}: inside the task as PORELO_TOKEN_${Credential.variableOf(given.key)} '
+              'and PORELO_URL_${Credential.variableOf(given.key)}, a token worthless anywhere else.',
               key: ValueKey<String>('start-given ${given.key}'),
               style: text.bodySmall,
             ),
@@ -427,7 +427,7 @@ class _MoreCredentials extends StatelessWidget {
     return <Widget>[
       Text('Its project gives it these, and they cannot be pointed elsewhere here:', style: text.bodySmall),
       for (final given in project.credentials.entries)
-        Text('${given.key} for ${given.value}: inside the task as SOKAR_TOKEN_${Credential.variableOf(given.key)}',
+        Text('${given.key} for ${given.value}: inside the task as PORELO_TOKEN_${Credential.variableOf(given.key)}',
             key: ValueKey<String>('start-project-credential ${given.key}'), style: text.bodySmall),
     ];
   }

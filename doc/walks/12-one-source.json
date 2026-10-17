@@ -2,64 +2,64 @@
   "title": "Walk 12: one source for a repository, both ways",
   "steps": [
     {
-      "say": "Walk 12: eine Quelle pro Repository, in beide Richtungen, auf testmaschine mit Sokar 0.4.1~snapshot.271. Fast alles im Terminal: auf dem Desktop\n\nssh <Konto>@<Adresse der Testmaschine>\n\nund dort zuerst den Tresor öffnen:\n\nsokar vault unlock\n\n„sokar --version“ nennt snapshot.271. Dann „Next“. (Die Schritte 1–7 sind vorher in einem Test-Account durchgespielt; 8 und 9 brauchen die GitHub-Schlüssel von testmaschine und sind noch nicht ausprobiert.)",
+      "say": "Walk 12: eine Quelle pro Repository, in beide Richtungen, auf testmaschine mit Porelo 0.4.1~snapshot.271. Fast alles im Terminal: auf dem Desktop\n\nssh <Konto>@<Adresse der Testmaschine>\n\nund dort zuerst den Tresor öffnen:\n\nporelo vault unlock\n\n„porelo --version“ nennt snapshot.271. Dann „Next“. (Die Schritte 1–7 sind vorher in einem Test-Account durchgespielt; 8 und 9 brauchen die GitHub-Schlüssel von testmaschine und sind noch nicht ausprobiert.)",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "1 – Lokale Commits erreichen die Arbeit. Auf testmaschine ein Checkout ohne jedes Remote, mit einem Commit, und darin eine Arbeit starten:\n\nmkdir -p ~/walk/app && cd ~/walk/app && git init -q -b main && git config user.email test@example.org && git config user.name test && echo hello > README && git add README && git commit -qm \"First, only here\"\nsokar task start --agent claude --attach shell --detach\n\nErwartet: „project … in 'default' as 'app': its history comes from /home/<Konto>/walk/app, and approved work goes back there as sokar/<task>; Sokar never reaches a remote“, und „container sokar-default-app“.",
+      "say": "1 – Lokale Commits erreichen die Arbeit. Auf testmaschine ein Checkout ohne jedes Remote, mit einem Commit, und darin eine Arbeit starten:\n\nmkdir -p ~/walk/app && cd ~/walk/app && git init -q -b main && git config user.email test@example.org && git config user.name test && echo hello > README && git add README && git commit -qm \"First, only here\"\nporelo task start --agent claude --attach shell --detach\n\nErwartet: „project … in 'default' as 'app': its history comes from /home/<Konto>/walk/app, and approved work goes back there as porelo/<task>; Porelo never reaches a remote“, und „container porelo-default-app“.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "In der Arbeit nachsehen:\n\nsokar task attach sokar-default-app\ncd /workspace && git log --oneline\n\nErwartet: „First, only here“ – der Commit, den es nur in Deinem Checkout gibt. Im Terminal bleiben.",
+      "say": "In der Arbeit nachsehen:\n\nporelo task attach porelo-default-app\ncd /workspace && git log --oneline\n\nErwartet: „First, only here“ – der Commit, den es nur in Deinem Checkout gibt. Im Terminal bleiben.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "2 – Die Arbeit kommt zurück. Noch in der Arbeit:\n\necho work > WORK && git add WORK && git commit -qm \"Work from the task\" && git push\ngit status -sb | head -1\nexit\n\nDer Push sagt „HEAD -> refs/sokar/incoming/app“, und „git status“ danach steht auf dem Platz der Arbeit am Gate, ohne „ahead“. Dann im Checkout auf testmaschine:\n\ncd ~/walk/app && sokar approve\n\nEs zeigt den Commit und den Diff von WORK und fragt; mit y: „brought app into /home/<Konto>/walk/app as sokar/app“. Danach zeigt „git branch“ main und sokar/app, „git status“ ist leer – Dein main und Deine Arbeitskopie sind unberührt.",
+      "say": "2 – Die Arbeit kommt zurück. Noch in der Arbeit:\n\necho work > WORK && git add WORK && git commit -qm \"Work from the task\" && git push\ngit status -sb | head -1\nexit\n\nDer Push sagt „HEAD -> refs/porelo/incoming/app“, und „git status“ danach steht auf dem Platz der Arbeit am Gate, ohne „ahead“. Dann im Checkout auf testmaschine:\n\ncd ~/walk/app && porelo approve\n\nEs zeigt den Commit und den Diff von WORK und fragt; mit y: „brought app into /home/<Konto>/walk/app as porelo/app“. Danach zeigt „git branch“ main und porelo/app, „git status“ ist leer – Dein main und Deine Arbeitskopie sind unberührt.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "Im Interface: links „Work“ – die Kachel sokar-default-app ist da (Projekt default). Dann „Next“.",
+      "say": "Im Interface: links „Work“ – die Kachel porelo-default-app ist da (Projekt default). Dann „Next“.",
       "at": [
         "rail work",
         "open-rail"
       ]
     },
     {
-      "say": "4 – Der Checkout bewegt sich weiter, während die Arbeit läuft. Im Checkout:\n\necho more >> README && git commit -qam \"Moved on in the checkout\"\nsokar task refresh sokar-default-app\n\nErwartet: „moved main -> <Commit>“ und „told its agent: 'git fetch sokar' brings it“. Dann in der Arbeit:\n\nsokar task attach sokar-default-app\ncd /workspace && git fetch sokar && git log --oneline -1 sokar/main\nexit\n\nErwartet: „Moved on in the checkout“.",
+      "say": "4 – Der Checkout bewegt sich weiter, während die Arbeit läuft. Im Checkout:\n\necho more >> README && git commit -qam \"Moved on in the checkout\"\nporelo task refresh porelo-default-app\n\nErwartet: „moved main -> <Commit>“ und „told its agent: 'git fetch porelo' brings it“. Dann in der Arbeit:\n\nporelo task attach porelo-default-app\ncd /workspace && git fetch porelo && git log --oneline -1 porelo/main\nexit\n\nErwartet: „Moved on in the checkout“.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "5 – Fortsetzen. Die Arbeit anhalten, im Checkout committen, wieder starten:\n\nsokar task stop sokar-default-app\necho again >> README && git commit -qam \"While it was stopped\"\nsokar task start --attach shell --detach sokar-default-app\n\nDer Start sagt „source    moved main -> <Commit>; its agent was told, and 'git fetch sokar' brings it“. Dann:\n\nsokar task attach sokar-default-app\ncd /workspace && git fetch sokar && git log --oneline -1 sokar/main\n\nErwartet: „While it was stopped“. Im Terminal der Arbeit bleiben.",
+      "say": "5 – Fortsetzen. Die Arbeit anhalten, im Checkout committen, wieder starten:\n\nporelo task stop porelo-default-app\necho again >> README && git commit -qam \"While it was stopped\"\nporelo task start --attach shell --detach porelo-default-app\n\nDer Start sagt „source    moved main -> <Commit>; its agent was told, and 'git fetch porelo' brings it“. Dann:\n\nporelo task attach porelo-default-app\ncd /workspace && git fetch porelo && git log --oneline -1 porelo/main\n\nErwartet: „While it was stopped“. Im Terminal der Arbeit bleiben.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "6 – Der Agent hat nicht gepusht. In der Arbeit committen, aber nicht pushen:\n\necho first > FIRST && git add FIRST && git commit -qm \"First task change\"\nexit\n\nIm Checkout:\n\nsokar approve\n\nErwartet: „nothing waits at the gate for a task started from /home/<Konto>/walk/app; but the task sokar-default-app holds 1 commit that is not at the gate. In the task, commit and 'git push' - its remote is the gate“.",
+      "say": "6 – Der Agent hat nicht gepusht. In der Arbeit committen, aber nicht pushen:\n\necho first > FIRST && git add FIRST && git commit -qm \"First task change\"\nexit\n\nIm Checkout:\n\nporelo approve\n\nErwartet: „nothing waits at the gate for a task started from /home/<Konto>/walk/app; but the task porelo-default-app holds 1 commit that is not at the gate. In the task, commit and 'git push' - its remote is the gate“.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "7 – Die Prüfung zeigt nur, was die Arbeit geändert hat. Den Commit jetzt doch pushen, danach bewegt sich der Checkout, und eine zweite Arbeit startet:\n\nsokar task attach sokar-default-app\ncd /workspace && git push\nexit\necho later >> README && git commit -qam \"Checkout moved after the push\"\nsokar task start --agent claude --attach shell --detach second\nsokar approve app\n\nDer Diff nennt nur FIRST und WORK – nicht README, als wäre Deine neue Zeile entfernt worden. Mit n antworten: nichts wird geholt.",
+      "say": "7 – Die Prüfung zeigt nur, was die Arbeit geändert hat. Den Commit jetzt doch pushen, danach bewegt sich der Checkout, und eine zweite Arbeit startet:\n\nporelo task attach porelo-default-app\ncd /workspace && git push\nexit\necho later >> README && git commit -qam \"Checkout moved after the push\"\nporelo task start --agent claude --attach shell --detach second\nporelo approve app\n\nDer Diff nennt nur FIRST und WORK – nicht README, als wäre Deine neue Zeile entfernt worden. Mit n antworten: nichts wird geholt.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "3 – Zwei Checkouts desselben Remotes sind zwei Repositories. Ein Remote auf testmaschine selbst, zweimal geklont, in jedem eine Arbeit:\n\ncd ~/walk && git init -q --bare -b main shared.git && git clone -q shared.git seed && cd seed && git config user.email test@example.org && git config user.name test && echo s > S && git add S && git commit -qm seed && git push -q origin main && cd ..\ngit clone -q shared.git one && git clone -q shared.git two\n(cd one && sokar task start --agent claude --attach shell --detach)\n(cd two && sokar task start --agent claude --attach shell --detach)\nsokar project default\n\nErwartet: „added to 'default' as 'shared'“ für one und „… as 'shared-2'“ für two, jedes mit „Sokar never reaches /home/<Konto>/walk/shared.git“; „sokar project default“ listet shared → ~/walk/one und shared-2 → ~/walk/two.",
+      "say": "3 – Zwei Checkouts desselben Remotes sind zwei Repositories. Ein Remote auf testmaschine selbst, zweimal geklont, in jedem eine Arbeit:\n\ncd ~/walk && git init -q --bare -b main shared.git && git clone -q shared.git seed && cd seed && git config user.email test@example.org && git config user.name test && echo s > S && git add S && git commit -qm seed && git push -q origin main && cd ..\ngit clone -q shared.git one && git clone -q shared.git two\n(cd one && porelo task start --agent claude --attach shell --detach)\n(cd two && porelo task start --agent claude --attach shell --detach)\nporelo project default\n\nErwartet: „added to 'default' as 'shared'“ für one und „… as 'shared-2'“ für two, jedes mit „Porelo never reaches /home/<Konto>/walk/shared.git“; „porelo project default“ listet shared → ~/walk/one und shared-2 → ~/walk/two.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "8 – Ein Repository mit dem Remote als Quelle (noch nicht ausprobiert: der Test-Account hat keine GitHub-Schlüssel). Den Klon von sokar-test-1 von Deinem Desktop nach testmaschine kopieren, im Terminal auf dem Desktop:\n\nscp -rq ~/.sokar/git/sokar-test-1 <Konto>@<Adresse der Testmaschine>:walk/t1\n\nAuf testmaschine:\n\ncd ~/walk/t1 && sokar task start --agent claude --attach shell --detach\n\nErwartet: „… its work comes from <remote> and goes there, not into this checkout“. In der Arbeit ein Commit und git push wie in Schritt 2, dann im Checkout „sokar approve“: es sagt, die Arbeit geht an das Remote, und nennt „sokar gate approve“; „git branch“ zeigt keinen sokar/-Branch. Weicht etwas ab, schreib es mir.",
+      "say": "8 – Ein Repository mit dem Remote als Quelle (noch nicht ausprobiert: der Test-Account hat keine GitHub-Schlüssel). Den Klon von porelo-test-1 von Deinem Desktop nach testmaschine kopieren, im Terminal auf dem Desktop:\n\nscp -rq ~/.porelo/git/porelo-test-1 <Konto>@<Adresse der Testmaschine>:walk/t1\n\nAuf testmaschine:\n\ncd ~/walk/t1 && porelo task start --agent claude --attach shell --detach\n\nErwartet: „… its work comes from <remote> and goes there, not into this checkout“. In der Arbeit ein Commit und git push wie in Schritt 2, dann im Checkout „porelo approve“: es sagt, die Arbeit geht an das Remote, und nennt „porelo gate approve“; „git branch“ zeigt keinen porelo/-Branch. Weicht etwas ab, schreib es mir.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
     {
-      "say": "9 – Eine Online-Arbeit (noch nicht ausprobiert). Im Interface: links „Projects“ → sokar-test-project, an der Zeile sokar-test-2 ⋮ → „Start work in sokar-test-2“, Name online, Claude Code, „A shell, driven by hand“, „Start it“. Erwartet: der Start gelingt ohne „SSH does not come up“.",
+      "say": "9 – Eine Online-Arbeit (noch nicht ausprobiert). Im Interface: links „Projects“ → porelo-test-project, an der Zeile porelo-test-2 ⋮ → „Start work in porelo-test-2“, Name online, Claude Code, „A shell, driven by hand“, „Start it“. Erwartet: der Start gelingt ohne „SSH does not come up“.",
       "at": [
         "start-in-*test-2",
         "repository-menu *test-2",
@@ -67,7 +67,7 @@
       ]
     },
     {
-      "say": "In Claudes Terminal bitten: „Leg einen leeren Commit an und pushe ihn.“ Erwartet: der Arbeitsbereich enthält main (git log zeigt Commits), der Push von innen erreicht GitHub, und nach etwa einer Minute zeigt die Kachel „Build failed“ (rot) – sokar-test-2 schlägt absichtlich fehl. Dann „Leave“ und „Next“.",
+      "say": "In Claudes Terminal bitten: „Leg einen leeren Commit an und pushe ihn.“ Erwartet: der Arbeitsbereich enthält main (git log zeigt Commits), der Push von innen erreicht GitHub, und nach etwa einer Minute zeigt die Kachel „Build failed“ (rot) – porelo-test-2 schlägt absichtlich fehl. Dann „Leave“ und „Next“.",
       "at": [],
       "then": "!walk-stays-until-next"
     },
@@ -80,7 +80,7 @@
       ]
     },
     {
-      "say": "Aufräumen, auf testmaschine. Zuerst die Arbeiten von default ansehen:\n\nsokar task list\n\nJede Zeile, die mit sokar-default- beginnt, entfernen, z. B.:\n\nsokar task remove --force sokar-default-app\n\n(ebenso second, shared, shared-2 und die aus Schritt 8), dann rm -rf ~/walk. Die Online-Arbeit an der Kachel ⋮ → „Stop it, keeping its workspace“, dann „Remove it“; den Branch online bei GitHub löschst Du vom Desktop aus: cd ~/.sokar/git/sokar-test-2 && git push -q origin --delete online. Die Einträge in default (app, shared, shared-2 und der aus Schritt 8) bleiben stehen; sag mir, ob ich sie wegräumen soll.",
+      "say": "Aufräumen, auf testmaschine. Zuerst die Arbeiten von default ansehen:\n\nporelo task list\n\nJede Zeile, die mit porelo-default- beginnt, entfernen, z. B.:\n\nporelo task remove --force porelo-default-app\n\n(ebenso second, shared, shared-2 und die aus Schritt 8), dann rm -rf ~/walk. Die Online-Arbeit an der Kachel ⋮ → „Stop it, keeping its workspace“, dann „Remove it“; den Branch online bei GitHub löschst Du vom Desktop aus: cd ~/.porelo/git/porelo-test-2 && git push -q origin --delete online. Die Einträge in default (app, shared, shared-2 und der aus Schritt 8) bleiben stehen; sag mir, ob ich sie wegräumen soll.",
       "at": [],
       "then": "!walk-stays-until-next"
     },

@@ -17,7 +17,7 @@ void main() {
   late ServerSocket server;
 
   setUp(() async {
-    scratch = Directory.systemTemp.createTempSync('sokar-contract-test');
+    scratch = Directory.systemTemp.createTempSync('porelo-contract-test');
     addTearDown(() => scratch.deleteSync(recursive: true));
     socketPath = '${scratch.path}/d.sock';
     server = await ServerSocket.bind(
@@ -41,12 +41,12 @@ void main() {
             final parameters = call == 1
                 ? <String, dynamic>{
                     'vendor': 'fuin.org',
-                    'product': 'sokard',
+                    'product': 'porelod',
                     'version': '9.9',
-                    'interfaces': <String>['org.fuin.sokar.Tasks1'],
+                    'interfaces': <String>['org.fuin.porelo.Tasks1'],
                   }
                 : <String, dynamic>{
-                    'description': 'interface org.fuin.sokar.Tasks1',
+                    'description': 'interface org.fuin.porelo.Tasks1',
                   };
             client.add(<int>[
               ...utf8.encode(jsonEncode({'parameters': parameters})),
@@ -69,8 +69,8 @@ void main() {
     final ran = await contract();
 
     expect(ran.exitCode, 0, reason: '${ran.stderr}');
-    expect(ran.stdout, contains('sokard 9.9 (fuin.org)'));
-    expect(ran.stdout, contains('interface org.fuin.sokar.Tasks1'));
+    expect(ran.stdout, contains('porelod 9.9 (fuin.org)'));
+    expect(ran.stdout, contains('interface org.fuin.porelo.Tasks1'));
   });
 
   test(

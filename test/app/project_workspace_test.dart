@@ -5,8 +5,8 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/forge.dart';
-import 'package:sokar_frontend/src/app/project_workspace.dart';
+import 'package:porelo_frontend/src/app/forge.dart';
+import 'package:porelo_frontend/src/app/project_workspace.dart';
 
 /// The workspace against a real git and a real ssh agent: a bare repository stands in for the forge,
 /// a throwaway key in a throwaway agent for the person's own.
@@ -27,7 +27,7 @@ void main() {
 
   setUp(() async {
     seen.clear();
-    here = await Directory.systemTemp.createTemp('sokar-workspace-');
+    here = await Directory.systemTemp.createTemp('porelo-workspace-');
     // The forge: a bare repository with a first commit on main.
     Future<void> git(List<String> args, [String? dir]) async {
       final ran = await Process.run('git', args, workingDirectory: dir, environment: <String, String>{'HOME': here.path});
@@ -97,7 +97,7 @@ void main() {
     expect(keys.single.comment, 'person@test');
     expect(keys.single.fingerprint, startsWith('SHA256:'));
 
-    final commit = await work.commitAndPush('Make api a Sokar project', keys.single, login: 'alice');
+    final commit = await work.commitAndPush('Make api a Porelo project', keys.single, login: 'alice');
 
     // On the forge, signed by exactly that key.
     await File('${here.path}/allowed').writeAsString('person@test ${keys.single.publicKey}\n');
@@ -126,10 +126,10 @@ void main() {
         throwsA(isA<WorkspaceRefused>().having((each) => each.words, 'words', contains('Contents: Read and write'))));
 
     await hook.delete();
-    final commit = await work.commitAndPush('Make api a Sokar project', key, login: 'alice');
+    final commit = await work.commitAndPush('Make api a Porelo project', key, login: 'alice');
 
     final onMain = await Process.run('git', <String>['log', '--format=%H %s', 'main'], workingDirectory: '${here.path}/forge.git');
-    expect('${onMain.stdout}'.trim().split('\n').first, '$commit Make api a Sokar project');
+    expect('${onMain.stdout}'.trim().split('\n').first, '$commit Make api a Porelo project');
     expect('${onMain.stdout}', isNot(contains('First words')));
   });
 
@@ -151,7 +151,7 @@ void main() {
     }
 
     await Directory('${here.path}/.ssh').create();
-    await key('${here.path}/.ssh/sokar-build', 'sokar build');
+    await key('${here.path}/.ssh/porelo-build', 'porelo build');
     await key('${here.path}/second', 'person@other');
     await Process.run('git', <String>['config', '--global', 'user.signingkey', '${here.path}/second.pub'],
         environment: <String, String>{'HOME': here.path});
@@ -166,8 +166,8 @@ void main() {
   test('an agent holding only the keys made for machines says so', () async {
     await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket});
     await Directory('${here.path}/.ssh').create();
-    await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-C', 'sokar build', '-f', '${here.path}/.ssh/sokar-build']);
-    await Process.run('ssh-add', <String>['${here.path}/.ssh/sokar-build'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket});
+    await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-C', 'porelo build', '-f', '${here.path}/.ssh/porelo-build']);
+    await Process.run('ssh-add', <String>['${here.path}/.ssh/porelo-build'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket});
 
     await expectLater(workspace().signingKeys(),
         throwsA(isA<WorkspaceRefused>().having((it) => it.words, 'words', contains('only the keys this computer made'))));
@@ -193,8 +193,8 @@ void main() {
         '${here.path}/seed');
     await git(<String>['bundle', 'create', '${here.path}/pending.bundle', 'main..task'], '${here.path}/seed');
     // The bundle names the task branch; the gate's names the pending ref, as the machine makes it.
-    await git(<String>['update-ref', 'refs/sokar/incoming/work', 'task'], '${here.path}/seed');
-    await git(<String>['bundle', 'create', '${here.path}/pending.bundle', 'main..refs/sokar/incoming/work'], '${here.path}/seed');
+    await git(<String>['update-ref', 'refs/porelo/incoming/work', 'task'], '${here.path}/seed');
+    await git(<String>['bundle', 'create', '${here.path}/pending.bundle', 'main..refs/porelo/incoming/work'], '${here.path}/seed');
 
     final work = workspace();
     await work.open();

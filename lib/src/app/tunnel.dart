@@ -44,7 +44,7 @@ enum TunnelState {
 ///
 /// **`ssh -L <local socket>:<remote socket> <host> -N`**, one process per machine, supervised.
 /// Running `ssh` is not a breach of the rule against shelling out: that rule is about never
-/// building a second implementation of the *domain* by parsing the `sokar` CLI, and `ssh` is
+/// building a second implementation of the *domain* by parsing the `porelo` CLI, and `ssh` is
 /// transport. Nothing about the contract, the calls or the refusals goes near it.
 ///
 /// Three decisions are baked in here and each of them keeps this requirement small:
@@ -366,10 +366,10 @@ class Tunnels extends ChangeNotifier {
 
   /// What is run at the far end. Held apart so a scenario can say what was asked of the machine.
   ///
-  /// `sokard.service` is a user unit the package installs and does not enable, so starting it is
-  /// one call and a daemon that is restarted on failure. **Not `sokard.socket`**: there is none,
+  /// `porelod.service` is a user unit the package installs and does not enable, so starting it is
+  /// one call and a daemon that is restarted on failure. **Not `porelod.socket`**: there is none,
   /// and there will not be one — the JDK offers no way to adopt a listening descriptor systemd
-  /// bound, which is Sokar's own note rather than a guess from here.
+  /// bound, which is Porelo's own note rather than a guess from here.
   ///
   /// The last line says nothing and changes nothing; it reports. A user service lives as long as
   /// that user has a session on the machine, and with no lingering the daemon goes when the last
@@ -383,16 +383,16 @@ class Tunnels extends ChangeNotifier {
   /// its exit code and the last it wrote, rather than as started. Two seconds is enough for one that
   /// cannot read its configuration and short enough not to hold every start.
   static const String startsIt =
-      'command -v sokard >/dev/null 2>&1 || { echo "no sokard is installed there" >&2; exit 127; }; '
-      r'if [ "$(systemctl --user show sokard -p LoadState --value 2>/dev/null)" = loaded ]; then '
-      r'said=$(systemctl --user start sokard 2>&1) || { rc=$?; '
-      r'echo "systemd refused to start sokard (exit $rc): $said" >&2; exit $rc; }; '
+      'command -v porelod >/dev/null 2>&1 || { echo "no porelod is installed there" >&2; exit 127; }; '
+      r'if [ "$(systemctl --user show porelod -p LoadState --value 2>/dev/null)" = loaded ]; then '
+      r'said=$(systemctl --user start porelod 2>&1) || { rc=$?; '
+      r'echo "systemd refused to start porelod (exit $rc): $said" >&2; exit $rc; }; '
       'echo "started by systemd"; '
-      r'else out=$(mktemp) || exit 1; setsid sokard >"$out" 2>&1 </dev/null & pid=$!; sleep 2; '
+      r'else out=$(mktemp) || exit 1; setsid porelod >"$out" 2>&1 </dev/null & pid=$!; sleep 2; '
       r'if kill -0 "$pid" 2>/dev/null; then rm -f "$out"; '
-      'echo "started sokard itself: there is no systemd unit for it"; '
+      'echo "started porelod itself: there is no systemd unit for it"; '
       r'else wait "$pid"; rc=$?; '
-      r'echo "sokard ended as soon as it started (exit $rc): $(tail -n 5 "$out")" >&2; '
+      r'echo "porelod ended as soon as it started (exit $rc): $(tail -n 5 "$out")" >&2; '
       r'rm -f "$out"; exit 1; fi; fi; '
       r'loginctl show-user "$(id -un)" -p Linger --value 2>/dev/null | grep -qx yes || '
       r'echo "(it stops when the last session there ends: loginctl enable-linger $(id -un))"';
@@ -414,18 +414,18 @@ class Tunnels extends ChangeNotifier {
   /// without a unit is stopped by its own pid, and only one of this account's. A machine where none
   /// runs says so, and that is not a failure: what was asked for is true.
   static const String stopsIt =
-      r'if systemctl --user is-active --quiet sokard 2>/dev/null; then '
-      r'said=$(systemctl --user stop sokard 2>&1) || { rc=$?; '
-      r'echo "systemd refused to stop sokard (exit $rc): $said" >&2; exit $rc; }; '
+      r'if systemctl --user is-active --quiet porelod 2>/dev/null; then '
+      r'said=$(systemctl --user stop porelod 2>&1) || { rc=$?; '
+      r'echo "systemd refused to stop porelod (exit $rc): $said" >&2; exit $rc; }; '
       'echo "stopped by systemd"; '
-      r'elif pids=$(pgrep -u "$(id -u)" -x sokard); then kill $pids && '
-      'echo "stopped sokard itself: no systemd unit was running it"; '
-      'else echo "no sokard was running there"; fi';
+      r'elif pids=$(pgrep -u "$(id -u)" -x porelod); then kill $pids && '
+      'echo "stopped porelod itself: no systemd unit was running it"; '
+      'else echo "no porelod was running there"; fi';
 
   /// Stops the daemon on [machine], for somebody who has been asked and said yes.
   ///
   /// **Only for a machine this interface forwards**, for the same reason as a start.
-  Future<Started> stopSokarOn(Machine machine) async {
+  Future<Started> stopPoreloOn(Machine machine) async {
     if (!machine.needsATunnel) {
       return const Started(
         went: false,
@@ -443,7 +443,7 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Running a line at the far end is further into somebody else's machine than forwarding a
   /// socket goes, and the caller asks first — which is why this takes no decision of its own.
-  Future<Started> startSokarOn(Machine machine) async {
+  Future<Started> startPoreloOn(Machine machine) async {
     if (!machine.canBeStartedHere) {
       return const Started(
         went: false,
@@ -503,7 +503,7 @@ class Tunnels extends ChangeNotifier {
       machine.needsATunnel ? loginUidAt(machine.host) : null;
 
   /// The uid of the account [host] logs in as, or null when it cannot say: what the wizard asks
-  /// when a person knows only how they log in, and not where Sokar's socket is there.
+  /// when a person knows only how they log in, and not where Porelo's socket is there.
   /// Why the last login [loginUidAt] tried was refused, in words a person can act on; null where it
   /// was not refused or ssh said nothing that tells.
   String? lastLoginRefusal;

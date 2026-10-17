@@ -8,7 +8,7 @@ Feature: Work on a repository without writing a project first
     And the app is running
     And I go to the work
 
-  # default is every machine's, kept by Sokar, and nobody configures it.
+  # default is every machine's, kept by Porelo, and nobody configures it.
   Scenario: default is the project shown first, and cannot be stopped following
     Then the first project on the machine is {'default'}
     When I select the project {'default'}
@@ -44,21 +44,21 @@ Feature: Work on a repository without writing a project first
     Then the address for default reads {'git@github.com:acme/api.git'}
     When I start work on it from default
     Then default holds {'api'} at {'git@github.com:acme/api.git'}
-    And the forge holds {'sokar vm default/api'} at {'acme/api'} once
+    And the forge holds {'porelo vm default/api'} at {'acme/api'} once
     When I put the start away
     # Taken out again, from default's own menu, the key the machine forgot still opens the
     # repository there until it is removed.
     When I choose the command {'Repositories worked on without a project'}
     And I take {'api'} out of default
     And I remove its key at the forge too
-    Then the forge holds no key titled {'sokar vm default/api'} at {'acme/api'}
+    Then the forge holds no key titled {'porelo vm default/api'} at {'acme/api'}
 
-  # Opened from its row, as a person new to Sokar opens it: what it is, and the way to its repositories.
+  # Opened from its row, as a person new to Porelo opens it: what it is, and the way to its repositories.
   Scenario: default opened from its row says what it is and offers its repositories, and nothing it lacks
     When I select the project {'default'}
     Then the project header does not say {'not followed here'}
     And the project header does not say {'environment not prepared'}
-    And the project header says {'worked on with Sokar’s own settings'}
+    And the project header says {'worked on with Porelo’s own settings'}
     And the start tile says {'Start work'}
 
   # A followed project that names the repository takes it over for new tasks.

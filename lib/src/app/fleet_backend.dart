@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// The backend, narrowed to what the frame asks of it.
 ///
@@ -86,7 +86,7 @@ abstract class FleetBackend {
   /// Sets or clears the caption a task reads by. **Nothing about its identity moves.**
   Future<Labelled> labelTask(String task, {String? label});
 
-  /// Sends one part of a file handed to a running task; see [SokarClient.handIn].
+  /// Sends one part of a file handed to a running task; see [PoreloClient.handIn].
   Future<HandInPart> handIn(String task,
       {required String name,
       required int bytes,
@@ -106,20 +106,20 @@ abstract class FleetBackend {
   /// Shuts the vault. There is no `Unlock`: a daemon has no terminal for a passphrase.
   Future<Locked> lock();
 
-  /// Enrolls this device as a keyslot. Proposed for Sokar's keyslots.
+  /// Enrolls this device as a keyslot. Proposed for Porelo's keyslots.
   Future<Enrolled> enrollDevice({
     required String name,
     required String share,
     required KeyslotStorage storage,
   });
 
-  /// Every credential that can open the vault. Proposed for Sokar's keyslots.
+  /// Every credential that can open the vault. Proposed for Porelo's keyslots.
   Future<List<Keyslot>> keyslots();
 
-  /// Revokes one keyslot. Proposed for Sokar's keyslots.
+  /// Revokes one keyslot. Proposed for Porelo's keyslots.
   Future<Revoked> revokeKeyslot(String id);
 
-  /// Opens the vault with this device's share. Proposed for Sokar's keyslots.
+  /// Opens the vault with this device's share. Proposed for Porelo's keyslots.
   Future<UnlockedWithShare> unlockWithShare({required String share, int? minutes});
 
   /// Whether work can start, asked before anything is created.
@@ -188,7 +188,7 @@ abstract class FleetBackend {
   /// [Machines].
   Future<String> node();
 
-  /// Removes what Sokar built for a project, or says what it would remove.
+  /// Removes what Porelo built for a project, or says what it would remove.
   ///
   /// **Never the project file, the checkout or the upstream**: those are the operator's, and
   /// `Deletion.keeps` names them so a confirmation can say so.
@@ -271,7 +271,7 @@ abstract class FleetBackend {
   Future<({bool removed, List<MachineDeployKey> keys})> removeFromDefault(String name);
 
   /// The contract, as the machine serves it: what it can be asked, read before a step that needs a
-  /// newer Sokar rather than found out in the middle of it.
+  /// newer Porelo rather than found out in the middle of it.
   Future<String> contract();
 
   /// Pending work at a project's gate as a git bundle, for a person to merge on their own computer.
@@ -281,7 +281,7 @@ abstract class FleetBackend {
   Future<({bool landed, String commit, String detail})> landed(String project, String name,
       {String? repository, required String branch});
 
-  /// The keys a project file may hold, as this machine's Sokar knows them.
+  /// The keys a project file may hold, as this machine's Porelo knows them.
   Future<ProjectFileSchema> projectFileSchema();
 
   /// Checks a draft `project.yml` against this machine.
@@ -396,28 +396,28 @@ abstract class FleetBackend {
   /// machine's `Tail` takes them; an older one reads from the start, raw.
   Stream<List<String>> tailLog(String task, String log, {int? last, bool formatted = false});
 
-  /// What [task]'s terminal session shows now; [FeatureNotSupported] from a Sokar without `Screen`.
+  /// What [task]'s terminal session shows now; [FeatureNotSupported] from a Porelo without `Screen`.
   Future<Screen> screen(String task, {required int last, bool escapes = false});
 }
 
-/// A real Sokar daemon, local or forwarded.
-class SokarBackend implements FleetBackend {
+/// A real Porelo daemon, local or forwarded.
+class PoreloBackend implements FleetBackend {
   /// Constructor taking where the daemon is.
-  SokarBackend(this.backend);
+  PoreloBackend(this.backend);
 
   /// The socket and its name.
   final Backend backend;
 
-  SokarClient? _client;
+  PoreloClient? _client;
 
   @override
   String get label => backend.label;
 
   @override
   Future<ServiceInfo> open() async {
-    final client = await SokarClient.connect(backend);
+    final client = await PoreloClient.connect(backend);
     _client = client;
-    // Another Sokar may answer now: what its `Tail` takes is asked again.
+    // Another Porelo may answer now: what its `Tail` takes is asked again.
     _tailTakes = null;
     return client.info;
   }
@@ -854,7 +854,7 @@ class SokarBackend implements FleetBackend {
     }
   }
 
-  SokarClient _opened() {
+  PoreloClient _opened() {
     final client = _client;
     if (client == null) throw StateError('open() has not answered yet');
     return client;

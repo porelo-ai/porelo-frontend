@@ -12,7 +12,7 @@ Feature: Running long operations without blocking the frame
     When I choose the command {'Show what this project would open, creating nothing'}
     And I close what is open
     And I select the project {'checkout'}
-    Then the work {'sokar-checkout-shell'} is listed
+    Then the work {'porelo-checkout-shell'} is listed
     And the operation is still running
 
   Scenario: output goes to the operation and disturbs nothing else

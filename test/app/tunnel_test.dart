@@ -5,9 +5,9 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/connections.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/tunnel.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
 
 /// Forwards this interface raises and owns.
 ///
@@ -20,7 +20,7 @@ void main() {
   late Directory where;
 
   setUp(() {
-    where = Directory.systemTemp.createTempSync('sokar-tunnel-test');
+    where = Directory.systemTemp.createTempSync('porelo-tunnel-test');
     addTearDown(() {
       if (where.existsSync()) where.deleteSync(recursive: true);
     });
@@ -30,7 +30,7 @@ void main() {
         name: 'the build machine',
         socketPath: socket,
         host: 'user@build',
-        remoteSocket: '/run/user/1001/sokar/sokard.sock',
+        remoteSocket: '/run/user/1001/porelo/porelod.sock',
       );
 
   /// A stand-in for `ssh` that binds the socket and stays up, as a working forward does.
@@ -352,10 +352,10 @@ void main() {
       Process.runSync('chmod', <String>['755', fake.path]);
     }
 
-    /// A far end whose `sokard` runs [body].
-    void sokardThat(String body) {
-      File('${where.path}/sokard').writeAsStringSync('#!/bin/sh\n$body\n');
-      Process.runSync('chmod', <String>['755', '${where.path}/sokard']);
+    /// A far end whose `porelod` runs [body].
+    void porelodThat(String body) {
+      File('${where.path}/porelod').writeAsStringSync('#!/bin/sh\n$body\n');
+      Process.runSync('chmod', <String>['755', '${where.path}/porelod']);
     }
 
     test('the line names the host, asks for a unit first, and never prompts', () {
@@ -387,7 +387,7 @@ void main() {
         name: 'innocent',
         socketPath: '/tmp/unused.sock',
         host: r'user@build; rm -rf $HOME #',
-        remoteSocket: r'/run/$(whoami)/sokar/sokard.sock',
+        remoteSocket: r'/run/$(whoami)/porelo/porelod.sock',
       );
 
       final command = Tunnels.startCommandFor(sneaky);
@@ -399,28 +399,28 @@ void main() {
       expect(command.where((each) => each.contains('rm -rf')), hasLength(1));
     });
 
-    test('a machine with no sokard on it says so, and starts nothing', () async {
+    test('a machine with no porelod on it says so, and starts nothing', () async {
       // A path with nothing on it, and deliberately not this machine's own: a far end that has no
       // daemon is the case being tested, and running the real one here would be a side effect of
       // a test.
       final bare = Directory('${where.path}/bare')..createSync();
 
-      final started = await runningTheScript(bare.path).startSokarOn(machineAt('/tmp/unused.sock'));
+      final started = await runningTheScript(bare.path).startPoreloOn(machineAt('/tmp/unused.sock'));
 
       expect(started.went, isFalse);
-      expect(started.words, contains('no sokard is installed there'));
+      expect(started.words, contains('no porelod is installed there'));
     });
 
     test('a machine with no unit starts it detached, and does not wait for it', () async {
       final marker = '${where.path}/it-ran';
-      sokardThat('echo ran > $marker\nsleep 5');
+      porelodThat('echo ran > $marker\nsleep 5');
       systemdThatSays('not-found');
 
       final started = await runningTheScript('${where.path}:/usr/bin:/bin')
-          .startSokarOn(machineAt('/tmp/unused.sock'));
+          .startPoreloOn(machineAt('/tmp/unused.sock'));
 
       expect(started.went, isTrue);
-      expect(started.words, contains('started sokard itself: there is no systemd unit for it'));
+      expect(started.words, contains('started porelod itself: there is no systemd unit for it'));
       // It came back while the daemon is still running, which is the whole of "detached": a start
       // that waited for the daemon to finish would hold the window for as long as it serves.
       final by = DateTime.now().add(const Duration(seconds: 5));
@@ -432,11 +432,11 @@ void main() {
 
     test('a machine with a unit has systemd start it, and never runs the binary itself', () async {
       final marker = '${where.path}/binary-ran';
-      sokardThat('echo ran > $marker');
+      porelodThat('echo ran > $marker');
       systemdThatSays('loaded');
 
       final started = await runningTheScript('${where.path}:/usr/bin:/bin')
-          .startSokarOn(machineAt('/tmp/unused.sock'));
+          .startPoreloOn(machineAt('/tmp/unused.sock'));
 
       expect(started.went, isTrue);
       expect(started.words, contains('started by systemd'));
@@ -446,42 +446,42 @@ void main() {
     // Reported: a refused start said only that nothing answered.
     test('a unit that refuses says what systemd said, and the binary is not run instead', () async {
       final marker = '${where.path}/binary-ran';
-      sokardThat('echo ran > $marker\nsleep 5');
+      porelodThat('echo ran > $marker\nsleep 5');
       systemdThatSays('loaded',
-          start: 'echo "Job for sokard.service failed because the control process exited." >&2; exit 1');
+          start: 'echo "Job for porelod.service failed because the control process exited." >&2; exit 1');
 
       final started = await runningTheScript('${where.path}:/usr/bin:/bin')
-          .startSokarOn(machineAt('/tmp/unused.sock'));
+          .startPoreloOn(machineAt('/tmp/unused.sock'));
 
       expect(started.went, isFalse);
-      expect(started.words, contains('Job for sokard.service failed because the control process exited.'));
+      expect(started.words, contains('Job for porelod.service failed because the control process exited.'));
       expect(started.words, contains('exit 1'));
       expect(File(marker).existsSync(), isFalse,
           reason: 'a unit that refused was worked around by starting the binary behind it');
     });
 
     test('a daemon that ends as soon as it starts is a failure, with what it wrote', () async {
-      sokardThat('echo "cannot read /etc/sokar/sokard.conf" >&2\nexit 3');
+      porelodThat('echo "cannot read /etc/porelo/porelod.conf" >&2\nexit 3');
       systemdThatSays('not-found');
 
       final started = await runningTheScript('${where.path}:/usr/bin:/bin')
-          .startSokarOn(machineAt('/tmp/unused.sock'));
+          .startPoreloOn(machineAt('/tmp/unused.sock'));
 
       expect(started.went, isFalse);
-      expect(started.words, contains('cannot read /etc/sokar/sokard.conf'));
+      expect(started.words, contains('cannot read /etc/porelo/porelod.conf'));
       expect(started.words, contains('exit 3'));
-      expect(started.words, isNot(contains('started sokard itself')));
+      expect(started.words, isNot(contains('started porelod itself')));
     });
 
     test('a far end with no lingering is told what that costs, and one with it is not', () async {
-      sokardThat('sleep 5');
+      porelodThat('sleep 5');
       systemdThatSays('not-found');
 
       Future<String> wordsWhenLingerIs(String answer) async {
         File('${where.path}/loginctl').writeAsStringSync('#!/bin/sh\necho $answer\n');
         Process.runSync('chmod', <String>['755', '${where.path}/loginctl']);
         final started = await runningTheScript('${where.path}:/usr/bin:/bin')
-            .startSokarOn(machineAt('/tmp/unused.sock'));
+            .startPoreloOn(machineAt('/tmp/unused.sock'));
         return started.words;
       }
 
@@ -500,7 +500,7 @@ void main() {
       addTearDown(tunnels.dispose);
 
       final started = await tunnels
-          .startSokarOn(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
+          .startPoreloOn(const Machine(name: 'elsewhere', socketPath: '/tmp/elsewhere.sock'));
 
       expect(started.went, isFalse);
       expect(asked, isFalse, reason: 'there is no host to log into');
@@ -514,7 +514,7 @@ void main() {
       );
       addTearDown(tunnels.dispose);
 
-      final started = await tunnels.startSokarOn(machineAt('/tmp/unused.sock'));
+      final started = await tunnels.startPoreloOn(machineAt('/tmp/unused.sock'));
 
       expect(started.went, isFalse);
       expect(started.words, contains('No such file or directory'));

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
 
-/// Usage: the tile {'sokar-billing-shell'} is not marked as a guess
+/// Usage: the tile {'porelo-billing-shell'} is not marked as a guess
 Future<void> theTileIsNotMarkedAsAGuess(WidgetTester tester, String work) async {
   await toTheTile(tester, work);
   expect(tileFor(work), findsOneWidget, reason: 'no tile for $work');

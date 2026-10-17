@@ -14,10 +14,10 @@ Feature: Moving around the frame by keyboard and by pointer
 
   Scenario: a project and its work are each one selection away
     When I select the project {'checkout'}
-    Then the work {'sokar-checkout-shell'} is listed
-    When I select the work {'sokar-checkout-shell'}
+    Then the work {'porelo-checkout-shell'} is listed
+    When I select the work {'porelo-checkout-shell'}
     And I open the selection
-    Then the detail for {'sokar-checkout-shell'} is shown
+    Then the detail for {'porelo-checkout-shell'} is shown
 
   Scenario: the frame is worked from the keyboard with no pointer at all
     When I move the keyboard to the project {'billing'}
@@ -26,11 +26,11 @@ Feature: Moving around the frame by keyboard and by pointer
 
   Scenario: closing a detail comes back with the same selection still made
     When I select the project {'checkout'}
-    And I select the work {'sokar-checkout-shell'}
+    And I select the work {'porelo-checkout-shell'}
     And I open the selection
     And I close what is open
     Then the work pane is shown
-    And the work {'sokar-checkout-shell'} is still selected
+    And the work {'porelo-checkout-shell'} is still selected
     And the project {'checkout'} is selected
 
   Scenario: one finder names actions belonging to a screen that is not open
@@ -68,7 +68,7 @@ Feature: Moving around the frame by keyboard and by pointer
     Then the menu that holds {'Check whether this machine can run anything'} is open with it marked
 
   Scenario: the title bar holds only what belongs to no machine
-    Then the title bar offers {'Find a command (Ctrl+K), Watch another machine…, Options, About Sokar'}
+    Then the title bar offers {'Find a command (Ctrl+K), Watch another machine…, Options, About Porelo'}
 
   Scenario: the title says where you are
     Then the title is {'this machine'}
@@ -88,12 +88,12 @@ Feature: Moving around the frame by keyboard and by pointer
     And enough time passes for another try
 
   # The check is asked of the daemon, and is most wanted when none answers: where this interface can
-  # start Sokar, the check offers that first, and checks once it answers.
-  Scenario: checking a machine that does not answer offers to start Sokar there first
+  # start Porelo, the check offers that first, and checks once it answers.
+  Scenario: checking a machine that does not answer offers to start Porelo there first
     Given nothing answers on that machine
     When the tunnel drops
     And I choose the command {'Check whether this machine can run anything'}
-    Then it says {'Start Sokar on this computer?'}
+    Then it says {'Start Porelo on this computer?'}
     And it says {'This starts the daemon here, as you.'}
     When I agree to start it
     Then the machine was asked to start {'systemctl --user'}

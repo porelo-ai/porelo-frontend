@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 /// come forward. Presenting a window is the desktop's own business, which Dart has no way to ask
 /// for, so the Linux runner carries the smallest bridge to it.
 class Window {
-  static const _channel = MethodChannel('sokar/window');
+  static const _channel = MethodChannel('porelo/window');
 
   /// Brings the window forward.
   ///

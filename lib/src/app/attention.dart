@@ -2,7 +2,7 @@ import 'homeserver_forwards.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
 import 'machines.dart';
@@ -100,12 +100,12 @@ class Attention extends ChangeNotifier {
   /// Every machine that is not answering. Said about the machine, above the tiles, never as one:
   /// a machine is not work, and its silence may be hiding a question.
   ///
-  /// This computer, where no Sokar is installed, is not one: nothing was ever going to answer there.
+  /// This computer, where no Porelo is installed, is not one: nothing was ever going to answer there.
   List<Machine> get silent => <Machine>[
         for (final machine in _counted)
           if (_machines.of(machine).reachability != Reachability.connected &&
             !(_settings?.seenSilent.contains(machine.name) ?? false) &&
-            !(machine.isThisComputer && !_machines.sokarIsInstalledHere))
+            !(machine.isThisComputer && !_machines.poreloIsInstalledHere))
           machine,
       ];
 

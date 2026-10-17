@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/device_key.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/vault_devices.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/device_key.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/vault_devices.dart';
 
-/// A node with Sokar's keyslots, as proposed: a share it has seen opens its slot, nothing else.
+/// A node with Porelo's keyslots, as proposed: a share it has seen opens its slot, nothing else.
 class _Node implements FleetBackend {
   _Node({this.nodeId = 'node-a'});
 
@@ -177,7 +177,7 @@ void main() {
 
     await devices.enroll(node, 'laptop');
 
-    expect(devices.problem, contains('a later Sokar'));
+    expect(devices.problem, contains('a later Porelo'));
     expect(await store.read('node-a'), isNull);
   });
 

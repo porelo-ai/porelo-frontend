@@ -12,7 +12,7 @@ class Outcome {
   /// Constructor with the wire value.
   const Outcome(this.name);
 
-  /// The name is not a task Sokar created, so nothing was touched.
+  /// The name is not a task Porelo created, so nothing was touched.
   static const notATask = Outcome('NOT_A_TASK');
 
   /// There was nothing of the task to stop.
@@ -239,7 +239,7 @@ class Task {
 
   /// Its name within the project, which is what `Start` takes; [name] is the container it made.
   ///
-  /// **Carried, never cut from [name]**: the two are related by a rule Sokar owns and changes.
+  /// **Carried, never cut from [name]**: the two are related by a rule Porelo owns and changes.
   final String task;
 
   /// A caption somebody set, or empty.
@@ -272,7 +272,7 @@ class Task {
   final String agent;
 
   /// The provider its agent was brokered to, by the name `Providers` reports. Empty when it was
-  /// brokered to none, or a Sokar that did not record it started the task.
+  /// brokered to none, or a Porelo that did not record it started the task.
   final String provider;
 
   /// How somebody is meant to be involved.
@@ -281,7 +281,7 @@ class Task {
   /// What an unattended task was asked to do. Kept after it has finished.
   final String prompt;
 
-  /// The ref its work goes to, such as `refs/sokar/incoming/shell`.
+  /// The ref its work goes to, such as `refs/porelo/incoming/shell`.
   final String branch;
 
   /// When the **current** state began, ISO-8601.
@@ -319,7 +319,7 @@ class Task {
   ///
   /// Answered here rather than joined, because there is no join to make: [name] is a *container*
   /// name and `PendingPush.name` is a *task* name, and several containers over time share one
-  /// ref. Anything lined up from the two would be right for at most one of them. Sokar offered
+  /// ref. Anything lined up from the two would be right for at most one of them. Porelo offered
   /// the field the other way round, went to build it, and withdrew it for that reason.
   final int waiting;
 
@@ -335,7 +335,7 @@ class Task {
 
   /// Whether a restart of its machine took it down and starting it brings it back whole: a `RESUME`
   /// that says why, or a `NEEDS_VAULT` that does, because its tokens wait in a locked vault
-  /// (measured on Sokar 200). Before Sokar brought such tasks back, neither carried a reason.
+  /// (measured on Porelo 200). Before Porelo brought such tasks back, neither carried a reason.
   bool get takenDownByARestart =>
       !running &&
       (startAction == StartAction.resume || startAction == StartAction.needsVault) &&
@@ -345,7 +345,7 @@ class Task {
   final String phase;
 
   /// Which of its project's repositories it works in. **Empty is the project's own**:
-  /// a container created before Sokar said so, never an unknown one.
+  /// a container created before Porelo said so, never an unknown one.
   final String repository;
 
   /// The authorizations its credentials use, by entry: who granted each, and when. Never a token.
@@ -526,7 +526,7 @@ class BuildJob {
   /// What became of it, or its state while it runs, lower case as the forge says it.
   final String result;
 
-  /// Its log's name in `/sokar/files`, or empty when none of it was delivered.
+  /// Its log's name in `/porelo/files`, or empty when none of it was delivered.
   final String log;
 
   /// Constructor taking every field.
@@ -542,10 +542,10 @@ class BuildJob {
 
 /// One file handed to a running task, as the machine's record holds it.
 class HandedFile {
-  /// The value [by] has for what Sokar hands in itself, such as a build's verdict and its log.
-  static const sokar = 'sokar';
+  /// The value [by] has for what Porelo hands in itself, such as a build's verdict and its log.
+  static const porelo = 'porelo';
 
-  /// As it appears in the task, under `/sokar/files`.
+  /// As it appears in the task, under `/porelo/files`.
   final String name;
 
   /// Its size.
@@ -557,7 +557,7 @@ class HandedFile {
   /// When it was complete in the task, as the machine wrote it.
   final String at;
 
-  /// The account that handed it in, or [sokar].
+  /// The account that handed it in, or [porelo].
   final String by;
 
   /// The task's run it went to.
@@ -583,11 +583,11 @@ class HandedFile {
         run: _string(map, 'run'),
       );
 
-  /// Whether Sokar handed it in rather than a person; compared, never guessed from the name.
-  bool get bySokar => by == sokar;
+  /// Whether Porelo handed it in rather than a person; compared, never guessed from the name.
+  bool get byPorelo => by == porelo;
 
   /// Who handed it in, in words.
-  String get from => bySokar ? 'Sokar' : (by.isEmpty ? 'someone the machine does not name' : by);
+  String get from => byPorelo ? 'Porelo' : (by.isEmpty ? 'someone the machine does not name' : by);
 }
 
 /// One line of a task's hand-in record.
@@ -756,7 +756,7 @@ class Agent {
   /// it internally, and reading that name here would have found nothing and drawn a blank.
   final GitIdentity commitsAs;
 
-  /// Whether the agent declares a login of its own, run on the machine by `sokar vault login`.
+  /// Whether the agent declares a login of its own, run on the machine by `porelo vault login`.
   final bool canLogIn;
 
   /// What the agent is started with to log in, inside the login's container. Said, never run here.
@@ -766,7 +766,7 @@ class Agent {
   final String loginDocumentation;
 
   /// What to run on the machine to log in with it, as arguments, named by the machine; empty when it
-  /// cannot log in, and from a Sokar older than the field.
+  /// cannot log in, and from a Porelo older than the field.
   final List<String> loginCommand;
 
   /// Constructor taking every field.
@@ -821,7 +821,7 @@ class GitIdentity {
   factory GitIdentity.from(Map<String, dynamic> map) =>
       GitIdentity(name: _string(map, 'name'), email: _string(map, 'email'));
 
-  /// Whether anything was recorded. False for an agent installed by a Sokar older than the field.
+  /// Whether anything was recorded. False for an agent installed by a Porelo older than the field.
   bool get recorded => name.isNotEmpty || email.isNotEmpty;
 
   /// How it reads on a commit, which is the form somebody is comparing against.
@@ -919,8 +919,8 @@ class Credential {
   });
 
   /// Reads one from a reply.
-  /// How a vault entry's name appears inside a task, after `SOKAR_TOKEN_` and `SOKAR_URL_`:
-  /// upper-cased, anything but a letter or digit as `_`. Measured: `f56-api` is `SOKAR_TOKEN_F56_API`.
+  /// How a vault entry's name appears inside a task, after `PORELO_TOKEN_` and `PORELO_URL_`:
+  /// upper-cased, anything but a letter or digit as `_`. Measured: `f56-api` is `PORELO_TOKEN_F56_API`.
   static String variableOf(String entry) => entry.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '_');
 
   /// Whether it names a service a person grants an authorization for, once, in a browser.
@@ -935,11 +935,11 @@ class Credential {
       );
 }
 
-/// The project every machine has, which Sokar keeps itself and nobody configures: work on a
+/// The project every machine has, which Porelo keeps itself and nobody configures: work on a
 /// repository without writing a project first goes there.
 const String defaultProject = 'default';
 
-/// A repository worked on in [defaultProject]: added by its address, and worked on with Sokar's own
+/// A repository worked on in [defaultProject]: added by its address, and worked on with Porelo's own
 /// fixed settings until a followed project names it.
 class DefaultRepository {
   /// What its tasks name it by.
@@ -974,7 +974,7 @@ class DefaultRepository {
 
   /// Where its work comes from and goes, in one line; the address alone from an older machine.
   String get comesFromAndGoes => switch (source) {
-        'CHECKOUT' => 'From the checkout $upstream, and back into it as sokar/<task>; '
+        'CHECKOUT' => 'From the checkout $upstream, and back into it as porelo/<task>; '
             '${(remote ?? '').isEmpty ? 'it has no remote' : 'its remote $remote is yours to pull and push'}',
         'REMOTE' => 'From ${(remote ?? '').isEmpty ? upstream : remote}, and back there',
         _ => upstream,
@@ -1023,7 +1023,7 @@ class TaskRefreshed {
     String short(String commit) => commit.length > 12 ? commit.substring(0, 12) : commit;
     return switch (outcome) {
       'MOVED' => '${[for (final each in moved.entries) '${each.key} moved to ${short(each.value)}'].join(', ')}; '
-          '${told ? 'its agent was told, and git fetch sokar brings it' : 'its agent was not told - git fetch sokar in $task brings it'}',
+          '${told ? 'its agent was told, and git fetch porelo brings it' : 'its agent was not told - git fetch porelo in $task brings it'}',
       'UNCHANGED' => '$task is up to date with its source.',
       // Only a task with no gate at all answers this: one started without a gate, or an offline one.
       // An online task has a gate too, and answers MOVED or UNCHANGED.
@@ -1047,13 +1047,13 @@ class MachineDeployKey {
   /// The upstream it is declared for.
   final String upstream;
 
-  /// `ssh-ed25519 AAAA… sokar@<host>`: what the forge is given.
+  /// `ssh-ed25519 AAAA… porelo@<host>`: what the forge is given.
   final String publicKey;
 
   /// `SHA256:…`.
   final String fingerprint;
 
-  /// What the forge should call it: `sokar <machine> <project>/<repository>`.
+  /// What the forge should call it: `porelo <machine> <project>/<repository>`.
   final String title;
 
   /// Whether the forge is to give it write access: false for the project's own repository, which a
@@ -1090,7 +1090,7 @@ class MachineDeployKey {
 
 /// A machine's message key: what a project's `machine-signers` names it by.
 class MachineKey {
-  /// `sokar@<host>`.
+  /// `porelo@<host>`.
   final String principal;
 
   /// `ssh-ed25519 AAAA…`.
@@ -1114,17 +1114,17 @@ class MachineKey {
       );
 }
 
-/// The keys a project file may hold in each section, as one machine's Sokar knows them.
+/// The keys a project file may hold in each section, as one machine's Porelo knows them.
 class ProjectFileSchema {
   /// Section to its keys: `""` is the top level; `mail.peers.<peer>` and `repositories.<repository>`
   /// stand for each named one.
   final Map<String, List<String>> sections;
 
-  /// What Sokar does not check: the project's own names, and each transport's settings.
+  /// What Porelo does not check: the project's own names, and each transport's settings.
   final List<String> open;
 
   /// Every key described: what it means, its type, its values and default, and whether it is
-  /// required. Empty from a Sokar that does not describe them.
+  /// required. Empty from a Porelo that does not describe them.
   final List<ProjectFileKey> keys;
 
   /// Constructor taking every field.
@@ -1150,13 +1150,13 @@ class ProjectFileSchema {
       );
 }
 
-/// One key a project file may hold, as the machine's Sokar describes it.
+/// One key a project file may hold, as the machine's Porelo describes it.
 class ProjectFileKey {
   /// Where it sits: `""` for the top level, `mail.peers.<peer>` for each named one.
   final String section;
   final String name;
 
-  /// What it means, in one sentence: Sokar's words, never written a second time here.
+  /// What it means, in one sentence: Porelo's words, never written a second time here.
   final String describe;
 
   /// `string`, `boolean`, `integer`, `list` or `map`.
@@ -1196,13 +1196,13 @@ class ProjectFileKey {
 
 /// What one machine says of a draft `project.yml`, before a person commits it.
 class ProjectFileCheck {
-  /// What Sokar refuses anywhere: **blocks the commit**.
+  /// What Porelo refuses anywhere: **blocks the commit**.
   final List<String> refused;
 
   /// What this machine's follow would refuse: an egress set it does not have.
   final List<String> refusedHere;
 
-  /// What only this machine lacks, or a key a later Sokar may know: warns, never blocks.
+  /// What only this machine lacks, or a key a later Porelo may know: warns, never blocks.
   final List<String> warnings;
 
   /// Constructor taking every list.
@@ -1461,7 +1461,7 @@ class Locked {
 
 /// How a device keeps the share that opens a vault, as the device declared it.
 ///
-/// **Proposed for Sokar's keyslots, not on `Tasks1` yet.** A closed set on the node, which refuses an
+/// **Proposed for Porelo's keyslots, not on `Tasks1` yet.** A closed set on the node, which refuses an
 /// unknown value rather than recording it; a string here by the rule every other value follows, so
 /// one added later renders rather than throws.
 class KeyslotStorage {
@@ -1500,7 +1500,7 @@ class KeyslotStorage {
   String toString() => name;
 }
 
-/// What a keyslot call answered. **Proposed for Sokar's keyslots, not on `Tasks1` yet.**
+/// What a keyslot call answered. **Proposed for Porelo's keyslots, not on `Tasks1` yet.**
 ///
 /// One set for the three calls, because they share most of it; each call answers only its own.
 class KeyslotOutcome {
@@ -1567,7 +1567,7 @@ class KeyslotOutcome {
 
 /// One credential allowed to open a vault: a device, or the recovery passphrase.
 ///
-/// **Proposed for Sokar's keyslots, not on `Tasks1` yet.** Holds no secret: the node discarded the share at
+/// **Proposed for Porelo's keyslots, not on `Tasks1` yet.** Holds no secret: the node discarded the share at
 /// enrollment, and nothing about it comes back.
 class Keyslot {
   /// Assigned by the node, and kept by the device beside its share.
@@ -1614,7 +1614,7 @@ class Keyslot {
       );
 }
 
-/// What enrolling a device did. **Proposed for Sokar's keyslots.**
+/// What enrolling a device did. **Proposed for Porelo's keyslots.**
 class Enrolled {
   /// What happened.
   final KeyslotOutcome outcome;
@@ -1636,7 +1636,7 @@ class Enrolled {
       );
 }
 
-/// What revoking a keyslot did. **Proposed for Sokar's keyslots.**
+/// What revoking a keyslot did. **Proposed for Porelo's keyslots.**
 class Revoked {
   /// What happened.
   final KeyslotOutcome outcome;
@@ -1658,7 +1658,7 @@ class Revoked {
       );
 }
 
-/// What unlocking with a share did. **Proposed for Sokar's keyslots.**
+/// What unlocking with a share did. **Proposed for Porelo's keyslots.**
 class UnlockedWithShare {
   /// What happened.
   final KeyslotOutcome outcome;
@@ -1742,7 +1742,7 @@ class Project {
   /// and nothing would mention it. A bool could only ever say whether something was there.
   ///
   /// **`UNKNOWN` is not stale.** It is an image that does not record what it was built from —
-  /// built by an older Sokar, or belonging to a project whose file has moved. Nothing knows either
+  /// built by an older Porelo, or belonging to a project whose file has moved. Nothing knows either
   /// way, and drawing it as stale sends somebody rebuilding for no reason, which is how a word
   /// stops being read.
   ///
@@ -1798,7 +1798,7 @@ class Project {
   /// project file — or is older than repositories per project and says nothing — and a start then names none.
   final List<String> repositories;
 
-  /// What the daemon says about each of [repositories], in the same order. A Sokar that answered
+  /// What the daemon says about each of [repositories], in the same order. A Porelo that answered
   /// names only fills in nothing but the name.
   final List<Repository> repositoryStates;
 
@@ -1806,8 +1806,8 @@ class Project {
   /// nothing here — the ordinary case, and never the same as followed with nothing known yet.
   final Followed? following;
 
-  /// Whether the machine said anything about following at all. A Sokar that knows following answers
-  /// `following` on every project, and an empty one for a project nothing follows; an older Sokar
+  /// Whether the machine said anything about following at all. A Porelo that knows following answers
+  /// `following` on every project, and an empty one for a project nothing follows; an older Porelo
   /// answers nothing, and its projects are acted on as they always were.
   final bool followingAnswered;
 
@@ -2380,7 +2380,7 @@ class HeldWork {
   /// Whether what it holds could be established at all.
   ///
   /// **Not *"holds nothing"*.** Holding nothing is readable with two zeros. Unreadable means
-  /// nobody could look: a task killed, or stopped by a Sokar that left no note. Absence rendering
+  /// nobody could look: a task killed, or stopped by a Porelo that left no note. Absence rendering
   /// as nothing-to-worry-about is the failure this separation exists to prevent — the same one
   /// that put `readable` on `Credentials` and `Providers`.
   final bool readable;
@@ -2631,7 +2631,7 @@ class Created {
       problems.where((problem) => problem.fatal).toList();
 }
 
-/// One thing outside Sokar that a task depends on.
+/// One thing outside Porelo that a task depends on.
 ///
 /// **Each of these fails far from its cause.** Without `nft` a container comes up with no ruleset;
 /// without `nsenter` a clearance decision cannot reach a running task. Today a person learns about
@@ -2650,7 +2650,7 @@ class Probe {
   /// The single next action.
   ///
   /// **Empty only when [state] is `OK`.** A probe that fails and names nothing to do about it
-  /// cannot be constructed on the Sokar side, so this can be rendered without checking.
+  /// cannot be constructed on the Porelo side, so this can be rendered without checking.
   final String action;
 
   /// Constructor taking every field.
@@ -2880,7 +2880,7 @@ class Removal {
       };
 }
 
-/// What removing what Sokar built for a project did, or would do.
+/// What removing what Porelo built for a project did, or would do.
 class DeleteOutcome {
   /// Constructor taking the name as the contract spells it.
   const DeleteOutcome(this.name);
@@ -2888,7 +2888,7 @@ class DeleteOutcome {
   /// The value as it came.
   final String name;
 
-  /// Everything Sokar built for it is gone.
+  /// Everything Porelo built for it is gone.
   static const deleted = DeleteOutcome('DELETED');
 
   /// What would go, having removed nothing.
@@ -2948,7 +2948,7 @@ class DeleteOutcome {
 /// **`keeps` is the field that makes this safe to offer.** The project file is the operator's, in
 /// their own directory, and so are their checkout and their real upstream: none is touched, and
 /// naming them means a confirmation can say so without this end having to know which things are
-/// Sokar's. Afterwards a task run in that directory builds all of it again.
+/// Porelo's. Afterwards a task run in that directory builds all of it again.
 class Deletion {
   /// What happened, or would have.
   final DeleteOutcome outcome;
@@ -3041,10 +3041,10 @@ class Labelled {
         'LABELLED' => 'It reads as "$label" now. Its real name has not moved.',
         'CLEARED' => 'The caption is gone. It reads as its own name again.',
         'NOT_A_TASK' => 'There is no work by that name here.',
-        // Started by an older Sokar, which recorded nothing to write a caption into. A state, not
+        // Started by an older Porelo, which recorded nothing to write a caption into. A state, not
         // a failure of this action.
         'NOT_RECORDED' =>
-          'This was started by an older Sokar, which kept nowhere to write a caption.',
+          'This was started by an older Porelo, which kept nowhere to write a caption.',
         'FAILED' => 'That did not work.',
         _ => outcome.toLowerCase().replaceAll('_', ' '),
       };
@@ -3098,7 +3098,7 @@ class StartOutcome {
   /// name that would do. **Retyping the name**, nothing else.
   static const badTaskName = StartOutcome('BAD_TASK_NAME');
 
-  /// No repository was named, and Sokar never picks one. **The start dialog's required
+  /// No repository was named, and Porelo never picks one. **The start dialog's required
   /// choice**, the way [severalAgents] is the agent's; `detail` names what there is.
   static const noRepositoryChosen = StartOutcome('NO_REPOSITORY_CHOSEN');
 
@@ -3185,7 +3185,7 @@ class Readiness {
   final String detail;
 
   /// With `CREDENTIAL_MISSING`, what to run on the machine to store it, as arguments; empty otherwise
-  /// and from a Sokar older than the field.
+  /// and from a Porelo older than the field.
   final List<String> storeCommand;
 
   /// With `UNKNOWN_HOST_KEY` and `HOST_KEY_CHANGED`, the repository's host the machine has never met
@@ -3650,7 +3650,7 @@ class VaultState {
 
   /// What this machine is configured to connect out with. **Readable with the vault shut**, because
   /// it holds no secret — which is what tells *"configured, open the vault"* from *"nothing here"*.
-  /// Empty from a Sokar that has no connections, and never read as *no credential*: an undeclared
+  /// Empty from a Porelo that has no connections, and never read as *no credential*: an undeclared
   /// git host still falls back to vault entries named after it.
   final List<Connection> connections;
 
@@ -3807,7 +3807,7 @@ class Repository {
   /// Prose for a person, only when [behindReason] is `FAILED`. Never parsed.
   final String behindDetail;
 
-  /// What a task on it may consume, or null from a Sokar that does not say.
+  /// What a task on it may consume, or null from a Porelo that does not say.
   final ResolvedLimits? limits;
 
   /// Whether it is behind its upstream by an amount somebody can act on.
@@ -3846,7 +3846,7 @@ class Repository {
             : null,
       );
 
-  /// A project's repositories, **the project's own first**, from either shape Sokar has answered:
+  /// A project's repositories, **the project's own first**, from either shape Porelo has answered:
   /// names alone, as it first did, or an object each, as it does since. One without a name is
   /// left out — nothing could be started in it or asked about it.
   static List<Repository> allIn(Map<String, dynamic> project) {
@@ -4042,7 +4042,7 @@ class Followed {
 /// What a task on one repository may consume, and which block each key came from.
 ///
 /// **A repository's limits replace the project's key by key**, so the part worth saying is which
-/// key a repository replaced. `"project"` covers both a value the project file wrote and Sokar's own
+/// key a repository replaced. `"project"` covers both a value the project file wrote and Porelo's own
 /// default, which nothing can tell apart — so it is never worded as somebody having set it.
 class ResolvedLimits {
   /// Memory limit, or empty for none.
@@ -4687,7 +4687,7 @@ class Said {
 
 /// One file a push changes, ranked by the machine for the review.
 ///
-/// **The rank and its reason are the machine's**, from a list fixed in Sokar: nothing here
+/// **The rank and its reason are the machine's**, from a list fixed in Porelo: nothing here
 /// re-ranks, re-classifies or extends it.
 class ReviewFile {
   /// Its path.

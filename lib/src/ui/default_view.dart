@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
 import '../app/forge.dart';
@@ -33,7 +33,7 @@ Future<void> showTheDefault(
           forgeHolding: forgeHolding),
     );
 
-/// `default`: what a machine works on without a project, with Sokar's own settings, fixed.
+/// `default`: what a machine works on without a project, with Porelo's own settings, fixed.
 class DefaultDialog extends StatefulWidget {
   /// Constructor taking the machine and what it is called.
   const DefaultDialog(
@@ -169,7 +169,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
     } on VarlinkException catch (refusal) {
       _problem = '${widget.machineName} refused it: ${refusal.parameters['message'] ?? refusal.simpleName}.';
     } on FeatureNotSupported {
-      _problem = '${widget.machineName} runs a Sokar with no default project yet. Update Sokar there.';
+      _problem = '${widget.machineName} runs a Porelo with no default project yet. Update Porelo there.';
     } on ForgeRefused catch (refused) {
       _problem = refused.words;
     } on VarlinkDisconnected catch (ex) {
@@ -197,7 +197,7 @@ class _DefaultDialogState extends State<DefaultDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'A repository here is worked on without writing a project first, with Sokar’s own settings, '
+                'A repository here is worked on without writing a project first, with Porelo’s own settings, '
                 'which cannot be changed: guarded, the default image, no connection beyond what the agent '
                 'needs to reach its provider, and no messages to or from other work. Approved work goes to '
                 'the repository’s origin. Whoever needs anything else makes a project repository.',

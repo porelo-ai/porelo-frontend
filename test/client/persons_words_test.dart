@@ -4,11 +4,11 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// A person's own words reaching a task's agent: why a push was dropped, why a message was refused,
-/// or anything said straight into its inbox. Sent only when there are words, so a Sokar that takes
+/// or anything said straight into its inbox. Sent only when there are words, so a Porelo that takes
 /// no `reason` never meets one it does not know.
 void main() {
   late MockDaemon daemon;
@@ -21,7 +21,7 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<SokarClient> connect() => SokarClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() => PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   void answering(String method, Map<String, dynamic> reply) => daemon.method(method, (parameters) {
         asked = parameters;
@@ -37,7 +37,7 @@ void main() {
     expect(done.told, isTrue);
   });
 
-  test('a drop without words sends no reason, and a Sokar that does not say told is not read as no', () async {
+  test('a drop without words sends no reason, and a Porelo that does not say told is not read as no', () async {
     answering('Reject', <String, dynamic>{'rejected': 'migrate'});
 
     final done = await (await connect()).reject('checkout', 'migrate', reason: '   ');
@@ -50,10 +50,10 @@ void main() {
     answering('Release', <String, dynamic>{'outcome': 'REFUSED'});
     final client = await connect();
 
-    await client.release('sokar-checkout-shell', 'msg-1.json', refuse: true, reason: 'not yet');
+    await client.release('porelo-checkout-shell', 'msg-1.json', refuse: true, reason: 'not yet');
     expect(asked['reason'], 'not yet');
 
-    await client.release('sokar-checkout-shell', 'msg-1.json', reason: 'not yet');
+    await client.release('porelo-checkout-shell', 'msg-1.json', reason: 'not yet');
     expect(asked.containsKey('reason'), isFalse);
     expect(asked.containsKey('refuse'), isFalse);
   });
@@ -61,9 +61,9 @@ void main() {
   test('words told to a task go to that task, and the file written comes back', () async {
     answering('Tell', <String, dynamic>{'message': '/inbox/told-1.json'});
 
-    final written = await (await connect()).tell('sokar-checkout-migrate', 'stop the migration');
+    final written = await (await connect()).tell('porelo-checkout-migrate', 'stop the migration');
 
-    expect(asked, <String, dynamic>{'task': 'sokar-checkout-migrate', 'text': 'stop the migration'});
+    expect(asked, <String, dynamic>{'task': 'porelo-checkout-migrate', 'text': 'stop the migration'});
     expect(written, '/inbox/told-1.json');
   });
 }

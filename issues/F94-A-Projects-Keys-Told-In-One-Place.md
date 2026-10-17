@@ -15,7 +15,7 @@ for no key again; what each key is for is not yet told together.
 ## Plan
 
 - **Today's pieces.** `MachineBinding.survey` in `lib/src/app/machine_binding.dart` already
-  gathers the Sokar deploy keys at the forge (`keys`) and the `machine-signers` lines (`signers`);
+  gathers the Porelo deploy keys at the forge (`keys`) and the `machine-signers` lines (`signers`);
   `ProjectForgeDialog` in `lib/src/ui/project_forge_view.dart` shows them as two lists behind
   "Machines that have keys to it". The person's keys come from `ProjectWorkspace.signingKeys` and
   `Forge.signingKeys`; the keys a machine pinned are `Followed.signers` in
@@ -35,10 +35,10 @@ for no key again; what each key is for is not yet told together.
 - **The check.** With the rule on, the chosen `SigningKey` is compared by public key with
   `Forge.signingKeys(login)`, the forge's SSH signing keys only; a key not listed there is told in a
   warning beside the rule, with where to add it at the forge. A person whose forge holds only a GPG
-  key is told that Sokar signs with SSH and needs an SSH signing key there.
+  key is told that Porelo signs with SSH and needs an SSH signing key there.
 - **The fakes.** `FakeForge` in `test/features/support/world.dart` gets a settable rule per branch;
   its `signing` list already stands for the forge's signing keys.
-- **Red first.** In `test/features/project_from_repository.feature`, beside "every Sokar key and
+- **Red first.** In `test/features/project_from_repository.feature`, beside "every Porelo key and
   signer is listed": "a project's keys are listed with whose each is and what it is for", then
   "a signing key the forge does not take is warned about where a branch demands signed commits",
   and its pair with a key the forge does take and no warning. `test/app/forge_test.dart` gets a

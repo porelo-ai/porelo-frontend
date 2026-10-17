@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'authorizations.dart';
 import 'clearance.dart';
@@ -74,7 +74,7 @@ abstract class Notifier {
 /// The desktop's own notifications, through `notify-send`.
 ///
 /// Running `notify-send` is not a breach of the rule against shelling out: that rule is about
-/// never building a second implementation of the *domain* by parsing the `sokar` CLI. This is the
+/// never building a second implementation of the *domain* by parsing the `porelo` CLI. This is the
 /// desktop, and nothing about the contract goes near it.
 ///
 /// **On Windows nothing is raised yet**, and that is said once rather than silently, as a missing
@@ -97,7 +97,7 @@ class DesktopNotifier implements Notifier {
     }
     try {
       final process = await Process.start('notify-send', <String>[
-        '--app-name=Sokar',
+        '--app-name=Porelo',
         '--urgency=${switch (note.urgency) {
           Urgency.waiting => 'critical',
           Urgency.finishedBadly => 'normal',

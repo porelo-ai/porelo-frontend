@@ -68,14 +68,14 @@ void main() {
         '''work whose own commits are waiting for review says so on its detail''',
         (tester) async {
       await bddSetUp(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
       await itSays(tester, 'its own work is waiting for review');
     });
     testWidgets('''work with nothing of its own waiting says that instead''',
         (tester) async {
       await bddSetUp(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'nothing of its own is waiting');
     });
@@ -94,7 +94,7 @@ void main() {
       await iReviewWhatIsWaitingAtTheGate(tester);
       await iOpenTheWaitingPush(tester);
       await itSays(tester,
-          'git fetch ssh://sokar@build-01/srv/checkout/.sokar/mirror refs/sokar/incoming/migrate:refs/remotes/sokar/migrate');
+          'git fetch ssh://porelo@build-01/srv/checkout/.porelo/mirror refs/porelo/incoming/migrate:refs/remotes/porelo/migrate');
       await itSays(tester, 'safe mode');
     });
     testWidgets(
@@ -219,7 +219,7 @@ void main() {
         '''where somebody asks what an agent was told, the answer is not here''',
         (tester) async {
       await bddSetUp(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(
           tester, 'in the repository — nothing here has a view of them');
@@ -229,7 +229,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theWorkHoldsUnpushedCommitsAndChangedFiles(tester, 2, 3);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'holds 2 unpushed commits and 3 changed files');
     });
@@ -237,7 +237,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theWorkHoldsUnpushedCommitsAndChangedFiles(tester, 0, 0);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'holds nothing that never reached the gate');
     });
@@ -246,17 +246,17 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await nobodyCouldLookInsideTheWork(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'nothing recorded what it held');
-      await itSays(tester, 'killed, rebooted, or stopped by an older Sokar');
+      await itSays(tester, 'killed, rebooted, or stopped by an older Porelo');
     });
     testWidgets(
         '''a stopped task says what it held when it stopped, and when that was''',
         (tester) async {
       await bddSetUp(tester);
       await theWorkHeldUnpushedCommitsWhenItStopped(tester, 4);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'held 4 unpushed commits when it stopped');
       await itSays(tester, 'minutes ago');
@@ -266,7 +266,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theMachineKnowsNoSuchTask(tester);
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await itSays(tester, 'does not know a task called');
     });
@@ -312,8 +312,8 @@ void main() {
       await theProjectHasTheRepositories(
           tester, 'checkout', 'checkout, payments-api');
       await theWorkWorksInTheRepository(
-          tester, 'sokar-checkout-migrate', 'payments-api');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+          tester, 'porelo-checkout-migrate', 'payments-api');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheSelection(tester);
       await itSays(tester, 'payments-api');
     });

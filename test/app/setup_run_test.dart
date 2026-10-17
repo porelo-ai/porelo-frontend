@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machine_setup.dart';
-import 'package:sokar_frontend/src/app/setup_run.dart';
+import 'package:porelo_frontend/src/app/machine_setup.dart';
+import 'package:porelo_frontend/src/app/setup_run.dart';
 
 /// A machine whose root answers when told to, so what a run says *while* it waits can be read.
 class _Slow extends MachineSetup {
@@ -39,12 +39,12 @@ void main() {
     await run.keep();
 
     expect(kept.toString(), isNot(contains('PRIVATE')));
-    expect(kept!['kept'], '${home.path}/.ssh/sokar-the-build-machine-admin');
+    expect(kept!['kept'], '${home.path}/.ssh/porelo-the-build-machine-admin');
     expect(kept!['publicKey'], startsWith('ssh-ed25519 '));
   });
 
   test('a run picked up again starts where it can go on, and root logs in again first', () {
-    final key = File('${home.path}/sokar-x')..writeAsStringSync('key');
+    final key = File('${home.path}/porelo-x')..writeAsStringSync('key');
     final run = SetupRun.fromStored(<String, Object?>{
       'name': 'x',
       'workUser': 'agent',

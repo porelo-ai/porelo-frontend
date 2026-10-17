@@ -18,7 +18,7 @@ Feature: Reaching a real machine, reading it, and following a project
 
   Scenario: a machine is tried from the dialog before it is watched
     When I try the test machine from the dialog
-    Then the trial says {'Reached Sokar'}
+    Then the trial says {'Reached Porelo'}
     And no forward raised for the trial is left
     And I put the dialog away
 
@@ -34,7 +34,7 @@ Feature: Reaching a real machine, reading it, and following a project
   # ssh reports a wrong uid in the same words as a missing daemon, so the machine is asked which uid
   # the login has. uid 0 is never the account the test logs in as.
   Scenario: a socket in another user's runtime directory on the test machine is named as that
-    When I try the test machine from the dialog with the socket {'/run/user/0/sokar/none.sock'}
+    When I try the test machine from the dialog with the socket {'/run/user/0/porelo/none.sock'}
     Then the trial says {'runtime directory (uid 0)'}
     And no forward raised for the trial is left
     And I put the dialog away
@@ -90,7 +90,7 @@ Feature: Reaching a real machine, reading it, and following a project
     And the test machine has never met {'github.com'}
     And the test machine has an ssh key of its own {'id_e2e'}
     And the test machine connects to {'ssh://github.com/'} with its own key
-    When I follow {'git@github.com:sokar-ai/sokar-project.git'} as {'e2e-hostkey'} from the interface, unverified
+    When I follow {'git@github.com:porelo-ai/porelo-project.git'} as {'e2e-hostkey'} from the interface, unverified
     Then the interface shows the keys of {'github.com'}, with {'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU'}
     When I trust {'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU'} from the interface
     Then the machine knows {'github.com'} by the key {'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU'}
@@ -151,16 +151,16 @@ Feature: Reaching a real machine, reading it, and following a project
     Given the test machine is being watched
     And the test machine has an open vault
     And the test machine has a task {'e2e-talk'} with a message held for {'reviewer'} saying {'look at **this** https://evil.example/x'}
-    Then the interface shows a message held in {'sokar-e2e-talk-e2e-talk'}
+    Then the interface shows a message held in {'porelo-e2e-talk-e2e-talk'}
     And the interface says {'you wrote, going out through'}
     When I read it and refuse it from the interface, saying {'not before the tests pass'}
     Then the message read as {'look at **this** https://evil.example/x'}
     And the interface says {'Refused for good. The task that wrote it is told, with your words.'}
     And the machine lists that message as refused by a person
-    And the inbox of {'sokar-e2e-talk-e2e-talk'} holds {'not before the tests pass'}
-    When I write {'stop, the schema changed'} to the agent of {'sokar-e2e-talk-e2e-talk'} from the interface
-    Then the inbox of {'sokar-e2e-talk-e2e-talk'} holds {'stop, the schema changed'} from a person
-    And the task {'sokar-e2e-talk-e2e-talk'} and the project {'e2e-talk'} are removed again
+    And the inbox of {'porelo-e2e-talk-e2e-talk'} holds {'not before the tests pass'}
+    When I write {'stop, the schema changed'} to the agent of {'porelo-e2e-talk-e2e-talk'} from the interface
+    Then the inbox of {'porelo-e2e-talk-e2e-talk'} holds {'stop, the schema changed'} from a person
+    And the task {'porelo-e2e-talk-e2e-talk'} and the project {'e2e-talk'} are removed again
 
   # What a console can do with a destination, the interface can - checked by the machine first.
   Scenario: a destination is checked by the machine, written from the interface, and removed again
@@ -229,7 +229,7 @@ Feature: Reaching a real machine, reading it, and following a project
   Scenario: work whose provider refused its key needs a person, and its tile shows what its agent wrote
     Given the test machine is being watched
     And the test machine has an open vault
-    And the test machine has Sokar's stub agent
+    And the test machine has Porelo's stub agent
     And work on the test machine was started with a key {'anthropic'} its provider refuses
     Then what needs a person says its provider refused it
     And its tile shows what its agent wrote

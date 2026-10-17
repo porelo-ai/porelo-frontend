@@ -3,21 +3,21 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/hand_in.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/hand_in.dart';
 
 /// Hands files to a running task on a real machine, through the same code the interface uses.
 ///
-/// Runs only when `SOKAR_SOCKET` names a daemon's socket and `SOKAR_HAND_IN_TASK` a running task on
+/// Runs only when `PORELO_SOCKET` names a daemon's socket and `PORELO_HAND_IN_TASK` a running task on
 /// it; it leaves `big.bin` and `resumed.bin` in that task for the content to be compared inside.
-/// With `SOKAR_HAND_IN_REMOVE=1` it instead stops and removes that task and reads its record.
+/// With `PORELO_HAND_IN_REMOVE=1` it instead stops and removes that task and reads its record.
 void main() {
-  final socket = Platform.environment['SOKAR_SOCKET'] ?? '';
-  final task = Platform.environment['SOKAR_HAND_IN_TASK'] ?? '';
-  final remove = Platform.environment['SOKAR_HAND_IN_REMOVE'] == '1';
+  final socket = Platform.environment['PORELO_SOCKET'] ?? '';
+  final task = Platform.environment['PORELO_HAND_IN_TASK'] ?? '';
+  final remove = Platform.environment['PORELO_HAND_IN_REMOVE'] == '1';
   final skip = socket.isEmpty || task.isEmpty
-      ? 'needs SOKAR_SOCKET and SOKAR_HAND_IN_TASK, a running task on that machine'
+      ? 'needs PORELO_SOCKET and PORELO_HAND_IN_TASK, a running task on that machine'
       : null;
 
   late _Counting backend;
@@ -50,7 +50,7 @@ void main() {
 
       expect(placed, isNotNull, reason: handing.said);
       expect(placed!.sha256, sha256Of(await file.readAsBytes()));
-      expect(placed.by, isNot(HandedFile.sokar));
+      expect(placed.by, isNot(HandedFile.porelo));
       expect((await theTask()).files!.map((each) => each.name), contains('small.txt'));
     });
 
@@ -156,12 +156,12 @@ void main() {
         await seen.close();
       }
     }, timeout: const Timeout(Duration(seconds: 90)));
-  }, skip: skip ?? (remove ? 'SOKAR_HAND_IN_REMOVE is set' : null));
+  }, skip: skip ?? (remove ? 'PORELO_HAND_IN_REMOVE is set' : null));
 
   test('the record is still there after the task is removed', () async {
     // Run again after a first run removed it, it only reads the record.
     if ((await backend.tasks()).any((each) => each.name == task)) {
-      final client = await SokarClient.connect(Backend(socketPath: socket, label: 'live'));
+      final client = await PoreloClient.connect(Backend(socketPath: socket, label: 'live'));
       await client.stop(task);
       await client.remove(task, force: true);
     }
@@ -170,11 +170,11 @@ void main() {
     final record = await backend.handIns(task);
 
     expect(record.map((each) => each.file.name), containsAll(['small.txt', 'big.bin']));
-  }, skip: skip ?? (remove ? null : 'set SOKAR_HAND_IN_REMOVE=1 to remove the task'));
+  }, skip: skip ?? (remove ? null : 'set PORELO_HAND_IN_REMOVE=1 to remove the task'));
 }
 
 /// The real backend, counting the parts it sends.
-class _Counting extends SokarBackend {
+class _Counting extends PoreloBackend {
   _Counting(super.backend);
 
   int parts = 0;

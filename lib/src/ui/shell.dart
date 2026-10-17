@@ -47,7 +47,7 @@ import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
 
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'attention_view.dart';
 import 'command_finder.dart';
@@ -190,7 +190,7 @@ class Shell extends StatefulWidget {
   /// The shells somebody has open inside running work.
   final Sessions sessions;
 
-  /// Removing what Sokar built for a project.
+  /// Removing what Porelo built for a project.
   final ProjectDeletion deleting;
 
   /// Whether the machine being acted on can run anything.
@@ -250,7 +250,7 @@ class _ShellState extends State<Shell> {
 
   /// This build's version, stamped by the package build; a build from source says so.
   static const _version = String.fromEnvironment(
-    'SOKAR_VERSION',
+    'PORELO_VERSION',
     defaultValue: 'built from source',
   );
 
@@ -550,7 +550,7 @@ class _ShellState extends State<Shell> {
     await widget.gate.lookAt(_fleet.backend, project);
   }
 
-  /// Asks what removing what Sokar built for this project would take, then offers to do it.
+  /// Asks what removing what Porelo built for this project would take, then offers to do it.
   ///
   /// **Nothing is removed by opening this.** The preview is a call with `dryRun`, and what it
   /// lists is what somebody agrees to — the sentence above the button is not.
@@ -563,7 +563,7 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
-  /// Clears the machine of everything Sokar put there, and its keys at the forge.
+  /// Clears the machine of everything Porelo put there, and its keys at the forge.
   Future<void> _clearTheMachine() async {
     await openClearing(context, MachineClearing(_fleet.backend, _forges, machineName: widget.machines.current.name));
     unawaited(_fleet.refresh(quietly: true));
@@ -817,8 +817,8 @@ class _ShellState extends State<Shell> {
         open: widget.sessions.openTerminal);
   }
 
-  /// Whether a value can be stored on the current machine from here: its own `sokar` is reachable.
-  bool get _storesHere => onTheMachine(widget.machines.current, const <String>['sokar'], terminal: false) != null;
+  /// Whether a value can be stored on the current machine from here: its own `porelo` is reachable.
+  bool get _storesHere => onTheMachine(widget.machines.current, const <String>['porelo'], terminal: false) != null;
 
   /// Stores the declared value by typing it into a terminal on the machine, then reads again.
   Future<void> _storeInATerminal() async {
@@ -887,7 +887,7 @@ class _ShellState extends State<Shell> {
     await widget.vault.lookAt(_fleet.backend, machine.name);
   }
 
-  /// Whether the current machine's own `sokar` can be reached for a terminal.
+  /// Whether the current machine's own `porelo` can be reached for a terminal.
   bool get _canUnlockHere => unlockCommandFor(widget.machines.current) != null;
 
   /// Grants what [credential] names, then asks the vault again: the grant is kept there.
@@ -1217,10 +1217,10 @@ class _ShellState extends State<Shell> {
   /// Says what this is and what every machine it watches runs.
   void _showAbout() => showAboutDialog(
     context: context,
-    applicationName: 'Sokar',
+    applicationName: 'Porelo',
     applicationVersion: _version,
     applicationLegalese:
-        'The interface to Sokar: agent work in guarded containers, on '
+        'The interface to Porelo: agent work in guarded containers, on '
         'machines you watch from here.',
     children: <Widget>[
       const SizedBox(height: Space.normal),
@@ -1311,8 +1311,8 @@ class _ShellState extends State<Shell> {
       onStart: _beginTheRun,
       onKeep: _keepAsTemplate,
       onStoreTheCredential:
-          onTheMachineAsWritten(widget.machines.current, 'sokar') == null ? null : _storeTheCredentialToStart,
-      onLogIn: onTheMachineAsWritten(widget.machines.current, 'sokar') == null ? null : _logInWithTheAgent,
+          onTheMachineAsWritten(widget.machines.current, 'porelo') == null ? null : _storeTheCredentialToStart,
+      onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null ? null : _logInWithTheAgent,
       onOpenWithThisDevice: widget.vault.devices.enrolledHere ? _openWithThisDeviceToStart : null,
       onGrant: _grantToStart,
     );
@@ -1353,7 +1353,7 @@ class _ShellState extends State<Shell> {
       await widget.starting.askAgain();
       return;
     }
-    // A Sokar older than the field: the provider's line, run as the machine wrote it.
+    // A Porelo older than the field: the provider's line, run as the machine wrote it.
     final Providers providers;
     try {
       providers = await _fleet.backend.providers();
@@ -1380,15 +1380,15 @@ class _ShellState extends State<Shell> {
     await widget.starting.askAgain();
   }
 
-  /// Runs [agent]'s own login on the machine, through Sokar, in a terminal there: its page is offered
+  /// Runs [agent]'s own login on the machine, through Porelo, in a terminal there: its page is offered
   /// as a link to open here, and its reply to `localhost` is forwarded while the terminal is open.
   /// Then asks the machine again whether work can start.
   Future<void> _logInWithTheAgent(Agent agent) async {
     final machine = widget.machines.current;
-    // The machine's own command; spelled here only for a Sokar that declared a login before it named one.
+    // The machine's own command; spelled here only for a Porelo that declared a login before it named one.
     final command = onTheMachine(
         machine,
-        agent.loginCommand.isNotEmpty ? agent.loginCommand : <String>['sokar', 'vault', 'login', agent.name],
+        agent.loginCommand.isNotEmpty ? agent.loginCommand : <String>['porelo', 'vault', 'login', agent.name],
         terminal: true);
     if (command == null) return;
     await runInATerminal(context,
@@ -1684,9 +1684,9 @@ class _ShellState extends State<Shell> {
   /// A start asked for in the dialog, recorded as one from the menu is. The dialog shows what came
   /// back; the record is what keeps a failure once the dialog is closed.
   Future<Started> _startAskedInTheDialog(Machine machine) async {
-    final started = await widget.machines.startSokarOn(machine);
+    final started = await widget.machines.startPoreloOn(machine);
     widget.operations.run(
-      title: 'Start Sokar on ${machine.host}',
+      title: 'Start Porelo on ${machine.host}',
       machine: machine.name,
       output: _saidByAStart(machine, started),
     );
@@ -1703,7 +1703,7 @@ class _ShellState extends State<Shell> {
   /// machine of its own — its own daemon, tasks and vault.
   Future<void> _addAUser() => _addAMachine(only: MachineKind.newUser);
 
-  /// Asks which user a new machine runs work as: the one Sokar's setup script creates there.
+  /// Asks which user a new machine runs work as: the one Porelo's setup script creates there.
   Future<void> _askTheWorkUser() async {
     final name = await showDialog<String>(
       context: context,
@@ -1759,7 +1759,7 @@ class _ShellState extends State<Shell> {
   /// The one thing a silent machine can still be asked. What runs is named before it runs: this
   /// is the interface reaching further into somebody else's machine than forwarding a socket goes,
   /// and it goes no further than a line somebody read and agreed to.
-  /// Starts Sokar where it is not answering, then checks the machine once it answers.
+  /// Starts Porelo where it is not answering, then checks the machine once it answers.
   Future<void> _startThenCheck() async {
     final machine = widget.machines.current;
     if (!await _startTheDaemon()) return;
@@ -1809,7 +1809,7 @@ class _ShellState extends State<Shell> {
     if (mounted && widget.machines.current == machine) await _checkTheMachine();
   }
 
-  /// Asks whether to start Sokar where it is not answering, and starts it on a yes. Answers whether
+  /// Asks whether to start Porelo where it is not answering, and starts it on a yes. Answers whether
   /// it was asked to.
   Future<bool> _startTheDaemon() async {
     final machine = widget.machines.current;
@@ -1818,7 +1818,7 @@ class _ShellState extends State<Shell> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Start Sokar on $where?'),
+        title: Text('Start Porelo on $where?'),
         content: SizedBox(
           width: Sizes.dialogMedium,
           child: Column(
@@ -1855,7 +1855,7 @@ class _ShellState extends State<Shell> {
     );
     if (yes != true) return false;
     widget.operations.run(
-      title: 'Start Sokar on $where',
+      title: 'Start Porelo on $where',
       machine: machine.name,
       output: _startingSaid(machine),
     );
@@ -1868,7 +1868,7 @@ class _ShellState extends State<Shell> {
   /// only thing that can say whether it worked — a line that ran cleanly proves nothing.
   Stream<String> _startingSaid(Machine machine) async* {
     yield Tunnels.startCommandFor(machine).join(' ');
-    final started = await widget.machines.startSokarOn(machine);
+    final started = await widget.machines.startPoreloOn(machine);
     yield started.words;
     if (!started.went) throw FailedSaying(started.words);
     await widget.machines.raiseAgainIfNeeded(machine);
@@ -1894,7 +1894,7 @@ class _ShellState extends State<Shell> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Stop Sokar on ${machine.host}?'),
+        title: Text('Stop Porelo on ${machine.host}?'),
         content: SizedBox(
           width: Sizes.dialogMedium,
           child: Column(
@@ -1903,7 +1903,7 @@ class _ShellState extends State<Shell> {
             children: <Widget>[
               Text(
                 'What runs there goes on running ($running running now), but nothing here '
-                'watches it until Sokar is started again. A clearance question raised meanwhile '
+                'watches it until Porelo is started again. A clearance question raised meanwhile '
                 'goes unanswered and runs out.',
                 key: const Key('stopping-costs'),
               ),
@@ -1940,7 +1940,7 @@ class _ShellState extends State<Shell> {
     );
     if (yes != true) return;
     widget.operations.run(
-      title: 'Stop Sokar on ${machine.host}',
+      title: 'Stop Porelo on ${machine.host}',
       machine: machine.name,
       output: _stoppingSaid(machine),
     );
@@ -1950,7 +1950,7 @@ class _ShellState extends State<Shell> {
   /// the machine no longer answering, not the line's exit code.
   Stream<String> _stoppingSaid(Machine machine) async* {
     yield Tunnels.stopCommandFor(machine).join(' ');
-    final stopped = await widget.machines.stopSokarOn(machine);
+    final stopped = await widget.machines.stopPoreloOn(machine);
     yield stopped.words;
     if (!stopped.went) throw FailedSaying(stopped.words);
     await widget.machines.of(machine).connect();
@@ -2217,7 +2217,7 @@ class _ShellState extends State<Shell> {
           ),
         IconButton(
           key: const Key('about'),
-          tooltip: 'About Sokar',
+          tooltip: 'About Porelo',
           icon: const Icon(Icons.info_outline),
           onPressed: _showAbout,
         ),
@@ -2660,7 +2660,7 @@ class _ShellState extends State<Shell> {
                                 'until it is made.',
                             act: _canUnlockHere ? 'Make it, in a terminal' : null,
                             onAct: () => unawaited(_makeTheVault()),
-                            otherwise: "Run 'sokar setup' in a terminal on ${machine.name}, which makes it.",
+                            otherwise: "Run 'porelo setup' in a terminal on ${machine.name}, which makes it.",
                           )
                         : const SizedBox.shrink(),
                   ),
@@ -2961,7 +2961,7 @@ class _WorkUserDialogState extends State<_WorkUserDialog> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: 'User',
-            helperText: "Created on a new machine by Sokar's setup script. Machines already set up "
+            helperText: "Created on a new machine by Porelo's setup script. Machines already set up "
                 'keep theirs.',
             errorText: valid ? null : 'Lower-case letters, digits, _ and -, starting with a letter',
             border: const OutlineInputBorder(),

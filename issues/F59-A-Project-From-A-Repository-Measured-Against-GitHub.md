@@ -12,7 +12,7 @@ GitHub itself, not only against stand-ins.
 Already measured against GitHub with two test repositories on a rented machine: a token connected
 and its refusals shown in GitHub's words, a `project.yml` written in the form, committed signed and
 pushed, the machine bound with a deploy key per repository titled
-`sokar <machine> <project>/<repository>`, a task started, and in `default` a task's approved work
+`porelo <machine> <project>/<repository>`, a task started, and in `default` a task's approved work
 forwarded to the repository's `main`.
 
 The token needs *Contents* and *Administration: Read and write* for the test repositories. Neither
@@ -20,13 +20,13 @@ the token nor the repositories are ever kept in this repository or the channel.
 
 ## Plan
 
-- **Against real GitHub, in a CI leg.** In a test organisation of its own (`sokar-ai-test`), with
+- **Against real GitHub, in a CI leg.** In a test organisation of its own (`porelo-ai-test`), with
   its test repositories made once by a script, and a fine-grained token scoped to that organisation
-  only, kept as the Actions secret `SOKAR_TEST_GITHUB_TOKEN` of this repository with the signing
-  key `SOKAR_TEST_SIGNING_KEY`. The leg runs in the Build's job against a leased machine, on a push
+  only, kept as the Actions secret `PORELO_TEST_GITHUB_TOKEN` of this repository with the signing
+  key `PORELO_TEST_SIGNING_KEY`. The leg runs in the Build's job against a leased machine, on a push
   to `main` or by hand, never for a pull request, and skips itself while either is missing. The
   operator makes the organisation, the token and the key.
-- **No new code is planned:** each criterion is measured on the VM against Sokar's handover, with
+- **No new code is planned:** each criterion is measured on the VM against Porelo's handover, with
   the interface built from this repository and the operator's token and test repositories. A step
   that fails becomes a fix with its test first.
 - **Deploy keys:** a machine cleared with `MachineClearing` (`lib/src/app/machine_clearing.dart`) and

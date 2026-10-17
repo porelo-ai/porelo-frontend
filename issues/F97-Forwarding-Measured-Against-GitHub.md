@@ -14,9 +14,9 @@ have not been measured against GitHub.
 
 ## Plan
 
-- **Against real GitHub, in a CI leg.** In a test organisation of its own (`sokar-ai-test`), with
+- **Against real GitHub, in a CI leg.** In a test organisation of its own (`porelo-ai-test`), with
   its test repositories made once by a script, and a fine-grained token scoped to that organisation
-  only, kept as the Actions secret `SOKAR_TEST_GITHUB_TOKEN` of this repository. The leg runs in the
+  only, kept as the Actions secret `PORELO_TEST_GITHUB_TOKEN` of this repository. The leg runs in the
   Build's job against a leased machine, on a push to `main` or by hand, never for a pull request,
   and skips itself while the token is missing. The operator makes the organisation and the token.
 - **What is measured.** `_ShellState._approve` in `lib/src/ui/shell.dart` asks `_branchesFor`
@@ -29,19 +29,19 @@ have not been measured against GitHub.
   shell does it; no agent's work is needed.
 - **GitHub in the run.** A support file in `integration_test/support/` reads the token and the test
   repository from the environment, as `E2e` in `integration_test/support/e2e.dart` reads
-  `SOKAR_E2E_HOST`, and skips the scenario when they are not set. It asks GitHub's API for a
+  `PORELO_E2E_HOST`, and skips the scenario when they are not set. It asks GitHub's API for a
   branch's head commit, and deletes the typed branch afterwards. `tool/e2e.sh` passes the variables
   through.
 - **Red first.** A scenario in `integration_test/reaching_a_machine.feature`, "approved work
   forwarded to a branch chosen from the repository's lands on it at GitHub": open the waiting push,
   forward it through "Forward it upstream…" onto an existing branch, and find the commit at the
   head of that branch at GitHub and not on the default branch. A second one types a new branch.
-- **The run.** On the VM against Sokar's handover, named in the result, as the other acceptance
+- **The run.** On the VM against Porelo's handover, named in the result, as the other acceptance
   scenarios are.
 
 ## Acceptance
 
-- On the VM against Sokar's handover, approved work forwarded to an existing branch and to a newly
+- On the VM against Porelo's handover, approved work forwarded to an existing branch and to a newly
   typed one arrives on that branch at GitHub. Seen to fail: the commit missing from the chosen branch
   at GitHub, or landing on another.
 

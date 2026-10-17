@@ -15,7 +15,7 @@ Future<void> theTestMachineHasAnEntryAStandinServiceGrants(WidgetTester tester, 
 /// grant as GitHub's OAuth apps do: a token with no refresh token and no expiry, which the service
 /// offers no way to revoke.
 Future<void> anEntryAStandInGrants(String entry, {bool lasting = false}) async {
-  // A device flow with nothing real behind it, on loopback in this account only: what Sokar allows
+  // A device flow with nothing real behind it, on loopback in this account only: what Porelo allows
   // over plain http. It says "pending" until it is told yes, as a person deciding would.
   final service = File('integration_test/support/stand_in_authorization.py').readAsStringSync();
   await onTheTestMachine('''
@@ -27,11 +27,11 @@ $service
 PY
 nohup python3 "\$HOME/stand_in_authorization.py" $standInPort ${lasting ? 'lasting' : ''} >/dev/null 2>&1 &
 for i in \$(seq 1 50); do curl -fs http://127.0.0.1:$standInPort/log >/dev/null && break; sleep 0.1; done
-sokar vault remove --without-revoking $entry >/dev/null 2>&1 || true
+porelo vault remove --without-revoking $entry >/dev/null 2>&1 || true
 u=http://127.0.0.1:$standInPort
-printf -- '-' | sokar vault put --type=oauth-device --setting=client_id=sokar-e2e \\
+printf -- '-' | porelo vault put --type=oauth-device --setting=client_id=porelo-e2e \\
   --setting=device_authorization_url=\$u/device --setting=token_url=\$u/token --setting=scopes=read \\
   ${lasting ? '' : '--setting=revocation_url=\$u/revoke'} $entry >/dev/null 2>&1
-sokar vault list | grep -q '^$entry '
+porelo vault list | grep -q '^$entry '
 ''');
 }

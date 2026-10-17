@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
@@ -104,7 +104,7 @@ class ProjectHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final p = project.project;
-    // default is no project anybody follows or prepares: Sokar's own settings, fixed. What a
+    // default is no project anybody follows or prepares: Porelo's own settings, fixed. What a
     // followed project lacks is not missing there, and saying so sent a new person looking for it.
     final isDefault = project.name == defaultProject;
     // The repositories work is done in, one row each (walk 10): the project's own, which
@@ -160,7 +160,7 @@ class ProjectHeader extends StatelessWidget {
                 : theme.textTheme.bodySmall,
           ),
         if (isDefault)
-          Text('Your repositories, worked on with Sokar’s own settings.',
+          Text('Your repositories, worked on with Porelo’s own settings.',
               key: const Key('default-what'), style: theme.textTheme.bodySmall),
         if (homeserver case final words?)
           Text(words, key: const Key('project-homeserver'), style: theme.textTheme.bodySmall),
@@ -314,7 +314,7 @@ class _RepositoryLine extends StatelessWidget {
           item('opens-$name', 'Show what work in $name would open, creating nothing', onOpens),
           item('reach-$name', 'What $name may reach, on top of what the project grants', onReach),
           // A repository's limits replace the project's key by key; the ones it replaced are marked.
-          // The rest are never said to be the project's choice: they may be Sokar's.
+          // The rest are never said to be the project's choice: they may be Porelo's.
           if (repository.limits case final limits?) ...<PopupMenuEntry<VoidCallback>>[
             const PopupMenuDivider(),
             PopupMenuItem<VoidCallback>(

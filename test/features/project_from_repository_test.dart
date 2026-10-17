@@ -31,7 +31,7 @@ import './step/i_remove_the_machines_keys_there_first.dart';
 import './step/the_forge_holds_no_key_titled_at.dart';
 import './step/the_keychain_here_keeps_no_token.dart';
 import './step/holds_the_project_with_the_work_repository_at.dart';
-import './step/the_machines_sokar_cannot_work_on_a_project_from_here_yet.dart';
+import './step/the_machines_porelo_cannot_work_on_a_project_from_here_yet.dart';
 import './step/i_choose_the_command.dart';
 import './step/i_connect_the_forge_with_the_token.dart';
 import './step/i_look_at_the_forges_repository.dart';
@@ -92,7 +92,7 @@ import './step/the_machine_pins_when_it_follows.dart';
 import './step/the_project_is_the_one_shown.dart';
 import './step/the_forge_holds_the_key_at_of_somebody_else.dart';
 import './step/machinesigners_names_as.dart';
-import './step/i_look_at_every_sokar_key_and_signer_of.dart';
+import './step/i_look_at_every_porelo_key_and_signer_of.dart';
 import './step/i_remove_the_key_at.dart';
 import './step/i_remove_the_signer.dart';
 import './step/machinesigners_no_longer_names_committed_signed.dart';
@@ -202,29 +202,29 @@ void main() {
       await theMachineFollowsTheProjectFrom(
           tester, 'checkout', 'git@github.com:acme/api.git');
       await theForgeHoldsTheKeyAtFromAMachineThatIsGone(
-          tester, 'sokar vm api/api', 'acme/api');
+          tester, 'porelo vm api/api', 'acme/api');
       await iOpenMyForges(tester);
       await iRemoveTheForge(tester, 'GitHub');
       await itSays(tester, 'Projects your machines follow use it: acme/api');
       await iRemoveTheMachinesKeysThereFirst(tester);
-      await theForgeHoldsNoKeyTitledAt(tester, 'sokar vm api/api', 'acme/api');
+      await theForgeHoldsNoKeyTitledAt(tester, 'porelo vm api/api', 'acme/api');
       await theForgesSetUpHereAre(tester, '');
       await theKeychainHereKeepsNoToken(tester);
     });
     testWidgets(
-        '''a machine whose Sokar cannot be bound says so before anything is asked of it''',
+        '''a machine whose Porelo cannot be bound says so before anything is asked of it''',
         (tester) async {
       await bddSetUp(tester);
       await theForgeReachesAsAnAdminAndWithoutAdminRights(
           tester, 'acme/api', 'acme/web');
       await holdsTheProjectWithTheWorkRepositoryAt(tester, 'acme/api', 'api',
           'backend', 'git@github.com:acme/backend.git');
-      await theMachinesSokarCannotWorkOnAProjectFromHereYet(tester);
+      await theMachinesPoreloCannotWorkOnAProjectFromHereYet(tester);
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await iLookAtTheForgesRepository(tester, 'acme/api');
       await iStartWorkingOnOnTheMachine(tester, 'acme/api');
-      await itSays(tester, 'runs a Sokar that cannot do this yet');
+      await itSays(tester, 'runs a Porelo that cannot do this yet');
       await workingOnItOnTheMachineIsNotOffered(tester);
       await nothingWasAskedOfTheMachineToWorkOnIt(tester);
     });
@@ -286,7 +286,7 @@ void main() {
           'not an admin: no machine can be given keys to it from here');
     });
     testWidgets(
-        '''a repository with no project.yml is said to be no Sokar project, and nothing is offered for it''',
+        '''a repository with no project.yml is said to be no Porelo project, and nothing is offered for it''',
         (tester) async {
       await bddSetUp(tester);
       await theForgeReachesAsAnAdminAndWithoutAdminRights(
@@ -295,7 +295,7 @@ void main() {
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await iLookAtTheForgesRepository(tester, 'acme/api');
       await whatComesNextForSays(tester, 'acme/api',
-          'It has no project.yml, so it is no Sokar project. Add one in the repository itself');
+          'It has no project.yml, so it is no Porelo project. Add one in the repository itself');
       await bindingIsNotOfferedFor(tester, 'acme/api');
     });
     testWidgets(
@@ -457,9 +457,9 @@ void main() {
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await iBindTheMachineTo(tester, 'acme/api');
-      await theForgeHoldsAtReadonly(tester, 'sokar vm api/api', 'acme/api');
+      await theForgeHoldsAtReadonly(tester, 'porelo vm api/api', 'acme/api');
       await theForgeHoldsAtWithWriteAccess(
-          tester, 'sokar vm api/backend', 'acme/backend');
+          tester, 'porelo vm api/backend', 'acme/backend');
       await theMachineFollowedPinnedToThePersonsKey(tester, 'api');
       await itSays(
           tester, 'accepts changes to the project signed with your key');
@@ -481,7 +481,7 @@ void main() {
       await iBindTheMachineTo(tester, 'acme/api');
       await itSays(tester, 'refused a deploy key at acme/backend');
       await itSays(tester,
-          'Took sokar vm api/api back from acme/api, since the binding did not finish.');
+          'Took porelo vm api/api back from acme/api, since the binding did not finish.');
       await theForgeHoldsNoKeyAt(tester, 'acme/api');
     });
     testWidgets(
@@ -500,7 +500,7 @@ void main() {
           tester, 'did not follow api: NOT_SIGNED_BY_PIN. Nothing of it is on');
       await itDoesNotSay(tester, 'follows api');
       await itSays(tester,
-          'Took sokar vm api/api back from acme/api, since the binding did not finish.');
+          'Took porelo vm api/api back from acme/api, since the binding did not finish.');
       await theForgeHoldsNoKeyAt(tester, 'acme/backend');
     });
     testWidgets(
@@ -517,7 +517,7 @@ void main() {
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await iBindTheMachineTo(tester, 'acme/api');
       await itSays(
-          tester, 'sokar vm api/api could not be taken back from acme/api');
+          tester, 'porelo vm api/api could not be taken back from acme/api');
       await itSays(tester, 'remove it there by hand');
     });
     testWidgets(
@@ -570,14 +570,14 @@ void main() {
       await iBindTheMachineTo(tester, 'acme/api');
       await iCloseTheBindingAndTheRepositories(tester);
       await iChooseTheCommand(tester,
-          'Clear this machine of everything Sokar put there, and its keys at the forge…');
+          'Clear this machine of everything Porelo put there, and its keys at the forge…');
       await itSays(tester, 'This goes, on');
-      await itSays(tester, 'the deploy key sokar vm api/backend');
+      await itSays(tester, 'the deploy key porelo vm api/backend');
       await iPress(tester, 'Clear it');
       await theMachineWasClearedAfterADryRun(tester, 'everything');
       await theForgeHoldsNoKeyOfTheMachineAtOr(
           tester, 'acme/api', 'acme/backend');
-      await itSays(tester, 'Removed sokar vm api/backend from acme/backend');
+      await itSays(tester, 'Removed porelo vm api/backend from acme/backend');
       await machinesignersNoLongerHoldsTheMachinesLine(tester);
     });
     testWidgets(
@@ -610,7 +610,7 @@ void main() {
       await iChangeTheTokenOfFromTheBindingTo(tester, 'GitHub', 'ghp_admin');
       await itDoesNotSay(tester, 'Administration: Read and write');
       await iGoOnWithTheBinding(tester);
-      await theForgeHoldsAtOnce(tester, 'sokar vm api/api', 'acme/api');
+      await theForgeHoldsAtOnce(tester, 'porelo vm api/api', 'acme/api');
     });
     testWidgets('''binding twice registers nothing twice''', (tester) async {
       await bddSetUp(tester);
@@ -622,7 +622,7 @@ void main() {
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await iBindTheMachineTo(tester, 'acme/api');
       await iBindItAgain(tester);
-      await theForgeHoldsAtOnce(tester, 'sokar vm api/api', 'acme/api');
+      await theForgeHoldsAtOnce(tester, 'porelo vm api/api', 'acme/api');
       await itSays(tester, 'is in machine-signers already');
     });
     testWidgets(
@@ -664,7 +664,7 @@ void main() {
           tester, 'acme/api', 'acme/backend');
       await machinesignersNoLongerHoldsTheMachinesLine(tester);
       await itSays(tester, 'no longer follows api');
-      await itSays(tester, 'Removed sokar vm api/backend from acme/backend');
+      await itSays(tester, 'Removed porelo vm api/backend from acme/backend');
     });
     testWidgets(
         '''a key the forge will not remove is said as left, and the others are removed all the same''',
@@ -680,8 +680,8 @@ void main() {
       await theTokenMayNotRemoveDeployKeysAt(tester, 'acme/backend');
       await iRemoveTheMachine(tester);
       await itSays(tester,
-          'Left sokar vm api/backend at acme/backend: GitHub refused it');
-      await itSays(tester, 'Removed sokar vm api/api from acme/api');
+          'Left porelo vm api/backend at acme/backend: GitHub refused it');
+      await itSays(tester, 'Removed porelo vm api/api from acme/api');
       await machinesignersNoLongerHoldsTheMachinesLine(tester);
     });
     testWidgets(
@@ -716,7 +716,7 @@ void main() {
       await theProjectIsTheOneShown(tester, 'api');
     });
     testWidgets(
-        '''every Sokar key and signer is listed, and one no machine claims is removed from here''',
+        '''every Porelo key and signer is listed, and one no machine claims is removed from here''',
         (tester) async {
       await bddSetUp(tester);
       await theForgeReachesAsAnAdminAndWithoutAdminRights(
@@ -724,22 +724,23 @@ void main() {
       await holdsTheProjectWithTheWorkRepositoryAt(tester, 'acme/api', 'api',
           'backend', 'git@github.com:acme/backend.git');
       await theForgeHoldsTheKeyAtFromAMachineThatIsGone(
-          tester, 'sokar old-box api/api', 'acme/api');
+          tester, 'porelo old-box api/api', 'acme/api');
       await theForgeHoldsTheKeyAtOfSomebodyElse(
           tester, 'ci deploy', 'acme/api');
       await machinesignersNamesAs(
-          tester, 'old-box', 'sokar@old-box ssh-ed25519 AAAAold');
+          tester, 'old-box', 'porelo@old-box ssh-ed25519 AAAAold');
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
-      await iLookAtEverySokarKeyAndSignerOf(tester, 'acme/api');
-      await itSays(tester, 'sokar old-box api/api at acme/api, read-only');
-      await itSays(tester, 'old-box (sokar@old-box)');
+      await iLookAtEveryPoreloKeyAndSignerOf(tester, 'acme/api');
+      await itSays(tester, 'porelo old-box api/api at acme/api, read-only');
+      await itSays(tester, 'old-box (porelo@old-box)');
       await itDoesNotSay(tester, 'ci deploy');
-      await iRemoveTheKeyAt(tester, 'sokar old-box api/api', 'acme/api');
-      await iRemoveTheSigner(tester, 'sokar@old-box');
+      await iRemoveTheKeyAt(tester, 'porelo old-box api/api', 'acme/api');
+      await iRemoveTheSigner(tester, 'porelo@old-box');
       await theForgeHoldsNoKeyTitledAt(
-          tester, 'sokar old-box api/api', 'acme/api');
-      await machinesignersNoLongerNamesCommittedSigned(tester, 'sokar@old-box');
+          tester, 'porelo old-box api/api', 'acme/api');
+      await machinesignersNoLongerNamesCommittedSigned(
+          tester, 'porelo@old-box');
     });
     testWidgets(
         '''a configuration change waiting at a machine's gate is reviewed, merged signed here, and cleared there''',
@@ -827,7 +828,7 @@ void main() {
       await iLookAtTheForgesRepository(tester, 'acme/api');
       await iChooseFromTheCardOf(tester, 'default-add', 'acme/api');
       await defaultHoldsAt(tester, 'api', 'git@github.com:acme/api.git');
-      await theForgeHoldsAtOnce(tester, 'sokar vm default/api', 'acme/api');
+      await theForgeHoldsAtOnce(tester, 'porelo vm default/api', 'acme/api');
     });
   });
 }

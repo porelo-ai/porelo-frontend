@@ -3,15 +3,15 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
-/// Runs this client against a **real** `sokard`.
+/// Runs this client against a **real** `porelod`.
 ///
 /// Skipped unless one is there, because it needs the whole backend up:
 ///
 /// ```bash
-/// sokard &                       # or install the sokar package
-/// SOKAR_SOCKET=$XDG_RUNTIME_DIR/sokar/sokard.sock flutter test test/client/live_daemon_test.dart
+/// porelod &                       # or install the porelo package
+/// PORELO_SOCKET=$XDG_RUNTIME_DIR/porelo/porelod.sock flutter test test/client/live_daemon_test.dart
 /// ```
 ///
 /// It is the only test that can say the hand-written client agrees with the daemon rather than
@@ -19,20 +19,20 @@ import 'package:sokar_frontend/client.dart';
 /// stand-in only ever proves that the client handles what *we* decided to send it. **A drifted
 /// mock is worse than no mock**, and this is what keeps it honest.
 void main() {
-  final socket = Platform.environment['SOKAR_SOCKET'] ?? '';
+  final socket = Platform.environment['PORELO_SOCKET'] ?? '';
   final there = socket.isNotEmpty &&
       (File(socket).existsSync() || Link(socket).existsSync());
 
   group('against a running daemon', () {
-    late SokarClient client;
+    late PoreloClient client;
 
     setUpAll(() async {
-      client = await SokarClient.connect(
+      client = await PoreloClient.connect(
           Backend(socketPath: socket, label: 'the live daemon'));
     });
 
     test('serves an interface this build understands', () async {
-      expect(SokarClient.supported, contains(client.interfaceName));
+      expect(PoreloClient.supported, contains(client.interfaceName));
       expect(client.info.version, isNotEmpty);
     });
 
@@ -43,7 +43,7 @@ void main() {
 
       // Read from the client itself rather than listed here: a list beside it named 14 of 48.
       final called = RegExp(r"_call(?:More)?\('([A-Za-z]+)'")
-          .allMatches(File('lib/src/client/sokar_client.dart').readAsStringSync())
+          .allMatches(File('lib/src/client/porelo_client.dart').readAsStringSync())
           .map((match) => match.group(1)!)
           .toSet();
       expect(called, hasLength(greaterThan(40)), reason: 'the client source was not read');
@@ -134,9 +134,9 @@ void main() {
       expect(revoked.remaining.map((each) => each.id), isNot(contains(slot.id)));
       expect(revoked.remaining.where((each) => each.recovery), hasLength(1));
     },
-        skip: Platform.environment['SOKAR_VAULT_TEST'] == '1'
+        skip: Platform.environment['PORELO_VAULT_TEST'] == '1'
             ? false
-            : 'changes a vault: set SOKAR_VAULT_TEST=1 where the vault is a test\'s own');
+            : 'changes a vault: set PORELO_VAULT_TEST=1 where the vault is a test\'s own');
 
     test('declares every name this client sends to and reads from held messages', () async {
       final contract = await client.contract();
@@ -203,8 +203,8 @@ void main() {
 
     test('reads a message held for a person in full, and refuses it for good', () async {
       // Needs a task whose peer is held and a message a person wrote to it, made at the machine:
-      //   sokar talk hold <task> <peer>; printf '...' | sokar talk say <task> <peer>; sokar talk pass <task>
-      final task = Platform.environment['SOKAR_TALK_TASK']!;
+      //   porelo talk hold <task> <peer>; printf '...' | porelo talk say <task> <peer>; porelo talk pass <task>
+      final task = Platform.environment['PORELO_TALK_TASK']!;
       final held = await client.held(task: task);
       final waiting = held.where((each) => each.standing == 'held').toList();
       expect(waiting, isNotEmpty, reason: 'nothing is held for a person in $task');
@@ -213,7 +213,7 @@ void main() {
       expect(message.message, endsWith('.json'));
       expect(message.role, 'ROLE_USER', reason: 'a person wrote it with talk say');
       expect(message.direction, 'out', reason: 'a person wrote it to a peer, so it was leaving');
-      final peers = await client.peers(task, Platform.environment['SOKAR_TALK_PROJECT']!);
+      final peers = await client.peers(task, Platform.environment['PORELO_TALK_PROJECT']!);
       final peer = peers.where((each) => each.name == message.peer).single;
       expect(peer.held, isTrue);
       expect(peer.sentToday, isNotNull, reason: 'the budget used is not said');
@@ -233,8 +233,8 @@ void main() {
       expect(after.where((each) => each.message == message.message).map((each) => each.standing),
           <String>['refused-by-person'], reason: 'refused for good is still listed, and never waits');
     },
-        skip: Platform.environment['SOKAR_TALK_TASK'] == null
-            ? 'needs a task with a message held for a person: set SOKAR_TALK_TASK and SOKAR_TALK_PROJECT'
+        skip: Platform.environment['PORELO_TALK_TASK'] == null
+            ? 'needs a task with a message held for a person: set PORELO_TALK_TASK and PORELO_TALK_PROJECT'
             : false);
 
     test('answers List with tasks this build can read', () async {
@@ -245,5 +245,5 @@ void main() {
   },
       skip: there
           ? false
-          : 'no daemon: set SOKAR_SOCKET to a running sokard to run these');
+          : 'no daemon: set PORELO_SOCKET to a running porelod to run these');
 }

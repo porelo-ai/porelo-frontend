@@ -7,9 +7,9 @@ import 'work_on_the_test_machine_was_started_without_a_grant_of.dart';
 Future<void> theWorkStartedWithoutIsRemovedAgain(WidgetTester tester, String entry) async {
   await onTheTestMachine('''
 PATH="\$HOME/.local/bin:\$PATH"
-sokar task remove --force sokar-$refusedProject-auth >/dev/null 2>&1 || true
-sokar project unfollow --force $refusedProject >/dev/null 2>&1 || true
+porelo task remove --force porelo-$refusedProject-auth >/dev/null 2>&1 || true
+porelo project unfollow --force $refusedProject >/dev/null 2>&1 || true
 rm -rf "\$HOME/$refusedProject"
-rm -f "\${XDG_DATA_HOME:-\$HOME/.local/share}/sokar/destinations/e2e-api.yaml"
+rm -f "\${XDG_DATA_HOME:-\$HOME/.local/share}/porelo/destinations/e2e-api.yaml"
 ''');
 }

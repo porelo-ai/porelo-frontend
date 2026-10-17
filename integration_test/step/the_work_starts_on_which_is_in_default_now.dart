@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/choice_field.dart';
+import 'package:porelo_frontend/src/ui/choice_field.dart';
 
 import '../support/new_person.dart';
 import '../support/remote.dart';
@@ -11,6 +11,6 @@ Future<void> theWorkStartsOnWhichIsInDefaultNow(WidgetTester tester, String name
       .where((each) => each.id == 'start-repository')
       .single;
   expect(field.value, name);
-  final listed = await onTheTestMachine(r'PATH="$HOME/.local/bin:$PATH"; sokar project default list 2>&1 || true');
+  final listed = await onTheTestMachine(r'PATH="$HOME/.local/bin:$PATH"; porelo project default list 2>&1 || true');
   expect(listed, contains(name), reason: listed);
 }

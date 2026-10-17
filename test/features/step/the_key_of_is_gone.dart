@@ -6,7 +6,7 @@ import '../support/world.dart';
 
 /// Usage: the key of {'build'} is gone
 Future<void> theKeyOfIsGone(WidgetTester tester, String name) async {
-  final key = '${World.machines.setup.sshDirectory}/sokar-$name-agent';
+  final key = '${World.machines.setup.sshDirectory}/porelo-$name-agent';
   expect(File(key).existsSync(), isFalse);
   expect(File('$key.pub').existsSync(), isFalse);
 }

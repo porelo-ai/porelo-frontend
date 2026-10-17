@@ -28,7 +28,7 @@ Feature: Which providers a machine is authenticated against
     When I show what this machine can authenticate against
     And I open the provider {'Another Provider'}
     Then it says {'an-agent'}
-    And the command to store one is {'sokar vault put an-agent --type oauth'}
+    And the command to store one is {'porelo vault put an-agent --type oauth'}
 
   Scenario: nothing here asks for a secret, and it says where one is typed instead
     When I show what this machine can authenticate against

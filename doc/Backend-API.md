@@ -1,14 +1,14 @@
 # The backend API
 
-Everything this interface does, it does by calling Sokar's daemon, `sokard`, over one unix
+Everything this interface does, it does by calling Porelo's daemon, `porelod`, over one unix
 socket. There is no HTTP, no port and no client library — the whole protocol is JSON objects
 separated by NUL bytes, and Dart speaks it out of the box.
 
 ## The contract
 
-The interface is `org.fuin.sokar.Tasks1`, defined in
+The interface is `org.fuin.porelo.Tasks1`, defined in
 [varlink](https://varlink.org/Interface-Definition) IDL. The definition lives in the backend
-repository under `daemon/src/main/resources/varlink/org.fuin.sokar.Tasks1/`, written in parts that
+repository under `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`, written in parts that
 the daemon serves as one interface, and a build
 there fails if a method is registered without appearing in it, or appears in it without being
 registered, or reads a parameter it does not describe.
@@ -16,7 +16,7 @@ registered, or reads a parameter it does not describe.
 **No copy of it is kept in this repository**: a running daemon serves its own contract:
 
 ```
-varlinkctl introspect $XDG_RUNTIME_DIR/sokar/sokard.sock org.fuin.sokar.Tasks1
+varlinkctl introspect $XDG_RUNTIME_DIR/porelo/porelod.sock org.fuin.porelo.Tasks1
 ```
 
 or, without `varlinkctl`, `dart tool/contract.dart` in this repository, which prints the same
@@ -25,18 +25,18 @@ of truth that nothing keeps honest.
 
 ## Connecting
 
-Locally, the socket is at `$XDG_RUNTIME_DIR/sokar/sokard.sock` — normally
-`/run/user/<uid>/sokar/sokard.sock`. It is owner-only, so the filesystem is the access control;
+Locally, the socket is at `$XDG_RUNTIME_DIR/porelo/porelod.sock` — normally
+`/run/user/<uid>/porelo/porelod.sock`. It is owner-only, so the filesystem is the access control;
 there is nothing to authenticate against.
 
 Remotely, forward it:
 
 ```
-ssh -L /tmp/sokard-remote.sock:/run/user/1001/sokar/sokard.sock user@host -N
+ssh -L /tmp/porelod-remote.sock:/run/user/1001/porelo/porelod.sock user@host -N
 ```
 
-and open `/tmp/sokard-remote.sock` instead. **That is the entire difference between a local and
-a remote Sokar** — one string, and the interface has one transport for both. Streaming works through the forward
+and open `/tmp/porelod-remote.sock` instead. **That is the entire difference between a local and
+a remote Porelo** — one string, and the interface has one transport for both. Streaming works through the forward
 unchanged; measured, an event raised on the far machine arrived 0.4 s later.
 
 `ssh` creates the local endpoint owner-only, so the forwarded socket is no more exposed than the
@@ -52,7 +52,7 @@ final socket = await Socket.connect(
     InternetAddress(path, type: InternetAddressType.unix), 0);
 
 socket.add(utf8.encode(jsonEncode({
-  'method': 'org.fuin.sokar.Tasks1.List',
+  'method': 'org.fuin.porelo.Tasks1.List',
   'parameters': <String, dynamic>{},
 })));
 socket.add([0]);          // NUL terminates the call
@@ -120,7 +120,7 @@ Worth knowing before designing around them:
   so nothing is shown as handed in before the answer carries `file`. The task's `handInLimit` is
   read first, and a larger file is refused here before a byte of it is read. A machine without
   hand-in leaves `files`, `handInLimit` and `run` absent, which is drawn as absent, never as empty;
-  `by` is `"sokar"` for what Sokar hands in itself.
+  `by` is `"porelo"` for what Porelo hands in itself.
 - **A task's builds come with the task.** `buildReader` `""` means no forge follows its pushes and
   nothing is said; set, with `builds` empty and `buildProblem` `""`, it means nothing was pushed yet;
   `buildProblem` says why a named reader does not work. A `Build` lists its jobs only once the verdict

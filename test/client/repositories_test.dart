@@ -4,8 +4,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// A project names its repositories, and a start names the one it is in — sent only
 /// when named, so a daemon older than repositories per project never meets a parameter it does not know.
@@ -19,15 +19,15 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<SokarClient> connect() =>
-      SokarClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
+  Future<PoreloClient> connect() =>
+      PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Future<Map<String, dynamic>> started({String? repository}) async {
     Map<String, dynamic>? asked;
     daemon.stream('Start', (parameters) {
       asked = parameters;
       return Stream.fromIterable(<Map<String, dynamic>>[
-        <String, dynamic>{'container': 'sokar-demo-shell-1', 'exitCode': 0},
+        <String, dynamic>{'container': 'porelo-demo-shell-1', 'exitCode': 0},
       ]);
     });
     await (await connect()).start(project: 'project.yml', repository: repository).toList();
@@ -67,7 +67,7 @@ void main() {
                   'name': 'payments-api',
                   'own': false,
                   'upstream': 'git@example.org:payments-api.git',
-                  'mirror': '/srv/checkout/.sokar/repositories/payments-api',
+                  'mirror': '/srv/checkout/.porelo/repositories/payments-api',
                   'pending': 2,
                   'behind': 4,
                   'behindMeasured': '2026-09-18T22:00:00Z',
@@ -114,7 +114,7 @@ void main() {
       expect((await asked(repository: 'payments-api')).values, everyElement('payments-api'));
     });
 
-    test('asking about none sends none, which an older Sokar can take', () async {
+    test('asking about none sends none, which an older Porelo can take', () async {
       expect((await asked()).values, everyElement('none sent'));
     });
   });
@@ -175,7 +175,7 @@ void main() {
       expect((await asked(repository: 'payments-api')).values, everyElement('payments-api'));
     });
 
-    test('none sent for the project itself, which an older Sokar can take', () async {
+    test('none sent for the project itself, which an older Porelo can take', () async {
       expect((await asked()).values, everyElement('none sent'));
     });
   });
@@ -207,7 +207,7 @@ void main() {
 
     final limits = repositories.first.limits!;
     expect(limits.words, 'memory 4g (its own) · cpus no limit · processes 512');
-    expect(repositories.last.limits, isNull, reason: 'a Sokar that does not say says nothing');
+    expect(repositories.last.limits, isNull, reason: 'a Porelo that does not say says nothing');
   });
 
   test('what this account follows is read, one entry per project', () async {
@@ -239,6 +239,6 @@ void main() {
     final projects = await (await connect()).projects();
 
     expect(projects.first.canBeActedOn, isFalse, reason: 'the machine follows nothing called that');
-    expect(projects.last.canBeActedOn, isTrue, reason: 'a Sokar that says nothing about following');
+    expect(projects.last.canBeActedOn, isTrue, reason: 'a Porelo that says nothing about following');
   });
 }

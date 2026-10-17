@@ -7,9 +7,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/notifications.dart';
-import 'package:sokar_frontend/src/app/operations.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/notifications.dart';
+import 'package:porelo_frontend/src/app/operations.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
 /// What was run, kept between runs of the window.
 ///
@@ -37,10 +37,10 @@ void main() {
     final store = MemoryOperationsStore();
     final before = over(store);
     final output = StreamController<String>();
-    before.run(title: 'Start Sokar on user@build', machine: 'the build machine', output: output.stream);
+    before.run(title: 'Start Porelo on user@build', machine: 'the build machine', output: output.stream);
     output
       ..add('ssh user@build …')
-      ..addError(const FailedSaying('systemd refused to start sokard (exit 1)'));
+      ..addError(const FailedSaying('systemd refused to start porelod (exit 1)'));
     await output.close();
     await before.flush();
 
@@ -51,7 +51,7 @@ void main() {
     expect(back.fromBefore, isTrue);
     expect(back.failed, isTrue);
     expect(back.machine, 'the build machine');
-    expect(back.summary, 'systemd refused to start sokard (exit 1)');
+    expect(back.summary, 'systemd refused to start porelod (exit 1)');
     expect(back.output, <String>['ssh user@build …']);
     expect(back.seen, isFalse, reason: 'nobody opened it before the window closed');
   });
@@ -173,8 +173,8 @@ void main() {
     late File file;
 
     setUp(() {
-      where = Directory.systemTemp.createTempSync('sokar-operations-test');
-      file = File('${where.path}/sokar/operations.json');
+      where = Directory.systemTemp.createTempSync('porelo-operations-test');
+      file = File('${where.path}/porelo/operations.json');
       addTearDown(() {
         if (where.existsSync()) where.deleteSync(recursive: true);
       });
@@ -234,13 +234,13 @@ void main() {
   test('opening the file asks the desktop to open that path', () async {
     final opened = <String>[];
     final record = Operations(
-      store: MemoryOperationsStore(file: File('/home/somebody/.local/state/sokar/operations.json')),
+      store: MemoryOperationsStore(file: File('/home/somebody/.local/state/porelo/operations.json')),
       open: (path) async => opened.add(path),
     );
 
     await record.openTheFile();
 
-    expect(opened, <String>['/home/somebody/.local/state/sokar/operations.json']);
+    expect(opened, <String>['/home/somebody/.local/state/porelo/operations.json']);
   });
 }
 

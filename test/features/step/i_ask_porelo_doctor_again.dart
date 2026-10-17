@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: I ask sokar doctor again
-Future<void> iAskSokarDoctorAgain(WidgetTester tester) async {
+/// Usage: I ask porelo doctor again
+Future<void> iAskPoreloDoctorAgain(WidgetTester tester) async {
   await World.tapInView(tester, 'ask-doctor-again');
 }

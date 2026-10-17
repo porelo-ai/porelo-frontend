@@ -1,11 +1,11 @@
-// Prints what a running Sokar daemon says it is, and the contract it serves.
+// Prints what a running Porelo daemon says it is, and the contract it serves.
 // ignore_for_file: avoid_print - this is a command-line tool; printing is its output.
 //
 // Usage: dart tool/contract.dart [socket] [seconds to wait for the answers, 30 by default]
 //
 // Defaults to the local daemon. Pass a forwarded socket to ask a remote one:
-//   ssh -L /tmp/sokard-remote.sock:/run/user/1001/sokar/sokard.sock user@host -N
-//   dart tool/contract.dart /tmp/sokard-remote.sock
+//   ssh -L /tmp/porelod-remote.sock:/run/user/1001/porelo/porelod.sock user@host -N
+//   dart tool/contract.dart /tmp/porelod-remote.sock
 //
 // Deliberately dependency-free and unabstracted: it is also the smallest complete example of
 // how to speak to the backend.
@@ -14,7 +14,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-const String interfaceName = 'org.fuin.sokar.Tasks1';
+const String interfaceName = 'org.fuin.porelo.Tasks1';
 
 /// GetInfo and GetInterfaceDescription, one reply each.
 const int _calls = 2;
@@ -23,11 +23,11 @@ Future<void> main(List<String> args) async {
   final path = args.isNotEmpty
       ? args[0]
       : '${Platform.environment['XDG_RUNTIME_DIR'] ?? '/run/user/${_uid()}'}'
-          '/sokar/sokard.sock';
+          '/porelo/porelod.sock';
   final within = Duration(seconds: args.length > 1 ? int.parse(args[1]) : 30);
 
   if (!await FileSystemEntity.isLink(path) && !File(path).existsSync()) {
-    stderr.writeln('No socket at $path - is sokard running?');
+    stderr.writeln('No socket at $path - is porelod running?');
     exitCode = 1;
     return;
   }

@@ -1,7 +1,6 @@
 # F120 — The Interface Renamed Porelo
 
-**Status:** Estimated; blocked by `sokar` renamed and published, step 3 of
-[PJ41](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj41).
+**Status:** Implementing.
 **Size:** M - one scripted commit over 708 files, plus a handful of names the replacement gets wrong, a
 regenerated step tree, the whole suite, the packages and the integration leg against a renamed daemon.
 
@@ -58,23 +57,30 @@ Counted on `main`: 4,392 occurrences (`sokar` 3,374, `Sokar` 855, `SOKAR` 163, n
 
 ## Plan
 
-- **The script** (`tool/rename.sh`, kept out of the commit): `git mv` for the 28 paths, then `sokar`,
-  `Sokar` and `SOKAR` replaced by `porelo`, `Porelo` and `PORELO` in every tracked text file, then the
-  exceptions put back, then `dart run build_runner build`. The regenerated steps must equal what the script
-  made, apart from import order.
-- **The exceptions**, put back after the replacement:
-  - `CHANGELOG.md`'s released sections (`0.4.1`, `0.4.0`); `0.5.0` is the first entry under the new name
-    and says the product was renamed.
-  - The Shared Area in `AGENTS.md`, which is taken from `sokar-project` in the window, not scripted.
-  - The decision in `doc/decisions.md` that records the rename.
-  - Any remaining mention of `org.fuin.sokar` at Maven Central as the old coordinates, if one is kept.
+- **The script** (`.rename/rename.sh`, ignored, kept out of the commit): `git mv` for the 28 paths, then
+  `sokar`, `Sokar` and `SOKAR` replaced by `porelo`, `Porelo` and `PORELO` in every tracked text file
+  but the exceptions, then the fixes below, then `dart run build_runner build`. The regenerated steps
+  equal what the script made, apart from three lines the formatter wraps, now one character longer.
+  The versions follow by hand: `porelo-parent` `0.2.0-SNAPSHOT`, the interface `0.5.0-SNAPSHOT`.
+- **The exceptions**, left as they are:
+  - `CHANGELOG.md`'s released sections (`0.4.1`, `0.4.0`), and the one sentence under `[Unreleased]`
+    that says the product was renamed;
+  - this issue, whole.
+
+  The Shared Area in `AGENTS.md` is taken byte for byte from `porelo-project`, markers
+  `8f49d85552af3cd1`, not scripted.
 - **What replacement gets wrong, fixed by hand in the same commit:**
   - **The Debian pool path** `pool/main/s/sokar-frontend` becomes `pool/main/p/porelo-frontend`; the
     letter is the name's first.
   - **The MSIX identity** `ai.porelo.sokar.frontend` would become `ai.porelo.porelo.frontend`; it becomes
     `ai.porelo.frontend`, a new app, which no migration needs.
-  - **The demo `images/sokar-frontend.gif`** is recorded again if it shows the name; the icons draw only the
-    gate, not the word.
+  - **The demo `images/porelo-frontend.gif`** shows the old name in every frame - the window title,
+    the daemon's version in the header, the tasks' names, the gate's ref and the tmux bar. It is
+    recorded again against Porelo after this commit, two running tasks on a machine as before, and
+    stays as it is until then; the icons draw only the gate, not the word.
+- **The tunnel socket** `$runtime/porelo-tunnel-<name>.sock` grows by one byte with the name: under
+  `/run/user/1000` a machine name fits 108 bytes up to 73 characters, one fewer than before. No
+  test asserts the limit and no machine name is bounded, before the rename or after.
 - **Red first:** a test tagged `documents` that fails while any tracked file outside the exceptions says
   `sokar` in any case, seen red on `main` before the script and green after, and kept.
 
@@ -92,9 +98,3 @@ renamed `porelo-ai/porelo-frontend` at the forge before the commit is pushed, so
 - **The packages install as `porelo-frontend`**: the packaging tests and the Build's install checks on
   Ubuntu, Debian and Fedora; the Windows job builds the ZIP and the MSIX.
 - **The integration leg is green against `porelod`** on the VM, installed afresh from Porelo's packages.
-
-## To be checked
-
-- Whether the tunnel socket `$runtime/porelo-tunnel-<name>.sock`, one character longer, still fits 108
-  characters for the longest machine name the interface allows, and which test asserts it.
-- Whether `images/sokar-frontend.gif` shows the word Sokar in a frame.

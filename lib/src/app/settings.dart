@@ -27,7 +27,7 @@ class FileSettingsStore implements SettingsStore {
   final File _file;
 
   /// Where it is kept unless told otherwise, read from [environment] or this process's.
-  /// On Linux `$XDG_CONFIG_HOME/sokar/frontend.json`, on Windows `%APPDATA%\sokar\frontend.json`:
+  /// On Linux `$XDG_CONFIG_HOME/porelo/frontend.json`, on Windows `%APPDATA%\porelo\frontend.json`:
   /// the IntelliJ plugin reads the same file. [operatingSystem] is `Platform.operatingSystem`'s word.
   static File defaultFile([Map<String, String>? environment, String? operatingSystem]) {
     final here = Desk.of(operatingSystem ?? Platform.operatingSystem, environment ?? Platform.environment);
@@ -114,7 +114,7 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
-  /// The user a new machine runs work as, which the wizard asks Sokar's setup script to create.
+  /// The user a new machine runs work as, which the wizard asks Porelo's setup script to create.
   String get workUser => _workUser;
   String _workUser = 'agent';
 

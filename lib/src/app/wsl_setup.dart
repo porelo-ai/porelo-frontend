@@ -10,22 +10,22 @@ import 'wsl.dart';
 typedef RunInWsl = Future<({int code, String said})> Function(String distribution, List<String> command,
     {bool asRoot});
 
-/// The fingerprint of the key Sokar's package repository is signed with. **Carried here**, so a key
+/// The fingerprint of the key Porelo's package repository is signed with. **Carried here**, so a key
 /// that arrives from the repository is checked against what this build was given, not against
 /// itself: a key change needs a new version of the interface.
-const sokarKeyFingerprint = '10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE';
+const poreloKeyFingerprint = '10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE';
 
 /// Where the repository's key and packages are.
-const sokarKeyAddress = 'https://fuinorg.jfrog.io/artifactory/api/security/keypair/sokar-packages/public';
-const sokarDebRepository = 'https://fuinorg.jfrog.io/artifactory/sokar-dist-deb';
-const sokarRpmRepository = 'https://fuinorg.jfrog.io/artifactory/sokar-dist-rpm';
+const poreloKeyAddress = 'https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public';
+const poreloDebRepository = 'https://fuinorg.jfrog.io/artifactory/porelo-dist-deb';
+const poreloRpmRepository = 'https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm';
 
-/// The agents offered when Sokar is set up, as their packages are named. **None is chosen in
+/// The agents offered when Porelo is set up, as their packages are named. **None is chosen in
 /// advance**: which agent somebody works with is theirs to say.
-const sokarAgents = <({String package, String name})>[
-  (package: 'sokar-agent-claude', name: 'Claude Code'),
-  (package: 'sokar-agent-pi', name: 'Pi'),
-  (package: 'sokar-agent-omp', name: 'Oh My Pi'),
+const poreloAgents = <({String package, String name})>[
+  (package: 'porelo-agent-claude', name: 'Claude Code'),
+  (package: 'porelo-agent-pi', name: 'Pi'),
+  (package: 'porelo-agent-omp', name: 'Oh My Pi'),
 ];
 
 /// One check before a WSL distribution is connected to, and what it found.
@@ -33,9 +33,9 @@ enum WslCheck {
   windows('Windows is new enough for WSL2'),
   installed('WSL is installed'),
   wsl2('The distribution runs under WSL2'),
-  supported('The distribution is one Sokar supports'),
+  supported('The distribution is one Porelo supports'),
   systemd('systemd runs in it'),
-  sokar('Sokar is installed in it'),
+  porelo('Porelo is installed in it'),
   daemon('Its daemon answers');
 
   const WslCheck(this.title);
@@ -82,7 +82,7 @@ class OsRelease {
   final String version;
   final String name;
 
-  /// Whether Sokar supports it: Ubuntu 26.04 or later, Debian 13, Fedora 43 or 44.
+  /// Whether Porelo supports it: Ubuntu 26.04 or later, Debian 13, Fedora 43 or 44.
   bool get supported => switch (id) {
         'ubuntu' => _atLeast(version, 26, 4),
         'debian' => version == '13',
@@ -109,7 +109,7 @@ int? windowsBuild(String operatingSystemVersion) =>
 /// WSL2 needs Windows 10 version 2004, build 19041, or later; every Windows 11 is later.
 const int firstWsl2Build = 19041;
 
-/// The lines that set Sokar up in a distribution, each shown before anything runs.
+/// The lines that set Porelo up in a distribution, each shown before anything runs.
 class SetupLine {
   const SetupLine(this.command, {required this.asRoot, required this.why});
 
@@ -129,7 +129,7 @@ class SetupLine {
   }
 }
 
-/// The checks before a WSL distribution is connected to, and the offer to set Sokar up in one that
+/// The checks before a WSL distribution is connected to, and the offer to set Porelo up in one that
 /// lacks it.
 ///
 /// **Nothing runs as root but the lines a person said yes to, after they were shown**, and every one
@@ -193,9 +193,9 @@ class WslSetup extends ChangeNotifier {
     return null;
   }
 
-  /// Whether the failure is one the setup offer answers: Sokar missing, or its daemon silent.
+  /// Whether the failure is one the setup offer answers: Porelo missing, or its daemon silent.
   bool get offersTheSetup =>
-      failed?.check == WslCheck.sokar || failed?.check == WslCheck.daemon;
+      failed?.check == WslCheck.porelo || failed?.check == WslCheck.daemon;
 
   /// Whether the failure is systemd, answered by the separate question with the restart.
   bool get asksForSystemd => failed?.check == WslCheck.systemd;
@@ -242,75 +242,75 @@ class WslSetup extends ChangeNotifier {
         system = release;
         return release.supported
             ? WslFinding(check, passed: true, words: release.name)
-            : WslFinding(check, passed: false, words: '$distribution is ${release.name}. Sokar supports '
+            : WslFinding(check, passed: false, words: '$distribution is ${release.name}. Porelo supports '
                 'Ubuntu 26.04 or later, Debian 13, and Fedora 43 and 44, so nothing is offered to set it up here.');
       case WslCheck.systemd:
         final state = await _run(distribution, const <String>['systemctl', 'is-system-running'], asRoot: false);
         final running = <String>{'running', 'degraded', 'starting'}.contains(state.said.trim());
         return running
             ? WslFinding(check, passed: true, words: state.said.trim())
-            : WslFinding(check, passed: false, words: 'systemd does not run in it. Sokar runs as a '
+            : WslFinding(check, passed: false, words: 'systemd does not run in it. Porelo runs as a '
                 'user service, so systemd must be turned on, and the distribution restarted.');
-      case WslCheck.sokar:
-        final version = await _run(distribution, const <String>['sokar', '--version'], asRoot: false);
+      case WslCheck.porelo:
+        final version = await _run(distribution, const <String>['porelo', '--version'], asRoot: false);
         return version.code == 0
             ? WslFinding(check, passed: true, words: version.said.trim())
-            : WslFinding(check, passed: false, words: 'Sokar is not installed in it.');
+            : WslFinding(check, passed: false, words: 'Porelo is not installed in it.');
       case WslCheck.daemon:
         final answering = await (answers?.call(machine) ?? Future<bool>.value(false));
         return answering
             ? WslFinding(check, passed: true)
-            : WslFinding(check, passed: false, words: 'Sokar is installed, and its daemon does not '
+            : WslFinding(check, passed: false, words: 'Porelo is installed, and its daemon does not '
                 'answer. Setting it up as its user starts it.');
     }
   }
 
-  /// The user the distribution runs as by default: the one Sokar is set up for.
+  /// The user the distribution runs as by default: the one Porelo is set up for.
   Future<String> user() async => (await _run(distribution, const <String>['id', '-un'], asRoot: false)).said.trim();
 
-  /// The lines that set Sokar up here, for [user], with the agents chosen. Sokar's own
+  /// The lines that set Porelo up here, for [user], with the agents chosen. Porelo's own
   /// `getting-started.md` says the same for each package manager.
   List<SetupLine> setupLines(String user, {bool snapshots = false}) {
     final release = system;
     final apt = release?.usesApt ?? true;
-    final chosen = <String>[for (final agent in sokarAgents) if (agents.contains(agent.package)) agent.package];
+    final chosen = <String>[for (final agent in poreloAgents) if (agents.contains(agent.package)) agent.package];
     return <SetupLine>[
-      SetupLine(<String>['sh', '-c', 'curl -fsSL $sokarKeyAddress -o /tmp/sokar.asc'],
-          asRoot: true, why: "Fetches the key Sokar's packages are signed with."),
+      SetupLine(<String>['sh', '-c', 'curl -fsSL $poreloKeyAddress -o /tmp/porelo.asc'],
+          asRoot: true, why: "Fetches the key Porelo's packages are signed with."),
       if (apt) ...<SetupLine>[
-        const SetupLine(<String>['gpg', '--dearmor', '--yes', '-o', '/usr/share/keyrings/sokar.gpg', '/tmp/sokar.asc'],
+        const SetupLine(<String>['gpg', '--dearmor', '--yes', '-o', '/usr/share/keyrings/porelo.gpg', '/tmp/porelo.asc'],
             asRoot: true, why: 'Keeps the key where apt reads it, once its fingerprint is checked.'),
         SetupLine(<String>[
           'sh',
           '-c',
-          'echo "deb [signed-by=/usr/share/keyrings/sokar.gpg] $sokarDebRepository ${snapshots ? 'snapshots' : 'releases'} main" '
-              '> /etc/apt/sources.list.d/sokar.list'
-        ], asRoot: true, why: "Adds Sokar's package repository."),
-        SetupLine(<String>['sh', '-c', 'apt-get update && apt-get install -y sokar ${chosen.join(' ')}'.trim()],
-            asRoot: true, why: 'Installs Sokar and the agents chosen.'),
+          'echo "deb [signed-by=/usr/share/keyrings/porelo.gpg] $poreloDebRepository ${snapshots ? 'snapshots' : 'releases'} main" '
+              '> /etc/apt/sources.list.d/porelo.list'
+        ], asRoot: true, why: "Adds Porelo's package repository."),
+        SetupLine(<String>['sh', '-c', 'apt-get update && apt-get install -y porelo ${chosen.join(' ')}'.trim()],
+            asRoot: true, why: 'Installs Porelo and the agents chosen.'),
       ] else ...<SetupLine>[
-        const SetupLine(<String>['install', '-D', '-m', '0644', '/tmp/sokar.asc', '/etc/pki/rpm-gpg/sokar.asc'],
+        const SetupLine(<String>['install', '-D', '-m', '0644', '/tmp/porelo.asc', '/etc/pki/rpm-gpg/porelo.asc'],
             asRoot: true, why: 'Keeps the key where dnf reads it, once its fingerprint is checked.'),
         SetupLine(<String>[
           'sh',
           '-c',
-          "printf '[sokar]\\nname=Sokar\\nbaseurl=$sokarRpmRepository/${snapshots ? 'snapshots' : 'releases'}\\n"
-              "enabled=1\\ngpgcheck=0\\nrepo_gpgcheck=1\\ngpgkey=file:///etc/pki/rpm-gpg/sokar.asc\\n' "
-              '> /etc/yum.repos.d/sokar.repo'
-        ], asRoot: true, why: "Adds Sokar's package repository, its index checked against the key."),
-        SetupLine(<String>['sh', '-c', 'dnf install -y sokar ${chosen.join(' ')}'.trim()],
-            asRoot: true, why: 'Installs Sokar and the agents chosen.'),
+          "printf '[porelo]\\nname=Porelo\\nbaseurl=$poreloRpmRepository/${snapshots ? 'snapshots' : 'releases'}\\n"
+              "enabled=1\\ngpgcheck=0\\nrepo_gpgcheck=1\\ngpgkey=file:///etc/pki/rpm-gpg/porelo.asc\\n' "
+              '> /etc/yum.repos.d/porelo.repo'
+        ], asRoot: true, why: "Adds Porelo's package repository, its index checked against the key."),
+        SetupLine(<String>['sh', '-c', 'dnf install -y porelo ${chosen.join(' ')}'.trim()],
+            asRoot: true, why: 'Installs Porelo and the agents chosen.'),
       ],
       SetupLine(<String>['loginctl', 'enable-linger', user], asRoot: true,
-          why: "Keeps $user's services running when no session is open, Sokar's daemon among them."),
-      const SetupLine(<String>['sokar', 'setup'], asRoot: false, why: 'Sets Sokar up for this user and starts its daemon.'),
+          why: "Keeps $user's services running when no session is open, Porelo's daemon among them."),
+      const SetupLine(<String>['porelo', 'setup'], asRoot: false, why: 'Sets Porelo up for this user and starts its daemon.'),
     ];
   }
 
-  /// The fingerprint of the key fetched to `/tmp/sokar.asc`, or null where none could be read.
+  /// The fingerprint of the key fetched to `/tmp/porelo.asc`, or null where none could be read.
   Future<String?> fetchedFingerprint() async {
     final shown = await _run(distribution,
-        const <String>['gpg', '--show-keys', '--with-colons', '/tmp/sokar.asc'], asRoot: true);
+        const <String>['gpg', '--show-keys', '--with-colons', '/tmp/porelo.asc'], asRoot: true);
     for (final line in const LineSplitter().convert(shown.said)) {
       if (line.startsWith('fpr:')) {
         final fields = line.split(':');
@@ -321,7 +321,7 @@ class WslSetup extends ChangeNotifier {
   }
 
   /// Runs the setup [lines] in order, after a yes to exactly them. The key is checked against
-  /// [sokarKeyFingerprint] right after it is fetched; a key that does not match stops the setup
+  /// [poreloKeyFingerprint] right after it is fetched; a key that does not match stops the setup
   /// before anything else is written. Stops at the first line that fails, saying why.
   Future<void> runSetup(List<SetupLine> lines) async {
     busy = true;
@@ -340,15 +340,15 @@ class WslSetup extends ChangeNotifier {
           stopped = '"${line.shown}" ended with ${answer.code}. Nothing after it ran.';
           return;
         }
-        if (line.command.join(' ').contains('-o /tmp/sokar.asc')) {
+        if (line.command.join(' ').contains('-o /tmp/porelo.asc')) {
           final came = await fetchedFingerprint();
-          if (came != sokarKeyFingerprint) {
+          if (came != poreloKeyFingerprint) {
             stopped = 'The key that came is not the one this interface carries. Expected '
-                '$sokarKeyFingerprint, and it came as ${came ?? 'no key at all'}. Nothing was written.';
+                '$poreloKeyFingerprint, and it came as ${came ?? 'no key at all'}. Nothing was written.';
             record?.call('check the key', stopped!);
             return;
           }
-          said.add('The key is $sokarKeyFingerprint, as expected.');
+          said.add('The key is $poreloKeyFingerprint, as expected.');
         }
       }
     } finally {

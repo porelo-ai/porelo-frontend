@@ -4,7 +4,7 @@ import 'tokens.dart';
 
 /// The interface's two themes, built from the tokens and nothing else — the same way melkheftken
 /// builds its own, so the two look like one family.
-abstract final class SokarTheme {
+abstract final class PoreloTheme {
   /// The light theme.
   static ThemeData get light => _build(Brightness.light);
 

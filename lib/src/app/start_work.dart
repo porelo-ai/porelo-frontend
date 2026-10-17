@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 import 'templates.dart';
@@ -217,7 +217,7 @@ class StartWork extends ChangeNotifier {
 
   /// Whether the agent chosen has nothing to sign in with yet, and can sign in from here.
   ///
-  /// **Then no start of any kind**: a shell is the one start Sokar lets
+  /// **Then no start of any kind**: a shell is the one start Porelo lets
   /// through without a credential, and a new person who pressed "Start it" landed in a container
   /// where the agent said "Not logged in". The sign-in comes first.
   bool get needsASignIn =>
@@ -229,9 +229,9 @@ class StartWork extends ChangeNotifier {
 
   /// Why the name cannot be a task's, or null when it can or none was typed.
   ///
-  /// **Sokar's rule for a task name**, accepted after `Foo Bar` was
+  /// **Porelo's rule for a task name**, accepted after `Foo Bar` was
   /// sent, the image built, and only `podman create` refused it. Lowercase letters, digits and
-  /// inner hyphens: podman names the container `sokar-<project>-<task>`, git names the ref after the
+  /// inner hyphens: podman names the container `porelo-<project>-<task>`, git names the ref after the
   /// task, and a case-insensitive filesystem makes `Foo` and `foo` one ref. Not only digits, which a
   /// login container's name is. And the container name at most [longestContainerName] characters,
   /// because the task's longest socket path must fit. Start stays the authority; this only stops a
@@ -268,7 +268,7 @@ class StartWork extends ChangeNotifier {
     }
     final where = project;
     if (where != null) {
-      final container = 'sokar-${where.name}-$name';
+      final container = 'porelo-${where.name}-$name';
       if (container.length > longestContainerName) {
         return 'That name is too long for this project: "$container" is ${container.length} '
             'characters, and at most $longestContainerName fit.';
@@ -309,7 +309,7 @@ class StartWork extends ChangeNotifier {
 
   /// What starting would cost when it is offered in spite of a problem.
   ///
-  /// Measured on the Sokar side rather than guessed: a missing credential does not stop a launch.
+  /// Measured on the Porelo side rather than guessed: a missing credential does not stop a launch.
   /// It prints one line and starts anyway, the agent fails to authenticate from inside, and a
   /// failed run is **kept** — so what is left is a container and a workspace to clear up by hand.
   String? get whatItWouldCost {

@@ -2,11 +2,11 @@
   "title": "Walk 14: where typing goes in the sign-in and passphrase terminals",
   "steps": [
     {
-      "say": "Walk 14: ob ein Terminal, das auf Dich wartet, zeigt, wo Getipptes hingeht – bei der Anmeldung eines Agenten und beim Passwort des Tresors, auf testmaschine. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"sokar vault unlock && sokar project following\"'\n\n„project following“ zeigt sokar-test-project. Dann „Next“ hier.",
+      "say": "Walk 14: ob ein Terminal, das auf Dich wartet, zeigt, wo Getipptes hingeht – bei der Anmeldung eines Agenten und beim Passwort des Tresors, auf testmaschine. Zuerst den Tresor von testmaschine öffnen, falls er zu ist, in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"porelo vault unlock && porelo project following\"'\n\n„project following“ zeigt porelo-test-project. Dann „Next“ hier.",
       "at": []
     },
     {
-      "say": "Links „Work“ → „New work“: testmaschine, sokar-test-project, ein Agent, für den auf testmaschine noch nichts gespeichert ist (ist Claude Code schon angemeldet, ein anderer). Oben steht „Sign in to <Agent> first“.",
+      "say": "Links „Work“ → „New work“: testmaschine, porelo-test-project, ein Agent, für den auf testmaschine noch nichts gespeichert ist (ist Claude Code schon angemeldet, ein anderer). Oben steht „Sign in to <Agent> first“.",
       "at": [
         "start-sign-in",
         "start-agent",

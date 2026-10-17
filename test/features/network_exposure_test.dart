@@ -106,8 +106,8 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
-      await theWorkIsMarkedAsUnenforced(tester, 'sokar-billing-audit');
-      await theWorkIsNotMarkedAsUnenforced(tester, 'sokar-billing-shell');
+      await theWorkIsMarkedAsUnenforced(tester, 'porelo-billing-audit');
+      await theWorkIsNotMarkedAsUnenforced(tester, 'porelo-billing-shell');
     });
     testWidgets(
         '''letting one through says the host is reachable, not that the attempt succeeded''',
@@ -145,7 +145,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Let this work reach something new');
       await iAskItToReach(tester, 'files.example.test');
       await iChoose(tester, 'Just this run');
@@ -157,7 +157,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Let this work reach something new');
       await iAskItToReach(tester, 'files.example.test');
       await showingWhatItWouldGrantIsNotOfferedYet(tester);
@@ -166,7 +166,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Let this work reach something new');
       await iAskItToReach(tester, 'files.example.test');
       await iChoose(tester, 'This run and the project file');
@@ -179,7 +179,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Let this work reach something new');
       await iAskItToReach(tester, 'files.example.test');
       await iChoose(tester, 'Just this run');
@@ -194,7 +194,7 @@ void main() {
       await bddSetUp(tester);
       await theProjectFileCannotBeFound(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Let this work reach something new');
       await iAskItToReach(tester, 'files.example.test');
       await iChoose(tester, 'This run and the project file');
@@ -209,7 +209,7 @@ void main() {
       await bddSetUp(tester);
       await theMachineRefusesTheNameOnPurpose(tester, 'www.iana.org');
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChooseTheCommand(tester, 'Let this work reach something new');
       await iAskItToReach(tester, 'www.iana.org');
       await iChoose(tester, 'This run and the project file');
@@ -223,7 +223,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOfferedAsUnavailable(
           tester, 'Let this work reach something new');
@@ -232,7 +232,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
-      await iSelectTheWork(tester, 'sokar-billing-shell');
+      await iSelectTheWork(tester, 'porelo-billing-shell');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOfferedAsUnavailable(
           tester, 'Let this work reach something new');
@@ -241,7 +241,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iTakeSomethingBackFromThisWork(tester);
       await iSayTheNames(tester, 'files.example.test');
       await iChoose(tester, 'Just this run');
@@ -255,7 +255,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iTakeSomethingBackFromThisWork(tester);
       await itSays(tester, 'This stops new connections');
       await itSays(tester, 'a transfer already in flight runs to its end');
@@ -264,7 +264,7 @@ void main() {
     testWidgets('''taking it back says how far it went''', (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iTakeSomethingBackFromThisWork(tester);
       await iSayTheNames(tester, 'files.example.test');
       await iChoose(tester, 'This run and the project');
@@ -279,7 +279,7 @@ void main() {
       await bddSetUp(tester);
       await takingBackWillFindNothingInTheFirewall(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iTakeSomethingBackFromThisWork(tester);
       await iSayTheNames(tester, 'files.example.test');
       await iChoose(tester, 'Just this run');
@@ -290,7 +290,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOfferedAsUnavailable(
           tester, 'Take something back from this work');
@@ -299,7 +299,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChangeWhatThisWorkDoesWithABlockedConnection(tester);
       await iChooseTo(tester, 'Stop asking entirely');
       await theWorkWasSetTo(tester, 'off');
@@ -309,7 +309,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iChangeWhatThisWorkDoesWithABlockedConnection(tester);
       await itSays(tester, 'a connection that was refused stays refused');
       await itSays(tester, 'The ruleset is loaded either way');
@@ -319,7 +319,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'billing');
-      await iSelectTheWork(tester, 'sokar-billing-audit');
+      await iSelectTheWork(tester, 'porelo-billing-audit');
       await iChangeWhatThisWorkDoesWithABlockedConnection(tester);
       await iChooseTo(tester, 'Stop asking entirely');
       await theStatusLineMentions(tester, 'was already doing that');
@@ -328,7 +328,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-migrate');
+      await iSelectTheWork(tester, 'porelo-checkout-migrate');
       await iOpenTheCommandFinder(tester);
       await theCommandIsOfferedAsUnavailable(
           tester, 'Change what this work does with a blocked connection');

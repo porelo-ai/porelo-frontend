@@ -17,7 +17,7 @@ class TerminalLink {
   final Uri address;
 
   /// Whether the machine marked it as its login's own page — the one whose reply comes back to the
-  /// machine by itself (`id=sokar-login`). Read from the mark, never from the address.
+  /// machine by itself (`id=porelo-login`). Read from the mark, never from the address.
   final bool isTheLogin;
 
   @override
@@ -35,6 +35,6 @@ TerminalLink? hyperlinkOf(String code, List<String> arguments) {
   final address = Uri.tryParse(arguments.sublist(1).join(';'));
   if (address == null || !(address.isScheme('https') || address.isScheme('http'))) return null;
   // OSC 8's parameters are key=value pairs separated by colons.
-  final marked = arguments.first.split(':').contains('id=sokar-login');
+  final marked = arguments.first.split(':').contains('id=porelo-login');
   return TerminalLink(address, isTheLogin: marked);
 }

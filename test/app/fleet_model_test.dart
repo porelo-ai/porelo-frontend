@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/app/fleet_model.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/fleet_model.dart';
 
 /// A backend that is reachable and useless: the socket opens and nothing is ever answered.
 class _Wedged implements FleetBackend {
@@ -394,11 +394,11 @@ class _Machine implements FleetBackend {
 
   @override
   Future<ServiceInfo> open() async => const ServiceInfo(
-      product: 'Sokar', version: '0', vendor: 'fuin.org', interfaces: <String>[]);
+      product: 'Porelo', version: '0', vendor: 'fuin.org', interfaces: <String>[]);
 
   @override
   Future<List<Task>> tasks() async => <Task>[
-        Task.from(const <String, dynamic>{'name': 'sokar-orphan', 'project': 'vanished'}),
+        Task.from(const <String, dynamic>{'name': 'porelo-orphan', 'project': 'vanished'}),
       ];
 
   @override

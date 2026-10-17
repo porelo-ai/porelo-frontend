@@ -1,7 +1,7 @@
 # Decisions
 
 What holds and what it costs, including the risks that were looked at and accepted. **A decision
-here is not a rule** — rules live in [AGENTS.md](https://github.com/sokar-ai/sokar-frontend/blob/main/AGENTS.md) — and it is not an open question,
+here is not a rule** — rules live in [AGENTS.md](https://github.com/porelo-ai/porelo-frontend/blob/main/AGENTS.md) — and it is not an open question,
 which is an issue. What it records is a choice somebody would otherwise make again. When one was
 taken, `git log` answers.
 
@@ -52,7 +52,7 @@ taken, `git log` answers.
 
 ## The interface can do what a console can
 
-The interface stands in for working at the console, so what a person can do there with `sokar` is,
+The interface stands in for working at the console, so what a person can do there with `porelo` is,
 as far as it goes, reachable here too — stopping a daemon because starting one is, rather than
 leaving one half to a terminal. Where an action costs something, the question before it says what;
 where the machine cannot be asked, the action is shown as unavailable with its reason. What stays out
@@ -60,13 +60,13 @@ is what the contract rules out on purpose: a passphrase typed here, a secret's v
 
 ## No browser
 
-The interface is a Flutter application talking to a unix socket, and reaching a remote Sokar is an
+The interface is a Flutter application talking to a unix socket, and reaching a remote Porelo is an
 SSH socket forward rather than a server. A browser interface is the one thing that would force the
 daemon to bind a network interface, and leaving it out is what keeps local and remote the same code.
 
 ## The interface raises and supervises its own ssh forward
 
-Three choices Sokar's remote access leaves to the client:
+Three choices Porelo's remote access leaves to the client:
 
 - **Which tunnel shape: a unix socket forward**, `ssh -L <local socket>:<remote socket> <host> -N`.
   The daemon never binds a network interface, so local and remote are the same code over the same
@@ -153,7 +153,7 @@ themselves, and then chooses it from the list.
   the connection trial that follows every start.
 
 Measured at a machine with a user unit installed: the start line reports *"started by systemd"* and
-the daemon comes up in `app.slice/sokard.service`.
+the daemon comes up in `app.slice/porelod.service`.
 
 ## A project comes to a machine only by being followed
 
@@ -166,7 +166,7 @@ defaulted. Removing a project is *Stop following*.
 ## A project's settings are changed only in its repository
 
 The window never writes a `project.yml`: the file in the project's repository is the one source of
-truth. A repository without one is said to be no Sokar project, and nothing is offered for it. What
+truth. A repository without one is said to be no Porelo project, and nothing is offered for it. What
 a project may reach is shown, with where each host comes from, and said to be changed only in its
 `project.yml`.
 
@@ -193,7 +193,7 @@ When a machine turns a project commit away, the project's header says so as a st
 what is in force, what was turned away, and why — and the project is also **under *Needs you***,
 because a commit signed by a key the machine was never given is either somebody putting a project
 file past it or a legitimate commit signed with the wrong key, and both need a person. **Which
-states need a person is Sokar's to say** (`needsAPerson`), never worked out here: an unreachable
+states need a person is Porelo's to say** (`needsAPerson`), never worked out here: an unreachable
 repository may answer by itself on the next pass, a refused signature never will.
 
 ## Work always starts in a repository somebody chose
@@ -266,7 +266,7 @@ does not lose it.
 
 **A task whose agent ended before finishing its prompt is in it**, in the machine's words: the
 error as the agent or the provider gave it, and when. A provider's refusal (credits, key, limits)
-is named as the provider's, so the person looks there and not at Sokar. The end wins over the
+is named as the provider's, so the person looks there and not at Porelo. The end wins over the
 activity: such a task is never said to be working or idle, and its tile on *Work* never folds. An
 agent that finished its prompt needs nobody and is not listed.
 
@@ -345,7 +345,7 @@ person's in the browser.
 ## A tile keeps its actions, each offered only where it can be honored
 
 The actions belong on the card when the view is used from elsewhere. The interface runs where the
-person is and reaches every machine over ssh, so attaching is `sokar task attach` over ssh in a
+person is and reaches every machine over ssh, so attaching is `porelo task attach` over ssh in a
 terminal of the window's own and a diff is fetched over the socket — see *Handing off from another
 device needs no feature of its own*. An action a machine cannot honor from here is shown as
 unavailable with its reason rather than removed: working in a task by hand, for one, is unavailable
@@ -378,7 +378,7 @@ going elsewhere and back. So:
 
 ## Handing off from another device needs no feature of its own
 
-A session on a remote machine is `sokar task attach` over ssh in a terminal of this window's own,
+A session on a remote machine is `porelo task attach` over ssh in a terminal of this window's own,
 and a diff is fetched over the socket and handed off here. Both are what the interface already does,
 so neither is a separate capability.
 
@@ -398,7 +398,7 @@ apart from another, so it is not one.
 ## What was run is kept for thirty days in one owner-only file
 
 Every operation — what ran, on which machine, what it printed and how it ended — is kept in
-`$XDG_STATE_HOME/sokar/operations.json` (`~/.local/state/sokar/operations.json` without it), and
+`$XDG_STATE_HOME/porelo/operations.json` (`~/.local/state/porelo/operations.json` without it), and
 the list of what was run shows earlier ones beside this run's, marked *earlier*, and names the file.
 The finder opens it with the desktop's opener.
 
@@ -423,11 +423,11 @@ Preparing a rented machine means packages and `/etc`, which is root on the node,
 root for setting up, and nowhere else. Root is never stored: no `Host` entry, no setting and no
 forward names it. Every command run as root is shown before it runs, and the person agrees to the
 step. Every step checks before it acts, so a wizard run again changes nothing that is already
-right. The work user is made before the packages, and the setup script is Sokar's, published beside
-the packages and fetched on the machine, because installing Sokar is Sokar's knowledge.
+right. The work user is made before the packages, and the setup script is Porelo's, published beside
+the packages and fetched on the machine, because installing Porelo is Porelo's knowledge.
 
 **What it costs:** a person who can rent a machine is trusted with root on it for a few minutes,
-inside one dialog. Accepted, because the alternative is a terminal, which a person new to Sokar
+inside one dialog. Accepted, because the alternative is a terminal, which a person new to Porelo
 does not have.
 
 ## A forge's token stays on this computer
@@ -459,7 +459,7 @@ itself.
 ## Clearing a machine or a project is one action, and the forge's part is the interface's
 
 *Clear this machine…* and *Clear this project from the machine…* list what the machine's dry run
-says will go, then clear it with one press. The machine removes what Sokar put there; the interface
+says will go, then clear it with one press. The machine removes what Porelo put there; the interface
 removes each deploy key it names at the forge with the person's sign-in, and the machine's line in
 each project's `machine-signers` in one signed commit. One report says, thing by thing, what was
 removed and what was left and why, and one refusal does not stop the rest.
@@ -556,7 +556,7 @@ which is the confirm button's words.
 
 ## The license is GPL-3.0-only, and *or-later* is not decided
 
-The rest of Sokar is GPL v3, and the packages, the POM and `LICENSE` here say `GPL-3.0-only`.
+The rest of Porelo is GPL v3, and the packages, the POM and `LICENSE` here say `GPL-3.0-only`.
 **What is not decided is *or-later*.** It is the operator's to settle: `-only` cannot be relaxed
 later without every contributor's agreement, while `-or-later` cannot be tightened at all. Nothing
 depends on the answer.
@@ -570,10 +570,10 @@ hand-written client has drifted from the contract. The tests that read the serve
 
 ## A WSL distribution is reached through `wsl.exe` and the relay, never over a port
 
-`sokard` answers only on its unix socket, which a Windows program cannot open across WSL2's
-boundary. The interface runs `wsl.exe -d <distribution> --exec sokar daemon connect` and speaks
+`porelod` answers only on its unix socket, which a Windows program cannot open across WSL2's
+boundary. The interface runs `wsl.exe -d <distribution> --exec porelo daemon connect` and speaks
 Varlink over its standard input and output, as Docker Desktop and Podman Desktop reach their WSL
-machines. **Not `sokard` on TCP at localhost:** WSL2 forwards such a port to Windows, where any
+machines. **Not `porelod` on TCP at localhost:** WSL2 forwards such a port to Windows, where any
 program of any user could start tasks, approve at the gate or open the vault; the socket's file
 permissions are the only guard, and a port would remove it. Not an ssh server in the distribution
 either: it is one more service and key for what `wsl.exe` already does as the Windows user.
@@ -584,7 +584,7 @@ either: it is one more service and key for what `wsl.exe` already does as the Wi
 interface reads each one's state with `wsl.exe -l --running -q` and `-l -v`, which start nothing,
 calls into one only while it runs, and shows a stopped one as stopped for the person to start. **The
 one exception** is turning systemd on, which needs the distribution restarted: asked as a question of
-its own, saying that shells, services and running Sokar tasks in it end, the answer no unless the
+its own, saying that shells, services and running Porelo tasks in it end, the answer no unless the
 person changes it; after a yes, `wsl.exe --terminate` and the next call starts it again.
 
 ## The Windows build is checked on GitHub's Windows runner

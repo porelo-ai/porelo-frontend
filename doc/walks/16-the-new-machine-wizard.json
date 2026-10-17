@@ -2,7 +2,7 @@
   "title": "Walk 16: the new-machine wizard offers what is published",
   "steps": [
     {
-      "say": "Walk 16: der Assistent für eine neue Maschine, auf einer frischen Maschine – einem neu gemieteten Server oder einer neuen VM, auf der root sich mit einem Schlüssel anmelden darf und noch kein Sokar ist. Ihre Adresse nennst Du nur im Assistenten.",
+      "say": "Walk 16: der Assistent für eine neue Maschine, auf einer frischen Maschine – einem neu gemieteten Server oder einer neuen VM, auf der root sich mit einem Schlüssel anmelden darf und noch kein Porelo ist. Ihre Adresse nennst Du nur im Assistenten.",
       "at": []
     },
     {
@@ -17,7 +17,7 @@
       ]
     },
     {
-      "say": "„1. The admin key“: „Generate a key pair“, dann „Keep it as ~/.ssh/sokar-neu-admin“. Den öffentlichen Schlüssel beim Anbieter hinterlegen, wenn der Server angelegt wird (oder in root's authorized_keys der VM). „Next step“.",
+      "say": "„1. The admin key“: „Generate a key pair“, dann „Keep it as ~/.ssh/porelo-neu-admin“. Den öffentlichen Schlüssel beim Anbieter hinterlegen, wenn der Server angelegt wird (oder in root's authorized_keys der VM). „Next step“.",
       "at": [
         "keep-key",
         "generate-key"
@@ -77,7 +77,7 @@
       "then": "!watch-new"
     },
     {
-      "say": "Ein zweiter Benutzer auf derselben Maschine: „Watch another machine…“, Name neu-2, Administrator: Ja, „Another user on a machine already prepared“, Benutzer work2, „Next“, als Schlüssel ~/.ssh/sokar-neu-admin, dann die Schritte wie eben, ohne Paketwahl. Bestanden in Schritt 4: dieselbe Zeile, dass sie Nachrichten tragen kann, für work2.",
+      "say": "Ein zweiter Benutzer auf derselben Maschine: „Watch another machine…“, Name neu-2, Administrator: Ja, „Another user on a machine already prepared“, Benutzer work2, „Next“, als Schlüssel ~/.ssh/porelo-neu-admin, dann die Schritte wie eben, ohne Paketwahl. Bestanden in Schritt 4: dieselbe Zeile, dass sie Nachrichten tragen kann, für work2.",
       "at": [
         "machine-new-user",
         "machine-kind-choice",

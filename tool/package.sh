@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds sokar-frontend as a .deb and a .rpm.
+# Builds porelo-frontend as a .deb and a .rpm.
 #
 # Two things this script exists to get right, and they are the two acceptance criteria that are
 # easy to fake:
@@ -13,15 +13,15 @@
 #
 #   * The build machine sets the floor. The bundle links the system GTK3 stack, so the GTK here is
 #     the oldest GTK the package can run against. Build on the oldest distribution you intend to
-#     support — for Sokar that means Ubuntu, never Fedora.
+#     support — for Porelo that means Ubuntu, never Fedora.
 #
-# Shell, not Java: Sokar's Java tooling builds no package from a native tree. The backend stamps
+# Shell, not Java: Porelo's Java tooling builds no package from a native tree. The backend stamps
 # its own with jdeb and rpm-maven-plugin and declares their dependencies by hand, and nothing in
-# `sokar-release` derives them from ELF files or compares `~snapshot.<run>` versions.
+# `porelo-release` derives them from ELF files or compares `~snapshot.<run>` versions.
 # What this script does is call dpkg-shlibdeps, objdump and nfpm, native programs a JVM
-# would only start in turn. What has to match the rest of Sokar is the package somebody installs,
-# not the tool that wrote it. The one check shared with the rest of Sokar, the C library floor, is
-# `sokar-release`'s `check-linkage`, as Sokar's own packages hold theirs.
+# would only start in turn. What has to match the rest of Porelo is the package somebody installs,
+# not the tool that wrote it. The one check shared with the rest of Porelo, the C library floor, is
+# `porelo-release`'s `check-linkage`, as Porelo's own packages hold theirs.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -77,13 +77,13 @@ fi
 say "Building the release bundle"
 flutter build linux --release
 
-test -x "$bundle/sokar_frontend" || { echo "no bundle at $bundle" >&2; exit 1; }
+test -x "$bundle/porelo_frontend" || { echo "no bundle at $bundle" >&2; exit 1; }
 
 # The ELF objects that decide what this package needs: the launcher and everything shipped beside
 # it. libapp.so is our own AOT-compiled Dart and libflutter_linux_gtk.so is vendored, so neither is
 # a dependency — but both are scanned, because what *they* link is.
 mapfile -t objects < <(
-  printf '%s\n' "$bundle/sokar_frontend"
+  printf '%s\n' "$bundle/porelo_frontend"
   find "$bundle/lib" -name '*.so' | sort
 )
 
@@ -93,9 +93,9 @@ say "Deriving Debian dependencies from ${#objects[@]} ELF objects"
 # in it. Run against the build directory it warns and analyzes less than it should.
 staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
-installed="$staging/debian/sokar-frontend/usr/lib/sokar-frontend"
-mkdir -p "$installed" "$staging/debian/sokar-frontend/DEBIAN"
-printf 'Source: sokar-frontend\n\nPackage: sokar-frontend\nArchitecture: amd64\n' \
+installed="$staging/debian/porelo-frontend/usr/lib/porelo-frontend"
+mkdir -p "$installed" "$staging/debian/porelo-frontend/DEBIAN"
+printf 'Source: porelo-frontend\n\nPackage: porelo-frontend\nArchitecture: amd64\n' \
   > "$staging/debian/control"
 cp -r "$bundle/." "$installed/"
 
@@ -103,8 +103,8 @@ cp -r "$bundle/." "$installed/"
 # .so with no shlibs entry from failing the run rather than being skipped.
 depends="$(
   cd "$staging" && dpkg-shlibdeps -O --ignore-missing-info \
-    debian/sokar-frontend/usr/lib/sokar-frontend/sokar_frontend \
-    debian/sokar-frontend/usr/lib/sokar-frontend/lib/*.so 2>/dev/null |
+    debian/porelo-frontend/usr/lib/porelo-frontend/porelo_frontend \
+    debian/porelo-frontend/usr/lib/porelo-frontend/lib/*.so 2>/dev/null |
     sed -n 's/^shlibs:Depends=//p'
 )"
 test -n "$depends" || { echo "dpkg-shlibdeps derived nothing; refusing to ship a deb with no dependencies" >&2; exit 1; }
@@ -128,17 +128,17 @@ test -n "$requires" || { echo "no sonames found; refusing to ship an rpm with no
 
 say "Holding the C library floor"
 # The floor both packages promise is the one dpkg-shlibdeps derived, `libc6 (>= …)`; the RPM side
-# says it as rpm's own scanner would, `libc.so.6(GLIBC_…)(64bit)`. Sokar's shared check holds it:
+# says it as rpm's own scanner would, `libc.so.6(GLIBC_…)(64bit)`. Porelo's shared check holds it:
 # no object may need a newer glibc symbol than that floor, and the floor may not rise above Debian
-# 13's glibc 2.41, or the package would no longer install on a system Sokar supports. Both are
+# 13's glibc 2.41, or the package would no longer install on a system Porelo supports. Both are
 # refused here, before anything is published. `--declared-only` leaves GTK and the bundle's own
 # libraries to the dependencies derived above.
 ceiling="${GLIBC_CEILING:-2.41}"
 floor="$(echo "$depends" | grep -oE 'libc6 \(>= [0-9.]+' | grep -oE '[0-9][0-9.]*$' || true)"
 test -n "$floor" || { echo "dpkg-shlibdeps named no libc6 floor; refusing to guess the C library floor" >&2; exit 1; }
 tools="${JDK_CP:-build/jdk-cp.txt}"
-test -s "$tools" || { echo "no $tools: resolve Sokar's tools first (mvnw -Pci-tools dependency:build-classpath)" >&2; exit 1; }
-java -cp "$(cat "$tools")" org.fuin.sokar.release.Main check-linkage --declared-only \
+test -s "$tools" || { echo "no $tools: resolve Porelo's tools first (mvnw -Pci-tools dependency:build-classpath)" >&2; exit 1; }
+java -cp "$(cat "$tools")" org.fuin.porelo.release.Main check-linkage --declared-only \
   --declare "libc.so.6=GLIBC:$floor" --ceiling "GLIBC=$ceiling" "${objects[@]}"
 requires="$(printf '%s\nlibc.so.6(GLIBC_%s)(64bit)' "$requires" "$floor")"
 echo "$requires"

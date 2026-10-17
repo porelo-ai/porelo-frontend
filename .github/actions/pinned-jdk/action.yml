@@ -1,12 +1,12 @@
-# The JDK Maven runs on, installed from the pin in Sokar's machine tool rather than by a moving name.
+# The JDK Maven runs on, installed from the pin in Porelo's machine tool rather than by a moving name.
 #
 # `setup-java` with '25' took whichever 25 was newest, checked against nothing we chose. This takes
-# the GraalVM that `sokar-machines` pins (version, URL and sha256 in its pom, moved by Sokar's daily
+# the GraalVM that `porelo-machines` pins (version, URL and sha256 in its pom, moved by Porelo's daily
 # job under its three-day rule), checks the archive before unpacking it, and sets JAVA_HOME and PATH
-# for the job: one pin, one mover, one digest for every Sokar repository. The runner's own Java 25
+# for the job: one pin, one mover, one digest for every Porelo repository. The runner's own Java 25
 # only runs the tool; nothing it builds is published.
 name: The pinned JDK
-description: Installs the GraalVM sokar-machines pins, checked against its digest, for Maven.
+description: Installs the GraalVM porelo-machines pins, checked against its digest, for Maven.
 runs:
   using: composite
   steps:
@@ -22,8 +22,8 @@ runs:
       run: |
         set -euo pipefail
         mkdir -p build
-        # -U: the Sokar tools are snapshots, and a cache restored from earlier the same day would
+        # -U: the Porelo tools are snapshots, and a cache restored from earlier the same day would
         # otherwise keep an older check-actions than the one published.
         JAVA_HOME="$JAVA_HOME_25_X64" ./mvnw -B -q -U -s settings.xml -Pci-tools dependency:build-classpath \
           -Dmdep.outputFile=build/jdk-cp.txt
-        "$JAVA_HOME_25_X64/bin/java" -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.machines.Main jdk --github
+        "$JAVA_HOME_25_X64/bin/java" -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.machines.Main jdk --github

@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 import 'fleet_model.dart';
@@ -38,22 +38,22 @@ class Machine {
 
   /// The machine to open when nothing has been stored yet.
   ///
-  /// The local daemon, unless `SOKAR_SOCKET` names another socket — a forwarded one, or the mock
+  /// The local daemon, unless `PORELO_SOCKET` names another socket — a forwarded one, or the mock
   /// while the interface is being worked on. [environment] is injectable so this can be held to
   /// that: it was quietly dropped once during the rework that made several machines possible, and
   /// nothing noticed until the window said it could not connect to a daemon nobody was running.
   factory Machine.local({Map<String, String>? environment}) {
-    final socket = (environment ?? Platform.environment)['SOKAR_SOCKET'];
+    final socket = (environment ?? Platform.environment)['PORELO_SOCKET'];
     if (socket == null || socket.isEmpty) {
       return Machine(name: 'this machine', socketPath: Backend.local().socketPath);
     }
     return Machine(name: socket.split('/').last, socketPath: socket);
   }
 
-  /// The mock, when somebody is working on the interface: where `SOKAR_SOCKET` points, or where
+  /// The mock, when somebody is working on the interface: where `PORELO_SOCKET` points, or where
   /// `tool/mock_daemon.dart` puts its socket by default.
   factory Machine.mock({Map<String, String>? environment}) {
-    final socket = (environment ?? Platform.environment)['SOKAR_SOCKET'] ?? '';
+    final socket = (environment ?? Platform.environment)['PORELO_SOCKET'] ?? '';
     if (socket.isEmpty || socket == defaultMockSocket) {
       return const Machine(name: 'mock', socketPath: defaultMockSocket);
     }
@@ -61,7 +61,7 @@ class Machine {
   }
 
   /// Where `tool/mock_daemon.dart` puts its socket unless told otherwise.
-  static const String defaultMockSocket = '/tmp/sokar-mock.sock';
+  static const String defaultMockSocket = '/tmp/porelo-mock.sock';
 
   /// Reads one back from what was stored.
   ///
@@ -72,7 +72,7 @@ class Machine {
   /// is indistinguishable from having lost the list.
   ///
   /// **An entry of a kind this build does not know is kept, every field of it.** The file is also
-  /// read by `sokar-intellij`, and written by later versions of this program: dropping what is not
+  /// read by `porelo-intellij`, and written by later versions of this program: dropping what is not
   /// understood here would lose a machine somebody set up elsewhere, the next time this list is
   /// saved.
   factory Machine.fromStored(Map<String, Object?> stored) => Machine(
@@ -107,7 +107,7 @@ class Machine {
   final String remoteSocket;
 
   /// Which way in this is, when it is neither a socket nor a machine behind ssh: `wsl` for a WSL
-  /// distribution, reached from Windows through `wsl.exe -d <distribution> -- sokar daemon connect`.
+  /// distribution, reached from Windows through `wsl.exe -d <distribution> -- porelo daemon connect`.
   /// Empty for the two kinds every version knows.
   final String kind;
 
@@ -137,7 +137,7 @@ class Machine {
             'leaves this one as it is.',
       };
 
-  /// What its daemon is reached through instead of a socket: `sokar daemon connect` in the WSL
+  /// What its daemon is reached through instead of a socket: `porelo daemon connect` in the WSL
   /// distribution, on Windows. Null for a socket.
   List<String>? get relay => kind == 'wsl' && desk.isWindows ? Wsl.relayTo(distribution) : null;
 
@@ -154,7 +154,7 @@ class Machine {
   /// what happens when it stops answering — and what happens when the window closes.
   bool get needsATunnel => host.isNotEmpty && remoteSocket.isNotEmpty;
 
-  /// Whether this is this computer's own daemon, at the place this user's Sokar puts its socket:
+  /// Whether this is this computer's own daemon, at the place this user's Porelo puts its socket:
   /// one the interface can start here, as it starts one it logs into.
   bool get isThisComputer => !needsATunnel && socketPath == Backend.local().socketPath;
 
@@ -178,8 +178,8 @@ class Machine {
         ...unknownFields,
       };
 
-  /// Where Sokar serves the daemon of the account with [uid], on its machine.
-  static String sokardSocketFor(int uid) => '/run/user/$uid/sokar/sokard.sock';
+  /// Where Porelo serves the daemon of the account with [uid], on its machine.
+  static String porelodSocketFor(int uid) => '/run/user/$uid/porelo/porelod.sock';
 
   /// What [name] becomes in a path. Two names that differ only in what this replaces share a forward.
   static String slug(String name) => name.replaceAll(RegExp('[^A-Za-z0-9_-]'), '-');
@@ -193,7 +193,7 @@ class Machine {
     final env = environment ?? Platform.environment;
     final runtime = env['XDG_RUNTIME_DIR'] ??
         '/run/user/${Process.runSync('id', const <String>['-u']).stdout.toString().trim()}';
-    return '$runtime/sokar-tunnel-${slug(name)}.sock';
+    return '$runtime/porelo-tunnel-${slug(name)}.sock';
   }
 
   /// Whether the socket is readable by anybody but its owner.
@@ -249,9 +249,9 @@ class Machines extends ChangeNotifier {
     Future<bool> Function(String socket)? answers,
     HostKeys? hostKeys,
     MachineSetup? setup,
-    bool Function()? sokarIsInstalledHere,
+    bool Function()? poreloIsInstalledHere,
   })  : _reach = reach ?? _overSocket,
-        _sokarHere = sokarIsInstalledHere ?? _sokardOnThePath,
+        _poreloHere = poreloIsInstalledHere ?? _porelodOnThePath,
         hostKeys = hostKeys ?? SshHostKeys(),
         setup = setup ?? MachineSetup(),
         _answers = answers ?? _answersAt,
@@ -260,16 +260,16 @@ class Machines extends ChangeNotifier {
   }
 
   final Settings _settings;
-  final bool Function() _sokarHere;
+  final bool Function() _poreloHere;
 
-  /// Whether this computer has a Sokar of its own to run. **Most people's has none**: the work runs
-  /// on a machine they reach, and a computer without Sokar is not a machine that went silent.
-  bool get sokarIsInstalledHere => _sokarHere();
+  /// Whether this computer has a Porelo of its own to run. **Most people's has none**: the work runs
+  /// on a machine they reach, and a computer without Porelo is not a machine that went silent.
+  bool get poreloIsInstalledHere => _poreloHere();
 
-  /// Whether `sokard` is on this computer's path, or where an account's own install puts it.
+  /// Whether `porelod` is on this computer's path, or where an account's own install puts it.
   ///
-  /// On Windows never: Sokar runs in a WSL distribution there, which is a machine of its own.
-  static bool _sokardOnThePath() {
+  /// On Windows never: Porelo runs in a WSL distribution there, which is a machine of its own.
+  static bool _porelodOnThePath() {
     if (desk.isWindows) return false;
     final environment = Platform.environment;
     final home = environment['HOME'] ?? '';
@@ -277,7 +277,7 @@ class Machines extends ChangeNotifier {
       ...(environment['PATH'] ?? '').split(':').where((each) => each.isNotEmpty),
       if (home.isNotEmpty) '$home/.local/bin',
     ];
-    return places.any((each) => File('$each/sokard').existsSync());
+    return places.any((each) => File('$each/porelod').existsSync());
   }
   final FleetBackend Function(Machine) _reach;
 
@@ -317,7 +317,7 @@ class Machines extends ChangeNotifier {
     }
   }
 
-  static FleetBackend _overSocket(Machine machine) => SokarBackend(backendFor(machine));
+  static FleetBackend _overSocket(Machine machine) => PoreloBackend(backendFor(machine));
 
   /// Where [machine]'s daemon is: its socket, or the relay into its WSL distribution, which is
   /// asked before each connection whether the distribution runs.
@@ -329,11 +329,11 @@ class Machines extends ChangeNotifier {
       whyNotNow: machine.relay == null ? null : () => Wsl().whyNotNow(machine.distribution));
 
   /// Tries [machine] as watching it would, without watching it or leaving anything running.
-  /// Where Sokar's socket is for the account [host] logs in as, asked of the machine, or null when
+  /// Where Porelo's socket is for the account [host] logs in as, asked of the machine, or null when
   /// it could not be asked.
   Future<String?> socketAt(String host) async {
     final uid = await tunnels.loginUidAt(host);
-    return uid == null ? null : Machine.sokardSocketFor(uid);
+    return uid == null ? null : Machine.porelodSocketFor(uid);
   }
 
   Future<Trial> tryMachine(Machine machine) =>
@@ -344,10 +344,10 @@ class Machines extends ChangeNotifier {
       countKeyslots(machine, reach: _reach, tunnels: tunnels);
 
   /// Starts a daemon on [machine], for somebody who has been asked and said yes.
-  Future<Started> startSokarOn(Machine machine) => tunnels.startSokarOn(machine);
+  Future<Started> startPoreloOn(Machine machine) => tunnels.startPoreloOn(machine);
 
   /// Stops the daemon on [machine], for somebody who has been told what it costs and said yes.
-  Future<Started> stopSokarOn(Machine machine) => tunnels.stopSokarOn(machine);
+  Future<Started> stopPoreloOn(Machine machine) => tunnels.stopPoreloOn(machine);
 
   /// Every machine, in the order they were added.
   List<Machine> get all => List<Machine>.unmodifiable(_machines);
@@ -388,7 +388,7 @@ class Machines extends ChangeNotifier {
   /// Reads the machines an earlier run stored and opens all of them.
   ///
   /// Nothing stored leaves the one this started with, which is the local daemon or whatever
-  /// `SOKAR_SOCKET` names. The machine to look for is added after either, when it answers.
+  /// `PORELO_SOCKET` names. The machine to look for is added after either, when it answers.
   Future<void> load() async {
     final stored = await _settings.machines();
     if (stored.isNotEmpty) _adopt(stored);

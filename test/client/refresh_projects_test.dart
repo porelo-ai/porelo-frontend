@@ -4,22 +4,22 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_backend.dart';
-import 'package:sokar_frontend/src/mock/machine.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/mock/machine.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// Holds checking a followed project now to what the machine answers, over a real socket.
 void main() {
   late MockDaemon daemon;
   late MockMachine machine;
-  late SokarBackend backend;
+  late PoreloBackend backend;
 
   setUp(() async {
     daemon = MockDaemon();
     await daemon.start();
     machine = MockMachine(daemon, pace: Duration.zero);
-    backend = SokarBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+    backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
     await backend.open();
   });
 

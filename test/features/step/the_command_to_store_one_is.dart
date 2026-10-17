@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Usage: the command to store one is {'sokar vault put an-agent --type oauth'}
+/// Usage: the command to store one is {'porelo vault put an-agent --type oauth'}
 ///
 /// Rendered verbatim. The daemon built it from the key it really uses, and a line rebuilt here
 /// would sooner or later name a different one.

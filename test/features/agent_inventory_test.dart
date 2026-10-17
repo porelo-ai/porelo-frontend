@@ -38,7 +38,7 @@ void main() {
       await itListsTheAgent(tester, 'An Agent');
       await itSays(tester, '2.4.0');
       await iOpenTheAgent(tester, 'An Agent');
-      await itSays(tester, '/usr/share/sokar/agents/an-agent.yml');
+      await itSays(tester, '/usr/share/porelo/agents/an-agent.yml');
     });
     testWidgets(
         '''an agent that reports no version says so rather than showing a blank''',
@@ -112,7 +112,7 @@ void main() {
       await bddSetUp(tester);
       await oneAgentIsShadowedByAnotherCopy(tester);
       await iShowTheAgentsInstalledHere(tester);
-      await itListsTheUnusedCopy(tester, '/usr/libexec/sokar/agents/an-agent');
+      await itListsTheUnusedCopy(tester, '/usr/libexec/porelo/agents/an-agent');
       await itSays(tester, 'runs instead');
     });
     testWidgets('''an agent says who its commits are attributed to''',
@@ -120,7 +120,7 @@ void main() {
       await bddSetUp(tester);
       await iShowTheAgentsInstalledHere(tester);
       await iOpenTheAgent(tester, 'An Agent');
-      await itSays(tester, 'An Agent <an-agent@sokar.invalid>');
+      await itSays(tester, 'An Agent <an-agent@porelo.invalid>');
     });
     testWidgets(
         '''an agent installed before that was reported says so rather than showing a blank''',

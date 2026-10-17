@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/homeserver_forwards.dart';
-import 'package:sokar_frontend/src/app/login_forward.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/homeserver_forwards.dart';
+import 'package:porelo_frontend/src/app/login_forward.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
 import '../features/support/world.dart';
 
@@ -17,7 +17,7 @@ class _Forward implements HeldForward {
 }
 
 void main() {
-  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'alice@vm', remoteSocket: '/run/user/1000/sokar/sokard.sock');
+  const vm = Machine(name: 'vm', socketPath: '/tmp/vm.sock', host: 'alice@vm', remoteSocket: '/run/user/1000/porelo/porelod.sock');
 
   Future<Machines> machinesWithVm(Settings settings) async {
     final machines = Machines(settings, reach: (machine) => FakeBackend(const <Task>[]), tunnels: FakeTunnels());

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
 
-/// Usage: the agent of {'sokar-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
+/// Usage: the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
 ///
 /// A run: OpenRouter refused the first request, and the agent ended.
 /// The container stays up; the machine says the agent ended, and how.

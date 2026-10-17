@@ -5,7 +5,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/terminal_diagnosis.dart';
+import 'package:porelo_frontend/src/ui/terminal_diagnosis.dart';
 
 /// The diagnosis reads back in the distribution exactly the bytes it sent, through a terminal as
 /// the attach has one and through pipes as the relay has them: a raw terminal, so a carriage return

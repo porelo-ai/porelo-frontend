@@ -82,11 +82,11 @@ class Wsl {
     return null;
   }
 
-  /// What reaches the daemon of the distribution [name]: `sokar daemon connect` in it, its standard
+  /// What reaches the daemon of the distribution [name]: `porelo daemon connect` in it, its standard
   /// input and output joined to the daemon's socket. **Started as a process of its own, never
   /// through a shell**: Windows PowerShell re-encodes text in its pipes, and Varlink's framing ends
   /// each message with a zero byte that must arrive as it was sent.
-  static List<String> relayTo(String name) => runIn(name, const <String>['sokar', 'daemon', 'connect']);
+  static List<String> relayTo(String name) => runIn(name, const <String>['porelo', 'daemon', 'connect']);
 
   /// What runs [command] in the distribution [name]. **`--exec`, not `--`**: after `--`, `wsl.exe`
   /// hands the words to the distribution's shell, which splits them again, so a task's name with a

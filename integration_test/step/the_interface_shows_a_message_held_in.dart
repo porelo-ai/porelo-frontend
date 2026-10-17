@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/e2e.dart';
 import '../support/remote.dart';
 
-/// Usage: the interface shows a message held in {'sokar-e2e-talk-e2e-talk'}
+/// Usage: the interface shows a message held in {'porelo-e2e-talk-e2e-talk'}
 Future<void> theInterfaceShowsAMessageHeldIn(WidgetTester tester, String task) async {
   // Where a person looks for it: what needs a person, from the tree.
   await toThePlace(tester, 'attention');

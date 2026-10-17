@@ -41,12 +41,12 @@ questions have deadlines, and notifications need another path.
 ## Plan
 
 - **Already there:** `VarlinkConnection.over` (`lib/src/wire/varlink_connection.dart`) speaks
-  over any byte stream, and `Backend.open` (`lib/src/client/sokar_client.dart`) uses it for a
+  over any byte stream, and `Backend.open` (`lib/src/client/porelo_client.dart`) uses it for a
   `relay` command, proven by `test/client/relay_test.dart` through a process. A test over an
   in-memory stream, with no process and no socket file, is still missing.
 - **Where `ssh` runs today:** `Tunnel` and `Tunnels` (`lib/src/app/tunnel.dart`, `ssh -L`);
   `tryAMachine` (`lib/src/app/connection_trial.dart`) through `Tunnels.trial`; `Session.command`
-  (`lib/src/app/session.dart`, `ssh -t … sokar task attach`), opened as a `SessionChannel`
+  (`lib/src/app/session.dart`, `ssh -t … porelo task attach`), opened as a `SessionChannel`
   (`lib/src/app/pty.dart`).
 - **One transport interface:** a byte stream to the daemon, a command run there (starting the
   daemon, `id -u`), and a `SessionChannel` with a pty. The desktop's implementation wraps today's
@@ -54,7 +54,7 @@ questions have deadlines, and notifications need another path.
 - **The `dartssh2` implementation:** `onVerifyHostKey` always set, against a known-hosts store of
   its own kept owner-only; keys in the platform keychain through `flutter_secure_storage`, as
   `PlatformDeviceKeyStore` (`lib/src/app/keystore.dart`) keeps a device's; the stream to the
-  daemon through `sokar daemon connect` or a forward to the Unix socket.
+  daemon through `porelo daemon connect` or a forward to the Unix socket.
 - **Red first:** a test in `test/client/` speaking Varlink over an in-memory stream; then tests
   with an unknown and a changed host key against a fake server; then a leg in `tool/e2e.sh` over
   `dartssh2`.
@@ -87,5 +87,5 @@ questions have deadlines, and notifications need another path.
 
 - **How a pinned `dartssh2` is kept current**, given how fast it changes and how recent its
   security fixes are. (Agent Frontend's)
-- **The stream to the daemon over `dartssh2`**: exec of `sokar daemon connect`, as the WSL way
+- **The stream to the daemon over `dartssh2`**: exec of `porelo daemon connect`, as the WSL way
   does, or a forward to the Unix socket. (Agent Frontend's)

@@ -54,6 +54,6 @@ jobs:
       # its own, since the code is in `data\app.so` beside the `.exe`.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: sokar-frontend-windows
+          name: porelo-frontend-windows
           path: build/windows/x64/runner/Release/
           if-no-files-found: error

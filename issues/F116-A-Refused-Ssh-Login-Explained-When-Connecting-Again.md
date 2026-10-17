@@ -22,7 +22,7 @@ mark. Neither way names the key the machine would take, which is what a person n
   for the machine's host, where it tells; ssh's raw words only where it does not, as now.
 - **The key ssh would use:** `ssh -G <host>` prints the configuration ssh resolves for the host, its
   `identityfile` lines among it, without connecting. Where `~/.ssh/config` names one (or the
-  new-machine wizard wrote one, `~/.ssh/sokar-<name>-<user>`), the refusal names it: "It would log
+  new-machine wizard wrote one, `~/.ssh/porelo-<name>-<user>`), the refusal names it: "It would log
   in with ~/.ssh/<file>; that key's public half must be in the account's authorized_keys." Where only
   ssh's defaults are listed, it says no key is named for the host. The same sentence joins the
   refusal when the machine is added (`loginUidAt`).

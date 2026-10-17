@@ -200,7 +200,7 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
   return '${entry.name} is no longer set up here.${removed.isEmpty ? '' : ' $removed'}';
 }
 
-/// Takes every key a Sokar machine was given off [repositories] at [entry]'s forge.
+/// Takes every key a Porelo machine was given off [repositories] at [entry]'s forge.
 Future<String> _removeKeys(ForgeConnection forges, ForgeEntry entry, List<String> repositories) async {
   final reached = await forges.reach(entry);
   if (reached == null) return 'No token is kept for ${entry.name}, so no key was removed.';
@@ -208,7 +208,7 @@ Future<String> _removeKeys(ForgeConnection forges, ForgeEntry entry, List<String
   try {
     for (final repository in repositories) {
       for (final key in await reached.forge.deployKeys(repository)) {
-        if (!key.isSokars) continue;
+        if (!key.isPorelos) continue;
         await reached.forge.removeDeployKey(repository, key.id);
         removed++;
       }

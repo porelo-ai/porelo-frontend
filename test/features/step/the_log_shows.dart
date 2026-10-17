@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/ui/log_view.dart';
+import 'package:porelo_frontend/src/ui/log_view.dart';
 
 /// Everything the log view is currently showing, as one string.
 ///

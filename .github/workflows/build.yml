@@ -73,22 +73,22 @@ jobs:
       # Maven drives the build, so the runner needs a JDK as well as Flutter: the pinned one.
       - uses: ./.github/actions/pinned-jdk
 
-      # What this build runs is pinned and moved only by review, and Sokar's own tool says so for
-      # every repository alike; the action above already resolved it beside sokar-machines.
+      # What this build runs is pinned and moved only by review, and Porelo's own tool says so for
+      # every repository alike; the action above already resolved it beside porelo-machines.
       - name: Check that every action is pinned
-        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-actions
+        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-actions
 
       # A shared rules block whose hash no longer fits its text is a copy someone edited here.
       - name: Check that the shared rules are unchanged copies
-        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-shared AGENTS.md
+        run: java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-shared AGENTS.md
 
       # No page or source cites an issue, whose file is deleted once it is done, and every page under
       # doc/ is in the site's navigation once, with no link out of doc/.
       - name: Check the citations, the documentation site and the READMEs
         run: |
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-citations .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-readmes .
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-doc-site doc mkdocs.yml
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-citations .
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-readmes .
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-doc-site doc mkdocs.yml
 
       # A release depends only on releases: every -SNAPSHOT Maven resolved for this build - the parent,
       # the tools and their plugin dependencies, inactive profiles included - is refused on a tag.
@@ -98,8 +98,8 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           ./mvnw -B -q -s settings.xml help:effective-pom -Doutput=build/effective-pom.xml
-          java -cp "$(cat build/jdk-cp.txt)" org.fuin.sokar.release.Main check-releases \
-            build/effective-pom.xml --requires org.fuin.sokar:sokar-release
+          java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main check-releases \
+            build/effective-pom.xml --requires org.fuin.porelo:porelo-release
 
       # GTK and the toolchain, which the runner has by default in neither case. The third-party
       # lists go first: `apt-get update` exits 100 when any index fails, and everything installed
@@ -175,11 +175,11 @@ jobs:
             build/test-results.xml
             build/test-report.html
 
-  # The interface on Windows, which reaches a Sokar in a WSL distribution through `wsl.exe`. Tested
+  # The interface on Windows, which reaches a Porelo in a WSL distribution through `wsl.exe`. Tested
   # and built on GitHub's Windows runner, there being no Windows machine beside the VM, and packed as
   # a ZIP somebody unpacks and starts with nothing installed. The ZIP is not signed: a `SHA256SUMS`
   # goes beside it, and a build provenance attestation says it was built from this repository by
-  # this workflow, checked with `gh attestation verify <zip> --repo sokar-ai/sokar-frontend`.
+  # this workflow, checked with `gh attestation verify <zip> --repo porelo-ai/porelo-frontend`.
   windows:
     name: Windows
     runs-on: windows-2025
@@ -232,7 +232,7 @@ jobs:
 
       # The attestation's Sigstore bundle beside the packages, one for both, so they can be checked
       # from Artifactory alone:
-      # `gh attestation verify <file> --bundle <name>.sigstore.json --repo sokar-ai/sokar-frontend`.
+      # `gh attestation verify <file> --bundle <name>.sigstore.json --repo porelo-ai/porelo-frontend`.
       - name: Keep the attestation beside the packages
         shell: pwsh
         run: |
@@ -263,7 +263,7 @@ jobs:
     if: github.event_name != 'pull_request'
     env:
       # With GITHUB_RUN_ID this names the run, so the last step sweeps what this run leased.
-      SOKAR_CI_LEG: frontend-e2e
+      PORELO_CI_LEG: frontend-e2e
       HETZNER_API: ${{ secrets.HETZNER_API }}
       # The key as material, never written to a file: the lease and tool/e2e.sh both read it.
       HETZNER_SSH: ${{ secrets.HETZNER_SSH }}
@@ -309,7 +309,7 @@ jobs:
         if: always()
         run: |
           test -s build/cp.txt || { echo "::warning::the machine tool was never resolved"; exit 0; }
-          java -cp "$(cat build/cp.txt)" org.fuin.sokar.machines.Main sweep --mine
+          java -cp "$(cat build/cp.txt)" org.fuin.porelo.machines.Main sweep --mine
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -324,7 +324,7 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     timeout-minutes: 5
-    # The systems Sokar supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
+    # The systems Porelo supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
     # image is pinned by its digest, as every action is, so what is proven is what was read.
     strategy:
       fail-fast: false
@@ -354,16 +354,16 @@ jobs:
             if command -v apt-get >/dev/null; then
               apt-get update
               apt-get install -y /packages/*.deb
-              test -x /usr/bin/sokar-frontend
-              test -f /usr/lib/sokar-frontend/lib/libapp.so
-              test -f /usr/lib/sokar-frontend/data/icudtl.dat
+              test -x /usr/bin/porelo-frontend
+              test -f /usr/lib/porelo-frontend/lib/libapp.so
+              test -f /usr/lib/porelo-frontend/data/icudtl.dat
             else
               dnf install -y /packages/*.rpm
-              test -x /usr/bin/sokar-frontend
-              test -f /usr/lib/sokar-frontend/lib/libapp.so
-              test -f /usr/lib/sokar-frontend/data/icudtl.dat
+              test -x /usr/bin/porelo-frontend
+              test -f /usr/lib/porelo-frontend/lib/libapp.so
+              test -f /usr/lib/porelo-frontend/data/icudtl.dat
             fi
-            test -f /usr/share/applications/sokar-frontend.desktop
+            test -f /usr/share/applications/porelo-frontend.desktop
           '
 
   publish:
@@ -411,7 +411,7 @@ jobs:
       # the properties are silently dropped, which is why `artifactory-probe.yml` exists.
       #
       # `--flat=true`, or the source directory travels and the package lands under
-      # `pool/main/s/sokar-frontend/packages/...`.
+      # `pool/main/p/porelo-frontend/packages/...`.
       # A release is published once: the same version uploaded again would replace what people
       # installed, under the same name.
       - name: Refuse a release that is there already
@@ -422,23 +422,23 @@ jobs:
           while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
           base="${base%/artifactory}/artifactory"
           version="$(dpkg-deb -f packages/*.deb Version)"
-          # This package's own file: the index holds every Sokar package, many at one version.
-          file="Filename: pool/main/s/sokar-frontend/$(basename packages/*.deb)"
-          if curl -fsSL "$base/sokar-dist-deb/dists/releases/main/binary-amd64/Packages" 2>/dev/null \
+          # This package's own file: the index holds every Porelo package, many at one version.
+          file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
+          if curl -fsSL "$base/porelo-dist-deb/dists/releases/main/binary-amd64/Packages" 2>/dev/null \
                | grep -qxF "$file"; then
-            echo "::error::sokar-frontend $version is released already" >&2
+            echo "::error::porelo-frontend $version is released already" >&2
             exit 1
           fi
 
       - name: Upload the deb
         run: |
-          jf rt upload "packages/*.deb" "sokar-dist-deb/pool/main/s/sokar-frontend/" \
+          jf rt upload "packages/*.deb" "porelo-dist-deb/pool/main/p/porelo-frontend/" \
             --flat=true \
             --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
 
       - name: Upload the rpm
         run: |
-          jf rt upload "packages/*.rpm" "sokar-dist-rpm/${CHANNEL}/" --flat=true
+          jf rt upload "packages/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
 
       # An upload that succeeded is not a package anybody can install. Artifactory indexes
       # asynchronously, and **a missing index, an empty index and a late index look identical from
@@ -464,10 +464,10 @@ jobs:
           version="$(dpkg-deb -f packages/*.deb Version)"
           test -n "$version" || { echo "::error::could not read the built version" >&2; exit 1; }
 
-          deb="$base/sokar-dist-deb/dists/${CHANNEL}/main/binary-amd64/Packages"
-          rpm="$base/sokar-dist-rpm/${CHANNEL}/repodata/repomd.xml"
+          deb="$base/porelo-dist-deb/dists/${CHANNEL}/main/binary-amd64/Packages"
+          rpm="$base/porelo-dist-rpm/${CHANNEL}/repodata/repomd.xml"
           # This package's own files, never its version alone: other packages share it.
-          deb_file="Filename: pool/main/s/sokar-frontend/$(basename packages/*.deb)"
+          deb_file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
           rpm_file="$(basename packages/*.rpm)"
           echo "looking for $version"
           echo "  $deb"
@@ -484,7 +484,7 @@ jobs:
             if [ "$found_rpm" = no ]; then
               primary="$(curl -fsSL "$rpm" 2>/dev/null \
                 | grep -oE 'repodata/[a-f0-9]+-primary.xml.gz' | head -1)"
-              if [ -n "$primary" ] && curl -fsSL "$base/sokar-dist-rpm/${CHANNEL}/$primary" \
+              if [ -n "$primary" ] && curl -fsSL "$base/porelo-dist-rpm/${CHANNEL}/$primary" \
                    2>/dev/null | gunzip -c | grep -qF "href=\"$rpm_file\""; then
                 found_rpm=yes
                 echo "the rpm index carries $rpm_file"
@@ -506,7 +506,7 @@ jobs:
           exit 1
 
       # The Windows ZIP, its checksum and its attestation, one folder per version in a generic
-      # repository beside the packages: `sokar-dist-windows/<channel>/<version>/`. Only where the
+      # repository beside the packages: `porelo-dist-windows/<channel>/<version>/`. Only where the
       # Windows job made them: a red Windows job never holds back the Linux snapshot above.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.windows.result == 'success'
@@ -523,9 +523,9 @@ jobs:
           while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
           base="${base%/artifactory}/artifactory"
           zip="$(basename windows/*.zip)"
-          version="${zip#sokar-frontend-}"
+          version="${zip#porelo-frontend-}"
           version="${version%-windows-x64.zip}"
-          target="sokar-dist-windows/${CHANNEL}/${version}/"
+          target="porelo-dist-windows/${CHANNEL}/${version}/"
           if [ "$CHANNEL" = releases ] && curl -fsSI "$base/${target}${zip}" >/dev/null 2>&1; then
             echo "::error::the Windows ZIP of $version is released already" >&2
             exit 1

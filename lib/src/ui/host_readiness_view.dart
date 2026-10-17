@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import '../app/host_readiness.dart';
 import 'panes.dart';
@@ -133,7 +133,7 @@ class _ProbeRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           if (probe.detail.isNotEmpty) Text(probe.detail),
-          // Never empty on anything but OK, and the Sokar side refuses to construct one without
+          // Never empty on anything but OK, and the Porelo side refuses to construct one without
           // it — so this renders without checking whether there is something to render.
           if (probe.action.isNotEmpty)
             Padding(
@@ -161,7 +161,7 @@ class _Heading extends StatelessWidget {
       );
 }
 
-/// How a probe's state is drawn, as `sokar doctor` colours it on a terminal: `OK` green, `DEGRADED`
+/// How a probe's state is drawn, as `porelo doctor` colours it on a terminal: `OK` green, `DEGRADED`
 /// and `UNKNOWN` yellow, `MISSING` red. Each with a shape of its own, so it reads without colour too,
 /// and an unknown state never draws as the good case.
 (IconData, Color) probeLook(String state, ColorScheme scheme) => switch (state) {

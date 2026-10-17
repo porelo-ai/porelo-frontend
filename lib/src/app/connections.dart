@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 import 'machines.dart';
@@ -133,7 +133,7 @@ List<String>? onTheMachine(Machine machine, List<String> command, {required bool
 /// [line] run on the far end by the account's own login shell.
 ///
 /// **A command over ssh gets no login shell**, so `~/.local/bin` is not on its `PATH`: after
-/// `sokar-machines deploy --account` it would run the machine-wide `/usr/bin/sokar` against the
+/// `porelo-machines deploy --account` it would run the machine-wide `/usr/bin/porelo` against the
 /// account's own daemon of another version. A login shell reads the account's profile, which puts
 /// its own copy first — measured on the test machine: 191.1 this way, 190.1 without.
 String inTheLoginShell(String line) => 'exec "\${SHELL:-/bin/sh}" -lc ${quoteForAShell(line)}';

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
 import 'hand_in.dart';
@@ -403,7 +403,7 @@ List<Command> projectCommands({
   VoidCallback? showTheDefault,
 }) {
   const nothing = 'no project selected';
-  // default's settings are Sokar's own and fixed: nothing here changes what it may reach.
+  // default's settings are Porelo's own and fixed: nothing here changes what it may reach.
   final isDefault = project?.name == defaultProject;
   final noFile = project == null
       ? nothing
@@ -430,7 +430,7 @@ List<Command> projectCommands({
       unavailable:
           noFile ??
           (isDefault
-              ? 'default keeps Sokar’s own settings, which cannot be changed'
+              ? 'default keeps Porelo’s own settings, which cannot be changed'
               : project!.project.securityClass == 'offline'
               // An offline project declares no egress at all, and the daemon refuses it.
               ? 'an offline project declares no egress at all'
@@ -530,7 +530,7 @@ List<Command> projectCommands({
       ),
       unavailable: project == null ? nothing : null,
     ),
-    // Everything Sokar put on the machine and at the forge for the project, in one step (walk 8).
+    // Everything Porelo put on the machine and at the forge for the project, in one step (walk 8).
     Command(
       id: 'project.clear',
       label: 'Clear this project from the machine, and its keys at the forge…',
@@ -591,7 +591,7 @@ List<Command> machineCommands({
     // interface is the one that logs in: everything else here needs the daemon that is missing.
     Command(
       id: 'machine.start',
-      label: 'Start Sokar on this machine',
+      label: 'Start Porelo on this machine',
       group: 'Machine',
       home: Home.machineMenu,
       run: startTheDaemon,
@@ -606,7 +606,7 @@ List<Command> machineCommands({
     // interface logs into.
     Command(
       id: 'machine.stop',
-      label: 'Stop Sokar on this machine',
+      label: 'Stop Porelo on this machine',
       group: 'Machine',
       home: Home.machineMenu,
       run: stopTheDaemon,
@@ -622,7 +622,7 @@ List<Command> machineCommands({
       run: connected || startThenCheck == null || !(reachedOverSsh || canStart) ? checkTheMachine : startThenCheck,
       unavailable: connected || (startThenCheck != null && (reachedOverSsh || canStart))
           ? null
-          : 'Sokar is not answering there, and it is not started from here',
+          : 'Porelo is not answering there, and it is not started from here',
     ),
     Command(
       id: 'machine.providers',
@@ -658,7 +658,7 @@ List<Command> machineCommands({
       run: showDestinations ?? () {},
       unavailable: showDestinations == null ? 'not offered here' : notConnected,
     ),
-    // Needs no daemon: root logs in and Sokar's setup script makes the user, as for a new machine.
+    // Needs no daemon: root logs in and Porelo's setup script makes the user, as for a new machine.
     Command(
       id: 'machine.addUser',
       label: 'Add another user that runs work…',
@@ -692,11 +692,11 @@ List<Command> machineCommands({
           (!vault.missing
               ? 'this machine has one already'
               : makeTheVault == null
-                  ? 'its socket is forwarded by somebody else, so nothing here reaches its sokar'
+                  ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
                   : null),
     ),
     // The first opening is always by the passphrase: a device can only be enrolled into an open
-    // vault. Typed into the machine's own `sokar`, never into this program.
+    // vault. Typed into the machine's own `porelo`, never into this program.
     Command(
       id: 'vault.passphrase',
       label: 'Open the vault with its passphrase, in a terminal',
@@ -707,7 +707,7 @@ List<Command> machineCommands({
           (vault.readable
               ? 'it is already open'
               : unlockWithThePassphrase == null
-                  ? 'its socket is forwarded by somebody else, so nothing here reaches its sokar'
+                  ? 'its socket is forwarded by somebody else, so nothing here reaches its porelo'
                   : null),
     ),
     Command(
@@ -735,7 +735,7 @@ List<Command> machineCommands({
     ),
     Command(
       id: 'machine.clear',
-      label: 'Clear this machine of everything Sokar put there, and its keys at the forge…',
+      label: 'Clear this machine of everything Porelo put there, and its keys at the forge…',
       group: 'Machine',
       home: Home.machineMenu,
       run: clearTheMachine ?? () {},
@@ -893,7 +893,7 @@ List<Command> commandsFor({
     ),
     Command(
       id: 'about.show',
-      label: 'About Sokar',
+      label: 'About Porelo',
       group: 'About',
       home: Home.appBar,
       run: showAbout,

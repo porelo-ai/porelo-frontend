@@ -83,7 +83,7 @@ void main() {
       await itSays(tester, 'pw-1-once');
       await whatAWalkWritesDownDoesNotHold(tester, 'pw-1-once');
       await theIsBlankedInAWalksPicture(tester, 'login password');
-      await itSays(tester, '#sokar-checkout:localhost');
+      await itSays(tester, '#porelo-checkout:localhost');
       await itSays(tester, 'Matrix ID');
       await itSays(tester, 'Homeserver URL');
       await itSays(tester, 'anna, as @anna:localhost');

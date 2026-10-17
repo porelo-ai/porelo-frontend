@@ -67,10 +67,10 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await theWorkIsListed(tester, 'sokar-checkout-shell');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await theWorkIsListed(tester, 'porelo-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
-      await theDetailForIsShown(tester, 'sokar-checkout-shell');
+      await theDetailForIsShown(tester, 'porelo-checkout-shell');
     });
     testWidgets(
         '''the frame is worked from the keyboard with no pointer at all''',
@@ -85,11 +85,11 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await iSelectTheProject(tester, 'checkout');
-      await iSelectTheWork(tester, 'sokar-checkout-shell');
+      await iSelectTheWork(tester, 'porelo-checkout-shell');
       await iOpenTheSelection(tester);
       await iCloseWhatIsOpen(tester);
       await theWorkPaneIsShown(tester);
-      await theWorkIsStillSelected(tester, 'sokar-checkout-shell');
+      await theWorkIsStillSelected(tester, 'porelo-checkout-shell');
       await theProjectIsSelected(tester, 'checkout');
     });
     testWidgets(
@@ -144,7 +144,7 @@ void main() {
         (tester) async {
       await bddSetUp(tester);
       await theTitleBarOffers(tester,
-          'Find a command (Ctrl+K), Watch another machine…, Options, About Sokar');
+          'Find a command (Ctrl+K), Watch another machine…, Options, About Porelo');
     });
     testWidgets('''the title says where you are''', (tester) async {
       await bddSetUp(tester);
@@ -169,14 +169,14 @@ void main() {
       await enoughTimePassesForAnotherTry(tester);
     });
     testWidgets(
-        '''checking a machine that does not answer offers to start Sokar there first''',
+        '''checking a machine that does not answer offers to start Porelo there first''',
         (tester) async {
       await bddSetUp(tester);
       await nothingAnswersOnThatMachine(tester);
       await theTunnelDrops(tester);
       await iChooseTheCommand(
           tester, 'Check whether this machine can run anything');
-      await itSays(tester, 'Start Sokar on this computer?');
+      await itSays(tester, 'Start Porelo on this computer?');
       await itSays(tester, 'This starts the daemon here, as you.');
       await iAgreeToStartIt(tester);
       await theMachineWasAskedToStart(tester, 'systemctl --user');

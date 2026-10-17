@@ -1,32 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/machines.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/app/fleet_model.dart';
-import 'package:sokar_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_model.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 
 import '../features/support/world.dart';
 
 /// Which socket the interface opens when nothing has been stored yet.
 ///
 /// One line of code, and it was silently dropped by the rework that made several machines
-/// possible: `SOKAR_SOCKET` stopped being read, so the window opened on the local runtime socket
+/// possible: `PORELO_SOCKET` stopped being read, so the window opened on the local runtime socket
 /// and said it could not connect. Every test passed. This is the guard that was missing.
 void main() {
-  test('SOKAR_SOCKET names the machine to open', () {
+  test('PORELO_SOCKET names the machine to open', () {
     final machine = Machine.local(
-      environment: const <String, String>{'SOKAR_SOCKET': '/tmp/sokar-mock.sock'},
+      environment: const <String, String>{'PORELO_SOCKET': '/tmp/porelo-mock.sock'},
     );
 
-    expect(machine.socketPath, '/tmp/sokar-mock.sock');
-    expect(machine.name, 'sokar-mock.sock');
+    expect(machine.socketPath, '/tmp/porelo-mock.sock');
+    expect(machine.name, 'porelo-mock.sock');
   });
 
-  // Linux only: there is no local daemon on Windows; Sokar runs in WSL there.
+  // Linux only: there is no local daemon on Windows; Porelo runs in WSL there.
   test('without it, the local daemon', () {
     final machine = Machine.local(environment: const <String, String>{});
 
     expect(machine.name, 'this machine');
-    expect(machine.socketPath, endsWith('/sokar/sokard.sock'));
+    expect(machine.socketPath, endsWith('/porelo/porelod.sock'));
   }, tags: 'linux');
 
   test('a machine exists before anything has been read back from disk', () {
@@ -93,10 +93,10 @@ void main() {
     test('a wrong type where a path belongs does not take the other machines with it', () async {
       final settings = Settings(MemorySettingsStore(<String, Object?>{
         'machines': <Object?>[
-          <String, Object?>{'name': 'this machine', 'socket': '/run/user/1000/sokar/sokard.sock'},
+          <String, Object?>{'name': 'this machine', 'socket': '/run/user/1000/porelo/porelod.sock'},
           <String, Object?>{'name': 'broken', 'socket': 1000},
           <String, Object?>{'name': 'the build machine', 'socket': '/tmp/build.sock',
-              'host': 'user@build', 'remoteSocket': '/run/user/1001/sokar/sokard.sock'},
+              'host': 'user@build', 'remoteSocket': '/run/user/1001/porelo/porelod.sock'},
         ],
       }));
 
@@ -123,16 +123,16 @@ void main() {
   });
 
   test('an empty value is not a socket path', () {
-    final machine = Machine.local(environment: const <String, String>{'SOKAR_SOCKET': ''});
+    final machine = Machine.local(environment: const <String, String>{'PORELO_SOCKET': ''});
 
     expect(machine.name, 'this machine');
   });
 
   group('the mock, shown while it runs', () {
-    const mock = Machine(name: 'mock', socketPath: '/tmp/sokar-mock.sock');
+    const mock = Machine(name: 'mock', socketPath: '/tmp/porelo-mock.sock');
     final stored = <String, Object?>{
       'machines': <Object?>[
-        <String, Object?>{'name': 'this machine', 'socket': '/run/user/1000/sokar/sokard.sock'},
+        <String, Object?>{'name': 'this machine', 'socket': '/run/user/1000/porelo/porelod.sock'},
       ],
     };
 
@@ -163,7 +163,7 @@ void main() {
 
       await machines.load();
 
-      // Once, whether or not SOKAR_SOCKET already opened it as the machine to start with.
+      // Once, whether or not PORELO_SOCKET already opened it as the machine to start with.
       expect(machines.all.where((each) => each.socketPath == mock.socketPath), hasLength(1));
     });
 
@@ -176,10 +176,10 @@ void main() {
       expect(machines.all.map((each) => each.name), <String>['this machine']);
     });
 
-    test('SOKAR_SOCKET moves where the mock is looked for', () {
+    test('PORELO_SOCKET moves where the mock is looked for', () {
       expect(Machine.mock(environment: const <String, String>{}), mock);
       expect(
-        Machine.mock(environment: const <String, String>{'SOKAR_SOCKET': '/tmp/other-mock.sock'}),
+        Machine.mock(environment: const <String, String>{'PORELO_SOCKET': '/tmp/other-mock.sock'}),
         const Machine(name: 'other-mock.sock', socketPath: '/tmp/other-mock.sock'),
       );
     });

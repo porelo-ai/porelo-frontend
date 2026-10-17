@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "fuin.org" "\0"
-            VALUE "FileDescription", "Sokar interface" "\0"
+            VALUE "FileDescription", "Porelo interface" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "sokar_frontend" "\0"
+            VALUE "InternalName", "porelo_frontend" "\0"
             VALUE "LegalCopyright", "GNU General Public License, version 3" "\0"
-            VALUE "OriginalFilename", "sokar_frontend.exe" "\0"
-            VALUE "ProductName", "Sokar interface" "\0"
+            VALUE "OriginalFilename", "porelo_frontend.exe" "\0"
+            VALUE "ProductName", "Porelo interface" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

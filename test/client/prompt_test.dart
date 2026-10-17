@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/client.dart';
+import 'package:porelo_frontend/client.dart';
 
 /// When a question runs out, held to the contract: absent and empty are different answers.
 void main() {
   Prompt promptWith(Map<String, dynamic> fields) => Prompt.from(<String, dynamic>{
-        'task': 'sokar-checkout-shell',
+        'task': 'porelo-checkout-shell',
         'key': 'tcp/api.example.test:443',
         'destination': 'api.example.test',
         'protocol': 'tcp',

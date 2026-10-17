@@ -12,7 +12,7 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     Then the forward was raised for {'the build machine'}
     And the machine {'the build machine'} says the forward is raised here
@@ -33,7 +33,7 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     Then the machine {'the build machine'} says {'Host key verification failed.'}
 
@@ -44,14 +44,14 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
-    And I ask to start Sokar on this machine
+    And I ask to start Porelo on this machine
     Then nothing was started on that machine
     When I agree to start it
-    Then the machine was asked to start {'setsid sokard'}
-    And the session recorded {'Start Sokar on user@build.example.test'}
+    Then the machine was asked to start {'setsid porelod'}
+    And the session recorded {'Start Porelo on user@build.example.test'}
     And the machine {'the build machine'} answers again
 
   Scenario: a start nobody agreed to runs nothing
@@ -60,10 +60,10 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
-    And I ask to start Sokar on this machine
+    And I ask to start Porelo on this machine
     And I do not agree to start it
     Then nothing was started on that machine
     When the machine can answer again
@@ -74,17 +74,17 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
     And I open the command finder
-    Then the command {'Start Sokar on this machine'} is unavailable because {'already answering'}
+    Then the command {'Start Porelo on this machine'} is unavailable because {'already answering'}
 
   Scenario: a machine somebody else forwards is offered no start, because there is no host
     When I watch another machine called {'elsewhere'}
     And I switch to the machine {'elsewhere'}
     And I open the command finder
-    Then the command {'Start Sokar on this machine'} is unavailable because {'somebody else'}
+    Then the command {'Start Porelo on this machine'} is unavailable because {'somebody else'}
 
   # Stopping is the other half of starting: a console can do it, so the interface can too. Since the
   # tasks run on without their daemon, what it costs is the watching and the questions nobody answers.
@@ -93,20 +93,20 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
-    And I ask to stop Sokar on this machine
+    And I ask to stop Porelo on this machine
     Then it says {'What runs there goes on running'}
     And it says {'nothing here watches it'}
     And it says {'goes unanswered and runs out'}
     And nothing was stopped on that machine
     When I agree to stop it
-    Then the machine was asked to stop {'systemctl --user stop sokard'}
-    And the session recorded {'Stop Sokar on user@build.example.test'}
+    Then the machine was asked to stop {'systemctl --user stop porelod'}
+    And the session recorded {'Stop Porelo on user@build.example.test'}
     And the machine {'the build machine'} no longer answers
     When I open the command finder
-    Then the command {'Start Sokar on this machine'} is offered
+    Then the command {'Start Porelo on this machine'} is offered
     When the machine can answer again
     Then the machine {'the build machine'} answers again
 
@@ -115,10 +115,10 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
-    And I ask to stop Sokar on this machine
+    And I ask to stop Porelo on this machine
     And I do not agree to stop it
     Then nothing was stopped on that machine
     And the machine {'the build machine'} answers again
@@ -129,11 +129,11 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I switch to the machine {'the build machine'}
     And I open the command finder
-    Then the command {'Stop Sokar on this machine'} is unavailable because {'not answering'}
+    Then the command {'Stop Porelo on this machine'} is unavailable because {'not answering'}
     When the machine can answer again
     Then the machine {'the build machine'} answers again
 
@@ -141,14 +141,14 @@ Feature: Raising and dropping the forward that reaches a machine
     When I watch another machine called {'elsewhere'}
     And I switch to the machine {'elsewhere'}
     And I open the command finder
-    Then the command {'Stop Sokar on this machine'} is unavailable because {'somebody else'}
+    Then the command {'Stop Porelo on this machine'} is unavailable because {'somebody else'}
 
   Scenario: closing the interface leaves no forward it raised still running
     When I start watching another machine
     And I choose {'Raise the forward for me'}
     And I say it is called {'the build machine'}
     And I say it is at {'user@build.example.test'}
-    And its socket there is {'/run/user/1001/sokar/sokard.sock'}
+    And its socket there is {'/run/user/1001/porelo/porelod.sock'}
     And I watch it
     And I close the interface
     Then no forward this interface raised is still running
@@ -163,7 +163,7 @@ Feature: Raising and dropping the forward that reaches a machine
     And I choose {'Raise the forward for me'}
     Then its socket there is not filled in
 
-  # A person new to Sokar knows how they log in, not a uid: left empty, the machine is asked.
+  # A person new to Porelo knows how they log in, not a uid: left empty, the machine is asked.
   Scenario: a socket left empty is asked of the machine when it is watched, and the forward goes there
     Given the account logs in as uid {1007}
     When I start watching another machine
@@ -172,7 +172,7 @@ Feature: Raising and dropping the forward that reaches a machine
     And I say it is at {'user@build.example.test'}
     And I watch it
     Then the machine was asked who {'user@build.example.test'} logs in as
-    And the forward was raised through {'user@build.example.test'} to {'/run/user/1007/sokar/sokard.sock'}
+    And the forward was raised through {'user@build.example.test'} to {'/run/user/1007/porelo/porelod.sock'}
 
   # What setting a machine up wrote on this computer is offered for removal when it is forgotten, and
   # only offered: the Host entry in exactly the form the wizard writes, and its key unless another
@@ -181,10 +181,10 @@ Feature: Raising and dropping the forward that reaches a machine
     Given the wizard set up the machine {'build'}
     And I switch to the machine {'build'}
     When I ask to forget this machine
-    Then it says {'Also remove Host sokar-build from ~/.ssh/config'}
+    Then it says {'Also remove Host porelo-build from ~/.ssh/config'}
     And it says {'Also delete its key'}
     When I forget it
-    Then the ssh config still has the Host {'sokar-build'}
+    Then the ssh config still has the Host {'porelo-build'}
     And the key of {'build'} is still there
 
   Scenario: forgetting a machine the wizard set up removes its Host entry and key when asked
@@ -194,7 +194,7 @@ Feature: Raising and dropping the forward that reaches a machine
     And I also remove its Host entry
     And I also delete its key
     And I forget it
-    Then the ssh config no longer has the Host {'sokar-build'}
+    Then the ssh config no longer has the Host {'porelo-build'}
     And the ssh config as it was before is kept
     And the key of {'build'} is gone
 

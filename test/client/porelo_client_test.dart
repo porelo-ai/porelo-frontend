@@ -6,9 +6,9 @@ library;
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sokar_frontend/src/app/outcome_words.dart';
-import 'package:sokar_frontend/client.dart';
-import 'package:sokar_frontend/src/mock/mock_daemon.dart';
+import 'package:porelo_frontend/src/app/outcome_words.dart';
+import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/mock/mock_daemon.dart';
 
 /// Drives the real client over a real unix socket against [MockDaemon].
 ///
@@ -25,7 +25,7 @@ void main() {
 
   tearDown(() => daemon.stop());
 
-  Future<SokarClient> connect() => SokarClient.connect(
+  Future<PoreloClient> connect() => PoreloClient.connect(
       Backend(socketPath: daemon.socketPath, label: 'mock'));
 
   Map<String, dynamic> task(String name, {bool running = true, int helpers = 4}) => {
@@ -61,10 +61,10 @@ void main() {
     });
 
     test('reads the task list over the socket', () async {
-      daemon.method('List', (_) => {'tasks': [task('sokar-demo-shell-1')]});
+      daemon.method('List', (_) => {'tasks': [task('porelo-demo-shell-1')]});
       final tasks = await (await connect()).tasks();
       expect(tasks, hasLength(1));
-      expect(tasks.single.name, 'sokar-demo-shell-1');
+      expect(tasks.single.name, 'porelo-demo-shell-1');
       expect(tasks.single.helpers, 4);
     });
 
@@ -80,7 +80,7 @@ void main() {
             'surviving': 4,
             'detail': '',
           });
-      final stopped = await (await connect()).remove('sokar-demo-shell-1');
+      final stopped = await (await connect()).remove('porelo-demo-shell-1');
       expect(stopped.outcome, Outcome.holdsWork);
       expect(stopped.removed, isFalse);
       expect(stopped.work, '2 commits on main');
@@ -101,7 +101,7 @@ void main() {
             'discarded': 1284,
           });
 
-      final stopped = await (await connect()).remove('sokar-demo-shell-1');
+      final stopped = await (await connect()).remove('porelo-demo-shell-1');
 
       expect(stopped.discarded, 1284);
     });
@@ -109,11 +109,11 @@ void main() {
     test("a stop's survivors are a count, and what the machine adds is kept", () async {
       daemon.method('Stop', (_) => {'outcome': 'STOPPED', 'helpers': 2, 'surviving': 1, 'detail': 'the gate helper would not end'});
 
-      final stopped = await (await connect()).stop('sokar-demo-shell-1');
+      final stopped = await (await connect()).stop('porelo-demo-shell-1');
 
       expect(stopped.surviving, 1);
       expect(stopped.detail, 'the gate helper would not end');
-      expect(stopWords('sokar-demo-shell-1', stopped),
+      expect(stopWords('porelo-demo-shell-1', stopped),
           allOf(contains('One helper outlived the stop'), contains('the gate helper would not end.')));
     });
 
@@ -129,9 +129,9 @@ void main() {
             'discarded': 3,
           });
 
-      final removed = await (await connect()).remove('sokar-demo-shell-1');
+      final removed = await (await connect()).remove('porelo-demo-shell-1');
 
-      expect(removeWords('sokar-demo-shell-1', removed), contains('the gate refused the push.'));
+      expect(removeWords('porelo-demo-shell-1', removed), contains('the gate refused the push.'));
       expect(removeWords('t', const Removed(outcome: Outcome.removed, work: '', rescuedRef: '', removed: true, discarded: 3)),
           allOf(contains('3 paths only it held went with it'), isNot(contains('bytes'))));
     });
@@ -149,14 +149,14 @@ void main() {
             'detail': '',
           });
 
-      final stopped = await (await connect()).remove('sokar-demo-shell-1');
+      final stopped = await (await connect()).remove('porelo-demo-shell-1');
 
       expect(stopped.discarded, 0);
       expect(stopped.removed, isTrue);
     });
 
     test('a named error keeps its name so one refusal can be told from another', () async {
-      daemon.fails('Decide', 'org.fuin.sokar.Tasks1.NoClearance', {'task': 'gone'});
+      daemon.fails('Decide', 'org.fuin.porelo.Tasks1.NoClearance', {'task': 'gone'});
       final client = await connect();
       await expectLater(
         client.decide(
@@ -217,12 +217,12 @@ void main() {
       daemon.stream('Start', (_) => Stream.fromIterable([
             {'line': 'building the image'},
             {'line': 'done'},
-            {'container': 'sokar-demo-shell-9', 'exitCode': 0},
+            {'container': 'porelo-demo-shell-9', 'exitCode': 0},
           ]));
       final progress = await (await connect()).start(project: 'project.yml').toList();
       expect(progress.take(2).map((p) => p.line), ['building the image', 'done']);
       expect(progress.last.isResult, isTrue);
-      expect(progress.last.container, 'sokar-demo-shell-9');
+      expect(progress.last.container, 'porelo-demo-shell-9');
     });
   });
 
@@ -269,16 +269,16 @@ void main() {
     test('the newest understood interface is chosen, not the newest offered', () async {
       daemon.interfaces = const [
         'org.varlink.service',
-        'org.fuin.sokar.Tasks1',
-        'org.fuin.sokar.Tasks2',
+        'org.fuin.porelo.Tasks1',
+        'org.fuin.porelo.Tasks2',
       ];
       // Tasks2 is offered and this build does not know it, so Tasks1 is what gets used - which is
       // what lets an old interface keep working against a new backend.
-      expect((await connect()).interfaceName, 'org.fuin.sokar.Tasks1');
+      expect((await connect()).interfaceName, 'org.fuin.porelo.Tasks1');
     });
 
     test('a backend serving nothing understood says so plainly', () async {
-      daemon.interfaces = const ['org.varlink.service', 'org.fuin.sokar.Tasks9'];
+      daemon.interfaces = const ['org.varlink.service', 'org.fuin.porelo.Tasks9'];
       await expectLater(connect(), throwsA(isA<StateError>()));
     });
 
@@ -291,8 +291,8 @@ void main() {
   group('when there is no backend', () {
     test('an absent socket is a disconnection, not a crash', () async {
       await expectLater(
-        SokarClient.connect(
-            const Backend(socketPath: '/nonexistent/sokard.sock', label: 'nowhere')),
+        PoreloClient.connect(
+            const Backend(socketPath: '/nonexistent/porelod.sock', label: 'nowhere')),
         throwsA(isA<VarlinkDisconnected>()),
       );
     });
@@ -300,7 +300,7 @@ void main() {
 
   group('a prompt and its answer', () {
     Map<String, dynamic> prompt({String? verdict, String prefix = 'egress/deny'}) => {
-          'task': 'sokar-demo-shell-1',
+          'task': 'porelo-demo-shell-1',
           'key': 'tcp/example.com/443',
           'destination': 'example.com',
           'protocol': 'tcp',
@@ -361,16 +361,16 @@ void main() {
   group('which logs a task has', () {
     test('an empty list is an answer, not a failure', () async {
       // A task whose state directory is gone — which is what stopping with purge does — has no
-      // logs, and neither does a name that is not a Sokar task. Neither raises an error.
+      // logs, and neither does a name that is not a Porelo task. Neither raises an error.
       daemon.method('Logs', (_) => {'logs': <Map<String, dynamic>>[]});
 
-      expect(await (await connect()).logsOf('sokar-demo-shell-1'), isEmpty);
+      expect(await (await connect()).logsOf('porelo-demo-shell-1'), isEmpty);
     });
 
     test('a reply shaped differently from the promise still reads as none', () async {
       daemon.method('Logs', (_) => <String, dynamic>{});
 
-      expect(await (await connect()).logsOf('sokar-demo-shell-1'), isEmpty);
+      expect(await (await connect()).logsOf('porelo-demo-shell-1'), isEmpty);
     });
   });
 
@@ -436,7 +436,7 @@ void main() {
       final connection = await VarlinkConnection.open(daemon.socketPath);
 
       await expectLater(
-        connection.call('org.fuin.sokar.Tasks1.List', const {},
+        connection.call('org.fuin.porelo.Tasks1.List', const {},
             const Duration(milliseconds: 100)),
         throwsA(isA<VarlinkDisconnected>()),
       );
@@ -447,7 +447,7 @@ void main() {
       // working backend as a broken one, which is why the deadline is on single calls only.
       daemon.neverAnswers('List');
       daemon.neverAnswers('Prompts');
-      final client = await SokarClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'),
+      final client = await PoreloClient.connect(Backend(socketPath: daemon.socketPath, label: 'mock'),
           answerWithin: const Duration(milliseconds: 100));
       // The same client gives up on a single call, so the silence below outlasts a real deadline.
       await expectLater(client.tasks(), throwsA(isA<VarlinkDisconnected>()));
@@ -463,7 +463,7 @@ void main() {
 
   group('the contract', () {
     test('is read from the running backend rather than a copy', () async {
-      daemon.description = 'interface org.fuin.sokar.Tasks1\nmethod List() -> (tasks: []Task)';
+      daemon.description = 'interface org.fuin.porelo.Tasks1\nmethod List() -> (tasks: []Task)';
       expect(await (await connect()).contract(), contains('method List()'));
     });
   });
