@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Porelo
+Name=Porelo Control Tower
 GenericName=AI Agent Supervision
 Comment=Watch and control AI coding agents running in locked-down containers
 Exec=porelo-frontend

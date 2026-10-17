@@ -5,6 +5,7 @@ import '../ui/theme.dart';
 
 import '../ui/shell.dart';
 import 'egress.dart';
+import 'product.dart';
 import 'agent_inventory.dart';
 import 'authentication.dart';
 import 'backups.dart';
@@ -153,7 +154,7 @@ class PoreloApp extends StatelessWidget {
         // A status line changing must not rebuild a theme.
         listenable: settings,
         builder: (context, _) => MaterialApp(
-          title: 'Porelo',
+          title: productName,
           debugShowCheckedModeBanner: false,
           theme: PoreloTheme.light,
           darkTheme: PoreloTheme.dark,

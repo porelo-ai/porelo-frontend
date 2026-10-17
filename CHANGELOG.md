@@ -58,6 +58,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   darkened on a pale ground in the light one, which stays beside it. Every text and mark reads at
   WCAG AA in both. The terminals take the same colours, and the website's logo is the application's
   icon on Linux and Windows.
+- The interface is called *Porelo Control Tower* wherever a person reads its name: the window's
+  title on Linux and Windows, the menu entry, the about dialog and the Windows package. Its binary
+  and package keep the name `porelo-frontend`.
 - The packages are proven to install on the systems Porelo supports, Ubuntu 26.04, Debian 13,
   Fedora 43 and Fedora 44, each image pinned by its digest, instead of Debian 12 and Fedora 40.
   The `.rpm` declares the oldest C library it needs, as the `.deb` does, and a build that would need

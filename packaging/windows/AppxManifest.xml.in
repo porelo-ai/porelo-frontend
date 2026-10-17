@@ -19,7 +19,7 @@
   <Identity Name="ai.porelo.frontend" Publisher="CN=porelo.ai" Version="@VERSION@"
       ProcessorArchitecture="x64"/>
   <Properties>
-    <DisplayName>Porelo interface</DisplayName>
+    <DisplayName>Porelo Control Tower</DisplayName>
     <PublisherDisplayName>porelo.ai</PublisherDisplayName>
     <Logo>assets\StoreLogo.png</Logo>
     <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
@@ -33,7 +33,7 @@
   </Resources>
   <Applications>
     <Application Id="PoreloInterface" Executable="porelo_frontend.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="Porelo interface" Description="The desktop interface for Porelo"
+      <uap:VisualElements DisplayName="Porelo Control Tower" Description="The desktop interface for Porelo"
           BackgroundColor="transparent" Square150x150Logo="assets\Square150x150Logo.png"
           Square44x44Logo="assets\Square44x44Logo.png"/>
     </Application>

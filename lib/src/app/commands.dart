@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
+import 'product.dart';
 import 'hand_in.dart';
 import 'machines.dart';
 import 'narrowing.dart';
@@ -893,7 +894,7 @@ List<Command> commandsFor({
     ),
     Command(
       id: 'about.show',
-      label: 'About Porelo',
+      label: 'About $productName',
       group: 'About',
       home: Home.appBar,
       run: showAbout,

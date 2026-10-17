@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
 import '../app/homeserver_forwards.dart';
+import '../app/product.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/machine_binding.dart';
@@ -1217,7 +1218,7 @@ class _ShellState extends State<Shell> {
   /// Says what this is and what every machine it watches runs.
   void _showAbout() => showAboutDialog(
     context: context,
-    applicationName: 'Porelo',
+    applicationName: productName,
     applicationVersion: _version,
     applicationLegalese:
         'The interface to Porelo: agent work in guarded containers, on '

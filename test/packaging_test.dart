@@ -5,6 +5,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/product.dart';
 import 'package:yaml/yaml.dart';
 
 /// What the packaging promises, held to without building a package.
@@ -53,6 +54,25 @@ void main() {
       expect(desktopField(key), isNotEmpty, reason: '$key is what a menu draws');
     }
     expect(desktopField('Type'), 'Application');
+  });
+
+  test('every place that names the interface on screen calls it by the product name', () {
+    // The window's title is set by each platform's runner, not by the app, so a name changed in
+    // Dart alone leaves the title bar saying the binary's name.
+    expect(desktopField('Name'), productName);
+    final runners = <String, String>{
+      'linux/runner/my_application.cc': '"$productName"',
+      'windows/runner/main.cpp': 'L"$productName"',
+      'windows/runner/Runner.rc': 'VALUE "ProductName", "$productName"',
+      'packaging/windows/AppxManifest.xml.in': '<DisplayName>$productName</DisplayName>',
+    };
+    for (final MapEntry(key: path, value: named) in runners.entries) {
+      expect(File(path).readAsStringSync(), contains(named), reason: '$path does not say $productName');
+    }
+    expect(File('linux/runner/my_application.cc').readAsStringSync(), isNot(contains('"porelo_frontend"')),
+        reason: 'the Linux window still takes its title from the binary');
+    expect(File('windows/runner/main.cpp').readAsStringSync(), isNot(contains('L"porelo_frontend"')),
+        reason: 'the Windows window still takes its title from the binary');
   });
 
   test('dependencies are not written down anywhere', () {
