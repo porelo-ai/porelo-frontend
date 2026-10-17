@@ -18,18 +18,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f120"></a>[F120](F120-The-Interface-Renamed-Porelo.md) | M | — | The interface renamed Porelo: its package, binary, desktop ids, settings, packages and the daemon's contract. |
 | <a id="f79"></a>[F79](F79-What-Walk-8-Found-In-The-Interface.md) | — | — | Tiles, *Needs you*, *Join* and talking read at a glance, an action's effect seen at once. |
 | <a id="f71"></a>[F71](F71-The-Sign-In-Terminal-Shows-Where-Typing-Goes.md) | — | — | A terminal waiting for input shows where typing goes. |
 | <a id="f68"></a>[F68](F68-A-Refusal-Says-What-To-Do-About-It.md) | — | — | A refusal says what to change, and where. |
 | <a id="f69"></a>[F69](F69-The-New-Machine-Wizard-Offers-What-Is-Published.md) | — | — | The new-machine wizard offers what the package index has today, in today's words. |
 | <a id="f101"></a>[F101](F101-What-The-Build-Of-A-Push-Did.md) | — | — | What the build of the work's last push did, on its tile and in its detail. |
 | <a id="f100"></a>[F100](F100-A-File-Handed-To-A-Running-Task.md) | — | — | A file handed to a running task, taken back, and its record. |
-
-### Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f120"></a>[F120](F120-The-Interface-Renamed-Porelo.md) | M | — | The interface renamed Porelo: its package, binary, desktop ids, settings, packages and the daemon's contract. |
 
 ### Backlog
 

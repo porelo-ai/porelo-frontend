@@ -1,6 +1,6 @@
 # F120 — The Interface Renamed Porelo
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one scripted commit over 708 files, plus a handful of names the replacement gets wrong, a
 regenerated step tree, the whole suite, the packages and the integration leg against a renamed daemon.
 
