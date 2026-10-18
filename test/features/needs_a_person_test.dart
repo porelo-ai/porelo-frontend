@@ -130,7 +130,7 @@ void main() {
       await noMachineNoticeSays(tester, 'cannot be reached');
       await enoughTimePassesForAnotherTry(tester);
       await noMachineNoticeSays(tester, 'cannot be reached');
-    });
+    }, tags: ['linux']);
     testWidgets('''the keyboard works the moment the window opens''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheCommandFinder(tester);

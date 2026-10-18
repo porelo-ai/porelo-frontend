@@ -89,6 +89,8 @@ Feature: Moving around the frame by keyboard and by pointer
 
     # The check is asked of the daemon, and is most wanted when none answers: where this interface can
     # start Porelo, the check offers that first, and checks once it answers.
+    # Linux only: Windows runs no Porelo of its own, so it has no daemon of this computer's to start or miss.
+    @linux
     Scenario: checking a machine that does not answer offers to start Porelo there first
         Given nothing answers on that machine
         When the tunnel drops

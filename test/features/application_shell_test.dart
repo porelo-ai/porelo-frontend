@@ -155,7 +155,7 @@ void main() {
       await iAgreeToStartIt(tester);
       await theMachineWasAskedToStart(tester, 'systemctl --user');
       await itSays(tester, 'What this machine can run');
-    });
+    }, tags: ['linux']);
     testWidgets('''following a repository and the stop for every machine wait for a machine that answers''', (
       tester,
     ) async {

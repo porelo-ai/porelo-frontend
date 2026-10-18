@@ -27,3 +27,18 @@ runs:
               JAVA_HOME="$JAVA_HOME_25_X64" ./mvnw -B -q -U -s settings.xml -Pci-tools dependency:build-classpath \
                 -Dmdep.outputFile=build/jdk-cp.txt
               "$JAVA_HOME_25_X64/bin/java" -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.machines.Main jdk --github
+
+        # The shfmt the parent pins, which Spotless does not download: checked against the digest its
+        # release names. Here, so every job that runs Maven's validate has it, not only the one that builds.
+        - name: The pinned shfmt
+          if: runner.os == 'Linux'
+          shell: bash
+          run: |
+              set -eu
+              VERSION=3.12.0
+              mkdir -p "$RUNNER_TEMP/bin"
+              curl -fsSL -o "$RUNNER_TEMP/bin/shfmt" \
+                  "https://github.com/mvdan/sh/releases/download/v$VERSION/shfmt_v${VERSION}_linux_amd64"
+              echo "d9fbb2a9c33d13f47e7618cf362a914d029d02a6df124064fff04fd688a745ea  $RUNNER_TEMP/bin/shfmt" | sha256sum -c -
+              chmod +x "$RUNNER_TEMP/bin/shfmt"
+              echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"

@@ -63,6 +63,8 @@ Feature: What needs a person on every machine, without going anywhere
         Then no machine notice says {'cannot be reached'}
 
     # Most people run no Porelo on the computer the interface runs on: that computer is not silent.
+    # Linux only: Windows runs no Porelo of its own, so it has no daemon of this computer's to start or miss.
+    @linux
     Scenario: this computer, with no Porelo installed, is not said to be unreachable
         Given Porelo is not installed on this computer
         When the tunnel drops
