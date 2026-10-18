@@ -210,7 +210,9 @@ jobs:
                   cache: true
 
             - name: Get dependencies
-              run: flutter pub get
+              run: |
+                  flutter pub get
+                  dart pub get --directory=packages/porelo_host
 
             - name: Analyze
               run: dart analyze --fatal-infos
@@ -220,6 +222,12 @@ jobs:
             - name: Test
               timeout-minutes: 20
               run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
+
+            # The host package's own tests: the command `porelo-host` is built from it for Windows too.
+            - name: Test the host package
+              timeout-minutes: 5
+              working-directory: packages/porelo_host
+              run: dart test --reporter expanded
 
             - name: Build
               timeout-minutes: 20

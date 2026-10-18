@@ -79,6 +79,23 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <!-- The host package is pure Dart and has its own dependencies, so `dart analyze` here
+                         can read it too. -->
+                    <execution>
+                        <id>host-pub-get</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>dart</executable>
+                            <arguments>
+                                <argument>pub</argument>
+                                <argument>get</argument>
+                                <argument>--directory=packages/porelo_host</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <!-- dart, never flutter analyze, which rewrites analysis_options.yaml. Before the
                          build rather than after it: failing early is worth leaving the template's order. -->
                     <!-- As `dart format` writes it, at the width analysis_options.yaml takes from the shared
@@ -99,6 +116,7 @@
                                 <argument>test</argument>
                                 <argument>tool</argument>
                                 <argument>integration_test</argument>
+                                <argument>packages/porelo_host</argument>
                             </arguments>
                         </configuration>
                     </execution>
@@ -113,6 +131,21 @@
                             <arguments>
                                 <argument>analyze</argument>
                                 <argument>--fatal-infos</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>host-test</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipTests}</skip>
+                            <executable>dart</executable>
+                            <workingDirectory>packages/porelo_host</workingDirectory>
+                            <arguments>
+                                <argument>test</argument>
                             </arguments>
                         </configuration>
                     </execution>

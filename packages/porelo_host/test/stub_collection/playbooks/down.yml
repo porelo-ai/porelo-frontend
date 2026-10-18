@@ -1,0 +1,11 @@
+- name: down
+  hosts: localhost
+  gather_facts: false
+  tasks:
+      - name: the last copies
+        ansible.builtin.command: 'true'
+        changed_when: false
+      - name: vault cleared
+        ansible.builtin.file:
+            path: '/home/{{ porelo_host_account }}/.stub-vault'
+            state: absent

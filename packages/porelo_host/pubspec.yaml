@@ -1,0 +1,14 @@
+name: porelo_host
+description: "Puts a project on a server and takes it off again: rent, the playbook on the host, one stop for the person, give back."
+publish_to: 'none'
+version: 0.5.1-SNAPSHOT
+
+environment:
+    sdk: ^3.13.0
+
+# None, and no Flutter: the interface imports it, and `dart compile exe` builds the command from it.
+dependencies: {}
+
+dev_dependencies:
+    lints: ^6.0.0
+    test: ^1.26.0

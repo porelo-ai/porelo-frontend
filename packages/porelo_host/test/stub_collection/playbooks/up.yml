@@ -1,0 +1,60 @@
+- name: first
+  hosts: localhost
+  gather_facts: false
+  tasks:
+      - name: account
+        ansible.builtin.user:
+            name: '{{ porelo_host_account }}'
+            shell: /bin/bash
+      - name: login directory
+        ansible.builtin.file:
+            path: '/home/{{ porelo_host_account }}/.ssh'
+            state: directory
+            owner: '{{ porelo_host_account }}'
+            mode: '0700'
+      - name: login key
+        ansible.builtin.copy:
+            dest: '/home/{{ porelo_host_account }}/.ssh/authorized_keys'
+            content: "{{ porelo_host_authorized_key }}\n"
+            owner: '{{ porelo_host_account }}'
+            mode: '0600'
+      - name: drive client
+        ansible.builtin.copy:
+            dest: /usr/local/bin/tresorit-cli
+            mode: '0755'
+            content: |
+                #!/bin/sh
+                # Takes the password on standard input only, and keeps that it was given, never what.
+                read -r password
+                [ -n "$password" ] && touch "$HOME/.stub-drive"
+      - name: porelo
+        ansible.builtin.copy:
+            dest: /usr/local/bin/porelo
+            mode: '0755'
+            content: |
+                #!/bin/sh
+                # `vault status`: 0 open, 4 none; init and unlock take one line on standard input.
+                case "$1 $2" in
+                    "vault status") [ -e "$HOME/.stub-vault" ] && exit 0; exit 4 ;;
+                    "vault init"|"vault unlock") read -r passphrase; [ -n "$passphrase" ] && touch "$HOME/.stub-vault" ;;
+                    *) exit 64 ;;
+                esac
+
+- name: second
+  hosts: localhost
+  gather_facts: false
+  tasks:
+      - name: drive and vault
+        ansible.builtin.stat:
+            path: '/home/{{ porelo_host_account }}/{{ item }}'
+        loop: [.stub-drive, .stub-vault]
+        register: given
+      - name: the person
+        ansible.builtin.fail:
+            msg: the drive's login and the vault are needed
+        vars:
+            porelo_host_needs: [drive, vault-new]
+        when: given.results | rejectattr('stat.exists') | list | length > 0
+      - name: tasks
+        ansible.builtin.command: 'true'
+        changed_when: false

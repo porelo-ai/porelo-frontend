@@ -55,6 +55,26 @@ runs on the host itself, so the person's computer needs only this command and ss
   the stop's line and code, and a second `up` that does not rent again. It is run red with the
   resume taking the steps from the top.
 
+## Built so far
+
+- `packages/porelo_host/`: `HostProvider` and `GivenMachine`, `OpenSsh` with a `known_hosts` of
+  its own, `HostRun` with `up`, the stop, the resume and `down`, and the command
+  `bin/porelo_host.dart`. Seven unit tests, each seen red with its rule broken: a second `up` that
+  rents again, the stop taken from the exit code, a secret in a command line, a wrong host key
+  asked again.
+- `tool/vm-run.sh`: a throwaway Ubuntu 26.04 VM on this machine's libvirt, `porelo-frontend-host-*`,
+  with the stand-in collection `test/stub_collection/`, which keeps the contract: two plays, the
+  waiting line, the callback `porelo.host.lines`. Green, nothing left in libvirt after.
+- Measured on a fresh host and built in:
+  - sshd may refuse for a while after the host is ready, so ssh is asked again, but never on a
+    wrong host key;
+  - a fresh image has no package lists, and cloud-init may hold apt's lock;
+  - Ansible refuses a locale that is not UTF-8, and ssh brings this computer's along, so the host's
+    commands run under `C.UTF-8`;
+  - Ubuntu 26.04's sudo (sudo-rs) ignores `-E`, so the environment goes through `env`;
+  - the collection is installed as root, since the plays leave root's files in it.
+- Left for porelo-host's own plays (HO02, HO09): the run against the real collection.
+
 ## Acceptance
 
 - The whole `up`, the stop, the resume and `down` run against `GivenMachine` on the test VM

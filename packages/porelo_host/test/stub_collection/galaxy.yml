@@ -1,0 +1,12 @@
+# A stand-in for porelo-host's collection, keeping the contract F131 runs against: two plays, the
+# one stop, and the callback's lines. It installs nothing real.
+namespace: porelo
+name: host
+version: 0.0.1
+readme: README.md
+authors:
+    - porelo-frontend
+license:
+    - Apache-2.0
+build_ignore:
+    - '*.tar.gz'
