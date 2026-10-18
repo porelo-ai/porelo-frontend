@@ -29,6 +29,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | — | An upstream that cannot be read said before a start, with what fixes it. |
+| <a id="f128"></a>[F128](F128-The-Leased-Machine-Trusted-By-The-Key-Its-Lease-Names.md) | S | [BT11](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt11) | The leased machine reached only if it answers with the host key its lease names. |
 
 ### Analyzed
 
