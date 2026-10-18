@@ -14,16 +14,6 @@ issue's *Open questions*; what an agent finds out itself stands under *To be che
 counted. A finished issue's file is deleted once what outlives it is in `doc/` or `AGENTS.md`;
 its row stays under *Finished*, with one sentence of what was built; decisions are in [doc/decisions.md](../doc/decisions.md).
 
-### Review
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f124"></a>[F124](F124-The-Dart-Code-In-One-Format.md) | — | — | The Dart code in one format, `dart format` checked in the build. |
-| <a id="f125"></a>[F125](F125-The-Client-And-The-App-Cleared-Of-The-Readings-Findings.md) | — | — | What the reading found in the client and the app, fixed with a test each. |
-| <a id="f126"></a>[F126](F126-The-Frame-The-Tools-And-The-Workflows-Cleared-Of-The-Readings-Findings.md) | — | — | What the reading found in the frame, the tools and the workflows, fixed; the colours in the tokens. |
-| <a id="f127"></a>[F127](F127-The-Tests-Cleared-Of-The-Readings-Findings.md) | — | — | What the reading found in the tests, fixed; a red run leaves the test machine clean. |
-| <a id="f119"></a>[F119](F119-The-Code-Changed-Since-The-Skills-Reading-Read-Against-Them.md) | — | — | The code changed since the last skills reading read against the sixteen skills; its findings built in three parts. |
-
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
@@ -79,6 +69,11 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f119"></a>F119 | The Code Changed Since The Skills Reading Read Against Them | 860 files read against the sixteen skills, thirty findings with their sites, built as [F124](README.md#f124) to [F127](README.md#f127). |
+| <a id="f127"></a>F127 | The Tests Cleared Of The Reading's Findings | Integration teardowns that run whatever failed and leave the test machine clean, settled waits in place of fixed sleeps, and the weak tests repaired or removed. |
+| <a id="f126"></a>F126 | The Frame, The Tools And The Workflows Cleared Of The Reading's Findings | Disposals and quiet models after a dialog closes, dialogs that scroll on a short window, the integration leg refusing a lease without user or socket, the MSIX signed from the certificate store, and every colour in the tokens. |
+| <a id="f125"></a>F125 | The Client And The App Cleared Of The Reading's Findings | GitHub Enterprise asked under its API path, a forge that answers wrongly or not at all said as refusing within thirty seconds, tolerant reads of the daemon's answers, and `porelo/frontend.json` keeping keys it does not know. |
+| <a id="f124"></a>F124 | The Dart Code In One Format | The Dart at 120 columns as `dart format` writes it, the YAML, features and scripts in the shared style, each checked in the build, and the reformatting kept out of `git blame`. |
 | <a id="f122"></a>F122 | The Interface Called Porelo Control Tower | The name *Porelo Control Tower* wherever a person reads it - the window's title on Linux and Windows, the menu entry, the about dialog, the Windows file properties and the MSIX - held to one constant by a test, with `porelo-frontend` kept as the technical name. |
 | <a id="f121"></a>F121 | The Interface In Porelo's Look | The website's palette, corners and logo in a full colour scheme per brightness, the state colours and the terminal's palette to match, and a test that holds every text and mark to WCAG AA in light and dark. |
 | <a id="f79"></a>F79 | What Walk 8 Found In The Interface | Tiles headed by their work with a mark per state, *Needs you* saying who wrote a held message and what came of a decision, talking that offers the project's other tasks and says who a peer is, *Join*'s fields named as clients name them, and fresh state at once after one's own action. |
