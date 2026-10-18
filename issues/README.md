@@ -14,13 +14,6 @@ issue's *Open questions*; what an agent finds out itself stands under *To be che
 counted. A finished issue's file is deleted once what outlives it is in `doc/` or `AGENTS.md`;
 its row stays under *Finished*, with one sentence of what was built; decisions are in [doc/decisions.md](../doc/decisions.md).
 
-### Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f128"></a>[F128](F128-The-Leased-Machine-Trusted-By-The-Key-Its-Lease-Names.md) | S | [BT11](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt11) | The leased machine reached only if it answers with the host key its lease names. |
-| <a id="f129"></a>[F129](F129-The-Integration-Leg-Set-Up-On-Fedora-Too.md) | S | — | The integration leg's package set-up working on Fedora, so the leg runs whole there. |
-
 ### Review
 
 | # | Size | Blocked by | What it covers |
@@ -81,6 +74,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f129"></a>F129 | The Integration Leg Set Up On Fedora Too | One shell function that fetches the leg's Porelo packages as `.deb` from the index or as `.rpm` through the machine's own source, so the leg runs whole on Fedora as on Ubuntu. |
+| <a id="f128"></a>F128 | The Leased Machine Trusted By The Key Its Lease Names | The leased leg trusts its rented machine only by the host key its lease names, with no keyscan, and stops on a lease that names none. |
 | <a id="f119"></a>F119 | The Code Changed Since The Skills Reading Read Against Them | 860 files read against the sixteen skills, thirty findings with their sites, built as [F124](README.md#f124) to [F127](README.md#f127). |
 | <a id="f127"></a>F127 | The Tests Cleared Of The Reading's Findings | Integration teardowns that run whatever failed and leave the test machine clean, settled waits in place of fixed sleeps, and the weak tests repaired or removed. |
 | <a id="f126"></a>F126 | The Frame, The Tools And The Workflows Cleared Of The Reading's Findings | Disposals and quiet models after a dialog closes, dialogs that scroll on a short window, the integration leg refusing a lease without user or socket, the MSIX signed from the certificate store, and every colour in the tokens. |
