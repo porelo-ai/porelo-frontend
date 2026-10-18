@@ -31,8 +31,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The words dialog, *Forget* and *Which branch* scroll on a short window, and the forge form shown
   alone offers no *Cancel* that did nothing.
 - The guided walk's note on the terminal is in US English.
-- Every build job that runs Maven fetches the pinned `shfmt`, not only the one that builds, so the
-  leased leg's check of the scripts no longer stops before it leases a machine.
 
 ### Changed
 
@@ -42,8 +40,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The code is in the shared style: `dart format` at 120 columns, the YAML and the feature files at
   four spaces, and the scripts as `shfmt` writes them, each checked in the build; the build stands
   on `porelo-parent` `0.2.1` and its tools `0.5.1`, and no checkout keeps the job's token.
-- The analyzer checks in its strict modes, and asks every public member for its doc comment and
-  every reference in one to resolve.
 
 ## [0.5.0] - 2026-10-17
 
