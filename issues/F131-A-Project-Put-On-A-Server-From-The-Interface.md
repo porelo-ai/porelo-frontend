@@ -39,6 +39,10 @@ Named here so the commands can be shaped for it; the plan comes when this is acc
 - **`down`** reports the same way, its last copy of the list into the project's store included, and
   says when the host is gone.
 
-`host up` and `host down` run on the person's computer, as `porelo-machines` commands, and the
-playbook reaches the host over ssh from there; so the interface starts them as local programs. Neither
-command exists yet: porelo-machines has only `lease` and `sweep` today.
+`host up` and `host down` run on the person's computer, on Linux, Windows and macOS, as
+`porelo-machines` commands, never as `porelo`'s, since Porelo does not run there yet and does not run
+on Windows or macOS at all; so the interface starts them as local programs. The host is rented from
+Scaleway Elastic Metal. The playbook runs on the host itself: `host up` copies the collection and the
+inventory over ssh, installs `ansible-core` there and runs it locally, so the person's computer needs
+only ssh and `host up`, no Ansible and no podman. Neither command exists yet: porelo-machines has only
+`lease` and `sweep` today, as a jar; how it reaches the person's computer is the operator's to decide.
