@@ -33,11 +33,13 @@ if [ -z "${PORELO_E2E_HOST:-}" ] && [ -f "$leased" ]; then
     address=$(value address)
     user=$(value user)
     socket=$(value socket)
+    hostkey=$(value hostkey)
     export PORELO_E2E_HOST="$user@$address" PORELO_E2E_REMOTE_SOCKET="$socket"
     export PORELO_E2E_KEY="${PORELO_E2E_KEY:-${HETZNER_KEY:-}}"
-    # A fresh machine's host key is unknown, and the interface never accepts one on its own.
+    # The host key the lease made for the machine, and no other: what answers at the address is not
+    # asked, and the interface never accepts a key on its own.
     mkdir -p ~/.ssh
-    ssh-keyscan -H "$address" >>~/.ssh/known_hosts 2>/dev/null
+    printf '%s %s\n' "$address" "$hostkey" >>~/.ssh/known_hosts
     forget_host=$address
 fi
 : "${PORELO_E2E_HOST:?name the machine as ssh would, e.g. user@host}"

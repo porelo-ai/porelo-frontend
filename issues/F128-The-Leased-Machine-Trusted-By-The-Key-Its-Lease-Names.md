@@ -1,7 +1,7 @@
 # F128 — The Leased Machine Trusted By The Key Its Lease Names
 
-**Status:** Backlog; blocked by
-[BT11](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt11).
+**Status:** Implementing; built against the `hostkey=` the lease writes, pushed only together with
+or after [BT11](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt11)'s `lease`, since the leg now stops on a lease without the key.
 **Size:** S - one line in `tool/e2e.sh` in place of the keyscan, the leg refusing a lease without
 the key, and one run of the leased leg.
 
