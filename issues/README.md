@@ -14,6 +14,12 @@ issue's *Open questions*; what an agent finds out itself stands under *To be che
 counted. A finished issue's file is deleted once what outlives it is in `doc/` or `AGENTS.md`;
 its row stays under *Finished*, with one sentence of what was built; decisions are in [doc/decisions.md](../doc/decisions.md).
 
+### Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f130"></a>[F130](F130-The-Leased-Leg-Taken-From-A-Run-That-Proved-The-Same-Tree.md) | S | — | The leased leg skipped on a tree a run already proved, saying which run. |
+
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
@@ -21,7 +27,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f128"></a>[F128](F128-The-Leased-Machine-Trusted-By-The-Key-Its-Lease-Names.md) | S | [BT11](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt11) | The leased machine reached only if it answers with the host key its lease names. |
 | <a id="f129"></a>[F129](F129-The-Integration-Leg-Set-Up-On-Fedora-Too.md) | S | — | The integration leg's package set-up working on Fedora, so the leg runs whole there. |
-| <a id="f130"></a>[F130](F130-The-Leased-Leg-Taken-From-A-Run-That-Proved-The-Same-Tree.md) | S | [BT15](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt15) | The leased leg skipped on a tree a run already proved, saying which run. |
 
 ### Analyzed
 

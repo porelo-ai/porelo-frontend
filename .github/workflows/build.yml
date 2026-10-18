@@ -262,17 +262,52 @@ jobs:
                       build/windows-zip/SHA256SUMS
                   if-no-files-found: error
 
+    # Whether a run of this repository already proved this very tree with the leased leg green, from a
+    # push, a dispatch or a schedule within a day: then that leg is not rented again, and the summary
+    # names the run it was taken from. Asked on a push to a branch only: a tag and a dispatch, which is
+    # how a whole run is forced, always run it. Not knowing is a no, so the leg runs.
+    legs:
+        name: Whether the leased leg is proven
+        runs-on: ubuntu-22.04
+        timeout-minutes: 10
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        permissions:
+            contents: read
+            actions: read
+        outputs:
+            proven: ${{ steps.asked.outputs.proven }}
+        steps:
+            # Without the job's token in .git/config: nothing here pushes with git.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: ./.github/actions/pinned-jdk
+
+            - name: Ask for a run that proved this tree
+              id: asked
+              env:
+                  GITHUB_TOKEN: ${{ github.token }}
+              run: |
+                  java -cp "$(cat build/jdk-cp.txt)" org.fuin.porelo.release.Main proven-legs \
+                    --repository "$GITHUB_REPOSITORY" --tree "$(git rev-parse 'HEAD^{tree}')" \
+                    --jobs "Test against a leased machine" | tee -a "$GITHUB_STEP_SUMMARY"
+
     # Against a machine rented for the run: Maven leases it, the GUI tests run headless over ssh,
     # and the sweep takes it down whether they passed or not. Not a gate for publishing: a rented
     # machine that cannot be had is not a fault in this interface.
     integration:
         name: Test against a leased machine
+        needs: legs
         runs-on: ubuntu-22.04
         # 12-15 minutes with the lease (its step 10-13); stopped well before a rented machine is paid for
         # by the hour, with ten minutes left under the job for the sweep.
         timeout-minutes: 50
-        # A fork's pull request gets no secrets, and would rent nothing.
-        if: github.event_name != 'pull_request'
+        # A fork's pull request gets no secrets, and would rent nothing. A question that was not asked,
+        # failed or could not be answered counts as not proven.
+        if: >-
+            !cancelled() && github.event_name != 'pull_request'
+            && (github.ref_type == 'tag' || needs.legs.result != 'success' || needs.legs.outputs.proven != 'yes')
         env:
             # With GITHUB_RUN_ID this names the run, so the last step sweeps what this run leased.
             PORELO_CI_LEG: frontend-e2e

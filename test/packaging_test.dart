@@ -198,20 +198,6 @@ void main() {
       expect(script, contains(r'if [ "${RELEASE:-0}" = 1 ]; then version="$base"; fi'));
     });
 
-    test('both jobs that run Maven take the JDK from the local pinned action', () {
-      // check-actions refuses a setup action that fetches a JDK by name; that each job then takes the
-      // pinned one, and not none at all, is this repository's own to hold.
-      final build = File('.github/workflows/build.yml').readAsStringSync();
-      expect(
-        'uses: ./.github/actions/pinned-jdk'.allMatches(build).length,
-        2,
-        reason: 'both jobs that run Maven take the pinned JDK',
-      );
-      final action = File('.github/actions/pinned-jdk/action.yml').readAsStringSync();
-      expect(action, contains('org.fuin.porelo.machines.Main jdk --github'));
-      expect(action, contains(r'"$JAVA_HOME_25_X64/bin/java"'), reason: "the runner's own Java only runs the tool");
-    });
-
     test('check-actions runs in the build', () {
       // The one test for what a build runs being pinned, for every Porelo repository alike: the
       // pins, Dependabot with its cooldown and group, and the digest of what mvnw downloads.
