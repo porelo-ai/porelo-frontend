@@ -8,7 +8,7 @@ Future<void> theTaskAndTheProjectAreRemovedAgain(WidgetTester tester, String tas
 PATH="\$HOME/.local/bin:\$PATH"
 set -e
 porelo task stop "$task" >/dev/null
-porelo task remove "$task" >/dev/null
+porelo task remove --force "$task" >/dev/null
 porelo project unfollow --force "$project" >/dev/null
 rm -rf "\$HOME/$project" "\$HOME/$project-backend.git"
 ''');

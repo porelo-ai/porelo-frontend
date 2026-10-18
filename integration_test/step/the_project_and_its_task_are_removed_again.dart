@@ -20,7 +20,7 @@ Future<void> theProjectAndItsTaskAreRemovedAgain(WidgetTester tester, String nam
 PATH="\$HOME/.local/bin:\$PATH"
 set -e
 porelo task stop porelo-$name-write >/dev/null
-porelo task remove porelo-$name-write >/dev/null
+porelo task remove --force porelo-$name-write >/dev/null
 porelo project unfollow --force $name >/dev/null
 rm -rf "\$HOME/$name"
 porelo task list
