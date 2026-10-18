@@ -1,4 +1,4 @@
-# A stand-in for porelo-host's collection, keeping the contract F131 runs against: two plays, the
+# A stand-in for porelo-host's collection, keeping the contract porelo_host runs against: two plays, the
 # one stop, and the callback's lines. It installs nothing real.
 namespace: porelo
 name: host

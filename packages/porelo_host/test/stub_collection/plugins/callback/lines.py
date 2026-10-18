@@ -1,4 +1,4 @@
-# One JSON line per task for porelo_host, as F131's contract says. A stand-in for porelo-host's own.
+# One JSON line per task for porelo_host, as porelo_host's contract says. A stand-in for porelo-host's own.
 import json
 
 from ansible.plugins.callback import CallbackBase

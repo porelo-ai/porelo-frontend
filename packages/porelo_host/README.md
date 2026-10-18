@@ -13,8 +13,7 @@ Windows.
 
 Each step is one JSON line on standard output, relayed from the collection's callback; the words
 for a person go to standard error. A secret is only ever written to a command's standard input on
-the host, never to an argument, a file or a log. What it must do, and how it is judged, is
-[F131](../../issues/README.md#f131).
+the host, never to an argument, a file or a log.
 
 ```sh
 dart test
