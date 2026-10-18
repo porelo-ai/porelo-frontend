@@ -1,6 +1,6 @@
 # F127 — The Tests Cleared Of The Reading's Findings
 
-**Status:** Implementing; Review once it is pushed and published as a snapshot.
+**Status:** Review; published as `0.5.1~snapshot.159`, Build 39082532614 green on every job.
 **Size:** L - six groups of findings across `test` and `integration_test`: the integration leg's
 cleanup moved into tear-downs and made to fail when it fails, the tests that cannot fail repaired
 where they guard a harm and deleted where they do not, and the host kept out of the suite.

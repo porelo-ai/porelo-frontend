@@ -1,8 +1,7 @@
 # F119 — The Code Changed Since The Skills Reading Read Against Them
 
-**Status:** Backlog; read, and built in three parts, each blocked by [F124](README.md#f124): [F125](README.md#f125) (`lib/src/client`
-with `app`), [F126](README.md#f126) (`lib/src/ui` with `tool` and the workflows) and [F127](README.md#f127) (the tests). Each
-part goes out as its own push once it is green on the VM.
+**Status:** Review; read, and built in its three parts [F125](README.md#f125), [F126](README.md#f126) and
+[F127](README.md#f127), each in Review with it, published as `0.5.1~snapshot.159`.
 **Size:** XL - 860 files read, thirty findings with their sites, built as the three parts of L or
 smaller; this issue keeps the reading and its findings, and is finished when the three are.
 

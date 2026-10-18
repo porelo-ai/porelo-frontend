@@ -1,6 +1,6 @@
 # F124 — The Dart Code In One Format
 
-**Status:** Implementing; Review once it is pushed and published as a snapshot.
+**Status:** Review; published as `0.5.1~snapshot.159`, Build 39082532614 green on every job.
 **Size:** S - one formatting commit over the Dart, the YAML, the `.feature` files and the shell
 scripts, its hash in `.git-blame-ignore-revs`, the formatter's page width in `analysis_options.yaml`,
 the checks in the build, and the parent moved to `0.2.1-SNAPSHOT`.

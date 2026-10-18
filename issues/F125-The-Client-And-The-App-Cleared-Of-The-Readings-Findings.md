@@ -1,6 +1,6 @@
 # F125 — The Client And The App Cleared Of The Reading's Findings
 
-**Status:** Implementing; Review once it is pushed and published as a snapshot.
+**Status:** Review; published as `0.5.1~snapshot.159`, Build 39082532614 green on every job.
 **Size:** L - twelve findings across `lib/src/client`, `lib/src/app` and `lib/src/mock`, eleven of
 them with a test for the harm they do, the documentation the reading found misplaced or missing
 there, the strict analyzer modes, and `porelo/frontend.json` keeping what it does not know.

@@ -1,6 +1,6 @@
 # F126 — The Frame, The Tools And The Workflows Cleared Of The Reading's Findings
 
-**Status:** Implementing; Review once it is pushed and published as a snapshot.
+**Status:** Review; published as `0.5.1~snapshot.159`, Build 39082532614 green on every job.
 **Size:** L - twelve findings across `lib/src/ui`, `tool` and the workflows, five of them with a test
 for the harm they do, the colours moved into the tokens, the walks translated into US English,
 `persist-credentials`, and the documentation in `lib/src/ui`.
