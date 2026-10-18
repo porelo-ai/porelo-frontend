@@ -23,6 +23,7 @@ Future<void> theTestMachineHasATaskWithAMessageHeldForSaying(
     names: <String>['porelo-$name-$name'],
   );
   theHeldMessage = await onTheTestMachine('''
+\$unpackPorelo
 set -eu
 PATH="\$HOME/.local/bin:\$PATH"
 repo="\$HOME/$name"
@@ -53,20 +54,11 @@ porelo project follow --unverified "$name" "\$repo" >/dev/null
 # transport the project messages through is made sure of before this runs. Taken unprivileged from the published packages into this account's data
 # directory, where Porelo looks first; never over what is installed.
 data="\${XDG_DATA_HOME:-\$HOME/.local/share}/porelo"
-repo_url=https://fuinorg.jfrog.io/artifactory/porelo-dist-deb
 for pair in porelo-message-sluice-filter:filter; do
   program=\${pair%%:*}; into=\${pair##*:}; package=\$(basename "\$program")
   [ -x "/usr/libexec/porelo/\$program" ] || [ -x "\$data/\$into/\$package" ] && continue
   work=\$(mktemp -d)
-  # The newest entry's file and its digest, as the index published them; -L, since a large file
-  # answers with a redirect to its storage.
-  set -- \$(curl -fsSL "\$repo_url/dists/snapshots/main/binary-amd64/Packages" |
-    awk -v p="\$package" '\$0 == "Package: " p {x = 1} x && /^Filename:/ {f = \$2} x && /^SHA256:/ {h = \$2}
-      /^\$/ {x = 0} END {print f, h}')
-  curl -fsSL -o "\$work/p.deb" "\$repo_url/\$1"
-  # What is installed is what the index published, checked before anything is unpacked.
-  echo "\$2  \$work/p.deb" | sha256sum -c --quiet -
-  dpkg-deb -x "\$work/p.deb" "\$work/x"
+  unpack_porelo "\$package" "\$work/x"
   mkdir -p "\$data/\$into"
   install -m 755 "\$work/x/usr/libexec/porelo/\$program" "\$data/\$into/\$package"
   rm -rf "\$work"

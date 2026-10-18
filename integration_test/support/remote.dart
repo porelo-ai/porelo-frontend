@@ -23,6 +23,37 @@ Future<String> onTheTestMachine(String script) async {
   return out.trim();
 }
 
+/// A shell function for a script on the test machine: `unpack_porelo <package> <dir>` unpacks the
+/// newest published `<package>` of Porelo's snapshots into `<dir>`, unprivileged, never over what is
+/// installed. A machine with `dpkg-deb` takes the `.deb` from `porelo-dist-deb`'s index, checked
+/// against the digest the index publishes; a machine with `rpm` takes the `.rpm` through its own
+/// Porelo source with `dnf download --refresh`, which checks it against that source's metadata.
+const unpackPorelo = r'''
+unpack_porelo() {
+  _w=$(mktemp -d)
+  if command -v dpkg-deb >/dev/null 2>&1; then
+    _repo=https://fuinorg.jfrog.io/artifactory/porelo-dist-deb
+    # The newest version's file and digest, as the index published them, split into two arguments.
+    # shellcheck disable=SC2046
+    set -- "$1" "$2" $(curl -fsSL "$_repo/dists/snapshots/main/binary-amd64/Packages" |
+      awk -v p="$1" '$0 == "Package: " p {x = 1} x && /^Version:/ {v = $2} x && /^Filename:/ {f = $2}
+        x && /^SHA256:/ {h = $2} /^$/ {if (x) print v, f, h; x = 0} END {if (x) print v, f, h}' |
+      sort -V | tail -1 | cut -d' ' -f2-)
+    [ -n "${3:-}" ] || { echo "$1 is not in the index" >&2; rm -rf "$_w"; return 1; }
+    curl -fsSL -o "$_w/p.deb" "$_repo/$3"
+    echo "$4  $_w/p.deb" | sha256sum -c --quiet -
+    dpkg-deb -x "$_w/p.deb" "$2"
+  else
+    (cd "$_w" && dnf download --refresh --quiet "$1" >/dev/null)
+    set -- "$1" "$2" "$_w/$1"-[0-9]*.rpm
+    [ -f "$3" ] || { echo "$1 could not be downloaded from this machine's Porelo source" >&2; rm -rf "$_w"; return 1; }
+    mkdir -p "$2"
+    (cd "$2" && rpm2cpio "$3" | cpio -idm --quiet)
+  fi
+  rm -rf "$_w"
+}
+''';
+
 /// Where the scenario's repository was made on the test machine, once it was.
 String? theRepository;
 
