@@ -1,5 +1,4 @@
 name: Shared rules check
-run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.event.pull_request.title || github.workflow }}"
 
 # The build ignores the documents and leases a machine, so a change to the documents alone is
 # checked here, with nothing leased: the shared rules block must still fit the hash its markers

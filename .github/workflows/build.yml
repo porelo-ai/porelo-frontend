@@ -1,5 +1,4 @@
 name: Build
-run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.event.pull_request.title || github.workflow }}"
 
 # The same shape as the backend's release, deliberately: one workflow, publishing `main` to the
 # `snapshots` distribution and a version tag to `releases`. A consumer puts that word in their

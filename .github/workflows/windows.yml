@@ -1,5 +1,4 @@
 name: Windows trial
-run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.workflow }}"
 
 # A trial of the interface on Windows, for a branch under `windows/` only, so a Windows change is
 # seen on GitHub's Windows runner before it reaches `main`. It publishes nothing, and its name says
