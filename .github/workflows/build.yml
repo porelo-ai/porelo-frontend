@@ -8,7 +8,9 @@ run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.he
 # **A push that changes only documentation starts no build**: every run leases a machine and publishes
 # a snapshot, and Markdown changes neither the package nor what it does. Such a push is checked on
 # the host before it is handed over, and by the shared-rules workflow once a day, with nothing
-# leased. A push that changes code and docs together runs in full. `workflow_dispatch` ignores the path filter, so a run can always be forced.
+# leased. **Nor does one that changes only `.github/`**, such as a merged action pin: the next push
+# with content builds with it. A push that changes code and docs together runs in full.
+# `workflow_dispatch` ignores the path filter, so a run can always be forced.
 on:
     push:
         branches: [main]
@@ -19,6 +21,7 @@ on:
             - 'doc/**'
             - 'issues/**'
             - 'mkdocs.yml'
+            - '.github/**'
     workflow_dispatch:
 
 permissions:

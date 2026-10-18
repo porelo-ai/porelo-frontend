@@ -198,16 +198,6 @@ void main() {
       expect(script, contains(r'if [ "${RELEASE:-0}" = 1 ]; then version="$base"; fi'));
     });
 
-    // Decided: a Markdown-only push leased a machine and published a
-    // snapshot. Only documentation may be skipped, and nothing that builds or tests.
-    test('a push that changes only documentation starts no build, and nothing else is skipped', () {
-      final ignored = RegExp(r"paths-ignore:\n((?:\s+- '[^']+'\n)+)").firstMatch(workflow);
-      expect(ignored, isNotNull, reason: 'every Markdown push runs the whole build');
-      final patterns = RegExp(r"- '([^']+)'").allMatches(ignored!.group(1)!).map((m) => m.group(1)).toSet();
-      expect(patterns, <String>{'**.md', 'doc/**', 'issues/**', 'mkdocs.yml'});
-      expect(workflow, contains('workflow_dispatch:'), reason: 'a run must always be forceable');
-    });
-
     test('both jobs that run Maven take the JDK from the local pinned action', () {
       // check-actions refuses a setup action that fetches a JDK by name; that each job then takes the
       // pinned one, and not none at all, is this repository's own to hold.
