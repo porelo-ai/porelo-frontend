@@ -1,6 +1,6 @@
 # F131 — A Host Brought Up And Down By One Command
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - a new pure-Dart package and its command line, with the run, the stop and the
 resume, proven against a real machine.
 

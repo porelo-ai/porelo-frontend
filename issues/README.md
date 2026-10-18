@@ -30,11 +30,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f131"></a>[F131](F131-A-Host-Brought-Up-And-Down-By-One-Command.md) | L | — | `porelo-host up` and `down` from a pure-Dart package: rent, the playbook on the host, one stop, the resume. | — |
-| <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | S | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. | — |
-| <a id="f132"></a>[F132](F132-A-Host-Rented-From-Scaleway-Elastic-Metal.md) | M | [F131](#f131), [F133](#f133) | The host rented from Scaleway Elastic Metal and given back, by the project's tag. | — |
-| <a id="f134"></a>[F134](F134-The-Host-Command-Built-And-Shipped-For-Linux-And-Windows.md) | S | [F131](#f131) | `porelo-host` built for Linux and Windows, inside the interface's packages and alone. | — |
-| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | [F131](#f131), [F133](#f133), [F134](#f134), `porelo` [B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209) | Putting a project on a server from the interface, the one stop answered there. | — |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -74,6 +69,16 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | `porelo` [B198](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b198) | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
+
+### Estimated
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f131"></a>[F131](F131-A-Host-Brought-Up-And-Down-By-One-Command.md) | L | — | `porelo-host up` and `down` from a pure-Dart package: rent, the playbook on the host, one stop, the resume. |
+| <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | S | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. |
+| <a id="f132"></a>[F132](F132-A-Host-Rented-From-Scaleway-Elastic-Metal.md) | M | [F131](#f131), [F133](#f133) | The host rented from Scaleway Elastic Metal and given back, by the project's tag. |
+| <a id="f134"></a>[F134](F134-The-Host-Command-Built-And-Shipped-For-Linux-And-Windows.md) | S | [F131](#f131) | `porelo-host` built for Linux and Windows, inside the interface's packages and alone. |
+| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | [F131](#f131), [F133](#f133), [F134](#f134), `porelo` [B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209) | Putting a project on a server from the interface, the one stop answered there. |
 
 ### Finished
 
