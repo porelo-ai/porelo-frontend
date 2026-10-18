@@ -1,6 +1,7 @@
 # F129 — The Integration Leg Set Up On Fedora Too
 
-**Status:** Backlog.
+**Status:** Implementing; the leg green 23 of 23 on `fedora` and on `ubuntu26.04` on the commit that
+builds it, Review once it is pushed and published.
 **Size:** S - three set-up steps that unpack a package taking the `.rpm` where the machine has
 `rpm`, and one run of the leg against the `fedora` VM.
 
@@ -20,11 +21,13 @@ see it.
 
 ## Plan
 
-- **Where the steps unpack a package**
-  (`the_test_machine_has_a_task_with_a_message_held_for_saying.dart`, `support/matrix.dart`,
-  `the_test_machine_has_porelos_stub_agent.dart`): on a machine with `rpm2cpio`, the package comes
-  from `porelo-dist-rpm`'s snapshots, checked against the digest its index publishes, and is
-  unpacked with `rpm2cpio | cpio -idm`; otherwise as today.
+- **One shell function, `unpackPorelo` in `support/remote.dart`,** used by the three steps that
+  unpack a package (`the_test_machine_has_a_task_with_a_message_held_for_saying.dart`,
+  `support/matrix.dart`, `the_test_machine_has_porelos_stub_agent.dart`): on a machine with
+  `dpkg-deb`, the newest `.deb` from `porelo-dist-deb`'s index, checked against the digest it
+  publishes; otherwise the `.rpm` through the machine's own Porelo source with
+  `dnf download --refresh`, checked against that source's metadata, unpacked with
+  `rpm2cpio | cpio -idm`.
 - **The paths inside** are the same in both formats, so what is installed into the account does not
   change.
 

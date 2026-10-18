@@ -1,6 +1,8 @@
 # F130 — The Leased Leg Taken From A Run That Proved The Same Tree
 
-**Status:** Implementing; built against [BT15](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt15)'s `proven-legs` in `f28a690`, Review once a Build on `main` has run it.
+**Status:** Review; built in `47cb8e8`, Build 39111789846 green with the leg run on a new tree
+("proven=no"), published as `0.5.1~snapshot.162`; the "proven" path shows on the next push of a tree a run
+proved.
 **Size:** S - one step that asks `porelo-release proven-legs` before the leased job, that job run
 only when the answer is no, and one Build on `main` seen to skip it and one seen to run it.
 
