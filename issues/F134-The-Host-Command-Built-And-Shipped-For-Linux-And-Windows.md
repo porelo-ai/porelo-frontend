@@ -1,6 +1,6 @@
 # F134 — The Host Command Built And Shipped For Linux And Windows
 
-**Status:** Estimated; blocked by [F131](README.md#f131).
+**Status:** Backlog; blocked by [F131](README.md#f131).
 **Size:** S - two build legs the Build already has, and the command inside each package.
 
 **What must be true.** Each release of porelo-frontend carries `porelo-host` for Linux x64 and

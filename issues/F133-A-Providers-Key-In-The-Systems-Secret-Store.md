@@ -1,6 +1,6 @@
 # F133 — A Provider's Key In The System's Secret Store
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** S - two platform stores from pure Dart, each proven in the Build's own job.
 
 **What must be true.** The provider's key is entered once, in the interface or by `porelo-host

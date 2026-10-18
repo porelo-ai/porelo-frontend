@@ -1,6 +1,6 @@
 # F132 — A Host Rented From Scaleway Elastic Metal
 
-**Status:** Estimated; blocked by [F131](README.md#f131) (the provider interface) and [F133](README.md#f133) (the key's store).
+**Status:** Backlog; blocked by [F131](README.md#f131) (the provider interface) and [F133](README.md#f133) (the key's store).
 **Size:** M - one REST adapter, its answers recorded, and one real rent.
 
 **What must be true.** `porelo-host up` rents an Elastic Metal server from Scaleway, the offer
