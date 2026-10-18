@@ -31,6 +31,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The words dialog, *Forget* and *Which branch* scroll on a short window, and the forge form shown
   alone offers no *Cancel* that did nothing.
 - The guided walk's note on the terminal is in US English.
+- Every build job that runs Maven fetches the pinned `shfmt`, not only the one that builds, so the
+  leased leg's check of the scripts no longer stops before it leases a machine.
 
 ### Changed
 
