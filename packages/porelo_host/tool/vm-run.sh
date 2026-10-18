@@ -3,13 +3,17 @@
 # for a rented host, and `porelo-host up`, the stop, the resume and `down` run against it with the
 # stand-in collection. Everything of the run is removed at the end, after a failure too.
 #
-#   tool/vm-run.sh IMAGE SHA256SUMS
+#   tool/vm-run.sh IMAGE SHA256SUMS [COLLECTION]
 #
 # IMAGE is Ubuntu 26.04's server cloud image, SHA256SUMS the release's list it is checked against.
+# COLLECTION, when given, is porelo-host's own tarball in place of the stand-in. Its plays have no
+# stop yet, so `up` must end 0 with their lines relayed; the account Porelo's setup makes is made by
+# cloud-init in its place, as porelo-host's own test VM does.
 set -euo pipefail
 
 image="$1"
 sums="$2"
+collection="${3:-}"
 connect=qemu:///system
 pool=images
 here="$(cd "$(dirname "$0")/.." && pwd)"
@@ -89,6 +93,12 @@ META
     echo '    sudo: ALL=(ALL) NOPASSWD:ALL'
     echo '    shell: /bin/bash'
     echo "    ssh_authorized_keys: [\"$(cat "$work/login.pub")\"]"
+    if [ -n "$collection" ]; then
+        echo '  - name: porelo'
+        echo '    shell: /bin/bash'
+        echo 'runcmd:'
+        echo '  - [loginctl, enable-linger, porelo]'
+    fi
 } >"$work/seed/user-data"
 xorriso -as genisoimage -quiet -output "$work/seed.iso" -volid cidata -joliet -rock "$work/seed/user-data" "$work/seed/meta-data" 2>/dev/null
 virsh vol-create-as "$pool" "$run-seed.iso" "$(stat -c %s "$work/seed.iso")" --format raw >/dev/null
@@ -96,7 +106,7 @@ virsh vol-upload "$run-seed.iso" "$work/seed.iso" --pool "$pool"
 
 virt-install --connect "$connect" --name "$run" --memory 2048 --vcpus 2 --import \
     --disk "vol=$pool/$run.qcow2,bus=virtio" --disk "vol=$pool/$run-seed.iso,device=cdrom" \
-    --network network=default --osinfo linux2024 --graphics none --noautoconsole --quiet \
+    --network network=default --osinfo linux2024 --cpu host-passthrough --graphics none --noautoconsole --quiet \
     --serial "file,path=/var/lib/libvirt/images/$run-console.log"
 
 address=''
@@ -113,8 +123,8 @@ echo "vm-run: $run at $address" >&2
 
 # The stand-in collection as `ansible-galaxy collection build` lays it out: MANIFEST.json and
 # FILES.json at the root, each file with its SHA-256.
-tarball="$work/porelo-host-0.0.1.tar.gz"
-python3 -I - "$here/test/stub_collection" "$work/collection" <<'PY'
+tarball="${collection:-$work/porelo-host-0.0.1.tar.gz}"
+[ -n "$collection" ] || python3 -I - "$here/test/stub_collection" "$work/collection" <<'PY'
 import hashlib, json, os, shutil, sys
 source, target = sys.argv[1], sys.argv[2]
 shutil.copytree(source, target)
@@ -142,7 +152,7 @@ manifest = {"collection_info": {"namespace": "porelo", "name": "host", "version"
             "format": 1}
 open(os.path.join(target, "MANIFEST.json"), "w").write(json.dumps(manifest, indent=4))
 PY
-(cd "$work/collection" && tar -czf "$tarball" MANIFEST.json FILES.json README.md meta playbooks plugins)
+[ -n "$collection" ] || (cd "$work/collection" && tar -czf "$tarball" MANIFEST.json FILES.json README.md meta playbooks plugins)
 
 hostkey="$(cut -d' ' -f1,2 "$work/host.pub")"
 host() {
@@ -171,6 +181,24 @@ grep -q '"step":"copy"' "$work/up-0.jsonl" && {
     echo 'vm-run: it went on past ssh' >&2
     exit 1
 }
+
+if [ -n "$collection" ]; then
+    host up >"$work/up-1.jsonl"
+    expect 0 "$?" "the first up against $(basename "$collection")"
+    grep -q '"state":"waiting"' "$work/up-1.jsonl" && {
+        echo 'vm-run: the real plays asked for the person, which they cannot yet' >&2
+        exit 1
+    }
+    grep -q '"state":"done"' "$work/up-1.jsonl" || {
+        echo "vm-run: no task of the plays was relayed" >&2
+        exit 1
+    }
+    host down >"$work/down.jsonl"
+    expect 0 "$?" 'down'
+    set -e
+    cat "$work"/up-1.jsonl "$work"/down.jsonl
+    exit 0
+fi
 
 host up >"$work/up-1.jsonl"
 first=$?
