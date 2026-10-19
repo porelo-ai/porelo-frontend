@@ -26,6 +26,28 @@ class Step {
   /// What the play itself said, when it said something.
   final String? words;
 
+  /// A line as [toLine] wrote it, or null for one that is not a step's.
+  static Step? fromLine(String line) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(line);
+    } on FormatException {
+      return null;
+    }
+    if (decoded is! Map<String, Object?>) return null;
+    final step = decoded['step'];
+    final named = decoded['state'];
+    final state = StepState.values.where((s) => s.name == named).firstOrNull;
+    if (step is! String || state == null) return null;
+    return Step(
+      step,
+      state,
+      fix: decoded['fix'] as String?,
+      needs: (decoded['needs'] as List<Object?>? ?? const <Object?>[]).whereType<String>().toList(),
+      words: decoded['words'] as String?,
+    );
+  }
+
   /// The line, as it goes out.
   String toLine() => jsonEncode(<String, Object>{
     'step': step,

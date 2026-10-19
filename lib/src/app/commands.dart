@@ -392,6 +392,7 @@ List<Command> projectCommands({
   VoidCallback? openItsForge,
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
+  VoidCallback? putOnAServer,
 }) {
   const nothing = 'no project selected';
   // default's settings are Porelo's own and fixed: nothing here changes what it may reach.
@@ -529,6 +530,21 @@ List<Command> projectCommands({
           ? 'not from here'
           : project.name == defaultProject
           ? 'default is always there: it is where work without a project goes'
+          : null,
+    ),
+    // `porelo-host` does it; this only opens the page that runs it and shows what it says.
+    Command(
+      id: 'project.server',
+      label: 'Put this project on a server…',
+      group: 'Project',
+      home: Home.projectMenu,
+      run: putOnAServer ?? () {},
+      unavailable: project == null
+          ? nothing
+          : project.name == defaultProject
+          ? 'default is this machine\'s own: it goes on no server'
+          : putOnAServer == null
+          ? 'porelo-host is not installed beside the interface'
           : null,
     ),
     Command(
@@ -779,6 +795,7 @@ List<Command> commandsFor({
   required VoidCallback openEgress,
   required VoidCallback removeWhatWasBuilt,
   VoidCallback? clearTheProject,
+  VoidCallback? putOnAServer,
   required VoidCallback checkTheMachine,
   VoidCallback? startThenCheck,
   required VoidCallback showTheProviders,
@@ -952,6 +969,7 @@ List<Command> commandsFor({
       checkWorkCanStart: checkWorkCanStart,
       removeWhatWasBuilt: removeWhatWasBuilt,
       clearTheProject: clearTheProject,
+      putOnAServer: putOnAServer,
       showTheMessages: showTheMessages,
       openItsForge: openItsForge,
       itsForgeIsMissing: itsForgeIsMissing,

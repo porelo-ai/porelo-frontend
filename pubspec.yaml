@@ -51,6 +51,9 @@ dependencies:
     yaml_edit: ^2.2.4
     # The SHA-256 a file handed to a task is sent with, which the machine checks before placing it.
     crypto: ^3.0.7
+    # `porelo-host`'s own step lines and answers, read the way the command writes them.
+    porelo_host:
+        path: packages/porelo_host
 
 dev_dependencies:
     integration_test:

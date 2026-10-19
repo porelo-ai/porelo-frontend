@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
 import '../app/homeserver_forwards.dart';
+import '../app/host_session.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
@@ -100,6 +101,7 @@ import 'window_size.dart';
 import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
+import 'host_dialog.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -366,6 +368,7 @@ class _ShellState extends State<Shell> {
     openEgress: _openEgress,
     removeWhatWasBuilt: _removeWhatWasBuilt,
     clearTheProject: _clearTheProject,
+    putOnAServer: _poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
     checkTheMachine: _checkTheMachine,
     startThenCheck: () => unawaited(_startThenCheck()),
     showTheProviders: _showTheProviders,
@@ -441,6 +444,7 @@ class _ShellState extends State<Shell> {
       checkWorkCanStart: _checkWorkCanStart,
       removeWhatWasBuilt: _removeWhatWasBuilt,
       clearTheProject: _clearTheProject,
+      putOnAServer: _poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
       itsForgeIsMissing: _itsForgeIsMissing(),
@@ -461,6 +465,7 @@ class _ShellState extends State<Shell> {
     'gate.open',
     'notifications.mute',
     'project.clear',
+    'project.server',
     'project.delete',
   ];
 
@@ -563,6 +568,16 @@ class _ShellState extends State<Shell> {
       MachineClearing(_fleet.backend, _forges, machineName: widget.machines.current.name, project: project.name),
     );
     unawaited(_fleet.refresh(quietly: true));
+  }
+
+  /// Whether the `porelo-host` this interface ships came with it: not in a development build.
+  static final bool _poreloHostIsHere = File(shippedPoreloHost()).existsSync();
+
+  /// Puts the selected project on a server, by the `porelo-host` shipped beside the interface.
+  Future<void> _putOnAServer() async {
+    final project = _fleet.selectedProject;
+    if (project == null) return;
+    await openHostDialog(context, project: project.name);
   }
 
   /// Clears the machine of everything Porelo put there, and its keys at the forge.

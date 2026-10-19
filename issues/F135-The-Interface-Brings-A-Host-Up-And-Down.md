@@ -1,6 +1,6 @@
 # F135 — The Interface Brings A Host Up And Down
 
-**Status:** Backlog; blocked by [F131](README.md#f131), [F133](README.md#f133), [F134](README.md#f134) and porelo
+**Status:** Implementing; blocked by [F131](README.md#f131), [F133](README.md#f133), [F134](README.md#f134) and porelo
 [B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209).
 **Size:** M - one page that runs the command, reads its lines and answers its one stop.
 
@@ -21,6 +21,22 @@ needs a terminal, and no secret is written anywhere.
 - **The red test first:** a widget test with a fake process that emits the lines, the stop and
   then done. It holds that the secrets reach stdin and never the arguments, and it is run red with
   the passphrase put in an argument.
+
+## Built so far
+
+- `HostSession` (`lib/src/app/host_session.dart`) starts the shipped `porelo-host` by its path,
+  reads its step lines into a list, takes 75 as the stop with what it needs, and writes the
+  answers as one JSON object to its standard input, never to its arguments.
+- `HostDialog`, opened by a project's *Put this project on a server…*, unavailable for `default`
+  and where no `porelo-host` came with the interface: the Scaleway project, the account, the
+  person's ssh keys and the collection's tarball; the steps; at the stop the drive's login and the
+  vault's passphrase, twice for a new vault; the fields cleared once sent. The provider's key is
+  not asked here: it is the system store's ([F133](README.md#f133)).
+- Five tests against a stand-in `porelo-host` that keeps its arguments and its standard input.
+  Seen red: a passphrase put into the arguments, and two differing passphrases let through.
+- Left: the run against the test VM, which needs porelo's
+  [B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209) (`vault unlock
+  --passphrase-stdin`) and porelo-host's own stop (HO02, HO06); and the Windows job.
 
 ## Acceptance
 
