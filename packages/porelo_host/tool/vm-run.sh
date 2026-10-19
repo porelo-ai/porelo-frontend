@@ -155,8 +155,9 @@ PY
 [ -n "$collection" ] || (cd "$work/collection" && tar -czf "$tarball" MANIFEST.json FILES.json README.md meta playbooks plugins)
 
 hostkey="$(cut -d' ' -f1,2 "$work/host.pub")"
+# porelo-host keeps its known_hosts under XDG_STATE_HOME: the run's own, never the person's.
 host() {
-    dart run "$here/bin/porelo_host.dart" "$@" --project demo --account porelo --public-key "$work/login.pub" \
+    XDG_STATE_HOME="$work/state" dart run "$here/bin/porelo_host.dart" "$@" --project demo --account porelo --public-key "$work/login.pub" \
         --identity "$work/login" --collection "$tarball" --given "$address" --host-key "$hostkey"
 }
 expect() {
