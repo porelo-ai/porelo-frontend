@@ -183,18 +183,19 @@ grep -q '"step":"copy"' "$work/up-0.jsonl" && {
 }
 
 if [ -n "$collection" ]; then
-    host up >"$work/up-1.jsonl"
-    expect 0 "$?" "the first up against $(basename "$collection")"
-    grep -q '"state":"waiting"' "$work/up-1.jsonl" && {
-        echo 'vm-run: the real plays asked for the person, which they cannot yet' >&2
+    # The real plays stop for the drive's login, which nobody gives here: the stop is the end.
+    host up --tresor porelo-host-test >"$work/up-1.jsonl"
+    expect 75 "$?" "the first up against $(basename "$collection")"
+    grep -q '"step":"person","state":"waiting","needs":\["drive"\]' "$work/up-1.jsonl" || {
+        echo 'vm-run: no waiting line asking for the drive alone' >&2
         exit 1
     }
     grep -q '"state":"done"' "$work/up-1.jsonl" || {
         echo "vm-run: no task of the plays was relayed" >&2
         exit 1
     }
-    host down >"$work/down.jsonl"
-    expect 0 "$?" 'down'
+    host down --tresor porelo-host-test >"$work/down.jsonl"
+    echo "vm-run: down after the stop ended with $?" >&2
     set -e
     cat "$work"/up-1.jsonl "$work"/down.jsonl
     exit 0
