@@ -93,11 +93,20 @@ test -x "$bundle/porelo_frontend" || {
     exit 1
 }
 
+# `porelo-host`, beside the launcher, of the same version: the interface calls this copy by its path.
+say "Building porelo-host $version"
+dart pub get --directory=packages/porelo_host >/dev/null
+dart compile exe packages/porelo_host/bin/porelo_host.dart -Dporelo_host.version="$version" -o "$bundle/porelo-host"
+test "$("$bundle/porelo-host" --version)" = "$version" || {
+    echo "porelo-host does not say $version" >&2
+    exit 1
+}
+
 # The ELF objects that decide what this package needs: the launcher and everything shipped beside
 # it. libapp.so is our own AOT-compiled Dart and libflutter_linux_gtk.so is vendored, so neither is
 # a dependency — but both are scanned, because what *they* link is.
 mapfile -t objects < <(
-    printf '%s\n' "$bundle/porelo_frontend"
+    printf '%s\n' "$bundle/porelo_frontend" "$bundle/porelo-host"
     find "$bundle/lib" -name '*.so' | sort
 )
 

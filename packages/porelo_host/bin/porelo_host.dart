@@ -9,6 +9,7 @@ porelo-host up|down --project NAME --account NAME --public-key FILE --identity F
             [--login-user NAME] [--distribution releases|snapshots]
             [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS] [--answers-on-stdin]
 porelo-host key set|forget PROVIDER
+porelo-host --version
 
   up      rents the project's host, or finds it again by its tag, and runs the playbook there; it
           stops once with 75 for the person, and an up given --answers-on-stdin goes on
@@ -27,7 +28,14 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 75 waiting for the person.
 // the program open for its idle time otherwise.
 Future<void> main(List<String> arguments) async => exit(await _run(arguments));
 
+/// The version this command was built as, given by `dart compile exe -Dporelo_host.version=…`.
+const _version = String.fromEnvironment('porelo_host.version', defaultValue: 'unreleased');
+
 Future<int> _run(List<String> arguments) async {
+  if (arguments.length == 1 && arguments.first == '--version') {
+    stdout.writeln(_version);
+    return Exit.done;
+  }
   if (arguments.isNotEmpty && arguments.first == 'key') return _key(arguments.sublist(1));
   if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return _wrong('up or down first');
   final verb = arguments.first;

@@ -7,6 +7,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `porelo-host`, beside the interface in the deb, the rpm, the ZIP and the MSIX: `porelo-host up` and
+  `down` put a project on a server and take it off again, with the playbook running on the host
+  itself, so this computer needs only ssh. It rents from Scaleway Elastic Metal, or works on a
+  machine named by `--given`, and stops once for the drive's login and the vault's passphrase,
+  which a second `up` takes on its standard input. `porelo-host key set scaleway` keeps the
+  provider's key in the system's own secret store, never in a file. Each step is one JSON line.
+
 ### Fixed
 
 - On a GitHub of its own, every call is asked under its `/api/v3`, not at the instance's root.

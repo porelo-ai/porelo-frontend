@@ -17,6 +17,8 @@ upload carries its SHA-1 and SHA-256, so Artifactory refuses bytes that do not m
   - the rpm into its channel;
   - the Windows ZIP and MSIX.
 - The probe's upload, property read and delete become `art_put` and `art_api`.
+- `porelo-host` and `porelo-host.exe` are uploaded alone too, each with a `SHA256SUMS` beside it,
+  as [F134](README.md#f134) planned and left for this move.
 - The refusal of a version that is there already and the wait until it is indexed stay as they are.
 - **The red test first:** against a stand-in HTTP server, as porelo's script was checked, with a
   wrong checksum refused.

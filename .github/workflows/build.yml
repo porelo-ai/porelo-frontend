@@ -415,11 +415,13 @@ jobs:
                       test -x /usr/bin/porelo-frontend
                       test -f /usr/lib/porelo-frontend/lib/libapp.so
                       test -f /usr/lib/porelo-frontend/data/icudtl.dat
+                      test "$(/usr/lib/porelo-frontend/porelo-host --version)" = "$(dpkg-query -W -f "\${Version}" porelo-frontend)"
                     else
                       dnf install -y /packages/*.rpm
                       test -x /usr/bin/porelo-frontend
                       test -f /usr/lib/porelo-frontend/lib/libapp.so
                       test -f /usr/lib/porelo-frontend/data/icudtl.dat
+                      test "$(/usr/lib/porelo-frontend/porelo-host --version)" = "$(rpm -q --qf "%{VERSION}" porelo-frontend)"
                     fi
                     test -f /usr/share/applications/porelo-frontend.desktop
                   '

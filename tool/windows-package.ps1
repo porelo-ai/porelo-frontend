@@ -21,6 +21,13 @@ $release = 'build/windows/x64/runner/Release'
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 $name = "porelo-frontend-$version-windows-x64"
 
+# `porelo-host.exe`, beside the interface and of its version: the interface calls this copy by its path.
+dart pub get --directory=packages/porelo_host | Out-Null
+dart compile exe packages/porelo_host/bin/porelo_host.dart "-Dporelo_host.version=$version" -o "$release/porelo-host.exe"
+if ($LASTEXITCODE -ne 0) { Write-Error "porelo-host did not compile (exit $LASTEXITCODE)"; exit 1 }
+$said = & "$release/porelo-host.exe" --version
+if ($said -ne $version) { Write-Error "porelo-host says '$said', not $version"; exit 1 }
+
 # The ZIP: the built folder as it is.
 Compress-Archive -Path "$release/*" -DestinationPath "$Out/$name.zip" -Force
 
