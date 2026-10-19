@@ -1,0 +1,49 @@
+# The image a task on this repository is built from: what its whole local build needs, every tool
+# pinned. A draft, which no Porelo reads yet; the image's reader and its review are porelo's to build.
+# Tools only: what a task may reach, and every other rule, are the project's, never this file's.
+image:
+    # Ubuntu 22.04, the oldest system the packages install on, as the Build's own runner is: the
+    # GTK this links sets the packages' floor.
+    base_image: docker.io/library/ubuntu:22.04@sha256:98510ac07bb4545e389be502a8918b385c018bfe4ceeb5ac7e0375c782268b04
+    snippet: |
+        # What `flutter build linux`, the packages and the secret store's tests need, from Ubuntu.
+        RUN apt-get update \
+         && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+              ca-certificates curl git unzip xz-utils zip \
+              clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev \
+              libstdc++-12-dev dpkg-dev binutils rpm \
+              gnome-keyring dbus python3 openssh-client \
+         && rm -rf /var/lib/apt/lists/*
+        # The GraalVM porelo-machines pins, checked against its digest.
+        RUN curl -fsSL -o /tmp/graalvm.tar.gz \
+              https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.4.4.1.1/graalvm-community-jdk-25i4-25.0.4.1.1_linux-x64_bin.tar.gz \
+         && echo '05ccbbe783210b6886ff7b08fcd0b061c5dce4852b05db87284fc0e24abb08e2  /tmp/graalvm.tar.gz' | sha256sum -c - \
+         && mkdir /opt/graalvm && tar -xzf /tmp/graalvm.tar.gz -C /opt/graalvm --strip-components=1 \
+         && rm /tmp/graalvm.tar.gz \
+         && ln -s /opt/graalvm/bin/java /usr/local/bin/java
+        # Flutter 3.47.0, the version pubspec.yaml pins, checked against its release's digest; its
+        # Linux engine fetched now, so a task needs no download for it.
+        RUN curl -fsSL -o /tmp/flutter.tar.xz \
+              https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.0-stable.tar.xz \
+         && echo '26cd99d3d94b1367e6b50535a18aeef0282c10a535bbe3ec493534dcdab75296  /tmp/flutter.tar.xz' | sha256sum -c - \
+         && tar -xJf /tmp/flutter.tar.xz -C /opt && rm /tmp/flutter.tar.xz \
+         && git config --system --add safe.directory /opt/flutter \
+         && ln -s /opt/flutter/bin/flutter /usr/local/bin/flutter \
+         && ln -s /opt/flutter/bin/dart /usr/local/bin/dart \
+         && flutter config --no-analytics >/dev/null \
+         && flutter precache --linux --no-android --no-ios --no-web \
+         && chmod -R a+rwX /opt/flutter
+        # Writable for whoever the task runs as: Flutter writes into its own SDK, its tool's
+        # packages among them, on the first `pub get` (measured: errno 13 otherwise).
+        # nfpm, which writes the deb and the rpm, and shfmt, which Spotless formats the scripts with:
+        # the versions and digests the Build checks.
+        RUN curl -fsSL -o /tmp/nfpm.tar.gz \
+              https://github.com/goreleaser/nfpm/releases/download/v2.43.0/nfpm_2.43.0_Linux_x86_64.tar.gz \
+         && echo 'a80d5f724ed70b192ffa8a2bde469c013cef559c8afa3441eb51dd9a918beb6b  /tmp/nfpm.tar.gz' | sha256sum -c - \
+         && tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin nfpm && rm /tmp/nfpm.tar.gz \
+         && curl -fsSL -o /usr/local/bin/shfmt \
+              https://github.com/mvdan/sh/releases/download/v3.12.0/shfmt_v3.12.0_linux_amd64 \
+         && echo 'd9fbb2a9c33d13f47e7618cf362a914d029d02a6df124064fff04fd688a745ea  /usr/local/bin/shfmt' | sha256sum -c - \
+         && chmod +x /usr/local/bin/shfmt
+    env:
+        JAVA_HOME: /opt/graalvm

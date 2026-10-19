@@ -21,6 +21,8 @@ on:
             - 'issues/**'
             - 'mkdocs.yml'
             - '.github/**'
+            # The task image's draft: what a task builds from, not what the packages are made of.
+            - 'porelo.yml'
     workflow_dispatch:
 
 permissions:
