@@ -1,6 +1,6 @@
 # F133 — A Provider's Key In The System's Secret Store
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - two platform stores from pure Dart, each proven in the Build's own job.
 
 **What must be true.** The provider's key is entered once, in the interface or by `porelo-host
@@ -32,7 +32,8 @@ the same entry. It is never in a file, a log or a command line.
   attribute for every name, and `key set` keeping the key under another name.
 - Measured: with no keyring opened, and with none running (D-Bus starts one), `key set` ends at
   once with 65 and "no keyring is open"; it does not wait at a desktop nobody sits at.
-- Left: the Windows round trip, which only the Build's Windows job runs.
+- The Build on `60b657b` (39220899672), published as `0.5.1~snapshot.167`, ran the round trip on
+  Linux and on Windows (`windows-2025`).
 
 ## Acceptance
 

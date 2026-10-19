@@ -1,6 +1,6 @@
 # F134 — The Host Command Built And Shipped For Linux And Windows
 
-**Status:** Implementing; blocked by [F131](README.md#f131).
+**Status:** Review.
 **Size:** S - two build legs the Build already has, and the command inside each package.
 
 **What must be true.** Each release of porelo-frontend carries `porelo-host` for Linux x64 and
@@ -35,7 +35,8 @@ operator's decision; it comes with [F109](README.md#f109), unsigned with its che
   file ends 1.
 - **Shipped alone** with its `SHA256SUMS` in Artifactory is left for [F136](README.md#f136), which
   moves every upload to curl; done here it would be one more JFrog CLI call to replace there.
-- Left: the Windows job, which only the Build runs.
+- The Build on `60b657b` (39220899672), published as `0.5.1~snapshot.167`: `porelo-host.exe` in
+  the ZIP and the MSIX saying the version, and `porelo-host --version` in every install proof.
 
 ## Acceptance
 
