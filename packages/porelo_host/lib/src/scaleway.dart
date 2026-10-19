@@ -95,9 +95,10 @@ class ScalewayElasticMetal implements HostProvider {
 
   @override
   Future<RentedHost> create(HostRequest request) async {
+    // The person's key first: a missing one is the person's to fix, and nothing is rented before it.
+    final keyId = await _sshKeyId(request.sshPublicKey, request.name);
     final offerId = await _offerId();
     final osId = await _osId();
-    final keyId = await _sshKeyId(request.sshPublicKey, request.name);
     final made = await _ok(
       'POST',
       _servers,
@@ -167,7 +168,9 @@ class ScalewayElasticMetal implements HostProvider {
     return systems.first['id'] as String;
   }
 
-  /// The project's ssh key for [publicKey], made once and found again by its key.
+  /// The project's ssh key for [publicKey]. **Registered by the person, never by this package**: the
+  /// key it is given may read the project's ssh keys, not add one, so a missing key ends the rent
+  /// before anything is rented, saying what to register and where.
   Future<String> _sshKeyId(String publicKey, String name) async {
     final listed = await _ok('GET', '/iam/v1alpha1/ssh-keys?project_id=$projectId&page_size=100', 'list the ssh keys');
     final keys = ((listed as Map)['ssh_keys'] as List).cast<Map<String, Object?>>();
@@ -175,13 +178,10 @@ class ScalewayElasticMetal implements HostProvider {
     for (final key in keys) {
       if ((key['public_key'] as String).split(' ').take(2).join(' ') == wanted) return key['id'] as String;
     }
-    final made = await _ok(
-      'POST',
-      '/iam/v1alpha1/ssh-keys',
-      'register the ssh key',
-      body: <String, Object?>{'name': 'porelo-host-$name', 'public_key': publicKey, 'project_id': projectId},
+    throw ProviderFailed(
+      'your public ssh key is not in the Scaleway project $projectId: add it once in the console, '
+      'under Project dashboard → SSH keys → Add SSH key, pasting this line: $wanted',
     );
-    return (made as Map)['id'] as String;
   }
 
   Future<Object?> _ok(String method, String path, String what, {Map<String, Object?>? body}) async {

@@ -36,11 +36,15 @@ system's secret store ([F133](README.md#f133)) and appears in no file, log or ar
   - **ready:** `status` `ready` and `install.status` `completed`, at the IPv4 address;
   - **found again** by `?tags=porelo-project=<name>`, a server being deleted not counted;
   - **given back** by `DELETE`, refused for a server without a project tag.
+- **The person's ssh key**, as the operator decided: registered once by hand in Scaleway's console;
+  the API key holds Elastic Metal and `SSHKeysReadOnly` only. `up` reads the project's keys and,
+  when the person's is missing, ends before renting, printing the line to paste and where. The
+  guide's "A project on a server" says so. Seen red: a registration put back into the rent.
 - **The host key** is not the API's, which names none: `up` makes an ed25519 pair with `ssh-keygen`.
   The private half goes into cloud-init's `ssh_keys`, and the public half into the tag
   `porelo-host-key=<base64>`, read back by every later `up` and `down`, on any computer.
 - `porelo-host up --scaleway-project ID [--zone]` takes the key `key set scaleway` kept ([F133](README.md#f133)).
-- Seven tests against recorded answers; seen red: a server without a project tag given back.
+- Eight tests against recorded answers; seen red: a server without a project tag given back.
 
 ## Acceptance
 
@@ -49,14 +53,6 @@ system's secret store ([F133](README.md#f133)) and appears in no file, log or ar
   server gone from the account afterwards, read through the API.
 - Seen to fail: a key without the right permission is said as such, and an offer out of stock is
   said with the zone.
-
-## Open questions
-
-- **The key's permissions.** Elastic Metal installs only with an ssh key registered in the
-  project's IAM (`ssh_key_ids`), so the package registers the person's public key once, or finds
-  it there. That needs `SSHKeysManager` beside Elastic Metal's own permission. Proposed: the key
-  gets both. The other way is that the person registers the public key once by hand in Scaleway's
-  console, and the key stays Elastic Metal only; the package then only finds it.
 
 ## To be checked
 

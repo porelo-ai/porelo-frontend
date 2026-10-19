@@ -55,8 +55,11 @@ void main() {
     final api = RecordedApi(<String, ApiAnswer>{
       'GET $zone/offers': offers,
       'GET $zone/os': systems,
-      'GET /iam/v1alpha1/ssh-keys': const ApiAnswer(200, <String, Object?>{'ssh_keys': <Object?>[]}),
-      'POST /iam/v1alpha1/ssh-keys': const ApiAnswer(200, <String, Object?>{'id': 'key-9'}),
+      'GET /iam/v1alpha1/ssh-keys': const ApiAnswer(200, <String, Object?>{
+        'ssh_keys': <Object?>[
+          <String, Object?>{'id': 'key-9', 'public_key': 'ssh-ed25519 PERSON me@example'},
+        ],
+      }),
       'POST $zone/servers': ApiAnswer(200, server(status: 'delivering', install: 'to_install')),
     });
 
@@ -83,7 +86,23 @@ void main() {
     expect(host.hostKey, 'ssh-ed25519 AAAAHOST', reason: 'the key the request made, read back from its tag');
   });
 
-  test('the person\'s key already in the project is taken, not registered twice', () async {
+  test(
+    'a person\'s key missing from the project ends the rent before anything is rented, saying what to add',
+    () async {
+      final api = RecordedApi(<String, ApiAnswer>{
+        'GET /iam/v1alpha1/ssh-keys': const ApiAnswer(200, <String, Object?>{'ssh_keys': <Object?>[]}),
+      });
+      await expectLater(
+        adapter(api).create(const HostRequest(name: 'demo', tags: <String>[], sshPublicKey: 'ssh-ed25519 PERSON me')),
+        throwsA(
+          predicate((Object e) => '$e'.contains('add it once in the console') && '$e'.endsWith('ssh-ed25519 PERSON')),
+        ),
+      );
+      expect(api.requests.where((r) => r.$1 != 'GET'), isEmpty, reason: 'nothing is registered and nothing rented');
+    },
+  );
+
+  test('the person\'s key already in the project is taken, whatever its comment', () async {
     final api = RecordedApi(<String, ApiAnswer>{
       'GET $zone/offers': offers,
       'GET $zone/os': systems,
@@ -154,6 +173,11 @@ void main() {
     );
 
     final empty = RecordedApi(<String, ApiAnswer>{
+      'GET /iam/v1alpha1/ssh-keys': const ApiAnswer(200, <String, Object?>{
+        'ssh_keys': <Object?>[
+          <String, Object?>{'id': 'key-1', 'public_key': 'ssh-ed25519 K'},
+        ],
+      }),
       'GET $zone/offers': const ApiAnswer(200, <String, Object?>{
         'offers': <Object?>[
           <String, Object?>{'id': 'offer-1', 'name': 'EM-I220E-NVME', 'stock': 'empty'},

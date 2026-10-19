@@ -125,6 +125,37 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
 
 *Needs you* lists everything a person has to answer, on every machine, the most urgent first.
 
+## A project on a server
+
+`porelo-host`, installed beside the interface (`/usr/lib/porelo-frontend/porelo-host`, or
+`porelo-host.exe` in the Windows folder), puts a project on a rented server and takes it off
+again. The playbook runs on the server itself, so this computer needs only ssh.
+
+**Once, in Scaleway's console**, for the project the host is rented in:
+
+1. Add your public ssh key: *Project dashboard* → *SSH keys* → *Add SSH key*, pasting the line
+   from your `.pub` file. `porelo-host` never adds a key; when yours is missing it stops before
+   renting anything and prints the line to paste.
+2. Make an API key that may manage Elastic Metal and only read the project's ssh keys
+   (`SSHKeysReadOnly`), and keep it in this computer's own secret store:
+
+   ```sh
+   porelo-host key set scaleway      # reads the key from standard input; nothing is echoed
+   ```
+
+**Then, for each project:**
+
+```sh
+porelo-host up --project <name> --account porelo --public-key ~/.ssh/id_ed25519.pub \
+    --identity ~/.ssh/id_ed25519 --collection porelo-host-<version>.tar.gz --scaleway-project <project id>
+```
+
+It rents the host, or finds it again by its tag, and stops once with exit code 75 for what only you
+can give: the drive's login and the vault's passphrase. The same `up` again with
+`--answers-on-stdin` takes them as one JSON object on standard input, never as arguments, and goes
+on. `porelo-host down` with the same options takes the last copies and gives the host back. Every
+step is one JSON line on standard output.
+
 ## What the other pages hold
 
 - [Design](design.md): what the interface is made of, and why.
