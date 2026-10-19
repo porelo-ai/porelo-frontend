@@ -13,7 +13,7 @@ of drive: Tresorit's, and OneDrive's ([F139](README.md#f139)).
 
 - **A project's drive folder, chosen once and kept.** *Put this project on a server…*
   ([F135](README.md#f135)) asks for the folder of the project's tresor on this computer, with the
-  system's folder picker. The folder is offered first where it can be read without guessing: on
+  system's folder picker, the operator's choice over reading other programs' settings. The folder is offered first where it can be read without guessing: on
   Windows `%OneDrive%` and `%OneDriveCommercial%`, which the OneDrive client sets. Nothing is read
   out of another program's settings. The choice is kept in the interface's own settings for the
   project, never in its `project.yml`, and can be changed there. Without a folder, the dialog says
@@ -28,8 +28,12 @@ of drive: Tresorit's, and OneDrive's ([F139](README.md#f139)).
   - **Nothing is written over:** a file that is there already and differs is kept, and the dialog
     says so and names it. The person removes it or chooses another folder.
 - **For a drive that is not end to end,** `wireguard.key` is written as `wireguard.key.age`, in the
-  [age](https://age-encryption.org) format, which Ubuntu and Fedora package. The host decrypts it with
-  `age`. What it is encrypted to is Q2. The interface says, beside that kind, that the drive's
+  [age](https://age-encryption.org) format, which Ubuntu and Fedora package, encrypted to an age
+  identity made here (`AGE-SECRET-KEY-1…`), the operator's choice. The identity is kept in the
+  system's secret store as `porelo-host key set` keeps the provider's key, and given to the host only
+  at the stop on standard input, as one more answer, `driveKeyIdentity`, beside the vault's. The
+  host decrypts with `age -d -i -`. Not a passphrase: Ubuntu 26.04's `age` 1.2.1 refuses one
+  without a terminal, which the host has not at the stop (measured). The interface says, beside that kind, that the drive's
   provider and the company's admins could read what lies there otherwise, and that the key is
   therefore written encrypted.
 - **The command line stays as it is.** `porelo-host` only reads its options; the files are the
@@ -47,26 +51,6 @@ of drive: Tresorit's, and OneDrive's ([F139](README.md#f139)).
   `up` then finds the key where the drive brings it, without a hand copy (with porelo-host's side).
 - For a drive marked not end to end, only `wireguard.key.age` lies in the folder, and the host's
   `age` decrypts it.
-
-## Open questions
-
-- **Q1 - how the folder is found.**
-  - **(a) proposed:** the person picks it once per project, with Windows' OneDrive folders offered
-    first.
-  - **(b):** read the Tresorit app's and GNOME Online Accounts' own settings to find the folders.
-    That is undocumented and changes with their versions.
-- **Q2 - what the encrypted key is encrypted to.**
-  - **(a) the operator's shape:** an age identity made here (`AGE-SECRET-KEY-1…`), the key
-    encrypted to its recipient. The identity is kept in the system's secret store as `porelo-host
-    key set` keeps the provider's key, and given to the host only at the stop on standard input:
-    one more answer, `driveKeyIdentity`, beside the vault's. Not a passphrase, since `age` asks for
-    one only at a terminal, which the host has not at the stop. Measured on Ubuntu 26.04's `age`
-    1.2.1: a passphrase without a terminal is refused, and `age -d -i -` takes an identity from a
-    pipe.
-  - **(b):** the host's own ssh host key, which `up` makes here before renting. age encrypts to an
-    `ssh-ed25519` key, so the host decrypts with what it already holds, and no secret passes at the
-    stop. But the file is bound to that one host, and written anew each time a host is rented.
-  - **(a) is proposed:** it survives a new host, and the stop already carries secrets.
 
 ## To be checked
 
