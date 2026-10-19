@@ -1,6 +1,6 @@
 # F131 — A Host Brought Up And Down By One Command
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - a new pure-Dart package and its command line, with the run, the stop and the
 resume, proven against a real machine.
 
@@ -80,6 +80,15 @@ runs on the host itself, so the person's computer needs only this command and ss
   itself and reads it as the line after the password on the same standard input. So `up` sends
   `password`, then the code when there is one, to `tresorit-cli login --password-on-stdin`.
 - The tarball is taken only by its digest: [F137](README.md#f137).
+
+## Proven on a rented host
+
+The operator's sixth full run at Scaleway on 2026-10-19 (`porelo-host` 0.5.1~snapshot.170, porelo-host's
+collection at `224f529`, porelo 0.5.1~snapshot.313) went through end to end: rent, ssh against the
+provider's host key, the copy, `ansible-core`, both plays, the stop for the drive and a new vault,
+the resume with the answers on standard input only, and `down` giving the host back, the
+provider's list read empty after. Before it, `tool/vm-run.sh` with the real collection proved the
+account's ssh login, the drive's client and the vault's step on a local VM, with no login at all.
 
 ## Acceptance
 

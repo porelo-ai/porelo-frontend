@@ -1,6 +1,6 @@
 # F132 — A Host Rented From Scaleway Elastic Metal
 
-**Status:** Implementing; blocked by [F131](README.md#f131) (the provider interface) and [F133](README.md#f133) (the key's store).
+**Status:** Review.
 **Size:** M - one REST adapter, its answers recorded, and one real rent.
 
 **What must be true.** `porelo-host up` rents an Elastic Metal server from Scaleway, the offer
@@ -54,10 +54,10 @@ system's secret store ([F133](README.md#f133)) and appears in no file, log or ar
 - Seen to fail: a key without the right permission is said as such, and an offer out of stock is
   said with the zone.
 
-## To be checked
+## Measured on real rents (2026-10-19)
 
-- Whether `user_data` is sent as a base64 string, as Scaleway's own SDKs send it, or as the
-  schema's `{"value": …}`; the first real rent answers it.
-- That Ubuntu 26.04 on Elastic Metal says `cloud_init_supported` and takes `ssh_keys`, so the
-  host key the tag names is the one sshd offers.
-- The time from the rent to `ready`, measured at the first real rent.
+- `user_data` as `porelo-host` sends it is taken: cloud-init ran, and the host key the tag names is
+  the one sshd offered, so `ssh_keys` holds on Ubuntu 26.04 there.
+- An EM-I220E-NVME in fr-par-1 is `ready` about 32 seconds after the rent, installs for about 8
+  minutes and answers ssh about 13 minutes after the rent. `up` asks ssh again for 20 minutes.
+- Six rents and six give-backs, each read empty in the provider's list after.

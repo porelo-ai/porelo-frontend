@@ -1,7 +1,8 @@
 # F135 — The Interface Brings A Host Up And Down
 
-**Status:** Implementing; blocked by [F131](README.md#f131), [F133](README.md#f133), [F134](README.md#f134) and porelo
-[B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209).
+**Status:** Implementing. What it runs is proven on a rented host by the command line
+([F131](README.md#f131), the operator's sixth run of 2026-10-19); left: this page itself against a
+real host, which no run has shown yet.
 **Size:** M - one page that runs the command, reads its lines and answers its one stop.
 
 **What must be true.** In a project, a person chooses *Put on a server* and sees the steps of
