@@ -85,6 +85,7 @@ class HostSession extends ChangeNotifier {
         jsonEncode(<String, String>{
           if (answers.driveEmail != null) 'driveEmail': answers.driveEmail!,
           if (answers.drivePassword != null) 'drivePassword': answers.drivePassword!,
+          if (answers.driveCode != null) 'driveCode': answers.driveCode!,
           if (answers.vaultPassphrase != null) 'vaultPassphrase': answers.vaultPassphrase!,
         }),
       );

@@ -22,7 +22,7 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 75 waiting for the person.
 
 --scaleway-project rents from Scaleway Elastic Metal, with the key `key set scaleway` kept.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
---answers-on-stdin reads one JSON object: driveEmail, drivePassword, vaultPassphrase.''';
+--answers-on-stdin reads one JSON object: driveEmail, drivePassword, driveCode, vaultPassphrase.''';
 
 // Ends with the run's code at once: an HTTPS connection to the provider, kept for reuse, would hold
 // the program open for its idle time otherwise.

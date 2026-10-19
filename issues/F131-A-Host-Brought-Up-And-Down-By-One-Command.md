@@ -75,6 +75,10 @@ runs on the host itself, so the person's computer needs only this command and ss
   - the collection is installed as root, since the plays leave root's files in it.
 - Left for porelo-host's own plays (HO02, HO09): the run against the real collection.
 
+- **The drive's second factor**, as the operator decided: never an argument. Measured by Agent
+  Machines on Tresorit 3.5.1300.4870 over `ssh -T`: without `--totp` the client asks for the code
+  itself and reads it as the line after the password on the same standard input. So `up` sends
+  `password`, then the code when there is one, to `tresorit-cli login --password-on-stdin`.
 - The tarball is taken only by its digest: [F137](README.md#f137).
 
 ## Acceptance

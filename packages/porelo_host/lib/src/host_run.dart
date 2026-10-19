@@ -10,7 +10,7 @@ import 'steps.dart';
 /// their standard input only.
 class Answers {
   /// Constructor taking the drive's login and the vault's passphrase, each where it was asked for.
-  const Answers({this.driveEmail, this.drivePassword, this.vaultPassphrase});
+  const Answers({this.driveEmail, this.drivePassword, this.driveCode, this.vaultPassphrase});
 
   /// The answers as the interface writes them to `up`'s standard input: one JSON object.
   factory Answers.fromJson(String text) {
@@ -18,6 +18,7 @@ class Answers {
     return Answers(
       driveEmail: map['driveEmail'] as String?,
       drivePassword: map['drivePassword'] as String?,
+      driveCode: map['driveCode'] as String?,
       vaultPassphrase: map['vaultPassphrase'] as String?,
     );
   }
@@ -27,6 +28,9 @@ class Answers {
 
   /// The drive's password.
   final String? drivePassword;
+
+  /// The drive's second factor, a one-time code, when the account has one.
+  final String? driveCode;
 
   /// The vault's passphrase.
   final String? vaultPassphrase;
@@ -291,7 +295,9 @@ class HostRun {
         address,
         plan.account,
         'tresorit-cli login --email ${_quoted(answers.driveEmail ?? '')} --password-on-stdin',
-        input: '${answers.drivePassword}\n',
+        // The one-time code is the line after the password: the client asks for it itself and
+        // reads it from the same standard input (measured on Tresorit 3.5.1300.4870).
+        input: '${answers.drivePassword}\n${answers.driveCode == null ? '' : '${answers.driveCode}\n'}',
       );
       if (login.exitCode != 0) return _refused('drive', login, 'the drive refused the login');
       emit(const Step('drive', StepState.done));

@@ -43,6 +43,7 @@ class _HostDialogState extends State<HostDialog> {
   final _collection = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _code = TextEditingController();
   final _passphrase = TextEditingController();
   final _again = TextEditingController();
   HostSession? _session;
@@ -55,7 +56,7 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     for (final field in <TextEditingController>[
-      _scaleway, _account, _publicKey, _identity, _collection, _email, _password, _passphrase, _again, //
+      _scaleway, _account, _publicKey, _identity, _collection, _email, _password, _code, _passphrase, _again, //
     ]) {
       field.dispose();
     }
@@ -101,10 +102,12 @@ class _HostDialogState extends State<HostDialog> {
     final answers = Answers(
       driveEmail: needs.contains('drive') ? _email.text.trim() : null,
       drivePassword: needs.contains('drive') ? _password.text : null,
+      driveCode: needs.contains('drive') && _code.text.trim().isNotEmpty ? _code.text.trim() : null,
       vaultPassphrase: needs.any((n) => n.startsWith('vault')) ? _passphrase.text : null,
     );
     // Gone from the fields before the command even starts: the answers live only in what is sent.
     _password.clear();
+    _code.clear();
     _passphrase.clear();
     _again.clear();
     unawaited(_session!.resume(answers));
@@ -216,6 +219,8 @@ class _HostDialogState extends State<HostDialog> {
         if (drive) ...<Widget>[
           _field(_email, 'Tresorit e-mail', 'host-drive-email'),
           _field(_password, 'Tresorit password', 'host-drive-password', secret: true),
+          // Asked here, at the stop, so it is still valid when it reaches the host a moment later.
+          _field(_code, 'Tresorit one-time code (empty without a second factor)', 'host-drive-code', secret: true),
         ],
         if (vault)
           _field(

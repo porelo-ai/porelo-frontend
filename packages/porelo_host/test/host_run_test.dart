@@ -152,15 +152,17 @@ void main() {
       answers: const Answers(
         driveEmail: 'me@example.org',
         drivePassword: 'drive-secret',
+        driveCode: '123456',
         vaultPassphrase: 'vault-secret',
       ),
     );
 
     expect(code, Exit.done);
     expect(provider.created, 0, reason: 'the host is found again by its tag');
-    expect(remote.inputs, containsAll(<String>['drive-secret\n', 'vault-secret\n']));
+    expect(remote.inputs, containsAll(<String>['drive-secret\n123456\n', 'vault-secret\n']));
     for (final command in remote.commands) {
       expect(command, isNot(contains('secret')), reason: 'a secret never stands in a command line');
+      expect(command, isNot(contains('123456')), reason: 'nor the one-time code, nor as --totp');
     }
     final login = remote.commands.indexWhere((c) => c.contains('tresorit-cli login'));
     final vault = remote.commands.indexWhere((c) => c.contains('--passphrase-stdin'));

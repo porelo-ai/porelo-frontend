@@ -66,6 +66,7 @@ void main() {
     expect(find.byKey(const Key('host-fix')), findsNothing, reason: 'a stop is no refusal');
     await tester.enterText(find.byKey(const Key('host-drive-email')), 'me@example.org');
     await tester.enterText(find.byKey(const Key('host-drive-password')), 'drive-secret');
+    await tester.enterText(find.byKey(const Key('host-drive-code')), '654321');
     await tester.enterText(find.byKey(const Key('host-passphrase')), 'vault-secret');
     await tester.enterText(find.byKey(const Key('host-passphrase-again')), 'vault-other');
     await tester.pump();
@@ -80,8 +81,10 @@ void main() {
     final second = File('${scratch.path}/arguments-2').readAsStringSync();
     expect(second, contains('--answers-on-stdin'));
     expect(second, isNot(contains('secret')), reason: 'a secret never stands in the arguments');
+    expect(second, isNot(contains('654321')), reason: 'nor the one-time code');
     final input = File('${scratch.path}/input-2').readAsStringSync();
     expect(input, contains('drive-secret'));
+    expect(input, contains('"driveCode":"654321"'));
     expect(input, contains('vault-secret'));
     expect(File('${scratch.path}/arguments-1').readAsStringSync(), contains('--scaleway-project\nproject-1\n'));
   });
