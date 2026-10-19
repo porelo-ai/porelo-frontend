@@ -75,6 +75,8 @@ runs on the host itself, so the person's computer needs only this command and ss
   - the collection is installed as root, since the plays leave root's files in it.
 - Left for porelo-host's own plays (HO02, HO09): the run against the real collection.
 
+- The tarball is taken only by its digest: [F137](README.md#f137).
+
 ## Acceptance
 
 - The whole `up`, the stop, the resume and `down` run against `GivenMachine` on the test VM
