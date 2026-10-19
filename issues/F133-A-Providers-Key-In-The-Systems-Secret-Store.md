@@ -1,6 +1,6 @@
 # F133 — A Provider's Key In The System's Secret Store
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - two platform stores from pure Dart, each proven in the Build's own job.
 
 **What must be true.** The provider's key is entered once, in the interface or by `porelo-host
@@ -22,12 +22,19 @@ the same entry. It is never in a file, a log or a command line.
 - **The red test first:** write, read and remove on each system in the Build's own job for it,
   run red with a read under another name.
 
+## Built so far
+
+- `SecretStore` with `SecretServiceStore` (D-Bus, `package:dbus` 0.8.0) and `CredentialManagerStore`
+  (`package:win32` 6.4.0), and `porelo-host key set|forget PROVIDER`, the key on standard input,
+  not echoed at a terminal, never said back.
+- `tool/keyring-test.sh` runs the store's tests on Linux against a GNOME Keyring of their own, on
+  a bus and in a home made for the run; the person's keyring is never touched. Seen red: one
+  attribute for every name, and `key set` keeping the key under another name.
+- Measured: with no keyring opened, and with none running (D-Bus starts one), `key set` ends at
+  once with 65 and "no keyring is open"; it does not wait at a desktop nobody sits at.
+- Left: the Windows round trip, which only the Build's Windows job runs.
+
 ## Acceptance
 
 - The round trip is green in the Build on Linux (`ubuntu-22.04`) and on Windows (`windows-2025`),
   and the value is seen in no argument (`ps` while it runs) and in no file.
-
-## To be checked
-
-- Whether a Secret Service with a locked collection asks at the desktop or refuses, when the
-  command line runs without one.

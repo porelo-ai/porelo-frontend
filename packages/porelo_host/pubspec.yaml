@@ -7,7 +7,7 @@ environment:
     sdk: ^3.13.0
 
 # None, and no Flutter: the interface imports it, and `dart compile exe` builds the command from it.
-dependencies: {}
+dependencies: {dbus: ^0.8.0, ffi: ^2.2.0, win32: ^6.4.0}
 
 dev_dependencies:
     lints: ^6.0.0

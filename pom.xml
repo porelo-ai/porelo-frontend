@@ -146,6 +146,22 @@
                             <workingDirectory>packages/porelo_host</workingDirectory>
                             <arguments>
                                 <argument>test</argument>
+                                <argument>--exclude-tags=keystore</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <!-- The secret store against a Secret Service of its own, never the person's keyring. -->
+                    <execution>
+                        <id>host-keystore-test</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipTests}</skip>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>packages/porelo_host/tool/keyring-test.sh</argument>
                             </arguments>
                         </configuration>
                     </execution>

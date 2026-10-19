@@ -7,10 +7,13 @@ const _usage = '''
 porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE --collection FILE
             --given ADDRESS --host-key "TYPE BASE64" [--login-user NAME] [--distribution releases|snapshots]
             [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS] [--answers-on-stdin]
+porelo-host key set|forget PROVIDER
 
   up      rents the project's host, or finds it again by its tag, and runs the playbook there; it
           stops once with 75 for the person, and an up given --answers-on-stdin goes on
   down    runs the down play, then gives the host back
+  key     keeps a provider's key in the system's own store, read from standard input, or forgets it;
+          the key is never an argument, and nothing is said of it but that it was kept
 
 One JSON line per step on standard output; the words for a person on standard error.
 Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 75 waiting for the person.
@@ -23,6 +26,7 @@ Future<void> main(List<String> arguments) async {
 }
 
 Future<int> _run(List<String> arguments) async {
+  if (arguments.isNotEmpty && arguments.first == 'key') return _key(arguments.sublist(1));
   if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return _wrong('up or down first');
   final verb = arguments.first;
   final options = <String, String>{};
@@ -65,6 +69,36 @@ Future<int> _run(List<String> arguments) async {
     vpnPeerAddress: options['vpn-peer-address'],
   );
   return verb == 'up' ? run.up(plan, answers: answers) : run.down(plan);
+}
+
+/// `key set PROVIDER` and `key forget PROVIDER`.
+Future<int> _key(List<String> arguments) async {
+  if (arguments.length != 2 || !<String>{'set', 'forget'}.contains(arguments.first)) {
+    return _wrong('key set PROVIDER or key forget PROVIDER');
+  }
+  final name = providerKeyName(arguments[1]);
+  final store = SecretStore.forThisSystem();
+  try {
+    if (arguments.first == 'forget') {
+      await store.remove(name);
+      stderr.writeln('porelo-host: the key for ${arguments[1]} is forgotten');
+      return Exit.done;
+    }
+    // One line; a key typed at a terminal is not echoed.
+    if (stdin.hasTerminal) stdin.echoMode = false;
+    final line = stdin.readLineSync(encoding: utf8);
+    if (stdin.hasTerminal) stdin.echoMode = true;
+    final key = line?.trim() ?? '';
+    if (key.isEmpty) return _wrong('no key on standard input');
+    await store.write(name, key);
+    stderr.writeln('porelo-host: the key for ${arguments[1]} is kept in the system\'s store');
+    return Exit.done;
+  } on SecretStoreFailed catch (e) {
+    stderr.writeln('porelo-host: $e');
+    return Exit.refused;
+  } finally {
+    await store.close();
+  }
 }
 
 /// Where this command keeps its own `known_hosts`: never the person's own.
