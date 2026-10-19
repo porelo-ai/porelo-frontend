@@ -1,6 +1,6 @@
 # F141 — An Agent Signed In On The Host At The Stop
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** When `porelo-host up` stops with `agent-login:<agent>` for an agent the
 host's vault has no credential for, the interface signs that agent in on the host, as it signs one

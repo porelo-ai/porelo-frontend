@@ -1,6 +1,7 @@
 # F140 — The Host's Files Written Into The Person's Drive
 
-**Status:** Analyzed.
+**Status:** Estimated; built only after porelo-project's issue *A host mounts the person's drives*
+settles the drive's folders, so that it is not built twice.
 **Size:** M - a folder found once per project, two files written there, and one of them encrypted
 for a drive that is not end to end.
 
