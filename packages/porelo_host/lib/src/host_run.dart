@@ -136,8 +136,8 @@ class HostRun {
     this.hostKeys = sshKeygenEd25519,
     this.pollEvery = const Duration(seconds: 15),
     this.readyWithin = const Duration(minutes: 40),
-    this.sshTries = 40,
-    this.sshEvery = const Duration(seconds: 6),
+    this.sshWithin = const Duration(minutes: 20),
+    this.sshEvery = const Duration(seconds: 10),
   });
 
   /// Who rents the host.
@@ -161,8 +161,10 @@ class HostRun {
   /// How long a host may take to be ready.
   final Duration readyWithin;
 
-  /// How often ssh is tried on a host that is ready, before it counts as unreachable.
-  final int sshTries;
+  /// How long ssh is asked again on a host the provider calls ready, before it counts as
+  /// unreachable. Scaleway's Elastic Metal installs its system after it reports ready, and answered
+  /// ssh about 13 minutes later (measured 2026-10-19).
+  final Duration sshWithin;
 
   /// How long between two tries.
   final Duration sshEvery;
@@ -290,7 +292,8 @@ class HostRun {
     var reached = await remote.run(host.address!, plan.loginUser, 'true');
     // A host key that is not the provider's is never asked again: that is the one answer waiting
     // cannot change, and the refusal comes at once.
-    for (var tries = 1; reached.exitCode != 0 && !_keyRefused(reached) && tries < sshTries; tries++) {
+    final sshUntil = DateTime.now().add(sshWithin);
+    while (reached.exitCode != 0 && !_keyRefused(reached) && DateTime.now().isBefore(sshUntil)) {
       await Future<void>.delayed(sshEvery);
       reached = await remote.run(host.address!, plan.loginUser, 'true');
     }

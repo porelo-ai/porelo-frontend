@@ -171,6 +171,26 @@ void main() {
     expect(remote.users[vault], 'porelo', reason: 'the vault is the account\'s own');
   });
 
+  test('ssh is asked again for twenty minutes by default, a bare-metal host\'s first boot', () {
+    final run = HostRun(provider: CountingProvider(), remote: ScriptedRemote(<String>[]), emit: (_) {});
+    expect(run.sshWithin, const Duration(minutes: 20), reason: 'Elastic Metal answered ssh after about 13 minutes');
+  });
+
+  test('a host that does not answer ssh within its time is unreachable, with ssh\'s last words', () async {
+    final down = FlakySsh(<RemoteResult>[const RemoteResult(255, 'Connection refused')], forever: true);
+    final steps = <Step>[];
+    final run = HostRun(
+      provider: CountingProvider(),
+      remote: down,
+      emit: steps.add,
+      sshEvery: const Duration(milliseconds: 5),
+      sshWithin: const Duration(milliseconds: 60),
+    );
+    expect(await run.up(plan), Exit.unreachable);
+    expect(down.tries, inInclusiveRange(3, 20), reason: 'asked again while the time lasts, and no longer');
+    expect(steps.last.words, 'Connection refused');
+  });
+
   test('ssh is asked again while a fresh host starts, but a wrong host key is refused at once', () async {
     final starting = FlakySsh(<RemoteResult>[
       const RemoteResult(255, 'kex_exchange_identification: read: Connection reset by peer'),
