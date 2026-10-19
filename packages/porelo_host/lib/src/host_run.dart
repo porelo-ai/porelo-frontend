@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'provider.dart';
 import 'remote.dart';
@@ -83,6 +84,33 @@ class HostPlan {
   String get tag => 'porelo-project=$project';
 }
 
+/// The tag a rented host's public ssh host key is kept in, after the key's type `ssh-ed25519`.
+const hostKeyTag = 'porelo-host-key=';
+
+/// A new ed25519 key pair from the system's own `ssh-keygen`, in a directory removed straight after.
+Future<(String, String)> sshKeygenEd25519() async {
+  final directory = await Directory.systemTemp.createTemp('porelo-host-key-');
+  try {
+    final file = '${directory.path}${Platform.pathSeparator}host';
+    final made = await Process.run('ssh-keygen', <String>[
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-C',
+      'porelo-host',
+      '-f',
+      file,
+    ]);
+    if (made.exitCode != 0) throw StateError('ssh-keygen could not make a host key: ${made.stderr}');
+    final public = (await File('$file.pub').readAsString()).trim().split(' ').take(2).join(' ');
+    return (await File(file).readAsString(), public);
+  } finally {
+    await directory.delete(recursive: true);
+  }
+}
+
 /// Where everything goes on the host.
 const _workdir = '/var/tmp/porelo-host';
 
@@ -101,6 +129,7 @@ class HostRun {
     required this.remote,
     required this.emit,
     this.trust,
+    this.hostKeys = sshKeygenEd25519,
     this.pollEvery = const Duration(seconds: 15),
     this.readyWithin = const Duration(minutes: 40),
     this.sshTries = 40,
@@ -118,6 +147,9 @@ class HostRun {
 
   /// Makes a host key the one a host is trusted by, before the first login.
   final Future<void> Function(String address, String hostKey)? trust;
+
+  /// Makes a new ssh host key pair: the private key in OpenSSH's form, and the public line.
+  final Future<(String, String)> Function() hostKeys;
 
   /// How often the provider is asked while a host is being made.
   final Duration pollEvery;
@@ -195,9 +227,7 @@ class HostRun {
 
   Future<RentedHost?> _rented(HostPlan plan) async {
     emit(const Step('rent', StepState.started));
-    var host =
-        await provider.find(plan.tag) ??
-        await provider.create(HostRequest(name: plan.project, tags: <String>[plan.tag], sshPublicKey: plan.publicKey));
+    var host = await provider.find(plan.tag) ?? await _create(plan);
     final until = DateTime.now().add(readyWithin);
     while (!host.ready || host.address == null || host.hostKey == null) {
       if (DateTime.now().isAfter(until)) {
@@ -226,6 +256,30 @@ class HostRun {
     }
     emit(const Step('ssh', StepState.done));
     return host;
+  }
+
+  /// Rents a host whose ssh host key is made here: its private half goes to the host in cloud-init's
+  /// data only, its public half into a tag, so any later `up` or `down` trusts exactly that key.
+  Future<RentedHost> _create(HostPlan plan) async {
+    final (private, public) = await hostKeys();
+    final data = StringBuffer()
+      ..writeln('#cloud-config')
+      ..writeln('ssh_deletekeys: true')
+      ..writeln('ssh_genkeytypes: [ed25519]')
+      ..writeln('ssh_keys:')
+      ..writeln('  ed25519_private: |');
+    for (final line in const LineSplitter().convert(private.trim())) {
+      data.writeln('    $line');
+    }
+    data.writeln('  ed25519_public: $public');
+    return provider.create(
+      HostRequest(
+        name: plan.project,
+        tags: <String>[plan.tag, '$hostKeyTag${public.split(' ')[1]}'],
+        sshPublicKey: plan.publicKey,
+        userData: data.toString(),
+      ),
+    );
   }
 
   /// The person's answers, each on the standard input of its own command as [HostPlan.account].

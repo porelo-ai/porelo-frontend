@@ -230,4 +230,50 @@ void main() {
     expect(await run.down(plan), Exit.refused);
     expect(provider.released, isEmpty, reason: 'a host whose last copy failed still holds the only copy');
   });
+
+  test('a new host gets a host key made here: its private half in cloud-init, its public half in a tag', () async {
+    HostRequest? asked;
+    final provider = _AskingProvider((request) => asked = request);
+    final remote = ScriptedRemote(finishes);
+    final run = HostRun(
+      provider: provider,
+      remote: remote,
+      emit: (_) {},
+      hostKeys: () async =>
+          ('-----BEGIN OPENSSH PRIVATE KEY-----\nPRIVATE\n-----END OPENSSH PRIVATE KEY-----\n', 'ssh-ed25519 HOSTPUB'),
+    );
+
+    await run.up(plan);
+
+    expect(asked!.tags, containsAll(<String>['porelo-project=demo', 'porelo-host-key=HOSTPUB']));
+    expect(asked!.userData, contains('ssh_genkeytypes: [ed25519]'));
+    expect(asked!.userData, contains('    PRIVATE\n'));
+    expect(asked!.userData, contains('ed25519_public: ssh-ed25519 HOSTPUB'));
+    for (final command in remote.commands) {
+      expect(command, isNot(contains('PRIVATE')), reason: 'the private half goes to the provider only');
+    }
+  });
+}
+
+/// A provider that keeps what it was asked to rent, and rents it ready.
+class _AskingProvider implements HostProvider {
+  _AskingProvider(this.asked);
+
+  final void Function(HostRequest request) asked;
+  RentedHost? rented;
+
+  @override
+  Future<RentedHost?> find(String tag) async => rented;
+
+  @override
+  Future<RentedHost> create(HostRequest request) async {
+    asked(request);
+    return rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 HOSTPUB', ready: true);
+  }
+
+  @override
+  Future<RentedHost> state(String id) async => rented!;
+
+  @override
+  Future<void> release(String id) async {}
 }

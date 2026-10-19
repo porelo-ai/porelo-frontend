@@ -1,6 +1,6 @@
 # F132 — A Host Rented From Scaleway Elastic Metal
 
-**Status:** Backlog; blocked by [F131](README.md#f131) (the provider interface) and [F133](README.md#f133) (the key's store).
+**Status:** Implementing; blocked by [F131](README.md#f131) (the provider interface) and [F133](README.md#f133) (the key's store).
 **Size:** M - one REST adapter, its answers recorded, and one real rent.
 
 **What must be true.** `porelo-host up` rents an Elastic Metal server from Scaleway, the offer
@@ -27,6 +27,21 @@ system's secret store ([F133](README.md#f133)) and appears in no file, log or ar
 - **The red test first:** recorded answers for create, poll, ready and delete. It is run red with
   the delete given an untagged server.
 
+## Built so far
+
+- `ScalewayElasticMetal` against Elastic Metal API v1 and IAM's ssh keys, read in Scaleway's own
+  schema (`/en/developers/api/elastic-metal/v1/schema.yml`):
+  - **rent:** the offer by name and Ubuntu 26.04 by name and version, `POST …/servers` with the
+    tags, `install` (`os_id`, `hostname`, `ssh_key_ids`) and `user_data` for cloud-init;
+  - **ready:** `status` `ready` and `install.status` `completed`, at the IPv4 address;
+  - **found again** by `?tags=porelo-project=<name>`, a server being deleted not counted;
+  - **given back** by `DELETE`, refused for a server without a project tag.
+- **The host key** is not the API's, which names none: `up` makes an ed25519 pair with `ssh-keygen`.
+  The private half goes into cloud-init's `ssh_keys`, and the public half into the tag
+  `porelo-host-key=<base64>`, read back by every later `up` and `down`, on any computer.
+- `porelo-host up --scaleway-project ID [--zone]` takes the key `key set scaleway` kept ([F133](README.md#f133)).
+- Seven tests against recorded answers; seen red: a server without a project tag given back.
+
 ## Acceptance
 
 - One real `up` and `down` per release of the package, by hand on the operator's word, with the
@@ -35,9 +50,18 @@ system's secret store ([F133](README.md#f133)) and appears in no file, log or ar
 - Seen to fail: a key without the right permission is said as such, and an offer out of stock is
   said with the zone.
 
+## Open questions
+
+- **The key's permissions.** Elastic Metal installs only with an ssh key registered in the
+  project's IAM (`ssh_key_ids`), so the package registers the person's public key once, or finds
+  it there. That needs `SSHKeysManager` beside Elastic Metal's own permission. Proposed: the key
+  gets both. The other way is that the person registers the public key once by hand in Scaleway's
+  console, and the key stays Elastic Metal only; the package then only finds it.
+
 ## To be checked
 
-- Whether the create or install call takes cloud-init user data on Elastic Metal: the API
-  reference names `tags` and `install`, and Scaleway's concepts page says cloud-init runs at the
-  first boot.
-- How the host key is reported, and the time an install takes.
+- Whether `user_data` is sent as a base64 string, as Scaleway's own SDKs send it, or as the
+  schema's `{"value": …}`; the first real rent answers it.
+- That Ubuntu 26.04 on Elastic Metal says `cloud_init_supported` and takes `ssh_keys`, so the
+  host key the tag names is the one sshd offers.
+- The time from the rent to `ready`, measured at the first real rent.

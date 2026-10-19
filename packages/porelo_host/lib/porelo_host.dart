@@ -4,5 +4,6 @@ library;
 export 'src/host_run.dart';
 export 'src/provider.dart';
 export 'src/remote.dart';
+export 'src/scaleway.dart';
 export 'src/secret_store.dart';
 export 'src/steps.dart';
