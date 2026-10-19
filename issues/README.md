@@ -89,6 +89,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
 | <a id="f139"></a>[F139](F139-OneDrive-As-The-Projects-Drive.md) | — | — | OneDrive as an alternative to Tresorit for a project's drive: the choice and the login at the stop. |
+| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | — | — | An agent signed in on the host at `up`'s stop, in the interface's sign-in terminal over ssh, its redirect forwarded here. |
 
 ### Finished
 
