@@ -220,29 +220,53 @@ class HostRun {
   }
 
   /// Takes [plan]'s host down: the down play, then the host given back. Nothing happens when none is rented.
-  Future<int> down(HostPlan plan) async {
+  ///
+  /// **A host whose down play did not finish is kept** (the operator's decision of 2026-10-19): a
+  /// copy that failed may have left the only copy of its data there. The play's own line says what
+  /// failed, and the last step says the host is kept and names the ways out. [giveBackAnyway] gives
+  /// it back all the same, for a person who has read that.
+  Future<int> down(HostPlan plan, {bool giveBackAnyway = false}) async {
     try {
-      return await _down(plan);
+      return await _down(plan, giveBackAnyway);
     } on ProviderFailed catch (e) {
       emit(Step('give-back', StepState.refused, fix: e.message));
       return Exit.refused;
     }
   }
 
-  Future<int> _down(HostPlan plan) async {
+  Future<int> _down(HostPlan plan, bool giveBackAnyway) async {
     final host = await provider.find(plan.tag);
     if (host == null) {
       emit(const Step('give-back', StepState.done, words: 'no host carries the project tag'));
       return Exit.done;
     }
     final address = host.address;
-    if (address == null) return _unreachable('give-back', 'the provider names no address for ${host.id}');
-    final played = await _play(address, plan, 'porelo.host.down');
-    if (played != Exit.done) return played;
+    final played = address == null
+        ? _unreachable('play', 'the provider names no address for ${host.id}')
+        : await _play(address, plan, 'porelo.host.down');
+    if (played != Exit.done && !giveBackAnyway) {
+      emit(
+        Step(
+          'give-back',
+          StepState.refused,
+          words: '${host.id} is kept and still billed, since its down play did not finish',
+          fix: "run 'down' again, or 'down --give-back-anyway' to give it back knowingly",
+        ),
+      );
+      return played;
+    }
     emit(const Step('give-back', StepState.started));
     await provider.release(host.id);
-    emit(const Step('give-back', StepState.done));
-    return Exit.done;
+    emit(
+      played == Exit.done
+          ? const Step('give-back', StepState.done)
+          : const Step(
+              'give-back',
+              StepState.done,
+              words: 'given back knowingly although its down play did not finish: what it held is gone',
+            ),
+    );
+    return played;
   }
 
   Future<RentedHost?> _rented(HostPlan plan) async {

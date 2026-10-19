@@ -13,7 +13,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `down` put a project on a server and take it off again, with the playbook running on the host
   itself, so this computer needs only ssh. It rents from Scaleway Elastic Metal, or works on a
   machine named by `--given`, and stops once for the drive's login and the vault's passphrase,
-  which a second `up` takes on its standard input. `porelo-host key set scaleway` keeps the
+  which a second `up` takes on its standard input. A `down` whose copy fails keeps the host and
+  says so, until `down --give-back-anyway`. `porelo-host key set scaleway` keeps the
   provider's key in the system's own secret store, never in a file. Each step is one JSON line.
   In the interface, a project's *Put this project on a server…* runs it, shows each step as it
   comes and asks at its stop, sending the answers to its standard input only.

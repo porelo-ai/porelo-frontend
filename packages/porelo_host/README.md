@@ -9,7 +9,9 @@ Windows.
   [porelo-host](https://github.com/porelo-ai/porelo-host) there, and installs `ansible-core`. It
   then runs `ansible-playbook -c local` on the host itself. It stops once for the person, with exit
   code 75; a second `up` given the answers on standard input goes on.
-- **`down`** runs the down play and only then gives the host back.
+- **`down`** runs the down play and only then gives the host back. A host whose down play did not
+  finish is kept, since a failed copy may have left the only copy there; its last line says so, and
+  `--give-back-anyway` gives it back knowingly.
 
 Each step is one JSON line on standard output, relayed from the collection's callback; the words
 for a person go to standard error. A secret is only ever written to a command's standard input on

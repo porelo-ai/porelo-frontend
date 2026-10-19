@@ -52,6 +52,7 @@ taken, `git log` answers.
 | [The rename to Porelo carries nothing over: the interface is installed afresh](#the-rename-to-porelo-carries-nothing-over) |
 | [A work's terminal keeps the cursor its program sets; the sign-in and passphrase terminals always show one](#a-works-terminal-keeps-the-cursor-its-program-sets) |
 | [The interface takes the website's colours and shapes, not its motion, and keeps a light mode](#the-interface-takes-the-websites-colours-and-shapes-not-its-motion) |
+| [`porelo-host down` keeps a host whose down play did not finish, until told otherwise](#porelo-host-down-keeps-a-host-whose-down-play-did-not-finish) |
 
 ## The interface can do what a console can
 
@@ -639,3 +640,18 @@ mark in either holds WCAG AA (`test/ui/theme_contrast_test.dart`). Its surfaces 
 frosted glass laid opaque, and its moving background, glitch and typing effects stay on the website:
 a blur and motion cost a tool open all day more than they give. The terminal stays dark in both
 modes.
+
+## `porelo-host down` keeps a host whose down play did not finish
+
+The down play copies the host's last state off, the drive's sync and the Matrix room among it,
+before the host is given back. When every step of it finishes, or `up` never got as far as any
+data, `down` gives the host back. When a step does not finish, or the host cannot be reached, `down`
+keeps the host: the failed step says what failed and what would be lost, and the last line says the
+host is kept and still billed, and names the ways out: `down` again, or `down --give-back-anyway`
+to give it back knowingly. The test script says a host kept so as plainly.
+
+**What it costs:** a host kept goes on billing until somebody looks, and the person who closed the
+window may not. The other way, giving back whatever the play answered, ends the bill but can take
+the only copy of a project's data with it. The operator chose the data, with the bill said plainly.
+`down` cannot tell a failed copy from another failed step, so any failure keeps the host; the down
+play itself must finish for what `up` never made.

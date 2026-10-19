@@ -153,8 +153,9 @@ porelo-host up --project <name> --account porelo --public-key ~/.ssh/id_ed25519.
 It rents the host, or finds it again by its tag, and stops once with exit code 75 for what only you
 can give: the drive's login and the vault's passphrase. The same `up` again with
 `--answers-on-stdin` takes them as one JSON object on standard input, never as arguments, and goes
-on. `porelo-host down` with the same options takes the last copies and gives the host back. Every
-step is one JSON line on standard output.
+on. `porelo-host down` with the same options takes the last copies and gives the host back. If a copy
+fails, it keeps the host, says what would be lost, and names the ways out: `down` again, or `down
+--give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
 
 ## What the other pages hold
 

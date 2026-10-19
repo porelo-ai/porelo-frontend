@@ -230,16 +230,70 @@ void main() {
     expect(provider.released, <String>['h1']);
   });
 
-  test('a down whose play fails gives nothing back', () async {
-    final provider = CountingProvider()
-      ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
-    final remote = ScriptedRemote(<String>[
-      line(<String, Object>{'play': 'down', 'task': 'copy', 'state': 'failed', 'msg': 'the store refused'}),
-    ], playExit: 2);
-    final run = HostRun(provider: provider, remote: remote, emit: (_) {});
+  group('a down whose play does not finish', () {
+    const copyFailed = "the Matrix room's copy failed; the host is kept so its conversation is not lost";
+    late CountingProvider provider;
+    late ScriptedRemote remote;
+    setUp(() {
+      provider = CountingProvider()
+        ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
+      remote = ScriptedRemote(<String>[
+        line(<String, Object>{'play': 'down', 'task': 'copy', 'state': 'failed', 'msg': copyFailed}),
+      ], playExit: 2);
+    });
 
-    expect(await run.down(plan), Exit.refused);
-    expect(provider.released, isEmpty, reason: 'a host whose last copy failed still holds the only copy');
+    test('keeps the host, says it is kept and names both ways out', () async {
+      final steps = <Step>[];
+      final run = HostRun(provider: provider, remote: remote, emit: steps.add);
+
+      expect(await run.down(plan), Exit.refused);
+      expect(provider.released, isEmpty, reason: 'a host whose last copy failed still holds the only copy');
+      expect(steps.firstWhere((s) => s.step == 'copy').fix, copyFailed);
+      expect(steps.last.step, 'give-back');
+      expect(steps.last.state, StepState.refused);
+      expect(steps.last.words, 'h1 is kept and still billed, since its down play did not finish');
+      expect(steps.last.fix, "run 'down' again, or 'down --give-back-anyway' to give it back knowingly");
+    });
+
+    test('gives it back when told to anyway, and says what went with it', () async {
+      final steps = <Step>[];
+      final run = HostRun(provider: provider, remote: remote, emit: steps.add);
+
+      expect(await run.down(plan, giveBackAnyway: true), Exit.refused, reason: 'the failed step is still reported');
+      expect(provider.released, <String>['h1']);
+      expect(steps.last.step, 'give-back');
+      expect(steps.last.state, StepState.done);
+      expect(steps.last.words, 'given back knowingly although its down play did not finish: what it held is gone');
+    });
+
+    test('that cannot reach the host keeps it too, unless told to anyway', () async {
+      provider.rented = const RentedHost(id: 'h1', address: null, hostKey: null, ready: true);
+      final steps = <Step>[];
+
+      expect(await HostRun(provider: provider, remote: remote, emit: steps.add).down(plan), Exit.unreachable);
+      expect(provider.released, isEmpty);
+      expect(steps.last.state, StepState.refused);
+
+      expect(
+        await HostRun(provider: provider, remote: remote, emit: steps.add).down(plan, giveBackAnyway: true),
+        Exit.unreachable,
+      );
+      expect(provider.released, <String>['h1']);
+      expect(steps.last.state, StepState.done);
+    });
+  });
+
+  test('a down whose play finishes gives the host back, told to anyway or not', () async {
+    for (final anyway in <bool>[false, true]) {
+      final provider = CountingProvider()
+        ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
+      final steps = <Step>[];
+      final run = HostRun(provider: provider, remote: ScriptedRemote(finishes), emit: steps.add);
+
+      expect(await run.down(plan, giveBackAnyway: anyway), Exit.done);
+      expect(provider.released, <String>['h1']);
+      expect(steps.last.words, isNull, reason: 'nothing was at risk, so nothing is said of it');
+    }
   });
 
   test('a new host gets a host key made here: its private half in cloud-init, its public half in a tag', () async {
