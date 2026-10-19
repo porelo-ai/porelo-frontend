@@ -132,7 +132,7 @@ void main() {
     final inventory = jsonDecode(remote.inputs.single) as Map<String, Object?>;
     final vars = (inventory['all'] as Map)['vars'] as Map;
     expect(vars['porelo_host_account'], 'porelo');
-    expect(vars['porelo_host_distribution'], 'releases');
+    expect(vars['porelo_host_distribution'], 'snapshots', reason: 'no release of Porelo has `vault status` yet');
     expect(
       vars.containsKey('porelo_host_tresor'),
       isFalse,

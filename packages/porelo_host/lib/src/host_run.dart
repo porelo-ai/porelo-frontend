@@ -51,7 +51,7 @@ class HostPlan {
     required this.publicKey,
     required this.collection,
     this.loginUser = 'ubuntu',
-    this.distribution = 'releases',
+    this.distribution = 'snapshots',
     this.tresor,
     this.vpnPeerPublicKey,
     this.vpnPeerAddress,
@@ -72,7 +72,8 @@ class HostPlan {
   /// The image's own user with sudo, which the first steps run as.
   final String loginUser;
 
-  /// Where Porelo's package comes from: `releases` or `snapshots`.
+  /// Where Porelo's package comes from: `releases` or `snapshots`. `snapshots` until a release of
+  /// Porelo carries `vault status`, which the host's plays ask; 0.5.0 has none.
   final String distribution;
 
   /// The drive's tresor the host syncs.

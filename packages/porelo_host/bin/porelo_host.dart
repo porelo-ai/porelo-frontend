@@ -6,7 +6,7 @@ import 'package:porelo_host/porelo_host.dart';
 const _usage = '''
 porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE --collection FILE
             (--scaleway-project ID [--zone fr-par-1] | --given ADDRESS --host-key "TYPE BASE64")
-            [--login-user NAME] [--distribution releases|snapshots]
+            [--login-user NAME] [--distribution snapshots|releases]
             [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS] [--answers-on-stdin]
             [--give-back-anyway]
 porelo-host key set|forget PROVIDER
@@ -111,7 +111,7 @@ Future<int> _run(List<String> arguments) async {
     publicKey: (await File(options['public-key']!).readAsString()).trim(),
     collection: options['collection']!,
     loginUser: options['login-user'] ?? 'ubuntu',
-    distribution: options['distribution'] ?? 'releases',
+    distribution: options['distribution'] ?? 'snapshots',
     tresor: options['tresor'],
     vpnPeerPublicKey: options['vpn-peer-public-key'],
     vpnPeerAddress: options['vpn-peer-address'],
