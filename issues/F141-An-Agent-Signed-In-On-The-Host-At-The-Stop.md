@@ -1,6 +1,6 @@
 # F141 — An Agent Signed In On The Host At The Stop
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the stop's line names the host, the sign-in terminal opened against it with the key
 `porelo-host` pinned, and `up` run again after.
 

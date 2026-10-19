@@ -40,7 +40,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | M | — | An agent signed in on the host at `up`'s stop, in the interface's sign-in terminal over ssh with the host key `porelo-host` pinned, its redirect forwarded here. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | `porelo` [B49](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b49) | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. | — |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. | — |
@@ -94,6 +93,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | M | — | An agent signed in on the host at `up`'s stop, in the interface's sign-in terminal over ssh with the host key `porelo-host` pinned, its redirect forwarded here. |
 | <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | M | porelo-project's issue *A host mounts the person's drives* | The interface writing the host's files, the WireGuard key and the machine file, into the person's drive on the desktop, encrypted for a drive that is not end to end. |
 
 ### Finished
