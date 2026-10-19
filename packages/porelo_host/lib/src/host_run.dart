@@ -338,7 +338,9 @@ class HostRun {
       final login = await remote.run(
         address,
         plan.account,
-        'tresorit-cli login --email ${_quoted(answers.driveEmail ?? '')} --password-on-stdin',
+        // The account's own runtime directory, where its Tresorit daemon listens, set here rather
+        // than trusted to the ssh session, which may not give a command one.
+        'XDG_RUNTIME_DIR=/run/user/\$(id -u) tresorit-cli login --email ${_quoted(answers.driveEmail ?? '')} --password-on-stdin',
         // The one-time code is the line after the password: the client asks for it itself and
         // reads it from the same standard input (measured on Tresorit 3.5.1300.4870).
         input: '${answers.drivePassword}\n${answers.driveCode == null ? '' : '${answers.driveCode}\n'}',
@@ -351,7 +353,9 @@ class HostRun {
       final opened = await remote.run(
         address,
         plan.account,
-        // `vault status` says 4 when there is none yet, so the same answer makes it or opens it.
+        // `vault status` says 4 when there is none yet, so the same answer makes it or opens it. The
+        // account's runtime directory is set here, as for the drive, where its daemon listens.
+        'export XDG_RUNTIME_DIR=/run/user/\$(id -u); '
         'if porelo vault status >/dev/null 2>&1; [ \$? -eq 4 ]; then porelo vault init --passphrase-stdin; '
         'else porelo vault unlock --passphrase-stdin; fi',
         input: '${answers.vaultPassphrase}\n',

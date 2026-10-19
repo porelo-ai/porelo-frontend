@@ -6,9 +6,10 @@
 #   tool/vm-run.sh IMAGE SHA256SUMS [COLLECTION]
 #
 # IMAGE is Ubuntu 26.04's server cloud image, SHA256SUMS the release's list it is checked against.
-# COLLECTION, when given, is porelo-host's own tarball in place of the stand-in. Its plays have no
-# stop yet, so `up` must end 0 with their lines relayed; the account Porelo's setup makes is made by
-# cloud-init in its place, as porelo-host's own test VM does.
+# COLLECTION, when given, is porelo-host's own tarball in place of the stand-in: Porelo installed
+# from its snapshots and its setup making the account, the plays to their stop for the drive and a
+# new vault. Then, with no login anywhere: the account reached over ssh with the person's key, the
+# drive's client found there and its daemon answering, the vault made by its step, and `down`.
 set -euo pipefail
 
 image="$1"
@@ -93,12 +94,6 @@ META
     echo '    sudo: ALL=(ALL) NOPASSWD:ALL'
     echo '    shell: /bin/bash'
     echo "    ssh_authorized_keys: [\"$(cat "$work/login.pub")\"]"
-    if [ -n "$collection" ]; then
-        echo '  - name: porelo'
-        echo '    shell: /bin/bash'
-        echo 'runcmd:'
-        echo '  - [loginctl, enable-linger, porelo]'
-    fi
 } >"$work/seed/user-data"
 xorriso -as genisoimage -quiet -output "$work/seed.iso" -volid cidata -joliet -rock "$work/seed/user-data" "$work/seed/meta-data" 2>/dev/null
 virsh vol-create-as "$pool" "$run-seed.iso" "$(stat -c %s "$work/seed.iso")" --format raw >/dev/null
@@ -184,21 +179,45 @@ grep -q '"step":"copy"' "$work/up-0.jsonl" && {
 }
 
 if [ -n "$collection" ]; then
-    # The real plays stop for the drive's login, which nobody gives here: the stop is the end.
+    # The real plays stop for the drive's login and a new vault. No drive login is given anywhere:
+    # what the person's login would need is proven without one.
     host up --tresor porelo-host-test >"$work/up-1.jsonl"
     expect 75 "$?" "the first up against $(basename "$collection")"
-    grep -q '"step":"person","state":"waiting","needs":\["drive"\]' "$work/up-1.jsonl" || {
-        echo 'vm-run: no waiting line asking for the drive alone' >&2
+    grep -q '"step":"person","state":"waiting","needs":\["drive","vault-new"\]' "$work/up-1.jsonl" || {
+        echo 'vm-run: no waiting line asking for the drive and a new vault' >&2
         exit 1
     }
-    grep -q '"state":"done"' "$work/up-1.jsonl" || {
-        echo "vm-run: no task of the plays was relayed" >&2
+    # As the account, with the person's key, exactly as the drive's step runs it: the client found
+    # by name and its daemon answering for the account, logged in as nobody yet.
+    printf '%s %s\n' "$address" "$(cut -d' ' -f1,2 "$work/host.pub")" >"$work/known_hosts"
+    as_account=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+        -o UserKnownHostsFile="$work/known_hosts" -i "$work/login" "porelo@$address")
+    # Whether the session gives a command its runtime directory by itself, as snapshot 170's
+    # porelo-host, which does not set it, needs.
+    # shellcheck disable=SC2016 # the session's own, on the host
+    echo "vm-run: the account's ssh session has XDG_RUNTIME_DIR='$("${as_account[@]}" 'printf %s "$XDG_RUNTIME_DIR"')'" >&2
+    # shellcheck disable=SC2016 # $(id -u) is the account's, expanded on the host
+    drive="$("${as_account[@]}" 'XDG_RUNTIME_DIR=/run/user/$(id -u) tresorit-cli -p status' 2>&1)"
+    printf '%s\n' "$drive" | sed 's/^/vm-run: tresorit-cli -p status: /' >&2
+    printf '%s\n' "$drive" | grep -q $'^Logged in as:\t-$' || {
+        echo "vm-run: the drive's client did not answer as the drive's step needs it" >&2
         exit 1
     }
+    echo 'vm-run: the account is reached with the person'"'"'s key, and its drive client answers' >&2
+    # The vault's step alone, as the account over ssh: no drive answer, so the drive still waits.
+    echo '{"vaultPassphrase": "a-throwaway-for-this-vm"}' | host up --tresor porelo-host-test --answers-on-stdin >"$work/up-2.jsonl"
+    expect 75 "$?" 'the second up, given a new vault only'
+    grep -q '"step":"vault","state":"done"' "$work/up-2.jsonl" || {
+        echo 'vm-run: the vault step did not end done' >&2
+        exit 1
+    }
+    # shellcheck disable=SC2016 # the same, on the host
+    "${as_account[@]}" 'cd /tmp && XDG_RUNTIME_DIR=/run/user/$(id -u) porelo vault status' >&2
+    expect 0 "$?" 'vault status as the account'
     host down --tresor porelo-host-test >"$work/down.jsonl"
-    echo "vm-run: down after the stop ended with $?" >&2
+    expect 0 "$?" 'down after the stop'
     set -e
-    cat "$work"/up-1.jsonl "$work"/down.jsonl
+    cat "$work"/up-1.jsonl "$work"/up-2.jsonl "$work"/down.jsonl
     exit 0
 fi
 

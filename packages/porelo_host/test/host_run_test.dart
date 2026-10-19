@@ -165,7 +165,17 @@ void main() {
       expect(command, isNot(contains('123456')), reason: 'nor the one-time code, nor as --totp');
     }
     final login = remote.commands.indexWhere((c) => c.contains('tresorit-cli login'));
+    expect(
+      remote.commands[login],
+      startsWith(r'XDG_RUNTIME_DIR=/run/user/$(id -u) tresorit-cli login '),
+      reason: 'the client reaches the account\'s running daemon whatever the ssh session sets',
+    );
     final vault = remote.commands.indexWhere((c) => c.contains('--passphrase-stdin'));
+    expect(
+      remote.commands[vault],
+      startsWith(r'export XDG_RUNTIME_DIR=/run/user/$(id -u); '),
+      reason: 'porelo reaches the account\'s own daemon whatever the ssh session sets',
+    );
     final play = remote.commands.indexWhere((c) => c.contains('ansible-playbook'));
     expect(login < vault && vault < play, isTrue, reason: 'the drive, then the vault, then the plays');
     expect(remote.users[vault], 'porelo', reason: 'the vault is the account\'s own');
