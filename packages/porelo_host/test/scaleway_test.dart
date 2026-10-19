@@ -27,8 +27,10 @@ const offers = ApiAnswer(200, <String, Object?>{
 });
 const systems = ApiAnswer(200, <String, Object?>{
   'os': <Object?>[
-    <String, Object?>{'id': 'os-24', 'name': 'Ubuntu', 'version': '24.04', 'enabled': true},
-    <String, Object?>{'id': 'os-26', 'name': 'Ubuntu', 'version': '26.04', 'enabled': true},
+    // As Scaleway names them, read from fr-par-1's `/os` on 2026-10-19.
+    <String, Object?>{'id': 'os-24', 'name': 'Ubuntu', 'version': '24.04 LTS (Noble Numbat)', 'enabled': true},
+    <String, Object?>{'id': 'os-26', 'name': 'Ubuntu', 'version': '26.04 LTS (Resolute Raccoon)', 'enabled': true},
+    <String, Object?>{'id': 'os-260', 'name': 'Ubuntu', 'version': '26.040', 'enabled': true},
   ],
 });
 

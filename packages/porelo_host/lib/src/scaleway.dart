@@ -23,28 +23,22 @@ typedef ScalewayApi = Future<ApiAnswer> Function(String method, String path, {Ma
 ScalewayApi scalewayOverHttps(String secretKey, {String base = 'https://api.scaleway.com'}) {
   final client = HttpClient();
   return (method, path, {body}) async {
-    final request = await client.openUrl(method, Uri.parse('$base$path'));
-    request.headers.set('X-Auth-Token', secretKey);
-    if (body != null) {
-      request.headers.contentType = ContentType.json;
-      request.write(jsonEncode(body));
+    try {
+      final request = await client.openUrl(method, Uri.parse('$base$path'));
+      request.headers.set('X-Auth-Token', secretKey);
+      if (body != null) {
+        request.headers.contentType = ContentType.json;
+        request.write(jsonEncode(body));
+      }
+      final response = await request.close();
+      final text = await response.transform(utf8.decoder).join();
+      return ApiAnswer(response.statusCode, text.isEmpty ? null : jsonDecode(text));
+    } on IOException catch (e) {
+      throw ProviderFailed('Scaleway\'s API could not be reached: $e');
+    } on FormatException {
+      throw const ProviderFailed('Scaleway answered with something that is not JSON');
     }
-    final response = await request.close();
-    final text = await response.transform(utf8.decoder).join();
-    return ApiAnswer(response.statusCode, text.isEmpty ? null : jsonDecode(text));
   };
-}
-
-/// What the provider refused, in its own words.
-class ProviderFailed implements Exception {
-  /// Constructor taking what happened.
-  const ProviderFailed(this.message);
-
-  /// What happened, in words; never the key.
-  final String message;
-
-  @override
-  String toString() => message;
 }
 
 /// A host rented from Scaleway Elastic Metal: the offer and the system as named, in one zone of one project.
@@ -162,11 +156,16 @@ class ScalewayElasticMetal implements HostProvider {
   Future<String> _osId() async {
     final listed = await _ok('GET', '/baremetal/v1/zones/$zone/os?offer_id=${await _offerId()}', 'list the systems');
     final systems = ((listed as Map)['os'] as List).cast<Map<String, Object?>>().where(
-      (s) => s['name'] == system && s['version'] == systemVersion && s['enabled'] != false,
+      // Scaleway names a version with its release's name after it: `26.04 LTS (Resolute Raccoon)`.
+      (s) => s['name'] == system && _isVersion(s['version'] as String? ?? '') && s['enabled'] != false,
     );
     if (systems.isEmpty) throw ProviderFailed('$zone installs no $system $systemVersion on $offer');
     return systems.first['id'] as String;
   }
+
+  /// Whether Scaleway's [named] version is [systemVersion]: the same, or it followed by a space and
+  /// its release's name, never a longer number that begins the same.
+  bool _isVersion(String named) => named == systemVersion || named.startsWith('$systemVersion ');
 
   /// The project's ssh key for [publicKey]. **Registered by the person, never by this package**: the
   /// key it is given may read the project's ssh keys, not add one, so a missing key ends the rent

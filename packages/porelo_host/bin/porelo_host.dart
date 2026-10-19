@@ -18,7 +18,7 @@ porelo-host --version
           the key is never an argument, and nothing is said of it but that it was kept
 
 One JSON line per step on standard output; the words for a person on standard error.
-Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 75 waiting for the person.
+Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 waiting for the person.
 
 --scaleway-project rents from Scaleway Elastic Metal, with the key `key set scaleway` kept.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
@@ -26,7 +26,15 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 75 waiting for the person.
 
 // Ends with the run's code at once: an HTTPS connection to the provider, kept for reuse, would hold
 // the program open for its idle time otherwise.
-Future<void> main(List<String> arguments) async => exit(await _run(arguments));
+Future<void> main(List<String> arguments) async {
+  try {
+    exit(await _run(arguments));
+  } catch (e) {
+    // Whatever was not foreseen still ends in one plain line, never a stack trace.
+    stderr.writeln('porelo-host: $e');
+    exit(70);
+  }
+}
 
 /// The version this command was built as, given by `dart compile exe -Dporelo_host.version=…`.
 const _version = String.fromEnvironment('porelo_host.version', defaultValue: 'unreleased');

@@ -190,6 +190,15 @@ void main() {
     expect(steps.map((s) => s.step), isNot(contains('copy')));
   });
 
+  test('a provider\'s refusal ends up and down with a refused step and 65, never an exception', () async {
+    final steps = <Step>[];
+    final run = HostRun(provider: _RefusingProvider(), remote: ScriptedRemote(<String>[]), emit: steps.add);
+    expect(await run.up(plan), Exit.refused);
+    expect(steps.last.step, 'rent');
+    expect(steps.last.state, StepState.refused);
+    expect(steps.last.fix, 'fr-par-1 installs no Ubuntu 26.04 on EM-I220E-NVME');
+  });
+
   test('a failed task is a refusal with its words, not a stop', () async {
     final remote = ScriptedRemote(<String>[
       line(<String, Object>{'play': 'first', 'task': 'base', 'state': 'failed', 'msg': 'no space left'}),
@@ -278,4 +287,20 @@ class _AskingProvider implements HostProvider {
 
   @override
   Future<void> release(String id) async {}
+}
+
+/// A provider that refuses as Scaleway's adapter does, with its own words.
+class _RefusingProvider implements HostProvider {
+  @override
+  Future<RentedHost?> find(String tag) async => null;
+
+  @override
+  Future<RentedHost> create(HostRequest request) async =>
+      throw const ProviderFailed('fr-par-1 installs no Ubuntu 26.04 on EM-I220E-NVME');
+
+  @override
+  Future<RentedHost> state(String id) => throw UnimplementedError();
+
+  @override
+  Future<void> release(String id) => throw const ProviderFailed('the key may not give back h1: denied');
 }

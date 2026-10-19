@@ -169,7 +169,14 @@ class HostRun {
 
   /// Brings [plan]'s host up, as far as it can go. A second call with [answers] goes on after the stop.
   Future<int> up(HostPlan plan, {Answers answers = const Answers()}) async {
-    final host = await _rented(plan);
+    final RentedHost? host;
+    try {
+      host = await _rented(plan);
+    } on ProviderFailed catch (e) {
+      // The provider's own sentence, as a refused step and 65: the person fixes it, not the code.
+      emit(Step('rent', StepState.refused, fix: e.message));
+      return Exit.refused;
+    }
     if (host == null) return Exit.unreachable;
     final address = host.address!;
 
@@ -214,6 +221,15 @@ class HostRun {
 
   /// Takes [plan]'s host down: the down play, then the host given back. Nothing happens when none is rented.
   Future<int> down(HostPlan plan) async {
+    try {
+      return await _down(plan);
+    } on ProviderFailed catch (e) {
+      emit(Step('give-back', StepState.refused, fix: e.message));
+      return Exit.refused;
+    }
+  }
+
+  Future<int> _down(HostPlan plan) async {
     final host = await provider.find(plan.tag);
     if (host == null) {
       emit(const Step('give-back', StepState.done, words: 'no host carries the project tag'));

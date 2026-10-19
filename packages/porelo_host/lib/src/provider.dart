@@ -82,3 +82,15 @@ class GivenMachine implements HostProvider {
   @override
   Future<void> release(String id) async {}
 }
+
+/// What the provider refused, in its own words.
+class ProviderFailed implements Exception {
+  /// Constructor taking what happened.
+  const ProviderFailed(this.message);
+
+  /// What happened, in words; never the key.
+  final String message;
+
+  @override
+  String toString() => message;
+}
