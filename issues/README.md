@@ -40,6 +40,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | XS | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | `porelo` [B49](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b49) | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. | — |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. | — |
@@ -75,6 +76,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `porelo` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `porelo`'s part of `porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. |
+| <a id="f142"></a>[F142](F142-The-Drafts-Offered-Before-The-First-Task-In-Default.md) | M | `porelo` [B221](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b221) | The machine's proposed tools and rules shown before the first task on a repository in `default`, and the choice passed back. | — |
 
 ### Accepted
 
@@ -88,7 +90,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
 | <a id="f139"></a>[F139](F139-OneDrive-As-The-Projects-Drive.md) | — | — | OneDrive as an alternative to Tresorit for a project's drive: the choice and the login at the stop. |
-
+| <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225) | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 ### Estimated
 
 | # | Size | Blocked by | What it covers |
