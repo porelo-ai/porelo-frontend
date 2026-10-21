@@ -99,6 +99,28 @@ Three issues, in this order; this one is split before any is built:
 
 ## To be checked
 
+- **Porelo is published for amd64 only** (the deb repository's `Architectures: amd64 i386`,
+  read on 2026-10-21), so "the VM's architecture follows the Mac's" has nothing to install on Apple
+  silicon. An arm64 build of Porelo is made if an ARM VM proves to have what Porelo needs; until
+  then, whether the amd64 build runs through Rosetta for Linux is the stop-gap to measure.
+  (Agent Frontend's, then `porelo`'s for the build)
+- **A probe kit run on a friend's Mac answers the rest before anything is built.** Its scripts live
+  outside the repository for now. It measures:
+  - the terminal opened exactly as `lib/src/app/pty.dart` opens it: the controlling terminal,
+    `SIGWINCH`, `SIGINT`, the code on fd 3, the values of the hard-coded constants, and whether
+    `pipe2` and `ptsname_r` exist;
+  - Lima's socket forward from `/run/user/<uid>/porelo/` held by a lingering user service: after
+    idling with no session, a service restart and a VM restart, its failure while stopped, its
+    throughput, and its path against 104 bytes;
+  - inside an ARM VM: rootless Podman 5, native and amd64 containers through Rosetta, nftables in
+    a user and network namespace, the delegated cgroup controllers, and Porelo's amd64 build started
+    with `--version`.
+
+  (Agent Frontend's)
+- **`ioctl` is variadic, and on Apple's arm64 a variadic argument is passed on the stack**, while
+  `pty.dart` looks `ioctl` up with a fixed signature. The window size would then not arrive.
+  Known, not measured. The probe calls `ioctl` correctly from C, so only the app built for macOS
+  can show it; Dart's FFI `VarArgs` is the likely fix. (Agent Frontend's)
 - **Lima's socket forward in a VM made by `limactl start`**: the field names and that `static: true`
   keeps it up with no session, measured. (Agent Frontend's)
 - **Scaleway's minimum lease for the M4** (24 hours by older reports, not on its pricing page), read
