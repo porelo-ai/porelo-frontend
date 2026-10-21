@@ -1,6 +1,6 @@
 # F109 — The Interface On macOS, With Porelo In A Local VM
 
-**Status:** Estimated.
+**Status:** Estimated; blocked by `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) on Apple silicon, for Porelo's arm64 packages.
 **Size:** XL - a third desktop build, its signing and its package, and a VM set up from the window;
 it splits into three issues of L or smaller, as *Plan* says.
 
@@ -21,6 +21,8 @@ a Mac it runs in a Linux VM, and the interface on the Mac is how a person works 
   the Mac (`portForwards` with `guestSocket` and `hostSocket`). It is the one VM the window sets up,
   on Apple silicon and on Intel; UTM, Parallels, OrbStack and any other VM are reached over ssh as a
   remote machine. The interface drives `limactl` as it drives `wsl.exe` on Windows.
+- **Porelo in the VM is the Mac's architecture:** its arm64 packages on Apple silicon, built and
+  published as `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) plans, and its amd64 packages on an Intel Mac.
 - **How the interface reaches it:** the daemon's socket in the VM, `/run/user/<uid>/porelo/porelod.sock`,
   forwarded by Lima to a socket on the Mac, which the interface opens as it opens a local socket on
   Linux: no ssh, no open port. Terminals and commands go `limactl shell <name> …` in a pseudoterminal.
@@ -42,8 +44,10 @@ a Mac it runs in a Linux VM, and the interface on the Mac is how a person works 
     private repository, so a build of about 15 minutes is about $1. It runs the unit tests and the
     leg over ssh against a leased machine, as the Linux job does.
   - **The VM leg cannot run there:** GitHub's macOS runners are VMs themselves and run no VM inside.
-    It runs on a Scaleway Mac mini (M4 16 GB, €0.22 an hour) rented only when needed, for a release
-    test, by the hour; whether Scaleway leases it for at least 24 hours is checked when it is built.
+    For a release, a Mac with Apple silicon is rented through `porelo-machines` for the release's
+    whole test window, as `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) decides. On it, Porelo's arm64 packages run in an ARM Lima VM
+    with their acceptance legs, and this interface, built natively for macOS, is tested against that
+    VM. The window's length and cost are posted before the rental and need the operator's word.
 
 ## Plan
 
@@ -80,10 +84,10 @@ Three issues, in this order; this one is split before any is built:
    - `lib/src/app/machines.dart`: a kind `lima` beside `wsl`, its socket the forwarded one.
    - `lib/src/app/lima_setup.dart`, as `wsl_setup.dart`: Lima missing (installed by the person, with
      Homebrew's line shown), no VM, no Porelo, no daemon - each said and offered; the VM's
-     architecture follows the Mac's, `aarch64` or `x86_64`.
+     architecture follows the Mac's, `aarch64` or `x86_64`, and Porelo's package with it.
    - `Session.command` through `limactl shell`.
    - Red first: `test/features/lima_machine.feature`, with a stand-in `limactl` as [F102](README.md#f102)'s tests have
-     a stand-in `wsl.exe`; then the VM leg on the rented Mac mini, a self-hosted runner for that day.
+     a stand-in `wsl.exe`; then the VM leg on the Mac rented for a release's test window.
 
 ## Acceptance
 
@@ -100,10 +104,10 @@ Three issues, in this order; this one is split before any is built:
 ## To be checked
 
 - **Porelo is published for amd64 only** (the deb repository's `Architectures: amd64 i386`,
-  read on 2026-10-21), so "the VM's architecture follows the Mac's" has nothing to install on Apple
-  silicon. An arm64 build of Porelo is made if an ARM VM proves to have what Porelo needs; until
-  then, whether the amd64 build runs through Rosetta for Linux is the stop-gap to measure.
-  (Agent Frontend's, then `porelo`'s for the build)
+  read on 2026-10-21), so until `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55)'s arm64 packages are published there is nothing to install in
+  an ARM VM. A gap the probe below shows in an ARM VM is closed before the arm64 build is made.
+  Whether the amd64 build runs through Rosetta for Linux is measured too, as a stop-gap only.
+  (Agent Frontend's)
 - **A probe kit run on a friend's Mac answers the rest before anything is built.** Its scripts live
   outside the repository for now. It measures:
   - the terminal opened exactly as `lib/src/app/pty.dart` opens it: the controlling terminal,
@@ -123,8 +127,7 @@ Three issues, in this order; this one is split before any is built:
   can show it; Dart's FFI `VarArgs` is the likely fix. (Agent Frontend's)
 - **Lima's socket forward in a VM made by `limactl start`**: the field names and that `static: true`
   keeps it up with no session, measured. (Agent Frontend's)
-- **Scaleway's minimum lease for the M4** (24 hours by older reports, not on its pricing page), read
-  from Scaleway's own terms when the leg is built, and GitHub's macOS minute price on the bill; the
-  issue corrected if either differs. (Agent Frontend's)
+- **GitHub's macOS minute price** on the bill; the issue corrected if it differs. The Mac rented for
+  a release window is `porelo-machines`' work under `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55). (Agent Frontend's)
 - **`flutter_secure_storage` on macOS** without the App Sandbox: the keychain group its entitlement
   needs. (Agent Frontend's)
