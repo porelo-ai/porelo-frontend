@@ -5,7 +5,7 @@ image:
     # Ubuntu 24.04, porelo-machines' pin, not the Build's 22.04: the tests sign commits with an ssh
     # key as `key::…`, which 22.04's git 2.34 cannot read (measured). Packages built in a task
     # take 24.04's floor; the published ones are still the Build's, on 22.04.
-    base_image: docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+    base_image: docker.io/library/ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
     snippet: |
         # What `flutter build linux`, the packages and the secret store's tests need, from Ubuntu.
         RUN apt-get update \
