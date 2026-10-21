@@ -25,7 +25,7 @@ of drive: Tresorit's, and OneDrive's ([F139](README.md#f139)).
   - `wireguard.key`, made here with `wg genkey`'s format (32 random bytes, base64), for the host's
     end. Its public half goes to `up` as `--vpn-peer-public-key`, as today.
   - `machine.yml`, which the host reads with `porelo project inventory --machine-file`
-    (porelo-host's HO02). Its `keys` paths are relative to it, and it names only what lies beside it.
+    (porelo-host's [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02)). Its `keys` paths are relative to it, and it names only what lies beside it.
   - **Nothing is written over:** a file that is there already and differs is kept, and the dialog
     says so and names it. The person removes it or chooses another folder.
 - **For a drive that is not end to end,** `wireguard.key` is written as `wireguard.key.age`, in the
@@ -62,6 +62,6 @@ of drive: Tresorit's, and OneDrive's ([F139](README.md#f139)).
   Read whether a file written there is synced before the host reads it, and say so in the dialog if
   not.
 - **The host's side** is porelo-host's: reading `wireguard.key.age` and decrypting it with what the
-  stop gave, `age -d -i` with the identity through a pipe or a 0600 file on a `noexec` tmpfs (HO16),
+  stop gave, `age -d -i` with the identity through a pipe or a 0600 file on a `noexec` tmpfs ([HO16](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho16)),
   and reading the machine file
-  (HO02).
+  ([HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02)).

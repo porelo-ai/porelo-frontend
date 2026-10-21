@@ -73,7 +73,7 @@ runs on the host itself, so the person's computer needs only this command and ss
     commands run under `C.UTF-8`;
   - Ubuntu 26.04's sudo (sudo-rs) ignores `-E`, so the environment goes through `env`;
   - the collection is installed as root, since the plays leave root's files in it.
-- Left for porelo-host's own plays (HO02, HO09): the run against the real collection.
+- Left for porelo-host's own plays ([HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02), [HO09](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho09)): the run against the real collection.
 
 - **The drive's second factor**, as the operator decided: never an argument. Measured by Agent
   Machines on Tresorit 3.5.1300.4870 over `ssh -T`: without `--totp` the client asks for the code
@@ -104,5 +104,5 @@ account's ssh login, the drive's client and the vault's step on a local VM, with
 ## To be checked
 
 - With Agent Machines: the callback's line fields and the inventory's names and version, once
-  HO09 has them. Agent Machines read the order, the command and the resume as a plain second run
+  [HO09](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho09) has them. Agent Machines read the order, the command and the resume as a plain second run
   of both plays, and they fit.

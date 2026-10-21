@@ -21,7 +21,7 @@ client; this issue is the choice and the login. Many companies use OneDrive and 
   the person must be told so at the choice, or such files get their own encryption.
 - **Personal or business** (OneDrive for Business, SharePoint libraries): which comes first.
 - **`down` under the operator's (b):** the client's own "fully synced", for the kept-host line.
-- **Which client, and so which login:** the client is HO16's choice in porelo-host, and the login
+- **Which client, and so which login:** the client is [HO16](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho16)'s choice in porelo-host, and the login
   this issue asks for follows it. `rclone` and `onedrive` (abraunegg) both come from Ubuntu's and
   Fedora's archives, signed there, and both sign in by a device code or a URL handed back.
   GNOME Online Accounts' Microsoft 365 account asks for its login in a desktop session, which a

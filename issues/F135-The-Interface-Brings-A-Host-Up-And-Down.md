@@ -37,7 +37,7 @@ needs a terminal, and no secret is written anywhere.
   Seen red: a passphrase put into the arguments, and two differing passphrases let through.
 - Left: the run against the test VM, which needs porelo's
   [B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209) (`vault unlock
-  --passphrase-stdin`) and porelo-host's own stop (HO02, HO06); and the Windows job.
+  --passphrase-stdin`) and porelo-host's own stop ([HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02), [HO06](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho06)); and the Windows job.
 
 ## Acceptance
 
@@ -47,4 +47,4 @@ needs a terminal, and no secret is written anywhere.
 
 ## To be checked
 
-- How a second factor on the Tresorit account is asked, once porelo-host's HO06 has measured it.
+- How a second factor on the Tresorit account is asked, once porelo-host's [HO06](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho06) has measured it.
