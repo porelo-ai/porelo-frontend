@@ -1,6 +1,6 @@
 # F136 — Publish Without A Downloaded Client
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - three upload steps and the probe moved from the JFrog CLI to `curl` in the steps themselves.
 
 **What must be true.** No job that holds the Artifactory token downloads a client to use it. The

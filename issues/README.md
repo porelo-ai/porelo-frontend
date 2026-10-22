@@ -24,17 +24,17 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | — | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. |
 | <a id="f134"></a>[F134](F134-The-Host-Command-Built-And-Shipped-For-Linux-And-Windows.md) | — | [F131](#f131) | `porelo-host` built for Linux and Windows, inside the interface's packages and alone. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
+| <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | — | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. |
+| <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | — | — | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. |
+| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | — | — | An unattended run ends with a line: finished, and where to go next. |
+| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | — | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
+| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | — | — | The MSIX installed and started in the Build's Windows job. |
 
 ### Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | — | Putting a project on a server from the interface, the one stop answered there. |
-| <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | XS | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. |
-| <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | — | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. |
-| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
-| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
-| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. |
 
 ### Backlog
 

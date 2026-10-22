@@ -1,6 +1,6 @@
 # F113 — The MSIX Installed And Started In The Build
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one PowerShell script and one step in the Build's job *Windows*; no contract, nothing
 in `lib/`.
 
@@ -49,6 +49,9 @@ the runner is the nearest thing to that test which runs on every build.
   does not. Seen to fail: the same step against an MSIX signed by another certificate, which
   `Add-AppxPackage` refuses.
 - **Nothing stays behind on the runner:** the package removed, the throwaway certificate removed.
+- **What "starts" means here, and what it leaves out:** a window seen, or the process alive for 5 s
+  without one, since a runner's session may show no window at all. A crash after its first window is
+  not caught here; that is for the interface's own tests, not for an install check.
 
 ## Measured
 
