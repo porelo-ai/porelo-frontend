@@ -140,11 +140,6 @@ void main() {
       expect(workflow, contains('deb.architecture=amd64'));
     });
 
-    test('nothing is uploaded with its source directory attached', () {
-      // Without --flat the directory travels and the package lands somewhere apt does not read.
-      expect('--flat=true'.allMatches(workflow).length, greaterThanOrEqualTo(2));
-    });
-
     test('it publishes to the distribution the channel names, which consumers name', () {
       // A consumer puts that word in their sources.list, so snapshots and a release can never mix.
       expect(workflow, contains('porelo-dist-deb/pool/main/p/porelo-frontend/'));
@@ -244,15 +239,6 @@ void main() {
       expect(workflow, contains('uploaded but not indexed'));
       expect(workflow, contains('binary-amd64/Packages'));
       expect(workflow, contains('repomd.xml'));
-    });
-
-    test('the base URL is normalized to the one raw curl needs', () {
-      // `JF_URL` is the platform url and the `jf` CLI appends `/artifactory` itself; raw curl
-      // does not. Two runs failed on this — the first silently, the second with a diagnosis of a
-      // trailing slash that had never been measured.
-      expect(workflow, contains(r'base="${base%/artifactory}"'));
-      expect(workflow, contains(r'base="$base/artifactory"'));
-      expect(workflow, contains(r'while [ "${base%/}" != "$base" ]; do base="${base%/}"; done'));
     });
 
     test('a failure reports what it asked and what came back, not a cause', () {

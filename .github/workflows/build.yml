@@ -178,6 +178,13 @@ jobs:
                       build/packages/fetched.txt
                   if-no-files-found: error
 
+            # porelo-host on its own too, the very binary the packages carry.
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: host-linux
+                  path: build/linux/x64/release/bundle/porelo-host
+                  if-no-files-found: error
+
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: always()
               with:
@@ -270,6 +277,12 @@ jobs:
                       build/windows-zip/*.cer
                       build/windows-zip/*.sigstore.json
                       build/windows-zip/SHA256SUMS
+                  if-no-files-found: error
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: host-windows
+                  path: build/windows/x64/runner/Release/porelo-host.exe
                   if-no-files-found: error
 
     # Whether a run of this repository already proved this very tree with the leased leg green, from a
@@ -460,31 +473,35 @@ jobs:
                     test -f "$file" || { echo "::error::$file is missing" >&2; exit 1; }
                   done < packages/fetched.txt
 
-            - uses: jfrog/setup-jfrog-cli@1e584506871998c267b7c100c02628a5b9c81db6 # v5.3.0
+            # No client is downloaded where the token is. `JF_URL` is the platform url, `/artifactory`
+            # is added here, and either shape of it works. The token is checked here and given to curl
+            # by each step that sends it, on standard input: never a command line, never a file.
+            - name: Give curl the address
               env:
                   JF_URL: ${{ vars.JF_URL }}
                   JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-              with:
-                  # Otherwise it writes build-info to a repository this token cannot write, and warns on
-                  # every run.
-                  disable-auto-build-publish: true
+              run: |
+                  set -u
+                  test -n "$JF_ACCESS_TOKEN" || { echo "::error::secrets.JF_ACCESS_TOKEN is not set" >&2; exit 1; }
+                  base="$JF_URL"
+                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
+                  base="${base%/artifactory}"
+                  test -n "$base" || { echo "::error::vars.JF_URL is not set" >&2; exit 1; }
+                  echo "ART_BASE=$base/artifactory" >> "$GITHUB_ENV"
 
-            # `--target-props` is not optional. Without them Artifactory **stores the file and never
-            # indexes it**: apt sees nothing and no error appears anywhere. Setting properties needs
-            # Annotate permission as well as Deploy — and without Annotate the upload still succeeds and
-            # the properties are silently dropped, which is why `artifactory-probe.yml` exists.
-            #
-            # `--flat=true`, or the source directory travels and the package lands under
-            # `pool/main/p/porelo-frontend/packages/...`.
+            # The properties on the deb's path are not optional. Without them Artifactory **stores the
+            # file and never indexes it**: apt sees nothing and no error appears anywhere. Setting
+            # properties needs Annotate permission as well as Deploy — and without Annotate the upload
+            # still succeeds and the properties are silently dropped, which is why
+            # `artifactory-probe.yml` exists. Both checksums go with each file, so Artifactory refuses
+            # bytes that are not the ones sent.
             # A release is published once: the same version uploaded again would replace what people
             # installed, under the same name.
             - name: Refuse a release that is there already
               if: env.CHANNEL == 'releases'
               run: |
                   set -u
-                  base="${{ vars.JF_URL }}"
-                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
-                  base="${base%/artifactory}/artifactory"
+                  base="$ART_BASE"
                   version="$(dpkg-deb -f packages/*.deb Version)"
                   # This package's own file: the index holds every Porelo package, many at one version.
                   file="Filename: pool/main/p/porelo-frontend/$(basename packages/*.deb)"
@@ -494,15 +511,21 @@ jobs:
                     exit 1
                   fi
 
-            - name: Upload the deb
+            - name: Upload the deb and the rpm
+              env:
+                  JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
               run: |
-                  jf rt upload "packages/*.deb" "porelo-dist-deb/pool/main/p/porelo-frontend/" \
-                    --flat=true \
-                    --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
-
-            - name: Upload the rpm
-              run: |
-                  jf rt upload "packages/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
+                  set -u
+                  put() {
+                    printf 'header = "Authorization: Bearer %s"\n' "$JF_ACCESS_TOKEN" | curl -fsS -K - -o /dev/null \
+                      -H "X-Checksum-Sha1: $(sha1sum "$1" | cut -d' ' -f1)" \
+                      -H "X-Checksum-Sha256: $(sha256sum "$1" | cut -d' ' -f1)" \
+                      -T "$1" "$ART_BASE/$2"
+                  }
+                  deb="$(ls packages/*.deb)"
+                  rpm="$(ls packages/*.rpm)"
+                  put "$deb" "porelo-dist-deb/pool/main/p/porelo-frontend/$(basename "$deb");deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
+                  put "$rpm" "porelo-dist-rpm/${CHANNEL}/$(basename "$rpm")"
 
             # An upload that succeeded is not a package anybody can install. Artifactory indexes
             # asynchronously, and **a missing index, an empty index and a late index look identical from
@@ -515,15 +538,7 @@ jobs:
             - name: Wait until it is actually indexed
               run: |
                   set -u
-                  # `JF_URL` is the **platform** url — `https://…jfrog.io` — and the `jf` CLI appends
-                  # `/artifactory` itself. Raw curl does not, which is why the first version of this step
-                  # spent two minutes asking a 404 and the second blamed a trailing slash it had never
-                  # measured. Normalised both ways so either shape works.
-                  base="${{ vars.JF_URL }}"
-                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
-                  base="${base%/artifactory}"
-                  test -n "$base" || { echo "::error::vars.JF_URL is not set" >&2; exit 1; }
-                  base="$base/artifactory"
+                  base="$ART_BASE"
 
                   version="$(dpkg-deb -f packages/*.deb Version)"
                   test -n "$version" || { echo "::error::could not read the built version" >&2; exit 1; }
@@ -581,11 +596,11 @@ jobs:
             # A release is published once, as the packages are; the folder of its version is the test.
             - name: Upload the Windows ZIP
               if: needs.windows.result == 'success'
+              env:
+                  JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
               run: |
                   set -u
-                  base="${{ vars.JF_URL }}"
-                  while [ "${base%/}" != "$base" ]; do base="${base%/}"; done
-                  base="${base%/artifactory}/artifactory"
+                  base="$ART_BASE"
                   zip="$(basename windows/*.zip)"
                   version="${zip#porelo-frontend-}"
                   version="${version%-windows-x64.zip}"
@@ -595,10 +610,57 @@ jobs:
                     exit 1
                   fi
                   (cd windows && sha256sum -c SHA256SUMS) || { echo "::error::the ZIP is not the one its SHA256SUMS names" >&2; exit 1; }
-                  jf rt upload "windows/*" "$target" --flat=true
+                  for file in $(cd windows && ls); do
+                    printf 'header = "Authorization: Bearer %s"\n' "$JF_ACCESS_TOKEN" | curl -fsS -K - -o /dev/null \
+                      -H "X-Checksum-Sha1: $(sha1sum "windows/$file" | cut -d' ' -f1)" \
+                      -H "X-Checksum-Sha256: $(sha256sum "windows/$file" | cut -d' ' -f1)" \
+                      -T "windows/$file" "$base/${target}${file}"
+                  done
                   # Read back as a person would fetch it, with no token: each file the job made.
                   for file in $(cd windows && ls); do
                     curl -fsSI "$base/${target}${file}" >/dev/null \
                       || { echo "::error::$target$file cannot be fetched after the upload" >&2; exit 1; }
                   done
                   echo "$base/${target}${zip}"
+
+            # porelo-host on its own, for a person who wants the command without the interface:
+            # `porelo-dist-host/<channel>/<version>/` with one `SHA256SUMS` for what is there. The Windows
+            # one only where the Windows job made it.
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: host-linux
+                  path: host
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: needs.windows.result == 'success'
+              with:
+                  name: host-windows
+                  path: host
+
+            - name: Upload porelo-host on its own
+              env:
+                  JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+              run: |
+                  set -u
+                  base="$ART_BASE"
+                  version="$(dpkg-deb -f packages/*.deb Version)"
+                  test -n "$version" || { echo "::error::could not read the built version" >&2; exit 1; }
+                  target="porelo-dist-host/${CHANNEL}/${version}/"
+                  if [ "$CHANNEL" = releases ] && curl -fsSI "$base/${target}porelo-host" >/dev/null 2>&1; then
+                    echo "::error::porelo-host $version is released already" >&2
+                    exit 1
+                  fi
+                  (cd host && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
+                  for file in $(cd host && ls); do
+                    printf 'header = "Authorization: Bearer %s"\n' "$JF_ACCESS_TOKEN" | curl -fsS -K - -o /dev/null \
+                      -H "X-Checksum-Sha1: $(sha1sum "host/$file" | cut -d' ' -f1)" \
+                      -H "X-Checksum-Sha256: $(sha256sum "host/$file" | cut -d' ' -f1)" \
+                      -T "host/$file" "$base/${target}${file}"
+                  done
+                  # Read back as a person would fetch it, with no token: each file sent.
+                  for file in $(cd host && ls); do
+                    curl -fsSI "$base/${target}${file}" >/dev/null \
+                      || { echo "::error::$target$file cannot be fetched after the upload" >&2; exit 1; }
+                  done
+                  echo "$base/${target}"
+

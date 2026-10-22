@@ -23,6 +23,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   command that fixes it to copy. A refused key can be fixed in a terminal on the machine, and every
   cause can be asked about again. A start refused for it says the same, from the dialog and from a
   task started again, and a start that goes on from the mirror keeps Porelo's warning in its words.
+- `porelo-host` and `porelo-host.exe` on their own, without the interface, in the generic repository
+  `porelo-dist-host` under their channel and version, with a `SHA256SUMS` beside them.
 
 ### Fixed
 
