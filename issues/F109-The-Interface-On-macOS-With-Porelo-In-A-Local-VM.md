@@ -62,8 +62,30 @@ Three issues, in this order; this one is split before any is built:
      `'macos'`): the configuration where Linux keeps it, `$XDG_CONFIG_HOME/porelo`, else
      `~/.config/porelo`, which is where the IntelliJ plugin reads `frontend.json` on a Mac too; `open`
      instead of `xdg-open`.
-   - `lib/src/app/pty.dart`: the libc constants are Linux's (`_oCloexec`, `_tiocswinsz`,
-     `_spawnSetsid`, the status layout); they become per system, with macOS's values.
+   - `lib/src/app/pty.dart` becomes per system. A probe made `pty.dart`'s calls from C on macOS
+     26.4.1 (Apple M1 Pro) and measured:
+     - **The constants differ:** `O_CLOEXEC` `0x1000000`, `O_NOCTTY` `0x20000`,
+       `POSIX_SPAWN_SETSID` `0x400`, `TIOCSWINSZ` `0x80087467`, `PATH_MAX` 1024 (Linux: `0x80000`,
+       `0x100`, `0x80`, `0x5414`, 4096); `O_RDWR`, `ENOENT`, `EACCES` and `SIGHUP` are the same.
+       `posix_spawn_file_actions_t` and `posix_spawnattr_t` are pointers there (8 bytes), so the
+       256 and 512 bytes allocated today hold them.
+     - **`pipe2` is missing from macOS's libc**, so `_Libc`'s lookup throws and no terminal opens at
+       all. On macOS the status pipe is `pipe` with close-on-exec set by `fcntl`, as the probe made
+       it.
+     - **The size set on the master before the child starts fails** with "Inappropriate ioctl for
+       device" (`ENOTTY`), and the child starts at `0 0`; set after the start, it arrives as
+       `SIGWINCH` (`44 120`). `_setSize` ignores `ioctl`'s result today, so this would be silent:
+       it checks the result, and on macOS the size is set before the spawn on the slave, opened here
+       with `O_NOCTTY` and closed after the spawn.
+     - **The rest works as on Linux:** `posix_openpt`, `grantpt`, `unlockpt`, `ptsname_r`;
+       `POSIX_SPAWN_SETSID` accepted; the child's standard input a terminal and its controlling
+       terminal, as a session leader whose group holds the terminal; Ctrl+C arriving as `SIGINT`;
+       the code reported on descriptor 3.
+     - **The code after a Ctrl+C that the command traps differs:** when it exits 7 from its trap,
+       macOS's `/bin/sh` survives and reports 7 on descriptor 3, while Linux's is killed with it,
+       reports nothing, and `waitpid` reads 130. Both are a code the session ended with. The Ctrl+C
+       test in `pty_test.dart` interrupts a `sleep` that traps nothing, which is inferred to end 130
+       on both.
    - `lib/src/app/notifications.dart`: `osascript`'s `display notification` instead of `notify-send`.
    - `lib/src/app/device_key.dart`: `storageOn('macos')` is user-scoped (the Keychain), as on Linux.
    - The unix socket path on macOS holds at most 104 bytes, not 108; the forward's local socket
@@ -81,6 +103,25 @@ Three issues, in this order; this one is split before any is built:
    - `lib/src/app/lima.dart`, as `wsl.dart`: `limactl list --json` for the VMs, `limactl start` from
      a template the interface carries, `limactl shell` for commands; the socket forward written into
      the VM's configuration.
+   - **The forward, measured** with Lima 2.2.1 in a VM made by `limactl create --vm-type=vz --rosetta
+     --set '.portForwards += [{"guestSocket": "/run/user/{{.UID}}/porelo/probe.sock", "hostSocket":
+     "{{.Dir}}/sock/probe.sock"}]' template:ubuntu-26.04` (Ubuntu 26.04.1 aarch64, 175 s to its
+     first start with the download), the guest's socket held by a lingering user service: it answers
+     at once, after 60 s with no session, after the service's restart and after the VM's (18 s);
+     50 MB pass at 19 MB/s; the Mac's path is 45 bytes.
+   - **A stopped daemon and a stopped VM look different on the Mac's socket:** while the service is
+     stopped, the socket still accepts and closes at once with nothing; while the VM is stopped, the
+     socket file is gone (`ENOENT`). So the window tells "Porelo is not running in the VM" from "the
+     VM is stopped" by `limactl list --json`, never by the connection alone.
+   - **Inside that VM, measured:** systemd 259, cgroup v2 with `cpuset cpu io memory pids` delegated
+     to the user, rootless Podman 5.7.0 with netavark, aarch64 and amd64 containers (amd64 through
+     Rosetta's binfmt), and Porelo 0.5.0's amd64 package, its key and index signature checked,
+     answering `porelo --version` (7 s) and `porelod --version` (2 s) under Rosetta.
+   - **Refused inside that VM:** nftables in a user and network namespace, as a task's firewall is
+     made, stopped at `unshare: write failed /proc/self/uid_map: Operation not permitted`, while
+     rootless Podman ran. The firewall is Porelo's, and an Idea in `porelo` reads what differs from
+     our Ubuntu 26.04 VM and what Porelo needs; until then a task with its firewall is not known to
+     run in a Lima VM, and step 3 waits on it.
    - `lib/src/app/machines.dart`: a kind `lima` beside `wsl`, its socket the forwarded one.
    - `lib/src/app/lima_setup.dart`, as `wsl_setup.dart`: Lima missing (installed by the person, with
      Homebrew's line shown), no VM, no Porelo, no daemon - each said and offered; the VM's
@@ -106,27 +147,27 @@ Three issues, in this order; this one is split before any is built:
 - **Porelo is published for amd64 only** (the deb repository's `Architectures: amd64 i386`,
   read on 2026-10-21), so until `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55)'s arm64 packages are published there is nothing to install in
   an ARM VM. A gap the probe below shows in an ARM VM is closed before the arm64 build is made.
-  Whether the amd64 build runs through Rosetta for Linux is measured too, as a stop-gap only.
-  (Agent Frontend's)
-- **A probe kit run on a friend's Mac answers the rest before anything is built.** Its scripts live
-  outside the repository for now. It measures:
-  - the terminal opened exactly as `lib/src/app/pty.dart` opens it: the controlling terminal,
-    `SIGWINCH`, `SIGINT`, the code on fd 3, the values of the hard-coded constants, and whether
-    `pipe2` and `ptsname_r` exist;
-  - Lima's socket forward from `/run/user/<uid>/porelo/` held by a lingering user service: after
-    idling with no session, a service restart and a VM restart, its failure while stopped, its
-    throughput, and its path against 104 bytes;
-  - inside an ARM VM: rootless Podman 5, native and amd64 containers through Rosetta, nftables in
-    a user and network namespace, the delegated cgroup controllers, and Porelo's amd64 build started
-    with `--version`.
+  Porelo's amd64 build answers `--version` under Rosetta, as measured; whether its daemon runs a
+  task there is not, and it stays a stop-gap only. (Agent Frontend's)
+- **What the probe kit could not answer**, after its run on a Mac with Apple silicon (its scripts
+  live outside the repository, and each step is started with `bash`, since an unpacked archive
+  keeps no execute bit):
+  - whether setting the size on the slave before the spawn arrives as the child's first size on
+    macOS, which only the app built for macOS can show;
+  - whether `pipe` with `fcntl` leaves a window in which another isolate's spawn inherits the status
+    pipe, and whether `POSIX_SPAWN_CLOEXEC_DEFAULT` closes it in the child instead;
+  - that the Ctrl+C test ends 130 on the macOS runner, read on its first run there;
+  - everything on an Intel Mac, which nobody has measured.
 
   (Agent Frontend's)
 - **`ioctl` is variadic, and on Apple's arm64 a variadic argument is passed on the stack**, while
   `pty.dart` looks `ioctl` up with a fixed signature. The window size would then not arrive.
   Known, not measured. The probe calls `ioctl` correctly from C, so only the app built for macOS
   can show it; Dart's FFI `VarArgs` is the likely fix. (Agent Frontend's)
-- **Lima's socket forward in a VM made by `limactl start`**: the field names and that `static: true`
-  keeps it up with no session, measured. (Agent Frontend's)
+- **Lima's socket forward with Porelo's real daemon**: the probe measured `guestSocket` and
+  `hostSocket` with an echo service, held 60 s with no session and without `static: true`; the
+  daemon's own socket, `Watch` held open across an idle hour, and what `static: true` changes are
+  not measured. (Agent Frontend's)
 - **GitHub's macOS minute price** on the bill; the issue corrected if it differs. The Mac rented for
   a release window is `porelo-machines`' work under `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55). (Agent Frontend's)
 - **`flutter_secure_storage` on macOS** without the App Sandbox: the keychain group its entitlement
