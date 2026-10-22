@@ -23,13 +23,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f130"></a>[F130](F130-The-Leased-Leg-Taken-From-A-Run-That-Proved-The-Same-Tree.md) | — | — | The leased leg skipped on a tree a run already proved, saying which run. |
 | <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | — | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. |
 | <a id="f134"></a>[F134](F134-The-Host-Command-Built-And-Shipped-For-Linux-And-Windows.md) | — | [F131](#f131) | `porelo-host` built for Linux and Windows, inside the interface's packages and alone. |
+| <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 
 ### Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | — | Putting a project on a server from the interface, the one stop answered there. |
-| <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | S | — | An upstream that cannot be read said before a start, with what fixes it. |
 
 ### Backlog
 
