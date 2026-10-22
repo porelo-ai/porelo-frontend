@@ -14,6 +14,9 @@ import 'varlink_exception.dart';
 class VarlinkConnection {
   final StreamSink<List<int>> _out;
   final void Function() _end;
+
+  /// Supplies transport diagnostics when a failed write would hide the reason it ended.
+  final Future<VarlinkDisconnected> Function()? writeFailure;
   final StreamController<Map<String, dynamic>> _replies = StreamController<Map<String, dynamic>>();
 
   /// The most one reply may weigh before the connection is called broken.
@@ -35,12 +38,13 @@ class VarlinkConnection {
     required Stream<List<int>> incoming,
     required StreamSink<List<int>> outgoing,
     required void Function() destroy,
+    this.writeFailure,
   }) : _out = outgoing,
        _end = destroy {
     final buffer = BytesBuilder();
     // A write to a peer that has gone fails here, not where it was written, and a failure nobody
     // waits for escapes unhandled. It is the same lost connection as a read error.
-    unawaited(outgoing.done.catchError((Object error) => _lost(error)));
+    unawaited(outgoing.done.catchError((Object error) async => _lost(await writeFailure?.call() ?? error)));
     incoming.listen(
       (chunk) {
         // **Every failure in here is the connection, not an exception.** A throw inside this
@@ -90,7 +94,7 @@ class VarlinkConnection {
   }
 
   void _lost(Object error) {
-    if (!_replies.isClosed) _replies.addError(VarlinkDisconnected('$error'));
+    if (!_replies.isClosed) _replies.addError(error is VarlinkDisconnected ? error : VarlinkDisconnected('$error'));
   }
 
   /// Opens a connection to the service listening on [socketPath].
@@ -180,9 +184,15 @@ class VarlinkConnection {
   void _send(String method, Map<String, dynamic> parameters, {required bool more}) {
     final call = <String, dynamic>{'method': method, 'parameters': parameters};
     if (more) call['more'] = true;
-    _out.add(utf8.encode(jsonEncode(call)));
-    _out.add(const [0]);
+    try {
+      _out.add(utf8.encode(jsonEncode(call)));
+      _out.add(const [0]);
+    } catch (error) {
+      unawaited(_lostWrite(error));
+    }
   }
+
+  Future<void> _lostWrite(Object error) async => _lost(await writeFailure?.call() ?? error);
 
   static Map<String, dynamic> _parameters(Map<String, dynamic> reply) {
     final error = reply['error'];

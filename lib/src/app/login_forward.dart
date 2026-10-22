@@ -64,6 +64,7 @@ class _Tracked implements HeldForward {
 /// `localhost:<port>` has to find the login's listener there. A machine whose socket is this
 /// computer's own needs nothing — the redirect already lands on the listener.
 Future<HeldForward> _withSsh(Machine machine, int port) async {
+  if (machine.host.startsWith('-')) throw const ForwardRefused('An ssh host must not start with a dash.');
   if (!machine.needsATunnel) return const _Nothing();
   // Asked before, because ssh with ExitOnForwardFailure says only that it failed.
   try {
@@ -75,7 +76,7 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       'could not reach ${machine.name}. Close what uses it and try again.',
     );
   }
-  final ssh = await Process.start('ssh', <String>[
+  final ssh = await Process.start(openSsh('ssh'), <String>[
     '-N',
     '-o', 'BatchMode=yes',
     '-o', 'ExitOnForwardFailure=yes',

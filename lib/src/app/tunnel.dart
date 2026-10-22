@@ -108,19 +108,21 @@ class Tunnel {
   /// `-N` because nothing is run at the far end; `ExitOnForwardFailure` so a forward that cannot
   /// bind fails the process rather than leaving `ssh` up with no socket under it, which would
   /// read as connected.
-  List<String> get command => <String>[
-    'ssh',
-    '-N',
-    '-o', 'BatchMode=yes',
-    '-o', 'ExitOnForwardFailure=yes',
-    '-o', 'ServerAliveInterval=15',
-    // A connection of its own, whatever the person's ssh config says: through their master the
-    // forward would live in the master, and letting go of this process would leave it running.
-    '-o', 'ControlMaster=no',
-    '-o', 'ControlPath=none',
-    '-L', '${machine.socketPath}:${machine.remoteSocket}',
-    machine.host,
-  ];
+  List<String> get command => machine.host.startsWith('-')
+      ? throw ArgumentError('An ssh host must not start with a dash.')
+      : <String>[
+          openSsh('ssh'),
+          '-N',
+          '-o', 'BatchMode=yes',
+          '-o', 'ExitOnForwardFailure=yes',
+          '-o', 'ServerAliveInterval=15',
+          // A connection of its own, whatever the person's ssh config says: through their master the
+          // forward would live in the master, and letting go of this process would leave it running.
+          '-o', 'ControlMaster=no',
+          '-o', 'ControlPath=none',
+          '-L', '${machine.socketPath}:${machine.remoteSocket}',
+          machine.host,
+        ];
 
   /// Raises it, and waits until the socket is there or the transport says why not.
   Future<void> raise() async {
@@ -347,7 +349,7 @@ class Tunnels extends ChangeNotifier {
   /// somebody else's forward, and there is nothing to do.
   Future<bool> raiseFor(Machine machine) async {
     // A machine this build cannot reach is said so where it is opened, never forwarded.
-    if (!machine.needsATunnel || machine.whyNotReachableHere != null) return true;
+    if (!machine.needsATunnel || machine.whyNotReachableHere != null || machine.relay != null) return true;
     final tunnel = _mine.putIfAbsent(
       machine.name,
       () => Tunnel(machine, start: _launch, run: _run, appears: _untilItBinds, onChanged: notifyListeners),
@@ -385,11 +387,13 @@ class Tunnels extends ChangeNotifier {
   /// **A unit first, the binary only if there is none.** Socket activation is supervised, comes
   /// back after a reboot and owns its socket; `setsid` is none of those and is here because the
   /// package ships no unit yet. The fallback is deliberately loud about which one ran.
-  static List<String> startCommandFor(Machine machine) => machine.isThisComputer
+  static List<String> startCommandFor(Machine machine) => machine.host.startsWith('-')
+      ? throw ArgumentError('An ssh host must not start with a dash.')
+      : machine.isThisComputer
       // This computer's own daemon: the same lines, in this user's login shell, with no login.
       ? <String>['sh', '-c', inTheLoginShell(startsIt)]
       : <String>[
-          'ssh',
+          openSsh('ssh'),
           '-n',
           '-o',
           'BatchMode=yes',
@@ -434,16 +438,18 @@ class Tunnels extends ChangeNotifier {
 
   /// The line that would stop the daemon on [machine]: shown before anybody agrees, run unchanged
   /// after, like the start.
-  static List<String> stopCommandFor(Machine machine) => <String>[
-    'ssh',
-    '-n',
-    '-o',
-    'BatchMode=yes',
-    '-o',
-    'ConnectTimeout=10',
-    machine.host,
-    inTheLoginShell(stopsIt),
-  ];
+  static List<String> stopCommandFor(Machine machine) => machine.host.startsWith('-')
+      ? throw ArgumentError('An ssh host must not start with a dash.')
+      : <String>[
+          openSsh('ssh'),
+          '-n',
+          '-o',
+          'BatchMode=yes',
+          '-o',
+          'ConnectTimeout=10',
+          machine.host,
+          inTheLoginShell(stopsIt),
+        ];
 
   /// What is run at the far end to stop it: the mirror of [startsIt].
   ///
@@ -463,6 +469,8 @@ class Tunnels extends ChangeNotifier {
   ///
   /// **Only for a machine this interface forwards**, for the same reason as a start.
   Future<Started> stopPoreloOn(Machine machine) async {
+    final why = machine.whyNotReachableHere;
+    if (why != null) return Started(went: false, words: why);
     if (!machine.needsATunnel) {
       return const Started(
         went: false,
@@ -481,6 +489,8 @@ class Tunnels extends ChangeNotifier {
   /// Running a line at the far end is further into somebody else's machine than forwarding a
   /// socket goes, and the caller asks first — which is why this takes no decision of its own.
   Future<Started> startPoreloOn(Machine machine) async {
+    final why = machine.whyNotReachableHere;
+    if (why != null) return Started(went: false, words: why);
     if (!machine.canBeStartedHere) {
       return const Started(
         went: false,
@@ -521,16 +531,9 @@ class Tunnels extends ChangeNotifier {
   static List<String> loginUidCommandFor(Machine machine) => loginUidCommandAt(machine.host);
 
   /// The same line for a login known only by where it is, before there is a machine to describe.
-  static List<String> loginUidCommandAt(String host) => <String>[
-    'ssh',
-    '-n',
-    '-o',
-    'BatchMode=yes',
-    '-o',
-    'ConnectTimeout=10',
-    host,
-    'id -u',
-  ];
+  static List<String> loginUidCommandAt(String host) => host.startsWith('-')
+      ? throw ArgumentError('An ssh host must not start with a dash.')
+      : <String>[openSsh('ssh'), '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, 'id -u'];
 
   /// The uid of the account this interface logs in as on [machine], or null when it cannot say.
   ///
@@ -559,6 +562,9 @@ class Tunnels extends ChangeNotifier {
       return null;
     }
   }
+
+  /// Explains ssh's own failure using the configuration of the same login.
+  Future<String?> explainRefusal(String said, String host) => _explainSshRefusal(said, host, _run);
 
   /// Takes down the forward for one machine, if this interface raised it.
   Future<void> dropFor(Machine machine) async {
@@ -595,9 +601,9 @@ Future<String?> _explainSshRefusal(
 /// What `ssh -G` resolves for [host], or null where it cannot say: an empty answer would read as
 /// "no key is named", which is not what a failed `ssh -G` knows.
 Future<String?> _sshConfigFor(String host, Future<ProcessResult> Function(List<String> command) run) async {
-  if (host.isEmpty) return null;
+  if (host.isEmpty || host.startsWith('-')) return null;
   try {
-    final result = await run(<String>['ssh', '-G', host]);
+    final result = await run(<String>[openSsh('ssh'), '-G', host]);
     return result.exitCode == 0 ? '${result.stdout}' : null;
   } on ProcessException {
     return null;

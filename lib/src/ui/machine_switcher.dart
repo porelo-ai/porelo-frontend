@@ -29,6 +29,7 @@ String describeMachine(Machines machines, Machine machine) => '${machine.name}${
 String machineKind(Machines machines, Machine machine) {
   final also = machines.sameNodeAs(machine);
   final same = also.isEmpty ? '' : '  ·  the same node as ${also.map((each) => each.name).join(', ')}';
+  if (desk.isWindows && machine.kind.isEmpty && machine.needsATunnel) return '  ·  reached over ssh$same';
   return machine.needsATunnel ? '  ·  forward raised here$same' : same;
 }
 
@@ -151,7 +152,7 @@ class _AskForAMachine extends StatefulWidget {
     this.wslSteps,
   });
 
-  /// Whether this runs on Windows, where a WSL distribution is the one way offered.
+  /// Whether this runs on Windows, offering WSL and an existing machine over ssh.
   final bool onWindows;
 
   /// The WSL way's steps, told the machine once every check passed; null for the real ones.
@@ -515,9 +516,14 @@ class _AskForAMachineState extends State<_AskForAMachine> {
             MachineKind.wsl,
             'A WSL distribution on this computer',
             id: 'machine-wsl',
+            means: 'Reached through wsl.exe, with no ssh and no open port; only you reach it.',
+          ),
+          Choice(
+            MachineKind.raiseIt,
+            'A Porelo already running on a machine over ssh',
+            id: 'machine-raise-it',
             means:
-                'Reached through wsl.exe, with no ssh and no open port; only you reach it. '
-                'Machines over ssh are reached from the Linux build, so far.',
+                'Reached with Windows OpenSSH and the keys in its agent; a key with a passphrase must be in the agent.',
           ),
         ],
       ),
@@ -889,7 +895,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
         // more thing to get almost right.
         ? Machine(
             name: name,
-            socketPath: Machine.endpointFor(name),
+            socketPath: widget.onWindows ? '' : Machine.endpointFor(name),
             host: _host.text.trim(),
             remoteSocket: _remote.text.trim(),
           )
@@ -933,6 +939,14 @@ class _AskForAMachineState extends State<_AskForAMachine> {
   /// in the middle needs. A refusal, or a key that could not be fetched, is said where the trial's
   /// answer goes.
   Future<bool> _hostKeyAccepted() async {
+    if (_raiseIt == true && _host.text.trim().startsWith('-')) {
+      setState(() {
+        _trial = const Trial(reached: false, words: 'An ssh host must not start with a dash.');
+        _triedFor = _signature;
+      });
+      _showTheEnd();
+      return false;
+    }
     final keys = widget.hostKeys;
     if (keys == null || _raiseIt != true) return true;
     final signature = _signature;

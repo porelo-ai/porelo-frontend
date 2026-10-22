@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:porelo_frontend/src/app/desk.dart';
 
+import 'machines.dart';
+
 /// Runs a program and answers what it printed, the way [Process.run] does, with optional input.
 typedef RunWith = Future<ProcessResult> Function(List<String> command, {String? input});
 
@@ -67,13 +69,20 @@ abstract interface class HostKeys {
 class SshHostKeys implements HostKeys {
   /// Constructor, optionally with what runs a program, whose home `~/.ssh` is in, and the desk.
   SshHostKeys({RunWith? run, String? home, Desk? on})
-    : _run = run ?? _runForReal,
+    : _execute = run ?? _runForReal,
       _desk = on ?? desk,
       _home = home ?? (on ?? desk).home;
 
-  final RunWith _run;
+  final RunWith _execute;
   final Desk _desk;
   final String _home;
+
+  Future<ProcessResult> _run(List<String> command, {String? input}) => _execute(<String>[
+    const <String>{'ssh', 'ssh-keygen', 'ssh-keyscan'}.contains(command.first)
+        ? openSsh(command.first, on: _desk)
+        : command.first,
+    ...command.skip(1),
+  ], input: input);
 
   /// Keeps [path] to its owner, through [_run] so a test sees it.
   Future<void> _keepPrivate(String path, {bool directory = false}) async {
@@ -94,7 +103,7 @@ class SshHostKeys implements HostKeys {
   @override
   Future<HostKeyCheck> check(String destination) async {
     // What ssh will actually connect to: the alias resolved, the port, and where it looks.
-    final config = await _run(<String>['ssh', '-G', destination]);
+    final config = await _run(<String>['ssh', '-G', '--', destination]);
     if (config.exitCode != 0) {
       return HostKeyCheck(
         destination: destination,
@@ -130,7 +139,7 @@ class SshHostKeys implements HostKeys {
         known.add(_keyOf(line));
       }
     }
-    final scan = await _run(<String>['ssh-keyscan', '-T', '10', '-H', '-p', port, hostname]);
+    final scan = await _run(<String>['ssh-keyscan', '-T', '10', '-H', '-p', port, '--', hostname]);
     final scanned = <String>[
       for (final line in '${scan.stdout}'.split('\n'))
         if (line.trim().isNotEmpty && !line.startsWith('#')) line.trim(),

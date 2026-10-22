@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,15 @@ import '../wire/varlink_connection.dart';
 import '../wire/varlink_exception.dart';
 import 'models.dart';
 import 'environment.dart';
+
+/// A relay ended before the daemon answered, retaining the transport's own verdict.
+class RelayDisconnected extends VarlinkDisconnected {
+  /// Constructor taking the bounded diagnostic and exit status, if it arrived in time.
+  const RelayDisconnected(super.message, this.exitCode);
+
+  /// The relay's exit status, or null when it did not exit within the diagnostic deadline.
+  final int? exitCode;
+}
 
 /// Where a backend is.
 ///
@@ -50,10 +60,31 @@ class Backend {
     } on ProcessException catch (failed) {
       throw VarlinkDisconnected('`${through.first}` could not be started: ${failed.message}');
     }
-    // What the relay says goes to its standard error, never into the stream. Drained, so a relay
-    // that says much there is never held up by it.
-    process.stderr.drain<void>().ignore();
-    return VarlinkConnection.over(incoming: process.stdout, outgoing: process.stdin, destroy: process.kill);
+    final lastBytes = <int>[];
+    // Bound diagnostics even when a relay prints endlessly without a newline.
+    final diagnostics = process.stderr.forEach((bytes) {
+      lastBytes.addAll(bytes);
+      if (lastBytes.length > 8192) lastBytes.removeRange(0, lastBytes.length - 8192);
+    });
+    Future<RelayDisconnected>? ending;
+    Future<RelayDisconnected> ended() => ending ??= () async {
+      final status = process.exitCode.timeout(const Duration(seconds: 1), onTimeout: () => -1);
+      await diagnostics.timeout(const Duration(seconds: 1), onTimeout: () {});
+      final code = await status;
+      final words = utf8.decode(lastBytes, allowMalformed: true).trim();
+      return RelayDisconnected(words.isEmpty ? 'The relay closed the connection.' : words, code == -1 ? null : code);
+    }();
+    Stream<List<int>> incoming() async* {
+      yield* process.stdout;
+      throw await ended();
+    }
+
+    return VarlinkConnection.over(
+      incoming: incoming(),
+      outgoing: process.stdin,
+      destroy: process.kill,
+      writeFailure: ended,
+    );
   }
 
   /// The daemon on this machine.

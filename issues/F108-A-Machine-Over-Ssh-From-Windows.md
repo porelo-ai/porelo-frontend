@@ -37,10 +37,22 @@ distributions only, so far", [F102](README.md#f102)).
 ## Plan
 
 - **The relay for ssh:** `Machine.relay` in `lib/src/app/machines.dart` gives, on Windows, for a
-  machine that `needsATunnel`, `ssh -o BatchMode=yes <host>` with `porelo daemon connect` run in the
+  machine that `needsATunnel`, the absolute Windows OpenSSH executable under a validated
+  `SystemRoot` (otherwise `C:\Windows`), with `-T`, `BatchMode=yes`, `ServerAliveInterval=15`,
+  `ControlMaster=no`, `ControlPath=none` and `--` before the host. A host starting with `-` is refused
+  before ssh starts. `porelo daemon connect --socket '<remote socket>'` runs in the
   login shell (`inTheLoginShell` in `lib/src/app/connections.dart`, since a plain ssh command has no
   `~/.local/bin` on its `PATH`). `whyNotReachableOn` stops refusing it there. `Machines.backendFor`
-  passes it on as today, with no `whyNotNow`.
+  passes it on with no `whyNotNow` for ssh; a relay carries its `wsl` or `ssh` kind.
+- **Plain remote socket on Windows:** `whyNotReachableOn` refuses a remote socket outside
+  `^/[A-Za-z0-9._/-]+$`, and `relayOn` returns null, so a non-POSIX far login shell cannot
+  reinterpret socket characters. Linux forwarding still accepts those paths; the relay's remote
+  line keeps its single quotes.
+- **Every OpenSSH program by one function:** `openSsh` selects the program for every start of
+  ssh, ssh-add, ssh-keygen and ssh-keyscan, including setup, trials and login forwards.
+  **One Windows OpenSSH path:** `windowsOpenSsh` selects every OpenSSH program from the same
+  validated `SystemRoot` directory, falling back to `C:\Windows`. The relay, machine commands,
+  terminal sessions, and host-key checks and replacement use it; Linux keeps its own commands.
 - **No forward on Windows:** `Tunnels.raiseFor` in `lib/src/app/tunnel.dart` raises nothing for a
   machine reached by a relay, and `machineKind` in `lib/src/ui/machine_switcher.dart` says it is
   reached over ssh instead of "forward raised here".
@@ -52,6 +64,10 @@ distributions only, so far", [F102](README.md#f102)).
   `VarlinkDisconnected`. `tryAMachine` in `lib/src/app/connection_trial.dart` skips
   `tunnels.trial` for a relay, connects through it, and says no route, an unknown host key, no key
   that logs in, or no Porelo answering, from what ssh said.
+- **The trial exit-code rule:** the relay ends with a `VarlinkDisconnected` carrying bounded
+  stderr and its exit code. Code 255 is explained from ssh's words and resolved configuration;
+  another code checks the login uid before offering a daemon start for an unserved socket.
+  An immediate exit keeps ssh's words even when writing its input fails.
 - **The wizard:** `_AskForAMachine` in `lib/src/ui/machine_switcher.dart` offers on Windows, beside
   the WSL distribution, a Porelo that already runs on a machine over ssh. Not the set-up as root.
 - **Red first:** in `test/app/wsl_test.dart`, "on Windows a WSL distribution is reached, and the
@@ -70,11 +86,13 @@ distributions only, so far", [F102](README.md#f102)).
 - **A key that needs a passphrase not in the agent** is refused in ssh's words, and nothing waits for
   input. Seen to fail: a relay started without `BatchMode=yes`, which would wait.
 
+## Measured
+
+- `ssh.exe` passes the daemon's NUL-framed bytes unchanged through standard input and output,
+  measured green in the IntelliJ plugin's relay test on GitHub's Windows runner.
+
 ## To be checked
 
-- **Whether `ssh.exe` passes the daemon's zero bytes unchanged** through its standard input and
-  output on Windows, as `wsl.exe` was measured to. (Agent Frontend's, measured in the operator's
-  Windows test)
 - **Whether ssh's words for each refusal** are the same in Windows' OpenSSH as on Linux, so the
   trial can tell no route, an unknown host key and no key apart. (Agent Frontend's, measured in the
   operator's Windows test)

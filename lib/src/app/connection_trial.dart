@@ -37,7 +37,9 @@ Future<Trial> tryAMachine(
   required Tunnels tunnels,
   Duration within = const Duration(seconds: 10),
 }) async {
-  final target = machine.needsATunnel
+  final why = machine.whyNotReachableHere;
+  if (why != null) return Trial(reached: false, words: why);
+  final target = machine.needsATunnel && machine.relay == null
       ? Machine(
           name: machine.name,
           socketPath: Machine.endpointFor('${machine.name} trial'),
@@ -47,7 +49,7 @@ Future<Trial> tryAMachine(
       : machine;
   Tunnel? tunnel;
   try {
-    if (machine.needsATunnel) {
+    if (machine.needsATunnel && machine.relay == null) {
       tunnel = await tunnels.trial(target);
       if (tunnel.state != TunnelState.up) {
         return Trial(
@@ -71,6 +73,13 @@ Future<Trial> tryAMachine(
   } on VarlinkException catch (refusal) {
     return Trial(reached: false, words: 'It answers, and refused: ${refusal.simpleName}.');
   } on VarlinkDisconnected catch (ex) {
+    if (machine.relay?.kind == 'wsl') {
+      return Trial(reached: false, words: 'Could not reach ${machine.where}: ${ex.message}');
+    }
+    if (machine.relay != null && (ex is! RelayDisconnected || ex.exitCode == 255 || ex.exitCode == null)) {
+      final explained = await tunnels.explainRefusal(ex.message, machine.host);
+      return Trial(reached: false, words: explained ?? ex.message);
+    }
     // ssh reports a missing daemon and somebody else's socket in the same words — measured
     // — and every runtime directory is owner-only, so no daemon can be asked either. The
     // login's own uid is the one thing that tells the two apart.
@@ -95,7 +104,7 @@ Future<Trial> tryAMachine(
       // forwarded fails the same way and has no host behind it to log into.
       nothingServing: machine.needsATunnel,
       words: machine.needsATunnel
-          ? 'The forward came up, but nothing answers at ${machine.remoteSocket} on that '
+          ? '${machine.relay == null ? 'The forward came up' : 'The login worked'}, but nothing answers at ${machine.remoteSocket} on that '
                 'machine. Is porelod running there, for the user you log in as? (${ex.message})'
           : 'Nothing answers at ${machine.socketPath}: ${ex.message}',
     );
@@ -121,7 +130,8 @@ Future<int?> countKeyslots(
   required Tunnels tunnels,
   Duration within = const Duration(seconds: 10),
 }) async {
-  final target = machine.needsATunnel
+  if (machine.whyNotReachableHere != null) return null;
+  final target = machine.needsATunnel && machine.relay == null
       ? Machine(
           name: machine.name,
           socketPath: Machine.endpointFor('${machine.name} vault'),
@@ -131,7 +141,7 @@ Future<int?> countKeyslots(
       : machine;
   Tunnel? tunnel;
   try {
-    if (machine.needsATunnel) {
+    if (machine.needsATunnel && machine.relay == null) {
       tunnel = await tunnels.trial(target);
       if (tunnel.state != TunnelState.up) return null;
     }

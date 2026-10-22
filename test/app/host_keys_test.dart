@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_keys.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 
 /// OpenSSH as far as these checks ask it: `ssh -G`, `ssh-keygen -F` and `-l`, `ssh-keyscan`.
 class _Ssh {
@@ -25,7 +26,7 @@ class _Ssh {
     ran.add(command);
     ProcessResult answer(int code, [String out = '', String err = '']) => ProcessResult(0, code, out, err);
     switch (command) {
-      case ['ssh', '-G', _]:
+      case ['ssh', '-G', '--', _]:
         return answer(0, config);
       case ['ssh-keygen', '-F', final host, '-f', final file]:
         final found = (knows[file] ?? const <String>{}).contains(host);
@@ -42,6 +43,42 @@ class _Ssh {
 }
 
 void main() {
+  test('Windows host key checks and replacement use its OpenSSH instead of a program on PATH', () async {
+    final home = Directory.systemTemp.createTempSync('host-keys-');
+    addTearDown(() => home.deleteSync(recursive: true));
+    final file = '${home.path}/known_hosts';
+    File(file).writeAsStringSync('');
+    final ssh = _Ssh(config: 'hostname build.example.test\nport 22\nuserknownhostsfile $file\n')
+      ..knows[file] = <String>{'build.example.test'}
+      ..knownKey = 'ssh-ed25519 AAAAoldmachine';
+    final programs = <String>[
+      r'D:\Windows\System32\OpenSSH\ssh.exe',
+      r'D:\Windows\System32\OpenSSH\ssh-keygen.exe',
+      r'D:\Windows\System32\OpenSSH\ssh-keyscan.exe',
+    ];
+    final ran = <List<String>>[];
+    final keys = SshHostKeys(
+      home: home.path,
+      on: Desk.of('windows', const <String, String>{'SystemRoot': r'D:\Windows'}),
+      run: (command, {input}) async {
+        ran.add(command);
+        final index = programs.indexOf(command.first);
+        if (index < 0) throw StateError('Unexpected executable: ${command.first}');
+        return ssh.run(<String>[
+          <String>['ssh', 'ssh-keygen', 'ssh-keyscan'][index],
+          ...command.skip(1),
+        ], input: input);
+      },
+    );
+    final check = await keys.check('build');
+    expect(check.changed, isTrue);
+    expect(check.fingerprints, isNotEmpty);
+    await keys.accept(check);
+    expect(ran.map((command) => command.first).toSet(), programs.toSet());
+    expect(ran.where((command) => command.contains('-R')).single.first, programs[1]);
+    expect(File(file).readAsStringSync(), contains(ssh.scanned.split('\n').first));
+  });
+
   test('an unknown host is scanned on the port ssh will use, and its fingerprints are shown', () async {
     final ssh = _Ssh();
 
@@ -49,7 +86,10 @@ void main() {
 
     expect(check.known, isFalse);
     expect(check.host, 'build.example.test', reason: 'the alias was not resolved');
-    expect(ssh.ran, anyElement(equals(<String>['ssh-keyscan', '-T', '10', '-H', '-p', '22', 'build.example.test'])));
+    expect(
+      ssh.ran,
+      anyElement(equals(<String>['ssh-keyscan', '-T', '10', '-H', '-p', '22', '--', 'build.example.test'])),
+    );
     expect(check.scanned, <String>['|1|abc= ssh-ed25519 AAAAC3Nza'], reason: 'a comment would be written');
     expect(check.fingerprints.single, contains('SHA256:fingerprint'));
     expect(ssh.given, contains('ssh-ed25519 AAAAC3Nza'), reason: 'the fingerprints are of other keys');
@@ -86,7 +126,7 @@ void main() {
 
     expect(check.host, '[203.0.113.10]:2222');
     expect(check.known, isFalse, reason: 'the key for port 22 stood in for port 2222');
-    expect(ssh.ran, anyElement(equals(<String>['ssh-keyscan', '-T', '10', '-H', '-p', '2222', '203.0.113.10'])));
+    expect(ssh.ran, anyElement(equals(<String>['ssh-keyscan', '-T', '10', '-H', '-p', '2222', '--', '203.0.113.10'])));
   });
 
   test('a host that offers no key says so, and there is nothing to trust', () async {

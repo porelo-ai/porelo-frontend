@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Windows reaches an existing machine through Windows OpenSSH with the keys in its agent,
+  relaying the daemon’s bytes and showing ssh’s refusal without waiting for a passphrase.
+
 - `porelo-host`, beside the interface in the deb, the rpm, the ZIP and the MSIX: `porelo-host up` and
   `down` put a project on a server and take it off again, with the playbook running on the host
   itself, so this computer needs only ssh. It rents from Scaleway Elastic Metal, or works on a
@@ -31,6 +34,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `porelo-dist-host` under their channel and version, with a `SHA256SUMS` beside them.
 
 ### Fixed
+
+- Windows uses one OpenSSH installation for every command, refuses option-like hosts, and
+  distinguishes SSH login failures from a missing daemon when trying a machine.
 
 - On a GitHub of its own, every call is asked under its `/api/v3`, not at the instance's root.
 - A forge that answers with a page that is not its API, with JSON of another shape, or breaks off its

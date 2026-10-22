@@ -1,4 +1,5 @@
 import 'connection_trial.dart';
+import 'connections.dart';
 import 'desk.dart';
 
 import 'dart:async';
@@ -14,6 +15,19 @@ import 'machine_setup.dart';
 import 'tunnel.dart';
 import 'wsl.dart';
 import 'settings.dart';
+
+/// Uses Windows' OpenSSH tools so PATH cannot select another installation and agent.
+String windowsOpenSsh(String program, Map<String, String> environment) {
+  final root = environment['SystemRoot'] ?? '';
+  final systemRoot = RegExp(r'^[A-Za-z]:\\').hasMatch(root) ? root : r'C:\Windows';
+  return '$systemRoot\\System32\\OpenSSH\\$program.exe';
+}
+
+/// Selects the same OpenSSH installation for every command on this desktop.
+String openSsh(String program, {Desk? on}) {
+  final here = on ?? desk;
+  return here.isWindows ? windowsOpenSsh(program, here.environment) : program;
+}
 
 /// One machine this interface can reach.
 ///
@@ -124,12 +138,13 @@ class Machine {
   /// Why it cannot be reached from Linux, or from Windows when [windows] is true, or null when it can.
   ///
   /// A WSL distribution is reached from Windows only. On Windows, a socket entry names a path on a
-  /// Linux computer, and a machine over ssh is reached from the Linux build only so far. An entry of
+  /// Linux computer. A machine over ssh uses a byte relay. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
-    '' when windows && needsATunnel =>
-      'A machine over ssh is reached from the Linux build of the '
-          'interface; this Windows build reaches WSL distributions only, so far.',
+    '' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
+    '' when windows && needsATunnel && !_plainRemoteSocket =>
+      "The remote socket must be a plain path: letters, digits, '.', '_', '-' and '/'.",
+    '' when windows && needsATunnel => null,
     '' when windows => 'This entry names a socket on a Linux computer, which Windows cannot open.',
     '' => null,
     'wsl' when windows => null,
@@ -141,9 +156,36 @@ class Machine {
           'leaves this one as it is.',
   };
 
-  /// What its daemon is reached through instead of a socket: `porelo daemon connect` in the WSL
-  /// distribution, on Windows. Null for a socket.
-  List<String>? get relay => kind == 'wsl' && desk.isWindows ? Wsl.relayTo(distribution) : null;
+  /// The process carrying the daemon's bytes on Windows, or null for a socket.
+  ({String kind, List<String> command})? get relay => relayOn(windows: desk.isWindows, environment: desk.environment);
+
+  /// Builds the relay without consulting the test machine's platform or environment.
+  ({String kind, List<String> command})? relayOn({required bool windows, required Map<String, String> environment}) {
+    if (!windows) return null;
+    if (kind == 'wsl') return (kind: 'wsl', command: Wsl.relayTo(distribution));
+    if (kind.isNotEmpty || !needsATunnel) return null;
+    if (host.startsWith('-') || !_plainRemoteSocket) return null;
+    return (
+      kind: 'ssh',
+      command: <String>[
+        windowsOpenSsh('ssh', environment),
+        '-T',
+        '-o',
+        'BatchMode=yes',
+        '-o',
+        'ServerAliveInterval=15',
+        '-o',
+        'ControlMaster=no',
+        '-o',
+        'ControlPath=none',
+        '--',
+        host,
+        inTheLoginShell("porelo daemon connect --socket '$remoteSocket'"),
+      ],
+    );
+  }
+
+  bool get _plainRemoteSocket => RegExp(r'^/[A-Za-z0-9._/-]+$').hasMatch(remoteSocket);
 
   /// Where it is, in a word or two: the host, the WSL distribution, or the socket.
   String get where => switch (kind) {
@@ -165,7 +207,7 @@ class Machine {
       kind.isEmpty && !needsATunnel && socketPath.isNotEmpty && socketPath == Backend.local().socketPath;
 
   /// Whether this interface can start the daemon itself: over its own login, or here.
-  bool get canBeStartedHere => needsATunnel || isThisComputer;
+  bool get canBeStartedHere => whyNotReachableHere == null && (needsATunnel || isThisComputer);
 
   /// How it is stored between runs.
   ///
@@ -332,8 +374,8 @@ class Machines extends ChangeNotifier {
     socketPath: machine.socketPath,
     label: machine.name,
     notReachable: machine.whyNotReachableHere,
-    relay: machine.relay,
-    whyNotNow: machine.relay == null ? null : () => Wsl().whyNotNow(machine.distribution),
+    relay: machine.relay?.command,
+    whyNotNow: machine.kind == 'wsl' && desk.isWindows ? () => Wsl().whyNotNow(machine.distribution) : null,
   );
 
   /// Where Porelo's socket is for the account `host` logs in as, asked of the machine, or null when

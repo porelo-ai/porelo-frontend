@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'machines.dart';
 import 'desk.dart';
 import 'forge.dart';
 
@@ -306,7 +307,7 @@ class ProjectWorkspace {
 
   /// Every key the person's ssh agent holds, each with its fingerprint.
   Future<List<SigningKey>> _agentKeys() async {
-    final listed = await _run('ssh-add', <String>['-L']);
+    final listed = await _run(openSsh('ssh-add'), <String>['-L']);
     if (listed.code != 0) {
       throw WorkspaceRefused(
         listed.out.contains('no identities') || listed.err.contains('no identities')
@@ -316,7 +317,7 @@ class ProjectWorkspace {
     }
     final keys = <SigningKey>[];
     for (final line in listed.out.split('\n').map((each) => each.trim()).where((each) => each.isNotEmpty)) {
-      final printed = await _run('ssh-keygen', <String>['-lf', '-'], input: '$line\n');
+      final printed = await _run(openSsh('ssh-keygen'), <String>['-lf', '-'], input: '$line\n');
       final fields = printed.out.trim().split(' ');
       final parts = line.split(' ');
       keys.add(

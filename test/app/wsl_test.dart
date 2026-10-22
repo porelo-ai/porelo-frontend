@@ -2,6 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
+import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_frontend/src/app/wsl.dart';
 
 /// The WSL distributions of a Windows user, read without starting any of them, and what the
@@ -84,10 +89,70 @@ void main() {
     );
     const socket = Machine(name: 'here', socketPath: '/run/user/1000/porelo/porelod.sock');
 
-    test('on Windows a WSL distribution is reached, and the Linux ways are said not to be', () {
+    test('on Windows ssh must not be refused or prompt for a key', () {
       expect(wsl.whyNotReachableOn(windows: true), isNull);
-      expect(overSsh.whyNotReachableOn(windows: true), contains('Linux build'));
+      expect(overSsh.whyNotReachableOn(windows: true), isNull);
+      expect(overSsh.relayOn(windows: true, environment: const <String, String>{})?.command, contains('BatchMode=yes'));
       expect(socket.whyNotReachableOn(windows: true), contains('socket on a Linux computer'));
+    });
+
+    test('an ssh relay must not send commands to WSL or raise a unix forward', () async {
+      final previous = desk;
+      desk = Desk.of('windows', const <String, String>{'SystemRoot': r'D:\Windows'});
+      addTearDown(() => desk = previous);
+      expect(overSsh.relay?.kind, 'ssh');
+      expect(wsl.relay?.kind, 'wsl');
+      expect(Machines.backendFor(overSsh).whyNotNow, isNull);
+      expect(onTheMachine(overSsh, <String>['porelo', 'doctor'], terminal: true)?.take(3), <String>[
+        r'D:\Windows\System32\OpenSSH\ssh.exe',
+        '-t',
+        overSsh.host,
+      ]);
+      expect(onTheMachineAsWritten(overSsh, 'porelo doctor')?.take(3), <String>[
+        r'D:\Windows\System32\OpenSSH\ssh.exe',
+        '-t',
+        overSsh.host,
+      ]);
+      List<String>? opened;
+      final session = Session(
+        task: 'task with a quote',
+        machine: overSsh,
+        open: (executable, arguments, {columns = 80, rows = 24}) {
+          opened = <String>[executable, ...arguments];
+          throw const PtyRefused('No terminal in this test.');
+        },
+      );
+      addTearDown(session.dispose);
+      expect(opened?.take(3), <String>[r'D:\Windows\System32\OpenSSH\ssh.exe', '-t', overSsh.host]);
+      final tunnels = Tunnels(start: (_) async => fail('A relay must not start a forward.'));
+      addTearDown(tunnels.dispose);
+      expect(await tunnels.raiseFor(overSsh), isTrue);
+      expect(tunnels.manages(overSsh), isFalse);
+    });
+
+    test('Windows refuses socket characters that a non POSIX login shell could reinterpret', () {
+      for (final path in <String>['/run/socket with space', "/run/socket'quote"]) {
+        final machine = Machine(name: 'box', socketPath: '/local.sock', host: 'user@box', remoteSocket: path);
+        expect(machine.whyNotReachableOn(windows: true), isNotNull);
+        expect(machine.relayOn(windows: true, environment: const <String, String>{}), isNull);
+        expect(machine.whyNotReachableOn(windows: false), isNull);
+      }
+    });
+
+    test('Windows ssh bypasses PATH and refuses an option as a host', () {
+      for (final root in <String>['', 'Windows', r'\\server\Windows', r'C:Windows']) {
+        expect(
+          overSsh.relayOn(windows: true, environment: <String, String>{'SystemRoot': root})?.command.first,
+          r'C:\Windows\System32\OpenSSH\ssh.exe',
+        );
+      }
+      expect(
+        overSsh.relayOn(windows: true, environment: const <String, String>{'SystemRoot': r'D:\Windows'})?.command.first,
+        r'D:\Windows\System32\OpenSSH\ssh.exe',
+      );
+      const option = Machine(name: 'bad', socketPath: '', host: '-oProxyCommand=wrong', remoteSocket: '/s');
+      expect(option.whyNotReachableOn(windows: true), isNotNull);
+      expect(option.whyNotReachableOn(windows: false), isNotNull);
     });
 
     test('on Linux the Linux ways are reached, and a WSL distribution is said not to be', () {

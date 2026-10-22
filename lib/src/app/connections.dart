@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
+import 'desk.dart';
 import 'machines.dart';
 import 'wsl.dart';
 
@@ -127,11 +128,17 @@ class Connections extends ChangeNotifier {
 /// forwards — a command run here would reach a different machine's vault. [terminal] asks ssh for
 /// one, which a command that prompts needs and one fed on standard input must not have.
 List<String>? onTheMachine(Machine machine, List<String> command, {required bool terminal}) {
-  if (command.isEmpty) return null;
-  if (machine.relay != null) return Wsl.runIn(machine.distribution, command);
+  if (command.isEmpty || machine.host.startsWith('-')) return null;
+  if (machine.relay?.kind == 'wsl') return Wsl.runIn(machine.distribution, command);
   if (machine.needsATunnel) {
     // ssh joins what follows the host into one line for the far shell, so each word is quoted.
-    return <String>['ssh', if (terminal) '-t', machine.host, inTheLoginShell(command.map(quoteForAShell).join(' '))];
+    return <String>[
+      openSsh('ssh'),
+      if (terminal) '-t',
+      if (!terminal && desk.isWindows) ...<String>['-o', 'BatchMode=yes'],
+      machine.host,
+      inTheLoginShell(command.map(quoteForAShell).join(' ')),
+    ];
   }
   if (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath) return command;
   return null;
@@ -172,9 +179,11 @@ String? notAPrivateKey(String value) {
 /// hands one line to the shell, or here with `sh -c`. **Never split here** — a line this end did not
 /// write is not one it may take apart. Null where nothing here reaches that machine.
 List<String>? onTheMachineAsWritten(Machine machine, String line) {
-  if (line.trim().isEmpty) return null;
-  if (machine.relay != null) return Wsl.runIn(machine.distribution, <String>['sh', '-c', line]);
-  if (machine.needsATunnel) return <String>['ssh', '-t', machine.host, inTheLoginShell(line)];
+  if (line.trim().isEmpty || machine.host.startsWith('-')) return null;
+  if (machine.relay?.kind == 'wsl') return Wsl.runIn(machine.distribution, <String>['sh', '-c', line]);
+  if (machine.needsATunnel) {
+    return <String>[openSsh('ssh'), '-t', machine.host, inTheLoginShell(line)];
+  }
   if (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath) {
     return <String>['sh', '-c', line];
   }

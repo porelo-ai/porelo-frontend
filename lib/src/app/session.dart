@@ -176,13 +176,19 @@ class Session extends ChangeNotifier {
   /// There is deliberately **no `BatchMode=yes` here**, and the tunnel deliberately has one. A
   /// forward has no terminal, so a prompt there is a hang; this *is* a terminal, so a passphrase
   /// or an unknown host key can be answered by the person sitting in front of it.
-  List<String> get command =>
-      run ??
-      (machine.relay != null
-          ? Wsl.runIn(machine.distribution, <String>['porelo', 'task', 'attach', task])
-          : machine.needsATunnel
-          ? <String>['ssh', '-t', machine.host, inTheLoginShell('porelo task attach ${quoteForAShell(task)}')]
-          : <String>['porelo', 'task', 'attach', task]);
+  List<String> get command => machine.host.startsWith('-')
+      ? throw const PtyRefused('An ssh host must not start with a dash.')
+      : run ??
+            (machine.relay?.kind == 'wsl'
+                ? Wsl.runIn(machine.distribution, <String>['porelo', 'task', 'attach', task])
+                : machine.needsATunnel
+                ? <String>[
+                    openSsh('ssh'),
+                    '-t',
+                    machine.host,
+                    inTheLoginShell('porelo task attach ${quoteForAShell(task)}'),
+                  ]
+                : <String>['porelo', 'task', 'attach', task]);
 
   /// Reports one turn of the mouse wheel to the far end as an SGR wheel report, the way tmux reads
   /// it: up is button 64, down 65.

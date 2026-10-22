@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'machines.dart';
 import 'connections.dart';
 
 import 'host_keys.dart';
@@ -184,7 +185,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   /// Runs [script] as root on [host] with the key at [keyFile], on standard input: nothing of it
   /// is in a command line, and it is exactly the text that was shown.
   Future<ProcessResult> asRoot(String host, String keyFile, String script) => _run(<String>[
-    'ssh',
+    openSsh('ssh', on: _desk),
     '-i',
     keyFile,
     '-o',
@@ -206,7 +207,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     String script,
     void Function(String line) onLine,
   ) async {
-    final process = await Process.start('ssh', <String>[
+    final process = await Process.start(openSsh('ssh', on: _desk), <String>[
       '-i',
       keyFile,
       '-o',
@@ -233,8 +234,17 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   }
 
   /// Runs [command] as the work user through the `Host` entry [alias].
-  Future<ProcessResult> asUser(String alias, String command) =>
-      _run(<String>['ssh', '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', alias, command]);
+  Future<ProcessResult> asUser(String alias, String command) => _run(<String>[
+    openSsh('ssh', on: _desk),
+    '-n',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ConnectTimeout=10',
+    '--',
+    alias,
+    command,
+  ]);
 
   /// Adds a `Host` entry for the machine to `~/.ssh/config`: **as the work user, never root**.
   ///
@@ -334,7 +344,18 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   /// Generates an ed25519 pair with no passphrase — the interface never asks for one — named [comment].
   Future<KeyPair> generate(String comment) => _inAPrivateDirectory((directory) async {
     final file = '${directory.path}/key';
-    final made = await _run(<String>['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-C', comment, '-f', file]);
+    final made = await _run(<String>[
+      openSsh('ssh-keygen', on: _desk),
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-C',
+      comment,
+      '-f',
+      file,
+    ]);
     if (made.exitCode != 0) {
       throw MachineSetupFailed('ssh-keygen could not make a key: ${'${made.stderr}'.trim()}');
     }
@@ -350,7 +371,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     final file = File('${directory.path}/key')..createSync();
     await _keepPrivate(file.path);
     file.writeAsStringSync(_ending(pair.privateKey));
-    final derived = await _run(<String>['ssh-keygen', '-y', '-P', '', '-f', file.path]);
+    final derived = await _run(<String>[openSsh('ssh-keygen', on: _desk), '-y', '-P', '', '-f', file.path]);
     if (derived.exitCode != 0) {
       return 'That private key cannot be read. It needs to be an OpenSSH private key with no '
           'passphrase.';
@@ -440,7 +461,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   /// `-P ''` so a key with a passphrase is refused rather than asked about: nothing here takes a
   /// passphrase, and a prompt on a terminal nobody watches would hang the wizard.
   Future<String> publicKeyOf(String keyFile) async {
-    final derived = await _run(<String>['ssh-keygen', '-y', '-P', '', '-f', keyFile]);
+    final derived = await _run(<String>[openSsh('ssh-keygen', on: _desk), '-y', '-P', '', '-f', keyFile]);
     if (derived.exitCode != 0) {
       throw MachineSetupFailed(
         '$keyFile cannot be read as a private key with no passphrase: '
@@ -453,7 +474,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
   /// Why logging in as root on [host] with the key at [keyFile] failed, or null when it worked.
   Future<String?> loginAsRoot(String host, String keyFile) async {
     final login = await _run(<String>[
-      'ssh',
+      openSsh('ssh', on: _desk),
       '-i',
       keyFile,
       '-o',

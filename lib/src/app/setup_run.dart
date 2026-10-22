@@ -519,7 +519,7 @@ class SetupRun extends ChangeNotifier {
   }
 
   /// The command the person runs in the terminal: as the work user, so the vault is that user's.
-  List<String> get vaultCommand => <String>['ssh', '-t', alias, inTheLoginShell('porelo vault init')];
+  List<String> get vaultCommand => <String>[openSsh('ssh'), '-t', alias, inTheLoginShell('porelo vault init')];
 
   /// Asks the daemon whether the vault is there now. **Never read out of the terminal**: its exit
   /// says only that the command ran, and `Keyslots` says what is true.
