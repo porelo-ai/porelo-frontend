@@ -667,6 +667,9 @@ class TaskTile extends StatelessWidget {
                             ? session.run
                             : () => onEnlargeConsole!(tile),
                       ),
+                    // What an unattended run came to, under what it wrote, and where to go from here.
+                    if (task case Task(mode: Mode.unattended, agentEnded: final ended?))
+                      Text(_cameTo(task, ended), key: const Key('tile-run-ended'), style: text.bodyMedium),
                     // Why it is down, when a restart of its machine took it: in the machine's words.
                     if (task != null && task.takenDownByARestart)
                       Text(task.startDetail, key: const Key('tile-why-down'), style: text.bodySmall),
@@ -777,6 +780,16 @@ class TaskTile extends StatelessWidget {
     );
     return selected ? KeyedSubtree(key: const Key('selected-row'), child: card) : card;
   }
+
+  /// What [task]'s unattended run came to, from what the machine says of its end and its gate.
+  static String _cameTo(Task task, AgentEnded ended) => switch ((ended.finished, task.hasWorkWaiting)) {
+    (true, true) => 'Finished: its work waits at the gate, to be reviewed there.',
+    (false, true) => 'Stopped before its end, and its work waits at the gate: its output above says why.',
+    (true, false) when ended.unpushed > 0 =>
+      'Finished, but ${ended.unpushed} changed ${ended.unpushed == 1 ? 'file' : 'files'} never reached the gate.',
+    (true, false) => 'Finished, and nothing waits at the gate: its output above says what it did.',
+    (false, false) => 'Stopped before its end, and nothing waits at the gate: its output above says why.',
+  };
 
   static String _settledWords(Prompt prompt) => prompt.expired
       ? '${prompt.shown} ran out — it stays blocked'

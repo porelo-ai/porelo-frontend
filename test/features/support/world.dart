@@ -2786,6 +2786,7 @@ class World {
     String since = '',
     bool running = true,
     Map<String, dynamic>? agentEnded,
+    int waiting = 0,
   }) {
     final was = backend.tasksNow.firstWhere((task) => task.name == name);
     backend.publish(<Task>[
@@ -2810,6 +2811,7 @@ class World {
             'waitingFor': waitingFor,
             'repository': was.repository,
             'agentEnded': ?agentEnded,
+            'waiting': waiting,
           }),
     ]);
   }

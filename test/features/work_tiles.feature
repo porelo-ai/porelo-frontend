@@ -191,6 +191,31 @@ Feature: Work in its machine's area, as tiles that carry their own actions
 
     # Walk 9: what an unattended agent does is seen on its tile, small, updated now and
     # then so many tiles cost little, and enlarged to the right side when wanted.
+    # After an unattended run, what it came to is the most important thing, and the header alone
+    # was easy to miss.
+    Scenario: a finished unattended run says it finished and where to go next
+        When the agent of {'porelo-checkout-shell'} finished, with its work waiting at the gate
+        Then the tile of {'porelo-checkout-shell'} ends with {'Finished: its work waits at the gate, to be reviewed there.'}
+
+    Scenario: a finished unattended run that left nothing at the gate says so, and names no review
+        When the agent of {'porelo-checkout-shell'} finished
+        Then the tile of {'porelo-checkout-shell'} ends with {'Finished, and nothing waits at the gate: its output above says what it did.'}
+        And the tile of {'porelo-checkout-shell'} does not end with {'reviewed'}
+
+    # Changed files outside the gate must remain visible before the task can be discarded.
+    Scenario Outline: a finished unattended run names changed files outside the gate
+        When the agent of {'porelo-checkout-shell'} finished with {<count>} changed files outside the gate
+        Then the tile of {'porelo-checkout-shell'} ends with {<words>}
+
+        Examples:
+            | count | words |
+            | 1 | '1 changed file never reached the gate' |
+            | 3 | '3 changed files never reached the gate' |
+
+    Scenario: an unattended run that stopped before its end says why, and that nothing waits
+        When the agent of {'porelo-checkout-shell'} ended with the provider's {402} {'This request requires more credits'}
+        Then the tile of {'porelo-checkout-shell'} ends with {'Stopped before its end, and nothing waits at the gate: its output above says why.'}
+
     Scenario: a tile shows the newest lines its agent writes, drawn only now and then
         Given the work {'porelo-billing-shell'} runs unattended
         Then the tile of {'porelo-billing-shell'} shows {'Nothing written yet.'}

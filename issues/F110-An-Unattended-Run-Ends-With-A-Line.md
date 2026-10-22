@@ -1,6 +1,6 @@
 # F110 — An Unattended Run Ends With A Line
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one line on the tile, from what the tile already knows; one module and its scenario.
 
 **What must be true.** An unattended run's output ends with a line a person sees: that it finished,
@@ -16,10 +16,11 @@ header.
 
 - **Where:** `TaskTile` in `lib/src/ui/attention_view.dart`, under the console (`TileConsole` in
   `lib/src/ui/tile_console.dart`), for `Mode.unattended` work whose agent ended (`task.agentEnded`).
-- **What it says:** finished, and a push waiting (from the gate, as `tile-review` already knows), or
-  nothing done; the line names the way to go next: the review, or the log.
-- **Red first:** a scenario in `test/features/work_tiles.feature`, "a finished unattended run says it
-  finished and where to go next", and its pair with nothing done.
+- **What it says:** finished or stopped before its end (from `agentEnded`), and whether its work
+  waits at the gate (`hasWorkWaiting`, as `tile-review` already knows); the line names the way to go
+  next: the review at the gate, or the output above it, which is the run's log.
+- **Red first:** three scenarios in `test/features/work_tiles.feature`: finished with work at the
+  gate, finished with nothing there (and no review named), and stopped before its end.
 
 ## Acceptance
 

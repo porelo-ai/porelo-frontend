@@ -32,12 +32,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | — | Putting a project on a server from the interface, the one stop answered there. |
 | <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | XS | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. |
 | <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | — | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. |
+| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 
 ### Analyzed

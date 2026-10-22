@@ -48,6 +48,12 @@ import './step/a_terminal_runs_on_the_machine.dart';
 import './step/no_tile_says.dart';
 import './step/the_menu_does_not_offer.dart';
 import './step/the_machine_says_a_restart_took_down_and_its_tokens_wait_in_the_locked_vault.dart';
+import './step/the_agent_of_finished_with_its_work_waiting_at_the_gate.dart';
+import './step/the_tile_of_ends_with.dart';
+import './step/the_agent_of_finished.dart';
+import './step/the_tile_of_does_not_end_with.dart';
+import './step/the_agent_of_finished_with_changed_files_outside_the_gate.dart';
+import './step/the_agent_of_ended_with_the_providers.dart';
 import './step/the_work_runs_unattended.dart';
 import './step/the_tile_of_shows.dart';
 import './step/the_agent_of_writes.dart';
@@ -260,6 +266,52 @@ void main() {
       await iOpenTheMenuOfTheTile(tester, 'porelo-checkout-shell');
       await theMenuOffersAsUnavailableBecause(tester, 'Start it again', 'vault is locked');
       await theMenuOffers(tester, 'Unlock the vault, so this can start');
+    });
+    testWidgets('''a finished unattended run says it finished and where to go next''', (tester) async {
+      await bddSetUp(tester);
+      await theAgentOfFinishedWithItsWorkWaitingAtTheGate(tester, 'porelo-checkout-shell');
+      await theTileOfEndsWith(
+        tester,
+        'porelo-checkout-shell',
+        'Finished: its work waits at the gate, to be reviewed there.',
+      );
+    });
+    testWidgets('''a finished unattended run that left nothing at the gate says so, and names no review''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theAgentOfFinished(tester, 'porelo-checkout-shell');
+      await theTileOfEndsWith(
+        tester,
+        'porelo-checkout-shell',
+        'Finished, and nothing waits at the gate: its output above says what it did.',
+      );
+      await theTileOfDoesNotEndWith(tester, 'porelo-checkout-shell', 'reviewed');
+    });
+    testWidgets(
+      '''Outline: a finished unattended run names changed files outside the gate (1, '1 changed file never reached the gate')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theAgentOfFinishedWithChangedFilesOutsideTheGate(tester, 'porelo-checkout-shell', 1);
+        await theTileOfEndsWith(tester, 'porelo-checkout-shell', '1 changed file never reached the gate');
+      },
+    );
+    testWidgets(
+      '''Outline: a finished unattended run names changed files outside the gate (3, '3 changed files never reached the gate')''',
+      (tester) async {
+        await bddSetUp(tester);
+        await theAgentOfFinishedWithChangedFilesOutsideTheGate(tester, 'porelo-checkout-shell', 3);
+        await theTileOfEndsWith(tester, 'porelo-checkout-shell', '3 changed files never reached the gate');
+      },
+    );
+    testWidgets('''an unattended run that stopped before its end says why, and that nothing waits''', (tester) async {
+      await bddSetUp(tester);
+      await theAgentOfEndedWithTheProviders(tester, 'porelo-checkout-shell', 402, 'This request requires more credits');
+      await theTileOfEndsWith(
+        tester,
+        'porelo-checkout-shell',
+        'Stopped before its end, and nothing waits at the gate: its output above says why.',
+      );
     });
     testWidgets('''a tile shows the newest lines its agent writes, drawn only now and then''', (tester) async {
       await bddSetUp(tester);
