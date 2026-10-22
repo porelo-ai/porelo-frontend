@@ -39,17 +39,19 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
+| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
+| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. |
+| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
+| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
+| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 
 ### Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
-| <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
-| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. | — |
-| <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. | — |
 
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
@@ -70,9 +72,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
 | <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55), on Apple silicon | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
 | <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `porelo` [B160](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. |
-| <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `porelo` [B174](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. |
-| <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. |
 | <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `porelo` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. |
 | <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `porelo`'s part of `porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. |

@@ -1,6 +1,6 @@
 # F113 — The MSIX Installed And Started In The Build
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - one PowerShell script and one step in the Build's job *Windows*; no contract, nothing
 in `lib/`.
 
