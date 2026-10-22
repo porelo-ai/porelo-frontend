@@ -95,7 +95,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final started = await client.start(project: 'checkout', task: 'migrate', now: true).last;
+    final started = await client.start(project: 'checkout', task: 'migrate').last;
 
     expect(started.action, StartAction.resume);
     expect(started.helpersStarted, lessThan(started.helpersRecorded!));
@@ -108,7 +108,7 @@ void main() {
     await machineIn('work');
     final client = await connect();
 
-    final refused = await client.start(project: 'checkout', task: 'shell', now: true).last;
+    final refused = await client.start(project: 'checkout', task: 'shell').last;
 
     expect(refused.action, StartAction.running);
   });

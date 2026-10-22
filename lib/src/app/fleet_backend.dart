@@ -495,9 +495,7 @@ class PoreloBackend implements FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
     var last = const StartProgress();
     final printed = <String>[];
-    final replies = _opened()
-        .start(project: project, task: task, now: true, repository: repository)
-        .transform(startRefusalsSaid);
+    final replies = _opened().start(project: project, task: task, repository: repository).transform(startRefusalsSaid);
     await for (final progress in replies) {
       final line = progress.line;
       if (line != null) printed.add(line);
