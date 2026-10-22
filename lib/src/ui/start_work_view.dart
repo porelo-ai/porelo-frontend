@@ -25,6 +25,7 @@ Future<bool> openStartWork(
   Future<void> Function(Agent agent)? onLogIn,
   Future<void> Function()? onOpenWithThisDevice,
   Future<void> Function(String entry)? onGrant,
+  Future<void> Function()? onFixInATerminal,
 }) async =>
     await showDialog<bool>(
       context: context,
@@ -36,6 +37,7 @@ Future<bool> openStartWork(
         onLogIn: onLogIn,
         onOpenWithThisDevice: onOpenWithThisDevice,
         onGrant: onGrant,
+        onFixInATerminal: onFixInATerminal,
       ),
     ) ??
     false;
@@ -51,6 +53,7 @@ class StartWorkDialog extends StatefulWidget {
     this.onLogIn,
     this.onOpenWithThisDevice,
     this.onGrant,
+    this.onFixInATerminal,
     super.key,
   });
 
@@ -76,6 +79,10 @@ class StartWorkDialog extends StatefulWidget {
 
   /// Grants the authorization an entry names, in a browser, then asks again; null where not offered.
   final Future<void> Function(String entry)? onGrant;
+
+  /// Opens a terminal on the machine to fix an upstream that refused its key, then asks again; null
+  /// where nothing here reaches that machine.
+  final Future<void> Function()? onFixInATerminal;
 
   @override
   State<StartWorkDialog> createState() => _StartWorkDialogState();
@@ -266,6 +273,7 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                     onGrant: widget.onGrant,
                     onLogIn: widget.onLogIn,
                     onOpenWithThisDevice: widget.onOpenWithThisDevice,
+                    onFixInATerminal: widget.onFixInATerminal,
                   ),
                 ],
                 const SizedBox(height: Space.normal),
@@ -616,6 +624,7 @@ class _NotReady extends StatelessWidget {
     this.onGrant,
     this.onLogIn,
     this.onOpenWithThisDevice,
+    this.onFixInATerminal,
   });
 
   final StartWork starting;
@@ -623,11 +632,13 @@ class _NotReady extends StatelessWidget {
   final Future<void> Function(String entry)? onGrant;
   final Future<void> Function(Agent agent)? onLogIn;
   final Future<void> Function()? onOpenWithThisDevice;
+  final Future<void> Function()? onFixInATerminal;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final answer = starting.readiness!;
+    final upstream = answer.outcome.upstreamCannotBeRead;
     final elsewhere = answer.outcome.answeredAtTheMachine;
 
     return Container(
@@ -644,7 +655,38 @@ class _NotReady extends StatelessWidget {
           // The daemon's own words, under ours. Never parsed, only shown.
           if (answer.detail.isNotEmpty) ...<Widget>[
             const SizedBox(height: Space.tight),
-            Text(answer.detail, key: const Key('not-ready-detail'), style: Theme.of(context).textTheme.bodySmall),
+            // An unreadable upstream's ends with the command that fixes it, to be copied.
+            if (upstream)
+              SelectableText(
+                answer.detail,
+                key: const Key('not-ready-detail'),
+                style: Theme.of(context).textTheme.bodySmall,
+              )
+            else
+              Text(answer.detail, key: const Key('not-ready-detail'), style: Theme.of(context).textTheme.bodySmall),
+          ],
+          // A refused key is fixed on the machine; any of the four may be fixed elsewhere, or by waiting.
+          if (upstream) ...<Widget>[
+            const SizedBox(height: Space.small),
+            Wrap(
+              spacing: Space.small,
+              runSpacing: Space.tight,
+              children: <Widget>[
+                if (onFixInATerminal != null && answer.outcome == StartOutcome.upstreamKeyRefused)
+                  OutlinedButton.icon(
+                    key: const Key('start-fix-in-a-terminal'),
+                    onPressed: () => onFixInATerminal!(),
+                    icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
+                    label: const Text('Fix it in a terminal on the machine'),
+                  ),
+                OutlinedButton.icon(
+                  key: const Key('start-ask-again'),
+                  onPressed: () => starting.askAgain(),
+                  icon: const Icon(Icons.refresh, size: Sizes.rowIcon),
+                  label: const Text('Ask again'),
+                ),
+              ],
+            ),
           ],
           // A host the machine never met: its keys, the one the forge publishes marked and trusted with
           // one press, as binding a machine does; a changed key offers nothing.

@@ -1,6 +1,6 @@
 # F118 — An Upstream That Cannot Be Read Said Before A Start
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - words for four outcomes and one refusal, the fix selectable with a terminal and an
 "ask again" beside it, the refusal for both ways a start goes; the stand-in daemon and tests.
 
@@ -55,8 +55,11 @@ daemon's `detail`, and `UpstreamUnreadable` reaches the person as the error's ba
 - **Red first:**
   - `test/app/start_refusal_test.dart`: `UpstreamUnreadable` passed as it came. Today its words are
     only the error's name.
-  - `test/ui/start_work_test.dart`: an `UPSTREAM_KEY_REFUSED` answer. Today the dialog has neither
-    the button nor the selectable detail.
+  - `test/features/task_creation.feature`: an `UPSTREAM_KEY_REFUSED` answer and an
+    `UPSTREAM_UNREACHABLE` one. Today the dialog has neither the buttons nor the selectable detail.
+  - `test/app/start_again_words_test.dart`: the mirror's warning printed before a start that worked.
+- **The terminal** is a login shell on the machine (`bash -l`), where the person runs the command
+  the detail ends with; the detail is never parsed for it.
 
 ## What a probe costs the dialog
 

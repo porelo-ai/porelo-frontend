@@ -495,7 +495,10 @@ class PoreloBackend implements FleetBackend {
   Future<StartProgress> startAgain({required String project, required String task, String? repository}) async {
     var last = const StartProgress();
     final printed = <String>[];
-    await for (final progress in _opened().start(project: project, task: task, now: true, repository: repository)) {
+    final replies = _opened()
+        .start(project: project, task: task, now: true, repository: repository)
+        .transform(startRefusalsSaid);
+    await for (final progress in replies) {
       final line = progress.line;
       if (line != null) printed.add(line);
       last = progress;
@@ -941,8 +944,8 @@ class StartRefused implements Exception {
 }
 
 /// Turns `Start`'s named refusals into exceptions that say them in words: `NoSuchDestination` into
-/// [NoSuchDestination], `EarlierWorkWaits` into [EarlierWorkWaits]. Any other error passes as it
-/// came.
+/// [NoSuchDestination], `EarlierWorkWaits` into [EarlierWorkWaits], `UpstreamUnreadable` into
+/// [UpstreamUnreadable]. Any other error passes as it came.
 final StreamTransformer<StartProgress, StartProgress> startRefusalsSaid =
     StreamTransformer<StartProgress, StartProgress>.fromHandlers(
       handleError: (error, stack, sink) => sink.addError(switch (error) {
@@ -951,6 +954,11 @@ final StreamTransformer<StartProgress, StartProgress> startRefusalsSaid =
           '${error.parameters['task'] ?? ''}',
           commit: '${error.parameters['commit'] ?? ''}',
           subject: '${error.parameters['subject'] ?? ''}',
+        ),
+        VarlinkException(simpleName: 'UpstreamUnreadable') => UpstreamUnreadable(
+          '${error.parameters['cause'] ?? ''}',
+          detail: '${error.parameters['detail'] ?? ''}',
+          fix: '${error.parameters['fix'] ?? ''}',
         ),
         _ => error,
       }, stack),
@@ -978,6 +986,40 @@ class EarlierWorkWaits implements Exception {
     return '${task.isEmpty ? 'It' : task} was not started: its earlier work '
         '${work.isEmpty ? '' : '$work '}still waits at the gate. Forward it or drop it there, then '
         'start again.';
+  }
+}
+
+/// Start refused a repository whose upstream it could not read, with no mirror yet to start from,
+/// before anything was created. Said as the cause, what the machine tried, and the command that
+/// fixes it.
+class UpstreamUnreadable implements Exception {
+  /// Constructor taking the cause, what was tried and the fix, as the machine named them.
+  const UpstreamUnreadable(this.cause, {this.detail = '', this.fix = ''});
+
+  /// `KEY_REFUSED`, `NOT_FOUND`, `UNREACHABLE` or `UNREADABLE`, or `UNKNOWN_HOST_KEY` for a host
+  /// whose key changed since it was trusted; a cause this build does not know is said by the rest.
+  final String cause;
+
+  /// What was tried, in the machine's own words; empty when it said nothing.
+  final String detail;
+
+  /// The command that helps, or empty.
+  final String fix;
+
+  @override
+  String toString() {
+    final why = switch (cause) {
+      'KEY_REFUSED' => 'The repository’s host refused what this machine offered for it.',
+      'NOT_FOUND' => 'The host has no such repository, or none this credential may read.',
+      'UNREACHABLE' => 'Nothing answered from the repository’s host within ten seconds.',
+      'UNKNOWN_HOST_KEY' =>
+        'The repository’s host offers another key than the one this machine remembers. That is what '
+            'somebody in between looks like: find out why before going on.',
+      _ => 'The repository could not be read.',
+    };
+    final tried = detail.trim().isEmpty ? '' : ' ${detail.trim()}${detail.trim().endsWith('.') ? '' : '.'}';
+    final then = fix.trim().isEmpty ? '' : " Run '${fix.trim()}', then start again.";
+    return '$why Nothing was started.$tried$then';
   }
 }
 

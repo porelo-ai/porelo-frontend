@@ -55,6 +55,29 @@ void main() {
     );
   });
 
+  test('a task started again whose upstream cannot be read is refused in words, not by the error name', () async {
+    daemon.stream('Start', (_) async* {
+      throw const MockRefusal('org.fuin.porelo.Tasks1.UpstreamUnreadable', <String, dynamic>{
+        'cause': 'NOT_FOUND',
+        'detail': 'github.com has no repository acme/checkout this deploy key may read',
+        'fix': 'porelo project key checkout',
+      });
+    });
+    final backend = PoreloBackend(Backend(socketPath: daemon.socketPath, label: 'mock'));
+    await backend.open();
+
+    await expectLater(
+      backend.startAgain(project: 'checkout', task: 'porelo-checkout-shell'),
+      throwsA(
+        isA<UpstreamUnreadable>().having(
+          (it) => '$it',
+          'words',
+          allOf(contains('has no such repository'), contains("Run 'porelo project key checkout'")),
+        ),
+      ),
+    );
+  });
+
   test('the reason is the last thing said, not the plan printed on the way', () {
     const result = StartProgress(
       exitCode: 69,
@@ -87,6 +110,28 @@ void main() {
       contains('was started before this machine restarted'),
     );
     expect('${const StartRefused(predates)}', contains('started before this machine restarted'));
+  });
+
+  // Porelo prints this before the image is built when the upstream cannot be read and a mirror is
+  // there to start from; the final reply has no field for it.
+  test('a start that went on from the mirror keeps the warning it printed', () {
+    const result = StartProgress(
+      exitCode: 0,
+      output: <String>[
+        'task           porelo-checkout-shell',
+        "porelo: git@github.com refused the deploy key 'checkout-deploy' from the vault. Then: "
+            "'porelo project key checkout'. This task starts from what the mirror holds, which may be "
+            'behind, and approved work cannot go back until it is fixed.',
+        'task image     porelo/checkout',
+      ],
+    );
+
+    final words = startWords('porelo-checkout-shell', result);
+
+    expect(words, contains('porelo-checkout-shell was started.'));
+    expect(words, contains('This task starts from what the mirror holds'));
+    expect(words, contains("Then: 'porelo project key checkout'"));
+    expect(words, isNot(contains('porelo/checkout')));
   });
 
   test('a failure that printed nothing still says its exit code, and no more', () {

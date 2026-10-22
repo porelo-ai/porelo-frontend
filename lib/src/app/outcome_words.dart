@@ -63,7 +63,7 @@ String startWords(String task, StartProgress result, {bool afterARestart = false
     null when afterARestart && (result.exitCode ?? 0) == 0 => '$restored.$drift',
     null =>
       (result.exitCode ?? 0) == 0
-          ? '$task was started.'
+          ? '$task was started.${_fromTheMirror(result.output)}'
           : 'Starting $task failed with exit code ${result.exitCode}.${_reasonIn(result.output)}',
     // Fewer started than recorded is a partial start, and saying "running again" would be a lie.
     StartAction.resume when started != null && recorded != null && started < recorded =>
@@ -90,6 +90,17 @@ String _reasonIn(List<String> printed) {
   if (start < 0) return '';
   final said = printed.sublist(start).map((line) => line.trim()).where((line) => line.isNotEmpty);
   return ' It said: ${said.join(' ')}';
+}
+
+/// The warning a start printed when it went on from the mirror because the upstream could not be
+/// read, as a sentence after the rest, or nothing. The final reply has no field for it, and without
+/// it a start that cannot send approved work back reads as one that went well.
+String _fromTheMirror(List<String> printed) {
+  final warning = printed
+      .map((line) => line.trim())
+      .where((line) => line.startsWith('porelo:') && line.contains('starts from what the mirror holds'))
+      .firstOrNull;
+  return warning == null ? '' : ' ${warning.substring('porelo:'.length).trim()}';
 }
 
 /// A byte count as a person reads it.

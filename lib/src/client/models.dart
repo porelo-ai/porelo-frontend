@@ -3051,6 +3051,20 @@ class StartOutcome {
   /// the command that grants it. **Granting, once**: not storing a secret, not unlocking.
   static const authorizationNeeded = StartOutcome('AUTHORIZATION_NEEDED');
 
+  /// The chosen repository's upstream refused what this machine offered: no key it accepts, or a
+  /// token it does not. Read only where no mirror holds the repository yet; `detail` names what was
+  /// offered and ends with the command that fixes it.
+  static const upstreamKeyRefused = StartOutcome('UPSTREAM_KEY_REFUSED');
+
+  /// The upstream's host answered and has no such repository, or none the credential may read.
+  static const upstreamNotFound = StartOutcome('UPSTREAM_NOT_FOUND');
+
+  /// Nothing answered from the upstream's host within ten seconds.
+  static const upstreamUnreachable = StartOutcome('UPSTREAM_UNREACHABLE');
+
+  /// The upstream could not be read for another cause; `detail` carries git's own last line.
+  static const upstreamUnreadable = StartOutcome('UPSTREAM_UNREADABLE');
+
   /// The values this build knows.
   static const known = <StartOutcome>[
     ready,
@@ -3069,10 +3083,23 @@ class StartOutcome {
     unknownRepository,
     unknownDestination,
     authorizationNeeded,
+    upstreamKeyRefused,
+    upstreamNotFound,
+    upstreamUnreachable,
+    upstreamUnreadable,
   ];
 
   /// Whether this build knows what it means.
   bool get recognized => known.any((value) => value.name == name);
+
+  /// Whether the repository's upstream could not be read: a refusal that can be fixed and asked
+  /// about again, whose `detail` ends with the command that fixes it.
+  bool get upstreamCannotBeRead => const <StartOutcome>[
+    upstreamKeyRefused,
+    upstreamNotFound,
+    upstreamUnreachable,
+    upstreamUnreadable,
+  ].contains(this);
 
   /// Whether this is answered at the machine rather than here.
   ///
@@ -3202,6 +3229,10 @@ class Readiness {
     'HOST_KEY_CHANGED' =>
       '${host.isEmpty ? 'The repository’s host' : host} offers another key than the one '
           'this machine remembers. That is what somebody in between looks like: find out why before going on.',
+    'UPSTREAM_KEY_REFUSED' => 'The repository’s host refused what this machine offered for it.',
+    'UPSTREAM_NOT_FOUND' => 'The host has no such repository, or none this credential may read.',
+    'UPSTREAM_UNREACHABLE' => 'Nothing answered from the repository’s host within ten seconds.',
+    'UPSTREAM_UNREADABLE' => 'The repository could not be read.',
     'SEVERAL_AGENTS' => 'More than one agent is installed. Choose which to run.',
     'UNKNOWN_PROVIDER' => '$provider is not a provider this machine knows.',
     'WRONG_DIALECT' => '$provider does not speak what $agent expects.',

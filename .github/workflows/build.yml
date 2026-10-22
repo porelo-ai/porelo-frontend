@@ -278,7 +278,7 @@ jobs:
     # how a whole run is forced, always run it. Not knowing is a no, so the leg runs.
     legs:
         name: Whether the leased leg is proven
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-26.04
         timeout-minutes: 10
         if: github.event_name == 'push' && github.ref_type == 'branch'
         permissions:
@@ -309,7 +309,7 @@ jobs:
     integration:
         name: Test against a leased machine
         needs: legs
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-26.04
         # 12-15 minutes with the lease (its step 10-13); stopped well before a rented machine is paid for
         # by the hour, with ten minutes left under the job for the sweep.
         timeout-minutes: 50
@@ -382,7 +382,7 @@ jobs:
     installs:
         name: Prove the packages install
         needs: build
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-26.04
         timeout-minutes: 5
         # The systems Porelo supports, and only those: Ubuntu 26.04, Debian 13, Fedora 43 and 44. Each
         # image is pinned by its digest, as every action is, so what is proven is what was read.
@@ -431,7 +431,7 @@ jobs:
     publish:
         name: Publish to Artifactory
         needs: [build, installs, integration, windows]
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-26.04
         timeout-minutes: 5
         # A pull request from a fork has no access to the token, and a run that publishes nothing is
         # better than one that fails at the last step. A release waits for every job, the leg on a

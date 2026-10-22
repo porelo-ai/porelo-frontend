@@ -47,6 +47,51 @@ void main() {
     );
   });
 
+  // Porelo's Start refuses a repository whose upstream it cannot read when no mirror holds it yet.
+  test("Start's refusal of an upstream it cannot read says the cause, what was tried and the fix", () async {
+    final refused = Stream<StartProgress>.error(
+      const VarlinkException('org.fuin.porelo.Tasks1.UpstreamUnreadable', <String, dynamic>{
+        'cause': 'KEY_REFUSED',
+        'detail': "git@github.com refused the deploy key 'checkout-deploy' from the vault",
+        'fix': 'porelo project key checkout',
+      }),
+    ).transform(startRefusalsSaid);
+    await expectLater(
+      refused,
+      emitsError(
+        isA<UpstreamUnreadable>().having(
+          (it) => '$it',
+          'words',
+          allOf(
+            contains('refused what this machine offered for it'),
+            contains("git@github.com refused the deploy key 'checkout-deploy' from the vault"),
+            contains("Run 'porelo project key checkout'"),
+          ),
+        ),
+      ),
+    );
+  });
+
+  test('a changed host key behind an unreadable upstream is said as a changed key, with no fix to run', () async {
+    final refused = Stream<StartProgress>.error(
+      const VarlinkException('org.fuin.porelo.Tasks1.UpstreamUnreadable', <String, dynamic>{
+        'cause': 'UNKNOWN_HOST_KEY',
+        'detail': 'github.com offers ssh-ed25519 SHA256:abc',
+        'fix': '',
+      }),
+    ).transform(startRefusalsSaid);
+    await expectLater(
+      refused,
+      emitsError(
+        isA<UpstreamUnreadable>().having(
+          (it) => '$it',
+          'words',
+          allOf(contains('another key than the one this machine remembers'), isNot(contains('Run'))),
+        ),
+      ),
+    );
+  });
+
   test('any other error passes as it came', () async {
     const other = VarlinkException('org.fuin.porelo.Tasks1.NoSuchProject', <String, dynamic>{});
     final passed = Stream<StartProgress>.error(other).transform(startRefusalsSaid);

@@ -222,16 +222,19 @@ void main() {
       expect(workflow, contains(r'vars.JF_URL'));
     });
 
-    test('every Linux job builds on the oldest distribution this is meant to install on', () {
+    test('every Linux job that builds the bundle builds on the oldest distribution it installs on', () {
       // The bundle links the system GTK3 stack, so the build machine sets the floor. A job that
       // slipped to a newer runner would produce a package that installs nowhere older, and
-      // nothing about the run would say so. The Windows job is the one other runner.
+      // nothing about the run would say so. Jobs that build nothing may run on a newer one.
+      final building = <String>{
+        for (final job in _jobs(workflow).entries)
+          if (job.value.contains('tool/package.sh')) job.key,
+      };
+      expect(building, containsAll(<String>['build']), reason: 'no job packages the Linux bundle any more');
+      for (final job in building) {
+        expect(_jobs(workflow)[job], contains('runs-on: ubuntu-22.04'), reason: '$job builds the bundle');
+      }
       expect(workflow.contains('runs-on: ubuntu-latest'), isFalse);
-      expect(
-        'runs-on: ubuntu-22.04'.allMatches(workflow).length,
-        'runs-on:'.allMatches(workflow).length - 'runs-on: windows-'.allMatches(workflow).length,
-      );
-      expect('runs-on: windows-'.allMatches(workflow).length, 1);
     });
 
     test('the publish is not believed until the index carries it', () {
@@ -366,4 +369,22 @@ void main() {
       expect(script.contains(r'version="$base~SNAPSHOT"'), isFalse);
     });
   });
+}
+
+/// Each job of [workflow] by its id, with the lines that belong to it.
+Map<String, String> _jobs(String workflow) {
+  final jobs = <String, StringBuffer>{};
+  StringBuffer? current;
+  var inJobs = false;
+  for (final line in workflow.split('\n')) {
+    if (line == 'jobs:') {
+      inJobs = true;
+      continue;
+    }
+    if (!inJobs) continue;
+    final id = RegExp(r'^    ([A-Za-z0-9_-]+):\s*$').firstMatch(line);
+    if (id != null) current = jobs[id.group(1)!] = StringBuffer();
+    current?.writeln(line);
+  }
+  return <String, String>{for (final job in jobs.entries) job.key: job.value.toString()};
 }

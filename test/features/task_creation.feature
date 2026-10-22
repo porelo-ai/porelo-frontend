@@ -328,6 +328,29 @@ Feature: Starting work with an agent, a mode and a credential
         And I store the credential from the start
         Then a terminal runs {'porelo vault put a-provider'} on the machine
 
+    # Read before a start where no mirror holds the repository yet. The detail ends with the command
+    # that fixes it, and a refused key is fixed on the machine.
+    Scenario: an upstream that refused the key is said, its fix selectable, with a terminal there
+        Given starting says the upstream refused the key, with {'tried the deploy key checkout-deploy. Run: porelo project key checkout'}
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        Then it says {'refused what this machine offered for it'}
+        And the reason for not starting can be selected
+        When I fix it in a terminal from the start
+        Then a terminal runs {'bash -l'} on the machine
+        When the unlock terminal ends and is put away
+        Then whether work can start is asked again
+
+    # An unreachable host is often fixed by waiting, so every cause can be asked about again.
+    Scenario: an upstream nothing answered for is asked about again
+        Given starting says nothing answered from the upstream
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        Then it says {'within ten seconds'}
+        And fixing it in a terminal is not offered
+        When I ask again from the start
+        Then whether work can start is asked again
+
     # Asked behind an open dialog nobody awaits: a failure let through there reaches nobody but the
     # console, and the dialog sits as if it had asked nothing.
     Scenario: a machine that fails to say whether work can start is said in the dialog

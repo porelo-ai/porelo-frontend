@@ -18,6 +18,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   provider's key in the system's own secret store, never in a file. Each step is one JSON line.
   In the interface, a project's *Put this project on a server…* runs it, shows each step as it
   comes and asks at its stop, sending the answers to its standard input only.
+- A start whose repository's upstream cannot be read says why before anything is made: a key the
+  host refused, a repository not found, a host that did not answer, or another cause, with the
+  command that fixes it to copy. A refused key can be fixed in a terminal on the machine, and every
+  cause can be asked about again. A start refused for it says the same, from the dialog and from a
+  task started again, and a start that goes on from the mirror keeps Porelo's warning in its words.
 
 ### Fixed
 

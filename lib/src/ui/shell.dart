@@ -1372,8 +1372,34 @@ class _ShellState extends State<Shell> {
       onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null ? null : _logInWithTheAgent,
       onOpenWithThisDevice: widget.vault.devices.enrolledHere ? _openWithThisDeviceToStart : null,
       onGrant: _grantToStart,
+      onFixInATerminal: onTheMachine(widget.machines.current, _aShell, terminal: true) == null
+          ? null
+          : _fixTheUpstreamToStart,
     );
     widget.starting.close();
+  }
+
+  /// A login shell on the machine, for a person to run what the machine named.
+  static const List<String> _aShell = <String>['bash', '-l'];
+
+  /// Opens a shell on the machine whose upstream refused its key, where the person runs the command
+  /// the machine named, then asks the machine again whether work can start: the fix is its to see.
+  Future<void> _fixTheUpstreamToStart() async {
+    final machine = widget.machines.current;
+    final command = onTheMachine(machine, _aShell, terminal: true);
+    if (command == null) return;
+    await runInATerminal(
+      context,
+      title: 'Fix the repository’s access on ${machine.name}',
+      explanation:
+          'Run the command the start named. Whatever it asks for goes straight to the machine and '
+          'never through this program. Close the terminal when it is done.',
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+    );
+    if (!mounted) return;
+    await widget.starting.askAgain();
   }
 
   /// Grants what starting said needs a grant, in a browser, then asks the machine again whether work

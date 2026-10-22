@@ -78,6 +78,12 @@ import './step/no_link_is_offered_any_more.dart';
 import './step/the_form_no_longer_asks_to_sign_in.dart';
 import './step/logging_in_is_not_offered.dart';
 import './step/starting_says_the_credential_is_stored_by.dart';
+import './step/starting_says_the_upstream_refused_the_key_with.dart';
+import './step/the_reason_for_not_starting_can_be_selected.dart';
+import './step/i_fix_it_in_a_terminal_from_the_start.dart';
+import './step/starting_says_nothing_answered_from_the_upstream.dart';
+import './step/fixing_it_in_a_terminal_is_not_offered.dart';
+import './step/i_ask_again_from_the_start.dart';
 import './step/the_machine_fails_to_say_whether_work_can_start_with.dart';
 import './step/the_start_brings_up_in_running.dart';
 import './step/the_session_on_screen_is.dart';
@@ -470,6 +476,33 @@ void main() {
       await iChooseTheAgent(tester, 'An Agent');
       await iStoreTheCredentialFromTheStart(tester);
       await aTerminalRunsOnTheMachine(tester, 'porelo vault put a-provider');
+    });
+    testWidgets('''an upstream that refused the key is said, its fix selectable, with a terminal there''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await startingSaysTheUpstreamRefusedTheKeyWith(
+        tester,
+        'tried the deploy key checkout-deploy. Run: porelo project key checkout',
+      );
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await itSays(tester, 'refused what this machine offered for it');
+      await theReasonForNotStartingCanBeSelected(tester);
+      await iFixItInATerminalFromTheStart(tester);
+      await aTerminalRunsOnTheMachine(tester, 'bash -l');
+      await theUnlockTerminalEndsAndIsPutAway(tester);
+      await whetherWorkCanStartIsAskedAgain(tester);
+    });
+    testWidgets('''an upstream nothing answered for is asked about again''', (tester) async {
+      await bddSetUp(tester);
+      await startingSaysNothingAnsweredFromTheUpstream(tester);
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await itSays(tester, 'within ten seconds');
+      await fixingItInATerminalIsNotOffered(tester);
+      await iAskAgainFromTheStart(tester);
+      await whetherWorkCanStartIsAskedAgain(tester);
     });
     testWidgets('''a machine that fails to say whether work can start is said in the dialog''', (tester) async {
       await bddSetUp(tester);

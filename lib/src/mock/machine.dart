@@ -183,6 +183,7 @@ class MockMachine {
     'helper-survives': 'an emergency stop that leaves a helper running, to be killed by hand',
     'vault-locked': 'a vault nothing can read, so nothing can say what it holds',
     'no-credential': 'a vault with no credential for the provider a run would use',
+    'upstream-unreadable': "a repository whose host refuses this machine's key, with no mirror yet",
   };
 
   /// The daemon answering for this machine.
@@ -765,6 +766,9 @@ class MockMachine {
         detail: "the vault holds no credential for 'a-provider'",
       );
     }
+    if (situation == 'upstream-unreadable') {
+      return _readiness('UPSTREAM_KEY_REFUSED', agent: agent, detail: '$_refusedKey Run: $_keyFix');
+    }
     if (agent == 'other-agent') {
       return _readiness(
         'NO_PROVIDER_CHOSEN',
@@ -780,6 +784,10 @@ class MockMachine {
       credential: 'a-provider',
     );
   }
+
+  /// What Porelo says it tried when the upstream refused, and the command that fixes it.
+  static const _refusedKey = "git@github.com refused the deploy key 'checkout-deploy' from the vault.";
+  static const _keyFix = 'porelo project key checkout';
 
   static Map<String, dynamic> _readiness(
     String outcome, {
@@ -1861,6 +1869,14 @@ class MockMachine {
     if (existing != null) {
       yield _startAgain(existing);
       return;
+    }
+    // As Porelo does: an upstream it cannot read, with no mirror to start from, refuses before anything.
+    if (situation == 'upstream-unreadable') {
+      throw MockRefusal('org.fuin.porelo.Tasks1.UpstreamUnreadable', <String, dynamic>{
+        'cause': 'KEY_REFUSED',
+        'detail': _refusedKey,
+        'fix': _keyFix,
+      });
     }
     // As Porelo does: a task whose earlier work still waits at the gate is not started beside it.
     final waits = _waiting[parameters['task']];

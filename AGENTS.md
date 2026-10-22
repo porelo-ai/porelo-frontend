@@ -472,8 +472,9 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 - **Packages are `.deb` and `.rpm` from `tool/package.sh` with nfpm**, `type: tree`, dependencies
   derived from the ELF files (never listed), `recommends: porelo`, `amd64` only;
   `test/packaging_test.dart` asserts the template with comments stripped.
-- **Every build job runs on `ubuntu-22.04`**, because the bundle links the system GTK, so the build
-  machine is the oldest one the package installs on.
+- **The job that packages the bundle runs on `ubuntu-22.04`**, because the bundle links the system
+  GTK, so the build machine is the oldest one the package installs on; every other Linux job runs on
+  `ubuntu-26.04`.
 - **A snapshot is `0.1.0~snapshot.<run>`**, so each build supersedes the last; a flat version
   published once strands whoever installed it.
 - **An upload passes `--target-props` with distribution, component and architecture, and
