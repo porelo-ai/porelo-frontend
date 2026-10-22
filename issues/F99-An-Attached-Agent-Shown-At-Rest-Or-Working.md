@@ -1,6 +1,6 @@
 # F99 — An Attached Agent Shown At Rest Or Working
 
-**Status:** Estimated; blocked by `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118).
+**Status:** Backlog; blocked by `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118).
 **Size:** S - one derivation, its tile words, the stand-in and two feature files; waits for
 `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118)'s answer on the wire.
 

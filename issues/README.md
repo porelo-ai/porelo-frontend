@@ -35,14 +35,16 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | XS | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. |
+| <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | — | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. |
+| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
+| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 
 ### Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | XS | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
-| <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | `porelo` [B49](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b49) | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. | — |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -67,9 +69,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
 | <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
 | <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55), on Apple silicon | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
-| <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `porelo` [B160](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. |
-| <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
 | <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `porelo` [B174](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
