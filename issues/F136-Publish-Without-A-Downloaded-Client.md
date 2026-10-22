@@ -20,8 +20,8 @@ upload carries its SHA-1 and SHA-256, so Artifactory refuses bytes that do not m
   - the deb with its Debian properties on its path (distribution, component, architecture);
   - the rpm into its channel;
   - the Windows ZIP and MSIX;
-  - `porelo-host` and `porelo-host.exe` alone, as [F134](README.md#f134) planned and left for this
-    move: into the generic repository `porelo-dist-host`, `<channel>/<version>/`, with one `SHA256SUMS`
+  - `porelo-host` and `porelo-host.exe` alone, left for this move when the packages began shipping
+    them: into the generic repository `porelo-dist-host`, `<channel>/<version>/`, with one `SHA256SUMS`
     for what is there, the Windows one only where the Windows job made it. The build job and the
     Windows job hand the very binaries the packages carry to Publish as artifacts of their own.
 - **The probe's** upload, property read and delete become `curl` against the REST interface.

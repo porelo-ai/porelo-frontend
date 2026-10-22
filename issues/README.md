@@ -18,11 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f131"></a>[F131](F131-A-Host-Brought-Up-And-Down-By-One-Command.md) | — | — | `porelo-host up` and `down` from a pure-Dart package: rent, the playbook on the host, one stop, the resume. |
-| <a id="f132"></a>[F132](F132-A-Host-Rented-From-Scaleway-Elastic-Metal.md) | — | — | The host rented from Scaleway Elastic Metal and given back, by the project's tag. |
 | <a id="f130"></a>[F130](F130-The-Leased-Leg-Taken-From-A-Run-That-Proved-The-Same-Tree.md) | — | — | The leased leg skipped on a tree a run already proved, saying which run. |
 | <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | — | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. |
-| <a id="f134"></a>[F134](F134-The-Host-Command-Built-And-Shipped-For-Linux-And-Windows.md) | — | [F131](#f131) | `porelo-host` built for Linux and Windows, inside the interface's packages and alone. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | — | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. |
 | <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | — | — | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. |
@@ -44,6 +41,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
 | <a id="f111"></a>[F111](F111-All-Of-A-Pieces-Logs-In-One-Timeline.md) | M | — | All of a piece's logs in one timeline, by time, filterable by source. |
+| <a id="f147"></a>[F147](F147-Every-Repository-Of-Default-Offered-To-Start-In.md) | XS | — | Starting in default offers every repository; the first is no longer hidden as its own. |
 
 ### Analyzed
 
@@ -83,6 +81,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | `porelo` [B198](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b198) | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
+| <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225) | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 
 ### Idea
 
@@ -90,7 +89,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
 | <a id="f139"></a>[F139](F139-OneDrive-As-The-Projects-Drive.md) | — | — | OneDrive as an alternative to Tresorit for a project's drive: the choice and the login at the stop. |
-| <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225) | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-On-With-Its-Repositories.md) | — | `porelo-host` [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) | The host's own forge switched on in the host dialog or on `porelo_host`, with the repositories that move there and where the central forge's token lies. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 ### Estimated
@@ -104,6 +102,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f131"></a>F131 | A Host Brought Up And Down By One Command | The pure-Dart package `packages/porelo_host/` and `porelo-host up` and `down`, which rent or find a host, run the collection's plays on it over ssh with its host key pinned, stop with 75 for the drive and the vault, resume with the answers on standard input, and give the host back after the down play. |
+| <a id="f132"></a>F132 | A Host Rented From Scaleway Elastic Metal | `ScalewayElasticMetal` against Scaleway's Elastic Metal and IAM APIs, checking that the person's ssh key is registered before renting, passing a generated ed25519 host key through cloud-init and the server's tag, and finding or giving back a server by the project's tag alone. |
+| <a id="f134"></a>F134 | The Host Command Built And Shipped For Linux And Windows | `porelo-host` compiled with the package's version and shipped at `/usr/lib/porelo-frontend/porelo-host` in the Linux packages and beside the interface in the Windows ZIP and MSIX, checked in every install proof. |
 | <a id="f129"></a>F129 | The Integration Leg Set Up On Fedora Too | One shell function that fetches the leg's Porelo packages as `.deb` from the index or as `.rpm` through the machine's own source, so the leg runs whole on Fedora as on Ubuntu. |
 | <a id="f128"></a>F128 | The Leased Machine Trusted By The Key Its Lease Names | The leased leg trusts its rented machine only by the host key its lease names, with no keyscan, and stops on a lease that names none. |
 | <a id="f119"></a>F119 | The Code Changed Since The Skills Reading Read Against Them | 860 files read against the sixteen skills, thirty findings with their sites, built as [F124](README.md#f124) to [F127](README.md#f127). |

@@ -1,8 +1,8 @@
 # F135 — The Interface Brings A Host Up And Down
 
-**Status:** Implementing. What it runs is proven on a rented host by the command line
-([F131](README.md#f131), the operator's sixth run of 2026-10-19); left: this page itself against a
-real host, which no run has shown yet.
+**Status:** Implementing. What it runs is proven on a rented host by the command line, the
+operator's sixth run of 2026-10-19; left: this page itself against a real host, which no run has
+shown yet.
 **Size:** M - one page that runs the command, reads its lines and answers its one stop.
 
 **What must be true.** In a project, a person chooses *Put on a server* and sees the steps of
@@ -12,7 +12,7 @@ needs a terminal, and no secret is written anywhere.
 
 ## Plan
 
-- A page beside the project's, which starts the shipped `porelo-host` ([F134](README.md#f134)) by its path with
+- A page beside the project's, which starts the shipped `porelo-host` by its path with
   `Process.start`. It reads stdout line by line into a list of steps in the shape of
   `lib/src/ui/prepare_view.dart`'s, and shows stderr's words under a refused step with its `fix`.
 - **Exit 75:** a form for the Tresorit e-mail and password and the vault's passphrase. Then a

@@ -53,6 +53,13 @@ taken, `git log` answers.
 | [A work's terminal keeps the cursor its program sets; the sign-in and passphrase terminals always show one](#a-works-terminal-keeps-the-cursor-its-program-sets) |
 | [The interface takes the website's colours and shapes, not its motion, and keeps a light mode](#the-interface-takes-the-websites-colours-and-shapes-not-its-motion) |
 | [`porelo-host down` keeps a host whose down play did not finish, until told otherwise](#porelo-host-down-keeps-a-host-whose-down-play-did-not-finish) |
+| [`porelo-host` is a command of its own, and the playbook runs on the host itself](#porelo-host-is-a-command-of-its-own-and-the-playbook-runs-on-the-host) |
+| [The person's ssh key is registered once by hand in Scaleway's console; the API key only reads keys](#the-persons-ssh-key-is-registered-once-by-hand-in-scaleways-console) |
+| [The host key is made by `porelo-host`, handed to cloud-init and kept in the server's tag, never scanned](#the-host-key-is-made-by-porelo-host-and-kept-in-the-servers-tag) |
+| [A server without the project's tag is never given back; `down` finds the host by the tag alone](#a-server-without-the-projects-tag-is-never-given-back) |
+| [Secrets reach the host only on standard input: the drive's password and one-time code, and the vault's passphrase](#secrets-reach-the-host-only-on-standard-input) |
+| [No Scaleway secret is on GitHub: the Build tests against recorded answers, with one real rent per release](#no-scaleway-secret-is-on-github) |
+| [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
 
 ## The interface can do what a console can
 
@@ -655,3 +662,67 @@ window may not. The other way, giving back whatever the play answered, ends the 
 the only copy of a project's data with it. The operator chose the data, with the bill said plainly.
 `down` cannot tell a failed copy from another failed step, so any failure keeps the host; the down
 play itself must finish for what `up` never made.
+
+## `porelo-host` is a command of its own, and the playbook runs on the host
+
+Putting a project on a server and taking it off again is a standalone command, `porelo-host`, built
+from `packages/porelo_host/` for Linux and Windows, rather than a subcommand of `porelo`: Porelo
+does not run on the person's computer before the host exists, and does not run on Windows at all.
+`porelo-host` copies the collection's tarball and the first play's inventory to the server with
+`scp`, installs `ansible-core` there, and runs `ansible-playbook -c local` on the host itself,
+while Porelo on the host writes the second play's inventory. The person's computer needs only
+`porelo-host`, `ssh` and `scp` — no Python and no Ansible locally.
+
+## The person's ssh key is registered once by hand in Scaleway's console
+
+`porelo-host` never registers an ssh key at Scaleway. The API key it uses holds Elastic Metal and
+`SSHKeysReadOnly` only, so the key that rents cannot change who may log in to what it rents.
+Before renting, `up` reads the project's keys and, when the person's public key is
+missing, stops before anything is rented and prints the line to paste and where in Scaleway's
+console it goes.
+
+**What it costs:** a one-time paste in Scaleway's console per ssh key before the first `up`.
+
+## The host key is made by `porelo-host` and kept in the server's tag
+
+Scaleway's Elastic Metal API reports no ssh host key for a server, and a keyscan trusts whatever
+answers first on the network. Before renting, `porelo-host up` makes an ed25519 host key pair with
+`ssh-keygen`, passes the private half to cloud-init in `ssh_keys`, and stores the public half in
+the server's tag `porelo-host-key=<base64>`. Every later `up` and `down`, on any computer, reads
+the public key back from that tag and pins it in a `known_hosts` of its own before `ssh` connects;
+a server that offers another key is refused before any login.
+
+## A server without the project's tag is never given back
+
+`porelo-host` tags the server it rents with `porelo-project=<name>`, and both a second `up` and
+`down` find the host by that tag alone. Before sending `DELETE`, `release` checks that the server
+carries a `porelo-project=` tag and refuses any server without one, so a server in the same
+Scaleway project that `porelo-host` did not rent can never be deleted by it.
+
+## Secrets reach the host only on standard input
+
+When `up` resumes after its stop (`--answers-on-stdin`), it reads the drive's login and the vault's
+passphrase from its own standard input and sends them on to the host over `ssh` on standard input
+alone. `tresorit-cli login --password-on-stdin` receives the password and, when the account uses a
+second factor, the one-time code as the line after the password on the same standard input, never
+through `--totp` or another argument; the vault receives its passphrase through `--passphrase-stdin`.
+Neither secret is ever put in an argument, an environment variable, a file or a log on either
+computer.
+
+## No Scaleway secret is on GitHub
+
+GitHub holds no Scaleway API key: the Build runs the Scaleway adapter against recorded answers and
+the host play flow against a local VM, and one real `up` and `down` at Scaleway is run by hand per
+release of the package. Keeping the key off CI means no workflow can rent bare metal or reach the
+Scaleway project.
+
+**What it costs:** a change in Scaleway's API is caught at the release's real rent rather than in
+the Build.
+
+## The interface calls the `porelo-host` its own package ships, by path
+
+The Linux packages install `porelo-host` at `/usr/lib/porelo-frontend/porelo-host`, and the Windows
+ZIP and MSIX place `porelo-host.exe` beside the interface, compiled from the same commit with the
+package's version baked in; the packaging refuses a binary that reports another version. The
+interface starts `porelo-host` by that path, never by `PATH`, so neither an older copy on the
+machine nor a binary placed earlier on `PATH` can stand in for the one built with the interface.

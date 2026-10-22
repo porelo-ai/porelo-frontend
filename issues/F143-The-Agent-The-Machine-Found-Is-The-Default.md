@@ -1,6 +1,6 @@
 # F143 — The Agent The Machine Found Is The Default
 
-**Status:** Idea; blocked by `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225).
+**Status:** Accepted; blocked by `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225).
 
 **What must be true.** A person who starts work without picking an agent gets the one the machine
 chooses, as `porelo-project` [PJ53](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj53)
