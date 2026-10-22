@@ -9,7 +9,11 @@
 # unsigned, which proves the manifest and the layout, and it is said so. The key goes into this
 # user's certificate store only for `signtool`, and is taken out whatever happens; it is never a file,
 # and its password never on a command line.
-param([string] $Out = 'build/windows-zip')
+param(
+  [string] $Out = 'build/windows-zip',
+  [ValidatePattern('^[A-Fa-f0-9]{40}$')]
+  [string] $ExpectedSignerThumbprint = '8BD1F34465EDC9B11A162B39C6644231851DEE24'
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -53,7 +57,7 @@ if ($env:WINDOWS_SIGNING_PFX) {
   # The key is never written to a file and its password never goes on a command line: the PFX is read
   # from the environment into memory, put in this user's certificate store for the one signing, found
   # there by its thumbprint, and taken out again whatever happened.
-  $pinned = '8BD1F34465EDC9B11A162B39C6644231851DEE24'
+  $pinned = $ExpectedSignerThumbprint
   $flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]'UserKeySet,PersistKeySet'
   $loaded = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
     [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX), $env:WINDOWS_SIGNING_PFX_PASSWORD, $flags)
@@ -65,8 +69,7 @@ if ($env:WINDOWS_SIGNING_PFX) {
     if ($LASTEXITCODE -ne 0) { Write-Error "SignTool did not sign the MSIX (exit $LASTEXITCODE)"; exit 1 }
     # The public half beside it, for a person to trust once on their machine.
     [IO.File]::WriteAllBytes("$Out/porelo-msix.cer", $loaded.Export('Cert'))
-    # The certificate the project made, and no other: by its thumbprint, which names it, not only by
-    # its subject, which anybody can write into a certificate of their own.
+    # A subject can be copied: pin the production key by default, or the trial's explicit thumbprint.
     $signer = (Get-AuthenticodeSignature $msix).SignerCertificate
     if ($signer.Thumbprint -ne $pinned) {
       Write-Error "the MSIX is signed by $($signer.Subject), thumbprint $($signer.Thumbprint), not $pinned"

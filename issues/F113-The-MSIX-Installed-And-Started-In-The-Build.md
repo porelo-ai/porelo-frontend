@@ -1,6 +1,6 @@
 # F113 — The MSIX Installed And Started In The Build
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one PowerShell script and one step in the Build's job *Windows*; no contract, nothing
 in `lib/`.
 
@@ -33,6 +33,12 @@ the runner is the nearest thing to that test which runs on every build.
 - **`.github/workflows/build.yml`:** a step "Install and start the MSIX" after "Pack the ZIP and
   the MSIX", only where the MSIX was kept (the signing secrets are there); where they are not, the
   script says it skipped and why.
+- **`.github/workflows/windows.yml`:** the branch trial makes a throwaway signing certificate in
+  `Cert:\CurrentUser\My`, exports a password-protected PFX in memory, masks it and its random password,
+  and passes both through `GITHUB_ENV` to Pack; Pack checks that certificate's thumbprint through
+  `-ExpectedSignerThumbprint` (the production default stays pinned). The same install check follows
+  Pack, and an `always()` step removes the trial certificate; no real signing certificate reaches
+  a branch.
 - **Red first:** the script run on the runner before the step's red half exists, against a copy
   signed by another certificate, must fail the job: run once green and once red, never proven by
   reading the workflow's text.
@@ -44,8 +50,13 @@ the runner is the nearest thing to that test which runs on every build.
   `Add-AppxPackage` refuses.
 - **Nothing stays behind on the runner:** the package removed, the throwaway certificate removed.
 
-## To be checked
+## Measured
 
-- **Whether a hosted Windows runner starts a Flutter window at all:** it runs an interactive
-  session, and Flutter's ANGLE falls back to WARP without a GPU; measured in the first run. If no
-  window can start, "started" becomes the process alive for a few seconds. (Agent Frontend's)
+- On GitHub's `windows-2025` runner, in the trial on `windows/f113`: the copy re-signed with another
+  key of the same subject was refused with `0x800B0109` ("The root certificate of the signature in
+  the app package or bundle must be trusted") while the MSIX's own certificate was trusted; the real
+  MSIX installed, started through `shell:AppsFolder\…!PoreloInterface` with a window, from
+  `C:\Program Files\WindowsApps\ai.porelo.frontend_<version>_x64__<id>\porelo_frontend.exe`, and
+  the package, both certificates and the copy were removed.
+- Seen red: the same step with the check turned to expect the wrong-key copy to install failed the
+  job.

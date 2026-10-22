@@ -252,6 +252,22 @@ jobs:
                   WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
               run: ./tool/windows-package.ps1
 
+            - name: Install and start the MSIX
+              shell: pwsh
+              timeout-minutes: 12
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $msix = @(Get-ChildItem build/windows-zip/*.msix)
+                  if ($msix.Count -eq 0) {
+                    if ($env:WINDOWS_SIGNING_CONFIGURED -eq 'true') { throw 'Asked for a signed MSIX; got no MSIX after packing' }
+                    'Skipped installing the MSIX: no signing secrets, so Pack did not keep an unsigned MSIX'
+                    exit 0
+                  }
+                  if ($msix.Count -ne 1) { throw "Asked for one MSIX; got $($msix.Count)" }
+                  ./tool/windows-install-check.ps1 -Msix $msix[0].FullName -Cer build/windows-zip/porelo-msix.cer
+              env:
+                  WINDOWS_SIGNING_CONFIGURED: ${{ secrets.WINDOWS_SIGNING_PFX != '' }}
+
             - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
               id: attest
               with:

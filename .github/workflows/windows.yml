@@ -31,7 +31,9 @@ jobs:
                   cache: true
 
             - name: Get dependencies
-              run: flutter pub get
+              run: |
+                  flutter pub get
+                  dart pub get --directory=packages/porelo_host
 
             - name: Analyze
               run: dart analyze --fatal-infos
@@ -46,11 +48,64 @@ jobs:
               timeout-minutes: 20
               run: flutter build windows --release
 
-            # The ZIP and the MSIX packed as the Build packs them. With no certificate here the MSIX is
-            # packed to prove the manifest and the layout, and not kept.
+            # The trial proves installing without the real certificate ever reaching a branch.
+            - name: Make a throwaway signing certificate
+              shell: pwsh
+              timeout-minutes: 2
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=porelo.ai' -CertStoreLocation Cert:\CurrentUser\My
+                  try {
+                    "WINDOWS_TRIAL_CERTIFICATE=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+                    $password = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+                    $pfx = [Convert]::ToBase64String($certificate.Export(
+                      [Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $password))
+                    "::add-mask::$password"
+                    "::add-mask::$pfx"
+                    "WINDOWS_SIGNING_PFX=$pfx" >> $env:GITHUB_ENV
+                    "WINDOWS_SIGNING_PFX_PASSWORD=$password" >> $env:GITHUB_ENV
+                  } catch {
+                    Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force
+                    throw
+                  } finally { $certificate.Dispose() }
+
             - name: Pack
               shell: pwsh
-              run: ./tool/windows-package.ps1
+              run: ./tool/windows-package.ps1 -ExpectedSignerThumbprint $env:WINDOWS_TRIAL_CERTIFICATE
+
+            - name: Install and start the MSIX
+              shell: pwsh
+              timeout-minutes: 12
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $msix = @(Get-ChildItem build/windows-zip/*.msix)
+                  if ($msix.Count -eq 0) {
+                    if ($env:WINDOWS_SIGNING_CONFIGURED -eq 'true') { throw 'Asked for a signed MSIX; got no MSIX after packing' }
+                    'Skipped installing the MSIX: no signing secrets, so Pack did not keep an unsigned MSIX'
+                    exit 0
+                  }
+                  if ($msix.Count -ne 1) { throw "Asked for one MSIX; got $($msix.Count)" }
+                  ./tool/windows-install-check.ps1 -Msix $msix[0].FullName -Cer build/windows-zip/porelo-msix.cer
+              env:
+                  WINDOWS_SIGNING_CONFIGURED: ${{ env.WINDOWS_SIGNING_PFX != '' }}
+
+            - name: Remove the throwaway signing certificate
+              if: always()
+              shell: pwsh
+              timeout-minutes: 2
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  if (-not $env:WINDOWS_TRIAL_CERTIFICATE) {
+                    'No trial certificate was created'
+                    exit 0
+                  }
+                  if ($env:WINDOWS_TRIAL_CERTIFICATE -notmatch '^[A-Fa-f0-9]{40}$') {
+                    throw 'Asked for a trial certificate thumbprint; got an invalid thumbprint'
+                  }
+                  $path = "Cert:\CurrentUser\My\$env:WINDOWS_TRIAL_CERTIFICATE"
+                  if (Test-Path $path) { Remove-Item $path -Force }
+                  if (Test-Path $path) { throw "Asked to remove '$path'; got an existing certificate" }
+                  "Removed trial certificate $path (or already removed by Pack)"
 
             # The built folder as it is, for a person to try on Windows: unpacked whole into a folder of
             # its own, since the code is in `data\app.so` beside the `.exe`.
