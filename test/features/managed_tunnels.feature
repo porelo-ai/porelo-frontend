@@ -35,7 +35,7 @@ Feature: Raising and dropping the forward that reaches a machine
         And I say it is at {'user@build.example.test'}
         And its socket there is {'/run/user/1001/porelo/porelod.sock'}
         And I watch it
-        Then the machine {'the build machine'} says {'Host key verification failed.'}
+        Then the machine {'the build machine'} says {'This computer does not know user@build.example.test’s host key yet, or it changed.'}
 
     # A machine that answered yesterday and does not today is usually a daemon nobody started.
     Scenario: a watched machine that is silent can be started from its menu, once somebody agrees
@@ -212,3 +212,9 @@ Feature: Raising and dropping the forward that reaches a machine
         When I ask to forget this machine
         Then the ssh config still has the Host {'handmade'}
         And the machine {'handmade'} is no longer watched
+
+    Scenario: a forward whose login is refused explains why beside the machine on the machines page
+        Given raising a forward will fail with {'Permission denied (publickey).'}
+        When the wizard set up the machine {'build'}
+        Then on the machines page {'build'} shows the refusal {'porelo-build accepted none of the keys your ssh agent offered'}
+        And on the machines page {'build'} shows the refusal {'It would log in with ~/.ssh/porelo-build-agent'}

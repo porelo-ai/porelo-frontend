@@ -63,6 +63,7 @@ import './step/another_host_entry_uses_the_key_of.dart';
 import './step/deleting_its_key_cannot_be_chosen.dart';
 import './step/the_machine_is_reached_through_a_host_entry_written_by_hand.dart';
 import './step/the_machine_is_no_longer_watched.dart';
+import './step/on_the_machines_page_shows_the_refusal.dart';
 
 void main() {
   group('''Raising and dropping the forward that reaches a machine''', () {
@@ -104,7 +105,11 @@ void main() {
       await iSayItIsAt(tester, 'user@build.example.test');
       await itsSocketThereIs(tester, '/run/user/1001/porelo/porelod.sock');
       await iWatchIt(tester);
-      await theMachineSays(tester, 'the build machine', 'Host key verification failed.');
+      await theMachineSays(
+        tester,
+        'the build machine',
+        'This computer does not know user@build.example.test’s host key yet, or it changed.',
+      );
     });
     testWidgets('''a watched machine that is silent can be started from its menu, once somebody agrees''', (
       tester,
@@ -299,6 +304,19 @@ void main() {
       await iAskToForgetThisMachine(tester);
       await theSshConfigStillHasTheHost(tester, 'handmade');
       await theMachineIsNoLongerWatched(tester, 'handmade');
+    });
+    testWidgets('''a forward whose login is refused explains why beside the machine on the machines page''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await raisingAForwardWillFailWith(tester, 'Permission denied (publickey).');
+      await theWizardSetUpTheMachine(tester, 'build');
+      await onTheMachinesPageShowsTheRefusal(
+        tester,
+        'build',
+        'porelo-build accepted none of the keys your ssh agent offered',
+      );
+      await onTheMachinesPageShowsTheRefusal(tester, 'build', 'It would log in with ~/.ssh/porelo-build-agent');
     });
   });
 }

@@ -3618,6 +3618,11 @@ class _WorkspaceWithToken implements ProjectWorkspace {
 class FakeTunnels extends Tunnels {
   final Map<String, Tunnel> _mine = <String, Tunnel>{};
 
+  String _sshConfigFor(String host) {
+    final written = World.machines.setup.entryWrittenFor(host)?.keyFile;
+    return written == null ? 'identityfile ~/.ssh/id_ed25519\n' : 'identityfile $written\n';
+  }
+
   @override
   Tunnel? of(Machine machine) => _mine[machine.name];
 
@@ -3633,9 +3638,10 @@ class FakeTunnels extends Tunnels {
     World.forwardsHeld.add(machine.name);
     final failing = World.forwardsFailWith;
     if (failing != null) {
+      final explained = whySshRefused(failing, machine.host, sshConfig: _sshConfigFor(machine.host));
       tunnel
         ..state = TunnelState.down
-        ..problem = failing;
+        ..problem = explained ?? failing;
       notifyListeners();
       return false;
     }

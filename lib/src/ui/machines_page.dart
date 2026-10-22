@@ -61,11 +61,13 @@ class MachinesPage extends StatelessWidget {
   }
 
   Widget _row(BuildContext context, Machine machine) {
-    final text = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
     final fleet = machines.of(machine);
     final info = fleet.info;
     final running = fleet.tasks.where((task) => task.running).length;
-    final answering = fleet.reachability == Reachability.connected;
+    final refused = machines.tunnels.of(machine)?.problem;
+    final answering = fleet.reachability == Reachability.connected && refused == null;
     // This computer itself is never taken off the list (walk 9): it is where the window
     // runs, whatever else is watched.
     final local = Machine.local();
@@ -85,13 +87,24 @@ class MachinesPage extends StatelessWidget {
           key: ValueKey<String>('rail-machine ${machine.name}'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text(
-          <String>[
-            machine.where,
-            if (info != null) '${info.product} ${info.version}',
-            if (answering) running == 1 ? '1 running' : '$running running' else 'not answering',
-          ].join('  ·  '),
-          style: text.bodySmall,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              <String>[
+                machine.where,
+                if (info != null) '${info.product} ${info.version}',
+                if (answering) running == 1 ? '1 running' : '$running running' else 'not answering',
+              ].join('  ·  '),
+              style: text.bodySmall,
+            ),
+            if (refused != null)
+              Text(
+                refused,
+                key: ValueKey<String>('machine-refused ${machine.name}'),
+                style: text.bodySmall?.copyWith(color: theme.colorScheme.error),
+              ),
+          ],
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

@@ -23,6 +23,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   command that fixes it to copy. A refused key can be fixed in a terminal on the machine, and every
   cause can be asked about again. A start refused for it says the same, from the dialog and from a
   task started again, and a start that goes on from the mirror keeps Porelo's warning in its words.
+- A machine whose ssh login is refused when it is connected again says why in words on the machines
+  page, as when it is added, with the key ssh would log in with where `~/.ssh/config` names one.
 - A finished unattended run's tile ends with a line under its output: finished or stopped before its
   end, and whether its work waits at the gate to be reviewed, or what to read instead.
 - `porelo-host` and `porelo-host.exe` on their own, without the interface, in the generic repository

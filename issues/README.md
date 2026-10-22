@@ -33,13 +33,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f144"></a>[F144](F144-Start-Again-Without-The-Now-Flag.md) | XS | — | *Start again* sends `Start` without `now`, which the daemon ignores; the client's parameter goes. |
 | <a id="f136"></a>[F136](F136-Publish-Without-A-Downloaded-Client.md) | S | — | Packages published by curl with their checksums, no JFrog CLI downloaded where the token is. |
 | <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | S | — | An unattended run ends with a line: finished, and where to go next. |
+| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
-| <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | S | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | S | — | The MSIX installed and started in the Build's Windows job. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |

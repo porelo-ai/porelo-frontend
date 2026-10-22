@@ -69,9 +69,12 @@ class Tunnel {
     Future<Process> Function(List<String> command)? start,
     Future<ProcessResult> Function(List<String> command)? run,
     Duration appears = const Duration(seconds: 10),
+    Duration explains = const Duration(seconds: 5),
+    this.onChanged,
   }) : _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
-       _untilItBinds = appears;
+       _untilItBinds = appears,
+       _untilExplained = explains;
 
   /// The machine this forwards to.
   final Machine machine;
@@ -79,6 +82,11 @@ class Tunnel {
   final Future<Process> Function(List<String> command) _launch;
   final Future<ProcessResult> Function(List<String> command) _tighten;
   final Duration _untilItBinds;
+  final Duration _untilExplained;
+
+  /// Lets the owner show a dropped forward and any later refusal explanation.
+  final VoidCallback? onChanged;
+  int _generation = 0;
 
   Process? _process;
   bool _wanted = false;
@@ -88,9 +96,8 @@ class Tunnel {
 
   /// What the transport said, when it could not be raised. Null when nothing is wrong.
   ///
-  /// **`ssh`'s own words, never ours.** *"Host key verification failed"* is a different problem
-  /// from *"Connection refused"*, and a machine reported as simply not there sends somebody
-  /// looking in the wrong place.
+  /// Explained where [whySshRefused] can tell, else **`ssh`'s own words**: *"Host key verification
+  /// failed"* and *"Connection refused"* send somebody to different places.
   String? problem;
 
   /// How many times it has been raised, so a re-raise is observable.
@@ -117,6 +124,7 @@ class Tunnel {
 
   /// Raises it, and waits until the socket is there or the transport says why not.
   Future<void> raise() async {
+    final generation = ++_generation;
     _wanted = true;
     state = TunnelState.raising;
     problem = null;
@@ -124,12 +132,15 @@ class Tunnel {
     // Our own previous process first. A re-raise while the old `ssh` is still alive would
     // otherwise meet its socket below and refuse it as somebody else's.
     await _stopWhatWeStarted();
+    if (generation != _generation) return;
 
     // **A socket that answers belongs to somebody.** It may be another program of this user that
     // happens to sit at that path, and taking its endpoint away to put ours there would break it
     // silently. Refused instead, and said. Told apart by connecting, exactly as
     // [OneInstance.take] tells its own leftover from a running interface.
-    if (await _somebodyIsServing()) {
+    final alreadyServing = await _somebodyIsServing();
+    if (generation != _generation) return;
+    if (alreadyServing) {
       state = TunnelState.down;
       problem = 'something is already serving ${machine.socketPath}, and it was left alone';
       return;
@@ -143,6 +154,10 @@ class Tunnel {
     final stopped = Completer<void>();
     try {
       final process = await _launch(command);
+      if (generation != _generation) {
+        process.kill();
+        return;
+      }
       _process = process;
       raised++;
       // Collected as one future rather than read line by line, because **the process can exit
@@ -151,11 +166,12 @@ class Tunnel {
       final saying = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).toList();
       unawaited(
         process.exitCode.then((code) async {
-          await _itEnded(code, saying);
+          await _itEnded(code, saying, generation);
           if (!stopped.isCompleted) stopped.complete();
         }),
       );
     } on ProcessException catch (ex) {
+      if (generation != _generation) return;
       state = TunnelState.down;
       problem = ex.message;
       return;
@@ -164,11 +180,17 @@ class Tunnel {
     final by = DateTime.now().add(_untilItBinds);
     while (DateTime.now().isBefore(by)) {
       // The state and the words are both set before this completes, so there is nothing to race.
-      if (stopped.isCompleted) return;
+      if (generation != _generation || stopped.isCompleted) return;
+      if (state == TunnelState.down) {
+        await stopped.future;
+        return;
+      }
       // A *socket*, not merely a file. Anything left at that path would otherwise read as a
       // working forward — which is exactly what a leftover from a run that died looks like.
       if (FileSystemEntity.typeSync(machine.socketPath) == FileSystemEntityType.unixDomainSock) {
-        if (!await _ownerOnly()) {
+        final ownerOnly = await _ownerOnly();
+        if (generation != _generation) return;
+        if (!ownerOnly) {
           // The one property of the transport that can be checked from here, and it is the one
           // the requirement names. A forward anybody on the machine can read is not the thing
           // that was asked for, so it is taken down rather than reported as working.
@@ -185,6 +207,11 @@ class Tunnel {
     }
     // Up, and nothing bound. Said as a wait rather than as a refusal, because it is neither a
     // rejection by the far end nor a fault anybody can name.
+    if (generation != _generation) return;
+    if (state == TunnelState.down) {
+      await stopped.future;
+      return;
+    }
     state = TunnelState.down;
     problem = 'the forward did not appear within ${_untilItBinds.inSeconds} seconds';
   }
@@ -194,6 +221,7 @@ class Tunnel {
   /// Safe to call on a tunnel that was never raised, which is what makes closing the window able
   /// to call it on everything without asking which is which.
   Future<void> drop() async {
+    _generation++;
     _wanted = false;
     await _stopWhatWeStarted();
     _clearTheWay();
@@ -231,13 +259,25 @@ class Tunnel {
     _ => null,
   };
 
-  Future<void> _itEnded(int code, Future<List<String>> saying) async {
+  Future<void> _itEnded(int code, Future<List<String>> saying, int generation) async {
     // Everything ssh printed, in order. It says one useful sentence and several unhelpful ones,
     // and which is which depends on the failure — so all of it is kept and shown.
     final said = await saying;
-    if (!_wanted) return;
+    if (!_wanted || generation != _generation) return;
+    final words = said.join(' ');
     state = TunnelState.down;
-    problem = said.isEmpty ? 'the forward stopped, exit code $code' : said.join(' ');
+    problem = said.isEmpty ? 'the forward stopped, exit code $code' : words;
+    onChanged?.call();
+    if (said.isEmpty) return;
+    try {
+      final explained = await _explainSshRefusal(words, machine.host, _tighten).timeout(_untilExplained);
+      // An older refusal must not replace the result of a newer raise.
+      if (!_wanted || generation != _generation || explained == null) return;
+      problem = explained;
+      onChanged?.call();
+    } on TimeoutException {
+      // The transport already said why it stopped; a stalled explanation adds nothing.
+    }
   }
 
   void _clearTheWay() {
@@ -308,7 +348,10 @@ class Tunnels extends ChangeNotifier {
   Future<bool> raiseFor(Machine machine) async {
     // A machine this build cannot reach is said so where it is opened, never forwarded.
     if (!machine.needsATunnel || machine.whyNotReachableHere != null) return true;
-    final tunnel = _mine.putIfAbsent(machine.name, () => Tunnel(machine, start: _launch, appears: _untilItBinds));
+    final tunnel = _mine.putIfAbsent(
+      machine.name,
+      () => Tunnel(machine, start: _launch, run: _run, appears: _untilItBinds, onChanged: notifyListeners),
+    );
     await tunnel.raise();
     notifyListeners();
     return tunnel.state == TunnelState.up;
@@ -318,7 +361,7 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Kept out of [of]: a trial is not a machine being watched, and the caller takes it down.
   Future<Tunnel> trial(Machine machine) async {
-    final tunnel = Tunnel(machine, start: _launch, appears: _untilItBinds);
+    final tunnel = Tunnel(machine, start: _launch, run: _run, appears: _untilItBinds);
     await tunnel.raise();
     return tunnel;
   }
@@ -508,7 +551,7 @@ class Tunnels extends ChangeNotifier {
     try {
       final result = await _run(loginUidCommandAt(host));
       if (result.exitCode != 0) {
-        lastLoginRefusal = whySshRefused('${result.stderr}', host);
+        lastLoginRefusal = await _explainSshRefusal('${result.stderr}', host, _run);
         return null;
       }
       return int.tryParse('${result.stdout}'.trim());
@@ -538,18 +581,43 @@ class Tunnels extends ChangeNotifier {
   }
 }
 
+/// [said] explained for [host], naming the key ssh would use where it refused every key offered.
+Future<String?> _explainSshRefusal(
+  String said,
+  String host,
+  Future<ProcessResult> Function(List<String> command) run,
+) async {
+  final needKey = said.contains('Permission denied') && said.contains('publickey');
+  final config = needKey ? await _sshConfigFor(host, run) : null;
+  return whySshRefused(said, host, sshConfig: config);
+}
+
+/// What `ssh -G` resolves for [host], or null where it cannot say: an empty answer would read as
+/// "no key is named", which is not what a failed `ssh -G` knows.
+Future<String?> _sshConfigFor(String host, Future<ProcessResult> Function(List<String> command) run) async {
+  if (host.isEmpty) return null;
+  try {
+    final result = await run(<String>['ssh', '-G', host]);
+    return result.exitCode == 0 ? '${result.stdout}' : null;
+  } on ProcessException {
+    return null;
+  }
+}
+
 /// What ssh's refusal to log into [host] means for the person, from its own words on stderr; null
 /// where they do not tell. Measured on the walk VM: an agent holding nine keys was cut
 /// off with "Too many authentication failures" before it offered the right one.
-String? whySshRefused(String said, String host) {
+String? whySshRefused(String said, String host, {String? sshConfig}) {
   if (said.contains('Too many authentication failures')) {
     return '$host stopped listening after the first few keys your ssh agent offered, before the one it '
         'accepts. Name that key for $host in ~/.ssh/config (IdentityFile …, and IdentitiesOnly yes), '
         'or hold fewer keys in the agent.';
   }
   if (said.contains('Permission denied') && said.contains('publickey')) {
+    final key = sshConfig == null ? null : keySshWouldUse(sshConfig, host);
     return '$host accepted none of the keys your ssh agent offered. The account there needs your public '
-        'key in its ~/.ssh/authorized_keys, or the account does not exist yet.';
+        'key in its ~/.ssh/authorized_keys, or the account does not exist yet.'
+        '${key == null ? '' : ' $key'}';
   }
   if (said.contains('Host key verification failed')) {
     return 'This computer does not know $host’s host key yet, or it changed. Log in once with ssh $host in a '
@@ -560,4 +628,31 @@ String? whySshRefused(String said, String host) {
     return '$host does not answer on ssh’s port.';
   }
   return null;
+}
+
+/// The identity files ssh tries for every host, which `ssh -G` lists when nothing names one.
+const Set<String> _defaultSshKeys = <String>{
+  '~/.ssh/id_rsa',
+  '~/.ssh/id_dsa',
+  '~/.ssh/id_ecdsa',
+  '~/.ssh/id_ecdsa_sk',
+  '~/.ssh/id_ed25519',
+  '~/.ssh/id_ed25519_sk',
+  '~/.ssh/id_xmss',
+};
+
+/// The sentence naming the key `ssh -G` resolved in [sshConfig], or saying none is named when only
+/// ssh's default identity files are listed.
+String keySshWouldUse(String sshConfig, [String? host]) {
+  for (final line in sshConfig.split('\n')) {
+    final trimmed = line.trim();
+    if (!trimmed.startsWith('identityfile ')) continue;
+    final file = trimmed.substring('identityfile '.length).trim().replaceFirst(RegExp(r'^.*/\.ssh/'), '~/.ssh/');
+    if (file.isNotEmpty && !_defaultSshKeys.contains(file)) {
+      return "It would log in with $file; that key's public half must be in the account's authorized_keys.";
+    }
+  }
+  return host == null || host.isEmpty
+      ? 'No key is named for the host in ~/.ssh/config.'
+      : 'No key is named for $host in ~/.ssh/config.';
 }

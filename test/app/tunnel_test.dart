@@ -2,6 +2,8 @@
 @Tags(<String>['linux'])
 library;
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -82,14 +84,193 @@ void main() {
   });
 
   test('a forward that is refused says what the transport said', () async {
-    final tunnel = Tunnel(machineAt('${where.path}/refused.sock'), start: failsSaying('Host key verification failed.'));
+    final hostKey = Tunnel(
+      machineAt('${where.path}/refused.sock'),
+      start: failsSaying('Host key verification failed.'),
+    );
+    await hostKey.raise();
+
+    // "Host key verification failed" is a different problem from a machine that is not there, and
+    // reporting the second sends somebody looking in the wrong place.
+    expect(hostKey.state, TunnelState.down);
+    expect(hostKey.problem, contains('host key'));
+
+    final raw = Tunnel(
+      machineAt('${where.path}/raw.sock'),
+      start: failsSaying('remote port forwarding failed for listen path'),
+    );
+    await raw.raise();
+
+    expect(raw.state, TunnelState.down);
+    expect(raw.problem, contains('remote port forwarding failed'));
+  });
+
+  test('a forward whose login is refused explains why and names the key ssh would use', () async {
+    final tunnel = Tunnel(
+      machineAt('${where.path}/denied.sock'),
+      start: failsSaying('user@build: Permission denied (publickey).'),
+      run: (command) async => ProcessResult(
+        0,
+        0,
+        command.contains('-G') ? 'identityfile ~/.ssh/porelo-build-agent\nidentityfile ~/.ssh/id_ed25519\n' : '',
+        '',
+      ),
+    );
 
     await tunnel.raise();
 
-    // ssh's own words. "Host key verification failed" is a different problem from a machine that
-    // is not there, and reporting the second sends somebody looking in the wrong place.
     expect(tunnel.state, TunnelState.down);
-    expect(tunnel.problem, contains('Host key verification failed'));
+    expect(tunnel.problem, contains('user@build accepted none of the keys your ssh agent offered'));
+    expect(
+      tunnel.problem,
+      contains(
+        "It would log in with ~/.ssh/porelo-build-agent; "
+        "that key's public half must be in the account's authorized_keys.",
+      ),
+    );
+  });
+
+  test('a refused login with only default ssh keys says no key is named for the host', () async {
+    const defaults =
+        'identityfile ~/.ssh/id_rsa\n'
+        'identityfile ~/.ssh/id_ecdsa\n'
+        'identityfile ~/.ssh/id_ecdsa_sk\n'
+        'identityfile ~/.ssh/id_ed25519\n'
+        'identityfile ~/.ssh/id_ed25519_sk\n';
+    final tunnel = Tunnel(
+      machineAt('${where.path}/defaults.sock'),
+      start: failsSaying('user@build: Permission denied (publickey).'),
+      run: (command) async => ProcessResult(0, 0, command.contains('-G') ? defaults : '', ''),
+    );
+
+    await tunnel.raise();
+
+    expect(tunnel.problem, contains('user@build accepted none of the keys your ssh agent offered'));
+    expect(tunnel.problem, contains('No key is named for user@build'));
+  });
+
+  // A failed ssh -G knows nothing of the keys: saying none is named would send somebody to edit a
+  // configuration that may well name one.
+  test('a refused login says nothing about keys when ssh -G itself fails', () async {
+    final tunnel = Tunnel(
+      machineAt('${where.path}/no-config.sock'),
+      start: failsSaying('user@build: Permission denied (publickey).'),
+      run: (command) async => ProcessResult(0, command.contains('-G') ? 255 : 0, '', 'ssh: bad configuration'),
+    );
+
+    await tunnel.raise();
+
+    expect(tunnel.problem, contains('user@build accepted none of the keys your ssh agent offered'));
+    expect(tunnel.problem, isNot(contains('No key is named')));
+    expect(tunnel.problem, isNot(contains('It would log in with')));
+  });
+
+  // A delayed explanation must not prevent recovery or overwrite a recovered forward.
+  test('a dropped forward is down with raw words while ssh config is pending', () async {
+    final config = Completer<ProcessResult>();
+    final asked = Completer<void>();
+    final process = _ControlledProcess();
+    final socket = '${where.path}/pending.sock';
+    final tunnels = Tunnels(
+      start: (_) async {
+        process.end('Permission denied (publickey).');
+        return process;
+      },
+      run: (command) {
+        if (!command.contains('-G')) return Process.run(command.first, command.sublist(1));
+        asked.complete();
+        return config.future;
+      },
+    );
+    late final Future<bool> raising;
+    addTearDown(() async {
+      if (!config.isCompleted) config.complete(ProcessResult(0, 0, '', ''));
+      await raising;
+      await tunnels.dropEverything();
+      tunnels.dispose();
+    });
+    final machine = machineAt(socket);
+    final changes = <String?>[];
+    final explained = Completer<void>();
+    tunnels.addListener(() {
+      final problem = tunnels.of(machine)?.problem;
+      changes.add(problem);
+      if (problem != null && problem.contains('accepted none') && !explained.isCompleted) explained.complete();
+    });
+    raising = tunnels.raiseFor(machine);
+    await asked.future;
+
+    expect(tunnels.of(machine)!.state, TunnelState.down);
+    expect(tunnels.of(machine)!.problem, 'Permission denied (publickey).');
+    expect(changes, contains('Permission denied (publickey).'));
+    config.complete(ProcessResult(0, 0, 'identityfile ~/.ssh/build-key\n', ''));
+    await explained.future.timeout(const Duration(milliseconds: 500));
+    expect(changes.last, contains('It would log in with ~/.ssh/build-key'));
+  });
+
+  // An unresponsive ssh config command must not hold a failed raise open.
+  test('ssh config that never answers leaves raw words after the bound', () async {
+    final process = _ControlledProcess();
+    final tunnel = Tunnel(
+      machineAt('${where.path}/bounded.sock'),
+      start: (_) async {
+        process.end('Permission denied (publickey).');
+        return process;
+      },
+      run: (_) => Completer<ProcessResult>().future,
+      appears: const Duration(milliseconds: 100),
+      explains: const Duration(milliseconds: 5),
+    );
+    addTearDown(tunnel.drop);
+
+    await tunnel.raise().timeout(const Duration(milliseconds: 500));
+
+    expect(tunnel.state, TunnelState.down);
+    expect(tunnel.problem, 'Permission denied (publickey).');
+  });
+
+  test('an old refusal explanation cannot overwrite a newer raise', () async {
+    final config = Completer<ProcessResult>();
+    final asked = Completer<void>();
+    final first = _ControlledProcess();
+    final next = Completer<Process>();
+    final second = _ControlledProcess();
+    final socket = '${where.path}/generation.sock';
+    var attempt = 0;
+    final tunnel = Tunnel(
+      machineAt(socket),
+      start: (command) async {
+        if (++attempt > 1) return next.future;
+        first.end('Permission denied (publickey).');
+        return first;
+      },
+      run: (command) {
+        if (!command.contains('-G')) return Process.run(command.first, command.sublist(1));
+        asked.complete();
+        return config.future;
+      },
+      appears: const Duration(milliseconds: 300),
+    );
+    addTearDown(tunnel.drop);
+    final raising = tunnel.raise();
+    await asked.future;
+    final reraising = tunnel.raise();
+    addTearDown(() async {
+      if (!next.isCompleted) next.complete(second);
+      if (!second._exit.isCompleted) second.end('Connection closed');
+      await Future.wait(<Future<void>>[raising, reraising]);
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(tunnel.state, TunnelState.raising);
+
+    config.complete(ProcessResult(0, 0, 'identityfile ~/.ssh/build-key\n', ''));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(tunnel.state, TunnelState.raising);
+    expect(tunnel.problem, isNull);
+    next.complete(second);
+    second.end('Connection closed');
+    await Future.wait(<Future<void>>[raising, reraising]);
   });
 
   test('a command that does not exist is a refusal, not a crash', () async {
@@ -606,5 +787,56 @@ void main() {
       expect(uid, isNull);
       expect(asked, isFalse, reason: 'there is no host to log into');
     });
+
+    test('a refused login when asking the uid joins the key ssh would use', () async {
+      Tunnels withConfig(String config) => Tunnels(
+        run: (command) async => command.contains('-G')
+            ? ProcessResult(0, 0, config, '')
+            : ProcessResult(0, 255, '', 'user@build: Permission denied (publickey).'),
+      );
+
+      final named = withConfig('identityfile /home/alice/.ssh/porelo-build-agent\n');
+      expect(await named.loginUidAt('user@build'), isNull);
+      expect(
+        named.lastLoginRefusal,
+        allOf(
+          contains('user@build accepted none of the keys'),
+          contains(
+            "It would log in with ~/.ssh/porelo-build-agent; "
+            "that key's public half must be in the account's authorized_keys.",
+          ),
+        ),
+      );
+
+      final defaultsOnly = withConfig('identityfile ~/.ssh/id_ed25519\n');
+      expect(await defaultsOnly.loginUidAt('user@build'), isNull);
+      expect(
+        defaultsOnly.lastLoginRefusal,
+        allOf(contains('user@build accepted none of the keys'), contains('No key is named for user@build')),
+      );
+    });
   });
+}
+
+class _ControlledProcess extends Fake implements Process {
+  final _errors = StreamController<List<int>>();
+  final _exit = Completer<int>();
+
+  void end(String words) {
+    _errors.add(utf8.encode(words));
+    unawaited(_errors.close());
+    _exit.complete(255);
+  }
+
+  @override
+  Stream<List<int>> get stderr => _errors.stream;
+
+  @override
+  Future<int> get exitCode => _exit.future;
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    if (!_exit.isCompleted) end('');
+    return true;
+  }
 }
