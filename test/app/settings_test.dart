@@ -2,6 +2,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
+  // Harm: choosing another project's folder overwrites files in the wrong tresor.
+  // Red: keep one global folder, omit it from _known, or cast malformed stored fields.
+  test('tresor folders are kept separately and invalid stored fields are ignored', () async {
+    final store = MemorySettingsStore(<String, Object?>{
+      'tresorFolders': <Object?, Object?>{'demo': '/first', 'bad': 7, 9: '/wrong', 'empty': '', 'nul': '/a\x00b'},
+    });
+    final settings = Settings(store);
+    await settings.load();
+    expect(settings.tresorFolder('demo'), '/first');
+    for (final name in ['bad', '9', 'empty', 'nul']) {
+      expect(settings.tresorFolder(name), isNull);
+    }
+    await settings.rememberTresorFolder('other', '/second');
+    await settings.rememberTresorFolder('demo', '/changed');
+    final again = Settings(store);
+    await again.load();
+    expect(again.tresorFolder('demo'), '/changed');
+    expect(again.tresorFolder('other'), '/second');
+    await again.rememberTresorFolder('demo', null);
+    final last = Settings(store);
+    await last.load();
+    expect(last.tresorFolder('demo'), isNull);
+    expect(last.tresorFolder('other'), '/second');
+  });
+
   test('new machines run work as agent until somebody says otherwise, and it is kept', () async {
     final store = MemorySettingsStore();
     final settings = Settings(store);

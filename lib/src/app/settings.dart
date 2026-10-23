@@ -151,6 +151,21 @@ class Settings extends ChangeNotifier {
     if (user is String && isUserName(user)) _workUser = user;
     final draft = stored['setupDraft'];
     if (draft is Map) _setupDraft = <String, Object?>{for (final e in draft.entries) '${e.key}': e.value};
+    final folders = stored['tresorFolders'];
+    _tresorFolders = <String, String>{};
+    if (folders is Map) {
+      for (final entry in folders.entries) {
+        final project = entry.key;
+        final folder = entry.value;
+        if (project is String &&
+            project.isNotEmpty &&
+            folder is String &&
+            folder.trim().isNotEmpty &&
+            !folder.contains('\x00')) {
+          _tresorFolders[project] = folder;
+        }
+      }
+    }
     final place = stored['place'];
     if (place is Map) {
       _place = <String, String>{
@@ -186,6 +201,25 @@ class Settings extends ChangeNotifier {
     }
     final forges = stored['forges'];
     if (forges is List) _forges = List<Object?>.of(forges);
+    notifyListeners();
+  }
+
+  Map<String, String> _tresorFolders = <String, String>{};
+
+  /// The locally synced Tresorit folder chosen for this project.
+  String? tresorFolder(String project) => _tresorFolders[project];
+
+  /// Keeps a folder in the interface's own settings, never the project file.
+  Future<void> rememberTresorFolder(String project, String? folder) async {
+    if (project.isEmpty || (folder != null && (folder.trim().isEmpty || folder.contains('\x00')))) {
+      throw ArgumentError('A project and a valid folder are required.');
+    }
+    if (folder == null) {
+      _tresorFolders.remove(project);
+    } else {
+      _tresorFolders[project] = folder;
+    }
+    await _write();
     notifyListeners();
   }
 
@@ -354,6 +388,7 @@ class Settings extends ChangeNotifier {
     'place': _place,
     'templates': _templates,
     'forges': _forges,
+    'tresorFolders': _tresorFolders,
   };
 
   static ThemeMode _appearanceNamed(Object? name) =>

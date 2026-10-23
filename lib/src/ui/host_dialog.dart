@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:porelo_host/porelo_host.dart';
 
 import '../app/host_session.dart';
 import '../app/machines.dart';
+import '../app/settings.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
@@ -16,19 +18,29 @@ Future<void> openHostDialog(
   required String project,
   required Machines machines,
   StartHostCommand? start,
+  required Settings settings,
 }) => showDialog<void>(
   context: context,
-  builder: (context) => HostDialog(project: project, machines: machines, start: start),
+  builder: (context) => HostDialog(project: project, machines: machines, start: start, settings: settings),
 );
 
 /// The page: where it goes, the steps, and at the stop what only the person can give.
 ///
-/// **Nothing typed here is kept.** The answers go to the command's standard input when sent and
+/// **Drive and vault answers are not kept.** The answers go to the command's standard input when sent and
 /// the fields are cleared; the provider's key is not asked here, it is the system store's
 /// (`porelo-host key set scaleway`).
 class HostDialog extends StatefulWidget {
   /// Constructor taking the project and, for the tests, how the command is started.
-  const HostDialog({required this.project, required this.machines, this.start, super.key});
+  const HostDialog({
+    required this.project,
+    required this.machines,
+    this.start,
+    this.settings,
+    this.secretStore,
+    this.pickFolder,
+    this.saveTunnel,
+    super.key,
+  });
 
   /// The project to put on a server.
   final String project;
@@ -38,6 +50,18 @@ class HostDialog extends StatefulWidget {
 
   /// The fleet to add the completed host to and remove it from.
   final Machines machines;
+
+  /// The interface's project-specific folder choices.
+  final Settings? settings;
+
+  /// An injected store for tests; otherwise opened and closed for each operation.
+  final SecretStore? secretStore;
+
+  /// System pickers, replaceable without platform calls in widget tests.
+  final Future<String?> Function()? pickFolder;
+
+  /// Chooses the explicitly requested tunnel export destination.
+  final Future<String?> Function()? saveTunnel;
 
   @override
   State<HostDialog> createState() => _HostDialogState();
@@ -55,9 +79,24 @@ class _HostDialogState extends State<HostDialog> {
   final _code = TextEditingController();
   final _passphrase = TextEditingController();
   final _again = TextEditingController();
+  final _repository = TextEditingController();
+  final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
+  final _keyName = TextEditingController();
+  final _keys = <HostKeyFile>[];
+  String? _folder;
+  HostTunnel? _tunnel;
+  bool _preparing = false;
   HostSession? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _folder = widget.settings?.tresorFolder(widget.project);
+  }
+
   bool _upStarted = false;
   bool _doneUp = false;
+  bool _showTunnel = false;
   bool _saving = false;
   String? _machineProblem;
 
@@ -69,6 +108,7 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     for (final field in <TextEditingController>[
+      _repository, _signingKey, _keyName,
       _scaleway,
       _tresor,
       _account,
@@ -104,6 +144,7 @@ class _HostDialogState extends State<HostDialog> {
         _identity.text.trim(),
         '--collection',
         _collection.text.trim(),
+        if (_tunnel != null) ..._tunnel!.arguments,
         '--scaleway-project',
         _scaleway.text.trim(),
       ],
@@ -116,21 +157,146 @@ class _HostDialogState extends State<HostDialog> {
     _scaleway, _tresor, _account, _publicKey, _identity, _collection, //
   ].every((field) => field.text.trim().isNotEmpty);
 
-  bool get _running => _saving || _session?.state == HostRunState.running;
+  String? get _tunnelEndpoint {
+    final address = _session?.address;
+    if (address == null || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) return null;
+    return address.contains(':') ? '[$address]:51820' : '$address:51820';
+  }
 
-  void _up() {
-    if (!_upStarted) {
-      _newSession();
-      _upStarted = true;
+  bool get _running => _preparing || _saving || _session?.state == HostRunState.running;
+
+  Future<void> _withFiles(Future<void> Function(HostFiles) use) async {
+    late final SecretStore store;
+    try {
+      store = widget.secretStore ?? SecretStore.forThisSystem();
+    } on Exception {
+      throw const SecretStoreFailed('The system secret store could not be opened.');
     }
-    unawaited(_runUp(_session!.up));
+    try {
+      await use(HostFiles(store));
+    } finally {
+      if (widget.secretStore == null) {
+        try {
+          await store.close();
+        } on Exception {
+          throw const SecretStoreFailed('The system secret store could not be closed.');
+        }
+      }
+    }
+  }
+
+  Future<void> _chooseFolder() async {
+    final folder = await (widget.pickFolder?.call() ?? getDirectoryPath());
+    if (folder == null || !mounted) return;
+    await widget.settings?.rememberTresorFolder(widget.project, folder);
+    if (mounted) {
+      setState(() {
+        _folder = folder;
+        _machineProblem = null;
+      });
+    }
+  }
+
+  Future<void> _addKey() async {
+    try {
+      HostFiles.checkName(_keyName.text);
+      final file = await openFile();
+      if (file == null || !mounted) return;
+      final key = HostKeyFile(_keyName.text, File(file.path));
+      HostFiles.checkBasename(key.basename);
+      setState(() {
+        _keys.add(key);
+        _keyName.clear();
+      });
+    } on HostFilesRefused catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
+    }
+  }
+
+  Future<void> _up() async {
+    if (_running) return;
+    setState(() {
+      _preparing = true;
+      _machineProblem = null;
+    });
+    try {
+      if (!_upStarted) {
+        await _withFiles((files) async {
+          _tunnel = await files.prepare(
+            project: widget.project,
+            folder: _folder,
+            url: _repository.text,
+            signingKey: File(_signingKey.text.trim()),
+            keys: _keys,
+          );
+        });
+        if (!mounted) return;
+        _newSession();
+        _upStarted = true;
+      }
+      await _runUp(_session!.up);
+    } on HostFilesRefused catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
+    } on FileSystemException catch (error) {
+      if (mounted) setState(() => _machineProblem = 'Cannot prepare the host file: ${error.path ?? "selected file"}.');
+    } on SecretStoreFailed {
+      if (mounted) {
+        setState(() => _machineProblem = 'The system secret store could not keep or read the WireGuard key.');
+      }
+    } finally {
+      if (mounted) setState(() => _preparing = false);
+    }
+  }
+
+  Future<void> _exportTunnel() async {
+    try {
+      final path = widget.saveTunnel == null
+          ? (await getSaveLocation(suggestedName: 'porelo.conf'))?.path
+          : await widget.saveTunnel!();
+      if (path == null || !mounted) return;
+      setState(() => _saving = true);
+      await _withFiles(
+        (files) => files.exportTunnel(
+          project: widget.project,
+          tunnel: _tunnel!,
+          address: _session!.address ?? '',
+          destination: File(path),
+        ),
+      );
+    } on HostFilesRefused catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
+    } on FileSystemException catch (error) {
+      if (mounted) setState(() => _machineProblem = 'Cannot save the tunnel file: ${error.path ?? "selected file"}.');
+    } on SecretStoreFailed {
+      if (mounted) setState(() => _machineProblem = 'The system secret store could not read the WireGuard key.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {
     _doneUp = false;
+    _showTunnel = false;
     _machineProblem = null;
     final account = _account.text.trim();
+    if (!_upStarted) {
+      setState(() => _preparing = true);
+      try {
+        await _withFiles((files) async {
+          _tunnel = await files.prepare(project: widget.project, url: '', signingKey: File(''));
+        });
+      } on HostFilesRefused catch (error) {
+        if (mounted) setState(() => _machineProblem = error.message);
+        return;
+      } on SecretStoreFailed {
+        if (mounted) setState(() => _machineProblem = 'The system secret store could not read the WireGuard key.');
+        return;
+      } finally {
+        if (mounted) setState(() => _preparing = false);
+      }
+      if (!mounted) return;
+    }
     final session = _upStarted ? _session! : _newSession();
     await session.down();
     if (session.state != HostRunState.done) return;
@@ -149,9 +315,15 @@ class _HostDialogState extends State<HostDialog> {
 
   Future<void> _runUp(Future<void> Function() run) async {
     _doneUp = false;
+    _showTunnel = false;
     _machineProblem = null;
     await run();
-    if (mounted) setState(() => _doneUp = _session!.state == HostRunState.done);
+    if (mounted) {
+      setState(() {
+        _doneUp = _session!.state == HostRunState.done;
+        _showTunnel = _doneUp;
+      });
+    }
   }
 
   Future<void> _addHost() async {
@@ -220,9 +392,39 @@ class _HostDialogState extends State<HostDialog> {
                 'porelo-host rents the host at Scaleway Elastic Metal, or finds it again, and runs the '
                 'playbook there. Its key is the one `porelo-host key set scaleway` kept.',
               ),
+              if (Platform.isWindows)
+                const Text('The host files and tunnel export are restricted to your Windows user.'),
               const SizedBox(height: Space.normal),
               _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
               _field(_tresor, 'The project\'s tresor', 'host-tresor', namesHost: true),
+              Text(
+                _folder ?? 'No local Tresorit folder chosen. Copy machine.yml, wireguard.key and any keys/ files into the project tresor under porelo-host/ before the host reads them.',
+              ),
+              TextButton(
+                key: const Key('host-folder'),
+                onPressed: _running || _upStarted ? null : _chooseFolder,
+                child: const Text('Choose the project tresor folder on this computer'),
+              ),
+              if (_folder != null) ...<Widget>[
+                _field(_repository, 'Project repository URL', 'host-repository', namesHost: true),
+                _field(_signingKey, 'Commit-signing public key (.pub path)', 'host-signing-key', namesHost: true),
+                _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
+                TextButton(
+                  onPressed: _running || _upStarted ? null : _addKey,
+                  child: const Text('Choose a file for this vault entry'),
+                ),
+                for (final key in _keys)
+                  Row(
+                    children: <Widget>[
+                      Expanded(child: Text('${key.name}: ${key.basename}')),
+                      IconButton(
+                        onPressed: _running || _upStarted ? null : () => setState(() => _keys.remove(key)),
+                        icon: const Icon(Icons.remove_circle_outline),
+                        tooltip: 'Remove this file',
+                      ),
+                    ],
+                  ),
+              ],
               _field(_account, 'Account on the host', 'host-account', namesHost: true),
               _field(_publicKey, 'Your public ssh key', 'host-public-key', namesHost: true),
               _field(_identity, 'Your private ssh key', 'host-identity', namesHost: true),
@@ -247,6 +449,21 @@ class _HostDialogState extends State<HostDialog> {
                   ),
               ],
               if (_machineProblem != null) Text(_machineProblem!),
+              if (_showTunnel) ...<Widget>[
+                Text(
+                  _tunnel?.hostPublicKey.isNotEmpty == true
+                      ? 'Host public key: ${_tunnel!.hostPublicKey}\nEndpoint: ${_tunnelEndpoint ?? 'unavailable'}\nAllowedIPs = 10.73.0.1/32\nAddress = 10.73.0.2/24'
+                      : 'The host public key is unavailable here because the host files were supplied manually.',
+                ),
+                const Text('Bring the tunnel up with your own WireGuard. This needs root.'),
+                TextButton(
+                  key: const Key('host-export-tunnel'),
+                  onPressed: _running || _tunnel?.hostPublicKey.isNotEmpty != true || _tunnelEndpoint == null
+                      ? null
+                      : _exportTunnel,
+                  child: const Text('Save the wg-quick file'),
+                ),
+              ],
               if (_doneUp)
                 FilledButton(
                   key: const Key('host-add'),

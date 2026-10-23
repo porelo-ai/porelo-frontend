@@ -65,6 +65,309 @@ void main() {
     await World.settle(tester);
   }
 
+  // Harm: a conflicting file is destroyed or a rented host starts with incomplete files.
+  // Red: start the session before awaiting prepare, or truncate an existing machine.yml.
+  testWidgets('a conflicting machine file is named and up never starts', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    await settings.rememberTresorFolder('demo', scratch.path);
+    var starts = 0;
+    late File conflict;
+    late File signing;
+    await tester.runAsync(() async {
+      await Directory('${scratch.path}/porelo-host').create();
+      conflict = await File('${scratch.path}/porelo-host/machine.yml').writeAsString('keep');
+      signing = await File('${scratch.path}/signing.pub')
+          .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            machines: machines,
+            project: 'demo',
+            settings: settings,
+            secretStore: _MemorySecrets(),
+            start: (_, _) async {
+              starts++;
+              return _HostProcess();
+            },
+          ),
+        ),
+      ),
+    );
+    for (final entry in <String, String>{
+      'host-scaleway-project': 'project',
+      'host-tresor': 'tresor',
+      'host-collection': 'collection',
+      'host-repository': 'https://example.org/demo.git',
+      'host-signing-key': signing.path,
+    }.entries) {
+      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+    }
+    await tester.pump();
+    await tapAndRun(tester, const Key('host-up'));
+    expect(starts, 0, reason: 'file conflicts must block renting');
+    expect(find.textContaining(conflict.path), findsOneWidget);
+    expect(await tester.runAsync(() => conflict.readAsString()), 'keep');
+  });
+
+  // Harm: the private key reaches a process/log/UI, or resume/down configure the wrong peer.
+  // Red: pass a private key as the peer option, show it in a step, or omit the options on resume/down.
+  // Export red: omit chmod, put the host private half in the export, or export before the button is used.
+  testWidgets('folder picker prepares files and only explicit export reads out the stored private half', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    final store = _MemorySecrets();
+    final commands = <List<String>>[];
+    final processes = <_HostProcess>[];
+    Future<void> deliver(void Function() send) async {
+      await tester.runAsync(() async {
+        send();
+        // The process listener awaits in runAsync's real zone; fake-clock pumps cannot finish it.
+        await Future<void>.delayed(Duration.zero);
+      });
+      await World.settle(tester);
+    }
+
+    final exported = File('${scratch.path}/requested.conf');
+    late File signing;
+    await tester.runAsync(() async {
+      signing = await File('${scratch.path}/signing.pub')
+          .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            machines: machines,
+            project: 'demo',
+            settings: settings,
+            secretStore: store,
+            pickFolder: () async => scratch.path,
+            saveTunnel: () async => exported.path,
+            start: (_, arguments) async {
+              commands.add(List.of(arguments));
+              final process = _HostProcess();
+              processes.add(process);
+              return process;
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('Copy machine.yml'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('host-folder')));
+    await tester.tap(find.byKey(const Key('host-folder')));
+    await World.settle(tester);
+    expect(settings.tresorFolder('demo'), scratch.path);
+    for (final entry in <String, String>{
+      'host-scaleway-project': 'project',
+      'host-tresor': 'tresor',
+      'host-collection': 'collection',
+      'host-repository': 'https://example.org/demo.git',
+      'host-signing-key': signing.path,
+    }.entries) {
+      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+    }
+    await tester.pump();
+    await tapAndRun(tester, const Key('host-up'));
+    expect(commands.length, 1);
+    await deliver(() {
+      processes.last.line(const host.Step('person', host.StepState.waiting, needs: ['vault']));
+      processes.last.end(75);
+    });
+    expect(find.byKey(const Key('host-stop')), findsOneWidget);
+    final passphrase = find.byKey(const Key('host-passphrase'));
+    expect(passphrase, findsOneWidget, reason: 'exit 75 with a vault need must build the secret field');
+    await tester.ensureVisible(passphrase);
+    await tester.enterText(passphrase, 'vault-answer');
+    await tester.pump();
+    await tapAndRun(tester, const Key('host-resume'));
+    expect(commands.length, 2);
+    await deliver(
+      () => processes.last.line(
+        const host.Step(
+          'up',
+          host.StepState.done,
+          address: '203.0.113.8',
+          account: 'porelo',
+          socket: '/run/user/1007/porelo/porelod.sock',
+        ),
+      ),
+    );
+    expect(
+      find.byKey(const Key('host-step-up')),
+      findsOneWidget,
+      reason: 'the done line must arrive before testing exit',
+    );
+    expect(find.byKey(const Key('host-export-tunnel')), findsNothing, reason: 'a done step needs exit 0');
+    await deliver(() => processes.last.end(0));
+    final private = store.values[host.HostFiles.keyName('demo')]!;
+    final peer = await host.HostFiles.publicKey(private);
+    final hostPrivate = (await tester.runAsync(() => File('${scratch.path}/porelo-host/wireguard.key').readAsString()))!
+        .trim();
+    final hostPublic = await host.HostFiles.publicKey(hostPrivate);
+    expect(find.textContaining(hostPublic), findsOneWidget);
+    expect(await tester.runAsync(() => exported.exists()), isFalse);
+    for (final secret in [private, hostPrivate]) {
+      expect(
+        tester.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? '').join(' '),
+        isNot(contains(secret)),
+        reason: 'private halves never appear in labels, steps or refusal text',
+      );
+    }
+    await tapAndRun(tester, const Key('host-export-tunnel'));
+    final config = await tester.runAsync(() => exported.readAsString());
+    expect(config, contains('PrivateKey = $private'));
+    expect(config, contains('PublicKey = $hostPublic'));
+    expect((await tester.runAsync(() => exported.stat()))!.mode & 0x1ff, 0x180);
+    await tapAndRun(tester, const Key('host-down'));
+    expect(commands.map((a) => a.first), ['up', 'up', 'down']);
+    for (final command in commands) {
+      expect(command, containsAllInOrder(['--vpn-peer-public-key', peer, '--vpn-peer-address', '10.73.0.2/32']));
+      for (final secret in [private, hostPrivate]) {
+        expect(command.join(' '), isNot(contains(secret)));
+      }
+    }
+    await deliver(() {
+      processes.last.line(const host.Step('give-back', host.StepState.done, address: '203.0.113.8'));
+      processes.last.end(0);
+    });
+  });
+
+  // Harm: a store transport failure escapes the dialog or exposes its exception/value.
+  // Red: remove the store Exception boundary or show the raw SocketException message.
+  for (final operation in ['setup', 'export', 'teardown']) {
+    testWidgets('a store SocketException during $operation is a safe dialog refusal', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      final store = _BrokenSecrets();
+      final processes = <_HostProcess>[];
+      final destination = File('${scratch.path}/asked.conf');
+      File? signing;
+      if (operation == 'export') {
+        await settings.rememberTresorFolder('demo', scratch.path);
+        await tester.runAsync(() async {
+          signing = await File(
+            '${scratch.path}/signing.pub',
+          ).writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+        });
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              machines: machines,
+              project: 'demo',
+              settings: settings,
+              secretStore: store,
+              saveTunnel: () async => destination.path,
+              start: (_, _) async {
+                final process = _HostProcess();
+                processes.add(process);
+                return process;
+              },
+            ),
+          ),
+        ),
+      );
+      for (final entry in <String, String>{
+        'host-scaleway-project': 'project',
+        'host-tresor': 'tresor',
+        'host-collection': 'collection',
+        if (signing != null) ...{'host-repository': 'url', 'host-signing-key': signing!.path},
+      }.entries) {
+        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+      }
+      await tester.pump();
+      if (operation == 'export') {
+        await tapAndRun(tester, const Key('host-up'));
+        expect(processes.length, 1);
+        await tester.runAsync(() async {
+          processes.last.line(
+            const host.Step(
+              'up',
+              host.StepState.done,
+              address: '203.0.113.8',
+              account: 'porelo',
+              socket: '/run/user/1007/porelo/porelod.sock',
+            ),
+          );
+          processes.last.end(0);
+          await Future<void>.delayed(Duration.zero);
+        });
+        await World.settle(tester);
+      }
+      store.fail = true;
+      await tapAndRun(
+        tester,
+        Key(switch (operation) {
+          'setup' => 'host-up',
+          'export' => 'host-export-tunnel',
+          _ => 'host-down',
+        }),
+      );
+      expect(tester.takeException(), isNull, reason: 'store failures must be rendered instead of escaping');
+      expect(find.textContaining('The system secret store could not'), findsOneWidget);
+      expect(
+        tester.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? '').join(),
+        isNot(contains('private-value')),
+        reason: 'raw store errors are never shown',
+      );
+      expect(processes.length, operation == 'export' ? 1 : 0, reason: 'store refusal cannot launch a command');
+      expect(await tester.runAsync(() => destination.exists()), isFalse);
+    });
+  }
+
+  // Harm: setup rents a host using a person key that cannot be recovered from the store.
+  // Red: remove the store read-back equality check or start the command before preparation.
+  for (final alter in [false, true]) {
+    testWidgets('a ${alter ? 'different read-back' : 'dropped store write'} blocks the host command', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var starts = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              machines: machines,
+              project: 'demo',
+              secretStore: _BrokenSecrets()
+                ..drop = !alter
+                ..alter = alter,
+              start: (_, _) async {
+                starts++;
+                return _HostProcess();
+              },
+            ),
+          ),
+        ),
+      );
+      for (final entry in {
+        'host-scaleway-project': 'project',
+        'host-tresor': 'tresor',
+        'host-collection': 'collection',
+      }.entries) {
+        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+      }
+      await tester.pump();
+      await tapAndRun(tester, const Key('host-up'));
+      expect(starts, 0);
+      expect(find.textContaining('The secret store did not keep the WireGuard key'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   // Prevents connecting before setup succeeds, losing an existing host on a failed down,
   // or saving the form's account instead of the destination the command confirmed.
   // Red: offer Add on the done step before exit 0, add automatically, ignore the done values,
@@ -90,6 +393,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            secretStore: _MemorySecrets(),
             machines: machines,
             project: 'demo',
             start: (_, arguments) async {
@@ -210,6 +514,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
               start: (_, _) async {
@@ -284,7 +589,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: HostDialog(machines: machines, project: 'demo', start: (_, _) async => process),
+            body: HostDialog(
+              secretStore: _MemorySecrets(),
+              machines: machines,
+              project: 'demo',
+              start: (_, _) async => process,
+            ),
           ),
         ),
       );
@@ -318,7 +628,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: HostDialog(machines: machines, project: 'demo', start: stopsThenGoesOn()),
+          body: HostDialog(
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            project: 'demo',
+            start: stopsThenGoesOn(),
+          ),
         ),
       ),
     );
@@ -374,6 +689,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
               start: stopsThenGoesOn(needs: needs),
@@ -427,7 +743,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: HostDialog(machines: machines, project: 'demo', start: stopsThenGoesOn()),
+          body: HostDialog(
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            project: 'demo',
+            start: stopsThenGoesOn(),
+          ),
         ),
       ),
     );
@@ -457,6 +778,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            secretStore: _MemorySecrets(),
             machines: machines,
             project: 'demo',
             start: stopsThenGoesOn(needs: const <String>['drive', 'vault-new']),
@@ -550,4 +872,36 @@ class _HostTunnels extends Tunnels {
   Future<bool> raiseFor(Machine machine) async => true;
   @override
   Future<void> dropFor(Machine machine) async {}
+}
+
+class _MemorySecrets implements host.SecretStore {
+  final values = <String, String>{};
+  @override
+  Future<String?> read(String name) async => values[name];
+  @override
+  Future<void> write(String name, String value) async {
+    values[name] = value;
+  }
+
+  @override
+  Future<void> remove(String name) async => values.remove(name);
+  @override
+  Future<void> close() async {}
+}
+
+class _BrokenSecrets extends _MemorySecrets {
+  bool fail = false;
+  bool drop = false;
+  bool alter = false;
+  @override
+  Future<String?> read(String name) async {
+    if (fail) throw const SocketException('private-value');
+    return super.read(name);
+  }
+
+  @override
+  Future<void> write(String name, String value) async {
+    if (fail) throw const SocketException('private-value');
+    if (!drop) await super.write(name, alter ? base64Encode(List.filled(32, 7)) : value);
+  }
 }

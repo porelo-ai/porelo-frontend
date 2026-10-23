@@ -9,6 +9,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Host setup can keep a local Tresorit folder per project and prepare the signed machine file,
+  optional vault key files and the host's WireGuard key there without replacing differing files.
+  The person's separate WireGuard key stays in the system secret store; only its public half goes
+  to setup, resume and teardown. Completed setup shows tunnel settings and offers an explicit
+  wg-quick export, restricted to the user on Linux and Windows, to bring up with the person's own WireGuard.
+
 - A completed host setup offers to add `<project> server` to the machines, replacing a host of
   that name. A completed teardown names the host it actually gave back and removes only machines
   matching its account and address; finding no host keeps the list and says so. Tasks use the
@@ -41,6 +47,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `porelo-dist-host` under their channel and version, with a `SHA256SUMS` beside them.
 
 ### Fixed
+
+- Host files are written in private staging directories, protected before publication, and
+  published without replacing an existing destination, including one introduced during writing.
+  Setup refuses linked Tresorit folders, validates complete Ed25519 or RSA signing keys and
+  Windows file names, escapes YAML controls, and shows secret-store transport failures as refusals.
 
 - Host SSH uses one pinned trust policy before every other option, disabling system keys,
   key-producing commands and DNS key verification while retaining ProxyJump from SSH config.

@@ -14,8 +14,16 @@ Windows.
   `--give-back-anyway` gives it back knowingly.
 
 Each step is one JSON line on standard output, relayed from the collection's callback; the words
-for a person go to standard error. A secret is only ever written to a command's standard input on
-the host, never to an argument, a file or a log.
+for a person go to standard error. Drive and vault answers reach the host on standard input,
+never in arguments or logs.
+
+The interface also uses `HostFiles` to prepare a project's local Tresorit folder: the machine
+file, optional vault key files and the host's WireGuard private key. Existing differing files
+are refused. The person's separate WireGuard private key lives in the system secret store and
+reaches a file only through an explicitly requested wg-quick export. `HostFileWriter` stages
+complete files privately, protects them with 0600 on Linux or current-user ACLs on Windows, and
+publishes with an atomic rename that cannot replace an existing destination. Temporary directories
+are removed on success and failure. `HostTunnel` exposes public halves only.
 
 ```sh
 dart test

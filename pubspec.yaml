@@ -54,6 +54,7 @@ dependencies:
     # `porelo-host`'s own step lines and answers, read the way the command writes them.
     porelo_host:
         path: packages/porelo_host
+    cryptography: ^2.9.0
 
 dev_dependencies:
     integration_test:
