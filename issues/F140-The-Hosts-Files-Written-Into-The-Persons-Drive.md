@@ -1,7 +1,8 @@
 # F140 — The Host's Files Written Into The Person's Drive
 
-**Status:** Implementing; it writes into today's layout, the folder `porelo-host/` in the
-project's tresor, which porelo-project's issue *A host mounts the person's drives* may change later.
+**Status:** Review; published in `0.5.1~snapshot.176`. It writes into today's layout, the folder
+`porelo-host/` in the project's tresor, which porelo-project's issue *A host mounts the person's
+drives* may change later.
 **Size:** M - a folder chosen once per project, the machine file and the host's WireGuard key written
 there, the person's own VPN pair kept in the system's secret store.
 

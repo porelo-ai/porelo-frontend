@@ -1,8 +1,6 @@
 # F141 — An Agent Signed In When A Task Needs It On The Host
 
-**Status:** Implementing; blocked by porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19).
-The collection still stops for agent sign-in and starts tasks; the interface's task-start flow
-needs the collection to keep those apart.
+**Status:** Review; published in `0.5.1~snapshot.176`, for the operator's test on a rented host.
 **Size:** M - the completed host becomes a fleet machine whose SSH paths all keep the host setup
 pin; task start uses the machines page's sign-in.
 

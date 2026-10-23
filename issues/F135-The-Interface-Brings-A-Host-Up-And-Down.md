@@ -1,8 +1,6 @@
 # F135 — The Interface Brings A Host Up And Down
 
-**Status:** Implementing; blocked by porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19).
-The collection still stops for agent sign-in and starts tasks; the interface's host setup needs
-bring-up and teardown to be separate from task start.
+**Status:** Review; published in `0.5.1~snapshot.176`, for the operator's test on a rented host.
 **Size:** M - one page that runs the command, reads its lines and answers its one stop.
 
 **What must be true.** In a project, a person chooses *Put on a server* and sees the steps of

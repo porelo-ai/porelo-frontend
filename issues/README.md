@@ -18,6 +18,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | — | — | Putting a project on a server from the interface, answering its drive and vault stop, adding and removing its host machine. |
+| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | — | — | Agent sign-in at task start on a host machine; every SSH path uses the setup identity and the key pinned by `porelo-host`. |
+| <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | — | — | The interface writing the host's files, the machine file and the host's WireGuard key, into the project's tresor folder on the desktop, the person's own VPN key kept in the secret store. |
+| <a id="f151"></a>[F151](F151-A-Stops-Survivors-Read-In-Either-Form.md) | — | — | A stop's survivors read as a count or names; missing or invalid data is not reported. |
 | <a id="f130"></a>[F130](F130-The-Leased-Leg-Taken-From-A-Run-That-Proved-The-Same-Tree.md) | — | — | The leased leg skipped on a tree a run already proved, saying which run. |
 | <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | — | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
@@ -26,15 +30,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f110"></a>[F110](F110-An-Unattended-Run-Ends-With-A-Line.md) | — | — | An unattended run ends with a line: finished, and where to go next. |
 | <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | — | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | — | — | The MSIX installed and started in the Build's Windows job. |
-
-### Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f151"></a>[F151](F151-A-Stops-Survivors-Read-In-Either-Form.md) | XS | — | A stop's survivors read as a count or names; missing or invalid data is not reported. |
-| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) | Putting a project on a server from the interface, answering its drive and vault stop, adding and removing its host machine. |
-| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | M | porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) | Agent sign-in at task start on a host machine; every SSH path uses the setup identity and the key pinned by `porelo-host`. |
-| <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | M | — | The interface writing the host's files, the machine file and the host's WireGuard key, into the project's tresor folder on the desktop, the person's own VPN key kept in the secret store. |
 
 ### Backlog
 

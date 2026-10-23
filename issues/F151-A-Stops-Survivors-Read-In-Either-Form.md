@@ -1,6 +1,6 @@
 # F151 — A Stop's Survivors Read In Either Form
 
-**Status:** Implementing.
+**Status:** Review; published in `0.5.1~snapshot.176`.
 **Size:** XS - one reader and where its result is shown.
 
 **What must be true.** A stop whose helpers survived never reads as clean, whichever form the daemon sends.
