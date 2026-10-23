@@ -1,9 +1,9 @@
 # F140 — The Host's Files Written Into The Person's Drive
 
-**Status:** Estimated; built only after porelo-project's issue *A host mounts the person's drives*
-settles the drive's folders, so that it is not built twice.
-**Size:** M - a folder found once per project, two files written there, and one of them encrypted
-for a drive that is not end to end.
+**Status:** Implementing; it writes into today's layout, the folder `porelo-host/` in the
+project's tresor, which porelo-project's issue *A host mounts the person's drives* may change later.
+**Size:** M - a folder chosen once per project, the machine file and the host's WireGuard key written
+there, the person's own VPN pair kept in the system's secret store.
 
 **What must be true.** Where the interface runs, it writes the files the host reads from the
 person's drive - the WireGuard key and the machine file - straight into that drive's folder on the

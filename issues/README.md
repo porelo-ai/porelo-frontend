@@ -32,6 +32,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | — | Putting a project on a server from the interface, the one stop answered there. |
+| <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | M | — | The interface writing the host's files, the machine file and the host's WireGuard key, into the project's tresor folder on the desktop, the person's own VPN key kept in the secret store. |
 
 ### Backlog
 
@@ -99,7 +100,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | M | — | An agent signed in on the host at `up`'s stop, in the interface's sign-in terminal over ssh with the host key `porelo-host` pinned, its redirect forwarded here. |
-| <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | M | porelo-project's issue *A host mounts the person's drives* | The interface writing the host's files, the WireGuard key and the machine file, into the person's drive on the desktop, encrypted for a drive that is not end to end. |
 
 ### Finished
 
