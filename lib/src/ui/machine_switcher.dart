@@ -950,7 +950,7 @@ class _AskForAMachineState extends State<_AskForAMachine> {
     final keys = widget.hostKeys;
     if (keys == null || _raiseIt != true) return true;
     final signature = _signature;
-    final check = await keys.check(_host.text.trim());
+    final check = await keys.checkMachine(_described);
     if (!mounted) return false;
     if (check.known) return true;
     var said = check.problem;

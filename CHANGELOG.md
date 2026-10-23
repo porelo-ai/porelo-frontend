@@ -9,18 +9,25 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A completed host setup offers to add `<project> server` to the machines, replacing a host of
+  that name. A completed teardown names the host it actually gave back and removes only machines
+  matching its account and address; finding no host keeps the list and says so. Tasks use the
+  ordinary machine start flow, including agent sign-in in a terminal and its browser reply forward.
+  Setup requires a collection that separates bring-up from task start. The final `up` done line
+  names the host's address, account and daemon socket, using the account's UID read over SSH.
+
 - Windows reaches an existing machine through Windows OpenSSH with the keys in its agent,
   relaying the daemon’s bytes and showing ssh’s refusal without waiting for a passphrase.
 
 - `porelo-host`, beside the interface in the deb, the rpm, the ZIP and the MSIX: `porelo-host up` and
   `down` put a project on a server and take it off again, with the playbook running on the host
   itself, so this computer needs only ssh. It rents from Scaleway Elastic Metal, or works on a
-  machine named by `--given`, and stops once for the drive's login and the vault's passphrase,
-  which a second `up` takes on its standard input. A `down` whose copy fails keeps the host and
+  machine named by `--given`, and reports the collection's stops. Drive and vault answers reach
+  a second `up` on its standard input; unsupported needs are shown without an automatic retry. A `down` whose copy fails keeps the host and
   says so, until `down --give-back-anyway`. `porelo-host key set scaleway` keeps the
   provider's key in the system's own secret store, never in a file. Each step is one JSON line.
   In the interface, a project's *Put this project on a server…* runs it, shows each step as it
-  comes and asks at its stop, sending the answers to its standard input only.
+  comes and asks at its drive and vault stop, sending the answers to its standard input only.
 - A start whose repository's upstream cannot be read says why before anything is made: a key the
   host refused, a repository not found, a host that did not answer, or another cause, with the
   command that fixes it to copy. A refused key can be fixed in a terminal on the machine, and every
@@ -35,11 +42,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host SSH uses one pinned trust policy before every other option, disabling system keys,
+  key-producing commands and DNS key verification while retaining ProxyJump from SSH config.
+  Managed host machines retain their private key path and use that policy for daemon tunnels,
+  temporary connection and vault trials, terminals, login reply forwards and commands. Trust-file
+  paths are quoted so a profile path with spaces stays one file. Only `porelo-host` can pin their
+  host key; the interface refuses to trust another. Every terminal requires a machine.
+
 - Host setup requires the project's tresor and passes it to up and its resume so the drive is
   synced. Host fields stay read-only after up starts, and resume and down keep its host arguments.
-  Stops name the agents that need sign-in on the host and offer no empty resume when only those
-  sign-ins remain. Unknown needs are shown verbatim and cannot be resumed; an empty stop says the
-  host has not said what it needs.
+  Unknown needs, including an `agent-login:` need, are shown verbatim with no sign-in
+  or resume action; an empty stop says the host has not said what it needs.
 
 - Windows uses one OpenSSH installation for every command, refuses option-like hosts, and
   distinguishes SSH login failures from a missing daemon when trying a machine.

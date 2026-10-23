@@ -54,8 +54,20 @@ class HostSession extends ChangeNotifier {
   /// Where it has got to.
   HostRunState state = HostRunState.idle;
 
-  /// At the stop, what the person must give: `drive`, `vault`, `vault-new` or `agent-login:<agent>`.
+  /// At the stop, what the person must give: `drive`, `vault` or `vault-new`.
   List<String> needs = const <String>[];
+
+  /// Where the completed host can be reached.
+  String? address;
+
+  /// The address actually given back by the completed down command, absent if none was found.
+  String? releasedAddress;
+
+  /// The account named by the completed up line.
+  String? account;
+
+  /// The account daemon socket named by the completed up line.
+  String? socket;
 
   /// On a refusal, what fixes it, and what the command said on standard error.
   String? fix;
@@ -75,6 +87,10 @@ class HostSession extends ChangeNotifier {
   Future<void> _run(List<String> command, {Answers? answers}) async {
     steps.clear();
     needs = const <String>[];
+    address = null;
+    releasedAddress = null;
+    account = null;
+    socket = null;
     fix = null;
     said = '';
     state = HostRunState.running;
@@ -117,7 +133,15 @@ class HostSession extends ChangeNotifier {
     } else {
       steps[at] = step;
     }
-    if (step.state == StepState.waiting) needs = step.needs;
+    if (step.state == StepState.waiting) {
+      needs = step.needs;
+    }
+    if (step.step == 'up' && step.state == StepState.done) {
+      address = step.address;
+      account = step.account;
+      socket = step.socket;
+    }
+    if (step.step == 'give-back' && step.state == StepState.done) releasedAddress = step.address;
     if (step.state == StepState.refused) fix = step.fix ?? step.words;
     notifyListeners();
   }

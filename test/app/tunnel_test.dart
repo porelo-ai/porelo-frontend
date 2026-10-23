@@ -10,6 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
+import 'package:porelo_host/porelo_host.dart' show poreloHostKnownHosts;
+
+import '../../packages/porelo_host/test/support/pinned_ssh.dart';
 
 /// Forwards this interface raises and owns.
 ///
@@ -163,6 +166,37 @@ void main() {
     expect(tunnel.problem, contains('user@build accepted none of the keys your ssh agent offered'));
     expect(tunnel.problem, isNot(contains('No key is named')));
     expect(tunnel.problem, isNot(contains('It would log in with')));
+  });
+
+  // Prevents a failed host tunnel's diagnostic SSH from reverting to personal trust.
+  // Red: omit options: machine.loginSshOptions in Tunnel._itEnded.
+  test('a failed host tunnel explains its refusal with the pinned policy', () async {
+    final process = _ControlledProcess();
+    final ran = <List<String>>[];
+    final machine = Machine(
+      name: 'host',
+      kind: 'host',
+      socketPath: '${where.path}/host.sock',
+      host: 'user@host',
+      remoteSocket: '/run/user/1001/porelo/porelod.sock',
+      identity: '/keys/host identity',
+    );
+    final tunnel = Tunnel(
+      machine,
+      start: (_) async {
+        process.end('Permission denied (publickey).');
+        return process;
+      },
+      run: (command) async {
+        ran.add(command);
+        return ProcessResult(0, 0, 'identityfile /keys/host identity\n', '');
+      },
+    );
+    addTearDown(tunnel.drop);
+    await tunnel.raise();
+    expect(tunnel.problem, contains('accepted none'));
+    expect(ran.single, contains('-G'));
+    expect(pinnedCommandProblems(ran.single, knownHosts: poreloHostKnownHosts(), identity: machine.identity), isEmpty);
   });
 
   // A delayed explanation must not prevent recovery or overwrite a recovered forward.

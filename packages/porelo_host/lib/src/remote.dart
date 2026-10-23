@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'ssh.dart';
+
 /// What a command on the host ended with.
 class RemoteResult {
   /// Constructor taking the exit code and what was said on standard error.
@@ -38,7 +40,16 @@ abstract interface class Remote {
 /// The person's own `known_hosts` is never read or written.
 class OpenSsh implements Remote {
   /// Constructor taking the `known_hosts` file this package keeps and the private key to log in with.
-  OpenSsh({required this.knownHosts, required this.identity});
+  OpenSsh({
+    required this.knownHosts,
+    required this.identity,
+    Future<Process> Function(String, List<String>)? start,
+    Future<ProcessResult> Function(String, List<String>)? run,
+  }) : _start = start ?? ((executable, arguments) => Process.start(executable, arguments)),
+       _runProcess = run ?? ((executable, arguments) => Process.run(executable, arguments));
+
+  final Future<Process> Function(String, List<String>) _start;
+  final Future<ProcessResult> Function(String, List<String>) _runProcess;
 
   /// The `known_hosts` this package writes the provider's key into.
   final File knownHosts;
@@ -52,22 +63,7 @@ class OpenSsh implements Remote {
     await knownHosts.writeAsString('$host $hostKey\n');
   }
 
-  List<String> _options() => <String>[
-    '-o',
-    'BatchMode=yes',
-    '-o',
-    'StrictHostKeyChecking=yes',
-    '-o',
-    'UserKnownHostsFile=${knownHosts.path}',
-    '-o',
-    'GlobalKnownHostsFile=none',
-    '-o',
-    'IdentitiesOnly=yes',
-    '-o',
-    'ConnectTimeout=10',
-    '-i',
-    identity,
-  ];
+  List<String> _options() => <String>[...pinnedHostSshOptions(knownHosts.path, identity), '-o', 'ConnectTimeout=10'];
 
   @override
   Future<RemoteResult> run(
@@ -77,7 +73,7 @@ class OpenSsh implements Remote {
     String? input,
     void Function(String line)? onLine,
   }) async {
-    final process = await Process.start('ssh', <String>[..._options(), '$user@$host', command]);
+    final process = await _start('ssh', <String>[..._options(), '$user@$host', command]);
     if (input != null) process.stdin.write(input);
     await process.stdin.close();
     final out = process.stdout
@@ -92,7 +88,7 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
-    final done = await Process.run('scp', <String>[..._options(), '-q', from, '$user@$host:$to']);
+    final done = await _runProcess('scp', <String>[..._options(), '-q', from, '$user@$host:$to']);
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }
 }

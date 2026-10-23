@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:porelo_host/porelo_host.dart' show inTheLoginShell, quoteForAShell;
+
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
 import 'desk.dart';
 import 'machines.dart';
 import 'wsl.dart';
+
+export 'package:porelo_host/porelo_host.dart' show inTheLoginShell, quoteForAShell;
 
 /// How one machine connects out: the credentials it is configured with, described without a
 /// secret, and the declaring and forgetting of them.
@@ -134,8 +138,9 @@ List<String>? onTheMachine(Machine machine, List<String> command, {required bool
     // ssh joins what follows the host into one line for the far shell, so each word is quoted.
     return <String>[
       openSsh('ssh'),
+      ...machine.loginSshOptions,
       if (terminal) '-t',
-      if (!terminal && desk.isWindows) ...<String>['-o', 'BatchMode=yes'],
+      if (!terminal && desk.isWindows && machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
       machine.host,
       inTheLoginShell(command.map(quoteForAShell).join(' ')),
     ];
@@ -143,19 +148,6 @@ List<String>? onTheMachine(Machine machine, List<String> command, {required bool
   if (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath) return command;
   return null;
 }
-
-/// [line] run on the far end by the account's own login shell.
-///
-/// **A command over ssh gets no login shell**, so `~/.local/bin` is not on its `PATH`: after
-/// `porelo-machines deploy --account` it would run the machine-wide `/usr/bin/porelo` against the
-/// account's own daemon of another version. A login shell reads the account's profile, which puts
-/// its own copy first — measured on the test machine: 191.1 this way, 190.1 without.
-String inTheLoginShell(String line) => 'exec "\${SHELL:-/bin/sh}" -lc ${quoteForAShell(line)}';
-
-/// [word] as one word for a POSIX shell: as it is when nothing in it is special, else in single
-/// quotes with every single quote closed, escaped and reopened.
-String quoteForAShell(String word) =>
-    RegExp(r'^[A-Za-z0-9_./:@=+,-]+$').hasMatch(word) ? word : "'${word.replaceAll("'", r"'\''")}'";
 
 /// Why [value] is not a private ssh key, or null when it is one. Only the private key is sent: the
 /// machine works out the public half from it, and a public one stored in its place fails at the
@@ -182,7 +174,7 @@ List<String>? onTheMachineAsWritten(Machine machine, String line) {
   if (line.trim().isEmpty || machine.host.startsWith('-')) return null;
   if (machine.relay?.kind == 'wsl') return Wsl.runIn(machine.distribution, <String>['sh', '-c', line]);
   if (machine.needsATunnel) {
-    return <String>[openSsh('ssh'), '-t', machine.host, inTheLoginShell(line)];
+    return <String>[openSsh('ssh'), ...machine.loginSshOptions, '-t', machine.host, inTheLoginShell(line)];
   }
   if (machine.host.isEmpty && machine.socketPath == Backend.local().socketPath) {
     return <String>['sh', '-c', line];

@@ -76,16 +76,9 @@ Future<HeldForward> _withSsh(Machine machine, int port) async {
       'could not reach ${machine.name}. Close what uses it and try again.',
     );
   }
-  final ssh = await Process.start(openSsh('ssh'), <String>[
-    '-N',
-    '-o', 'BatchMode=yes',
-    '-o', 'ExitOnForwardFailure=yes',
-    // Never through the person's master, where the forward would outlive this process.
-    '-o', 'ControlMaster=no',
-    '-o', 'ControlPath=none',
-    '-L', '$port:localhost:$port',
-    machine.host,
-  ]);
+  final command = loginForwardCommand(machine, port);
+  final ssh = await Process.start(command.first, command.skip(1).toList());
+
   final said = ssh.stderr.transform(const SystemEncoding().decoder).join();
   // Proven by connecting through it, never by ssh staying up: the login's listener answers.
   for (var tries = 0; tries < 50; tries++) {
@@ -128,3 +121,24 @@ class _Nothing implements HeldForward {
   @override
   Future<void> close() async {}
 }
+
+/// The reply forward, sharing the login terminal's destination and host-key policy.
+List<String> loginForwardCommand(Machine machine, int port) => <String>[
+  openSsh('ssh'),
+  ...machine.loginSshOptions,
+  '-N',
+  if (machine.loginSshOptions.isEmpty) ...<String>[
+    '-o',
+    'BatchMode=yes',
+    // Never through the person's master, where the forward would outlive this process.
+    '-o',
+    'ControlMaster=no',
+    '-o',
+    'ControlPath=none',
+  ],
+  '-o',
+  'ExitOnForwardFailure=yes',
+  '-L',
+  '$port:localhost:$port',
+  machine.host,
+];

@@ -577,7 +577,7 @@ class _ShellState extends State<Shell> {
   Future<void> _putOnAServer() async {
     final project = _fleet.selectedProject;
     if (project == null) return;
-    await openHostDialog(context, project: project.name);
+    await openHostDialog(context, project: project.name, machines: widget.machines);
   }
 
   /// Clears the machine of everything Porelo put there, and its keys at the forge.

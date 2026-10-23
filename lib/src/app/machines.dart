@@ -1,3 +1,5 @@
+import 'package:porelo_host/porelo_host.dart' show pinnedHostSshOptions, poreloHostKnownHosts;
+
 import 'connection_trial.dart';
 import 'connections.dart';
 import 'desk.dart';
@@ -48,8 +50,21 @@ class Machine {
     this.remoteSocket = '',
     this.kind = '',
     this.distribution = '',
+    this.identity = '',
     this.unknownFields = const <String, Object?>{},
   });
+
+  /// Uses another local socket endpoint without changing the destination or its trust policy.
+  Machine withSocketPath(String path) => Machine(
+    name: name,
+    socketPath: path,
+    host: host,
+    remoteSocket: remoteSocket,
+    kind: kind,
+    distribution: distribution,
+    identity: identity,
+    unknownFields: unknownFields,
+  );
 
   /// The machine to open when nothing has been stored yet.
   ///
@@ -97,6 +112,7 @@ class Machine {
     remoteSocket: _text(stored['remoteSocket']),
     kind: _text(stored['kind']),
     distribution: _text(stored['distribution']),
+    identity: _text(stored['identity']),
     unknownFields: <String, Object?>{
       for (final entry in stored.entries)
         if (!_knownFields.contains(entry.key)) entry.key: entry.value,
@@ -104,7 +120,7 @@ class Machine {
   );
 
   static const Set<String> _knownFields = <String>{
-    'name', 'socket', 'host', 'remoteSocket', 'kind', 'distribution', //
+    'name', 'socket', 'host', 'remoteSocket', 'kind', 'distribution', 'identity', //
   };
 
   static String _text(Object? value) => value is String ? value : '';
@@ -123,11 +139,14 @@ class Machine {
 
   /// Which way in this is, when it is neither a socket nor a machine behind ssh: `wsl` for a WSL
   /// distribution, reached from Windows through `wsl.exe -d <distribution> -- porelo daemon connect`.
-  /// Empty for the two kinds every version knows.
+  /// A managed server has kind `host` and uses the key pinned by host setup.
   final String kind;
 
   /// The WSL distribution, for a machine of the kind `wsl`.
   final String distribution;
+
+  /// The private key path given to host setup; no key value is stored.
+  final String identity;
 
   /// What an entry held beyond the fields this build knows, kept so that saving loses nothing.
   final Map<String, Object?> unknownFields;
@@ -141,12 +160,13 @@ class Machine {
   /// Linux computer. A machine over ssh uses a byte relay. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
-    '' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
-    '' when windows && needsATunnel && !_plainRemoteSocket =>
+    'host' when identity.isEmpty => 'The host has no identity; run porelo-host up again.',
+    '' || 'host' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
+    '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>
       "The remote socket must be a plain path: letters, digits, '.', '_', '-' and '/'.",
-    '' when windows && needsATunnel => null,
-    '' when windows => 'This entry names a socket on a Linux computer, which Windows cannot open.',
-    '' => null,
+    '' || 'host' when windows && needsATunnel => null,
+    '' || 'host' when windows => 'This entry names a socket on a Linux computer, which Windows cannot open.',
+    '' || 'host' => null,
     'wsl' when windows => null,
     'wsl' =>
       'The WSL distribution ${distribution.isEmpty ? '' : '$distribution '}is reached from '
@@ -163,21 +183,18 @@ class Machine {
   ({String kind, List<String> command})? relayOn({required bool windows, required Map<String, String> environment}) {
     if (!windows) return null;
     if (kind == 'wsl') return (kind: 'wsl', command: Wsl.relayTo(distribution));
-    if (kind.isNotEmpty || !needsATunnel) return null;
+    if ((kind.isNotEmpty && kind != 'host') || !needsATunnel) return null;
     if (host.startsWith('-') || !_plainRemoteSocket) return null;
     return (
       kind: 'ssh',
       command: <String>[
         windowsOpenSsh('ssh', environment),
+        ...loginSshOptions,
         '-T',
-        '-o',
-        'BatchMode=yes',
+        if (kind != 'host') ...<String>['-o', 'BatchMode=yes'],
         '-o',
         'ServerAliveInterval=15',
-        '-o',
-        'ControlMaster=no',
-        '-o',
-        'ControlPath=none',
+        if (kind != 'host') ...<String>['-o', 'ControlMaster=no', '-o', 'ControlPath=none'],
         '--',
         host,
         inTheLoginShell("porelo daemon connect --socket '$remoteSocket'"),
@@ -189,10 +206,14 @@ class Machine {
 
   /// Where it is, in a word or two: the host, the WSL distribution, or the socket.
   String get where => switch (kind) {
-    '' => needsATunnel ? host : socketPath,
+    '' || 'host' => needsATunnel ? host : socketPath,
     'wsl' => 'WSL: $distribution',
     _ => 'kind "$kind"',
   };
+
+  /// SSH options shared by all access to this account.
+  List<String> get loginSshOptions =>
+      kind == 'host' ? pinnedHostSshOptions(poreloHostKnownHosts(), identity) : const <String>[];
 
   /// Whether this interface raises the way in to it.
   ///
@@ -211,8 +232,7 @@ class Machine {
 
   /// How it is stored between runs.
   ///
-  /// The host is stored; **nothing about a key ever is.** What makes the forward possible lives
-  /// in the person's own SSH configuration, which is where it was before this interface existed.
+  /// A host stores its private key path; other SSH machines use the person's SSH configuration.
   ///
   /// A WSL entry carries no `socket`: the plugin, which reads this file too, drops an entry
   /// without one, rather than opening a Linux path on Windows.
@@ -223,6 +243,7 @@ class Machine {
     if (remoteSocket.isNotEmpty) 'remoteSocket': remoteSocket,
     if (kind.isNotEmpty) 'kind': kind,
     if (distribution.isNotEmpty) 'distribution': distribution,
+    if (identity.isNotEmpty) 'identity': identity,
     ...unknownFields,
   };
 
@@ -267,10 +288,11 @@ class Machine {
       other.remoteSocket == remoteSocket &&
       other.kind == kind &&
       other.distribution == distribution &&
+      other.identity == identity &&
       mapEquals(other.unknownFields, unknownFields);
 
   @override
-  int get hashCode => Object.hash(name, socketPath, host, remoteSocket, kind, distribution);
+  int get hashCode => Object.hash(name, socketPath, host, remoteSocket, kind, distribution, identity);
 }
 
 /// Every machine this interface is watching, and which one it is acting on.
@@ -483,9 +505,21 @@ class Machines extends ChangeNotifier {
     }
   }
 
-  /// Adds a machine and opens it. Adding never changes which one is being acted on.
+  /// Adds a machine or replaces a same-name host. The selection stays where it is.
   Future<void> add(Machine machine) async {
-    if (_machines.any((each) => each.name == machine.name)) return;
+    final at = _machines.indexWhere((each) => each.name == machine.name);
+    if (at >= 0) {
+      final old = _machines[at];
+      if (old.kind != 'host' || machine.kind != 'host') return;
+      _watching.remove(old.name)?.dispose();
+      await tunnels.dropFor(old);
+      _nodes.remove(old.name);
+      _machines[at] = machine;
+      _open(machine);
+      await _remember();
+      _notify();
+      return;
+    }
     _machines.add(machine);
     _open(machine);
     await _remember();
@@ -497,7 +531,10 @@ class Machines extends ChangeNotifier {
   /// Forgetting the one being acted on moves to another rather than leaving nothing selected: a
   /// frame with no machine behind it has nothing to say and no way to say why.
   Future<void> forget(Machine machine) async {
-    if (_machines.length == 1) return;
+    if (_machines.length == 1) {
+      if (machine.kind != 'host') return;
+      await add(Machine.local());
+    }
     _machines.remove(machine);
     _watching.remove(machine.name)?.dispose();
     unawaited(tunnels.dropFor(machine));

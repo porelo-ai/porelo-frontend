@@ -31,7 +31,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | — | Putting a project on a server from the interface, the one stop answered there. |
+| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | M | porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) | Putting a project on a server from the interface, answering its drive and vault stop, adding and removing its host machine. |
+| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | M | porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) | Agent sign-in at task start on a host machine; every SSH path uses the setup identity and the key pinned by `porelo-host`. |
 | <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | M | — | The interface writing the host's files, the machine file and the host's WireGuard key, into the project's tresor folder on the desktop, the person's own VPN key kept in the secret store. |
 
 ### Backlog
@@ -95,12 +96,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
 | <a id="f150"></a>[F150](F150-The-Persons-Tunnel-Brought-Up-From-The-Interface.md) | — | — | The person's VPN tunnel to a host brought up and down from the interface, with one confirmation for the root rights it needs. |
-
-### Estimated
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | M | — | An agent signed in on the host at `up`'s stop, in the interface's sign-in terminal over ssh with the host key `porelo-host` pinned, its redirect forwarded here. |
 
 ### Finished
 

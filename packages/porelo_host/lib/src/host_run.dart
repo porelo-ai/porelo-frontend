@@ -219,12 +219,29 @@ class HostRun {
       final given = await _answer(address, plan, answers);
       if (given != null) return given;
     }
-    return _play(address, plan, 'porelo.host.up');
+    final played = await _play(address, plan, 'porelo.host.up');
+    if (played != Exit.done) return played;
+    final lines = <String>[];
+    final uid = await remote.run(address, plan.account, 'id -u', onLine: lines.add);
+    if (uid.exitCode != 0) return _refused('up', uid, 'the account uid could not be read');
+    if (lines.length != 1 || !RegExp(r'^[0-9]+$').hasMatch(lines.single)) {
+      return _refused('up', uid, 'id -u must return one uid containing only digits');
+    }
+    emit(
+      Step(
+        'up',
+        StepState.done,
+        address: address,
+        account: plan.account,
+        socket: '/run/user/${lines.single}/porelo/porelod.sock',
+      ),
+    );
+    return Exit.done;
   }
 
   /// Takes [plan]'s host down: the down play, then the host given back. Nothing happens when none is rented.
   ///
-  /// **A host whose down play did not finish is kept** (the operator's decision of 2026-10-19): a
+  /// **A host whose down play did not finish is kept**: a
   /// copy that failed may have left the only copy of its data there. The play's own line says what
   /// failed, and the last step says the host is kept and names the ways out. [giveBackAnyway] gives
   /// it back all the same, for a person who has read that.
@@ -262,10 +279,11 @@ class HostRun {
     await provider.release(host.id);
     emit(
       played == Exit.done
-          ? const Step('give-back', StepState.done)
-          : const Step(
+          ? Step('give-back', StepState.done, address: address)
+          : Step(
               'give-back',
               StepState.done,
+              address: address,
               words: 'given back knowingly although its down play did not finish: what it held is gone',
             ),
     );

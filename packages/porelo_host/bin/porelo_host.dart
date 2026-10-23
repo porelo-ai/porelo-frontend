@@ -94,16 +94,12 @@ Future<int> _run(List<String> arguments) async {
   }
 
   final answers = answersOnStdin ? Answers.fromJson(await stdin.transform(utf8.decoder).join()) : const Answers();
-  final ssh = OpenSsh(knownHosts: File('${_stateDirectory()}/known_hosts'), identity: options['identity']!);
+  final ssh = OpenSsh(knownHosts: File(poreloHostKnownHosts()), identity: options['identity']!);
   final run = HostRun(
     provider: provider,
     remote: ssh,
     trust: ssh.trust,
-    emit: (step) {
-      stdout.writeln(step.toLine());
-      final said = <String?>[step.words, step.fix].whereType<String>().join(': ');
-      stderr.writeln('${step.step} ${step.state.name}${said.isEmpty ? '' : ' — $said'}');
-    },
+    emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
   );
   final plan = HostPlan(
     project: options['project']!,
@@ -147,14 +143,6 @@ Future<int> _key(List<String> arguments) async {
   } finally {
     await store.close();
   }
-}
-
-/// Where this command keeps its own `known_hosts`: never the person's own.
-String _stateDirectory() {
-  final env = Platform.environment;
-  if (Platform.isWindows) return '${env['LOCALAPPDATA']}\\porelo-host';
-  final state = env['XDG_STATE_HOME'];
-  return state != null && state.isNotEmpty ? '$state/porelo-host' : '${env['HOME']}/.local/state/porelo-host';
 }
 
 int _wrong(String why) {

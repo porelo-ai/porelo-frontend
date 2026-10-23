@@ -9,9 +9,18 @@ enum StepState { started, done, refused, waiting }
 /// interface reads these and never the words.
 class Step {
   /// Constructor taking the step's name and where it is.
-  const Step(this.step, this.state, {this.fix, this.needs = const <String>[], this.words});
+  const Step(
+    this.step,
+    this.state, {
+    this.fix,
+    this.needs = const <String>[],
+    this.words,
+    this.address,
+    this.account,
+    this.socket,
+  });
 
-  /// Which step: `rent`, `ssh`, `copy`, `ansible`, `play`, `person`, `give-back` and the play's own.
+  /// Which step: `rent`, `ssh`, `copy`, `ansible`, `play`, `person`, `up`, `give-back` and the play's own.
   final String step;
 
   /// Where it is.
@@ -22,6 +31,15 @@ class Step {
 
   /// While waiting for the person, what they must give: `drive`, `vault` or `vault-new`.
   final List<String> needs;
+
+  /// The completed up destination, or the address actually given back by down.
+  final String? address;
+
+  /// The account after a successful up.
+  final String? account;
+
+  /// The account daemon socket after a successful up.
+  final String? socket;
 
   /// What the play itself said, when it said something.
   final String? words;
@@ -45,6 +63,9 @@ class Step {
       fix: decoded['fix'] as String?,
       needs: (decoded['needs'] as List<Object?>? ?? const <Object?>[]).whereType<String>().toList(),
       words: decoded['words'] as String?,
+      address: decoded['address'] is String ? decoded['address'] as String : null,
+      account: decoded['account'] is String ? decoded['account'] as String : null,
+      socket: decoded['socket'] is String ? decoded['socket'] as String : null,
     );
   }
 
@@ -55,6 +76,9 @@ class Step {
     'fix': ?fix,
     if (needs.isNotEmpty) 'needs': needs,
     'words': ?words,
+    'address': ?address,
+    'account': ?account,
+    'socket': ?socket,
   });
 
   @override

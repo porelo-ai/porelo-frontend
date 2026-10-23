@@ -40,12 +40,7 @@ Future<Trial> tryAMachine(
   final why = machine.whyNotReachableHere;
   if (why != null) return Trial(reached: false, words: why);
   final target = machine.needsATunnel && machine.relay == null
-      ? Machine(
-          name: machine.name,
-          socketPath: Machine.endpointFor('${machine.name} trial'),
-          host: machine.host,
-          remoteSocket: machine.remoteSocket,
-        )
+      ? machine.withSocketPath(Machine.endpointFor('${machine.name} trial'))
       : machine;
   Tunnel? tunnel;
   try {
@@ -77,7 +72,7 @@ Future<Trial> tryAMachine(
       return Trial(reached: false, words: 'Could not reach ${machine.where}: ${ex.message}');
     }
     if (machine.relay != null && (ex is! RelayDisconnected || ex.exitCode == 255 || ex.exitCode == null)) {
-      final explained = await tunnels.explainRefusal(ex.message, machine.host);
+      final explained = await tunnels.explainRefusal(ex.message, machine.host, options: machine.loginSshOptions);
       return Trial(reached: false, words: explained ?? ex.message);
     }
     // ssh reports a missing daemon and somebody else's socket in the same words — measured
@@ -132,12 +127,7 @@ Future<int?> countKeyslots(
 }) async {
   if (machine.whyNotReachableHere != null) return null;
   final target = machine.needsATunnel && machine.relay == null
-      ? Machine(
-          name: machine.name,
-          socketPath: Machine.endpointFor('${machine.name} vault'),
-          host: machine.host,
-          remoteSocket: machine.remoteSocket,
-        )
+      ? machine.withSocketPath(Machine.endpointFor('${machine.name} vault'))
       : machine;
   Tunnel? tunnel;
   try {

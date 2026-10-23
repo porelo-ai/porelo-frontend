@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'connections.dart';
 import 'machines.dart';
+import 'host_keys.dart';
 
 /// What an attempt to start a daemon came back with.
 @immutable
@@ -112,14 +113,14 @@ class Tunnel {
       ? throw ArgumentError('An ssh host must not start with a dash.')
       : <String>[
           openSsh('ssh'),
+          ...machine.loginSshOptions,
           '-N',
-          '-o', 'BatchMode=yes',
+          if (machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
           '-o', 'ExitOnForwardFailure=yes',
           '-o', 'ServerAliveInterval=15',
           // A connection of its own, whatever the person's ssh config says: through their master the
           // forward would live in the master, and letting go of this process would leave it running.
-          '-o', 'ControlMaster=no',
-          '-o', 'ControlPath=none',
+          if (machine.kind != 'host') ...<String>['-o', 'ControlMaster=no', '-o', 'ControlPath=none'],
           '-L', '${machine.socketPath}:${machine.remoteSocket}',
           machine.host,
         ];
@@ -272,7 +273,12 @@ class Tunnel {
     onChanged?.call();
     if (said.isEmpty) return;
     try {
-      final explained = await _explainSshRefusal(words, machine.host, _tighten).timeout(_untilExplained);
+      final explained = await _explainSshRefusal(
+        words,
+        machine.host,
+        _tighten,
+        options: machine.loginSshOptions,
+      ).timeout(_untilExplained);
       // An older refusal must not replace the result of a newer raise.
       if (!_wanted || generation != _generation || explained == null) return;
       problem = explained;
@@ -394,9 +400,9 @@ class Tunnels extends ChangeNotifier {
       ? <String>['sh', '-c', inTheLoginShell(startsIt)]
       : <String>[
           openSsh('ssh'),
+          ...machine.loginSshOptions,
           '-n',
-          '-o',
-          'BatchMode=yes',
+          if (machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
           '-o',
           'ConnectTimeout=10',
           machine.host,
@@ -442,9 +448,9 @@ class Tunnels extends ChangeNotifier {
       ? throw ArgumentError('An ssh host must not start with a dash.')
       : <String>[
           openSsh('ssh'),
+          ...machine.loginSshOptions,
           '-n',
-          '-o',
-          'BatchMode=yes',
+          if (machine.kind != 'host') ...<String>['-o', 'BatchMode=yes'],
           '-o',
           'ConnectTimeout=10',
           machine.host,
@@ -528,12 +534,22 @@ class Tunnels extends ChangeNotifier {
   ///
   /// A constant, like the start line: the host travels as its own argument and nothing of the
   /// machine reaches the command run there.
-  static List<String> loginUidCommandFor(Machine machine) => loginUidCommandAt(machine.host);
+  static List<String> loginUidCommandFor(Machine machine) =>
+      loginUidCommandAt(machine.host, options: machine.loginSshOptions);
 
   /// The same line for a login known only by where it is, before there is a machine to describe.
-  static List<String> loginUidCommandAt(String host) => host.startsWith('-')
+  static List<String> loginUidCommandAt(String host, {List<String> options = const <String>[]}) => host.startsWith('-')
       ? throw ArgumentError('An ssh host must not start with a dash.')
-      : <String>[openSsh('ssh'), '-n', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', host, 'id -u'];
+      : <String>[
+          openSsh('ssh'),
+          ...options,
+          '-n',
+          if (options.isEmpty) ...<String>['-o', 'BatchMode=yes'],
+          '-o',
+          'ConnectTimeout=10',
+          host,
+          'id -u',
+        ];
 
   /// The uid of the account this interface logs in as on [machine], or null when it cannot say.
   ///
@@ -541,7 +557,11 @@ class Tunnels extends ChangeNotifier {
   /// reports the caller's own uid, needs no privilege and changes nothing, and it is only ever run
   /// as part of a trial somebody asked for. **Every failure is null**: a trial that cannot learn the
   /// uid says what it said before rather than guessing one.
-  Future<int?> loginUidOn(Machine machine) async => machine.needsATunnel ? loginUidAt(machine.host) : null;
+  Future<int?> loginUidOn(Machine machine) async {
+    if (!machine.needsATunnel) return null;
+    if (machine.kind != 'host') return loginUidAt(machine.host);
+    return _loginUidAt(machine.host, options: machine.loginSshOptions);
+  }
 
   /// Why the last login [loginUidAt] tried was refused, in words a person can act on; null where it
   /// was not refused or ssh said nothing that tells.
@@ -549,12 +569,14 @@ class Tunnels extends ChangeNotifier {
 
   /// The uid of the account [host] logs in as, or null when it cannot say: what the wizard asks
   /// when a person knows only how they log in, and not where Porelo's socket is there.
-  Future<int?> loginUidAt(String host) async {
+  Future<int?> loginUidAt(String host) => _loginUidAt(host);
+
+  Future<int?> _loginUidAt(String host, {List<String> options = const <String>[]}) async {
     lastLoginRefusal = null;
     try {
-      final result = await _run(loginUidCommandAt(host));
+      final result = await _run(loginUidCommandAt(host, options: options));
       if (result.exitCode != 0) {
-        lastLoginRefusal = await _explainSshRefusal('${result.stderr}', host, _run);
+        lastLoginRefusal = await _explainSshRefusal('${result.stderr}', host, _run, options: options);
         return null;
       }
       return int.tryParse('${result.stdout}'.trim());
@@ -564,7 +586,8 @@ class Tunnels extends ChangeNotifier {
   }
 
   /// Explains ssh's own failure using the configuration of the same login.
-  Future<String?> explainRefusal(String said, String host) => _explainSshRefusal(said, host, _run);
+  Future<String?> explainRefusal(String said, String host, {List<String> options = const <String>[]}) =>
+      _explainSshRefusal(said, host, _run, options: options);
 
   /// Takes down the forward for one machine, if this interface raised it.
   Future<void> dropFor(Machine machine) async {
@@ -591,19 +614,25 @@ class Tunnels extends ChangeNotifier {
 Future<String?> _explainSshRefusal(
   String said,
   String host,
-  Future<ProcessResult> Function(List<String> command) run,
-) async {
+  Future<ProcessResult> Function(List<String> command) run, {
+  List<String> options = const <String>[],
+}) async {
+  if (options.isNotEmpty && said.contains('Host key verification failed')) return hostKeyPinRefusal;
   final needKey = said.contains('Permission denied') && said.contains('publickey');
-  final config = needKey ? await _sshConfigFor(host, run) : null;
+  final config = needKey ? await _sshConfigFor(host, run, options: options) : null;
   return whySshRefused(said, host, sshConfig: config);
 }
 
 /// What `ssh -G` resolves for [host], or null where it cannot say: an empty answer would read as
 /// "no key is named", which is not what a failed `ssh -G` knows.
-Future<String?> _sshConfigFor(String host, Future<ProcessResult> Function(List<String> command) run) async {
+Future<String?> _sshConfigFor(
+  String host,
+  Future<ProcessResult> Function(List<String> command) run, {
+  List<String> options = const <String>[],
+}) async {
   if (host.isEmpty || host.startsWith('-')) return null;
   try {
-    final result = await run(<String>[openSsh('ssh'), '-G', host]);
+    final result = await run(<String>[openSsh('ssh'), ...options, '-G', host]);
     return result.exitCode == 0 ? '${result.stdout}' : null;
   } on ProcessException {
     return null;

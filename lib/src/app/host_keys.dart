@@ -20,6 +20,7 @@ class HostKeyCheck {
     this.changed = false,
     this.knownIn = const <String>[],
     this.writeTo = '',
+    this.pinnedByHost = false,
   });
 
   /// What was asked about: `user@host`, a host, or an alias from `~/.ssh/config`.
@@ -49,6 +50,9 @@ class HostKeyCheck {
 
   /// The first file ssh reads for this host, where a trusted key is written; empty for the default.
   final String writeTo;
+
+  /// Only host setup can pin the key for this destination.
+  final bool pinnedByHost;
 }
 
 /// Confirming a machine's host key before the first login, **never silently**.
@@ -62,6 +66,26 @@ abstract interface class HostKeys {
 
   /// Writes the keys a person accepted to `known_hosts`.
   Future<void> accept(HostKeyCheck check);
+}
+
+/// Why the interface cannot accept another key for a managed host.
+const String hostKeyPinRefusal = 'Only porelo-host can pin this server key. Run porelo-host up again.';
+
+/// Checks a fleet destination without offering another trust policy for managed hosts.
+extension MachineHostKeys on HostKeys {
+  /// A host key is pinned by `porelo-host`, never by the interface.
+  Future<HostKeyCheck> checkMachine(Machine machine) async {
+    if (machine.kind == 'host') {
+      return HostKeyCheck(
+        destination: machine.host,
+        host: machine.host,
+        known: false,
+        pinnedByHost: true,
+        problem: hostKeyPinRefusal,
+      );
+    }
+    return check(machine.host);
+  }
 }
 
 /// Host keys through OpenSSH's own tools, so an alias, a port or a `known_hosts` elsewhere in the
@@ -180,6 +204,7 @@ class SshHostKeys implements HostKeys {
 
   @override
   Future<void> accept(HostKeyCheck check) async {
+    if (check.pinnedByHost) throw StateError(check.problem!);
     // A replaced key goes, in every file that held it, before the one the person trusted is added:
     // ssh reads the first match, and an old line left in place would go on refusing.
     for (final file in check.knownIn) {

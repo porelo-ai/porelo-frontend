@@ -31,7 +31,10 @@ class CountingProvider implements HostProvider {
 
 /// A host whose playbook says what [lines] holds, and which keeps every command and input it got.
 class ScriptedRemote implements Remote {
-  ScriptedRemote(this.lines, {this.playExit = 0});
+  ScriptedRemote(this.lines, {this.playExit = 0, this.uid = '1007', this.uidExit = 0});
+
+  final String uid;
+  final int uidExit;
 
   List<String> lines;
   int playExit;
@@ -50,6 +53,10 @@ class ScriptedRemote implements Remote {
     commands.add(command);
     users.add(user);
     if (input != null) inputs.add(input);
+    if (command == 'id -u') {
+      onLine?.call(uid);
+      return RemoteResult(uidExit, '');
+    }
     if (command.contains('ansible-playbook')) {
       lines.forEach(onLine!);
       return RemoteResult(playExit, '');
@@ -105,6 +112,68 @@ void main() {
   final finishes = <String>[
     line(<String, Object>{'play': 'second', 'task': 'tasks', 'state': 'changed'}),
   ];
+
+  // Prevents connecting to the wrong account or leaking unrelated provider facts.
+  // Red: omit any destination field or add a provider fact to the final step.
+  test('done up carries exactly the address account and account daemon socket', () async {
+    final steps = <Step>[];
+    final remote = ScriptedRemote(finishes);
+    final run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+    expect(await run.up(plan), Exit.done);
+    expect(jsonDecode(steps.last.toLine()), <String, Object>{
+      'step': 'up',
+      'state': 'done',
+      'address': '203.0.113.7',
+      'account': 'porelo',
+      'socket': '/run/user/1007/porelo/porelod.sock',
+    });
+    final parsed = Step.fromLine(steps.last.toLine())!;
+    expect(parsed.address, '203.0.113.7');
+    expect(parsed.account, 'porelo');
+    expect(parsed.socket, '/run/user/1007/porelo/porelod.sock');
+    expect(remote.commands.last, 'id -u');
+    expect(remote.users.last, 'porelo', reason: 'the socket belongs to the account, never root');
+  });
+
+  // Prevents an invalid or failed uid lookup from creating a usable-looking destination.
+  // Red: accept arbitrary uid text, or ignore the lookup exit code.
+  for (final uid in <String>['', '-1', '1007/other', '1007\n1008', '١٠٠٧']) {
+    test('up refuses invalid uid $uid', () async {
+      final steps = <Step>[];
+      final run = HostRun(
+        provider: CountingProvider(),
+        remote: ScriptedRemote(finishes, uid: uid),
+        emit: steps.add,
+      );
+      expect(await run.up(plan), Exit.refused);
+      expect(steps.last.state, StepState.refused);
+      expect(jsonDecode(steps.last.toLine()), isNot(contains('socket')));
+    });
+  }
+  test('up refuses a failed uid lookup even with digits on stdout', () async {
+    final run = HostRun(provider: CountingProvider(), remote: ScriptedRemote(finishes, uidExit: 1), emit: (_) {});
+    expect(await run.up(plan), Exit.refused);
+  });
+
+  // Prevents an unsupported stop from exposing a destination or being treated as a sign-in action.
+  // Red: attach address or account again to the waiting line.
+  test('a waiting line carries needs without host facts', () async {
+    final steps = <Step>[];
+    final remote = ScriptedRemote(<String>[
+      line(<String, Object>{
+        'state': 'waiting',
+        'needs': <String>['agent-login:pi'],
+        'address': 'wrong',
+        'account': 'root',
+      }),
+    ], playExit: 2);
+    expect(await HostRun(provider: CountingProvider(), remote: remote, emit: steps.add).up(plan), Exit.waiting);
+    expect(jsonDecode(steps.last.toLine()), <String, Object>{
+      'step': 'person',
+      'state': 'waiting',
+      'needs': <String>['agent-login:pi'],
+    });
+  });
 
   test('up rents, trusts the provider\'s key, copies, installs and stops for the person with 75', () async {
     final provider = CountingProvider();
@@ -247,6 +316,30 @@ void main() {
     await HostRun(provider: CountingProvider(), remote: remote, emit: steps.add).up(plan);
     expect(steps.map((s) => s.step), isNot(contains('PLAY [first] ****')));
     expect(steps.where((s) => s.step == 'play'), isEmpty);
+  });
+
+  // Prevents forgetting a still-billed machine when teardown found a different project.
+  // Red: omit the released address, or attach an address when no host was found.
+  test('down names exactly the host given back and distinguishes nothing found', () async {
+    final provider = CountingProvider()
+      ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
+    final steps = <Step>[];
+    final run = HostRun(provider: provider, remote: ScriptedRemote(finishes), emit: steps.add);
+    expect(await run.down(plan), Exit.done);
+    expect(provider.released, <String>['h1']);
+    expect(jsonDecode(steps.last.toLine()), <String, Object>{
+      'step': 'give-back',
+      'state': 'done',
+      'address': '203.0.113.7',
+    });
+    steps.clear();
+    expect(await run.down(plan), Exit.done);
+    expect(jsonDecode(steps.last.toLine()), <String, Object>{
+      'step': 'give-back',
+      'state': 'done',
+      'words': 'no host carries the project tag',
+    });
+    expect(provider.released, <String>['h1'], reason: 'nothing else was given back');
   });
 
   test('down plays down first and only then gives the host back', () async {

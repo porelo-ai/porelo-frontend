@@ -121,7 +121,7 @@ class Session extends ChangeNotifier {
 
   /// The machine's `OSC 5379;forward;<port>`: the port its login listens on for the browser's reply.
   void _forwardTheReply(List<String> arguments) {
-    if (!forwardsALoginReply || arguments.length != 2 || arguments.first != 'forward') return;
+    if (!live || !forwardsALoginReply || arguments.length != 2 || arguments.first != 'forward') return;
     final port = int.tryParse(arguments.last);
     // One port, once, and never a privileged one: the login's reply, nothing else.
     if (port == null || port < 1024 || port > 65535 || forwarded != null || _forward != null) return;
@@ -130,7 +130,7 @@ class Session extends ChangeNotifier {
     unawaited(() async {
       try {
         final held = await raiseForward(machine, port);
-        if (_gone) {
+        if (_gone || state == SessionState.over) {
           await held.close();
           return;
         }
@@ -173,9 +173,9 @@ class Session extends ChangeNotifier {
   /// — a socket path and no host — there is nothing to ssh to, so the verb is run here. Both are
   /// the same command with a different way of reaching it.
   ///
-  /// There is deliberately **no `BatchMode=yes` here**, and the tunnel deliberately has one. A
+  /// Ordinary SSH machines allow a prompt here; managed hosts keep their pinned batch policy. A
   /// forward has no terminal, so a prompt there is a hang; this *is* a terminal, so a passphrase
-  /// or an unknown host key can be answered by the person sitting in front of it.
+  /// can be answered by the person sitting in front of it.
   List<String> get command => machine.host.startsWith('-')
       ? throw const PtyRefused('An ssh host must not start with a dash.')
       : run ??
@@ -184,6 +184,7 @@ class Session extends ChangeNotifier {
                 : machine.needsATunnel
                 ? <String>[
                     openSsh('ssh'),
+                    ...machine.loginSshOptions,
                     '-t',
                     machine.host,
                     inTheLoginShell('porelo task attach ${quoteForAShell(task)}'),

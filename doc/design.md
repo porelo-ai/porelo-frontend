@@ -257,6 +257,11 @@ repositories, changed only after agreement in both.
   with no `socket`: the socket inside the distribution is found on each connection, from the
   distribution's user id. An older plugin drops an entry without `socket`, so it never opens a Linux
   path on Windows.
+- **A host entry:** `kind: "host"` with `host: "<account>@<address>"`, `remoteSocket` and
+  `identity`, the private key path given to `porelo-host up`. On Linux `socket` is the local tunnel
+  endpoint; on Windows the daemon uses an SSH relay. Every SSH to this machine uses only
+  `porelo-host`'s pinned host key and that identity, including temporary trial tunnels. The
+  interface never offers to trust a different key for it.
 - **An unknown `kind`** is kept in the file and shown as not reachable by this version, never dropped.
 
 ### A test on a Windows machine

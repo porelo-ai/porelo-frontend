@@ -5,16 +5,21 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:porelo_host/porelo_host.dart';
 
 import '../app/host_session.dart';
+import '../app/machines.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
 /// Puts [project] on a server, or takes it off again, by the `porelo-host` shipped beside this
 /// interface, showing each step as it says it and asking at its one stop.
-Future<void> openHostDialog(BuildContext context, {required String project, StartHostCommand? start}) =>
-    showDialog<void>(
-      context: context,
-      builder: (context) => HostDialog(project: project, start: start),
-    );
+Future<void> openHostDialog(
+  BuildContext context, {
+  required String project,
+  required Machines machines,
+  StartHostCommand? start,
+}) => showDialog<void>(
+  context: context,
+  builder: (context) => HostDialog(project: project, machines: machines, start: start),
+);
 
 /// The page: where it goes, the steps, and at the stop what only the person can give.
 ///
@@ -23,13 +28,16 @@ Future<void> openHostDialog(BuildContext context, {required String project, Star
 /// (`porelo-host key set scaleway`).
 class HostDialog extends StatefulWidget {
   /// Constructor taking the project and, for the tests, how the command is started.
-  const HostDialog({required this.project, this.start, super.key});
+  const HostDialog({required this.project, required this.machines, this.start, super.key});
 
   /// The project to put on a server.
   final String project;
 
   /// Starts the command; the shipped one when null.
   final StartHostCommand? start;
+
+  /// The fleet to add the completed host to and remove it from.
+  final Machines machines;
 
   @override
   State<HostDialog> createState() => _HostDialogState();
@@ -49,6 +57,9 @@ class _HostDialogState extends State<HostDialog> {
   final _again = TextEditingController();
   HostSession? _session;
   bool _upStarted = false;
+  bool _doneUp = false;
+  bool _saving = false;
+  String? _machineProblem;
 
   static String _home(String path) {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
@@ -105,18 +116,77 @@ class _HostDialogState extends State<HostDialog> {
     _scaleway, _tresor, _account, _publicKey, _identity, _collection, //
   ].every((field) => field.text.trim().isNotEmpty);
 
-  bool get _running => _session?.state == HostRunState.running;
+  bool get _running => _saving || _session?.state == HostRunState.running;
 
   void _up() {
     if (!_upStarted) {
       _newSession();
       _upStarted = true;
     }
-    unawaited(_session!.up());
+    unawaited(_runUp(_session!.up));
   }
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
-  void _down() => unawaited((_upStarted ? _session! : _newSession()).down());
+  Future<void> _down() async {
+    _doneUp = false;
+    _machineProblem = null;
+    final account = _account.text.trim();
+    final session = _upStarted ? _session! : _newSession();
+    await session.down();
+    if (session.state != HostRunState.done) return;
+    final address = session.releasedAddress;
+    if (address == null || address.isEmpty) {
+      if (mounted) setState(() => _machineProblem = 'No host was found. Your machines have been kept.');
+      return;
+    }
+    for (final machine in widget.machines.all) {
+      if (machine.kind == 'host' && machine.host == '$account@$address') {
+        await widget.machines.forget(machine);
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _runUp(Future<void> Function() run) async {
+    _doneUp = false;
+    _machineProblem = null;
+    await run();
+    if (mounted) setState(() => _doneUp = _session!.state == HostRunState.done);
+  }
+
+  Future<void> _addHost() async {
+    final session = _session!;
+    final address = session.address ?? '';
+    final account = session.account ?? '';
+    final socket = session.socket ?? '';
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address) ||
+        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(account) ||
+        !RegExp(r'^/run/user/[0-9]+/porelo/porelod\.sock$').hasMatch(socket)) {
+      setState(() => _machineProblem = 'The completed host did not name a valid address, account and daemon socket.');
+      return;
+    }
+    final name = '${widget.project} server';
+    if (widget.machines.all.any((machine) => machine.name == name && machine.kind != 'host')) {
+      setState(() => _machineProblem = 'A machine named $name already exists and is not a host.');
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.machines.add(
+        Machine(
+          name: name,
+          kind: 'host',
+          socketPath: Platform.isWindows ? '' : Machine.endpointFor(name),
+          host: '$account@$address',
+          remoteSocket: socket,
+          identity: _identity.text.trim(),
+        ),
+      );
+      if (mounted) setState(() => _doneUp = false);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   void _resume() {
     final needs = _session!.needs;
@@ -131,7 +201,7 @@ class _HostDialogState extends State<HostDialog> {
     _code.clear();
     _passphrase.clear();
     _again.clear();
-    unawaited(_session!.resume(answers));
+    unawaited(_runUp(() => _session!.resume(answers)));
   }
 
   @override
@@ -176,6 +246,13 @@ class _HostDialogState extends State<HostDialog> {
                     child: Text('Done.', key: Key('host-done')),
                   ),
               ],
+              if (_machineProblem != null) Text(_machineProblem!),
+              if (_doneUp)
+                FilledButton(
+                  key: const Key('host-add'),
+                  onPressed: _running ? null : _addHost,
+                  child: const Text('Add this server to your machines'),
+                ),
             ],
           ),
         ),
@@ -229,15 +306,12 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
-  /// The drive and vault answers, and the agent sign-ins still needed on the host.
+  /// What only the person can give at the stop: the drive's login and the vault's passphrase.
   Widget _askForTheStop(List<String> needs) {
     final drive = needs.contains('drive');
     final fresh = needs.contains('vault-new');
     final vault = fresh || needs.contains('vault');
-    final agentLogins = needs
-        .where((need) => need.startsWith('agent-login:') && need.length > 'agent-login:'.length)
-        .toList();
-    final known = <String>{'drive', 'vault', 'vault-new', ...agentLogins};
+    const known = <String>{'drive', 'vault', 'vault-new'};
     final unknown = needs.where((need) => !known.contains(need)).toList();
     final matches = !fresh || _passphrase.text == _again.text;
     final given =
@@ -254,7 +328,6 @@ class _HostDialogState extends State<HostDialog> {
         else
           const Text('The host waits for what only you can give. It goes to the host and is kept nowhere.'),
         for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
-        for (final need in agentLogins) Text('${need.substring('agent-login:'.length)} must be signed in on the host.'),
         if (drive) ...<Widget>[
           _field(_email, 'Tresorit e-mail', 'host-drive-email'),
           _field(_password, 'Tresorit password', 'host-drive-password', secret: true),
