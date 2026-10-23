@@ -92,6 +92,16 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
 | <a id="f150"></a>[F150](F150-The-Persons-Tunnel-Brought-Up-From-The-Interface.md) | — | — | The person's VPN tunnel to a host brought up and down from the interface, with one confirmation for the root rights it needs. |
+| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | — | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
+| <a id="f153"></a>[F153](F153-A-Forges-Token-Typed-Only-In-A-Terminal.md) | — | — | A forge's personal access token typed into a terminal on the machine it is for, never into a form of the interface. |
+| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | — | — | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
+| <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | — | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |
+| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | — | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. |
+| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | — | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. |
+| <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | — | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
+| <a id="f159"></a>[F159](F159-Work-Started-From-The-Project-Page.md) | — | — | Visible start buttons on the project page and each repository row, with a chosen repository shown as text and a *Change* link in the start form. |
+| <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | — | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. |
+| <a id="f161"></a>[F161](F161-A-Starts-Progress-And-Refusal-In-Words.md) | — | — | Task start showing its step and what it waits on in plain words, stopping with the cause when a dependency fails, and explaining a refused `porelo.yml`. |
 
 ### Finished
 
