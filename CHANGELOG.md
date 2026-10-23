@@ -35,6 +35,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host setup requires the project's tresor and passes it to up and its resume so the drive is
+  synced. Host fields stay read-only after up starts, and resume and down keep its host arguments.
+  Stops name the agents that need sign-in on the host and offer no empty resume when only those
+  sign-ins remain. Unknown needs are shown verbatim and cannot be resumed; an empty stop says the
+  host has not said what it needs.
+
 - Windows uses one OpenSSH installation for every command, refuses option-like hosts, and
   distinguishes SSH login failures from a missing daemon when trying a machine.
 

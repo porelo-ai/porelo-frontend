@@ -35,9 +35,21 @@ needs a terminal, and no secret is written anywhere.
   not asked here: it is the system store's ([F133](README.md#f133)).
 - Five tests against a stand-in `porelo-host` that keeps its arguments and its standard input.
   Seen red: a passphrase put into the arguments, and two differing passphrases let through.
-- Left: the run against the test VM, which needs porelo's
-  [B209](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b209) (`vault unlock
-  --passphrase-stdin`) and porelo-host's own stop ([HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02), [HO06](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho06)); and the Windows job.
+- **The project's tresor**, a required field passed as `--tresor` to `up` and its resume: the real
+  plays stop for the drive's login only when `up` names one. Seen red with the field left out of the
+  arguments and with it no longer required.
+- **The host fields are read-only once `up` has started**, and the resume and `down` take exactly
+  `up`'s arguments, so `down` cannot look for another host while the rented one bills on. Seen red
+  with the fields left editable.
+- **A stop the dialog cannot answer says so:** each `agent-login:<agent>` names the agent that must
+  be signed in on the host, an unknown need is shown verbatim, and neither offers *Go on*, which
+  would only stop again. Seen red with *Go on* offered and with the unknown need hidden.
+- **Measured on a throwaway Ubuntu 26.04 VM** on this machine's libvirt, with porelo-host's
+  collection at `b7ca257` (the roles of `d765a0f`): `packages/porelo_host/tool/vm-run.sh` refused
+  another host key with 69, stopped with 75 for the drive and a new vault with `--tresor`, made the
+  vault from the answer on standard input, and `down` ended 0, in 256 s, nothing of the run left.
+  That is the command the page runs; the page itself offers Scaleway only.
+- Left: the page against a rented host, the operator's run; and the Windows job.
 
 ## Acceptance
 

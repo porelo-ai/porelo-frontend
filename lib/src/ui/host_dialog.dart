@@ -37,6 +37,7 @@ class HostDialog extends StatefulWidget {
 
 class _HostDialogState extends State<HostDialog> {
   final _scaleway = TextEditingController();
+  final _tresor = TextEditingController();
   final _account = TextEditingController(text: 'porelo');
   final _publicKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _identity = TextEditingController(text: _home('.ssh/id_ed25519'));
@@ -47,6 +48,7 @@ class _HostDialogState extends State<HostDialog> {
   final _passphrase = TextEditingController();
   final _again = TextEditingController();
   HostSession? _session;
+  bool _upStarted = false;
 
   static String _home(String path) {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
@@ -56,7 +58,17 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     for (final field in <TextEditingController>[
-      _scaleway, _account, _publicKey, _identity, _collection, _email, _password, _code, _passphrase, _again, //
+      _scaleway,
+      _tresor,
+      _account,
+      _publicKey,
+      _identity,
+      _collection,
+      _email,
+      _password,
+      _code,
+      _passphrase,
+      _again, //
     ]) {
       field.dispose();
     }
@@ -71,6 +83,8 @@ class _HostDialogState extends State<HostDialog> {
       arguments: <String>[
         '--project',
         widget.project,
+        '--tresor',
+        _tresor.text.trim(),
         '--account',
         _account.text.trim(),
         '--public-key',
@@ -88,14 +102,21 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   bool get _complete => <TextEditingController>[
-    _scaleway, _account, _publicKey, _identity, _collection, //
+    _scaleway, _tresor, _account, _publicKey, _identity, _collection, //
   ].every((field) => field.text.trim().isNotEmpty);
 
   bool get _running => _session?.state == HostRunState.running;
 
-  void _up() => unawaited(_newSession().up());
+  void _up() {
+    if (!_upStarted) {
+      _newSession();
+      _upStarted = true;
+    }
+    unawaited(_session!.up());
+  }
 
-  void _down() => unawaited(_newSession().down());
+  // Keep the rented host's identity so teardown cannot silently target a different host.
+  void _down() => unawaited((_upStarted ? _session! : _newSession()).down());
 
   void _resume() {
     final needs = _session!.needs;
@@ -130,11 +151,12 @@ class _HostDialogState extends State<HostDialog> {
                 'playbook there. Its key is the one `porelo-host key set scaleway` kept.',
               ),
               const SizedBox(height: Space.normal),
-              _field(_scaleway, 'Scaleway project id', 'host-scaleway-project'),
-              _field(_account, 'Account on the host', 'host-account'),
-              _field(_publicKey, 'Your public ssh key', 'host-public-key'),
-              _field(_identity, 'Your private ssh key', 'host-identity'),
-              _field(_collection, 'porelo-host collection (.tar.gz)', 'host-collection'),
+              _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
+              _field(_tresor, 'The project\'s tresor', 'host-tresor', namesHost: true),
+              _field(_account, 'Account on the host', 'host-account', namesHost: true),
+              _field(_publicKey, 'Your public ssh key', 'host-public-key', namesHost: true),
+              _field(_identity, 'Your private ssh key', 'host-identity', namesHost: true),
+              _field(_collection, 'porelo-host collection (.tar.gz)', 'host-collection', namesHost: true),
               const SizedBox(height: Space.normal),
               if (session != null) ...<Widget>[
                 for (final step in session.steps) _stepRow(step),
@@ -174,13 +196,20 @@ class _HostDialogState extends State<HostDialog> {
     );
   }
 
-  Widget _field(TextEditingController controller, String label, String key, {bool secret = false}) => Padding(
+  Widget _field(
+    TextEditingController controller,
+    String label,
+    String key, {
+    bool secret = false,
+    bool namesHost = false,
+  }) => Padding(
     padding: const EdgeInsets.only(bottom: Space.small),
     child: TextField(
       key: Key(key),
       controller: controller,
       obscureText: secret,
       enabled: !_running,
+      readOnly: namesHost && _upStarted,
       decoration: InputDecoration(labelText: label),
       onChanged: (_) => setState(() {}),
     ),
@@ -200,11 +229,16 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
-  /// What only the person can give at the one stop: the drive's login, the vault's passphrase.
+  /// The drive and vault answers, and the agent sign-ins still needed on the host.
   Widget _askForTheStop(List<String> needs) {
     final drive = needs.contains('drive');
     final fresh = needs.contains('vault-new');
     final vault = fresh || needs.contains('vault');
+    final agentLogins = needs
+        .where((need) => need.startsWith('agent-login:') && need.length > 'agent-login:'.length)
+        .toList();
+    final known = <String>{'drive', 'vault', 'vault-new', ...agentLogins};
+    final unknown = needs.where((need) => !known.contains(need)).toList();
     final matches = !fresh || _passphrase.text == _again.text;
     final given =
         (!drive || (_email.text.trim().isNotEmpty && _password.text.isNotEmpty)) &&
@@ -215,7 +249,12 @@ class _HostDialogState extends State<HostDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const SizedBox(height: Space.normal),
-        const Text('The host waits for what only you can give. It goes to the host and is kept nowhere.'),
+        if (needs.isEmpty)
+          const Text('The host waits without saying for what.')
+        else
+          const Text('The host waits for what only you can give. It goes to the host and is kept nowhere.'),
+        for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
+        for (final need in agentLogins) Text('${need.substring('agent-login:'.length)} must be signed in on the host.'),
         if (drive) ...<Widget>[
           _field(_email, 'Tresorit e-mail', 'host-drive-email'),
           _field(_password, 'Tresorit password', 'host-drive-password', secret: true),
@@ -231,14 +270,15 @@ class _HostDialogState extends State<HostDialog> {
           ),
         if (fresh) _field(_again, 'The same passphrase again', 'host-passphrase-again', secret: true),
         if (!matches) const Text('The two passphrases differ.', key: Key('host-passphrases-differ')),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            key: const Key('host-resume'),
-            onPressed: given ? _resume : null,
-            child: const Text('Go on'),
+        if ((drive || vault) && unknown.isEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              key: const Key('host-resume'),
+              onPressed: given ? _resume : null,
+              child: const Text('Go on'),
+            ),
           ),
-        ),
       ],
     );
   }

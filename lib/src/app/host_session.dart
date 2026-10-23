@@ -54,7 +54,7 @@ class HostSession extends ChangeNotifier {
   /// Where it has got to.
   HostRunState state = HostRunState.idle;
 
-  /// At the stop, what the person must give: `drive`, `vault` or `vault-new`.
+  /// At the stop, what the person must give: `drive`, `vault`, `vault-new` or `agent-login:<agent>`.
   List<String> needs = const <String>[];
 
   /// On a refusal, what fixes it, and what the command said on standard error.
