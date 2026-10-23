@@ -1,6 +1,8 @@
 # F157 — A Person's Terminal Steps Offered By The Interface
 
-**Status:** Idea.
+**Status:** Accepted.
+
+**Order.** The last of the host flow; merged with [F150](README.md#f150) in its analysis.
 
 **What must be true.** For every step a person otherwise runs in a terminal of their own, the
 interface opens a local terminal with the command filled in and a short line saying what it does

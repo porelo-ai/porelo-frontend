@@ -1,6 +1,9 @@
 # F154 — A Host Stands In Machines While It Is Prepared
 
-**Status:** Idea.
+**Status:** Accepted; blocked by porelo-host's issue that gives each step a plain-words text and its
+usual duration.
+
+**Order.** In the host flow, after [F152](README.md#f152).
 
 **What must be true.** Starting *Put this project on a server* closes the setup dialog (or says
 *Ready: \<name\> is in your machines* without offering *Put it on a server* again) and places the
@@ -25,7 +28,11 @@ button.
 - Seen to fail: when `up` exits non-zero, the host entry is never marked ready and shows the
   refusal and protocol under *Machines*.
 
+- The step's words and its usual duration come from the collection, through `porelo-host`'s JSON
+  step lines; `porelo-host`'s own steps (`rent`, `ssh`, `copy`) get theirs in
+  `packages/porelo_host`, in the same lines. The interface's views write no text for a host's step.
+
 ## To be checked
 
-- Measured step times of `porelo-host up` on a rented host and a local VM for the time-left
-  estimate.
+- The time left is first read from each step's usual duration; later it is learned from measured
+  runs.

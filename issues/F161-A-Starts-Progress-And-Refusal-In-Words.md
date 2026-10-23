@@ -1,12 +1,17 @@
 # F161 — A Start's Progress And Refusal In Words
 
-**Status:** Idea.
+**Status:** Accepted; blocked by porelo's issue that reports a task's start step by step, and by
+porelo-host's issue that gives each step a plain-words text.
 
 **What must be true.** While *Start it* runs, the interface says in plain words which step is
 running and what it waits on, and ends with the cause when something it waits on (such as the
 room's homeserver) has failed. When a start is refused for the repository's own `porelo.yml`, the
 interface says that the file belongs to the repository, who changes it, and that nothing was
 started.
+
+The interface only shows these texts. Each comes from where its step is defined, never written a
+second time here: a task's start from porelo's daemon, a host's steps from the collection through
+`porelo-host`'s JSON step lines. The interface writes texts only for its own actions.
 
 ## Why
 

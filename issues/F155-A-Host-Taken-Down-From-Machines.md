@@ -1,6 +1,8 @@
 # F155 — A Host Taken Down From Machines
 
-**Status:** Idea.
+**Status:** Accepted.
+
+**Order.** In the host flow, after [F154](README.md#f154).
 
 **What must be true.** A host under *Machines* offers *Take this server down* in its `⋯` menu and
 on its page, with a confirmation naming what ends (tasks, room, files) and no field typed again,
@@ -20,7 +22,8 @@ the rented server keeps running and billing with no hint of how to reach or take
 
 - *Take this server down* in the host's `⋯` menu and on its page under *Machines* confirms what
   ends, runs `porelo-host down` from the record kept at `up` without asking for fields again, and
-  removes the host when `down` exits 0; the setup dialog restores its last values when reopened.
+  removes the host when `down` exits 0, ending with the provider's word that nothing is left;
+  the setup dialog restores its last values when reopened.
 - Seen to fail: *Remove from this list* on a rented host never drops the machine without showing
   the running-and-billing warning, how to add it back, and the take-down action beside it; a failed
   `down` keeps the host in *Machines*.

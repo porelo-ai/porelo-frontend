@@ -1,6 +1,6 @@
 # F159 — Work Started From The Project Page
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** The project page offers a visible start button on each repository row and
 one for the project as a whole, not only an item inside each repository row's `⋮` menu. When the

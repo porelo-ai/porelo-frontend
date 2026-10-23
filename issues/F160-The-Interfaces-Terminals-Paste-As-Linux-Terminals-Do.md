@@ -1,6 +1,8 @@
 # F160 — The Interface's Terminals Paste As Linux Terminals Do
 
-**Status:** Idea.
+**Status:** Accepted.
+
+**Order.** Early: every secret now goes through these terminals.
 
 **What must be true.** Every terminal in the interface takes `Ctrl+Shift+V` and `Shift+Insert` as
 paste in addition to `Ctrl+V`, and names the paste shortcut beside the terminal.

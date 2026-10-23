@@ -1,10 +1,11 @@
 # F158 — A Needs-You Row Names Its Machine And Its Way Out
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** Every *Needs you* row names its machine in plain words and offers the action
-that resolves it right on the row. When a row is resolved, it does not vanish without a trace: it
-says briefly *Resolved: \<what\>* and stays readable for a while or in a history.
+that resolves it right on the row. A resolved row, and a message once read, does not vanish at
+once: it stays a while, newest first, greyed but readable, its actions no longer clickable, a
+longer text still opening on a click. How long it stays is a setting, an hour by default.
 
 ## Why
 
@@ -14,8 +15,10 @@ cleared.
 
 ## Acceptance
 
-- Each *Needs you* row names its machine, offers a button or link that starts the resolving action
-  on that machine, and shows *Resolved: \<what\>* after it clears.
+- Each *Needs you* row names its machine and offers a button or link that starts the resolving
+  action on that machine.
+- A resolved row and a read message stay greyed, newest first, their actions disabled, a longer
+  text still opening on a click, and go after the set time; the setting's default is one hour.
 - Seen to fail: when two machines each have a *Needs you* row, both name their own machine and each
   action runs only against its own machine.
 

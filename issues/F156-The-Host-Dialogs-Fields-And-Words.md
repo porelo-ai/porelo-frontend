@@ -1,6 +1,8 @@
 # F156 — The Host Dialog's Fields And Words
 
-**Status:** Idea.
+**Status:** Accepted.
+
+**Order.** In the host flow, after [F155](README.md#f155).
 
 **What must be true.** In the host dialog, `~` in a path field is expanded to the home directory or
 refused in plain words, the repository URL and signing-key fields stay hidden until the tresor
@@ -20,6 +22,7 @@ AppArmor allows `/etc/wireguard` only.
 
 ## Acceptance
 
+- A file or folder is chosen with a picker wherever one can be; a typed path is the exception.
 - A path beginning with `~` expands to the person's home directory (or is refused in plain words
   naming `~`), the repository URL and signing-key fields appear only after a tresor folder is
   chosen, and a stop scrolls its prompt into view.
