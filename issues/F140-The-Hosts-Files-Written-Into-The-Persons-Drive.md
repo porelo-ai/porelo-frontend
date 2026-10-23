@@ -51,6 +51,13 @@ Tresorit; the person's private half stays in the system secret store unless expl
 
 ## Built so far
 
+- Windows key basenames are read as strings with `package:path` before validation, so a stream
+  name produces a safe refusal without converting it to a URI. Native host destinations, staging
+  paths and dialog defaults use platform joins; machine YAML retains POSIX relative paths.
+  Injected Windows contexts reproduce both regressions on Linux: the stream-name guard first
+  received `ArgumentError` instead of `HostFilesRefused`, and the destination guard first received
+  mixed separators instead of backslashes. Both guards run without Windows filesystem access.
+
 - The helper, private file writer, settings map, system pickers, optional key imports, file-conflict
   refusal, public peer options and explicit wg-quick export are implemented. The helper and writer
   are exported by the pure-Dart package; no new dependency is needed for the native filesystem
@@ -106,11 +113,6 @@ Tresorit; the person's private half stays in the system secret store unless expl
   This does not prevent `up`; the person's peer key still comes from the store.
 - Private values are scoped to preparation or export calls, never dialog state. This makes no
   promise to wipe Dart memory. The component emits no step or log containing private bytes.
-- The unfiltered package suite cannot use the system secret store: the sandbox refuses the
-  session-bus connection and its cleanup times out. The suite excluding `keystore` passes; system
-  secret-store integration and Flutter execution remain external checks. Repository-listed
-  Dart/Flutter skills and `porelo-release` are unavailable locally; no network fetch is performed.
-
 ## Acceptance
 
 - A project folder selected with the system picker is kept across settings reloads, independently

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:path/path.dart' as path;
 
 import 'secret_store.dart';
 import 'host_file_writer.dart';
@@ -10,7 +11,10 @@ import 'host_file_writer.dart';
 /// A vault entry and the file selected for import by the host.
 class HostKeyFile {
   /// Names an entry without displaying its value.
-  const HostKeyFile(this.name, this.file);
+  const HostKeyFile(this.name, this.file, {this.pathContext});
+
+  /// Path syntax for selected files; defaults to the running platform.
+  final path.Context? pathContext;
 
   /// The vault entry name.
   final String name;
@@ -19,7 +23,7 @@ class HostKeyFile {
   final File file;
 
   /// The name under the host files directory.
-  String get basename => file.uri.pathSegments.last;
+  String get basename => (pathContext ?? path.context).basename(file.path);
 }
 
 /// A refusal safe to show without revealing file contents.
@@ -51,7 +55,18 @@ class HostTunnel {
 /// Prepares the host's Tresorit files and the person's key in the system store.
 class HostFiles {
   /// Uses the system store, or a stand-in in a test.
-  HostFiles(this.store, {HostFileWriter? writer}) : _writer = writer ?? HostFileWriter();
+  HostFiles(this.store, {HostFileWriter? writer, path.Context? pathContext})
+    : _writer = writer ?? HostFileWriter(),
+      _paths = pathContext ?? path.context;
+
+  final path.Context _paths;
+
+  /// The local destination of a validated host file in the selected folder.
+  String destinationPath(String folder, String name, {bool key = false}) {
+    checkBasename(name, windows: _paths.style == path.Style.windows);
+    final root = _paths.join(_paths.normalize(folder), 'porelo-host');
+    return key ? _paths.join(root, 'keys', name) : _paths.join(root, name);
+  }
 
   final HostFileWriter _writer;
 
@@ -173,6 +188,16 @@ class HostFiles {
     bool? windows,
   }) {
     checkName(project);
+    _checkKeys(keys, windows: windows);
+    return 'project:\n'
+        '  name: ${_scalar(project)}\n'
+        '  url: ${_scalar(url)}\n'
+        '  signed_by: ${_scalar(fingerprint)}\n'
+        '${keys.isEmpty ? 'keys: []\n' : 'keys:\n'}'
+        '${keys.map((key) => '  - { name: ${_scalar(key.name)}, path: ${_scalar(path.posix.join('keys', key.basename))} }\n').join()}';
+  }
+
+  static void _checkKeys(List<HostKeyFile> keys, {bool? windows}) {
     final names = <String>{};
     final files = <String>{};
     for (final key in keys) {
@@ -183,12 +208,6 @@ class HostFiles {
         throw const HostFilesRefused('Each vault entry and file base name must be unique.');
       }
     }
-    return 'project:\n'
-        '  name: ${_scalar(project)}\n'
-        '  url: ${_scalar(url)}\n'
-        '  signed_by: ${_scalar(fingerprint)}\n'
-        '${keys.isEmpty ? 'keys: []\n' : 'keys:\n'}'
-        '${keys.map((key) => '  - { name: ${_scalar(key.name)}, path: ${_scalar('keys/${key.basename}')} }\n').join()}';
   }
 
   /// Reuses existing keys. Without a folder the host files are supplied manually.
@@ -200,9 +219,10 @@ class HostFiles {
     List<HostKeyFile> keys = const [],
   }) async {
     checkName(project);
+    _checkKeys(keys, windows: _writer.isWindows || _paths.style == path.Style.windows);
     String? hostPrivate;
     if (folder != null) {
-      if (url.trim().isEmpty || !signingKey.path.endsWith('.pub')) {
+      if (url.trim().isEmpty || _paths.extension(signingKey.path) != '.pub') {
         throw const HostFilesRefused('Give the repository URL and signing public key (.pub).');
       }
       final yaml = machineYaml(
@@ -213,9 +233,9 @@ class HostFiles {
         windows: _writer.isWindows,
       );
       await _directory(Directory(folder), create: false);
-      final root = Directory('$folder${Platform.pathSeparator}porelo-host');
+      final root = Directory(_paths.join(_paths.normalize(folder), 'porelo-host'));
       await _directory(root);
-      final hostFile = File('${root.path}/wireguard.key');
+      final hostFile = File(destinationPath(folder, 'wireguard.key'));
       final existing = await FileSystemEntity.type(hostFile.path, followLinks: false);
       if (existing != FileSystemEntityType.notFound) {
         if (existing != FileSystemEntityType.file) _conflict(hostFile.path);
@@ -227,11 +247,11 @@ class HostFiles {
         }
       }
       hostPrivate ??= await _privateKey();
-      if (keys.isNotEmpty) await _directory(Directory('${root.path}/keys'));
+      if (keys.isNotEmpty) await _directory(Directory(_paths.join(root.path, 'keys')));
       final contents = <String, List<int>>{
-        '${root.path}/machine.yml': utf8.encode(yaml),
+        destinationPath(folder, 'machine.yml'): utf8.encode(yaml),
         hostFile.path: utf8.encode('$hostPrivate\n'),
-        for (final key in keys) '${root.path}/keys/${key.basename}': await key.file.readAsBytes(),
+        for (final key in keys) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
       };
       for (final entry in contents.entries) {
         await _writer.check(File(entry.key), entry.value);

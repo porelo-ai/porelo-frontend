@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
@@ -13,7 +14,7 @@ void main() {
   late File signing;
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('host-security-');
-    signing = await File('${scratch.path}/signing.pub').writeAsString(_signing);
+    signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(_signing);
   });
   tearDown(() => scratch.delete(recursive: true));
   Future<List<String>> temporaries() async => [
@@ -25,7 +26,7 @@ void main() {
   // Red: create the destination directly instead of staging in a checked 0700 directory.
   test('secret destinations appear only complete and private', () async {
     for (final name in ['wireguard.key', 'copied-key', 'wg-quick.conf']) {
-      final destination = File('${scratch.path}/$name');
+      final destination = File(path.join(scratch.path, name));
       final writer = HostFileWriter(
         writeBytes: (file, handle, bytes) async {
           expect(await destination.exists(), isFalse, reason: 'no destination before publication');
@@ -49,7 +50,7 @@ void main() {
   // Harm: a failed write leaves a partial secret published or an abandoned private file.
   // Red: omit finally cleanup or write directly to the destination.
   test('partial write failures leave neither destination nor staging directory', () async {
-    final destination = File('${scratch.path}/wireguard.key');
+    final destination = File(path.join(scratch.path, 'wireguard.key'));
     final writer = HostFileWriter(
       writeBytes: (_, handle, bytes) async {
         await handle.writeFrom(bytes, 0, 1);
@@ -65,8 +66,8 @@ void main() {
   // Red: follow links in both checks, or attempt publication without the pre-publish link check.
   test('a destination swapped for a symlink during writing is kept and refused', () async {
     final bytes = [1, 2, 3];
-    final outside = await File('${scratch.path}/outside').writeAsBytes(bytes);
-    final destination = File('${scratch.path}/wireguard.key');
+    final outside = await File(path.join(scratch.path, 'outside')).writeAsBytes(bytes);
+    final destination = File(path.join(scratch.path, 'wireguard.key'));
     final writer = _ObservedPublisher(
       writeBytes: (_, handle, bytes) async {
         if (await destination.exists()) await destination.delete();
@@ -85,7 +86,7 @@ void main() {
   // Red: omit protect(file) in the existing-identical branch of write().
   test('write makes an identical existing 0644 file private without changing its bytes', () async {
     final bytes = utf8.encode('fixture secret bytes');
-    final file = await File('${scratch.path}/wireguard.key').writeAsBytes(bytes);
+    final file = await File(path.join(scratch.path, 'wireguard.key')).writeAsBytes(bytes);
     final changed = await Process.run('chmod', ['644', '--', file.path]);
     expect(changed.exitCode, 0);
     expect((await file.stat()).mode & 0x1ff, 0x1a4, reason: 'start with a deliberately readable file');
@@ -98,7 +99,7 @@ void main() {
   // Harm: repeated setup accepts a host key or copied credential synced back as world-readable.
   // Red: omit protect(file) in the existing-identical branch used by prepare().
   test('prepare restores 0600 on identical host and copied keys synced as 0644', () async {
-    final credential = await File('${scratch.path}/credential').writeAsString('fixture credential bytes');
+    final credential = await File(path.join(scratch.path, 'credential')).writeAsString('fixture credential bytes');
     final files = HostFiles(_Secrets());
     Future<HostTunnel> prepare() => files.prepare(
       project: 'demo',
@@ -109,8 +110,8 @@ void main() {
     );
     final first = await prepare();
     final destinations = [
-      File('${scratch.path}/porelo-host/wireguard.key'),
-      File('${scratch.path}/porelo-host/keys/credential'),
+      File(path.join(scratch.path, 'porelo-host', 'wireguard.key')),
+      File(path.join(scratch.path, 'porelo-host', 'keys', 'credential')),
     ];
     final originalBytes = <List<int>>[];
     for (final file in destinations) {
@@ -133,8 +134,8 @@ void main() {
   // Red: write keys/ entries directly in prepare instead of calling the injected writer.
   test('prepare copies a credential through the private writer at 0600', () async {
     final bytes = utf8.encode('fixture credential bytes');
-    final source = await File('${scratch.path}/credential').writeAsBytes(bytes);
-    final keyDirectory = '${scratch.path}/porelo-host/keys';
+    final source = await File(path.join(scratch.path, 'credential')).writeAsBytes(bytes);
+    final keyDirectory = path.join(scratch.path, 'porelo-host', 'keys');
     final observed = <List<int>>[];
     final writer = HostFileWriter(
       writeBytes: (file, handle, contents) async {
@@ -154,7 +155,7 @@ void main() {
       keys: [HostKeyFile('credential', source)],
     );
     expect(observed, [bytes], reason: 'the selected credential must actually pass through the writer');
-    final copied = File('$keyDirectory/credential');
+    final copied = File(path.join(keyDirectory, 'credential'));
     expect(await copied.readAsBytes(), bytes);
     expect((await copied.stat()).mode & 0x1ff, 0x180);
     expect(await temporaries(), isEmpty);
@@ -163,7 +164,7 @@ void main() {
   // Harm: a writer wins the check-to-rename race and its file is silently overwritten.
   // Red: publish with ordinary File.rename instead of atomic no-replace rename.
   test('a destination appearing immediately before rename is never replaced', () async {
-    final destination = File('${scratch.path}/wireguard.key');
+    final destination = File(path.join(scratch.path, 'wireguard.key'));
     await expectLater(_ArrivingFile().write(destination, [1, 2, 3]), throwsA(isA<HostFilesRefused>()));
     expect(await destination.readAsString(), 'keep');
     expect(await temporaries(), isEmpty);
@@ -174,7 +175,7 @@ void main() {
   for (final code in [0, 1]) {
     test('chmod exit $code ${code == 0 ? 'without' : 'despite'} a private mode refuses before writing', () async {
       var wrote = false;
-      final destination = File('${scratch.path}/wireguard.key');
+      final destination = File(path.join(scratch.path, 'wireguard.key'));
       final writer = HostFileWriter(
         operatingSystem: 'linux',
         run: (program, args) async {
@@ -200,7 +201,7 @@ void main() {
   // Harm: an unexpectedly accessible temporary directory exposes a file before chmod.
   // Red: omit the measured 0700 directory check.
   test('a nonprivate staging directory is refused and removed', () async {
-    final destination = File('${scratch.path}/wireguard.key');
+    final destination = File(path.join(scratch.path, 'wireguard.key'));
     await expectLater(_PublicTemporary().write(destination, [1]), throwsA(isA<HostFilesRefused>()));
     expect(await destination.exists(), isFalse);
     expect(await temporaries(), isEmpty);
@@ -212,7 +213,7 @@ void main() {
     final calls = <(String, List<String>)>[];
     var directoryProtected = false;
     var wrote = false;
-    final destination = File('${scratch.path}/wireguard.key');
+    final destination = File(path.join(scratch.path, 'wireguard.key'));
     final writer = HostFileWriter(
       operatingSystem: 'windows',
       run: (program, args) async {
@@ -251,7 +252,7 @@ void main() {
   for (final failure in ['whoami', 'invalid SID', 'directory ACL', 'file ACL']) {
     test('Windows $failure failure refuses without publishing or leaking tool output', () async {
       var aclCalls = 0;
-      final destination = File('${scratch.path}/wireguard.key');
+      final destination = File(path.join(scratch.path, 'wireguard.key'));
       final writer = HostFileWriter(
         operatingSystem: 'windows',
         run: (program, _) async {
@@ -285,9 +286,11 @@ void main() {
   // Red: follow links for either the selected folder or its porelo-host child.
   for (final child in [false, true]) {
     test('${child ? 'porelo-host child' : 'chosen folder'} symlink is named and refused', () async {
-      final real = await Directory('${scratch.path}/real').create();
-      final chosen = child ? await Directory('${scratch.path}/chosen').create() : Directory('${scratch.path}/chosen');
-      final linked = child ? '${chosen.path}/porelo-host' : chosen.path;
+      final real = await Directory(path.join(scratch.path, 'real')).create();
+      final chosen = child
+          ? await Directory(path.join(scratch.path, 'chosen')).create()
+          : Directory(path.join(scratch.path, 'chosen'));
+      final linked = child ? path.join(chosen.path, 'porelo-host') : chosen.path;
       await Link(linked).create(real.path);
       await expectLater(
         HostFiles(_Secrets()).prepare(project: 'demo', folder: chosen.path, url: 'url', signingKey: signing),
@@ -374,6 +377,28 @@ void main() {
     );
   });
 
+  // Harm: URI conversion crashes the dialog before an unsafe selected name can be refused.
+  test('Windows stream names are refused without converting the selected file to a URI', () {
+    final windows = path.Context(style: path.Style.windows);
+    final key = HostKeyFile('entry', _NoUriFile(r'C:\input\a:b'), pathContext: windows);
+    expect(
+      () => HostFiles.machineYaml(project: 'demo', url: 'url', fingerprint: 'fp', windows: true, keys: [key]),
+      throwsA(isA<HostFilesRefused>()),
+    );
+    expect(HostKeyFile('entry', _NoUriFile(r'C:\input\key.pem'), pathContext: windows).basename, 'key.pem');
+  });
+
+  // Harm: inconsistent Windows destinations can miss a conflict or name a different file.
+  test('Windows host destinations use backslashes for every joined segment', () {
+    final files = HostFiles(_Secrets(), pathContext: path.Context(style: path.Style.windows));
+    for (final folder in [r'C:\host-files-x', 'C:/host-files-x/']) {
+      expect(files.destinationPath(folder, 'machine.yml'), r'C:\host-files-x\porelo-host\machine.yml');
+      expect(files.destinationPath(folder, 'wireguard.key'), r'C:\host-files-x\porelo-host\wireguard.key');
+      expect(files.destinationPath(folder, 'vault-input', key: true), r'C:\host-files-x\porelo-host\keys\vault-input');
+    }
+    expect(() => files.destinationPath(r'C:\host-files-x', 'a:b', key: true), throwsA(isA<HostFilesRefused>()));
+  });
+
   // Harm: Windows resolves a key filename as a device/stream or merges two destinations.
   // Red: omit Windows basename rules or compare duplicate filenames case-sensitively.
   test('Windows names refuse streams devices trailing characters and folded duplicates', () {
@@ -438,7 +463,7 @@ void main() {
   // Red: compare file lengths alone instead of every byte.
   test('same-length conflicts in machine key and export remain unchanged', () async {
     for (final name in ['machine.yml', 'wireguard.key', 'wg-quick.conf']) {
-      final file = await File('${scratch.path}/$name').writeAsString('keep');
+      final file = await File(path.join(scratch.path, name)).writeAsString('keep');
       await expectLater(
         HostFileWriter().write(file, utf8.encode('lost')),
         throwsA(isA<HostFilesRefused>().having((e) => e.message, 'path', contains(file.path))),
@@ -463,7 +488,7 @@ void main() {
               project: 'demo',
               tunnel: tunnel!,
               address: 'host',
-              destination: File('${scratch.path}/out.conf'),
+              destination: File(path.join(scratch.path, 'out.conf')),
             )
           : files.prepare(project: 'demo', url: '', signingKey: File(''));
       await expectLater(
@@ -493,7 +518,7 @@ void main() {
     final store = _Secrets();
     final files = HostFiles(store);
     final tunnel = await files.prepare(project: 'demo', folder: scratch.path, url: 'url', signingKey: signing);
-    final host = (await File('${scratch.path}/porelo-host/wireguard.key').readAsString()).trim();
+    final host = (await File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).readAsString()).trim();
     final person = store.values.values.single;
     final out = _Output();
     final err = _Output();
@@ -509,7 +534,7 @@ void main() {
             project: 'demo',
             tunnel: tunnel,
             address: 'host',
-            destination: File('${scratch.path}/asked.conf'),
+            destination: File(path.join(scratch.path, 'asked.conf')),
           );
         },
         stdout: () => out,
@@ -586,4 +611,15 @@ class _ObservedPublisher extends HostFileWriter {
     publications++;
     await super.publish(prepared, destination);
   }
+}
+
+// Models Windows File.uri rejecting an alternate-stream path, independently of the test host.
+class _NoUriFile implements File {
+  _NoUriFile(this.path);
+  @override
+  final String path;
+  @override
+  Uri get uri => throw ArgumentError('Illegal character in path');
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

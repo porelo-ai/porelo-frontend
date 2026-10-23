@@ -48,6 +48,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Windows host setup refuses invalid key file names without URI errors and uses native paths
+  consistently when preparing files and naming conflicts.
+
 - Stops read survivor counts and lists of helper names, show known survivors by name, and say
   "not reported" for missing or invalid survivor data instead of implying a clean stop.
 

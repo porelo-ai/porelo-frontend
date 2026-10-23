@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as path;
 import 'package:win32/win32.dart';
 
 import 'host_files.dart';
@@ -98,7 +99,7 @@ class HostFileWriter {
     return using((arena) {
       final make = DynamicLibrary.process()
           .lookupFunction<Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('mkdtemp');
-      final template = '${parent.absolute.path}/.porelo-writing-XXXXXX'.toNativeUtf8(allocator: arena);
+      final template = path.join(parent.absolute.path, '.porelo-writing-XXXXXX').toNativeUtf8(allocator: arena);
       final made = make(template);
       if (made == nullptr) throw FileSystemException('Cannot create a private staging directory', parent.path);
       return Directory(made.toDartString());
@@ -161,7 +162,7 @@ class HostFileWriter {
       } else {
         throw const HostFilesRefused('Private host files require Linux or Windows.');
       }
-      final prepared = await File('${temporary.path}${Platform.pathSeparator}contents').create(exclusive: true);
+      final prepared = await File(path.join(temporary.path, 'contents')).create(exclusive: true);
       if (!isWindows) await protect(prepared);
       final handle = await prepared.open(mode: FileMode.writeOnly);
       try {

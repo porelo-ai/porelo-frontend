@@ -6,6 +6,8 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:path/path.dart' as path;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
@@ -77,9 +79,9 @@ void main() {
     late File conflict;
     late File signing;
     await tester.runAsync(() async {
-      await Directory('${scratch.path}/porelo-host').create();
-      conflict = await File('${scratch.path}/porelo-host/machine.yml').writeAsString('keep');
-      signing = await File('${scratch.path}/signing.pub')
+      await Directory(path.join(scratch.path, 'porelo-host')).create();
+      conflict = await File(path.join(scratch.path, 'porelo-host', 'machine.yml')).writeAsString('keep');
+      signing = await File(path.join(scratch.path, 'signing.pub'))
           .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
     });
     await tester.pumpWidget(
@@ -136,10 +138,10 @@ void main() {
       await World.settle(tester);
     }
 
-    final exported = File('${scratch.path}/requested.conf');
+    final exported = File(path.join(scratch.path, 'requested.conf'));
     late File signing;
     await tester.runAsync(() async {
-      signing = await File('${scratch.path}/signing.pub')
+      signing = await File(path.join(scratch.path, 'signing.pub'))
           .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
     });
     await tester.pumpWidget(
@@ -211,8 +213,9 @@ void main() {
     await deliver(() => processes.last.end(0));
     final private = store.values[host.HostFiles.keyName('demo')]!;
     final peer = await host.HostFiles.publicKey(private);
-    final hostPrivate = (await tester.runAsync(() => File('${scratch.path}/porelo-host/wireguard.key').readAsString()))!
-        .trim();
+    final hostPrivate = (await tester.runAsync(
+      () => File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).readAsString(),
+    ))!.trim();
     final hostPublic = await host.HostFiles.publicKey(hostPrivate);
     expect(find.textContaining(hostPublic), findsOneWidget);
     expect(await tester.runAsync(() => exported.exists()), isFalse);
@@ -252,13 +255,13 @@ void main() {
       final settings = Settings(MemorySettingsStore());
       final store = _BrokenSecrets();
       final processes = <_HostProcess>[];
-      final destination = File('${scratch.path}/asked.conf');
+      final destination = File(path.join(scratch.path, 'asked.conf'));
       File? signing;
       if (operation == 'export') {
         await settings.rememberTresorFolder('demo', scratch.path);
         await tester.runAsync(() async {
           signing = await File(
-            '${scratch.path}/signing.pub',
+            path.join(scratch.path, 'signing.pub'),
           ).writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
         });
       }
@@ -660,8 +663,8 @@ void main() {
       );
     }
     await tapAndRun(tester, const Key('host-down'));
-    final up = File('${scratch.path}/arguments-1').readAsLinesSync();
-    expect(File('${scratch.path}/arguments-2').readAsLinesSync(), <String>[
+    final up = File(path.join(scratch.path, 'arguments-1')).readAsLinesSync();
+    expect(File(path.join(scratch.path, 'arguments-2')).readAsLinesSync(), <String>[
       'down',
       ...up.skip(1),
     ], reason: 'teardown must find the host that up rented');
@@ -715,7 +718,7 @@ void main() {
       }
       expect(find.byKey(const Key('host-agent-login')), findsNothing);
       expect(
-        File('${scratch.path}/arguments-2').existsSync(),
+        File(path.join(scratch.path, 'arguments-2')).existsSync(),
         isFalse,
         reason: 'a stop must never rerun up on its own',
       );
@@ -811,19 +814,22 @@ void main() {
     await tapAndRun(tester, const Key('host-resume'));
 
     expect(find.byKey(const Key('host-done')), findsOneWidget);
-    final second = File('${scratch.path}/arguments-2').readAsStringSync();
+    final second = File(path.join(scratch.path, 'arguments-2')).readAsStringSync();
     expect(second, contains('--answers-on-stdin'));
     expect(second, isNot(contains('secret')), reason: 'a secret never stands in the arguments');
     expect(second, isNot(contains('654321')), reason: 'nor the one-time code');
-    final input = File('${scratch.path}/input-2').readAsStringSync();
+    final input = File(path.join(scratch.path, 'input-2')).readAsStringSync();
     expect(input, contains('drive-secret'));
     expect(input, contains('"driveCode":"654321"'));
     expect(input, contains('vault-secret'));
-    expect(File('${scratch.path}/arguments-1').readAsStringSync(), contains('--scaleway-project\nproject-1\n'));
+    expect(
+      File(path.join(scratch.path, 'arguments-1')).readAsStringSync(),
+      contains('--scaleway-project\nproject-1\n'),
+    );
 
     await tapAndRun(tester, const Key('host-down'));
     final commands = <List<String>>[
-      for (var n = 1; n <= 3; n++) File('${scratch.path}/arguments-$n').readAsLinesSync(),
+      for (var n = 1; n <= 3; n++) File(path.join(scratch.path, 'arguments-$n')).readAsLinesSync(),
     ];
     expect(commands.map((arguments) => arguments.first), <String>['up', 'up', 'down']);
     expect(commands.first, containsAllInOrder(<String>['--tresor', 'demo-drive']));

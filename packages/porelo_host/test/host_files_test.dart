@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as path;
+
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
@@ -16,7 +18,7 @@ void main() {
   late HostFiles files;
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('host-files-');
-    signing = await File('${scratch.path}/signing.pub').writeAsString(signingKey);
+    signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(signingKey);
     store = MemorySecrets();
     files = HostFiles(store);
   });
@@ -121,13 +123,13 @@ void main() {
   // Harm: a second setup rotates a key, leaks it into metadata, or writes the person's key to the drive.
   // Red: regenerate an existing key, print a private half, or write the person key into metadata or a file.
   test('two pairs are reused and private keys stay out of metadata and arguments', () async {
-    final source = await File('${scratch.path}/vault-input').writeAsString('vault-bytes');
+    final source = await File(path.join(scratch.path, 'vault-input')).writeAsString('vault-bytes');
     final logLines = <String>[];
     final tunnel = await runZoned(
       () => prepare(keys: [HostKeyFile('credential', source)]),
       zoneSpecification: ZoneSpecification(print: (_, _, _, line) => logLines.add(line)),
     );
-    final hostFile = File('${scratch.path}/porelo-host/wireguard.key');
+    final hostFile = File(path.join(scratch.path, 'porelo-host', 'wireguard.key'));
     final hostPrivate = (await hostFile.readAsString()).trim();
     final peerPrivate = store.values[HostFiles.keyName('demo')]!;
     expect(hostPrivate.length, 44);
@@ -140,13 +142,13 @@ void main() {
     expect(repeated.hostPublicKey, tunnel.hostPublicKey);
     expect(repeated.peerPublicKey, tunnel.peerPublicKey);
     expect(store.writes, 1);
-    final metadata = await File('${scratch.path}/porelo-host/machine.yml').readAsString();
+    final metadata = await File(path.join(scratch.path, 'porelo-host', 'machine.yml')).readAsString();
     for (final secret in [hostPrivate, peerPrivate]) {
       expect(metadata, isNot(contains(secret)));
       expect(logLines.join('\n'), isNot(contains(secret)), reason: 'preparation must never log either private half');
       expect(tunnel.arguments.join(' '), isNot(contains(secret)));
     }
-    expect(await File('${scratch.path}/porelo-host/keys/vault-input').readAsString(), 'vault-bytes');
+    expect(await File(path.join(scratch.path, 'porelo-host', 'keys', 'vault-input')).readAsString(), 'vault-bytes');
     await for (final entity in scratch.list(recursive: true)) {
       if (entity is File) expect(await entity.readAsString(), isNot(contains(peerPrivate)), reason: entity.path);
     }
@@ -157,7 +159,7 @@ void main() {
   // Red: export the host private key, omit chmod, or export automatically during prepare.
   test('only explicit wg-quick export writes the stored person key with 0600', () async {
     final tunnel = await prepare();
-    final destination = File('${scratch.path}/asked-for.conf');
+    final destination = File(path.join(scratch.path, 'asked-for.conf'));
     final private = store.values[HostFiles.keyName('demo')]!;
     expect(await destination.exists(), isFalse);
     final readsBefore = store.reads;
@@ -180,12 +182,12 @@ void main() {
   // Harm: a conflict destroys existing configuration or credential bytes.
   // Red: skip preflight and open an existing file in write mode.
   test('every differing destination is named and preserved before other files are written', () async {
-    for (final name in ['machine.yml', 'wireguard.key', 'keys/vault-input']) {
-      final root = Directory('${scratch.path}/porelo-host');
+    for (final name in ['machine.yml', 'wireguard.key', path.join('keys', 'vault-input')]) {
+      final root = Directory(path.join(scratch.path, 'porelo-host'));
       if (await root.exists()) await root.delete(recursive: true);
-      await Directory('${root.path}/keys').create(recursive: true);
-      final destination = await File('${root.path}/$name').writeAsString('keep');
-      final source = await File('${scratch.path}/vault-input').writeAsString('new');
+      await Directory(path.join(root.path, 'keys')).create(recursive: true);
+      final destination = await File(path.join(root.path, name)).writeAsString('keep');
+      final source = await File(path.join(scratch.path, 'vault-input')).writeAsString('new');
       await expectLater(
         prepare(keys: [HostKeyFile('entry', source)]),
         throwsA(isA<HostFilesRefused>().having((e) => e.message, 'conflicting path', contains(destination.path))),
@@ -200,18 +202,18 @@ void main() {
   // Harm: a link redirects writes outside the chosen tresor.
   // Red: follow links when checking destination types.
   test('symlink destinations and keys directory are refused', () async {
-    final root = await Directory('${scratch.path}/porelo-host').create();
+    final root = await Directory(path.join(scratch.path, 'porelo-host')).create();
     final expected = HostFiles.machineYaml(
       project: 'demo',
       url: 'https://example.org/demo.git',
       fingerprint: fingerprint,
     );
-    final outside = await File('${scratch.path}/outside').writeAsString(expected);
-    final link = await Link('${root.path}/machine.yml').create(outside.path);
+    final outside = await File(path.join(scratch.path, 'outside')).writeAsString(expected);
+    final link = await Link(path.join(root.path, 'machine.yml')).create(outside.path);
     await expectLater(prepare(), throwsA(isA<HostFilesRefused>()));
     expect(await outside.readAsString(), expected);
     await link.delete();
-    await Link('${root.path}/keys').create(scratch.path);
+    await Link(path.join(root.path, 'keys')).create(scratch.path);
     await expectLater(prepare(keys: [HostKeyFile('entry', outside)]), throwsA(isA<HostFilesRefused>()));
   }, skip: Platform.isWindows ? 'Creating symlinks needs Windows privileges.' : false);
 }

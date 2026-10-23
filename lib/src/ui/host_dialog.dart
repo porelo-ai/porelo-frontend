@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:porelo_host/porelo_host.dart';
+import 'package:path/path.dart' as path;
 
 import '../app/host_session.dart';
 import '../app/machines.dart';
@@ -100,9 +101,9 @@ class _HostDialogState extends State<HostDialog> {
   bool _saving = false;
   String? _machineProblem;
 
-  static String _home(String path) {
+  static String _home(String relativePath) {
     final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
-    return '$home${Platform.pathSeparator}${path.replaceAll('/', Platform.pathSeparator)}';
+    return path.joinAll([home, ...path.posix.split(relativePath)]);
   }
 
   @override
@@ -202,8 +203,8 @@ class _HostDialogState extends State<HostDialog> {
       HostFiles.checkName(_keyName.text);
       final file = await openFile();
       if (file == null || !mounted) return;
+      HostFiles.checkBasename(path.basename(file.path));
       final key = HostKeyFile(_keyName.text, File(file.path));
-      HostFiles.checkBasename(key.basename);
       setState(() {
         _keys.add(key);
         _keyName.clear();
