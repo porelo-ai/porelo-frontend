@@ -7,16 +7,19 @@ import 'package:porelo_frontend/client.dart';
 /// `Outcome` gains entries without that being a breaking change.
 String stopWords(String task, Stopped result) {
   final surviving = switch (result.surviving) {
+    null => ' Surviving helpers: not reported.',
     0 => '',
     1 => ' One helper outlived the stop and has to be killed on the machine by hand.',
     final count => ' $count helpers outlived the stop and have to be killed on the machine by hand.',
   };
+  final names = result.survivors.isEmpty ? '' : ' Still running: ${result.survivors.join(', ')}.';
   final said = _detail(result.detail);
   return switch (result.outcome) {
-    Outcome.stopped => '$task was stopped. It is kept, workspace and all, and can be started again.$surviving$said',
+    Outcome.stopped =>
+      '$task was stopped. It is kept, workspace and all, and can be started again.$surviving$names$said',
     Outcome.notATask => '$task is not a task Porelo created. Nothing was touched.$said',
     Outcome.nothingToStop => 'There was nothing of $task to stop.$said',
-    _ => '$task: ${result.outcome.label}.$surviving$said',
+    _ => '$task: ${result.outcome.label}.$surviving$names$said',
   };
 }
 

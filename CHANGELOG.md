@@ -48,6 +48,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Stops read survivor counts and lists of helper names, show known survivors by name, and say
+  "not reported" for missing or invalid survivor data instead of implying a clean stop.
+
 - Host files are written in private staging directories, protected before publication, and
   published without replacing an existing destination, including one introduced during writing.
   Setup refuses linked Tresorit folders, validates complete Ed25519 or RSA signing keys and

@@ -3529,23 +3529,36 @@ class Stopped {
   /// How many helpers were stopped.
   final int helpers;
 
-  /// How many helpers outlived the stop and have to be killed by hand: `Stop`'s `surviving` is a
-  /// count. Zero is the normal case.
-  final int surviving;
+  /// How many helpers outlived the stop and have to be killed by hand, or null if not reported.
+  final int? surviving;
+
+  /// The surviving helpers' names, when the daemon supplies a list rather than a count.
+  final List<String> survivors;
 
   /// What the machine adds in its own words, or empty.
   final String detail;
 
   /// Constructor taking every field.
-  const Stopped({required this.outcome, required this.helpers, required this.surviving, this.detail = ''});
+  const Stopped({
+    required this.outcome,
+    required this.helpers,
+    required this.surviving,
+    this.survivors = const <String>[],
+    this.detail = '',
+  });
 
   /// Reads one from a reply.
-  factory Stopped.from(Map<String, dynamic> map) => Stopped(
-    outcome: Outcome(_string(map, 'outcome')),
-    helpers: _int(map, 'helpers'),
-    surviving: _int(map, 'surviving'),
-    detail: _string(map, 'detail'),
-  );
+  factory Stopped.from(Map<String, dynamic> map) {
+    final value = map['surviving'];
+    final names = value is List && value.every((name) => name is String) ? value.cast<String>() : null;
+    return Stopped(
+      outcome: Outcome(_string(map, 'outcome')),
+      helpers: _int(map, 'helpers'),
+      surviving: value is num ? value.toInt() : names?.length,
+      survivors: names ?? const <String>[],
+      detail: _string(map, 'detail'),
+    );
+  }
 }
 
 /// What a removal did, or refused to do.

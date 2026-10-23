@@ -128,7 +128,8 @@ void main() {
       expect(stopped.discarded, 1284);
     });
 
-    test("a stop's survivors are a count, and what the machine adds is kept", () async {
+    // Harm: losing the numeric count hides helpers that still need to be killed by hand.
+    test("a numeric survivor count keeps surviving helpers visible and the machine's detail", () async {
       daemon.method(
         'Stop',
         (_) => {'outcome': 'STOPPED', 'helpers': 2, 'surviving': 1, 'detail': 'the gate helper would not end'},
@@ -137,12 +138,65 @@ void main() {
       final stopped = await (await connect()).stop('porelo-demo-shell-1');
 
       expect(stopped.surviving, 1);
+      expect(stopped.survivors, isEmpty, reason: 'a count supplies no helper names');
       expect(stopped.detail, 'the gate helper would not end');
       expect(
         stopWords('porelo-demo-shell-1', stopped),
         allOf(contains('One helper outlived the stop'), contains('the gate helper would not end.')),
       );
     });
+
+    // Harm: the daemon's named survivors must not disappear as a clean stop.
+    test('a named survivor is counted and named in the stop result', () async {
+      daemon.method(
+        'Stop',
+        (_) => {
+          'outcome': 'STOPPED',
+          'surviving': ['porelo-x-proxy'],
+        },
+      );
+
+      final stopped = await (await connect()).stop('porelo-demo-shell-1');
+
+      expect(stopped.surviving, 1, reason: 'the helper is still running');
+      expect(stopped.survivors, ['porelo-x-proxy'], reason: 'the helper must be identifiable');
+      expect(
+        stopWords('porelo-demo-shell-1', stopped),
+        allOf(contains('One helper outlived the stop'), contains('porelo-x-proxy')),
+      );
+    });
+
+    // Harm: rejecting a valid empty list would leave a confirmed clean stop uncertain.
+    test('an empty survivor list confirms that no helpers survived', () async {
+      daemon.method('Stop', (_) => {'outcome': 'STOPPED', 'surviving': <String>[]});
+
+      final stopped = await (await connect()).stop('porelo-demo-shell-1');
+
+      expect(stopped.surviving, 0, reason: 'an empty list explicitly reports no survivors');
+      expect(stopped.survivors, isEmpty);
+      expect(stopWords('porelo-demo-shell-1', stopped), isNot(contains('not reported')));
+    });
+
+    for (final sample in <String, Map<String, dynamic>>{
+      'a string': {'surviving': '0'},
+      'a map': {'surviving': <String, dynamic>{}},
+      'an absent field': {},
+      'null': {'surviving': null},
+      'a mixed list': {
+        'surviving': ['porelo-x-proxy', 1],
+      },
+    }.entries) {
+      // Harm: an unreadable or missing count must never reassure someone that all helpers ended.
+      test('${sample.key} cannot turn unreported survivors into a clean stop', () async {
+        daemon.method('Stop', (_) => {'outcome': 'STOPPED', ...sample.value});
+
+        final stopped = await (await connect()).stop('porelo-demo-shell-1');
+
+        expect(stopped.surviving, isNull, reason: 'absence of a count is not a report of zero');
+        expect(stopped.survivors, isEmpty, reason: 'only a complete string list supplies names');
+        expect(stopWords('porelo-demo-shell-1', stopped), contains('not reported'));
+      });
+    }
 
     test("a removal's discarded is a count of paths, never a size, and its detail is said", () async {
       daemon.method(

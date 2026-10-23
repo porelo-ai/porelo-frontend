@@ -757,7 +757,55 @@ class _Slow extends _Wedged {
   }
 }
 
+class _StopReply extends _Wedged {
+  _StopReply(this.reply);
+
+  final Map<String, dynamic> reply;
+
+  @override
+  Future<Stopped> stopTask(String task) async => Stopped.from(reply);
+}
+
 void main() {
+  // Harm: hiding a surviving helper in the frame leaves it running without an actionable name.
+  test('the frame reports the helper that outlived a stop by name', () async {
+    final fleet = FleetModel(
+      _StopReply({
+        'outcome': 'STOPPED',
+        'surviving': ['porelo-x-proxy'],
+      }),
+    );
+    addTearDown(fleet.dispose);
+
+    await fleet.stopWork('porelo-demo-shell-1');
+
+    expect(
+      fleet.saidAbout('porelo-demo-shell-1'),
+      allOf(
+        contains('One helper outlived the stop'),
+        contains('porelo-x-proxy'),
+        contains('killed on the machine by hand'),
+      ),
+    );
+  });
+
+  for (final sample in <String, Map<String, dynamic>>{
+    'a string': {'surviving': '0'},
+    'a map': {'surviving': <String, dynamic>{}},
+    'an absent field': {},
+  }.entries) {
+    // Harm: the frame must not present an unreported helper count as a confirmed clean stop.
+    test('the frame warns that survivors are not reported for ${sample.key}', () async {
+      final fleet = FleetModel(_StopReply({'outcome': 'STOPPED', ...sample.value}));
+      addTearDown(fleet.dispose);
+
+      await fleet.stopWork('porelo-demo-shell-1');
+
+      expect(fleet.saidAbout('porelo-demo-shell-1'), contains('not reported'));
+      expect(fleet.saidAbout('porelo-demo-shell-1'), isNot(contains('clean')));
+    });
+  }
+
   // What asks a machine just added waits for this, rather than a socket that is not open yet.
   test('waiting until a machine was asked ends only once connecting is over', () async {
     final backend = _Slow();
