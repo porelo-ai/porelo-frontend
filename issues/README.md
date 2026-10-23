@@ -82,6 +82,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | `porelo` [B198](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b198) | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225) | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
+| <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | — | — | At one click, a task for each of a project's repositories that names an agent, repositories left out and `issue` and `phase` given before the start, agents signed in on the way. |
 
 ### Idea
 
