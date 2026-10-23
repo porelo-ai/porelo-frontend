@@ -1,7 +1,7 @@
 # F154 — A Host Stands In Machines While It Is Prepared
 
-**Status:** Accepted; blocked by porelo-host's issue that gives each step a plain-words text and its
-usual duration.
+**Status:** Accepted; blocked by `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21), which gives each step a
+plain-words text and its usual duration.
 
 **Order.** In the host flow, after [F152](README.md#f152).
 

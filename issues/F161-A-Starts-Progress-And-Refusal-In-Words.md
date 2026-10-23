@@ -1,7 +1,7 @@
 # F161 — A Start's Progress And Refusal In Words
 
-**Status:** Accepted; blocked by porelo's issue that reports a task's start step by step, and by
-porelo-host's issue that gives each step a plain-words text.
+**Status:** Accepted; blocked by `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268), which reports a task's start step by step,
+and by `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21), which gives each step a plain-words text.
 
 **What must be true.** While *Start it* runs, the interface says in plain words which step is
 running and what it waits on, and ends with the cause when something it waits on (such as the
