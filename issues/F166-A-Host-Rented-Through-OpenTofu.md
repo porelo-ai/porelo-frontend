@@ -22,6 +22,11 @@ OpenTofu module per provider, and this is the package's half of that contract.
   `plan -detailed-exitcode` reading no change, so `HostRun`'s order (rent, readiness, trust, ssh,
   the plays, `down`'s kept host) stays as it is. Readiness: whether the provider's `apply` already
   waits for the installed system, or `HostRun` still asks until ssh answers.
+- **The provider as the guard,** as `porelo-host`'s plan has it: before `apply`, today's find by
+  the tag (`porelo-project=<project>`) is kept, and a tagged server the state lacks refuses `up`
+  naming it, as a state not yet synced or written from another computer would; `down` with an empty
+  state and a tagged server refuses too. A conflict copy of the state, made by the drive's client,
+  refuses both until a person keeps one.
 - **The host key:** made by the module (`tls_private_key`) and read from its `host_key` output,
   rather than by `ssh-keygen` here, and still trusted as the only line of the package's own
   `known_hosts`; the private half then lies in the state, encrypted.
