@@ -32,7 +32,11 @@ OpenTofu module per provider, and this is the package's half of that contract.
 - **The module's arrival:** the release's `porelo-host-tofu-<version>.tar.gz` checked against its
   `SHA256SUMS` before it is unpacked, as the collection is; the `tofu` on `PATH` refused unless
   `tofu version -json` names the pinned version, before anything is rented.
-- **The state and its passphrase:** where they live, as `porelo-host`'s open question decides.
+- **The state and its key,** as the operator decided on 2026-10-24: the state in the person's
+  drive, in the project's folder there (the one the dialog's *Its synced folder on this computer*
+  names), encrypted; its key in the system's secret store beside the Scaleway key, entered once on
+  another computer, never in a file, an argument or the drive. What `up` says when that key is
+  missing here, and when the drive's folder is not synced yet.
 - **Tests without renting:** a `tofu` stand-in answering `init`, `apply`, `output`, `destroy` and
   `plan` from recorded answers, as `tool/host_standin.dart` stands in for `porelo-host`.
 - **The interface:** the dialog of [F164](README.md#f164) asks for the same values; whether it
