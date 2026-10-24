@@ -34,6 +34,9 @@ AppArmor allows `/etc/wireguard` only.
   person's home and leaves every other path as it is; the dialog's path fields, `host_keys.dart` and
   `project_workspace.dart` take it, so the two inline copies go. A `~user` form is refused in words
   naming it.
+- **The remembered folder in sight:** a folder chosen in an earlier opening still counts, so the
+  repository and signing-key fields open with it, and the dialog names that folder at the top with
+  *Choose another*, so it is clear why they are open.
 - **Pickers:** each path field gets a *Choose…* beside it (`file_selector`'s `openFile`, as the
   key files have today); the field stays typable.
 - **The stop in view:** the dialog's scroll gets a controller, and the stop's first input is
@@ -58,9 +61,3 @@ AppArmor allows `/etc/wireguard` only.
   `wg-quick up porelo`, never `wg-quick up` on a file in the person's home.
 - Seen to fail first: a path such as `~/.ssh/porelo-host` in today's dialog fails with *Cannot
   prepare the host file*; the test holding the expansion goes red on it.
-
-## Open questions
-
-- The repository URL and signing-key fields: they already wait for a chosen folder, and a folder
-  chosen in an earlier opening counts. Proposed: keep that, since the folder is already known.
-  Hiding them again on every opening would ask for nothing new.

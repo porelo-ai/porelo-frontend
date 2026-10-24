@@ -3,16 +3,15 @@
 **Status:** Analyzed.
 **Size:** M - the VPN up and down in a local terminal, the room offered from the host flow, their words.
 
-**Order.** The last of the host flow; merged with [F150](README.md#f150) in its analysis.
+**Order.** The last of the host flow.
 
-**What must be true.** For every step a person otherwise runs in a terminal of their own, the
-interface opens a local terminal with the command filled in and a short line saying what it does
-and why it uses a terminal: placing the VPN file in `/etc/wireguard` and running `wg-quick up` with
-`sudo` (related to [F150](README.md#f150)), running `porelo talk join <project> <name>` on the
-host, and keeping the room's ssh tunnel to the homeserver open. Where the project room is offered,
-the interface guides through `porelo talk join`, the ssh tunnel, and the client's homeserver
-address and user name as one flow, and says that a mention is a pill picked from the client's list,
-not typed text.
+**What must be true.** The person brings the VPN tunnel to a host up and down from the
+interface: a local terminal opens with the command filled in and a short line saying what it does
+and why it uses a terminal, since placing the VPN file in `/etc/wireguard` and running `wg-quick`
+need `sudo`, which asks there. The project's room is joined from the host's entry through the
+interface, with the forward to its homeserver raised by the interface, and the client's
+homeserver address, user name and how a mention is made (a pill picked from the client's list, not
+typed text) said as one flow.
 
 ## Why
 
@@ -28,15 +27,17 @@ typed as plain text.
   from the interface, through the contract and not a terminal: the project's *Messages*
   (`messages_view.dart`, `ProjectConversation`) calls the daemon's join and raises the ssh forward
   to the homeserver's port itself (`login_forward.dart`, `HomeserverForwards`), kept while the
-  window runs and raised again at the next start. It names the homeserver's address
+  window runs and raised again at the next start. So the room is joined through the interface, not
+  by `porelo talk join` in a terminal. It names the homeserver's address
   `http://127.0.0.1:<port>` and the person's Matrix ID. Nothing in `lib/` runs `porelo talk join`,
   and nothing says how a mention is made.
-- **The VPN, with [F150](README.md#f150):** on the `host` machine, *Bring the VPN up* opens a
+- **The VPN:** on the `host` machine, *Bring the VPN up* opens a
   terminal on this computer (`runInATerminal` on the local machine) running
   `sudo install -m 600 <the saved file> /etc/wireguard/porelo.conf && sudo wg-quick up porelo`,
   with one line saying it needs root, which `sudo` asks for in the terminal. *Take the VPN down*
   runs `sudo wg-quick down porelo`. The file's path is the one the person saved, checked as a plain
-  path and quoted, never spliced. The text of [F150](README.md#f150) moves here, and it is proposed as merged.
+  path and quoted, never spliced. After it came up, the interface offers to delete the saved file, saying it holds the
+  private key and now sits in `/etc/wireguard`; it is never deleted unasked.
 - **The room from the host flow:** when `up` has ended and the host is a machine, the host's entry
   offers *Join the project's room*, which opens the existing *Messages* of that project on the
   host. That dialog gains, under its address and Matrix ID, one line on the client: a task is
@@ -49,21 +50,11 @@ typed as plain text.
 
 ## Acceptance
 
-- The interface offers guided actions that open a local terminal with the command filled in for the
-  `/etc/wireguard` VPN step, `porelo talk join <project> <name>` on the host, and the ssh tunnel to
-  the homeserver, followed by the homeserver address, user name, and mention-pill note.
-- Seen to fail: when the ssh tunnel or `porelo talk join` fails in the terminal, the step does not
-  show the room connection as ready.
-
-## Open questions
-
-- The room is joined through the daemon, not by `porelo talk join` in a terminal: the interface
-  already does that and raises the homeserver's forward itself, and the contract forbids running
-  the `porelo` CLI for what the daemon offers. Proposed: offer that join from the host flow, and no
-  terminal for it.
-- The VPN file: installed from the file the person saved, which holds the private key. Proposed:
-  after *Bring the VPN up* succeeds, offer to delete that saved file, since `/etc/wireguard` now
-  holds it.
+- The host's entry offers *Bring the VPN up* and *Take the VPN down*, each opening a local terminal
+  with the command filled in, and *Join the project's room*, opening *Messages* with the homeserver
+  address, user name and the mention-pill line.
+- Seen to fail: the room never shows as joined unless the daemon's join answered and the forward is
+  up; a saved file path with a quote or a leading dash is refused, never run under `sudo`.
 
 ## To be checked
 

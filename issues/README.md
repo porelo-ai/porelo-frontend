@@ -41,10 +41,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. | 1 |
+| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. | — |
 | <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | S | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. | — |
-| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | S | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. | 1 |
-| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. | 2 |
+| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | S | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. | — |
+| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -96,7 +96,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-On-With-Its-Repositories.md) | — | `porelo-host` [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) | The host's own forge switched on in the host dialog or on `porelo_host`, with the repositories that move there and where the central forge's token lies. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
-| <a id="f150"></a>[F150](F150-The-Persons-Tunnel-Brought-Up-From-The-Interface.md) | — | — | The person's VPN tunnel to a host brought up and down from the interface, with one confirmation for the root rights it needs. |
 
 ### Estimated
 
@@ -139,3 +138,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f100"></a>F100 | A File Handed To A Running Task | A file handed to a running task in parts, resumed where the machine says, refused above its limit before a byte is read, taken back with a second decision, and its record read after the task is gone. |
 | <a id="f120"></a>F120 | The Interface Renamed Porelo | The interface renamed Porelo in one scripted commit: its Dart package, binary, desktop and MSIX ids, settings, packages and the daemon's contract, installed afresh, and a test that holds every tracked file to the new name. |
 | <a id="f102"></a>F102 | A Porelo In WSL Reached From Windows | The interface on Windows, as a ZIP and an MSIX signed by `CN=porelo.ai`, reaching a Porelo in a WSL distribution through `wsl.exe` with no ssh and no open port, and setting Porelo up there; checked on GitHub's Windows runner, untested on a Windows machine. |
+
+### Rejected
+
+| # | Title | Why |
+|---|---|---|
+| <a id="f150"></a>F150 | The Person's Tunnel Brought Up From The Interface | Merged into [F157](README.md#f157), which brings the VPN up and down from the interface. |

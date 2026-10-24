@@ -33,12 +33,19 @@ button.
 - **The host under *Machines* at once:** the page lists each running `up` as its own row, *In
   preparation*, under the project's server name, before any `Machine` exists, so no machine of a
   new kind is stored. The row shows the current step's `text` as `porelo-host` sends it, the time
-  left of that step from its `seconds` and the time it began, *Needs you* at a stop, and the
+  left of the whole run and of that step, *Needs you* at a stop, and the
   protocol (every step and the words on standard error) on a click. When `up` ends 0 the row is
   replaced by the `host` machine, added as the dialog adds it today, with no button to press; a
   refusal or a failure keeps the row with its `fix` and the protocol, never marked ready.
 - **The stop under *Needs you*:** `Attention` reads `HostRuns`; a waiting run is a row naming the
   project and what the host needs, whose action is [F152](README.md#f152)'s terminal.
+- **The run ahead:** the collection writes a first line naming every step ahead in order,
+  `{"v": 1, "state": "plan", "steps": [{"task", "text", "seconds"}]}`, `seconds` left out where a
+  step has no usual duration; `down` writes it too. `porelo-host` sends the interface its own
+  `plan` line before `rent`, its own steps first, and again with the collection's appended when
+  that line arrives. A step is matched by its `task` name, never by position. The run's time left
+  is the running step's left plus the sum of the steps after it, an upper bound on a resumed `up`,
+  so it reads *about*.
 - **Words come from the lines:** `Step` (`packages/porelo_host`) reads `text` and `seconds`, and
   `porelo-host`'s own steps (`rent`, `ssh`, `copy`, `ansible`) carry theirs in the same lines. No
   view writes a word of its own for a host's step; a step without `text` shows its name.
@@ -58,12 +65,6 @@ button.
 - The step's words and its usual duration come from the collection, through `porelo-host`'s JSON
   step lines; `porelo-host`'s own steps (`rent`, `ssh`, `copy`) get theirs in
   `packages/porelo_host`, in the same lines. The interface's views write no text for a host's step.
-
-## Open questions
-
-- The time left: only the running step's is known, since each line names its own step alone.
-  Proposed: show that step's time left, and add the whole run's once `porelo-host` names every step
-  ahead with its usual duration in a first line, asked of its owner.
 
 ## To be checked
 
