@@ -101,6 +101,22 @@ void main() {
     }
   });
 
+  // Harm: rows that shrink to their text and sit in the middle read as scattered tiles, not as a list.
+  testWidgets('each row that is not a work tile spans the whole pane', (tester) async {
+    final state = await prepare(tester);
+    try {
+      final open = tester.getRect(find.byKey(const Key('open-attention')));
+      expect(open.width, greaterThan(1000));
+      for (final machine in state.machines.all) {
+        final row = tester.getRect(find.byKey(ValueKey('messages-wait ${machine.name}')));
+        expect(row.left, moreOrLessEquals(open.left, epsilon: 8));
+        expect(row.right, moreOrLessEquals(open.right, epsilon: 8));
+      }
+    } finally {
+      await state.dispose();
+    }
+  });
+
   // Harm: guessing from a sentence can send a person to unlock a vault that is not blocking messages.
   testWidgets('missing and unknown wait reasons never offer unlock', (tester) async {
     final state = await prepare(tester, waitsOn: '');

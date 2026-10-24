@@ -121,11 +121,11 @@ class _AttentionViewState extends State<AttentionView> {
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(Space.normal),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Column(
                           key: const Key('open-attention'),
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             for (final row in rows)
                               if (row.kind != AttentionKind.tile && row.kind != AttentionKind.operation)
@@ -144,7 +144,7 @@ class _AttentionViewState extends State<AttentionView> {
                         if (resolved.isNotEmpty)
                           Column(
                             key: const Key('recently-resolved'),
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Recently resolved')),
                               for (final each in resolved)
