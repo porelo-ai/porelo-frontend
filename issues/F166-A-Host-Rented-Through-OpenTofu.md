@@ -32,8 +32,9 @@ OpenTofu module per provider, and this is the package's half of that contract.
   `known_hosts`; the private half then lies in the state, encrypted.
 - **The secrets:** the Scaleway key from the system's secret store (`porelo-host/scaleway`) and the
   state's passphrase passed only in `tofu`'s environment, never an argument, a file or a line it
-  prints; whether the module also needs `SCW_ACCESS_KEY`, which `key set scaleway` does not keep
-  today; and `tofu`'s own output read for anything secret before it is relayed as a step.
+  prints; the module needs `SCW_ACCESS_KEY` as well (Agent Machines, 2026-10-24),
+  which `key set scaleway` does not keep today: kept beside the secret key, or as a plain setting,
+  since it is no secret; and `tofu`'s own output read for anything secret before it is relayed as a step.
 - **The module's arrival:** the release's `porelo-host-tofu-<version>.tar.gz` checked against its
   `SHA256SUMS` before it is unpacked, as the collection is; the `tofu` on `PATH` refused unless
   `tofu version -json` names the pinned version, before anything is rented.
