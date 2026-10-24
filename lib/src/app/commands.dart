@@ -36,6 +36,9 @@ enum Home {
   /// The menu on the selected project's card.
   projectMenu,
 
+  /// The start button and menu on a repository's row on its project page.
+  repositoryRow,
+
   /// The entry that follows a repository, which is how a project comes to a machine.
   followRepository,
 
@@ -353,6 +356,20 @@ List<Command> workCommands({
 /// Why nothing that needs [fleet]'s machine can be done now, or null while it answers.
 String? notAnswering(FleetModel fleet) =>
     fleet.reachability == Reachability.connected ? null : 'the machine is not answering';
+
+/// Starts work in the named repository, shared by its row's button and menu item.
+Command repositoryStartCommand({
+  required String repository,
+  required void Function(String)? onStart,
+  String? unavailable,
+}) => Command(
+  id: 'start-in-$repository',
+  label: 'Start work in $repository',
+  group: 'Work',
+  home: Home.repositoryRow,
+  unavailable: unavailable ?? (onStart == null ? 'work cannot start in this project' : null),
+  run: () => onStart?.call(repository),
+);
 
 /// Why `Start` would refuse [task], in words, or null when it would start it.
 String? whyNotStart(Task task) {

@@ -469,30 +469,10 @@ class _ShellState extends State<Shell> {
     'project.delete',
   ];
 
-  /// What is changed on a project's page, in this order: its repositories, how far behind they are and
-  /// what is backed up, what its work may reach, its machines and keys, its conversation, its
-  /// environment.
-  static const List<String> _projectPoints = <String>[
-    'project.default',
-    'project.sync',
-    'project.backups',
-    'egress.open',
-    'project.forge',
-    'project.messages',
-    'project.prepare',
-    'work.check',
-  ];
-
   /// The project's menu: what concerns it as a whole.
   List<Command> _projectRowMenu(ProjectOnScreen project, {Machine? on}) => <Command>[
     for (final command in _projectMenu(project, on: on))
       if (_projectAsAWhole.contains(command.id)) command,
-  ];
-
-  /// What is changed on the project's page, as points of their own rather than in a menu, out of
-  /// [all] its commands.
-  static List<Command> _projectPagePoints(List<Command> all) => <Command>[
-    for (final id in _projectPoints) ...all.where((command) => command.id == id),
   ];
 
   /// A tile's actions, judged on the tile's own machine and run with its work selected there.
@@ -1310,9 +1290,7 @@ class _ShellState extends State<Shell> {
     // Open at once and read behind it: waiting for the machine first left the press unanswered.
     widget.starting.publishedHostKeys = _publishedHostKeys;
     widget.starting.runningElsewhere = _runningElsewhere(project.name);
-    unawaited(widget.starting.open(_fleet.backend, project));
-    // Started from a repository's row: that repository is chosen already.
-    if (repository != null) widget.starting.chooseRepository(repository);
+    unawaited(widget.starting.open(_fleet.backend, project, repository: repository));
     await _offerToStart();
   }
 
@@ -2119,7 +2097,7 @@ class _ShellState extends State<Shell> {
         chosen.id,
         section: switch (chosen.home) {
           Home.tileMenu => Section.work,
-          Home.projectMenu || Home.startTile || Home.templateTile => Section.project,
+          Home.projectMenu || Home.repositoryRow || Home.startTile || Home.templateTile => Section.project,
           Home.followRepository => Section.projects,
           _ => Section.machine,
         },
@@ -2652,8 +2630,24 @@ class _ShellState extends State<Shell> {
     // chosen on it, so the choice is kept for when Projects opens one again.
     final narrowed = widget.shell.section == Section.project ? fleet.selectedProject : null;
     final jobs = narrowed == null ? const <Template>[] : widget.templates.forProject(narrowed.name);
-    // Built once for the page: its menu and its points are drawn from the same commands.
-    final projectCommandsHere = narrowed == null ? null : _projectMenu(narrowed);
+    // Built once for the page: its menu and its tiles share the command objects.
+    final projectCommandsHere = narrowed == null
+        ? null
+        : <Command>[
+            ..._commands().where((command) => command.id == 'work.start' || command.id == 'project.follow'),
+            ..._projectMenu(narrowed),
+          ];
+    final itsWork = OutlinedButton.icon(
+      key: const Key('its-work'),
+      onPressed: () {
+        _workView
+          ..machine = machine.name
+          ..project = narrowed == null ? null : (narrowed.name == defaultProject ? '' : narrowed.name);
+        widget.shell.goTo(Section.work);
+      },
+      icon: const Icon(Icons.play_circle_outline, size: Sizes.rowIcon),
+      label: const Text('Its work, under Work'),
+    );
     return Column(
       children: <Widget>[
         Expanded(
@@ -2670,16 +2664,8 @@ class _ShellState extends State<Shell> {
                   ProjectHeader(
                     project: narrowed,
                     muted: widget.notifications.muted.contains(narrowed.name),
-                    // Everything about the project in its one menu, its points after what concerns it as a
-                    // whole (walk 10). Starting work is on each repository's row too, with
-                    // that repository chosen; here it is where the command finder lands.
-                    menu: <Command>[
-                      if (_startsFromItsRows(narrowed)) ..._commands().where((command) => command.id == 'work.start'),
-                      for (final command in projectCommandsHere!)
-                        if (_projectAsAWhole.contains(command.id) && command.id != 'work.start') command,
-                      ..._projectPagePoints(projectCommandsHere),
-                    ],
-                    highlight: highlight,
+                    menu: projectCommandsHere!,
+                    highlight: highlight == 'work.start' ? null : highlight,
                     onShown: widget.shell.shown,
                     onSync: (repository) => unawaited(_syncTheUpstream(repository: repository)),
                     onCheck: narrowed.project.following == null ? null : () => unawaited(_checkNow(narrowed)),
@@ -2749,31 +2735,14 @@ class _ShellState extends State<Shell> {
                     child: Text(_noProjects(fleet), key: const Key('no-projects')),
                   ),
                 const SizedBox(height: Space.small),
+                if (narrowed != null)
+                  ProjectCommandTiles(commands: projectCommandsHere!, itsWork: itsWork, highlight: highlight)
+                else
+                  itsWork,
                 Wrap(
                   spacing: Space.normal,
                   runSpacing: Space.normal,
                   children: <Widget>[
-                    // Its work is under Work, narrowed to it: never shown here as well (walk 9:
-                    // work only under Work).
-                    OutlinedButton.icon(
-                      key: const Key('its-work'),
-                      onPressed: () {
-                        _workView
-                          ..machine = machine.name
-                          ..project = narrowed == null ? null : (narrowed.name == defaultProject ? '' : narrowed.name);
-                        widget.shell.goTo(Section.work);
-                      },
-                      icon: const Icon(Icons.play_circle_outline, size: Sizes.rowIcon),
-                      label: const Text('Its work, under Work'),
-                    ),
-                    // Only where no repository row starts it: default, and a project of one repository.
-                    if (narrowed != null && !_startsFromItsRows(narrowed))
-                      StartTile(
-                        project: narrowed.label,
-                        unavailable: StartWork.whyNot(narrowed.project) ?? notAnswering(fleet),
-                        highlighted: highlight == 'work.start',
-                        onStart: () => unawaited(_startWork()),
-                      ),
                     for (final job in jobs)
                       TemplateTile(
                         job: job,
@@ -2805,11 +2774,6 @@ class _ShellState extends State<Shell> {
     final problem = _homeservers.problemOf(machine, project);
     return problem == null ? null : 'Its homeserver is not reachable from here: $problem';
   }
-
-  /// Whether work in [project] is started from its repositories' rows, as the header lists them.
-  static bool _startsFromItsRows(ProjectOnScreen project) =>
-      project.name != defaultProject &&
-      project.project.repositoryStates.any((each) => !each.own || project.project.repositoryStates.length == 1);
 
   static String _noProjects(FleetModel fleet) => switch (fleet.reachability) {
     Reachability.connecting => 'Asking the backend what is here.',

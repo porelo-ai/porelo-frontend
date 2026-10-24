@@ -161,65 +161,205 @@ class MachineTitle extends StatelessWidget {
   }
 }
 
-/// Starts work in the project being looked at: a tile with a plus and what it does, beside its work.
-class StartTile extends StatelessWidget {
-  /// Constructor taking the project and what starting does.
-  const StartTile({
-    required this.project,
-    required this.onStart,
-    this.unavailable,
+/// A visible action using the same command and refusal as its menu entry.
+class CommandTile extends StatelessWidget {
+  /// Constructor taking the command, its mark, and one line explaining what it does.
+  const CommandTile({
+    required this.command,
+    required this.icon,
+    required this.description,
     this.highlighted = false,
     super.key,
   });
 
-  /// The project work would start in.
-  final String project;
+  /// The action, including its label and why it cannot run now.
+  final Command command;
 
-  /// Starts work there.
-  final VoidCallback onStart;
+  /// The outlined mark beside its label.
+  final IconData icon;
 
-  /// Why nothing can start there now, or null.
-  final String? unavailable;
+  /// One line explaining what the action does.
+  final String description;
 
   /// Whether the finder went here.
   final bool highlighted;
 
   @override
-  Widget build(BuildContext context) => Highlight(
-    active: highlighted,
-    child: SizedBox(
-      width: Sizes.tile,
-      height: Sizes.startTileHeight,
-      child: Tooltip(
-        message: unavailable ?? 'Start work in $project',
-        child: OutlinedButton(
-          key: const Key('start-work'),
-          autofocus: highlighted,
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.medium)),
-          ),
-          onPressed: unavailable == null ? onStart : null,
-          // Said, not only shown: a bare plus beside "Add or remove a repository" read as a second
-          // way to add one, and why it cannot start is worth reading without hovering.
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(Icons.add, size: Sizes.startMark, semanticLabel: 'Start work in $project'),
-              const SizedBox(height: Space.tight),
-              Text(
-                unavailable == null ? 'Start work' : 'Cannot start: $unavailable',
-                key: const Key('start-work-says'),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+  Widget build(BuildContext context) {
+    final starting = command.id == 'work.start';
+    final text = Theme.of(context).textTheme;
+    return Highlight(
+      active: highlighted,
+      child: SizedBox(
+        width: Sizes.tile,
+        child: Tooltip(
+          message: command.unavailable ?? description,
+          child: OutlinedButton(
+            key: starting ? const Key('start-work') : null,
+            autofocus: highlighted,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, Sizes.startTileHeight),
+              padding: const EdgeInsets.all(Space.normal),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.medium)),
+            ),
+            onPressed: command.available ? command.run : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Icon(icon, size: Sizes.rowIcon),
+                    const SizedBox(width: Space.small),
+                    Expanded(
+                      child: Text(
+                        command.label,
+                        key: starting && command.available ? const Key('start-work-says') : null,
+                        style: text.labelLarge,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Space.small),
+                Text(description, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodySmall),
+                if (command.unavailable case final reason?) ...<Widget>[
+                  const SizedBox(height: Space.small),
+                  Text(
+                    starting ? 'Cannot start: $reason' : 'Unavailable: $reason',
+                    key: starting ? const Key('start-work-says') : null,
+                    style: text.bodySmall,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
+    );
+  }
+}
+
+/// A project's actions grouped by purpose, from the very commands offered in its menu.
+class ProjectCommandTiles extends StatelessWidget {
+  /// Constructor taking the menu's commands and the route to its existing work.
+  const ProjectCommandTiles({required this.commands, required this.itsWork, this.highlight, super.key});
+
+  /// The page's menu commands, each shown once as a tile.
+  final List<Command> commands;
+
+  /// Opens the project's work under Work.
+  final Widget itsWork;
+
+  /// The command the finder went to.
+  final String? highlight;
+
+  static const _groups = <String>['Work', 'Keep in step', 'Where it lives', 'Remove'];
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      for (final group in _groups) ...<Widget>[
+        SizedBox(height: group == 'Remove' ? Space.loose : Space.normal),
+        if (group == 'Remove') const Divider(),
+        Text(group, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: Space.small),
+        Wrap(
+          spacing: Space.normal,
+          runSpacing: Space.normal,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            for (final command in commands)
+              if (_presentation(command).group == group) ...<Widget>[
+                CommandTile(
+                  key: ValueKey<String>('command-tile-${command.id}'),
+                  command: command,
+                  icon: _presentation(command).icon,
+                  description: _presentation(command).description,
+                  highlighted: command.id == 'work.start' && highlight == command.id,
+                ),
+                if (command.id == 'work.start') itsWork,
+              ],
+          ],
+        ),
+      ],
+    ],
   );
+
+  static ({String group, IconData icon, String description}) _presentation(Command command) => switch (command.id) {
+    'work.start' => (group: 'Work', icon: Icons.add, description: 'Start a new piece of work in this project.'),
+    'project.messages' => (
+      group: 'Work',
+      icon: Icons.chat_outlined,
+      description: 'Read its conversation and see who has joined.',
+    ),
+    'gate.open' => (
+      group: 'Work',
+      icon: Icons.fact_check_outlined,
+      description: 'Review pushes waiting for a decision.',
+    ),
+    'work.check' => (
+      group: 'Work',
+      icon: Icons.preview_outlined,
+      description: 'See what a start would open without creating work.',
+    ),
+    'notifications.mute' => (
+      group: 'Work',
+      icon: Icons.notifications_outlined,
+      description: 'Choose whether this project notifies you.',
+    ),
+    'project.sync' => (
+      group: 'Keep in step',
+      icon: Icons.sync_outlined,
+      description: 'Check how far its repositories are behind upstream.',
+    ),
+    'project.prepare' => (
+      group: 'Keep in step',
+      icon: Icons.build_outlined,
+      description: 'Build the environment its work runs in.',
+    ),
+    'project.backups' => (
+      group: 'Keep in step',
+      icon: Icons.backup_outlined,
+      description: 'See the backups kept on this machine.',
+    ),
+    'project.forge' => (
+      group: 'Where it lives',
+      icon: Icons.key_outlined,
+      description: 'Manage its machines and keys at the forge.',
+    ),
+    'project.default' => (
+      group: 'Where it lives',
+      icon: Icons.source_outlined,
+      description: 'Manage repositories worked on without a project.',
+    ),
+    'project.server' => (
+      group: 'Where it lives',
+      icon: Icons.dns_outlined,
+      description: 'Set up a server for this project.',
+    ),
+    'project.follow' => (
+      group: 'Where it lives',
+      icon: Icons.add_link_outlined,
+      description: 'Follow another project on this machine.',
+    ),
+    'egress.open' => (
+      group: 'Where it lives',
+      icon: Icons.public_outlined,
+      description: 'See and change what this project may reach.',
+    ),
+    'project.clear' => (
+      group: 'Remove',
+      icon: Icons.cleaning_services_outlined,
+      description: 'Review what clearing this project would remove.',
+    ),
+    'project.delete' => (
+      group: 'Remove',
+      icon: Icons.link_off_outlined,
+      description: 'Review what stopping following would remove and keep.',
+    ),
+    _ => throw StateError('No project tile description for ${command.id}'),
+  };
 }
 
 /// A job somebody named, started again from its own tile.

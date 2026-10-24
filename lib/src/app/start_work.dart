@@ -30,9 +30,11 @@ class StartWork extends ChangeNotifier {
   /// How somebody is meant to be involved. **Null until chosen.**
   Mode? mode;
 
-  /// Which of the project's repositories the work starts in. **Null until chosen, and never
-  /// chosen for somebody**: not even when there is one.
+  /// Which repository work starts in: the row it opened from, the only one, or a choice in the form.
   String? repository;
+
+  /// The repository whose row opened this form, or null for a project-wide start.
+  String? openedForRepository;
 
   /// Whether a repository has to be chosen: whenever the machine named any. A machine older than
   /// repositories per project names none and is sent none.
@@ -364,6 +366,7 @@ class StartWork extends ChangeNotifier {
   /// to do this time.
   Future<void> openFrom(FleetBackend backend, Project project, Template template) async {
     this.project = project;
+    openedForRepository = null;
     // Where the job was named to start — unless the project no longer has that repository, when
     // it is chosen again rather than sent to be refused.
     repository = project.workRepositories.contains(template.repository) ? template.repository : null;
@@ -381,9 +384,10 @@ class StartWork extends ChangeNotifier {
   }
 
   /// Opens it on a project, and reads what agents the machine has.
-  Future<void> open(FleetBackend backend, Project project) async {
+  Future<void> open(FleetBackend backend, Project project, {String? repository}) async {
     this.project = project;
-    repository = null;
+    openedForRepository = repository;
+    this.repository = repository;
     continuing = null;
     from = null;
     templateName = '';
@@ -402,7 +406,7 @@ class StartWork extends ChangeNotifier {
     await _reading(backend);
     // A project with one repository to work in has nothing to choose: asked anyway, right after
     // the person chose it in the dialog before, it read as asked twice.
-    if (this.project == project && project.workRepositories.length == 1 && repository == null) {
+    if (this.project == project && project.workRepositories.length == 1 && this.repository == null) {
       chooseRepository(project.workRepositories.single);
     }
   }
@@ -413,6 +417,7 @@ class StartWork extends ChangeNotifier {
   /// something more, and what that is only a person knows.
   Future<void> continueFrom(FleetBackend backend, Project project, Task task) async {
     this.project = project;
+    openedForRepository = null;
     // Continued where it worked: the same repository, not a new choice.
     repository = project.repositoryOf(task);
     continuing = task;
@@ -432,6 +437,7 @@ class StartWork extends ChangeNotifier {
   void close() {
     project = null;
     repository = null;
+    openedForRepository = null;
     continuing = null;
     notifyListeners();
   }

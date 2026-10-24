@@ -56,8 +56,7 @@ class ProjectHeader extends StatelessWidget {
   /// joined its conversation from here.
   final String? homeserver;
 
-  /// Starts work in one of its repositories: a repository's own menu, since work is always in one
-  /// (walk 10).
+  /// Starts work in one of its repositories, from its row's button or menu.
   final void Function(String repository)? onStart;
 
   /// Why work cannot start there now, or null.
@@ -251,7 +250,7 @@ class _Repositories extends StatelessWidget {
 }
 
 /// One of a project's repositories, as a project is one in the list of projects: its name, how far
-/// it has got, and a menu of what can be done with it, starting work in it first. Its limits are in
+/// it has got, a start button, and a menu of what can be done with it. Its limits are in
 /// that menu too, not on the row: not what a day's work needs (walk 10).
 class _RepositoryLine extends StatelessWidget {
   const _RepositoryLine({
@@ -276,6 +275,7 @@ class _RepositoryLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = repository.name;
+    final start = repositoryStartCommand(repository: name, onStart: onStart, unavailable: startUnavailable);
     final state = <String>[
       if (repository.pending > 0) '${repository.pending} waiting at the gate',
       if (repository.behindReason.isNotEmpty) repository.behindWords,
@@ -288,45 +288,86 @@ class _RepositoryLine extends StatelessWidget {
           child: whyNot == null ? Text(label) : Tooltip(message: whyNot, child: Text(label)),
         );
     return Card(
-      child: ListTile(
+      child: Padding(
         key: Key('repository-$name'),
-        leading: const Icon(Icons.source_outlined),
-        title: Text(
-          name,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: state.isEmpty
-            ? null
-            : Text(
-                state,
-                overflow: TextOverflow.ellipsis,
-                style: repository.hasFallenBehind ? TextStyle(color: theme.colorScheme.tertiary) : null,
+        padding: const EdgeInsets.all(Space.normal),
+        child: Wrap(
+          spacing: Space.normal,
+          runSpacing: Space.small,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            SizedBox(
+              width: Sizes.tile,
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.source_outlined),
+                  const SizedBox(width: Space.small),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (state.isNotEmpty)
+                          Text(
+                            state,
+                            overflow: TextOverflow.ellipsis,
+                            style: repository.hasFallenBehind ? TextStyle(color: theme.colorScheme.tertiary) : null,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-        trailing: PopupMenuButton<VoidCallback>(
-          key: Key('repository-menu $name'),
-          tooltip: 'What can be done with $name',
-          icon: const Icon(Icons.more_vert),
-          onSelected: (act) => act(),
-          itemBuilder: (_) => <PopupMenuEntry<VoidCallback>>[
-            item('start-in-$name', 'Start work in $name', onStart, whyNot: startUnavailable),
-            const PopupMenuDivider(),
-            item('sync-$name', "Ask $name's upstream how far behind it is, now", onSync),
-            item('backups-$name', 'Backups of $name', onBackups),
-            // A repository's egress is added to the project's, so this is the project's
-            // plan and what this repository adds to it: the daemon's reply says which is which.
-            item('opens-$name', 'Show what work in $name would open, creating nothing', onOpens),
-            item('reach-$name', 'What $name may reach, on top of what the project grants', onReach),
-            // A repository's limits replace the project's key by key; the ones it replaced are marked.
-            // The rest are never said to be the project's choice: they may be Porelo's.
-            if (repository.limits case final limits?) ...<PopupMenuEntry<VoidCallback>>[
-              const PopupMenuDivider(),
-              PopupMenuItem<VoidCallback>(
-                key: Key('limits-$name'),
-                enabled: false,
-                child: Text('Its limits: ${limits.words}'),
-              ),
-            ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Tooltip(
+                  message: start.unavailable ?? start.label,
+                  child: TextButton.icon(
+                    key: Key('start-here-$name'),
+                    onPressed: start.available ? start.run : null,
+                    icon: const Icon(Icons.add, size: Sizes.rowIcon),
+                    label: const Text('Start work here'),
+                  ),
+                ),
+                PopupMenuButton<VoidCallback>(
+                  key: Key('repository-menu $name'),
+                  tooltip: 'What can be done with $name',
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (act) => act(),
+                  itemBuilder: (_) => <PopupMenuEntry<VoidCallback>>[
+                    PopupMenuItem<VoidCallback>(
+                      key: Key(start.id),
+                      enabled: start.available,
+                      value: start.run,
+                      child: Tooltip(message: start.unavailable ?? start.label, child: Text(start.label)),
+                    ),
+                    const PopupMenuDivider(),
+                    item('sync-$name', "Ask $name's upstream how far behind it is, now", onSync),
+                    item('backups-$name', 'Backups of $name', onBackups),
+                    // A repository's egress is added to the project's, so this is the project's
+                    // plan and what this repository adds to it: the daemon's reply says which is which.
+                    item('opens-$name', 'Show what work in $name would open, creating nothing', onOpens),
+                    item('reach-$name', 'What $name may reach, on top of what the project grants', onReach),
+                    // A repository's limits replace the project's key by key; the ones it replaced are marked.
+                    // The rest are never said to be the project's choice: they may be Porelo's.
+                    if (repository.limits case final limits?) ...<PopupMenuEntry<VoidCallback>>[
+                      const PopupMenuDivider(),
+                      PopupMenuItem<VoidCallback>(
+                        key: Key('limits-$name'),
+                        enabled: false,
+                        child: Text('Its limits: ${limits.words}'),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),

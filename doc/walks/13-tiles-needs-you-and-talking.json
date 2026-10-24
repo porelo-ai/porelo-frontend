@@ -96,9 +96,10 @@
       ]
     },
     {
-      "say": "Links „Projects“, porelo-test-project öffnen, ⋮ oben rechts → „Messages — the conversation of this project …“. Dein Name, „Join“ (oder „Give a new password“, wenn Du schon beigetreten bist).",
+      "say": "Open porelo-test-project under Projects. Under Work, press its Messages tile, also available in the project’s ⋮ menu. Enter your name and press “Join” (or “Give a new password” if already joined).",
       "at": [
         "join-it",
+        "command-tile-*project.messages",
         "project-menu",
         "project porelo-test-project",
         "rail projects",
@@ -120,9 +121,10 @@
       ]
     },
     {
-      "say": "Auf der Seite von porelo-test-project ⋮ → „Review what is waiting at the gate“, den Push öffnen, „Forward it upstream…“. Bestanden: „Branch to push to“ bietet die Branches des Repositories zur Auswahl an, der Standard als „(its default branch)“, und „A new branch…“ – getippt werden muss nichts.",
+      "say": "On the page of porelo-test-project, under Work, press “Review what is waiting at the gate”, also available in the project’s ⋮ menu. Open the push and choose “Forward it upstream…”. “Branch to push to” offers the repository branches, its default marked “(its default branch)”, and “A new branch…”; no typing is needed.",
       "at": [
         "forward-branch",
+        "command-tile-*gate.open",
         "gate.open",
         "project-menu",
         "project porelo-test-project",

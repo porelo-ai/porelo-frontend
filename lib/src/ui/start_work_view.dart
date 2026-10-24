@@ -93,6 +93,8 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
 
   late final TextEditingController _name = TextEditingController(text: widget.starting.name);
 
+  bool _changingRepository = false;
+
   /// The name field, showing a suggestion that came in since, but never replacing what is being typed.
   TextEditingController _nameShown(String name) {
     if (_name.text.trim() != name) {
@@ -179,7 +181,21 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                 if (starting.needsARepository) ...<Widget>[
                   const SizedBox(height: Space.wide),
                   Text('Which repository', style: Theme.of(context).textTheme.labelLarge),
-                  _WhichRepository(starting: starting),
+                  if (starting.openedForRepository != null && !_changingRepository)
+                    Wrap(
+                      spacing: Space.small,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: <Widget>[
+                        Text(starting.repository!, key: const Key('start-repository-chosen')),
+                        TextButton(
+                          key: const Key('start-repository-change'),
+                          onPressed: () => setState(() => _changingRepository = true),
+                          child: const Text('Change'),
+                        ),
+                      ],
+                    )
+                  else
+                    _WhichRepository(starting: starting),
                 ],
                 // Required, and filled in from the repository.
                 if (continuing == null) ...<Widget>[
@@ -465,8 +481,7 @@ class _MoreCredentials extends StatelessWidget {
   }
 }
 
-/// The project's repositories, the project's own first, with **none chosen** until somebody
-/// chooses — not even when there is only one.
+/// The repositories work can start in, with the current choice when one was made.
 class _WhichRepository extends StatelessWidget {
   const _WhichRepository({required this.starting});
 

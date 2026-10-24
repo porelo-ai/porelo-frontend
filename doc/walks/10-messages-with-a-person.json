@@ -60,8 +60,9 @@
       ]
     },
     {
-      "say": "Links „Projects“, die Zeile porelo-test-project öffnen, auf ihrer Seite im Menü ⋮ oben rechts „Messages — the conversation of this project, and who has joined it“.",
+      "say": "Open porelo-test-project under Projects. Under Work, press the “Messages — the conversation of this project, and who has joined it” tile. The same command remains in the project’s ⋮ menu.",
       "at": [
+        "command-tile-*project.messages",
         "project-menu",
         "project porelo-test-project",
         "rail projects",

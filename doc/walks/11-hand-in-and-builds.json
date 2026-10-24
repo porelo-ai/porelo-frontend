@@ -22,17 +22,20 @@
       ]
     },
     {
-      "say": "Die rote Arbeit starten: auf der Seite von porelo-test-project an der Zeile porelo-test-2 rechts ⋮ → „Start work in porelo-test-2“ (oder links „Work“ → „New work“, testmaschine, porelo-test-project, porelo-test-2).",
+      "say": "Start the red work: on the page of porelo-test-project, press “Start work here” beside porelo-test-2 (or use its ⋮ → “Start work in porelo-test-2”). The project-wide Start work tile under Work asks which repository to use.",
       "at": [
+        "start-here-*test-2",
         "start-in-*test-2",
         "repository-menu *test-2",
         "new-work"
       ]
     },
     {
-      "say": "„Which repository“: porelo-test-2. Name: ganz löschen, red tippen. „Which agent“: Claude Code, „How you take part“: „A shell, driven by hand“. Fragt das Formular nach der Anmeldung bei Claude: „Sign in first“, Link öffnen, Code einfügen, „Done“.",
+      "say": "The repository reads porelo-test-2 as text, with “Change” beside it. Change opens the repository dropdown if another is needed. Clear the name and type red. Choose Claude Code and “A shell, driven by hand”. If sign-in is requested, press “Sign in first”, open the link, enter the code, and press “Done”.",
       "at": [
         "start-name",
+        "start-repository-chosen",
+        "start-repository-change",
         "start-repository-*",
         "start-agent",
         "start-mode-agent",
@@ -113,8 +116,9 @@
       ]
     },
     {
-      "say": "Die grüne Arbeit, auf testmaschine: links „Work“ → „New work“ → „Where should it run?“ testmaschine, dann porelo-test-project (oder links „Projects“ → porelo-test-project, an der Zeile porelo-test-1 ⋮ → „Start work in porelo-test-1“). Repository porelo-test-1, Name green, Claude Code, „A shell, driven by hand“, „Start it“, dann „Leave“.",
+      "say": "Start the green work on testmaschine: open porelo-test-project under Projects and press “Start work here” beside porelo-test-1. Its name is shown with “Change” beside it. Name the work green, choose Claude Code and “A shell, driven by hand”, then “Start it” and “Leave”.",
       "at": [
+        "start-here-*test-1",
         "start-in-*test-1",
         "repository-menu *test-1",
         "new-work"

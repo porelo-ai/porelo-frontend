@@ -1,6 +1,6 @@
 # F165 — A Project's Commands As Tiles On Its Page
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one tile widget over the project's existing commands, grouped, on its page.
 
 **What must be true.** A project's page shows its commands as tiles with a line each on what they

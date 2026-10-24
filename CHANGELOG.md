@@ -17,6 +17,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Project pages offer grouped action tiles and a visible Start work here button on each repository;
+  starting from a row keeps that repository selected until Change chooses another.
+
 - Task starts show the machine's steps, what they wait on, and the cause when a dependency fails,
   with the detailed output kept below. Older machines keep their existing start feedback.
 
