@@ -49,8 +49,8 @@ with one `SHA256SUMS` over them and the build's attestation,
 `%APPDATA%\porelo\frontend.json`, so either can be used, and the other taken up later.
 
 **Untested on a Windows machine.** Each build is checked on GitHub's Windows runner, where its tests
-run and the ZIP and the MSIX are built; neither has yet been tried with a WSL distribution on a
-person's Windows computer, and the MSIX has not been installed. Once such a test is done, this says
+run, the ZIP and the MSIX are built, and the MSIX is installed and started; neither has yet been
+tried with a WSL distribution on a person's Windows computer. Once such a test is done, this says
 on which version.
 
 #### Portable (ZIP)
@@ -129,7 +129,9 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
 
 `porelo-host`, installed beside the interface (`/usr/lib/porelo-frontend/porelo-host`, or
 `porelo-host.exe` in the Windows folder), puts a project on a rented server and takes it off
-again. The playbook runs on the server itself, so this computer needs only ssh.
+again. The standalone `porelo-host` and `porelo-host.exe` binaries are also published in
+Artifactory under `porelo-dist-host/<channel>/<version>/` with `SHA256SUMS`. The playbook runs on
+the server itself, so this computer needs only ssh.
 
 **Once, in Scaleway's console**, for the project the host is rented in:
 
@@ -142,6 +144,10 @@ again. The playbook runs on the server itself, so this computer needs only ssh.
    ```sh
    porelo-host key set scaleway      # reads the key from standard input; nothing is echoed
    ```
+
+   The key is kept in Secret Service on Linux and Credential Manager on Windows, never in a file or
+   a command line, and `porelo-host key forget scaleway` removes it; if no keyring is open, `key
+   set` stops at once instead of waiting on a desktop prompt.
 
 **Then, for each project:**
 

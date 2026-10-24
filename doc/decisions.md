@@ -87,8 +87,10 @@ Three choices Porelo's remote access leaves to the client:
   raised, nothing supervised, nothing taken down.
 - **The interface manages `ssh` itself** for a machine described by where it is: one process per
   machine, `BatchMode=yes` so it fails with ssh's own sentence rather than prompting, and
-  `ExitOnForwardFailure=yes` so a forward that cannot bind does not read as connected. It owns only
-  what it raised, and closing the window takes those down.
+  `ExitOnForwardFailure=yes` so a forward that cannot bind does not read as connected. When a
+  login is refused, the refusal is explained in plain words beside the machine on *Machines* as well
+  as when it is added, naming the key `ssh`'s configuration resolves for the host or saying that
+  none is named. It owns only what it raised, and closing the window takes those down.
 - **A cut stream is a disconnection, never an empty machine.** A forward that drops is raised again
   without being asked, and a machine that stops answering is tried again every two seconds; a
   `Watch` that ends without its final reply reports a lost connection. Nothing is re-derived from
@@ -371,7 +373,9 @@ than raw JSON, in a small console under its name; one press enlarges it to the l
 right, following, and one press makes it small again. It reads only the end of the log (`Tail` with
 `last` and `formatted`, asked only where the machine takes them), is redrawn at most every three
 seconds, and a folded tile reads nothing. Work in a terminal shows the session's last lines
-through `Screen`, without attaching, in the terminal's own look.
+through `Screen`, without attaching, in the terminal's own look. When an unattended run's agent has
+ended, a line under the console says whether it finished or stopped before its end, whether its
+work waits at the gate, and where to go next: the review at the gate or the output above it.
 
 **What it costs:** an unfolded tile reads even while it is scrolled out of view; folding it is what
 stops the reading.
@@ -506,7 +510,9 @@ setup costs every machine about 165 MB of memory at rest, whether it ever carrie
 A build runs the tests, leases a machine for the integration tests, installs and publishes a
 snapshot — all of it for a package that has not changed when only documentation did. `build.yml`
 ignores pushes whose every change is under `**.md`, `doc/**` or `issues/**`; a push that changes code
-as well runs in full, and `workflow_dispatch` still forces a run.
+as well runs in full, and `workflow_dispatch` still forces a run. On a push whose tree a run already
+proved with the leased leg green, the build skips leasing again and names the run it took the
+proof from; a tag always runs the leg.
 
 **The cost is that CI does not check such a push**: the decisions index, dead links and retired
 issue ids are held by `test/docs_test.dart` run before the commit, not after the push.
@@ -609,17 +615,18 @@ person changes it; after a yes, `wsl.exe --terminate` and the next call starts i
 
 There is no Windows machine here, so the rule that the whole workflow runs green on the VM before a
 push has one exception: the Windows build's regular check is GitHub's Windows runner, its unit,
-feature and documents tests, the ZIP and the MSIX built and signed. The operator tests on a Windows
-machine from time to time, as [design](design.md#a-test-on-a-windows-machine) says how; such a test
-is welcome, not required before a push or before an issue is finished. Until one is done, the
-download page and the issue's row say "untested on a Windows machine", then "tested on Windows on
-<version>".
+feature and documents tests, the ZIP and the MSIX built and signed, and the MSIX installed and
+started once after a copy signed with another certificate is seen refused. The operator tests on a
+Windows machine from time to time, as [design](design.md#a-test-on-a-windows-machine) says how;
+such a test is welcome, not required before a push or before an issue is finished. Until one is
+done, the download page and the issue's row say "untested on a Windows machine", then "tested on
+Windows on <version>".
 
 **The exposure:** until such a test, nothing has shown the interface on Windows reaching a WSL
 distribution, a terminal attached through ConPTY, a push approved at the gate, or that a second
-Windows user cannot reach the distribution; and the MSIX is built and signed but never installed.
-**What would change the answer:** the MSIX installed and started in the Build's Windows job narrows
-it; a Windows machine here would make the test part of every hand-over.
+Windows user cannot reach the distribution.
+**What would change the answer:** a Windows machine here would make the test part of every
+hand-over.
 
 ## The rename to Porelo carries nothing over
 

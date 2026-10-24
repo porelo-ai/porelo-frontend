@@ -184,7 +184,10 @@ The packaging requirement is met and retired; this is what it is made of.
   for that.
 - **Where it is published:** into the same Artifactory repository as `porelo` and the agent
   packages. A dependency between packages does not resolve when they are split across configured
-  sources — this is recorded in the backend's own notes and applies here unchanged.
+  sources — this is recorded in the backend's own notes and applies here unchanged. Each package,
+  Windows archive and standalone `porelo-host` binary is uploaded to Artifactory by `curl` with its
+  SHA-1 and SHA-256 checksums and the token passed on standard input, with no client downloaded in
+  the job that holds the token.
 - **Build machine:** Ubuntu, never Fedora, because the bundle links glibc dynamically — the
   backend's own rule. Flutter adds one the CLI never had: the bundle links the GTK3 stack too,
   so the build machine's GTK is the oldest GTK the package can run against, and the build runs on
