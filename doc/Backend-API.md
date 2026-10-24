@@ -123,6 +123,12 @@ Worth knowing before designing around them:
   read first, and a larger file is refused here before a byte of it is read. A machine without
   hand-in leaves `files`, `handInLimit` and `run` absent, which is drawn as absent, never as empty;
   `by` is `"porelo"` for what Porelo hands in itself.
+- **A task's output age and inbox count come with the task.** `Task.lastWrote` is the ISO-8601
+  instant its log was last written, or `""` without a write; changing it alone does not trigger
+  `Watch`. `Task.inboxWaiting` counts messages waiting in the task's inbox for every listed task,
+  including running, ended and stopped work. Both fields are optional: absent means not reported,
+  so no age or inbox count is guessed. The last output line comes from `Tail(last: 1)`. An
+  unattended run is never woken by a message; quiet is described as silence.
 - **A task's builds come with the task.** `buildReader` `""` means no forge follows its pushes and
   nothing is said; set, with `builds` empty and `buildProblem` `""`, it means nothing was pushed yet;
   `buildProblem` says why a named reader does not work. A `Build` lists its jobs only once the verdict

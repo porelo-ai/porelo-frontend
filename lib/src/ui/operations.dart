@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../app/commands.dart';
+import '../app/fleet_model.dart';
 import '../app/operations.dart';
+import '../app/unattended_run.dart';
 import '../client/models.dart';
+import 'how_long.dart';
 import 'panes.dart';
 import 'selection_list.dart';
 import 'tokens.dart';
@@ -116,7 +122,20 @@ class _OperationRow extends StatelessWidget {
 /// operation is watched by the session, not by whoever happens to be looking.
 class OperationOutputView extends StatefulWidget {
   /// Constructor taking what to show and the ways out.
-  const OperationOutputView({required this.operation, required this.onBack, required this.onClose, super.key});
+  const OperationOutputView({
+    required this.operation,
+    required this.onBack,
+    required this.onClose,
+    this.run,
+    this.restart,
+    super.key,
+  });
+
+  /// The unattended task this operation started, when it is a task start.
+  final UnattendedRun? run;
+
+  /// Opens that task's start form, with the reason it is unavailable now.
+  final Command? restart;
 
   /// What is being watched.
   final Operation operation;
@@ -134,11 +153,27 @@ class OperationOutputView extends StatefulWidget {
 class _OperationOutputViewState extends State<OperationOutputView> {
   final _scroll = ScrollController();
   int _lastSeen = 0;
+  bool _startEnded = false;
+  Timer? _age;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.run?.addListener(_changed);
+    widget.run?.follow();
+    if (widget.run != null) _age = Timer.periodic(const Duration(minutes: 1), (_) => _changed());
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
     final operation = widget.operation;
     final steps = operation.steps.values.toList();
+    final run = widget.run;
+    final leave = leaveWorkCommand(widget.onClose);
     _followTheEnd(operation.output.length);
 
     return Column(
@@ -146,7 +181,14 @@ class _OperationOutputViewState extends State<OperationOutputView> {
         PaneHeader(
           title: operation.title,
           leading: BackButton(onPressed: widget.onBack),
-          trailing: IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: widget.onClose),
+          trailing: run != null && !operation.running
+              ? TextButton.icon(
+                  key: const Key('leave-run'),
+                  onPressed: leave.run,
+                  icon: const Icon(Icons.logout, size: Sizes.rowIcon),
+                  label: Text(leave.label),
+                )
+              : IconButton(icon: const Icon(Icons.close), tooltip: 'Close (Esc)', onPressed: widget.onClose),
         ),
         _Summary(operation: operation),
         if (operation.linesNotKept > 0)
@@ -159,7 +201,7 @@ class _OperationOutputViewState extends State<OperationOutputView> {
             ),
           ),
         Expanded(
-          child: operation.output.isEmpty && steps.isEmpty
+          child: operation.output.isEmpty && steps.isEmpty && (run == null || operation.running || operation.failed)
               ? Center(
                   child: Text(
                     operation.running ? 'Nothing printed yet.' : 'It printed nothing at all.',
@@ -172,8 +214,13 @@ class _OperationOutputViewState extends State<OperationOutputView> {
                     controller: _scroll,
                     primary: false,
                     padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-                    itemCount: steps.length + operation.output.length,
-                    itemBuilder: (context, index) => index < steps.length
+                    itemCount:
+                        steps.length +
+                        operation.output.length +
+                        (run != null && !operation.running && !operation.failed ? 1 : 0),
+                    itemBuilder: (context, index) => index == steps.length + operation.output.length
+                        ? _RunState(run: run!, restart: widget.restart)
+                        : index < steps.length
                         ? _StartStepView(step: steps[index])
                         : SelectableText(
                             operation.output[index - steps.length],
@@ -188,10 +235,11 @@ class _OperationOutputViewState extends State<OperationOutputView> {
 
   /// Keeps the newest line in view while it is still being written to.
   ///
-  /// Only while running: scrolling somebody's place away after it has finished would take the
-  /// thing they opened it to read off the screen.
+  /// The start's end is followed once so the task state is visible; later updates keep the reader's place.
   void _followTheEnd(int lines) {
-    if (!widget.operation.running || lines == _lastSeen) return;
+    final justEnded = widget.run != null && !widget.operation.running && !widget.operation.failed && !_startEnded;
+    if (!justEnded && (!widget.operation.running || lines == _lastSeen)) return;
+    if (justEnded) _startEnded = true;
     _lastSeen = lines;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
@@ -201,8 +249,57 @@ class _OperationOutputViewState extends State<OperationOutputView> {
 
   @override
   void dispose() {
+    _age?.cancel();
+    widget.run?.removeListener(_changed);
+    widget.run?.unfollow();
     _scroll.dispose();
     super.dispose();
+  }
+}
+
+class _RunState extends StatelessWidget {
+  const _RunState({required this.run, required this.restart});
+
+  final UnattendedRun run;
+  final Command? restart;
+
+  @override
+  Widget build(BuildContext context) {
+    final task = run.task;
+    final age = howLongSince(DateTime.tryParse(task?.lastWrote ?? ''));
+    final connected = run.fleet.reachability == Reachability.connected;
+    final state = switch (task?.activity.name) {
+      'WORKING' => 'Working',
+      'IDLE' => 'Resting',
+      'ENDED' => 'Ended',
+      'WAITING' => 'Waiting for clearance${task!.waitingFor.isEmpty ? '' : ': ${task.waitingFor}'}',
+      '' || null => 'The agent state has not been reported',
+      final other => other,
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('The task runs; the agent works now'),
+          Text('${run.named} · ${run.project} · ${run.machine.name}'),
+          if (!connected) const Text('Lost contact with the machine; showing its last report.'),
+          Text(state),
+          if (run.lastLine != null) SelectableText(run.lastLine!),
+          if (age != null) Text('no output for $age'),
+          if (run.problem != null) SelectableText('The run could not be read: ${run.problem}'),
+          if (task?.activity.name == 'ENDED' && (task?.inboxWaiting ?? 0) > 0 && restart != null)
+            Tooltip(
+              message: restart!.unavailable ?? restart!.label,
+              child: TextButton(
+                key: const Key('restart-run'),
+                onPressed: restart!.available ? restart!.run : null,
+                child: Text(restart!.label),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

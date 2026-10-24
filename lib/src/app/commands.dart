@@ -63,7 +63,40 @@ enum Home {
 
   /// The machine's status line.
   statusLine,
+
+  /// Actions in the view open over the frame.
+  openedView,
 }
+
+/// Leaves a view onto work without interrupting the work itself.
+Command leaveWorkCommand(VoidCallback leave, {String? unavailable}) => Command(
+  id: 'work.leave',
+  label: 'Leave',
+  group: 'Work',
+  home: Home.openedView,
+  run: leave,
+  unavailable: unavailable,
+);
+
+/// Opens the watched task's start form for review before another run.
+Command restartRunCommand({required Task? task, required VoidCallback open, String? unavailable}) => Command(
+  id: 'work.restartRun',
+  label: task?.inboxWaiting == null ? 'Start again' : 'Start again, ${task!.inboxWaiting} messages wait',
+  group: 'Work',
+  home: Home.openedView,
+  run: open,
+  unavailable:
+      unavailable ??
+      (task == null
+          ? 'the task has not been reported'
+          : task.activity.name != 'ENDED'
+          ? 'the agent has not ended'
+          : task.inboxWaiting == null
+          ? 'the machine has not reported waiting messages'
+          : task.inboxWaiting! <= 0
+          ? 'no messages wait'
+          : null),
+);
 
 /// One action in the product, by name.
 ///
@@ -909,6 +942,7 @@ List<Command> machineCommands({
 /// third of the requirements have no backend method behind them, so their actions do not exist
 /// to be named yet. See `doc/Contract-Gaps.md`.
 List<Command> commandsFor({
+  List<Command> viewActions = const [],
   required FleetModel fleet,
   required Machine machine,
   List<Command> hostActions = const [],
@@ -983,6 +1017,7 @@ List<Command> commandsFor({
   final latest = operations.latest;
 
   return <Command>[
+    ...viewActions,
     // The title bar: machines, options, about. Everything else lives where it acts.
     Command(
       id: 'machines.add',

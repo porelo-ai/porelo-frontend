@@ -46,6 +46,7 @@ import '../app/vault_unlock.dart';
 import '../app/project_deletion.dart';
 import '../app/hand_in.dart';
 import '../app/session.dart';
+import '../app/unattended_run.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
@@ -255,6 +256,7 @@ class _ShellState extends State<Shell> {
   /// The homeservers joined from here, forwarded while the window runs.
   late final HomeserverForwards _homeservers;
   late final AppLifecycleListener _leaving;
+  final _runs = <String, UnattendedRun>{};
 
   /// This build's version, stamped by the package build; a build from source says so.
   static const _version = String.fromEnvironment('PORELO_VERSION', defaultValue: 'built from source');
@@ -343,6 +345,7 @@ class _ShellState extends State<Shell> {
   }
 
   List<Command> _commands() => commandsFor(
+    viewActions: _viewActions(),
     fleet: _fleet,
     machine: widget.machines.current,
     hostActions: _hostCommands(widget.machines.current),
@@ -412,6 +415,47 @@ class _ShellState extends State<Shell> {
     unlockWithThePassphrase: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
     makeTheVault: _canUnlockHere ? () => unawaited(_makeTheVault()) : null,
   );
+
+  UnattendedRun? get _openedRun => switch (widget.shell.opened) {
+    OperationOpened(:final id) => _runs[id],
+    _ => null,
+  };
+
+  List<Command> _viewActions() {
+    final run = _openedRun;
+    if (run != null) {
+      return [
+        leaveWorkCommand(widget.shell.close, unavailable: run.operation.running ? 'the start is still running' : null),
+        _restartCommand(run),
+      ];
+    }
+    final session = widget.sessions.current;
+    return session == null ? [] : [leaveWorkCommand(() => unawaited(widget.sessions.leave()))];
+  }
+
+  Command _restartCommand(UnattendedRun run) => restartRunCommand(
+    task: run.task,
+    open: () => unawaited(_restartTheRun(run)),
+    unavailable: run.operation.running
+        ? 'the start is still running'
+        : run.operation.failed
+        ? 'the start failed'
+        : !widget.machines.all.contains(run.machine)
+        ? 'the machine is no longer watched'
+        : notAnswering(run.fleet) ?? StartWork.whyNot(run.configuration),
+  );
+
+  Future<void> _restartTheRun(UnattendedRun run) async {
+    final task = run.task;
+    final project = run.configuration;
+    if (task == null || project == null || !_restartCommand(run).available) return;
+    widget.machines.select(run.machine);
+    run.fleet.selectProject(project.name);
+    widget.starting.publishedHostKeys = _publishedHostKeys;
+    widget.starting.runningElsewhere = _runningElsewhere(project.name);
+    unawaited(widget.starting.restartFrom(run.fleet.backend, project, task));
+    await _offerToStart();
+  }
 
   /// The menu in the machine's title, for the machine being acted on.
   List<Command> _machineMenu() => machineCommands(
@@ -1678,6 +1722,16 @@ class _ShellState extends State<Shell> {
       machine: widget.machines.current.name,
       output: starting.begin(_fleet.backend),
     );
+    if (starting.mode == Mode.unattended) {
+      _runs[operation.id] = UnattendedRun(
+        machine: widget.machines.current,
+        fleet: _fleet,
+        project: project,
+        named: named,
+        operation: operation,
+        operations: widget.operations,
+      );
+    }
     widget.shell.openOperation(operation.id);
     if (byHand) unawaited(_workInItOnceUp(operation, project, named, runningBefore));
   }
@@ -2254,7 +2308,7 @@ class _ShellState extends State<Shell> {
     if (chosen == null || !mounted) return;
     // Something with no single place on screen runs at once; everything else is shown where it
     // lives, so the next time it is found there.
-    if (chosen.home == Home.none || chosen.home == Home.appBar) {
+    if (chosen.home == Home.none || chosen.home == Home.appBar || chosen.home == Home.openedView) {
       chosen.run();
     } else {
       // Where it lives: a piece of work's tile is under Work, a project's menu on its page, setting
@@ -2740,7 +2794,8 @@ class _ShellState extends State<Shell> {
   Widget? _console() {
     final session = widget.sessions.current;
     if (session == null || !_consoleIsHere) return null;
-    return SessionView(session: session, focusNode: _openedFocus, onLeave: () => unawaited(widget.sessions.leave()));
+    final leave = leaveWorkCommand(() => unawaited(widget.sessions.leave()));
+    return SessionView(session: session, focusNode: _openedFocus, onLeave: leave.run);
   }
 
   /// One machine: its title and menu, then its projects and work, then what it ran.
@@ -3096,7 +3151,10 @@ class _ShellState extends State<Shell> {
           scheduleMicrotask(() => widget.operations.see(operation));
         }
         return OperationOutputView(
+          key: ValueKey(operation.id),
           operation: operation,
+          run: _runs[id],
+          restart: _runs[id] == null ? null : _restartCommand(_runs[id]!),
           onBack: widget.shell.openOperations,
           onClose: widget.shell.close,
         );
@@ -3117,6 +3175,9 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    for (final run in _runs.values) {
+      run.dispose();
+    }
     widget.shell.removeListener(_moveKeyboard);
     widget.sessions.removeListener(_moveKeyboard);
     widget.settings.removeListener(_keepRefreshing);

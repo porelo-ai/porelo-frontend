@@ -74,6 +74,9 @@ class StartWork extends ChangeNotifier {
   /// The task being continued, or null when this is new work.
   Task? continuing;
 
+  /// The existing task whose name this reviewed restart may reuse.
+  Task? restarting;
+
   /// The template this was opened from, or null when it was not.
   Template? from;
 
@@ -265,7 +268,7 @@ class StartWork extends ChangeNotifier {
     if (_onlyDigits.hasMatch(name)) return 'A name cannot be only digits.';
     // A start under a name the project has means *that* work again, so new work never takes one
     // (walk 9: said at once, not only when it is started).
-    if (continuing == null && _taken.contains(name)) {
+    if (continuing == null && restarting?.task != name && _taken.contains(name)) {
       return 'The name "$name" is taken: work of this project on this machine has it already. Choose '
           'another, or open that work from its tile.';
     }
@@ -371,6 +374,7 @@ class StartWork extends ChangeNotifier {
     // it is chosen again rather than sent to be refused.
     repository = project.workRepositories.contains(template.repository) ? template.repository : null;
     continuing = null;
+    restarting = null;
     from = template;
     templateName = template.name;
     agent = template.agent;
@@ -389,6 +393,7 @@ class StartWork extends ChangeNotifier {
     openedForRepository = repository;
     this.repository = repository;
     continuing = null;
+    restarting = null;
     from = null;
     templateName = '';
     agent = null;
@@ -415,18 +420,34 @@ class StartWork extends ChangeNotifier {
   ///
   /// The old prompt is put in the box rather than sent as it stands: continuing means asking for
   /// something more, and what that is only a person knows.
-  Future<void> continueFrom(FleetBackend backend, Project project, Task task) async {
+  Future<void> continueFrom(FleetBackend backend, Project project, Task task) =>
+      _openFromTask(backend, project, task, mode: Mode.unattended, name: '');
+
+  /// Opens a listed task's start for review, keeping its identity and reported mode.
+  Future<void> restartFrom(FleetBackend backend, Project project, Task task) =>
+      _openFromTask(backend, project, task, mode: task.mode, name: task.task, restarting: true);
+
+  Future<void> _openFromTask(
+    FleetBackend backend,
+    Project project,
+    Task task, {
+    required Mode mode,
+    required String name,
+    bool restarting = false,
+  }) async {
     this.project = project;
     openedForRepository = null;
     // Continued where it worked: the same repository, not a new choice.
     repository = project.repositoryOf(task);
-    continuing = task;
+    continuing = restarting ? null : task;
+    this.restarting = restarting ? task : null;
     from = null;
     templateName = '';
     agent = task.agent.isEmpty ? null : task.agent;
-    mode = Mode.unattended;
+    this.mode = mode;
     prompt = task.prompt;
-    name = '';
+    this.name = name;
+    _named = name.isNotEmpty;
     problem = null;
     _forgetReadiness();
     notifyListeners();
@@ -439,6 +460,7 @@ class StartWork extends ChangeNotifier {
     repository = null;
     openedForRepository = null;
     continuing = null;
+    restarting = null;
     notifyListeners();
   }
 

@@ -358,6 +358,12 @@ class Task {
   /// What the work is doing, beside [state].
   final Activity activity;
 
+  /// When the task log was last written, ISO-8601; empty without a write, null when not reported.
+  final String? lastWrote;
+
+  /// Messages waiting in this task's inbox, including ended or stopped work; null when not reported.
+  final int? inboxWaiting;
+
   /// What is enforcing this task's egress: `prompt`, `allow`, `deny` or `off`.
   ///
   /// Empty when nothing recorded it, which is every task started before the field existed —
@@ -449,6 +455,8 @@ class Task {
     this.branch = '',
     this.since = '',
     this.activity = const Activity(''),
+    this.lastWrote,
+    this.inboxWaiting,
     this.waitingFor = '',
     this.clearance = '',
     this.waiting = 0,
@@ -513,6 +521,8 @@ class Task {
     branch: _string(map, 'branch'),
     since: _string(map, 'since'),
     activity: Activity(_string(map, 'activity')),
+    lastWrote: map['lastWrote'] is String ? map['lastWrote'] as String : null,
+    inboxWaiting: map['inboxWaiting'] is int && (map['inboxWaiting'] as int) >= 0 ? map['inboxWaiting'] as int : null,
     waitingFor: _string(map, 'waitingFor'),
     clearance: _string(map, 'clearance'),
     waiting: _int(map, 'waiting'),
