@@ -38,6 +38,11 @@ interface shows only `porelo`'s words without saying whose file it is or whether
   `FAILED` step its `cause`, verbatim; the lines stay under the steps, as today's details.
 - **The interface's own words:** where steps came, the 69 sentence is not written, since the
   failed step says what was refused. Where none came, an older daemon, it stays as it is.
+- **A refusal of the repository's `porelo.yml`**, read in porelo's code by its owner: an ordinary
+  final reply, exit code 64, its words as lines; with steps, a `FAILED` step, `CHECKS` before the
+  gate's fetch or `WORKSPACE` after it, whose `cause` is the refusal's first line. porelo's own
+  sentence says whose file it is, who changes it, and that nothing was created, so the interface
+  shows it as it comes and adds nothing.
 - **The mock** serves steps for a start when asked with `steps: true`, driven by the test, and a
   start whose `CONVERSATION` step waits on the room's homeserver and then fails with its cause.
 - **Tests, their harm, red first:** a start whose dependency failed ends showing that step's
@@ -53,10 +58,3 @@ interface shows only `porelo`'s words without saying whose file it is or whether
   belongs to the repository, who changes it, and that nothing was started.
 - Seen to fail first: a start whose homeserver fails today shows only the last output line until
   it times out; the test that holds the named cause goes red on it.
-
-## To be checked
-
-- How a start refused for the repository's own `porelo.yml` arrives (a final reply or an error, a
-  `FAILED` step and which), and whether the daemon's sentence already says the file is the
-  repository's, who changes it, and that nothing was started. Asked of porelo's owner; what it
-  lacks goes into that sentence there, not into a second copy here.
