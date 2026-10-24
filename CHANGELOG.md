@@ -7,6 +7,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A server's menu offers Save the VPN connection… after closing its setup dialog or restarting
+  the app, using public tunnel settings kept when the host becomes Ready. Saving again keeps the
+  newly chosen path and preserves the setup collection's verification digest.
+
 ### Changed
 
 - Forge tokens are entered only in terminal prompts, kept on this computer for the forge API and

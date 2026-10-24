@@ -1,3 +1,5 @@
+import 'package:porelo_host/porelo_host.dart';
+
 /// Refuses anything except a plain absolute local file path before a root command is opened.
 void checkVpnFile(String file) {
   if (!file.startsWith('/') || file.length < 2 || RegExp(r'[^A-Za-z0-9 /._:@%+=,-]').hasMatch(file)) {
@@ -17,4 +19,29 @@ List<String> hostVpnUpCommand(String file) {
     'porelo-vpn',
     file,
   ];
+}
+
+/// Opens the key store only for the requested file work and closes only a store opened here.
+Future<void> withHostFiles(
+  Future<void> Function(HostFiles) use, {
+  SecretStore? secretStore,
+  HostFiles Function(SecretStore)? hostFiles,
+}) async {
+  late final SecretStore store;
+  try {
+    store = secretStore ?? SecretStore.forThisSystem();
+  } on Exception {
+    throw const SecretStoreFailed('The system secret store could not be opened.');
+  }
+  try {
+    await use(hostFiles?.call(store) ?? HostFiles(store));
+  } finally {
+    if (secretStore == null) {
+      try {
+        await store.close();
+      } on Exception {
+        throw const SecretStoreFailed('The system secret store could not be closed.');
+      }
+    }
+  }
 }

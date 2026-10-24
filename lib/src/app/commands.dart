@@ -621,6 +621,7 @@ List<Command> hostMachineCommands({
   required Machine machine,
   required Settings settings,
   required VoidCallback takeDown,
+  VoidCallback? saveTunnel,
   VoidCallback? bringVpnUp,
   VoidCallback? takeVpnDown,
   VoidCallback? joinRoom,
@@ -638,13 +639,25 @@ List<Command> hostMachineCommands({
           : null,
     ),
     Command(
+      id: 'machine.saveTunnel',
+      label: 'Save the VPN connection…',
+      group: 'Machine',
+      home: Home.machineMenu,
+      run: saveTunnel ?? () {},
+      unavailable: settings.hostUp(machine.hostProject) == null
+          ? 'no host setup was kept; use Put this project on a server…'
+          : saveTunnel == null
+          ? 'not offered here'
+          : null,
+    ),
+    Command(
       id: 'machine.vpnUp',
       label: 'Bring the VPN up',
       group: 'Machine',
       home: Home.machineMenu,
       run: bringVpnUp ?? () {},
       unavailable: settings.hostUp(machine.hostProject)?.vpnFile == null
-          ? 'save the VPN connection to this server first'
+          ? 'use Save the VPN connection… first'
           : bringVpnUp == null
           ? 'not offered here'
           : null,

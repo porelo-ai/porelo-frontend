@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
@@ -32,11 +34,13 @@ const _done = Step(
 );
 
 void main() {
+  late MemorySettingsStore store;
   late Settings settings;
   late Machines machines;
   late HostRuns runs;
   setUp(() {
-    settings = Settings(MemorySettingsStore());
+    store = MemorySettingsStore();
+    settings = Settings(store);
     machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: _Tunnels());
     runs = HostRuns(machines, endpointFor: (name) => '/tmp/$name.sock');
   });
@@ -73,6 +77,46 @@ void main() {
         expect(machine.remoteSocket, '/run/user/1007/porelo/porelod.sock');
         expect(machine.identity, _record.identity);
       }
+    });
+  }
+
+  for (final code in [0, 65, 69, 75]) {
+    // Harm: losing confirmed tunnel settings prevents saving after restart; keeping an unready endpoint targets the wrong host.
+    test('public tunnel settings are kept only after a ready host with exit $code', () async {
+      final publicKey = base64Encode(List<int>.filled(32, 9));
+      final peer = base64Encode(List<int>.filled(32, 7));
+      final digest = List.filled(64, 'a').join();
+      final record = HostUpRecord.fromStored({
+        ..._record.stored,
+        'vpnPeerPublicKey': peer,
+        'vpnPeerAddress': '10.73.0.2/32',
+        'collection': '/setup',
+        'collectionSha256': digest,
+      })!.withVpnFile('/previous.conf');
+      await settings.rememberHostUp('demo', record);
+      final process = HostProcess();
+      final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+      final run = runs.start(
+        project: 'demo',
+        session: session,
+        record: record,
+        tunnel: HostTunnel(hostPublicKey: publicKey, peerPublicKey: peer),
+        settings: settings,
+      );
+      process.line(_done);
+      await Future<void>.delayed(Duration.zero);
+      expect(settings.hostUp('demo')!.vpnHostPublicKey, isEmpty, reason: 'a progress line is not confirmation');
+      process.end(code);
+      await run.finished;
+      final reopened = Settings(store);
+      addTearDown(reopened.dispose);
+      await reopened.load();
+      final kept = reopened.hostUp('demo')!;
+      expect(kept.vpnHostPublicKey, code == 0 ? publicKey : isEmpty);
+      expect(kept.vpnEndpointAddress, code == 0 ? _done.address : isEmpty);
+      expect(kept.vpnFile, '/previous.conf');
+      expect(kept.collectionSha256, digest);
+      expect(run.ready, code == 0);
     });
   }
 

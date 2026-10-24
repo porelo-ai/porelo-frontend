@@ -42,6 +42,14 @@ typed as plain text.
   offers *Join the project's room*, which opens the existing *Messages* of that project on the
   host. That dialog gains, under its address and Matrix ID, one line on the client: a task is
   mentioned by picking it from the client's list, a pill, not by typing its name.
+- **Saving after closing setup:** the server's menu offers *Save the VPN connection…* whenever
+  its setup record is kept, including after an earlier export. It shares the setup dialog's
+  picker, validation and export refusal handling, and keeps the new path only after export.
+  When the host becomes Ready, `HostPreparation.tunnel` and `HostSession.address` supply the
+  host public key and endpoint address kept in `HostUpRecord`. After a restart the menu rebuilds
+  `HostTunnel` from that record; no private key is stored in settings. Older records without
+  these optional fields remain valid and explain that the project must be put on a server again
+  before saving. Saving or deleting the path preserves both public fields and `collectionSha256`.
 - **Ready only when it is:** the room shows as joined only once the daemon's join answered and the
   forward is up; a refused join or a forward that did not come up is said in the dialog's own place.
 - **Tests, their harm, red first:** a saved path with a quote or a leading dash is refused, not run
@@ -55,6 +63,11 @@ typed as plain text.
   address, user name and the mention-pill line.
 - Seen to fail: the room never shows as joined unless the daemon's join answered and the forward is
   up; a saved file path with a quote or a leading dash is refused, never run under `sudo`.
+- Saving from the server's menu enables *Bring the VPN up*, a refused export leaves the kept path
+  unchanged, and choosing another destination replaces the path without losing the collection digest.
+- Public tunnel settings round-trip in the kept record, older records still load, and saving from
+  the menu works after restarting with fresh settings and no retained run. Completion settings
+  are kept only after a successful setup, never from a progress line alone.
 
 ## To be checked
 

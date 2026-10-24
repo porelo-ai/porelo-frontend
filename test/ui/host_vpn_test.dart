@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,9 @@ import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/host_vpn_dialog.dart';
+import 'package:porelo_frontend/src/ui/host_tunnel_export.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
+import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 
@@ -62,6 +67,167 @@ void main() {
     await World.settle(tester);
   }
 
+  Future<void> openSaveMenu(
+    WidgetTester tester,
+    Settings settings, {
+    required HostTunnel? tunnel,
+    String address = '203.0.113.8',
+    required SecretStore secrets,
+    required Future<String?> Function() saveTunnel,
+    required ValueChanged<Future<void>> exporting,
+    HostFiles Function(SecretStore)? hostFiles,
+  }) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: settings,
+            builder: (context, _) => CommandMenu(
+              tooltip: 'Server commands',
+              commands: hostMachineCommands(
+                machine: _machine,
+                settings: settings,
+                takeDown: () {},
+                bringVpnUp: () {},
+                saveTunnel: () => exporting(
+                  saveHostTunnel(
+                    context,
+                    project: _machine.hostProject,
+                    tunnel: tunnel,
+                    address: address,
+                    settings: settings,
+                    secretStore: secrets,
+                    hostFiles: hostFiles,
+                    saveTunnel: saveTunnel,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Server commands'));
+    await World.settle(tester);
+  }
+
+  for (final restarted in [false, true]) {
+    for (final alreadySaved in [false, true]) {
+      // Harm: closing setup must not strand the server without a usable VPN file or keep an obsolete path.
+      testWidgets('the server menu saves the VPN after restart $restarted with an earlier save $alreadySaved', (
+        tester,
+      ) async {
+        final scratch = await tester.runAsync(() => Directory.systemTemp.createTemp('host-vpn-save-'));
+        addTearDown(() => scratch!.delete(recursive: true));
+        final store = MemorySettingsStore();
+        var settings = Settings(store);
+        addTearDown(settings.dispose);
+        final secrets = _TunnelSecrets({HostFiles.keyName('demo'): base64Encode(List<int>.filled(32, 7))});
+        final peer = await HostFiles.publicKey(secrets.values[HostFiles.keyName('demo')]!);
+        final host = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 9)));
+        final tunnel = HostTunnel(hostPublicKey: host, peerPublicKey: peer);
+        final record = HostUpRecord.fromStored({..._record.stored, 'vpnPeerPublicKey': peer})!
+            .withTunnel(hostPublicKey: host, address: '203.0.113.8');
+        await settings.rememberHostUp('demo', record.withVpnFile(alreadySaved ? '/previous.conf' : null));
+        if (restarted) {
+          settings = Settings(store);
+          addTearDown(settings.dispose);
+          await settings.load();
+        }
+        final paths = [
+          for (final name in ['first.conf', 'next.conf']) '${scratch!.path}/$name',
+        ];
+        final choices = List<String>.of(paths);
+        final files = _PendingTunnelFiles(secrets);
+        await openSaveMenu(
+          tester,
+          settings,
+          tunnel: restarted ? null : tunnel,
+          address: restarted ? '' : '203.0.113.8',
+          secrets: secrets,
+          saveTunnel: () async => choices.removeAt(0),
+          exporting: unawaited,
+          hostFiles: (_) => files,
+        );
+        expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.vpnUp'))).enabled, alreadySaved);
+        for (final path in paths) {
+          final save = find.byKey(const Key('machine.saveTunnel'));
+          expect(tester.widget<PopupMenuItem<String>>(save).enabled, isTrue);
+          await tester.tap(save);
+          await World.settle(tester);
+          await tester.runAsync(files.complete);
+          await World.settle(tester);
+          final contents = await tester.runAsync(() => File(path).readAsString());
+          expect(contents, contains('PublicKey = $host'));
+          expect(contents, contains('Endpoint = 203.0.113.8:51820'));
+          expect(settings.hostUp('demo')!.vpnFile, path, reason: 'only a completed export may replace the kept path');
+          await tester.tap(find.byTooltip('Server commands'));
+          await World.settle(tester);
+          expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.vpnUp'))).enabled, isTrue);
+        }
+        expect(choices, isEmpty, reason: 'each save asks for its own destination');
+      });
+    }
+  }
+
+  for (final refusal in ['path', 'settings', 'file', 'store']) {
+    // Harm: an export refusal must be visible and must not replace the last usable VPN path.
+    testWidgets('the server menu shows a VPN export refusal for $refusal and keeps the old path', (tester) async {
+      final settings = Settings(MemorySettingsStore());
+      addTearDown(settings.dispose);
+      await settings.rememberHostUp('demo', _record.withVpnFile('/previous.conf'));
+      final secrets = _TunnelSecrets({});
+      final expected = switch (refusal) {
+        'path' => 'The saved VPN file needs a plain absolute path',
+        'settings' => 'Use Put this project on a server… again.',
+        'file' => 'Cannot save the tunnel file: /private/chosen.conf.',
+        _ => 'The system secret store could not read the WireGuard key.',
+      };
+      await openSaveMenu(
+        tester,
+        settings,
+        tunnel: refusal == 'settings'
+            ? null
+            : const HostTunnel(hostPublicKey: 'host-public', peerPublicKey: 'peer-public'),
+        secrets: secrets,
+        saveTunnel: () async => refusal == 'path' ? 'relative.conf' : '/private/chosen.conf',
+        exporting: unawaited,
+        hostFiles: (store) => _RefusingTunnelFiles(
+          store,
+          refusal == 'file'
+              ? const FileSystemException('invented detail that must not appear', '/private/chosen.conf')
+              : const SecretStoreFailed('invented detail that must not appear'),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('machine.saveTunnel')));
+      await World.settle(tester);
+      expect(find.byKey(const Key('vpn-problem')), findsOneWidget);
+      expect(find.textContaining(expected), findsOneWidget);
+      expect(find.textContaining('invented detail'), findsNothing);
+      expect(settings.hostUp('demo')!.vpnFile, '/previous.conf');
+      await tester.tap(find.text('Close'));
+      await World.settle(tester);
+    });
+  }
+
+  // Harm: offering export without a kept host record cannot retain the file needed for VPN installation.
+  test('saving the VPN is unavailable without a kept host record', () {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final command = hostMachineCommands(
+      machine: _machine,
+      settings: settings,
+      takeDown: () {},
+      saveTunnel: () {},
+    ).singleWhere((each) => each.id == 'machine.saveTunnel');
+    expect(command.home, Home.machineMenu);
+    expect(command.available, isFalse);
+    expect(command.unavailable, isNotEmpty);
+  });
+
   for (final path in [
     "/tmp/a'b.conf",
     '/tmp/a"b.conf',
@@ -98,7 +264,7 @@ void main() {
     ).singleWhere((each) => each.id == 'machine.vpnUp');
     expect(command.home, Home.machineMenu);
     expect(command.available, isFalse);
-    expect(command.unavailable, 'save the VPN connection to this server first');
+    expect(command.unavailable, 'use Save the VPN connection… first');
   });
 
   // Harm: shell splitting can install a different file as root.
@@ -175,4 +341,60 @@ void main() {
       ['sudo', 'wg-quick', 'down', 'porelo'],
     ]);
   });
+}
+
+class _TunnelSecrets implements SecretStore {
+  _TunnelSecrets(this.values);
+  final Map<String, String> values;
+
+  @override
+  Future<String?> read(String name) async => values[name];
+
+  @override
+  Future<void> write(String name, String value) async => values[name] = value;
+
+  @override
+  Future<void> remove(String name) async => values.remove(name);
+
+  @override
+  Future<void> close() async => fail('An injected store must remain open for its owner.');
+}
+
+class _RefusingTunnelFiles extends HostFiles {
+  _RefusingTunnelFiles(super.store, this.refusal);
+  final Exception refusal;
+
+  @override
+  Future<void> exportTunnel({
+    required String project,
+    required HostTunnel tunnel,
+    required String address,
+    required File destination,
+  }) async => throw refusal;
+}
+
+class _PendingTunnelFiles extends HostFiles {
+  _PendingTunnelFiles(super.store);
+  late Future<void> Function() _pending;
+
+  Future<void> complete() => _pending();
+
+  @override
+  Future<void> exportTunnel({
+    required String project,
+    required HostTunnel tunnel,
+    required String address,
+    required File destination,
+  }) {
+    final answer = Completer<void>();
+    _pending = () async {
+      try {
+        await super.exportTunnel(project: project, tunnel: tunnel, address: address, destination: destination);
+        answer.complete();
+      } catch (error, stack) {
+        answer.completeError(error, stack);
+      }
+    };
+    return answer.future;
+  }
 }

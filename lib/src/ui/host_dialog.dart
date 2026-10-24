@@ -19,6 +19,7 @@ import 'wizard.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'dialog_scroll.dart';
+import 'host_tunnel_export.dart';
 
 /// Confirms teardown and shows the host's steps using only the kept setup arguments.
 Future<void> openHostTakeDownDialog(
@@ -295,25 +296,8 @@ class _HostDialogState extends State<HostDialog> {
 
   bool get _running => _preparing || _saving || _terminalOpen || _session?.state == HostRunState.running;
 
-  Future<void> _withFiles(Future<void> Function(HostFiles) use) async {
-    late final SecretStore store;
-    try {
-      store = widget.secretStore ?? SecretStore.forThisSystem();
-    } on Exception {
-      throw const SecretStoreFailed('The system secret store could not be opened.');
-    }
-    try {
-      await use(widget.hostFiles?.call(store) ?? HostFiles(store));
-    } finally {
-      if (widget.secretStore == null) {
-        try {
-          await store.close();
-        } on Exception {
-          throw const SecretStoreFailed('The system secret store could not be closed.');
-        }
-      }
-    }
-  }
+  Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
+      withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
 
   Future<void> _chooseFolder() async {
     final folder = await (widget.pickFolder?.call() ?? getDirectoryPath());
@@ -393,7 +377,13 @@ class _HostDialogState extends State<HostDialog> {
       if (_hostRun == null) {
         final owner = widget.hostRuns;
         if (owner == null) throw StateError('Host setup needs its HostRuns owner.');
-        final run = owner.start(project: widget.project, session: _session!, record: _record(), tunnel: _tunnel);
+        final run = owner.start(
+          project: widget.project,
+          session: _session!,
+          record: _record(),
+          tunnel: _tunnel,
+          settings: widget.settings,
+        );
         _hostRun = run;
         _transferred = true;
         widget.onStarted?.call();
@@ -416,36 +406,18 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  Future<void> _exportTunnel() async {
-    try {
-      final path = widget.saveTunnel == null
-          ? (await getSaveLocation(suggestedName: 'porelo.conf'))?.path
-          : await widget.saveTunnel!();
-      if (path == null || !mounted) return;
-      checkVpnFile(path);
-      setState(() => _saving = true);
-      await _withFiles(
-        (files) => files.exportTunnel(
-          project: widget.project,
-          tunnel: _tunnel!,
-          address: _session!.address ?? '',
-          destination: File(path),
-        ),
-      );
-      final kept = widget.settings?.hostUp(widget.project);
-      if (kept != null) await widget.settings!.rememberHostUp(widget.project, kept.withVpnFile(path));
-    } on FormatException catch (error) {
-      if (mounted) setState(() => _machineProblem = error.message);
-    } on HostFilesRefused catch (error) {
-      if (mounted) setState(() => _machineProblem = error.message);
-    } on FileSystemException catch (error) {
-      if (mounted) setState(() => _machineProblem = 'Cannot save the tunnel file: ${error.path ?? "selected file"}.');
-    } on SecretStoreFailed {
-      if (mounted) setState(() => _machineProblem = 'The system secret store could not read the WireGuard key.');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+  Future<void> _exportTunnel() => saveHostTunnel(
+    context,
+    project: widget.project,
+    tunnel: _tunnel,
+    address: _session?.address ?? '',
+    settings: widget.settings,
+    secretStore: widget.secretStore,
+    hostFiles: widget.hostFiles,
+    saveTunnel: widget.saveTunnel,
+    saving: (saving) => setState(() => _saving = saving),
+    refused: (problem) => setState(() => _machineProblem = problem),
+  );
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {

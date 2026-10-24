@@ -11,7 +11,7 @@ import 'settings.dart';
 /// One project's setup, retained independently of any dialog watching it.
 class HostPreparation {
   /// Keeps only the public setup record, its running command and public tunnel settings.
-  HostPreparation({required this.project, required this.session, required this.record, this.tunnel});
+  HostPreparation({required this.project, required this.session, required this.record, this.tunnel, this.settings});
 
   /// Project identity, never a path.
   final String project;
@@ -24,6 +24,9 @@ class HostPreparation {
 
   /// Public halves of the tunnel prepared before the command started.
   final HostTunnel? tunnel;
+
+  /// Persists public completion settings independently of the setup dialog's lifetime.
+  final Settings? settings;
 
   /// The machine's name even before a daemon exists.
   String get name => '$project server';
@@ -65,12 +68,13 @@ class HostRuns extends ChangeNotifier {
     required HostSession session,
     required HostUpRecord record,
     HostTunnel? tunnel,
+    Settings? settings,
   }) {
     final previous = _runs[project];
     if (previous != null && !previous.ready) throw StateError('This project already has a host run.');
     previous?.session.removeListener(_changed);
     previous?.session.dispose();
-    final run = HostPreparation(project: project, session: session, record: record, tunnel: tunnel);
+    final run = HostPreparation(project: project, session: session, record: record, tunnel: tunnel, settings: settings);
     _runs[project] = run;
     session.addListener(_changed);
     run.finished = _up(run);
@@ -118,6 +122,14 @@ class HostRuns extends ChangeNotifier {
     if (machines.all.any((machine) => machine.name == run.name && machine.kind != 'host')) {
       run.problem = 'A machine named ${run.name} already exists and is not a host.';
       return;
+    }
+    final settings = run.settings;
+    if (settings != null) {
+      final kept = settings.hostUp(run.project) ?? run.record;
+      await settings.rememberHostUp(
+        run.project,
+        kept.withTunnel(hostPublicKey: run.tunnel?.hostPublicKey ?? '', address: address),
+      );
     }
     await machines.add(
       Machine(

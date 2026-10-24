@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
@@ -48,6 +49,69 @@ void main() {
     expect(reopened.hostUp('demo')!.arguments('demo'), HostUpRecord.fromStored(record)!.arguments('demo'));
     expect(HostUpRecord.fromStored({...record, 'vpnFile': 7}), isNull);
     expect(HostUpRecord.fromStored(record)!.vpnFile, isNull, reason: 'older records remain usable');
+  });
+
+  // Harm: saving or deleting a VPN file must not remove the digest that verifies the setup collection.
+  test('changing the saved VPN path preserves the collection digest and host record', () async {
+    final digest = List.filled(64, 'a').join();
+    final original = HostUpRecord.fromStored({...record, 'collectionSha256': digest})!;
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    for (final file in ['/private/porelo.conf', '/private/replacement.conf', null]) {
+      final changed = original.withVpnFile(file);
+      expect(changed.collectionSha256, digest);
+      expect(changed.stored, {...original.stored, 'vpnFile': ?file});
+      await settings.rememberHostUp('demo', changed);
+      final reopened = Settings(store);
+      await reopened.load();
+      expect(reopened.hostUp('demo')!.collectionSha256, digest);
+      reopened.dispose();
+    }
+  });
+
+  // Harm: losing public tunnel settings across a restart strands a ready server without a VPN export.
+  test('public host tunnel settings round-trip and survive changing or deleting the saved file', () async {
+    final publicKey = base64Encode(List<int>.filled(32, 9));
+    final original = HostUpRecord.fromStored(record)!.withTunnel(hostPublicKey: publicKey, address: '2001:db8::8');
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    for (final file in ['/private/porelo.conf', null]) {
+      await settings.rememberHostUp('demo', original.withVpnFile(file));
+      final reopened = Settings(store);
+      await reopened.load();
+      final kept = reopened.hostUp('demo')!;
+      expect(kept.vpnHostPublicKey, publicKey);
+      expect(kept.vpnEndpointAddress, '2001:db8::8');
+      expect(kept.stored, {...original.stored, 'vpnFile': ?file});
+      reopened.dispose();
+    }
+  });
+
+  // Harm: rejecting older setup records loses the server identity needed to take down a billing host.
+  test('an older host record without public export settings still loads', () async {
+    final settings = Settings(
+      MemorySettingsStore({
+        'hostUps': {'demo': record},
+      }),
+    );
+    addTearDown(settings.dispose);
+    await settings.load();
+    final kept = settings.hostUp('demo')!;
+    expect(kept.vpnHostPublicKey, isEmpty);
+    expect(kept.vpnEndpointAddress, isEmpty);
+    expect(kept.stored, record);
+  });
+
+  // Harm: malformed public tunnel settings can inject configuration or crash settings restoration.
+  test('invalid stored public tunnel settings are refused', () {
+    for (final invalid in <Object?>[7, true, [], 'not-a-key', 'key\n[Peer]']) {
+      expect(HostUpRecord.fromStored({...record, 'vpnHostPublicKey': invalid}), isNull);
+    }
+    for (final invalid in <Object?>[7, true, [], 'address\nAllowedIPs=0.0.0.0/0', 'host:51820/path']) {
+      expect(HostUpRecord.fromStored({...record, 'vpnEndpointAddress': invalid}), isNull);
+    }
   });
 
   // Harm: missing host identity or setup inputs can redirect teardown or lose access to a billing server.

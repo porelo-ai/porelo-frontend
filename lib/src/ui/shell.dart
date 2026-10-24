@@ -104,6 +104,7 @@ import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
 import 'host_vpn_dialog.dart';
+import 'host_tunnel_export.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -448,6 +449,7 @@ class _ShellState extends State<Shell> {
         machine: machine,
         settings: widget.settings,
         takeDown: () => unawaited(_takeDown(machine)),
+        saveTunnel: () => unawaited(_saveTunnel(machine)),
         bringVpnUp: () => unawaited(
           openHostVpnDialog(
             context,
@@ -484,6 +486,18 @@ class _ShellState extends State<Shell> {
             : null,
       ),
     ];
+  }
+
+  Future<void> _saveTunnel(Machine machine) async {
+    final run = _hostRuns.of(machine.hostProject);
+    await saveHostTunnel(
+      context,
+      project: machine.hostProject,
+      tunnel: run?.tunnel,
+      address: run?.session.address ?? '',
+      settings: widget.settings,
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _takeDown(Machine machine) async {

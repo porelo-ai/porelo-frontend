@@ -23,6 +23,8 @@ class HostUpRecord {
     this.collectionSha256 = '',
     required this.vpnPeerPublicKey,
     required this.vpnPeerAddress,
+    this.vpnHostPublicKey = '',
+    this.vpnEndpointAddress = '',
     this.vpnFile,
   });
 
@@ -62,6 +64,12 @@ class HostUpRecord {
   /// The tunnel peer's address, empty when none was supplied.
   final String vpnPeerAddress;
 
+  /// The host's WireGuard public half, absent in older setup records.
+  final String vpnHostPublicKey;
+
+  /// The host address used by the tunnel, without its port, absent in older setup records.
+  final String vpnEndpointAddress;
+
   /// The explicitly exported VPN file's local path, never its private key contents.
   final String? vpnFile;
 
@@ -76,9 +84,31 @@ class HostUpRecord {
     identity: identity,
     publicKey: publicKey,
     collection: collection,
+    collectionSha256: collectionSha256,
     vpnPeerPublicKey: vpnPeerPublicKey,
     vpnPeerAddress: vpnPeerAddress,
+    vpnHostPublicKey: vpnHostPublicKey,
+    vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: file,
+  );
+
+  /// Keeps the confirmed public tunnel settings without changing setup or the chosen file.
+  HostUpRecord withTunnel({required String hostPublicKey, required String address}) => HostUpRecord(
+    scalewayProject: scalewayProject,
+    account: account,
+    tresor: tresor,
+    folder: folder,
+    repository: repository,
+    signingKey: signingKey,
+    identity: identity,
+    publicKey: publicKey,
+    collection: collection,
+    collectionSha256: collectionSha256,
+    vpnPeerPublicKey: vpnPeerPublicKey,
+    vpnPeerAddress: vpnPeerAddress,
+    vpnHostPublicKey: hostPublicKey,
+    vpnEndpointAddress: address,
+    vpnFile: vpnFile,
   );
 
   /// Reads every field or drops the entire unusable record.
@@ -98,6 +128,20 @@ class HostUpRecord {
     }) {
       final vpnFile = value['vpnFile'];
       if (vpnFile != null && vpnFile is! String) return null;
+      final vpnHostPublicKey = value['vpnHostPublicKey'] ?? '';
+      final vpnEndpointAddress = value['vpnEndpointAddress'] ?? '';
+      if (vpnHostPublicKey is! String || vpnEndpointAddress is! String) return null;
+      if (vpnHostPublicKey.isNotEmpty) {
+        try {
+          final bytes = base64Decode(vpnHostPublicKey);
+          if (bytes.length != 32 || base64Encode(bytes) != vpnHostPublicKey) return null;
+        } on FormatException {
+          return null;
+        }
+      }
+      if (vpnEndpointAddress.isNotEmpty && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(vpnEndpointAddress)) {
+        return null;
+      }
       if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
       final required = [scalewayProject, account, tresor, identity, publicKey];
       if (required.any((field) => field.trim().isEmpty)) return null;
@@ -135,6 +179,8 @@ class HostUpRecord {
         collectionSha256: collectionSha256,
         vpnPeerPublicKey: vpnPeerPublicKey,
         vpnPeerAddress: vpnPeerAddress,
+        vpnHostPublicKey: vpnHostPublicKey,
+        vpnEndpointAddress: vpnEndpointAddress,
         vpnFile: vpnFile as String?,
       );
     }
@@ -155,6 +201,8 @@ class HostUpRecord {
     if (collectionSha256.isNotEmpty) 'collectionSha256': collectionSha256,
     'vpnPeerPublicKey': vpnPeerPublicKey,
     'vpnPeerAddress': vpnPeerAddress,
+    if (vpnHostPublicKey.isNotEmpty) 'vpnHostPublicKey': vpnHostPublicKey,
+    if (vpnEndpointAddress.isNotEmpty) 'vpnEndpointAddress': vpnEndpointAddress,
     if (vpnFile != null) 'vpnFile': vpnFile,
   };
 
