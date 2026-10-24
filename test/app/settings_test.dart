@@ -29,7 +29,6 @@ void main() {
     'account': 'worker',
     'tresor': 'drive',
     'folder': '/synced/drive',
-    'repository': 'https://example.org/demo.git',
     'signingKey': '/keys/sign.pub',
     'identity': '/keys/private',
     'publicKey': '/keys/public.pub',
@@ -91,9 +90,10 @@ void main() {
 
   // Harm: rejecting older setup records loses the server identity needed to take down a billing host.
   test('an older host record without public export settings still loads', () async {
+    final legacy = {...record, 'repository': 'https://example.org/demo.git'};
     final settings = Settings(
       MemorySettingsStore({
-        'hostUps': {'demo': record},
+        'hostUps': {'demo': legacy},
       }),
     );
     addTearDown(settings.dispose);
@@ -153,11 +153,11 @@ void main() {
     }
   });
 
-  // Harm: restoring a synced folder without its repository or signing key leaves host setup incomplete.
-  test('stored host records with a folder need a repository and signing key on load', () async {
-    for (final field in ['repository', 'signingKey']) {
+  // Harm: restoring a synced folder without its signing key leaves host setup incomplete.
+  test('stored host records with a folder need a signing key on load', () async {
+    for (final field in ['signingKey']) {
       for (final empty in ['', ' \t\n ']) {
-        final manual = {...record, 'folder': null, 'repository': '', 'signingKey': ''};
+        final manual = {...record, 'folder': null, 'signingKey': ''};
         final settings = Settings(
           MemorySettingsStore({
             'hostUps': {

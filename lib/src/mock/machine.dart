@@ -20,7 +20,15 @@ class MockMachine {
   ///
   /// [situation] is one of the names in [situations]. [pace] is how fast a launch prints — a real
   /// one takes minutes, a person watching wants to see the lines arrive, and a test wants neither.
-  MockMachine(this.daemon, {this.situation = 'work', this.pace = const Duration(milliseconds: 400)}) {
+  MockMachine(
+    this.daemon, {
+    this.situation = 'work',
+    this.pace = const Duration(milliseconds: 400),
+    List<({String name, String url, String commit})> followedProjects = const [],
+  }) {
+    for (final source in followedProjects) {
+      _followed[source.name] = {'name': source.name, 'url': source.url, 'commit': source.commit, 'outcome': 'APPLIED'};
+    }
     tasks = const {'empty', 'host'}.contains(situation) ? <Map<String, dynamic>>[] : _aMachineWithWorkOnIt();
     if (situation == 'host') _waiting.clear();
     daemon.version = '0.1.0+mock';
@@ -135,6 +143,7 @@ method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
     daemon.method('Remove', _remove);
     daemon.method('Panic', _panic);
     daemon.method('Unfollow', _deleteProject);
+    daemon.method('Following', (_) => <String, dynamic>{'projects': _followed.values.toList()});
     daemon.method('Follow', _follow);
     daemon.method('RefreshProjects', _refreshProjects);
     daemon.method('RefreshTask', _refreshTask);

@@ -18,7 +18,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Server setup shows each step once in words with its local start time, duration, and overdue progress while estimating the steps still ahead.
+- Server setup writes the followed project’s verified bundle into the tresor folder and fills the
+  public SSH key from the chosen private key.
+- Server setup shows each step once in words with its local start time, duration, and overdue
+  progress while estimating the steps still ahead.
 - Giving a server back always asks for confirmation, names what is lost and kept, and uses a destructive button.
 - Forge tokens are entered only in terminal prompts, kept on this computer for the forge API and
   in each machine's vault for git over https; setting up and clearing repositories no longer manages deploy keys.

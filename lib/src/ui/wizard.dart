@@ -16,6 +16,7 @@ class WizardStep {
     required this.panel,
     required this.check,
     required this.summary,
+    this.beforeNext,
   });
 
   /// The short name in the step indicator.
@@ -29,6 +30,9 @@ class WizardStep {
 
   /// Null when this step may advance, otherwise the reason it cannot.
   final ValueGetter<String?> check;
+
+  /// Completes an external input check while this question is still shown.
+  final Future<bool> Function()? beforeNext;
 
   /// Lines reviewed before an external action starts; never include secret values.
   final ValueGetter<List<String>> summary;
@@ -94,6 +98,7 @@ class Wizard extends StatefulWidget {
     this.actionSteps = const [],
     this.changes,
     this.onFinish,
+    this.reviewWords,
     this.actions,
     this.scrollController,
     super.key,
@@ -102,6 +107,9 @@ class Wizard extends StatefulWidget {
 
   /// The dialog's title.
   final String title;
+
+  /// Introduces the review in the caller's own words.
+  final String? reviewWords;
 
   /// Questions shown one at a time, followed by the generated review.
   final List<WizardStep> steps;
@@ -136,6 +144,7 @@ class _WizardState extends State<Wizard> {
   bool _executing = false;
   final _startedActions = <int>{};
   bool _asking = false;
+  bool _checking = false;
   String? _failed;
   final _panel = GlobalKey();
   late final List<List<String>> _initial;
@@ -194,6 +203,7 @@ class _WizardState extends State<Wizard> {
   }
 
   String? get _reason {
+    if (_checking) return 'Wait for the input check to answer.';
     if (_index < widget.steps.length) return widget.steps[_index].check();
     if (_actionStep case final step?) {
       if (_failed != null) return _failed;
@@ -268,7 +278,7 @@ class _WizardState extends State<Wizard> {
   }
 
   Future<void> _back() async {
-    if (_index == 0) return;
+    if (_index == 0 || _checking) return;
     if (_busy && !await _confirm('back')) return;
     if (mounted) _go(_index - 1);
   }
@@ -293,6 +303,17 @@ class _WizardState extends State<Wizard> {
     if (_reason != null) {
       _changed();
       return;
+    }
+    if (_index < widget.steps.length && widget.steps[_index].beforeNext != null) {
+      final check = widget.steps[_index].beforeNext!;
+      setState(() => _checking = true);
+      bool accepted;
+      try {
+        accepted = await check();
+      } finally {
+        if (mounted) setState(() => _checking = false);
+      }
+      if (!mounted || !accepted || _index != shownIndex || _reason != null) return;
     }
     final last = widget.steps.length + widget.actionSteps.length;
     if (_index == last) {
@@ -331,7 +352,7 @@ class _WizardState extends State<Wizard> {
     final action = _actionStep;
     final review = question == null && action == null;
     final title = question?.title ?? action?.title ?? 'Check and start';
-    final words = question?.words ?? action?.words ?? 'Check every answer before starting.';
+    final words = question?.words ?? action?.words ?? widget.reviewWords ?? 'Check every answer before starting.';
     final reason = _reason;
     final shownIndex = _index;
     return PopScope(

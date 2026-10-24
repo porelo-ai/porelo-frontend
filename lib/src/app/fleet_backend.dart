@@ -213,6 +213,9 @@ abstract class FleetBackend {
   /// Records the one key of [host] a person confirmed, if the host still offers it.
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint);
 
+  /// The repository and verified commit each project follows on this machine.
+  Future<List<Followed>> following();
+
   /// Follows a project's repository and reconciles once; what came of it is the answer.
   Future<Followed> follow(
     String name,
@@ -648,6 +651,9 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<HostKeyTrusted> trustHostKey(String host, String fingerprint) => _opened().trustHostKey(host, fingerprint);
+
+  @override
+  Future<List<Followed>> following() => _opened().following();
 
   @override
   Future<Followed> follow(

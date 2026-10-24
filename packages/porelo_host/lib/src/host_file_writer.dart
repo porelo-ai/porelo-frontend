@@ -106,6 +106,22 @@ class HostFileWriter {
     });
   }
 
+  /// Restricts a scratch directory before any project history is placed inside it.
+  Future<Directory> createPrivateTemporary(Directory parent) async {
+    final temporary = await createTemporary(parent);
+    try {
+      if (isWindows) {
+        await _windowsPrivate(temporary.absolute.path, directory: true);
+      } else if (operatingSystem != 'linux' || ((await temporary.stat()).mode & 0x1ff) != 0x1c0) {
+        throw HostFilesRefused('Cannot keep ${temporary.path} private (0700).');
+      }
+      return temporary;
+    } catch (_) {
+      await temporary.delete(recursive: true);
+      rethrow;
+    }
+  }
+
   /// Publishes with an atomic rename that refuses an existing destination.
   Future<void> publish(File prepared, File destination) async {
     final moved = using((arena) {

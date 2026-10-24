@@ -13,6 +13,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
@@ -55,11 +56,41 @@ void main() {
     for (final name in ['default.pub', 'public.pub', 'id_ed25519.pub', 'demo.pub', 'signing.pub']) {
       File(fixture(name)).writeAsStringSync(signingPublic);
     }
-    machines = Machines(
-      newSettings(MemorySettingsStore()),
-      reach: (_) => FakeBackend(const []),
-      tunnels: _HostTunnels(),
-    );
+    final source = Directory(fixture('project source'))..createSync();
+    Future<String> git(List<String> arguments) async {
+      final result = await Process.run(
+        'git',
+        arguments,
+        workingDirectory: source.path,
+        environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+      );
+      expect(result.exitCode, 0, reason: 'git $arguments: ${result.stderr}');
+      return '${result.stdout}'.trim();
+    }
+
+    await git(['init', '--initial-branch=main']);
+    File(path.join(source.path, 'project.yml')).writeAsStringSync('name: demo\n');
+    await git(['add', 'project.yml']);
+    await git([
+      '-c',
+      'user.name=Fixture',
+      '-c',
+      'user.email=fixture@example.invalid',
+      '-c',
+      'commit.gpgsign=false',
+      'commit',
+      '-m',
+      'Project fixture',
+    ]);
+    final commit = await git(['rev-parse', 'HEAD']);
+    final backend = FakeBackend(const [])
+      ..theProjectsItHas = [
+        Project.from({
+          'name': 'demo',
+          'following': {'name': 'demo', 'url': source.path, 'commit': commit},
+        }),
+      ];
+    machines = Machines(newSettings(MemorySettingsStore()), reach: (_) => backend, tunnels: _HostTunnels());
     runs = HostRuns(machines, endpointFor: (name) => '/tmp/${Machine.slug(name)}.sock');
   });
 
@@ -162,11 +193,15 @@ void main() {
       await tester.pump();
     }
     await tester.runAsync(fileWork.complete);
+    await tester.pump();
+    await tester.runAsync(fileWork.complete);
     await World.settle(tester);
   }
 
   Future<void> navigate(WidgetTester tester, String key) async {
     await tester.tap(find.byKey(Key(key)));
+    await tester.pump();
+    await tester.runAsync(fileWork.complete);
     await World.settle(tester);
   }
 
@@ -186,7 +221,7 @@ void main() {
     };
     const fields = [
       ['host-scaleway-project', 'host-account'],
-      ['host-tresor', 'host-repository', 'host-signing-key'],
+      ['host-tresor', 'host-signing-key'],
       ['host-identity', 'host-public-key'],
       ['host-collection', 'host-collection-sha256'],
     ];
@@ -267,7 +302,6 @@ void main() {
       'host-scaleway-project': 'project',
       'host-account': 'worker',
       'host-tresor': 'remote-drive',
-      'host-repository': 'https://example.org/demo.git',
       'host-signing-key': fixture('signing.pub'),
       'host-identity': fixture('private'),
       'host-public-key': fixture('public.pub'),
@@ -480,7 +514,6 @@ void main() {
         await fillSteps(tester, {
           'host-scaleway-project': 'project',
           'host-tresor': 'drive',
-          'host-repository': 'https://example.org/demo.git',
           'host-collection': fixture('collection.tar.gz'),
           'host-collection-sha256': collectionDigest,
           if (field.key != 'vault-entry') field.key: '~/unusable',
@@ -531,11 +564,7 @@ void main() {
         ),
       ),
     );
-    await fillSteps(tester, {
-      'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
-      'host-repository': 'https://example.org/demo.git',
-    }, stopAt: 2);
+    await fillSteps(tester, {'host-scaleway-project': 'project', 'host-tresor': 'drive'}, stopAt: 2);
     for (final choose in [0, 1]) {
       await tester.ensureVisible(find.text('Choose…').at(choose));
       await tester.tap(find.text('Choose…').at(choose));
@@ -587,7 +616,6 @@ void main() {
     await fillSteps(tester, {
       'host-scaleway-project': 'project',
       'host-tresor': 'drive',
-      'host-repository': 'https://example.org/demo.git',
       'host-signing-key': unreadable.path,
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
@@ -706,7 +734,7 @@ void main() {
     'host-scaleway-project': 0,
     'host-account': 0,
     'host-tresor': 1,
-    'host-repository': 1,
+
     'host-signing-key': 1,
     'host-identity': 2,
     'host-public-key': 2,
@@ -742,7 +770,6 @@ void main() {
         'host-scaleway-project': 'project',
         'host-account': 'porelo',
         'host-tresor': 'drive',
-        'host-repository': 'https://example.org/demo.git',
         'host-signing-key': fixture('signing.pub'),
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
@@ -943,7 +970,7 @@ void main() {
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
-        'host-repository': 'https://example.org/demo.git',
+
         'host-signing-key': signing.path,
         field.key: field.value == null ? '~/.ssh/key.pub' : '~/.ssh/key',
       });
@@ -991,7 +1018,7 @@ void main() {
           'host-tresor': 'tresor',
           'host-collection': fixture('collection.tar.gz'),
           'host-collection-sha256': collectionDigest,
-          'host-repository': 'https://example.org/demo.git',
+
           field.key: '~user/key',
         },
         stopAt: switch (field.key) {
@@ -1085,7 +1112,7 @@ void main() {
       'host-tresor': 'tresor',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
-      'host-repository': 'https://example.org/demo.git',
+
       'host-signing-key': signing.path,
     });
     await tester.pump();
@@ -1151,7 +1178,7 @@ void main() {
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
-        'host-repository': 'https://example.org/demo.git',
+
         'host-signing-key': signing.path,
       },
       onDrive: () async {
@@ -1281,7 +1308,7 @@ void main() {
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
-        if (signing != null) ...{'host-repository': 'url', 'host-signing-key': signing!.path},
+        if (signing != null) ...{'host-signing-key': signing!.path},
       });
       await tester.pump();
       if (operation == 'export') {
@@ -2069,9 +2096,25 @@ class _HostFileWork {
 
 /// Holds file preparation and export at a test-driven boundary without faking their contents.
 class _ControlledHostFiles extends host.HostFiles {
-  _ControlledHostFiles(super.store, this.work) : super(writer: _WidgetFileWriter());
+  _ControlledHostFiles(super.store, this.work)
+    : super(
+        writer: _WidgetFileWriter(),
+        gitEnvironment: const {
+          'GIT_TERMINAL_PROMPT': '0',
+          'GIT_CONFIG_GLOBAL': '/dev/null',
+          'GIT_CONFIG_NOSYSTEM': '1',
+        },
+      );
 
   final _HostFileWork work;
+
+  @override
+  Future<List<int>> createBundle({required String project, required String url, required String commit}) =>
+      work.defer(() => super.createBundle(project: project, url: url, commit: commit));
+
+  @override
+  Future<void> publishBundle({required String project, required String folder, required List<int> bytes}) =>
+      work.defer(() => super.publishBundle(project: project, folder: folder, bytes: bytes));
 
   @override
   Future<host.HostTunnel> prepare({

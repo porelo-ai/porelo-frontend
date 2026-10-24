@@ -1,7 +1,7 @@
 // Runs the mock backend on its own, so the interface can be worked on with no daemon.
 // ignore_for_file: avoid_print - this is a command-line tool; printing is its output.
 //
-// Usage: dart tool/mock_daemon.dart [situation] [socket]
+// Usage: dart tool/mock_daemon.dart [situation] [socket] [project bundle verified-commit]
 //
 //   dart tool/mock_daemon.dart
 //   flutter run -d linux
@@ -37,9 +37,22 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  final followedProjects = <({String name, String url, String commit})>[];
+  if (args.length > 2) {
+    if (args.length != 5 ||
+        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$').hasMatch(args[2]) ||
+        !File(args[3]).existsSync() ||
+        !RegExp(r'^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$').hasMatch(args[4])) {
+      stderr.writeln('Supply a project name, an existing local bundle and its verified commit.');
+      exitCode = 64;
+      return;
+    }
+    followedProjects.add((name: args[2], url: File(args[3]).absolute.path, commit: args[4]));
+  }
+
   final daemon = MockDaemon();
   await daemon.start();
-  final machine = MockMachine(daemon, situation: situation);
+  final machine = MockMachine(daemon, situation: situation, followedProjects: followedProjects);
 
   // The daemon picks a fresh temporary path every run, which makes the one instruction anybody
   // needs impossible to copy. A link at a stable name fixes that; a unix socket connects through

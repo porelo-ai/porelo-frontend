@@ -5,3 +5,6 @@ const hostCollection = (
   // The digest in porelo-host v0.5.1's own SHA256SUMS.
   sha256: 'da55c943e879e15b98d17cdb1f9cf2d6550f9ac3237dcb7307475990b0807b08',
 );
+
+/// The collection mounts the synced tresor here on the host.
+const hostDrivePath = '/srv/porelo-host/drive';

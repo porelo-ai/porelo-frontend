@@ -15,7 +15,7 @@ class HostUpRecord {
     required this.account,
     required this.tresor,
     required this.folder,
-    required this.repository,
+    this.repository = '',
     required this.signingKey,
     required this.identity,
     required this.publicKey,
@@ -40,7 +40,7 @@ class HostUpRecord {
   /// Its local synced folder, absent when the host files were supplied manually.
   final String? folder;
 
-  /// The project's repository address.
+  /// Retained for source compatibility; stored repository addresses are ignored.
   final String repository;
 
   /// The public signing key's path.
@@ -118,7 +118,6 @@ class HostUpRecord {
       'account': final String account,
       'tresor': final String tresor,
       'folder': final Object? folder,
-      'repository': final String repository,
       'signingKey': final String signingKey,
       'identity': final String identity,
       'publicKey': final String publicKey,
@@ -156,7 +155,6 @@ class HostUpRecord {
       }
       if ([
         ...required,
-        repository,
         signingKey,
         collection,
         vpnPeerPublicKey,
@@ -165,13 +163,13 @@ class HostUpRecord {
         return null;
       }
       if (vpnPeerPublicKey.isEmpty != vpnPeerAddress.isEmpty) return null;
-      if (folder != null && (repository.trim().isEmpty || signingKey.trim().isEmpty)) return null;
+      if (folder != null && signingKey.trim().isEmpty) return null;
       return HostUpRecord(
         scalewayProject: scalewayProject,
         account: account,
         tresor: tresor,
         folder: folder as String?,
-        repository: repository,
+        repository: '',
         signingKey: signingKey,
         identity: identity,
         publicKey: publicKey,
@@ -193,7 +191,6 @@ class HostUpRecord {
     'account': account,
     'tresor': tresor,
     'folder': folder,
-    'repository': repository,
     'signingKey': signingKey,
     'identity': identity,
     'publicKey': publicKey,

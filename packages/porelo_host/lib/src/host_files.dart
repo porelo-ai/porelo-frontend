@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
 import 'secret_store.dart';
+import 'collection.dart';
 import 'host_file_writer.dart';
 
 /// A vault entry and the file selected for import by the host.
@@ -55,9 +57,16 @@ class HostTunnel {
 /// Prepares the host's Tresorit files and the person's key in the system store.
 class HostFiles {
   /// Uses the system store, or a stand-in in a test.
-  HostFiles(this.store, {HostFileWriter? writer, path.Context? pathContext})
-    : _writer = writer ?? HostFileWriter(),
-      _paths = pathContext ?? path.context;
+  HostFiles(
+    this.store, {
+    HostFileWriter? writer,
+    path.Context? pathContext,
+    this.gitEnvironment = const {'GIT_TERMINAL_PROMPT': '0'},
+  }) : _writer = writer ?? HostFileWriter(),
+       _paths = pathContext ?? path.context;
+
+  /// Extra git environment variables, inherited alongside the person's configuration.
+  final Map<String, String> gitEnvironment;
 
   final path.Context _paths;
 
@@ -207,6 +216,95 @@ class HostFiles {
           !files.add((windows ?? Platform.isWindows) ? key.basename.toLowerCase() : key.basename)) {
         throw const HostFilesRefused('Each vault entry and file base name must be unique.');
       }
+    }
+  }
+
+  /// The host reads this bundle from the collection's mounted drive.
+  static String bundleUrl(String project) {
+    checkName(project);
+    return path.posix.join(hostDrivePath, 'porelo-host', '$project.bundle');
+  }
+
+  /// Builds only the daemon's verified revision, without reading daemon-owned files.
+  Future<List<int>> createBundle({required String project, required String url, required String commit}) async {
+    checkBasename('$project.bundle', windows: _writer.isWindows);
+    if (!RegExp(r'^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$').hasMatch(commit)) {
+      throw const HostFilesRefused('The drive: this project has no valid verified commit to put on a server.');
+    }
+    if (url.trim().isEmpty || url.startsWith('-') || url.contains('\x00')) {
+      throw const HostFilesRefused('The drive: the followed repository address cannot be read by this computer.');
+    }
+    final scratch = await _writer.createPrivateTemporary(Directory.systemTemp);
+    try {
+      final repository = path.join(scratch.path, 'repository');
+      await _bundleGit(scratch, [
+        'clone',
+        '--no-checkout',
+        '--no-local',
+        '--',
+        url,
+        repository,
+      ], timeout: const Duration(minutes: 10));
+      final cloned = Directory(repository);
+      await _bundleGit(cloned, ['cat-file', '-e', '$commit^{commit}']);
+      await _bundleGit(cloned, ['update-ref', '--no-deref', 'HEAD', commit]);
+      await _bundleGit(cloned, ['branch', '-f', 'main', commit]);
+      await _bundleGit(cloned, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+      final bundle = File(path.join(scratch.path, '$project.bundle'));
+      await _bundleGit(cloned, ['bundle', 'create', bundle.path, 'HEAD', 'main']);
+      return await bundle.readAsBytes();
+    } finally {
+      await scratch.delete(recursive: true);
+    }
+  }
+
+  Future<void> _bundleGit(
+    Directory directory,
+    List<String> arguments, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    const refused = HostFilesRefused(
+      'The drive: Git could not read the followed repository and its verified commit or create the project bundle.',
+    );
+    Process process;
+    try {
+      process = await Process.start('git', arguments, workingDirectory: directory.path, environment: gitEnvironment);
+    } on ProcessException {
+      throw refused;
+    }
+    final output = Future.wait([process.stdout.drain<void>(), process.stderr.drain<void>()]);
+    try {
+      if (await process.exitCode.timeout(timeout) != 0) throw refused;
+    } on TimeoutException {
+      process.kill();
+      await process.exitCode;
+      final limit = timeout.inMinutes >= 1 ? '${timeout.inMinutes} minutes' : '${timeout.inSeconds} seconds';
+      throw HostFilesRefused('The drive: git ${arguments.first} did not answer within $limit. No server was rented.');
+    } finally {
+      await output;
+    }
+  }
+
+  /// Stages a complete bundle beside its target before replacing a regular file.
+  Future<void> publishBundle({required String project, required String folder, required List<int> bytes}) async {
+    final target = File(destinationPath(folder, '$project.bundle'));
+    await _directory(Directory(folder), create: false);
+    await _directory(target.parent);
+    Future<void> checkTarget() async {
+      final type = await FileSystemEntity.type(target.path, followLinks: false);
+      if (type != FileSystemEntityType.notFound && type != FileSystemEntityType.file) _conflict(target.path);
+    }
+
+    await checkTarget();
+    final staging = await _writer.createPrivateTemporary(target.parent);
+    try {
+      final prepared = File(path.join(staging.path, 'contents'));
+      await prepared.writeAsBytes(bytes, flush: true);
+      await _writer.protect(prepared);
+      await checkTarget();
+      await prepared.rename(target.path);
+    } finally {
+      await staging.delete(recursive: true);
     }
   }
 

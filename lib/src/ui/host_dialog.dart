@@ -8,6 +8,8 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:path/path.dart' as path;
 
 import '../app/desk.dart';
+import '../app/fleet_backend.dart';
+import '../client/models.dart';
 import '../app/commands.dart';
 import '../app/host_session.dart';
 import '../app/host_runs.dart';
@@ -44,12 +46,14 @@ Future<void> openHostDialog(
   StartHostCommand? start,
   required Settings settings,
   required HostRuns hostRuns,
+  required FleetBackend backend,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
   builder: (context) => HostDialog(
     project: project,
     machines: machines,
+    backend: backend,
     start: start,
     settings: settings,
     hostRuns: hostRuns,
@@ -82,6 +86,7 @@ class HostDialog extends StatefulWidget {
     this.start,
     this.hostRuns,
     this.hostFiles,
+    this.backend,
     this.existingRun,
     this.onStarted,
     this.openTerminal,
@@ -98,6 +103,9 @@ class HostDialog extends StatefulWidget {
 
   /// The project to put on a server.
   final String project;
+
+  /// The selected project's machine, captured when the wizard opens.
+  final FleetBackend? backend;
 
   /// File work, injectable so widget tests control preparation and export completion.
   final HostFiles Function(SecretStore store)? hostFiles;
@@ -157,7 +165,6 @@ class _HostDialogState extends State<HostDialog> {
   final _collection = TextEditingController();
   final _collectionSha256 = TextEditingController();
   final _email = TextEditingController();
-  final _repository = TextEditingController();
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _keyName = TextEditingController();
   final _keys = <HostKeyFile>[];
@@ -170,6 +177,10 @@ class _HostDialogState extends State<HostDialog> {
   String? _lastFolder;
   HostTunnel? _tunnel;
   bool _preparing = false;
+  Followed? _followed;
+  List<int>? _bundle;
+  String? _sourceProblem = 'The drive: reading the project’s verified source from its machine.';
+
   HostSession? _session;
   HostPreparation? _hostRun;
   bool _transferred = false;
@@ -188,13 +199,13 @@ class _HostDialogState extends State<HostDialog> {
       _account.text = kept.account;
       _tresor.text = kept.tresor;
       _folder = kept.folder;
-      _repository.text = kept.repository;
       _signingKey.text = kept.signingKey;
       _identity.text = kept.identity;
       _publicKey.text = kept.publicKey;
       _collection.text = kept.collection;
       _collectionSha256.text = kept.collectionSha256;
     }
+    if (widget.existingRun == null && !widget.takeDownOnly) unawaited(_readSource());
     final run = widget.existingRun;
     if (run != null) {
       _hostRun = run;
@@ -204,6 +215,52 @@ class _HostDialogState extends State<HostDialog> {
       _upStarted = true;
       _tunnel = run.tunnel;
     }
+  }
+
+  Future<void> _readSource() async {
+    final backend = widget.backend ?? widget.machines.fleet.backend;
+    try {
+      final records = await backend.following();
+      final source = records.where((record) => record.name == widget.project).singleOrNull;
+      if (!mounted) return;
+      setState(() {
+        _followed = source;
+        _sourceProblem = source == null || source.commit.isEmpty || source.unverified
+            ? 'The drive: this project has no verified commit to put on a server.'
+            : source.url.trim().isEmpty
+            ? 'The drive: the machine supplied no repository address for this project.'
+            : null;
+      });
+    } on Exception {
+      if (mounted) {
+        setState(() => _sourceProblem = 'The drive: the project’s verified source could not be read from its machine.');
+      }
+    }
+  }
+
+  Future<bool> _checkBundle() async {
+    if (_sourceProblem != null) return false;
+    if (_folder == null || _bundle != null) return true;
+    setState(() {
+      _preparing = true;
+      _machineProblem = null;
+    });
+    try {
+      final source = _followed!;
+      await _withFiles((files) async {
+        _bundle = await files.createBundle(project: widget.project, url: source.url, commit: source.commit);
+      });
+      return mounted;
+    } on HostFilesRefused catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
+    } on FileSystemException catch (error) {
+      if (mounted) setState(() => _machineProblem = _preparationProblem(error));
+    } on SecretStoreFailed {
+      if (mounted) setState(() => _machineProblem = 'The system secret store could not be opened.');
+    } finally {
+      if (mounted) setState(() => _preparing = false);
+    }
+    return false;
   }
 
   bool _upStarted = false;
@@ -218,7 +275,6 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     for (final field in <TextEditingController>[
-      _repository,
       _signingKey,
       _keyName,
       _scaleway,
@@ -268,7 +324,7 @@ class _HostDialogState extends State<HostDialog> {
     account: _account.text.trim(),
     tresor: _tresor.text.trim(),
     folder: _folder,
-    repository: _repository.text.trim(),
+    repository: '',
     signingKey: _signingKey.text.trim(),
     identity: _identity.text.trim(),
     publicKey: _publicKey.text.trim(),
@@ -350,7 +406,27 @@ class _HostDialogState extends State<HostDialog> {
 
   Future<void> _chooseFile(TextEditingController field) async {
     final file = await _pickFile();
-    if (file != null && mounted) setState(() => field.text = file);
+    if (file == null || !mounted) return;
+    String? expanded(String value) {
+      try {
+        return desk.expandHome(value.trim());
+      } on FormatException {
+        return null;
+      }
+    }
+
+    final previous = expanded(_identity.text);
+    final selected = expanded(file);
+    final nextDefault = selected == null ? null : '$selected.pub';
+    final prefill =
+        field == _identity &&
+        nextDefault != null &&
+        (_publicKey.text.trim().isEmpty || previous != null && expanded(_publicKey.text) == '$previous.pub') &&
+        File(nextDefault).existsSync();
+    setState(() {
+      field.text = file;
+      if (prefill) _publicKey.text = nextDefault;
+    });
   }
 
   Future<void> _up() async {
@@ -370,11 +446,16 @@ class _HostDialogState extends State<HostDialog> {
     try {
       _expandPaths();
       if (!_upStarted) {
+        if (!await _checkBundle()) return;
+        setState(() => _preparing = true);
         await _withFiles((files) async {
+          if (_folder != null) {
+            await files.publishBundle(project: widget.project, folder: _folder!, bytes: _bundle!);
+          }
           _tunnel = await files.prepare(
             project: widget.project,
             folder: _folder,
-            url: _repository.text,
+            url: HostFiles.bundleUrl(widget.project),
             signingKey: File(_signingKey.text.trim()),
             keys: _keys,
           );
@@ -646,7 +727,8 @@ class _HostDialogState extends State<HostDialog> {
       title: 'The drive',
       words:
           'Tresorit, the one drive available today. Choose its synced folder on this computer. '
-          'When a folder is chosen, give the repository address and the public key used to sign commits.',
+          'The project’s verified bundle is written into porelo-host in that folder. '
+          'Give the public key used to sign its commits.',
       panel: (_) => _panel([
         const Text('Its synced folder on this computer'),
         Row(
@@ -669,7 +751,6 @@ class _HostDialogState extends State<HostDialog> {
         if (Platform.isWindows)
           const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
         if (_folder != null) ...[
-          _field(_repository, 'Project repository address', 'host-repository', namesHost: true),
           _pathField(_signingKey, 'Public key for signing commits (.pub)', 'host-signing-key'),
           _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
           TextButton(
@@ -691,15 +772,16 @@ class _HostDialogState extends State<HostDialog> {
       ]),
       check: () =>
           _required([_tresor], 'Give the tresor name from Tresorit.') ??
+          _sourceProblem ??
           (_folder == null
               ? null
-              : _required([_repository, _signingKey], 'Give the repository address and its signing key.') ??
-                    _driveFilesProblem),
+              : _required([_signingKey], 'Give the public key used to sign commits.') ?? _driveFilesProblem),
+      beforeNext: _checkBundle,
       summary: () => [
         'Tresorit tresor: ${_tresor.text}',
         'Synced folder on this computer: ${_folder ?? 'not chosen; supply the host files manually'}',
         if (_folder != null) ...[
-          'Project repository address: ${_repository.text}',
+          'Project bundle: porelo-host/${widget.project}.bundle',
           'Public signing key: ${_signingKey.text}',
           for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}',
         ],
@@ -760,6 +842,7 @@ class _HostDialogState extends State<HostDialog> {
       ? _takeDownDialog(context)
       : Wizard(
           title: 'Put the project ${widget.project} on a server',
+          reviewWords: 'A server for the project ${widget.project}. Check every answer before starting.',
           steps: _steps,
           action: 'Put it on a server',
           actionKey: const Key('host-up'),

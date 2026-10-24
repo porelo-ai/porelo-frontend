@@ -647,6 +647,7 @@ class _ShellState extends State<Shell> {
     }
     await openHostDialog(
       context,
+      backend: _fleet.backend,
       project: project.name,
       machines: widget.machines,
       settings: widget.settings,

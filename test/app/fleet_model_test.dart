@@ -17,6 +17,9 @@ class _Wedged implements FleetBackend {
   Future<List<Task>> tasks() async => const <Task>[];
 
   @override
+  Future<List<Followed>> following() async => const [];
+
+  @override
   Future<List<Project>> projects() async => const <Project>[];
 
   @override
@@ -384,6 +387,9 @@ class _Machine implements FleetBackend {
   Future<List<Task>> tasks() async => <Task>[
     Task.from(const <String, dynamic>{'name': 'porelo-orphan', 'project': 'vanished'}),
   ];
+
+  @override
+  Future<List<Followed>> following() async => const [];
 
   @override
   Future<List<Project>> projects() async => <Project>[

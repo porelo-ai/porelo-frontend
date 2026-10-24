@@ -1546,6 +1546,9 @@ class FakeBackend implements FleetBackend {
     return answer;
   }
 
+  @override
+  Future<List<Followed>> following() async => [for (final project in theProjectsItHas) ?project.following];
+
   /// Set to refuse the next [unfollow] the way the daemon refuses one.
   VarlinkException? refuseToUnfollow;
 

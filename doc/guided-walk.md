@@ -61,6 +61,7 @@ folder short so Unix socket paths stay under 100 bytes:
 walk=/tmp/porelo-walk
 mkdir -p "$walk/bin" "$walk/keys" "$walk/tresor"
 ssh-keygen -q -t ed25519 -N '' -C walk-invented -f /tmp/porelo-walk/keys/walk_ed25519
+tool/walk_project.sh "$walk"
 dart compile exe tool/host_standin.dart -o "$walk/porelo-host"
 dart compile exe tool/ssh_standin.dart -o "$walk/bin/ssh"
 printf '%s\n' '{"situation":"stop","state":"new"}' > "$walk/host-standin.json"
@@ -68,11 +69,14 @@ cp doc/walks/17-the-host-flow.json "$walk/walk.json"
 ```
 
 In two separate terminals, start the first machine and the fresh host. The host situation has only
-`checkout` and nothing run yet. These deadlines also stop a daemon left at the end of a walk:
+`checkout` and nothing run yet. Both take the signed local project bundle prepared above; its
+commit is checked before the mock advertises it as verified. These deadlines also stop a daemon left at the end of a walk:
 
 ```bash
-timeout 1h dart tool/mock_daemon.dart work /tmp/porelo-walk/first.sock
-timeout 1h dart tool/mock_daemon.dart host /tmp/porelo-walk/host.sock
+timeout 20m dart tool/mock_daemon.dart work /tmp/porelo-walk/first.sock \
+  checkout /tmp/porelo-walk/project.bundle "$(cat /tmp/porelo-walk/project-commit)"
+timeout 20m dart tool/mock_daemon.dart host /tmp/porelo-walk/host.sock \
+  checkout /tmp/porelo-walk/project.bundle "$(cat /tmp/porelo-walk/project-commit)"
 ```
 
 Then start the interface from a third terminal with its settings isolated from everyday machines.
@@ -82,7 +86,7 @@ are needed. Choose `/tmp/porelo-walk/tresor` as the local folder. Use the invent
 `/tmp/porelo-walk/keys/walk_ed25519` and `.pub` files for the SSH keys, the `.pub` file for signing,
 and `/tmp/porelo-walk/porelo-host` as the test collection, with the digest from
 `sha256sum /tmp/porelo-walk/porelo-host`. This collection step appears only in debug builds.
-The dialog writes the host files under the walk's tresor folder.
+The dialog writes the host files and `porelo-host/checkout.bundle` under the walk's tresor folder.
 
 ```bash
 PATH="$walk/bin:$PATH" \

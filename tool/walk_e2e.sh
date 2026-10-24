@@ -4,7 +4,7 @@ set -eu
 set -o pipefail
 
 cd -- "$(dirname -- "$0")/.."
-for command in flutter ssh-keygen sha256sum timeout setsid xvfb-run dbus-run-session gnome-keyring-daemon gdbus; do
+for command in flutter git ssh-keygen sha256sum timeout setsid xvfb-run dbus-run-session gnome-keyring-daemon gdbus; do
     command -v "$command" >/dev/null || {
         echo "walk-e2e: missing command: $command" >&2
         exit 1
@@ -75,6 +75,10 @@ chmod 755 "$walk/bin/notify-send"
 
 echo 'walk-e2e: creating an invented signing/SSH key pair in the walk folder'
 ssh-keygen -q -t ed25519 -N '' -C walk-invented -f "$walk/keys/walk_ed25519"
+echo 'walk-e2e: creating and verifying the followed project bundle'
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+tool/walk_project.sh "$walk"
+walk_commit=$(cat "$walk/project-commit")
 # Preserve the fetched packages when HOME changes; no dependency resolution runs below.
 export PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache}"
 export HOME="$walk/home" PATH="$walk/bin:$PATH" TMPDIR="$walk/tmp"
@@ -91,10 +95,10 @@ mkfifo "$walk/first.in" "$walk/host.in"
 # A writer held by this shell prevents EOF without sending a key to either mock.
 exec 3<>"$walk/first.in"
 exec 4<>"$walk/host.in"
-setsid timeout --kill-after=5s 15m "$sdk/bin/cache/dart-sdk/bin/dart" tool/mock_daemon.dart work "$walk/first.sock" \
+setsid timeout --kill-after=5s 15m "$sdk/bin/cache/dart-sdk/bin/dart" tool/mock_daemon.dart work "$walk/first.sock" checkout "$walk/project.bundle" "$walk_commit" \
     <"$walk/first.in" >"$walk/first.log" 2>&1 &
 groups+=("$!")
-setsid timeout --kill-after=5s 15m "$sdk/bin/cache/dart-sdk/bin/dart" tool/mock_daemon.dart host "$walk/host.sock" \
+setsid timeout --kill-after=5s 15m "$sdk/bin/cache/dart-sdk/bin/dart" tool/mock_daemon.dart host "$walk/host.sock" checkout "$walk/project.bundle" "$walk_commit" \
     <"$walk/host.in" >"$walk/host.log" 2>&1 &
 groups+=("$!")
 ready=false

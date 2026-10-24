@@ -58,11 +58,9 @@ void main() {
       expect(tester.widget<TextField>(_key('host-tresor')).controller?.text, 'tresor');
       await screen.see(_key('host-folder'));
       expect(find.descendant(of: _key('host-folder'), matching: find.text('Choose…')), findsOneWidget);
-      await screen.field('host-repository', 'Project repository address');
       await screen.field('host-signing-key', 'Public key for signing commits (.pub)');
       await screen.chooseBeside('host-signing-key');
       await screen.fill('host-tresor', 'walk');
-      await screen.fill('host-repository', 'https://example.org/walk.git');
       await screen.fill('host-signing-key', '$walk/keys/walk_ed25519.pub');
       await screen.tap(_key('wizard-next'));
 
