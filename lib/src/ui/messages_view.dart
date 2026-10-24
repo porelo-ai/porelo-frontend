@@ -242,6 +242,10 @@ class _MessagesDialogState extends State<MessagesDialog> {
                 ),
               ),
             ),
+            Text(
+              'Mention a task by picking it from your Matrix client’s list as a pill, rather than typing its name.',
+              style: text.bodySmall,
+            ),
           ],
         ),
       ),
@@ -252,7 +256,7 @@ class _MessagesDialogState extends State<MessagesDialog> {
               ? 'The homeserver is on ${model.machine.name}’s loopback; port $port is forwarded from this '
                     'computer while this window runs, so a Matrix client here reaches it at http://127.0.0.1:$port.'
               : model.forwardProblem ??
-                    (model.machine.needsATunnel
+                    (model.machine.host.isNotEmpty
                         ? 'Forwarding port $port from ${model.machine.name}…'
                         : 'The homeserver is on this computer, at http://127.0.0.1:$port.'),
           key: const Key('login-forward'),

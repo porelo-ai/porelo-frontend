@@ -580,13 +580,17 @@ List<Command> projectCommands({
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
 
-/// The provider action belonging to a rented host, independent of its daemon's availability.
+/// The host's lifecycle, local VPN and project room, sharing the machine's home.
 List<Command> hostMachineCommands({
   required Machine machine,
   required Settings settings,
   required VoidCallback takeDown,
+  VoidCallback? bringVpnUp,
+  VoidCallback? takeVpnDown,
+  VoidCallback? joinRoom,
+  String? roomUnavailable,
 }) => [
-  if (machine.kind == 'host')
+  if (machine.kind == 'host') ...[
     Command(
       id: 'machine.takeDown',
       label: 'Take this server down',
@@ -597,6 +601,35 @@ List<Command> hostMachineCommands({
           ? 'nothing was kept from putting it on a server; use Put this project on a server…'
           : null,
     ),
+    Command(
+      id: 'machine.vpnUp',
+      label: 'Bring the VPN up',
+      group: 'Machine',
+      home: Home.machineMenu,
+      run: bringVpnUp ?? () {},
+      unavailable: settings.hostUp(machine.hostProject)?.vpnFile == null
+          ? 'save the VPN connection to this server first'
+          : bringVpnUp == null
+          ? 'not offered here'
+          : null,
+    ),
+    Command(
+      id: 'machine.vpnDown',
+      label: 'Take the VPN down',
+      group: 'Machine',
+      home: Home.machineMenu,
+      run: takeVpnDown ?? () {},
+      unavailable: takeVpnDown == null ? 'not offered here' : null,
+    ),
+    Command(
+      id: 'machine.joinRoom',
+      label: "Join the project's room",
+      group: 'Machine',
+      home: Home.machineMenu,
+      run: joinRoom ?? () {},
+      unavailable: roomUnavailable ?? (joinRoom == null ? 'the host project is not available here' : null),
+    ),
+  ],
 ];
 
 /// Stops watching a machine, with the same guard wherever removal is offered.

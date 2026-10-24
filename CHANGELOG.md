@@ -17,6 +17,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Servers offer VPN up and down in a terminal on this computer, with an optional cleanup of the
+  saved private-key file after connecting, and a route into the project's room with Matrix client guidance.
+
 - Servers can be taken down from Machines using the last saved setup answers. Removing a server
   from the list warns that it keeps running and billing, and host setup restores its last answers.
 

@@ -36,6 +36,8 @@ Future<void> unlockInATerminal(
 
 /// Runs [command] on [machine] in a terminal a person types into, for a value this program must
 /// never hold. Returns once the dialog is put away; what came of it is asked of the machine then.
+/// [onExit] reports a process exit, never cancellation; [completed] is shown only after exit zero.
+/// [shownCommand] can show a readable command when the actual argument list uses a shell parameter.
 Future<void> runInATerminal(
   BuildContext context, {
   required String title,
@@ -47,6 +49,9 @@ Future<void> runInATerminal(
   String stillWorking = 'Still running on the machine. It may print nothing for a while.',
   String cancel = 'Cancel it',
   Future<String?> Function()? whatCameOfIt,
+  ValueChanged<int>? onExit,
+  String? shownCommand,
+  String? completed,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
@@ -60,6 +65,9 @@ Future<void> runInATerminal(
     stillWorking: stillWorking,
     cancel: cancel,
     whatCameOfIt: whatCameOfIt,
+    onExit: onExit,
+    shownCommand: shownCommand,
+    completed: completed,
   ),
 );
 
@@ -74,6 +82,9 @@ class _UnlockTerminal extends StatefulWidget {
     required this.stillWorking,
     required this.cancel,
     this.whatCameOfIt,
+    this.onExit,
+    this.shownCommand,
+    this.completed,
   });
 
   final String title;
@@ -92,6 +103,10 @@ class _UnlockTerminal extends StatefulWidget {
   /// Asked of the machine once the terminal has ended, and said in one sentence of the interface's
   /// own: at the end two programs speak at once in the terminal, and neither is the verdict.
   final Future<String?> Function()? whatCameOfIt;
+
+  final ValueChanged<int>? onExit;
+  final String? shownCommand;
+  final String? completed;
 
   @override
   State<_UnlockTerminal> createState() => _UnlockTerminalState();
@@ -145,10 +160,16 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
   /// What the machine says came of it, once asked; null before.
   String? _cameOfIt;
   bool _asked = false;
+  bool _reportedExit = false;
 
   void _changed() {
     if (!mounted) return;
     setState(() {});
+    final code = _session.exitCode;
+    if (!_reportedExit && code != null) {
+      _reportedExit = true;
+      widget.onExit?.call(code);
+    }
     final asking = widget.whatCameOfIt;
     if (asking != null && !_asked && _session.state == SessionState.over) {
       _asked = true;
@@ -183,7 +204,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
             Text(widget.explanation, key: const Key('unlock-explained')),
             const SizedBox(height: Space.small),
             SelectableText(
-              widget.command.join(' '),
+              widget.shownCommand ?? widget.command.join(' '),
               key: const Key('unlock-command'),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
@@ -228,6 +249,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
               Text(
                 _cameOfIt ??
                     _session.problem ??
+                    (widget.completed != null && _session.exitCode == 0 ? widget.completed : null) ??
                     (widget.whatCameOfIt == null
                         ? 'The terminal has ended. What came of it is asked of the machine when this is '
                               'put away.'

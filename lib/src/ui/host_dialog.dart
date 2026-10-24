@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 
 import '../app/desk.dart';
 import '../app/host_session.dart';
+import '../app/host_vpn.dart';
 import '../app/machines.dart';
 import '../app/settings.dart';
 import '../app/session.dart';
@@ -350,6 +351,7 @@ class _HostDialogState extends State<HostDialog> {
           ? (await getSaveLocation(suggestedName: 'porelo.conf'))?.path
           : await widget.saveTunnel!();
       if (path == null || !mounted) return;
+      checkVpnFile(path);
       setState(() => _saving = true);
       await _withFiles(
         (files) => files.exportTunnel(
@@ -359,6 +361,10 @@ class _HostDialogState extends State<HostDialog> {
           destination: File(path),
         ),
       );
+      final kept = widget.settings?.hostUp(widget.project);
+      if (kept != null) await widget.settings!.rememberHostUp(widget.project, kept.withVpnFile(path));
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
     } on HostFilesRefused catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
     } on FileSystemException catch (error) {
@@ -842,9 +848,9 @@ class _HostDialogState extends State<HostDialog> {
                     'WireGuard makes an encrypted VPN connection between this computer and the server. '
                     'This file holds a private key. Keep it in a private folder that only you can read; do not share it. '
                     'Use WireGuard installed on this computer to connect. Administrator (root) access is needed. '
-                    'Replace <file> with the saved file path and run:\n'
-                    'cat <file> | sudo tee /etc/wireguard/porelo.conf\n'
-                    'sudo wg-quick up porelo',
+                    'After saving, use Bring the VPN up on this server in Machines. It opens a terminal here with:\n'
+                    'sudo install -m 600 <saved file> /etc/wireguard/porelo.conf && sudo wg-quick up porelo\n'
+                    'sudo asks for root access in that terminal.',
                 child: Padding(padding: EdgeInsets.all(Space.small), child: Icon(Icons.info_outline)),
               ),
             ],

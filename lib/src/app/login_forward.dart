@@ -65,7 +65,7 @@ class _Tracked implements HeldForward {
 /// computer's own needs nothing — the redirect already lands on the listener.
 Future<HeldForward> _withSsh(Machine machine, int port) async {
   if (machine.host.startsWith('-')) throw const ForwardRefused('An ssh host must not start with a dash.');
-  if (!machine.needsATunnel) return const _Nothing();
+  if (machine.host.isEmpty) return const _Nothing();
   // Asked before, because ssh with ExitOnForwardFailure says only that it failed.
   try {
     final taken = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);

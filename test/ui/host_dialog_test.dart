@@ -928,7 +928,8 @@ void main() {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
+    final settingsStore = MemorySettingsStore();
+    final settings = Settings(settingsStore);
     final store = _MemorySecrets();
     final commands = <List<String>>[];
     final processes = <_HostProcess>[];
@@ -1038,6 +1039,13 @@ void main() {
     final config = await tester.runAsync(() => exported.readAsString());
     expect(config, contains('PrivateKey = $private'));
     expect(config, contains('PublicKey = $hostPublic'));
+    final reopened = Settings(settingsStore);
+    await reopened.load();
+    expect(
+      reopened.hostUp('demo')!.vpnFile,
+      exported.path,
+      reason: 'VPN actions must use the explicitly exported file after restarting',
+    );
     expect((await tester.runAsync(() => exported.stat()))!.mode & 0x1ff, 0x180);
     await tapAndRun(tester, const Key('host-down'));
     expect(commands.map((a) => a.first), ['up', 'up', 'down']);

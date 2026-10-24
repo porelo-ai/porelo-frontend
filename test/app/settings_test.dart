@@ -18,6 +18,19 @@ void main() {
     'vpnPeerAddress': '10.73.0.2/32',
   };
 
+  // Harm: a corrupted saved-file field must not crash startup or be used as a root command input.
+  test('a VPN file path survives reload while a wrong stored type is refused', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    await settings.rememberHostUp('demo', HostUpRecord.fromStored(record)!.withVpnFile('/private folder/porelo.conf'));
+    final reopened = Settings(store);
+    await reopened.load();
+    expect(reopened.hostUp('demo')!.vpnFile, '/private folder/porelo.conf');
+    expect(reopened.hostUp('demo')!.arguments('demo'), HostUpRecord.fromStored(record)!.arguments('demo'));
+    expect(HostUpRecord.fromStored({...record, 'vpnFile': 7}), isNull);
+    expect(HostUpRecord.fromStored(record)!.vpnFile, isNull, reason: 'older records remain usable');
+  });
+
   // Harm: missing host identity or setup inputs can redirect teardown or lose access to a billing server.
   test('stored host records with empty or whitespace-only required fields are dropped on load', () async {
     for (final field in ['scalewayProject', 'account', 'tresor', 'identity', 'publicKey', 'collection']) {

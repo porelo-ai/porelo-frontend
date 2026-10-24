@@ -22,6 +22,7 @@ class HostUpRecord {
     required this.collection,
     required this.vpnPeerPublicKey,
     required this.vpnPeerAddress,
+    this.vpnFile,
   });
 
   /// The provider project that owns the rented host.
@@ -57,6 +58,25 @@ class HostUpRecord {
   /// The tunnel peer's address, empty when none was supplied.
   final String vpnPeerAddress;
 
+  /// The explicitly exported VPN file's local path, never its private key contents.
+  final String? vpnFile;
+
+  /// Keeps the same host identity when the exported file is saved or explicitly deleted.
+  HostUpRecord withVpnFile(String? file) => HostUpRecord(
+    scalewayProject: scalewayProject,
+    account: account,
+    tresor: tresor,
+    folder: folder,
+    repository: repository,
+    signingKey: signingKey,
+    identity: identity,
+    publicKey: publicKey,
+    collection: collection,
+    vpnPeerPublicKey: vpnPeerPublicKey,
+    vpnPeerAddress: vpnPeerAddress,
+    vpnFile: file,
+  );
+
   /// Reads every field or drops the entire unusable record.
   static HostUpRecord? fromStored(Object? value) {
     if (value case {
@@ -72,6 +92,8 @@ class HostUpRecord {
       'vpnPeerPublicKey': final String vpnPeerPublicKey,
       'vpnPeerAddress': final String vpnPeerAddress,
     }) {
+      final vpnFile = value['vpnFile'];
+      if (vpnFile != null && vpnFile is! String) return null;
       if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
       final required = [scalewayProject, account, tresor, identity, publicKey, collection];
       if (required.any((field) => field.trim().isEmpty)) return null;
@@ -98,6 +120,7 @@ class HostUpRecord {
         collection: collection,
         vpnPeerPublicKey: vpnPeerPublicKey,
         vpnPeerAddress: vpnPeerAddress,
+        vpnFile: vpnFile as String?,
       );
     }
     return null;
@@ -116,6 +139,7 @@ class HostUpRecord {
     'collection': collection,
     'vpnPeerPublicKey': vpnPeerPublicKey,
     'vpnPeerAddress': vpnPeerAddress,
+    if (vpnFile != null) 'vpnFile': vpnFile,
   };
 
   /// The identical host identity options for up, resume and down.

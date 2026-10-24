@@ -33,12 +33,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f159"></a>[F159](F159-Work-Started-From-The-Project-Page.md) | S | — | Visible start buttons on the project page and each repository row, with a chosen repository shown as text and a *Change* link in the start form. |
 | <a id="f165"></a>[F165](F165-A-Projects-Commands-As-Tiles-On-Its-Page.md) | S | — | A project's commands as tiles on its page, not only in its ⋮. |
 | <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | S | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |
+| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. |
 | <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
 | <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | M | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
 | <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | M | `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13) | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |

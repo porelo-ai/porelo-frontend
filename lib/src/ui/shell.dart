@@ -102,6 +102,7 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
+import 'host_vpn_dialog.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -432,8 +433,49 @@ class _ShellState extends State<Shell> {
     makeTheVault: _canUnlockHere ? () => unawaited(_makeTheVault()) : null,
   );
 
-  List<Command> _hostCommands(Machine machine) =>
-      hostMachineCommands(machine: machine, settings: widget.settings, takeDown: () => unawaited(_takeDown(machine)));
+  List<Command> _hostCommands(Machine machine) {
+    final fleet = widget.machines.of(machine);
+    final project = fleet.projects.where((each) => each.name == machine.hostProject).firstOrNull;
+    return hostMachineCommands(
+      machine: machine,
+      settings: widget.settings,
+      takeDown: () => unawaited(_takeDown(machine)),
+      bringVpnUp: () => unawaited(
+        openHostVpnDialog(
+          context,
+          machine: machine,
+          settings: widget.settings,
+          up: true,
+          open: widget.sessions.openTerminal,
+        ),
+      ),
+      takeVpnDown: () => unawaited(
+        openHostVpnDialog(
+          context,
+          machine: machine,
+          settings: widget.settings,
+          up: false,
+          open: widget.sessions.openTerminal,
+        ),
+      ),
+      joinRoom: project == null
+          ? null
+          : () => unawaited(
+              showProjectMessages(
+                context,
+                backend: fleet.backend,
+                machine: machine,
+                project: project.project,
+                forwards: _homeservers,
+              ),
+            ),
+      roomUnavailable: fleet.reachability != Reachability.connected
+          ? 'the machine is not answering'
+          : project == null
+          ? 'the host project is not available here'
+          : null,
+    );
+  }
 
   Future<void> _takeDown(Machine machine) async {
     await openHostTakeDownDialog(
@@ -1192,7 +1234,7 @@ class _ShellState extends State<Shell> {
     if (widget.machines.all.length < 2) return;
     final machine = widget.machines.current;
     if (machine.kind == 'host') {
-      final takeDown = _hostCommands(machine).single;
+      final takeDown = _hostCommands(machine).singleWhere((command) => command.id == 'machine.takeDown');
       final decision = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
@@ -2719,8 +2761,20 @@ class _ShellState extends State<Shell> {
                   for (final command in _hostCommands(machine))
                     CommandTile(
                       command: command,
-                      icon: Icons.cloud_off_outlined,
-                      description: 'End the project tasks and room, copy its files back and give the server back.',
+                      icon: switch (command.id) {
+                        'machine.vpnUp' => Icons.vpn_key_outlined,
+                        'machine.vpnDown' => Icons.link_off_outlined,
+                        'machine.joinRoom' => Icons.chat_bubble_outline,
+                        _ => Icons.cloud_off_outlined,
+                      },
+                      description: switch (command.id) {
+                        'machine.vpnUp' =>
+                          'Install the saved connection and bring WireGuard up in a terminal on this computer.',
+                        'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
+                        'machine.joinRoom' =>
+                          'Open the project’s Messages on this server and join from your Matrix client.',
+                        _ => 'End the project tasks and room, copy its files back and give the server back.',
+                      },
                     ),
                 // Scrolls with the work: a project with many repositories is taller than any window,
                 // and a fixed header that grows pushes the work out of sight. The title bar still

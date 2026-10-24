@@ -158,6 +158,9 @@ class Session extends ChangeNotifier {
   /// adds is what kind of ending it was, which the terminal cannot say.
   String? problem;
 
+  /// The actual process exit code, absent if no process ended or the terminal was canceled.
+  int? exitCode;
+
   SessionChannel? _channel;
   StreamSubscription<List<int>>? _reading;
 
@@ -263,6 +266,7 @@ class Session extends ChangeNotifier {
     // by which time this is disposed and notifying would throw into whatever is drawing.
     if (_gone) return;
     // The login is over, so its reply has nothing left to reach.
+    exitCode = code;
     final forward = _forward;
     _forward = null;
     unawaited(forward?.close());

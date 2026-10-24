@@ -14,7 +14,9 @@ import 'machines.dart';
 /// goes with it. The machine keeps no copy either, so a second look is a new password (reset).
 class ProjectConversation extends ChangeNotifier {
   /// Constructor taking the machine, where it is reached, and the project.
-  ProjectConversation(this._backend, this.machine, this.project, {this._forwards});
+  ProjectConversation(this._backend, this.machine, this.project, {this._forwards}) {
+    _forwards?.addListener(_forwardsChanged);
+  }
 
   /// Where a joined homeserver is held forwarded while the window runs; without it, only while this
   /// is open.
@@ -31,8 +33,17 @@ class ProjectConversation extends ChangeNotifier {
   /// Who has joined, or null before the machine answered.
   List<MessageMember>? members;
 
-  /// What the last join answered, while this is open; never kept beyond it.
-  MessagesJoined? joined;
+  /// The answered join only while its homeserver is reachable; never kept beyond this dialog.
+  MessagesJoined? get joined {
+    final answer = _joined;
+    if (answer != null && answer.loopback && machine.host.isNotEmpty && forwarded != answer.port) return null;
+    return answer;
+  }
+
+  MessagesJoined? _joined;
+
+  MessagesJoined? _pendingJoin;
+  String? _pendingPerson;
 
   /// The person a join was refused for because they have an account already, or null.
   String? alreadyJoined;
@@ -62,19 +73,30 @@ class ProjectConversation extends ChangeNotifier {
   /// Lets [person] in, or gives their account a new password with [reset].
   Future<void> join(String person, {bool reset = false}) => _asking(() async {
     alreadyJoined = null;
-    final answer = await _backend.joinMessages(project.name, person, reset: reset);
-    joined = answer;
-    members = await _backend.messageMembers(project.name);
+    _joined = null;
+    forwardProblem = null;
+    if (_pendingPerson != person || reset) _pendingJoin = null;
+    final answer = _pendingJoin ?? await _backend.joinMessages(project.name, person, reset: reset);
+    if (_gone) return;
+    _pendingJoin = answer;
+    _pendingPerson = person;
     await _forwardTheHomeserver(answer);
+    if (_gone) return;
+    if (forwardProblem != null) {
+      problem = forwardProblem;
+      return;
+    }
+    _joined = answer;
+    members = await _backend.messageMembers(project.name);
   });
 
   /// Where the homeserver is the machine's own loopback, a client on this computer reaches it only
   /// through a forward of the same port, held while this is open.
   Future<void> _forwardTheHomeserver(MessagesJoined answer) async {
     final port = answer.port;
-    // A machine whose socket is this computer's own needs nothing: its loopback is this one's.
-    if (!answer.loopback || port == null || forwarded != null || !machine.needsATunnel) return;
-    if (port < 1024 || port > 65535) {
+    // The homeserver's SSH destination does not depend on who forwards the daemon socket.
+    if (!answer.loopback || machine.host.isEmpty) return;
+    if (port == null || port < 1024 || port > 65535) {
       forwardProblem = 'The machine named port $port for its homeserver, which is not one to forward.';
       return;
     }
@@ -83,9 +105,16 @@ class ProjectConversation extends ChangeNotifier {
       // Held beyond this dialog: a Matrix client keeps its server when the dialog closes.
       await forwards.hold(machine, project.name, port);
       forwardProblem = forwards.problemOf(machine, project.name);
+      if (forwardProblem == null && forwards.portOf(machine, project.name) != port) {
+        forwardProblem = 'The homeserver forward did not come up.';
+      }
       return;
     }
+    if (_forwarded == port) return;
     try {
+      await _forward?.close();
+      _forward = null;
+      _forwarded = null;
       final held = await raiseForward(machine, port);
       if (_gone) {
         await held.close();
@@ -95,6 +124,8 @@ class ProjectConversation extends ChangeNotifier {
       _forwarded = port;
     } on ForwardRefused catch (refused) {
       forwardProblem = refused.words;
+    } on Exception catch (error) {
+      forwardProblem = 'The homeserver could not be forwarded: $error';
     }
   }
 
@@ -137,11 +168,25 @@ class ProjectConversation extends ChangeNotifier {
     if (!_gone) notifyListeners();
   }
 
+  void _forwardsChanged() {
+    final previous = forwardProblem;
+    forwardProblem = _forwards?.problemOf(machine, project.name);
+    if (_joined != null && joined == null) {
+      problem = forwardProblem ?? 'The homeserver forward did not come up.';
+    } else if (joined != null && problem == previous) {
+      problem = null;
+    }
+    _notify();
+  }
+
   @override
   void dispose() {
     _gone = true;
     // The login goes with the dialog: nothing of it is kept.
-    joined = null;
+    _forwards?.removeListener(_forwardsChanged);
+    _joined = null;
+    _pendingJoin = null;
+    _pendingPerson = null;
     final held = _forward;
     _forward = null;
     unawaited(held?.close());
