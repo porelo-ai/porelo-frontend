@@ -50,15 +50,17 @@ void main() {
       await screen.fill('host-scaleway-project', 'walk');
       await screen.tap(_key('wizard-next'));
 
-      await screen.see(find.text('Project tresor folder on this computer: $walk/tresor'));
+      await screen.see(find.text('$walk/tresor'));
+      await screen.chooseBeside('host-folder');
+      expect(tester.widget<TextField>(_key('host-tresor')).controller?.text, 'tresor');
       await screen.see(_key('host-folder'));
-      expect(find.descendant(of: _key('host-folder'), matching: find.text('Choose another')), findsOneWidget);
+      expect(find.descendant(of: _key('host-folder'), matching: find.text('Choose…')), findsOneWidget);
       await screen.field('host-repository', 'Project repository address');
       await screen.field('host-signing-key', 'Public key for signing commits (.pub)');
       await screen.chooseBeside('host-signing-key');
       await screen.fill('host-tresor', 'walk');
       await screen.fill('host-repository', 'https://example.org/walk.git');
-      await screen.fill('host-signing-key', '~/.ssh/id_ed25519.pub');
+      await screen.fill('host-signing-key', '$walk/keys/walk_ed25519.pub');
       await screen.tap(_key('wizard-next'));
 
       await screen.chooseBeside('host-identity');
@@ -69,11 +71,13 @@ void main() {
       expect(_steps(), findsNothing, reason: 'a refused path must not start host setup');
       expect(_key('host-stop'), findsNothing);
       expect(_key('host-up'), findsNothing);
-      await screen.fill('host-identity', '~/.ssh/id_ed25519.pub');
+      await screen.fill('host-identity', '$walk/keys/walk_ed25519.pub');
       expect(tester.widget<FilledButton>(_key('wizard-next')).onPressed, isNull);
       await screen.see(find.textContaining('Choose the private ssh key'));
-      await screen.fill('host-identity', '~/.ssh/id_ed25519');
-      await screen.fill('host-public-key', '~/.ssh/id_ed25519.pub');
+      await screen.fill('host-identity', '$walk/keys/walk_ed25519');
+      // Harm: a home-relative key path must resolve before renting, without using an account key.
+      expect(Platform.environment['HOME'], '$walk/home');
+      await screen.fill('host-public-key', '~/../keys/walk_ed25519.pub');
       await screen.tap(_key('wizard-next'));
 
       await screen.chooseBeside('host-collection');

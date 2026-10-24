@@ -59,7 +59,8 @@ folder short so Unix socket paths stay under 100 bytes:
 
 ```bash
 walk=/tmp/porelo-walk
-mkdir -p "$walk/bin"
+mkdir -p "$walk/bin" "$walk/keys" "$walk/tresor"
+ssh-keygen -q -t ed25519 -N '' -C walk-invented -f /tmp/porelo-walk/keys/walk_ed25519
 dart compile exe tool/host_standin.dart -o "$walk/porelo-host"
 dart compile exe tool/ssh_standin.dart -o "$walk/bin/ssh"
 printf '%s\n' '{"situation":"stop","state":"new"}' > "$walk/host-standin.json"
@@ -76,8 +77,11 @@ timeout 1h dart tool/mock_daemon.dart host /tmp/porelo-walk/host.sock
 
 Then start the interface from a third terminal with its settings isolated from everyday machines.
 The host dialog still uses the system secret store for its generated WireGuard key. Use invented
-answers only in the terminal opened at the stop; no real host keys, provider credentials or collection are needed. Leave the
-local Tresorit folder unchosen, so the dialog prepares no host files.
+answers only in the terminal opened at the stop; no real host keys, provider credentials or collection
+are needed. Choose `/tmp/porelo-walk/tresor` as the local folder. Use the invented
+`/tmp/porelo-walk/keys/walk_ed25519` and `.pub` files for the SSH keys, the `.pub` file for signing,
+and `/tmp/porelo-walk/porelo-host` as the setup file. The dialog writes the host files under the
+walk's tresor folder.
 
 ```bash
 PATH="$walk/bin:$PATH" \

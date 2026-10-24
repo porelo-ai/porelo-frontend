@@ -61,7 +61,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 umask 077
-mkdir -p "$walk/bin" "$walk/config" "$walk/run/keyring" "$walk/home/.ssh" "$walk/tresor" "$walk/tmp"
+mkdir -p "$walk/bin" "$walk/config" "$walk/run/keyring" "$walk/home" "$walk/keys" "$walk/tresor" "$walk/tmp"
 
 echo 'walk-e2e: compiling the host and SSH stand-ins (duration unmeasured)'
 "$sdk/bin/cache/dart-sdk/bin/dart" compile exe tool/host_standin.dart -o "$walk/porelo-host"
@@ -71,8 +71,8 @@ cp doc/walks/17-the-host-flow.json "$walk/walk.json"
 printf '#!/bin/sh\nexit 0\n' >"$walk/bin/notify-send"
 chmod 755 "$walk/bin/notify-send"
 
-echo 'walk-e2e: creating an invented signing/SSH key pair in the private HOME'
-ssh-keygen -q -t ed25519 -N '' -C 'local host walk only' -f "$walk/home/.ssh/id_ed25519"
+echo 'walk-e2e: creating an invented signing/SSH key pair in the walk folder'
+ssh-keygen -q -t ed25519 -N '' -C walk-invented -f "$walk/keys/walk_ed25519"
 # Preserve the fetched packages when HOME changes; no dependency resolution runs below.
 export PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache}"
 export HOME="$walk/home" PATH="$walk/bin:$PATH" TMPDIR="$walk/tmp"

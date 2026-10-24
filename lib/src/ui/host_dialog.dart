@@ -108,6 +108,7 @@ class _HostDialogState extends State<HostDialog> {
   void initState() {
     super.initState();
     _folder = widget.settings?.tresorFolder(widget.project);
+    if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
   }
 
   bool _upStarted = false;
@@ -229,6 +230,10 @@ class _HostDialogState extends State<HostDialog> {
     await widget.settings?.rememberTresorFolder(widget.project, folder);
     if (mounted) {
       setState(() {
+        final previousName = _folder == null ? '' : path.basename(path.normalize(_folder!));
+        if (_tresor.text.trim().isEmpty || _tresor.text == previousName) {
+          _tresor.text = path.basename(path.normalize(folder));
+        }
         _folder = folder;
         _machineProblem = null;
       });
@@ -238,8 +243,9 @@ class _HostDialogState extends State<HostDialog> {
   Future<void> _addKey() async {
     try {
       HostFiles.checkName(_keyName.text);
-      final file = await _pickFile();
-      if (file == null || !mounted) return;
+      final selected = await _pickFile();
+      if (selected == null || !mounted) return;
+      final file = desk.expandHome(selected.trim());
       HostFiles.checkBasename(path.basename(file));
       final key = HostKeyFile(_keyName.text, File(file));
       setState(() {
@@ -247,6 +253,8 @@ class _HostDialogState extends State<HostDialog> {
         _keyName.clear();
       });
     } on HostFilesRefused catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
+    } on FormatException catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
     }
   }
@@ -294,7 +302,7 @@ class _HostDialogState extends State<HostDialog> {
     } on HostFilesRefused catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
     } on FileSystemException catch (error) {
-      if (mounted) setState(() => _machineProblem = 'Cannot prepare the host file: ${error.path ?? "selected file"}.');
+      if (mounted) setState(() => _machineProblem = _preparationProblem(error));
     } on SecretStoreFailed {
       if (mounted) {
         setState(() => _machineProblem = 'The system secret store could not keep or read the WireGuard key.');
@@ -478,40 +486,74 @@ class _HostDialogState extends State<HostDialog> {
   String? _required(List<TextEditingController> fields, String reason) =>
       fields.any((field) => field.text.trim().isEmpty) ? reason : null;
 
-  String? _paths(List<TextEditingController> fields) {
+  String? _fileProblem(String value, String label) {
     try {
-      for (final field in fields) {
-        desk.expandHome(field.text.trim());
-      }
+      final expanded = desk.expandHome(value.trim());
+      return switch (FileSystemEntity.typeSync(expanded)) {
+        FileSystemEntityType.notFound => '$label does not exist: $expanded.',
+        FileSystemEntityType.file => null,
+        _ => '$label is not a regular file: $expanded.',
+      };
     } on FormatException catch (error) {
       return error.message;
+    } on FileSystemException {
+      return '$label cannot be checked: $value.';
+    }
+  }
+
+  String? get _driveFilesProblem {
+    final signing = _fileProblem(_signingKey.text, 'The public key for signing commits');
+    if (signing != null) return signing;
+    for (final key in _keys) {
+      final problem = _fileProblem(key.file.path, 'The file for vault entry ${key.name}');
+      if (problem != null) return problem;
     }
     return null;
+  }
+
+  String _preparationProblem(FileSystemException error) {
+    final inputs = [
+      (value: _signingKey.text, label: 'Public key for signing commits (.pub)', step: 'The drive'),
+      (value: _identity.text, label: 'Your private ssh key', step: 'Your ssh keys'),
+      (value: _publicKey.text, label: 'Your public ssh key', step: 'Your ssh keys'),
+      (value: _collection.text, label: 'Server setup file (.tar.gz)', step: 'The setup file'),
+      for (final key in _keys) (value: key.file.path, label: 'Vault entry ${key.name} file', step: 'The drive'),
+    ];
+    final failedPath = error.path;
+    if (failedPath != null) {
+      for (final input in inputs) {
+        final expanded = desk.expandHome(input.value.trim());
+        if (path.equals(path.absolute(expanded), path.absolute(failedPath))) {
+          final missing = error.osError?.errorCode == 2 || (Platform.isWindows && error.osError?.errorCode == 3);
+          return '${input.label} (${input.step}) ${missing ? 'does not exist' : 'cannot be read'}: $failedPath.';
+        }
+      }
+    }
+    final message = error.osError?.message ?? error.message;
+    return 'Cannot prepare ${failedPath ?? 'the selected file'}: $message.';
   }
 
   String? get _keysProblem {
     final missing = _required([_identity, _publicKey], 'Choose both your private and public ssh keys.');
     if (missing != null) return missing;
-    final paths = _paths([_identity, _publicKey]);
-    if (paths != null) return paths;
+    final problem = _fileProblem(_identity.text, 'Your private ssh key');
+    if (problem != null) return problem;
     final identity = desk.expandHome(_identity.text.trim());
     const public = 'Choose the private ssh key here; this is a public key. The public key goes in the next field.';
     if (identity.endsWith('.pub')) return public;
     try {
       final file = File(identity);
-      if (file.existsSync()) {
-        // Inspect only the public-key prefix, never the private key's contents.
-        final input = file.openSync();
-        try {
-          if (String.fromCharCodes(input.readSync(4)) == 'ssh-') return public;
-        } finally {
-          input.closeSync();
-        }
+      // Inspect only the public-key prefix, never the private key's contents.
+      final input = file.openSync();
+      try {
+        if (String.fromCharCodes(input.readSync(4)) == 'ssh-') return public;
+      } finally {
+        input.closeSync();
       }
     } on FileSystemException {
       return 'Cannot read the private ssh key file.';
     }
-    return null;
+    return _fileProblem(_publicKey.text, 'Your public ssh key');
   }
 
   Widget _panel(List<Widget> children) => Column(
@@ -539,22 +581,26 @@ class _HostDialogState extends State<HostDialog> {
     WizardStep(
       title: 'The drive',
       words:
-          "Tresorit, the one drive available today. Give the tresor's name as it appears in Tresorit. "
-          'Its synced folder on this computer is a separate choice: the host files are written there. '
+          'Tresorit, the one drive available today. Choose its synced folder on this computer. '
           'When a folder is chosen, give the repository address and the public key used to sign commits.',
       panel: (_) => _panel([
-        _field(_tresor, "The tresor's name in Tresorit", 'host-tresor', namesHost: true),
         const Text('Its synced folder on this computer'),
-        if (_folder != null)
-          Text('Project tresor folder on this computer: $_folder')
-        else
-          const Text(
-            'No local Tresorit folder chosen. Copy machine.yml, wireguard.key and any keys/ files into the project tresor under porelo-host/ before the host reads them.',
-          ),
-        TextButton(
-          key: const Key('host-folder'),
-          onPressed: _running || _upStarted ? null : _chooseFolder,
-          child: Text(_folder == null ? 'Choose the project tresor folder on this computer' : 'Choose another'),
+        Row(
+          children: [
+            Flexible(child: Text(_folder ?? 'No folder chosen')),
+            const SizedBox(width: Space.small),
+            TextButton(
+              key: const Key('host-folder'),
+              onPressed: _running || _upStarted ? null : _chooseFolder,
+              child: const Text('Choose…'),
+            ),
+          ],
+        ),
+        if (_folder == null) const Text('Supply the host files manually if no folder is chosen.'),
+        _field(_tresor, "The tresor's name in Tresorit", 'host-tresor', namesHost: true),
+        const Text(
+          'The server signs in to Tresorit and syncs the tresor by this name; '
+          'the folder is this computer’s copy, where the server’s files are written.',
         ),
         if (Platform.isWindows)
           const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
@@ -584,7 +630,7 @@ class _HostDialogState extends State<HostDialog> {
           (_folder == null
               ? null
               : _required([_repository, _signingKey], 'Give the repository address and its signing key.') ??
-                    _paths([_signingKey])),
+                    _driveFilesProblem),
       summary: () => [
         'Tresorit tresor: ${_tresor.text}',
         'Synced folder on this computer: ${_folder ?? 'not chosen; supply the host files manually'}',
@@ -614,7 +660,9 @@ class _HostDialogState extends State<HostDialog> {
           'The server setup collection (.tar.gz) tells the host how to install Porelo and prepare the project. '
           'Choose the collection file on this computer.',
       panel: (_) => _panel([_pathField(_collection, 'Server setup file (.tar.gz)', 'host-collection')]),
-      check: () => _required([_collection], 'Choose the server setup file.') ?? _paths([_collection]),
+      check: () =>
+          _required([_collection], 'Choose the server setup file.') ??
+          _fileProblem(_collection.text, 'The server setup file'),
       summary: () => ['Server setup file: ${_collection.text}'],
     ),
   ];

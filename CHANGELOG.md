@@ -10,7 +10,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Putting a project on a server asks one step at a time, keeps answers when going back, and
-  reviews them before renting; a public ssh key chosen as the private one is refused first.
+  reviews them before renting; missing files and a public ssh key chosen as the private one are
+  refused in their own step. The local folder appears beside its picker and suggests an editable
+  tresor name. Preparation refusals name the input and step, and corrected answers can be retried.
+  The host walk uses invented SSH keys kept inside its walk folder.
 
 ### Added
 

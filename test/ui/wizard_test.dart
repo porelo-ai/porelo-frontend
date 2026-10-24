@@ -143,6 +143,33 @@ void main() {
     expect(find.byType(Wizard), findsNothing);
   });
 
+  // Harm: retaining a refusal after correction leaves external work stuck on stale answers.
+  testWidgets('returning from a refused action runs it again after correcting an answer', (tester) async {
+    await open(tester);
+    await tester.enterText(find.byKey(const Key('first')), 'one');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('second')), 'two');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    await tap(tester, 'wizard-start');
+    expect(starts, 1);
+    action.value = WizardActionState.refused;
+    await tester.pump();
+    expect(find.text('External answer: refused'), findsOneWidget);
+    await tap(tester, 'wizard-back');
+    await tap(tester, 'wizard-back');
+    await tester.enterText(find.byKey(const Key('second')), 'corrected');
+    await tester.pump();
+    await tap(tester, 'wizard-next');
+    expect(find.text('corrected'), findsOneWidget, reason: 'the start decision must review the new answer');
+    await tap(tester, 'wizard-start');
+    expect(starts, 2);
+    expect(second.text, 'corrected');
+    expect(find.text('External answer: refused'), findsNothing);
+    expect(find.text('External answer: running'), findsOneWidget);
+  });
+
   for (final navigation in ['back', 'leave']) {
     // Harm: a running external action is forgotten while it can still rent or change a machine.
     testWidgets('a running action asks before $navigation and cannot finish early', (tester) async {
