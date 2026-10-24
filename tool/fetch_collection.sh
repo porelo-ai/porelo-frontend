@@ -2,7 +2,10 @@
 # Fetches one pinned release asset; a local source directory permits an offline build check.
 set -eu
 
-fail() { printf 'fetch-collection: %s\n' "$*" >&2; exit 65; }
+fail() {
+    printf 'fetch-collection: %s\n' "$*" >&2
+    exit 65
+}
 
 [ "$#" -ge 3 ] && [ "$#" -le 4 ] || fail 'usage: fetch_collection.sh <version> <sha256> <out-dir> [file-name]'
 version=$1
@@ -12,9 +15,9 @@ file=${4:-porelo-host-$version.tar.gz}
 printf '%s\n' "$version" | LC_ALL=C grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || fail "invalid release version: $version"
 printf '%s\n' "$expected" | LC_ALL=C grep -Eq '^[0-9a-f]{64}$' || fail 'SHA-256 must contain 64 hexadecimal digits'
 case "$file" in
-    ''|[!a-zA-Z0-9]*|*[!a-zA-Z0-9._-]*|*..*) fail "invalid release file name: $file" ;;
-    *.tar.gz) ;;
-    *) fail 'the release asset must be a .tar.gz file' ;;
+'' | [!a-zA-Z0-9]* | *[!a-zA-Z0-9._-]* | *..*) fail "invalid release file name: $file" ;;
+*.tar.gz) ;;
+*) fail 'the release asset must be a .tar.gz file' ;;
 esac
 [ -n "$out" ] || fail 'the output directory must not be empty'
 mkdir -p -- "$out"

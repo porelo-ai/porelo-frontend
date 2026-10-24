@@ -96,7 +96,7 @@ test -x "$bundle/porelo_frontend" || {
 # `porelo-host`, beside the launcher, of the same version: the interface calls this copy by its path.
 say "Building porelo-host $version"
 collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
-read -r _ collection_digest collection_file <<< "$collection"
+read -r _ collection_digest collection_file <<<"$collection"
 printf '%s  %s\n' "$collection_digest" "build/collection/$collection_file" | sha256sum -c -
 cp -- "build/collection/$collection_file" "$bundle/$collection_file"
 dart pub get --directory=packages/porelo_host >/dev/null

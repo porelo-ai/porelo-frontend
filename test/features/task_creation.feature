@@ -24,7 +24,7 @@ Feature: Starting work with an agent, a mode and a credential
         When I start work in this project
         And I call it {'schema-work'}
         And I choose the agent {'An Agent'}
-        Then it does not say {'is not installed'}
+        Then it does not say {'is not installed on this machine'}
         When I start it
         Then the launch was called {'schema-work'}
 

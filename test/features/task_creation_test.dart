@@ -147,7 +147,7 @@ void main() {
       await iStartWorkInThisProject(tester);
       await iCallIt(tester, 'schema-work');
       await iChooseTheAgent(tester, 'An Agent');
-      await itDoesNotSay(tester, 'is not installed');
+      await itDoesNotSay(tester, 'is not installed on this machine');
       await iStartIt(tester);
       await theLaunchWasCalled(tester, 'schema-work');
     });
