@@ -1,6 +1,6 @@
 # F174 — The Project Room Joined From The Project
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** M - joining moved to the project's page, the dialog's steps for Element and a button opening it, the first screen's address and the chat name's rule.
 
 **What must be true.** Joining a project's room is an action of the project, on its page, for the

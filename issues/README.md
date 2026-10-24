@@ -34,21 +34,21 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | — | — | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |
 | <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | — | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
 | <a id="f153"></a>[F153](F153-A-Forges-Token-By-The-Providers-Own-Login.md) | — | — | A forge reached by its own login, the person's token kept in each machine's vault, and deploy keys gone. |
+| <a id="f176"></a>[F176](F176-Giving-The-Server-Back-Confirmed-By-Its-Consequences.md) | — | — | Taking a server down confirmed by its consequences in words and a red *Give the server back*, from every way in. |
+| <a id="f167"></a>[F167](F167-The-Project-Bundle-Written-By-The-Wizard.md) | — | — | The wizard writes the followed project's bundle into the tresor folder and derives its host path; the public key from `<private>.pub`; the project named in the summary. |
+| <a id="f171"></a>[F171](F171-The-Stop-Opens-Its-Own-Small-Dialog.md) | — | — | The host's stop in a small dialog of its own, the login asked again in place by the host's stop script, the ssh line behind *Details*. |
+| <a id="f172"></a>[F172](F172-The-VPN-As-The-Setups-Last-Step.md) | — | — | The VPN brought up as the setup's last step with one sudo password, checked by ping and handshake, before the machine counts as ready. |
+| <a id="f169"></a>[F169](F169-A-Server-In-Preparation-Kept-Across-A-Restart.md) | — | — | A server in preparation kept under *Machines* across a restart with *Go on* and *Take it down*, and a warning on closing. |
+| <a id="f170"></a>[F170](F170-The-Setup-Protocol-With-Times-And-Words.md) | — | — | Setup steps with local start times and durations, an overrun said in words, no raw JSON or doubled lines. |
+| <a id="f174"></a>[F174](F174-The-Project-Room-Joined-From-The-Project.md) | — | — | The room joined from the project's page, with Element's steps and a button opening it, no host address before *Join*, the chat name's rule said. |
+| <a id="f168"></a>[F168](F168-The-Locked-Vault-Row-Says-Which-Vault-And-Project.md) | — | — | The locked-vault row naming whose vault and which projects, unlock first, and stopping to follow a project no longer used. |
+| <a id="f175"></a>[F175](F175-A-Running-Tasks-Agent-Said-In-Words.md) | — | — | An unattended task's view marking the start's end, its agent's state, last line and age, *Leave*, and a restart offer when messages wait. |
+| <a id="f173"></a>[F173](F173-Action-Tiles-That-Read-As-Buttons.md) | — | — | Action tiles of one size that read as buttons, in a style picked from three shown variants, *Its work* among them. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f176"></a>[F176](F176-Giving-The-Server-Back-Confirmed-By-Its-Consequences.md) | S | — | Taking a server down confirmed by its consequences in words and a red *Give the server back*, from every way in. |
-| <a id="f167"></a>[F167](F167-The-Project-Bundle-Written-By-The-Wizard.md) | M | — | The wizard writes the followed project's bundle into the tresor folder and derives its host path; the public key from `<private>.pub`; the project named in the summary. |
-| <a id="f171"></a>[F171](F171-The-Stop-Opens-Its-Own-Small-Dialog.md) | M | `porelo-host` [HO25](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho25) | The host's stop in a small dialog of its own, the login asked again in place by the host's stop script, the ssh line behind *Details*. |
-| <a id="f172"></a>[F172](F172-The-VPN-As-The-Setups-Last-Step.md) | L | — | The VPN brought up as the setup's last step with one sudo password, checked by ping and handshake, before the machine counts as ready. |
-| <a id="f169"></a>[F169](F169-A-Server-In-Preparation-Kept-Across-A-Restart.md) | M | — | A server in preparation kept under *Machines* across a restart with *Go on* and *Take it down*, and a warning on closing. |
-| <a id="f170"></a>[F170](F170-The-Setup-Protocol-With-Times-And-Words.md) | M | — | Setup steps with local start times and durations, an overrun said in words, no raw JSON or doubled lines. |
-| <a id="f174"></a>[F174](F174-The-Project-Room-Joined-From-The-Project.md) | M | — | The room joined from the project's page, with Element's steps and a button opening it, no host address before *Join*, the chat name's rule said. |
-| <a id="f168"></a>[F168](F168-The-Locked-Vault-Row-Says-Which-Vault-And-Project.md) | S | `porelo` [B276](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b276) | The locked-vault row naming whose vault and which projects, unlock first, and stopping to follow a project no longer used. |
-| <a id="f175"></a>[F175](F175-A-Running-Tasks-Agent-Said-In-Words.md) | M | `porelo` [B277](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b277) | An unattended task's view marking the start's end, its agent's state, last line and age, *Leave*, and a restart offer when messages wait. |
-| <a id="f173"></a>[F173](F173-Action-Tiles-That-Read-As-Buttons.md) | S | — | Action tiles of one size that read as buttons, in a style picked from three shown variants, *Its work* among them. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |

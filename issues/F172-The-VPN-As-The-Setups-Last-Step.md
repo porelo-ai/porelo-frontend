@@ -1,6 +1,6 @@
 # F172 — The VPN As The Setup's Last Step
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** L - a root step on this computer taking the tunnel's configuration without a file the person saves, its check by ping and handshake, the machine's ready state after it, and a later row when the tunnel is missing.
 
 **What must be true.** After the stop, the setup brings the VPN up itself: a terminal on this

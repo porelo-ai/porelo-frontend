@@ -1,6 +1,6 @@
 # F169 — A Server In Preparation Kept Across A Restart
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** M - a persisted preparation record, its restore into *Machines*, two commands, and the close guard.
 
 **What must be true.** A rented server still being prepared stands under *Machines* as *In

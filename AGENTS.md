@@ -465,10 +465,11 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   `Prompts` and `stream` for anything finite, driven by the test, never by the clock.
 - **Widget tests run at 1280x800 on `tester.view` with `devicePixelRatio = 1`**; steps settle with
   `World.settle`, never `pumpAndSettle`, which never returns while a spinner shows.
-- **A change that adds or alters a flow the person steps through (a dialog, a procedure, a page) is
-  walked through interactively with the operator in its Review**, in the guided walk against a mock
-  backend: stand-ins for `porelo-host`, the daemon or a transport, with their stops and failures.
-  The flow goes to a VM or a rented host only after its walk is accepted.
+- **Only a larger rebuild of the interface is walked against a mock backend**, and then only the
+  rebuilt area: the guided walk with stand-ins for `porelo-host`, the daemon or a transport, with
+  their stops and failures, before it goes to a VM or a rented host. A smaller change goes straight
+  to the real test, the VM and then the operator on a real or rented host with a step-by-step guide;
+  the mock and the stand-ins are not extended for it.
 - **A unix socket path is limited to about 108 bytes.**
 - **The integration leg runs headless under `xvfb-run` inside `dbus-run-session`**, the app with its
   own config and runtime directories; `./mvnw verify -Pe2e,hetzner` rents a machine through

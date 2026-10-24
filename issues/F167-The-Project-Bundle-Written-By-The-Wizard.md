@@ -1,6 +1,6 @@
 # F167 — The Project Bundle Written By The Wizard
 
-**Status:** Backlog.
+**Status:** Review.
 **Size:** M - a git bundle made from the followed project's own source, its safe publication into the tresor folder, and the wizard's fields.
 
 **What must be true.** Putting a project on a server asks for no path on a machine not yet rented:

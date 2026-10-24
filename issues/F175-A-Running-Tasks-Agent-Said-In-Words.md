@@ -1,6 +1,6 @@
 # F175 — A Running Task's Agent Said In Words
 
-**Status:** Backlog; blocked by `porelo` [B277](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b277).
+**Status:** Review.
 **Size:** M - the run view told the task it watches, the agent's state, last line and its age, the start's end marked, *Leave*, and a restart offer when messages wait.
 
 **What must be true.** The view of a task started unattended marks where its start ended (*the task
