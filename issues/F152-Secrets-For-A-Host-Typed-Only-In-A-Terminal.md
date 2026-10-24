@@ -1,6 +1,6 @@
 # F152 — Secrets For A Host Typed Only In A Terminal
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the stop in `porelo-host` and in the dialog, a terminal, the walk's stand-in.
 
 **Order.** The first of the host flow's issues ([F152](README.md#f152), [F154](README.md#f154) to

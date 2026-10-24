@@ -47,7 +47,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | M | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -104,6 +103,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
 | <a id="f150"></a>[F150](F150-The-Persons-Tunnel-Brought-Up-From-The-Interface.md) | — | — | The person's VPN tunnel to a host brought up and down from the interface, with one confirmation for the root rights it needs. |
+
+### Estimated
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | M | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
 
 ### Finished
 
