@@ -1,6 +1,6 @@
 # F153 — A Forge's Token By The Provider's Own Login
 
-**Status:** Analyzed; ships together with `porelo` [B269](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b269), which retires the daemon's deploy keys.
+**Status:** Backlog; ships together with `porelo` [B269](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b269), which retires the daemon's deploy keys.
 **Size:** L - the forges view, the deploy keys in five modules, the token's two places, the decisions; with porelo.
 
 **Order.** Right after [F152](README.md#f152).
@@ -32,6 +32,8 @@ machine runs against an `https` remote.
   keys are made and removed in `machine_binding.dart`, `default_at_forge.dart`, `default_view.dart`,
   `forges_view.dart` and the clearing (`machine_clearing.dart`), through `GitHub.addDeployKey`,
   `removeDeployKey`, `whyNoKeys` and the daemon's `DeployKey` (`FleetBackend.deployKey`).
+- **Built now with the token pasted**, the forge's device-code login later in the same terminals,
+  once porelo names an OAuth application for it.
 - **The token on this computer, typed only in a terminal:** the field goes. *Connect a forge*
   opens a terminal on this computer running `porelo-host key set <forge address>`, whose own
   prompt reads the token without echo into the system secret store, the same store and entry
@@ -50,19 +52,13 @@ machine runs against an `https` remote.
 
 ## Acceptance
 
-- Connecting a forge on a machine opens a terminal there running the forge's own login; once it
-  succeeds, the token is in that machine's vault and the forge's repositories can be followed and
-  pushed to over `https`.
+- Connecting a forge opens a terminal on this computer running `porelo-host key set <forge>`, and
+  binding a machine opens a terminal there running `porelo vault put git.token.<host>`, the person
+  pasting their own token at each prompt; once it is in, the forge's repositories can be followed
+  and pushed to over `https`. The forge's device-code login opens in the same terminals later, once
+  porelo offers it, as an issue of its own.
 - Binding, unbinding and clearing a machine make or remove no deploy key, and no token stays in
   this computer's keychain; the decisions *A forge's token stays on this computer* and the forge's
   half of *Clearing a machine or a project is one action* are rewritten.
 - Seen to fail first: today the forges view takes a token into a text field; the test holding
   that no field takes one goes red on it.
-
-## Open questions
-
-- The forge's own device-code login needs an OAuth application at the forge that Porelo names, a
-  choice of product, raised by porelo's owner as an Idea of its own. Proposed: build now with the
-  person's token pasted into the two terminals (`porelo-host key set`, `porelo vault put`), which
-  works today, and open the device-code login in the same terminals once porelo offers it, as an
-  issue of its own.
