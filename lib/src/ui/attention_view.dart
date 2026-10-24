@@ -32,6 +32,7 @@ class AttentionView extends StatefulWidget {
     required this.actionsFor,
     required this.onReview,
     this.unlockFor,
+    this.onStopFollowing,
     this.onPutAway,
     this.onSelect,
     this.onOpenOperation,
@@ -41,6 +42,9 @@ class AttentionView extends StatefulWidget {
 
   /// The same machine-specific unlock path used by work.unlock, or null when unavailable.
   final VoidCallback? Function(Machine machine)? unlockFor;
+
+  /// Opens a removal preview on the row's machine, without changing the selected project.
+  final void Function(Machine machine, Project project)? onStopFollowing;
 
   /// Every tile, most urgent first.
   final Attention attention;
@@ -254,7 +258,8 @@ extension on _AttentionViewState {
           ),
         );
       case AttentionKind.waiting:
-        final each = row.value as ({Machine machine, String waits, String waitsOn, List<String> projects});
+        final each = row.value as WaitingMessages;
+        final namedVault = each.waitsOn == 'vault' && each.vault.isNotEmpty;
         return Card(
           key: ValueKey('messages-wait ${each.machine.name}'),
           color: Theme.of(context).colorScheme.errorContainer,
@@ -265,7 +270,13 @@ extension on _AttentionViewState {
               children: [
                 const Text('Messages wait'),
                 NeedsMachine(each.machine.name),
-                Text('${each.waits}\nHeld up: ${each.projects.join(', ')}'),
+                if (namedVault) ...[
+                  Text('The vault on ${each.machine.needsATunnel ? each.machine.name : 'this computer'} is locked'),
+                  Text(each.vault, style: Theme.of(context).textTheme.bodySmall),
+                  const Text('Projects held up:'),
+                  for (final project in each.projects) Text(_heldProjectWords(project)),
+                ] else
+                  Text('${each.waits}\nHeld up: ${each.projects.map((project) => project.name).join(', ')}'),
                 if (each.waitsOn == 'vault')
                   _RowCommand(
                     unlockWaitingMessages(
@@ -274,6 +285,16 @@ extension on _AttentionViewState {
                       widget.unlockFor?.call(each.machine),
                     ).unless(reason),
                   ),
+                if (each.waitsOn == 'vault')
+                  for (final project in each.projects)
+                    _RowCommand(
+                      stopFollowingWaitingProject(
+                        each.machine,
+                        attention.fleetOf(each.machine),
+                        project,
+                        widget.onStopFollowing == null ? null : () => widget.onStopFollowing!(each.machine, project),
+                      ).unless(reason),
+                    ),
               ],
             ),
           ),
@@ -339,6 +360,14 @@ extension on _AttentionViewState {
           onSeen: resolved ? null : attention.fleetOf(each.machine).clearance.missedSeen,
         );
     }
+  }
+
+  String _heldProjectWords(Project project) {
+    final lastUsed = project.lastUsed;
+    if (lastUsed == null) return project.name;
+    if (lastUsed.isEmpty) return '${project.name} — never used here';
+    final ago = howLongSince(DateTime.tryParse(lastUsed), now: widget.attention.now);
+    return '${project.name} — ${ago == null ? 'last use unknown' : 'last used $ago ago'}';
   }
 }
 

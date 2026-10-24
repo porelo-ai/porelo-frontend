@@ -1313,6 +1313,9 @@ class ProjectMessages {
   /// The dependency an interface can act on; unknown values are kept without guessing an action.
   final String waitsOn;
 
+  /// The vault file checked by the daemon, or empty when it did not name one.
+  final String vault;
+
   /// Constructor taking every field.
   const ProjectMessages({
     required this.transport,
@@ -1323,6 +1326,7 @@ class ProjectMessages {
     required this.loopbackOnly,
     this.waits = '',
     this.waitsOn = '',
+    this.vault = '',
   });
 
   /// Reads one from a reply, or null where there is none.
@@ -1336,6 +1340,7 @@ class ProjectMessages {
           loopbackOnly: value['loopbackOnly'] == true,
           waits: _string(value, 'waits'),
           waitsOn: _string(value, 'waitsOn'),
+          vault: _string(value, 'vault'),
         )
       : null;
 }
@@ -1894,6 +1899,9 @@ class Project {
   /// null for a project with none, or from a machine that does not say.
   final ProjectMessages? messages;
 
+  /// The latest task start or message event here, ISO-8601; empty when none, null when not reported.
+  final String? lastUsed;
+
   /// Whether the machine said which credentials it names at all. False from one older than that,
   /// where an empty [credentials] means *not said*, not *none*.
   final bool credentialsAnswered;
@@ -1939,6 +1947,7 @@ class Project {
     this.credentials = const <String, String>{},
     this.credentialsAnswered = false,
     this.messages,
+    this.lastUsed,
   });
 
   /// Reads one from a reply.
@@ -1963,6 +1972,10 @@ class Project {
     credentials: _stringMap(map, 'credentials'),
     credentialsAnswered: map.containsKey('credentials'),
     messages: ProjectMessages.of(map['messages']),
+    lastUsed: switch (map['lastUsed']) {
+      String value => value,
+      _ => null,
+    },
   );
 
   /// Whether this project is behind its upstream by an amount somebody can act on.

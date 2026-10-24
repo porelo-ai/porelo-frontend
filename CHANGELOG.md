@@ -18,6 +18,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A locked-vault row names whose vault it is and the projects it holds up with their last use,
+  offers unlocking first and stopping to follow each project through its preview.
 - A project's room is joined from its page, with lower-case chat names and numbered steps for
   Element, which opens without credentials in its address.
 - Project actions, including Its work, are equal raised tiles with a teal icon and title; their

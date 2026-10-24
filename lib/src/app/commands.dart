@@ -373,6 +373,21 @@ Command unlockWaitingMessages(Machine machine, FleetModel fleet, VoidCallback? u
   unavailable: unlock == null ? 'this machine cannot be unlocked from here' : notAnswering(fleet),
 );
 
+/// Opens the existing removal preview for one held project on its row's machine.
+Command stopFollowingWaitingProject(Machine machine, FleetModel fleet, Project project, VoidCallback? preview) =>
+    Command(
+      id: 'messages.unfollow/${machine.name}/${project.name}',
+      label: 'Stop following ${project.name}…',
+      group: 'Messages',
+      home: Home.attentionRow,
+      run: () => preview?.call(),
+      unavailable: project.name == defaultProject
+          ? 'default is always there: it is where work without a project goes'
+          : preview == null
+          ? 'not from here'
+          : notAnswering(fleet),
+    );
+
 /// Repeats the read that listed held messages, on that row's machine.
 Command askForHeldMessages(Machine machine, FleetModel fleet) => Command(
   id: 'messages.ask/${machine.name}',

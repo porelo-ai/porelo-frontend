@@ -145,10 +145,13 @@ void main() {
       expect(find.text('Recently resolved'), findsOneWidget);
       final resolved = find.byKey(const Key('recently-resolved'));
       expect(find.descendant(of: resolved, matching: find.text('on ${machine.name}')), findsOneWidget);
-      expect(
-        tester.widget<TextButton>(find.descendant(of: resolved, matching: find.byType(TextButton))).onPressed,
-        isNull,
-      );
+      final buttons = tester
+          .widgetList<TextButton>(find.descendant(of: resolved, matching: find.byType(TextButton)))
+          .toList();
+      expect(buttons, hasLength(2), reason: 'the resolved row must retain unlock and its held project action');
+      for (final button in buttons) {
+        expect(button.onPressed, isNull, reason: 'resolved rows must disable every recovery action');
+      }
       now = now.add(const Duration(minutes: 1, seconds: 59));
       await tester.pump(const Duration(minutes: 1, seconds: 59));
       expect(find.byKey(const Key('recently-resolved')), findsOneWidget);

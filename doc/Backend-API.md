@@ -135,6 +135,12 @@ Worth knowing before designing around them:
   `waits`, is a string identifying the dependency: `"vault"` while the vault is locked, otherwise
   `""`. It is optional for older daemons. Unknown values are kept as text and show only `waits`,
   without guessing a recovery action from its sentence.
+- **`ProjectMessages.vault` names the vault file the daemon checked.** It is a string set when
+  `waitsOn` is `"vault"`, otherwise `""`. An older daemon can omit it; the interface then keeps the
+  daemon's existing explanation without guessing a vault path.
+- **`Project.lastUsed` is the latest task start or message event for that project on that machine.**
+  It is an ISO-8601 string, or `""` when none exists. An omitted field from an older daemon means
+  not reported, rather than never used. The interface words the elapsed time using its clock.
 - **`WatchProjects` is slower than `Watch`, on purpose.** A project scan runs the container
   runtime and reads the gate's refs for every project, and what it answers changes on human
   timescales - a project created, a push arriving at the gate, an environment prepared. It sends

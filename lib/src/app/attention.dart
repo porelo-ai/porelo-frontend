@@ -140,6 +140,9 @@ class ResolvedAttention {
   final DateTime at;
 }
 
+/// One dependency holding up projects on a machine, with the daemon's vault path if reported.
+typedef WaitingMessages = ({Machine machine, String waits, String waitsOn, String vault, List<Project> projects});
+
 /// Everything that might need a person, from every machine at once, most urgent first.
 ///
 /// **Read from the models that already exist, never from a stream of its own.** Each machine's
@@ -169,6 +172,10 @@ class Attention extends ChangeNotifier {
   final Settings? _settings;
   final Operations? _operations;
   final DateTime Function() _clock;
+
+  /// The current instant from the frame's injectable clock.
+  DateTime get now => _clock();
+
   List<AttentionRow> _openRows = [];
   final Map<String, AttentionRow> _lastRows = {};
   final Map<String, ResolvedAttention> _resolved = {};
@@ -234,7 +241,7 @@ class Attention extends ChangeNotifier {
     for (final row in messagesWaiting) {
       yield AttentionRow(
         AttentionKind.waiting,
-        'waiting ${row.machine.name}/${row.waitsOn}/${row.waits}',
+        'waiting ${row.machine.name}/${row.waitsOn}/${row.vault}/${row.waits}',
         row.machine.name,
         row,
       );
@@ -384,20 +391,24 @@ class Attention extends ChangeNotifier {
 
   /// Every machine whose messages wait, with the machine's reason and the projects it holds up: the
   /// vault locked stops every conversation at once, and said nowhere a person looked (walk 10).
-  List<({Machine machine, String waits, String waitsOn, List<String> projects})> get messagesWaiting => [
+  List<WaitingMessages> get messagesWaiting => [
     for (final machine in _counted)
-      for (final reason in <(String, String)>{
+      for (final reason in <(String, String, String)>{
         for (final each in fleetOf(machine).projects)
           if (each.project.messages case final messages? when messages.waits.isNotEmpty)
-            (messages.waits, messages.waitsOn),
+            (messages.waits, messages.waitsOn, messages.vault),
       })
         (
           machine: machine,
           waits: reason.$1,
           waitsOn: reason.$2,
+          vault: reason.$3,
           projects: [
             for (final each in fleetOf(machine).projects)
-              if (each.project.messages?.waits == reason.$1 && each.project.messages?.waitsOn == reason.$2) each.name,
+              if (each.project.messages?.waits == reason.$1 &&
+                  each.project.messages?.waitsOn == reason.$2 &&
+                  each.project.messages?.vault == reason.$3)
+                each.project,
           ],
         ),
   ];

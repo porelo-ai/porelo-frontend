@@ -652,22 +652,26 @@ class _ShellState extends State<Shell> {
   Future<void> _removeWhatWasBuilt() async {
     final project = _fleet.selectedProject;
     if (project == null) return;
+    await _previewProjectRemoval(_fleet, project.name);
+  }
+
+  Future<void> _previewProjectRemoval(FleetModel fleet, String project) async {
     widget.deleting.letItBe();
-    unawaited(widget.deleting.consider(_fleet.backend, project.name));
+    unawaited(widget.deleting.consider(fleet.backend, project));
     await openProjectDeletion(
       context,
       deleting: widget.deleting,
-      onRemove: ({required force}) => _remove(force: force),
+      onRemove: ({required force}) => _remove(fleet, force: force),
     );
     widget.deleting.letItBe();
   }
 
   /// Removes it, and refreshes the list so what is on screen is what is there.
-  Future<void> _remove({required bool force}) async {
-    await widget.deleting.remove(_fleet.backend, force: force);
+  Future<void> _remove(FleetModel fleet, {required bool force}) async {
+    await widget.deleting.remove(fleet.backend, force: force);
     final said = widget.deleting.words;
-    if (said.isNotEmpty) _fleet.say(said);
-    if (widget.deleting.removed) await _fleet.refresh();
+    if (said.isNotEmpty) fleet.say(said);
+    if (widget.deleting.removed) await fleet.refresh();
   }
 
   /// Asks whether this machine can run anything, and shows what it said. Asked, never polled.
@@ -2701,6 +2705,8 @@ class _ShellState extends State<Shell> {
           if (run != null) unawaited(_openHostRun(run));
         },
         unlockFor: _unlockFor,
+        onStopFollowing: (machine, project) =>
+            unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
         onDecide: (tile, prompt, {required allow}) =>
             tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
         onPutAway: (tile, prompt) => tile.fleet.clearance.forget(prompt),

@@ -182,6 +182,7 @@ class FakeBackend implements FleetBackend {
       'securityClass': 'guarded',
       'file': '/srv/checkout/project.yml',
       'mirror': '/srv/checkout/.porelo/mirror',
+      'lastUsed': DateTime.now().toUtc().subtract(const Duration(minutes: 4)).toIso8601String(),
       'prepared': true,
       'preparedState': 'READY',
       'behind': 3,
@@ -197,6 +198,7 @@ class FakeBackend implements FleetBackend {
       'securityClass': 'guarded',
       'file': '',
       'mirror': '/srv/unrecorded/.porelo/mirror',
+      'lastUsed': '',
       // Nothing has run here, so no image was built and nothing was ever checked.
       'prepared': false,
       'preparedState': 'ABSENT',
