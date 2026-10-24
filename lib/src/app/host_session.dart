@@ -33,8 +33,8 @@ typedef StartHostCommand = Future<Process> Function(String executable, List<Stri
 /// one stop, and how it ended.
 ///
 /// **This does no step of its own.** It starts the shipped command, which does the work, and shows
-/// what that says. **The person's answers go only to the command's standard input**, as one JSON
-/// object, and are dropped from memory when written; they never stand in its arguments.
+/// what that says. Nothing is written to its standard input; the person completes stops in a
+/// terminal on the host and runs `up` again.
 class HostSession extends ChangeNotifier {
   /// Constructor taking the command and the arguments that name the project and the host.
   HostSession({required this.executable, required this.arguments, StartHostCommand? start})
@@ -57,13 +57,13 @@ class HostSession extends ChangeNotifier {
   /// At the stop, what the person must give: `drive`, `vault` or `vault-new`.
   List<String> needs = const <String>[];
 
-  /// Where the completed host can be reached.
+  /// Where the stopped or completed host can be reached.
   String? address;
 
   /// The address actually given back by the completed down command, absent if none was found.
   String? releasedAddress;
 
-  /// The account named by the completed up line.
+  /// The account named by the person or completed up line.
   String? account;
 
   /// The account daemon socket named by the completed up line.
@@ -78,13 +78,10 @@ class HostSession extends ChangeNotifier {
   /// Brings the host up, as far as it goes.
   Future<void> up() => _run(<String>['up', ...arguments]);
 
-  /// Goes on after the stop with what the person gave.
-  Future<void> resume(Answers answers) => _run(<String>['up', ...arguments, '--answers-on-stdin'], answers: answers);
-
   /// Takes the host down.
   Future<void> down() => _run(<String>['down', ...arguments]);
 
-  Future<void> _run(List<String> command, {Answers? answers}) async {
+  Future<void> _run(List<String> command) async {
     steps.clear();
     needs = const <String>[];
     address = null;
@@ -96,16 +93,6 @@ class HostSession extends ChangeNotifier {
     state = HostRunState.running;
     notifyListeners();
     final process = await _start(executable, command);
-    if (answers != null) {
-      process.stdin.write(
-        jsonEncode(<String, String>{
-          if (answers.driveEmail != null) 'driveEmail': answers.driveEmail!,
-          if (answers.drivePassword != null) 'drivePassword': answers.drivePassword!,
-          if (answers.driveCode != null) 'driveCode': answers.driveCode!,
-          if (answers.vaultPassphrase != null) 'vaultPassphrase': answers.vaultPassphrase!,
-        }),
-      );
-    }
     await process.stdin.close();
     final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
     final words = process.stderr.transform(utf8.decoder).join();
@@ -135,6 +122,8 @@ class HostSession extends ChangeNotifier {
     }
     if (step.state == StepState.waiting) {
       needs = step.needs;
+      address = step.address;
+      account = step.account;
     }
     if (step.step == 'up' && step.state == StepState.done) {
       address = step.address;

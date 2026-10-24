@@ -40,7 +40,6 @@ Future<int> _run(List<String> arguments) async {
   }
   final verb = arguments.first;
   final options = <String, String>{};
-  var answers = false;
   const valued = {
     '--project',
     '--account',
@@ -59,9 +58,7 @@ Future<int> _run(List<String> arguments) async {
   };
   for (var i = 1; i < arguments.length; i++) {
     final option = arguments[i];
-    if (option == '--answers-on-stdin' && verb == 'up') {
-      answers = true;
-    } else if (option == '--give-back-anyway' && verb == 'down') {
+    if (option == '--give-back-anyway' && verb == 'down') {
       continue;
     } else if (valued.contains(option) && i + 1 < arguments.length && !arguments[i + 1].startsWith('--')) {
       options[option] = arguments[++i];
@@ -80,7 +77,6 @@ Future<int> _run(List<String> arguments) async {
       (options.containsKey('--given') && !options.containsKey('--host-key'))) {
     return _wrong('Give the project, account, key paths, collection and one host provider.');
   }
-  if (answers) await stdin.drain<void>();
 
   Future<void> remember(String next) => file.writeAsString(
     jsonEncode({
@@ -111,8 +107,16 @@ Future<int> _run(List<String> arguments) async {
       _emit(Step(name, StepState.started));
       _emit(Step(name, StepState.done));
     }
-    if (situation == 'stop' && !(state == 'waiting' && answers)) {
-      _emit(const Step('person', StepState.waiting, needs: ['drive', 'vault-new']));
+    if (situation == 'stop' && state == 'new') {
+      _emit(
+        Step(
+          'person',
+          StepState.waiting,
+          needs: const ['drive', 'vault-new'],
+          address: '192.0.2.10',
+          account: options['--account'],
+        ),
+      );
       await remember('waiting');
       return Exit.waiting;
     }
@@ -122,11 +126,11 @@ Future<int> _run(List<String> arguments) async {
     }
   }
   _emit(
-    const Step(
+    Step(
       'up',
       StepState.done,
       address: '192.0.2.10',
-      account: 'porelo',
+      account: options['--account'],
       socket: '/run/user/1000/porelo/porelod.sock',
     ),
   );

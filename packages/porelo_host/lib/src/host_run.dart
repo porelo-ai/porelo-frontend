@@ -6,42 +6,6 @@ import 'provider.dart';
 import 'remote.dart';
 import 'steps.dart';
 
-/// What the person gives at the one stop, held in memory and handed to the host's commands on
-/// their standard input only.
-class Answers {
-  /// Constructor taking the drive's login and the vault's passphrase, each where it was asked for.
-  const Answers({this.driveEmail, this.drivePassword, this.driveCode, this.vaultPassphrase});
-
-  /// The answers as the interface writes them to `up`'s standard input: one JSON object.
-  factory Answers.fromJson(String text) {
-    final map = jsonDecode(text) as Map<String, Object?>;
-    return Answers(
-      driveEmail: map['driveEmail'] as String?,
-      drivePassword: map['drivePassword'] as String?,
-      driveCode: map['driveCode'] as String?,
-      vaultPassphrase: map['vaultPassphrase'] as String?,
-    );
-  }
-
-  /// The drive's login name.
-  final String? driveEmail;
-
-  /// The drive's password.
-  final String? drivePassword;
-
-  /// The drive's second factor, a one-time code, when the account has one.
-  final String? driveCode;
-
-  /// The vault's passphrase.
-  final String? vaultPassphrase;
-
-  /// Whether anything was given at all.
-  bool get any => drivePassword != null || vaultPassphrase != null;
-
-  @override
-  String toString() => 'Answers(drive: ${drivePassword != null}, vault: ${vaultPassphrase != null})';
-}
-
 /// What one host of one project is made from.
 class HostPlan {
   /// Constructor taking the project, the account and the files that go up.
@@ -170,8 +134,8 @@ class HostRun {
   /// How long between two tries.
   final Duration sshEvery;
 
-  /// Brings [plan]'s host up, as far as it can go. A second call with [answers] goes on after the stop.
-  Future<int> up(HostPlan plan, {Answers answers = const Answers()}) async {
+  /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
+  Future<int> up(HostPlan plan) async {
     final RentedHost? host;
     try {
       host = await _rented(plan);
@@ -215,10 +179,6 @@ class HostRun {
     }
     emit(const Step('ansible', StepState.done));
 
-    if (answers.any) {
-      final given = await _answer(address, plan, answers);
-      if (given != null) return given;
-    }
     final played = await _play(address, plan, 'porelo.host.up');
     if (played != Exit.done) return played;
     final lines = <String>[];
@@ -348,42 +308,6 @@ class HostRun {
     );
   }
 
-  /// The person's answers, each on the standard input of its own command as [HostPlan.account].
-  /// Null when all went in, else how `up` ends.
-  Future<int?> _answer(String address, HostPlan plan, Answers answers) async {
-    if (answers.drivePassword != null) {
-      emit(const Step('drive', StepState.started));
-      final login = await remote.run(
-        address,
-        plan.account,
-        // The account's own runtime directory, where its Tresorit daemon listens, set here rather
-        // than trusted to the ssh session, which may not give a command one.
-        'XDG_RUNTIME_DIR=/run/user/\$(id -u) tresorit-cli login --email ${_quoted(answers.driveEmail ?? '')} --password-on-stdin',
-        // The one-time code is the line after the password: the client asks for it itself and
-        // reads it from the same standard input (measured on Tresorit 3.5.1300.4870).
-        input: '${answers.drivePassword}\n${answers.driveCode == null ? '' : '${answers.driveCode}\n'}',
-      );
-      if (login.exitCode != 0) return _refused('drive', login, 'the drive refused the login');
-      emit(const Step('drive', StepState.done));
-    }
-    if (answers.vaultPassphrase != null) {
-      emit(const Step('vault', StepState.started));
-      final opened = await remote.run(
-        address,
-        plan.account,
-        // `vault status` says 4 when there is none yet, so the same answer makes it or opens it. The
-        // account's runtime directory is set here, as for the drive, where its daemon listens.
-        'export XDG_RUNTIME_DIR=/run/user/\$(id -u); '
-        'if porelo vault status >/dev/null 2>&1; [ \$? -eq 4 ]; then porelo vault init --passphrase-stdin; '
-        'else porelo vault unlock --passphrase-stdin; fi',
-        input: '${answers.vaultPassphrase}\n',
-      );
-      if (opened.exitCode != 0) return _refused('vault', opened, 'the vault was not opened');
-      emit(const Step('vault', StepState.done));
-    }
-    return null;
-  }
-
   /// Runs [playbook] on the host and relays the callback's lines; the stop is said by its line.
   Future<int> _play(String address, HostPlan plan, String playbook) async {
     Step? waiting;
@@ -395,7 +319,7 @@ class HostRun {
       'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_workdir/collections '
       'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i $_workdir/inventory.yml $playbook',
       onLine: (line) {
-        final step = _relayed(line);
+        final step = _relayed(line, address, plan.account);
         if (step == null) return;
         if (step.state == StepState.waiting) waiting = step;
         if (step.state == StepState.refused) failed = step;
@@ -411,7 +335,7 @@ class HostRun {
   }
 
   /// One line of the collection's callback as a step, or null for one that is not its.
-  Step? _relayed(String line) {
+  Step? _relayed(String line, String address, String account) {
     final Object? decoded;
     try {
       decoded = jsonDecode(line);
@@ -423,7 +347,7 @@ class HostRun {
     final words = decoded['msg'] as String?;
     if (state == 'waiting') {
       final needs = (decoded['needs'] as List<Object?>? ?? const <Object?>[]).whereType<String>().toList();
-      return Step('person', StepState.waiting, needs: needs, words: words);
+      return Step('person', StepState.waiting, needs: needs, words: words, address: address, account: account);
     }
     final name = decoded['task'] as String? ?? decoded['play'] as String? ?? 'play';
     return switch (state) {
@@ -463,6 +387,3 @@ class HostRun {
     },
   });
 }
-
-/// [word] as one word for a POSIX shell.
-String _quoted(String word) => "'${word.replaceAll("'", r"'\''")}'";

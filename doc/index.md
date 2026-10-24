@@ -157,14 +157,15 @@ porelo-host up --project <name> --account porelo --public-key ~/.ssh/id_ed25519.
 ```
 
 It rents the host, or finds it again by its tag, and stops once with exit code 75 for what only you
-can give: the drive's login and the vault's passphrase. The same `up` again with
-`--answers-on-stdin` takes them as one JSON object on standard input, never as arguments, and goes
-on. `porelo-host down` with the same options takes the last copies and gives the host back. If a copy
+can give: the drive's login and the vault's passphrase. Complete the provider's login and
+Porelo's vault prompts in a terminal on the host, then run the same `up` again. It receives no
+password, code or passphrase. `porelo-host down` with the same options takes the last copies and gives the host back. If a copy
 fails, it keeps the host, says what would be lost, and names the ways out: `down` again, or `down
 --give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
 
 **In the interface**, *Put this project on a server…* on a project's menu runs the `porelo-host`
-that came with the interface, shows its steps, asks at its stop, and adds the host to *Machines*;
+that came with the interface, shows its steps and opens a terminal at its stop. After setup
+finishes, adding the host to *Machines* is a separate action;
 *Take it off the server* runs `down` and removes it. A Tresorit folder chosen for the project
 receives the host's files, while the person's own WireGuard key stays in the system secret store.
 

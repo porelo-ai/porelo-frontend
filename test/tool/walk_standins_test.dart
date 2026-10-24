@@ -64,9 +64,9 @@ void main() {
     '10.73.0.2/32',
   ];
 
-  Future<Process> host({String verb = 'up', bool answers = false, Map<String, String>? environment}) => Process.start(
+  Future<Process> host({String verb = 'up', Map<String, String>? environment}) => Process.start(
     hostExecutable,
-    [verb, ...options, if (answers) '--answers-on-stdin'],
+    [verb, ...options],
     workingDirectory: root.path,
     environment: {
       'DASH__SUPPRESS_ANALYTICS': 'true',
@@ -135,6 +135,8 @@ void main() {
       });
       if (name == 'stop') {
         expect(result.steps.last.needs, ['drive', 'vault-new']);
+        expect(result.steps.last.address, '192.0.2.10');
+        expect(result.steps.last.account, 'porelo');
       } else if (name == 'refused') {
         expect(result.steps.last.fix, isNotEmpty);
       } else {
@@ -148,27 +150,17 @@ void main() {
     });
   }
 
-  // Harm: an answer leaks to disk or stderr, or the stop cannot resume in a second process.
-  test('a stopped run resumes with stdin answers and drops every answer byte', () async {
+  // Harm: the walk still requires secrets to pass through provisioning.
+  test('a stopped run continues with a plain second up and no answers', () async {
     await situation('stop');
     expect((await finish(await host())).code, Exit.waiting);
-    expect((await finish(await host())).code, Exit.waiting, reason: 'up alone cannot answer the stop');
-    final process = await host(answers: true);
-    final result = await finish(
-      process,
-      input: '{"drivePassword":"walk-answer-sentinel","vaultPassphrase":"walk-vault-sentinel"}\n',
-    );
+    final result = await finish(await host());
     expect(result.code, Exit.done);
     expect(result.steps.last.step, 'up');
     expect(jsonDecode(await state.readAsString())['state'], 'done');
     expect(scratch.listSync().map((file) => file.uri.pathSegments.last), [
       'host-standin.json',
-    ], reason: 'answers must not create a log or another state file');
-    for (final value in ['walk-answer-sentinel', 'walk-vault-sentinel']) {
-      expect(await state.readAsString(), isNot(contains(value)));
-      expect(result.errors, isNot(contains(value)));
-      expect(jsonEncode(result.lines), isNot(contains(value)));
-    }
+    ], reason: 'the stop creates no answer file');
   });
 
   // Harm: a missing or invalid walk configuration silently selects the wrong host behavior.

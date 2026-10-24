@@ -9,7 +9,7 @@
 # COLLECTION, when given, is porelo-host's own tarball in place of the stand-in: Porelo installed
 # from its snapshots and its setup making the account, the plays to their stop for the drive and a
 # new vault. Then, with no login anywhere: the account reached over ssh with the person's key, the
-# drive's client found there and its daemon answering, the vault made by its step, and `down`.
+# drive's client found there and its daemon answering, the vault made in its terminal, and `down`.
 set -euo pipefail
 
 image="$1"
@@ -204,13 +204,47 @@ if [ -n "$collection" ]; then
         exit 1
     }
     echo 'vm-run: the account is reached with the person'"'"'s key, and its drive client answers' >&2
-    # The vault's step alone, as the account over ssh: no drive answer, so the drive still waits.
-    echo '{"vaultPassphrase": "a-throwaway-for-this-vm"}' | host up --tresor porelo-host-test --answers-on-stdin >"$work/up-2.jsonl"
-    expect 75 "$?" 'the second up, given a new vault only'
-    grep -q '"step":"vault","state":"done"' "$work/up-2.jsonl" || {
-        echo 'vm-run: the vault step did not end done' >&2
-        exit 1
-    }
+    # The vault's own terminal prompts, outside provisioning; no drive login is given.
+    python3 -I - "${as_account[@]}" <<'PYTERMINAL'
+import errno, os, pty, select, subprocess, sys, time
+master, slave = pty.openpty()
+args = sys.argv[1:]
+command = "exec \"${SHELL:-/bin/sh}\" -lc 'export XDG_RUNTIME_DIR=/run/user/$(id -u) && porelo vault init'"
+process = subprocess.Popen(args[:-1] + ['-tt', args[-1], command],
+                           stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+os.close(slave)
+prompts = [b'New vault passphrase: ', b'New vault passphrase again: ']
+pending = b''
+deadline = time.monotonic() + 60
+try:
+    while process.poll() is None:
+        if time.monotonic() > deadline:
+            raise RuntimeError('the vault terminal did not finish within 60 seconds')
+        if not select.select([master], [], [], 0.1)[0]:
+            continue
+        try:
+            chunk = os.read(master, 4096)
+        except OSError as error:
+            if error.errno == errno.EIO:
+                break
+            raise
+        if not chunk:
+            break
+        pending += chunk
+        if prompts and prompts[0] in pending:
+            pending = pending.split(prompts.pop(0), 1)[1]
+            os.write(master, b'a-throwaway-for-this-vm\n')
+    if prompts or process.wait(timeout=5) != 0:
+        raise RuntimeError('the vault terminal did not complete both passphrase prompts')
+finally:
+    if process.poll() is None:
+        process.kill()
+    process.wait()
+    os.close(master)
+PYTERMINAL
+    expect 0 "$?" 'the vault initialized through its own terminal'
+    host up --tresor porelo-host-test >"$work/up-2.jsonl"
+    expect 75 "$?" 'the second up after the vault terminal, still waiting for drive login'
     # shellcheck disable=SC2016 # the same, on the host
     "${as_account[@]}" 'cd /tmp && XDG_RUNTIME_DIR=/run/user/$(id -u) porelo vault status' >&2
     expect 0 "$?" 'vault status as the account'
@@ -229,10 +263,21 @@ grep -q '"state":"waiting"' "$work/up-1.jsonl" || {
     exit 1
 }
 
-echo '{"driveEmail": "me@example.org", "drivePassword": "wrong-is-fine-here", "vaultPassphrase": "x"}' |
-    host up --answers-on-stdin >"$work/up-2.jsonl"
+# The stand-in commands take invented answers directly, outside porelo-host.
+printf '%s %s\n' "$address" "$(cut -d' ' -f1,2 "$work/host.pub")" >"$work/known_hosts"
+as_account=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+    -o UserKnownHostsFile="$work/known_hosts" -i "$work/login" "porelo@$address")
+# shellcheck disable=SC2016 # the login shell and runtime directory belong to the account
+printf '%s\n' wrong-is-fine-here | "${as_account[@]}" \
+    'exec "${SHELL:-/bin/sh}" -lc '\''export XDG_RUNTIME_DIR=/run/user/$(id -u) && tresorit-cli login --email me@example.org --password-on-stdin'\'''
+expect 0 "$?" 'the stand-in drive login outside provisioning'
+# shellcheck disable=SC2016 # the login shell and runtime directory belong to the account
+printf '%s\n' x | "${as_account[@]}" \
+    'exec "${SHELL:-/bin/sh}" -lc '\''export XDG_RUNTIME_DIR=/run/user/$(id -u) && porelo vault init'\'''
+expect 0 "$?" 'the stand-in vault initialized outside provisioning'
+host up >"$work/up-2.jsonl"
 second=$?
-expect 0 "$second" 'the second up, given the answers'
+expect 0 "$second" 'the second up after completing the stop on the host'
 grep -q '"step":"rent","state":"done"' "$work/up-2.jsonl"
 
 # Nothing of an answer is in any file the run wrote on the host. The same search must find the

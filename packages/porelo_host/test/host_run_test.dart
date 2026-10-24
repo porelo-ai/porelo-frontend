@@ -155,9 +155,8 @@ void main() {
     expect(await run.up(plan), Exit.refused);
   });
 
-  // Prevents an unsupported stop from exposing a destination or being treated as a sign-in action.
-  // Red: attach address or account again to the waiting line.
-  test('a waiting line carries needs without host facts', () async {
+  // Harm: a terminal reaches a different account or an untrusted address from callback data.
+  test('a waiting line carries needs and the trusted host destination', () async {
     final steps = <Step>[];
     final remote = ScriptedRemote(<String>[
       line(<String, Object>{
@@ -172,6 +171,8 @@ void main() {
       'step': 'person',
       'state': 'waiting',
       'needs': <String>['agent-login:pi'],
+      'address': '203.0.113.7',
+      'account': 'porelo',
     });
   });
 
@@ -209,45 +210,35 @@ void main() {
     );
   });
 
-  test('a second up rents nothing, gives the answers on standard input only and goes on', () async {
-    final provider = CountingProvider()
-      ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
-    final remote = ScriptedRemote(finishes);
+  // Harm: a secret passes through provisioning instead of staying in the host terminal.
+  test('both up runs write only the exact nonsecret inventory to remote stdin', () async {
+    final provider = CountingProvider();
+    final remote = ScriptedRemote(waits, playExit: 2);
     final steps = <Step>[];
     final run = HostRun(provider: provider, remote: remote, emit: steps.add);
-
-    final code = await run.up(
-      plan,
-      answers: const Answers(
-        driveEmail: 'me@example.org',
-        drivePassword: 'drive-secret',
-        driveCode: '123456',
-        vaultPassphrase: 'vault-secret',
-      ),
-    );
-
-    expect(code, Exit.done);
-    expect(provider.created, 0, reason: 'the host is found again by its tag');
-    expect(remote.inputs, containsAll(<String>['drive-secret\n123456\n', 'vault-secret\n']));
-    for (final command in remote.commands) {
-      expect(command, isNot(contains('secret')), reason: 'a secret never stands in a command line');
-      expect(command, isNot(contains('123456')), reason: 'nor the one-time code, nor as --totp');
-    }
-    final login = remote.commands.indexWhere((c) => c.contains('tresorit-cli login'));
+    expect(await run.up(plan), Exit.waiting);
+    remote.lines = finishes;
+    remote.playExit = 0;
+    expect(await run.up(plan), Exit.done);
+    expect(provider.created, 1, reason: 'the second up finds the same host');
+    final inventory = const JsonEncoder.withIndent('  ').convert({
+      'all': {
+        'hosts': {'localhost': <String, Object>{}},
+        'vars': {
+          'porelo_host_inventory_version': 1,
+          'porelo_host_account': 'porelo',
+          'porelo_host_authorized_key': 'ssh-ed25519 BBBB me',
+          'porelo_host_project': 'demo',
+          'porelo_host_distribution': 'snapshots',
+        },
+      },
+    });
+    expect(remote.inputs, [inventory, inventory], reason: 'no input besides the inventory on either run');
     expect(
-      remote.commands[login],
-      startsWith(r'XDG_RUNTIME_DIR=/run/user/$(id -u) tresorit-cli login '),
-      reason: 'the client reaches the account\'s running daemon whatever the ssh session sets',
+      remote.commands.where((c) => c.contains('tresorit-cli login') || c.contains('porelo vault')),
+      isEmpty,
+      reason: 'up never runs a command taking a password, code or passphrase',
     );
-    final vault = remote.commands.indexWhere((c) => c.contains('--passphrase-stdin'));
-    expect(
-      remote.commands[vault],
-      startsWith(r'export XDG_RUNTIME_DIR=/run/user/$(id -u); '),
-      reason: 'porelo reaches the account\'s own daemon whatever the ssh session sets',
-    );
-    final play = remote.commands.indexWhere((c) => c.contains('ansible-playbook'));
-    expect(login < vault && vault < play, isTrue, reason: 'the drive, then the vault, then the plays');
-    expect(remote.users[vault], 'porelo', reason: 'the vault is the account\'s own');
   });
 
   test('ssh is asked again for twenty minutes by default, a bare-metal host\'s first boot', () {

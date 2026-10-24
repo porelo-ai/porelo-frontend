@@ -3,6 +3,8 @@
 library;
 
 import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
@@ -73,21 +75,44 @@ void main() {
     expect(session.fix, isNull, reason: 'a stop is no refusal');
   });
 
-  test('the answers go to standard input only, never into the arguments', () async {
+  // Harm: a secret passes through the interface into provisioning stdin.
+  test('every up closes stdin without writing and keeps the stop destination', () async {
+    final commands = <List<String>>[];
+    final processes = <_RecordingProcess>[];
+    const stop = Step(
+      'person',
+      StepState.waiting,
+      needs: ['drive', 'vault-new'],
+      address: '203.0.113.7',
+      account: 'actual-account',
+    );
     final session = HostSession(
       executable: 'porelo-host',
-      arguments: const <String>['--project', 'demo'],
-      start: saying(<String>[const Step('vault', StepState.done).toLine()]),
+      arguments: const ['--project', 'demo'],
+      start: (_, arguments) async {
+        commands.add(List.of(arguments));
+        final process = _RecordingProcess(
+          processes.length < 2 ? stop : const Step('up', StepState.done),
+          processes.length < 2 ? Exit.waiting : Exit.done,
+        );
+        processes.add(process);
+        return process;
+      },
     );
-
-    await session.resume(
-      const Answers(driveEmail: 'me@example.org', drivePassword: 'drive-secret', vaultPassphrase: 'vault-secret'),
-    );
-
-    expect(kept('arguments'), isNot(contains('secret')));
-    expect(kept('arguments'), contains('--answers-on-stdin'));
-    expect(kept('input'), contains('"drivePassword":"drive-secret"'));
-    expect(kept('input'), contains('"vaultPassphrase":"vault-secret"'));
+    addTearDown(session.dispose);
+    for (var run = 0; run < 3; run++) {
+      await session.up();
+      expect(processes.last.bytes, isEmpty, reason: 'up never receives a secret on stdin');
+      expect(processes.last.closed, isTrue);
+      if (run < 2) {
+        expect(session.state, HostRunState.waiting);
+        expect(session.address, '203.0.113.7');
+        expect(session.account, 'actual-account');
+        expect(session.needs, ['drive', 'vault-new']);
+      }
+    }
+    expect(session.state, HostRunState.done);
+    expect(commands, List.filled(3, ['up', '--project', 'demo']));
   });
 
   test('a refusal keeps the step\'s fix, and an ending with no step keeps the command\'s words', () async {
@@ -111,4 +136,25 @@ void main() {
     expect(unreachable.state, HostRunState.unreachable);
     expect(unreachable.fix, 'no route to host');
   });
+}
+
+class _RecordingProcess extends Fake implements Process {
+  _RecordingProcess(Step step, this.code) : output = utf8.encode('${step.toLine()}\n') {
+    final input = StreamController<List<int>>();
+    input.stream.listen(bytes.addAll, onDone: () => closed = true);
+    sink = IOSink(input.sink);
+  }
+  final int code;
+  final List<int> output;
+  final bytes = <int>[];
+  bool closed = false;
+  late final IOSink sink;
+  @override
+  IOSink get stdin => sink;
+  @override
+  Stream<List<int>> get stdout => Stream.value(output);
+  @override
+  Stream<List<int>> get stderr => const Stream.empty();
+  @override
+  Future<int> get exitCode async => code;
 }

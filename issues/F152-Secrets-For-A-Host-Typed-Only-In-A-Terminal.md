@@ -1,6 +1,6 @@
 # F152 — Secrets For A Host Typed Only In A Terminal
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - the stop in `porelo-host` and in the dialog, a terminal, the walk's stand-in.
 
 **Order.** The first of the host flow's issues ([F152](README.md#f152), [F154](README.md#f154) to
@@ -60,6 +60,14 @@ interface's widgets and misses Tresorit's second-factor prompt, which
   answers go there). A command that does the wrong thing: an e-mail carrying a quote is refused, not
   run. `porelo-host`: the `person` line names address and account, and `--answers-on-stdin` ends 64.
   The review is Codex `xhigh`: it handles secrets.
+- **From that review, fixed:** the pinned ssh options turn agent and X11 forwarding off, so a
+  person's own config cannot hand a taken-over host their agent; held by `ssh -G` over a config that
+  asks for both.
+- **From that review, declined:** `IdentitiesOnly=yes` still lets an `IdentityFile` from the
+  person's own ssh config be offered beside the setup identity, since OpenSSH adds those up and only
+  `-F` would stop it, which would also drop the `ProxyJump` the options keep on purpose. The host
+  key stays pinned to the one `porelo-host` trusted, so another of the person's own keys can only
+  log the person in to that same host; nothing reaches a host the person did not choose.
 
 ## Acceptance
 

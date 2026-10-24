@@ -6,6 +6,40 @@ import 'package:test/test.dart';
 import 'support/pinned_ssh.dart';
 
 void main() {
+  // Harm: a compromised host uses a forwarded agent or reaches the person's display.
+  test('the pinned policy disables agent and display forwarding from SSH config', () async {
+    final directory = await Directory.systemTemp.createTemp('ssh-forwarding-');
+    addTearDown(() => directory.delete(recursive: true));
+    final config = File('${directory.path}/config');
+    await config.writeAsString('Host *\n    ForwardAgent yes\n    ForwardX11 yes\n');
+    final ProcessResult result;
+    try {
+      result = await Process.run('ssh', <String>[
+        '-G',
+        '-F',
+        config.path,
+        ...pinnedHostSshOptions('${directory.path}/known_hosts', '${directory.path}/identity'),
+        'someone@192.0.2.10',
+      ]);
+    } on ProcessException catch (error) {
+      if (error.errorCode != 2) rethrow;
+      markTestSkipped('No ssh binary is available to inspect its effective forwarding configuration.');
+      return;
+    }
+    expect(result.exitCode, 0, reason: 'ssh -G must print effective settings: ${result.stderr}');
+    final forwarding = <String, String>{};
+    for (final line in (result.stdout as String).split('\n')) {
+      final fields = line.trim().split(RegExp(r'\s+'));
+      if (fields.length == 2 && const {'forwardagent', 'forwardx11'}.contains(fields.first)) {
+        forwarding[fields.first] = fields.last;
+      }
+    }
+    expect(forwarding, <String, String>{
+      'forwardagent': 'no',
+      'forwardx11': 'no',
+    }, reason: 'host access must disable both forwarding channels despite permissive SSH config');
+  });
+
   // Prevents trusting the person's keys through a shared but incorrect path helper.
   test('the trust file lives in the host command state directory on each platform', () {
     expect(
@@ -53,6 +87,10 @@ void main() {
       'UpdateHostKeys=no',
       '-o',
       'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
+      '-o',
+      'ForwardX11=no',
       '-o',
       'IdentitiesOnly=yes',
       '-o',

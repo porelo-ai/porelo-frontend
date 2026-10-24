@@ -2,6 +2,7 @@
 library;
 
 export 'src/host_run.dart';
+export 'src/host_stop_command.dart';
 export 'src/provider.dart';
 export 'src/remote.dart';
 export 'src/scaleway.dart';

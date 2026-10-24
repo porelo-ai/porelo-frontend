@@ -9,8 +9,10 @@ import 'package:path/path.dart' as path;
 import '../app/host_session.dart';
 import '../app/machines.dart';
 import '../app/settings.dart';
+import '../app/session.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
+import 'unlock_terminal.dart';
 
 /// Puts [project] on a server, or takes it off again, by the `porelo-host` shipped beside this
 /// interface, showing each step as it says it and asking at its one stop.
@@ -27,15 +29,15 @@ Future<void> openHostDialog(
 
 /// The page: where it goes, the steps, and at the stop what only the person can give.
 ///
-/// **Drive and vault answers are not kept.** The answers go to the command's standard input when sent and
-/// the fields are cleared; the provider's key is not asked here, it is the system store's
-/// (`porelo-host key set scaleway`).
+/// Secrets are typed only into the host terminal, in the provider and vault prompts. The
+/// provider key belongs to the system store (`porelo-host key set scaleway`).
 class HostDialog extends StatefulWidget {
   /// Constructor taking the project and, for the tests, how the command is started.
   const HostDialog({
     required this.project,
     required this.machines,
     this.start,
+    this.openTerminal,
     this.environment,
     this.settings,
     this.secretStore,
@@ -49,6 +51,9 @@ class HostDialog extends StatefulWidget {
 
   /// Starts the command; the shipped one when null.
   final StartHostCommand? start;
+
+  /// Opens the host terminal; replaceable without a real SSH process in tests.
+  final OpenTerminal? openTerminal;
 
   /// Overrides command selection for a development walk.
   final Map<String, String>? environment;
@@ -80,10 +85,6 @@ class _HostDialogState extends State<HostDialog> {
   final _identity = TextEditingController(text: _home('.ssh/id_ed25519'));
   final _collection = TextEditingController();
   final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _code = TextEditingController();
-  final _passphrase = TextEditingController();
-  final _again = TextEditingController();
   final _repository = TextEditingController();
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _keyName = TextEditingController();
@@ -103,6 +104,7 @@ class _HostDialogState extends State<HostDialog> {
   bool _doneUp = false;
   bool _showTunnel = false;
   bool _saving = false;
+  bool _terminalOpen = false;
   String? _machineProblem;
 
   static String _home(String relativePath) {
@@ -113,7 +115,9 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     for (final field in <TextEditingController>[
-      _repository, _signingKey, _keyName,
+      _repository,
+      _signingKey,
+      _keyName,
       _scaleway,
       _tresor,
       _account,
@@ -121,10 +125,6 @@ class _HostDialogState extends State<HostDialog> {
       _identity,
       _collection,
       _email,
-      _password,
-      _code,
-      _passphrase,
-      _again, //
     ]) {
       field.dispose();
     }
@@ -168,7 +168,7 @@ class _HostDialogState extends State<HostDialog> {
     return address.contains(':') ? '[$address]:51820' : '$address:51820';
   }
 
-  bool get _running => _preparing || _saving || _session?.state == HostRunState.running;
+  bool get _running => _preparing || _saving || _terminalOpen || _session?.state == HostRunState.running;
 
   Future<void> _withFiles(Future<void> Function(HostFiles) use) async {
     late final SecretStore store;
@@ -365,20 +365,46 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  void _resume() {
-    final needs = _session!.needs;
-    final answers = Answers(
-      driveEmail: needs.contains('drive') ? _email.text.trim() : null,
-      drivePassword: needs.contains('drive') ? _password.text : null,
-      driveCode: needs.contains('drive') && _code.text.trim().isNotEmpty ? _code.text.trim() : null,
-      vaultPassphrase: needs.any((n) => n.startsWith('vault')) ? _passphrase.text : null,
+  Future<void> _openHostTerminal() async {
+    final session = _session!;
+    final String line;
+    try {
+      line = hostStopCommand(session.needs, email: _email.text);
+    } on FormatException catch (error) {
+      setState(() => _machineProblem = error.message);
+      return;
+    }
+    final address = session.address ?? '';
+    final account = session.account ?? '';
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address) ||
+        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(account)) {
+      setState(() => _machineProblem = 'The host stop did not name a valid address and account.');
+      return;
+    }
+    final machine = Machine(
+      name: '${widget.project} server',
+      socketPath: '',
+      kind: 'host',
+      host: '$account@$address',
+      identity: _identity.text.trim(),
     );
-    // Gone from the fields before the command even starts: the answers live only in what is sent.
-    _password.clear();
-    _code.clear();
-    _passphrase.clear();
-    _again.clear();
-    unawaited(_runUp(() => _session!.resume(answers)));
+    setState(() {
+      _terminalOpen = true;
+      _machineProblem = null;
+    });
+    try {
+      await runInATerminal(
+        context,
+        title: 'Complete setup on ${machine.name}',
+        explanation: 'Type the secrets into the host commands here. Close the terminal when finished; host setup will check what is still needed.',
+        machine: machine,
+        command: <String>[openSsh('ssh'), ...machine.loginSshOptions, '-t', machine.host, inTheLoginShell(line)],
+        open: widget.openTerminal,
+      );
+      if (mounted) await _runUp(session.up);
+    } finally {
+      if (mounted) setState(() => _terminalOpen = false);
+    }
   }
 
   @override
@@ -495,18 +521,11 @@ class _HostDialogState extends State<HostDialog> {
     );
   }
 
-  Widget _field(
-    TextEditingController controller,
-    String label,
-    String key, {
-    bool secret = false,
-    bool namesHost = false,
-  }) => Padding(
+  Widget _field(TextEditingController controller, String label, String key, {bool namesHost = false}) => Padding(
     padding: const EdgeInsets.only(bottom: Space.small),
     child: TextField(
       key: Key(key),
       controller: controller,
-      obscureText: secret,
       enabled: !_running,
       readOnly: namesHost && _upStarted,
       decoration: InputDecoration(labelText: label),
@@ -528,18 +547,11 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
-  /// What only the person can give at the stop: the drive's login and the vault's passphrase.
+  /// The host names the steps; their own prompts take every secret in its terminal.
   Widget _askForTheStop(List<String> needs) {
     final drive = needs.contains('drive');
-    final fresh = needs.contains('vault-new');
-    final vault = fresh || needs.contains('vault');
     const known = <String>{'drive', 'vault', 'vault-new'};
     final unknown = needs.where((need) => !known.contains(need)).toList();
-    final matches = !fresh || _passphrase.text == _again.text;
-    final given =
-        (!drive || (_email.text.trim().isNotEmpty && _password.text.isNotEmpty)) &&
-        (!vault || _passphrase.text.isNotEmpty) &&
-        matches;
     return Column(
       key: const Key('host-stop'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,31 +559,20 @@ class _HostDialogState extends State<HostDialog> {
         const SizedBox(height: Space.normal),
         if (needs.isEmpty)
           const Text('The host waits without saying for what.')
-        else
-          const Text('The host waits for what only you can give. It goes to the host and is kept nowhere.'),
-        for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
-        if (drive) ...<Widget>[
-          _field(_email, 'Tresorit e-mail', 'host-drive-email'),
-          _field(_password, 'Tresorit password', 'host-drive-password', secret: true),
-          // Asked here, at the stop, so it is still valid when it reaches the host a moment later.
-          _field(_code, 'Tresorit one-time code (empty without a second factor)', 'host-drive-code', secret: true),
+        else ...<Widget>[
+          if (drive) const Text('The host needs a Tresorit login.'),
+          if (needs.contains('vault-new')) const Text('The host needs a passphrase for its new vault.'),
+          if (needs.contains('vault')) const Text('The host needs its vault unlocked.'),
         ],
-        if (vault)
-          _field(
-            _passphrase,
-            fresh ? 'A passphrase for the new vault' : 'The vault\'s passphrase',
-            'host-passphrase',
-            secret: true,
-          ),
-        if (fresh) _field(_again, 'The same passphrase again', 'host-passphrase-again', secret: true),
-        if (!matches) const Text('The two passphrases differ.', key: Key('host-passphrases-differ')),
-        if ((drive || vault) && unknown.isEmpty)
+        for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
+        if (drive) _field(_email, 'Tresorit e-mail', 'host-drive-email'),
+        if (needs.isNotEmpty && unknown.isEmpty)
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
-              key: const Key('host-resume'),
-              onPressed: given ? _resume : null,
-              child: const Text('Go on'),
+              key: const Key('host-open-terminal'),
+              onPressed: _running ? null : _openHostTerminal,
+              child: const Text('Open a terminal on the host'),
             ),
           ),
       ],

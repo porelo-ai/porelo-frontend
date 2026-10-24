@@ -102,6 +102,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The host's stop opens a terminal on the host for the Tresorit login and vault passphrase;
+  the dialog takes no secret.
+
 - The MSIX is signed from the certificate store: its key is never a file in the build and its
   password never on a command line.
 - Every colour of Porelo's look is named in the tokens, as every size is.

@@ -8,14 +8,17 @@ Windows.
   trusts the host key the provider reports, copies the first play's inventory and the collection
   [porelo-host](https://github.com/porelo-ai/porelo-host) there, and installs `ansible-core`. It
   then runs `ansible-playbook -c local` on the host itself. It stops once for the person, with exit
-  code 75; a second `up` given the answers on standard input goes on.
+  code 75 and names the host address, account and needs in its `person` line. Complete the
+  login and vault prompts in a terminal on that host, then run the same `up` again.
 - **`down`** runs the down play and only then gives the host back. A host whose down play did not
   finish is kept, since a failed copy may have left the only copy there; its last line says so, and
   `--give-back-anyway` gives it back knowingly.
 
 Each step is one JSON line on standard output, relayed from the collection's callback; the words
-for a person go to standard error. Drive and vault answers reach the host on standard input,
-never in arguments or logs.
+for a person go to standard error. No form of the interface and nothing in `porelo-host` takes
+the drive password, one-time code or vault passphrase. They are typed into a terminal on the
+host, at the provider's and Porelo's own prompts. The non-secret inventory is the only remote
+command input written by `up`.
 
 The interface also uses `HostFiles` to prepare a project's local Tresorit folder: the machine
 file, optional vault key files and the host's WireGuard private key. Existing differing files

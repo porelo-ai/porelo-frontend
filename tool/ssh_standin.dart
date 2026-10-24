@@ -2,15 +2,21 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:porelo_host/porelo_host.dart' show inTheLoginShell, hostStopCommand;
+
 Future<void> main(List<String> arguments) async {
   final parsed = _parse(arguments);
   if (parsed == null) {
-    stderr.writeln('The ssh stand-in does not support this form: ${arguments.join(' ')}');
+    stderr.writeln('The ssh stand-in does not support this form.');
     exitCode = 255;
     return;
   }
   if (parsed.config) {
     stdout.writeln('identityfile ${parsed.identity ?? '~/.ssh/id_ed25519'}');
+    return;
+  }
+  if (parsed.terminal != null) {
+    exitCode = await _terminal(parsed.terminal!);
     return;
   }
   final target = Platform.environment['PORELO_WALK_HOST_SOCKET'];
@@ -96,19 +102,25 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-({bool config, String? local, String? identity})? _parse(List<String> arguments) {
+({bool config, String? local, String? identity, List<String>? terminal})? _parse(List<String> arguments) {
   var config = false;
   var forward = false;
+  var terminal = false;
+  String? command;
   String? mapping;
   String? identity;
   String? host;
   for (var i = 0; i < arguments.length; i++) {
     final argument = arguments[i];
+    if (command != null) return null;
     switch (argument) {
       case '-G':
         config = true;
       case '-N':
         forward = true;
+      case '-t':
+        if (terminal) return null;
+        terminal = true;
       case '-L' || '-o' || '-i':
         if (++i == arguments.length) return null;
         final value = arguments[i];
@@ -119,17 +131,87 @@ Future<void> main(List<String> arguments) async {
         }
         if (argument == '-i') identity = value;
       default:
-        if (argument.startsWith('-') || host != null || argument.isEmpty) return null;
-        host = argument;
+        if (argument.startsWith('-') || argument.isEmpty) return null;
+        if (host == null) {
+          host = argument;
+        } else if (terminal && command == null) {
+          command = argument;
+        } else {
+          return null;
+        }
     }
   }
   if (host == null) return null;
-  if (config && !forward && mapping == null) return (config: true, local: null, identity: identity);
+  if (terminal) {
+    if (config ||
+        forward ||
+        mapping != null ||
+        command == null ||
+        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(host)) {
+      return null;
+    }
+    final needs = _terminalNeeds(command);
+    return needs == null ? null : (config: false, local: null, identity: identity, terminal: needs);
+  }
+  if (config && !forward && mapping == null) return (config: true, local: null, identity: identity, terminal: null);
   if (!config && forward && mapping != null) {
     final paths = mapping.split(':');
     if (paths.length == 2 && paths.every((path) => path.startsWith('/') && path.length > 1)) {
-      return (config: false, local: paths.first, identity: identity);
+      return (config: false, local: paths.first, identity: identity, terminal: null);
     }
   }
   return null;
+}
+
+List<String>? _terminalNeeds(String command) {
+  final address =
+      RegExp(r'[A-Za-z0-9][A-Za-z0-9._+-]*@[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*\.[A-Za-z]{2,}')
+          .firstMatch(command)
+          ?.group(0) ??
+      '';
+  for (final needs in const <List<String>>[
+    ['drive'],
+    ['vault-new'],
+    ['vault'],
+    ['drive', 'vault-new'],
+    ['drive', 'vault'],
+  ]) {
+    if (needs.contains('drive') && address.isEmpty) continue;
+    if (command == inTheLoginShell(hostStopCommand(needs, email: address))) return needs;
+  }
+  return null;
+}
+
+Future<int> _terminal(List<String> needs) async {
+  Future<bool> prompt(String words, {bool secret = true}) async {
+    final echo = stdin.hasTerminal ? stdin.echoMode : null;
+    try {
+      if (echo != null) stdin.echoMode = !secret;
+      stdout.write(words);
+      await stdout.flush();
+      // The answer is dropped without being written, including on a piped walk test.
+      return stdin.readLineSync() != null;
+    } finally {
+      if (echo != null) stdin.echoMode = echo;
+      stdout.writeln();
+    }
+  }
+
+  if (needs.contains('drive')) {
+    stdout.writeln('The one-time code will show as you type it.');
+    if (!await prompt('Password: ') || !await prompt('Enter your one-time password: ', secret: false)) return 1;
+    stdout.writeln(
+      needs.length > 1
+          ? 'Logged in to Tresorit; the vault comes next.'
+          : 'Logged in to Tresorit; close this terminal to continue host setup.',
+    );
+  }
+  if (needs.contains('vault-new')) {
+    if (!await prompt('New vault passphrase: ') || !await prompt('New vault passphrase again: ')) return 1;
+    stdout.writeln('Vault initialized; close this terminal to continue host setup.');
+  } else if (needs.contains('vault')) {
+    if (!await prompt('Vault passphrase: ')) return 1;
+    stdout.writeln('Vault unlocked; close this terminal to continue host setup.');
+  }
+  return 0;
 }

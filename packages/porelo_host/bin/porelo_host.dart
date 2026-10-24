@@ -7,13 +7,13 @@ const _usage = '''
 porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE --collection FILE
             (--scaleway-project ID [--zone fr-par-1] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
-            [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS] [--answers-on-stdin]
+            [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
             [--give-back-anyway]
 porelo-host key set|forget PROVIDER
 porelo-host --version
 
   up      rents the project's host, or finds it again by its tag, and runs the playbook there; it
-          stops once with 75 for the person, and an up given --answers-on-stdin goes on
+          stops with 75 for the person; run up again after completing the stop on the host
   down    runs the down play, then gives the host back; a host whose down play did not finish is
           kept, since a failed copy may have left the only copy there, and down says so
   key     keeps a provider's key in the system's own store, read from standard input, or forgets it;
@@ -24,7 +24,6 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 w
 
 --scaleway-project rents from Scaleway Elastic Metal, with the key `key set scaleway` kept.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
---answers-on-stdin reads one JSON object: driveEmail, drivePassword, driveCode, vaultPassphrase.
 --give-back-anyway gives the host back after a down play that did not finish; what it held is gone.''';
 
 // Ends with the run's code at once: an HTTPS connection to the provider, kept for reuse, would hold
@@ -51,15 +50,28 @@ Future<int> _run(List<String> arguments) async {
   if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return _wrong('up or down first');
   final verb = arguments.first;
   final options = <String, String>{};
-  var answersOnStdin = false;
   var giveBackAnyway = false;
   for (var i = 1; i < arguments.length; i++) {
     final name = arguments[i];
-    if (name == '--answers-on-stdin') {
-      answersOnStdin = true;
-    } else if (name == '--give-back-anyway' && verb == 'down') {
+    if (name == '--give-back-anyway' && verb == 'down') {
       giveBackAnyway = true;
-    } else if (name.startsWith('--') && i + 1 < arguments.length) {
+    } else if (const <String>{
+          '--project',
+          '--account',
+          '--public-key',
+          '--identity',
+          '--collection',
+          '--scaleway-project',
+          '--zone',
+          '--given',
+          '--host-key',
+          '--login-user',
+          '--distribution',
+          '--tresor',
+          '--vpn-peer-public-key',
+          '--vpn-peer-address',
+        }.contains(name) &&
+        i + 1 < arguments.length) {
       options[name.substring(2)] = arguments[++i];
     } else {
       return _wrong('$name is not an option');
@@ -93,7 +105,6 @@ Future<int> _run(List<String> arguments) async {
     );
   }
 
-  final answers = answersOnStdin ? Answers.fromJson(await stdin.transform(utf8.decoder).join()) : const Answers();
   final ssh = OpenSsh(knownHosts: File(poreloHostKnownHosts()), identity: options['identity']!);
   final run = HostRun(
     provider: provider,
@@ -112,7 +123,7 @@ Future<int> _run(List<String> arguments) async {
     vpnPeerPublicKey: options['vpn-peer-public-key'],
     vpnPeerAddress: options['vpn-peer-address'],
   );
-  return verb == 'up' ? run.up(plan, answers: answers) : run.down(plan, giveBackAnyway: giveBackAnyway);
+  return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
 }
 
 /// `key set PROVIDER` and `key forget PROVIDER`.

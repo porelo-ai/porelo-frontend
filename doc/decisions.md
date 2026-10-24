@@ -57,7 +57,7 @@ taken, `git log` answers.
 | [The person's ssh key is registered once by hand in Scaleway's console; the API key only reads keys](#the-persons-ssh-key-is-registered-once-by-hand-in-scaleways-console) |
 | [The host key is made by `porelo-host`, handed to cloud-init and kept in the server's tag, never scanned](#the-host-key-is-made-by-porelo-host-and-kept-in-the-servers-tag) |
 | [A server without the project's tag is never given back; `down` finds the host by the tag alone](#a-server-without-the-projects-tag-is-never-given-back) |
-| [Secrets reach the host only on standard input: the drive's password and one-time code, and the vault's passphrase](#secrets-reach-the-host-only-on-standard-input) |
+| [Secrets for a host are typed only in its terminal](#secrets-for-a-host-are-typed-only-in-its-terminal) |
 | [No Scaleway secret is on GitHub: the Build tests against recorded answers, with one real rent per release](#no-scaleway-secret-is-on-github) |
 | [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
 | [The host's files reach it through Tresorit, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-through-tresorit-and-the-persons-wireguard-key-stays-in-the-secret-store) |
@@ -708,15 +708,18 @@ a server that offers another key is refused before any login.
 carries a `porelo-project=` tag and refuses any server without one, so a server in the same
 Scaleway project that `porelo-host` did not rent can never be deleted by it.
 
-## Secrets reach the host only on standard input
+## Secrets for a host are typed only in its terminal
 
-When `up` resumes after its stop (`--answers-on-stdin`), it reads the drive's login and the vault's
-passphrase from its own standard input and sends them on to the host over `ssh` on standard input
-alone. `tresorit-cli login --password-on-stdin` receives the password and, when the account uses a
-second factor, the one-time code as the line after the password on the same standard input, never
-through `--totp` or another argument; the vault receives its passphrase through `--passphrase-stdin`.
-Neither secret is ever put in an argument, an environment variable, a file or a log on either
-computer.
+At the host stop, passwords, one-time codes and vault passphrases are typed into a terminal on
+that host, through the provider's own login and Porelo's own prompts. They never pass through the
+interface's forms or `porelo-host`. Only the Tresorit e-mail address is entered in the dialog; it
+is checked as a plain address and quoted before use.
+
+The terminal uses the setup identity and pinned host key, runs in the account's login shell,
+and sets its runtime directory. Tresorit asks for the password without echo and then, when
+needed, a one-time code that shows as it is typed; the terminal warns about that before login.
+The vault asks its own passphrase. After the terminal is put away, the same `up` runs again;
+only its answer decides whether setup can continue.
 
 ## No Scaleway secret is on GitHub
 

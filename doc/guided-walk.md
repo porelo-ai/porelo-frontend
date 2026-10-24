@@ -76,7 +76,7 @@ timeout 1h dart tool/mock_daemon.dart host /tmp/porelo-walk/host.sock
 
 Then start the interface from a third terminal with its settings isolated from everyday machines.
 The host dialog still uses the system secret store for its generated WireGuard key. Use invented
-answers at the stop; no real host keys, provider credentials or collection are needed. Leave the
+answers only in the terminal opened at the stop; no real host keys, provider credentials or collection are needed. Leave the
 local Tresorit folder unchosen, so the dialog prepares no host files.
 
 ```bash
@@ -91,12 +91,21 @@ flutter run -d linux
 ```
 
 `host-standin.json` is required and is read on every run. Its `situation` is `clean`, `stop`,
-`refused`, `slow` or `down`; `state` is written by the stand-in. A `stop` resumes only with
-`up --answers-on-stdin`, whose input is drained and discarded. `slow` takes 60 seconds by default;
-`paceMilliseconds` overrides that delay for tests. The `down` situation accepts `down`, and the
-dialog's down action also works after any other situation. Reset to `{"situation":"stop","state":"new"}`
-to walk the stop again. The SSH stand-in supports only config lookup and the Unix socket forward;
-it refuses terminal and remote-command forms.
+`refused`, `slow` or `down`; `state` is written by the stand-in. A `stop` names the host address
+and account. Enter an invented Tresorit e-mail in the dialog, then click *Open a terminal on the
+host*. The SSH stand-in accepts only the terminal commands that host setup builds. It asks
+`Password:` without echo, then `Enter your one-time password:` with echo, followed by the new
+vault's two passphrase prompts without echo. It discards every answer without writing a file or
+logging it. After each command it says what completed and what comes next.
+
+Click *Done* to put the terminal away. The dialog runs the same `up` again without answers; in
+the stand-in a second `up` goes on, while a real host's play checks whether the login and vault
+steps were completed. An unsupported need is shown verbatim with no terminal offered.
+
+`slow` takes 60 seconds by default; `paceMilliseconds` overrides that delay for tests. The `down`
+situation accepts `down`, and the dialog's down action also works after any other situation.
+Reset to `{"situation":"stop","state":"new"}` to walk the stop again. The SSH stand-in also supports
+config lookup and the Unix socket forward; every other terminal or remote command is refused.
 
 **Working on the plugin beside this repository:** a `pubspec_overrides.yaml` here, which git ignores,
 points the dependency at the local folder:

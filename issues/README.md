@@ -26,12 +26,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f162"></a>[F162](F162-The-Host-Flow-Walked-Against-Stand-Ins.md) | M | — | The host flow walked in a development build against a stand-in `porelo-host`, a host reached through a stand-in `ssh` and the mock daemon, and stand-in terminal steps. |
 | <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | S | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. |
+| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | M | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | M | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
 | <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | S | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. |
 | <a id="f161"></a>[F161](F161-A-Starts-Progress-And-Refusal-In-Words.md) | M | `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268) | Task start showing its step and what it waits on in plain words, stopping with the cause when a dependency fails, and explaining a refused `porelo.yml`. |
 | <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | S | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |

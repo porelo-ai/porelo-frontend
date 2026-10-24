@@ -32,10 +32,10 @@ class Step {
   /// While waiting for the person, what they must give: `drive`, `vault` or `vault-new`.
   final List<String> needs;
 
-  /// The completed up destination, or the address actually given back by down.
+  /// The host at the person stop or completed up, or the address actually given back by down.
   final String? address;
 
-  /// The account after a successful up.
+  /// The account at the person stop or after a successful up.
   final String? account;
 
   /// The account daemon socket after a successful up.
@@ -99,6 +99,6 @@ abstract final class Exit {
   /// The provider or the host could not be reached.
   static const unreachable = 69;
 
-  /// Waiting for the person: a second `up`, given what the last line asks for, goes on.
+  /// Waiting for the person: run `up` again after completing the stop on the host.
   static const waiting = 75;
 }
