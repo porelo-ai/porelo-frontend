@@ -30,6 +30,9 @@ const _record = HostUpRecord(
   vpnPeerAddress: '10.73.0.2/32',
 );
 
+// The local VPN is set up only on Linux; elsewhere the step refuses before it writes a key.
+final _notLinux = !Platform.isLinux;
+
 void main() {
   Future<void> open(
     WidgetTester tester,
@@ -128,7 +131,7 @@ void main() {
         if (!(await tester.runAsync(usedFile.exists))!) break;
       }
       expect(await tester.runAsync(usedFile.exists), isFalse, reason: '$ending must remove the private configuration');
-    });
+    }, skip: _notLinux);
   }
 
   Future<void> openSaveMenu(
@@ -316,7 +319,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('unlock-done')));
     await World.settle(tester);
-  });
+  }, skip: _notLinux);
 
   // Harm: a verified finish closes the cancel confirmation instead of the terminal, so the VPN terminal stays open and setup does not go on.
   testWidgets('a verified finish closes the terminal and the confirmation above it', (tester) async {
@@ -334,7 +337,7 @@ void main() {
     }
     expect(find.byKey(const Key('unlock-terminal')), findsNothing, reason: 'the verified terminal closes itself');
     expect(find.byKey(const Key('unlock-cancel-yes')), findsNothing, reason: 'its confirmation goes with it');
-  });
+  }, skip: _notLinux);
 
   // Harm: exposing the WireGuard private key in process arguments leaks it to other processes.
   testWidgets('the private VPN key is absent from every argument and the displayed command', (tester) async {
@@ -350,7 +353,7 @@ void main() {
       reason: 'no argument carries the private key',
     );
     expect(tester.widget<SelectableText>(find.byKey(const Key('unlock-command'))).data!.contains(private), isFalse);
-  });
+  }, skip: _notLinux);
 
   // Harm: a teardown action must not run installation or target the remote server.
   testWidgets('VPN down runs only wg-quick locally without needing a saved file', (tester) async {

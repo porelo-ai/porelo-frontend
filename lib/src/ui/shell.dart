@@ -115,6 +115,11 @@ import 'host_tunnel_export.dart';
 /// bar keeps only what belongs to no machine. Everything else opens over the frame rather than
 /// navigating away from it.
 class Shell extends StatefulWidget {
+  /// Whether the selected host command is present, including a development walk stand-in. A test
+  /// sets it, since whether this computer has `porelo-host` installed is not the test's business.
+  @visibleForTesting
+  static bool poreloHostIsHere = File(poreloHost()).existsSync();
+
   /// Constructor taking everything the frame renders and acts on.
   const Shell({
     required this.machines,
@@ -414,7 +419,7 @@ class _ShellState extends State<Shell> {
     openEgress: _openEgress,
     removeWhatWasBuilt: _removeWhatWasBuilt,
     clearTheProject: _clearTheProject,
-    putOnAServer: _poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
+    putOnAServer: Shell.poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
     checkTheMachine: _checkTheMachine,
     startThenCheck: () => unawaited(_startThenCheck()),
     showTheProviders: _showTheProviders,
@@ -611,7 +616,7 @@ class _ShellState extends State<Shell> {
       checkWorkCanStart: _checkWorkCanStart,
       removeWhatWasBuilt: _removeWhatWasBuilt,
       clearTheProject: _clearTheProject,
-      putOnAServer: _poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
+      putOnAServer: Shell.poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
       itsForgeIsMissing: _itsForgeIsMissing(),
@@ -734,9 +739,6 @@ class _ShellState extends State<Shell> {
           settings: widget.settings,
           openTerminal: widget.sessions.openTerminal,
         );
-
-  /// Whether the selected host command is present, including a development walk stand-in.
-  static final bool _poreloHostIsHere = File(poreloHost()).existsSync();
 
   /// Puts the selected project on a server, by the `porelo-host` shipped beside the interface.
   Future<void> _putOnAServer() async {

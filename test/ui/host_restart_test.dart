@@ -9,6 +9,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
+import 'package:porelo_frontend/src/ui/shell.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_host/porelo_host.dart';
 
@@ -289,6 +290,9 @@ void main() {
 
   // Harm: a refused setup cannot correct its inputs if the project action always reopens a read-only run.
   testWidgets('the project server action opens editable kept answers after an ended preparation', (tester) async {
+    final installed = Shell.poreloHostIsHere;
+    Shell.poreloHostIsHere = true;
+    addTearDown(() => Shell.poreloHostIsHere = installed);
     await World.startBackend(World.work);
     await World.startApp(tester);
     await World.settings.rememberHostUp('checkout', _record.withPreparation(DateTime.utc(2000)));
