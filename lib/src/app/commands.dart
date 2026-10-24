@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
+import 'desk.dart';
 import 'product.dart';
 import 'hand_in.dart';
 import 'machines.dart';
@@ -56,6 +57,9 @@ enum Home {
 
   /// An action on a Needs you row.
   attentionRow,
+
+  /// An action in the project's Messages dialog.
+  messagesDialog,
 
   /// The machine's status line.
   statusLine,
@@ -501,7 +505,7 @@ List<Command> projectCommands({
     // Only where there is a conversation: a project that names a peer on a transport of its own.
     Command(
       id: 'project.messages',
-      label: 'Messages — the conversation of this project, and who has joined it',
+      label: 'Messages and the project’s room',
       group: 'Project',
       home: Home.projectMenu,
       run: showTheMessages ?? () {},
@@ -624,8 +628,6 @@ List<Command> hostMachineCommands({
   VoidCallback? saveTunnel,
   VoidCallback? bringVpnUp,
   VoidCallback? takeVpnDown,
-  VoidCallback? joinRoom,
-  String? roomUnavailable,
 }) => [
   if (machine.kind == 'host') ...[
     Command(
@@ -670,16 +672,17 @@ List<Command> hostMachineCommands({
       run: takeVpnDown ?? () {},
       unavailable: takeVpnDown == null ? 'not offered here' : null,
     ),
-    Command(
-      id: 'machine.joinRoom',
-      label: "Join the project's room",
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: joinRoom ?? () {},
-      unavailable: roomUnavailable ?? (joinRoom == null ? 'the host project is not available here' : null),
-    ),
   ],
 ];
+
+/// Opens Element without sending any part of the once-shown login to its website.
+Command openElementCommand() => Command(
+  id: 'open-element',
+  label: 'Open Element',
+  group: 'Messages',
+  home: Home.messagesDialog,
+  run: () => unawaited(desk.open('https://app.element.io/')),
+);
 
 /// Stops watching a machine, with the same guard wherever removal is offered.
 Command forgetMachineCommand({

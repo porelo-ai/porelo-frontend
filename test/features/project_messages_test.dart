@@ -10,13 +10,12 @@ import './step/i_go_to_the_work.dart';
 import './step/i_select_the_project.dart';
 import './step/i_open_the_command_finder.dart';
 import './step/the_command_is_unavailable_because.dart';
-import './step/the_project_has_a_conversation_over_reaching_not_ready_saying.dart';
-import './step/i_choose_the_command.dart';
-import './step/it_says.dart';
 import './step/the_machine_is_reached_over_ssh_as.dart';
 import './step/the_project_has_a_conversation_over_reaching_ready.dart';
+import './step/i_choose_the_command.dart';
 import './step/i_join.dart';
 import './step/the_machine_was_asked_to_let_join.dart';
+import './step/it_says.dart';
 import './step/what_a_walk_writes_down_does_not_hold.dart';
 import './step/the_is_blanked_in_a_walks_picture.dart';
 import './step/a_forward_of_port_is_held.dart';
@@ -45,32 +44,14 @@ void main() {
     testWidgets('''a project with no conversation is not offered its messages''', (tester) async {
       await bddSetUp(tester);
       await iOpenTheCommandFinder(tester);
-      await theCommandIsUnavailableBecause(
-        tester,
-        'Messages — the conversation of this project, and who has joined it',
-        'checkout has no conversation',
-      );
-    });
-    testWidgets('''where the conversation is, and whether this machine can carry it, is said''', (tester) async {
-      await bddSetUp(tester);
-      await theProjectHasAConversationOverReachingNotReadySaying(
-        tester,
-        'checkout',
-        'matrix',
-        '127.0.0.1:8008',
-        'the homeserver does not answer',
-      );
-      await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
-      await itSays(tester, 'Over matrix, reaching 127.0.0.1:8008.');
-      await itSays(tester, 'This machine cannot carry its messages now: the homeserver does not answer');
-      await itSays(tester, 'Nobody has joined yet.');
+      await theCommandIsUnavailableBecause(tester, 'Messages and the project’s room', 'checkout has no conversation');
     });
     testWidgets('''a person joins, and their login is shown once with the homeserver forwarded here''', (tester) async {
       await bddSetUp(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
       await iSelectTheProject(tester, 'checkout');
-      await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
+      await iChooseTheCommand(tester, 'Messages and the project’s room');
       await iJoin(tester, 'anna');
       await theMachineWasAskedToLetJoin(tester, 'anna', 'checkout');
       await itSays(tester, 'pw-1-once');
@@ -84,7 +65,7 @@ void main() {
       await itSays(tester, 'port 8008 is forwarded from this computer while this window runs');
       await iAmDoneWithTheMessages(tester);
       await theForwardOfPortIsStillHeld(tester, '8008');
-      await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
+      await iChooseTheCommand(tester, 'Messages and the project’s room');
       await itSays(
         tester,
         'A Matrix client here reaches its homeserver at http://127.0.0.1:8008, forwarded while this window runs.',
@@ -97,7 +78,7 @@ void main() {
         await theMachineIsReachedOverSshAs(tester, 'alice@vm');
         await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
         await iSelectTheProject(tester, 'checkout');
-        await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
+        await iChooseTheCommand(tester, 'Messages and the project’s room');
         await iJoin(tester, 'anna');
         await iAmDoneWithTheMessages(tester);
         await theProjectHeaderSays(tester, 'A Matrix client here reaches its homeserver at http://127.0.0.1:8008.');
@@ -114,7 +95,7 @@ void main() {
       await bddSetUp(tester);
       await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
       await hasJoinedTheConversationOf(tester, 'anna', 'checkout');
-      await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
+      await iChooseTheCommand(tester, 'Messages and the project’s room');
       await iJoin(tester, 'anna');
       await itSays(tester, 'anna has joined already, as @anna:localhost');
       await iGiveANewPassword(tester);
@@ -124,7 +105,7 @@ void main() {
     testWidgets('''a machine that is this computer forwards nothing for its homeserver''', (tester) async {
       await bddSetUp(tester);
       await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
-      await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
+      await iChooseTheCommand(tester, 'Messages and the project’s room');
       await iJoin(tester, 'anna');
       await itSays(tester, 'The homeserver is on this computer, at http://127.0.0.1:8008.');
       await nothingWasForwarded(tester);
@@ -132,7 +113,7 @@ void main() {
     testWidgets('''nobody is joined without a name''', (tester) async {
       await bddSetUp(tester);
       await theProjectHasAConversationOverReachingReady(tester, 'checkout', 'matrix', '127.0.0.1:8008');
-      await iChooseTheCommand(tester, 'Messages — the conversation of this project, and who has joined it');
+      await iChooseTheCommand(tester, 'Messages and the project’s room');
       await joiningIsNotOfferedYet(tester);
     });
   });

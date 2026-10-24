@@ -26,7 +26,7 @@ Future<void> iLetAPersonJoinTheConversationOfFromTheInterface(WidgetTester teste
   await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
   await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
   await pumpFor(tester);
-  const command = 'Messages — the conversation of this project, and who has joined it';
+  const command = 'Messages and the project’s room';
   await tester.enterText(find.byType(TextField).last, command);
   await pumpFor(tester);
   await tester.tap(find.widgetWithText(ListTile, command).last);

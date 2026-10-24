@@ -18,6 +18,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A project's room is joined from its page, with lower-case chat names and numbered steps for
+  Element, which opens without credentials in its address.
 - Project actions, including Its work, are equal raised tiles with a teal icon and title; their
   explanation or the reason they are unavailable shows in a tooltip.
 - Server setup writes the followed project’s verified bundle into the tresor folder and fills the

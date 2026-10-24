@@ -70,6 +70,13 @@ class ProjectConversation extends ChangeNotifier {
     members = await _backend.messageMembers(project.name);
   });
 
+  /// Clears the previous name's refusal and password-reset offer when the name changes.
+  void personChanged() {
+    problem = null;
+    alreadyJoined = null;
+    _notify();
+  }
+
   /// Lets [person] in, or gives their account a new password with [reset].
   Future<void> join(String person, {bool reset = false}) => _asking(() async {
     alreadyJoined = null;

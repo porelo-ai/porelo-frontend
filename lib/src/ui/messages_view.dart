@@ -6,6 +6,7 @@ import 'package:guided_walk/guided_walk.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/conversation.dart';
+import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/machines.dart';
@@ -100,12 +101,13 @@ class _MessagesDialogState extends State<MessagesDialog> {
                   TextField(
                     key: const Key('join-person'),
                     controller: _person,
+                    inputFormatters: <TextInputFormatter>[_LowerCaseName()],
                     // Walk 10: the name a person goes by in the chat, not "who".
                     decoration: const InputDecoration(
                       labelText: 'Your name in the chat',
-                      helperText: 'A short nickname; your Matrix ID is made from it.',
+                      helperText: 'lower-case letters, digits and . _ = -',
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => model.personChanged(),
                   ),
                 ],
                 if (model.problem != null)
@@ -149,9 +151,8 @@ class _MessagesDialogState extends State<MessagesDialog> {
 
   List<Widget> _where(BuildContext context, ProjectMessages messages) {
     final text = Theme.of(context).textTheme;
-    final reaches = messages.reaches.isEmpty ? 'nothing said yet' : messages.reaches.join(', ');
     return <Widget>[
-      Text('Over ${messages.transport}, reaching $reaches.', key: const Key('messages-where')),
+      Text('Over ${messages.transport}, on the server.', key: const Key('messages-where')),
       if (messages.conversation.isNotEmpty) SelectableText('Its room: ${messages.conversation}', style: text.bodySmall),
       Text(
         messages.ready
@@ -175,7 +176,21 @@ class _MessagesDialogState extends State<MessagesDialog> {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final port = joined.port;
+    final element = openElementCommand();
     return <Widget>[
+      const SizedBox(height: Space.small),
+      Text('Join with Element', style: text.titleSmall),
+      const Text('1. Open Element.'),
+      OutlinedButton.icon(
+        key: ValueKey<String>(element.id),
+        onPressed: element.run,
+        icon: const Icon(Icons.open_in_new),
+        label: Text(element.label),
+      ),
+      const Text('2. Choose Sign in, then Edit the homeserver.'),
+      const Text('3. Paste the Homeserver URL shown below and continue.'),
+      const Text('4. Sign in with the Matrix ID and Password shown below.'),
+      const Text('5. Join the room by its name, shown below as Room.'),
       const SizedBox(height: Space.small),
       Text('Their login, shown once', style: text.titleSmall),
       Text(
@@ -265,6 +280,12 @@ class _MessagesDialogState extends State<MessagesDialog> {
       ],
     ];
   }
+}
+
+class _LowerCaseName extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) =>
+      newValue.copyWith(text: newValue.text.toLowerCase());
 }
 
 /// The login's fields, in the order a Matrix client asks for them, with the names it gives them.

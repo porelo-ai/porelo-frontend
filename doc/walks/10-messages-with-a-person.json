@@ -60,7 +60,7 @@
       ]
     },
     {
-      "say": "Open porelo-test-project under Projects. Under Work, press the “Messages — the conversation of this project, and who has joined it” tile. The same command remains in the project’s ⋮ menu.",
+      "say": "Open porelo-test-project under Projects. Under Work, press the “Messages and the project’s room” tile. The same command remains in the project’s ⋮ menu.",
       "at": [
         "command-tile-*project.messages",
         "project-menu",

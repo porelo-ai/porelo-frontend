@@ -310,7 +310,7 @@ class ProjectCommandTiles extends StatelessWidget {
     'project.messages' => (
       group: 'Work',
       icon: Icons.chat_outlined,
-      description: 'Read its conversation and see who has joined.',
+      description: 'Read its conversation, see who has joined and join its room.',
     ),
     'gate.open' => (
       group: 'Work',

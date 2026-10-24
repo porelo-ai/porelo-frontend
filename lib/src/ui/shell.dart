@@ -439,8 +439,6 @@ class _ShellState extends State<Shell> {
   );
 
   List<Command> _hostCommands(Machine machine) {
-    final fleet = widget.machines.of(machine);
-    final project = fleet.projects.where((each) => each.name == machine.hostProject).firstOrNull;
     final run = _hostRuns.of(machine.hostProject);
     return [
       if (run != null)
@@ -468,22 +466,6 @@ class _ShellState extends State<Shell> {
             open: widget.sessions.openTerminal,
           ),
         ),
-        joinRoom: project == null
-            ? null
-            : () => unawaited(
-                showProjectMessages(
-                  context,
-                  backend: fleet.backend,
-                  machine: machine,
-                  project: project.project,
-                  forwards: _homeservers,
-                ),
-              ),
-        roomUnavailable: fleet.reachability != Reachability.connected
-            ? 'the machine is not answering'
-            : project == null
-            ? 'the host project is not available here'
-            : null,
       ),
     ];
   }
@@ -2857,15 +2839,12 @@ class _ShellState extends State<Shell> {
                       icon: switch (command.id) {
                         'machine.vpnUp' => Icons.vpn_key_outlined,
                         'machine.vpnDown' => Icons.link_off_outlined,
-                        'machine.joinRoom' => Icons.chat_bubble_outline,
                         _ => Icons.cloud_off_outlined,
                       },
                       description: switch (command.id) {
                         'machine.vpnUp' =>
                           'Install the saved connection and bring WireGuard up in a terminal on this computer.',
                         'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
-                        'machine.joinRoom' =>
-                          'Open the project’s Messages on this server and join from your Matrix client.',
                         _ => 'End the project tasks and room, copy its files back and give the server back.',
                       },
                     ),

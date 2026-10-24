@@ -9,7 +9,7 @@ import 'package:porelo_frontend/main.dart' as app;
 import 'package:porelo_frontend/src/ui/terminal_copy.dart';
 import 'package:xterm/xterm.dart';
 
-// Guards the host setup stop against exposing secrets or resuming without the person's terminal.
+// Harm: host setup must not expose secrets or resume without the person's terminal.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -178,6 +178,18 @@ void main() {
       await screen.goTo('machines');
       await screen.shown(_key('machines-row checkout server'));
       expect(_key('host-preparing checkout'), findsNothing);
+
+      await screen.tap(_key('rail-machine checkout server'));
+      await screen.goTo('projects');
+      await screen.tap(_key('project checkout'));
+      await screen.tap(_key('command-tile-project.messages'));
+      await screen.fill('join-person', 'Michi', expectedValue: 'michi');
+      await screen.tap(_key('join-it'));
+      // Harm: the mock's missing join method must not advertise an account that was never created.
+      await screen.shown(_key('messages-problem'));
+      expect(_key('login user'), findsNothing);
+      await screen.fill('join-person', 'another');
+      await screen.tap(_key('messages-close'));
     } catch (error, stack) {
       debugPrint('Host walk failed: $error\n$stack\n${screen.dump()}');
       rethrow;
@@ -255,7 +267,7 @@ class _Screen {
     expect(tester.widget<TextField>(_key(id)).decoration?.labelText, label);
   }
 
-  Future<void> fill(String id, String value) async {
+  Future<void> fill(String id, String value, {String? expectedValue}) async {
     final field = _key(id);
     await tap(field);
     final input = tester.state<EditableTextState>(find.descendant(of: field, matching: find.byType(EditableText)));
@@ -283,7 +295,7 @@ class _Screen {
       ),
     );
     await tick();
-    expect(tester.widget<TextField>(_key(id)).controller?.text, value);
+    expect(tester.widget<TextField>(_key(id)).controller?.text, expectedValue ?? value);
   }
 
   Terminal get terminal => tester.widget<TerminalView>(_key('unlock-terminal')).terminal;

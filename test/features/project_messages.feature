@@ -10,21 +10,14 @@ Feature: A project's conversation, and a person joining it
 
     Scenario: a project with no conversation is not offered its messages
         When I open the command finder
-        Then the command {'Messages — the conversation of this project, and who has joined it'} is unavailable because {'checkout has no conversation'}
-
-    Scenario: where the conversation is, and whether this machine can carry it, is said
-        Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, not ready saying {'the homeserver does not answer'}
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
-        Then it says {'Over matrix, reaching 127.0.0.1:8008.'}
-        And it says {'This machine cannot carry its messages now: the homeserver does not answer'}
-        And it says {'Nobody has joined yet.'}
+        Then the command {'Messages and the project’s room'} is unavailable because {'checkout has no conversation'}
 
     # Answered once and kept nowhere: shown whole while the dialog is open, and gone with it.
     Scenario: a person joins, and their login is shown once with the homeserver forwarded here
         Given the machine is reached over ssh as {'alice@vm'}
         And the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
         And I select the project {'checkout'}
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
+        When I choose the command {'Messages and the project’s room'}
         And I join {'anna'}
         Then the machine was asked to let {'anna'} join {'checkout'}
         And it says {'pw-1-once'}
@@ -39,7 +32,7 @@ Feature: A project's conversation, and a person joining it
         # Walk 10: nheko lost its server when the dialog closed. Kept while the window runs.
         When I am done with the messages
         Then the forward of port {'8008'} is still held
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
+        When I choose the command {'Messages and the project’s room'}
         Then it says {'A Matrix client here reaches its homeserver at http://127.0.0.1:8008, forwarded while this window runs.'}
 
     # Walk 10: where the address is said beside the dialog, and a forward that cannot be raised is not quiet.
@@ -47,7 +40,7 @@ Feature: A project's conversation, and a person joining it
         Given the machine is reached over ssh as {'alice@vm'}
         And the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
         And I select the project {'checkout'}
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
+        When I choose the command {'Messages and the project’s room'}
         And I join {'anna'}
         And I am done with the messages
         Then the project header says {'A Matrix client here reaches its homeserver at http://127.0.0.1:8008.'}
@@ -62,7 +55,7 @@ Feature: A project's conversation, and a person joining it
     Scenario: a person who has joined already is offered a new password, and nothing else
         Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
         And {'anna'} has joined the conversation of {'checkout'}
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
+        When I choose the command {'Messages and the project’s room'}
         And I join {'anna'}
         Then it says {'anna has joined already, as @anna:localhost'}
         When I give a new password
@@ -72,12 +65,12 @@ Feature: A project's conversation, and a person joining it
     # This computer's loopback is the machine's: nothing to forward.
     Scenario: a machine that is this computer forwards nothing for its homeserver
         Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
+        When I choose the command {'Messages and the project’s room'}
         And I join {'anna'}
         Then it says {'The homeserver is on this computer, at http://127.0.0.1:8008.'}
         And nothing was forwarded
 
     Scenario: nobody is joined without a name
         Given the project {'checkout'} has a conversation over {'matrix'} reaching {'127.0.0.1:8008'}, ready
-        When I choose the command {'Messages — the conversation of this project, and who has joined it'}
+        When I choose the command {'Messages and the project’s room'}
         Then joining is not offered yet
