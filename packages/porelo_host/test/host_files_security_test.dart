@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
@@ -21,6 +22,34 @@ void main() {
     await for (final e in scratch.list(recursive: true))
       if (e is Directory && e.uri.pathSegments.any((p) => p.startsWith('.porelo-writing-'))) e.path,
   ];
+
+  // Harm: a file created readable before chmod exposes a WireGuard key to an already open descriptor.
+  test('a private file is created at 0600 before any permission command', () async {
+    final script = File(path.join(scratch.path, 'creation.dart'));
+    await script.writeAsString(r'''
+import 'dart:io';
+import 'package:porelo_host/porelo_host.dart';
+Future<void> main(List<String> arguments) async {
+  final writer = HostFileWriter(run: (executable, args) async {
+    stdout.writeln((await File(args.last).stat()).mode & 0x1ff);
+    return Process.run(executable, args);
+  });
+  await writer.write(File(arguments.single), [1, 2, 3]);
+}
+''');
+    final config = (await Isolate.packageConfig)!;
+    final result = await Process.run('/bin/sh', [
+      '-c',
+      r'umask 022; exec "$@"',
+      'private-file-check',
+      path.join(path.dirname(Platform.resolvedExecutable), 'dart'),
+      '--packages=${config.toFilePath()}',
+      script.path,
+      path.join(scratch.path, 'private-file'),
+    ]);
+    expect(result.exitCode, 0, reason: 'the private writer must finish under the explicit umask: ${result.stderr}');
+    expect('${result.stdout}'.trim(), '384', reason: 'the initial file mode is 0600, before chmod');
+  }, skip: Platform.isLinux ? false : 'Creation modes require Linux.');
 
   // Harm: another user can keep a descriptor to a secret or observe partial destination bytes.
   // Red: create the destination directly instead of staging in a checked 0700 directory.

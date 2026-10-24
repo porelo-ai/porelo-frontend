@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/host_vpn_dialog.dart';
 import 'package:porelo_frontend/src/ui/host_tunnel_export.dart';
@@ -36,11 +37,26 @@ void main() {
     List<List<String>> commands,
     FakeTerminal terminal, {
     bool up = true,
-    Future<void> Function(String file)? deleteSavedFile,
+    bool throwsOnOpen = false,
+    bool receipt = true,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final runtime = (await tester.runAsync(() => Directory.systemTemp.createTemp('vpn-runtime-')))!;
+    addTearDown(() => runtime.delete(recursive: true));
+    await tester.runAsync(() => Process.run('chmod', ['700', runtime.path]));
+    final private = base64Encode(List<int>.filled(32, 7));
+    final peer = await HostFiles.publicKey(private);
+    final host = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 9)));
+    if (up) {
+      final kept = settings.hostUp('demo') ?? _record;
+      await settings.rememberHostUp(
+        'demo',
+        HostUpRecord.fromStored({...kept.stored, 'vpnPeerPublicKey': peer})!
+            .withTunnel(hostPublicKey: host, address: '203.0.113.8'),
+      );
+    }
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -51,9 +67,16 @@ void main() {
                 machine: _machine,
                 settings: settings,
                 up: up,
-                deleteSavedFile: deleteSavedFile ?? (_) async => fail('No saved file may be deleted without consent.'),
+                secretStore: _TunnelSecrets({HostFiles.keyName('demo'): private}),
+                environment: {'XDG_RUNTIME_DIR': runtime.path},
+                now: () => DateTime.fromMillisecondsSinceEpoch(100000),
                 open: (executable, arguments, {int columns = 80, int rows = 24}) {
                   commands.add([executable, ...arguments]);
+                  if (up && receipt) {
+                    final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
+                    File('$source.checked').writeAsStringSync('$host\t100\t101\n');
+                  }
+                  if (throwsOnOpen) throw const PtyRefused('invented terminal failure');
                   return terminal;
                 },
               ),
@@ -64,7 +87,48 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open'));
-    await World.settle(tester);
+    for (var turn = 0; turn < 100 && commands.isEmpty; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+  }
+
+  for (final ending in ['success', 'failure', 'cancelled sudo', 'closed dialog', 'exception']) {
+    // Harm: a private WireGuard key left after any terminal ending can be read or reused later.
+    testWidgets('the private VPN file is removed after $ending', (tester) async {
+      final scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('vpn-lifetime-')))!;
+      addTearDown(() => scratch.delete(recursive: true));
+      final source = File('${scratch.path}/porelo.conf');
+      await tester.runAsync(() => source.writeAsString('invented-private-key'));
+      final settings = Settings(MemorySettingsStore());
+      addTearDown(settings.dispose);
+      await settings.rememberHostUp('demo', _record.withVpnFile(source.path));
+      final commands = <List<String>>[];
+      final terminal = FakeTerminal([]);
+      await open(tester, settings, commands, terminal, throwsOnOpen: ending == 'exception');
+      expect(commands, hasLength(1));
+      final usedFile = File(commands.single.lastWhere((arg) => arg.endsWith('/porelo.conf')));
+      if (ending == 'closed dialog') {
+        tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      } else if (ending != 'exception') {
+        terminal.endsWith(switch (ending) {
+          'success' => 0,
+          'cancelled sudo' => 1,
+          _ => 2,
+        });
+      }
+      await World.settle(tester);
+      if (find.byKey(const Key('unlock-done')).evaluate().isNotEmpty) {
+        await tester.tap(find.byKey(const Key('unlock-done')));
+        await World.settle(tester);
+      }
+      for (var turn = 0; turn < 30; turn++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await World.settle(tester);
+        if (!(await tester.runAsync(usedFile.exists))!) break;
+      }
+      expect(await tester.runAsync(usedFile.exists), isFalse, reason: '$ending must remove the private configuration');
+    });
   }
 
   Future<void> openSaveMenu(
@@ -152,7 +216,7 @@ void main() {
           exporting: unawaited,
           hostFiles: (_) => files,
         );
-        expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.vpnUp'))).enabled, alreadySaved);
+        expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.vpnUp'))).enabled, isTrue);
         for (final path in paths) {
           final save = find.byKey(const Key('machine.saveTunnel'));
           expect(tester.widget<PopupMenuItem<String>>(save).enabled, isTrue);
@@ -230,117 +294,70 @@ void main() {
     expect(command.unavailable, isNotEmpty);
   });
 
-  for (final path in [
-    "/tmp/a'b.conf",
-    '/tmp/a"b.conf',
-    '-file',
-    r'/tmp/$file',
-    '/tmp/a\nb',
-    'relative.conf',
-    '/tmp/a\x00b',
-    '/tmp/a;b',
-    '/tmp/`id`',
-    '/tmp/a\\b',
-  ]) {
-    // Harm: a saved path must never change a command running as root.
-    testWidgets('an unsafe saved VPN path ${path.codeUnits} opens no terminal', (tester) async {
-      final settings = Settings(MemorySettingsStore());
-      await settings.rememberHostUp('demo', _record.withVpnFile(path));
-      final commands = <List<String>>[];
-      await open(tester, settings, commands, FakeTerminal([]));
-      expect(commands, isEmpty, reason: 'invalid paths must be refused before opening a root command');
-      expect(find.byKey(const Key('vpn-problem')), findsOneWidget);
-      expect(find.byKey(const Key('unlock-terminal')), findsNothing);
-    });
-  }
-
-  // Harm: attempting installation without the chosen source can run the wrong root command.
-  test('VPN bring-up without an exported file is unavailable with its reason', () async {
+  // Harm: a terminal exit zero without a fresh expected handshake must not finish setup.
+  testWidgets('exit zero without a handshake receipt leaves VPN setup unverified', (tester) async {
     final settings = Settings(MemorySettingsStore());
-    await settings.rememberHostUp('demo', _record);
-    final command = hostMachineCommands(
-      machine: _machine,
-      settings: settings,
-      takeDown: () {},
-      bringVpnUp: () {},
-    ).singleWhere((each) => each.id == 'machine.vpnUp');
-    expect(command.home, Home.machineMenu);
-    expect(command.available, isFalse);
-    expect(command.unavailable, 'use Save the VPN connection… first');
+    addTearDown(settings.dispose);
+    final terminal = FakeTerminal([]);
+    final commands = <List<String>>[];
+    await open(tester, settings, commands, terminal, receipt: false);
+    final usedFile = File(commands.single.firstWhere((arg) => arg.endsWith('/porelo.conf')));
+    terminal.endsWith(0);
+    for (var turn = 0; turn < 30; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+      if (!(await tester.runAsync(usedFile.exists))!) break;
+    }
+    await World.settle(tester);
+    expect(
+      find.byKey(const Key('unlock-terminal')),
+      findsOneWidget,
+      reason: 'exit zero alone cannot close the verified setup',
+    );
+    await tester.tap(find.byKey(const Key('unlock-done')));
+    await World.settle(tester);
   });
 
-  // Harm: shell splitting can install a different file as root.
-  testWidgets('VPN bring-up passes the saved path as one positional argument', (tester) async {
+  // Harm: a verified finish closes the cancel confirmation instead of the terminal, so the VPN terminal stays open and setup does not go on.
+  testWidgets('a verified finish closes the terminal and the confirmation above it', (tester) async {
     final settings = Settings(MemorySettingsStore());
-    const path = '/tmp/private folder/porelo.conf';
-    await settings.rememberHostUp('demo', _record.withVpnFile(path));
+    addTearDown(settings.dispose);
+    final terminal = FakeTerminal([]);
+    await open(tester, settings, <List<String>>[], terminal);
+    await tester.tap(find.byKey(const Key('unlock-cancel')));
+    await World.settle(tester);
+    expect(find.byKey(const Key('unlock-cancel-yes')), findsOneWidget, reason: 'the confirmation is on top');
+    terminal.endsWith(0);
+    for (var turn = 0; turn < 30 && find.byKey(const Key('unlock-terminal')).evaluate().isNotEmpty; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+    expect(find.byKey(const Key('unlock-terminal')), findsNothing, reason: 'the verified terminal closes itself');
+    expect(find.byKey(const Key('unlock-cancel-yes')), findsNothing, reason: 'its confirmation goes with it');
+  });
+
+  // Harm: exposing the WireGuard private key in process arguments leaks it to other processes.
+  testWidgets('the private VPN key is absent from every argument and the displayed command', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
     final commands = <List<String>>[];
     await open(tester, settings, commands, FakeTerminal([]));
-    expect(commands, [
-      [
-        '/bin/sh',
-        '-c',
-        r'sudo install -m 600 "$1" /etc/wireguard/porelo.conf && sudo wg-quick up porelo',
-        'porelo-vpn',
-        path,
-      ],
-    ]);
-    expect(tester.widget<SelectableText>(find.byKey(const Key('unlock-command'))).data, contains("'$path'"));
+    final private = base64Encode(List<int>.filled(32, 7));
+    expect(commands, hasLength(1));
+    expect(
+      commands.single.any((argument) => argument.contains(private)),
+      isFalse,
+      reason: 'no argument carries the private key',
+    );
+    expect(tester.widget<SelectableText>(find.byKey(const Key('unlock-command'))).data!.contains(private), isFalse);
   });
-
-  for (final code in [0, 1, 129]) {
-    for (final delete in [false, true]) {
-      // Harm: deleting before successful installation or without consent loses the private key file.
-      testWidgets('VPN exit $code offers deletion only after success and deletes only with consent $delete', (
-        tester,
-      ) async {
-        const file = '/private/saved.conf';
-        final files = {file};
-        final deleted = <String>[];
-        final settings = Settings(MemorySettingsStore());
-        await settings.rememberHostUp('demo', _record.withVpnFile(file));
-        final terminal = FakeTerminal([]);
-        final commands = <List<String>>[];
-        await open(
-          tester,
-          settings,
-          commands,
-          terminal,
-          deleteSavedFile: (file) async {
-            deleted.add(file);
-            expect(files.remove(file), isTrue, reason: 'only the saved copy may be deleted');
-          },
-        );
-        expect(commands, hasLength(1), reason: 'the session must use the injected fake terminal');
-        expect(find.byKey(const Key('vpn-delete')), findsNothing);
-        terminal.endsWith(code);
-        await World.settle(tester);
-        await tester.tap(find.byKey(const Key('unlock-done')));
-        await World.settle(tester);
-        expect(files, contains(file), reason: 'success alone never consents to deletion');
-        expect(deleted, isEmpty);
-        expect(settings.hostUp('demo')!.vpnFile, file, reason: 'no saved path is forgotten before confirmed deletion');
-        if (code != 0) {
-          expect(find.byKey(const Key('vpn-delete')), findsNothing);
-          return;
-        }
-        expect(find.byKey(const Key('vpn-delete')), findsOneWidget);
-        await tester.tap(find.byKey(Key(delete ? 'vpn-delete' : 'vpn-keep')));
-        await World.settle(tester);
-        expect(files.contains(file), !delete);
-        expect(deleted, delete ? [file] : isEmpty);
-        expect(settings.hostUp('demo')!.vpnFile, delete ? null : file);
-        expect(find.byKey(const Key('vpn-delete')), findsNothing, reason: 'the offer is made once for this run');
-      });
-    }
-  }
 
   // Harm: a teardown action must not run installation or target the remote server.
   testWidgets('VPN down runs only wg-quick locally without needing a saved file', (tester) async {
     final commands = <List<String>>[];
     await open(tester, Settings(MemorySettingsStore()), commands, FakeTerminal([]), up: false);
     expect(commands, [
-      ['sudo', 'wg-quick', 'down', 'porelo'],
+      ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
     ]);
   });
 }

@@ -27,6 +27,9 @@ const _record = HostUpRecord(
   collection: '',
   vpnPeerPublicKey: '',
   vpnPeerAddress: '',
+  // A host key, so completion waits for the VPN; without one the host files were supplied by hand.
+  vpnHostPublicKey: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+  vpnEndpointAddress: '203.0.113.7',
 );
 
 void main() {
@@ -170,10 +173,11 @@ void main() {
       expect(run.ready, isFalse, reason: 'a line alone must not mark a host ready');
       resumed.end(0);
       await World.settle(tester);
-      expect(run.ready, isTrue);
-      expect(find.text('Ready: demo server is in your machines'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('host-close')));
+      expect(run.ready, isFalse, reason: 'the host command does not confirm the local VPN');
+      await runs.vpnChecked(run, verified: true);
       await World.settle(tester);
+      expect(run.ready, isTrue);
+      expect(find.byType(HostDialog), findsNothing, reason: 'verified setup closes itself');
       expect(find.byKey(const Key('recently-resolved')), findsOneWidget);
       final resolved = find.descendant(
         of: find.byKey(const Key('recently-resolved')),

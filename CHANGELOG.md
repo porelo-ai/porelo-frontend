@@ -20,6 +20,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Server setup finishes with a checked local VPN, removes its temporary private key file, and
+  offers recovery when the tunnel stops answering.
 - Unattended starts show the agent's state, last output and silence, with Leave and a reviewed restart when messages wait.
 - A locked-vault row names whose vault it is and the projects it holds up with their last use,
   offers unlocking first and stopping to follow each project through its preview.

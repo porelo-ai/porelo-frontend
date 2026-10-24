@@ -52,24 +52,35 @@ Future<void> runInATerminal(
   ValueChanged<int>? onExit,
   String? shownCommand,
   String? completed,
-}) => showDialog<void>(
-  context: context,
-  barrierDismissible: false,
-  builder: (context) => _UnlockTerminal(
-    title: title,
-    explanation: explanation,
-    machine: machine,
-    command: command,
-    open: open,
-    forwardsALoginReply: forwardsALoginReply,
-    stillWorking: stillWorking,
-    cancel: cancel,
-    whatCameOfIt: whatCameOfIt,
-    onExit: onExit,
-    shownCommand: shownCommand,
-    completed: completed,
-  ),
-);
+  Future<bool> Function(int code)? finish,
+  Future<void> Function()? afterClose,
+  Key? key,
+}) async {
+  final closed = Completer<void>();
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => _UnlockTerminal(
+      key: key,
+      title: title,
+      explanation: explanation,
+      machine: machine,
+      command: command,
+      open: open,
+      forwardsALoginReply: forwardsALoginReply,
+      stillWorking: stillWorking,
+      cancel: cancel,
+      whatCameOfIt: whatCameOfIt,
+      onExit: onExit,
+      shownCommand: shownCommand,
+      completed: completed,
+      finish: finish,
+      afterClose: afterClose,
+      closing: (leaving) => leaving.then(closed.complete, onError: closed.completeError),
+    ),
+  );
+  await closed.future;
+}
 
 class _UnlockTerminal extends StatefulWidget {
   const _UnlockTerminal({
@@ -85,6 +96,10 @@ class _UnlockTerminal extends StatefulWidget {
     this.onExit,
     this.shownCommand,
     this.completed,
+    this.finish,
+    this.afterClose,
+    required this.closing,
+    super.key,
   });
 
   final String title;
@@ -107,6 +122,9 @@ class _UnlockTerminal extends StatefulWidget {
   final ValueChanged<int>? onExit;
   final String? shownCommand;
   final String? completed;
+  final Future<bool> Function(int code)? finish;
+  final Future<void> Function()? afterClose;
+  final ValueChanged<Future<void>> closing;
 
   @override
   State<_UnlockTerminal> createState() => _UnlockTerminalState();
@@ -161,6 +179,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
   String? _cameOfIt;
   bool _asked = false;
   bool _reportedExit = false;
+  bool _finishing = false;
 
   void _changed() {
     if (!mounted) return;
@@ -169,6 +188,19 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
     if (!_reportedExit && code != null) {
       _reportedExit = true;
       widget.onExit?.call(code);
+      if (widget.finish case final finish?) {
+        _finishing = true;
+        unawaited(() async {
+          try {
+            final verified = await finish(code);
+            if (mounted && verified) _closeOwnRoute();
+          } on Exception {
+            if (mounted) setState(() => _cameOfIt = 'The terminal check could not complete.');
+          } finally {
+            if (mounted) setState(() => _finishing = false);
+          }
+        }());
+      }
     }
     final asking = widget.whatCameOfIt;
     if (asking != null && !_asked && _session.state == SessionState.over) {
@@ -181,8 +213,18 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
     }
   }
 
+  /// Closes this terminal's dialog, together with a cancel confirmation still open above it.
+  void _closeOwnRoute() {
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isActive) return;
+    final navigator = Navigator.of(context);
+    if (!route.isCurrent) navigator.popUntil((each) => each == route);
+    navigator.pop();
+  }
+
   @override
   void dispose() {
+    widget.closing(_session.leave().then((_) => widget.afterClose?.call()));
     _session
       ..removeListener(_changed)
       ..dispose();
@@ -268,7 +310,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
       if (_session.state == SessionState.over)
         FilledButton(
           key: const Key('unlock-done'),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _finishing ? null : () => Navigator.of(context).pop(),
           child: const Text('Done'),
         )
       else

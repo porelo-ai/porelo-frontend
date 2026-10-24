@@ -178,7 +178,23 @@ class HostFileWriter {
       } else {
         throw const HostFilesRefused('Private host files require Linux or Windows.');
       }
-      final prepared = await File(path.join(temporary.path, 'contents')).create(exclusive: true);
+      final prepared = File(path.join(temporary.path, 'contents'));
+      if (operatingSystem == 'linux') {
+        using((arena) {
+          final libc = DynamicLibrary.process();
+          final open = libc
+              .lookupFunction<Int32 Function(Pointer<Utf8>, Int32, Uint32), int Function(Pointer<Utf8>, int, int)>(
+                'open',
+              );
+          final close = libc.lookupFunction<Int32 Function(Int32), int Function(int)>('close');
+          // O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW: the key is private from creation.
+          final descriptor = open(prepared.path.toNativeUtf8(allocator: arena), 1 | 64 | 128 | 131072, 0x180);
+          if (descriptor < 0) throw const HostFilesRefused('Cannot create the private host file exclusively.');
+          if (close(descriptor) != 0) throw const HostFilesRefused('Cannot close the private host file.');
+        });
+      } else {
+        await prepared.create(exclusive: true);
+      }
       if (!isWindows) await protect(prepared);
       final handle = await prepared.open(mode: FileMode.writeOnly);
       try {

@@ -392,7 +392,7 @@ class HostFiles {
       destination,
       utf8.encode(
         '[Interface]\nPrivateKey = $privateKey\nAddress = 10.73.0.2/24\n\n'
-        '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = $endpoint:51820\nAllowedIPs = 10.73.0.1/32\n',
+        '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = $endpoint:51820\nAllowedIPs = 10.73.0.1/32\nPersistentKeepalive = 25\n',
       ),
     );
   }

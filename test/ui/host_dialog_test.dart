@@ -723,7 +723,7 @@ void main() {
     expect(commands, hasLength(1), reason: 'the corrected answers must run preparation and start the action');
     expect(find.textContaining(unreadable.path), findsNothing);
     expect(find.text('refused'), findsNothing);
-    expect(find.byKey(const Key('host-done')), findsOneWidget);
+    expect(runs.of('demo')!.awaitingVpn, isTrue, reason: 'corrected host setup still needs a verified local VPN');
     final yaml = File(fixture('porelo-host/machine.yml')).readAsStringSync();
     expect(yaml, contains(host.HostFiles.signingFingerprint(replacement.readAsStringSync())));
   });
@@ -999,8 +999,72 @@ void main() {
     process.end(0);
     await World.settle(tester);
     expect(tester.takeException(), isNull, reason: 'a process answer must not notify a disposed dialog');
+    // No folder was chosen, so the host files were supplied by hand and there is no VPN to wait for.
     expect(machines.all.where((machine) => machine.kind == 'host').single.name, 'demo server');
     expect(runs.of('demo')!.ready, isTrue);
+  });
+
+  // Harm: a finished setup's protocol closes itself on the next change, so what the setup reported cannot be read.
+  hostWidgets('a finished setup reopened stays open when its runs change', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final process = _HostProcess();
+    final run = runs.start(
+      project: 'demo',
+      session: HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process),
+      record: const HostUpRecord(
+        scalewayProject: 'provider-project',
+        account: 'worker',
+        tresor: 'remote-drive',
+        folder: null,
+        repository: '',
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public.pub',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+      ),
+    );
+    process.line(
+      const host.Step(
+        'up',
+        host.StepState.done,
+        address: '203.0.113.7',
+        account: 'worker',
+        socket: '/run/user/1007/porelo/porelod.sock',
+      ),
+    );
+    process.end(0);
+    await tester.runAsync(() => run.finished);
+    await runs.vpnChecked(run, verified: true);
+    expect(run.ready, isTrue);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => HostDialog(project: 'demo', machines: machines, hostRuns: runs, existingRun: run),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-protocol')), findsOneWidget);
+    runs.vpnTerminalChanged(run, open: false);
+    await World.settle(tester);
+    expect(
+      find.byKey(const Key('host-protocol')),
+      findsOneWidget,
+      reason: 'only the person closes a finished protocol',
+    );
   });
 
   for (final field in <String, String?>{
@@ -1206,10 +1270,7 @@ void main() {
 
   // Harm: the private key reaches a process/log/UI, or repeated up/down configure the wrong peer.
   // Red: pass a private key as the peer option, show it in a step, or omit the options on repeated up/down.
-  // Export red: omit chmod, put the host private half in the export, or export before the button is used.
-  hostWidgets('folder picker prepares files and only explicit export reads out the stored private half', (
-    tester,
-  ) async {
+  hostWidgets('folder picker prepares private files and up and down carry only public keys', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1224,7 +1285,6 @@ void main() {
     }
 
     final terminal = FakeTerminal([]);
-    final exported = File(path.join(scratch.path, 'requested.conf'));
     late File signing;
     await tester.runAsync(() async {
       signing = await File(path.join(scratch.path, 'signing.pub'))
@@ -1241,7 +1301,6 @@ void main() {
             settings: settings,
             secretStore: store,
             pickFolder: (_) async => scratch.path,
-            saveTunnel: () async => exported.path,
             openTerminal: (_, _, {columns = 80, rows = 24}) => terminal,
             start: (_, arguments) async {
               commands.add(List.of(arguments));
@@ -1310,8 +1369,7 @@ void main() {
       () => File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).readAsString(),
     ))!.trim();
     final hostPublic = await host.HostFiles.publicKey(hostPrivate);
-    expect(find.textContaining(hostPublic), findsOneWidget);
-    expect(await tester.runAsync(() => exported.exists()), isFalse);
+    expect(settings.hostUp('demo')!.vpnHostPublicKey, hostPublic);
     for (final secret in [private, hostPrivate]) {
       expect(
         tester.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? '').join(' '),
@@ -1319,18 +1377,10 @@ void main() {
         reason: 'private halves never appear in labels, steps or refusal text',
       );
     }
-    await tapAndRun(tester, const Key('host-export-tunnel'));
-    final config = await tester.runAsync(() => exported.readAsString());
-    expect(config, contains('PrivateKey = $private'));
-    expect(config, contains('PublicKey = $hostPublic'));
     final reopened = newSettings(settingsStore);
     await reopened.load();
-    expect(
-      reopened.hostUp('demo')!.vpnFile,
-      exported.path,
-      reason: 'VPN actions must use the explicitly exported file after restarting',
-    );
-    expect((await tester.runAsync(() => exported.stat()))!.mode & 0x1ff, 0x180);
+    expect(reopened.hostUp('demo')!.vpnHostPublicKey, hostPublic);
+    expect(reopened.hostUp('demo')!.vpnFile, isNull, reason: 'local bring-up does not save an export');
     await tapAndRun(tester, const Key('host-down'));
     expect(commands.map((a) => a.first), ['up', 'up', 'down']);
     for (final command in commands) {
@@ -1347,7 +1397,7 @@ void main() {
 
   // Harm: a store transport failure escapes the dialog or exposes its exception/value.
   // Red: remove the store Exception boundary or show the raw SocketException message.
-  for (final operation in ['setup', 'export', 'teardown']) {
+  for (final operation in ['setup', 'teardown']) {
     hostWidgets('a store SocketException during $operation is a safe dialog refusal', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
@@ -1356,15 +1406,6 @@ void main() {
       final store = _BrokenSecrets();
       final processes = <_HostProcess>[];
       final destination = File(path.join(scratch.path, 'asked.conf'));
-      File? signing;
-      if (operation == 'export') {
-        await settings.rememberTresorFolder('demo', scratch.path);
-        await tester.runAsync(() async {
-          signing = await File(
-            path.join(scratch.path, 'signing.pub'),
-          ).writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
-        });
-      }
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -1375,7 +1416,6 @@ void main() {
               project: 'demo',
               settings: settings,
               secretStore: store,
-              saveTunnel: () async => destination.path,
               start: (_, _) async {
                 final process = _HostProcess();
                 processes.add(process);
@@ -1390,30 +1430,13 @@ void main() {
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
-        if (signing != null) ...{'host-signing-key': signing!.path},
       });
       await tester.pump();
-      if (operation == 'export') {
-        await tapAndRun(tester, const Key('host-up'));
-        expect(processes.length, 1);
-        processes.last.line(
-          const host.Step(
-            'up',
-            host.StepState.done,
-            address: '203.0.113.8',
-            account: 'porelo',
-            socket: '/run/user/1007/porelo/porelod.sock',
-          ),
-        );
-        processes.last.end(0);
-        await World.settle(tester);
-      }
       store.fail = true;
       await tapAndRun(
         tester,
         Key(switch (operation) {
           'setup' => 'host-up',
-          'export' => 'host-export-tunnel',
           _ => 'host-down',
         }),
       );
@@ -1424,7 +1447,7 @@ void main() {
         isNot(contains('private-value')),
         reason: 'raw store errors are never shown',
       );
-      expect(processes.length, operation == 'export' ? 1 : 0, reason: 'store refusal cannot launch a command');
+      expect(processes, isEmpty, reason: 'store refusal cannot launch a command');
       expect(await tester.runAsync(() => destination.exists()), isFalse);
     });
   }
@@ -1544,7 +1567,8 @@ void main() {
     processes.last.end(0);
     await World.settle(tester);
     expect(find.byKey(const Key('host-add')), findsNothing, reason: 'successful setup adds the host automatically');
-    expect(find.text('Ready: demo server is in your machines'), findsOneWidget);
+    expect(runs.of('demo')!.ready, isTrue, reason: 'host files supplied by hand leave no VPN to wait for');
+    await World.settle(tester);
     final added = machines.all.single;
     expect(added.name, 'demo server');
     expect(added.kind, 'host');
@@ -2000,7 +2024,7 @@ void main() {
       await World.settle(tester);
       expect(find.byKey(const Key('host-done')), findsNothing, reason: 'terminal exit is no setup verdict');
       await tapAndRun(tester, const Key('unlock-done'));
-      expect(find.byKey(const Key('host-done')), findsOneWidget, reason: 'only the second up confirms completion');
+      expect(runs.of('demo')!.ready, isTrue, reason: 'the second up completes setup; no folder, so no VPN');
       final first = File('${scratch.path}/arguments-1').readAsLinesSync();
       expect(File('${scratch.path}/arguments-2').readAsLinesSync(), first);
       for (var n = 1; n <= 2; n++) {

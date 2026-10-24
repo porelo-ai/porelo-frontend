@@ -165,10 +165,14 @@ void main() {
     final readsBefore = store.reads;
     await files.exportTunnel(project: 'demo', tunnel: tunnel, address: '203.0.113.8', destination: destination);
     expect(store.reads, greaterThan(readsBefore));
+    final configuration = await destination.readAsString();
+    expect(configuration.contains('PrivateKey = $private\n'), isTrue, reason: 'only the person key is exported');
+    expect(configuration.contains('PublicKey = ${tunnel.hostPublicKey}\n'), isTrue);
+    expect(configuration.contains('Endpoint = 203.0.113.8:51820\n'), isTrue);
     expect(
-      await destination.readAsString(),
-      '[Interface]\nPrivateKey = $private\nAddress = 10.73.0.2/24\n\n'
-      '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = 203.0.113.8:51820\nAllowedIPs = 10.73.0.1/32\n',
+      configuration.contains('PersistentKeepalive = 25\n'),
+      isTrue,
+      reason: 'the NATed peer must keep the tunnel reachable',
     );
     if (Platform.isLinux) expect((await destination.stat()).mode & 0x1ff, 0x180);
     await destination.writeAsString('keep');

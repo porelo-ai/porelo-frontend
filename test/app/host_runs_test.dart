@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,23 @@ const _record = HostUpRecord(
   vpnPeerPublicKey: '',
   vpnPeerAddress: '',
 );
+// A host key, so completion waits for the VPN; without one the host files were supplied by hand.
+const _vpnRecord = HostUpRecord(
+  scalewayProject: 'provider',
+  account: 'porelo',
+  tresor: 'drive',
+  identity: '/keys/private',
+  publicKey: '/keys/public',
+  folder: null,
+  repository: '',
+  signingKey: '',
+  collection: '',
+  vpnPeerPublicKey: '',
+  vpnPeerAddress: '',
+  // 32 bytes in base64, as a WireGuard public key is.
+  vpnHostPublicKey: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+  vpnEndpointAddress: '203.0.113.7',
+);
 const _done = Step(
   'up',
   StepState.done,
@@ -50,6 +68,93 @@ void main() {
     settings.dispose();
   });
 
+  // Harm: a server rented but not yet reachable through the VPN drops out of recovery and is forgotten
+  // on a restart while it is still billed.
+  test('recovery is kept until the VPN check and cleared after it', () async {
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(project: 'demo', session: session, record: _vpnRecord, settings: settings);
+    process.line(_done);
+    process.end(0);
+    await run.finished;
+    expect(run.awaitingVpn, isTrue);
+    expect(settings.hostUp('demo')!.preparing, isTrue, reason: 'up alone does not make the server reachable');
+    await runs.vpnChecked(run, verified: true);
+    expect(run.ready, isTrue);
+    expect(settings.hostUp('demo')!.preparing, isFalse, reason: 'a reachable machine needs no recovery');
+  });
+
+  // Harm: an unchecked terminal exit zero must not make a host available for work.
+  test('host completion without a verified VPN leaves the machine in preparation', () async {
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(project: 'demo', session: session, record: _vpnRecord);
+    process.line(_done);
+    process.end(0);
+    await run.finished;
+    expect(run.ready, isFalse, reason: 'no handshake for the expected public key has been checked');
+    await runs.vpnChecked(run, verified: false);
+    expect(run.ready, isFalse, reason: 'a VPN terminal that did not confirm the handshake');
+    expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
+  });
+
+  // Harm: setup with manually supplied host files waits forever for a VPN step that refuses it, so the rented server is never usable.
+  test('a completed host without a host public key is ready and in Machines', () async {
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(
+      project: 'demo',
+      session: session,
+      record: _record,
+      tunnel: HostTunnel(hostPublicKey: '', peerPublicKey: base64Encode(List<int>.filled(32, 7))),
+      settings: settings,
+    );
+    process.line(_done);
+    process.end(0);
+    await run.finished;
+    expect(run.ready, isTrue, reason: 'the VPN step refuses an empty host key, so waiting for it never ends');
+    expect(runs.preparing, isEmpty, reason: 'a run left in preparation is stuck');
+    expect(machines.all.where((machine) => machine.kind == 'host').single.host, 'worker@203.0.113.7');
+  });
+
+  // Harm: a stale VPN probe marks a working host's VPN as down, or puts a removed host back into the warning.
+  test('only the latest VPN probe writes, and only for hosts still present', () async {
+    final pings = <Completer<bool>>[];
+    final probing = HostRuns(
+      machines,
+      endpointFor: (name) => '/tmp/$name.sock',
+      ping: () {
+        final answer = Completer<bool>();
+        pings.add(answer);
+        return answer.future;
+      },
+    );
+    addTearDown(probing.dispose);
+    const server = Machine(
+      name: 'demo server',
+      kind: 'host',
+      socketPath: '/tmp/demo server.sock',
+      host: 'worker@203.0.113.7',
+      remoteSocket: '/run/user/1007/porelo/porelod.sock',
+      identity: '/keys/private',
+      hostProject: 'demo',
+    );
+    await machines.add(server);
+    final older = probing.refreshVpns();
+    final newer = probing.refreshVpns();
+    expect(pings, hasLength(2), reason: 'each refresh probes once');
+    pings[1].complete(true);
+    await newer;
+    pings[0].complete(false);
+    await older;
+    expect(probing.vpnDown, isEmpty, reason: 'the newer probe answered; the older one is stale');
+    final removedMeanwhile = probing.refreshVpns();
+    await machines.forget(machines.all.singleWhere((machine) => machine.kind == 'host'));
+    pings[2].complete(false);
+    await removedMeanwhile;
+    expect(probing.vpnDown, isEmpty, reason: 'a host removed while the probe ran is not put back');
+  }, testOn: 'linux');
+
   // Harm: work is sent to a host that does not exist when a progress line is mistaken for success.
   for (final code in [0, 65, 69, 75]) {
     test('only exit zero promotes the completed host after code $code', () async {
@@ -59,7 +164,7 @@ void main() {
         arguments: const ['--project', 'demo'],
         start: (_, _) async => process,
       );
-      final run = runs.start(project: 'demo', session: session, record: _record);
+      final run = runs.start(project: 'demo', session: session, record: _vpnRecord);
       process.line(_done);
       process.words('Host protocol');
       await Future<void>.delayed(Duration.zero);
@@ -67,6 +172,8 @@ void main() {
       expect(runs.preparing, [run]);
       process.end(code);
       await run.finished;
+      expect(run.ready, isFalse, reason: 'host completion still needs the local VPN');
+      if (code == 0) await runs.vpnChecked(run, verified: true);
       expect(machines.all.where((machine) => machine.kind == 'host').length, code == 0 ? 1 : 0);
       expect(run.ready, code == 0);
       expect(runs.preparing, code == 0 ? isEmpty : [run]);
@@ -116,7 +223,7 @@ void main() {
       expect(kept.vpnEndpointAddress, code == 0 ? _done.address : isEmpty);
       expect(kept.vpnFile, '/previous.conf');
       expect(kept.collectionSha256, digest);
-      expect(run.ready, code == 0);
+      expect(run.ready, isFalse);
     });
   }
 
@@ -163,6 +270,7 @@ void main() {
     next.line(_done);
     next.end(0);
     await resumed;
+    await runs.vpnChecked(run, verified: true);
     expect(attention.openRows.where((row) => row.kind == AttentionKind.host), isEmpty);
     final resolved = attention.recentlyResolved.singleWhere((each) => each.row.kind == AttentionKind.host);
     expect(resolved.row.machine, 'demo server');
@@ -201,6 +309,7 @@ void main() {
     process.line(_done);
     process.end(0);
     await resumed;
+    await restored.vpnChecked(restored.of('demo')!, verified: true);
     final readBack = Settings(store);
     await readBack.load();
     expect(

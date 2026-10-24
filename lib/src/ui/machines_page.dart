@@ -220,7 +220,7 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('In preparation'),
+            Text(run.awaitingVpn ? 'Setting up the VPN' : 'In preparation'),
             if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
             if (session.stepText.isNotEmpty) Text(session.stepText),
             if (running) ...[

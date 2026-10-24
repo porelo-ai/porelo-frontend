@@ -265,6 +265,9 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     _hostRuns = HostRuns(widget.machines);
+    _hostRuns.addListener(_hostSetupChanged);
+    widget.machines.addListener(_vpnMachinesChanged);
+    _vpnMachinesChanged();
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
@@ -285,6 +288,17 @@ class _ShellState extends State<Shell> {
   }
 
   Timer? _refreshing;
+  String _vpnMachines = '';
+
+  void _vpnMachinesChanged() {
+    final hosts = widget.machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toList()
+      ..sort();
+    final key = hosts.join('\x00');
+    if (key == _vpnMachines) return;
+    _vpnMachines = key;
+    unawaited(_hostRuns.refreshVpns());
+  }
+
   int _refreshingEvery = -1;
 
   /// Asks every machine again on its own, as often as the settings say; never when set to zero.
@@ -300,6 +314,7 @@ class _ShellState extends State<Shell> {
 
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
+    await _hostRuns.refreshVpns();
     for (final machine in widget.machines.all) {
       final fleet = widget.machines.of(machine);
       if (fleet.reachability != Reachability.connected) continue;
@@ -513,15 +528,7 @@ class _ShellState extends State<Shell> {
         settings: widget.settings,
         takeDown: () => unawaited(_takeDown(machine)),
         saveTunnel: () => unawaited(_saveTunnel(machine)),
-        bringVpnUp: () => unawaited(
-          openHostVpnDialog(
-            context,
-            machine: machine,
-            settings: widget.settings,
-            up: true,
-            open: widget.sessions.openTerminal,
-          ),
-        ),
+        bringVpnUp: () => unawaited(_bringVpnUp(machine)),
         takeVpnDown: () => unawaited(
           openHostVpnDialog(
             context,
@@ -545,6 +552,37 @@ class _ShellState extends State<Shell> {
       settings: widget.settings,
     );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _bringVpnUp(Machine machine) async {
+    await openHostVpnDialog(
+      context,
+      machine: machine,
+      settings: widget.settings,
+      up: true,
+      open: widget.sessions.openTerminal,
+    );
+    await _hostRuns.refreshVpns();
+  }
+
+  void _hostSetupChanged() {
+    for (final run in _hostRuns.preparing) {
+      if (!run.awaitingVpn || run.vpnOffered) continue;
+      run.vpnOffered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(
+            openPreparationVpn(
+              context,
+              run: run,
+              runs: _hostRuns,
+              settings: widget.settings,
+              open: widget.sessions.openTerminal,
+            ),
+          );
+        }
+      });
+    }
   }
 
   Future<void> _takeDown(Machine machine) async {
@@ -689,7 +727,10 @@ class _ShellState extends State<Shell> {
     final project = _fleet.selectedProject;
     if (project == null) return;
     final existing = _hostRuns.of(project.name);
-    if (existing != null && !existing.ready && !existing.givenBack && (existing.running || existing.waiting)) {
+    if (existing != null &&
+        !existing.ready &&
+        !existing.givenBack &&
+        (existing.running || existing.waiting || existing.awaitingVpn)) {
       await _openHostRun(existing);
       return;
     }
@@ -2780,6 +2821,7 @@ class _ShellState extends State<Shell> {
           final run = _hostRuns.of(project);
           if (run != null) unawaited(_openHostRun(run));
         },
+        onBringVpnUp: (machine) => unawaited(_bringVpnUp(machine)),
         unlockFor: _unlockFor,
         onStopFollowing: (machine, project) =>
             unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
@@ -2925,8 +2967,8 @@ class _ShellState extends State<Shell> {
                         _ => Icons.cloud_off_outlined,
                       },
                       description: switch (command.id) {
-                        'machine.vpnUp' =>
-                          'Install the saved connection and bring WireGuard up in a terminal on this computer.',
+                        'machine.vpnUp' => 'Bring WireGuard up on this computer and check that the server answers.',
+                        'machine.saveTunnel' => 'Save a private connection file for another device.',
                         'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
                         _ => 'End the project tasks and room, copy its files back and give the server back.',
                       },
@@ -3210,6 +3252,7 @@ class _ShellState extends State<Shell> {
     _check.dispose();
     _attention.dispose();
     _hostRuns.dispose();
+    widget.machines.removeListener(_vpnMachinesChanged);
     _homeservers.dispose();
     _openedFocus.dispose();
     _frameFocus.dispose();

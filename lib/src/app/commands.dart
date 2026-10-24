@@ -669,6 +669,16 @@ List<Command> projectCommands({
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
 
+/// Repeats the verified local VPN setup for an existing host whose ping failed.
+Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailable}) => Command(
+  id: 'host.vpnAgain',
+  label: 'Bring the VPN up again',
+  group: 'Machine',
+  home: Home.attentionRow,
+  run: run,
+  unavailable: unavailable,
+);
+
 /// The host's lifecycle, local VPN and project room, sharing the machine's home.
 List<Command> hostMachineCommands({
   required Machine machine,
@@ -691,7 +701,7 @@ List<Command> hostMachineCommands({
     ),
     Command(
       id: 'machine.saveTunnel',
-      label: 'Save the VPN connection…',
+      label: 'Save the VPN connection for another device…',
       group: 'Machine',
       home: Home.machineMenu,
       run: saveTunnel ?? () {},
@@ -707,8 +717,8 @@ List<Command> hostMachineCommands({
       group: 'Machine',
       home: Home.machineMenu,
       run: bringVpnUp ?? () {},
-      unavailable: settings.hostUp(machine.hostProject)?.vpnFile == null
-          ? 'use Save the VPN connection… first'
+      unavailable: settings.hostUp(machine.hostProject)?.vpnHostPublicKey.isNotEmpty != true
+          ? 'complete the server setup first'
           : bringVpnUp == null
           ? 'not offered here'
           : null,
@@ -1290,6 +1300,8 @@ List<Command> hostRecoveryCommands({
       ? 'the host command is still running'
       : run.ready || run.givenBack
       ? 'preparation has ended'
+      : run.awaitingVpn
+      ? 'setup waits for the VPN on this computer'
       : null;
   return [
     Command(
@@ -1318,3 +1330,13 @@ Command retryHostPreparationCommand({required String project, required VoidCallb
 /// Opens the selected project's existing work under Work.
 Command projectWorkCommand({required VoidCallback open}) =>
     Command(id: 'project.itsWork', label: 'Its work, under Work', group: 'Project', home: Home.startTile, run: open);
+
+/// Repeats the local check after remote setup has completed.
+Command setupHostVpnCommand({required VoidCallback run, required bool alreadyOpen}) => Command(
+  id: 'host.vpnUp',
+  label: 'Bring the VPN up',
+  group: 'Machine',
+  home: Home.machineRow,
+  run: run,
+  unavailable: alreadyOpen ? 'the VPN terminal is already open' : null,
+);

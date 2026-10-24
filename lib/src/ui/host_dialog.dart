@@ -21,7 +21,7 @@ import 'wizard.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'dialog_scroll.dart';
-import 'host_tunnel_export.dart';
+import 'host_vpn_dialog.dart';
 
 /// Confirms teardown and shows the host's steps using only the kept setup arguments.
 Future<void> openHostTakeDownDialog(
@@ -106,7 +106,6 @@ class HostDialog extends StatefulWidget {
     this.secretStore,
     this.pickFolder,
     this.pickFile,
-    this.saveTunnel,
     this.takeDownOnly = false,
     this.debug = kDebugMode,
     super.key,
@@ -154,9 +153,6 @@ class HostDialog extends StatefulWidget {
   /// Chooses a path file without opening a platform dialog in tests, starting where the last pick ended.
   final Future<String?> Function(String? initialDirectory)? pickFile;
 
-  /// Chooses the explicitly requested tunnel export destination.
-  final Future<String?> Function()? saveTunnel;
-
   /// Shows the machine's teardown confirmation and progress without asking setup questions.
   final bool takeDownOnly;
 
@@ -196,6 +192,8 @@ class _HostDialogState extends State<HostDialog> {
   HostPreparation? _hostRun;
   bool _transferred = false;
   bool _sessionActive = false;
+  // A run already finished when its protocol is opened is closed only by the person.
+  bool _closingAfterVpn = false;
   Timer? _ticker;
 
   @override
@@ -220,6 +218,7 @@ class _HostDialogState extends State<HostDialog> {
     final run = widget.existingRun;
     if (run != null) {
       _hostRun = run;
+      _closingAfterVpn = run.ready;
       _session = run.session;
       _session!.addListener(_sessionChanged);
       _transferred = true;
@@ -276,8 +275,6 @@ class _HostDialogState extends State<HostDialog> {
 
   bool _upStarted = false;
   bool _takingDown = false;
-  bool get _showTunnel => !_takingDown && _hostRun?.ready == true;
-  bool _saving = false;
   bool _terminalOpen = false;
   String? _machineProblem;
 
@@ -310,6 +307,12 @@ class _HostDialogState extends State<HostDialog> {
 
   void _sessionChanged() {
     if (!mounted) return;
+    if (_hostRun?.ready == true && widget.existingRun != null && !_closingAfterVpn) {
+      _closingAfterVpn = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+    }
     final waiting = _session?.state == HostRunState.waiting;
     setState(() {});
     if (waiting && !_stopShown) {
@@ -361,14 +364,8 @@ class _HostDialogState extends State<HostDialog> {
     if (widget.debug) ...[_collection, _collectionSha256], //
   ].every((field) => field.text.trim().isNotEmpty);
 
-  String? get _tunnelEndpoint {
-    final address = _session?.address;
-    if (address == null || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) return null;
-    return address.contains(':') ? '[$address]:51820' : '$address:51820';
-  }
-
   bool get _running =>
-      _preparing || _saving || _terminalOpen || _hostRun?.running == true || _session?.state == HostRunState.running;
+      _preparing || _terminalOpen || _hostRun?.running == true || _session?.state == HostRunState.running;
 
   Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
@@ -511,19 +508,6 @@ class _HostDialogState extends State<HostDialog> {
       if (mounted) setState(() => _preparing = false);
     }
   }
-
-  Future<void> _exportTunnel() => saveHostTunnel(
-    context,
-    project: widget.project,
-    tunnel: _tunnel,
-    address: _session?.address ?? '',
-    settings: widget.settings,
-    secretStore: widget.secretStore,
-    hostFiles: widget.hostFiles,
-    saveTunnel: widget.saveTunnel,
-    saving: (saving) => setState(() => _saving = saving),
-    refused: (problem) => setState(() => _machineProblem = problem),
-  );
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {
@@ -905,7 +889,32 @@ class _HostDialogState extends State<HostDialog> {
     ),
     actions: [
       TextButton(key: const Key('host-close'), onPressed: () => Navigator.pop(context), child: const Text('Close')),
-      if (_hostRun case final run? when !run.ready && !run.givenBack && !run.running && !run.waiting)
+      if (_hostRun case final run? when run.awaitingVpn)
+        Builder(
+          builder: (_) {
+            final command = setupHostVpnCommand(
+              alreadyOpen: run.vpnOpen,
+              run: () => unawaited(
+                openPreparationVpn(
+                  context,
+                  run: run,
+                  runs: widget.hostRuns!,
+                  settings: widget.settings!,
+                  open: widget.openTerminal,
+                  secretStore: widget.secretStore,
+                  hostFiles: widget.hostFiles,
+                  environment: widget.environment,
+                ),
+              ),
+            );
+            return TextButton(
+              key: const Key('host-vpn-up'),
+              onPressed: command.available ? command.run : null,
+              child: Text(command.label),
+            );
+          },
+        )
+      else if (_hostRun case final run? when !run.ready && !run.givenBack && !run.running && !run.waiting)
         Builder(
           builder: (_) {
             final command = retryHostPreparationCommand(
@@ -1015,37 +1024,6 @@ class _HostDialogState extends State<HostDialog> {
         if (!_takingDown)
           if (_hostRun?.problem case final problem?) Text(problem),
         if (_machineProblem != null) Text(_machineProblem!),
-        if (_showTunnel) ...<Widget>[
-          Text(
-            _tunnel?.hostPublicKey.isNotEmpty == true
-                ? 'Host public key: ${_tunnel!.hostPublicKey}\nEndpoint: ${_tunnelEndpoint ?? 'unavailable'}\nAllowedIPs = 10.73.0.1/32\nAddress = 10.73.0.2/24'
-                : 'The host public key is unavailable here because the host files were supplied manually.',
-          ),
-          Wrap(
-            spacing: Space.small,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              TextButton(
-                key: const Key('host-export-tunnel'),
-                onPressed: _running || _tunnel?.hostPublicKey.isNotEmpty != true || _tunnelEndpoint == null
-                    ? null
-                    : _exportTunnel,
-                child: const Text('Save the VPN connection to this server'),
-              ),
-              const Tooltip(
-                triggerMode: TooltipTriggerMode.tap,
-                message:
-                    'WireGuard makes an encrypted VPN connection between this computer and the server. '
-                    'This file holds a private key. Keep it in a private folder that only you can read; do not share it. '
-                    'Use WireGuard installed on this computer to connect. Administrator (root) access is needed. '
-                    'After saving, use Bring the VPN up on this server in Machines. It opens a terminal here with:\n'
-                    'sudo install -m 600 <saved file> /etc/wireguard/porelo.conf && sudo wg-quick up porelo\n'
-                    'sudo asks for root access in that terminal.',
-                child: Padding(padding: EdgeInsets.all(Space.small), child: Icon(Icons.info_outline)),
-              ),
-            ],
-          ),
-        ],
         if (session != null)
           ExpansionTile(
             key: const Key('host-full-protocol'),

@@ -73,6 +73,9 @@ class Tile {
 
 /// The kinds of attention row, including notices that are not work.
 enum AttentionKind {
+  /// An existing host's local VPN ping failed.
+  vpn,
+
   /// A project server stopped for a person during preparation.
   host,
 
@@ -206,6 +209,11 @@ class Attention extends ChangeNotifier {
       'message ${machine.name}/${message.task}/${message.handle}';
 
   Iterable<AttentionRow> _rows() sync* {
+    for (final machine in _machines.all) {
+      if (_hostRuns?.vpnDown.contains(machine.name) == true) {
+        yield AttentionRow(AttentionKind.vpn, 'vpn ${machine.name}', machine.name, machine);
+      }
+    }
     for (final run in _hostRuns?.preparing ?? <HostPreparation>[]) {
       if (run.waiting) yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
     }
@@ -295,6 +303,7 @@ class Attention extends ChangeNotifier {
       // Losing contact is not resolution; retain the last facts until this machine answers again.
       final resolved =
           row.kind == AttentionKind.operation ||
+          row.kind == AttentionKind.vpn && _hostRuns?.vpnDown.contains(row.machine) == false ||
           row.kind == AttentionKind.host && _hostRuns?.of((row.value as HostStop).project)?.ready == true ||
           (row.kind != AttentionKind.host &&
               machine != null &&

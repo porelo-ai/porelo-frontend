@@ -37,6 +37,7 @@ class AttentionView extends StatefulWidget {
     this.onSelect,
     this.onOpenOperation,
     this.onOpenHost,
+    this.onBringVpnUp,
     super.key,
   });
 
@@ -66,6 +67,9 @@ class AttentionView extends StatefulWidget {
 
   /// Opens the retained host stop and its terminal before a daemon exists.
   final void Function(String project)? onOpenHost;
+
+  /// Opens the same local root check used by the machine menu.
+  final void Function(Machine machine)? onBringVpnUp;
 
   /// Opens what a failed operation printed, which is what puts it away.
   final void Function(Operation operation)? onOpenOperation;
@@ -193,6 +197,30 @@ extension on _AttentionViewState {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
+      case AttentionKind.vpn:
+        final machine = row.value as Machine;
+        final command = bringHostVpnUpAgainCommand(
+          run: () => widget.onBringVpnUp?.call(machine),
+          unavailable: resolved
+              ? 'this row is resolved'
+              : widget.onBringVpnUp == null
+              ? 'VPN setup is unavailable here'
+              : null,
+        );
+        return Card(
+          key: ValueKey('vpn-needs ${machine.hostProject}'),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                NeedsMachine(row.machine),
+                Text('The VPN to ${machine.hostProject} server is down'),
+                _RowCommand(command),
+              ],
+            ),
+          ),
+        );
       case AttentionKind.host:
         final stop = row.value as HostStop;
         final command = hostPreparationCommand(
