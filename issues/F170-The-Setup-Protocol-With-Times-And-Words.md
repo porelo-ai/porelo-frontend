@@ -1,6 +1,6 @@
 # F170 — The Setup Protocol With Times And Words
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** M - a time on porelo-host's step lines, a step history in the session, and the protocol's and row's words.
 
 **What must be true.** Each step of a server's setup shows when it started, in local time, and how

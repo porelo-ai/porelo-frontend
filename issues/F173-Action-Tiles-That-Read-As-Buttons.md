@@ -1,6 +1,6 @@
 # F173 — Action Tiles That Read As Buttons
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - one shared tile component in a style the operator picks from three, and *Its work, under Work* made a tile.
 
 **What must be true.** Every action on a project's page is a tile of one size and form, *Its work,
@@ -22,12 +22,10 @@ operator chose from two or three shown variants.
 - Every new spacing, radius and colour in `tokens.dart`.
 - **Tests:** none: layout and colour only.
 
+- *Before building:* **Which of the three styles:** shown as screenshots before it is built. Recommended: (a), tonal
+  cards.
+
 ## Acceptance
 
 - The operator picked a variant from the screenshots; in the guided walk every action on the page
   is a tile of that style and one size.
-
-## Open questions
-
-- **Which of the three styles:** shown as screenshots before it is built. Recommended: (a), tonal
-  cards.

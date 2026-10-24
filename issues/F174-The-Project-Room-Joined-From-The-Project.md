@@ -1,6 +1,6 @@
 # F174 — The Project Room Joined From The Project
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** M - joining moved to the project's page, the dialog's steps for Element and a button opening it, the first screen's address and the chat name's rule.
 
 **What must be true.** Joining a project's room is an action of the project, on its page, for the
@@ -29,13 +29,11 @@ said before *Join*.
   through the selected machine's backend (a person let into another machine's room); the URL opened
   carries no password. Words get no test.
 
+- *Taken until the operator answers otherwise:* **Element with the homeserver filled in:** no working link form for app.element.io's sign-in with
+  a custom homeserver was found. Recommended and taken: *Open Element* opens app.element.io and the
+  steps say to edit the homeserver; a prefilled link only if one is shown to work while building.
+
 ## Acceptance
 
 - In the guided walk and on the next rented host: the room is joined from the project's page, the
   steps lead into Element, *Michi* becomes `michi` as typed.
-
-## Open questions
-
-- **Element with the homeserver filled in:** no working link form for app.element.io's sign-in with
-  a custom homeserver was found. Recommended and taken: *Open Element* opens app.element.io and the
-  steps say to edit the homeserver; a prefilled link only if one is shown to work while building.

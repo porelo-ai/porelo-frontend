@@ -1,6 +1,6 @@
 # F176 — Giving The Server Back Confirmed By Its Consequences
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - one confirmation's words and red button, and every way to take a server down routed through it.
 
 **What must be true.** Taking a server down asks first, in a dialog that names what happens: the

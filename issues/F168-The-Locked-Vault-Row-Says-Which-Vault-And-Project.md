@@ -1,6 +1,6 @@
 # F168 — The Locked-Vault Row Says Which Vault And Project
 
-**Status:** Analyzed; blocked by `porelo` [B276](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b276).
+**Status:** Backlog; blocked by `porelo` [B276](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b276).
 **Size:** S - one row's words and one more way out on it, from two new fields of the daemon.
 
 **What must be true.** A *Messages wait* row for a locked vault says whose vault it is (the vault

@@ -1,6 +1,6 @@
 # F171 — The Stop Opens Its Own Small Dialog
 
-**Status:** Analyzed; blocked by `porelo-host` [HO25](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho25).
+**Status:** Backlog; blocked by `porelo-host` [HO25](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho25).
 **Size:** M - a dialog of its own for the stop, the host's stop script called through the pinned collection, the command line out of sight.
 
 **What must be true.** *Complete setup on the host* opens a small dialog saying only what the host

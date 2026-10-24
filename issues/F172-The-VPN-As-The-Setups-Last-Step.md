@@ -1,6 +1,6 @@
 # F172 — The VPN As The Setup's Last Step
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** L - a root step on this computer taking the tunnel's configuration without a file the person saves, its check by ping and handshake, the machine's ready state after it, and a later row when the tunnel is missing.
 
 **What must be true.** After the stop, the setup brings the VPN up itself: a terminal on this
@@ -37,14 +37,12 @@ the tunnel is missing later; a VPN file for another device only on request from 
   cancelled sudo (a private key left on disk); an up tunnel of another host is not overwritten.
   Words get no test.
 
+- *Taken until the operator answers otherwise:* **Two servers at once:** the tunnel is one interface `porelo` with fixed addresses, so a second
+  host would overwrite the first. Recommended and taken for now: refuse a second while one is up,
+  saying so; separate interfaces per host later, as an issue of its own.
+
 ## Acceptance
 
 - On the VM (a local WireGuard peer standing in for the host) and on the next rented host: one
   sudo password, the success line, *Machines* ready only after the handshake; no file left in the
   runtime directory.
-
-## Open questions
-
-- **Two servers at once:** the tunnel is one interface `porelo` with fixed addresses, so a second
-  host would overwrite the first. Recommended and taken for now: refuse a second while one is up,
-  saying so; separate interfaces per host later, as an issue of its own.
