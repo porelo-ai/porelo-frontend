@@ -95,11 +95,18 @@ class SshHostKeys implements HostKeys {
   SshHostKeys({RunWith? run, String? home, Desk? on})
     : _execute = run ?? _runForReal,
       _desk = on ?? desk,
-      _home = home ?? (on ?? desk).home;
+      _paths = home == null
+          ? on ?? desk
+          : Desk.of((on ?? desk).isWindows ? 'windows' : 'linux', {
+              ...(on ?? desk).environment,
+              (on ?? desk).isWindows ? 'USERPROFILE' : 'HOME': home,
+            });
 
   final RunWith _execute;
   final Desk _desk;
-  final String _home;
+  final Desk _paths;
+
+  String get _home => _paths.home;
 
   Future<ProcessResult> _run(List<String> command, {String? input}) => _execute(<String>[
     const <String>{'ssh', 'ssh-keygen', 'ssh-keyscan'}.contains(command.first)
@@ -148,8 +155,7 @@ class SshHostKeys implements HostKeys {
     final host = port == '22' ? hostname : '[$hostname]:$port';
     final files = <String>[
       // `ssh -G` expands a home it knows, but nothing here runs a shell to expand one it left.
-      for (final named in (settings['userknownhostsfile'] ?? '~/.ssh/known_hosts').split(' '))
-        named.startsWith('~/') ? '$_home${named.substring(1)}' : named,
+      for (final named in (settings['userknownhostsfile'] ?? '~/.ssh/known_hosts').split(' ')) _paths.expandHome(named),
     ];
     // What is known for it, as (type, key) pairs, and where.
     final known = <String>{};

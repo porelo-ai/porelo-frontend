@@ -294,7 +294,7 @@ class ProjectWorkspace {
     final said = (await _run('git', <String>['config', '--global', '--get', 'user.signingkey'])).out.trim();
     if (said.isEmpty) return null;
     if (said.startsWith('key::')) return said.substring(5).trim().split(RegExp(r'\s+')).take(2).join(' ');
-    final path = said.startsWith('~/') ? '${Platform.environment['HOME'] ?? '.'}${said.substring(1)}' : said;
+    final path = desk.expandHome(said);
     for (final candidate in <String>[path, '$path.pub']) {
       final file = File(candidate);
       if (file.existsSync()) {

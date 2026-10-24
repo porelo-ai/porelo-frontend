@@ -48,6 +48,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Paths starting with `~` in host setup are understood, each path has a file picker, and the
+  VPN file's button and hint explain plainly how to save and use the connection.
+
 - Session, unlock and vault terminals accept Ctrl+Shift+V and Shift+Insert for paste, show the
   paste shortcut, and copy selected text as shown.
 

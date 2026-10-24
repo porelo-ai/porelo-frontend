@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 
 import '../features/support/world.dart';
@@ -72,6 +73,108 @@ void main() {
       await Future<void>.delayed(const Duration(seconds: 1));
     });
     await World.settle(tester);
+  }
+
+  for (final field in <String, String?>{
+    'host-public-key': '--public-key',
+    'host-identity': '--identity',
+    'host-collection': '--collection',
+    'host-signing-key': null,
+  }.entries) {
+    // Harm: up receives a nonexistent path or cannot prepare the host file.
+    testWidgets('${field.key} expands a home path before preparing files and starting up', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final previousDesk = desk;
+      desk = Desk.of('linux', {'HOME': scratch.path});
+      addTearDown(() => desk = previousDesk);
+      final settings = Settings(MemorySettingsStore());
+      await settings.rememberTresorFolder('demo', scratch.path);
+      late File signing;
+      await tester.runAsync(() async {
+        await Directory(path.join(scratch.path, '.ssh')).create();
+        signing = await File(path.join(scratch.path, '.ssh', 'key.pub'))
+            .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+      });
+      final commands = <List<String>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: 'demo',
+              machines: machines,
+              settings: settings,
+              secretStore: _MemorySecrets(),
+              start: (_, arguments) async {
+                commands.add(List.of(arguments));
+                final process = _HostProcess();
+                process.end(0);
+                return process;
+              },
+            ),
+          ),
+        ),
+      );
+      for (final entry in <String, String>{
+        'host-scaleway-project': 'project',
+        'host-tresor': 'tresor',
+        'host-collection': 'collection',
+        'host-repository': 'https://example.org/demo.git',
+        'host-signing-key': signing.path,
+        field.key: field.value == null ? '~/.ssh/key.pub' : '~/.ssh/key',
+      }.entries) {
+        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+      }
+      await tester.pump();
+      await tapAndRun(tester, const Key('host-up'));
+      expect(commands, hasLength(1), reason: 'the signing key must be readable and file preparation must finish');
+      expect(commands.single.first, 'up');
+      if (field.value != null) {
+        expect(commands.single, containsAllInOrder([field.value!, path.join(scratch.path, '.ssh', 'key')]));
+      }
+    });
+
+    // Harm: an unsupported home path starts provisioning with a nonexistent file.
+    testWidgets('${field.key} refuses another user home path before up starts', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      await settings.rememberTresorFolder('demo', scratch.path);
+      var starts = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: 'demo',
+              machines: machines,
+              settings: settings,
+              secretStore: _MemorySecrets(),
+              start: (_, _) async {
+                starts++;
+                final process = _HostProcess();
+                process.end(0);
+                return process;
+              },
+            ),
+          ),
+        ),
+      );
+      for (final entry in <String, String>{
+        'host-scaleway-project': 'project',
+        'host-tresor': 'tresor',
+        'host-collection': 'collection',
+        'host-repository': 'https://example.org/demo.git',
+        field.key: '~user/key',
+      }.entries) {
+        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+      }
+      await tester.pump();
+      await tapAndRun(tester, const Key('host-up'));
+      expect(starts, 0, reason: 'unsupported paths must block provisioning');
+      expect(find.textContaining(RegExp(r'~user.*only ~/ is understood')), findsOneWidget);
+    });
   }
 
   // Harm: a development walk accidentally launches the installed host provisioning command.

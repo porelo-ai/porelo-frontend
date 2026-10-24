@@ -15,6 +15,41 @@ void main() {
     'USERNAME': 'somebody',
   };
 
+  // Harm: altering an ordinary path sends file operations to the wrong location.
+  test('home expansion leaves absolute and relative paths unchanged', () {
+    final here = Desk.of('linux', {'HOME': '/home/somebody'});
+    expect(here.expandHome('/keys/key'), '/keys/key');
+    expect(here.expandHome('keys/key'), 'keys/key');
+    expect(here.expandHome('keys/~backup'), 'keys/~backup');
+  });
+
+  // Harm: a literal tilde makes file preparation use a nonexistent home directory.
+  test('home expansion expands a tilde alone and a home-relative path on each desktop', () {
+    final linux = Desk.of('linux', {'HOME': '/home/somebody'});
+    final win = Desk.of('windows', windows);
+    expect(linux.expandHome('~'), '/home/somebody');
+    expect(linux.expandHome('~/.ssh/key'), '/home/somebody/.ssh/key');
+    expect(win.expandHome('~'), windows['USERPROFILE']);
+    expect(win.expandHome('~/.ssh/key'), r'C:\Users\somebody\.ssh\key');
+  });
+
+  // Harm: a named-user home path silently targets a nonexistent or unintended file.
+  test('home expansion refuses named users with an explanation', () {
+    final here = Desk.of('linux', {'HOME': '/home/somebody'});
+    for (final value in ['~user', '~user/key']) {
+      expect(
+        () => here.expandHome(value),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'explanation',
+            allOf(contains('~user'), contains('only ~/ is understood')),
+          ),
+        ),
+      );
+    }
+  });
+
   group('on Windows', () {
     test('the machine list is under the roaming application data, where the plugin reads it', () {
       expect(

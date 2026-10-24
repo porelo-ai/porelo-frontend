@@ -62,6 +62,16 @@ abstract class Desk {
   /// Joins [parts] with this system's separator.
   String join(List<String> parts) => parts.join(isWindows ? r'\' : '/');
 
+  /// Expands this person's `~` or `~/` path; named users are not understood.
+  String expandHome(String path) {
+    if (path == '~') return home;
+    if (path.startsWith('~/')) return join([home, ...path.substring(2).split('/')]);
+    if (path.startsWith('~')) {
+      throw FormatException('Cannot use ${path.split('/').first}; only ~/ is understood.');
+    }
+    return path;
+  }
+
   /// Keeps [path] to its owner: nobody else on this computer reads it.
   Future<void> keepPrivate(String path, {bool directory = false}) async {
     final command = privateCommand(path, directory: directory);

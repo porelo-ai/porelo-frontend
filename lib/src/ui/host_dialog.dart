@@ -6,6 +6,7 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:porelo_host/porelo_host.dart';
 import 'package:path/path.dart' as path;
 
+import '../app/desk.dart';
 import '../app/host_session.dart';
 import '../app/machines.dart';
 import '../app/settings.dart';
@@ -42,6 +43,7 @@ class HostDialog extends StatefulWidget {
     this.settings,
     this.secretStore,
     this.pickFolder,
+    this.pickFile,
     this.saveTunnel,
     super.key,
   });
@@ -70,6 +72,9 @@ class HostDialog extends StatefulWidget {
   /// System pickers, replaceable without platform calls in widget tests.
   final Future<String?> Function()? pickFolder;
 
+  /// Chooses a path file without opening a platform dialog in tests.
+  final Future<String?> Function()? pickFile;
+
   /// Chooses the explicitly requested tunnel export destination.
   final Future<String?> Function()? saveTunnel;
 
@@ -89,6 +94,9 @@ class _HostDialogState extends State<HostDialog> {
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _keyName = TextEditingController();
   final _keys = <HostKeyFile>[];
+  final _scroll = ScrollController();
+  final _stopStart = GlobalKey();
+  bool _stopShown = false;
   String? _folder;
   HostTunnel? _tunnel;
   bool _preparing = false;
@@ -107,10 +115,7 @@ class _HostDialogState extends State<HostDialog> {
   bool _terminalOpen = false;
   String? _machineProblem;
 
-  static String _home(String relativePath) {
-    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
-    return path.joinAll([home, ...path.posix.split(relativePath)]);
-  }
+  static String _home(String relativePath) => desk.expandHome('~/$relativePath');
 
   @override
   void dispose() {
@@ -129,7 +134,30 @@ class _HostDialogState extends State<HostDialog> {
       field.dispose();
     }
     _session?.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  void _sessionChanged() {
+    if (!mounted) return;
+    final waiting = _session?.state == HostRunState.waiting;
+    setState(() {});
+    if (waiting && !_stopShown) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _session?.state != HostRunState.waiting) return;
+        final stop = _stopStart.currentContext;
+        if (stop != null) unawaited(Scrollable.ensureVisible(stop));
+      });
+    }
+    _stopShown = waiting;
+  }
+
+  void _expandPaths() {
+    final fields = [_publicKey, _identity, _collection, _signingKey];
+    final expanded = [for (final field in fields) desk.expandHome(field.text.trim())];
+    for (var i = 0; i < fields.length; i++) {
+      fields[i].text = expanded[i];
+    }
   }
 
   HostSession _newSession() {
@@ -154,7 +182,7 @@ class _HostDialogState extends State<HostDialog> {
         _scaleway.text.trim(),
       ],
       start: widget.start,
-    )..addListener(() => setState(() {}));
+    )..addListener(_sessionChanged);
     return _session = session;
   }
 
@@ -205,10 +233,10 @@ class _HostDialogState extends State<HostDialog> {
   Future<void> _addKey() async {
     try {
       HostFiles.checkName(_keyName.text);
-      final file = await openFile();
+      final file = await _pickFile();
       if (file == null || !mounted) return;
-      HostFiles.checkBasename(path.basename(file.path));
-      final key = HostKeyFile(_keyName.text, File(file.path));
+      HostFiles.checkBasename(path.basename(file));
+      final key = HostKeyFile(_keyName.text, File(file));
       setState(() {
         _keys.add(key);
         _keyName.clear();
@@ -218,6 +246,13 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  Future<String?> _pickFile() async => widget.pickFile == null ? (await openFile())?.path : await widget.pickFile!();
+
+  Future<void> _chooseFile(TextEditingController field) async {
+    final file = await _pickFile();
+    if (file != null && mounted) setState(() => field.text = file);
+  }
+
   Future<void> _up() async {
     if (_running) return;
     setState(() {
@@ -225,6 +260,7 @@ class _HostDialogState extends State<HostDialog> {
       _machineProblem = null;
     });
     try {
+      _expandPaths();
       if (!_upStarted) {
         await _withFiles((files) async {
           _tunnel = await files.prepare(
@@ -240,6 +276,8 @@ class _HostDialogState extends State<HostDialog> {
         _upStarted = true;
       }
       await _runUp(_session!.up);
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _machineProblem = error.message);
     } on HostFilesRefused catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
     } on FileSystemException catch (error) {
@@ -281,6 +319,12 @@ class _HostDialogState extends State<HostDialog> {
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {
+    try {
+      _expandPaths();
+    } on FormatException catch (error) {
+      setState(() => _machineProblem = error.message);
+      return;
+    }
     _doneUp = false;
     _showTunnel = false;
     _machineProblem = null;
@@ -415,30 +459,34 @@ class _HostDialogState extends State<HostDialog> {
       content: SizedBox(
         width: Sizes.dialogMedium,
         child: DialogScroll(
+          controller: _scroll,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               const Text(
-                'porelo-host rents the host at Scaleway Elastic Metal, or finds it again, and runs the '
-                'playbook there. Its key is the one `porelo-host key set scaleway` kept.',
+                'Porelo rents a server from Scaleway Elastic Metal, or finds it again, and sets it up '
+                'there. It uses the access key saved with porelo-host key set scaleway.',
               ),
               if (Platform.isWindows)
-                const Text('The host files and tunnel export are restricted to your Windows user.'),
+                const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
               const SizedBox(height: Space.normal),
-              _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
-              _field(_tresor, 'The project\'s tresor', 'host-tresor', namesHost: true),
-              Text(
-                _folder ?? 'No local Tresorit folder chosen. Copy machine.yml, wireguard.key and any keys/ files into the project tresor under porelo-host/ before the host reads them.',
-              ),
+              if (_folder != null)
+                Text('Project tresor folder on this computer: $_folder')
+              else
+                const Text(
+                  'No local Tresorit folder chosen. Copy machine.yml, wireguard.key and any keys/ files into the project tresor under porelo-host/ before the host reads them.',
+                ),
               TextButton(
                 key: const Key('host-folder'),
                 onPressed: _running || _upStarted ? null : _chooseFolder,
-                child: const Text('Choose the project tresor folder on this computer'),
+                child: Text(_folder == null ? 'Choose the project tresor folder on this computer' : 'Choose another'),
               ),
+              _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
+              _field(_tresor, 'The project\'s tresor', 'host-tresor', namesHost: true),
               if (_folder != null) ...<Widget>[
-                _field(_repository, 'Project repository URL', 'host-repository', namesHost: true),
-                _field(_signingKey, 'Commit-signing public key (.pub path)', 'host-signing-key', namesHost: true),
+                _field(_repository, 'Project repository address', 'host-repository', namesHost: true),
+                _pathField(_signingKey, 'Public key for signing commits (.pub)', 'host-signing-key'),
                 _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
                 TextButton(
                   onPressed: _running || _upStarted ? null : _addKey,
@@ -456,10 +504,10 @@ class _HostDialogState extends State<HostDialog> {
                     ],
                   ),
               ],
-              _field(_account, 'Account on the host', 'host-account', namesHost: true),
-              _field(_publicKey, 'Your public ssh key', 'host-public-key', namesHost: true),
-              _field(_identity, 'Your private ssh key', 'host-identity', namesHost: true),
-              _field(_collection, 'porelo-host collection (.tar.gz)', 'host-collection', namesHost: true),
+              _field(_account, 'Account on the server', 'host-account', namesHost: true),
+              _pathField(_publicKey, 'Your public ssh key', 'host-public-key'),
+              _pathField(_identity, 'Your private ssh key', 'host-identity'),
+              _pathField(_collection, 'Server setup file (.tar.gz)', 'host-collection'),
               const SizedBox(height: Space.normal),
               if (session != null) ...<Widget>[
                 for (final step in session.steps) _stepRow(step),
@@ -486,13 +534,29 @@ class _HostDialogState extends State<HostDialog> {
                       ? 'Host public key: ${_tunnel!.hostPublicKey}\nEndpoint: ${_tunnelEndpoint ?? 'unavailable'}\nAllowedIPs = 10.73.0.1/32\nAddress = 10.73.0.2/24'
                       : 'The host public key is unavailable here because the host files were supplied manually.',
                 ),
-                const Text('Bring the tunnel up with your own WireGuard. This needs root.'),
-                TextButton(
-                  key: const Key('host-export-tunnel'),
-                  onPressed: _running || _tunnel?.hostPublicKey.isNotEmpty != true || _tunnelEndpoint == null
-                      ? null
-                      : _exportTunnel,
-                  child: const Text('Save the wg-quick file'),
+                Wrap(
+                  spacing: Space.small,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    TextButton(
+                      key: const Key('host-export-tunnel'),
+                      onPressed: _running || _tunnel?.hostPublicKey.isNotEmpty != true || _tunnelEndpoint == null
+                          ? null
+                          : _exportTunnel,
+                      child: const Text('Save the VPN connection to this server'),
+                    ),
+                    const Tooltip(
+                      triggerMode: TooltipTriggerMode.tap,
+                      message:
+                          'WireGuard makes an encrypted VPN connection between this computer and the server. '
+                          'This file holds a private key. Keep it in a private folder that only you can read; do not share it. '
+                          'Use WireGuard installed on this computer to connect. Administrator (root) access is needed. '
+                          'Replace <file> with the saved file path and run:\n'
+                          'cat <file> | sudo tee /etc/wireguard/porelo.conf\n'
+                          'sudo wg-quick up porelo',
+                      child: Padding(padding: EdgeInsets.all(Space.small), child: Icon(Icons.info_outline)),
+                    ),
+                  ],
                 ),
               ],
               if (_doneUp)
@@ -520,6 +584,17 @@ class _HostDialogState extends State<HostDialog> {
       ],
     );
   }
+
+  Widget _pathField(TextEditingController controller, String label, String key) => Row(
+    children: <Widget>[
+      Expanded(child: _field(controller, label, key, namesHost: true)),
+      const SizedBox(width: Space.small),
+      TextButton(
+        onPressed: _running || _upStarted ? null : () => _chooseFile(controller),
+        child: const Text('Choose…'),
+      ),
+    ],
+  );
 
   Widget _field(TextEditingController controller, String label, String key, {bool namesHost = false}) => Padding(
     padding: const EdgeInsets.only(bottom: Space.small),
@@ -552,19 +627,23 @@ class _HostDialogState extends State<HostDialog> {
     final drive = needs.contains('drive');
     const known = <String>{'drive', 'vault', 'vault-new'};
     final unknown = needs.where((need) => !known.contains(need)).toList();
+    final prompts = <Widget>[
+      if (needs.isEmpty)
+        const Text('The host waits without saying for what.')
+      else ...<Widget>[
+        if (drive) const Text('The host needs a Tresorit login.'),
+        if (needs.contains('vault-new')) const Text('The host needs a passphrase for its new vault.'),
+        if (needs.contains('vault')) const Text('The host needs its vault unlocked.'),
+      ],
+      for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
+    ];
     return Column(
       key: const Key('host-stop'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         const SizedBox(height: Space.normal),
-        if (needs.isEmpty)
-          const Text('The host waits without saying for what.')
-        else ...<Widget>[
-          if (drive) const Text('The host needs a Tresorit login.'),
-          if (needs.contains('vault-new')) const Text('The host needs a passphrase for its new vault.'),
-          if (needs.contains('vault')) const Text('The host needs its vault unlocked.'),
-        ],
-        for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
+        KeyedSubtree(key: _stopStart, child: prompts.first),
+        ...prompts.skip(1),
         if (drive) _field(_email, 'Tresorit e-mail', 'host-drive-email'),
         if (needs.isNotEmpty && unknown.isEmpty)
           Align(
