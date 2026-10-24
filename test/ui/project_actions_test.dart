@@ -24,7 +24,7 @@ Future<void> _start(WidgetTester tester) async {
 }
 
 void main() {
-  // Prevents work from starting in a different repository than the row that opened the form.
+  // Harm: work starts in a different repository than the row that opened the form.
   testWidgets('a row start keeps its repository until Change chooses another', (tester) async {
     await _project(tester);
     await World.fromARepositorysMenu(tester, 'payments-api', 'start-in');
@@ -43,7 +43,7 @@ void main() {
     expect(World.backend.starts.map((each) => each.repository), <String>['payments-api', 'billing-api']);
   });
 
-  // Prevents the visible row action from starting different work than its menu action.
+  // Harm: the visible row action starts different work than its menu action.
   testWidgets('the row button and menu start work in the same repository', (tester) async {
     await _project(tester);
     await World.tapInView(tester, 'start-here-billing-api');
@@ -58,7 +58,7 @@ void main() {
     expect(World.backend.starts.map((each) => each.repository), <String>['billing-api', 'billing-api']);
   });
 
-  // Prevents a project-wide start from silently inheriting the last repository row's choice.
+  // Harm: a project-wide start silently inherits the last repository row's choice.
   testWidgets('the project start tile asks which repository to use', (tester) async {
     await _project(tester);
     await World.fromARepositorysMenu(tester, 'billing-api', 'start-in');
@@ -73,7 +73,7 @@ void main() {
     expect(World.backend.starts.single.repository, 'payments-api');
   });
 
-  // Prevents a row action from launching work while its menu action refuses it.
+  // Harm: a row action launches work while its menu action refuses it.
   testWidgets('an unavailable row start has the menu reason and cannot start', (tester) async {
     await _project(tester);
     World.backend.theProjectsItHas = <Project>[
@@ -114,7 +114,7 @@ void main() {
     );
   });
 
-  // Prevents a tile from dispatching an action other than the command shown on it.
+  // Harm: a tile dispatches an action other than the command shown on it.
   testWidgets('a project tile runs its own command', (tester) async {
     await _project(tester);
     expect(World.notifications.mutedFor('checkout'), isFalse);
@@ -123,20 +123,20 @@ void main() {
     expect(World.backend.starts, isEmpty);
   });
 
-  // Prevents a tile from running an action when the command says it must not run.
+  // Harm: a tile runs an action when the command says it must not run.
   testWidgets('an unavailable tile shows its reason and does not run', (tester) async {
     await _project(tester);
     final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
     final command = menu.commands.singleWhere((each) => each.id == 'project.default');
     expect(command.available, isFalse);
     final tile = find.byKey(const Key('command-tile-project.default'));
-    expect(find.descendant(of: tile, matching: find.text('Unavailable: ${command.unavailable}')), findsOneWidget);
+    expect(find.descendant(of: tile, matching: find.byTooltip(command.unavailable!)), findsOneWidget);
     await World.tapInView(tester, 'command-tile-project.default');
     expect(find.byKey(const Key('default-dialog')), findsNothing);
     expect(World.backend.starts, isEmpty);
   });
 
-  // Prevents a command from losing its visible route or a tile from bypassing the shared menu.
+  // Harm: a command loses its visible route or a tile bypasses the shared menu.
   testWidgets('every project menu command has exactly one tile and every tile a menu item', (tester) async {
     await _project(tester);
     final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));

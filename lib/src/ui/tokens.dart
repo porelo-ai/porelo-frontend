@@ -348,3 +348,51 @@ abstract final class Radii {
   /// A card that stands on its own.
   static const medium = Primitives.radiusMd;
 }
+
+/// Dimensions and feedback shared by every action tile.
+abstract final class ActionTiles {
+  /// The width of each grid column.
+  static const width = 280.0;
+
+  /// The height of every action, including unavailable ones.
+  static const height = 136.0;
+
+  /// The prominent outlined mark above the title.
+  static const icon = 40.0;
+
+  /// The maximum title lines before truncation keeps every tile the same size.
+  static const titleLines = 2;
+
+  /// The shadow at rest.
+  static const elevation = 8.0;
+
+  /// The shadow under the pointer.
+  static const hoverElevation = 14.0;
+
+  /// The shadow while pressed.
+  static const pressedElevation = 4.0;
+
+  /// Unavailable actions lie flat.
+  static const disabledElevation = 0.0;
+
+  /// The maximum width of an explanation or refusal.
+  static const tooltipWidth = 360.0;
+
+  /// The bubble sits beyond the tile instead of over its title.
+  static const tooltipOffset = height / 2 + Space.small;
+
+  /// The delay before showing an explanation on hover.
+  static const tooltipDelay = Duration(milliseconds: 500);
+
+  /// Muted ink for unavailable actions.
+  static const disabledInk = 0.60;
+
+  /// The hover state layer.
+  static const hoverInk = 0.08;
+
+  /// The pressed state layer.
+  static const pressedInk = 0.16;
+
+  /// No state layer at rest.
+  static const noInk = 0.0;
+}

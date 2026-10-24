@@ -2828,16 +2828,18 @@ class _ShellState extends State<Shell> {
             ..._commands().where((command) => command.id == 'work.start' || command.id == 'project.follow'),
             ..._projectMenu(narrowed),
           ];
-    final itsWork = OutlinedButton.icon(
+    final itsWork = CommandTile(
       key: const Key('its-work'),
-      onPressed: () {
-        _workView
-          ..machine = machine.name
-          ..project = narrowed == null ? null : (narrowed.name == defaultProject ? '' : narrowed.name);
-        widget.shell.goTo(Section.work);
-      },
-      icon: const Icon(Icons.play_circle_outline, size: Sizes.rowIcon),
-      label: const Text('Its work, under Work'),
+      command: projectWorkCommand(
+        open: () {
+          _workView
+            ..machine = machine.name
+            ..project = narrowed == null ? null : (narrowed.name == defaultProject ? '' : narrowed.name);
+          widget.shell.goTo(Section.work);
+        },
+      ),
+      icon: Icons.play_circle_outline,
+      description: 'Show the work belonging to this project.',
     );
     return Column(
       children: <Widget>[

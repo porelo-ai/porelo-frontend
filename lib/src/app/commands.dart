@@ -1229,3 +1229,7 @@ Command hostProtocolCommand({required String project, required VoidCallback open
 /// Retries the same setup arguments only after the previous command has ended.
 Command retryHostPreparationCommand({required String project, required VoidCallback retry}) =>
     Command(id: 'host.retry', label: 'Try setup again', group: '$project server', run: retry);
+
+/// Opens the selected project's existing work under Work.
+Command projectWorkCommand({required VoidCallback open}) =>
+    Command(id: 'project.itsWork', label: 'Its work, under Work', group: 'Project', home: Home.startTile, run: open);

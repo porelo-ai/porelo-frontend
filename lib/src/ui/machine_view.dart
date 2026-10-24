@@ -175,7 +175,7 @@ class CommandTile extends StatelessWidget {
   /// The action, including its label and why it cannot run now.
   final Command command;
 
-  /// The outlined mark beside its label.
+  /// The outlined mark above its label.
   final IconData icon;
 
   /// One line explaining what the action does.
@@ -187,49 +187,68 @@ class CommandTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final starting = command.id == 'work.start';
-    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    Color foreground(Set<WidgetState> states) => states.contains(WidgetState.disabled)
+        ? scheme.onSurface.withValues(alpha: ActionTiles.disabledInk)
+        : scheme.primary;
     return Highlight(
       active: highlighted,
-      child: SizedBox(
-        width: Sizes.tile,
-        child: Tooltip(
-          message: command.unavailable ?? description,
-          child: OutlinedButton(
+      child: Tooltip(
+        message: command.unavailable ?? description,
+        waitDuration: ActionTiles.tooltipDelay,
+        constraints: const BoxConstraints(maxWidth: ActionTiles.tooltipWidth),
+        padding: const EdgeInsets.all(Space.normal),
+        verticalOffset: ActionTiles.tooltipOffset,
+        child: SizedBox(
+          width: ActionTiles.width,
+          height: ActionTiles.height,
+          child: ElevatedButton(
             key: starting ? const Key('start-work') : null,
             autofocus: highlighted,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, Sizes.startTileHeight),
-              padding: const EdgeInsets.all(Space.normal),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.medium)),
+            style: ButtonStyle(
+              padding: const WidgetStatePropertyAll(EdgeInsets.all(Space.wide)),
+              alignment: Alignment.center,
+              shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.medium))),
+              side: const WidgetStatePropertyAll(BorderSide.none),
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.disabled)) return scheme.surfaceContainer;
+                if (states.contains(WidgetState.pressed)) {
+                  return Color.alphaBlend(
+                    scheme.primary.withValues(alpha: ActionTiles.pressedInk),
+                    scheme.surfaceContainerLowest,
+                  );
+                }
+                return scheme.surfaceContainerLowest;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith(foreground),
+              textStyle: WidgetStatePropertyAll(Theme.of(context).textTheme.titleSmall),
+              overlayColor: WidgetStateProperty.resolveWith(
+                (states) => foreground(states)
+                    .withValues(alpha: states.contains(WidgetState.hovered) ? ActionTiles.hoverInk : ActionTiles.noInk),
+              ),
+              elevation: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.disabled)) return ActionTiles.disabledElevation;
+                if (states.contains(WidgetState.pressed)) return ActionTiles.pressedElevation;
+                return states.contains(WidgetState.hovered) ? ActionTiles.hoverElevation : ActionTiles.elevation;
+              }),
+              shadowColor: WidgetStatePropertyAll(scheme.shadow),
+              surfaceTintColor: WidgetStatePropertyAll(scheme.surfaceTint),
             ),
             onPressed: command.available ? command.run : null,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(icon, size: Sizes.rowIcon),
-                    const SizedBox(width: Space.small),
-                    Expanded(
-                      child: Text(
-                        command.label,
-                        key: starting && command.available ? const Key('start-work-says') : null,
-                        style: text.labelLarge,
-                      ),
-                    ),
-                  ],
-                ),
+                Icon(icon, size: ActionTiles.icon),
                 const SizedBox(height: Space.small),
-                Text(description, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodySmall),
-                if (command.unavailable case final reason?) ...<Widget>[
-                  const SizedBox(height: Space.small),
-                  Text(
-                    starting ? 'Cannot start: $reason' : 'Unavailable: $reason',
+                Flexible(
+                  child: Text(
+                    command.label,
                     key: starting ? const Key('start-work-says') : null,
-                    style: text.bodySmall,
+                    textAlign: TextAlign.center,
+                    maxLines: ActionTiles.titleLines,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
+                ),
               ],
             ),
           ),

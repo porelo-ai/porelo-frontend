@@ -30,7 +30,7 @@ void main() {
     );
   }
 
-  // Prevents a tile from dispatching a neighboring command or dispatching its own twice.
+  // Harm: a tile dispatches a neighboring command or dispatches its own twice.
   testWidgets('a tile runs exactly its command once per press', (tester) async {
     final ran = <String>[];
     await showTiles(tester, <Command>[
@@ -45,7 +45,7 @@ void main() {
     expect(ran, <String>['second', 'first']);
   });
 
-  // Prevents an action from running when its command refuses it, including after state changes.
+  // Harm: an action runs when its command refuses it, including after state changes.
   testWidgets('a refused command shows its reason and never runs from its tile', (tester) async {
     var runs = 0;
     final command = Command(id: 'action', label: 'Action', group: 'Work', run: () => runs++);
@@ -53,9 +53,7 @@ void main() {
     await tester.tap(find.text('Action'));
     expect(runs, 1);
     await showTiles(tester, <Command>[command.unless('the machine is not answering')]);
-    expect(find.text('Unavailable: the machine is not answering'), findsOneWidget);
     expect(find.byTooltip('the machine is not answering'), findsOneWidget);
-    expect(tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed, isNull);
     await tester.tap(find.text('Action'));
     await World.settle(tester);
     expect(runs, 1);

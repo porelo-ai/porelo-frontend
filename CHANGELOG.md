@@ -18,6 +18,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Project actions, including Its work, are equal raised tiles with a teal icon and title; their
+  explanation or the reason they are unavailable shows in a tooltip.
 - Server setup writes the followed project’s verified bundle into the tresor folder and fills the
   public SSH key from the chosen private key.
 - Server setup shows each step once in words with its local start time, duration, and overdue
