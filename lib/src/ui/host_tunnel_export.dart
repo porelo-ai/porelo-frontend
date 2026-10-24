@@ -24,7 +24,7 @@ Future<void> saveHostTunnel(
   try {
     final path = saveTunnel == null ? (await getSaveLocation(suggestedName: 'porelo.conf'))?.path : await saveTunnel();
     if (path == null || !context.mounted) return;
-    checkVpnFile(path);
+    checkVpnSaveFile(path);
     saving?.call(true);
     final record = settings?.hostUp(project);
     final connection =

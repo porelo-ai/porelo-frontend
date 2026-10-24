@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A server's menu offers Save the VPN connection… after closing its setup dialog or restarting
   the app, using public tunnel settings kept when the host becomes Ready. Saving again keeps the
   newly chosen path and preserves the setup collection's verification digest.
+- On Windows, Save the VPN connection… accepts a plain absolute Windows path instead of refusing
+  every one.
 - Each Choose… in the server setup dialog starts in the folder of the file or folder chosen before it.
 
 ### Changed
