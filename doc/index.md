@@ -157,6 +157,11 @@ on. `porelo-host down` with the same options takes the last copies and gives the
 fails, it keeps the host, says what would be lost, and names the ways out: `down` again, or `down
 --give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
 
+**In the interface**, *Put this project on a server…* on a project's menu runs the `porelo-host`
+that came with the interface, shows its steps, asks at its stop, and adds the host to *Machines*;
+*Take it off the server* runs `down` and removes it. A Tresorit folder chosen for the project
+receives the host's files, while the person's own WireGuard key stays in the system secret store.
+
 ## What the other pages hold
 
 - [Design](design.md): what the interface is made of, and why.

@@ -8,5 +8,5 @@ file into their own WireGuard by hand.
 
 ## Why
 
-[F140](README.md#f140) only shows the tunnel's settings and offers the file, since the interface
+The host dialog only shows the tunnel's settings and offers the file, since the interface
 runs without root.

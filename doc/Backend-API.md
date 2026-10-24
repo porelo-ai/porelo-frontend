@@ -112,6 +112,8 @@ Worth knowing before designing around them:
 - **`Stop` refuses.** A task holding commits that never reached the gate comes back as
   `HOLDS_WORK` and is left exactly as it was. That refusal is a feature and needs a real place in
   the interface, not an error toast.
+- **`Stopped`'s `surviving` is read as a count or as a list of names**, and an absent or malformed
+  value reads as not reported, never as none.
 - **`HandIn` goes in parts, each a call of its own.** A request may be at most 4 MiB, the JSON
   around the base64 included, and a single call has a deadline, so a file goes in parts of 1 MiB.
   Every part repeats the name, size and SHA-256; a part at the wrong offset is refused as

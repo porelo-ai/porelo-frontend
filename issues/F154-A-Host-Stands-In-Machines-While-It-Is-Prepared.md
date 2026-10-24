@@ -14,7 +14,7 @@ wanted.
 
 ## Why
 
-In [F135](README.md#f135), the host dialog locks the window while `porelo-host up` runs, shows
+Today, the host dialog locks the window while `porelo-host up` runs, shows
 internal phase names (`rent`, `ssh`, `ansible`), asks *Add this server to your machines* as a
 separate step after a finished `up`, and stays open with *Put it on a server* still as its main
 button.

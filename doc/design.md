@@ -263,6 +263,8 @@ repositories, changed only after agreement in both.
   `porelo-host`'s pinned host key and that identity, including temporary trial tunnels. The
   interface never offers to trust a different key for it.
 - **An unknown `kind`** is kept in the file and shown as not reachable by this version, never dropped.
+- **`tresorFolders`:** a map from project name to its chosen local Tresorit folder path, checked on
+  load and written in the same settings file, never in `project.yml`.
 
 ### A test on a Windows machine
 

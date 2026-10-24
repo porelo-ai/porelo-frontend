@@ -18,10 +18,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f135"></a>[F135](F135-The-Interface-Brings-A-Host-Up-And-Down.md) | — | — | Putting a project on a server from the interface, answering its drive and vault stop, adding and removing its host machine. |
-| <a id="f141"></a>[F141](F141-An-Agent-Signed-In-On-The-Host-At-The-Stop.md) | — | — | Agent sign-in at task start on a host machine; every SSH path uses the setup identity and the key pinned by `porelo-host`. |
-| <a id="f140"></a>[F140](F140-The-Hosts-Files-Written-Into-The-Persons-Drive.md) | — | — | The interface writing the host's files, the machine file and the host's WireGuard key, into the project's tresor folder on the desktop, the person's own VPN key kept in the secret store. |
-| <a id="f151"></a>[F151](F151-A-Stops-Survivors-Read-In-Either-Form.md) | — | — | A stop's survivors read as a count or names; missing or invalid data is not reported. |
 | <a id="f130"></a>[F130](F130-The-Leased-Leg-Taken-From-A-Run-That-Proved-The-Same-Tree.md) | — | — | The leased leg skipped on a tree a run already proved, saying which run. |
 | <a id="f133"></a>[F133](F133-A-Providers-Key-In-The-Systems-Secret-Store.md) | — | — | A provider's key in Credential Manager or Secret Service, read by the interface and the command alike. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
@@ -119,6 +115,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f135"></a>F135 | The Interface Brings A Host Up And Down | `HostSession` and `HostDialog` for *Put this project on a server…*, running the shipped `porelo-host` by path with read-only arguments once started, answering the drive and vault stop on standard input, and adding or removing the project's `host` machine on a finished `up` or `down`. |
+| <a id="f140"></a>F140 | The Host's Files Written Into The Person's Drive | `porelo-host/machine.yml`, optional key copies and the host's WireGuard key staged and published without replacement into the project's chosen local Tresorit folder, the person's private WireGuard key kept in the system secret store under `wireguard-<project>`, and an explicit `wg-quick` export after a finished `up`. |
+| <a id="f141"></a>F141 | An Agent Signed In When A Task Needs It On The Host | The completed `up` done line naming `address`, `account` and `socket`, agent sign-in on a `host` machine run at task start through the machine sign-in terminal and its reply forward, and `pinnedHostSshOptions` leading every SSH path to the host while refusing on-screen host-key trust. |
+| <a id="f151"></a>F151 | A Stop's Survivors Read In Either Form | `Stopped` reading `surviving` as a numeric count or a list of survivor names and treating absent or malformed values as an unknown count, with `stopWords` naming any surviving helpers and reporting `"not reported"` when unknown. |
 | <a id="f131"></a>F131 | A Host Brought Up And Down By One Command | The pure-Dart package `packages/porelo_host/` and `porelo-host up` and `down`, which rent or find a host, run the collection's plays on it over ssh with its host key pinned, stop with 75 for the drive and the vault, resume with the answers on standard input, and give the host back after the down play. |
 | <a id="f132"></a>F132 | A Host Rented From Scaleway Elastic Metal | `ScalewayElasticMetal` against Scaleway's Elastic Metal and IAM APIs, checking that the person's ssh key is registered before renting, passing a generated ed25519 host key through cloud-init and the server's tag, and finding or giving back a server by the project's tag alone. |
 | <a id="f134"></a>F134 | The Host Command Built And Shipped For Linux And Windows | `porelo-host` compiled with the package's version and shipped at `/usr/lib/porelo-frontend/porelo-host` in the Linux packages and beside the interface in the Windows ZIP and MSIX, checked in every install proof. |

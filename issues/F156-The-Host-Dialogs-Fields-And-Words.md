@@ -13,7 +13,7 @@ WireGuard, that the file holds a private key, where to keep it, and how to bring
 
 ## Why
 
-In [F135](README.md#f135) and [F140](README.md#f140), `~` in a path field is taken literally and
+In the host dialog, `~` in a path field is taken literally and
 fails with *Cannot prepare the host file*, the repository URL and signing-key fields are shown
 before a tresor folder is chosen, and the dialog does not scroll when input appears at the end.
 *Save the wg-quick file* and *Bring the tunnel up with your own WireGuard. This needs root.* are

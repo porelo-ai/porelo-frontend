@@ -15,7 +15,7 @@ The host dialog's fields for them go.
 
 ## Why
 
-[F135](README.md#f135) asks for the Tresorit login and the vault passphrase in the host dialog's
+The host dialog asks for the Tresorit login and the vault passphrase in its
 own form and pipes them to `porelo-host up` on standard input. That puts secrets into the
 interface's widgets and misses Tresorit's second-factor prompt, which
 `tresorit-cli login --email <e-mail> --password-on-stdin` asks in the terminal after the password.

@@ -60,6 +60,8 @@ taken, `git log` answers.
 | [Secrets reach the host only on standard input: the drive's password and one-time code, and the vault's passphrase](#secrets-reach-the-host-only-on-standard-input) |
 | [No Scaleway secret is on GitHub: the Build tests against recorded answers, with one real rent per release](#no-scaleway-secret-is-on-github) |
 | [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
+| [The host's files reach it through Tresorit, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-through-tresorit-and-the-persons-wireguard-key-stays-in-the-secret-store) |
+| [An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned](#an-agent-on-a-host-is-signed-in-at-task-start-and-every-ssh-trusts-only-the-key-porelo-host-pinned) |
 
 ## The interface can do what a console can
 
@@ -726,3 +728,19 @@ ZIP and MSIX place `porelo-host.exe` beside the interface, compiled from the sam
 package's version baked in; the packaging refuses a binary that reports another version. The
 interface starts `porelo-host` by that path, never by `PATH`, so neither an older copy on the
 machine nor a binary placed earlier on `PATH` can stand in for the one built with the interface.
+
+## The host's files reach it through Tresorit, and the person's WireGuard key stays in the secret store
+
+When a local Tresorit folder is chosen for a project, the interface writes the host's machine file,
+any copied keys and the host's private WireGuard key there without replacing differing files or
+following links. The person's private WireGuard key stays in the system secret store and is written
+out only when the person exports it. That gives the host its key without a secret on a command line
+or in a log, while the person's own key never travels.
+
+## An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned
+
+`porelo-host up` installs agents and starts no task; when it finishes, the host is added as a
+machine and an agent is signed in there when starting a task needs it, through the existing
+machine sign-in and its reply forward. Every ssh to a host uses the setup identity and trusts only
+the host key `porelo-host` pinned, refusing to scan or trust another key on screen: one sign-in
+path for every machine, and no on-screen trust of a key nobody checked.
