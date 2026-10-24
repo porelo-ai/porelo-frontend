@@ -6,6 +6,143 @@ import 'package:flutter/material.dart';
 import 'desk.dart';
 import 'machines.dart';
 
+/// The non-secret inputs of one project's last host setup, kept together for teardown.
+@immutable
+class HostUpRecord {
+  /// Keeps paths and public tunnel options, never key contents or login answers.
+  const HostUpRecord({
+    required this.scalewayProject,
+    required this.account,
+    required this.tresor,
+    required this.folder,
+    required this.repository,
+    required this.signingKey,
+    required this.identity,
+    required this.publicKey,
+    required this.collection,
+    required this.vpnPeerPublicKey,
+    required this.vpnPeerAddress,
+  });
+
+  /// The provider project that owns the rented host.
+  final String scalewayProject;
+
+  /// The OS user on the host.
+  final String account;
+
+  /// The remote Tresorit tresor name.
+  final String tresor;
+
+  /// Its local synced folder, absent when the host files were supplied manually.
+  final String? folder;
+
+  /// The project's repository address.
+  final String repository;
+
+  /// The public signing key's path.
+  final String signingKey;
+
+  /// The private SSH key's path, never its contents.
+  final String identity;
+
+  /// The public SSH key's path.
+  final String publicKey;
+
+  /// The host setup collection's path.
+  final String collection;
+
+  /// The tunnel peer's public half, empty when none was supplied.
+  final String vpnPeerPublicKey;
+
+  /// The tunnel peer's address, empty when none was supplied.
+  final String vpnPeerAddress;
+
+  /// Reads every field or drops the entire unusable record.
+  static HostUpRecord? fromStored(Object? value) {
+    if (value case {
+      'scalewayProject': final String scalewayProject,
+      'account': final String account,
+      'tresor': final String tresor,
+      'folder': final Object? folder,
+      'repository': final String repository,
+      'signingKey': final String signingKey,
+      'identity': final String identity,
+      'publicKey': final String publicKey,
+      'collection': final String collection,
+      'vpnPeerPublicKey': final String vpnPeerPublicKey,
+      'vpnPeerAddress': final String vpnPeerAddress,
+    }) {
+      if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
+      final required = [scalewayProject, account, tresor, identity, publicKey, collection];
+      if (required.any((field) => field.trim().isEmpty)) return null;
+      if ([
+        ...required,
+        repository,
+        signingKey,
+        vpnPeerPublicKey,
+        vpnPeerAddress,
+      ].any((field) => field.contains('\x00'))) {
+        return null;
+      }
+      if (vpnPeerPublicKey.isEmpty != vpnPeerAddress.isEmpty) return null;
+      if (folder != null && (repository.trim().isEmpty || signingKey.trim().isEmpty)) return null;
+      return HostUpRecord(
+        scalewayProject: scalewayProject,
+        account: account,
+        tresor: tresor,
+        folder: folder as String?,
+        repository: repository,
+        signingKey: signingKey,
+        identity: identity,
+        publicKey: publicKey,
+        collection: collection,
+        vpnPeerPublicKey: vpnPeerPublicKey,
+        vpnPeerAddress: vpnPeerAddress,
+      );
+    }
+    return null;
+  }
+
+  /// Only the public setup choices that belong in the interface's settings.
+  Map<String, Object?> get stored => {
+    'scalewayProject': scalewayProject,
+    'account': account,
+    'tresor': tresor,
+    'folder': folder,
+    'repository': repository,
+    'signingKey': signingKey,
+    'identity': identity,
+    'publicKey': publicKey,
+    'collection': collection,
+    'vpnPeerPublicKey': vpnPeerPublicKey,
+    'vpnPeerAddress': vpnPeerAddress,
+  };
+
+  /// The identical host identity options for up, resume and down.
+  List<String> arguments(String project) => [
+    '--project',
+    project,
+    '--tresor',
+    tresor,
+    '--account',
+    account,
+    '--public-key',
+    publicKey,
+    '--identity',
+    identity,
+    '--collection',
+    collection,
+    if (vpnPeerPublicKey.isNotEmpty) ...[
+      '--vpn-peer-public-key',
+      vpnPeerPublicKey,
+      '--vpn-peer-address',
+      vpnPeerAddress,
+    ],
+    '--scaleway-project',
+    scalewayProject,
+  ];
+}
+
 /// Where the interface's own preferences live.
 ///
 /// Deliberately a file this application writes itself rather than a preferences plugin: the
@@ -166,6 +303,17 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    _hostUps.clear();
+    final hostUps = stored['hostUps'];
+    if (hostUps is Map) {
+      for (final entry in hostUps.entries) {
+        final project = entry.key;
+        final record = HostUpRecord.fromStored(entry.value);
+        if (project is String && project.isNotEmpty && !project.contains('\x00') && record != null) {
+          _hostUps[project] = record;
+        }
+      }
+    }
     final place = stored['place'];
     if (place is Map) {
       _place = <String, String>{
@@ -205,6 +353,36 @@ class Settings extends ChangeNotifier {
   }
 
   Map<String, String> _tresorFolders = <String, String>{};
+
+  final _hostUps = <String, HostUpRecord>{};
+
+  /// The arguments used for the project's last host setup, absent when none were kept.
+  HostUpRecord? hostUp(String project) => _hostUps[project];
+
+  /// Persists the setup before a process can rent a host that would otherwise be lost.
+  Future<void> rememberHostUp(String project, HostUpRecord record) async {
+    if (project.isEmpty || project.contains('\x00') || HostUpRecord.fromStored(record.stored) == null) {
+      throw ArgumentError('A project and a complete host setup record are required.');
+    }
+    final previous = _hostUps[project];
+    _hostUps[project] = record;
+    try {
+      await _write();
+      final saved = (await _store.read())['hostUps'];
+      final savedRecord = saved is Map ? saved[project] : null;
+      if (savedRecord is! Map || !record.stored.entries.every((entry) => savedRecord[entry.key] == entry.value)) {
+        throw const FileSystemException('Cannot keep the host setup in the interface settings.');
+      }
+    } on Exception {
+      if (previous == null) {
+        _hostUps.remove(project);
+      } else {
+        _hostUps[project] = previous;
+      }
+      rethrow;
+    }
+    notifyListeners();
+  }
 
   /// The locally synced Tresorit folder chosen for this project.
   String? tresorFolder(String project) => _tresorFolders[project];
@@ -389,6 +567,7 @@ class Settings extends ChangeNotifier {
     'templates': _templates,
     'forges': _forges,
     'tresorFolders': _tresorFolders,
+    'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
   };
 
   static ThemeMode _appearanceNamed(Object? name) =>

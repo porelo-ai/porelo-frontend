@@ -580,7 +580,40 @@ List<Command> projectCommands({
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
 
-/// What one machine can be told to do, from the menu in its title.
+/// The provider action belonging to a rented host, independent of its daemon's availability.
+List<Command> hostMachineCommands({
+  required Machine machine,
+  required Settings settings,
+  required VoidCallback takeDown,
+}) => [
+  if (machine.kind == 'host')
+    Command(
+      id: 'machine.takeDown',
+      label: 'Take this server down',
+      group: 'Machine',
+      home: Home.machineMenu,
+      run: takeDown,
+      unavailable: settings.hostUp(machine.hostProject) == null
+          ? 'nothing was kept from putting it on a server; use Put this project on a server…'
+          : null,
+    ),
+];
+
+/// Stops watching a machine, with the same guard wherever removal is offered.
+Command forgetMachineCommand({
+  required bool canForget,
+  required VoidCallback forget,
+  String label = 'Forget this machine',
+}) => Command(
+  id: 'machine.forget',
+  label: label,
+  group: 'Machine',
+  home: Home.machineMenu,
+  run: forget,
+  unavailable: canForget ? null : 'it is the only machine watched',
+);
+
+/// The machine's daemon actions and any host lifecycle actions, sharing one home.
 List<Command> machineCommands({
   required FleetModel fleet,
   required bool canForget,
@@ -596,6 +629,7 @@ List<Command> machineCommands({
   required VoidCallback startTheDaemon,
   required VoidCallback stopTheDaemon,
   required VoidCallback forget,
+  List<Command> hostActions = const [],
   VoidCallback? clearTheMachine,
   required Vault vault,
   required void Function(VaultAct act) actOnTheVault,
@@ -606,6 +640,7 @@ List<Command> machineCommands({
   final connected = fleet.reachability == Reachability.connected;
   final notConnected = connected ? null : 'the machine is not answering';
   return <Command>[
+    ...hostActions,
     // The one thing a machine that is not answering can still be asked, and only while this
     // interface is the one that logs in: everything else here needs the daemon that is missing.
     Command(
@@ -762,15 +797,7 @@ List<Command> machineCommands({
       run: clearTheMachine ?? () {},
       unavailable: clearTheMachine == null ? 'not from here' : null,
     ),
-    Command(
-      id: 'machine.forget',
-      label: 'Forget this machine',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: forget,
-      // Never the last one: a frame with no machine behind it has nothing to say.
-      unavailable: canForget ? null : 'it is the only machine watched',
-    ),
+    forgetMachineCommand(canForget: canForget, forget: forget),
   ];
 }
 
@@ -784,6 +811,7 @@ List<Command> machineCommands({
 List<Command> commandsFor({
   required FleetModel fleet,
   required Machine machine,
+  List<Command> hostActions = const [],
   required bool canForget,
   required ShellModel shell,
   required Settings settings,
@@ -928,6 +956,7 @@ List<Command> commandsFor({
     ),
     ...machineCommands(
       fleet: fleet,
+      hostActions: hostActions,
       canForget: canForget,
       reachedOverSsh: machine.needsATunnel,
       canStart: machine.canBeStartedHere,

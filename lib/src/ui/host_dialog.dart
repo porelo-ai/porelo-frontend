@@ -14,6 +14,21 @@ import '../app/session.dart';
 import 'wizard.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
+import 'dialog_scroll.dart';
+
+/// Confirms teardown and shows the host's steps using only the kept setup arguments.
+Future<void> openHostTakeDownDialog(
+  BuildContext context, {
+  required String project,
+  required Machines machines,
+  required Settings settings,
+  StartHostCommand? start,
+}) => showDialog<void>(
+  context: context,
+  barrierDismissible: false,
+  builder: (_) =>
+      HostDialog(project: project, machines: machines, settings: settings, start: start, takeDownOnly: true),
+);
 
 /// Puts [project] on a server, or takes it off again, by the `porelo-host` shipped beside this
 /// interface, showing each step as it says it and asking at its one stop.
@@ -46,6 +61,7 @@ class HostDialog extends StatefulWidget {
     this.pickFolder,
     this.pickFile,
     this.saveTunnel,
+    this.takeDownOnly = false,
     super.key,
   });
 
@@ -79,6 +95,9 @@ class HostDialog extends StatefulWidget {
   /// Chooses the explicitly requested tunnel export destination.
   final Future<String?> Function()? saveTunnel;
 
+  /// Shows the machine's teardown confirmation and progress without asking setup questions.
+  final bool takeDownOnly;
+
   @override
   State<HostDialog> createState() => _HostDialogState();
 }
@@ -109,6 +128,18 @@ class _HostDialogState extends State<HostDialog> {
     super.initState();
     _folder = widget.settings?.tresorFolder(widget.project);
     if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
+    final kept = widget.settings?.hostUp(widget.project);
+    if (kept != null) {
+      _scaleway.text = kept.scalewayProject;
+      _account.text = kept.account;
+      _tresor.text = kept.tresor;
+      _folder = kept.folder;
+      _repository.text = kept.repository;
+      _signingKey.text = kept.signingKey;
+      _identity.text = kept.identity;
+      _publicKey.text = kept.publicKey;
+      _collection.text = kept.collection;
+    }
   }
 
   bool _upStarted = false;
@@ -166,27 +197,25 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  HostSession _newSession() {
+  HostUpRecord _record() => HostUpRecord(
+    scalewayProject: _scaleway.text.trim(),
+    account: _account.text.trim(),
+    tresor: _tresor.text.trim(),
+    folder: _folder,
+    repository: _repository.text.trim(),
+    signingKey: _signingKey.text.trim(),
+    identity: _identity.text.trim(),
+    publicKey: _publicKey.text.trim(),
+    collection: _collection.text.trim(),
+    vpnPeerPublicKey: _tunnel?.peerPublicKey ?? '',
+    vpnPeerAddress: _tunnel == null ? '' : '10.73.0.2/32',
+  );
+
+  HostSession _newSession({HostUpRecord? record}) {
     _session?.dispose();
     final session = HostSession(
       executable: poreloHost(environment: widget.environment),
-      arguments: <String>[
-        '--project',
-        widget.project,
-        '--tresor',
-        _tresor.text.trim(),
-        '--account',
-        _account.text.trim(),
-        '--public-key',
-        _publicKey.text.trim(),
-        '--identity',
-        _identity.text.trim(),
-        '--collection',
-        _collection.text.trim(),
-        if (_tunnel != null) ..._tunnel!.arguments,
-        '--scaleway-project',
-        _scaleway.text.trim(),
-      ],
+      arguments: (record ?? _record()).arguments(widget.project),
       start: widget.start,
     )..addListener(_sessionChanged);
     return _session = session;
@@ -293,7 +322,10 @@ class _HostDialogState extends State<HostDialog> {
           );
         });
         if (!mounted) return;
-        _newSession();
+        final record = _record();
+        await widget.settings?.rememberHostUp(widget.project, record);
+        if (!mounted) return;
+        _newSession(record: record);
         _upStarted = true;
       }
       await _runUp(_session!.up);
@@ -340,9 +372,12 @@ class _HostDialogState extends State<HostDialog> {
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {
+    if (_running) return;
+    final kept = widget.settings?.hostUp(widget.project);
+    if (widget.takeDownOnly && kept == null) return;
     setState(() => _takingDown = true);
     try {
-      _expandPaths();
+      if (kept == null && !_upStarted) _expandPaths();
     } on FormatException catch (error) {
       setState(() => _machineProblem = error.message);
       return;
@@ -350,8 +385,8 @@ class _HostDialogState extends State<HostDialog> {
     _doneUp = false;
     _showTunnel = false;
     _machineProblem = null;
-    final account = _account.text.trim();
-    if (!_upStarted) {
+    final account = _upStarted ? _account.text.trim() : kept?.account ?? _account.text.trim();
+    if (!_upStarted && kept == null) {
       setState(() => _preparing = true);
       try {
         await _withFiles((files) async {
@@ -368,8 +403,16 @@ class _HostDialogState extends State<HostDialog> {
       }
       if (!mounted) return;
     }
-    final session = _upStarted ? _session! : _newSession();
-    await _runHost(session.down);
+    final session = _upStarted ? _session! : _newSession(record: kept);
+    try {
+      await _runHost(session.down);
+    } on Exception {
+      session.state = HostRunState.refused;
+      if (mounted) {
+        setState(() => _machineProblem = 'The host command could not complete. Your machines have been kept.');
+      }
+      return;
+    }
     if (session.state != HostRunState.done) return;
     final address = session.releasedAddress;
     if (address == null || address.isEmpty) {
@@ -433,6 +476,7 @@ class _HostDialogState extends State<HostDialog> {
           host: '$account@$address',
           remoteSocket: socket,
           identity: _identity.text.trim(),
+          hostProject: widget.project,
         ),
       );
       if (mounted) setState(() => _doneUp = false);
@@ -679,29 +723,71 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => Wizard(
-    title: 'Put the project ${widget.project} on a server',
-    steps: _steps,
-    action: 'Put it on a server',
-    actionKey: const Key('host-up'),
-    scrollController: _scroll,
-    actionSteps: [
-      WizardActionStep(
-        title: _takingDown ? 'Taking it off the server' : 'Putting it on a server',
-        words:
-            'The host reports its steps below. At a stop, complete what it asks in its terminal. '
-            'Only the host can confirm that setup is done.',
-        panel: _progress,
-        run: _up,
-        state: () => _actionState,
+  Widget build(BuildContext context) => widget.takeDownOnly
+      ? _takeDownDialog(context)
+      : Wizard(
+          title: 'Put the project ${widget.project} on a server',
+          steps: _steps,
+          action: 'Put it on a server',
+          actionKey: const Key('host-up'),
+          scrollController: _scroll,
+          actionSteps: [
+            WizardActionStep(
+              title: _takingDown ? 'Taking it off the server' : 'Putting it on a server',
+              words:
+                  'The host reports its steps below. At a stop, complete what it asks in its terminal. '
+                  'Only the host can confirm that setup is done.',
+              panel: _progress,
+              run: _up,
+              state: () => _actionState,
+            ),
+          ],
+          actions: (_, run) => OutlinedButton(
+            key: const Key('host-down'),
+            onPressed: _running || !_complete ? null : () => run(_down),
+            child: const Text('Take it off the server'),
+          ),
+        );
+
+  Widget _takeDownDialog(BuildContext context) {
+    final started = _session != null;
+    return PopScope(
+      canPop: !_running,
+      child: AlertDialog(
+        key: const Key('host-take-down'),
+        title: Text('Take the server for ${widget.project} down?'),
+        content: SizedBox(
+          width: Sizes.dialogMedium,
+          child: DialogScroll(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This ends the tasks for project ${widget.project} and its room, and removes its files on the host. '
+                  'The host reports whether its files were copied and the server was given back.',
+                ),
+                if (started) _progress(context),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('host-close'),
+            onPressed: _running ? null : () => Navigator.pop(context),
+            child: Text(started ? 'Close' : 'Cancel'),
+          ),
+          if (!started || _actionState != WizardActionState.done)
+            FilledButton(
+              key: const Key('host-down'),
+              onPressed: _running || widget.settings?.hostUp(widget.project) == null ? null : _down,
+              child: Text(started ? 'Try taking it down again' : 'Take this server down'),
+            ),
+        ],
       ),
-    ],
-    actions: (_, run) => OutlinedButton(
-      key: const Key('host-down'),
-      onPressed: _running || !_complete ? null : () => run(_down),
-      child: const Text('Take it off the server'),
-    ),
-  );
+    );
+  }
 
   Widget _progress(BuildContext context) {
     final session = _session;
@@ -711,7 +797,12 @@ class _HostDialogState extends State<HostDialog> {
       children: <Widget>[
         if (session != null) ...<Widget>[
           for (final step in session.steps) _stepRow(step),
-          if (session.state == HostRunState.waiting) _askForTheStop(session.needs),
+          if (session.state == HostRunState.waiting)
+            if (_takingDown)
+              const Text('The host has not completed teardown. Your machines have been kept.')
+            else
+              _askForTheStop(session.needs),
+          if (session.said.isNotEmpty && session.said != session.fix) Text(session.said),
           if (session.fix != null)
             Padding(
               padding: const EdgeInsets.only(top: Space.small),
@@ -802,7 +893,7 @@ class _HostDialogState extends State<HostDialog> {
         StepState.waiting => Icons.person_outline,
       }, size: Sizes.mark),
       const SizedBox(width: Space.small),
-      Expanded(child: Text(step.step)),
+      Expanded(child: Text([step.step, if (step.words?.isNotEmpty == true) step.words!].join(': '))),
     ],
   );
 

@@ -1,7 +1,133 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
+  const record = <String, Object?>{
+    'scalewayProject': 'provider-project',
+    'account': 'worker',
+    'tresor': 'drive',
+    'folder': '/synced/drive',
+    'repository': 'https://example.org/demo.git',
+    'signingKey': '/keys/sign.pub',
+    'identity': '/keys/private',
+    'publicKey': '/keys/public.pub',
+    'collection': '/setup.tar.gz',
+    'vpnPeerPublicKey': 'public-half',
+    'vpnPeerAddress': '10.73.0.2/32',
+  };
+
+  // Harm: missing host identity or setup inputs can redirect teardown or lose access to a billing server.
+  test('stored host records with empty or whitespace-only required fields are dropped on load', () async {
+    for (final field in ['scalewayProject', 'account', 'tresor', 'identity', 'publicKey', 'collection']) {
+      for (final empty in ['', ' \t\n ']) {
+        final settings = Settings(
+          MemorySettingsStore({
+            'hostUps': {
+              'valid': record,
+              'broken': {...record, field: empty},
+            },
+          }),
+        );
+        await settings.load();
+        expect(settings.hostUp('valid')!.stored, record, reason: 'complete records must remain usable');
+        expect(settings.hostUp('broken'), isNull, reason: 'empty $field must discard the entire record');
+      }
+    }
+  });
+
+  // Harm: keeping only one tunnel option makes teardown run with a different host setup identity.
+  test('stored host records with only one VPN peer option are dropped on load', () async {
+    for (final field in ['vpnPeerPublicKey', 'vpnPeerAddress']) {
+      final withoutTunnel = {...record, 'vpnPeerPublicKey': '', 'vpnPeerAddress': ''};
+      final settings = Settings(
+        MemorySettingsStore({
+          'hostUps': {
+            'valid': record,
+            'withoutTunnel': withoutTunnel,
+            'broken': {...record, field: ''},
+          },
+        }),
+      );
+      await settings.load();
+      expect(settings.hostUp('valid')!.stored, record, reason: 'paired tunnel options must remain usable');
+      expect(settings.hostUp('withoutTunnel')!.stored, withoutTunnel, reason: 'an absent tunnel is valid');
+      expect(settings.hostUp('broken'), isNull, reason: 'missing $field must discard the entire record');
+    }
+  });
+
+  // Harm: restoring a synced folder without its repository or signing key leaves host setup incomplete.
+  test('stored host records with a folder need a repository and signing key on load', () async {
+    for (final field in ['repository', 'signingKey']) {
+      for (final empty in ['', ' \t\n ']) {
+        final manual = {...record, 'folder': null, 'repository': '', 'signingKey': ''};
+        final settings = Settings(
+          MemorySettingsStore({
+            'hostUps': {
+              'valid': record,
+              'manual': manual,
+              'broken': {...record, field: empty},
+            },
+          }),
+        );
+        await settings.load();
+        expect(settings.hostUp('valid')!.stored, record, reason: 'complete synced-folder records must remain usable');
+        expect(settings.hostUp('manual')!.stored, manual, reason: 'manually supplied files need no local repository');
+        expect(settings.hostUp('broken'), isNull, reason: 'a folder without $field must discard the entire record');
+      }
+    }
+  });
+
+  // Harm: a partial or mistyped setup record tears down a different server or loses access to it.
+  test('host setup records survive reload per project and malformed records are dropped whole', () async {
+    final store = MemorySettingsStore({
+      'hostUps': {
+        'demo': record,
+        'other': {...record, 'account': 'other'},
+      },
+    });
+    final settings = Settings(store);
+    await settings.load();
+    expect(settings.hostUp('demo')!.stored, record);
+    await settings.rememberHostUp('third', settings.hostUp('demo')!);
+    final reopened = Settings(store);
+    await reopened.load();
+    expect(reopened.hostUp('third')!.stored, record);
+    expect(reopened.hostUp('other')!.account, 'other');
+    expect(reopened.hostUp('absent'), isNull);
+    final discarded = Settings(
+      _DiscardedWritesStore({
+        'hostUps': {'demo': record},
+      }),
+    );
+    await discarded.load();
+    final changed = HostUpRecord.fromStored({...record, 'scalewayProject': 'different-provider-project'})!;
+    await expectLater(discarded.rememberHostUp('demo', changed), throwsA(isA<FileSystemException>()));
+    expect(discarded.hostUp('demo')!.stored, record, reason: 'an unwritten change cannot redirect teardown');
+    for (final field in record.keys) {
+      for (final value in [7, <String>[], <String, Object?>{}, true, 'bad\x00value']) {
+        final broken = Settings(
+          MemorySettingsStore({
+            'hostUps': {
+              'demo': {...record, field: value},
+            },
+          }),
+        );
+        await broken.load();
+        expect(broken.hostUp('demo'), isNull, reason: 'invalid $field must discard the entire record');
+      }
+      final missing = {...record}..remove(field);
+      final broken = Settings(
+        MemorySettingsStore({
+          'hostUps': {'demo': missing},
+        }),
+      );
+      await broken.load();
+      expect(broken.hostUp('demo'), isNull, reason: 'missing $field must discard the entire record');
+    }
+  });
+
   // Harm: choosing another project's folder overwrites files in the wrong tresor.
   // Red: keep one global folder, omit it from _known, or cast malformed stored fields.
   test('tresor folders are kept separately and invalid stored fields are ignored', () async {
@@ -93,4 +219,11 @@ void main() {
     expect(written['fromLater'], <String, Object?>{'kept': true});
     expect(written['refreshSeconds'], 30);
   });
+}
+
+class _DiscardedWritesStore extends MemorySettingsStore {
+  _DiscardedWritesStore(super.initial);
+
+  @override
+  Future<void> write(Map<String, Object?> values) async {}
 }

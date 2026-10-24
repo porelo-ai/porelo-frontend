@@ -51,6 +51,7 @@ class Machine {
     this.kind = '',
     this.distribution = '',
     this.identity = '',
+    this.hostProject = '',
     this.unknownFields = const <String, Object?>{},
   });
 
@@ -63,6 +64,7 @@ class Machine {
     kind: kind,
     distribution: distribution,
     identity: identity,
+    hostProject: hostProject,
     unknownFields: unknownFields,
   );
 
@@ -113,6 +115,7 @@ class Machine {
     kind: _text(stored['kind']),
     distribution: _text(stored['distribution']),
     identity: _text(stored['identity']),
+    hostProject: _text(stored['hostProject']),
     unknownFields: <String, Object?>{
       for (final entry in stored.entries)
         if (!_knownFields.contains(entry.key)) entry.key: entry.value,
@@ -120,7 +123,7 @@ class Machine {
   );
 
   static const Set<String> _knownFields = <String>{
-    'name', 'socket', 'host', 'remoteSocket', 'kind', 'distribution', 'identity', //
+    'name', 'socket', 'host', 'remoteSocket', 'kind', 'distribution', 'identity', 'hostProject', //
   };
 
   static String _text(Object? value) => value is String ? value : '';
@@ -147,6 +150,9 @@ class Machine {
 
   /// The private key path given to host setup; no key value is stored.
   final String identity;
+
+  /// The project whose kept host setup rented this machine, empty for older entries.
+  final String hostProject;
 
   /// What an entry held beyond the fields this build knows, kept so that saving loses nothing.
   final Map<String, Object?> unknownFields;
@@ -244,6 +250,7 @@ class Machine {
     if (kind.isNotEmpty) 'kind': kind,
     if (distribution.isNotEmpty) 'distribution': distribution,
     if (identity.isNotEmpty) 'identity': identity,
+    if (hostProject.isNotEmpty) 'hostProject': hostProject,
     ...unknownFields,
   };
 
@@ -289,10 +296,11 @@ class Machine {
       other.kind == kind &&
       other.distribution == distribution &&
       other.identity == identity &&
+      other.hostProject == hostProject &&
       mapEquals(other.unknownFields, unknownFields);
 
   @override
-  int get hashCode => Object.hash(name, socketPath, host, remoteSocket, kind, distribution, identity);
+  int get hashCode => Object.hash(name, socketPath, host, remoteSocket, kind, distribution, identity, hostProject);
 }
 
 /// Every machine this interface is watching, and which one it is acting on.

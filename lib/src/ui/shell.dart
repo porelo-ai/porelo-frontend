@@ -340,6 +340,7 @@ class _ShellState extends State<Shell> {
   List<Command> _commands() => commandsFor(
     fleet: _fleet,
     machine: widget.machines.current,
+    hostActions: _hostCommands(widget.machines.current),
     canForget: widget.machines.all.length > 1,
     shell: widget.shell,
     settings: widget.settings,
@@ -409,6 +410,7 @@ class _ShellState extends State<Shell> {
   /// The menu in the machine's title, for the machine being acted on.
   List<Command> _machineMenu() => machineCommands(
     fleet: _fleet,
+    hostActions: _hostCommands(widget.machines.current),
     canForget: widget.machines.all.length > 1,
     reachedOverSsh: widget.machines.current.needsATunnel,
     canStart: widget.machines.current.canBeStartedHere,
@@ -429,6 +431,19 @@ class _ShellState extends State<Shell> {
     unlockWithThePassphrase: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
     makeTheVault: _canUnlockHere ? () => unawaited(_makeTheVault()) : null,
   );
+
+  List<Command> _hostCommands(Machine machine) =>
+      hostMachineCommands(machine: machine, settings: widget.settings, takeDown: () => unawaited(_takeDown(machine)));
+
+  Future<void> _takeDown(Machine machine) async {
+    await openHostTakeDownDialog(
+      context,
+      project: machine.hostProject,
+      machines: widget.machines,
+      settings: widget.settings,
+    );
+    if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
+  }
 
   /// A project card's menu, judged for that project and run with it selected.
   List<Command> _projectMenu(ProjectOnScreen project, {Machine? on}) => <Command>[
@@ -1176,6 +1191,48 @@ class _ShellState extends State<Shell> {
   Future<void> _forget() async {
     if (widget.machines.all.length < 2) return;
     final machine = widget.machines.current;
+    if (machine.kind == 'host') {
+      final takeDown = _hostCommands(machine).single;
+      final decision = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          key: const Key('host-forget-warning'),
+          title: Text('Remove ${machine.name} from this list?'),
+          content: SizedBox(
+            width: Sizes.dialogMedium,
+            child: DialogScroll(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'The server keeps running and billing at the provider. '
+                    'To add it back, use Put this project on a server… again; it finds the existing server by its tag.',
+                  ),
+                  if (takeDown.unavailable != null)
+                    Text('Take this server down is unavailable: ${takeDown.unavailable}'),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: takeDown.available ? () => Navigator.pop(context, 'down') : null,
+              child: Text(takeDown.label),
+            ),
+            FilledButton(
+              key: const Key('forget-it'),
+              onPressed: () => Navigator.pop(context, 'remove'),
+              child: const Text('Remove from this list'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (decision == 'down') takeDown.run();
+      if (decision != 'remove') return;
+    }
     final setup = widget.machines.setup;
     // Only what the wizard wrote is offered, and only ever offered: an entry somebody wrote or
     // changed by hand is theirs, and a key another entry uses would break that one.
@@ -2337,6 +2394,7 @@ class _ShellState extends State<Shell> {
     ]),
     builder: (context, _) => MachinesPage(
       machines: widget.machines,
+      hostCommands: _hostCommands,
       onAdd: _addAMachine,
       onDetails: (machine) {
         widget.machines.select(machine);
@@ -2657,6 +2715,13 @@ class _ShellState extends State<Shell> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                if (narrowed == null)
+                  for (final command in _hostCommands(machine))
+                    CommandTile(
+                      command: command,
+                      icon: Icons.cloud_off_outlined,
+                      description: 'End the project tasks and room, copy its files back and give the server back.',
+                    ),
                 // Scrolls with the work: a project with many repositories is taller than any window,
                 // and a fixed header that grows pushes the work out of sight. The title bar still
                 // names the project.

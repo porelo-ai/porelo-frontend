@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
+import '../app/commands.dart';
+import 'command_menu.dart';
 import 'machine_switcher.dart';
 import 'tokens.dart';
 
@@ -15,6 +17,7 @@ class MachinesPage extends StatelessWidget {
     required this.onAdd,
     required this.onDetails,
     required this.onForget,
+    this.hostCommands,
     super.key,
   });
 
@@ -29,6 +32,9 @@ class MachinesPage extends StatelessWidget {
 
   /// Takes a machine off the list, after asking; never the last one.
   final void Function(Machine machine) onForget;
+
+  /// The host's commands, including their reasons when unavailable.
+  final List<Command> Function(Machine machine)? hostCommands;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +78,14 @@ class MachinesPage extends StatelessWidget {
     // runs, whatever else is watched.
     final local = Machine.local();
     final thisComputer = !machine.needsATunnel && machine.name == local.name && machine.socketPath == local.socketPath;
+    final actions = <Command>[
+      ...?hostCommands?.call(machine),
+      forgetMachineCommand(
+        label: 'Remove from this list',
+        forget: () => onForget(machine),
+        canForget: machines.all.length > 1,
+      ),
+    ];
     return Card(
       key: ValueKey<String>('machines-row ${machine.name}'),
       child: ListTile(
@@ -113,14 +127,11 @@ class MachinesPage extends StatelessWidget {
               PopupMenuButton<String>(
                 key: ValueKey<String>('machines-menu ${machine.name}'),
                 tooltip: 'What can be done with ${machine.name}',
-                onSelected: (_) => onForget(machine),
-                itemBuilder: (context) => <PopupMenuEntry<String>>[
-                  PopupMenuItem<String>(
-                    value: 'forget',
-                    enabled: machines.all.length > 1,
-                    child: const Text('Remove from this list'),
-                  ),
-                ],
+                onSelected: (id) {
+                  final command = actions.firstWhere((command) => command.id == id);
+                  if (command.available) command.run();
+                },
+                itemBuilder: (_) => commandMenuEntries(actions),
               ),
             const Icon(Icons.chevron_right),
           ],

@@ -17,6 +17,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Servers can be taken down from Machines using the last saved setup answers. Removing a server
+  from the list warns that it keeps running and billing, and host setup restores its last answers.
+
 - Project pages offer grouped action tiles and a visible Start work here button on each repository;
   starting from a row keeps that repository selected until Change chooses another.
 

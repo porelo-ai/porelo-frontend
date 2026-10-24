@@ -12,6 +12,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/ui/machines_page.dart';
 
 import '../features/support/world.dart';
 import '../../packages/porelo_host/test/support/pinned_ssh.dart';
@@ -40,6 +43,46 @@ void main() {
   });
   tearDown(() => machines.dispose());
   tearDown(() => scratch.delete(recursive: true));
+
+  // Harm: a forgotten server keeps billing without anyone knowing how to find it.
+  testWidgets('removing a host warns before forgetting and offers teardown beside removal', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    const machine = Machine(
+      name: 'demo server',
+      kind: 'host',
+      socketPath: '/tmp/demo.sock',
+      host: 'porelo@203.0.113.7',
+      identity: '/keys/host',
+      remoteSocket: '/run/user/1007/porelo/porelod.sock',
+    );
+    await World.machines.add(machine);
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('machines-menu demo server')));
+    await World.settle(tester);
+    expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.takeDown'))).enabled, isFalse);
+    expect(
+      find.textContaining('nothing was kept from putting it on a server; use Put this project on a server…'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Remove from this list'));
+    await World.settle(tester);
+    expect(World.machines.all, contains(machine), reason: 'opening removal must not forget a billing server');
+    expect(find.textContaining('running and billing'), findsOneWidget);
+    expect(find.textContaining('tag'), findsOneWidget);
+    expect(find.text('Take this server down'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await World.settle(tester);
+    expect(World.machines.all, contains(machine));
+    await tester.tap(find.byKey(const Key('machines-menu demo server')));
+    await World.settle(tester);
+    await tester.tap(find.text('Remove from this list'));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('forget-it')));
+    await World.settle(tester);
+    expect(World.machines.all, isNot(contains(machine)));
+  });
 
   /// A stand-in `porelo-host`: the first start stops for the drive and a new vault, the second
   /// records stdin and ends done. Every start's arguments are kept.
@@ -128,6 +171,190 @@ void main() {
         reason: 'the supplied answers must pass step ${step + 1}',
       );
       await navigate(tester, 'wizard-next');
+    }
+  }
+
+  // Harm: losing the last setup answers makes a rented server impossible to recover or take down.
+  testWidgets('up keeps its arguments before answering and reopening restores every editable step', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    await settings.rememberTresorFolder('demo', scratch.path);
+    final answers = {
+      'host-scaleway-project': 'project',
+      'host-account': 'worker',
+      'host-tresor': 'remote-drive',
+      'host-repository': 'https://example.org/demo.git',
+      'host-signing-key': fixture('signing.pub'),
+      'host-identity': fixture('private'),
+      'host-public-key': fixture('public.pub'),
+      'host-collection': fixture('collection.tar.gz'),
+    };
+    final process = _HostProcess();
+    final commands = <List<String>>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: 'demo',
+          machines: machines,
+          settings: settings,
+          secretStore: _MemorySecrets(),
+          start: (_, arguments) async {
+            final persisted = Settings(store);
+            await persisted.load();
+            expect(
+              persisted.hostUp('demo')!.arguments('demo'),
+              arguments.skip(1).toList(),
+              reason: 'the record must be durable before starting a billing host',
+            );
+            commands.add(List.of(arguments));
+            return process;
+          },
+        ),
+      ),
+    );
+    await fillSteps(tester, answers);
+    await tapAndRun(tester, const Key('host-up'));
+    expect(commands, hasLength(1));
+    process.end(65);
+    await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+    final reopened = Settings(store);
+    await reopened.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(project: 'demo', machines: machines, settings: reopened),
+      ),
+    );
+    final seen = <String>{};
+    await fillSteps(
+      tester,
+      answers,
+      beforeFill: (field, key) {
+        seen.add(key);
+        expect(field.controller!.text, answers[key], reason: '$key must restore the last up answer');
+        expect(field.readOnly, isFalse, reason: 'reopened answers remain editable');
+      },
+      onDrive: () async => expect(find.text(scratch.path), findsOneWidget),
+    );
+    expect(seen, answers.keys.toSet());
+  });
+
+  for (final code in [65, 75, 0]) {
+    for (final released in [null, '203.0.113.7', '203.0.113.8']) {
+      // Harm: failed teardown loses the only route back, or teardown targets a different billing host.
+      testWidgets('Machines teardown reuses kept arguments and removes only after exit $code releasing $released', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final settings = Settings(MemorySettingsStore());
+        const record = HostUpRecord(
+          scalewayProject: 'provider-project',
+          account: 'worker',
+          tresor: 'remote-drive',
+          folder: '/not-needed-for-down',
+          repository: 'https://example.org/demo.git',
+          signingKey: '/keys/sign.pub',
+          identity: '/keys/private',
+          publicKey: '/keys/public.pub',
+          collection: '/setup.tar.gz',
+          vpnPeerPublicKey: 'public-half',
+          vpnPeerAddress: '10.73.0.2/32',
+        );
+        await settings.rememberHostUp('demo', record);
+        const machine = Machine(
+          name: 'demo server',
+          kind: 'host',
+          hostProject: 'demo',
+          socketPath: '/tmp/demo.sock',
+          host: 'worker@203.0.113.7',
+          identity: '/keys/private',
+        );
+        await machines.add(machine);
+        final before = machines.all;
+        final commands = <List<String>>[];
+        final process = _HostProcess();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: MachinesPage(
+                  machines: machines,
+                  onAdd: () {},
+                  onDetails: (_) {},
+                  onForget: (_) {},
+                  hostCommands: (machine) => hostMachineCommands(
+                    machine: machine,
+                    settings: settings,
+                    takeDown: () => unawaited(
+                      openHostTakeDownDialog(
+                        context,
+                        project: machine.hostProject,
+                        machines: machines,
+                        settings: settings,
+                        start: (_, arguments) async {
+                          commands.add(List.of(arguments));
+                          return process;
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(const Key('machines-menu demo server')));
+        await World.settle(tester);
+        await tester.tap(find.text('Take this server down'));
+        await World.settle(tester);
+        expect(commands, isEmpty, reason: 'teardown must wait for the explicit confirmation');
+        expect(find.textContaining('tasks'), findsOneWidget);
+        expect(find.textContaining('room'), findsOneWidget);
+        expect(find.textContaining('files'), findsOneWidget);
+        expect(find.byType(TextField), findsNothing, reason: 'no setup answer is typed again');
+        await tester.tap(find.byKey(const Key('host-down')));
+        await World.settle(tester);
+        expect(commands, [
+          [
+            'down',
+            '--project',
+            'demo',
+            '--tresor',
+            'remote-drive',
+            '--account',
+            'worker',
+            '--public-key',
+            '/keys/public.pub',
+            '--identity',
+            '/keys/private',
+            '--collection',
+            '/setup.tar.gz',
+            '--vpn-peer-public-key',
+            'public-half',
+            '--vpn-peer-address',
+            '10.73.0.2/32',
+            '--scaleway-project',
+            'provider-project',
+          ],
+        ]);
+        expect(machines.all, before);
+        process.line(host.Step('give-back', host.StepState.done, address: released));
+        await World.settle(tester);
+        expect(machines.all, before, reason: 'a progress line does not confirm a successful exit');
+        process.end(code);
+        await World.settle(tester);
+        expect(
+          machines.all,
+          code == 0 && released == '203.0.113.7' ? before.where((each) => each != machine).toList() : before,
+        );
+        if (code == 65) expect(find.byKey(const Key('host-fix')), findsOneWidget);
+        if (code == 75) expect(find.textContaining('has not completed teardown'), findsOneWidget);
+      });
     }
   }
 
@@ -1025,6 +1252,12 @@ void main() {
     final added = machines.all.single;
     expect(added.name, 'demo server');
     expect(added.kind, 'host');
+    expect(added.hostProject, 'demo');
+    expect(
+      Machine.fromStored(added.stored).hostProject,
+      'demo',
+      reason: 'teardown must still find its record after restart',
+    );
     expect(added.host, 'actual-account@203.0.113.9');
     expect(added.remoteSocket, '/run/user/1099/porelo/porelod.sock');
     expect(added.identity, fixture('new'));
