@@ -20,6 +20,9 @@ Future<void> iStopFollowingFromTheInterface(WidgetTester tester, String name) as
   );
   // Found is not in place: the menu is still growing, and a tap during it lands beside the entry.
   await pumpFor(tester);
+  // The menu's groups make it taller than a small screen; its last entry is scrolled to first.
+  await tester.ensureVisible(find.text('Stop following this project').last);
+  await pumpFor(tester);
   await tester.tap(find.text('Stop following this project').last);
   await pumpFor(tester);
   // The preview first, then the press that agrees to it.
