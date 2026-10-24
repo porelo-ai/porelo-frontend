@@ -2,6 +2,6 @@
 const hostCollection = (
   version: '0.5.1',
   fileName: 'porelo-host-0.5.1.tar.gz',
-  // Local release-shaped tarball's digest; replace with the release's digest.
-  sha256: '40f9945c1411b524f9143467bb765981b8cfcc76a0c0582b0bfa61aff044c2b2',
+  // The digest in porelo-host v0.5.1's own SHA256SUMS.
+  sha256: 'da55c943e879e15b98d17cdb1f9cf2d6550f9ac3237dcb7307475990b0807b08',
 );
