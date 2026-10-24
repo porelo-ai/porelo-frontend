@@ -41,8 +41,17 @@ interface's widgets and misses Tresorit's second-factor prompt, which
   in the account's login shell with `XDG_RUNTIME_DIR` set, is one terminal with only what the
   stop names: `tresorit-cli login` for `drive`, `porelo vault init` for `vault-new`, `porelo vault
   unlock` for `vault`, joined by `&&`. The
-  e-mail, if `tresorit-cli` needs it named, is checked against an address's form and quoted, never
-  spliced. When the terminal is put away, the dialog runs `up` again, and what that says is the
+  e-mail is checked against an address's form and quoted, never spliced.
+- **Tresorit's own login, measured** with client 3.5.1300.4870 in a VM account, the credentials
+  typed by the operator: `--email` and a password option are compulsory, so the command is
+  `tresorit-cli login --email <e-mail> --password-on-stdin`, the e-mail taken in the dialog, which is
+  no secret. In a terminal it asks `Password:` without echo, then `Enter your one-time password: `
+  when the account has a second factor, **and that code shows as it is typed**. A login that
+  succeeds prints nothing, and `tresorit-cli -p status` then names the e-mail under `Logged in as:`;
+  `logout` prints nothing and the field reads `-` again.
+- **So the terminal says what it does:** before the login, that the one-time code will show on the
+  screen; after each command, one line of what came of it and what comes next ("Logged in to
+  Tresorit; the vault comes next"), so a silent success does not leave a bare prompt. When the terminal is put away, the dialog runs `up` again, and what that says is the
   answer; nothing is concluded from the terminal's own end.
 - **The walk:** [F162](README.md#f162)'s stand-in `ssh` gains its `-t` form, running a stand-in
   that asks as `tresorit-cli` and `porelo vault` do and writes nothing of what is typed.
@@ -62,10 +71,5 @@ interface's widgets and misses Tresorit's second-factor prompt, which
 
 ## To be checked
 
-- Whether `tresorit-cli login`, run in a terminal without `--password-on-stdin`, asks the
-  password, then the one-time code, and the e-mail when `--email` is left out, by its own prompts.
-  Measured before this is built, in this repository's own account on the Ubuntu VM with the
-  client `porelo-host` pins, the operator typing the credentials: also what `tresorit-cli -p status`
-  shows afterwards, and that a `logout` leaves nothing behind.
 - Nothing in this repository calls `porelo vault init` or `unlock --passphrase-stdin` once this
   is built; porelo documents `--passphrase-stdin` as for automation only.
