@@ -8,6 +8,7 @@ import '../app/session.dart';
 import '../app/setup_run.dart';
 import 'host_key_dialog.dart';
 import 'tokens.dart';
+import 'terminal_copy.dart';
 import 'terminal_look.dart';
 
 /// The steps of a new machine, or of a new user on a machine prepared before, drawn from a
@@ -38,6 +39,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
 
   /// The terminal the vault's passphrase is typed into, while it is open.
   Session? _vault;
+  final _selection = TerminalController();
 
   /// The private keys in `~/.ssh`, read once when the steps are drawn.
   late final List<String> _keys = widget.run.setup.sshKeys();
@@ -90,11 +92,13 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
     final before = _vault;
     setState(() => _vault = session);
     before?.dispose();
+    _selection.clearSelection();
   }
 
   @override
   void dispose() {
     _vault?.dispose();
+    _selection.dispose();
     run.removeListener(_follow);
     _private.dispose();
     _public.dispose();
@@ -493,19 +497,26 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
           height: Sizes.terminal,
           child: ColoredBox(
             color: TerminalLook.background,
-            child: TerminalView(
-              vault.terminal,
-              key: const Key('vault-terminal'),
-              theme: TerminalLook.theme,
-              autofocus: true,
-              // A passphrase is typed here blind: the cursor at least says where it goes.
-              alwaysShowCursor: vault.live,
-              readOnly: !vault.live,
-              padding: const EdgeInsets.all(Space.small),
-              textStyle: const TerminalStyle(fontSize: 12),
+            child: CopiesAsShown(
+              terminal: vault.terminal,
+              controller: _selection,
+              child: TerminalView(
+                vault.terminal,
+                key: const Key('vault-terminal'),
+                controller: _selection,
+                shortcuts: terminalShortcuts,
+                theme: TerminalLook.theme,
+                autofocus: true,
+                // A passphrase is typed here blind: the cursor at least says where it goes.
+                alwaysShowCursor: vault.live,
+                readOnly: !vault.live,
+                padding: const EdgeInsets.all(Space.small),
+                textStyle: const TerminalStyle(fontSize: 12),
+              ),
             ),
           ),
         ),
+        const TerminalPasteHint(),
       ],
     ];
   }

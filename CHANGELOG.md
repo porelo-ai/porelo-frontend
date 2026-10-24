@@ -48,6 +48,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Session, unlock and vault terminals accept Ctrl+Shift+V and Shift+Insert for paste, show the
+  paste shortcut, and copy selected text as shown.
+
 - Windows host setup refuses invalid key file names without URI errors and uses native paths
   consistently when preparing files and naming conflicts.
 

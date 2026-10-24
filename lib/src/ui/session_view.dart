@@ -152,7 +152,7 @@ class _SessionViewState extends State<SessionView> {
                       key: const Key('terminal'),
                       theme: TerminalLook.theme,
                       controller: _selection,
-                      shortcuts: copyAsShownShortcuts,
+                      shortcuts: terminalShortcuts,
                       focusNode: widget.focusNode,
                       autofocus: true,
                       padding: const EdgeInsets.all(Space.small),
@@ -170,6 +170,7 @@ class _SessionViewState extends State<SessionView> {
               ),
             ),
           ),
+          const TerminalPasteHint(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.normal),
             child: TerminalLinks(session: session),

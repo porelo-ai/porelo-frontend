@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:xterm/xterm.dart';
+
+import 'tokens.dart';
 
 /// The text of [range] as a person sees it on the screen: a cell nothing was written into reads as
 /// the space it shows, up to the last cell written on its line.
@@ -42,11 +45,31 @@ class CopyAsShownIntent extends Intent {
   const CopyAsShownIntent();
 }
 
-/// The terminal's own keys, but copying through [copiedText].
-Map<ShortcutActivator, Intent> get copyAsShownShortcuts => <ShortcutActivator, Intent>{
+/// The terminal's own keys, copying as shown and accepting desktop terminal paste keys.
+Map<ShortcutActivator, Intent> get terminalShortcuts => <ShortcutActivator, Intent>{
   for (final entry in defaultTerminalShortcuts.entries)
     entry.key: entry.value is CopySelectionTextIntent ? const CopyAsShownIntent() : entry.value,
+  if (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows) ...{
+    const SingleActivator(LogicalKeyboardKey.keyV, control: true, shift: true): const PasteTextIntent(
+      SelectionChangedCause.keyboard,
+    ),
+    const SingleActivator(LogicalKeyboardKey.insert, shift: true): const PasteTextIntent(
+      SelectionChangedCause.keyboard,
+    ),
+  },
 };
+
+/// Names the paste shortcut beside a terminal.
+class TerminalPasteHint extends StatelessWidget {
+  /// Creates the shared terminal hint.
+  const TerminalPasteHint({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.tight),
+    child: Text(defaultTargetPlatform == TargetPlatform.macOS ? 'Paste with ⌘V' : 'Paste with Ctrl+Shift+V'),
+  );
+}
 
 /// Answers [CopyAsShownIntent] for the terminal under it, with what [controller] has selected.
 class CopiesAsShown extends StatelessWidget {

@@ -38,7 +38,7 @@ void main() {
         home: CopiesAsShown(
           terminal: terminal,
           controller: selection,
-          child: TerminalView(terminal, controller: selection, shortcuts: copyAsShownShortcuts, autofocus: true),
+          child: TerminalView(terminal, controller: selection, shortcuts: terminalShortcuts, autofocus: true),
         ),
       ),
     );

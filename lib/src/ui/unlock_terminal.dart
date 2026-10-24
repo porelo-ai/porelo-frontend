@@ -10,6 +10,7 @@ import 'dialog_scroll.dart';
 import 'package:guided_walk/guided_walk.dart';
 
 import 'tokens.dart';
+import 'terminal_copy.dart';
 import 'terminal_links.dart';
 import 'terminal_look.dart';
 
@@ -107,6 +108,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
 
   // Asked for once the dialog is on screen: an autofocus inside a dialog loses to its buttons.
   final _keyboard = FocusNode(debugLabel: 'terminal in a dialog');
+  final _selection = TerminalController();
 
   @override
   void initState() {
@@ -164,6 +166,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
       ..removeListener(_changed)
       ..dispose();
     _keyboard.dispose();
+    _selection.dispose();
     super.dispose();
   }
 
@@ -190,23 +193,30 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
               child: ColoredBox(
                 color: TerminalLook.background,
                 child: WalkSecret(
-                  child: TerminalView(
-                    _session.terminal,
-                    key: const Key('unlock-terminal'),
-                    theme: TerminalLook.theme,
-                    focusNode: _keyboard,
-                    autofocus: true,
-                    // The cursor always shown while it waits: a pasted sign-in code went in with
-                    // nothing to say where (on a rented machine). What runs here may hide
-                    // its own; this terminal is for one answer typed by a person.
-                    alwaysShowCursor: _session.live,
-                    readOnly: !_session.live,
-                    padding: const EdgeInsets.all(Space.small),
-                    textStyle: const TerminalStyle(fontSize: 12),
+                  child: CopiesAsShown(
+                    terminal: _session.terminal,
+                    controller: _selection,
+                    child: TerminalView(
+                      _session.terminal,
+                      key: const Key('unlock-terminal'),
+                      theme: TerminalLook.theme,
+                      controller: _selection,
+                      shortcuts: terminalShortcuts,
+                      focusNode: _keyboard,
+                      autofocus: true,
+                      // The cursor always shown while it waits: a pasted sign-in code went in with
+                      // nothing to say where (on a rented machine). What runs here may hide
+                      // its own; this terminal is for one answer typed by a person.
+                      alwaysShowCursor: _session.live,
+                      readOnly: !_session.live,
+                      padding: const EdgeInsets.all(Space.small),
+                      textStyle: const TerminalStyle(fontSize: 12),
+                    ),
                   ),
                 ),
               ),
             ),
+            const TerminalPasteHint(),
             // A link left on offer after it ended invites doing it all again.
             if (_session.state != SessionState.over) TerminalLinks(session: _session),
             if (_session.state != SessionState.over) ...<Widget>[
