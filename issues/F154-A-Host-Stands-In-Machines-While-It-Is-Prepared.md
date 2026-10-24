@@ -1,6 +1,6 @@
 # F154 — A Host Stands In Machines While It Is Prepared
 
-**Status:** Analyzed; blocked by `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21), which gives each step a
+**Status:** Backlog; blocked by `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21), which gives each step a
 plain-words text and its usual duration.
 **Size:** M - a run that outlives the dialog, a row under *Machines*, the stop under *Needs you*.
 

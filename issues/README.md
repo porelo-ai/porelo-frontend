@@ -31,6 +31,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | S | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. |
+| <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | S | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |
+| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. |
+| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -41,10 +45,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. | — |
-| <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | S | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. | — |
-| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | S | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. | — |
-| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
