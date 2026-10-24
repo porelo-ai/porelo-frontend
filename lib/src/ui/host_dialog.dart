@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:porelo_host/porelo_host.dart';
 import 'package:path/path.dart' as path;
@@ -63,6 +64,7 @@ class HostDialog extends StatefulWidget {
     this.pickFile,
     this.saveTunnel,
     this.takeDownOnly = false,
+    this.debug = kDebugMode,
     super.key,
   });
 
@@ -99,6 +101,9 @@ class HostDialog extends StatefulWidget {
   /// Shows the machine's teardown confirmation and progress without asking setup questions.
   final bool takeDownOnly;
 
+  /// Enables the test collection step; defaults to the build's debug mode.
+  final bool debug;
+
   @override
   State<HostDialog> createState() => _HostDialogState();
 }
@@ -110,6 +115,7 @@ class _HostDialogState extends State<HostDialog> {
   final _publicKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _identity = TextEditingController(text: _home('.ssh/id_ed25519'));
   final _collection = TextEditingController();
+  final _collectionSha256 = TextEditingController();
   final _email = TextEditingController();
   final _repository = TextEditingController();
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
@@ -140,6 +146,7 @@ class _HostDialogState extends State<HostDialog> {
       _identity.text = kept.identity;
       _publicKey.text = kept.publicKey;
       _collection.text = kept.collection;
+      _collectionSha256.text = kept.collectionSha256;
     }
   }
 
@@ -165,6 +172,7 @@ class _HostDialogState extends State<HostDialog> {
       _publicKey,
       _identity,
       _collection,
+      _collectionSha256,
       _email,
     ]) {
       field.dispose();
@@ -191,7 +199,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   void _expandPaths() {
-    final fields = [_publicKey, _identity, _collection, _signingKey];
+    final fields = [_publicKey, _identity, if (widget.debug) _collection, _signingKey];
     final expanded = [for (final field in fields) desk.expandHome(field.text.trim())];
     for (var i = 0; i < fields.length; i++) {
       fields[i].text = expanded[i];
@@ -207,7 +215,8 @@ class _HostDialogState extends State<HostDialog> {
     signingKey: _signingKey.text.trim(),
     identity: _identity.text.trim(),
     publicKey: _publicKey.text.trim(),
-    collection: _collection.text.trim(),
+    collection: widget.debug ? _collection.text.trim() : '',
+    collectionSha256: widget.debug ? _collectionSha256.text.trim() : '',
     vpnPeerPublicKey: _tunnel?.peerPublicKey ?? '',
     vpnPeerAddress: _tunnel == null ? '' : '10.73.0.2/32',
   );
@@ -216,14 +225,15 @@ class _HostDialogState extends State<HostDialog> {
     _session?.dispose();
     final session = HostSession(
       executable: poreloHost(environment: widget.environment),
-      arguments: (record ?? _record()).arguments(widget.project),
+      arguments: hostArguments(record ?? _record(), widget.project, debug: widget.debug),
       start: widget.start,
     )..addListener(_sessionChanged);
     return _session = session;
   }
 
   bool get _complete => <TextEditingController>[
-    _scaleway, _tresor, _account, _publicKey, _identity, _collection, //
+    _scaleway, _tresor, _account, _publicKey, _identity,
+    if (widget.debug) ...[_collection, _collectionSha256], //
   ].every((field) => field.text.trim().isNotEmpty);
 
   String? get _tunnelEndpoint {
@@ -566,7 +576,7 @@ class _HostDialogState extends State<HostDialog> {
       (value: _signingKey.text, label: 'Public key for signing commits (.pub)', step: 'The drive'),
       (value: _identity.text, label: 'Your private ssh key', step: 'Your ssh keys'),
       (value: _publicKey.text, label: 'Your public ssh key', step: 'Your ssh keys'),
-      (value: _collection.text, label: 'Server setup file (.tar.gz)', step: 'The setup file'),
+      if (widget.debug) (value: _collection.text, label: 'Test collection (.tar.gz)', step: 'A test collection'),
       for (final key in _keys) (value: key.file.path, label: 'Vault entry ${key.name} file', step: 'The drive'),
     ];
     final failedPath = error.path;
@@ -702,19 +712,30 @@ class _HostDialogState extends State<HostDialog> {
         _pathField(_publicKey, 'Your public ssh key', 'host-public-key'),
       ]),
       check: () => _keysProblem,
-      summary: () => ['Private ssh key: ${_identity.text}', 'Public ssh key: ${_publicKey.text}'],
+      summary: () => [
+        'Private ssh key: ${_identity.text}',
+        'Public ssh key: ${_publicKey.text}',
+        if (!widget.debug) 'Server setup collection: ${hostCollection.version}',
+      ],
     ),
-    WizardStep(
-      title: 'The setup file',
-      words:
-          'The server setup collection (.tar.gz) tells the host how to install Porelo and prepare the project. '
-          'Choose the collection file on this computer.',
-      panel: (_) => _panel([_pathField(_collection, 'Server setup file (.tar.gz)', 'host-collection')]),
-      check: () =>
-          _required([_collection], 'Choose the server setup file.') ??
-          _fileProblem(_collection.text, 'The server setup file'),
-      summary: () => ['Server setup file: ${_collection.text}'],
-    ),
+    if (widget.debug)
+      WizardStep(
+        title: 'A test collection',
+        words:
+            'Choose a test collection built from a clean clone and give its SHA-256. '
+            'This replaces the collection carried with Porelo for this test.',
+        panel: (_) => _panel([
+          _pathField(_collection, 'Test collection (.tar.gz)', 'host-collection'),
+          _field(_collectionSha256, 'Test collection SHA-256', 'host-collection-sha256', namesHost: true),
+        ]),
+        check: () =>
+            _required([_collection, _collectionSha256], 'Choose the test collection and give its SHA-256.') ??
+            (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(_collectionSha256.text.trim())
+                ? 'Give the test collection SHA-256 as 64 hexadecimal digits.'
+                : null) ??
+            _fileProblem(_collection.text, 'The test collection'),
+        summary: () => ['Test collection: ${_collection.text}', 'Test collection SHA-256: ${_collectionSha256.text}'],
+      ),
   ];
 
   WizardActionState get _actionState {

@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as path;
+
+import 'collection.dart';
 import 'provider.dart';
 import 'remote.dart';
 import 'steps.dart';
@@ -13,7 +17,8 @@ class HostPlan {
     required this.project,
     required this.account,
     required this.publicKey,
-    required this.collection,
+    this.collection,
+    this.collectionSha256,
     this.loginUser = 'ubuntu',
     this.distribution = 'snapshots',
     this.tresor,
@@ -30,8 +35,11 @@ class HostPlan {
   /// The person's public key, which logs in as [loginUser] and then as [account].
   final String publicKey;
 
-  /// The collection's tarball on this computer.
-  final String collection;
+  /// A test collection's tarball; absent to use the carried collection.
+  final String? collection;
+
+  /// The expected digest, required with a test collection.
+  final String? collectionSha256;
 
   /// The image's own user with sudo, which the first steps run as.
   final String loginUser;
@@ -103,6 +111,8 @@ class HostRun {
     this.readyWithin = const Duration(minutes: 40),
     this.sshWithin = const Duration(minutes: 20),
     this.sshEvery = const Duration(seconds: 10),
+    this.collectionRelease = hostCollection,
+    this.resolvedExecutable,
   });
 
   /// Who rents the host.
@@ -134,8 +144,48 @@ class HostRun {
   /// How long between two tries.
   final Duration sshEvery;
 
+  /// The carried release's identity, replaceable with a fixture in tests.
+  final ({String version, String fileName, String sha256}) collectionRelease;
+
+  /// The command's executable path; defaults to Platform.resolvedExecutable.
+  final String? resolvedExecutable;
+
   /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
   Future<int> up(HostPlan plan) async {
+    if ((plan.collection == null) != (plan.collectionSha256 == null)) {
+      emit(const Step('collection', StepState.refused, fix: '--collection needs --collection-sha256 and vice versa'));
+      return Exit.refused;
+    }
+    final expected = (plan.collectionSha256 ?? collectionRelease.sha256).toLowerCase();
+    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(expected)) {
+      emit(const Step('collection', StepState.refused, fix: '--collection-sha256 must contain 64 hexadecimal digits'));
+      return Exit.refused;
+    }
+    final collection =
+        plan.collection ??
+        path.join(File(resolvedExecutable ?? Platform.resolvedExecutable).parent.path, collectionRelease.fileName);
+    try {
+      final actual = (await sha256.bind(File(collection).openRead()).single).toString();
+      if (actual != expected) {
+        emit(
+          Step(
+            'collection',
+            StepState.refused,
+            fix: 'Collection $collection: expected SHA-256 $expected; got $actual.',
+          ),
+        );
+        return Exit.refused;
+      }
+    } on FileSystemException catch (error) {
+      emit(
+        Step(
+          'collection',
+          StepState.refused,
+          fix: 'Cannot read collection $collection: ${error.osError?.message ?? error.message}.',
+        ),
+      );
+      return Exit.refused;
+    }
     final RentedHost? host;
     try {
       host = await _rented(plan);
@@ -156,8 +206,26 @@ class HostRun {
       input: inventory,
     );
     if (copied.exitCode != 0) return _refused('copy', copied, 'the host refused the inventory');
-    final tarball = await remote.copy(address, plan.loginUser, plan.collection, '$_workdir/collection.tar.gz');
+    final tarball = await remote.copy(address, plan.loginUser, collection, '$_workdir/collection.tar.gz');
     if (tarball.exitCode != 0) return _refused('copy', tarball, 'the collection could not be copied');
+    final digestWords = <String>[];
+    final checked = await remote.run(
+      address,
+      plan.loginUser,
+      'sha256sum -c - || { sha256sum $_workdir/collection.tar.gz; exit 65; }',
+      input: '$expected  $_workdir/collection.tar.gz\n',
+      onLine: digestWords.add,
+    );
+    if (checked.exitCode != 0) {
+      return _refused(
+        'copy',
+        RemoteResult(
+          checked.exitCode,
+          ['Expected SHA-256: $expected.', ...digestWords, checked.stderr].where((line) => line.isNotEmpty).join('\n'),
+        ),
+        'the host refused the collection digest',
+      );
+    }
     emit(const Step('copy', StepState.done));
 
     emit(const Step('ansible', StepState.started));

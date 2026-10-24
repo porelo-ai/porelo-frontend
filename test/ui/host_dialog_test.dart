@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:path/path.dart' as path;
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ void main() {
   late Directory scratch;
   late Machines machines;
   String fixture(String name) => path.join(scratch.path, name);
+  final collectionDigest = sha256.convert(utf8.encode('invented-private-or-setup-fixture')).toString();
   const signingPublic = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture';
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('host-dialog-');
@@ -142,13 +144,14 @@ void main() {
     final answers = <String, String>{
       'host-identity': fixture('default'),
       'host-public-key': fixture('default.pub'),
+      'host-collection-sha256': collectionDigest,
       ...values,
     };
     const fields = [
       ['host-scaleway-project', 'host-account'],
       ['host-tresor', 'host-repository', 'host-signing-key'],
       ['host-identity', 'host-public-key'],
-      ['host-collection'],
+      ['host-collection', 'host-collection-sha256'],
     ];
     for (var step = 0; step < fields.length; step++) {
       if (step == 1) await onDrive?.call();
@@ -174,6 +177,45 @@ void main() {
     }
   }
 
+  // Harm: release setup can rent a host only after an arbitrary collection override is supplied.
+  testWidgets('release mode reaches review and starts up without a collection override', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final commands = <List<String>>[];
+    final process = _HostProcess();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            machines: machines,
+            debug: false,
+            secretStore: _MemorySecrets(),
+            start: (_, arguments) async {
+              commands.add(List.of(arguments));
+              return process;
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {'host-scaleway-project': 'provider', 'host-tresor': 'drive'}, stopAt: 2);
+    await navigate(tester, 'wizard-next');
+    expect(find.byKey(const Key('host-collection')), findsNothing);
+    expect(find.byKey(const Key('host-collection-sha256')), findsNothing);
+    expect(find.textContaining(host.hostCollection.version), findsWidgets);
+    expect(find.byKey(const Key('host-up')), findsOneWidget);
+    await tapAndRun(tester, const Key('host-up'));
+    expect(commands, hasLength(1));
+    expect(commands.single.first, 'up');
+    expect(commands.single, isNot(contains('--collection')));
+    expect(commands.single, isNot(contains('--collection-sha256')));
+    process.end(65);
+    await World.settle(tester);
+  });
+
   // Harm: losing the last setup answers makes a rented server impossible to recover or take down.
   testWidgets('up keeps its arguments before answering and reopening restores every editable step', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -191,6 +233,7 @@ void main() {
       'host-identity': fixture('private'),
       'host-public-key': fixture('public.pub'),
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     };
     final process = _HostProcess();
     final commands = <List<String>>[];
@@ -205,7 +248,7 @@ void main() {
             final persisted = Settings(store);
             await persisted.load();
             expect(
-              persisted.hostUp('demo')!.arguments('demo'),
+              hostArguments(persisted.hostUp('demo')!, 'demo'),
               arguments.skip(1).toList(),
               reason: 'the record must be durable before starting a billing host',
             );
@@ -332,8 +375,6 @@ void main() {
             '/keys/public.pub',
             '--identity',
             '/keys/private',
-            '--collection',
-            '/setup.tar.gz',
             '--vpn-peer-public-key',
             'public-half',
             '--vpn-peer-address',
@@ -362,7 +403,7 @@ void main() {
     (key: 'host-signing-key', label: 'public key for signing commits', step: 1),
     (key: 'host-identity', label: 'private ssh key', step: 2),
     (key: 'host-public-key', label: 'public ssh key', step: 2),
-    (key: 'host-collection', label: 'server setup file', step: 3),
+    (key: 'host-collection', label: 'test collection', step: 3),
     (key: 'vault-entry', label: 'vault entry deployment', step: 1),
   ]) {
     for (final directory in [false, true]) {
@@ -401,6 +442,7 @@ void main() {
           'host-tresor': 'drive',
           'host-repository': 'https://example.org/demo.git',
           'host-collection': fixture('collection.tar.gz'),
+          'host-collection-sha256': collectionDigest,
           if (field.key != 'vault-entry') field.key: '~/unusable',
         }, stopAt: field.step);
         if (field.key == 'vault-entry') {
@@ -455,6 +497,7 @@ void main() {
       'host-repository': 'https://example.org/demo.git',
       'host-signing-key': unreadable.path,
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     });
     await tapAndRun(tester, const Key('host-up'));
     expect(commands, isEmpty, reason: 'unreadable setup input must stop before renting');
@@ -549,6 +592,7 @@ void main() {
       'host-tresor': 'drive',
       'host-identity': fixture('id_ed25519.pub'),
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     }, stopAt: 2);
     await tester.pump();
     expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
@@ -598,6 +642,7 @@ void main() {
         'host-repository': 'https://example.org/demo.git',
         'host-signing-key': fixture('signing.pub'),
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
         missing.key: '   ',
       }, stopAt: missing.value);
       final next = tester.widget<FilledButton>(find.byKey(const Key('wizard-next')));
@@ -662,6 +707,7 @@ void main() {
       'host-identity': fixture('private'),
       'host-public-key': fixture('public.pub'),
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     };
     await fillSteps(tester, answers);
     final seen = <String>{};
@@ -711,6 +757,7 @@ void main() {
       'host-scaleway-project': 'project',
       'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     });
     await tapAndRun(tester, const Key('host-up'));
     await navigate(tester, 'wizard-leave');
@@ -770,6 +817,7 @@ void main() {
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
         'host-repository': 'https://example.org/demo.git',
         'host-signing-key': signing.path,
         field.key: field.value == null ? '~/.ssh/key.pub' : '~/.ssh/key',
@@ -815,6 +863,7 @@ void main() {
           'host-scaleway-project': 'project',
           'host-tresor': 'tresor',
           'host-collection': fixture('collection.tar.gz'),
+          'host-collection-sha256': collectionDigest,
           'host-repository': 'https://example.org/demo.git',
           field.key: '~user/key',
         },
@@ -865,6 +914,7 @@ void main() {
       'host-scaleway-project': 'project',
       'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     });
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
@@ -909,6 +959,7 @@ void main() {
       'host-scaleway-project': 'project',
       'host-tresor': 'tresor',
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
       'host-repository': 'https://example.org/demo.git',
       'host-signing-key': signing.path,
     });
@@ -976,6 +1027,7 @@ void main() {
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
         'host-repository': 'https://example.org/demo.git',
         'host-signing-key': signing.path,
       },
@@ -1103,6 +1155,7 @@ void main() {
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
         if (signing != null) ...{'host-repository': 'url', 'host-signing-key': signing!.path},
       });
       await tester.pump();
@@ -1174,6 +1227,7 @@ void main() {
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
       });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
@@ -1225,6 +1279,7 @@ void main() {
       'host-scaleway-project': 'project-1',
       'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
       'host-identity': fixture('new'),
       'host-account': 'form-account',
     });
@@ -1350,6 +1405,7 @@ void main() {
         'host-scaleway-project': 'project-1',
         'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
       });
       await tester.pump();
       for (final code in <int>[65, 75, 0]) {
@@ -1420,6 +1476,7 @@ void main() {
         'host-scaleway-project': 'p',
         'host-tresor': 'd',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
       });
       await tester.pump();
       await tester.ensureVisible(find.byKey(const Key('host-up')));
@@ -1460,6 +1517,7 @@ void main() {
       'host-public-key': fixture('demo.pub'),
       'host-identity': fixture('demo-key'),
       'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
     };
     await fillSteps(tester, fields, beforeFill: (field, _) => expect(field.readOnly, isFalse));
     await tester.pump();
@@ -1530,6 +1588,7 @@ void main() {
         'host-scaleway-project': 'project-1',
         'host-tresor': 'demo-drive',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
       });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
@@ -1601,6 +1660,7 @@ void main() {
     await tester.pump();
     await navigate(tester, 'wizard-next');
     await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
+    await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
     await tester.pump();
     await navigate(tester, 'wizard-next');
     expect(tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed, isNotNull);
@@ -1655,6 +1715,7 @@ void main() {
         'host-scaleway-project': 'project-1',
         'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
         'host-identity': fixture('dialog identity'),
         'host-account': 'form-account',
       });
@@ -1738,6 +1799,7 @@ void main() {
         'host-scaleway-project': 'p',
         'host-tresor': 't',
         'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
       });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));

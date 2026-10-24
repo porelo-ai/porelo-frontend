@@ -4,7 +4,7 @@ set -eu
 set -o pipefail
 
 cd -- "$(dirname -- "$0")/.."
-for command in flutter ssh-keygen timeout setsid xvfb-run dbus-run-session gnome-keyring-daemon gdbus; do
+for command in flutter ssh-keygen sha256sum timeout setsid xvfb-run dbus-run-session gnome-keyring-daemon gdbus; do
     command -v "$command" >/dev/null || {
         echo "walk-e2e: missing command: $command" >&2
         exit 1
@@ -65,6 +65,8 @@ mkdir -p "$walk/bin" "$walk/config" "$walk/run/keyring" "$walk/home" "$walk/keys
 
 echo 'walk-e2e: compiling the host and SSH stand-ins (duration unmeasured)'
 "$sdk/bin/cache/dart-sdk/bin/dart" compile exe tool/host_standin.dart -o "$walk/porelo-host"
+PORELO_WALK_COLLECTION_SHA256=$(sha256sum "$walk/porelo-host")
+export PORELO_WALK_COLLECTION_SHA256=${PORELO_WALK_COLLECTION_SHA256%% *}
 "$sdk/bin/cache/dart-sdk/bin/dart" compile exe tool/ssh_standin.dart -o "$walk/bin/ssh"
 printf '%s\n' '{"situation":"stop","state":"new"}' >"$walk/host-standin.json"
 cp doc/walks/17-the-host-flow.json "$walk/walk.json"

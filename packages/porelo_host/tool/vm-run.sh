@@ -148,12 +148,15 @@ manifest = {"collection_info": {"namespace": "porelo", "name": "host", "version"
 open(os.path.join(target, "MANIFEST.json"), "w").write(json.dumps(manifest, indent=4))
 PY
 [ -n "$collection" ] || (cd "$work/collection" && tar -czf "$tarball" MANIFEST.json FILES.json README.md meta playbooks plugins)
+collection_digest=$(sha256sum "$tarball")
+collection_digest=${collection_digest%% *}
 
 hostkey="$(cut -d' ' -f1,2 "$work/host.pub")"
 # porelo-host keeps its known_hosts under XDG_STATE_HOME: the run's own, never the person's.
 host() {
     XDG_STATE_HOME="$work/state" dart run "$here/bin/porelo_host.dart" "$@" --project demo --account porelo --public-key "$work/login.pub" \
-        --identity "$work/login" --collection "$tarball" --given "$address" --host-key "$hostkey"
+        --identity "$work/login" --collection "$tarball" --collection-sha256 "$collection_digest" \
+        --given "$address" --host-key "$hostkey"
 }
 expect() {
     local want="$1" got="$2" what="$3"
@@ -165,6 +168,45 @@ expect() {
 }
 
 set +e
+# Harm: changed local bytes must never reach a remote command or its installer.
+original_tarball=$tarball
+cp -- "$tarball" "$work/changed.tar.gz" || exit 1
+printf X | dd of="$work/changed.tar.gz" bs=1 count=1 conv=notrunc status=none || exit 1
+tarball="$work/changed.tar.gz"
+host up >"$work/local-digest.jsonl"
+expect 65 "$?" 'a collection changed before up'
+tarball=$original_tarball
+if grep -Eq '"step":"(rent|ssh|copy|ansible|play)"' "$work/local-digest.jsonl"; then
+    echo 'vm-run: changed local bytes reached a host step' >&2
+    exit 1
+fi
+
+# Harm: a tarball changed after copying must be refused before ansible-galaxy runs.
+mkdir "$work/checksum-probe" || exit 1
+PORELO_PROBE_SSH=$(command -v ssh) || exit 1
+export PORELO_PROBE_SSH
+cat >"$work/checksum-probe/ssh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+arguments=("$@")
+last=$((${#arguments[@]} - 1))
+if [[ "${arguments[$last]}" == 'sha256sum -c -'* ]]; then
+    arguments[$last]="printf X | dd of=/var/tmp/porelo-host/collection.tar.gz bs=1 count=1 conv=notrunc status=none && ${arguments[$last]}"
+fi
+exec "$PORELO_PROBE_SSH" "${arguments[@]}"
+SH
+chmod 700 "$work/checksum-probe/ssh" || exit 1
+PATH="$work/checksum-probe:$PATH" host up >"$work/host-digest.jsonl"
+expect 65 "$?" 'a collection changed on the host after copying'
+grep -q 'FAILED' "$work/host-digest.jsonl" || {
+    echo 'vm-run: the host checksum did not report its mismatch' >&2
+    exit 1
+}
+if grep -Eq '"step":"(ansible|play)"' "$work/host-digest.jsonl"; then
+    echo 'vm-run: changed host bytes reached the installer' >&2
+    exit 1
+fi
+
 # **A host key other than the provider's is refused before anything logs in.**
 ssh-keygen -q -t ed25519 -N '' -f "$work/other"
 right="$hostkey"

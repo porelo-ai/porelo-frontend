@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
 
@@ -100,7 +102,21 @@ class FlakySsh extends ScriptedRemote {
 String line(Map<String, Object> fields) => jsonEncode(<String, Object>{'v': 1, ...fields});
 
 void main() {
-  const plan = HostPlan(project: 'demo', account: 'porelo', publicKey: 'ssh-ed25519 BBBB me', collection: 'c.tar.gz');
+  late HostPlan plan;
+  late Directory scratch;
+  setUp(() async {
+    scratch = await Directory.systemTemp.createTemp('host-run-');
+    final collection = File('${scratch.path}/c.tar.gz');
+    await collection.writeAsString('test collection');
+    plan = HostPlan(
+      project: 'demo',
+      account: 'porelo',
+      publicKey: 'ssh-ed25519 BBBB me',
+      collection: collection.path,
+      collectionSha256: sha256.convert(await collection.readAsBytes()).toString(),
+    );
+  });
+  tearDown(() => scratch.delete(recursive: true));
   final waits = <String>[
     line(<String, Object>{'play': 'first', 'task': 'base', 'state': 'started'}),
     line(<String, Object>{'play': 'first', 'task': 'base', 'state': 'ok'}),
@@ -199,7 +215,7 @@ void main() {
     ]);
     expect(steps.last.needs, <String>['drive', 'vault-new']);
     expect(remote.commands.last, contains('-c local -i /var/tmp/porelo-host/inventory.yml porelo.host.up'));
-    final inventory = jsonDecode(remote.inputs.single) as Map<String, Object?>;
+    final inventory = jsonDecode(remote.inputs.first) as Map<String, Object?>;
     final vars = (inventory['all'] as Map)['vars'] as Map;
     expect(vars['porelo_host_account'], 'porelo');
     expect(vars['porelo_host_distribution'], 'snapshots', reason: 'no release of Porelo has `vault status` yet');
@@ -211,7 +227,7 @@ void main() {
   });
 
   // Harm: a secret passes through provisioning instead of staying in the host terminal.
-  test('both up runs write only the exact nonsecret inventory to remote stdin', () async {
+  test('both up runs write only the exact nonsecret inventory and digest to remote stdin', () async {
     final provider = CountingProvider();
     final remote = ScriptedRemote(waits, playExit: 2);
     final steps = <Step>[];
@@ -233,7 +249,13 @@ void main() {
         },
       },
     });
-    expect(remote.inputs, [inventory, inventory], reason: 'no input besides the inventory on either run');
+    final digest = '${plan.collectionSha256}  /var/tmp/porelo-host/collection.tar.gz\n';
+    expect(remote.inputs, [
+      inventory,
+      digest,
+      inventory,
+      digest,
+    ], reason: 'only the inventory and digest on either run');
     expect(
       remote.commands.where((c) => c.contains('tresorit-cli login') || c.contains('porelo vault')),
       isEmpty,

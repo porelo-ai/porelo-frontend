@@ -1,6 +1,7 @@
 /// Puts a project on a server and takes it off again.
 library;
 
+export 'src/collection.dart';
 export 'src/host_run.dart';
 export 'src/host_stop_command.dart';
 export 'src/provider.dart';

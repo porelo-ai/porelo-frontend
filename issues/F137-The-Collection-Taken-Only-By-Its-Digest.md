@@ -1,6 +1,6 @@
 # F137 — The Collection Taken Only By Its Digest
 
-**Status:** Analyzed; blocked by porelo-host's release issue, which attaches the tarball and its
+**Status:** Implementing; blocked by porelo-host's release issue, which attaches the tarball and its
 `SHA256SUMS` to each release.
 **Size:** S - one pinned digest, checked twice, with a test seen red on a changed byte.
 

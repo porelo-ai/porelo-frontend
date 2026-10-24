@@ -4,13 +4,15 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart';
 
 const _usage = '''
-porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE --collection FILE
+porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE
             (--scaleway-project ID [--zone fr-par-1] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
             [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
             [--give-back-anyway]
+            [--collection FILE --collection-sha256 HEX]
 porelo-host key set|forget PROVIDER
 porelo-host --version
+porelo-host --collection-info
 
   up      rents the project's host, or finds it again by its tag, and runs the playbook there; it
           stops with 75 for the person; run up again after completing the stop on the host
@@ -42,6 +44,10 @@ Future<void> main(List<String> arguments) async {
 const _version = String.fromEnvironment('porelo_host.version', defaultValue: 'unreleased');
 
 Future<int> _run(List<String> arguments) async {
+  if (arguments.length == 1 && arguments.first == '--collection-info') {
+    stdout.writeln('${hostCollection.version} ${hostCollection.sha256} ${hostCollection.fileName}');
+    return Exit.done;
+  }
   if (arguments.length == 1 && arguments.first == '--version') {
     stdout.writeln(_version);
     return Exit.done;
@@ -61,6 +67,7 @@ Future<int> _run(List<String> arguments) async {
           '--public-key',
           '--identity',
           '--collection',
+          '--collection-sha256',
           '--scaleway-project',
           '--zone',
           '--given',
@@ -77,7 +84,15 @@ Future<int> _run(List<String> arguments) async {
       return _wrong('$name is not an option');
     }
   }
-  const needed = <String>['project', 'account', 'public-key', 'identity', 'collection'];
+  if (options.containsKey('collection') != options.containsKey('collection-sha256')) {
+    stderr.writeln('porelo-host: --collection needs --collection-sha256 and vice versa');
+    return Exit.refused;
+  }
+  if (options['collection-sha256'] case final String digest when !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(digest)) {
+    stderr.writeln('porelo-host: --collection-sha256 must contain 64 hexadecimal digits');
+    return Exit.refused;
+  }
+  const needed = <String>['project', 'account', 'public-key', 'identity'];
   final missing = needed.where((n) => !options.containsKey(n)).toList();
   if (missing.isNotEmpty) return _wrong('missing ${missing.map((n) => '--$n').join(', ')}');
   final given = options.containsKey('given');
@@ -116,7 +131,8 @@ Future<int> _run(List<String> arguments) async {
     project: options['project']!,
     account: options['account']!,
     publicKey: (await File(options['public-key']!).readAsString()).trim(),
-    collection: options['collection']!,
+    collection: options['collection'],
+    collectionSha256: options['collection-sha256'],
     loginUser: options['login-user'] ?? 'ubuntu',
     distribution: options['distribution'] ?? 'snapshots',
     tresor: options['tresor'],

@@ -148,6 +148,12 @@ jobs:
                   dart tool/test_report.dart
                   exit $built
 
+            - name: Fetch the pinned host collection
+              run: |
+                  collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
+                  read -r version digest file <<< "$collection"
+                  tool/fetch_collection.sh "$version" "$digest" build/collection "$file"
+
             # The builder is pinned by digest, not by version. A version names what was *meant*; the
             # digest is what arrives. This binary writes the packages that this workflow then publishes,
             # so an asset replaced upstream would be a package nobody here ever inspected.
@@ -182,7 +188,9 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: host-linux
-                  path: build/linux/x64/release/bundle/porelo-host
+                  path: |
+                      build/linux/x64/release/bundle/porelo-host
+                      build/linux/x64/release/bundle/*.tar.gz
                   if-no-files-found: error
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -242,6 +250,13 @@ jobs:
               timeout-minutes: 20
               run: flutter build windows --release
 
+            - name: Fetch the pinned host collection
+              shell: bash
+              run: |
+                  collection=$(dart packages/porelo_host/bin/porelo_host.dart --collection-info)
+                  read -r version digest file <<< "$collection"
+                  tool/fetch_collection.sh "$version" "$digest" build/windows/x64/runner/Release "$file"
+
             # The ZIP, and the MSIX signed with the certificate the two secrets hold, named as the Linux
             # packages are; tool/windows-package.ps1 says how. Without the secrets the MSIX is packed to
             # prove it and not kept.
@@ -298,7 +313,9 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: host-windows
-                  path: build/windows/x64/runner/Release/porelo-host.exe
+                  path: |
+                      build/windows/x64/runner/Release/porelo-host.exe
+                      build/windows/x64/runner/Release/*.tar.gz
                   if-no-files-found: error
 
     # Whether a run of this repository already proved this very tree with the leased leg green, from a

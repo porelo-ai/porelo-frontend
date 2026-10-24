@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -54,8 +55,6 @@ void main() {
     'unused.pub',
     '--identity',
     'unused',
-    '--collection',
-    'unused.tar.gz',
     '--scaleway-project',
     'walk',
     '--vpn-peer-public-key',
@@ -66,7 +65,14 @@ void main() {
 
   Future<Process> host({String verb = 'up', Map<String, String>? environment}) => Process.start(
     hostExecutable,
-    [verb, ...options],
+    [
+      verb,
+      ...options,
+      '--collection',
+      hostExecutable,
+      '--collection-sha256',
+      sha256.convert(File(hostExecutable).readAsBytesSync()).toString(),
+    ],
     workingDirectory: root.path,
     environment: {
       'DASH__SUPPRESS_ANALYTICS': 'true',

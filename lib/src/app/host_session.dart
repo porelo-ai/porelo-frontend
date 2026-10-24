@@ -5,6 +5,19 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import 'settings.dart';
+
+/// Uses the carried collection in release builds, with explicit overrides only for debug tests.
+List<String> hostArguments(HostUpRecord record, String project, {bool debug = kDebugMode}) => [
+  ...record.arguments(project),
+  if (debug && record.collection.isNotEmpty && record.collectionSha256.isNotEmpty) ...[
+    '--collection',
+    record.collection,
+    '--collection-sha256',
+    record.collectionSha256,
+  ],
+];
+
 /// Where a `porelo-host` run has got to.
 enum HostRunState {
   /// Nothing run yet.

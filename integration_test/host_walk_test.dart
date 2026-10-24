@@ -85,6 +85,7 @@ void main() {
 
       await screen.chooseBeside('host-collection');
       await screen.fill('host-collection', '$walk/porelo-host');
+      await screen.fill('host-collection-sha256', _required('PORELO_WALK_COLLECTION_SHA256'));
       await screen.tap(_key('wizard-next'));
       await screen.tap(_key('host-up'));
       await screen.shown(_key('host-stop'));
@@ -159,7 +160,7 @@ void main() {
       );
       final info = find.byIcon(Icons.info_outline).last;
       await screen.tap(info);
-      await screen.shown(find.textContaining('cat <file> | sudo tee /etc/wireguard/porelo.conf'));
+      await screen.shown(find.textContaining('sudo install -m 600 <saved file> /etc/wireguard/porelo.conf'));
       expect(find.textContaining('sudo wg-quick up porelo'), findsOneWidget);
     } catch (error, stack) {
       debugPrint('Host walk failed: $error\n$stack\n${screen.dump()}');

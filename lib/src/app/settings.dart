@@ -20,6 +20,7 @@ class HostUpRecord {
     required this.identity,
     required this.publicKey,
     required this.collection,
+    this.collectionSha256 = '',
     required this.vpnPeerPublicKey,
     required this.vpnPeerAddress,
     this.vpnFile,
@@ -51,6 +52,9 @@ class HostUpRecord {
 
   /// The host setup collection's path.
   final String collection;
+
+  /// The test collection's expected digest, absent for carried collections or older records.
+  final String collectionSha256;
 
   /// The tunnel peer's public half, empty when none was supplied.
   final String vpnPeerPublicKey;
@@ -95,12 +99,22 @@ class HostUpRecord {
       final vpnFile = value['vpnFile'];
       if (vpnFile != null && vpnFile is! String) return null;
       if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
-      final required = [scalewayProject, account, tresor, identity, publicKey, collection];
+      final required = [scalewayProject, account, tresor, identity, publicKey];
       if (required.any((field) => field.trim().isEmpty)) return null;
+      final collectionSha256 = switch (value) {
+        {'collectionSha256': final Object? digest} => digest,
+        _ => '',
+      };
+      if (collectionSha256 is! String ||
+          (collectionSha256.isNotEmpty &&
+              (collection.trim().isEmpty || !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(collectionSha256)))) {
+        return null;
+      }
       if ([
         ...required,
         repository,
         signingKey,
+        collection,
         vpnPeerPublicKey,
         vpnPeerAddress,
       ].any((field) => field.contains('\x00'))) {
@@ -118,6 +132,7 @@ class HostUpRecord {
         identity: identity,
         publicKey: publicKey,
         collection: collection,
+        collectionSha256: collectionSha256,
         vpnPeerPublicKey: vpnPeerPublicKey,
         vpnPeerAddress: vpnPeerAddress,
         vpnFile: vpnFile as String?,
@@ -137,6 +152,7 @@ class HostUpRecord {
     'identity': identity,
     'publicKey': publicKey,
     'collection': collection,
+    if (collectionSha256.isNotEmpty) 'collectionSha256': collectionSha256,
     'vpnPeerPublicKey': vpnPeerPublicKey,
     'vpnPeerAddress': vpnPeerAddress,
     if (vpnFile != null) 'vpnFile': vpnFile,
@@ -154,8 +170,6 @@ class HostUpRecord {
     publicKey,
     '--identity',
     identity,
-    '--collection',
-    collection,
     if (vpnPeerPublicKey.isNotEmpty) ...[
       '--vpn-peer-public-key',
       vpnPeerPublicKey,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart';
+import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
 const prefix = r'export XDG_RUNTIME_DIR=/run/user/$(id -u) && ';
@@ -223,7 +224,7 @@ finally:
   test('the host stand-in stops with the destination then goes on with plain up', () async {
     final state = File('${scratch.path}/host-standin.json');
     await state.writeAsString(jsonEncode({'situation': 'stop', 'state': 'new'}));
-    const options = [
+    final options = [
       'up',
       '--project',
       'demo',
@@ -234,7 +235,9 @@ finally:
       '--identity',
       'unused',
       '--collection',
-      'unused',
+      host,
+      '--collection-sha256',
+      sha256.convert(File(host).readAsBytesSync()).toString(),
       '--scaleway-project',
       'walk',
     ];

@@ -32,6 +32,13 @@ if ($LASTEXITCODE -ne 0) { Write-Error "porelo-host did not compile (exit $LASTE
 $said = & "$release/porelo-host.exe" --version
 if ($said -ne $version) { Write-Error "porelo-host says '$said', not $version"; exit 1 }
 
+$collection = (& "$release/porelo-host.exe" --collection-info) -split ' '
+if ($LASTEXITCODE -ne 0 -or $collection.Count -ne 3) { throw 'Cannot read the pinned host collection' }
+$collectionPath = Join-Path $release $collection[2]
+if (-not (Test-Path -PathType Leaf $collectionPath)) { throw "Missing carried collection: $collectionPath" }
+$actual = (Get-FileHash -Algorithm SHA256 $collectionPath).Hash.ToLowerInvariant()
+if ($actual -ne $collection[1]) { throw "Collection SHA-256: expected $($collection[1]); got $actual" }
+
 # The ZIP: the built folder as it is.
 Compress-Archive -Path "$release/*" -DestinationPath "$Out/$name.zip" -Force
 

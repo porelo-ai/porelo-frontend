@@ -1,6 +1,6 @@
 # F163 — The Collection Comes With Porelo-Host
 
-**Status:** Backlog; blocked by `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13), which attaches the
+**Status:** Implementing; blocked by `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13), which attaches the
 tarball and its `SHA256SUMS` to each release, and by its first release.
 **Size:** M - the release's tarball carried in the interface's packages, `porelo-host up` taking it by default, and the dialog's step only in a development build.
 

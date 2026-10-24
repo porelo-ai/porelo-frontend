@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -46,6 +47,7 @@ Future<int> _run(List<String> arguments) async {
     '--public-key',
     '--identity',
     '--collection',
+    '--collection-sha256',
     '--scaleway-project',
     '--tresor',
     '--vpn-peer-public-key',
@@ -66,16 +68,20 @@ Future<int> _run(List<String> arguments) async {
       return _wrong('Unsupported or incomplete host stand-in option.');
     }
   }
-  if (const [
-        '--project',
-        '--account',
-        '--public-key',
-        '--identity',
-        '--collection',
-      ].any((key) => options[key]?.isNotEmpty != true) ||
+  if (const ['--project', '--account', '--public-key', '--identity'].any((key) => options[key]?.isNotEmpty != true) ||
       options.containsKey('--given') == options.containsKey('--scaleway-project') ||
       (options.containsKey('--given') && !options.containsKey('--host-key'))) {
-    return _wrong('Give the project, account, key paths, collection and one host provider.');
+    return _wrong('Give the project, account, key paths and one host provider.');
+  }
+  if (options.containsKey('--collection') != options.containsKey('--collection-sha256')) {
+    return _wrong('--collection needs --collection-sha256 and vice versa.');
+  }
+  if (options['--collection'] case final String collection when verb == 'up') {
+    final expected = options['--collection-sha256']!.toLowerCase();
+    final actual = (await sha256.bind(File(collection).openRead()).single).toString();
+    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(expected) || actual != expected) {
+      return _wrong('Test collection SHA-256: expected $expected; got $actual.');
+    }
   }
 
   Future<void> remember(String next) => file.writeAsString(

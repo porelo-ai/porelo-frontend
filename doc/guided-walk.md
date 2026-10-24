@@ -80,8 +80,9 @@ The host dialog still uses the system secret store for its generated WireGuard k
 answers only in the terminal opened at the stop; no real host keys, provider credentials or collection
 are needed. Choose `/tmp/porelo-walk/tresor` as the local folder. Use the invented
 `/tmp/porelo-walk/keys/walk_ed25519` and `.pub` files for the SSH keys, the `.pub` file for signing,
-and `/tmp/porelo-walk/porelo-host` as the setup file. The dialog writes the host files under the
-walk's tresor folder.
+and `/tmp/porelo-walk/porelo-host` as the test collection, with the digest from
+`sha256sum /tmp/porelo-walk/porelo-host`. This collection step appears only in debug builds.
+The dialog writes the host files under the walk's tresor folder.
 
 ```bash
 PATH="$walk/bin:$PATH" \

@@ -33,7 +33,7 @@ void main() {
 
   // Harm: missing host identity or setup inputs can redirect teardown or lose access to a billing server.
   test('stored host records with empty or whitespace-only required fields are dropped on load', () async {
-    for (final field in ['scalewayProject', 'account', 'tresor', 'identity', 'publicKey', 'collection']) {
+    for (final field in ['scalewayProject', 'account', 'tresor', 'identity', 'publicKey']) {
       for (final empty in ['', ' \t\n ']) {
         final settings = Settings(
           MemorySettingsStore({
