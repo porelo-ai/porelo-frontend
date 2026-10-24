@@ -2,7 +2,8 @@ name: Artifactory probe test
 
 # Proves the token can do the thing that fails silently.
 #
-# A `.deb` upload carries `--target-props`, and Artifactory only indexes a package that has them.
+# A `.deb` upload carries its properties as matrix parameters on the path, and Artifactory only
+# indexes a package that has them.
 # **Setting properties needs Annotate permission as well as Deploy — and without Annotate the
 # upload still succeeds and the properties are quietly dropped.** The package is then stored, `apt`
 # sees nothing, and no error appears anywhere.

@@ -484,9 +484,10 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
   `ubuntu-26.04`.
 - **A snapshot is `0.1.0~snapshot.<run>`**, so each build supersedes the last; a flat version
   published once strands whoever installed it.
-- **An upload passes `--target-props` with distribution, component and architecture, and
-  `--flat=true`**; without Annotate permission the properties are dropped in silence
-  (`artifactory-probe.yml` checks it). `JF_URL` is the platform URL, without `/artifactory`.
+- **An upload names distribution, component and architecture as matrix parameters on its target
+  path** (`;deb.distribution=…;deb.component=…;deb.architecture=…`); without Annotate permission
+  they are dropped in silence (`artifactory-probe.yml` checks it). `JF_URL` is the platform URL,
+  without `/artifactory`.
 - **`tool/test_report.dart` reads `flutter test --machine` once** and writes the HTML page, JUnit XML,
   the step summary and one annotation per failing scenario; an empty run fails.
 - **A change to `**.md`, `doc/`, `issues/` or `mkdocs.yml` alone starts no build.**
