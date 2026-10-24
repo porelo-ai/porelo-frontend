@@ -97,7 +97,7 @@ void main() {
     for (final line in lines) {
       final step = Step.fromLine(line);
       expect(step, isNotNull, reason: 'every stdout line must be a host step: $line');
-      steps.add(step!);
+      if (step!.state != StepState.plan) steps.add(step);
       if (step.state == StepState.started) {
         final map = jsonDecode(line) as Map<String, dynamic>;
         expect(map.keys.toList().sublist(map.length - 2), ['text', 'seconds']);

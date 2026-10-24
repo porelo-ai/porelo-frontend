@@ -1,4 +1,5 @@
 import 'homeserver_forwards.dart';
+import 'host_runs.dart';
 
 import 'dart:async';
 
@@ -72,6 +73,9 @@ class Tile {
 
 /// The kinds of attention row, including notices that are not work.
 enum AttentionKind {
+  /// A project server stopped for a person during preparation.
+  host,
+
   /// A machine is not answering.
   silent,
 
@@ -151,6 +155,16 @@ class Attention extends ChangeNotifier {
     _follow();
   }
 
+  /// Host setup owned by the frame, including stops before a Machine exists.
+  HostRuns? get hostRuns => _hostRuns;
+  set hostRuns(HostRuns? runs) {
+    _hostRuns?.removeListener(_changed);
+    _hostRuns = runs;
+    runs?.addListener(_changed);
+    _changed();
+  }
+
+  HostRuns? _hostRuns;
   final Machines _machines;
   final Settings? _settings;
   final Operations? _operations;
@@ -185,6 +199,9 @@ class Attention extends ChangeNotifier {
       'message ${machine.name}/${message.task}/${message.handle}';
 
   Iterable<AttentionRow> _rows() sync* {
+    for (final run in _hostRuns?.preparing ?? <HostPreparation>[]) {
+      if (run.waiting) yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
+    }
     for (final machine in missedQuestions) {
       yield AttentionRow(AttentionKind.missed, 'missed ${machine.name}', machine.name, (
         machine: machine,
@@ -271,7 +288,9 @@ class Attention extends ChangeNotifier {
       // Losing contact is not resolution; retain the last facts until this machine answers again.
       final resolved =
           row.kind == AttentionKind.operation ||
-          (machine != null &&
+          row.kind == AttentionKind.host && _hostRuns?.of((row.value as HostStop).project)?.ready == true ||
+          (row.kind != AttentionKind.host &&
+              machine != null &&
               (fleetOf(machine).reachability == Reachability.connected &&
                       (row.kind != AttentionKind.message || fleetOf(machine).mailboxes.problem == null) ||
                   row.kind == AttentionKind.silent && (_settings?.seenSilent.contains(row.machine) ?? false)));
@@ -281,14 +300,17 @@ class Attention extends ChangeNotifier {
       (id, row) =>
           open.containsKey(id) ||
           _resolved.containsKey(id) ||
-          row.kind != AttentionKind.operation && machineNamed(row.machine) == null,
+          row.kind != AttentionKind.operation && row.kind != AttentionKind.host && machineNamed(row.machine) == null,
     );
     _lastRows.addAll(open);
     for (final id in open.keys) {
       _resolved.remove(id);
     }
     _resolved.removeWhere(
-      (_, each) => each.row.kind != AttentionKind.operation && machineNamed(each.row.machine) == null,
+      (_, each) =>
+          each.row.kind != AttentionKind.operation &&
+          each.row.kind != AttentionKind.host &&
+          machineNamed(each.row.machine) == null,
     );
     _prune();
     _scheduleExpiry();
@@ -595,6 +617,7 @@ class Attention extends ChangeNotifier {
     _machines.removeListener(_follow);
     _settings?.removeListener(_changed);
     _operations?.removeListener(_changed);
+    _hostRuns?.removeListener(_changed);
     _homeservers?.removeListener(_changed);
     _expiry?.cancel();
     for (final each in _following) {

@@ -1,10 +1,11 @@
-// A stand-in `porelo-host` is a small `sh`, which only Linux has here.
+// Private-file protection uses Linux libc without starting a permission process.
 @Tags(<String>['linux'])
 library;
 
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' hide Size;
 
 import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
+import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
@@ -30,10 +32,22 @@ import 'package:porelo_host/porelo_host.dart' as host;
 void main() {
   late Directory scratch;
   late Machines machines;
+  late HostRuns runs;
+  late _HostFileWork fileWork;
+  final settingsModels = <Settings>[];
+
+  Settings newSettings(SettingsStore store) {
+    final settings = Settings(store);
+    settingsModels.add(settings);
+    return settings;
+  }
+
+  host.HostFiles filesFor(host.SecretStore store) => _ControlledHostFiles(store, fileWork);
   String fixture(String name) => path.join(scratch.path, name);
   final collectionDigest = sha256.convert(utf8.encode('invented-private-or-setup-fixture')).toString();
   const signingPublic = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture';
   setUp(() async {
+    fileWork = _HostFileWork();
     scratch = await Directory.systemTemp.createTemp('host-dialog-');
     for (final name in ['default', 'private', 'new', 'dialog identity', 'demo-key', 'collection.tar.gz']) {
       File(fixture(name)).writeAsStringSync('invented-private-or-setup-fixture');
@@ -41,13 +55,35 @@ void main() {
     for (final name in ['default.pub', 'public.pub', 'id_ed25519.pub', 'demo.pub', 'signing.pub']) {
       File(fixture(name)).writeAsStringSync(signingPublic);
     }
-    machines = Machines(Settings(MemorySettingsStore()), reach: (_) => FakeBackend(const []), tunnels: _HostTunnels());
+    machines = Machines(
+      newSettings(MemorySettingsStore()),
+      reach: (_) => FakeBackend(const []),
+      tunnels: _HostTunnels(),
+    );
+    runs = HostRuns(machines, endpointFor: (name) => '/tmp/${Machine.slug(name)}.sock');
   });
-  tearDown(() => machines.dispose());
+
+  void hostWidgets(String name, Future<void> Function(WidgetTester) body) {
+    testWidgets(name, (tester) async {
+      try {
+        await body(tester);
+      } finally {
+        await tester.runAsync(fileWork.complete);
+        await tester.pumpWidget(const SizedBox.shrink());
+        runs.dispose();
+        machines.dispose();
+        for (final settings in settingsModels) {
+          settings.dispose();
+        }
+        settingsModels.clear();
+      }
+    });
+  }
+
   tearDown(() => scratch.delete(recursive: true));
 
   // Harm: a forgotten server keeps billing without anyone knowing how to find it.
-  testWidgets('removing a host warns before forgetting and offers teardown beside removal', (tester) async {
+  hostWidgets('removing a host warns before forgetting and offers teardown beside removal', (tester) async {
     await World.startBackend(World.work);
     await World.startApp(tester);
     const machine = Machine(
@@ -96,35 +132,31 @@ void main() {
       needs: needs,
       address: '203.0.113.7',
       account: 'actual-account',
-    ).toLine();
-    final done = const host.Step(
+    );
+    const done = host.Step(
       'up',
       host.StepState.done,
       address: '203.0.113.7',
       account: 'porelo',
       socket: '/run/user/1007/porelo/porelod.sock',
-    ).toLine();
-    return (executable, arguments) {
-      starts++;
-      final n = starts;
-      return Process.start('sh', <String>[
-        '-c',
-        'printf "%s\\n" "\$@" > "${scratch.path}/arguments-$n"; cat > "${scratch.path}/input-$n"; '
-            '${n == 1 ? "printf '%s\\n' '$waiting'; exit 75" : "printf '%s\\n' '$done'; exit 0"}',
-        'porelo-host',
-        ...arguments,
-      ]);
+    );
+    return (executable, arguments) async {
+      final n = ++starts;
+      File('${scratch.path}/arguments-$n').writeAsStringSync('${arguments.join('\n')}\n');
+      final process = _HostProcess(inputPath: '${scratch.path}/input-$n');
+      process.line(n == 1 ? waiting : done);
+      process.end(n == 1 ? 75 : 0);
+      return process;
     };
   }
 
-  /// Taps [key] in the real world, where the stand-in can start and end, then shows what it said.
+  /// Completes the queued file work, then pumps the fake command or terminal in bounded frames.
   Future<void> tapAndRun(WidgetTester tester, Key key) async {
     await tester.ensureVisible(find.byKey(key));
     await tester.pump();
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(key));
-      await Future<void>.delayed(const Duration(seconds: 1));
-    });
+    await tester.tap(find.byKey(key));
+    await tester.pump();
+    await tester.runAsync(fileWork.complete);
     await World.settle(tester);
   }
 
@@ -178,7 +210,7 @@ void main() {
   }
 
   // Harm: release setup can rent a host only after an arbitrary collection override is supplied.
-  testWidgets('release mode reaches review and starts up without a collection override', (tester) async {
+  hostWidgets('release mode reaches review and starts up without a collection override', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -189,6 +221,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             project: 'demo',
             machines: machines,
             debug: false,
@@ -217,12 +251,12 @@ void main() {
   });
 
   // Harm: losing the last setup answers makes a rented server impossible to recover or take down.
-  testWidgets('up keeps its arguments before answering and reopening restores every editable step', (tester) async {
+  hostWidgets('up keeps its arguments before answering and reopening restores every editable step', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final store = MemorySettingsStore();
-    final settings = Settings(store);
+    final settings = newSettings(store);
     await settings.rememberTresorFolder('demo', scratch.path);
     final answers = {
       'host-scaleway-project': 'project',
@@ -240,12 +274,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
+          hostFiles: filesFor,
+          hostRuns: runs,
           project: 'demo',
           machines: machines,
           settings: settings,
           secretStore: _MemorySecrets(),
           start: (_, arguments) async {
-            final persisted = Settings(store);
+            final persisted = newSettings(store);
             await persisted.load();
             expect(
               hostArguments(persisted.hostUp('demo')!, 'demo'),
@@ -264,11 +300,11 @@ void main() {
     process.end(65);
     await World.settle(tester);
     await tester.pumpWidget(const SizedBox.shrink());
-    final reopened = Settings(store);
+    final reopened = newSettings(store);
     await reopened.load();
     await tester.pumpWidget(
       MaterialApp(
-        home: HostDialog(project: 'demo', machines: machines, settings: reopened),
+        home: HostDialog(hostFiles: filesFor, hostRuns: runs, project: 'demo', machines: machines, settings: reopened),
       ),
     );
     final seen = <String>{};
@@ -288,13 +324,13 @@ void main() {
   for (final code in [65, 75, 0]) {
     for (final released in [null, '203.0.113.7', '203.0.113.8']) {
       // Harm: failed teardown loses the only route back, or teardown targets a different billing host.
-      testWidgets('Machines teardown reuses kept arguments and removes only after exit $code releasing $released', (
+      hostWidgets('Machines teardown reuses kept arguments and removes only after exit $code releasing $released', (
         tester,
       ) async {
         tester.view.physicalSize = const Size(1280, 800);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
-        final settings = Settings(MemorySettingsStore());
+        final settings = newSettings(MemorySettingsStore());
         const record = HostUpRecord(
           scalewayProject: 'provider-project',
           account: 'worker',
@@ -360,7 +396,7 @@ void main() {
         expect(find.textContaining('room'), findsOneWidget);
         expect(find.textContaining('files'), findsOneWidget);
         expect(find.byType(TextField), findsNothing, reason: 'no setup answer is typed again');
-        await tester.tap(find.byKey(const Key('host-down')));
+        await tapAndRun(tester, const Key('host-down'));
         await World.settle(tester);
         expect(commands, [
           [
@@ -408,7 +444,7 @@ void main() {
   ]) {
     for (final directory in [false, true]) {
       // Harm: finding an unusable input only after renting leaves a billing host without setup.
-      testWidgets('${field.key} refuses a ${directory ? 'directory' : 'missing file'} in its own step', (tester) async {
+      hostWidgets('${field.key} refuses a ${directory ? 'directory' : 'missing file'} in its own step', (tester) async {
         tester.view.physicalSize = const Size(1280, 800);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
@@ -417,13 +453,15 @@ void main() {
         addTearDown(() => desk = previousDesk);
         final selected = fixture('unusable');
         if (directory) Directory(selected).createSync();
-        final settings = Settings(MemorySettingsStore());
+        final settings = newSettings(MemorySettingsStore());
         await settings.rememberTresorFolder('demo', scratch.path);
         var starts = 0;
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(
               body: HostDialog(
+                hostFiles: filesFor,
+                hostRuns: runs,
                 project: 'demo',
                 machines: machines,
                 settings: settings,
@@ -463,11 +501,11 @@ void main() {
   }
 
   // Harm: an input refusal without its field and step prevents correcting setup before renting.
-  testWidgets('a preparation refusal names the input and back correct next retries with the new file', (tester) async {
+  hostWidgets('a preparation refusal names the input and back correct next retries with the new file', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
+    final settings = newSettings(MemorySettingsStore());
     await settings.rememberTresorFolder('demo', scratch.path);
     final unreadable = File(fixture('unreadable.pub'))..writeAsBytesSync([0xff]);
     final replacement = File(fixture('replacement.pub'))..writeAsStringSync(signingPublic);
@@ -476,6 +514,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             project: 'demo',
             machines: machines,
             settings: settings,
@@ -483,7 +523,15 @@ void main() {
             start: (_, arguments) async {
               commands.add(List.of(arguments));
               final process = _HostProcess();
-              process.line(const host.Step('up', host.StepState.done));
+              process.line(
+                const host.Step(
+                  'up',
+                  host.StepState.done,
+                  address: '203.0.113.7',
+                  account: 'porelo',
+                  socket: '/run/user/1007/porelo/porelod.sock',
+                ),
+              );
               process.end(0);
               return process;
             },
@@ -526,7 +574,7 @@ void main() {
   });
 
   // Harm: confusing the local folder with the remote tresor syncs the wrong project on the server.
-  testWidgets('the folder and its picker share a line and suggest only an unedited tresor name', (tester) async {
+  hostWidgets('the folder and its picker share a line and suggest only an unedited tresor name', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -534,7 +582,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: HostDialog(project: 'demo', machines: machines, pickFolder: () async => folder),
+          body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
+            project: 'demo',
+            machines: machines,
+            pickFolder: () async => folder,
+          ),
         ),
       ),
     );
@@ -565,7 +619,7 @@ void main() {
   });
 
   // Harm: renting with a public key as the identity leaves a billing host inaccessible.
-  testWidgets('a public key path is refused before up starts', (tester) async {
+  hostWidgets('a public key path is refused before up starts', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -574,6 +628,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             project: 'demo',
             machines: machines,
             secretStore: _MemorySecrets(),
@@ -612,17 +668,19 @@ void main() {
     'host-collection': 3,
   }.entries) {
     // Harm: an incomplete answer rents a billing server that cannot be set up.
-    testWidgets('${missing.key} must be given before the start decision can be reached', (tester) async {
+    hostWidgets('${missing.key} must be given before the start decision can be reached', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final settings = Settings(MemorySettingsStore());
+      final settings = newSettings(MemorySettingsStore());
       await settings.rememberTresorFolder('demo', scratch.path);
       var starts = 0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               project: 'demo',
               machines: machines,
               settings: settings,
@@ -655,7 +713,7 @@ void main() {
   }
 
   // Harm: a renamed public key is accepted as an identity and setup rents an inaccessible host.
-  testWidgets('a public key without a pub suffix is refused before up starts', (tester) async {
+  hostWidgets('a public key without a pub suffix is refused before up starts', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -666,6 +724,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             project: 'demo',
             machines: machines,
             secretStore: _MemorySecrets(),
@@ -689,14 +749,20 @@ void main() {
   });
 
   // Harm: moving back loses a key path or changes the server that the review will start.
-  testWidgets('back keeps every host answer before starting', (tester) async {
+  hostWidgets('back keeps every host answer before starting', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: HostDialog(project: 'demo', machines: machines, secretStore: _MemorySecrets()),
+          body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
+            project: 'demo',
+            machines: machines,
+            secretStore: _MemorySecrets(),
+          ),
         ),
       ),
     );
@@ -725,8 +791,8 @@ void main() {
     expect(find.byKey(const Key('host-scaleway-project')), findsOneWidget);
   });
 
-  // Harm: a confirmed leave crashes when the unfinished process delivers its final answer.
-  testWidgets('leaving a running host action safely lets its process answer', (tester) async {
+  // Harm: closing the wizard loses a billing run or crashes when its command finishes.
+  hostWidgets('a host run survives closing its wizard and adds the confirmed machine', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -739,6 +805,8 @@ void main() {
               onPressed: () => showDialog<void>(
                 context: context,
                 builder: (_) => HostDialog(
+                  hostFiles: filesFor,
+                  hostRuns: runs,
                   project: 'demo',
                   machines: machines,
                   secretStore: _MemorySecrets(),
@@ -760,15 +828,25 @@ void main() {
       'host-collection-sha256': collectionDigest,
     });
     await tapAndRun(tester, const Key('host-up'));
+    expect(runs.of('demo')?.session.state, HostRunState.running, reason: 'the command must start before leaving');
     await navigate(tester, 'wizard-leave');
     expect(find.byKey(const Key('wizard-confirm-leave')), findsOneWidget);
     await navigate(tester, 'wizard-confirm-leave');
     expect(find.byType(HostDialog), findsNothing);
-    process.line(const host.Step('up', host.StepState.done));
+    process.line(
+      const host.Step(
+        'up',
+        host.StepState.done,
+        address: '203.0.113.7',
+        account: 'porelo',
+        socket: '/run/user/1007/porelo/porelod.sock',
+      ),
+    );
     process.end(0);
     await World.settle(tester);
     expect(tester.takeException(), isNull, reason: 'a process answer must not notify a disposed dialog');
-    expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
+    expect(machines.all.where((machine) => machine.kind == 'host').single.name, 'demo server');
+    expect(runs.of('demo')!.ready, isTrue);
   });
 
   for (final field in <String, String?>{
@@ -778,14 +856,14 @@ void main() {
     'host-signing-key': null,
   }.entries) {
     // Harm: up receives a nonexistent path or cannot prepare the host file.
-    testWidgets('${field.key} expands a home path before preparing files and starting up', (tester) async {
+    hostWidgets('${field.key} expands a home path before preparing files and starting up', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final previousDesk = desk;
       desk = Desk.of('linux', {'HOME': scratch.path});
       addTearDown(() => desk = previousDesk);
-      final settings = Settings(MemorySettingsStore());
+      final settings = newSettings(MemorySettingsStore());
       await settings.rememberTresorFolder('demo', scratch.path);
       late File signing;
       await tester.runAsync(() async {
@@ -799,6 +877,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               project: 'demo',
               machines: machines,
               settings: settings,
@@ -832,17 +912,19 @@ void main() {
     });
 
     // Harm: an unsupported home path starts provisioning with a nonexistent file.
-    testWidgets('${field.key} refuses another user home path before up starts', (tester) async {
+    hostWidgets('${field.key} refuses another user home path before up starts', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final settings = Settings(MemorySettingsStore());
+      final settings = newSettings(MemorySettingsStore());
       await settings.rememberTresorFolder('demo', scratch.path);
       var starts = 0;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               project: 'demo',
               machines: machines,
               settings: settings,
@@ -882,29 +964,26 @@ void main() {
   }
 
   // Harm: a development walk accidentally launches the installed host provisioning command.
-  testWidgets('the dialog runs the executable named by its injected environment', (tester) async {
+  hostWidgets('the dialog runs the executable named by its injected environment', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final executable = File('${scratch.path}/host');
-    final marker = File('${scratch.path}/ran');
-    await tester.runAsync(() async {
-      await executable.writeAsString('#!/bin/sh\ncat >/dev/null\nprintf ran > "${marker.path}"\nexit 65\n');
-      expect((await Process.run('chmod', ['700', executable.path])).exitCode, 0);
-    });
     String? launched;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             project: 'demo',
             machines: machines,
             secretStore: _MemorySecrets(),
             environment: {'PORELO_HOST_STANDIN': executable.path},
             start: (program, arguments) async {
               launched = program;
-              // A wrong selection must fail without running a real provisioning command.
-              return Process.start(program == executable.path ? program : '/bin/false', arguments);
+              final process = _HostProcess()..end(65);
+              return process;
             },
           ),
         ),
@@ -919,16 +998,15 @@ void main() {
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
     expect(launched, executable.path);
-    expect(await tester.runAsync(() => marker.readAsString()), 'ran');
   });
 
   // Harm: a conflicting file is destroyed or a rented host starts with incomplete files.
   // Red: start the session before awaiting prepare, or truncate an existing machine.yml.
-  testWidgets('a conflicting machine file is named and up never starts', (tester) async {
+  hostWidgets('a conflicting machine file is named and up never starts', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
+    final settings = newSettings(MemorySettingsStore());
     await settings.rememberTresorFolder('demo', scratch.path);
     var starts = 0;
     late File conflict;
@@ -943,6 +1021,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             machines: machines,
             project: 'demo',
             settings: settings,
@@ -973,23 +1053,19 @@ void main() {
   // Harm: the private key reaches a process/log/UI, or repeated up/down configure the wrong peer.
   // Red: pass a private key as the peer option, show it in a step, or omit the options on repeated up/down.
   // Export red: omit chmod, put the host private half in the export, or export before the button is used.
-  testWidgets('folder picker prepares files and only explicit export reads out the stored private half', (
+  hostWidgets('folder picker prepares files and only explicit export reads out the stored private half', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final settingsStore = MemorySettingsStore();
-    final settings = Settings(settingsStore);
+    final settings = newSettings(settingsStore);
     final store = _MemorySecrets();
     final commands = <List<String>>[];
     final processes = <_HostProcess>[];
     Future<void> deliver(void Function() send) async {
-      await tester.runAsync(() async {
-        send();
-        // The process listener awaits in runAsync's real zone; fake-clock pumps cannot finish it.
-        await Future<void>.delayed(Duration.zero);
-      });
+      send();
       await World.settle(tester);
     }
 
@@ -1004,6 +1080,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             machines: machines,
             project: 'demo',
             settings: settings,
@@ -1091,7 +1169,7 @@ void main() {
     final config = await tester.runAsync(() => exported.readAsString());
     expect(config, contains('PrivateKey = $private'));
     expect(config, contains('PublicKey = $hostPublic'));
-    final reopened = Settings(settingsStore);
+    final reopened = newSettings(settingsStore);
     await reopened.load();
     expect(
       reopened.hostUp('demo')!.vpnFile,
@@ -1116,11 +1194,11 @@ void main() {
   // Harm: a store transport failure escapes the dialog or exposes its exception/value.
   // Red: remove the store Exception boundary or show the raw SocketException message.
   for (final operation in ['setup', 'export', 'teardown']) {
-    testWidgets('a store SocketException during $operation is a safe dialog refusal', (tester) async {
+    hostWidgets('a store SocketException during $operation is a safe dialog refusal', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final settings = Settings(MemorySettingsStore());
+      final settings = newSettings(MemorySettingsStore());
       final store = _BrokenSecrets();
       final processes = <_HostProcess>[];
       final destination = File(path.join(scratch.path, 'asked.conf'));
@@ -1137,6 +1215,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               machines: machines,
               project: 'demo',
               settings: settings,
@@ -1162,19 +1242,16 @@ void main() {
       if (operation == 'export') {
         await tapAndRun(tester, const Key('host-up'));
         expect(processes.length, 1);
-        await tester.runAsync(() async {
-          processes.last.line(
-            const host.Step(
-              'up',
-              host.StepState.done,
-              address: '203.0.113.8',
-              account: 'porelo',
-              socket: '/run/user/1007/porelo/porelod.sock',
-            ),
-          );
-          processes.last.end(0);
-          await Future<void>.delayed(Duration.zero);
-        });
+        processes.last.line(
+          const host.Step(
+            'up',
+            host.StepState.done,
+            address: '203.0.113.8',
+            account: 'porelo',
+            socket: '/run/user/1007/porelo/porelod.sock',
+          ),
+        );
+        processes.last.end(0);
         await World.settle(tester);
       }
       store.fail = true;
@@ -1201,7 +1278,7 @@ void main() {
   // Harm: setup rents a host using a person key that cannot be recovered from the store.
   // Red: remove the store read-back equality check or start the command before preparation.
   for (final alter in [false, true]) {
-    testWidgets('a ${alter ? 'different read-back' : 'dropped store write'} blocks the host command', (tester) async {
+    hostWidgets('a ${alter ? 'different read-back' : 'dropped store write'} blocks the host command', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1210,6 +1287,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               machines: machines,
               project: 'demo',
               secretStore: _BrokenSecrets()
@@ -1239,9 +1318,9 @@ void main() {
 
   // Prevents connecting before setup succeeds, losing an existing host on a failed down,
   // or saving the form's account instead of the destination the command confirmed.
-  // Red: offer Add on the done step before exit 0, add automatically, ignore the done values,
+  // Red: add on the done step before exit 0, ignore the done values,
   // skip replacing a same-name host, or forget it when down starts or fails.
-  testWidgets('confirmed up uses its destination and down for another account keeps the host', (tester) async {
+  hostWidgets('confirmed up uses its destination and down for another account keeps the host', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1262,6 +1341,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             secretStore: _MemorySecrets(),
             machines: machines,
             project: 'demo',
@@ -1285,7 +1366,7 @@ void main() {
     });
     await tester.pump();
     await tester.ensureVisible(find.byKey(const Key('host-up')));
-    await tester.tap(find.byKey(const Key('host-up')));
+    await tapAndRun(tester, const Key('host-up'));
     await World.settle(tester);
     const done = host.Step(
       'up',
@@ -1303,15 +1384,13 @@ void main() {
     expect(find.byKey(const Key('host-add')), findsNothing, reason: 'a refused up must not be added');
     expect(machines.all, <Machine>[old]);
     await navigate(tester, 'wizard-back');
-    await tester.tap(find.byKey(const Key('host-up')));
+    await tapAndRun(tester, const Key('host-up'));
     await World.settle(tester);
     processes.last.line(done);
     processes.last.end(0);
     await World.settle(tester);
-    expect(machines.all, <Machine>[old], reason: 'adding is a separate decision');
-    await tester.ensureVisible(find.byKey(const Key('host-add')));
-    await tester.tap(find.byKey(const Key('host-add')));
-    await World.settle(tester);
+    expect(find.byKey(const Key('host-add')), findsNothing, reason: 'successful setup adds the host automatically');
+    expect(find.text('Ready: demo server is in your machines'), findsOneWidget);
     final added = machines.all.single;
     expect(added.name, 'demo server');
     expect(added.kind, 'host');
@@ -1324,10 +1403,10 @@ void main() {
     expect(added.host, 'actual-account@203.0.113.9');
     expect(added.remoteSocket, '/run/user/1099/porelo/porelod.sock');
     expect(added.identity, fixture('new'));
-    expect(added.socketPath, Machine.endpointFor('demo server'));
+    expect(added.socketPath, '/tmp/demo-server.sock');
     for (final code in <int>[65, 75, 0]) {
       await tester.ensureVisible(find.byKey(const Key('host-down')));
-      await tester.tap(find.byKey(const Key('host-down')));
+      await tapAndRun(tester, const Key('host-down'));
       await World.settle(tester);
       expect(machines.all, <Machine>[added], reason: 'down has not answered');
       processes.last.line(const host.Step('give-back', host.StepState.done, address: '203.0.113.9'));
@@ -1344,7 +1423,7 @@ void main() {
   // Prevents forgetting a still-billed server after down found no host or a different account.
   // Red: remove by project name, remove all hosts, ignore account, or forget without an address.
   for (final found in <bool>[false, true]) {
-    testWidgets('down ${found ? 'removes only the matching destination' : 'without an address keeps every machine'}', (
+    hostWidgets('down ${found ? 'removes only the matching destination' : 'without an address keeps every machine'}', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1280, 800);
@@ -1389,6 +1468,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
@@ -1410,7 +1491,7 @@ void main() {
       await tester.pump();
       for (final code in <int>[65, 75, 0]) {
         await tester.ensureVisible(find.byKey(const Key('host-down')));
-        await tester.tap(find.byKey(const Key('host-down')));
+        await tapAndRun(tester, const Key('host-down'));
         await World.settle(tester);
         expect(machines.all, before);
         processes.last.line(host.Step('give-back', host.StepState.done, address: found ? '203.0.113.9' : null));
@@ -1455,7 +1536,7 @@ void main() {
       socket: '/run/user/1/porelo/porelod.sock',
     ),
   ]) {
-    testWidgets('an invalid completion is refused when adding: ${done.toLine()}', (tester) async {
+    hostWidgets('an invalid completion is refused when adding: ${done.toLine()}', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1464,6 +1545,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
@@ -1480,21 +1563,19 @@ void main() {
       });
       await tester.pump();
       await tester.ensureVisible(find.byKey(const Key('host-up')));
-      await tester.tap(find.byKey(const Key('host-up')));
+      await tapAndRun(tester, const Key('host-up'));
       await World.settle(tester);
       process.line(done);
       process.end(0);
       await World.settle(tester);
-      await tester.ensureVisible(find.byKey(const Key('host-add')));
-      await tester.tap(find.byKey(const Key('host-add')));
-      await World.settle(tester);
+      expect(find.byKey(const Key('host-add')), findsNothing);
       expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
       expect(find.textContaining('did not name a valid'), findsOneWidget);
     });
   }
 
   // Changing the host identity can make down report success while the rented host keeps billing.
-  testWidgets('host fields stay read-only after up and down targets exactly the same host', (tester) async {
+  hostWidgets('host fields stay read-only after up and down targets exactly the same host', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1502,6 +1583,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             secretStore: _MemorySecrets(),
             machines: machines,
             project: 'demo',
@@ -1568,7 +1651,7 @@ void main() {
     <String>['drive', 'vault', 'tresor-2fa'],
     <String>[],
   ]) {
-    testWidgets('unsupported stop $needs explains what is missing and cannot resume', (tester) async {
+    hostWidgets('unsupported stop $needs explains what is missing and cannot resume', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1576,6 +1659,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
@@ -1625,7 +1710,7 @@ void main() {
   }
 
   // Renting without a tresor would leave the project's drive unsynced.
-  testWidgets('a host cannot be brought up without the project tresor', (tester) async {
+  hostWidgets('a host cannot be brought up without the project tresor', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -1633,6 +1718,8 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
             secretStore: _MemorySecrets(),
             machines: machines,
             project: 'demo',
@@ -1688,7 +1775,7 @@ void main() {
 
   // Harm: a secret enters the interface widgets, or SSH trusts a key setup did not pin.
   for (final entry in commands.entries) {
-    testWidgets('stop ${entry.key} takes no secret and opens exactly its pinned host command', (tester) async {
+    hostWidgets('stop ${entry.key} takes no secret and opens exactly its pinned host command', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1698,6 +1785,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
@@ -1774,7 +1863,7 @@ void main() {
     'me @example.org',
     '-me@example.org',
   ]) {
-    testWidgets('unsafe e-mail $email is refused without opening a terminal', (tester) async {
+    hostWidgets('unsafe e-mail $email is refused without opening a terminal', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1783,6 +1872,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
               project: 'demo',
@@ -1816,8 +1907,11 @@ void main() {
 
 /// A command whose output and exit are independently controlled by the test.
 class _HostProcess extends Fake implements Process {
-  _HostProcess() {
-    _input.stream.listen((_) {});
+  _HostProcess({String? inputPath}) {
+    if (inputPath != null) File(inputPath).writeAsBytesSync([]);
+    _input.stream.listen((bytes) {
+      if (inputPath != null) File(inputPath).writeAsBytesSync(bytes, mode: FileMode.append);
+    });
     _stdin = IOSink(_input.sink);
   }
   final _input = StreamController<List<int>>();
@@ -1880,4 +1974,76 @@ class _BrokenSecrets extends _MemorySecrets {
     if (fail) throw const SocketException('private-value');
     if (!drop) await super.write(name, alter ? base64Encode(List.filled(32, 7)) : value);
   }
+}
+
+/// Keeps real file protections without waiting on a chmod process in a widget test.
+class _WidgetFileWriter extends host.HostFileWriter {
+  @override
+  Future<void> protect(File file) async {
+    final library = DynamicLibrary.process();
+    final allocate = library.lookupFunction<Pointer<Void> Function(IntPtr), Pointer<Void> Function(int)>('malloc');
+    final release = library.lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>('free');
+    final chmod = library.lookupFunction<Int32 Function(Pointer<Uint8>, Uint32), int Function(Pointer<Uint8>, int)>(
+      'chmod',
+    );
+    final bytes = [...utf8.encode(file.absolute.path), 0];
+    final pointer = allocate(bytes.length).cast<Uint8>();
+    try {
+      pointer.asTypedList(bytes.length).setAll(0, bytes);
+      if (chmod(pointer, 0x180) != 0) throw const host.HostFilesRefused('Cannot protect the widget test file.');
+    } finally {
+      release(pointer.cast<Void>());
+    }
+  }
+}
+
+/// Completes real file operations only when the test explicitly advances them.
+class _HostFileWork {
+  final _pending = <Future<void> Function()>[];
+
+  Future<T> defer<T>(Future<T> Function() operation) {
+    final answer = Completer<T>();
+    _pending.add(() async {
+      try {
+        answer.complete(await operation());
+      } catch (error, stack) {
+        answer.completeError(error, stack);
+      }
+    });
+    return answer.future;
+  }
+
+  Future<void> complete() async {
+    final pending = List.of(_pending);
+    _pending.clear();
+    for (final operation in pending) {
+      await operation();
+    }
+  }
+}
+
+/// Holds file preparation and export at a test-driven boundary without faking their contents.
+class _ControlledHostFiles extends host.HostFiles {
+  _ControlledHostFiles(super.store, this.work) : super(writer: _WidgetFileWriter());
+
+  final _HostFileWork work;
+
+  @override
+  Future<host.HostTunnel> prepare({
+    required String project,
+    String? folder,
+    required String url,
+    required File signingKey,
+    List<host.HostKeyFile> keys = const [],
+  }) => work.defer(() => super.prepare(project: project, folder: folder, url: url, signingKey: signingKey, keys: keys));
+
+  @override
+  Future<void> exportTunnel({
+    required String project,
+    required host.HostTunnel tunnel,
+    required String address,
+    required File destination,
+  }) => work.defer(
+    () => super.exportTunnel(project: project, tunnel: tunnel, address: address, destination: destination),
+  );
 }

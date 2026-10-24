@@ -11,6 +11,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Forge tokens are entered only in terminal prompts, kept on this computer for the forge API and
   in each machine's vault for git over https; setting up and clearing repositories no longer manages deploy keys.
+- Server setup continues after its wizard closes, appears in Machines with progress and time
+  estimates, asks under Needs you at a stop, and adds the ready server automatically on success.
 
 - Server setup includes its verified collection, so release builds no longer ask for a setup file;
   debug builds can try a test collection with an explicit SHA-256.

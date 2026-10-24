@@ -88,10 +88,23 @@ void main() {
       await screen.fill('host-collection-sha256', _required('PORELO_WALK_COLLECTION_SHA256'));
       await screen.tap(_key('wizard-next'));
       await screen.tap(_key('host-up'));
+      await screen.until(() => find.byType(AlertDialog).evaluate().isEmpty, 'the setup wizard to close');
+      await screen.goTo('machines');
+      await screen.shown(_key('host-preparing checkout'));
+      expect(find.text('checkout server'), findsWidgets);
+      expect(find.text('In preparation'), findsOneWidget);
+      expect(_key('machines-row checkout server'), findsNothing, reason: 'a stopped host is not a ready machine');
+      await screen.goTo('attention');
+      await screen.shown(_key('host-needs checkout'));
+      expect(
+        find.descendant(of: _key('host-needs checkout'), matching: find.text('on checkout server')),
+        findsOneWidget,
+      );
+      await screen.tap(find.text('Complete setup on the host'));
       await screen.shown(_key('host-stop'));
       for (final name in ['rent', 'ssh', 'copy', 'ansible', 'play', 'person']) {
         await screen.see(_key('host-step-$name'));
-        expect(find.descendant(of: _key('host-step-$name'), matching: find.text(name)), findsOneWidget);
+        expect(find.descendant(of: _key('host-step-$name'), matching: find.byType(Text)), findsWidgets);
       }
       await screen.see(find.text('The host needs a Tresorit login.'));
       await screen.see(find.text('The host needs a passphrase for its new vault.'));
@@ -146,7 +159,8 @@ void main() {
         return _key('host-done').evaluate().isNotEmpty;
       }, 'host setup to finish without another stop');
       await screen.see(_key('host-done'));
-      expect(tester.widget<Text>(_key('host-done')).data, 'Done.');
+      expect(tester.widget<Text>(_key('host-done')).data, 'Ready: checkout server is in your machines');
+      expect(_key('host-add'), findsNothing);
       for (final name in ['rent', 'ssh', 'copy', 'ansible', 'play', 'drive', 'vault', 'up']) {
         expect(_key('host-step-$name'), findsOneWidget, reason: 'the resumed run includes $name');
       }
@@ -162,6 +176,10 @@ void main() {
       await screen.tap(info);
       await screen.shown(find.textContaining('sudo install -m 600 <saved file> /etc/wireguard/porelo.conf'));
       expect(find.textContaining('sudo wg-quick up porelo'), findsOneWidget);
+      await screen.tap(_key('host-close'));
+      await screen.goTo('machines');
+      await screen.shown(_key('machines-row checkout server'));
+      expect(_key('host-preparing checkout'), findsNothing);
     } catch (error, stack) {
       debugPrint('Host walk failed: $error\n$stack\n${screen.dump()}');
       rethrow;

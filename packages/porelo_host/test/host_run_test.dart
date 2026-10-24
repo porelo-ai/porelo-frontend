@@ -129,6 +129,42 @@ void main() {
     line(<String, Object>{'play': 'second', 'task': 'tasks', 'state': 'changed'}),
   ];
 
+  // Harm: malformed callback data crashes provisioning while a rented host keeps billing.
+  test('malformed relayed fields are dropped and a taskless plan is relayed', () async {
+    final planned = [
+      {'task': 'base', 'text': 'Prepare the account', 'seconds': 25},
+      {'task': 'optional', 'text': 'Copy existing files', 'seconds': 10, 'when': true},
+    ];
+    final lines = <String>[
+      line({'state': 'plan', 'steps': planned}),
+      for (final field in ['msg', 'task', 'play', 'text', 'seconds', 'steps', 'needs'])
+        line({'state': 'started', 'task': 'broken-$field', field: false}),
+      line({
+        'state': 'plan',
+        'steps': [
+          {'task': 'bad', 'text': 4},
+        ],
+      }),
+      line({'state': 'started', 'task': 'base', 'text': 'Prepare the account', 'seconds': 25}),
+      line({'state': 'ok', 'task': 'base'}),
+    ];
+    final steps = <Step>[];
+    final result = await HostRun(provider: CountingProvider(), remote: ScriptedRemote(lines), emit: steps.add).up(plan);
+    expect(result, Exit.done);
+    expect(steps.where((step) => step.step.startsWith('broken-')), isEmpty);
+    final plans = steps
+        .map((step) => jsonDecode(step.toLine()) as Map)
+        .where((step) => step['state'] == 'plan')
+        .toList();
+    expect(plans, hasLength(2));
+    expect((plans.first['steps'] as List).map((step) => (step as Map)['task']), ['rent', 'ssh', 'copy', 'ansible']);
+    expect((plans.last['steps'] as List).skip(4), planned);
+    expect(steps.first.toLine(), contains('"state":"plan"'));
+    final base = jsonDecode(steps.firstWhere((step) => step.step == 'base').toLine()) as Map;
+    expect(base['text'], 'Prepare the account');
+    expect(base['seconds'], 25);
+  });
+
   // Prevents connecting to the wrong account or leaking unrelated provider facts.
   // Red: omit any destination field or add a provider fact to the final step.
   test('done up carries exactly the address account and account daemon socket', () async {
@@ -210,7 +246,7 @@ void main() {
     expect(provider.created, 1);
     expect(trusted, <String>['203.0.113.7 ssh-ed25519 AAAA']);
     expect(steps.map((s) => '${s.step}:${s.state.name}'), <String>[
-      'rent:started', 'rent:done', 'ssh:started', 'ssh:done', 'copy:started', 'copy:done',
+      'plan:plan', 'rent:started', 'rent:done', 'ssh:started', 'ssh:done', 'copy:started', 'copy:done',
       'ansible:started', 'ansible:done', 'base:started', 'base:done', 'person:waiting', //
     ]);
     expect(steps.last.needs, <String>['drive', 'vault-new']);
@@ -343,6 +379,8 @@ void main() {
     expect(jsonDecode(steps.last.toLine()), <String, Object>{
       'step': 'give-back',
       'state': 'done',
+      'text': 'Give the project server back',
+      'seconds': 30,
       'address': '203.0.113.7',
     });
     steps.clear();
@@ -351,6 +389,8 @@ void main() {
       'step': 'give-back',
       'state': 'done',
       'words': 'no host carries the project tag',
+      'text': 'Give the project server back',
+      'seconds': 30,
     });
     expect(provider.released, <String>['h1'], reason: 'nothing else was given back');
   });

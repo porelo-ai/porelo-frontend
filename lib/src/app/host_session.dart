@@ -50,8 +50,14 @@ typedef StartHostCommand = Future<Process> Function(String executable, List<Stri
 /// terminal on the host and runs `up` again.
 class HostSession extends ChangeNotifier {
   /// Constructor taking the command and the arguments that name the project and the host.
-  HostSession({required this.executable, required this.arguments, StartHostCommand? start})
-    : _start = start ?? ((executable, arguments) => Process.start(executable, arguments));
+  HostSession({
+    required this.executable,
+    required List<String> arguments,
+    StartHostCommand? start,
+    DateTime Function()? now,
+  }) : arguments = List.unmodifiable(arguments),
+       _now = now ?? DateTime.now,
+       _start = start ?? ((executable, arguments) => Process.start(executable, arguments));
 
   /// The shipped `porelo-host`, by its path.
   final String executable;
@@ -60,6 +66,57 @@ class HostSession extends ChangeNotifier {
   final List<String> arguments;
 
   final StartHostCommand _start;
+  final DateTime Function() _now;
+  bool _disposed = false;
+  DateTime? _stepStarted;
+  Step? _currentStep;
+
+  /// Every valid event and stderr line, including earlier attempts, in arrival order.
+  final List<String> protocol = [];
+
+  /// The ordered plan supplied by the command, matched by task identity.
+  List<PlannedStep> plan = const [];
+
+  /// The latest active step, including its stop or refusal.
+  Step? get currentStep => _currentStep;
+
+  /// The step's words, falling back only to its name when no text was supplied.
+  String get stepText => _currentStep?.text ?? _plannedCurrent?.text ?? _currentStep?.step ?? '';
+
+  PlannedStep? get _plannedCurrent => plan.where((step) => step.task == _currentStep?.step).firstOrNull;
+
+  /// Estimated time left in this step; elapsed work never makes it negative.
+  int? get stepSecondsLeft {
+    final seconds = _currentStep?.seconds ?? _plannedCurrent?.seconds;
+    if (seconds == null || _stepStarted == null) return null;
+    if (_currentStep?.state == StepState.done || state == HostRunState.done) return 0;
+    final elapsed = state == HostRunState.running ? _now().difference(_stepStarted!).inSeconds : 0;
+    return (seconds - elapsed).clamp(0, seconds);
+  }
+
+  /// About the whole run, including conditional tasks until a later task begins.
+  int? get secondsLeft {
+    if (state == HostRunState.done) return 0;
+    final at = plan.indexWhere((step) => step.task == _currentStep?.step);
+    final current = stepSecondsLeft;
+    if (at < 0 || current == null) return null;
+    var total = current;
+    for (final step in plan.skip(at + 1)) {
+      if (step.seconds == null) return null;
+      total += step.seconds!;
+    }
+    return total;
+  }
+
+  void _changed() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   /// Every step said so far, the last state of each in the order they began.
   final List<Step> steps = <Step>[];
@@ -95,7 +152,11 @@ class HostSession extends ChangeNotifier {
   Future<void> down() => _run(<String>['down', ...arguments]);
 
   Future<void> _run(List<String> command) async {
+    if (state == HostRunState.running) return;
     steps.clear();
+    plan = const [];
+    _currentStep = null;
+    _stepStarted = null;
     needs = const <String>[];
     address = null;
     releasedAddress = null;
@@ -104,14 +165,19 @@ class HostSession extends ChangeNotifier {
     fix = null;
     said = '';
     state = HostRunState.running;
-    notifyListeners();
+    _changed();
     final process = await _start(executable, command);
     await process.stdin.close();
     final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
-    final words = process.stderr.transform(utf8.decoder).join();
+    final words = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
+      said = said.isEmpty ? line : '$said\n$line';
+      protocol.add(line);
+      _changed();
+    });
     final code = await process.exitCode;
     await lines;
-    said = (await words).trim();
+    await words;
+    said = said.trim();
     state = switch (code) {
       Exit.done => HostRunState.done,
       Exit.waiting => HostRunState.waiting,
@@ -121,12 +187,24 @@ class HostSession extends ChangeNotifier {
     if (state != HostRunState.done && state != HostRunState.waiting) {
       fix ??= said.isEmpty ? 'porelo-host ended with $code' : said;
     }
-    notifyListeners();
+    _changed();
   }
 
   void _line(String line) {
     final step = Step.fromLine(line);
     if (step == null) return;
+    protocol.add(step.toLine());
+    if (step.state == StepState.plan) {
+      plan = List.unmodifiable(step.steps);
+      _changed();
+      return;
+    }
+    if (step.state == StepState.started || step.state == StepState.waiting || step.state == StepState.refused) {
+      _currentStep = step;
+      _stepStarted = _now();
+    } else if (_currentStep?.step == step.step) {
+      _currentStep = step;
+    }
     final at = steps.indexWhere((s) => s.step == step.step);
     if (at < 0) {
       steps.add(step);
@@ -145,7 +223,7 @@ class HostSession extends ChangeNotifier {
     }
     if (step.step == 'give-back' && step.state == StepState.done) releasedAddress = step.address;
     if (step.state == StepState.refused) fix = step.fix ?? step.words;
-    notifyListeners();
+    _changed();
   }
 }
 

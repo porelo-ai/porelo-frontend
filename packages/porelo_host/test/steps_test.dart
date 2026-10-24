@@ -26,4 +26,12 @@ void main() {
     expect(Step.fromLine('{"step": "x", "state": "dancing"}'), isNull);
     expect(Step.fromLine('[1, 2]'), isNull);
   });
+
+  // Harm: a plan of an unknown version is read as this one and shows wrong steps and times.
+  test('a plan line of another version reads as none', () {
+    const steps = '"steps":[{"task":"first","text":"First","seconds":20}]';
+    expect(Step.fromLine('{"v":1,"state":"plan",$steps}')?.state, StepState.plan);
+    expect(Step.fromLine('{"v":2,"state":"plan",$steps}'), isNull);
+    expect(Step.fromLine('{"state":"plan",$steps}'), isNull);
+  });
 }

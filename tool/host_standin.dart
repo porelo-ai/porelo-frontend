@@ -93,31 +93,47 @@ Future<int> _run(List<String> arguments) async {
   );
 
   if (verb == 'down') {
+    _emit(const Step('plan', StepState.plan, steps: HostRun.downSteps));
     _emit(const Step('give-back', StepState.started));
     _emit(const Step('give-back', StepState.done, address: '192.0.2.10'));
     await remember('down');
     return Exit.done;
   }
   if (situation == 'down') return _wrong('The down situation needs the down command.');
+  _emit(const Step('plan', StepState.plan, steps: _ownSteps));
   if (situation == 'refused') {
     _emit(const Step('rent', StepState.started));
     _emit(const Step('rent', StepState.refused, fix: 'Choose a host the provider can supply.'));
     return Exit.refused;
   }
   if (situation == 'slow') {
-    _emit(const Step('play', StepState.started), seconds: pace / 1000);
+    _emit(
+      Step(
+        'plan',
+        StepState.plan,
+        steps: [
+          ..._ownSteps,
+          PlannedStep('play', 'Prepare the server', seconds: (pace / 1000).ceil()),
+        ],
+      ),
+    );
+    _emit(Step('play', StepState.started, text: 'Prepare the server', seconds: (pace / 1000).ceil()));
     await Future<void>.delayed(Duration(milliseconds: pace));
     _emit(const Step('play', StepState.done));
   } else {
-    for (final name in ['rent', 'ssh', 'copy', 'ansible', 'play']) {
+    for (final name in ['rent', 'ssh', 'copy', 'ansible']) {
       _emit(Step(name, StepState.started));
       _emit(Step(name, StepState.done));
     }
+    _emit(const Step('plan', StepState.plan, steps: [..._ownSteps, ..._collectionSteps]));
+    _emit(const Step('play', StepState.started));
+    _emit(const Step('play', StepState.done));
     if (situation == 'stop' && state == 'new') {
       _emit(
         Step(
           'person',
           StepState.waiting,
+          text: 'Sign in to the drive and initialize the vault',
           needs: const ['drive', 'vault-new'],
           address: '192.0.2.10',
           account: options['--account'],
@@ -144,12 +160,26 @@ Future<int> _run(List<String> arguments) async {
   return Exit.done;
 }
 
-void _emit(Step step, {num seconds = 0}) {
+const _ownSteps = HostRun.upSteps;
+const _collectionSteps = [
+  PlannedStep('play', 'Prepare the server', seconds: 120),
+  PlannedStep('drive', 'Sync the project drive', seconds: 60, when: true),
+  PlannedStep('vault', 'Prepare the project vault', seconds: 30),
+];
+
+void _emit(Step step) {
+  final planned = [
+    ..._ownSteps,
+    ..._collectionSteps,
+    ...HostRun.downSteps,
+  ].where((each) => each.task == step.step).firstOrNull;
   final line = jsonDecode(step.toLine()) as Map<String, dynamic>;
-  if (step.state == StepState.started) {
-    line['text'] = 'The host stand-in is running ${step.step}.';
-    line['seconds'] = seconds;
+  if (planned != null) {
+    line['text'] = step.text ?? planned.text;
+    line['seconds'] = step.seconds ?? planned.seconds;
   }
   stdout.writeln(jsonEncode(line));
-  stderr.writeln(step.fix ?? step.words ?? '${step.step}: ${step.state.name}');
+  if (step.state != StepState.plan) {
+    stderr.writeln(step.fix ?? step.words ?? step.text ?? planned?.text ?? '${step.step}: ${step.state.name}');
+  }
 }

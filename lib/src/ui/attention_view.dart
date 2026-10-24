@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/builds.dart';
+import '../app/host_runs.dart';
 import '../app/attention.dart';
 import '../app/commands.dart';
 import '../app/fleet_model.dart';
@@ -34,6 +35,7 @@ class AttentionView extends StatefulWidget {
     this.onPutAway,
     this.onSelect,
     this.onOpenOperation,
+    this.onOpenHost,
     super.key,
   });
 
@@ -57,6 +59,9 @@ class AttentionView extends StatefulWidget {
 
   /// Puts away the outcome of a question, on the machine that asked it.
   final void Function(Tile tile, Prompt prompt)? onPutAway;
+
+  /// Opens the retained host stop and its terminal before a daemon exists.
+  final void Function(String project)? onOpenHost;
 
   /// Opens what a failed operation printed, which is what puts it away.
   final void Function(Operation operation)? onOpenOperation;
@@ -184,6 +189,28 @@ extension on _AttentionViewState {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
+      case AttentionKind.host:
+        final stop = row.value as HostStop;
+        final command = hostPreparationCommand(
+          project: stop.project,
+          resolved: resolved,
+          open: () => widget.onOpenHost?.call(stop.project),
+        ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
+        return Card(
+          key: ValueKey('host-needs ${stop.project}'),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                NeedsMachine(row.machine),
+                Text(stop.text),
+                for (final need in stop.needs) Text(need),
+                _RowCommand(command),
+              ],
+            ),
+          ),
+        );
       case AttentionKind.silent:
         final each = row.value as ({Machine machine, String words});
         return _MachineNotice(

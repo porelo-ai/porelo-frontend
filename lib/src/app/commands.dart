@@ -51,6 +51,9 @@ enum Home {
   /// The menu on the selected work's tile.
   tileMenu,
 
+  /// An action on a machine or a server in preparation.
+  machineRow,
+
   /// An action on a Needs you row.
   attentionRow,
 
@@ -1195,3 +1198,21 @@ String describeShortcut(SingleActivator shortcut) {
   ];
   return parts.join('+');
 }
+
+/// Opens the protocol and existing terminal of a host setup stop.
+Command hostPreparationCommand({required String project, required VoidCallback open, bool resolved = false}) => Command(
+  id: 'host.preparation',
+  label: 'Complete setup on the host',
+  group: '$project server',
+  home: Home.attentionRow,
+  run: open,
+  unavailable: resolved ? 'this row is resolved' : null,
+);
+
+/// Opens a preparing server's complete protocol and stop controls.
+Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
+    Command(id: 'host.protocol', label: 'Open the host protocol', group: '$project server', home: home, run: open);
+
+/// Retries the same setup arguments only after the previous command has ended.
+Command retryHostPreparationCommand({required String project, required VoidCallback retry}) =>
+    Command(id: 'host.retry', label: 'Try setup again', group: '$project server', run: retry);

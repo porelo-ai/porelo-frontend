@@ -8,7 +8,9 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:path/path.dart' as path;
 
 import '../app/desk.dart';
+import '../app/commands.dart';
 import '../app/host_session.dart';
+import '../app/host_runs.dart';
 import '../app/host_vpn.dart';
 import '../app/machines.dart';
 import '../app/settings.dart';
@@ -40,10 +42,31 @@ Future<void> openHostDialog(
   required Machines machines,
   StartHostCommand? start,
   required Settings settings,
+  required HostRuns hostRuns,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
-  builder: (context) => HostDialog(project: project, machines: machines, start: start, settings: settings),
+  builder: (context) => HostDialog(
+    project: project,
+    machines: machines,
+    start: start,
+    settings: settings,
+    hostRuns: hostRuns,
+    onStarted: () => Navigator.pop(context),
+  ),
+);
+
+/// Opens the same protocol and stop terminal after the setup wizard has handed off its run.
+Future<void> openHostRunDialog(
+  BuildContext context, {
+  required HostPreparation run,
+  required HostRuns hostRuns,
+  required Machines machines,
+  required Settings settings,
+}) => showDialog<void>(
+  context: context,
+  builder: (_) =>
+      HostDialog(project: run.project, machines: machines, settings: settings, hostRuns: hostRuns, existingRun: run),
 );
 
 /// The page: where it goes, the steps, and at the stop what only the person can give.
@@ -56,6 +79,10 @@ class HostDialog extends StatefulWidget {
     required this.project,
     required this.machines,
     this.start,
+    this.hostRuns,
+    this.hostFiles,
+    this.existingRun,
+    this.onStarted,
     this.openTerminal,
     this.environment,
     this.settings,
@@ -66,10 +93,22 @@ class HostDialog extends StatefulWidget {
     this.takeDownOnly = false,
     this.debug = kDebugMode,
     super.key,
-  });
+  }) : assert(takeDownOnly || hostRuns != null);
 
   /// The project to put on a server.
   final String project;
+
+  /// File work, injectable so widget tests control preparation and export completion.
+  final HostFiles Function(SecretStore store)? hostFiles;
+
+  /// The frame's owner, required for setup and retained after the wizard closes.
+  final HostRuns? hostRuns;
+
+  /// A run opened from Machines or Needs you, without asking setup questions again.
+  final HostPreparation? existingRun;
+
+  /// Closes the app's setup wizard as soon as ownership has transferred.
+  final VoidCallback? onStarted;
 
   /// Starts the command; the shipped one when null.
   final StartHostCommand? start;
@@ -128,14 +167,17 @@ class _HostDialogState extends State<HostDialog> {
   HostTunnel? _tunnel;
   bool _preparing = false;
   HostSession? _session;
+  HostPreparation? _hostRun;
+  bool _transferred = false;
   bool _sessionActive = false;
 
   @override
   void initState() {
     super.initState();
+    widget.hostRuns?.addListener(_sessionChanged);
     _folder = widget.settings?.tresorFolder(widget.project);
     if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
-    final kept = widget.settings?.hostUp(widget.project);
+    final kept = widget.existingRun?.record ?? widget.settings?.hostUp(widget.project);
     if (kept != null) {
       _scaleway.text = kept.scalewayProject;
       _account.text = kept.account;
@@ -148,12 +190,20 @@ class _HostDialogState extends State<HostDialog> {
       _collection.text = kept.collection;
       _collectionSha256.text = kept.collectionSha256;
     }
+    final run = widget.existingRun;
+    if (run != null) {
+      _hostRun = run;
+      _session = run.session;
+      _session!.addListener(_sessionChanged);
+      _transferred = true;
+      _upStarted = true;
+      _tunnel = run.tunnel;
+    }
   }
 
   bool _upStarted = false;
   bool _takingDown = false;
-  bool _doneUp = false;
-  bool _showTunnel = false;
+  bool get _showTunnel => !_takingDown && _hostRun?.ready == true;
   bool _saving = false;
   bool _terminalOpen = false;
   String? _machineProblem;
@@ -177,9 +227,10 @@ class _HostDialogState extends State<HostDialog> {
     ]) {
       field.dispose();
     }
+    widget.hostRuns?.removeListener(_sessionChanged);
     _session?.removeListener(_sessionChanged);
     // A confirmed leave must not dispose a notifier while its process is still answering.
-    if (!_sessionActive) _session?.dispose();
+    if (!_sessionActive && !_transferred) _session?.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -222,7 +273,7 @@ class _HostDialogState extends State<HostDialog> {
   );
 
   HostSession _newSession({HostUpRecord? record}) {
-    _session?.dispose();
+    if (!_transferred) _session?.dispose();
     final session = HostSession(
       executable: poreloHost(environment: widget.environment),
       arguments: hostArguments(record ?? _record(), widget.project, debug: widget.debug),
@@ -252,7 +303,7 @@ class _HostDialogState extends State<HostDialog> {
       throw const SecretStoreFailed('The system secret store could not be opened.');
     }
     try {
-      await use(HostFiles(store));
+      await use(widget.hostFiles?.call(store) ?? HostFiles(store));
     } finally {
       if (widget.secretStore == null) {
         try {
@@ -339,7 +390,17 @@ class _HostDialogState extends State<HostDialog> {
         _newSession(record: record);
         _upStarted = true;
       }
-      await _runUp(_session!.up);
+      if (_hostRun == null) {
+        final owner = widget.hostRuns;
+        if (owner == null) throw StateError('Host setup needs its HostRuns owner.');
+        final run = owner.start(project: widget.project, session: _session!, record: _record(), tunnel: _tunnel);
+        _hostRun = run;
+        _transferred = true;
+        widget.onStarted?.call();
+        await run.finished;
+      } else {
+        await _runUp(_session!.up);
+      }
     } on FormatException catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
     } on HostFilesRefused catch (error) {
@@ -398,8 +459,6 @@ class _HostDialogState extends State<HostDialog> {
       setState(() => _machineProblem = error.message);
       return;
     }
-    _doneUp = false;
-    _showTunnel = false;
     _machineProblem = null;
     final account = _upStarted ? _account.text.trim() : kept?.account ?? _account.text.trim();
     if (!_upStarted && kept == null) {
@@ -449,55 +508,16 @@ class _HostDialogState extends State<HostDialog> {
       await run();
     } finally {
       _sessionActive = false;
-      if (!mounted) _session?.dispose();
+      if (!mounted && !_transferred) _session?.dispose();
     }
   }
 
   Future<void> _runUp(Future<void> Function() run) async {
-    _doneUp = false;
-    _showTunnel = false;
     _machineProblem = null;
-    await _runHost(run);
-    if (mounted) {
-      setState(() {
-        _doneUp = _session!.state == HostRunState.done;
-        _showTunnel = _doneUp;
-      });
-    }
-  }
-
-  Future<void> _addHost() async {
-    final session = _session!;
-    final address = session.address ?? '';
-    final account = session.account ?? '';
-    final socket = session.socket ?? '';
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address) ||
-        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(account) ||
-        !RegExp(r'^/run/user/[0-9]+/porelo/porelod\.sock$').hasMatch(socket)) {
-      setState(() => _machineProblem = 'The completed host did not name a valid address, account and daemon socket.');
-      return;
-    }
-    final name = '${widget.project} server';
-    if (widget.machines.all.any((machine) => machine.name == name && machine.kind != 'host')) {
-      setState(() => _machineProblem = 'A machine named $name already exists and is not a host.');
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await widget.machines.add(
-        Machine(
-          name: name,
-          kind: 'host',
-          socketPath: Platform.isWindows ? '' : Machine.endpointFor(name),
-          host: '$account@$address',
-          remoteSocket: socket,
-          identity: _identity.text.trim(),
-          hostProject: widget.project,
-        ),
-      );
-      if (mounted) setState(() => _doneUp = false);
-    } finally {
-      if (mounted) setState(() => _saving = false);
+    if (_hostRun case final preparation?) {
+      await widget.hostRuns!.resume(preparation);
+    } else {
+      await _runHost(run);
     }
   }
 
@@ -740,7 +760,7 @@ class _HostDialogState extends State<HostDialog> {
 
   WizardActionState get _actionState {
     if (_running) return WizardActionState.running;
-    if (_machineProblem != null) return WizardActionState.refused;
+    if (_machineProblem != null || !_takingDown && _hostRun?.problem != null) return WizardActionState.refused;
     return switch (_session?.state) {
       HostRunState.done => WizardActionState.done,
       HostRunState.waiting => WizardActionState.waiting,
@@ -750,7 +770,9 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.takeDownOnly
+  Widget build(BuildContext context) => widget.existingRun != null
+      ? _runDialog(context)
+      : widget.takeDownOnly
       ? _takeDownDialog(context)
       : Wizard(
           title: 'Put the project ${widget.project} on a server',
@@ -775,6 +797,28 @@ class _HostDialogState extends State<HostDialog> {
             child: const Text('Take it off the server'),
           ),
         );
+
+  Widget _runDialog(BuildContext context) => AlertDialog(
+    key: const Key('host-protocol'),
+    title: Text('${widget.project} server'),
+    content: SizedBox(
+      width: Sizes.dialogMedium,
+      child: DialogScroll(child: _progress(context)),
+    ),
+    actions: [
+      TextButton(key: const Key('host-close'), onPressed: () => Navigator.pop(context), child: const Text('Close')),
+      if (_hostRun case final run? when !run.ready && run.session.state != HostRunState.running && !run.waiting)
+        Builder(
+          builder: (_) {
+            final command = retryHostPreparationCommand(
+              project: run.project,
+              retry: () => unawaited(widget.hostRuns!.resume(run)),
+            );
+            return TextButton(key: const Key('host-retry'), onPressed: command.run, child: Text(command.label));
+          },
+        ),
+    ],
+  );
 
   Widget _takeDownDialog(BuildContext context) {
     final started = _session != null;
@@ -839,12 +883,17 @@ class _HostDialogState extends State<HostDialog> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
-          if (session.state == HostRunState.done)
-            const Padding(
-              padding: EdgeInsets.only(top: Space.small),
-              child: Text('Done.', key: Key('host-done')),
+          if (session.state == HostRunState.done && (_takingDown || _hostRun == null || _hostRun!.ready))
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                _hostRun?.ready == true ? 'Ready: ${widget.project} server is in your machines' : 'Done.',
+                key: const Key('host-done'),
+              ),
             ),
         ],
+        if (!_takingDown)
+          if (_hostRun?.problem case final problem?) Text(problem),
         if (_machineProblem != null) Text(_machineProblem!),
         if (_showTunnel) ...<Widget>[
           Text(
@@ -877,11 +926,11 @@ class _HostDialogState extends State<HostDialog> {
             ],
           ),
         ],
-        if (_doneUp)
-          FilledButton(
-            key: const Key('host-add'),
-            onPressed: _running ? null : _addHost,
-            child: const Text('Add this server to your machines'),
+        if (session != null)
+          ExpansionTile(
+            key: const Key('host-full-protocol'),
+            title: const Text('Full protocol'),
+            children: [SelectableText(session.protocol.join('\n'))],
           ),
       ],
     );
@@ -918,9 +967,10 @@ class _HostDialogState extends State<HostDialog> {
         StepState.done => Icons.check,
         StepState.refused => Icons.error_outline,
         StepState.waiting => Icons.person_outline,
+        StepState.plan => Icons.list_alt_outlined,
       }, size: Sizes.mark),
       const SizedBox(width: Space.small),
-      Expanded(child: Text([step.step, if (step.words?.isNotEmpty == true) step.words!].join(': '))),
+      Expanded(child: Text([step.text ?? step.step, if (step.words?.isNotEmpty == true) step.words!].join(': '))),
     ],
   );
 

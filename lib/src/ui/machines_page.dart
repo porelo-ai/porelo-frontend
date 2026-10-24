@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../app/host_runs.dart';
+import '../app/host_session.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
@@ -18,8 +23,16 @@ class MachinesPage extends StatelessWidget {
     required this.onDetails,
     required this.onForget,
     this.hostCommands,
+    this.hostRuns,
+    this.onHostProtocol,
     super.key,
   });
+
+  /// Hosts being prepared before they become machines.
+  final HostRuns? hostRuns;
+
+  /// Opens all steps, stderr and any stop terminal of a retained run.
+  final void Function(HostPreparation run)? onHostProtocol;
 
   /// Every machine watched.
   final Machines machines;
@@ -61,7 +74,10 @@ class MachinesPage extends StatelessWidget {
         const SizedBox(height: Space.tight),
         Text('Where work runs. Its projects are under Projects, and its work under Work.', style: text.bodySmall),
         const SizedBox(height: Space.normal),
-        for (final machine in machines.all) _row(context, machine),
+        for (final run in hostRuns?.preparing ?? <HostPreparation>[])
+          _HostPreparationRow(run: run, open: onHostProtocol == null ? null : () => onHostProtocol!(run)),
+        for (final machine in machines.all)
+          if (!(hostRuns?.preparing.any((run) => run.name == machine.name) ?? false)) _row(context, machine),
       ],
     );
   }
@@ -137,6 +153,69 @@ class MachinesPage extends StatelessWidget {
           ],
         ),
         onTap: () => onDetails(machine),
+      ),
+    );
+  }
+}
+
+class _HostPreparationRow extends StatefulWidget {
+  const _HostPreparationRow({required this.run, this.open});
+  final HostPreparation run;
+  final VoidCallback? open;
+
+  @override
+  State<_HostPreparationRow> createState() => _HostPreparationRowState();
+}
+
+class _HostPreparationRowState extends State<_HostPreparationRow> {
+  Timer? _ticker;
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  String _about(int seconds) => seconds < 60 ? 'about $seconds s' : 'about ${(seconds / 60).ceil()} min';
+
+  @override
+  Widget build(BuildContext context) {
+    final run = widget.run;
+    final session = run.session;
+    final running = session.state == HostRunState.running;
+    if (running) {
+      _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _ticker?.cancel();
+      _ticker = null;
+    }
+    final command = hostProtocolCommand(
+      project: run.project,
+      open: widget.open ?? () {},
+    ).unless(widget.open == null ? 'host protocol is unavailable here' : null);
+    return Card(
+      key: ValueKey('host-preparing ${run.project}'),
+      child: ListTile(
+        leading: Icon(run.waiting ? Icons.person_outline : Icons.dns_outlined),
+        title: Text(run.name),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('In preparation'),
+            if (session.stepText.isNotEmpty) Text(session.stepText),
+            if (running) ...[
+              if (session.secondsLeft case final seconds?) Text('${_about(seconds)} left in all'),
+              if (session.stepSecondsLeft case final seconds?) Text('${_about(seconds)} left in this step'),
+            ],
+            if (run.waiting) const Text('Needs you'),
+            if (run.problem ?? session.fix case final fix?) Text(fix),
+            if (command.unavailable case final reason?) Text(reason),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: command.available ? command.run : null,
       ),
     );
   }

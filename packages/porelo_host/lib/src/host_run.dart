@@ -124,6 +124,41 @@ class HostRun {
   /// Where each step's line goes.
   final void Function(Step step) emit;
 
+  /// This command's steps, before the collection can announce its own.
+  static const upSteps = [
+    PlannedStep('rent', 'Rent the project server', seconds: 300),
+    PlannedStep('ssh', 'Wait for the server to accept SSH', seconds: 780),
+    PlannedStep('copy', 'Copy the server setup files', seconds: 30),
+    PlannedStep('ansible', 'Install the server setup tools', seconds: 120),
+  ];
+
+  /// Giving the server back follows the collection's teardown.
+  static const downSteps = [PlannedStep('give-back', 'Give the project server back', seconds: 30)];
+  List<PlannedStep> _ownSteps = const [];
+
+  /// Writes this command's own words on its own steps; collection words remain verbatim.
+  void _write(Step step) {
+    final own = _ownSteps.where((each) => each.task == step.step).firstOrNull;
+    if (own == null || step.state == StepState.plan) {
+      emit(step);
+      return;
+    }
+    emit(
+      Step(
+        step.step,
+        step.state,
+        text: own.text,
+        seconds: own.seconds,
+        fix: step.fix,
+        words: step.words,
+        needs: step.needs,
+        address: step.address,
+        account: step.account,
+        socket: step.socket,
+      ),
+    );
+  }
+
   /// Makes a host key the one a host is trusted by, before the first login.
   final Future<void> Function(String address, String hostKey)? trust;
 
@@ -153,12 +188,14 @@ class HostRun {
   /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
   Future<int> up(HostPlan plan) async {
     if ((plan.collection == null) != (plan.collectionSha256 == null)) {
-      emit(const Step('collection', StepState.refused, fix: '--collection needs --collection-sha256 and vice versa'));
+      _write(const Step('collection', StepState.refused, fix: '--collection needs --collection-sha256 and vice versa'));
       return Exit.refused;
     }
     final expected = (plan.collectionSha256 ?? collectionRelease.sha256).toLowerCase();
     if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(expected)) {
-      emit(const Step('collection', StepState.refused, fix: '--collection-sha256 must contain 64 hexadecimal digits'));
+      _write(
+        const Step('collection', StepState.refused, fix: '--collection-sha256 must contain 64 hexadecimal digits'),
+      );
       return Exit.refused;
     }
     final collection =
@@ -167,7 +204,7 @@ class HostRun {
     try {
       final actual = (await sha256.bind(File(collection).openRead()).single).toString();
       if (actual != expected) {
-        emit(
+        _write(
           Step(
             'collection',
             StepState.refused,
@@ -177,7 +214,7 @@ class HostRun {
         return Exit.refused;
       }
     } on FileSystemException catch (error) {
-      emit(
+      _write(
         Step(
           'collection',
           StepState.refused,
@@ -186,18 +223,20 @@ class HostRun {
       );
       return Exit.refused;
     }
+    _ownSteps = upSteps;
+    _write(Step('plan', StepState.plan, steps: _ownSteps));
     final RentedHost? host;
     try {
       host = await _rented(plan);
     } on ProviderFailed catch (e) {
       // The provider's own sentence, as a refused step and 65: the person fixes it, not the code.
-      emit(Step('rent', StepState.refused, fix: e.message));
+      _write(Step('rent', StepState.refused, fix: e.message));
       return Exit.refused;
     }
     if (host == null) return Exit.unreachable;
     final address = host.address!;
 
-    emit(const Step('copy', StepState.started));
+    _write(const Step('copy', StepState.started));
     final inventory = _inventory(plan);
     final copied = await remote.run(
       address,
@@ -226,9 +265,9 @@ class HostRun {
         'the host refused the collection digest',
       );
     }
-    emit(const Step('copy', StepState.done));
+    _write(const Step('copy', StepState.done));
 
-    emit(const Step('ansible', StepState.started));
+    _write(const Step('ansible', StepState.started));
     final installed = await remote.run(
       address,
       plan.loginUser,
@@ -245,7 +284,7 @@ class HostRun {
     if (installed.exitCode != 0) {
       return _refused('ansible', installed, 'ansible-core or the collection did not install');
     }
-    emit(const Step('ansible', StepState.done));
+    _write(const Step('ansible', StepState.done));
 
     final played = await _play(address, plan, 'porelo.host.up');
     if (played != Exit.done) return played;
@@ -255,7 +294,7 @@ class HostRun {
     if (lines.length != 1 || !RegExp(r'^[0-9]+$').hasMatch(lines.single)) {
       return _refused('up', uid, 'id -u must return one uid containing only digits');
     }
-    emit(
+    _write(
       Step(
         'up',
         StepState.done,
@@ -277,15 +316,17 @@ class HostRun {
     try {
       return await _down(plan, giveBackAnyway);
     } on ProviderFailed catch (e) {
-      emit(Step('give-back', StepState.refused, fix: e.message));
+      _write(Step('give-back', StepState.refused, fix: e.message));
       return Exit.refused;
     }
   }
 
   Future<int> _down(HostPlan plan, bool giveBackAnyway) async {
+    _ownSteps = downSteps;
+    _write(Step('plan', StepState.plan, steps: _ownSteps));
     final host = await provider.find(plan.tag);
     if (host == null) {
-      emit(const Step('give-back', StepState.done, words: 'no host carries the project tag'));
+      _write(const Step('give-back', StepState.done, words: 'no host carries the project tag'));
       return Exit.done;
     }
     final address = host.address;
@@ -293,7 +334,7 @@ class HostRun {
         ? _unreachable('play', 'the provider names no address for ${host.id}')
         : await _play(address, plan, 'porelo.host.down');
     if (played != Exit.done && !giveBackAnyway) {
-      emit(
+      _write(
         Step(
           'give-back',
           StepState.refused,
@@ -303,9 +344,9 @@ class HostRun {
       );
       return played;
     }
-    emit(const Step('give-back', StepState.started));
+    _write(const Step('give-back', StepState.started));
     await provider.release(host.id);
-    emit(
+    _write(
       played == Exit.done
           ? Step('give-back', StepState.done, address: address)
           : Step(
@@ -319,7 +360,7 @@ class HostRun {
   }
 
   Future<RentedHost?> _rented(HostPlan plan) async {
-    emit(const Step('rent', StepState.started));
+    _write(const Step('rent', StepState.started));
     var host = await provider.find(plan.tag) ?? await _create(plan);
     final until = DateTime.now().add(readyWithin);
     while (!host.ready || host.address == null || host.hostKey == null) {
@@ -330,9 +371,9 @@ class HostRun {
       await Future<void>.delayed(pollEvery);
       host = await provider.state(host.id);
     }
-    emit(const Step('rent', StepState.done));
+    _write(const Step('rent', StepState.done));
 
-    emit(const Step('ssh', StepState.started));
+    _write(const Step('ssh', StepState.started));
     await trust?.call(host.address!, host.hostKey!);
     // A host the provider calls ready may still be starting its sshd, or cloud-init may not have
     // put the login in yet: asked again for a while, and only ssh's own last words reported.
@@ -348,7 +389,7 @@ class HostRun {
       _unreachable('ssh', reached.stderr);
       return null;
     }
-    emit(const Step('ssh', StepState.done));
+    _write(const Step('ssh', StepState.done));
     return host;
   }
 
@@ -391,7 +432,7 @@ class HostRun {
         if (step == null) return;
         if (step.state == StepState.waiting) waiting = step;
         if (step.state == StepState.refused) failed = step;
-        emit(step);
+        _write(step);
       },
     );
     // **The stop is the line, never the exit code**: `ansible-playbook` ends with 2 there, as on
@@ -410,18 +451,39 @@ class HostRun {
     } on FormatException {
       return null;
     }
-    if (decoded is! Map<String, Object?> || decoded['v'] != 1) return null;
+    if (decoded is! Map<String, Object?> || decoded['v'] != 1 || !validStepFields(decoded)) return null;
     final state = decoded['state'];
+    if (state == 'plan') {
+      final steps = PlannedStep.readMany(decoded['steps']);
+      if (steps == null || steps.any((step) => _ownSteps.any((own) => own.task == step.task))) return null;
+      // Teardown's release follows the collection; provisioning precedes it.
+      return Step(
+        'plan',
+        StepState.plan,
+        steps: _ownSteps == downSteps ? [...steps, ..._ownSteps] : [..._ownSteps, ...steps],
+      );
+    }
     final words = decoded['msg'] as String?;
+    final text = decoded['text'] as String?;
+    final seconds = decoded['seconds'] as int?;
     if (state == 'waiting') {
       final needs = (decoded['needs'] as List<Object?>? ?? const <Object?>[]).whereType<String>().toList();
-      return Step('person', StepState.waiting, needs: needs, words: words, address: address, account: account);
+      return Step(
+        'person',
+        StepState.waiting,
+        needs: needs,
+        words: words,
+        text: text,
+        seconds: seconds,
+        address: address,
+        account: account,
+      );
     }
     final name = decoded['task'] as String? ?? decoded['play'] as String? ?? 'play';
     return switch (state) {
-      'started' => Step(name, StepState.started),
-      'ok' || 'changed' || 'skipped' => Step(name, StepState.done),
-      'failed' => Step(name, StepState.refused, fix: words, words: words),
+      'started' => Step(name, StepState.started, text: text, seconds: seconds, words: words),
+      'ok' || 'changed' || 'skipped' => Step(name, StepState.done, text: text, seconds: seconds, words: words),
+      'failed' => Step(name, StepState.refused, fix: words, words: words, text: text, seconds: seconds),
       _ => null,
     };
   }
@@ -429,12 +491,12 @@ class HostRun {
   static bool _keyRefused(RemoteResult result) => result.stderr.contains('Host key verification failed');
 
   int _refused(String step, RemoteResult result, String fix) {
-    emit(Step(step, StepState.refused, fix: fix, words: result.stderr.isEmpty ? null : result.stderr));
+    _write(Step(step, StepState.refused, fix: fix, words: result.stderr.isEmpty ? null : result.stderr));
     return Exit.refused;
   }
 
   int _unreachable(String step, String words) {
-    emit(Step(step, StepState.refused, fix: 'the provider or the host could not be reached', words: words));
+    _write(Step(step, StepState.refused, fix: 'the provider or the host could not be reached', words: words));
     return Exit.unreachable;
   }
 

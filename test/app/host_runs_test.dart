@@ -1,0 +1,164 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/attention.dart';
+import 'package:porelo_frontend/src/app/host_runs.dart';
+import 'package:porelo_frontend/src/app/host_session.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
+import 'package:porelo_host/porelo_host.dart';
+
+import '../features/support/world.dart';
+import '../support/host_process.dart';
+
+const _record = HostUpRecord(
+  scalewayProject: 'provider',
+  account: 'porelo',
+  tresor: 'drive',
+  identity: '/keys/private',
+  publicKey: '/keys/public',
+  folder: null,
+  repository: '',
+  signingKey: '',
+  collection: '',
+  vpnPeerPublicKey: '',
+  vpnPeerAddress: '',
+);
+const _done = Step(
+  'up',
+  StepState.done,
+  address: '203.0.113.7',
+  account: 'worker',
+  socket: '/run/user/1007/porelo/porelod.sock',
+);
+
+void main() {
+  late Settings settings;
+  late Machines machines;
+  late HostRuns runs;
+  setUp(() {
+    settings = Settings(MemorySettingsStore());
+    machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: _Tunnels());
+    runs = HostRuns(machines, endpointFor: (name) => '/tmp/$name.sock');
+  });
+  tearDown(() {
+    runs.dispose();
+    machines.dispose();
+    settings.dispose();
+  });
+
+  // Harm: work is sent to a host that does not exist when a progress line is mistaken for success.
+  for (final code in [0, 65, 69, 75]) {
+    test('only exit zero promotes the completed host after code $code', () async {
+      final process = HostProcess();
+      final session = HostSession(
+        executable: 'fake',
+        arguments: const ['--project', 'demo'],
+        start: (_, _) async => process,
+      );
+      final run = runs.start(project: 'demo', session: session, record: _record);
+      process.line(_done);
+      process.words('Host protocol');
+      await Future<void>.delayed(Duration.zero);
+      expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
+      expect(runs.preparing, [run]);
+      process.end(code);
+      await run.finished;
+      expect(machines.all.where((machine) => machine.kind == 'host').length, code == 0 ? 1 : 0);
+      expect(run.ready, code == 0);
+      expect(runs.preparing, code == 0 ? isEmpty : [run]);
+      expect(session.protocol.join('\n'), contains('Host protocol'));
+      if (code == 0) {
+        final machine = machines.all.singleWhere((machine) => machine.kind == 'host');
+        expect(machine.host, 'worker@203.0.113.7');
+        expect(machine.remoteSocket, '/run/user/1007/porelo/porelod.sock');
+        expect(machine.identity, _record.identity);
+      }
+    });
+  }
+
+  // Harm: work is sent to a host that does not exist when a later line takes its up back.
+  test('exit zero after the up line was taken back adds no host', () async {
+    final process = HostProcess();
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const ['--project', 'demo'],
+      start: (_, _) async => process,
+    );
+    final run = runs.start(project: 'demo', session: session, record: _record);
+    process.line(_done);
+    process.line(const Step('up', StepState.started));
+    await Future<void>.delayed(Duration.zero);
+    process.end(0);
+    await run.finished;
+    expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
+    expect(run.ready, isFalse);
+    expect(runs.preparing, [run]);
+  });
+
+  // Harm: a stop waits unseen while the rented server keeps billing.
+  test('a waiting host reaches Needs you and its resolution keeps the machine line', () async {
+    final attention = Attention(machines)..hostRuns = runs;
+    addTearDown(attention.dispose);
+    final process = HostProcess();
+    final next = HostProcess();
+    var starts = 0;
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const [],
+      start: (_, _) async => starts++ == 0 ? process : next,
+    );
+    final run = runs.start(project: 'demo', session: session, record: _record);
+    process.line(const Step('person', StepState.waiting, needs: ['drive'], text: 'Sign in to the drive'));
+    process.end(75);
+    await run.finished;
+    expect(attention.openRows.single.kind, AttentionKind.host);
+    expect(attention.openRows.single.machine, 'demo server');
+    expect((attention.openRows.single.value as HostStop).text, 'Sign in to the drive');
+    expect(attention.needingSomebody, 1);
+    final resumed = runs.resume(run);
+    next.line(_done);
+    next.end(0);
+    await resumed;
+    expect(attention.openRows.where((row) => row.kind == AttentionKind.host), isEmpty);
+    final resolved = attention.recentlyResolved.singleWhere((each) => each.row.kind == AttentionKind.host);
+    expect(resolved.row.machine, 'demo server');
+    expect((resolved.row.value as HostStop).text, 'Sign in to the drive');
+  });
+
+  // Harm: positional estimates hide remaining setup after conditional steps are skipped.
+  test('remaining time matches task names and includes optional steps until passed', () async {
+    var now = DateTime.utc(2000);
+    final process = HostProcess();
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const [],
+      now: () => now,
+      start: (_, _) async => process,
+    );
+    addTearDown(session.dispose);
+    final future = session.up();
+    process.raw(
+      '{"v":1,"state":"plan","steps":[{"task":"first","text":"First","seconds":20},{"task":"maybe","text":"Maybe","seconds":30,"when":true},{"task":"last","text":"Last","seconds":40}]}',
+    );
+    process.raw('{"step":"unplanned","state":"done"}');
+    process.raw('{"step":"first","state":"started"}');
+    await Future<void>.delayed(Duration.zero);
+    now = now.add(const Duration(seconds: 5));
+    expect(session.stepSecondsLeft, 15);
+    expect(session.secondsLeft, 85);
+    process.raw('{"step":"last","state":"started","seconds":40}');
+    await Future<void>.delayed(Duration.zero);
+    expect(session.secondsLeft, 40);
+    now = now.add(const Duration(seconds: 80));
+    expect(session.secondsLeft, 0);
+    process.end(65);
+    await future;
+  });
+}
+
+class _Tunnels extends Tunnels {
+  @override
+  Future<bool> raiseFor(Machine machine) async => true;
+  @override
+  Future<void> dropFor(Machine machine) async {}
+}

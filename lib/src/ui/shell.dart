@@ -8,6 +8,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/homeserver_forwards.dart';
 import '../app/host_session.dart';
+import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
@@ -239,6 +240,7 @@ class _ShellState extends State<Shell> {
   // open over it closes.
   final _frameFocus = FocusNode(debugLabel: 'frame');
   late final Attention _attention;
+  late final HostRuns _hostRuns;
 
   /// A file being handed to work, and the last one's outcome.
   final _handing = HandingIn();
@@ -259,7 +261,8 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    _attention = Attention(widget.machines, widget.settings, widget.operations);
+    _hostRuns = HostRuns(widget.machines);
+    _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
     _attention.homeservers = _homeservers;
@@ -437,45 +440,50 @@ class _ShellState extends State<Shell> {
   List<Command> _hostCommands(Machine machine) {
     final fleet = widget.machines.of(machine);
     final project = fleet.projects.where((each) => each.name == machine.hostProject).firstOrNull;
-    return hostMachineCommands(
-      machine: machine,
-      settings: widget.settings,
-      takeDown: () => unawaited(_takeDown(machine)),
-      bringVpnUp: () => unawaited(
-        openHostVpnDialog(
-          context,
-          machine: machine,
-          settings: widget.settings,
-          up: true,
-          open: widget.sessions.openTerminal,
+    final run = _hostRuns.of(machine.hostProject);
+    return [
+      if (run != null)
+        hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineMenu),
+      ...hostMachineCommands(
+        machine: machine,
+        settings: widget.settings,
+        takeDown: () => unawaited(_takeDown(machine)),
+        bringVpnUp: () => unawaited(
+          openHostVpnDialog(
+            context,
+            machine: machine,
+            settings: widget.settings,
+            up: true,
+            open: widget.sessions.openTerminal,
+          ),
         ),
-      ),
-      takeVpnDown: () => unawaited(
-        openHostVpnDialog(
-          context,
-          machine: machine,
-          settings: widget.settings,
-          up: false,
-          open: widget.sessions.openTerminal,
+        takeVpnDown: () => unawaited(
+          openHostVpnDialog(
+            context,
+            machine: machine,
+            settings: widget.settings,
+            up: false,
+            open: widget.sessions.openTerminal,
+          ),
         ),
-      ),
-      joinRoom: project == null
-          ? null
-          : () => unawaited(
-              showProjectMessages(
-                context,
-                backend: fleet.backend,
-                machine: machine,
-                project: project.project,
-                forwards: _homeservers,
+        joinRoom: project == null
+            ? null
+            : () => unawaited(
+                showProjectMessages(
+                  context,
+                  backend: fleet.backend,
+                  machine: machine,
+                  project: project.project,
+                  forwards: _homeservers,
+                ),
               ),
-            ),
-      roomUnavailable: fleet.reachability != Reachability.connected
-          ? 'the machine is not answering'
-          : project == null
-          ? 'the host project is not available here'
-          : null,
-    );
+        roomUnavailable: fleet.reachability != Reachability.connected
+            ? 'the machine is not answering'
+            : project == null
+            ? 'the host project is not available here'
+            : null,
+      ),
+    ];
   }
 
   Future<void> _takeDown(Machine machine) async {
@@ -608,6 +616,9 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
+  Future<void> _openHostRun(HostPreparation run) =>
+      openHostRunDialog(context, run: run, hostRuns: _hostRuns, machines: widget.machines, settings: widget.settings);
+
   /// Whether the selected host command is present, including a development walk stand-in.
   static final bool _poreloHostIsHere = File(poreloHost()).existsSync();
 
@@ -615,7 +626,20 @@ class _ShellState extends State<Shell> {
   Future<void> _putOnAServer() async {
     final project = _fleet.selectedProject;
     if (project == null) return;
-    await openHostDialog(context, project: project.name, machines: widget.machines, settings: widget.settings);
+    final existing = _hostRuns.of(project.name);
+    if (existing != null && !existing.ready) {
+      await _openHostRun(existing);
+      return;
+    }
+    await openHostDialog(
+      context,
+      project: project.name,
+      machines: widget.machines,
+      settings: widget.settings,
+      hostRuns: _hostRuns,
+    );
+    final started = _hostRuns.of(project.name);
+    if (mounted && started != null && started != existing) widget.shell.goTo(Section.machines);
   }
 
   /// Clears the machine and removes its trusted message signer from followed projects.
@@ -2240,6 +2264,8 @@ class _ShellState extends State<Shell> {
           Home.tileMenu => Section.work,
           Home.projectMenu || Home.repositoryRow || Home.startTile || Home.templateTile => Section.project,
           Home.followRepository => Section.projects,
+          Home.attentionRow => Section.attention,
+          Home.machineRow => Section.machines,
           _ => Section.machine,
         },
       );
@@ -2474,11 +2500,14 @@ class _ShellState extends State<Shell> {
   Widget _machinesPage() => ListenableBuilder(
     listenable: Listenable.merge(<Listenable>[
       widget.machines,
+      _hostRuns,
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
     builder: (context, _) => MachinesPage(
       machines: widget.machines,
       hostCommands: _hostCommands,
+      hostRuns: _hostRuns,
+      onHostProtocol: (run) => unawaited(_openHostRun(run)),
       onAdd: _addAMachine,
       onDetails: (machine) {
         widget.machines.select(machine);
@@ -2670,6 +2699,10 @@ class _ShellState extends State<Shell> {
       focusNode: _openedFocus,
       child: AttentionView(
         attention: _attention,
+        onOpenHost: (project) {
+          final run = _hostRuns.of(project);
+          if (run != null) unawaited(_openHostRun(run));
+        },
         unlockFor: _unlockFor,
         onDecide: (tile, prompt, {required allow}) =>
             tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
@@ -3091,6 +3124,7 @@ class _ShellState extends State<Shell> {
     _check.removeListener(_homeserversChanged);
     _check.dispose();
     _attention.dispose();
+    _hostRuns.dispose();
     _homeservers.dispose();
     _openedFocus.dispose();
     _frameFocus.dispose();
