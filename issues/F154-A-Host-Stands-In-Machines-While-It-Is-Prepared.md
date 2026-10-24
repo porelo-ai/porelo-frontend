@@ -41,11 +41,12 @@ button.
   project and what the host needs, whose action is [F152](README.md#f152)'s terminal.
 - **The run ahead:** the collection writes a first line naming every step ahead in order,
   `{"v": 1, "state": "plan", "steps": [{"task", "text", "seconds"}]}`, `seconds` left out where a
-  step has no usual duration; `down` writes it too. `porelo-host` sends the interface its own
+  step has no usual duration, `"when": true` on a step that may be skipped; `down` writes it too. `porelo-host` sends the interface its own
   `plan` line before `rent`, its own steps first, and again with the collection's appended when
   that line arrives. A step is matched by its `task` name, never by position. The run's time left
   is the running step's left plus the sum of the steps after it, an upper bound on a resumed `up`,
-  so it reads *about*.
+  so it reads *about*; a step that may be skipped counts toward it, and is passed over once a
+  later step starts.
 - **Words come from the lines:** `Step` (`packages/porelo_host`) reads `text` and `seconds`, and
   `porelo-host`'s own steps (`rent`, `ssh`, `copy`, `ansible`) carry theirs in the same lines. No
   view writes a word of its own for a host's step; a step without `text` shows its name.
