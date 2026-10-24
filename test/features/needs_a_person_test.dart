@@ -51,8 +51,9 @@ import './step/nothing_needs_me.dart';
 import './step/the_machine_dropped_questions_unseen.dart';
 import './step/it_says.dart';
 import './step/i_mark_the_dropped_questions_seen.dart';
-import './step/it_does_not_say.dart';
+import './step/the_notice_is_resolved.dart';
 import './step/the_agent_of_ended_with_the_providers.dart';
+import './step/it_does_not_say.dart';
 import './step/the_agent_of_finished.dart';
 import './step/the_messages_of_wait_because.dart';
 
@@ -217,7 +218,7 @@ void main() {
       await itSays(tester, 'dropped 2 questions about a blocked connection before it was seen');
       await itSays(tester, 'A dropped question is not asked again');
       await iMarkTheDroppedQuestionsSeen(tester);
-      await itDoesNotSay(tester, 'dropped 2 questions');
+      await theNoticeIsResolved(tester, 'dropped 2 questions');
     });
     testWidgets('''work whose agent was refused by its provider needs you, in the provider's words''', (tester) async {
       await bddSetUp(tester);
@@ -240,7 +241,7 @@ void main() {
         'checkout',
         'messages wait: the vault is locked, so no conversation can be read or written: porelo vault unlock lets them go on',
       );
-      await itSays(tester, 'Messages wait on');
+      await itSays(tester, 'Messages wait');
       await itSays(tester, 'the vault is locked, so no conversation can be read or written');
       await itSays(tester, 'Held up: checkout');
     });

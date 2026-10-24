@@ -14,6 +14,7 @@ import 'grant_view.dart';
 import 'held_message_view.dart';
 import 'how_long.dart';
 import 'operations.dart';
+import 'needs_machine.dart';
 import 'panes.dart';
 import 'tile_console.dart';
 import 'tokens.dart';
@@ -29,11 +30,15 @@ class AttentionView extends StatefulWidget {
     required this.onDecide,
     required this.actionsFor,
     required this.onReview,
+    this.unlockFor,
     this.onPutAway,
     this.onSelect,
     this.onOpenOperation,
     super.key,
   });
+
+  /// The same machine-specific unlock path used by work.unlock, or null when unavailable.
+  final VoidCallback? Function(Machine machine)? unlockFor;
 
   /// Every tile, most urgent first.
   final Attention attention;
@@ -85,18 +90,12 @@ class _AttentionViewState extends State<AttentionView> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.attention,
     builder: (context, _) {
-      final tiles = widget.attention.needing;
-      final silent = widget.attention.silent;
-      final failed = widget.attention.failedUnseen;
-      final notFollowing = widget.attention.notFollowing;
-      final waiting = widget.attention.messagesWaiting;
-      final unforwarded = widget.attention.forwardsRefused;
-      final messages = widget.attention.heldMessages;
-      final unlisted = widget.attention.unlistedMessages;
-      final authorizing = widget.attention.authorizationsNeeded;
+      final rows = widget.attention.openRows;
+      final resolved = widget.attention.recentlyResolved;
       final needing = widget.attention.needingSomebody;
-      final missed = widget.attention.missedQuestions;
-      _keepTicking(tiles.any((tile) => tile.questions.any((question) => question.expiresAt != null)));
+      _keepTicking(
+        widget.attention.needing.any((tile) => tile.questions.any((question) => question.expiresAt != null)),
+      );
       return Column(
         children: <Widget>[
           PaneHeader(
@@ -112,128 +111,64 @@ class _AttentionViewState extends State<AttentionView> {
             ),
           ),
           Expanded(
-            child:
-                tiles.isEmpty &&
-                    missed.isEmpty &&
-                    silent.isEmpty &&
-                    failed.isEmpty &&
-                    notFollowing.isEmpty &&
-                    waiting.isEmpty &&
-                    unforwarded.isEmpty &&
-                    messages.isEmpty &&
-                    unlisted.isEmpty &&
-                    authorizing.isEmpty
-                ? const Center(
-                    // Not "no work": the work that needs nobody is still there, in its machine.
-                    child: Text('Nothing needs you on any machine.', key: Key('nothing-needs-you')),
-                  )
+            child: rows.isEmpty && resolved.isEmpty
+                ? const Center(child: Text('Nothing needs you on any machine.', key: Key('nothing-needs-you')))
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(Space.normal),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        for (final machine in missed)
-                          _MissedQuestions(
-                            machine: machine,
-                            count: widget.attention.fleetOf(machine).clearance.missed,
-                            onSeen: widget.attention.fleetOf(machine).clearance.missedSeen,
-                          ),
-                        for (final machine in silent)
-                          _MachineNotice(
-                            machine: machine,
-                            fleet: widget.attention.fleetOf(machine),
-                            onSeen: () => widget.attention.markSeen(machine),
-                          ),
-                        for (final stopped in notFollowing)
-                          _NotFollowing(
-                            machine: stopped.machine,
-                            project: stopped.project,
-                            followed: stopped.followed,
-                            fleet: widget.attention.fleetOf(stopped.machine),
-                          ),
-                        // A homeserver a Matrix client here cannot reach: its forward could not be raised
-                        // (walk 10).
-                        for (final each in unforwarded)
-                          Card(
-                            key: ValueKey<String>('homeserver-unforwarded ${each.machine}/${each.project}'),
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            child: ListTile(
-                              leading: const Icon(Icons.link_off),
-                              title: Text(
-                                'The homeserver of ${each.project} on ${each.machine} is not reachable from here',
-                              ),
-                              subtitle: Text(
-                                '${each.words}\nA Matrix client on this computer cannot reach it until it is.',
-                              ),
-                              trailing: TextButton(
-                                key: ValueKey<String>('homeserver-retry ${each.machine}/${each.project}'),
-                                onPressed: () {
-                                  final machine = widget.attention.machineNamed(each.machine);
-                                  if (machine != null) {
-                                    unawaited(widget.attention.homeservers?.retry(machine, each.project));
-                                  }
-                                },
-                                child: const Text('Try again'),
-                              ),
+                      children: [
+                        Column(
+                          key: const Key('open-attention'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final row in rows)
+                              if (row.kind != AttentionKind.tile && row.kind != AttentionKind.operation)
+                                _row(context, row),
+                            Wrap(
+                              spacing: Space.normal,
+                              runSpacing: Space.normal,
+                              children: [
+                                for (final row in rows)
+                                  if (row.kind == AttentionKind.tile || row.kind == AttentionKind.operation)
+                                    _row(context, row),
+                              ],
                             ),
-                          ),
-                        for (final each in waiting)
-                          Card(
-                            key: ValueKey<String>('messages-wait ${each.machine.name}'),
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            child: ListTile(
-                              leading: const Icon(Icons.lock_outline),
-                              title: Text('Messages wait on ${each.machine.name}'),
-                              subtitle: Text('${each.waits}\nHeld up: ${each.projects.join(', ')}'),
-                            ),
-                          ),
-                        // A machine that cannot list what is held is said, so its silence is
-                        // never read as nothing waiting there.
-                        for (final each in unlisted)
-                          Padding(
-                            key: ValueKey<String>('messages-unlisted ${each.machine.name}'),
-                            padding: const EdgeInsets.only(bottom: Space.small),
-                            child: Text('${each.machine.name}: ${each.problem}'),
-                          ),
-                        for (final each in messages)
-                          HeldMessageRow(
-                            machine: each.machine,
-                            fleet: widget.attention.fleetOf(each.machine),
-                            message: each.message,
-                          ),
-                        // Work that cannot use a service until somebody grants it, once, in a browser.
-                        for (final each in authorizing)
-                          AuthorizationRow(
-                            machine: each.machine,
-                            fleet: widget.attention.fleetOf(each.machine),
-                            needed: each.needed,
-                          ),
-                        if (silent.isNotEmpty ||
-                            notFollowing.isNotEmpty ||
-                            waiting.isNotEmpty ||
-                            unforwarded.isNotEmpty ||
-                            messages.isNotEmpty ||
-                            unlisted.isNotEmpty ||
-                            authorizing.isNotEmpty)
-                          const SizedBox(height: Space.small),
-                        Wrap(
-                          spacing: Space.normal,
-                          runSpacing: Space.normal,
-                          children: <Widget>[
-                            // A question can still be answered, so it comes before a failure.
-                            for (final tile in tiles)
-                              if (tile.demand == Demand.question) _tile(tile),
-                            for (final operation in failed)
-                              _FailedOperation(
-                                operation: operation,
-                                onOpen: widget.onOpenOperation == null
-                                    ? null
-                                    : () => widget.onOpenOperation!(operation),
-                              ),
-                            for (final tile in tiles)
-                              if (tile.demand != Demand.question) _tile(tile),
                           ],
                         ),
+                        if (resolved.isNotEmpty)
+                          Column(
+                            key: const Key('recently-resolved'),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Recently resolved')),
+                              for (final each in resolved)
+                                _ResolvedRow(
+                                  onOpen: each.row.kind == AttentionKind.message
+                                      ? null
+                                      : () => showDialog<void>(
+                                          context: context,
+                                          builder: (_) => AlertDialog(
+                                            title: const Text('Recently resolved'),
+                                            content: SingleChildScrollView(
+                                              child: _ResolvedRow(
+                                                child: Builder(
+                                                  builder: (context) => _row(context, each.row, resolved: true),
+                                                ),
+                                              ),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('Close'),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                  child: Builder(builder: (context) => _row(context, each.row, resolved: true)),
+                                ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -245,14 +180,175 @@ class _AttentionViewState extends State<AttentionView> {
 }
 
 extension on _AttentionViewState {
-  Widget _tile(Tile tile) => TaskTile(
-    tile: tile,
-    actions: tile.task == null ? const <Command>[] : widget.actionsFor(tile),
-    onDecide: widget.onDecide,
-    onReview: widget.onReview,
-    onPutAway: widget.onPutAway,
-    onSelect: widget.onSelect == null ? null : () => widget.onSelect!(tile),
+  Widget _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
+    final attention = widget.attention;
+    final reason = resolved ? 'this row is resolved' : null;
+    switch (row.kind) {
+      case AttentionKind.silent:
+        final each = row.value as ({Machine machine, String words});
+        return _MachineNotice(
+          machine: each.machine,
+          words: each.words,
+          retry: retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason),
+          onSeen: resolved ? null : () => attention.markSeen(each.machine),
+        );
+      case AttentionKind.following:
+        final each = row.value as ({Machine machine, Project project, Followed followed});
+        return _NotFollowing(
+          machine: each.machine,
+          project: each.project,
+          followed: each.followed,
+          fleet: attention.fleetOf(each.machine),
+          resolved: resolved,
+        );
+      case AttentionKind.forward:
+        final each = row.value as ({String machine, String project, String words});
+        final machine = attention.machineNamed(each.machine);
+        return Card(
+          key: ValueKey('homeserver-unforwarded ${each.machine}/${each.project}'),
+          color: Theme.of(context).colorScheme.errorContainer,
+          child: ListTile(
+            leading: const Icon(Icons.link_off),
+            title: Text('The homeserver of ${each.project} is not reachable from here'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                NeedsMachine(each.machine),
+                Text('${each.words}\nA Matrix client on this computer cannot reach it until it is.'),
+              ],
+            ),
+            trailing: TextButton(
+              key: ValueKey('homeserver-retry ${each.machine}/${each.project}'),
+              onPressed: resolved || machine == null
+                  ? null
+                  : () => unawaited(attention.homeservers?.retry(machine, each.project)),
+              child: const Text('Try again'),
+            ),
+          ),
+        );
+      case AttentionKind.waiting:
+        final each = row.value as ({Machine machine, String waits, String waitsOn, List<String> projects});
+        return Card(
+          key: ValueKey('messages-wait ${each.machine.name}'),
+          color: Theme.of(context).colorScheme.errorContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Messages wait'),
+                NeedsMachine(each.machine.name),
+                Text('${each.waits}\nHeld up: ${each.projects.join(', ')}'),
+                if (each.waitsOn == 'vault')
+                  _RowCommand(
+                    unlockWaitingMessages(
+                      each.machine,
+                      attention.fleetOf(each.machine),
+                      widget.unlockFor?.call(each.machine),
+                    ).unless(reason),
+                  ),
+              ],
+            ),
+          ),
+        );
+      case AttentionKind.unlisted:
+        final each = row.value as ({Machine machine, String problem});
+        return Card(
+          key: ValueKey('messages-unlisted ${each.machine.name}'),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(each.problem),
+                NeedsMachine(each.machine.name),
+                _RowCommand(askForHeldMessages(each.machine, attention.fleetOf(each.machine)).unless(reason)),
+              ],
+            ),
+          ),
+        );
+      case AttentionKind.message:
+        final each = row.value as ({Machine machine, HeldMessage message});
+        return HeldMessageRow(
+          machine: each.machine,
+          fleet: attention.fleetOf(each.machine),
+          message: each.message,
+          resolved: resolved,
+          read: row.read,
+          onRead: resolved ? null : (read) => attention.messageRead(each.machine, each.message, read),
+        );
+      case AttentionKind.authorization:
+        final each = row.value as ({Machine machine, AuthorizationNeeded needed});
+        return AuthorizationRow(
+          machine: each.machine,
+          fleet: attention.fleetOf(each.machine),
+          needed: each.needed,
+          resolved: resolved,
+        );
+      case AttentionKind.operation:
+        final operation = row.value as Operation;
+        return _FailedOperation(
+          operation: operation,
+          onOpen: resolved || widget.onOpenOperation == null ? null : () => widget.onOpenOperation!(operation),
+        );
+      case AttentionKind.tile:
+        final tile = row.value as Tile;
+        return TaskTile(
+          tile: tile,
+          resolved: resolved,
+          actions: tile.task == null
+              ? const []
+              : [for (final command in widget.actionsFor(tile)) command.unless(reason)],
+          onDecide: widget.onDecide,
+          onReview: widget.onReview,
+          onPutAway: widget.onPutAway,
+          onSelect: resolved || widget.onSelect == null ? null : () => widget.onSelect!(tile),
+        );
+      case AttentionKind.missed:
+        final each = row.value as ({Machine machine, int count});
+        return _MissedQuestions(
+          machine: each.machine,
+          count: each.count,
+          onSeen: resolved ? null : attention.fleetOf(each.machine).clearance.missedSeen,
+        );
+    }
+  }
+}
+
+class _RowCommand extends StatelessWidget {
+  const _RowCommand(this.command);
+
+  final Command command;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      TextButton(onPressed: command.available ? command.run : null, child: Text(command.label)),
+      if (command.unavailable case final reason?) Text(reason, style: Theme.of(context).textTheme.bodySmall),
+    ],
   );
+}
+
+class _ResolvedRow extends StatelessWidget {
+  const _ResolvedRow({required this.child, this.onOpen});
+
+  final Widget child;
+  final VoidCallback? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colour = theme.disabledColor;
+    final scheme = theme.colorScheme;
+    return Theme(
+      data: theme.copyWith(
+        textTheme: theme.textTheme.apply(bodyColor: colour, displayColor: colour),
+        colorScheme: scheme.copyWith(onSurface: colour, onErrorContainer: colour, error: colour, primary: colour),
+      ),
+      child: InkWell(onTap: onOpen, child: child),
+    );
+  }
 }
 
 /// A followed project whose newest commit was not taken, and will not be until somebody acts.
@@ -260,7 +356,15 @@ extension on _AttentionViewState {
 /// **The key's fingerprint is shown whole**: it is not a secret, and comparing it with the key
 /// somebody meant to pin is the whole of what a person can do about a refused signature.
 class _NotFollowing extends StatelessWidget {
-  const _NotFollowing({required this.machine, required this.project, required this.followed, required this.fleet});
+  const _NotFollowing({
+    required this.machine,
+    required this.project,
+    required this.followed,
+    required this.fleet,
+    this.resolved = false,
+  });
+
+  final bool resolved;
 
   final Machine machine;
 
@@ -283,7 +387,8 @@ class _NotFollowing extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('${project.name} on ${machine.name}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(project.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            NeedsMachine(machine.name),
             const SizedBox(height: Space.tight),
             Text(followed.words),
             if (followed.signer.isNotEmpty) SelectableText('Signed by ${followed.signer}', style: text.bodySmall),
@@ -295,7 +400,7 @@ class _NotFollowing extends StatelessWidget {
               const SizedBox(height: Space.small),
               OutlinedButton(
                 key: ValueKey<String>('accept-rewrite ${machine.name}/${project.name}'),
-                onPressed: () => unawaited(_acceptTheRewrite(context)),
+                onPressed: resolved ? null : () => unawaited(_acceptTheRewrite(context)),
                 child: const Text('Take the rewritten history'),
               ),
             ],
@@ -366,12 +471,6 @@ class _FailedOperation extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                operation.machine.isEmpty ? 'this window' : operation.machine,
-                key: const Key('failed-operation-machine'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: Space.small),
               Row(
                 children: <Widget>[
                   OperationMark(operation: operation),
@@ -379,6 +478,7 @@ class _FailedOperation extends StatelessWidget {
                   Expanded(child: Text(operation.title, style: text.bodyLarge)),
                 ],
               ),
+              NeedsMachine(operation.machine),
               Text(operation.summary, style: text.bodySmall),
               TextButton(
                 key: const Key('failed-operation-open'),
@@ -399,7 +499,7 @@ class _MissedQuestions extends StatelessWidget {
 
   final Machine machine;
   final int count;
-  final VoidCallback onSeen;
+  final VoidCallback? onSeen;
 
   @override
   Widget build(BuildContext context) {
@@ -409,12 +509,18 @@ class _MissedQuestions extends StatelessWidget {
       child: ListTile(
         leading: Icon(Icons.help_center_outlined, color: scheme.error),
         title: Text(
-          '${machine.name} dropped ${count == 1 ? 'a question' : '$count questions'} about a blocked '
+          'The machine dropped ${count == 1 ? 'a question' : '$count questions'} about a blocked '
           'connection before it was seen',
         ),
-        subtitle: const Text(
-          'A dropped question is not asked again: work may be waiting for an answer until it '
-          'runs out. Look at its work under Work, or at the connections it is blocked on.',
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            NeedsMachine(machine.name),
+            const Text(
+              'A dropped question is not asked again: work may be waiting for an answer until it '
+              'runs out. Look at its work under Work, or at the connections it is blocked on.',
+            ),
+          ],
         ),
         trailing: TextButton(
           key: ValueKey<String>('missed-questions-seen ${machine.name}'),
@@ -428,55 +534,35 @@ class _MissedQuestions extends StatelessWidget {
 
 /// A machine that is not answering, said about the machine: it is not work, so it is not a tile.
 class _MachineNotice extends StatelessWidget {
-  const _MachineNotice({required this.machine, required this.fleet, required this.onSeen});
+  const _MachineNotice({required this.machine, required this.words, required this.retry, required this.onSeen});
 
   final Machine machine;
-  final FleetModel fleet;
-
-  /// Marks it seen, so it goes from what needs a person until the machine answers again.
-  final VoidCallback onSeen;
+  final String words;
+  final Command retry;
+  final VoidCallback? onSeen;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final what = switch (fleet.reachability) {
-      Reachability.connecting => 'is still connecting, so nothing is known yet',
-      Reachability.incompatible => 'serves nothing this build understands',
-      _ => 'cannot be reached',
-    };
-    return Container(
-      key: ValueKey<String>('machine-notice ${machine.name}'),
-      margin: const EdgeInsets.only(bottom: Space.small),
-      padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(Radii.small)),
-      child: Row(
-        children: <Widget>[
-          Icon(Icons.cloud_off, size: Sizes.rowIcon, color: scheme.onErrorContainer),
-          const SizedBox(width: Space.small),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: machine.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(text: ' $what, and anything it is asking waits unseen.'),
-                  if (fleet.status.isNotEmpty) TextSpan(text: '  ${fleet.status}', style: text.bodySmall),
-                ],
-              ),
-            ),
-          ),
-          TextButton(
-            key: ValueKey<String>('notice-seen ${machine.name}'),
-            onPressed: onSeen,
-            child: const Text('Seen'),
+  Widget build(BuildContext context) => Card(
+    key: ValueKey('machine-notice ${machine.name}'),
+    color: Theme.of(context).colorScheme.errorContainer,
+    child: Padding(
+      padding: const EdgeInsets.all(Space.normal),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(words),
+          NeedsMachine(machine.name),
+          Wrap(
+            spacing: Space.small,
+            children: [
+              _RowCommand(retry),
+              TextButton(key: ValueKey('notice-seen ${machine.name}'), onPressed: onSeen, child: const Text('Seen')),
+            ],
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// Which tiles below it are folded open, where tiles fold at all: a page with many tiles shows each
@@ -508,6 +594,7 @@ class TaskTile extends StatelessWidget {
     required this.onDecide,
     required this.onReview,
     this.onPutAway,
+    this.resolved = false,
     this.selected = false,
     this.onSelect,
     this.onOpen,
@@ -516,6 +603,9 @@ class TaskTile extends StatelessWidget {
     this.onEnlargeConsole,
     super.key,
   });
+
+  /// Whether this snapshot has been resolved and its actions must remain disabled.
+  final bool resolved;
 
   /// Shows what its agent writes on the whole right side. Without it, the tile has no console.
   final void Function(Tile tile)? onEnlargeConsole;
@@ -559,7 +649,7 @@ class TaskTile extends StatelessWidget {
     final first = tile.questions.isEmpty ? null : tile.questions.first;
     final answering = first != null && tile.fleet.clearance.answering(first);
     // Nothing on a machine that is not answering can be told anything.
-    final answers = tile.fleet.reachability == Reachability.connected;
+    final answers = !resolved && tile.fleet.reachability == Reachability.connected;
     final aboutTheDeadline = first == null ? null : _deadlineLine(first);
     // The tile's button and its menu run the same command, so they cannot disagree about it.
     final session = actions.where((command) => command.id == 'work.session').firstOrNull;
@@ -572,7 +662,7 @@ class TaskTile extends StatelessWidget {
     final card = SizedBox(
       width: Sizes.tile,
       child: GestureDetector(
-        onSecondaryTapDown: actions.isEmpty
+        onSecondaryTapDown: resolved || actions.isEmpty
             ? null
             : (details) => showCommandMenu(context, details.globalPosition, actions),
         child: Card(
@@ -615,7 +705,7 @@ class TaskTile extends StatelessWidget {
                                 key: const Key('tile-what'),
                                 style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                               ),
-                            Text(tile.machine.name, key: const Key('tile-machine'), style: text.bodySmall),
+                            KeyedSubtree(key: const Key('tile-machine'), child: NeedsMachine(tile.machine.name)),
                             if (!folded) Text(_headline(tile), key: const Key('tile-headline'), style: text.titleSmall),
                           ],
                         ),
@@ -638,6 +728,7 @@ class TaskTile extends StatelessWidget {
                         ),
                       if (actions.isNotEmpty)
                         CommandMenu(
+                          enabled: !resolved,
                           // Its own per work, so a walk can point at one tile's menu among several.
                           key: ValueKey<String>('tile-menu ${task?.name ?? first?.task ?? ''}'),
                           commands: actions,
@@ -737,7 +828,7 @@ class TaskTile extends StatelessWidget {
                     if (first == null && tile.settled != null && onPutAway != null)
                       TextButton(
                         key: const Key('tile-put-away'),
-                        onPressed: () => onPutAway!(tile, tile.settled!),
+                        onPressed: resolved ? null : () => onPutAway!(tile, tile.settled!),
                         child: const Text('Got it'),
                       ),
                     if (first != null || (session?.available ?? false) || (task?.hasWorkWaiting ?? false)) ...<Widget>[

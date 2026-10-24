@@ -36,13 +36,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | Local terminals opened with the command filled in for the WireGuard setup, `porelo talk join`, and the room's homeserver ssh tunnel, with the client details and mention-pill hint. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. |
 | <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | M | `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13) | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |
+| <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | M | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
-| <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | M | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
 | <a id="f153"></a>[F153](F153-A-Forges-Token-By-The-Providers-Own-Login.md) | L | ships with `porelo` [B269](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b269) | A forge reached by its own login, the person's token kept in each machine's vault, and deploy keys gone. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |

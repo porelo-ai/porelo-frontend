@@ -34,6 +34,15 @@ void main() {
     });
   }
 
+  // Harm: an untyped mock dependency can hide a recovery that would target the wrong vault.
+  test('the locked vault situation serves the dependency of its waiting messages', () async {
+    await machineIn('vault-locked');
+    final client = await connect();
+    final messages = (await client.projects()).firstWhere((project) => project.name == 'checkout').messages!;
+    expect(messages.waits, isNotEmpty);
+    expect(messages.waitsOn, 'vault');
+  });
+
   test('a stopped task is kept, and listed as one Start brings back', () async {
     await machineIn('work');
     final client = await connect();

@@ -10,7 +10,17 @@ import 'tokens.dart';
 /// reason — a row whose actions disappear reads as a row with nothing to offer.
 class CommandMenu extends StatefulWidget {
   /// Constructor taking what to offer and what to say it is for.
-  const CommandMenu({required this.commands, required this.tooltip, this.highlight, this.onShown, super.key});
+  const CommandMenu({
+    required this.commands,
+    required this.tooltip,
+    this.highlight,
+    this.onShown,
+    this.enabled = true,
+    super.key,
+  });
+
+  /// Whether this menu may be opened; historical rows keep it disabled.
+  final bool enabled;
 
   /// What this thing can do, runnable or not.
   final List<Command> commands;
@@ -37,7 +47,7 @@ class _CommandMenuState extends State<CommandMenu> {
   @override
   Widget build(BuildContext context) {
     final mine = _mine;
-    if (mine != null && mine != _openedFor) {
+    if (widget.enabled && mine != null && mine != _openedFor) {
       _openedFor = mine;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -48,6 +58,7 @@ class _CommandMenuState extends State<CommandMenu> {
     if (mine == null) _openedFor = null;
     return PopupMenuButton<String>(
       key: _button,
+      enabled: widget.enabled,
       tooltip: widget.tooltip,
       icon: const Icon(Icons.more_vert, size: Sizes.rowIcon),
       initialValue: mine,

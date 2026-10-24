@@ -7,8 +7,8 @@ import '../support/tiles.dart';
 Future<void> theTileIsHeaded(WidgetTester tester, String work, String machine) async {
   await toTheTile(tester, work);
   final heading = tester.widget<Text>(
-    find.descendant(of: tileFor(work), matching: find.byKey(const Key('tile-machine'))),
+    find.descendant(of: tileFor(work), matching: find.byKey(const Key('needs-machine'))),
   );
   // The machine is said on every tile, under the work that heads it (walk 8).
-  expect(heading.data, machine);
+  expect(heading.data, 'on $machine');
 }

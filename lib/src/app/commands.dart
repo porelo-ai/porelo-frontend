@@ -51,6 +51,9 @@ enum Home {
   /// The menu on the selected work's tile.
   tileMenu,
 
+  /// An action on a Needs you row.
+  attentionRow,
+
   /// The machine's status line.
   statusLine,
 }
@@ -352,6 +355,36 @@ List<Command> workCommands({
     ),
   ].map((command) => command.unless(offline)).toList();
 }
+
+/// Unlocks the named machine using the same terminal path as a work tile.
+Command unlockWaitingMessages(Machine machine, FleetModel fleet, VoidCallback? unlock) => Command(
+  id: 'messages.unlock/${machine.name}',
+  label: 'Unlock the vault on ${machine.name}',
+  group: 'Messages',
+  home: Home.attentionRow,
+  run: () => unlock?.call(),
+  unavailable: unlock == null ? 'this machine cannot be unlocked from here' : notAnswering(fleet),
+);
+
+/// Repeats the read that listed held messages, on that row's machine.
+Command askForHeldMessages(Machine machine, FleetModel fleet) => Command(
+  id: 'messages.ask/${machine.name}',
+  label: 'Ask again',
+  group: 'Messages',
+  home: Home.attentionRow,
+  run: () => unawaited(fleet.mailboxes.refresh()),
+  unavailable: notAnswering(fleet),
+);
+
+/// Reconnects now instead of waiting for the machine's next automatic attempt.
+Command retrySilentMachine(Machine machine, FleetModel fleet) => Command(
+  id: 'machine.retry/${machine.name}',
+  label: 'Try again now',
+  group: 'Machines',
+  home: Home.attentionRow,
+  run: () => unawaited(fleet.connect()),
+  unavailable: fleet.reachability == Reachability.connecting ? 'the machine is still connecting' : null,
+);
 
 /// Why nothing that needs [fleet]'s machine can be done now, or null while it answers.
 String? notAnswering(FleetModel fleet) =>
@@ -905,6 +938,7 @@ List<Command> commandsFor({
   required bool anyAnswering,
   required Vault vault,
   required void Function(VaultAct act) actOnTheVault,
+  VoidCallback? askKeepResolved,
   required VoidCallback askTheWorkUser,
   required VoidCallback addAUser,
   VoidCallback? unlockWithThePassphrase,
@@ -961,6 +995,14 @@ List<Command> commandsFor({
         checked: settings.refreshSeconds == seconds,
         run: () => settings.setRefreshSeconds(seconds),
       ),
+    Command(
+      id: 'attention.retention',
+      label: 'Keep resolved rows for: ${settings.keepResolvedMinutes} minutes…',
+      group: 'Options',
+      home: Home.appBar,
+      run: () => askKeepResolved?.call(),
+      unavailable: askKeepResolved == null ? 'options are unavailable here' : null,
+    ),
     Command(
       id: 'setup.workUser',
       label: 'New machines run work as: ${settings.workUser}…',

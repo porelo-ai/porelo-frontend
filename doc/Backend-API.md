@@ -131,6 +131,10 @@ Worth knowing before designing around them:
 - **`Prompts` has a deadline.** A task is *blocked* while a clearance prompt is unanswered and
   the watcher gives up after its own timeout. This is the one place where interface latency costs
   something real, which is why it is a stream and not a poll.
+- **`ProjectMessages.waits` is the daemon's explanation of why messages wait.** `waitsOn`, after
+  `waits`, is a string identifying the dependency: `"vault"` while the vault is locked, otherwise
+  `""`. It is optional for older daemons. Unknown values are kept as text and show only `waits`,
+  without guessing a recovery action from its sentence.
 - **`WatchProjects` is slower than `Watch`, on purpose.** A project scan runs the container
   runtime and reads the gate's refs for every project, and what it answers changes on human
   timescales - a project created, a push arriving at the gate, an environment prepared. It sends

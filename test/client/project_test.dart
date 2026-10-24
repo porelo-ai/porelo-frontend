@@ -18,6 +18,14 @@ void main() {
     ...fields,
   });
 
+  // Harm: a malformed or new dependency must not crash the project list or trigger the wrong recovery.
+  test('message dependencies are optional strings and preserve unknown values', () {
+    for (final value in <Object?>[null, 42, true, <String>[], '', 'vault', 'future']) {
+      final messages = ProjectMessages.of(<String, dynamic>{'waitsOn': ?value, 'futureField': 'ignored'})!;
+      expect(messages.waitsOn, value is String ? value : '');
+    }
+  });
+
   test('a count is only a measurement when the reason says it was measured', () {
     // The one that would be invisible: a stale 7 beside a failure, drawn as though somebody had
     // counted it this morning.

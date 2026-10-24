@@ -14,17 +14,16 @@ void main() {
     'direction': 'out',
   });
 
+  // Harm: treating a person’s message as an agent’s hides whose words are being sent.
   test('one the person wrote is said as theirs', () {
     expect(
-      HeldMessageRow.headline(held('ROLE_USER'), 'vm'),
-      'A question you wrote, going out through porelo-test-project-foo to alice, on vm',
+      HeldMessageRow.headline(held('ROLE_USER')),
+      'A question you wrote, going out through porelo-test-project-foo to alice',
     );
   });
 
+  // Harm: attributing an agent’s message to the person misrepresents who authored it.
   test("one the task's agent wrote is said as the task's", () {
-    expect(
-      HeldMessageRow.headline(held('ROLE_AGENT'), 'vm'),
-      'A question going out from porelo-test-project-foo to alice, on vm',
-    );
+    expect(HeldMessageRow.headline(held('ROLE_AGENT')), 'A question going out from porelo-test-project-foo to alice');
   });
 }

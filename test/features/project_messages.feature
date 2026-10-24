@@ -54,7 +54,8 @@ Feature: A project's conversation, and a person joining it
         Given the next forward is refused because {'Port 8008 is already in use on this computer.'}
         When the forward of port {'8008'} drops and is tried again
         And I go to what needs a person
-        Then it says {'The homeserver of checkout on'}
+        Then it says {'The homeserver of checkout is not reachable from here'}
+        And the homeserver notice for {'checkout'} names machine {'vm'}
         And it says {'Port 8008 is already in use on this computer.'}
         And it says {'Try again'}
 

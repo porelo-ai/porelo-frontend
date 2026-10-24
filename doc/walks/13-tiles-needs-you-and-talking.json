@@ -72,7 +72,7 @@
       ]
     },
     {
-      "say": "Links „Needs you“: die gehaltene Nachricht. Bestanden: fett „A message going out from alpha to people, on testmaschine“, darunter in Anführungszeichen der Anfang ihres Textes, und „Held until somebody reads it …“.",
+      "say": "Under “Needs you”, the held message is headed “A message going out from alpha to people”, with “on testmaschine” on its own line, then the preview and “Held until somebody reads it …”.",
       "at": [
         "held-preview *",
         "rail attention",

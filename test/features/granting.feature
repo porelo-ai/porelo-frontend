@@ -134,7 +134,7 @@ Feature: Granting an authorization once, in a browser, for later tasks
         Given the machine says {'jira'} needs a grant for {'porelo-checkout-shell'} in {'checkout'}
         When I go to what needs a person
         And the machine says {'jira'} is granted
-        Then it does not say {'jira needs a grant'}
+        Then the authorization {'jira'} is resolved with its action disabled
         And nothing needs me
 
     Scenario: an authorization is granted from what needs a person

@@ -7,11 +7,29 @@ import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
+import 'needs_machine.dart';
 
 /// One message waiting for a person, as a row in *Needs you*.
 class HeldMessageRow extends StatelessWidget {
   /// Constructor taking the message and where it is.
-  const HeldMessageRow({required this.machine, required this.fleet, required this.message, super.key});
+  const HeldMessageRow({
+    required this.machine,
+    required this.fleet,
+    required this.message,
+    this.resolved = false,
+    this.read,
+    this.onRead,
+    super.key,
+  });
+
+  /// Whether this is a historical row whose decisions are disabled.
+  final bool resolved;
+
+  /// The full text already read, retained in memory for a historical row.
+  final HeldMessageRead? read;
+
+  /// Records a successful explicit read, never a preview.
+  final void Function(HeldMessageRead read)? onRead;
 
   /// The machine holding it.
   final Machine machine;
@@ -27,7 +45,7 @@ class HeldMessageRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final refused = message.standing == 'refused-by-filter';
-    return Card(
+    final card = Card(
       key: ValueKey<String>('held-message ${machine.name}/${message.task}/${message.handle}'),
       color: refused ? scheme.errorContainer : scheme.surfaceContainerHighest,
       child: Padding(
@@ -35,9 +53,21 @@ class HeldMessageRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(headline(message, machine.name), style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(headline(message), style: const TextStyle(fontWeight: FontWeight.bold)),
+            NeedsMachine(machine.name),
             const SizedBox(height: Space.tight),
-            if (mayPreview(message)) _Preview(fleet: fleet, message: message),
+            if (resolved && read != null && mayPreview(message))
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.tight),
+                child: Text(
+                  '“${_Preview.startOf(read!)}”',
+                  key: ValueKey<String>('held-preview ${message.handle}'),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )
+            else if (!resolved && mayPreview(message))
+              _Preview(fleet: fleet, message: message),
             Text(standingWords(message.standing), style: text.bodySmall),
             if (message.reason.isNotEmpty) Text(message.reason, style: text.bodySmall),
             // Held on its way in: what was written is out already, for everybody else; what is decided
@@ -52,12 +82,14 @@ class HeldMessageRow extends StatelessWidget {
             const SizedBox(height: Space.small),
             OutlinedButton.icon(
               key: ValueKey<String>('read-message ${message.task}/${message.handle}'),
-              onPressed: () => unawaited(
-                showDialog<void>(
-                  context: context,
-                  builder: (_) => HeldMessageDialog(fleet: fleet, message: message),
-                ),
-              ),
+              onPressed: resolved
+                  ? null
+                  : () => unawaited(
+                      showDialog<void>(
+                        context: context,
+                        builder: (_) => HeldMessageDialog(fleet: fleet, message: message, onRead: onRead),
+                      ),
+                    ),
               icon: const Icon(Icons.mail_outline, size: Sizes.rowIcon),
               label: Text(
                 message.direction == 'in'
@@ -69,6 +101,17 @@ class HeldMessageRow extends StatelessWidget {
         ),
       ),
     );
+    return resolved
+        ? InkWell(
+            onTap: () => unawaited(
+              showDialog<void>(
+                context: context,
+                builder: (_) => HeldMessageDialog(fleet: fleet, message: message, readOnly: true, initialRead: read),
+              ),
+            ),
+            child: card,
+          )
+        : card;
   }
 
   /// Whether the start of its text may be shown before a person opens it: only what stands held and
@@ -77,29 +120,29 @@ class HeldMessageRow extends StatelessWidget {
   static bool mayPreview(HeldMessage message) =>
       message.standing == 'held' && !message.reason.contains('filter would have refused');
 
-  /// Which task, to whom, of which kind, and on which machine.
-  static String headline(HeldMessage message, String machine) {
+  /// Which task, to whom, and of which kind; the machine has its own line.
+  static String headline(HeldMessage message) {
     final kind = message.kind.isEmpty ? 'A message' : 'A ${message.kind}';
     // Which way it was going, when the machine says: one arriving from a peer is held on its way
     // in, before any task has seen it.
     if (message.direction == 'in') {
       final from = message.peer.isEmpty ? 'a peer' : message.peer;
-      return '$kind coming in from $from to ${message.task}, on $machine';
+      return '$kind coming in from $from to ${message.task}';
     }
     // Written by the person at this interface, through a task: said as theirs, since "from a person"
     // left them asking whose it was (walk 8).
     if (message.role == 'ROLE_USER') {
       final kindOf = message.kind.isEmpty ? 'A message' : 'A ${message.kind}';
       final to = message.peer.isEmpty ? '' : ' to ${message.peer}';
-      return '$kindOf you wrote, going out through ${message.task}$to, on $machine';
+      return '$kindOf you wrote, going out through ${message.task}$to';
     }
     final who = message.task;
     if (message.direction == 'out') {
       final to = message.peer.isEmpty ? '' : ' to ${message.peer}';
-      return '$kind going out from $who$to, on $machine';
+      return '$kind going out from $who$to';
     }
     final to = message.peer.isEmpty ? '' : ' with ${message.peer}';
-    return '$kind from $who$to, on $machine';
+    return '$kind from $who$to';
   }
 
   /// What its standing means for what can be done with it.
@@ -119,7 +162,23 @@ class HeldMessageRow extends StatelessWidget {
 /// filter — for a refused one the filter said no — so what is on screen is evidence, not content.
 class HeldMessageDialog extends StatefulWidget {
   /// Constructor taking the machine's model and the message as it was listed.
-  const HeldMessageDialog({required this.fleet, required this.message, super.key});
+  const HeldMessageDialog({
+    required this.fleet,
+    required this.message,
+    this.onRead,
+    this.readOnly = false,
+    this.initialRead,
+    super.key,
+  });
+
+  /// Records an explicit read after the machine has returned the full text.
+  final void Function(HeldMessageRead read)? onRead;
+
+  /// Shows retained text without offering a decision again.
+  final bool readOnly;
+
+  /// The text kept when this message was read.
+  final HeldMessageRead? initialRead;
 
   /// What the machine says, and what deciding it sends.
   final FleetModel fleet;
@@ -143,7 +202,8 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
   @override
   void initState() {
     super.initState();
-    unawaited(_readIt());
+    _read = widget.initialRead;
+    if (_read == null) unawaited(_readIt());
   }
 
   @override
@@ -155,7 +215,10 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
   Future<void> _readIt() async {
     try {
       final read = await widget.fleet.mailboxes.read(widget.fleet.backend, widget.message);
-      if (mounted) setState(() => _read = read);
+      if (mounted) {
+        setState(() => _read = read);
+        if (read.found) widget.onRead?.call(read);
+      }
     } on VarlinkException catch (refusal) {
       if (mounted) setState(() => _problem = 'The machine refused to show it: ${refusal.simpleName}.');
     } on VarlinkDisconnected catch (ex) {
@@ -211,7 +274,10 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
       key: const Key('held-message-dialog'),
-      title: Text(HeldMessageRow.headline(widget.message, widget.fleet.backend.label)),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [Text(HeldMessageRow.headline(widget.message)), NeedsMachine(widget.fleet.backend.label)],
+      ),
       content: SizedBox(
         width: Sizes.dialog,
         child: DialogScroll(
@@ -265,7 +331,11 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
                   ),
                 ],
               ],
-              if (read != null && read.found && done == null && _decidable(read.standing)) ...<Widget>[
+              if (!widget.readOnly &&
+                  read != null &&
+                  read.found &&
+                  done == null &&
+                  _decidable(read.standing)) ...<Widget>[
                 const SizedBox(height: Space.small),
                 TextField(
                   key: const Key('held-message-refuse-reason'),
@@ -294,7 +364,7 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
         ),
       ),
       actions: <Widget>[
-        if (read != null && read.found && done == null && _decidable(read.standing)) ...<Widget>[
+        if (!widget.readOnly && read != null && read.found && done == null && _decidable(read.standing)) ...<Widget>[
           TextButton(
             key: const Key('refuse-message'),
             onPressed: _deciding ? null : () => unawaited(_decide(refuse: true)),
@@ -309,7 +379,13 @@ class _HeldMessageDialogState extends State<HeldMessageDialog> {
         TextButton(
           key: const Key('held-message-close'),
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(done == null ? 'Leave it for now' : 'Done'),
+          child: Text(
+            widget.readOnly
+                ? 'Close'
+                : done == null
+                ? 'Leave it for now'
+                : 'Done',
+          ),
         ),
       ],
     );
@@ -363,6 +439,11 @@ class _Preview extends StatefulWidget {
   /// How much of it is shown.
   static const length = 200;
 
+  static String startOf(HeldMessageRead read) {
+    final all = read.text.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    return all.length > length ? '${all.substring(0, length)}…' : all;
+  }
+
   @override
   State<_Preview> createState() => _PreviewState();
 }
@@ -379,9 +460,9 @@ class _PreviewState extends State<_Preview> {
   Future<void> _readIt() async {
     try {
       final read = await widget.fleet.mailboxes.read(widget.fleet.backend, widget.message);
-      final all = read.text.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (!mounted || all.isEmpty) return;
-      setState(() => _start = all.length > _Preview.length ? '${all.substring(0, _Preview.length)}…' : all);
+      final start = _Preview.startOf(read);
+      if (!mounted || start.isEmpty) return;
+      setState(() => _start = start);
     } on Object {
       // Nothing shown rather than a second error beside the row: opening it says what went wrong.
     }

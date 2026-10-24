@@ -152,7 +152,7 @@ Feature: What needs a person on every machine, without going anywhere
         Then it says {'dropped 2 questions about a blocked connection before it was seen'}
         And it says {'A dropped question is not asked again'}
         When I mark the dropped questions seen
-        Then it does not say {'dropped 2 questions'}
+        Then the notice is resolved {'dropped 2 questions'}
 
     # A run: the provider refused, the agent ended, and the machine said "idle".
     Scenario: work whose agent was refused by its provider needs you, in the provider's words
@@ -168,6 +168,6 @@ Feature: What needs a person on every machine, without going anywhere
     # Walk 10: a vault that locked itself stopped every conversation, and nothing said so.
     Scenario: messages that wait because the vault is locked are said, with the projects they hold up
         Given the messages of {'checkout'} wait because {'messages wait: the vault is locked, so no conversation can be read or written: porelo vault unlock lets them go on'}
-        Then it says {'Messages wait on'}
+        Then it says {'Messages wait'}
         And it says {'the vault is locked, so no conversation can be read or written'}
         And it says {'Held up: checkout'}

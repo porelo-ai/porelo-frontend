@@ -402,6 +402,7 @@ class _ShellState extends State<Shell> {
     anyAnswering: widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected),
     vault: widget.vault,
     actOnTheVault: (act) => unawaited(_actOnTheVault(act)),
+    askKeepResolved: () => unawaited(_askKeepResolved()),
     askTheWorkUser: () => unawaited(_askTheWorkUser()),
     addAUser: () => unawaited(_addAUser()),
     unlockWithThePassphrase: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
@@ -552,7 +553,7 @@ class _ShellState extends State<Shell> {
       handInTo: (task) => unawaited(_handInTo(task)),
       takeBackFrom: (task) => unawaited(_takeBackFrom(task)),
       refreshFromItsSource: (task) => unawaited(_refreshFromItsSource(task)),
-      unlockTheVault: unlockCommandFor(tile.machine) != null ? () => unawaited(_unlockHere()) : null,
+      unlockTheVault: _unlockFor(tile.machine),
     ))
       command.after(() => _actOn(tile)),
   ];
@@ -988,13 +989,54 @@ class _ShellState extends State<Shell> {
   /// Opens the current machine's vault by its passphrase, in a terminal on that machine, then asks
   /// the machine whether it is open — the terminal's exit code is not the verdict.
   Future<void> _unlockHere() async {
-    final machine = widget.machines.current;
+    await _unlockMachine(widget.machines.current);
+  }
+
+  VoidCallback? _unlockFor(Machine machine) =>
+      unlockCommandFor(machine) == null ? null : () => unawaited(_unlockMachine(machine));
+
+  Future<void> _unlockMachine(Machine machine) async {
+    final fleet = widget.machines.of(machine);
     final command = unlockCommandFor(machine);
     if (command == null) return;
     await unlockInATerminal(context, machine: machine, command: command, open: widget.sessions.openTerminal);
     if (!mounted) return;
-    await widget.vault.lookAt(_fleet.backend, machine.name);
-    await _fleet.refresh(quietly: true);
+    await widget.vault.lookAt(fleet.backend, machine.name);
+    await fleet.refresh(quietly: true);
+  }
+
+  Future<void> _askKeepResolved() async {
+    int? value = widget.settings.keepResolvedMinutes;
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) {
+          final minutes = value;
+          final valid = minutes != null && minutes >= 0;
+          return AlertDialog(
+            title: const Text('Keep resolved rows for'),
+            content: SizedBox(
+              width: Sizes.dialogNarrow,
+              child: TextFormField(
+                initialValue: '${widget.settings.keepResolvedMinutes}',
+                keyboardType: TextInputType.number,
+                onChanged: (text) => update(() => value = int.tryParse(text)),
+                decoration: InputDecoration(
+                  labelText: 'Minutes',
+                  helperText: '0 removes rows immediately.',
+                  errorText: valid ? null : 'Enter a whole number of minutes, zero or more.',
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              FilledButton(onPressed: valid ? () => Navigator.pop(context, minutes) : null, child: const Text('Keep')),
+            ],
+          );
+        },
+      ),
+    );
+    if (mounted && minutes != null) await widget.settings.setKeepResolvedMinutes(minutes);
   }
 
   /// The person's own repositories on a forge: made a project, and this machine bound to one.
@@ -2628,6 +2670,7 @@ class _ShellState extends State<Shell> {
       focusNode: _openedFocus,
       child: AttentionView(
         attention: _attention,
+        unlockFor: _unlockFor,
         onDecide: (tile, prompt, {required allow}) =>
             tile.fleet.clearance.decide(tile.fleet.backend, prompt, allow: allow),
         onPutAway: (tile, prompt) => tile.fleet.clearance.forget(prompt),

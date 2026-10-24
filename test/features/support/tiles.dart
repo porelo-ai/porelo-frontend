@@ -9,10 +9,25 @@ import 'world.dart';
 /// Work shows every machine's tiles at once, and two machines can serve the same work: the tile on
 /// the machine being acted on is the one meant, where there is one.
 Finder tileFor(String work) {
-  final here = find.byKey(ValueKey<String>('tile ${World.machines.current.name} $work'));
+  bool open(Element element) {
+    var resolved = false;
+    element.visitAncestorElements((ancestor) {
+      resolved = ancestor.widget.key == const Key('recently-resolved');
+      return !resolved;
+    });
+    return !resolved;
+  }
+
+  final here = find.byElementPredicate(
+    (element) => element.widget.key == ValueKey<String>('tile ${World.machines.current.name} $work') && open(element),
+  );
   if (here.evaluate().isNotEmpty) return here;
-  return find.byWidgetPredicate(
-    (widget) => widget is Card && '${widget.key}'.contains("'tile ") && '${widget.key}'.endsWith(" $work'>]"),
+  return find.byElementPredicate(
+    (element) =>
+        element.widget is Card &&
+        '${element.widget.key}'.contains("'tile ") &&
+        '${element.widget.key}'.endsWith(" $work'>]") &&
+        open(element),
   );
 }
 

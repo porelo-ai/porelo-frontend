@@ -26,6 +26,7 @@ import './step/the_project_header_says.dart';
 import './step/the_next_forward_is_refused_because.dart';
 import './step/the_forward_of_port_drops_and_is_tried_again.dart';
 import './step/i_go_to_what_needs_a_person.dart';
+import './step/the_homeserver_notice_for_names_machine.dart';
 import './step/has_joined_the_conversation_of.dart';
 import './step/i_give_a_new_password.dart';
 import './step/the_machine_was_last_asked_to_let_join_with_a_new_password.dart';
@@ -103,7 +104,8 @@ void main() {
         await theNextForwardIsRefusedBecause(tester, 'Port 8008 is already in use on this computer.');
         await theForwardOfPortDropsAndIsTriedAgain(tester, '8008');
         await iGoToWhatNeedsAPerson(tester);
-        await itSays(tester, 'The homeserver of checkout on');
+        await itSays(tester, 'The homeserver of checkout is not reachable from here');
+        await theHomeserverNoticeForNamesMachine(tester, 'checkout', 'vm');
         await itSays(tester, 'Port 8008 is already in use on this computer.');
         await itSays(tester, 'Try again');
       },

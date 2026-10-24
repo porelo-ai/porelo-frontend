@@ -4,6 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
+  // Harm: an invalid retention value can lose the record of a decision immediately or keep it indefinitely.
+  test('resolved retention defaults to an hour and validates persisted minutes', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    expect(settings.keepResolvedMinutes, 60);
+    await settings.setKeepResolvedMinutes(2);
+    final reopened = Settings(store);
+    await reopened.load();
+    expect(reopened.keepResolvedMinutes, 2);
+    await reopened.setKeepResolvedMinutes(0);
+    await settings.load();
+    expect(settings.keepResolvedMinutes, 0);
+    for (final invalid in <Object?>[-1, '2', 2.5, true, null]) {
+      final broken = Settings(MemorySettingsStore({'keepResolvedMinutes': invalid}));
+      await broken.load();
+      expect(broken.keepResolvedMinutes, 60);
+    }
+  });
+
   const record = <String, Object?>{
     'scalewayProject': 'provider-project',
     'account': 'worker',

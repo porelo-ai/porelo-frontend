@@ -1310,6 +1310,9 @@ class ProjectMessages {
   /// Empty from a daemon older than the field, which says nothing either way.
   final String waits;
 
+  /// The dependency an interface can act on; unknown values are kept without guessing an action.
+  final String waitsOn;
+
   /// Constructor taking every field.
   const ProjectMessages({
     required this.transport,
@@ -1319,6 +1322,7 @@ class ProjectMessages {
     required this.detail,
     required this.loopbackOnly,
     this.waits = '',
+    this.waitsOn = '',
   });
 
   /// Reads one from a reply, or null where there is none.
@@ -1331,6 +1335,7 @@ class ProjectMessages {
           detail: _string(value, 'detail'),
           loopbackOnly: value['loopbackOnly'] == true,
           waits: _string(value, 'waits'),
+          waitsOn: _string(value, 'waitsOn'),
         )
       : null;
 }

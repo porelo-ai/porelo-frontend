@@ -41,6 +41,7 @@ import './step/the_count_of_what_needs_a_person_is.dart';
 import './step/somebody_was_told.dart';
 import './step/the_machine_says_needs_granting_again_for_in.dart';
 import './step/the_machine_says_is_granted.dart';
+import './step/the_authorization_is_resolved_with_its_action_disabled.dart';
 import './step/nothing_needs_me.dart';
 import './step/i_grant_from_what_needs_a_person.dart';
 
@@ -242,7 +243,7 @@ void main() {
       await theMachineSaysNeedsAGrantForIn(tester, 'jira', 'porelo-checkout-shell', 'checkout');
       await iGoToWhatNeedsAPerson(tester);
       await theMachineSaysIsGranted(tester, 'jira');
-      await itDoesNotSay(tester, 'jira needs a grant');
+      await theAuthorizationIsResolvedWithItsActionDisabled(tester, 'jira');
       await nothingNeedsMe(tester);
     });
     testWidgets('''an authorization is granted from what needs a person''', (tester) async {

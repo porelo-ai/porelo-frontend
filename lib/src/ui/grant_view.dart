@@ -10,6 +10,7 @@ import '../app/links.dart';
 import '../app/machines.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
+import 'needs_machine.dart';
 
 /// Asks the machine for an authorization and shows where it stands until it is settled.
 Future<void> showGranting(BuildContext context, Granting granting) async {
@@ -175,7 +176,16 @@ class GrantDialog extends StatelessWidget {
 /// grant, or a grant the service ended, reaches the person who can answer it.
 class AuthorizationRow extends StatelessWidget {
   /// Constructor taking the machine, its model and the question.
-  const AuthorizationRow({required this.machine, required this.fleet, required this.needed, super.key});
+  const AuthorizationRow({
+    required this.machine,
+    required this.fleet,
+    required this.needed,
+    this.resolved = false,
+    super.key,
+  });
+
+  /// Whether the grant is already resolved and must not be started again.
+  final bool resolved;
 
   /// The machine the work runs on.
   final Machine machine;
@@ -198,14 +208,17 @@ class AuthorizationRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(headline(needed, machine.name), style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(headline(needed), style: const TextStyle(fontWeight: FontWeight.bold)),
+            NeedsMachine(machine.name),
             const SizedBox(height: Space.tight),
             Text(standing(needed.state)),
             if (needed.at.isNotEmpty) Text('Since ${needed.at}.', style: text.bodySmall),
             const SizedBox(height: Space.small),
             OutlinedButton.icon(
               key: ValueKey<String>('grant-needed ${needed.credential}'),
-              onPressed: () => unawaited(showGranting(context, Granting(fleet.backend, machine, needed.credential))),
+              onPressed: resolved
+                  ? null
+                  : () => unawaited(showGranting(context, Granting(fleet.backend, machine, needed.credential))),
               icon: const Icon(Icons.verified_user_outlined, size: Sizes.rowIcon),
               label: const Text('Grant it'),
             ),
@@ -215,14 +228,14 @@ class AuthorizationRow extends StatelessWidget {
     );
   }
 
-  /// Which credential, for which work, on which machine.
-  static String headline(AuthorizationNeeded needed, String machine) {
+  /// Which credential and work; the machine has its own line.
+  static String headline(AuthorizationNeeded needed) {
     final forWhat = needed.task.isNotEmpty
         ? ' for ${needed.task}'
         : needed.project.isNotEmpty
         ? ' for work in ${needed.project}'
         : '';
-    return '${needed.credential} needs a grant$forWhat, on $machine';
+    return '${needed.credential} needs a grant$forWhat';
   }
 
   /// Never granted, or granted and then ended at the service: two different stories.

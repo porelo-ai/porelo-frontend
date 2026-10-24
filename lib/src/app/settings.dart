@@ -287,6 +287,18 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
+  /// How long resolved attention rows remain readable, in minutes; zero removes them immediately.
+  int get keepResolvedMinutes => _keepResolvedMinutes;
+  int _keepResolvedMinutes = 60;
+
+  /// Keeps the retention choice without persisting the rows themselves.
+  Future<void> setKeepResolvedMinutes(int minutes) async {
+    if (minutes < 0) return;
+    _keepResolvedMinutes = minutes;
+    notifyListeners();
+    await _write();
+  }
+
   /// The user a new machine runs work as, which the wizard asks Porelo's setup script to create.
   String get workUser => _workUser;
   String _workUser = 'agent';
@@ -322,6 +334,8 @@ class Settings extends ChangeNotifier {
     _appearance = _appearanceNamed(stored['appearance']);
     final every = stored['refreshSeconds'];
     if (every is int && every >= 0) _refreshSeconds = every;
+    final retention = stored['keepResolvedMinutes'];
+    if (retention is int && retention >= 0) _keepResolvedMinutes = retention;
     final user = stored['workUser'];
     if (user is String && isUserName(user)) _workUser = user;
     final draft = stored['setupDraft'];
@@ -591,6 +605,7 @@ class Settings extends ChangeNotifier {
 
   Map<String, Object?> get _known => <String, Object?>{
     'refreshSeconds': _refreshSeconds,
+    'keepResolvedMinutes': _keepResolvedMinutes,
     'workUser': _workUser,
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,

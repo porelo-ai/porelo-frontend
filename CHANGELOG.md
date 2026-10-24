@@ -11,6 +11,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Server setup includes its verified collection, so release builds no longer ask for a setup file;
   debug builds can try a test collection with an explicit SHA-256.
+- Needs you names each row’s machine and offers recovery there; resolved rows and read messages
+  stay readable with disabled actions for a configurable time, one hour by default.
 
 - Putting a project on a server asks one step at a time, keeps answers when going back, and
   reviews them before renting; missing files and a public ssh key chosen as the private one are
