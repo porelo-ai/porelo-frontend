@@ -45,6 +45,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f161"></a>[F161](F161-A-Starts-Progress-And-Refusal-In-Words.md) | M | `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268) | Task start showing its step and what it waits on in plain words, stopping with the cause when a dependency fails, and explaining a refused `porelo.yml`. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -85,7 +86,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | — | `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13) | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |
 | <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | — | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
 | <a id="f159"></a>[F159](F159-Work-Started-From-The-Project-Page.md) | — | — | Visible start buttons on the project page and each repository row, with a chosen repository shown as text and a *Change* link in the start form. |
-| <a id="f161"></a>[F161](F161-A-Starts-Progress-And-Refusal-In-Words.md) | — | `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268), `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | Task start showing its step and what it waits on in plain words, stopping with the cause when a dependency fails, and explaining a refused `porelo.yml`. |
 
 ### Idea
 
