@@ -775,8 +775,16 @@ class _HostDialogState extends State<HostDialog> {
           ],
           actions: (_, run) => OutlinedButton(
             key: const Key('host-down'),
-            onPressed: _running || !_complete ? null : () => run(_down),
-            child: const Text('Take it off the server'),
+            onPressed: _running || !_complete
+                ? null
+                : () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => _takeDownDialog(context, confirmationOnly: true),
+                    );
+                    if (confirmed == true && mounted) await run(_down);
+                  },
+            child: Text(_takingDown ? 'Try taking it down again' : 'Take this server down'),
           ),
         );
 
@@ -802,8 +810,9 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
-  Widget _takeDownDialog(BuildContext context) {
-    final started = _session != null;
+  Widget _takeDownDialog(BuildContext context, {bool confirmationOnly = false}) {
+    final started = !confirmationOnly && _session != null;
+    final colors = Theme.of(context).colorScheme;
     return PopScope(
       canPop: !_running,
       child: AlertDialog(
@@ -817,8 +826,10 @@ class _HostDialogState extends State<HostDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'This ends the tasks for project ${widget.project} and its room, and removes its files on the host. '
-                  'The host reports whether its files were copied and the server was given back.',
+                  'The server for project ${widget.project} is given back to Scaleway and deleted. '
+                  'Nothing is billed afterwards. '
+                  'The vault on the server and the room’s history are lost. '
+                  'The files in the tresor are kept.',
                 ),
                 if (started) _progress(context),
               ],
@@ -833,9 +844,14 @@ class _HostDialogState extends State<HostDialog> {
           ),
           if (!started || _actionState != WizardActionState.done)
             FilledButton(
-              key: const Key('host-down'),
-              onPressed: _running || widget.settings?.hostUp(widget.project) == null ? null : _down,
-              child: Text(started ? 'Try taking it down again' : 'Take this server down'),
+              key: Key(confirmationOnly ? 'host-confirm-down' : 'host-down'),
+              style: FilledButton.styleFrom(backgroundColor: colors.error, foregroundColor: colors.onError),
+              onPressed: _running || widget.takeDownOnly && widget.settings?.hostUp(widget.project) == null
+                  ? null
+                  : confirmationOnly
+                  ? () => Navigator.pop(context, true)
+                  : _down,
+              child: const Text('Give the server back'),
             ),
         ],
       ),

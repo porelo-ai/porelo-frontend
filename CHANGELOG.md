@@ -18,6 +18,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Giving a server back always asks for confirmation, names what is lost and kept, and uses a destructive button.
 - Forge tokens are entered only in terminal prompts, kept on this computer for the forge API and
   in each machine's vault for git over https; setting up and clearing repositories no longer manages deploy keys.
 - Server setup continues after its wizard closes, appears in Machines with progress and time
