@@ -35,8 +35,11 @@ cleared.
   has to be read whole to know where it is; the sentences that name the machine today lose it.
 - **A way out on every row**, run against the row's own machine only:
   - *messages waiting* on a locked vault: *Unlock the vault on <machine>*, the same unlock that
-    `work.unlock` runs (`lib/src/app/commands.dart`). Another reason gets no button the interface
-    invents; which reason it is comes from the daemon, not from its words (open question 1);
+    `work.unlock` runs (`lib/src/app/commands.dart`), offered only when the daemon's `waitsOn` is
+    `"vault"`. `waits` is a sentence for a person and is never matched. `waitsOn` beside it, `""`
+    or `"vault"`, an unknown value shown as `waits` only, is porelo's counterpart, agreed with
+    Agent Core on 2026-10-24 and filed in porelo for sprint 2c; a daemon without the field gets no
+    button. The mock serves the field;
   - *cannot list what is held*: *Ask again*;
   - *a machine not answering*: *Try again now* beside *Seen*.
 - **What was resolved stays a while**, by the operator's rule of 2026-10-23: a row that goes away
@@ -56,12 +59,6 @@ cleared.
     clock (a resolved question that vanishes leaves no trace of what was decided);
   - 0 as the setting removes at once.
   - The greying and the order's look get no test.
-
-## Open questions
-
-1. **To Agent Core:** `Messages.waits` is the daemon's sentence. Does it come, or can it come,
-   with a reason the interface can act on (`waitsOn: VAULT`, …), so the unlock is offered without
-   reading the sentence? Without one, no button is offered on that row.
 
 ## Assumed, to be confirmed
 
