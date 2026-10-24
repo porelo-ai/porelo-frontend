@@ -48,7 +48,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f164"></a>[F164](F164-Putting-A-Project-On-A-Server-Step-By-Step.md) | M | — | Putting a project on a server as a wizard of five explained steps with an indicator, back and next, and a summary; the drive named as Tresorit, its tresor and folder apart. | — |
+| <a id="f164"></a>[F164](F164-Putting-A-Project-On-A-Server-Step-By-Step.md) | L | — | Putting a project on a server as a wizard of explained steps with an indicator, back and next, and a summary, on a wizard frame other wizards use too; the drive named as Tresorit, its tresor and folder apart. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
