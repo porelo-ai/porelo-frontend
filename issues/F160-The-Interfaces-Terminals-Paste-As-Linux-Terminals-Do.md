@@ -1,6 +1,6 @@
 # F160 — The Interface's Terminals Paste As Linux Terminals Do
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - one shared key map, three terminals and their widget tests.
 
 **Order.** Early: every secret now goes through these terminals.
