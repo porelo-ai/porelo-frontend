@@ -47,6 +47,9 @@ button.
   is the running step's left plus the sum of the steps after it, an upper bound on a resumed `up`,
   so it reads *about*; a step that may be skipped counts toward it, and is passed over once a
   later step starts.
+- **Each relayed field checked, not cast:** `HostRun._relayed` takes `msg`, `task` and `play` with
+  `as String?`, so a value of another type would throw in the line handler; each is checked, and a
+  malformed line is dropped, with a test on the collection's `plan` line, which carries no `task`.
 - **Words come from the lines:** `Step` (`packages/porelo_host`) reads `text` and `seconds`, and
   `porelo-host`'s own steps (`rent`, `ssh`, `copy`, `ansible`) carry theirs in the same lines. No
   view writes a word of its own for a host's step; a step without `text` shows its name.
