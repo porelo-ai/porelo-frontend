@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 
+import '../client/models.dart';
+import 'fleet_backend.dart';
+
 /// Where a long operation got to.
 enum OperationState {
   /// Still going.
@@ -50,6 +53,9 @@ class Operation {
   /// Everything it printed, in order.
   final List<String> output = <String>[];
 
+  /// Each start step's latest state, in the order the steps first arrived.
+  final Map<String, StartStep> steps = <String, StartStep>{};
+
   /// Whether it is still going.
   bool get running => state == OperationState.running;
 
@@ -79,6 +85,7 @@ class Operation {
       'summary': summary,
       'seen': seen,
       'output': output.sublist(cut),
+      'steps': <Object?>[for (final step in steps.values) step.toStored()],
       'linesNotKept': linesNotKept + cut,
     };
   }
@@ -94,6 +101,7 @@ class Operation {
     final machine = stored['machine'];
     final summary = stored['summary'];
     final output = stored['output'];
+    final steps = stored['steps'];
     final notKept = stored['linesNotKept'];
     return Operation(id: id, title: title, startedAt: started.toLocal(), machine: machine is String ? machine : '')
       ..state = state
@@ -102,6 +110,10 @@ class Operation {
       ..seen = stored['seen'] == true
       ..fromBefore = true
       ..linesNotKept = notKept is int ? notKept : 0
+      ..steps.addEntries(<MapEntry<String, StartStep>>[
+        if (steps is List)
+          for (final step in steps.whereType<Map<String, dynamic>>().map(StartStep.from)) MapEntry(step.step, step),
+      ])
       ..output.addAll(<String>[
         if (output is List)
           for (final line in output) '$line',
@@ -248,7 +260,7 @@ class Operations extends ChangeNotifier {
   Future<void> _writing = Future<void>.value();
 
   final List<Operation> _all = <Operation>[];
-  final Map<String, StreamSubscription<String>> _running = <String, StreamSubscription<String>>{};
+  final Map<String, StreamSubscription<Object>> _running = <String, StreamSubscription<Object>>{};
   int _counted = 0;
   bool _disposed = false;
 
@@ -341,12 +353,12 @@ class Operations extends ChangeNotifier {
     return null;
   }
 
-  /// Starts one, recording what [output] prints until it ends.
+  /// Starts one, recording strings or [StartEvent]s from [output] until it ends.
   ///
   /// The stream completing is success and the stream erroring is failure — which is how a
   /// non-zero exit reaches here, because the thing that knows what an exit code means is the
   /// caller and not this.
-  Operation run({required String title, required Stream<String> output, String machine = ''}) {
+  Operation run({required String title, required Stream<Object> output, String machine = ''}) {
     final operation = Operation(
       id: 'operation-${++_counted}',
       title: title,
@@ -356,8 +368,15 @@ class Operations extends ChangeNotifier {
     _all.add(operation);
 
     _running[operation.id] = output.listen(
-      (line) {
-        operation.output.add(line);
+      (event) {
+        switch (event) {
+          case StartStep():
+            operation.steps[event.step] = event;
+          case StartLine(:final line) || String() && final line:
+            operation.output.add(line);
+          default:
+            throw ArgumentError.value(event, 'output', 'Expected a line or start step');
+        }
         _notify();
         _saveSoon();
       },
@@ -365,7 +384,7 @@ class Operations extends ChangeNotifier {
         operation,
         OperationState.failed,
         // Failure is reported as failure and in words, never as a silent stop.
-        '$error',
+        error is OperationFailed && error.exitCode == 69 && operation.steps.isNotEmpty ? '' : '$error',
       ),
       onDone: () {
         // onError already settled it; a stream may do both.

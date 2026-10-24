@@ -1,6 +1,6 @@
 # F161 — A Start's Progress And Refusal In Words
 
-**Status:** Backlog; blocked by `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268), which reports a task's start step by step.
+**Status:** Implementing; blocked by `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268), which reports a task's start step by step.
 **Size:** M - the client's `Start`, the backend's stream, the operation's view, the mock and their tests.
 
 **What must be true.** While *Start it* runs, the interface says in plain words which step is

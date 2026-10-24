@@ -51,10 +51,11 @@ abstract class FleetBackend {
   /// launch returned a non-zero code, because what an exit code means is known here and not by
   /// whatever records the result.
   ///
+  /// Yields detailed lines and the daemon's steps, without composing words about those steps.
   /// With [dryRun] it does everything up to starting the container and then reports, creating
   /// nothing. That is all the frame uses today — the screen that chooses a name, an agent and a
   /// mode fills in the rest of these parameters rather than replacing them.
-  Stream<String> startTask({
+  Stream<StartEvent> startTask({
     String? task,
     String? project,
     String? agent,
@@ -441,7 +442,7 @@ class PoreloBackend implements FleetBackend {
   Stream<List<Task>> watch() => _opened().watchTasks();
 
   @override
-  Stream<String> startTask({
+  Stream<StartEvent> startTask({
     String? task,
     String? project,
     String? agent,
@@ -454,8 +455,7 @@ class PoreloBackend implements FleetBackend {
     String? repository,
     Map<String, String>? credentials,
   }) async* {
-    // Streaming, so every line arrives as `line`; the contract's `output` list is for a caller
-    // that did not ask to stream and is empty here.
+    // Keep final output too, so a refusal returned without intermediate replies retains its words.
     var exitCode = 0;
     StartAction? action;
     final replies = _opened()
@@ -475,7 +475,15 @@ class PoreloBackend implements FleetBackend {
         .transform(startRefusalsSaid);
     await for (final progress in replies) {
       final line = progress.line;
-      if (line != null) yield line;
+      if (line != null) yield StartLine(line);
+      for (final line in progress.output) {
+        yield StartLine(line);
+      }
+      final step = progress.step;
+      if (step != null) yield step;
+      for (final step in progress.steps) {
+        yield step;
+      }
       if (progress.exitCode != null) exitCode = progress.exitCode!;
       if (progress.action != null) action = progress.action;
     }

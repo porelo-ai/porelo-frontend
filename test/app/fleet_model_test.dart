@@ -23,7 +23,7 @@ class _Wedged implements FleetBackend {
   Stream<List<Task>> watch() => const Stream<List<Task>>.empty();
 
   @override
-  Stream<String> startTask({
+  Stream<StartEvent> startTask({
     String? task,
     String? project,
     String? agent,
@@ -35,7 +35,7 @@ class _Wedged implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
-  }) => const Stream<String>.empty();
+  }) => const Stream<StartEvent>.empty();
 
   @override
   Future<Stopped> stopTask(String task) async => throw const VarlinkDisconnected('nothing there');
@@ -398,7 +398,7 @@ class _Machine implements FleetBackend {
   Stream<List<Task>> watch() => const Stream<List<Task>>.empty();
 
   @override
-  Stream<String> startTask({
+  Stream<StartEvent> startTask({
     String? task,
     String? project,
     String? agent,
@@ -410,7 +410,7 @@ class _Machine implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
-  }) => const Stream<String>.empty();
+  }) => const Stream<StartEvent>.empty();
 
   @override
   Future<Stopped> stopTask(String task) async => throw UnimplementedError();

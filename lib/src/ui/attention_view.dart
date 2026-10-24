@@ -653,6 +653,8 @@ class TaskTile extends StatelessWidget {
                   if (task != null)
                     if (BuildsSaid.onTheTile(task) case final said?) _BuildLine(said, scheme, folded: folded),
                   // Folded, the tile is its work, its machine and its mark; the rest when opened.
+                  if (task != null && task.phase.isNotEmpty)
+                    Text(task.phase, key: const Key('tile-phase'), style: text.bodySmall),
                   if (!folded) ...<Widget>[
                     // What its agent writes, small, while there is an agent to write.
                     if (task != null && onEnlargeConsole != null && (task.running || task.agentEnded != null))

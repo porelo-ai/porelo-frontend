@@ -24,6 +24,14 @@ class MockMachine {
     tasks = const {'empty', 'host'}.contains(situation) ? <Map<String, dynamic>>[] : _aMachineWithWorkOnIt();
     if (situation == 'host') _waiting.clear();
     daemon.version = '0.1.0+mock';
+    daemon.description =
+        '''
+interface ${daemon.interfaceName}
+type StartStep (step: string, state: string, text: string, waitingOn: string, cause: string)
+method Start(task: ?string, project: ?string, agent: ?string, steps: ?bool) -> (
+  line: ?string, step: ?StartStep, steps: ?[]StartStep, container: ?string, exitCode: ?int
+)
+''';
     daemon.method('List', (_) => <String, dynamic>{'tasks': _listing});
     daemon.method(
       'Agents',
@@ -95,7 +103,7 @@ class MockMachine {
       yield <String, dynamic>{'tasks': _listing};
       yield* _changes.stream;
     });
-    daemon.stream('Start', _launch);
+    daemon.stream('Start', _launch, isFinal: (reply) => reply.containsKey('exitCode') || reply.containsKey('action'));
     daemon.method('Stop', _stop);
     // pushes, not stream: a log being followed does not end, and a held-back stream would
     // deliver every line one line late.
@@ -180,6 +188,7 @@ class MockMachine {
     'newer-outcome': 'an Outcome value added after this build shipped',
     'newer-interface': 'a backend serving Tasks2 beside the Tasks1 this build understands',
     'failing-start': 'a launch that prints for a while and then comes back non-zero',
+    'start-waits': 'a start waiting on a homeserver that can be made to fail',
     'out-of-time': 'an unattended run killed by its own time limit, with its log kept',
     'no-agent': 'a run asked for when no agent is installed, which is a refusal not a failure',
     'helper-survives': 'an emergency stop that leaves a helper running, to be killed by hand',
@@ -201,6 +210,13 @@ class MockMachine {
   late List<Map<String, dynamic>> tasks;
 
   final _changes = StreamController<Map<String, dynamic>>.broadcast();
+  Completer<void>? _waitingStart;
+
+  /// Fails the dependency of the waiting start, driven by a test or the mock keyboard.
+  void failWaitingStart() {
+    final waiting = _waitingStart;
+    if (waiting != null && !waiting.isCompleted) waiting.complete();
+  }
 
   /// Adds a task and tells every open `Watch` about it.
   void addTask(String name, String project) {
@@ -210,6 +226,7 @@ class MockMachine {
 
   /// Stops answering.
   Future<void> close() async {
+    failWaitingStart();
     _bound?.cancel();
     await _changes.close();
     await _asking.close();
@@ -1883,6 +1900,32 @@ class MockMachine {
   /// `prompt`: without one this ends when the container is up, with one it lasts as long as the
   /// run and the agent's own output arrives as it is produced.
   Stream<Map<String, dynamic>> _launch(Map<String, dynamic> parameters) async* {
+    if (situation == 'start-waits') {
+      final waiting = Completer<void>();
+      _waitingStart = waiting;
+      if (parameters['steps'] == true) {
+        for (final (name, text) in <(String, String)>[
+          ('SOURCE', 'Reading the source'),
+          ('CHECKS', 'Checking the repository'),
+          ('CREDENTIALS', 'Reading credentials'),
+        ]) {
+          yield _startStep(name, 'DONE', text);
+        }
+        yield _startStep('CONVERSATION', 'WAITING', 'Preparing the conversation', waitingOn: "the room's homeserver");
+      } else {
+        yield <String, dynamic>{'line': 'Preparing the conversation'};
+      }
+      await waiting.future;
+      const cause = 'Error: I/O error: Resource temporarily unavailable (os error 11)';
+      if (parameters['steps'] == true) {
+        yield _startStep('CONVERSATION', 'FAILED', 'Preparing the conversation', cause: cause);
+      } else {
+        yield <String, dynamic>{'line': cause};
+      }
+      if (identical(_waitingStart, waiting)) _waitingStart = null;
+      yield <String, dynamic>{'exitCode': 69};
+      return;
+    }
     // A listed task is started again rather than built beside itself: same project, same name.
     final existing = tasks
         .where((task) => task['task'] == parameters['task'] && parameters['project'] == task['project'])
@@ -1929,6 +1972,14 @@ class MockMachine {
       if (pace > Duration.zero) await Future<void>.delayed(pace);
       yield <String, dynamic>{'line': step};
     }
+    if (parameters['steps'] == true) {
+      yield _startStep(
+        'IMAGE',
+        failing ? 'FAILED' : 'DONE',
+        'Building the image',
+        cause: failing ? 'could not reach the registry' : '',
+      );
+    }
     if (failing) {
       yield <String, dynamic>{'line': 'could not reach the registry'};
     }
@@ -1939,6 +1990,9 @@ class MockMachine {
 
     // No agent installed is a refusal, not a failed run: nothing ran and there is no log.
     if (situation == 'no-agent') {
+      if (parameters['steps'] == true) {
+        yield _startStep('AGENT', 'FAILED', 'Starting the agent', cause: 'No agent is installed.');
+      }
       yield <String, dynamic>{'container': '', 'exitCode': 69};
       return;
     }
@@ -1980,6 +2034,16 @@ class MockMachine {
     _changes.add(<String, dynamic>{'tasks': _listing});
     yield <String, dynamic>{'container': container, 'exitCode': 0};
   }
+
+  static Map<String, dynamic> _startStep(
+    String step,
+    String state,
+    String text, {
+    String waitingOn = '',
+    String cause = '',
+  }) => <String, dynamic>{
+    'step': <String, dynamic>{'step': step, 'state': state, 'text': text, 'waitingOn': waitingOn, 'cause': cause},
+  };
 
   static const _changeDiff = '''
 diff --git a/lib/money.dart b/lib/money.dart

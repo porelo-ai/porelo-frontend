@@ -514,8 +514,8 @@ class StartWork extends ChangeNotifier {
   };
 
   /// The stream the operation is built on. Empty when there is not enough to start with.
-  Stream<String> begin(FleetBackend backend) {
-    if (!ready) return const Stream<String>.empty();
+  Stream<StartEvent> begin(FleetBackend backend) {
+    if (!ready) return const Stream<StartEvent>.empty();
     return backend.startTask(
       task: name.isEmpty ? null : name,
       project: project!.name,

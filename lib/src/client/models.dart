@@ -72,6 +72,65 @@ class Outcome {
   String toString() => name;
 }
 
+/// A line or step produced while starting a task.
+sealed class StartEvent {
+  const StartEvent();
+}
+
+/// One line of the start's detailed output.
+final class StartLine extends StartEvent {
+  /// Constructor retaining the line verbatim.
+  const StartLine(this.line);
+
+  /// What the daemon printed.
+  final String line;
+}
+
+/// A start step, in the daemon's own words, including values added by newer daemons.
+final class StartStep extends StartEvent {
+  /// Constructor taking the fields exactly as served.
+  const StartStep({
+    required this.step,
+    required this.state,
+    required this.text,
+    required this.waitingOn,
+    required this.cause,
+  });
+
+  /// The step's identity; unknown names remain usable identities.
+  final String step;
+
+  /// Its state, including names this build does not know.
+  final String state;
+
+  /// The daemon's description of this step.
+  final String text;
+
+  /// What a waiting step depends on.
+  final String waitingOn;
+
+  /// The dependency's last error line when this step failed.
+  final String cause;
+
+  /// Reads each field without assuming the peer sent its declared type.
+  factory StartStep.from(Map<String, dynamic> map) => StartStep(
+    step: _string(map, 'step'),
+    state: _string(map, 'state'),
+    text: _string(map, 'text'),
+    waitingOn: _string(map, 'waitingOn'),
+    cause: _string(map, 'cause'),
+  );
+
+  /// The fields kept with the operation's record.
+  Map<String, Object?> toStored() => <String, Object?>{
+    'step': step,
+    'state': state,
+    'text': text,
+    'waitingOn': waitingOn,
+    'cause': cause,
+  };
+}
+
 /// What `Start` would do to one task, answered before anybody presses it.
 ///
 /// Not an enum, by the rule [Outcome] states: the contract says this set will grow.
@@ -346,7 +405,7 @@ class Task {
       (startAction == StartAction.resume || startAction == StartAction.needsVault) &&
       startDetail.isNotEmpty;
 
-  /// What it is doing that takes minutes and shows nowhere else, such as `building`. Free text.
+  /// The daemon's text for its current start step and wait; empty when it reports no phase.
   final String phase;
 
   /// Which of its project's repositories it works in. **Empty is the project's own**:

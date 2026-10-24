@@ -80,7 +80,7 @@ class FakeBackend implements FleetBackend {
   ///
   /// The scenario drives it: a line at a time, ended when the scenario says so. Nothing here is
   /// on a clock, or a test of a long operation becomes a test of how fast the machine is.
-  late StreamController<String> launch;
+  late StreamController<Object> launch;
 
   /// How many launches have been asked for, and with what.
   final List<bool> launched = <bool>[];
@@ -255,7 +255,7 @@ class FakeBackend implements FleetBackend {
   }
 
   @override
-  Stream<String> startTask({
+  Stream<StartEvent> startTask({
     String? task,
     String? project,
     String? agent,
@@ -272,8 +272,14 @@ class FakeBackend implements FleetBackend {
     launched.add(dryRun);
     starts.add((task: task, project: project, agent: agent, mode: mode, prompt: prompt, repository: repository));
     startedWith.add(credentials ?? const <String, String>{});
-    launch = StreamController<String>();
-    return launch.stream;
+    launch = StreamController<Object>();
+    return launch.stream.map(
+      (event) => switch (event) {
+        String() => StartLine(event),
+        StartEvent() => event,
+        _ => throw ArgumentError.value(event, 'launch'),
+      },
+    );
   }
 
   /// Every stop asked for, by task.

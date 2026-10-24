@@ -64,6 +64,7 @@ Future<void> main(List<String> args) async {
   print('');
   print('  RETURN adds a task and pushes the change');
   print('  b blocks a connection, a allows it, d denies it, x lets it run out');
+  if (situation == 'start-waits') print('  f fails the homeserver a start waits on');
   print('  ctrl-d or ctrl-c stops');
 
   // Asynchronously, and that is not a style choice: stdin.readLineSync() blocks the isolate, so a
@@ -74,6 +75,8 @@ Future<void> main(List<String> args) async {
   Map<String, dynamic>? asked;
   final typing = stdin.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
     switch (line.trim()) {
+      case 'f' when situation == 'start-waits':
+        machine.failWaitingStart();
       case 'b':
         asked = machine.blocks('api${++blocked}.example.test:443');
         print('blocked api$blocked.example.test:443 — answer it in the interface');

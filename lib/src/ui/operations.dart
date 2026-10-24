@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/operations.dart';
+import '../client/models.dart';
 import 'panes.dart';
 import 'selection_list.dart';
 import 'tokens.dart';
@@ -137,6 +138,7 @@ class _OperationOutputViewState extends State<OperationOutputView> {
   @override
   Widget build(BuildContext context) {
     final operation = widget.operation;
+    final steps = operation.steps.values.toList();
     _followTheEnd(operation.output.length);
 
     return Column(
@@ -157,7 +159,7 @@ class _OperationOutputViewState extends State<OperationOutputView> {
             ),
           ),
         Expanded(
-          child: operation.output.isEmpty
+          child: operation.output.isEmpty && steps.isEmpty
               ? Center(
                   child: Text(
                     operation.running ? 'Nothing printed yet.' : 'It printed nothing at all.',
@@ -170,11 +172,13 @@ class _OperationOutputViewState extends State<OperationOutputView> {
                     controller: _scroll,
                     primary: false,
                     padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
-                    itemCount: operation.output.length,
-                    itemBuilder: (context, index) => SelectableText(
-                      operation.output[index],
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                    ),
+                    itemCount: steps.length + operation.output.length,
+                    itemBuilder: (context, index) => index < steps.length
+                        ? _StartStepView(step: steps[index])
+                        : SelectableText(
+                            operation.output[index - steps.length],
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                          ),
                   ),
                 ),
         ),
@@ -199,6 +203,56 @@ class _OperationOutputViewState extends State<OperationOutputView> {
   void dispose() {
     _scroll.dispose();
     super.dispose();
+  }
+}
+
+class _StartStepView extends StatelessWidget {
+  const _StartStepView({required this.step});
+
+  final StartStep step;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (step.state) {
+      'STARTED' => Icons.autorenew_outlined,
+      'WAITING' => Icons.hourglass_empty,
+      'DONE' => Icons.check_circle_outline,
+      'FAILED' => Icons.error_outline,
+      _ => Icons.help_outline,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.small),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: Sizes.mark),
+          const SizedBox(width: Space.small),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                SelectableText(step.text),
+                if (!const <String>[
+                  'SOURCE',
+                  'CHECKS',
+                  'CREDENTIALS',
+                  'WORKSPACE',
+                  'CONVERSATION',
+                  'IMAGE',
+                  'CONTAINER',
+                  'HELPERS',
+                  'AGENT',
+                ].contains(step.step))
+                  Text(step.step),
+                if (!const <String>['STARTED', 'WAITING', 'DONE', 'FAILED'].contains(step.state)) Text(step.state),
+                if (step.state == 'WAITING' && step.waitingOn.isNotEmpty) SelectableText('waits on ${step.waitingOn}'),
+                if (step.state == 'FAILED' && step.cause.isNotEmpty) SelectableText(step.cause),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

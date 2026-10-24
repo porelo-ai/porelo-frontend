@@ -189,6 +189,33 @@ class PoreloClient {
     return description is String ? description : '';
   }
 
+  Future<bool>? _startSteps;
+
+  Future<bool> _declaresStartSteps() async {
+    final String description;
+    try {
+      description = await contract();
+    } on FeatureNotSupported {
+      return false;
+    } on VarlinkException catch (error) {
+      if (error.name == 'org.varlink.service.InterfaceNotFound') return false;
+      rethrow;
+    }
+    final idl = description.replaceAll(RegExp(r'#[^\n]*'), '');
+    final start = RegExp(r'\bmethod\s+Start\s*\(').firstMatch(idl);
+    if (start == null) return false;
+    var depth = 1;
+    final inputs = StringBuffer();
+    for (var at = start.end; at < idl.length; at++) {
+      final character = idl[at];
+      if (character == '(') depth++;
+      if (character == ')') depth--;
+      if (depth == 0) return RegExp(r'(?:^|,)\s*steps\s*:').hasMatch(inputs.toString());
+      if (depth == 1) inputs.write(character);
+    }
+    return false;
+  }
+
   // --------------------------------------------------------------------- what exists
 
   /// Every task on the machine, running or stopped.
@@ -306,7 +333,7 @@ class PoreloClient {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
-  }) {
+  }) async* {
     // Only what the caller named is sent, so the backend's own defaults stay the only defaults.
     // Restating them here would be a second place for them to drift.
     final parameters = <String, dynamic>{
@@ -331,8 +358,9 @@ class PoreloClient {
       // Required by a Porelo with repositories per project, with no default; sent only when named, so an older one never
       // meets a parameter it does not know.
       'repository': ?repository,
+      if (await (_startSteps ??= _declaresStartSteps())) 'steps': true,
     };
-    return _callMore('Start', parameters).map(StartProgress.from);
+    yield* _callMore('Start', parameters).map(StartProgress.from);
   }
 
   /// Stops a task, keeping it: its container is its workspace. Removing is [remove].
@@ -1182,10 +1210,16 @@ class PoreloClient {
   }
 }
 
-/// One reply from a task launch: either a line of output, or the result.
+/// One reply from a task launch: a line, a step, or the result.
 class StartProgress {
   /// A line the launch printed, or null on the final reply.
   final String? line;
+
+  /// A streamed step, separate from a line of output.
+  final StartStep? step;
+
+  /// Steps retained in a final reply when the caller did not stream.
+  final List<StartStep> steps;
 
   /// Container name of the started task, set on the final reply.
   final String? container;
@@ -1215,6 +1249,8 @@ class StartProgress {
   /// Constructor taking every field.
   const StartProgress({
     this.line,
+    this.step,
+    this.steps = const <StartStep>[],
     this.container,
     this.exitCode,
     this.action,
@@ -1228,6 +1264,8 @@ class StartProgress {
   /// The same reply, carrying [lines] as what the launch printed.
   StartProgress withOutput(List<String> lines) => StartProgress(
     line: line,
+    step: step,
+    steps: steps,
     container: container,
     exitCode: exitCode,
     action: action,
@@ -1241,6 +1279,8 @@ class StartProgress {
   /// Reads one from a reply.
   factory StartProgress.from(Map<String, dynamic> map) {
     final line = map['line'];
+    final step = map['step'];
+    final steps = map['steps'];
     final container = map['container'];
     final exitCode = map['exitCode'];
     final action = map['action'];
@@ -1251,6 +1291,8 @@ class StartProgress {
     final output = map['output'];
     return StartProgress(
       line: line is String ? line : null,
+      step: step is Map<String, dynamic> ? StartStep.from(step) : null,
+      steps: steps is List ? steps.whereType<Map<String, dynamic>>().map(StartStep.from).toList() : const <StartStep>[],
       container: container is String ? container : null,
       exitCode: exitCode is num ? exitCode.toInt() : null,
       action: action is String ? StartAction(action) : null,

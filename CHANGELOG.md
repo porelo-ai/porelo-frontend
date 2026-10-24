@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Task starts show the machine's steps, what they wait on, and the cause when a dependency fails,
+  with the detailed output kept below. Older machines keep their existing start feedback.
+
 - Host setup can keep a local Tresorit folder per project and prepare the signed machine file,
   optional vault key files and the host's WireGuard key there without replacing differing files.
   The person's separate WireGuard key stays in the system secret store; only its public half goes

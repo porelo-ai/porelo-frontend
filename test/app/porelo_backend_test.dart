@@ -46,6 +46,9 @@ void main() {
     });
     final backend = await open();
 
-    expect(await backend.startTask(task: 'porelo-demo-shell').toList(), <String>['Resolving project.yml']);
+    expect(
+      (await backend.startTask(task: 'porelo-demo-shell').toList()).whereType<StartLine>().map((event) => event.line),
+      <String>['Resolving project.yml'],
+    );
   });
 }

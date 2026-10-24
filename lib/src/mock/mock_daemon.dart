@@ -70,8 +70,14 @@ class MockDaemon {
   ///
   /// The test drives the events; nothing here is on a timer. A mock that emitted on wall clock
   /// makes stream tests flaky, and flaky tests get deleted rather than fixed.
-  void stream(String name, Stream<Map<String, dynamic>> Function(Map<String, dynamic>) events) {
-    _methods['$interfaceName.$name'] = _Handler.streaming(events);
+  ///
+  /// [isFinal] lets a controlled finite stream send progress without holding one reply back.
+  void stream(
+    String name,
+    Stream<Map<String, dynamic>> Function(Map<String, dynamic>) events, {
+    bool Function(Map<String, dynamic>)? isFinal,
+  }) {
+    _methods['$interfaceName.$name'] = _Handler.streaming(events, isFinal);
   }
 
   /// Registers a method that refuses.
@@ -96,7 +102,7 @@ class MockDaemon {
   /// loop is blocked accepts connections and then says nothing, so the socket looks healthy and
   /// every call hangs. Met for real while building the frame.
   void neverAnswers(String name) {
-    _methods['$interfaceName.$name'] = _Handler.streaming((_) => StreamController<Map<String, dynamic>>().stream);
+    _methods['$interfaceName.$name'] = _Handler.streaming((_) => StreamController<Map<String, dynamic>>().stream, null);
   }
 
   /// Removes a method, so calling it answers `MethodNotFound`.
@@ -225,14 +231,33 @@ class _Handler {
   final String? _error;
   final Map<String, dynamic> _errorParameters;
   final bool _immediate;
+  final bool Function(Map<String, dynamic>)? _isFinal;
 
-  _Handler.single(this._single) : _events = null, _error = null, _errorParameters = const {}, _immediate = false;
+  _Handler.single(this._single)
+    : _events = null,
+      _error = null,
+      _errorParameters = const {},
+      _immediate = false,
+      _isFinal = null;
 
-  _Handler.streaming(this._events) : _single = null, _error = null, _errorParameters = const {}, _immediate = false;
+  _Handler.streaming(this._events, this._isFinal)
+    : _single = null,
+      _error = null,
+      _errorParameters = const {},
+      _immediate = false;
 
-  _Handler.pushing(this._events) : _single = null, _error = null, _errorParameters = const {}, _immediate = true;
+  _Handler.pushing(this._events)
+    : _single = null,
+      _error = null,
+      _errorParameters = const {},
+      _immediate = true,
+      _isFinal = null;
 
-  _Handler.failing(this._error, this._errorParameters) : _single = null, _events = null, _immediate = false;
+  _Handler.failing(this._error, this._errorParameters)
+    : _single = null,
+      _events = null,
+      _immediate = false,
+      _isFinal = null;
 
   Future<void> run(Map<String, dynamic> parameters, bool more, void Function(Map<String, dynamic>) send) async {
     try {
@@ -251,6 +276,15 @@ class _Handler {
     }
     if (_single != null) {
       return send({'parameters': await _single(parameters)});
+    }
+    final isFinal = _isFinal;
+    if (isFinal != null) {
+      await for (final event in _events!(parameters)) {
+        final finished = isFinal(event);
+        send({'parameters': event, if (!finished) 'continues': true});
+        if (finished) return;
+      }
+      throw StateError('The mock stream ended without its final reply');
     }
     Map<String, dynamic>? previous;
     if (_immediate) {
