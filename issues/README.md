@@ -45,6 +45,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | S | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. | — |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
@@ -83,7 +84,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | — | — | At one click, a task for each of a project's repositories that names an agent, repositories left out and `issue` and `phase` given before the start, agents signed in on the way. |
 | <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | — | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
 | <a id="f153"></a>[F153](F153-A-Forges-Token-By-The-Providers-Own-Login.md) | — | — | A forge reached by its own login, the person's token kept in each machine's vault, and deploy keys gone. |
-| <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | — | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. |
 | <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | — | `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21) | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
 | <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | — | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |
 | <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | — | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. |
