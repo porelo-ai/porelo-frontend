@@ -2,25 +2,27 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../app/forge.dart';
+import 'package:porelo_host/porelo_host.dart' show forgeAddress;
+
+import '../app/host_session.dart';
+import '../app/machines.dart';
 import '../app/forge_connection.dart';
 import '../app/links.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
+import 'unlock_terminal.dart';
 
 /// The rights a token needs, said once for every place that asks for one.
 String tokenRightsWords(String forge) =>
-    'It needs two rights on each repository you want to work on: Contents (read and write), to add a '
-    'machine’s line to the project’s machine-signers, and Administration (read and write), because $forge keeps the keys it '
-    'gives a machine there and has no narrower right for them. The token stays in this computer’s '
-    'keychain and is sent to $forge only, never to a machine.';
+    'Enter your own $forge token in the terminal, without echo. It needs Contents (read and write) '
+    'to update machine-signers. This computer keeps it in the system secret store for the forge API. '
+    'Each machine keeps your token in its vault for git over https.';
 
 /// Where a person makes a token at [address].
 Uri tokenPage(String address) => Uri.parse('https://$address/settings/personal-access-tokens/new');
 
 /// Opens the forges set up on this computer. [usedBy] answers, for an entry, the repositories of
-/// the projects the watched machines follow there: what removing it would leave without a way to
-/// take their keys off again.
+/// the projects the watched machines follow there, before their API access here is forgotten.
 Future<void> showForges(
   BuildContext context,
   ForgeConnection forges, {
@@ -161,8 +163,7 @@ class _ForgesDialogState extends State<ForgesDialog> {
   }
 }
 
-/// Removes [entry] once the person agreed, saying first what [used] it and offering to take the
-/// machines' keys off there while it still can. Answers what happened, or null where nothing did.
+/// Removes the local API token after showing which projects [used] it. Machine vaults keep their tokens.
 Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeEntry entry, List<String> used) async {
   final choice = await showDialog<String>(
     context: context,
@@ -182,8 +183,7 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
             if (used.isNotEmpty) ...<Widget>[
               const SizedBox(height: Space.small),
               Text(
-                'Projects your machines follow use it: ${used.join(', ')}. Without it, the keys their '
-                'machines were given there cannot be removed from here any more.',
+                'Projects your machines follow use it: ${used.join(', ')}. Their vault tokens stay on those machines.',
                 key: const Key('forge-remove-used'),
               ),
             ],
@@ -192,12 +192,6 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
       ),
       actions: <Widget>[
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Keep it')),
-        if (used.isNotEmpty)
-          TextButton(
-            key: const Key('forge-remove-with-keys'),
-            onPressed: () => Navigator.of(context).pop('keys'),
-            child: const Text('Remove the machines’ keys there first'),
-          ),
         FilledButton(
           key: const Key('forge-remove-confirm'),
           onPressed: () => Navigator.of(context).pop('remove'),
@@ -207,36 +201,11 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
     ),
   );
   if (choice == null) return null;
-  var removed = '';
-  if (choice == 'keys') {
-    removed = await _removeKeys(forges, entry, used);
-    if (forges.problem != null) return removed;
-  }
   await forges.remove(entry);
-  return '${entry.name} is no longer set up here.${removed.isEmpty ? '' : ' $removed'}';
+  return forges.problem ?? '${entry.name} is no longer set up here.';
 }
 
-/// Takes every key a Porelo machine was given off [repositories] at [entry]'s forge.
-Future<String> _removeKeys(ForgeConnection forges, ForgeEntry entry, List<String> repositories) async {
-  final reached = await forges.reach(entry);
-  if (reached == null) return 'No token is kept for ${entry.name}, so no key was removed.';
-  var removed = 0;
-  try {
-    for (final repository in repositories) {
-      for (final key in await reached.forge.deployKeys(repository)) {
-        if (!key.isPorelos) continue;
-        await reached.forge.removeDeployKey(repository, key.id);
-        removed++;
-      }
-    }
-  } on ForgeRefused catch (refused) {
-    forges.problem = refused.words;
-  }
-  return removed == 0 ? 'No machine’s key was there.' : 'Removed $removed machine key${removed == 1 ? '' : 's'} there.';
-}
-
-/// Setting a forge up, or changing one: its name, where it is, and its token, which is kept only
-/// once the forge accepted it. The kind of an entry never changes.
+/// Setting a forge up or changing it, with the token entered only at the helper's terminal prompt.
 class ForgeForm extends StatefulWidget {
   /// Constructor taking the forges and, to change one, the entry.
   const ForgeForm({required this.forges, required this.onDone, this.editing, this.cancels = true, super.key});
@@ -260,37 +229,59 @@ class ForgeForm extends StatefulWidget {
 class _ForgeFormState extends State<ForgeForm> {
   late final TextEditingController _name = TextEditingController(text: widget.editing?.name ?? 'GitHub');
   late final TextEditingController _address = TextEditingController(text: widget.editing?.address ?? 'github.com');
-  final TextEditingController _token = TextEditingController();
 
   @override
   void dispose() {
     _name.dispose();
     _address.dispose();
-    // What was typed is not kept past the form; the keychain has it once it was accepted.
-    _token.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final forges = widget.forges;
     final editing = widget.editing;
-    if (editing == null) {
-      final made = await forges.add(name: _name.text, address: _address.text, token: _token.text);
-      if (made != null && mounted) {
-        widget.onDone(
-          '${made.name} is set up: logged in as ${forges.account?.login ?? '?'}, '
-          'it reaches ${forges.repositories?.length ?? 0} repositories.',
-        );
-      }
+    final String address;
+    try {
+      address = forgeAddress(editing?.address ?? _address.text);
+    } on FormatException catch (error) {
+      setState(() => _problem = error.message);
       return;
     }
-    await forges.edit(editing, name: _name.text, token: _token.text);
-    if (forges.problem == null && mounted) {
-      widget.onDone(
-        _token.text.trim().isEmpty ? '${_name.text.trim()} is renamed.' : '${_name.text.trim()} has its new token.',
-      );
+    int? exit;
+    await runInATerminal(
+      context,
+      title: 'Connect $address',
+      explanation: 'Enter your own token at the terminal prompt. It is not echoed and goes into this computer’s system secret store.',
+      machine: Machine.local(),
+      command: <String>[poreloHost(), 'key', 'set', address],
+      shownCommand: 'porelo-host key set $address',
+      open: forges.openTerminal,
+      onExit: (code) => exit = code,
+      stillWorking: 'Waiting for the token in this terminal on this computer.',
+    );
+    if (!mounted || exit != 0) return;
+    try {
+      if (!await forges.hasToken(address)) {
+        if (mounted) setState(() => _problem = 'No token is kept for $address. Enter it in the terminal.');
+        return;
+      }
+      if (editing == null) {
+        final made = await forges.add(name: _name.text, address: address);
+        if (made != null && mounted) {
+          widget.onDone(
+            '${made.name} is set up: logged in as ${forges.account?.login ?? '?'}, it reaches ${forges.repositories?.length ?? 0} repositories.',
+          );
+        }
+      } else {
+        await forges.edit(editing, name: _name.text);
+        if (forges.problem == null && mounted) widget.onDone('${_name.text.trim()} has its token from the terminal.');
+      }
+    } on Exception {
+      if (mounted) setState(() => _problem = 'The system secret store could not be read.');
     }
   }
+
+  String? _problem;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -322,22 +313,18 @@ class _ForgeFormState extends State<ForgeForm> {
                 decoration: const InputDecoration(labelText: 'Where it is: github.com, or your own GitHub’s host'),
                 onChanged: (_) => setState(() {}),
               ),
-            TextField(
-              key: const Key('forge-token'),
-              controller: _token,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: InputDecoration(
-                labelText: editing == null ? 'Personal access token' : 'A new token, only to replace it',
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
             const SizedBox(height: Space.tight),
             Text(tokenRightsWords('GitHub'), style: text.bodySmall),
+            if (_problem != null) Text(_problem!, key: const Key('forge-form-problem')),
             TextButton(
               key: const Key('forge-token-page'),
-              onPressed: () => unawaited(openLink(tokenPage(address))),
+              onPressed: () {
+                try {
+                  unawaited(openLink(tokenPage(forgeAddress(address))));
+                } on FormatException catch (error) {
+                  setState(() => _problem = error.message);
+                }
+              },
               child: Text('Make a token at $address'),
             ),
             Wrap(
@@ -345,9 +332,7 @@ class _ForgeFormState extends State<ForgeForm> {
               children: <Widget>[
                 FilledButton(
                   key: const Key('forge-connect'),
-                  onPressed: widget.forges.busy || (editing == null && _token.text.trim().isEmpty)
-                      ? null
-                      : () => unawaited(_save()),
+                  onPressed: widget.forges.busy ? null : () => unawaited(_save()),
                   child: Text(editing == null ? 'Connect it' : 'Keep the change'),
                 ),
                 if (widget.cancels)

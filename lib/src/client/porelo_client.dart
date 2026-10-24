@@ -938,30 +938,6 @@ class PoreloClient {
     await _call('JoinMessages', <String, dynamic>{'project': project, 'person': person, if (reset) 'reset': true}),
   );
 
-  /// This machine's deploy key for [repository] of [project] (the project's own by default), made
-  /// where it has none or where [renew] asks. Only the public half is answered.
-  ///
-  /// With [upstream], for a project this machine does not follow yet: the key a private repository
-  /// needs registered at the forge before the machine can fetch it at all.
-  Future<MachineDeployKey> deployKey(
-    String project, {
-    String? repository,
-    String? upstream,
-    bool? readOnly,
-    bool renew = false,
-  }) async {
-    final reply = await _call('DeployKey', <String, dynamic>{
-      'project': project,
-      'repository': ?repository,
-      'upstream': ?upstream,
-      'readOnly': ?readOnly,
-      if (renew) 'new': true,
-    });
-    return MachineDeployKey.from(
-      reply['key'] is Map<String, dynamic> ? reply['key'] as Map<String, dynamic> : const <String, dynamic>{},
-    );
-  }
-
   /// Pending work [name] at [project]'s gate as a git bundle: what is on the pending ref and not on
   /// [branch]. Refused as `BundleTooLarge` above what one reply may carry.
   Future<({List<int> bundle, int bytes})> pendingBundle(

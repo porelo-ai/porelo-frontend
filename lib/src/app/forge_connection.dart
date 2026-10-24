@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:porelo_host/porelo_host.dart' show forgeAddress;
+
+import 'session.dart';
 
 import 'desk.dart';
 import 'forge.dart';
@@ -12,9 +15,9 @@ import 'quiet_after_dispose.dart';
 typedef ForgeFor = Forge Function(String token, String address);
 
 /// One forge set up on this computer: what kind it is, what the person calls it, and where it is.
-/// **Its token is not in here**: it is in the keychain, under the entry's id.
+/// Its token is in the system secret store under the forge's host name.
 class ForgeEntry {
-  /// What its token is kept under, and how it is told apart from another of the same kind.
+  /// How this named entry is told apart from another of the same kind.
   final String id;
 
   /// `github`; the other kinds come later, each one more [Forge].
@@ -80,15 +83,23 @@ String workingFolders() => desk.join(<String>[desk.data, 'projects']);
 
 /// The forges a person set up on this computer, the one being used, and the repositories it reaches.
 ///
-/// **A token is typed once and kept in this computer's keychain**, never shown again, never sent
-/// anywhere but its forge. What it reaches is asked of the forge each time, never kept here.
+/// **A token is typed in a terminal and kept in this computer's secret store**, never shown again.
+/// API requests send it only to its forge. What it reaches is asked of the forge each time, never kept here.
 class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking where tokens and the list are kept, and how a forge is made from a token.
-  ForgeConnection(this._tokens, {ForgeEntries? entries, ForgeFor? forgeFor, WorkspaceFor? workspaceFor})
-    : _entries = entries ?? MemoryForgeEntries(),
-      _forgeFor = forgeFor ?? ((token, address) => GitHub(token, api: GitHub.apiOf(address))),
-      _workspaceFor =
-          workspaceFor ?? ((repository, token) => ProjectWorkspace(repository, token, root: workingFolders()));
+  ForgeConnection(
+    this._tokens, {
+    ForgeEntries? entries,
+    ForgeFor? forgeFor,
+    WorkspaceFor? workspaceFor,
+    this.openTerminal,
+  }) : _entries = entries ?? MemoryForgeEntries(),
+       _forgeFor = forgeFor ?? ((token, address) => GitHub(token, api: GitHub.apiOf(address))),
+       _workspaceFor =
+           workspaceFor ?? ((repository, token) => ProjectWorkspace(repository, token, root: workingFolders()));
+
+  /// Opens a terminal, with a stand-in in widget tests.
+  final OpenTerminal? openTerminal;
 
   final ForgeTokens _tokens;
   final ForgeEntries _entries;
@@ -136,63 +147,15 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Whether a token is kept and accepted.
   bool get connected => account != null;
 
-  /// Whether the token itself may bind a machine to each repository, by full name, as the forge
-  /// answered. The listing is the account's, whatever the token was narrowed to, so this is asked.
-  final Map<String, bool> mayBind = <String, bool>{};
-
-  /// Why the token may not bind a machine to each repository it may not, in the forge's words.
-  final Map<String, String> whyNot = <String, String>{};
-
-  /// Records what the forge answered about [repository]: allowed where [why] is null.
-  void heardAbout(String repository, String? why) {
-    mayBind[repository] = why == null;
-    if (why == null) {
-      whyNot.remove(repository);
-    } else {
-      whyNot[repository] = why;
-    }
-  }
-
-  /// How many repositories are still to be asked about.
-  int stillAsking = 0;
-
   /// Whether each repository has a `project.yml` on its default branch, by full name, as the forge
   /// answered: asked for every repository once it is listed, so the list can say which are projects.
   final Map<String, bool> isProject = <String, bool>{};
 
-  /// Whether the list shows only what the token may bind a machine to; otherwise, as it starts,
-  /// every repository the account has.
-  bool onlyBindable = false;
-
-  /// Whether the forge was asked about every repository yet: only once somebody wants the list
-  /// narrowed, since it asks about each one.
-  bool _askedAboutEvery = false;
-
-  /// The repositories the token may bind a machine to, once asked.
-  int get bindable => mayBind.values.where((each) => each).length;
-
-  /// The repositories that match the search, by name: only those the token may bind, where that
-  /// was asked for.
+  /// The repositories matching the search by name.
   List<ForgeRepository> get shown {
     final all = repositories ?? const <ForgeRepository>[];
     final wanted = filter.trim().toLowerCase();
-    return all
-        .where((each) => wanted.isEmpty || each.fullName.toLowerCase().contains(wanted))
-        .where((each) => !onlyBindable || mayBind[each.fullName] == true)
-        .toList();
-  }
-
-  /// Shows only the repositories the token may bind, asking the forge about each one the first
-  /// time; or every repository the account has again.
-  void showOnlyBindable(bool only) {
-    onlyBindable = only;
-    final forge = _forge;
-    final found = repositories;
-    if (only && !_askedAboutEvery && forge != null && found != null) {
-      _askedAboutEvery = true;
-      unawaited(_askWhatTheTokenMayBind(forge, found));
-    }
-    notifyListeners();
+    return all.where((each) => wanted.isEmpty || each.fullName.toLowerCase().contains(wanted)).toList();
   }
 
   /// Reads the forges set up here, and opens the one there is where there is only one. A GitHub
@@ -223,19 +186,17 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Shows [entry]'s repositories, with its kept token.
   Future<void> choose(ForgeEntry entry) => _asking(() => _open(entry));
 
-  /// Sets up a forge: kept, with its token, only once the forge accepted the token. Answers the
-  /// entry, or null where it was not accepted.
-  Future<ForgeEntry?> add({
-    required String name,
-    required String address,
-    required String token,
-    String kind = 'github',
-  }) async {
+  /// Registers a forge after checking the token kept by the terminal command.
+  /// Answers the entry, or null where the forge did not accept it.
+  Future<ForgeEntry?> add({required String name, required String address, String kind = 'github'}) async {
     ForgeEntry? made;
     await _asking(() async {
-      final typed = token.trim();
-      final where = address.trim().isEmpty ? 'github.com' : address.trim().toLowerCase();
-      if (typed.isEmpty) return;
+      final where = forgeAddress(address);
+      final typed = await _tokens.read(where);
+      if (typed == null || typed.isEmpty) {
+        problem = 'No token is kept for $where. Enter it in the terminal first.';
+        return;
+      }
       final forge = _forgeFor(typed, where);
       final login = await forge.whoAmI();
       var id = where;
@@ -243,7 +204,6 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
         id = '$where#$n';
       }
       final entry = ForgeEntry(id: id, kind: kind, name: name.trim().isEmpty ? where : name.trim(), address: where);
-      await _tokens.write(id, typed);
       entries = <ForgeEntry>[...entries, entry];
       await _keep();
       made = entry;
@@ -252,31 +212,24 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     return made;
   }
 
-  /// Connects GitHub with [token], as the first forge set up here.
-  Future<void> connect(String token) async {
-    await add(name: 'GitHub', address: 'github.com', token: token);
-  }
-
-  /// Renames [entry], and replaces its token where a new one is given: one that expired, say. The
-  /// kind stays, so the projects made from it still fit. A token is kept only once it was accepted.
-  Future<void> edit(ForgeEntry entry, {String? name, String? token}) => _asking(() async {
-    final typed = token?.trim() ?? '';
-    if (typed.isNotEmpty) {
-      final forge = _forgeFor(typed, entry.address);
-      final login = await forge.whoAmI();
-      await _tokens.write(entry.id, typed);
-      if (current?.id == entry.id) await _use(entry, forge, typed, login);
-    }
+  /// Renames an entry and reloads the token kept by the terminal command.
+  Future<void> edit(ForgeEntry entry, {String? name}) => _asking(() async {
     final renamed = name == null || name.trim().isEmpty ? entry : entry.named(name.trim());
     entries = <ForgeEntry>[for (final each in entries) each.id == entry.id ? renamed : each];
-    if (current?.id == entry.id) current = renamed;
     await _keep();
+    await _open(renamed);
   });
 
+  /// Whether the terminal command kept a token; no value reaches a widget.
+  Future<bool> hasToken(String address) async {
+    final kept = await _tokens.read(forgeAddress(address));
+    return kept != null && kept.isNotEmpty;
+  }
+
   /// Removes [entry] here: its token out of the keychain. **Nothing at the forge is touched**: the
-  /// token stays valid there until the person revokes it, and keys machines registered stay.
+  /// token stays valid there until the person revokes it; machine vaults keep their own entries.
   Future<void> remove(ForgeEntry entry) => _asking(() async {
-    await _tokens.delete(entry.id);
+    await _tokens.delete(entry.address);
     entries = <ForgeEntry>[
       for (final each in entries)
         if (each.id != entry.id) each,
@@ -300,7 +253,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// A forge for [entry], with its kept token, without changing which one is shown: what a
   /// project's own tools reach its repositories with. Null where no token is kept for it.
   Future<({Forge forge, String token})?> reach(ForgeEntry entry) async {
-    final token = await _tokens.read(entry.id);
+    final token = await _tokens.read(entry.address);
     if (token == null || token.isEmpty) return null;
     return (forge: _forgeFor(token, entry.address), token: token);
   }
@@ -316,7 +269,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   }
 
   Future<void> _open(ForgeEntry entry) async {
-    final token = await _tokens.read(entry.id);
+    final token = await _tokens.read(entry.address);
     if (token == null || token.isEmpty) {
       _close();
       current = entry;
@@ -328,10 +281,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   }
 
   void _close() {
-    mayBind.clear();
-    whyNot.clear();
     isProject.clear();
-    stillAsking = 0;
     _forge = null;
     _token = null;
     account = null;
@@ -364,11 +314,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     _token = token;
     final found = await forge.repositories();
     repositories = found;
-    mayBind.clear();
-    whyNot.clear();
     isProject.clear();
-    _askedAboutEvery = false;
-    onlyBindable = false;
     unawaited(_askWhichAreProjects(forge, found));
   }
 
@@ -395,25 +341,6 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     await Future.wait(<Future<void>>[for (var i = 0; i < 12; i++) worker()]);
   }
 
-  /// Asks, a few at a time, whether the token may manage each repository's deploy keys. Only an
-  /// admin of a repository may, so the others are not asked.
-  Future<void> _askWhatTheTokenMayBind(Forge forge, List<ForgeRepository> found) async {
-    final admins = <ForgeRepository>[
-      for (final each in found)
-        if (each.admin) each,
-    ];
-    stillAsking = admins.length;
-    notifyListeners();
-    await _eachOf(admins, forge, (each) async {
-      try {
-        heardAbout(each.fullName, await forge.whyNoKeys(each.fullName));
-      } on ForgeRefused catch (refused) {
-        heardAbout(each.fullName, refused.words);
-      }
-      stillAsking--;
-    });
-  }
-
   Future<void> _asking(Future<void> Function() action) async {
     busy = true;
     problem = null;
@@ -422,6 +349,8 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
       await action();
     } on ForgeRefused catch (refused) {
       problem = refused.words;
+    } on FormatException catch (error) {
+      problem = error.message;
     } finally {
       busy = false;
       notifyListeners();

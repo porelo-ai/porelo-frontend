@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
+import '../support/forge_prompt.dart';
 
 /// Usage: I change {'GitHub'} to be called {'GitHub private'} with the token {'ghp_renewed'}
 Future<void> iChangeToBeCalledWithTheToken(WidgetTester tester, String name, String renamed, String token) async {
@@ -14,8 +15,8 @@ Future<void> iChangeToBeCalledWithTheToken(WidgetTester tester, String name, Str
     await World.settle(tester);
   }
   await tester.enterText(find.byKey(const Key('forge-name')), renamed);
-  await tester.enterText(find.byKey(const Key('forge-token')), token);
+
   await World.settle(tester);
-  await tester.tap(find.byKey(const Key('forge-connect')));
+  await answerForgePrompt(tester, token);
   await World.settle(tester);
 }

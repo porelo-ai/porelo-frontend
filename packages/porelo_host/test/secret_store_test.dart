@@ -2,6 +2,7 @@
 library;
 
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
@@ -49,21 +50,57 @@ void main() {
     expect(await store.read(name), value);
   });
 
-  test('key set takes the key from standard input only, and key forget removes it', () async {
-    final provider = 'test-provider-$pid';
-    final dart = Platform.resolvedExecutable;
-    final setting = await Process.start(dart, <String>['run', 'bin/porelo_host.dart', 'key', 'set', provider]);
-    setting.stdin.writeln('cli-key-value');
-    await setting.stdin.close();
-    final out = setting.stdout.drain<void>();
-    final said = await setting.stderr.transform(const SystemEncoding().decoder).join();
-    await out;
-    expect(await setting.exitCode, 0, reason: said);
-    expect(said, isNot(contains('cli-key-value')), reason: 'the key is never said back');
-    expect(await store.read(providerKeyName(provider)), 'cli-key-value');
+  // Harm: a forge token must enter only through its hidden terminal prompt and share the API store entry.
+  test(
+    'key set takes the token from its terminal prompt and key forget removes it',
+    () async {
+      final provider = 'test-$pid.example.org';
+      final dart = Platform.resolvedExecutable;
+      final setting = await Process.run('python3', <String>[
+        '-c',
+        r'''import json, os, pty, select, subprocess, sys, termios, time
+master, slave = pty.openpty()
+process = subprocess.Popen(sys.argv[1:], stdin=slave, stdout=slave, stderr=slave)
+transcript = b''
+sent = False
+deadline = time.monotonic() + 15
+try:
+    while process.poll() is None:
+        if time.monotonic() > deadline:
+            raise RuntimeError('the store command did not finish')
+        if not select.select([master], [], [], .1)[0]:
+            continue
+        transcript += os.read(master, 4096)
+        if not sent and b'Token for ' in transcript:
+            if termios.tcgetattr(slave)[3] & termios.ECHO:
+                raise RuntimeError('the token prompt echoes input')
+            os.write(master, b'cli-key-value\n')
+            sent = True
+    print(json.dumps({'output': transcript.decode(), 'exit': process.returncode}))
+finally:
+    if process.poll() is None:
+        process.kill()
+    process.wait()
+    os.close(master)
+    os.close(slave)
+''',
+        dart,
+        'bin/porelo_host.dart',
+        'key',
+        'set',
+        provider,
+      ]);
+      expect(setting.exitCode, 0, reason: '${setting.stderr}');
+      final terminal = jsonDecode(setting.stdout as String) as Map<String, dynamic>;
+      expect(terminal['exit'], 0, reason: '${terminal['output']}');
+      expect(terminal['output'], isNot(contains('cli-key-value')), reason: 'the key is never said back');
+      expect(await store.read(providerKeyName(provider)), 'cli-key-value');
 
-    final forgetting = await Process.run(dart, <String>['run', 'bin/porelo_host.dart', 'key', 'forget', provider]);
-    expect(forgetting.exitCode, 0, reason: '${forgetting.stderr}');
-    expect(await store.read(providerKeyName(provider)), isNull);
-  }, timeout: const Timeout(Duration(minutes: 3)));
+      final forgetting = await Process.run(dart, <String>['run', 'bin/porelo_host.dart', 'key', 'forget', provider]);
+      expect(forgetting.exitCode, 0, reason: '${forgetting.stderr}');
+      expect(await store.read(providerKeyName(provider)), isNull);
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+    skip: !Platform.isLinux ? 'CLI prompt requires Linux PTYs.' : false,
+  );
 }

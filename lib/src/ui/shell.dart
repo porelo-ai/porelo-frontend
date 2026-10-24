@@ -618,7 +618,7 @@ class _ShellState extends State<Shell> {
     await openHostDialog(context, project: project.name, machines: widget.machines, settings: widget.settings);
   }
 
-  /// Clears the machine of everything Porelo put there, and its keys at the forge.
+  /// Clears the machine and removes its trusted message signer from followed projects.
   Future<void> _clearTheMachine() async {
     await openClearing(context, MachineClearing(_fleet.backend, _forges, machineName: widget.machines.current.name));
     unawaited(_fleet.refresh(quietly: true));
@@ -657,7 +657,12 @@ class _ShellState extends State<Shell> {
 
   /// The person's forge login: the one the app was given, or the platform's own keychain.
   late final ForgeConnection _forges =
-      widget.forges ?? ForgeConnection(PlatformForgeTokens(), entries: _ForgesInSettings(widget.settings));
+      widget.forges ??
+      ForgeConnection(
+        PlatformForgeTokens(),
+        entries: _ForgesInSettings(widget.settings),
+        openTerminal: widget.sessions.openTerminal,
+      );
 
   /// The repositories this machine works on without a project, in `default`, and the projects asked
   /// again once it is put away: a repository added there is what lets work start in default.
@@ -680,6 +685,7 @@ class _ShellState extends State<Shell> {
         context,
         _forges,
         machine: _fleet.backend,
+        terminalMachine: widget.machines.current,
         machineName: widget.machines.current.name,
         usedBy: _usedBy,
         onPick: (repository, forge) => picked = (repository: repository, forge: forge),
@@ -687,13 +693,6 @@ class _ShellState extends State<Shell> {
       return picked;
     },
     onStartWork: onStartWork,
-    forgeHolding: (upstream) async {
-      final entry = _forges.holding(upstream);
-      final fullName = fullNameOf(upstream);
-      if (entry == null || fullName == null) return null;
-      final reached = await _forges.reach(entry);
-      return reached == null ? null : (forge: reached.forge, fullName: fullName);
-    },
   );
 
   /// Why the selected project's forge cannot be opened from here, or null where it can.
@@ -1084,6 +1083,7 @@ class _ShellState extends State<Shell> {
               ),
           onDefaultChanged: () => unawaited(_fleet.refresh(quietly: true)),
           machine: _fleet.reachability == Reachability.connected ? _fleet.backend : null,
+          terminalMachine: widget.machines.current,
           machineName: widget.machines.current.name,
           onStartWork: _startWorkIn,
         ),

@@ -9,6 +9,7 @@ import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/links.dart';
 import '../app/machine_binding.dart';
+import '../app/machines.dart';
 import '../app/project_workspace.dart';
 import 'binding_view.dart';
 import 'forges_view.dart';
@@ -220,6 +221,7 @@ class ForgePage extends StatefulWidget {
     required this.usedOn,
     this.inDefault,
     this.machine,
+    this.terminalMachine,
     this.machineName = 'the machine',
     this.onStartWork,
     this.onFollowByAddress,
@@ -241,6 +243,9 @@ class ForgePage extends StatefulWidget {
 
   /// The machine a repository is bound to, or null where none is watched.
   final FleetBackend? machine;
+
+  /// Where the binding’s token prompt runs.
+  final Machine? terminalMachine;
 
   /// What the person calls it.
   final String machineName;
@@ -330,44 +335,10 @@ class _ForgePageState extends State<ForgePage> {
               decoration: const InputDecoration(labelText: 'Filter', prefixIcon: Icon(Icons.search)),
               onChanged: forges.search,
             ),
-            if (repositories != null && repositories.isNotEmpty)
-              SwitchListTile(
-                key: const Key('forge-only-bindable'),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                // "Bind" said nothing to a person (walk 10): what it means is said instead.
-                title: const Text('Only those a machine can be set up to work on'),
-                subtitle: const Text(
-                  'A machine works on a repository with keys of its own there, which this '
-                  'token must be allowed to give it (Administration). Can be slow: the forge is asked '
-                  'about each repository, one by one.',
-                ),
-                value: forges.onlyBindable,
-                onChanged: forges.showOnlyBindable,
-              ),
-            if (repositories != null && forges.stillAsking > 0)
-              Text(
-                'Asking which repositories a machine can be set up to work on… '
-                '(${forges.stillAsking} still to ask)',
-                key: const Key('forge-still-asking'),
-                style: text.bodySmall,
-              ),
-            if (repositories != null &&
-                repositories.isNotEmpty &&
-                forges.onlyBindable &&
-                forges.stillAsking == 0 &&
-                forges.bindable == 0)
-              Text(
-                'This token cannot set a machine up to work on any of them. For each repository you want a machine to '
-                'work on, it needs Administration and Contents, both read and write: Administration to add a '
-                "machine's key, Contents to push its line to the project's machine-signers.",
-                key: const Key('forge-binds-none'),
-                style: TextStyle(color: scheme.error),
-              ),
             const SizedBox(height: Space.small),
             if (repositories != null && repositories.isEmpty)
               const Text('This login reaches no repository.', key: Key('no-repositories')),
-            if (repositories != null && repositories.isNotEmpty && shown.isEmpty && forges.stillAsking == 0)
+            if (repositories != null && repositories.isNotEmpty && shown.isEmpty)
               const Text('Nothing matches.', key: Key('no-repository-matches')),
             for (final each in shown) _row(context, forges, each, text),
           ],
@@ -405,17 +376,11 @@ class _ForgePageState extends State<ForgePage> {
               children: <Widget>[
                 Text(
                   <String>[
-                    // Binding a machine adds a deploy key, which only an admin may do: said, never found out.
-                    if (repository.admin)
-                      'you are an admin'
-                    else
-                      'not an admin: no machine can be given keys to it from here',
-                    if (!repository.push) 'you cannot push to it',
+                    // Access is the person’s, without requiring repository administration.
+                    if (repository.push) 'you can push to it' else 'you cannot push to it',
                     if (isProject == true) 'has a project.yml',
                     if (isProject == false) 'no project.yml yet',
                     if (isProject == null) 'looking for a project.yml…',
-                    if (repository.admin && forges.mayBind[name] == false)
-                      'this token may not give a machine keys to it',
                   ].join(' · '),
                   style: text.bodySmall,
                 ),
@@ -438,19 +403,15 @@ class _ForgePageState extends State<ForgePage> {
               onOpened: () => unawaited(_choose(forges, repository)),
               onSelected: (chosen) => unawaited(_act(context, forges, repository, chosen)),
               itemBuilder: (_) => <PopupMenuEntry<String>>[
-                // Only where a machine could be bound: an admin, a project, and a token that may.
-                if (widget.machine != null &&
-                    repository.admin &&
-                    repository.push &&
-                    isProject != false &&
-                    forges.mayBind[name] != false)
+                // Only where the person can push the signed machine-signers commit.
+                if (widget.machine != null && repository.push && isProject != false)
                   PopupMenuItem<String>(
                     key: ValueKey<String>('bind $name'),
                     value: 'bind',
                     child: Text('Work on it on ${widget.machineName}'),
                   ),
                 // Default's one task, where the repository is seen (walk 10).
-                if (widget.machine != null && repository.admin && repository.push && isProject != true)
+                if (widget.machine != null && repository.push && isProject != true)
                   widget.inDefault?.call(name) ?? false
                       ? PopupMenuItem<String>(
                           key: ValueKey<String>('default-remove $name'),
@@ -462,17 +423,11 @@ class _ForgePageState extends State<ForgePage> {
                           value: 'default-add',
                           child: Text('Work on it without a project on ${widget.machineName}'),
                         ),
-                if (repository.admin)
+                if (repository.push)
                   PopupMenuItem<String>(
                     key: ValueKey<String>('repository-tools $name'),
                     value: 'tools',
-                    child: const Text('Machines that have keys to it'),
-                  ),
-                if (repository.admin && forges.mayBind[name] == false && forges.current != null)
-                  PopupMenuItem<String>(
-                    key: ValueKey<String>('token-rights $name'),
-                    value: 'rights',
-                    child: const Text('Change the token’s rights'),
+                    child: const Text('Machines whose messages it trusts'),
                   ),
                 PopupMenuItem<String>(
                   key: ValueKey<String>('open-at-forge $name'),
@@ -493,7 +448,6 @@ class _ForgePageState extends State<ForgePage> {
   Widget _says(BuildContext context, ForgeConnection forges, ForgeRepository repository) {
     final name = repository.fullName;
     final isProject = forges.isProject[name];
-    final mayBind = forges.mayBind[name];
     final says = widget.machine == null
         ? 'No machine is being watched here to work on it.'
         : !repository.push
@@ -503,15 +457,7 @@ class _ForgePageState extends State<ForgePage> {
         : !isProject
         // Made a project in its repository, never here (walk 10).
         ? 'It has no project.yml, so it is no Porelo project. Add one in the repository itself.'
-        : !repository.admin
-        ? 'It is a Porelo project. Only an admin of it can let a machine work on it, since that '
-              'gives the machine keys there.'
-        : mayBind == false
-        ? 'It is a Porelo project, but this token may not give a machine keys to it. Give the '
-              'token Administration (read and write) on this repository. '
-              '${forges.whyNot[name] ?? ''}'
-        : 'It is a Porelo project. ${widget.machineName} gets keys of its own for it, and work '
-              'can start there.';
+        : 'It is a Porelo project. ${widget.machineName} uses your own token in its vault, and work can start there.';
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.normal, 0, Space.normal, Space.small),
       child: Text(says, key: ValueKey<String>('repository-says $name'), style: Theme.of(context).textTheme.bodySmall),
@@ -523,7 +469,7 @@ class _ForgePageState extends State<ForgePage> {
       case 'bind':
         await _choose(forges, repository);
         if (!context.mounted || forges.isProject[repository.fullName] != true) return;
-        if (forges.mayBind[repository.fullName] != true) return;
+        if (!repository.push) return;
         await _bind(context, forges, repository);
       case 'tools':
         await _tools(context, forges, repository);
@@ -531,7 +477,7 @@ class _ForgePageState extends State<ForgePage> {
         final machine = widget.machine;
         final forge = forges.forge;
         if (machine == null || forge == null) return;
-        final helper = DefaultAtForge(machine, forge, machineName: widget.machineName);
+        final helper = DefaultAtForge(machine, machineName: widget.machineName);
         try {
           final said = chosen == 'default-add' ? await helper.add(repository) : await helper.remove(repository);
           if (mounted) setState(() => _said = said);
@@ -559,11 +505,9 @@ class _ForgePageState extends State<ForgePage> {
     setState(() => _chosen = repository.fullName);
     try {
       final has = await forge.hasProjectFile(repository);
-      final why = repository.admin ? await forge.whyNoKeys(repository.fullName) : null;
       if (mounted) {
         setState(() {
           forges.isProject[repository.fullName] = has;
-          if (repository.admin) forges.heardAbout(repository.fullName, why);
         });
       }
     } on ForgeRefused catch (refused) {
@@ -582,6 +526,8 @@ class _ForgePageState extends State<ForgePage> {
       MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
       changeToken: _changingTheToken(context, forges, repository),
       startFollows: start != null,
+      terminalMachine: widget.terminalMachine,
+      openTerminal: forges.openTerminal,
     );
     if (project != null && start != null && context.mounted) await start(project);
   }

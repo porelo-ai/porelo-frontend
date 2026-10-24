@@ -36,7 +36,7 @@ taken, `git log` answers.
 | [The settings file is written atomically and owner-only, and a bad entry is dropped rather than fatal](#the-settings-file-is-written-atomically-and-owner-only) |
 | [What was run is kept for thirty days in one owner-only file, and an unseen failure still waits](#what-was-run-is-kept-for-thirty-days-in-one-owner-only-file) |
 | [The new-machine wizard may use root once, inside the wizard, and never stores it](#the-new-machine-wizard-may-use-root-once) |
-| [A forge's token stays on this computer; a machine gets deploy keys of its own](#a-forges-token-stays-on-this-computer) |
+| [The person's forge token is entered in terminals and kept here for the API and in each machine's vault for git](#a-forges-token-stays-on-this-computer) |
 | [The review only shows; the whole push is approved or rejected](#the-review-only-shows) |
 | [A waiting push is read in the person's own clone, and never built there](#a-waiting-push-is-read-in-the-persons-own-clone-and-never-built-there) |
 | [Clearing a machine or a project is one action, and the forge's part is the interface's](#clearing-a-machine-or-a-project-is-one-action-and-the-forges-part-is-the-interfaces) |
@@ -449,14 +449,22 @@ does not have.
 
 ## A forge's token stays on this computer
 
-A person's forge token is kept in this computer's keychain and reaches git through its environment,
-never a command line, a file, the settings or a machine. A machine gets a deploy key of its own for
-each repository it works in, titled after itself, read-only for a project's own repository and with
-write access where its work is pushed; its forge login is nobody's.
+The person's own forge token is entered only at a terminal prompt. On this computer, *Connect a
+forge* opens `porelo-host key set <forge address>`, which reads without echo into the system secret
+store. The interface reads the same entry for its forge API calls, sending the token only in the
+Authorization header. The local working clone reaches git through its environment. No form takes
+a token, and no token enters a command line, the settings or an operation record.
 
-**What it costs:** the token needs the forge's right to manage deploy keys (*Administration* at
-GitHub), which is more than reading and writing code. Accepted, because the alternative is giving a
-machine the person's token.
+Binding a machine opens a terminal there running `porelo vault put git.token.<host>`. Porelo's own
+prompt reads the person's token into that machine's vault for git over https. The interface checks
+the vault listing by name; no token value crosses the daemon socket. Git over ssh continues to use
+the person's ssh key. The interface makes, lists, checks and removes no deploy keys, and the token
+needs no right to administer them. Device-code login can use the same terminals when the forge's
+OAuth application is available.
+
+**The exposure:** each machine holding the person's token can use its repository rights. Keep its
+scope to the repositories and Contents rights it needs. **What would change the answer:** a forge
+login that grants narrower access without requiring repository administration.
 
 ## The review only shows
 
@@ -477,9 +485,12 @@ itself.
 
 *Clear this machine…* and *Clear this project from the machine…* list what the machine's dry run
 says will go, then clear it with one press. The machine removes what Porelo put there; the interface
-removes each deploy key it names at the forge with the person's sign-in, and the machine's line in
-each project's `machine-signers` in one signed commit. One report says, thing by thing, what was
-removed and what was left and why, and one refusal does not stop the rest.
+removes the machine's line from each project's `machine-signers` in one signed commit. It never
+contacts the forge's deploy-key API. If the daemon names a legacy key in its unfollow or clear
+answer, the interface shows its name and the daemon's words verbatim, leaving its removal to the
+person. The person's token stays in this computer's system secret store and in each machine's
+vault until explicitly forgotten. One report says, thing by thing, what was removed and what was
+left and why, and one refusal does not stop the rest.
 
 ## A person joins a project's conversation by an account made for them
 

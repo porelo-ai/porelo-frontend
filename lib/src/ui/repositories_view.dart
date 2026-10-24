@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../app/fleet_backend.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
-import '../app/links.dart';
 import '../app/machine_binding.dart';
+import '../app/machines.dart';
 import '../app/project_workspace.dart';
 import 'binding_view.dart';
 import 'dialog_scroll.dart';
@@ -21,6 +21,7 @@ Future<void> showRepositories(
   BuildContext context,
   ForgeConnection forges, {
   FleetBackend? machine,
+  Machine? terminalMachine,
   String machineName = 'the machine',
   Future<void> Function(String project)? onStartWork,
   VoidCallback? onFollowByAddress,
@@ -33,6 +34,7 @@ Future<void> showRepositories(
     builder: (_) => RepositoriesDialog(
       forges: forges,
       machine: machine,
+      terminalMachine: terminalMachine,
       machineName: machineName,
       onStartWork: onStartWork,
       onFollowByAddress: onFollowByAddress,
@@ -48,6 +50,7 @@ class RepositoriesDialog extends StatefulWidget {
   const RepositoriesDialog({
     required this.forges,
     this.machine,
+    this.terminalMachine,
     this.machineName = 'the machine',
     this.onStartWork,
     this.onFollowByAddress,
@@ -74,6 +77,9 @@ class RepositoriesDialog extends StatefulWidget {
 
   /// The machine that checks a project file, or null where none is watched.
   final FleetBackend? machine;
+
+  /// Where the binding’s token prompt runs.
+  final Machine? terminalMachine;
 
   /// What the person calls it.
   final String machineName;
@@ -231,41 +237,11 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
         onChanged: forges.search,
       ),
       const SizedBox(height: Space.small),
-      // GitHub lists what the account has; what the token was narrowed to is only found by asking.
-      if (repositories != null && forges.stillAsking > 0)
-        Text(
-          'Asking GitHub which repositories this token may bind a machine to… '
-          '(${forges.stillAsking} still to ask)',
-          key: const Key('forge-still-asking'),
-          style: text.bodySmall,
-        ),
-      if (repositories != null && repositories.isNotEmpty)
-        SwitchListTile(
-          key: const Key('forge-only-bindable'),
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Only those this token may bind a machine to'),
-          subtitle: const Text('Can be slow: GitHub is asked about each repository, one by one.'),
-          value: forges.onlyBindable,
-          onChanged: forges.showOnlyBindable,
-        ),
-      if (repositories != null &&
-          repositories.isNotEmpty &&
-          forges.onlyBindable &&
-          forges.stillAsking == 0 &&
-          forges.bindable == 0)
-        Text(
-          'This token may bind a machine to none of them. For each repository you want to make a project '
-          'of, it needs Administration and Contents, both read and write: Administration to add a '
-          "machine's key, Contents to push the project's configuration.",
-          key: const Key('forge-binds-none'),
-          style: TextStyle(color: Theme.of(context).colorScheme.error),
-        ),
       Text('Choose a repository to see what can be done with it here.', style: text.bodySmall),
       if (repositories == null) const Text('Asking the forge…'),
       if (repositories != null && repositories.isEmpty)
         const Text('This login reaches no repository.', key: Key('no-repositories')),
-      if (repositories != null && repositories.isNotEmpty && shown.isEmpty && forges.stillAsking == 0)
+      if (repositories != null && repositories.isNotEmpty && shown.isEmpty)
         const Text('Nothing matches.', key: Key('no-repository-matches')),
       for (final each in shown) _row(context, forges, each, text),
     ];
@@ -300,7 +276,7 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
   /// where it is not, the reason is what shows under the line.
   Future<void> _use(BuildContext context, ForgeConnection forges, ForgeRepository repository) async {
     await _choose(forges, repository);
-    if (!context.mounted || forges.mayBind[repository.fullName] != true) return;
+    if (!context.mounted || !repository.push) return;
     await _bind(context, forges, repository);
   }
 
@@ -311,11 +287,9 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
     setState(() => _chosen = repository.fullName);
     try {
       final has = await forge.hasProjectFile(repository);
-      final why = repository.admin ? await forge.whyNoKeys(repository.fullName) : null;
       if (mounted) {
         setState(() {
           forges.isProject[repository.fullName] = has;
-          if (repository.admin) forges.heardAbout(repository.fullName, why);
         });
       }
     } on ForgeRefused catch (refused) {
@@ -334,6 +308,8 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
       MachineBinding(forge, workspace, machine, machineName: widget.machineName, login: forges.account?.login ?? ''),
       changeToken: _changingTheToken(context, forges, repository),
       startFollows: start != null,
+      terminalMachine: widget.terminalMachine,
+      openTerminal: forges.openTerminal,
     );
     // Bound, and asked to start: the start dialog on that project, with this list out of the way.
     if (project != null && start != null && context.mounted) {
@@ -345,12 +321,7 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
   Widget _row(BuildContext context, ForgeConnection forges, ForgeRepository repository, TextTheme text) {
     final isProject = forges.isProject[repository.fullName];
     // A project already: used straight from its line, where the person can bind a machine at all.
-    final usable =
-        isProject == true &&
-        repository.admin &&
-        repository.push &&
-        widget.machine != null &&
-        forges.mayBind[repository.fullName] != false;
+    final usable = isProject == true && repository.push && widget.machine != null;
     final chosen = _chosen == repository.fullName;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,17 +335,11 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
           title: Text(repository.fullName),
           subtitle: Text(
             <String>[
-              // Binding a machine adds a deploy key, which only an admin may do: said, never found out.
-              if (repository.admin)
-                'you are an admin'
-              else
-                'not an admin: no machine can be given keys to it from here',
-              if (!repository.push) 'you cannot push to it',
+              // Access is the person’s, without requiring repository administration.
+              if (repository.push) 'you can push to it' else 'you cannot push to it',
               if (isProject == true) 'has a project.yml',
               if (isProject == false) 'no project.yml yet',
               if (isProject == null) 'looking for a project.yml…',
-              if (repository.admin && forges.mayBind[repository.fullName] == false)
-                'this token may not give a machine keys to it',
             ].join(' · '),
             style: text.bodySmall,
           ),
@@ -406,7 +371,6 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
   /// What can be done with the chosen repository, one step at a time, and why not where it cannot.
   Widget _next(BuildContext context, ForgeConnection forges, ForgeRepository repository, TextTheme text) {
     final isProject = forges.isProject[repository.fullName];
-    final mayBind = forges.mayBind[repository.fullName];
     final scheme = Theme.of(context).colorScheme;
     final String says;
     final List<Widget> actions;
@@ -427,33 +391,19 @@ class _RepositoriesDialogState extends State<RepositoriesDialog> {
           'choose it again here.';
       actions = const <Widget>[];
     } else {
-      says = !repository.admin
-          ? 'It is a Porelo project. Only an admin of it can let a machine work on it, since that gives the '
-                'machine keys there.'
-          : mayBind == false
-          ? 'It is a Porelo project, but this token may not give a machine keys to it. Give the token '
-                'Administration (read and write) on this repository, then choose it again. '
-                '${forges.whyNot[repository.fullName] ?? ''}'
-          : 'It is a Porelo project. ${widget.machineName} gets keys of its own for it, and work can '
-                'start there.';
+      says =
+          'It is a Porelo project. ${widget.machineName} uses your own token in its vault, and work can start there.';
       actions = <Widget>[
         // The tools for later, also for a project no machine here follows: a machine that is gone is
         // still removed from what grants it access.
-        if (repository.admin)
+        if (repository.push)
           TextButton(
             key: ValueKey<String>('repository-tools ${repository.fullName}'),
             onPressed: () => unawaited(_tools(context, forges, repository)),
-            child: const Text('Machines that have keys to it'),
+            child: const Text('Machines whose messages it trusts'),
           ),
-        if (repository.admin && mayBind == false && forges.current != null)
-          TextButton(
-            key: ValueKey<String>('token-rights ${repository.fullName}'),
-            onPressed: () =>
-                unawaited(openLink(Uri.parse('https://${forges.current!.address}/settings/personal-access-tokens'))),
-            child: const Text('Change the token’s rights'),
-          ),
-        // Only an admin may add a deploy key, and only with a token that may too.
-        if (repository.admin && mayBind == true)
+        // The signed machine-signers commit needs push access.
+        if (repository.push)
           FilledButton(
             key: ValueKey<String>('bind ${repository.fullName}'),
             onPressed: () => _bind(context, forges, repository),

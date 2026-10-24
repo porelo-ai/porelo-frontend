@@ -4,10 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/forge.dart';
+import '../app/connections.dart';
+import '../app/machines.dart';
+import '../app/session.dart';
 import '../app/machine_binding.dart';
 import '../app/project_workspace.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
+import 'unlock_terminal.dart';
 
 /// Opens working on the repository's project on a machine. Answers the project's name where the
 /// person asked to start work in it on the machine, and null otherwise.
@@ -15,11 +19,19 @@ Future<String?> showBinding(
   BuildContext context,
   MachineBinding binding, {
   bool startFollows = false,
+  Machine? terminalMachine,
+  OpenTerminal? openTerminal,
   Future<({Forge forge, ProjectWorkspace workspace})?> Function()? changeToken,
 }) async {
   final start = await showDialog<String>(
     context: context,
-    builder: (_) => BindingDialog(binding: binding, startFollows: startFollows, changeToken: changeToken),
+    builder: (_) => BindingDialog(
+      binding: binding,
+      startFollows: startFollows,
+      changeToken: changeToken,
+      terminalMachine: terminalMachine,
+      openTerminal: openTerminal,
+    ),
   );
   binding.dispose();
   return start;
@@ -29,10 +41,23 @@ Future<String?> showBinding(
 /// it is done. What a project's keys and changes are for later is in `ProjectForgeDialog`.
 class BindingDialog extends StatefulWidget {
   /// Constructor taking the binding.
-  const BindingDialog({required this.binding, this.startFollows = false, this.changeToken, super.key});
+  const BindingDialog({
+    required this.binding,
+    this.startFollows = false,
+    this.changeToken,
+    this.terminalMachine,
+    this.openTerminal,
+    super.key,
+  });
 
   /// What binding the machine to the project knows and does.
   final MachineBinding binding;
+
+  /// The selected machine where the terminal prompt must run.
+  final Machine? terminalMachine;
+
+  /// The terminal transport, with a stand-in in tests.
+  final OpenTerminal? openTerminal;
 
   /// Whether starting work follows the binding by itself, the dialog closing on its own once the
   /// machine holds the project; what it pinned is then said
@@ -95,6 +120,24 @@ class _BindingDialogState extends State<BindingDialog> {
     super.initState();
     widget.binding.addListener(_follow);
     unawaited(_open());
+  }
+
+  Future<void> _storeToken() async {
+    final machine = widget.terminalMachine;
+    final host = widget.binding.tokenHost;
+    final command = machine == null
+        ? null
+        : onTheMachine(machine, <String>['porelo', 'vault', 'put', 'git.token.$host'], terminal: true);
+    if (command == null) throw const BindingRefused('No terminal can be opened on this machine from here.');
+    await runInATerminal(
+      context,
+      title: 'Connect $host on ${machine!.name}',
+      explanation:
+          'Enter your own forge token at Porelo’s terminal prompt on ${machine.name}. Its vault keeps it for git over https.',
+      machine: machine,
+      command: command,
+      open: widget.openTerminal,
+    );
   }
 
   Future<void> _open() async {
@@ -164,9 +207,9 @@ class _BindingDialogState extends State<BindingDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  '$machine gets keys of its own for this project: it can fetch the project, and push '
-                  'its work to the project’s repositories. It accepts a change to the project only when '
-                  'it is signed with your key. Your $forge token stays on this computer.',
+                  '$machine uses your own $forge token in its vault for git over https. Enter it in '
+                  'a terminal on that machine when asked. It accepts a change to the project only '
+                  'when it is signed with your key.',
                   style: text.bodySmall,
                 ),
                 const SizedBox(height: Space.small),
@@ -289,7 +332,11 @@ class _BindingDialogState extends State<BindingDialog> {
               key: const Key('binding-bind'),
               onPressed: ready && binding.hostKey == null
                   ? () => unawaited(
-                      binding.bind(key, signers: key.atTheForge != null ? _atTheForge : const <ForgeSigningKey>[]),
+                      binding.bind(
+                        key,
+                        signers: key.atTheForge != null ? _atTheForge : const <ForgeSigningKey>[],
+                        storeToken: _storeToken,
+                      ),
                     )
                   : null,
               child: Text('Work on it on $machine'),
@@ -307,6 +354,7 @@ class _HostKeyAtTheForge extends StatelessWidget {
 
   /// What binding the machine to the project knows and does.
   final MachineBinding binding;
+
   final Followed met;
 
   @override

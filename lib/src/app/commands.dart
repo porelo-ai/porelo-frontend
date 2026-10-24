@@ -570,7 +570,7 @@ List<Command> projectCommands({
     // Everything Porelo put on the machine and at the forge for the project, in one step (walk 8).
     Command(
       id: 'project.clear',
-      label: 'Clear this project from the machine, and its keys at the forge…',
+      label: 'Clear this project from the machine…',
       group: 'Project',
       home: Home.projectMenu,
       run: clearTheProject ?? () {},
@@ -857,7 +857,7 @@ List<Command> machineCommands({
     ),
     Command(
       id: 'machine.clear',
-      label: 'Clear this machine of everything Porelo put there, and its keys at the forge…',
+      label: 'Clear this machine of everything Porelo put there…',
       group: 'Machine',
       home: Home.machineMenu,
       run: clearTheMachine ?? () {},

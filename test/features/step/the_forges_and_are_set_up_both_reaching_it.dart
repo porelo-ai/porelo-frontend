@@ -9,5 +9,4 @@ Future<void> theForgesAndAreSetUpBothReachingIt(WidgetTester tester, String firs
     <String, Object?>{'id': 'github.com#2', 'kind': 'github', 'name': second, 'address': 'github.com'},
   ]);
   await World.forgeTokens.write('github.com', 'ghp_accepted');
-  await World.forgeTokens.write('github.com#2', 'ghp_accepted');
 }

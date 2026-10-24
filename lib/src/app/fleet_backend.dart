@@ -252,15 +252,6 @@ abstract class FleetBackend {
   /// Who has joined [project]'s conversation.
   Future<List<MessageMember>> messageMembers(String project);
 
-  /// This machine's deploy key for a repository of [project]; only the public half.
-  Future<MachineDeployKey> deployKey(
-    String project, {
-    String? repository,
-    String? upstream,
-    bool? readOnly,
-    bool renew = false,
-  });
-
   /// This machine's message key, for its `machine-signers` line.
   Future<MachineKey> messageKey();
 
@@ -703,15 +694,6 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<List<MessageMember>> messageMembers(String project) => _opened().messageMembers(project);
-
-  @override
-  Future<MachineDeployKey> deployKey(
-    String project, {
-    String? repository,
-    String? upstream,
-    bool? readOnly,
-    bool renew = false,
-  }) => _opened().deployKey(project, repository: repository, upstream: upstream, readOnly: readOnly, renew: renew);
 
   @override
   Future<MachineKey> messageKey() => _opened().messageKey();

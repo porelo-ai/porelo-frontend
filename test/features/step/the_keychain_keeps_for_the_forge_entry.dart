@@ -7,7 +7,7 @@ Future<void> theKeychainKeepsForTheForgeEntry(WidgetTester tester, String token,
   final kept = await World.forgeEntries.read();
   final id = <String>[
     for (final each in kept)
-      if (each is Map && each['name'] == name) '${each['id']}',
+      if (each is Map && each['name'] == name) '${each['address']}',
   ].single;
   expect(await World.forgeTokens.read(id), token);
 }

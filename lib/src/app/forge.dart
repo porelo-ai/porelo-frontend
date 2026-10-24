@@ -2,8 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:porelo_host/porelo_host.dart';
 
 /// A repository a person can reach on a forge, as the forge lists it for their login.
 class ForgeRepository {
@@ -19,7 +18,7 @@ class ForgeRepository {
   /// The branch a change to the project's configuration is pushed to.
   final String defaultBranch;
 
-  /// Whether the person is an admin of it: binding a machine adds a deploy key, which needs that.
+  /// Whether the person is an admin of it, as the forge reports.
   final bool admin;
 
   /// Whether the person may push to it: a change to `project.yml` is pushed with their login.
@@ -55,27 +54,6 @@ class ForgeSigningKey {
   String get keyPart => key.trim().split(RegExp(r'\s+')).take(2).join(' ');
 }
 
-/// A deploy key a forge holds for one repository.
-class ForgeDeployKey {
-  /// The forge's own id for it, which removing it takes.
-  final int id;
-
-  /// What it is called: `porelo <machine> <project>/<repository>` for one a machine made.
-  final String title;
-
-  /// The public key, `ssh-ed25519 AAAA…`.
-  final String key;
-
-  /// Whether it may only read.
-  final bool readOnly;
-
-  /// Constructor taking every field.
-  const ForgeDeployKey({required this.id, required this.title, required this.key, required this.readOnly});
-
-  /// Whether a Porelo machine made it, by its title.
-  bool get isPorelos => title.startsWith('porelo ');
-}
-
 /// Who a token logs in as.
 class ForgeAccount {
   /// The login name.
@@ -107,7 +85,7 @@ typedef ForgeReply = ({int status, String body, Map<String, String> headers});
 typedef ForgeHttp = Future<ForgeReply> Function(String method, Uri uri, Map<String, String> headers, String? body);
 
 /// One forge, behind what making a project from a repository needs of it: who the token is, which repositories it reaches,
-/// whether one is a project already, and its deploy keys. **GitHub first; GitLab, Gitea, Forgejo
+/// and whether one is a project already. **GitHub first; GitLab, Gitea, Forgejo
 /// and Bitbucket are each one more of these later**, never a change to the flow.
 abstract interface class Forge {
   /// What a person calls it: `GitHub`.
@@ -125,9 +103,6 @@ abstract interface class Forge {
   /// One repository by `owner/name`, as the listing gives it: what a project's own tools start from.
   Future<ForgeRepository> repository(String fullName);
 
-  /// Every deploy key [repository] holds.
-  Future<List<ForgeDeployKey>> deployKeys(String repository);
-
   /// The branches of [repository], by name, in the forge's order.
   Future<List<String>> branches(String repository);
 
@@ -138,22 +113,6 @@ abstract interface class Forge {
   /// The ssh keys [login] signs commits with, as the forge lists them for anybody to read: what
   /// makes a person's key theirs, rather than one of whatever their agent holds.
   Future<List<ForgeSigningKey>> signingKeys(String login);
-
-  /// Why the token itself may not manage [repository]'s deploy keys, in the forge's words, or null
-  /// where it may. The rights a listing names are the account's; a token narrowed to fewer
-  /// repositories or rights is only found out by asking.
-  Future<String?> whyNoKeys(String repository);
-
-  /// Adds a machine's public key to [repository] as a deploy key; answers what the forge made.
-  Future<ForgeDeployKey> addDeployKey(
-    String repository, {
-    required String title,
-    required String key,
-    required bool readOnly,
-  });
-
-  /// Removes the deploy key [id] from [repository]. One already gone is no failure.
-  Future<void> removeDeployKey(String repository, int id);
 }
 
 /// GitHub, through its REST API, with a personal access token.
@@ -255,60 +214,6 @@ class GitHub implements Forge {
         if (each['key'] is String) ForgeSigningKey(title: '${each['title'] ?? ''}', key: each['key'] as String),
     ];
   }
-
-  @override
-  Future<List<ForgeDeployKey>> deployKeys(String repository) async {
-    final all = <ForgeDeployKey>[];
-    Uri? next = _at('/repos/$repository/keys', queryParameters: <String, String>{'per_page': '100'});
-    while (next != null) {
-      final reply = await _send('GET', next);
-      for (final each in _listOf(reply)) {
-        if (each is Map<String, dynamic>) all.add(_deployKey(each));
-      }
-      next = _nextPage(reply.headers['link']);
-    }
-    return all;
-  }
-
-  @override
-  Future<String?> whyNoKeys(String repository) async {
-    // Reading the keys needs what adding one needs: administration of the repository. GitHub
-    // answers 403 for a token without it, and 404 for one that may not see the repository at all.
-    try {
-      await _send('GET', _at('/repos/$repository/keys', queryParameters: <String, String>{'per_page': '1'}));
-      return null;
-    } on ForgeRefused catch (refused) {
-      if (refused.status == 403 || refused.status == 404) return refused.words;
-      rethrow;
-    }
-  }
-
-  @override
-  Future<ForgeDeployKey> addDeployKey(
-    String repository, {
-    required String title,
-    required String key,
-    required bool readOnly,
-  }) async {
-    final reply = await _send(
-      'POST',
-      _at('/repos/$repository/keys'),
-      body: jsonEncode(<String, Object>{'title': title, 'key': key, 'read_only': readOnly}),
-    );
-    return _deployKey(_mapOf(reply));
-  }
-
-  @override
-  Future<void> removeDeployKey(String repository, int id) async {
-    await _send('DELETE', _at('/repos/$repository/keys/$id'), allow404: true);
-  }
-
-  static ForgeDeployKey _deployKey(Map<String, dynamic> map) => ForgeDeployKey(
-    id: map['id'] is int ? map['id'] as int : 0,
-    title: '${map['title'] ?? ''}',
-    key: '${map['key'] ?? ''}',
-    readOnly: map['read_only'] == true,
-  );
 
   /// Whether [fullName] is `owner/name` and nothing else: it becomes a folder here and a path on
   /// the forge, so `..`, a slash too many or a character outside GitHub's names is never one.
@@ -440,17 +345,9 @@ class GitHub implements Forge {
     // What to change, and where, where GitHub's answer says enough to know it.
     final repository = RegExp(r'^/repos/([^/]+/[^/]+)').firstMatch(uri?.path ?? '')?.group(1);
     final what = repository == null ? '' : ' for $repository';
-    if (said.toLowerCase().contains('deploy keys are disabled')) {
-      return 'Deploy keys are switched off$what by its organisation. An owner turns them on under the '
-          'organisation’s Settings → Member privileges → Deploy keys. ($said)';
-    }
     if (reply.status == 403 && said.contains('not accessible by personal access token')) {
       final path = uri?.path ?? '';
-      final right = path.endsWith('/keys') || path.contains('/keys/')
-          ? 'Administration: Read and write'
-          : path.contains('/contents') || path.contains('/git/')
-          ? 'Contents: Read and write'
-          : null;
+      final right = path.contains('/contents') || path.contains('/git/') ? 'Contents: Read and write' : null;
       if (right != null) {
         return 'This token lacks $right$what. Give it that at GitHub → Settings → Developer settings → '
             'Fine-grained tokens → this token → Repository permissions, with$what among its '
@@ -496,8 +393,8 @@ class _Network {
   }
 }
 
-/// Where a person's forge token is kept: **this computer's keychain, and nowhere else**.
-/// Never in the settings, a file, an operation record or on any machine.
+/// The person's own forge token for API calls, kept in this computer's system secret store.
+/// Machines receive their own vault entry only through a terminal prompt there.
 abstract interface class ForgeTokens {
   /// The token for [forge] (`github.com`), or null when none is kept.
   Future<String?> read(String forge);
@@ -509,33 +406,35 @@ abstract interface class ForgeTokens {
   Future<void> delete(String forge);
 }
 
-/// Tokens in the platform's keystore: on Linux the Secret Service, through libsecret.
+/// Tokens in the same system store and entry used by `porelo-host key set <host>`.
 class PlatformForgeTokens implements ForgeTokens {
-  /// Constructor, optionally with the storage to use instead of the platform's.
-  PlatformForgeTokens({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
+  /// Constructor using the system store, or a stand-in for a test.
+  PlatformForgeTokens({SecretStore Function()? store}) : _store = store ?? SecretStore.forThisSystem;
 
-  final FlutterSecureStorage _storage;
+  final SecretStore Function() _store;
 
-  static String _entry(String forge) => 'porelo-forge-token:$forge';
-
-  @override
-  Future<String?> read(String forge) => _guarded(() => _storage.read(key: _entry(forge)));
-
-  @override
-  Future<void> write(String forge, String token) => _guarded(() => _storage.write(key: _entry(forge), value: token));
-
-  @override
-  Future<void> delete(String forge) => _guarded(() => _storage.delete(key: _entry(forge)));
-
-  /// The keystore's own failure, **without** anything that was being written: a platform message
-  /// can quote its arguments, and one of them is the token.
-  static Future<T> _guarded<T>(Future<T> Function() call) async {
+  Future<T> _using<T>(Future<T> Function(SecretStore) call) async {
     try {
-      return await call();
-    } on PlatformException catch (ex) {
-      throw ForgeRefused('This computer’s keychain refused it (${ex.code}).');
+      final store = _store();
+      try {
+        return await call(store);
+      } finally {
+        await store.close();
+      }
+    } on Exception {
+      throw const ForgeRefused('This computer’s system secret store could not be used.');
     }
   }
+
+  @override
+  Future<String?> read(String forge) => _using((store) => store.read(providerKeyName(forgeAddress(forge))));
+
+  @override
+  Future<void> write(String forge, String token) =>
+      _using((store) => store.write(providerKeyName(forgeAddress(forge)), token));
+
+  @override
+  Future<void> delete(String forge) => _using((store) => store.remove(providerKeyName(forgeAddress(forge))));
 }
 
 /// Tokens in memory only, for tests.

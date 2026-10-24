@@ -18,8 +18,8 @@ porelo-host --collection-info
           stops with 75 for the person; run up again after completing the stop on the host
   down    runs the down play, then gives the host back; a host whose down play did not finish is
           kept, since a failed copy may have left the only copy there, and down says so
-  key     keeps a provider's key in the system's own store, read from standard input, or forgets it;
-          the key is never an argument, and nothing is said of it but that it was kept
+  key     keeps scaleway's key or a forge host's token in the system's store, or forgets it;
+          set reads only from its terminal prompt without echo, never an argument or a pipe
 
 One JSON line per step on standard output; the words for a person on standard error.
 Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 waiting for the person.
@@ -147,7 +147,15 @@ Future<int> _key(List<String> arguments) async {
   if (arguments.length != 2 || !<String>{'set', 'forget'}.contains(arguments.first)) {
     return _wrong('key set PROVIDER or key forget PROVIDER');
   }
-  final name = providerKeyName(arguments[1]);
+  final String name;
+  try {
+    name = providerKeyName(arguments[1]);
+  } on FormatException catch (error) {
+    return _wrong(error.message);
+  }
+  if (arguments.first == 'set' && !stdin.hasTerminal) {
+    return _wrong('key set needs a terminal for its prompt');
+  }
   final store = SecretStore.forThisSystem();
   try {
     if (arguments.first == 'forget') {
@@ -155,12 +163,18 @@ Future<int> _key(List<String> arguments) async {
       stderr.writeln('porelo-host: the key for ${arguments[1]} is forgotten');
       return Exit.done;
     }
-    // One line; a key typed at a terminal is not echoed.
-    if (stdin.hasTerminal) stdin.echoMode = false;
-    final line = stdin.readLineSync(encoding: utf8);
-    if (stdin.hasTerminal) stdin.echoMode = true;
+    final echo = stdin.echoMode;
+    final String? line;
+    try {
+      stdin.echoMode = false;
+      stderr.write('Token for ${arguments[1]}: ');
+      line = stdin.readLineSync(encoding: utf8);
+    } finally {
+      stdin.echoMode = echo;
+      stderr.writeln();
+    }
     final key = line?.trim() ?? '';
-    if (key.isEmpty) return _wrong('no key on standard input');
+    if (key.isEmpty) return _wrong('no key entered at the terminal prompt');
     await store.write(name, key);
     stderr.writeln('porelo-host: the key for ${arguments[1]} is kept in the system\'s store');
     return Exit.done;

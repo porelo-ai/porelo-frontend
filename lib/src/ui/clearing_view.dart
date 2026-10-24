@@ -52,18 +52,23 @@ class _ClearingDialog extends StatelessWidget {
                 if (preview == null && clearing.problem == null) const Text('Asking the machine what would go…'),
                 if (preview != null && cleared == null) ...<Widget>[
                   Text('This goes, on ${clearing.machineName}:', style: text.titleSmall),
-                  for (final item in preview.items.where((each) => each.status != 'FOR_A_PERSON'))
-                    Text('· ${_kind(item.kind)} ${item.what}', key: ValueKey<String>('clearing-would ${item.what}')),
-                  if (preview.keys.isNotEmpty || preview.signer.isNotEmpty) ...<Widget>[
+                  for (final item in preview.items)
+                    Text(
+                      item.status == 'FOR_A_PERSON'
+                          ? '${item.what}\n${item.why}'
+                          : '· ${_kind(item.kind)} ${item.what}',
+                      key: ValueKey<String>('clearing-would ${item.what}'),
+                    ),
+                  if (preview.signer.isNotEmpty) ...<Widget>[
                     const SizedBox(height: Space.small),
                     Text(
                       'And at ${clearing.forges.forge?.name ?? 'the forge'}, with your sign-in:',
                       style: text.titleSmall,
                     ),
-                    for (final key in preview.keys) Text('· the deploy key ${key.title}'),
                     if (preview.signer.isNotEmpty)
                       Text('· ${clearing.machineName}’s line in machine-signers, in one signed commit'),
                   ],
+                  for (final key in preview.keys) Text(key.title),
                   const SizedBox(height: Space.small),
                   Text(
                     'Its vault, its keys and what is installed stay: clearing is not uninstalling.',
@@ -78,14 +83,17 @@ class _ClearingDialog extends StatelessWidget {
                     style: TextStyle(color: scheme.error),
                   ),
                 if (over) ...<Widget>[
-                  for (final item in cleared.items.where((each) => each.status != 'FOR_A_PERSON'))
+                  for (final item in cleared.items)
                     Text(
-                      item.status == 'REMOVED'
+                      item.status == 'FOR_A_PERSON'
+                          ? '${item.what}\n${item.why}'
+                          : item.status == 'REMOVED'
                           ? 'Removed ${_kind(item.kind)} ${item.what}.'
                           : 'Left ${_kind(item.kind)} ${item.what}${item.why.isEmpty ? '' : ': ${item.why}'}.',
                       key: ValueKey<String>('clearing-done ${item.what}'),
                       style: item.status == 'REMOVED' ? null : TextStyle(color: scheme.error),
                     ),
+                  for (final key in cleared.keys) Text(key.title),
                   for (final (index, each) in clearing.done.indexed)
                     Text(
                       each,

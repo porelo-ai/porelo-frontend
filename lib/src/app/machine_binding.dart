@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:yaml/yaml.dart';
+import 'package:porelo_host/porelo_host.dart' show forgeAddress;
+
+import 'forge_connection.dart';
 
 import 'fleet_backend.dart';
 import 'forge.dart';
@@ -64,32 +67,6 @@ String? onGitHub(String upstream) {
 /// The key part of a public key, `ssh-ed25519 AAAA…`, without its comment: how two are compared.
 String keyPart(String publicKey) => publicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
 
-/// Removes each of [keys] at [forge], saying for each what was removed, or what was left and why;
-/// one that fails does not stop the others (two keys stayed at GitHub after walk 8, and nothing on
-/// screen said which or why).
-Future<void> removeAtTheForge(Forge forge, List<MachineDeployKey> keys, void Function(String) say) async {
-  for (final key in keys) {
-    final what = key.title.isEmpty ? 'the key for ${key.repository}' : key.title;
-    final there = onGitHub(key.upstream);
-    if (there == null) {
-      say('Left $what: its upstream "${key.upstream}" is not at ${forge.name}.');
-      continue;
-    }
-    try {
-      final held = (await forge.deployKeys(there))
-          .where((each) => keyPart(each.key) == keyPart(key.publicKey))
-          .toList();
-      if (held.isEmpty) say('$what is not among the deploy keys of $there; nothing to remove there.');
-      for (final each in held) {
-        await forge.removeDeployKey(there, each.id);
-        say('Removed ${each.title} from $there.');
-      }
-    } on ForgeRefused catch (refused) {
-      say('Left $what at $there: ${refused.words}');
-    }
-  }
-}
-
 /// [text], an `machine-signers` file, without [line] and the comment naming [machine] above it; null
 /// where it does not hold the line.
 ///
@@ -113,12 +90,8 @@ String? withoutSigner(String text, String line, String machine) {
 
 /// Binding one machine to a project, and removing it again.
 ///
-/// **In this order**: the machine makes a read-only key for the project's
-/// own repository, from its upstream alone; the key is registered at the forge; the machine follows,
-/// pinned to the person's signing key, fetching with that key; it makes a key for each work
-/// repository, with write access, registered likewise; and its message key goes into the project's
-/// `machine-signers` as a commit signed on this computer. **Only public halves
-/// travel.** Removing goes the other way, the forge's keys first, since they are what grant access.
+/// The machine follows over https with the person's token in its vault, pinned to their signing
+/// key. Its message key is added to machine-signers in a commit signed on this computer.
 class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the forge, the project's clone here, and the machine.
   MachineBinding(this.forge, this.workspace, this._machine, {required this.machineName, required this.login});
@@ -233,15 +206,14 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   bool busy = false;
 
   /// Whether the machine's Porelo can be bound from here at all, read off its contract **before**
-  /// anything is asked of it: a deploy key made from an upstream alone, and a follow pinned to a
-  /// key. Null where the contract could not be read.
+  /// anything is asked of it: a follow pinned to the person's key. Null where it could not be read.
   Future<bool?> canBeBound() async {
     try {
       final contract = await _machine.contract();
       bool takes(String method, String parameter) =>
           RegExp('method $method\\((.*?)\\)\\s*->', dotAll: true).firstMatch(contract)?.group(1)?.contains(parameter) ??
           false;
-      return takes('DeployKey', 'upstream') && takes('Follow', 'signedBy');
+      return takes('Follow', 'signedBy');
     } on FeatureNotSupported {
       return false;
     } on VarlinkException {
@@ -251,53 +223,39 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     }
   }
 
-  /// Binds the machine, signing its `machine-signers` line with [person]. Where the forge lists the
-  /// person's [signers] and the machine takes several, every one of them is pinned, so a commit
-  /// from any computer the person signs on is accepted; otherwise [person]'s key alone.
-  ///
-  /// **A binding that does not finish takes back the keys it registered**: a deploy key left at the
-  /// forge for a machine that never followed would let it in all the same.
-  Future<void> bind(SigningKey person, {List<ForgeSigningKey> signers = const <ForgeSigningKey>[]}) => _doing(() async {
-    // Going on after the person decided about the forge's host key is the same binding.
-    if (hostKey == null) _registeredNow.clear();
-    try {
-      await _bind(person, signers);
-    } catch (_) {
-      await _takeBack();
-      rethrow;
-    }
-  });
+  /// The forge host whose token belongs in the machine's vault.
+  String get tokenHost => forgeAddress(hostOf(workspace.repository.httpsUrl) ?? '');
 
-  /// The keys this binding registered so far, taken back where it does not finish.
-  final List<({String repository, ForgeDeployKey key})> _registeredNow = <({String repository, ForgeDeployKey key})>[];
-
-  Future<void> _takeBack() async {
-    for (final each in _registeredNow.reversed) {
-      try {
-        await forge.removeDeployKey(each.repository, each.key.id);
-        _say('Took ${each.key.title} back from ${each.repository}, since the binding did not finish.');
-      } catch (_) {
-        _say(
-          '${each.key.title} could not be taken back from ${each.repository}, though the binding did not '
-          "finish: remove it there by hand, under the repository's deploy keys.",
-        );
-      }
-    }
-    _registeredNow.clear();
+  /// Reads only credential names, never a value, from the machine's vault listing.
+  Future<bool> hasToken() async {
+    final state = await _machine.credentials();
+    if (!state.readable) throw const BindingRefused('The machine’s vault cannot be read. Open it first.');
+    return state.credentials.any((each) => each.name == 'git.token.$tokenHost');
   }
+
+  /// Binds only after the vault confirms the terminal command's entry by name.
+  Future<void> bind(
+    SigningKey person, {
+    List<ForgeSigningKey> signers = const <ForgeSigningKey>[],
+    Future<void> Function()? storeToken,
+  }) => _doing(() async {
+    if (!await hasToken()) {
+      await storeToken?.call();
+      if (!await hasToken()) throw BindingRefused('No git.token.$tokenHost is listed in the machine’s vault.');
+    }
+    await _bind(person, signers);
+  });
 
   Future<void> _bind(SigningKey person, List<ForgeSigningKey> signers) async {
     final shape = ProjectShape.of(await workspace.read() ?? '');
-    final own = await _machine.deployKey(shape.name, upstream: workspace.repository.sshUrl);
-    await _register(workspace.repository.fullName, own);
     final several = signers.isNotEmpty && await _takesSeveralSigners();
     final followed = several
         ? await _machine.follow(
             shape.name,
-            workspace.repository.sshUrl,
+            workspace.repository.httpsUrl,
             signers: <String>[for (final each in signers) each.keyPart],
           )
-        : await _machine.follow(shape.name, workspace.repository.sshUrl, signedBy: keyPart(person.publicKey));
+        : await _machine.follow(shape.name, workspace.repository.httpsUrl, signedBy: keyPart(person.publicKey));
     if (const <String>{'UNKNOWN_HOST_KEY', 'HOST_KEY_CHANGED'}.contains(followed.outcome)) {
       // The machine has never met the forge's host, or met another key there: the person
       // decides, by what the forge publishes, before anything is pinned or registered further.
@@ -311,9 +269,7 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
       return;
     }
     hostKey = null;
-    // Refused, and nothing of the project is on the machine: no key for its repositories then, and
-    // the one registered for the project itself is taken back (walk 10: a repository whose commits
-    // were not signed by the pinned key read as followed, and the next call found no project).
+    // A refused first follow leaves no project to register a message signer for.
     if (!followed.recorded && followed.commit.isEmpty) {
       throw BindingRefused(
         '$machineName did not follow ${shape.name}: '
@@ -327,13 +283,9 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
           ? '$machineName follows ${shape.name}, pinned to your ${followed.pinned.length} signing keys at ${forge.name}.'
           : '$machineName follows ${shape.name}, pinned to ${followed.signer.isEmpty ? 'your key' : followed.signer}.',
     );
-    for (final repository in shape.repositories.keys) {
-      final key = await _machine.deployKey(shape.name, repository: repository);
-      final there = onGitHub(key.upstream);
-      if (there == null) {
-        _say('${key.repository} is not on ${forge.name}, so its key is not registered from here.');
-      } else {
-        await _register(there, key);
+    for (final upstream in shape.repositories.values) {
+      final there = fullNameOf(upstream);
+      if (hostOf(upstream) == tokenHost && there != null) {
         await _sayWhereItIsAProjectItself(there, shape.name);
       }
     }
@@ -355,15 +307,17 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     bound = shape.name;
   }
 
-  /// Removes the machine: its keys at the forge first, then its `machine-signers` line, as reported by
-  /// the machine when it stops following.
+  /// Stops following and removes its machine-signers line, leaving forge access alone.
   Future<void> remove(SigningKey person) => _doing(() async {
     final shape = ProjectShape.of(await workspace.read() ?? '');
     final forgotten = await _machine.unfollow(shape.name, force: true);
-    if (forgotten.keys.isEmpty) {
-      _say('$machineName named no deploy keys for ${shape.name}; none removed at ${forge.name}.');
+    if (forgotten.detail.isNotEmpty) _say(forgotten.detail);
+    for (final kept in forgotten.keeps) {
+      _say(kept);
     }
-    await removeAtTheForge(forge, forgotten.keys, _say);
+    for (final key in forgotten.keys) {
+      _say(key.title);
+    }
     final signer = forgotten.signer;
     final text = await workspace.readFile('machine-signers');
     final kept = signer == null || text == null ? null : withoutSigner(text, signer.line, machineName);
@@ -381,27 +335,11 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     bound = null;
   });
 
-  /// Every `porelo …` deploy key the forge holds for the project's repositories, including one no
-  /// machine claims any more, by repository.
-  List<({String repository, ForgeDeployKey key})>? keys;
-
   /// Every line of the project's `machine-signers`, with the comment naming it where there is one.
   List<({String? name, String line})>? signers;
 
-  /// Reads what the forge and the project's `machine-signers` hold, **without the machine**: a
-  /// machine that cannot be reached any more is still removed at the forge and from its signers.
+  /// Reads machine-signers without contacting the machine, so a lost machine can be removed.
   Future<void> survey() => _doing(() async {
-    final shape = ProjectShape.of(await workspace.read() ?? '');
-    final found = <({String repository, ForgeDeployKey key})>[];
-    for (final repository in <String>{
-      workspace.repository.fullName,
-      for (final upstream in shape.repositories.values) ?onGitHub(upstream),
-    }) {
-      for (final key in await forge.deployKeys(repository)) {
-        if (key.isPorelos) found.add((repository: repository, key: key));
-      }
-    }
-    keys = found;
     final lines = (await workspace.readFile('machine-signers') ?? '').split('\n');
     signers = <({String? name, String line})>[
       for (var i = 0; i < lines.length; i++)
@@ -411,16 +349,6 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
             line: lines[i].trim(),
           ),
     ];
-  });
-
-  /// Removes [key] from [repository] at the forge.
-  Future<void> removeKey(String repository, ForgeDeployKey key) => _doing(() async {
-    await forge.removeDeployKey(repository, key.id);
-    keys = <({String repository, ForgeDeployKey key})>[
-      for (final each in keys ?? const <({String repository, ForgeDeployKey key})>[])
-        if (!(each.repository == repository && each.key.id == key.id)) each,
-    ];
-    _say('Removed ${key.title} from $repository.');
   });
 
   /// Takes [line] out of `machine-signers`, with the comment naming it, as a commit signed with [person].
@@ -447,8 +375,7 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   });
 
   /// Configuration changes waiting at the machine's gate for the project's own repository, or null
-  /// before they were asked for. **The machine cannot push them**: its key there only reads,
-  /// so a person merges them here, signed, and the machine is told they landed.
+  /// before they were asked for. A person merges them here, signed, and the machine is told they landed.
   List<PendingPush>? changes;
 
   /// The change being looked at, and what it would change against the default branch.
@@ -500,23 +427,6 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     });
   }
 
-  /// Registers [key] at [repository] on the forge, unless it holds that key already.
-  Future<void> _register(String repository, MachineDeployKey key) async {
-    final held = await forge.deployKeys(repository);
-    if (held.any((each) => keyPart(each.key) == keyPart(key.publicKey))) {
-      _say('${key.title} is registered at $repository already.');
-      return;
-    }
-    final added = await forge.addDeployKey(
-      repository,
-      title: key.title,
-      key: key.publicKey,
-      readOnly: !key.writeAccess,
-    );
-    _registeredNow.add((repository: repository, key: added));
-    _say('Registered ${key.title} at $repository, ${key.writeAccess ? 'with write access' : 'read-only'}.');
-  }
-
   void _say(String words) {
     done.add(words);
     notifyListeners();
@@ -528,6 +438,8 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
     try {
       await action();
+    } on FormatException catch (error) {
+      problem = error.message;
     } on ForgeRefused catch (refused) {
       problem = refused.words;
     } on BindingRefused catch (refused) {

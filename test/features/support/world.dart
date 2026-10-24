@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'legacy_forge_key.dart';
+export 'legacy_forge_key.dart';
+
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1760,7 +1763,6 @@ class FakeBackend implements FleetBackend {
   /// Where each work repository's upstream is, by repository, as the project file says.
   final Map<String, String> workUpstreams = <String, String>{};
 
-  @override
   Future<MachineDeployKey> deployKey(
     String project, {
     String? repository,
@@ -1840,8 +1842,7 @@ class FakeBackend implements FleetBackend {
 
   @override
   Future<String> contract() async => canBind
-      ? 'method DeployKey(project: string, repository: ?string, upstream: ?string) -> ()\n'
-            'method Follow(name: string, url: string, signedBy: ?string, signers: ?[]string) -> ()\n'
+      ? 'method Follow(name: string, url: string, signedBy: ?string, signers: ?[]string) -> ()\n'
             'method Approve(project: string, name: string, branch: string, repository: ?string, commit: ?string) -> ()\n'
       : 'method Follow(name: string, url: string) -> ()\n';
 
@@ -2895,6 +2896,11 @@ class World {
     forges = ForgeConnection(
       forgeTokens,
       entries: forgeEntries,
+      openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
+        final terminal = FakeTerminal(<String>[executable, ...arguments]);
+        terminals.add(terminal);
+        return terminal;
+      },
       forgeFor: (token, address) {
         forge.tokensTried.add(token);
         // Each token its own forge, as GitHub(token) is: a dialog that kept the old one is caught.
@@ -3555,7 +3561,6 @@ class _ForgeWithToken implements Forge {
   Future<bool> hasProjectFile(ForgeRepository repository) => _forge.hasProjectFile(repository);
   @override
   Future<ForgeRepository> repository(String fullName) => _forge.repository(fullName);
-  @override
   Future<List<ForgeDeployKey>> deployKeys(String repository) => _forge.deployKeys(repository);
   @override
   Future<List<String>> branches(String repository) => _forge.branches(repository);
@@ -3563,16 +3568,13 @@ class _ForgeWithToken implements Forge {
   Future<List<String>> hostKeyFingerprints() => _forge.hostKeyFingerprints();
   @override
   Future<List<ForgeSigningKey>> signingKeys(String login) => _forge.signingKeys(login);
-  @override
   Future<String?> whyNoKeys(String repository) => _forge.whyNoKeys(repository);
-  @override
   Future<ForgeDeployKey> addDeployKey(
     String repository, {
     required String title,
     required String key,
     required bool readOnly,
   }) => _forge._addDeployKey(repository, title: title, key: key, readOnly: readOnly, token: _token);
-  @override
   Future<void> removeDeployKey(String repository, int id) => _forge.removeDeployKey(repository, id);
 }
 
@@ -3813,6 +3815,8 @@ class FakeForge implements Forge {
   );
 
   /// Deploy keys by repository, as the forge holds them.
+  final List<String> keyCalls = <String>[];
+
   final Map<String, List<ForgeDeployKey>> keysOf = <String, List<ForgeDeployKey>>{};
   int _nextKey = 100;
 
@@ -3838,23 +3842,22 @@ class FakeForge implements Forge {
   @override
   Future<List<ForgeSigningKey>> signingKeys(String login) async => signing;
 
-  @override
-  Future<List<ForgeDeployKey>> deployKeys(String repository) async =>
-      List<ForgeDeployKey>.of(keysOf[repository] ?? const <ForgeDeployKey>[]);
+  Future<List<ForgeDeployKey>> deployKeys(String repository) async {
+    keyCalls.add('list $repository');
+    return List<ForgeDeployKey>.of(keysOf[repository] ?? const <ForgeDeployKey>[]);
+  }
 
   /// The repositories the token may not manage the keys of, though the account may.
   final Set<String> tokenMayNotManageKeysOf = <String>{};
 
-  @override
-  Future<String?> whyNoKeys(String repository) async => tokenMayNotManageKeysOf.contains(repository)
-      ? 'GitHub refused it: the token lacks a right this needs, or a limit was reached. '
-            '(Resource not accessible by personal access token)'
-      : null;
+  Future<String?> whyNoKeys(String repository) async {
+    keyCalls.add('check $repository');
+    return tokenMayNotManageKeysOf.contains(repository) ? 'Resource not accessible by personal access token' : null;
+  }
 
   /// The one token that may add deploy keys, where only one may: the token in use is the last tried.
   String? keysOnlyWith;
 
-  @override
   Future<ForgeDeployKey> addDeployKey(
     String repository, {
     required String title,
@@ -3871,6 +3874,7 @@ class FakeForge implements Forge {
     required bool readOnly,
     required String? token,
   }) async {
+    keyCalls.add('add $repository');
     if (refusesAddingAt.contains(repository)) {
       throw ForgeRefused('GitHub refused a deploy key at $repository: the key is already in use', status: 422);
     }
@@ -3886,8 +3890,8 @@ class FakeForge implements Forge {
     return made;
   }
 
-  @override
   Future<void> removeDeployKey(String repository, int id) async {
+    keyCalls.add('remove $repository');
     if (refusesRemovingAt.contains(repository)) {
       throw const ForgeRefused('GitHub refused it: Resource not accessible by personal access token', status: 403);
     }

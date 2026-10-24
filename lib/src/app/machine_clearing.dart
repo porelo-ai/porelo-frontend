@@ -9,8 +9,7 @@ import 'project_workspace.dart';
 import 'quiet_after_dispose.dart';
 
 /// Clearing a machine, or one project on it, of everything Porelo put there and at the forge, in one
-/// step: the machine's `Clear` does what only it can; then each deploy key it names is removed at
-/// the forge with the person's sign-in, and its line taken out of each project's `machine-signers`
+/// step: the machine's `Clear` does what only it can; its line is taken out of each project's `machine-signers`
 /// in one signed commit. What was removed and what was left is said, thing by thing (walk 8:
 /// when the work is done, everything on the server can be cleared very simply).
 class MachineClearing extends ChangeNotifier with QuietAfterDispose {
@@ -20,7 +19,7 @@ class MachineClearing extends ChangeNotifier with QuietAfterDispose {
 
   final FleetBackend _machine;
 
-  /// The forge sign-in kept here, which removes keys and commits the signers' change.
+  /// The forge sign-in kept here, which commits the signers' change.
   final ForgeConnection forges;
 
   /// The machine, as the person calls it.
@@ -44,44 +43,47 @@ class MachineClearing extends ChangeNotifier with QuietAfterDispose {
   /// Whether something is under way.
   bool busy = false;
 
-  /// Asks the machine what clearing would remove, changing nothing.
+  List<Project> _projects = <Project>[];
+
+  /// Reads followed repositories and the daemon’s dry run before clearing.
   Future<void> look() => _doing(() async {
+    _projects = await _machine.projects();
     preview = await _machine.clear(project: project, dryRun: true);
   });
 
   /// Clears it: the machine's part, then the forge's. [force] clears unreviewed work and running
   /// tasks too, which a first call refuses.
   Future<void> clearIt({bool force = false}) => _doing(() async {
+    if (preview == null) _projects = await _machine.projects();
     final answer = await _machine.clear(project: project, force: force);
     cleared = answer;
     if (answer.refused) return;
-    final forge = forges.forge;
-    if (forge == null) {
-      for (final key in answer.keys) {
-        done.add('Left ${key.title}: no forge is signed in here to remove it with.');
-      }
-      return;
-    }
-    await removeAtTheForge(forge, answer.keys, done.add);
-    await _takeOutTheSigner(forge, answer);
+    await _takeOutTheSigner(answer);
   });
 
-  /// Takes the machine's line out of `machine-signers` in each project's own repository: the one
-  /// its read-only key is for.
-  Future<void> _takeOutTheSigner(Forge forge, Cleared answer) async {
+  /// Takes the machine's line out of each followed project's machine-signers.
+  Future<void> _takeOutTheSigner(Cleared answer) async {
     if (answer.signer.trim().isEmpty) return;
     final own = <String>{
+      for (final each in _projects)
+        if (project == null || each.name == project)
+          if (each.following != null) each.following!.url,
       for (final key in answer.keys)
-        if (!key.writeAccess) ?onGitHub(key.upstream),
+        if (!key.writeAccess) key.upstream,
     };
-    for (final fullName in own) {
+    for (final url in own) {
+      final fullName = fullNameOf(url);
+      if (fullName == null) continue;
       try {
-        final repository = await forge.repository(fullName);
-        final workspace = forges.workspace(repository);
-        if (workspace == null) {
+        final entry = forges.holding(url);
+        final reached = entry == null ? null : await forges.reach(entry);
+        if (reached == null) {
           done.add('Left $machineName’s line in $fullName’s machine-signers: no token here reaches it.');
           continue;
         }
+        final forge = reached.forge;
+        final repository = await forge.repository(fullName);
+        final workspace = forges.workspaceWith(repository, reached.token);
         await workspace.open();
         final text = await workspace.readFile('machine-signers');
         final kept = text == null ? null : withoutSigner(text, answer.signer, machineName);
@@ -90,7 +92,7 @@ class MachineClearing extends ChangeNotifier with QuietAfterDispose {
           continue;
         }
         final held = await workspace.signingKeys();
-        final login = forges.account?.login ?? '';
+        final login = (await forge.whoAmI()).login;
         final person = orderSigningKeys(held, await signingKeysAt(forge, login)).chosen;
         if (person == null) {
           done.add('Left $machineName’s line in $fullName’s machine-signers: choose your signing key first.');

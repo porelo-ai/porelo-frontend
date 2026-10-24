@@ -6,7 +6,7 @@ import '../support/world.dart';
 Future<void> theMachineFollowedPinnedToThePersonsKey(WidgetTester tester, String project) async {
   final followed = World.backend.follows.last;
   expect(followed.name, project);
-  expect(followed.url, 'git@github.com:acme/api.git');
+  expect(followed.url, 'https://github.com/acme/api.git');
   // The key without its comment: what follow --signed-by takes.
   expect(followed.signedBy, 'ssh-ed25519 AAAAperson');
   expect(followed.unverified, isFalse);

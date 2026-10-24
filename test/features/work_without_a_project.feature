@@ -34,23 +34,21 @@ Feature: Work on a repository without writing a project first
         Then the repository {'tools'} is chosen
         And nothing was put into default again
 
-    # Picked at a forge, the machine gets a key of its own there, as working on a project gives it.
-    Scenario: a repository picked at a forge beside the address fills it, and the machine gets its key there
+    # Harm: adding and removing a repository must not change access at its forge.
+    Scenario: a repository picked at a forge fills its https address without deploy keys
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         And the keychain here keeps the token {'ghp_accepted'} for the forge
         When I select the project {'default'}
         And I start work in this project
         And I pick {'acme/api'} at the forge for default
-        Then the address for default reads {'git@github.com:acme/api.git'}
+        Then the address for default reads {'https://github.com/acme/api.git'}
         When I start work on it from default
-        Then default holds {'api'} at {'git@github.com:acme/api.git'}
-        And the forge holds {'porelo vm default/api'} at {'acme/api'} once
+        Then default holds {'api'} at {'https://github.com/acme/api.git'}
+        And no deploy key calls were made
         When I put the start away
-        # Taken out again, from default's own menu, the key the machine forgot still opens the
-        # repository there until it is removed.
+        # Removing the repository leaves its forge access alone.
         When I choose the command {'Repositories worked on without a project'}
         And I take {'api'} out of default
-        And I remove its key at the forge too
         Then the forge holds no key titled {'porelo vm default/api'} at {'acme/api'}
 
     # Opened from its row, as a person new to Porelo opens it: what it is, and the way to its repositories.
@@ -63,7 +61,7 @@ Feature: Work on a repository without writing a project first
 
     # A followed project that names the repository takes it over for new tasks.
     Scenario: a repository a followed project names too is offered to be taken out of default
-        Given default holds {'api'} at {'git@github.com:acme/api.git'}, named by {'payments'} too
+        Given default holds {'api'} at {'https://github.com/acme/api.git'}, named by {'payments'} too
         When I select the project {'default'}
         And I choose the command {'Repositories worked on without a project'}
         Then it says {'payments names it too: its next task starts there'}

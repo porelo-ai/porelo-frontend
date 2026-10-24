@@ -5,8 +5,8 @@ import 'secret_store_windows.dart';
 
 /// A provider's key, kept by the system's own store and nowhere else.
 ///
-/// **Never a file, a log or a command line**: the value goes from standard input or the
-/// interface's field into the store, and from the store into the provider's request.
+/// **Never a file, a log or a command line**: the value goes from the terminal prompt
+/// into the store, and from the store into the provider's request.
 abstract interface class SecretStore {
   /// The value kept under [name], or null when none is.
   Future<String?> read(String name);
@@ -41,4 +41,19 @@ class SecretStoreFailed implements Exception {
 }
 
 /// The name a provider's key is kept under, the same for the interface and the command.
-String providerKeyName(String provider) => 'porelo-host/$provider';
+String providerKeyName(String provider) {
+  if (provider == 'scaleway') return 'porelo-host/scaleway';
+  return 'porelo-forge-token:${forgeAddress(provider)}';
+}
+
+/// A plain DNS host name, normalized for the store and passed as one terminal argument.
+String forgeAddress(String address) {
+  final host = address.toLowerCase();
+  final label = RegExp(r'^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$');
+  if (host.length > 253 ||
+      !host.contains('.') ||
+      !host.split('.').every((part) => label.firstMatch(part)?.group(0) == part)) {
+    throw const FormatException('Use a plain forge host name, such as github.com.');
+  }
+  return host;
+}

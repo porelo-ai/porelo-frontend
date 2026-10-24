@@ -16,7 +16,7 @@ Future<void> showProjectForge(BuildContext context, MachineBinding binding) asyn
   binding.dispose();
 }
 
-/// A project's keys at its forge, the machines it trusts, the changes waiting at a machine's gate,
+/// The machines a project trusts, the changes waiting at a machine's gate,
 /// and stopping work on it there: **the tools for later**, reached from the project and never in
 /// the way of setting it up.
 class ProjectForgeDialog extends StatefulWidget {
@@ -113,36 +113,12 @@ class _ProjectForgeDialogState extends State<ProjectForgeDialog> {
                 _section(
                   context,
                   buttonKey: const Key('binding-survey'),
-                  button: 'Machines that have keys to it',
+                  button: 'Machines whose messages it trusts',
                   explain:
-                      'Every machine that was given a key to the project’s repositories at $forge, '
-                      'and every machine whose messages the project trusts (machine-signers). Remove one '
-                      'that is gone or should no longer reach the project, even if it cannot be reached.',
+                      'Every machine whose messages the project trusts (machine-signers). Remove one '
+                      'that is gone or should no longer sign messages for the project.',
                   onPressed: binding.busy ? null : () => unawaited(binding.survey()),
                 ),
-                if (binding.keys case final found?) ...<Widget>[
-                  Text('Keys at $forge', style: text.titleSmall),
-                  if (found.isEmpty) const Text('None.', key: Key('binding-no-keys')),
-                  for (final each in found)
-                    Row(
-                      key: ValueKey<String>('forge-key ${each.repository} ${each.key.title}'),
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            '${each.key.title} at ${each.repository}, '
-                            '${each.key.readOnly ? 'read-only' : 'with write access'}',
-                          ),
-                        ),
-                        TextButton(
-                          key: ValueKey<String>('remove-forge-key ${each.repository} ${each.key.title}'),
-                          onPressed: binding.busy
-                              ? null
-                              : () => unawaited(binding.removeKey(each.repository, each.key)),
-                          child: const Text('Remove'),
-                        ),
-                      ],
-                    ),
-                ],
                 if (binding.signers case final signers?) ...<Widget>[
                   Text('Machines whose messages it trusts', style: text.titleSmall),
                   if (signers.isEmpty) const Text('None.', key: Key('binding-no-signers')),
@@ -173,8 +149,7 @@ class _ProjectForgeDialogState extends State<ProjectForgeDialog> {
                   button: 'Changes to the project waiting at $machine',
                   explain:
                       'A task on $machine may propose a change to the project, its project.yml say. '
-                      '$machine may only read the project, so the change waits there until you read it '
-                      'here and take it, signed with your key.',
+                      'Read the proposed change here and take it, signed with your key.',
                   onPressed: binding.busy ? null : () => unawaited(binding.loadChanges()),
                 ),
                 if (binding.changes case final changes?) ...<Widget>[
@@ -212,8 +187,8 @@ class _ProjectForgeDialogState extends State<ProjectForgeDialog> {
                   buttonKey: const Key('binding-remove'),
                   button: 'Stop working on it on $machine',
                   explain:
-                      '$machine stops following the project, its keys are removed at $forge, and it '
-                      'is taken out of the machines whose messages the project trusts.',
+                      '$machine stops following the project and is taken out of the machines whose messages '
+                      'the project trusts. Its vault token stays on the machine.',
                   onPressed: binding.busy || key == null ? null : () => unawaited(binding.remove(key)),
                 ),
               ],

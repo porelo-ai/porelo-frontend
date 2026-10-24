@@ -2,7 +2,7 @@
   "title": "Walk 11: a file handed to the work, and the build of its push",
   "steps": [
     {
-      "say": "Walk 11: eine Datei an die Arbeit geben und zurücknehmen, und was der Build ihres Pushs sagt, mit dem echten Claude Code auf testmaschine. Zuerst den Tresor von testmaschine öffnen (er ist seit dem Neustart der VM zu), in einem Terminal auf dem Desktop:\n\nssh <Konto>@<Adresse der Testmaschine> 'bash -lc \"porelo vault unlock && porelo vault list && porelo project following\"'\n\n„vault list“ nennt porelo-test-actions und die drei deploy:porelo-test-project:…; „project following“ zeigt c42f9cd, nicht mehr vault_locked. Dann „Next“ hier.",
+      "say": "Walk 11: hand a file to work, take it back, and read the build result for its push using Claude Code on testmaschine. Open its vault in a terminal if necessary, then run porelo vault list and porelo project following there. The vault lists porelo-test-actions and git.token.github.com; the project is followed and its vault is readable. Choose Next here.",
       "at": []
     },
     {

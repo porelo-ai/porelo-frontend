@@ -26,11 +26,10 @@ import './step/the_keychain_here_keeps_the_token_for_the_forge.dart';
 import './step/i_pick_at_the_forge_for_default.dart';
 import './step/the_address_for_default_reads.dart';
 import './step/i_start_work_on_it_from_default.dart';
-import './step/the_forge_holds_at_once.dart';
+import './step/no_deploy_key_calls_were_made.dart';
 import './step/i_put_the_start_away.dart';
 import './step/i_choose_the_command.dart';
 import './step/i_take_out_of_default.dart';
-import './step/i_remove_its_key_at_the_forge_too.dart';
 import './step/the_forge_holds_no_key_titled_at.dart';
 import './step/the_project_header_does_not_say.dart';
 import './step/the_project_header_says.dart';
@@ -82,23 +81,20 @@ void main() {
       await theRepositoryIsChosen(tester, 'tools');
       await nothingWasPutIntoDefaultAgain(tester);
     });
-    testWidgets('''a repository picked at a forge beside the address fills it, and the machine gets its key there''', (
-      tester,
-    ) async {
+    testWidgets('''a repository picked at a forge fills its https address without deploy keys''', (tester) async {
       await bddSetUp(tester);
       await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
       await theKeychainHereKeepsTheTokenForTheForge(tester, 'ghp_accepted');
       await iSelectTheProject(tester, 'default');
       await iStartWorkInThisProject(tester);
       await iPickAtTheForgeForDefault(tester, 'acme/api');
-      await theAddressForDefaultReads(tester, 'git@github.com:acme/api.git');
+      await theAddressForDefaultReads(tester, 'https://github.com/acme/api.git');
       await iStartWorkOnItFromDefault(tester);
-      await defaultHoldsAt(tester, 'api', 'git@github.com:acme/api.git');
-      await theForgeHoldsAtOnce(tester, 'porelo vm default/api', 'acme/api');
+      await defaultHoldsAt(tester, 'api', 'https://github.com/acme/api.git');
+      await noDeployKeyCallsWereMade(tester);
       await iPutTheStartAway(tester);
       await iChooseTheCommand(tester, 'Repositories worked on without a project');
       await iTakeOutOfDefault(tester, 'api');
-      await iRemoveItsKeyAtTheForgeToo(tester);
       await theForgeHoldsNoKeyTitledAt(tester, 'porelo vm default/api', 'acme/api');
     });
     testWidgets('''default opened from its row says what it is and offers its repositories, and nothing it lacks''', (
@@ -113,7 +109,7 @@ void main() {
     });
     testWidgets('''a repository a followed project names too is offered to be taken out of default''', (tester) async {
       await bddSetUp(tester);
-      await defaultHoldsAtNamedByToo(tester, 'api', 'git@github.com:acme/api.git', 'payments');
+      await defaultHoldsAtNamedByToo(tester, 'api', 'https://github.com/acme/api.git', 'payments');
       await iSelectTheProject(tester, 'default');
       await iChooseTheCommand(tester, 'Repositories worked on without a project');
       await itSays(tester, 'payments names it too: its next task starts there');

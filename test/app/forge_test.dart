@@ -6,7 +6,7 @@ import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
 
 void main() {
-  late List<({String method, Uri uri, Map<String, String> headers})> asked;
+  late List<({String method, Uri uri, Map<String, String> headers, String? body})> asked;
   late Map<String, ForgeReply> answers;
 
   ForgeReply reply(int status, Object body, {Map<String, String> headers = const <String, String>{}}) =>
@@ -15,7 +15,7 @@ void main() {
   GitHub github() => GitHub(
     'ghp_secret-token',
     http: (method, uri, headers, body) async {
-      asked.add((method: method, uri: uri, headers: headers));
+      asked.add((method: method, uri: uri, headers: headers, body: body));
       return answers['$method ${uri.path}${uri.query.isEmpty ? '' : '?${uri.query}'}'] ??
           answers['$method ${uri.path}'] ??
           reply(404, <String, String>{'message': 'Not Found'});
@@ -32,7 +32,7 @@ void main() {
   };
 
   setUp(() {
-    asked = <({String method, Uri uri, Map<String, String> headers})>[];
+    asked = <({String method, Uri uri, Map<String, String> headers, String? body})>[];
     answers = <String, ForgeReply>{};
   });
 
@@ -66,41 +66,18 @@ void main() {
     expect(await github().branches('acme/api'), <String>['main', 'fix-rounding']);
   });
 
-  test(
-    'a token without the right to manage deploy keys is told which right, for which repository, and where',
-    () async {
-      answers['GET /repos/acme/api/keys'] = reply(403, <String, String>{
-        'message': 'Resource not accessible by personal access token',
-      });
-      await expectLater(
-        github().deployKeys('acme/api'),
-        throwsA(
-          isA<ForgeRefused>().having(
-            (each) => each.words,
-            'words',
-            allOf(contains('Administration: Read and write for acme/api'), contains('Repository permissions')),
-          ),
-        ),
-      );
-    },
-  );
-
-  test("deploy keys an organisation switched off are said as its setting, and where it is", () async {
-    answers['POST /repos/acme/api/keys'] = reply(422, <String, String>{
-      'message': 'Deploy keys are disabled for this repository. Please contact an organization owner.',
-    });
-    await expectLater(
-      github().addDeployKey('acme/api', title: 't', key: 'ssh-ed25519 AAAA', readOnly: true),
-      throwsA(isA<ForgeRefused>().having((each) => each.words, 'words', contains('Member privileges → Deploy keys'))),
-    );
-  });
-
+  // Harm: a token outside Authorization can leak through addresses, logs or payloads.
   test('the token goes in a header, never in the address', () async {
     answers['GET /user'] = reply(200, <String, String>{'login': 'alice'});
 
     expect((await github().whoAmI()).login, 'alice');
     expect(asked.single.headers['Authorization'], 'Bearer ghp_secret-token');
     expect(asked.single.uri.toString(), isNot(contains('ghp_secret-token')));
+    expect(asked.single.body, isNull, reason: 'no token belongs in a request payload');
+    expect(
+      asked.single.headers.entries.where((each) => each.key != 'Authorization').map((each) => each.value).join(),
+      isNot(contains('ghp_secret-token')),
+    );
   });
 
   test('every page of repositories is read, with whether the person is an admin and may push', () async {
@@ -162,59 +139,6 @@ void main() {
             ),
       ),
     );
-  });
-
-  // The account's rights are what the listing says; the token's are found out by asking for what
-  // adding a key needs.
-  test('whether the token may manage a repository’s keys is asked, and a refusal is a no, not a failure', () async {
-    answers['GET /repos/acme/api/keys'] = reply(200, <Object?>[]);
-    answers['GET /repos/acme/web/keys'] = reply(403, <String, String>{
-      'message': 'Resource not accessible by personal access token',
-    });
-    answers['GET /repos/acme/gone/keys'] = reply(404, <String, String>{'message': 'Not Found'});
-    answers['GET /repos/acme/down/keys'] = reply(500, <String, String>{'message': 'Server Error'});
-
-    expect(await github().whyNoKeys('acme/api'), isNull);
-    expect(await github().whyNoKeys('acme/web'), contains('Resource not accessible by personal access token'));
-    expect(await github().whyNoKeys('acme/gone'), startsWith('GitHub has nothing there this token can see.'));
-    await expectLater(github().whyNoKeys('acme/down'), throwsA(isA<ForgeRefused>()));
-  });
-
-  test('a machine’s key is added read-only or with write access, titled, and one already gone is no failure', () async {
-    answers['POST /repos/acme/api/keys'] = reply(201, <String, Object>{
-      'id': 7,
-      'title': 'porelo vm acme/api',
-      'key': 'ssh-ed25519 AAAA',
-      'read_only': true,
-    });
-    late String sent;
-    final forge = GitHub(
-      'ghp_secret-token',
-      http: (method, uri, headers, body) async {
-        asked.add((method: method, uri: uri, headers: headers));
-        if (method == 'POST') sent = body!;
-        return answers['$method ${uri.path}'] ?? reply(404, <String, String>{'message': 'Not Found'});
-      },
-    );
-
-    final made = await forge.addDeployKey(
-      'acme/api',
-      title: 'porelo vm acme/api',
-      key: 'ssh-ed25519 AAAA',
-      readOnly: true,
-    );
-    expect(made.id, 7);
-    expect(made.isPorelos, isTrue);
-    expect(jsonDecode(sent), <String, Object>{
-      'title': 'porelo vm acme/api',
-      'key': 'ssh-ed25519 AAAA',
-      'read_only': true,
-    });
-    expect(asked.last.headers['Content-Type'], 'application/json');
-
-    await forge.removeDeployKey('acme/api', 7);
-    expect(asked.last.method, 'DELETE');
-    expect(asked.last.uri.path, '/repos/acme/api/keys/7');
   });
 
   // A project's repository says which forge set up here holds it, by its host, however git writes it.
@@ -280,24 +204,16 @@ void main() {
       'ghp_secret-token',
       api: GitHub.apiOf('git.example.org'),
       http: (method, uri, headers, body) async {
-        asked.add((method: method, uri: uri, headers: headers));
+        asked.add((method: method, uri: uri, headers: headers, body: body));
         return reply(200, method == 'GET' && uri.path.endsWith('/user') ? <String, String>{'login': 'a'} : <Object>[]);
       },
     );
     await enterprise.whoAmI();
     await enterprise.repositories();
     await enterprise.branches('team/app');
-    await enterprise.deployKeys('team/app');
-    await enterprise.removeDeployKey('team/app', 7);
     expect(
       [for (final each in asked) each.uri.path],
-      <String>[
-        '/api/v3/user',
-        '/api/v3/user/repos',
-        '/api/v3/repos/team/app/branches',
-        '/api/v3/repos/team/app/keys',
-        '/api/v3/repos/team/app/keys/7',
-      ],
+      <String>['/api/v3/user', '/api/v3/user/repos', '/api/v3/repos/team/app/branches'],
     );
     expect({for (final each in asked) each.uri.host}, <String>{'git.example.org'});
   });
