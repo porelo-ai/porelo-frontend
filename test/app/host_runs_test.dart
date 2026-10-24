@@ -169,6 +169,130 @@ void main() {
     expect((resolved.row.value as HostStop).text, 'Sign in to the drive');
   });
 
+  // Harm: completion after restart erases the host's public VPN key and strands the ready host without VPN export.
+  test('a stopped preparation keeps its public host key when restored and completed without a tunnel object', () async {
+    final publicKey = base64Encode(List<int>.filled(32, 9));
+    final record = _record.withTunnel(hostPublicKey: publicKey, address: '');
+    final stopped = HostProcess();
+    final run = runs.start(
+      project: 'demo',
+      record: record,
+      settings: settings,
+      session: HostSession(
+        executable: 'fake',
+        arguments: hostArguments(record, 'demo'),
+        start: (_, _) async => stopped,
+      ),
+    );
+    stopped.line(const Step('person', StepState.waiting, needs: ['drive']));
+    stopped.end(75);
+    await run.finished;
+    final reopened = Settings(store);
+    await reopened.load();
+    final fleet = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: _Tunnels());
+    final process = HostProcess();
+    final restored = _RestoredHostRuns(fleet, process);
+    addTearDown(() {
+      restored.dispose();
+      fleet.dispose();
+      reopened.dispose();
+    });
+    final resumed = restored.resume(restored.of('demo')!);
+    process.line(_done);
+    process.end(0);
+    await resumed;
+    final readBack = Settings(store);
+    await readBack.load();
+    expect(
+      readBack.hostUp('demo')!.vpnHostPublicKey,
+      publicKey,
+      reason: 'restoring must not discard the public host key',
+    );
+    expect(restored.preparing, isEmpty);
+    readBack.dispose();
+  });
+
+  // Harm: a refused setup cannot be corrected, or its replacement recovers another server after restart.
+  test('a refused preparation can be replaced with corrected persisted arguments', () async {
+    final refused = HostProcess();
+    final first = runs.start(
+      project: 'demo',
+      record: _record,
+      settings: settings,
+      session: HostSession(
+        executable: 'fake',
+        arguments: hostArguments(_record, 'demo'),
+        start: (_, _) async => refused,
+      ),
+    );
+    refused.line(const Step('rent', StepState.refused));
+    refused.end(65);
+    await first.finished;
+    final corrected = HostUpRecord.fromStored({
+      ..._record.stored,
+      'scalewayProject': 'corrected-provider',
+      'account': 'corrected-account',
+    })!;
+    final process = HostProcess();
+    final commands = <List<String>>[];
+    final replacement = runs.start(
+      project: 'demo',
+      record: corrected,
+      settings: settings,
+      session: HostSession(
+        executable: 'fake',
+        arguments: hostArguments(corrected, 'demo'),
+        start: (_, args) async {
+          commands.add(List.of(args));
+          return process;
+        },
+      ),
+    );
+    process.line(const Step('person', StepState.waiting, needs: ['drive']));
+    process.end(75);
+    await replacement.finished;
+    expect(commands, [
+      ['up', ...hostArguments(corrected, 'demo')],
+    ]);
+    final readBack = Settings(store);
+    await readBack.load();
+    expect(hostArguments(readBack.hostUp('demo')!, 'demo'), hostArguments(corrected, 'demo'));
+    readBack.dispose();
+  });
+
+  for (final waiting in [false, true]) {
+    // Harm: replacing active or stopped setup can rent twice or lose the server waiting for the person.
+    test('start refuses replacing a ${waiting ? 'waiting' : 'running'} preparation', () async {
+      final process = HostProcess();
+      final first = runs.start(
+        project: 'demo',
+        record: _record,
+        session: HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process),
+      );
+      final second = HostSession(executable: 'fake', arguments: const []);
+      addTearDown(second.dispose);
+      if (!waiting) {
+        expect(
+          () => runs.start(project: 'demo', session: second, record: _record),
+          throwsStateError,
+          reason: 'the attempt owns the project while its recovery record is being persisted',
+        );
+      }
+      await Future<void>.delayed(Duration.zero);
+      if (waiting) {
+        process.line(const Step('person', StepState.waiting, needs: ['drive']));
+        process.end(75);
+        await first.finished;
+      }
+      expect(() => runs.start(project: 'demo', session: second, record: _record), throwsStateError);
+      expect(runs.of('demo'), same(first));
+      if (!waiting) {
+        process.end(65);
+        await first.finished;
+      }
+    });
+  }
+
   // Harm: positional estimates hide remaining setup after conditional steps are skipped.
   test('remaining time matches task names and includes optional steps until passed', () async {
     var now = DateTime.utc(2000);
@@ -205,4 +329,12 @@ class _Tunnels extends Tunnels {
   Future<bool> raiseFor(Machine machine) async => true;
   @override
   Future<void> dropFor(Machine machine) async {}
+}
+
+class _RestoredHostRuns extends HostRuns {
+  _RestoredHostRuns(super.machines, this.process) : super(endpointFor: (_) => '/restored.sock');
+  final HostProcess process;
+  @override
+  HostSession sessionFor(String project, HostUpRecord record) =>
+      HostSession(executable: 'fake', arguments: hostArguments(record, project), start: (_, _) async => process);
 }

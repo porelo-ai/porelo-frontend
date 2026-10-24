@@ -321,7 +321,12 @@ class _ShellState extends State<Shell> {
     final waiting = widget.machines.all
         .map((machine) => widget.machines.of(machine).clearance.count)
         .fold<int>(0, (all, some) => all + some);
-    final agreed = await confirmQuit(context, running: running, waiting: waiting);
+    final agreed = await confirmQuit(
+      context,
+      running: running,
+      waiting: waiting,
+      preparing: _hostRuns.preparing.map((run) => run.project).toList(),
+    );
     if (!agreed) return AppExitResponse.cancel;
     // Only what this interface raised is taken down; nothing somebody else raised is in there.
     await widget.machines.letGoOfTheTunnels();
@@ -348,7 +353,23 @@ class _ShellState extends State<Shell> {
     viewActions: _viewActions(),
     fleet: _fleet,
     machine: widget.machines.current,
-    hostActions: _hostCommands(widget.machines.current),
+    hostActions: [
+      ..._hostCommands(widget.machines.current),
+      for (final run in _hostRuns.preparing)
+        ...hostRecoveryCommands(
+          run: run,
+          goOn: () => unawaited(_hostRuns.resume(run)),
+          takeDown: () => unawaited(
+            openHostTakeDownDialog(
+              context,
+              project: run.project,
+              machines: widget.machines,
+              settings: widget.settings,
+              hostRuns: _hostRuns,
+            ),
+          ),
+        ),
+    ],
     canForget: widget.machines.all.length > 1,
     shell: widget.shell,
     settings: widget.settings,
@@ -532,6 +553,7 @@ class _ShellState extends State<Shell> {
       project: machine.hostProject,
       machines: widget.machines,
       settings: widget.settings,
+      hostRuns: _hostRuns,
     );
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
   }
@@ -667,7 +689,7 @@ class _ShellState extends State<Shell> {
     final project = _fleet.selectedProject;
     if (project == null) return;
     final existing = _hostRuns.of(project.name);
-    if (existing != null && !existing.ready) {
+    if (existing != null && !existing.ready && !existing.givenBack && (existing.running || existing.waiting)) {
       await _openHostRun(existing);
       return;
     }

@@ -290,7 +290,7 @@ void main() {
     await World.settle(tester);
   });
 
-  // Harm: losing the last setup answers makes a rented server impossible to recover or take down.
+  // Harm: losing setup answers or the prepared public VPN key strands a rented server after restart.
   hostWidgets('up keeps its arguments before answering and reopening restores every editable step', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -310,6 +310,8 @@ void main() {
     };
     final process = _HostProcess();
     final commands = <List<String>>[];
+    String? hostKeyAtStart;
+    String? preparedHostKey;
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
@@ -327,6 +329,8 @@ void main() {
               arguments.skip(1).toList(),
               reason: 'the record must be durable before starting a billing host',
             );
+            hostKeyAtStart = persisted.hostUp('demo')!.vpnHostPublicKey;
+            preparedHostKey = runs.of('demo')!.tunnel!.hostPublicKey;
             commands.add(List.of(arguments));
             return process;
           },
@@ -336,6 +340,8 @@ void main() {
     await fillSteps(tester, answers);
     await tapAndRun(tester, const Key('host-up'));
     expect(commands, hasLength(1));
+    expect(hostKeyAtStart, isNotEmpty, reason: 'the public host key must survive closing before setup completes');
+    expect(hostKeyAtStart, preparedHostKey);
     process.end(65);
     await World.settle(tester);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -358,6 +364,82 @@ void main() {
       onDrive: () async => expect(find.text(scratch.path), findsOneWidget),
     );
     expect(seen, answers.keys.toSet());
+  });
+
+  // Harm: an ended refusal traps a rented or attempted host behind immutable arguments that cannot be corrected.
+  hostWidgets('a refused setup wizard starts a replacement with changed provider and account', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = machines.settings;
+    final record = HostUpRecord(
+      scalewayProject: 'mistyped-provider',
+      account: 'worker',
+      tresor: 'drive',
+      folder: null,
+      signingKey: '',
+      identity: fixture('private'),
+      publicKey: fixture('public.pub'),
+      collection: fixture('collection.tar.gz'),
+      collectionSha256: collectionDigest,
+      vpnPeerPublicKey: '',
+      vpnPeerAddress: '',
+    );
+    final refused = _HostProcess();
+    final first = runs.start(
+      project: 'demo',
+      record: record,
+      settings: settings,
+      session: HostSession(
+        executable: 'fake',
+        arguments: hostArguments(record, 'demo'),
+        start: (_, _) async => refused,
+      ),
+    );
+    refused.line(const host.Step('rent', host.StepState.refused));
+    refused.end(65);
+    await World.settle(tester);
+    await first.finished;
+    final commands = <List<String>>[];
+    final process = _HostProcess();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          hostFiles: filesFor,
+          hostRuns: runs,
+          project: 'demo',
+          machines: machines,
+          settings: settings,
+          secretStore: _MemorySecrets(),
+          start: (_, args) async {
+            commands.add(List.of(args));
+            return process;
+          },
+        ),
+      ),
+    );
+    await fillSteps(
+      tester,
+      {
+        'host-scaleway-project': 'corrected-provider',
+        'host-account': 'corrected-account',
+        'host-tresor': 'drive',
+        'host-identity': fixture('private'),
+        'host-public-key': fixture('public.pub'),
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+      },
+      beforeFill: (field, key) {
+        if (key == 'host-scaleway-project') expect(field.controller!.text, 'mistyped-provider');
+        if (key == 'host-account') expect(field.controller!.text, 'worker');
+      },
+    );
+    await tapAndRun(tester, const Key('host-up'));
+    expect(commands, hasLength(1), reason: 'corrected answers must start a new attempt');
+    expect(commands.single, containsAllInOrder(['--account', 'corrected-account']));
+    expect(commands.single, containsAllInOrder(['--scaleway-project', 'corrected-provider']));
+    process.end(65);
+    await World.settle(tester);
   });
 
   for (final code in [65, 75, 0]) {

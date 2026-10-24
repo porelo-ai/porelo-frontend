@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
+import 'host_runs.dart';
 import 'desk.dart';
 import 'product.dart';
 import 'hand_in.dart';
@@ -1278,6 +1279,37 @@ Command hostPreparationCommand({required String project, required VoidCallback o
 /// Opens a preparing server's complete protocol and stop controls.
 Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
     Command(id: 'host.protocol', label: 'Open the host protocol', group: '$project server', home: home, run: open);
+
+/// Continues or gives back a retained server only after its previous command ended.
+List<Command> hostRecoveryCommands({
+  required HostPreparation run,
+  required VoidCallback goOn,
+  required VoidCallback takeDown,
+}) {
+  final unavailable = run.running
+      ? 'the host command is still running'
+      : run.ready || run.givenBack
+      ? 'preparation has ended'
+      : null;
+  return [
+    Command(
+      id: 'host.goOn',
+      label: 'Go on',
+      group: run.name,
+      home: Home.machineRow,
+      run: goOn,
+      unavailable: unavailable,
+    ),
+    Command(
+      id: 'host.takeDown',
+      label: 'Take it down',
+      group: run.name,
+      home: Home.machineRow,
+      run: takeDown,
+      unavailable: unavailable,
+    ),
+  ];
+}
 
 /// Retries the same setup arguments only after the previous command has ended.
 Command retryHostPreparationCommand({required String project, required VoidCallback retry}) =>

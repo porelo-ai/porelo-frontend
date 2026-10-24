@@ -338,6 +338,9 @@ class Machines extends ChangeNotifier {
   }
 
   final Settings _settings;
+
+  /// The persisted interface choices shared with host preparation.
+  Settings get settings => _settings;
   final bool Function() _poreloHere;
 
   /// Whether this computer has a Porelo of its own to run. **Most people's has none**: the work runs

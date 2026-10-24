@@ -30,11 +30,22 @@ Future<void> openHostTakeDownDialog(
   required Machines machines,
   required Settings settings,
   StartHostCommand? start,
+  HostRuns? hostRuns,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
-  builder: (_) =>
-      HostDialog(project: project, machines: machines, settings: settings, start: start, takeDownOnly: true),
+  builder: (_) => HostDialog(
+    project: project,
+    machines: machines,
+    settings: settings,
+    start: start,
+    hostRuns: hostRuns,
+    existingRun: switch (hostRuns?.of(project)) {
+      final run? when !run.ready && !run.givenBack => run,
+      _ => null,
+    },
+    takeDownOnly: true,
+  ),
 );
 
 /// Puts [project] on a server, or takes it off again, by the `porelo-host` shipped beside this
@@ -332,6 +343,7 @@ class _HostDialogState extends State<HostDialog> {
     collectionSha256: widget.debug ? _collectionSha256.text.trim() : '',
     vpnPeerPublicKey: _tunnel?.peerPublicKey ?? '',
     vpnPeerAddress: _tunnel == null ? '' : '10.73.0.2/32',
+    vpnHostPublicKey: _tunnel?.hostPublicKey ?? '',
   );
 
   HostSession _newSession({HostUpRecord? record}) {
@@ -355,7 +367,8 @@ class _HostDialogState extends State<HostDialog> {
     return address.contains(':') ? '[$address]:51820' : '$address:51820';
   }
 
-  bool get _running => _preparing || _saving || _terminalOpen || _session?.state == HostRunState.running;
+  bool get _running =>
+      _preparing || _saving || _terminalOpen || _hostRun?.running == true || _session?.state == HostRunState.running;
 
   Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
@@ -461,7 +474,7 @@ class _HostDialogState extends State<HostDialog> {
           );
         });
         if (!mounted) return;
-        final record = _record();
+        final record = _record().withPreparation(DateTime.now().toUtc());
         await widget.settings?.rememberHostUp(widget.project, record);
         if (!mounted) return;
         _newSession(record: record);
@@ -473,7 +486,7 @@ class _HostDialogState extends State<HostDialog> {
         final run = owner.start(
           project: widget.project,
           session: _session!,
-          record: _record(),
+          record: widget.settings?.hostUp(widget.project) ?? _record(),
           tunnel: _tunnel,
           settings: widget.settings,
         );
@@ -554,6 +567,16 @@ class _HostDialogState extends State<HostDialog> {
       return;
     }
     if (session.state != HostRunState.done) return;
+    if (!hostGivenBack(session)) {
+      if (mounted) setState(() => _machineProblem = 'The server give-back was not confirmed. Recovery has been kept.');
+      return;
+    }
+    final owner = widget.hostRuns;
+    if (owner != null) {
+      await owner.confirmDown(widget.project, session);
+    } else if (kept != null) {
+      await widget.settings?.rememberHostUp(widget.project, kept.withPreparation(null));
+    }
     final address = session.releasedAddress;
     if (address == null || address.isEmpty) {
       if (mounted) setState(() => _machineProblem = 'No host was found. Your machines have been kept.');
@@ -836,10 +859,10 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.existingRun != null
-      ? _runDialog(context)
-      : widget.takeDownOnly
+  Widget build(BuildContext context) => widget.takeDownOnly
       ? _takeDownDialog(context)
+      : widget.existingRun != null
+      ? _runDialog(context)
       : Wizard(
           title: 'Put the project ${widget.project} on a server',
           reviewWords: 'A server for the project ${widget.project}. Check every answer before starting.',
@@ -882,7 +905,7 @@ class _HostDialogState extends State<HostDialog> {
     ),
     actions: [
       TextButton(key: const Key('host-close'), onPressed: () => Navigator.pop(context), child: const Text('Close')),
-      if (_hostRun case final run? when !run.ready && run.session.state != HostRunState.running && !run.waiting)
+      if (_hostRun case final run? when !run.ready && !run.givenBack && !run.running && !run.waiting)
         Builder(
           builder: (_) {
             final command = retryHostPreparationCommand(
@@ -896,7 +919,7 @@ class _HostDialogState extends State<HostDialog> {
   );
 
   Widget _takeDownDialog(BuildContext context, {bool confirmationOnly = false}) {
-    final started = !confirmationOnly && _session != null;
+    final started = !confirmationOnly && _takingDown && _session != null;
     final colors = Theme.of(context).colorScheme;
     return PopScope(
       canPop: !_running,
@@ -958,6 +981,8 @@ class _HostDialogState extends State<HostDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (session != null) ...<Widget>[
+          if (_hostRun?.interrupted == true && _hostRun?.givenBack != true)
+            const Text('Interrupted when the interface closed; the server is still rented'),
           for (final record in session.history) _stepRow(record),
           if (session.state == HostRunState.running)
             if (session.timeLeftText case final text?) Text(text),
@@ -980,7 +1005,9 @@ class _HostDialogState extends State<HostDialog> {
             Padding(
               padding: const EdgeInsets.only(top: Space.small),
               child: Text(
-                _hostRun?.ready == true ? 'Ready: ${widget.project} server is in your machines' : 'Done.',
+                !_takingDown && _hostRun?.ready == true
+                    ? 'Ready: ${widget.project} server is in your machines'
+                    : 'Done.',
                 key: const Key('host-done'),
               ),
             ),

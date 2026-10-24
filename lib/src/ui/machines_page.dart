@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/host_runs.dart';
-import '../app/host_session.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import '../app/commands.dart';
 import 'command_menu.dart';
+import 'host_dialog.dart';
 import 'machine_switcher.dart';
 import 'tokens.dart';
 
@@ -75,7 +75,23 @@ class MachinesPage extends StatelessWidget {
         Text('Where work runs. Its projects are under Projects, and its work under Work.', style: text.bodySmall),
         const SizedBox(height: Space.normal),
         for (final run in hostRuns?.preparing ?? <HostPreparation>[])
-          _HostPreparationRow(run: run, open: onHostProtocol == null ? null : () => onHostProtocol!(run)),
+          _HostPreparationRow(
+            run: run,
+            open: onHostProtocol == null ? null : () => onHostProtocol!(run),
+            actions: hostRecoveryCommands(
+              run: run,
+              goOn: () => unawaited(hostRuns!.resume(run)),
+              takeDown: () => unawaited(
+                openHostTakeDownDialog(
+                  context,
+                  project: run.project,
+                  machines: machines,
+                  settings: machines.settings,
+                  hostRuns: hostRuns,
+                ),
+              ),
+            ),
+          ),
         for (final machine in machines.all)
           if (!(hostRuns?.preparing.any((run) => run.name == machine.name) ?? false)) _row(context, machine),
       ],
@@ -159,8 +175,9 @@ class MachinesPage extends StatelessWidget {
 }
 
 class _HostPreparationRow extends StatefulWidget {
-  const _HostPreparationRow({required this.run, this.open});
+  const _HostPreparationRow({required this.run, required this.actions, this.open});
   final HostPreparation run;
+  final List<Command> actions;
   final VoidCallback? open;
 
   @override
@@ -182,7 +199,7 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
   Widget build(BuildContext context) {
     final run = widget.run;
     final session = run.session;
-    final running = session.state == HostRunState.running;
+    final running = run.running;
     if (running) {
       _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() {});
@@ -204,6 +221,7 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('In preparation'),
+            if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
             if (session.stepText.isNotEmpty) Text(session.stepText),
             if (running) ...[
               if (session.timeLeftText case final text?) Text(text),
@@ -215,6 +233,23 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
             if (run.waiting) const Text('Needs you'),
             if (run.problem ?? session.fix case final fix?) Text(fix),
             if (command.unavailable case final reason?) Text(reason),
+            Wrap(
+              spacing: Space.small,
+              runSpacing: Space.tight,
+              children: [
+                for (final action in widget.actions)
+                  Tooltip(
+                    message: action.unavailable ?? action.label,
+                    child: TextButton(
+                      key: ValueKey('${action.id} ${run.project}'),
+                      onPressed: action.available ? action.run : null,
+                      child: Text(action.label),
+                    ),
+                  ),
+              ],
+            ),
+            for (final action in widget.actions)
+              if (action.unavailable case final reason?) Text('${action.label}: $reason'),
           ],
         ),
         trailing: const Icon(Icons.chevron_right),

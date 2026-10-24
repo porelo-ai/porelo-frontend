@@ -11,7 +11,14 @@ import 'settings.dart';
 /// One project's setup, retained independently of any dialog watching it.
 class HostPreparation {
   /// Keeps only the public setup record, its running command and public tunnel settings.
-  HostPreparation({required this.project, required this.session, required this.record, this.tunnel, this.settings});
+  HostPreparation({
+    required this.project,
+    required this.session,
+    required this.record,
+    this.tunnel,
+    this.settings,
+    this.interrupted = false,
+  });
 
   /// Project identity, never a path.
   final String project;
@@ -34,6 +41,17 @@ class HostPreparation {
   /// True only after exit zero and a validated destination were added to Machines.
   bool ready = false;
 
+  /// Whether the interface closed before setup could finish.
+  bool interrupted;
+
+  /// Whether the provider confirmed that the server was given back.
+  bool givenBack = false;
+
+  bool _upActive = false;
+
+  /// Whether setup owns an active attempt, including persistence and machine confirmation.
+  bool get running => _upActive || session.state == HostRunState.running;
+
   /// A local refusal, such as an unusable completion destination.
   String? problem;
 
@@ -47,7 +65,25 @@ class HostPreparation {
 /// Owns host setup just as Operations owns other long actions; views only observe it.
 class HostRuns extends ChangeNotifier {
   /// Adds successful runs through the ordinary Machines path.
-  HostRuns(this.machines, {String Function(String)? endpointFor}) : _endpointFor = endpointFor ?? Machine.endpointFor;
+  HostRuns(this.machines, {String Function(String)? endpointFor}) : _endpointFor = endpointFor ?? Machine.endpointFor {
+    for (final entry in machines.settings.hostUps.entries) {
+      if (!entry.value.preparing) continue;
+      final session = sessionFor(entry.key, entry.value);
+      final run = HostPreparation(
+        project: entry.key,
+        session: session,
+        record: entry.value,
+        settings: machines.settings,
+        interrupted: true,
+      );
+      _runs[entry.key] = run;
+      session.addListener(_changed);
+    }
+  }
+
+  /// Builds an idle command from the saved identity without starting a process.
+  HostSession sessionFor(String project, HostUpRecord record) =>
+      HostSession(executable: poreloHost(), arguments: hostArguments(record, project));
 
   final String Function(String) _endpointFor;
 
@@ -57,7 +93,7 @@ class HostRuns extends ChangeNotifier {
   bool _disposed = false;
 
   /// Every run still awaiting successful preparation, including refusals.
-  List<HostPreparation> get preparing => _runs.values.where((run) => !run.ready).toList();
+  List<HostPreparation> get preparing => _runs.values.where((run) => !run.ready && !run.givenBack).toList();
 
   /// The latest setup of a project, including its completed protocol.
   HostPreparation? of(String project) => _runs[project];
@@ -71,26 +107,43 @@ class HostRuns extends ChangeNotifier {
     Settings? settings,
   }) {
     final previous = _runs[project];
-    if (previous != null && !previous.ready) throw StateError('This project already has a host run.');
+    if (previous != null && (previous.running || previous.waiting)) {
+      throw StateError('This project already has a host run.');
+    }
     previous?.session.removeListener(_changed);
     previous?.session.dispose();
-    final run = HostPreparation(project: project, session: session, record: record, tunnel: tunnel, settings: settings);
+    final run = HostPreparation(
+      project: project,
+      session: session,
+      record: record.withPreparation(record.startedAt ?? DateTime.now().toUtc()),
+      tunnel: tunnel,
+      settings: settings ?? machines.settings,
+    );
     _runs[project] = run;
     session.addListener(_changed);
-    run.finished = _up(run);
+    run.finished = _up(run, newPreparation: true);
     _changed();
     return run;
   }
 
   /// Checks the stop again using exactly the arguments the original command ran with.
   Future<void> resume(HostPreparation run) {
-    if (_disposed || run.ready || run.session.state == HostRunState.running) return run.finished;
+    if (_disposed || run.ready || run.givenBack || run.running) return run.finished;
     return run.finished = _up(run);
   }
 
-  Future<void> _up(HostPreparation run) async {
+  Future<void> _up(HostPreparation run, {bool newPreparation = false}) async {
+    run._upActive = true;
     run.problem = null;
+    _changed();
     try {
+      final settings = run.settings;
+      if (settings != null) {
+        final kept = newPreparation ? run.record : settings.hostUp(run.project) ?? run.record;
+        await settings.rememberHostUp(run.project, kept.withPreparation(run.record.startedAt));
+      }
+      if (_disposed) return;
+      run.interrupted = false;
       await run.session.up();
       if (_disposed) return;
       if (run.session.state == HostRunState.done) await _addHost(run);
@@ -99,8 +152,10 @@ class HostRuns extends ChangeNotifier {
         run.session.state = HostRunState.refused;
         run.problem = 'The host command could not complete. Your machines have been kept.';
       }
+    } finally {
+      run._upActive = false;
+      _changed();
     }
-    _changed();
   }
 
   Future<void> _addHost(HostPreparation run) async {
@@ -123,14 +178,6 @@ class HostRuns extends ChangeNotifier {
       run.problem = 'A machine named ${run.name} already exists and is not a host.';
       return;
     }
-    final settings = run.settings;
-    if (settings != null) {
-      final kept = settings.hostUp(run.project) ?? run.record;
-      await settings.rememberHostUp(
-        run.project,
-        kept.withTunnel(hostPublicKey: run.tunnel?.hostPublicKey ?? '', address: address),
-      );
-    }
     await machines.add(
       Machine(
         name: run.name,
@@ -142,7 +189,30 @@ class HostRuns extends ChangeNotifier {
         hostProject: run.project,
       ),
     );
+    final settings = run.settings;
+    if (settings != null) {
+      final kept = settings.hostUp(run.project) ?? run.record;
+      await settings.rememberHostUp(
+        run.project,
+        kept
+            .withTunnel(hostPublicKey: run.tunnel?.hostPublicKey ?? kept.vpnHostPublicKey, address: address)
+            .withPreparation(null),
+      );
+    }
     run.ready = true;
+  }
+
+  /// Removes recovery only after the provider confirmed give-back and the command succeeded.
+  Future<void> confirmDown(String project, HostSession session) async {
+    if (!hostGivenBack(session)) return;
+    final kept = machines.settings.hostUp(project);
+    if (kept != null) await machines.settings.rememberHostUp(project, kept.withPreparation(null));
+    final run = _runs[project];
+    if (run != null) {
+      run.givenBack = true;
+      run.interrupted = false;
+    }
+    _changed();
   }
 
   void _changed() {
@@ -178,3 +248,9 @@ class HostStop {
   /// Requirements named by the host.
   final List<String> needs;
 }
+
+/// Whether teardown confirmed give-back or the absence of a rented project host.
+bool hostGivenBack(HostSession session) =>
+    session.state == HostRunState.done &&
+    !session.steps.any((step) => step.state == StepState.refused) &&
+    session.steps.any((step) => step.step == 'give-back' && step.state == StepState.done);

@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Server preparations survive restarting the interface with recovery actions in Machines and a
+  warning that closing keeps the server rented and billed.
 - A server's menu offers Save the VPN connection… after closing its setup dialog or restarting
   the app, using public tunnel settings kept when the host becomes Ready. Saving again keeps the
   newly chosen path and preserves the setup collection's verification digest.

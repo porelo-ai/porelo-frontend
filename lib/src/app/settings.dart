@@ -26,6 +26,8 @@ class HostUpRecord {
     this.vpnHostPublicKey = '',
     this.vpnEndpointAddress = '',
     this.vpnFile,
+    this.preparing = false,
+    this.startedAt,
   });
 
   /// The provider project that owns the rented host.
@@ -73,6 +75,33 @@ class HostUpRecord {
   /// The explicitly exported VPN file's local path, never its private key contents.
   final String? vpnFile;
 
+  /// Whether setup still needs a confirmed machine or server give-back.
+  final bool preparing;
+
+  /// The UTC instant preparation began, absent before setup or after confirmation.
+  final DateTime? startedAt;
+
+  /// Keeps recovery until a machine or give-back has been confirmed.
+  HostUpRecord withPreparation(DateTime? instant) => HostUpRecord(
+    scalewayProject: scalewayProject,
+    account: account,
+    tresor: tresor,
+    folder: folder,
+    repository: repository,
+    signingKey: signingKey,
+    identity: identity,
+    publicKey: publicKey,
+    collection: collection,
+    collectionSha256: collectionSha256,
+    vpnPeerPublicKey: vpnPeerPublicKey,
+    vpnPeerAddress: vpnPeerAddress,
+    vpnHostPublicKey: vpnHostPublicKey,
+    vpnEndpointAddress: vpnEndpointAddress,
+    vpnFile: vpnFile,
+    preparing: instant != null,
+    startedAt: instant?.toUtc(),
+  );
+
   /// Keeps the same host identity when the exported file is saved or explicitly deleted.
   HostUpRecord withVpnFile(String? file) => HostUpRecord(
     scalewayProject: scalewayProject,
@@ -90,6 +119,8 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: file,
+    preparing: preparing,
+    startedAt: startedAt,
   );
 
   /// Keeps the confirmed public tunnel settings without changing setup or the chosen file.
@@ -109,6 +140,8 @@ class HostUpRecord {
     vpnHostPublicKey: hostPublicKey,
     vpnEndpointAddress: address,
     vpnFile: vpnFile,
+    preparing: preparing,
+    startedAt: startedAt,
   );
 
   /// Reads every field or drops the entire unusable record.
@@ -125,6 +158,13 @@ class HostUpRecord {
       'vpnPeerPublicKey': final String vpnPeerPublicKey,
       'vpnPeerAddress': final String vpnPeerAddress,
     }) {
+      final preparing = value.containsKey('preparing') ? value['preparing'] : false;
+      if (preparing is! bool) return null;
+      final start = value['startedAt'];
+      if (start != null && start is! String) return null;
+      final startedAt = start is String ? DateTime.tryParse(start) : null;
+      if (start != null && (startedAt == null || !startedAt.isUtc)) return null;
+      if (preparing && startedAt == null) return null;
       final vpnFile = value['vpnFile'];
       if (vpnFile != null && vpnFile is! String) return null;
       final vpnHostPublicKey = value['vpnHostPublicKey'] ?? '';
@@ -180,6 +220,8 @@ class HostUpRecord {
         vpnHostPublicKey: vpnHostPublicKey,
         vpnEndpointAddress: vpnEndpointAddress,
         vpnFile: vpnFile as String?,
+        preparing: preparing,
+        startedAt: startedAt,
       );
     }
     return null;
@@ -201,6 +243,8 @@ class HostUpRecord {
     if (vpnHostPublicKey.isNotEmpty) 'vpnHostPublicKey': vpnHostPublicKey,
     if (vpnEndpointAddress.isNotEmpty) 'vpnEndpointAddress': vpnEndpointAddress,
     if (vpnFile != null) 'vpnFile': vpnFile,
+    if (preparing) 'preparing': true,
+    if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
   };
 
   /// The identical host identity options for up, resume and down.
@@ -452,6 +496,9 @@ class Settings extends ChangeNotifier {
   Map<String, String> _tresorFolders = <String, String>{};
 
   final _hostUps = <String, HostUpRecord>{};
+
+  /// Every kept host setup, keyed by project name.
+  Map<String, HostUpRecord> get hostUps => Map.unmodifiable(_hostUps);
 
   /// The arguments used for the project's last host setup, absent when none were kept.
   HostUpRecord? hostUp(String project) => _hostUps[project];
