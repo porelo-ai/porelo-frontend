@@ -38,8 +38,9 @@ interface's widgets and misses Tresorit's second-factor prompt, which
   *Open a terminal on the host*, which runs `runInATerminal` (`unlock_terminal.dart`) on a machine
   made for that moment and never stored: kind `host`, `account@address` from the `person` line,
   the dialog's setup identity, so `pinnedHostSshOptions` pins the key `up` trusted. Its command,
-  in the account's login shell with `XDG_RUNTIME_DIR` set: `tresorit-cli login` for `drive`,
-  `porelo vault init` for `vault-new`, `porelo vault unlock` for `vault`, joined by `&&`. The
+  in the account's login shell with `XDG_RUNTIME_DIR` set, is one terminal with only what the
+  stop names: `tresorit-cli login` for `drive`, `porelo vault init` for `vault-new`, `porelo vault
+  unlock` for `vault`, joined by `&&`. The
   e-mail, if `tresorit-cli` needs it named, is checked against an address's form and quoted, never
   spliced. When the terminal is put away, the dialog runs `up` again, and what that says is the
   answer; nothing is concluded from the terminal's own end.
@@ -59,15 +60,12 @@ interface's widgets and misses Tresorit's second-factor prompt, which
 - Seen to fail: no form field in the host dialog takes a password, second-factor code or vault
   passphrase, and no secret is sent on `porelo-host`'s standard input.
 
-## Open questions
-
-- One terminal for the drive and the vault, the two commands one after the other, or one terminal
-  each? Proposed: one, since the stop names both at once and `up` runs again only after both.
-
 ## To be checked
 
 - Whether `tresorit-cli login`, run in a terminal without `--password-on-stdin`, asks the
   password, then the one-time code, and the e-mail when `--email` is left out, by its own prompts.
-  Not measured by anybody yet, so measured on the first host test with the real client.
+  Measured before this is built, in this repository's own account on the Ubuntu VM with the
+  client `porelo-host` pins, the operator typing the credentials: also what `tresorit-cli -p status`
+  shows afterwards, and that a `logout` leaves nothing behind.
 - Nothing in this repository calls `porelo vault init` or `unlock --passphrase-stdin` once this
   is built; porelo documents `--passphrase-stdin` as for automation only.
