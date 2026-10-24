@@ -180,10 +180,12 @@ void main() {
       addTearDown(settings.dispose);
       await settings.rememberHostUp('demo', _record.withVpnFile('/previous.conf'));
       final secrets = _TunnelSecrets({});
+      // A path this platform's save check accepts, so each case reaches its own refusal.
+      final chosen = Platform.isWindows ? r'C:\private\chosen.conf' : '/private/chosen.conf';
       final expected = switch (refusal) {
         'path' => 'The saved VPN file needs a plain absolute path',
         'settings' => 'Use Put this project on a server… again.',
-        'file' => 'Cannot save the tunnel file: /private/chosen.conf.',
+        'file' => 'Cannot save the tunnel file: $chosen.',
         _ => 'The system secret store could not read the WireGuard key.',
       };
       await openSaveMenu(
@@ -193,12 +195,12 @@ void main() {
             ? null
             : const HostTunnel(hostPublicKey: 'host-public', peerPublicKey: 'peer-public'),
         secrets: secrets,
-        saveTunnel: () async => refusal == 'path' ? 'relative.conf' : '/private/chosen.conf',
+        saveTunnel: () async => refusal == 'path' ? 'relative.conf' : chosen,
         exporting: unawaited,
         hostFiles: (store) => _RefusingTunnelFiles(
           store,
           refusal == 'file'
-              ? const FileSystemException('invented detail that must not appear', '/private/chosen.conf')
+              ? FileSystemException('invented detail that must not appear', chosen)
               : const SecretStoreFailed('invented detail that must not appear'),
         ),
       );
