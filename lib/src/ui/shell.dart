@@ -104,6 +104,7 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
+import 'host_stop_dialog.dart';
 import 'host_vpn_dialog.dart';
 import 'host_tunnel_export.dart';
 
@@ -716,8 +717,23 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
-  Future<void> _openHostRun(HostPreparation run) =>
-      openHostRunDialog(context, run: run, hostRuns: _hostRuns, machines: widget.machines, settings: widget.settings);
+  Future<void> _openHostRun(HostPreparation run) => run.waiting
+      ? openHostStopDialog(
+          context,
+          run: run,
+          hostRuns: _hostRuns,
+          machines: widget.machines,
+          settings: widget.settings,
+          openTerminal: widget.sessions.openTerminal,
+        )
+      : openHostRunDialog(
+          context,
+          run: run,
+          hostRuns: _hostRuns,
+          machines: widget.machines,
+          settings: widget.settings,
+          openTerminal: widget.sessions.openTerminal,
+        );
 
   /// Whether the selected host command is present, including a development walk stand-in.
   static final bool _poreloHostIsHere = File(poreloHost()).existsSync();

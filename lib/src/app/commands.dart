@@ -1276,12 +1276,17 @@ String describeShortcut(SingleActivator shortcut) {
   return parts.join('+');
 }
 
-/// Opens the protocol and existing terminal of a host setup stop.
-Command hostPreparationCommand({required String project, required VoidCallback open, bool resolved = false}) => Command(
+/// Opens the dialog for completing a host setup stop.
+Command hostPreparationCommand({
+  required String project,
+  required VoidCallback open,
+  bool resolved = false,
+  Home home = Home.attentionRow,
+}) => Command(
   id: 'host.preparation',
   label: 'Complete setup on the host',
   group: '$project server',
-  home: Home.attentionRow,
+  home: home,
   run: open,
   unavailable: resolved ? 'this row is resolved' : null,
 );

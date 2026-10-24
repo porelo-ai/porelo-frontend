@@ -5,26 +5,47 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
-const prefix = r'export XDG_RUNTIME_DIR=/run/user/$(id -u) && ';
-const login =
-    r"printf '%s\n' 'The one-time code will show as you type it.' && "
-    "tresorit-cli login --email 'me@example.org' --password-on-stdin && ";
-const loginLast = r"printf '%s\n' 'Logged in to Tresorit; close this terminal to continue host setup.'";
-const loginNext = r"printf '%s\n' 'Logged in to Tresorit; the vault comes next.' && ";
-const init =
-    "porelo vault init && "
-    r"printf '%s\n' 'Vault initialized; close this terminal to continue host setup.'";
-const unlock =
-    "porelo vault unlock && "
-    r"printf '%s\n' 'Vault unlocked; close this terminal to continue host setup.'";
+const init = "'/usr/local/bin/porelo-host-stop' 'vault-new'";
+const loginInit = "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive' 'vault-new'";
 
 void main() {
+  // Harm: an unreviewed command or secret argument runs on the host instead of its requested setup steps.
+  test('the stop script receives only known needs and a checked email as quoted arguments', () {
+    final cases = <List<String>, String>{
+      ['drive']: "'/usr/local/bin/porelo-host-stop' '--email' 'me+host@example.org' 'drive'",
+      ['vault']: "'/usr/local/bin/porelo-host-stop' 'vault'",
+      ['vault-new']: "'/usr/local/bin/porelo-host-stop' 'vault-new'",
+      ['drive', 'vault']: "'/usr/local/bin/porelo-host-stop' '--email' 'me+host@example.org' 'drive' 'vault'",
+      ['drive', 'vault-new']: "'/usr/local/bin/porelo-host-stop' '--email' 'me+host@example.org' 'drive' 'vault-new'",
+    };
+    for (final entry in cases.entries) {
+      expect(
+        hostStopCommand(entry.key, email: 'me+host@example.org'),
+        entry.value,
+        reason: 'the host script receives exactly the public arguments it requested',
+      );
+    }
+    for (final needs in <List<String>>[
+      [],
+      ['unknown'],
+      ['drive', 'vault', 'sentinel-secret'],
+      ['vault; id'],
+    ]) {
+      expect(() => hostStopCommand(needs, email: 'me@example.org'), throwsFormatException);
+    }
+    expect(() => hostStopCommand(['drive'], email: 'sentinel-secret'), throwsFormatException);
+    expect(
+      hostStopCommand(['vault'], email: 'sentinel-secret'),
+      "'/usr/local/bin/porelo-host-stop' 'vault'",
+      reason: 'an email is never forwarded for a vault-only stop',
+    );
+  });
   final commands = <List<String>, String>{
-    ['drive']: '$prefix$login$loginLast',
-    ['vault-new']: '$prefix$init',
-    ['vault']: '$prefix$unlock',
-    ['drive', 'vault-new']: '$prefix$login$loginNext$init',
-    ['drive', 'vault']: '$prefix$login$loginNext$unlock',
+    ['drive']: "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive'",
+    ['vault-new']: init,
+    ['vault']: "'/usr/local/bin/porelo-host-stop' 'vault'",
+    ['drive', 'vault-new']: loginInit,
+    ['drive', 'vault']: "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive' 'vault'",
   };
   // Harm: shell syntax in an e-mail executes an unintended command on the host.
   test('an unsafe or malformed e-mail cannot become a host command', () {
@@ -191,7 +212,7 @@ finally:
       ssh,
       '-t',
       'porelo@192.0.2.10',
-      inTheLoginShell('$prefix$login$loginNext$init'),
+      inTheLoginShell(loginInit),
     ]);
     expect(result.exitCode, 0, reason: '${result.stderr}');
     final terminal = jsonDecode(result.stdout as String) as Map<String, dynamic>;
@@ -209,10 +230,10 @@ finally:
     for (final arguments in [
       ['-t', 'porelo@host', 'bash'],
       ['-t', 'porelo@host', 'porelo vault init'],
-      ['-t', 'porelo@host', inTheLoginShell('$prefix$init; touch unexpected')],
-      ['-t', 'porelo@host', inTheLoginShell('$prefix$init'), 'extra'],
-      ['-t', '-G', 'porelo@host', inTheLoginShell('$prefix$init')],
-      ['-t', 'porelo@host', inTheLoginShell('$prefix$init'), '-o', 'BatchMode=yes'],
+      ['-t', 'porelo@host', inTheLoginShell('$init; touch unexpected')],
+      ['-t', 'porelo@host', inTheLoginShell(init), 'extra'],
+      ['-t', '-G', 'porelo@host', inTheLoginShell(init)],
+      ['-t', 'porelo@host', inTheLoginShell(init), '-o', 'BatchMode=yes'],
     ]) {
       final result = await Process.run(ssh, arguments, workingDirectory: scratch.path);
       expect(result.exitCode, 255, reason: '$arguments');

@@ -1340,6 +1340,7 @@ void main() {
       processes.last.end(75);
     });
     expect(find.byKey(const Key('host-stop')), findsOneWidget);
+    await tapAndRun(tester, const Key('host-complete-setup'));
     await tapAndRun(tester, const Key('host-open-terminal'));
     terminal.endsWith(0);
     await World.settle(tester);
@@ -1856,6 +1857,7 @@ void main() {
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
       expect(find.byKey(const Key('host-stop')), findsOneWidget);
+      await tapAndRun(tester, const Key('host-complete-setup'));
       if (needs.isEmpty) {
         expect(find.textContaining('without saying for what'), findsOneWidget);
       } else {
@@ -1931,24 +1933,12 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed, isNotNull);
   });
 
-  const prefix = r'export XDG_RUNTIME_DIR=/run/user/$(id -u) && ';
-  const login =
-      r"printf '%s\n' 'The one-time code will show as you type it.' && "
-      "tresorit-cli login --email 'me@example.org' --password-on-stdin && ";
-  const loginLast = r"printf '%s\n' 'Logged in to Tresorit; close this terminal to continue host setup.'";
-  const loginNext = r"printf '%s\n' 'Logged in to Tresorit; the vault comes next.' && ";
-  const init =
-      "porelo vault init && "
-      r"printf '%s\n' 'Vault initialized; close this terminal to continue host setup.'";
-  const unlock =
-      "porelo vault unlock && "
-      r"printf '%s\n' 'Vault unlocked; close this terminal to continue host setup.'";
   final commands = <List<String>, String>{
-    ['drive']: '$prefix$login$loginLast',
-    ['vault-new']: '$prefix$init',
-    ['vault']: '$prefix$unlock',
-    ['drive', 'vault-new']: '$prefix$login$loginNext$init',
-    ['drive', 'vault']: '$prefix$login$loginNext$unlock',
+    ['drive']: "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive'",
+    ['vault-new']: "'/usr/local/bin/porelo-host-stop' 'vault-new'",
+    ['vault']: "'/usr/local/bin/porelo-host-stop' 'vault'",
+    ['drive', 'vault-new']: "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive' 'vault-new'",
+    ['drive', 'vault']: "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive' 'vault'",
   };
 
   // Harm: a secret enters the interface widgets, or SSH trusts a key setup did not pin.
@@ -1988,9 +1978,10 @@ void main() {
       });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
+      await tapAndRun(tester, const Key('host-complete-setup'));
       final fields = tester
           .widgetList<TextField>(
-            find.descendant(of: find.byKey(const Key('host-stop')), matching: find.byType(TextField)),
+            find.descendant(of: find.byKey(const Key('host-stop-fields')), matching: find.byType(TextField)),
           )
           .toList();
       expect(fields.map((field) => field.key), entry.key.contains('drive') ? [const Key('host-drive-email')] : isEmpty);
@@ -2020,7 +2011,7 @@ void main() {
       ]);
       expect(machines.all, before, reason: 'the momentary terminal machine is never saved');
       expect(File('${scratch.path}/arguments-2').existsSync(), isFalse, reason: 'up waits for terminal dismissal');
-      terminals.single.endsWith(65);
+      terminals.single.endsWith(0);
       await World.settle(tester);
       expect(find.byKey(const Key('host-done')), findsNothing, reason: 'terminal exit is no setup verdict');
       await tapAndRun(tester, const Key('unlock-done'));
@@ -2030,6 +2021,52 @@ void main() {
       for (var n = 1; n <= 2; n++) {
         expect(File('${scratch.path}/input-$n').readAsStringSync(), isEmpty);
       }
+    });
+  }
+
+  for (final code in [75, 64, 69, 65, 255]) {
+    // Harm: cancelled or failed setup runs provisioning again and clears a stop without the person's completion.
+    hostWidgets('terminal exit $code keeps the stop and starts no further host command', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final terminal = FakeTerminal([]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              hostFiles: filesFor,
+              hostRuns: runs,
+              secretStore: _MemorySecrets(),
+              machines: machines,
+              project: 'demo',
+              start: stopsThenGoesOn(needs: ['vault']),
+              openTerminal: (_, _, {columns = 80, rows = 24}) => terminal,
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project-1',
+        'host-tresor': 'drive',
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+      });
+      await tapAndRun(tester, const Key('host-up'));
+      final before = machines.all;
+      await tapAndRun(tester, const Key('host-complete-setup'));
+      await tapAndRun(tester, const Key('host-open-terminal'));
+      terminal.endsWith(code);
+      await World.settle(tester);
+      await tapAndRun(tester, const Key('unlock-done'));
+      expect(
+        File('${scratch.path}/arguments-2').existsSync(),
+        isFalse,
+        reason: 'a nonzero terminal exit must never run up again',
+      );
+      expect(runs.of('demo')!.waiting, isTrue, reason: 'the unresolved stop remains under Needs you');
+      expect(runs.preparing, [runs.of('demo')]);
+      expect(machines.all, before);
     });
   }
 
@@ -2072,6 +2109,7 @@ void main() {
       });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
+      await tapAndRun(tester, const Key('host-complete-setup'));
       await tester.enterText(find.byKey(const Key('host-drive-email')), email);
       await tester.pump();
       await tapAndRun(tester, const Key('host-open-terminal'));

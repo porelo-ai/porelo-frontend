@@ -9,6 +9,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
+import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
 import 'package:porelo_host/porelo_host.dart';
 
@@ -66,18 +67,30 @@ void main() {
               void open(HostPreparation run) => unawaited(
                 showDialog<void>(
                   context: context,
-                  builder: (_) => HostDialog(
-                    project: run.project,
-                    machines: machines,
-                    settings: settings,
-                    hostRuns: runs,
-                    existingRun: run,
-                    openTerminal: (program, arguments, {columns = 80, rows = 24}) {
-                      final terminal = FakeTerminal([program, ...arguments]);
-                      terminals.add(terminal);
-                      return terminal;
-                    },
-                  ),
+                  builder: (_) => run.waiting
+                      ? HostStopDialog(
+                          run: run,
+                          hostRuns: runs,
+                          machines: machines,
+                          settings: settings,
+                          openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+                            final terminal = FakeTerminal([program, ...arguments]);
+                            terminals.add(terminal);
+                            return terminal;
+                          },
+                        )
+                      : HostDialog(
+                          project: run.project,
+                          machines: machines,
+                          settings: settings,
+                          hostRuns: runs,
+                          existingRun: run,
+                          openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+                            final terminal = FakeTerminal([program, ...arguments]);
+                            terminals.add(terminal);
+                            return terminal;
+                          },
+                        ),
                 ),
               );
               return Scaffold(
@@ -196,5 +209,155 @@ void main() {
       machines.dispose();
       settings.dispose();
     }
+  });
+
+  group('a stopped setup', () {
+    late Settings settings;
+    late Machines machines;
+    late HostRuns runs;
+    late HostProcess process;
+    late HostProcess resumed;
+    late HostPreparation run;
+    late List<FakeTerminal> terminals;
+
+    setUp(() async {
+      settings = Settings(MemorySettingsStore());
+      machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+      runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
+      process = HostProcess();
+      resumed = HostProcess();
+      terminals = [];
+      var starts = 0;
+      run = runs.start(
+        project: 'demo',
+        session: HostSession(
+          executable: 'fake',
+          arguments: const ['--project', 'demo'],
+          start: (_, _) async => starts++ == 0 ? process : resumed,
+        ),
+        record: _record,
+      );
+      process.line(
+        const Step(
+          'person',
+          StepState.waiting,
+          text: 'Unlock the project vault',
+          needs: ['vault'],
+          address: '203.0.113.7',
+          account: 'worker',
+        ),
+      );
+      process.end(75);
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    tearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+
+    FakeTerminal openTerminal(String program, List<String> arguments, {int columns = 80, int rows = 24}) {
+      final terminal = FakeTerminal([program, ...arguments]);
+      terminals.add(terminal);
+      return terminal;
+    }
+
+    Future<void> openFrom(WidgetTester tester, Future<void> Function(BuildContext context) open) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(onPressed: () => unawaited(open(context)), child: const Text('open')),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await World.settle(tester);
+    }
+
+    // Harm: a stale stop dialog stays open over a finished run, and its terminal could run the host script again.
+    testWidgets('no stop dialog is left open when setup resumes', (tester) async {
+      expect(run.waiting, isTrue);
+      await openFrom(
+        tester,
+        (context) => openHostStopDialog(
+          context,
+          run: run,
+          hostRuns: runs,
+          machines: machines,
+          settings: settings,
+          openTerminal: openTerminal,
+        ),
+      );
+      expect(find.byType(HostStopDialog), findsOneWidget);
+      unawaited(runs.resume(run));
+      await World.settle(tester);
+      expect(run.waiting, isFalse);
+      expect(find.byType(HostStopDialog), findsNothing, reason: 'a run that no longer waits asks nothing');
+      resumed.end(0);
+      await World.settle(tester);
+    });
+
+    // Harm: stacked stop dialogs leave one open over a finished run, where its terminal reruns the host script.
+    testWidgets('the setup protocol replaces the stop dialog and no stop is left once setup went on', (tester) async {
+      await openFrom(
+        tester,
+        (context) => openHostStopDialog(
+          context,
+          run: run,
+          hostRuns: runs,
+          machines: machines,
+          settings: settings,
+          openTerminal: openTerminal,
+        ),
+      );
+      await tester.tap(find.text('Show the setup protocol'));
+      await World.settle(tester);
+      expect(find.byType(HostDialog), findsOneWidget);
+      expect(find.byType(HostStopDialog), findsNothing, reason: 'the protocol replaces the stop, it does not stack');
+      await tester.tap(find.byKey(const Key('host-complete-setup')));
+      await World.settle(tester);
+      expect(find.byType(HostStopDialog), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('host-open-terminal')));
+      await tester.tap(find.byKey(const Key('host-open-terminal')));
+      await World.settle(tester);
+      expect(terminals, hasLength(1), reason: 'the stop of the protocol uses the injected terminal');
+      terminals.single.endsWith(0);
+      await World.settle(tester);
+      await tester.tap(find.byKey(const Key('unlock-done')));
+      await World.settle(tester);
+      resumed.line(const Step('up', StepState.done, address: '203.0.113.7', account: 'worker', socket: '/run/s.sock'));
+      resumed.end(0);
+      await World.settle(tester);
+      expect(run.waiting, isFalse);
+      expect(find.byType(HostStopDialog), findsNothing, reason: 'no stop dialog stays over a finished run');
+    });
+
+    // Harm: a stop opened from the protocol runs a real SSH terminal instead of the one handed in.
+    testWidgets('the stop opened from the run dialog uses the injected terminal', (tester) async {
+      await openFrom(
+        tester,
+        (context) => openHostRunDialog(
+          context,
+          run: run,
+          hostRuns: runs,
+          machines: machines,
+          settings: settings,
+          openTerminal: openTerminal,
+        ),
+      );
+      await tester.tap(find.byKey(const Key('host-complete-setup')));
+      await World.settle(tester);
+      await tester.ensureVisible(find.byKey(const Key('host-open-terminal')));
+      await tester.tap(find.byKey(const Key('host-open-terminal')));
+      await World.settle(tester);
+      expect(terminals, hasLength(1), reason: 'the injected opener must start the terminal');
+      expect(terminals.single.command, contains('worker@203.0.113.7'));
+      terminals.single.endsWith(75);
+      await World.settle(tester);
+    });
   });
 }

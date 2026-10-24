@@ -19,7 +19,7 @@ import '../app/settings.dart';
 import '../app/session.dart';
 import 'wizard.dart';
 import 'tokens.dart';
-import 'unlock_terminal.dart';
+import 'host_stop_dialog.dart';
 import 'dialog_scroll.dart';
 import 'host_vpn_dialog.dart';
 
@@ -72,17 +72,24 @@ Future<void> openHostDialog(
   ),
 );
 
-/// Opens the same protocol and stop terminal after the setup wizard has handed off its run.
+/// Opens the setup protocol after the wizard has handed off its run.
 Future<void> openHostRunDialog(
   BuildContext context, {
   required HostPreparation run,
   required HostRuns hostRuns,
   required Machines machines,
-  required Settings settings,
+  Settings? settings,
+  OpenTerminal? openTerminal,
 }) => showDialog<void>(
   context: context,
-  builder: (_) =>
-      HostDialog(project: run.project, machines: machines, settings: settings, hostRuns: hostRuns, existingRun: run),
+  builder: (_) => HostDialog(
+    project: run.project,
+    machines: machines,
+    settings: settings,
+    hostRuns: hostRuns,
+    existingRun: run,
+    openTerminal: openTerminal,
+  ),
 );
 
 /// The page: where it goes, the steps, and at the stop what only the person can give.
@@ -171,13 +178,10 @@ class _HostDialogState extends State<HostDialog> {
   final _identity = TextEditingController(text: _home('.ssh/id_ed25519'));
   final _collection = TextEditingController();
   final _collectionSha256 = TextEditingController();
-  final _email = TextEditingController();
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _keyName = TextEditingController();
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
-  final _stopStart = GlobalKey();
-  bool _stopShown = false;
   String? _folder;
 
   // Where the next picker starts: the folder of the last file or folder chosen in this dialog.
@@ -275,7 +279,6 @@ class _HostDialogState extends State<HostDialog> {
 
   bool _upStarted = false;
   bool _takingDown = false;
-  bool _terminalOpen = false;
   String? _machineProblem;
 
   static String _home(String relativePath) => desk.expandHome('~/$relativePath');
@@ -292,7 +295,6 @@ class _HostDialogState extends State<HostDialog> {
       _identity,
       _collection,
       _collectionSha256,
-      _email,
     ]) {
       field.dispose();
     }
@@ -313,16 +315,7 @@ class _HostDialogState extends State<HostDialog> {
         if (mounted) Navigator.of(context).pop();
       });
     }
-    final waiting = _session?.state == HostRunState.waiting;
     setState(() {});
-    if (waiting && !_stopShown) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _session?.state != HostRunState.waiting) return;
-        final stop = _stopStart.currentContext;
-        if (stop != null) unawaited(Scrollable.ensureVisible(stop));
-      });
-    }
-    _stopShown = waiting;
   }
 
   void _expandPaths() {
@@ -364,8 +357,7 @@ class _HostDialogState extends State<HostDialog> {
     if (widget.debug) ...[_collection, _collectionSha256], //
   ].every((field) => field.text.trim().isNotEmpty);
 
-  bool get _running =>
-      _preparing || _terminalOpen || _hostRun?.running == true || _session?.state == HostRunState.running;
+  bool get _running => _preparing || _hostRun?.running == true || _session?.state == HostRunState.running;
 
   Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
@@ -590,48 +582,6 @@ class _HostDialogState extends State<HostDialog> {
       await widget.hostRuns!.resume(preparation);
     } else {
       await _runHost(run);
-    }
-  }
-
-  Future<void> _openHostTerminal() async {
-    final session = _session!;
-    final String line;
-    try {
-      line = hostStopCommand(session.needs, email: _email.text);
-    } on FormatException catch (error) {
-      setState(() => _machineProblem = error.message);
-      return;
-    }
-    final address = session.address ?? '';
-    final account = session.account ?? '';
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address) ||
-        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(account)) {
-      setState(() => _machineProblem = 'The host stop did not name a valid address and account.');
-      return;
-    }
-    final machine = Machine(
-      name: '${widget.project} server',
-      socketPath: '',
-      kind: 'host',
-      host: '$account@$address',
-      identity: _identity.text.trim(),
-    );
-    setState(() {
-      _terminalOpen = true;
-      _machineProblem = null;
-    });
-    try {
-      await runInATerminal(
-        context,
-        title: 'Complete setup on ${machine.name}',
-        explanation: 'Type the secrets into the host commands here. Close the terminal when finished; host setup will check what is still needed.',
-        machine: machine,
-        command: <String>[openSsh('ssh'), ...machine.loginSshOptions, '-t', machine.host, inTheLoginShell(line)],
-        open: widget.openTerminal,
-      );
-      if (mounted) await _runUp(session.up);
-    } finally {
-      if (mounted) setState(() => _terminalOpen = false);
     }
   }
 
@@ -999,7 +949,7 @@ class _HostDialogState extends State<HostDialog> {
             if (_takingDown)
               const Text('The host has not completed teardown. Your machines have been kept.')
             else
-              _askForTheStop(session.needs),
+              _askForTheStop(),
           if (session.said.isNotEmpty && session.said != session.fix) Text(session.said),
           if (session.fix != null && !session.history.any((record) => record.step.fix == session.fix))
             Padding(
@@ -1077,39 +1027,21 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
-  /// The host names the steps; their own prompts take every secret in its terminal.
-  Widget _askForTheStop(List<String> needs) {
-    final drive = needs.contains('drive');
-    const known = <String>{'drive', 'vault', 'vault-new'};
-    final unknown = needs.where((need) => !known.contains(need)).toList();
-    final prompts = <Widget>[
-      if (needs.isEmpty)
-        const Text('The host waits without saying for what.')
-      else ...<Widget>[
-        if (drive) const Text('The host needs a Tresorit login.'),
-        if (needs.contains('vault-new')) const Text('The host needs a passphrase for its new vault.'),
-        if (needs.contains('vault')) const Text('The host needs its vault unlocked.'),
-      ],
-      for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
-    ];
-    return Column(
-      key: const Key('host-stop'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        const SizedBox(height: Space.normal),
-        KeyedSubtree(key: _stopStart, child: prompts.first),
-        ...prompts.skip(1),
-        if (drive) _field(_email, 'Tresorit e-mail', 'host-drive-email'),
-        if (needs.isNotEmpty && unknown.isEmpty)
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              key: const Key('host-open-terminal'),
-              onPressed: _running ? null : _openHostTerminal,
-              child: const Text('Open a terminal on the host'),
+  Widget _askForTheStop() => KeyedSubtree(
+    key: const Key('host-stop'),
+    child: FilledButton(
+      key: const Key('host-complete-setup'),
+      onPressed: _running || _hostRun == null
+          ? null
+          : () => openHostStopDialog(
+              context,
+              run: _hostRun!,
+              hostRuns: widget.hostRuns!,
+              machines: widget.machines,
+              settings: widget.settings,
+              openTerminal: widget.openTerminal,
             ),
-          ),
-      ],
-    );
-  }
+      child: const Text('Complete setup on the host'),
+    ),
+  );
 }

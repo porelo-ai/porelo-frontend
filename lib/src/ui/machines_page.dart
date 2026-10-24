@@ -208,10 +208,11 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
       _ticker?.cancel();
       _ticker = null;
     }
-    final command = hostProtocolCommand(
-      project: run.project,
-      open: widget.open ?? () {},
-    ).unless(widget.open == null ? 'host protocol is unavailable here' : null);
+    final command =
+        (run.waiting
+                ? hostPreparationCommand(project: run.project, open: widget.open ?? () {}, home: Home.machineRow)
+                : hostProtocolCommand(project: run.project, open: widget.open ?? () {}))
+            .unless(widget.open == null ? 'host setup is unavailable here' : null);
     return Card(
       key: ValueKey('host-preparing ${run.project}'),
       child: ListTile(

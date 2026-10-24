@@ -37,6 +37,7 @@ Future<void> unlockInATerminal(
 /// Runs [command] on [machine] in a terminal a person types into, for a value this program must
 /// never hold. Returns once the dialog is put away; what came of it is asked of the machine then.
 /// [onExit] reports a process exit, never cancellation; [completed] is shown only after exit zero.
+/// [showCommand] hides the line behind Details when false.
 /// [shownCommand] can show a readable command when the actual argument list uses a shell parameter.
 Future<void> runInATerminal(
   BuildContext context, {
@@ -51,6 +52,7 @@ Future<void> runInATerminal(
   Future<String?> Function()? whatCameOfIt,
   ValueChanged<int>? onExit,
   String? shownCommand,
+  bool showCommand = true,
   String? completed,
   Future<bool> Function(int code)? finish,
   Future<void> Function()? afterClose,
@@ -73,6 +75,7 @@ Future<void> runInATerminal(
       whatCameOfIt: whatCameOfIt,
       onExit: onExit,
       shownCommand: shownCommand,
+      showCommand: showCommand,
       completed: completed,
       finish: finish,
       afterClose: afterClose,
@@ -95,6 +98,7 @@ class _UnlockTerminal extends StatefulWidget {
     this.whatCameOfIt,
     this.onExit,
     this.shownCommand,
+    this.showCommand = true,
     this.completed,
     this.finish,
     this.afterClose,
@@ -121,6 +125,7 @@ class _UnlockTerminal extends StatefulWidget {
 
   final ValueChanged<int>? onExit;
   final String? shownCommand;
+  final bool showCommand;
   final String? completed;
   final Future<bool> Function(int code)? finish;
   final Future<void> Function()? afterClose;
@@ -180,6 +185,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
   bool _asked = false;
   bool _reportedExit = false;
   bool _finishing = false;
+  late bool _showCommand = widget.showCommand;
 
   void _changed() {
     if (!mounted) return;
@@ -245,11 +251,17 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
           children: <Widget>[
             Text(widget.explanation, key: const Key('unlock-explained')),
             const SizedBox(height: Space.small),
-            SelectableText(
-              widget.shownCommand ?? widget.command.join(' '),
-              key: const Key('unlock-command'),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
+            if (!widget.showCommand)
+              TextButton(
+                onPressed: () => setState(() => _showCommand = !_showCommand),
+                child: Text(_showCommand ? 'Hide details' : 'Details'),
+              ),
+            if (_showCommand)
+              SelectableText(
+                widget.shownCommand ?? widget.command.join(' '),
+                key: const Key('unlock-command'),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
             const SizedBox(height: Space.small),
             SizedBox(
               height: Sizes.terminal,

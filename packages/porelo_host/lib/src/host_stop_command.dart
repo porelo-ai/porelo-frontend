@@ -12,23 +12,9 @@ String hostStopCommand(List<String> needs, {String email = ''}) {
   if (drive && !isHostDriveEmail(email)) {
     throw const FormatException('Enter a plain Tresorit e-mail address with no spaces, quotes or shell characters.');
   }
-  final vault = needs.contains('vault-new') || needs.contains('vault');
-  final commands = <String>[
-    r'export XDG_RUNTIME_DIR=/run/user/$(id -u)',
-    if (drive) ...<String>[
-      r"printf '%s\n' 'The one-time code will show as you type it.'",
-      "tresorit-cli login --email '$email' --password-on-stdin",
-      vault
-          ? r"printf '%s\n' 'Logged in to Tresorit; the vault comes next.'"
-          : r"printf '%s\n' 'Logged in to Tresorit; close this terminal to continue host setup.'",
-    ],
-    if (needs.contains('vault-new')) ...<String>[
-      'porelo vault init',
-      r"printf '%s\n' 'Vault initialized; close this terminal to continue host setup.'",
-    ] else if (needs.contains('vault')) ...<String>[
-      'porelo vault unlock',
-      r"printf '%s\n' 'Vault unlocked; close this terminal to continue host setup.'",
-    ],
-  ];
-  return commands.join(' && ');
+  return <String>[
+    '/usr/local/bin/porelo-host-stop',
+    if (drive) ...['--email', email],
+    ...needs,
+  ].map((argument) => "'$argument'").join(' ');
 }
