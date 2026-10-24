@@ -11,7 +11,7 @@ import '../app/host_session.dart';
 import '../app/machines.dart';
 import '../app/settings.dart';
 import '../app/session.dart';
-import 'dialog_scroll.dart';
+import 'wizard.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 
@@ -25,6 +25,7 @@ Future<void> openHostDialog(
   required Settings settings,
 }) => showDialog<void>(
   context: context,
+  barrierDismissible: false,
   builder: (context) => HostDialog(project: project, machines: machines, start: start, settings: settings),
 );
 
@@ -101,6 +102,7 @@ class _HostDialogState extends State<HostDialog> {
   HostTunnel? _tunnel;
   bool _preparing = false;
   HostSession? _session;
+  bool _sessionActive = false;
 
   @override
   void initState() {
@@ -109,6 +111,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   bool _upStarted = false;
+  bool _takingDown = false;
   bool _doneUp = false;
   bool _showTunnel = false;
   bool _saving = false;
@@ -133,7 +136,9 @@ class _HostDialogState extends State<HostDialog> {
     ]) {
       field.dispose();
     }
-    _session?.dispose();
+    _session?.removeListener(_sessionChanged);
+    // A confirmed leave must not dispose a notifier while its process is still answering.
+    if (!_sessionActive) _session?.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -255,8 +260,16 @@ class _HostDialogState extends State<HostDialog> {
 
   Future<void> _up() async {
     if (_running) return;
+    for (final step in _steps) {
+      final reason = step.check();
+      if (reason != null) {
+        setState(() => _machineProblem = reason);
+        return;
+      }
+    }
     setState(() {
       _preparing = true;
+      _takingDown = false;
       _machineProblem = null;
     });
     try {
@@ -319,6 +332,7 @@ class _HostDialogState extends State<HostDialog> {
 
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {
+    setState(() => _takingDown = true);
     try {
       _expandPaths();
     } on FormatException catch (error) {
@@ -347,7 +361,7 @@ class _HostDialogState extends State<HostDialog> {
       if (!mounted) return;
     }
     final session = _upStarted ? _session! : _newSession();
-    await session.down();
+    await _runHost(session.down);
     if (session.state != HostRunState.done) return;
     final address = session.releasedAddress;
     if (address == null || address.isEmpty) {
@@ -362,11 +376,21 @@ class _HostDialogState extends State<HostDialog> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _runHost(Future<void> Function() run) async {
+    _sessionActive = true;
+    try {
+      await run();
+    } finally {
+      _sessionActive = false;
+      if (!mounted) _session?.dispose();
+    }
+  }
+
   Future<void> _runUp(Future<void> Function() run) async {
     _doneUp = false;
     _showTunnel = false;
     _machineProblem = null;
-    await run();
+    await _runHost(run);
     if (mounted) {
       setState(() {
         _doneUp = _session!.state == HostRunState.done;
@@ -451,136 +475,248 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  String? _required(List<TextEditingController> fields, String reason) =>
+      fields.any((field) => field.text.trim().isEmpty) ? reason : null;
+
+  String? _paths(List<TextEditingController> fields) {
+    try {
+      for (final field in fields) {
+        desk.expandHome(field.text.trim());
+      }
+    } on FormatException catch (error) {
+      return error.message;
+    }
+    return null;
+  }
+
+  String? get _keysProblem {
+    final missing = _required([_identity, _publicKey], 'Choose both your private and public ssh keys.');
+    if (missing != null) return missing;
+    final paths = _paths([_identity, _publicKey]);
+    if (paths != null) return paths;
+    final identity = desk.expandHome(_identity.text.trim());
+    const public = 'Choose the private ssh key here; this is a public key. The public key goes in the next field.';
+    if (identity.endsWith('.pub')) return public;
+    try {
+      final file = File(identity);
+      if (file.existsSync()) {
+        // Inspect only the public-key prefix, never the private key's contents.
+        final input = file.openSync();
+        try {
+          if (String.fromCharCodes(input.readSync(4)) == 'ssh-') return public;
+        } finally {
+          input.closeSync();
+        }
+      }
+    } on FileSystemException {
+      return 'Cannot read the private ssh key file.';
+    }
+    return null;
+  }
+
+  Widget _panel(List<Widget> children) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: Space.small,
+    children: [...children, if (_machineProblem != null) Text(_machineProblem!)],
+  );
+
+  List<WizardStep> get _steps => [
+    WizardStep(
+      title: 'Where it is rented',
+      words:
+          'Porelo rents a server from Scaleway Elastic Metal, or finds it again. '
+          'Find the project id in the Scaleway console under Project, Settings. '
+          'The provider key is the one porelo-host key set scaleway kept. '
+          'The account is the OS user that will run your project on the server.',
+      panel: (_) => _panel([
+        _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
+        _field(_account, 'Account on the server', 'host-account', namesHost: true),
+      ]),
+      check: () => _required([_scaleway, _account], 'Give the Scaleway project id and the account on the server.'),
+      summary: () => ['Scaleway project id: ${_scaleway.text}', 'Account on the server: ${_account.text}'],
+    ),
+    WizardStep(
+      title: 'The drive',
+      words:
+          "Tresorit, the one drive available today. Give the tresor's name as it appears in Tresorit. "
+          'Its synced folder on this computer is a separate choice: the host files are written there. '
+          'When a folder is chosen, give the repository address and the public key used to sign commits.',
+      panel: (_) => _panel([
+        _field(_tresor, "The tresor's name in Tresorit", 'host-tresor', namesHost: true),
+        const Text('Its synced folder on this computer'),
+        if (_folder != null)
+          Text('Project tresor folder on this computer: $_folder')
+        else
+          const Text(
+            'No local Tresorit folder chosen. Copy machine.yml, wireguard.key and any keys/ files into the project tresor under porelo-host/ before the host reads them.',
+          ),
+        TextButton(
+          key: const Key('host-folder'),
+          onPressed: _running || _upStarted ? null : _chooseFolder,
+          child: Text(_folder == null ? 'Choose the project tresor folder on this computer' : 'Choose another'),
+        ),
+        if (Platform.isWindows)
+          const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
+        if (_folder != null) ...[
+          _field(_repository, 'Project repository address', 'host-repository', namesHost: true),
+          _pathField(_signingKey, 'Public key for signing commits (.pub)', 'host-signing-key'),
+          _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
+          TextButton(
+            onPressed: _running || _upStarted ? null : _addKey,
+            child: const Text('Choose a file for this vault entry'),
+          ),
+          for (final key in _keys)
+            Row(
+              children: [
+                Expanded(child: Text('${key.name}: ${key.basename}')),
+                IconButton(
+                  onPressed: _running || _upStarted ? null : () => setState(() => _keys.remove(key)),
+                  icon: const Icon(Icons.remove_circle_outline),
+                  tooltip: 'Remove this file',
+                ),
+              ],
+            ),
+        ],
+      ]),
+      check: () =>
+          _required([_tresor], 'Give the tresor name from Tresorit.') ??
+          (_folder == null
+              ? null
+              : _required([_repository, _signingKey], 'Give the repository address and its signing key.') ??
+                    _paths([_signingKey])),
+      summary: () => [
+        'Tresorit tresor: ${_tresor.text}',
+        'Synced folder on this computer: ${_folder ?? 'not chosen; supply the host files manually'}',
+        if (_folder != null) ...[
+          'Project repository address: ${_repository.text}',
+          'Public signing key: ${_signingKey.text}',
+          for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}',
+        ],
+      ],
+    ),
+    WizardStep(
+      title: 'Your ssh keys',
+      words:
+          'The private key on this computer logs in to the server. '
+          'Its public key is installed on the server to let that login in. '
+          'Choose the private key first, then its public .pub file.',
+      panel: (_) => _panel([
+        _pathField(_identity, 'Your private ssh key', 'host-identity'),
+        _pathField(_publicKey, 'Your public ssh key', 'host-public-key'),
+      ]),
+      check: () => _keysProblem,
+      summary: () => ['Private ssh key: ${_identity.text}', 'Public ssh key: ${_publicKey.text}'],
+    ),
+    WizardStep(
+      title: 'The setup file',
+      words:
+          'The server setup collection (.tar.gz) tells the host how to install Porelo and prepare the project. '
+          'Choose the collection file on this computer.',
+      panel: (_) => _panel([_pathField(_collection, 'Server setup file (.tar.gz)', 'host-collection')]),
+      check: () => _required([_collection], 'Choose the server setup file.') ?? _paths([_collection]),
+      summary: () => ['Server setup file: ${_collection.text}'],
+    ),
+  ];
+
+  WizardActionState get _actionState {
+    if (_running) return WizardActionState.running;
+    if (_machineProblem != null) return WizardActionState.refused;
+    return switch (_session?.state) {
+      HostRunState.done => WizardActionState.done,
+      HostRunState.waiting => WizardActionState.waiting,
+      HostRunState.running => WizardActionState.running,
+      _ => WizardActionState.refused,
+    };
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Wizard(
+    title: 'Put the project ${widget.project} on a server',
+    steps: _steps,
+    action: 'Put it on a server',
+    actionKey: const Key('host-up'),
+    scrollController: _scroll,
+    actionSteps: [
+      WizardActionStep(
+        title: _takingDown ? 'Taking it off the server' : 'Putting it on a server',
+        words:
+            'The host reports its steps below. At a stop, complete what it asks in its terminal. '
+            'Only the host can confirm that setup is done.',
+        panel: _progress,
+        run: _up,
+        state: () => _actionState,
+      ),
+    ],
+    actions: (_, run) => OutlinedButton(
+      key: const Key('host-down'),
+      onPressed: _running || !_complete ? null : () => run(_down),
+      child: const Text('Take it off the server'),
+    ),
+  );
+
+  Widget _progress(BuildContext context) {
     final session = _session;
-    return AlertDialog(
-      title: Text('Put ${widget.project} on a server'),
-      content: SizedBox(
-        width: Sizes.dialogMedium,
-        child: DialogScroll(
-          controller: _scroll,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (session != null) ...<Widget>[
+          for (final step in session.steps) _stepRow(step),
+          if (session.state == HostRunState.waiting) _askForTheStop(session.needs),
+          if (session.fix != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.small),
+              child: Text(
+                session.fix!,
+                key: const Key('host-fix'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          if (session.state == HostRunState.done)
+            const Padding(
+              padding: EdgeInsets.only(top: Space.small),
+              child: Text('Done.', key: Key('host-done')),
+            ),
+        ],
+        if (_machineProblem != null) Text(_machineProblem!),
+        if (_showTunnel) ...<Widget>[
+          Text(
+            _tunnel?.hostPublicKey.isNotEmpty == true
+                ? 'Host public key: ${_tunnel!.hostPublicKey}\nEndpoint: ${_tunnelEndpoint ?? 'unavailable'}\nAllowedIPs = 10.73.0.1/32\nAddress = 10.73.0.2/24'
+                : 'The host public key is unavailable here because the host files were supplied manually.',
+          ),
+          Wrap(
+            spacing: Space.small,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
-              const Text(
-                'Porelo rents a server from Scaleway Elastic Metal, or finds it again, and sets it up '
-                'there. It uses the access key saved with porelo-host key set scaleway.',
-              ),
-              if (Platform.isWindows)
-                const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
-              const SizedBox(height: Space.normal),
-              if (_folder != null)
-                Text('Project tresor folder on this computer: $_folder')
-              else
-                const Text(
-                  'No local Tresorit folder chosen. Copy machine.yml, wireguard.key and any keys/ files into the project tresor under porelo-host/ before the host reads them.',
-                ),
               TextButton(
-                key: const Key('host-folder'),
-                onPressed: _running || _upStarted ? null : _chooseFolder,
-                child: Text(_folder == null ? 'Choose the project tresor folder on this computer' : 'Choose another'),
+                key: const Key('host-export-tunnel'),
+                onPressed: _running || _tunnel?.hostPublicKey.isNotEmpty != true || _tunnelEndpoint == null
+                    ? null
+                    : _exportTunnel,
+                child: const Text('Save the VPN connection to this server'),
               ),
-              _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
-              _field(_tresor, 'The project\'s tresor', 'host-tresor', namesHost: true),
-              if (_folder != null) ...<Widget>[
-                _field(_repository, 'Project repository address', 'host-repository', namesHost: true),
-                _pathField(_signingKey, 'Public key for signing commits (.pub)', 'host-signing-key'),
-                _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
-                TextButton(
-                  onPressed: _running || _upStarted ? null : _addKey,
-                  child: const Text('Choose a file for this vault entry'),
-                ),
-                for (final key in _keys)
-                  Row(
-                    children: <Widget>[
-                      Expanded(child: Text('${key.name}: ${key.basename}')),
-                      IconButton(
-                        onPressed: _running || _upStarted ? null : () => setState(() => _keys.remove(key)),
-                        icon: const Icon(Icons.remove_circle_outline),
-                        tooltip: 'Remove this file',
-                      ),
-                    ],
-                  ),
-              ],
-              _field(_account, 'Account on the server', 'host-account', namesHost: true),
-              _pathField(_publicKey, 'Your public ssh key', 'host-public-key'),
-              _pathField(_identity, 'Your private ssh key', 'host-identity'),
-              _pathField(_collection, 'Server setup file (.tar.gz)', 'host-collection'),
-              const SizedBox(height: Space.normal),
-              if (session != null) ...<Widget>[
-                for (final step in session.steps) _stepRow(step),
-                if (session.state == HostRunState.waiting) _askForTheStop(session.needs),
-                if (session.fix != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.small),
-                    child: Text(
-                      session.fix!,
-                      key: const Key('host-fix'),
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
-                    ),
-                  ),
-                if (session.state == HostRunState.done)
-                  const Padding(
-                    padding: EdgeInsets.only(top: Space.small),
-                    child: Text('Done.', key: Key('host-done')),
-                  ),
-              ],
-              if (_machineProblem != null) Text(_machineProblem!),
-              if (_showTunnel) ...<Widget>[
-                Text(
-                  _tunnel?.hostPublicKey.isNotEmpty == true
-                      ? 'Host public key: ${_tunnel!.hostPublicKey}\nEndpoint: ${_tunnelEndpoint ?? 'unavailable'}\nAllowedIPs = 10.73.0.1/32\nAddress = 10.73.0.2/24'
-                      : 'The host public key is unavailable here because the host files were supplied manually.',
-                ),
-                Wrap(
-                  spacing: Space.small,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    TextButton(
-                      key: const Key('host-export-tunnel'),
-                      onPressed: _running || _tunnel?.hostPublicKey.isNotEmpty != true || _tunnelEndpoint == null
-                          ? null
-                          : _exportTunnel,
-                      child: const Text('Save the VPN connection to this server'),
-                    ),
-                    const Tooltip(
-                      triggerMode: TooltipTriggerMode.tap,
-                      message:
-                          'WireGuard makes an encrypted VPN connection between this computer and the server. '
-                          'This file holds a private key. Keep it in a private folder that only you can read; do not share it. '
-                          'Use WireGuard installed on this computer to connect. Administrator (root) access is needed. '
-                          'Replace <file> with the saved file path and run:\n'
-                          'cat <file> | sudo tee /etc/wireguard/porelo.conf\n'
-                          'sudo wg-quick up porelo',
-                      child: Padding(padding: EdgeInsets.all(Space.small), child: Icon(Icons.info_outline)),
-                    ),
-                  ],
-                ),
-              ],
-              if (_doneUp)
-                FilledButton(
-                  key: const Key('host-add'),
-                  onPressed: _running ? null : _addHost,
-                  child: const Text('Add this server to your machines'),
-                ),
+              const Tooltip(
+                triggerMode: TooltipTriggerMode.tap,
+                message:
+                    'WireGuard makes an encrypted VPN connection between this computer and the server. '
+                    'This file holds a private key. Keep it in a private folder that only you can read; do not share it. '
+                    'Use WireGuard installed on this computer to connect. Administrator (root) access is needed. '
+                    'Replace <file> with the saved file path and run:\n'
+                    'cat <file> | sudo tee /etc/wireguard/porelo.conf\n'
+                    'sudo wg-quick up porelo',
+                child: Padding(padding: EdgeInsets.all(Space.small), child: Icon(Icons.info_outline)),
+              ),
             ],
           ),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(onPressed: _running ? null : () => Navigator.of(context).pop(), child: const Text('Close')),
-        OutlinedButton(
-          key: const Key('host-down'),
-          onPressed: _running || !_complete ? null : _down,
-          child: const Text('Take it off the server'),
-        ),
-        FilledButton(
-          key: const Key('host-up'),
-          onPressed: _running || !_complete ? null : _up,
-          child: const Text('Put it on a server'),
-        ),
+        ],
+        if (_doneUp)
+          FilledButton(
+            key: const Key('host-add'),
+            onPressed: _running ? null : _addHost,
+            child: const Text('Add this server to your machines'),
+          ),
       ],
     );
   }

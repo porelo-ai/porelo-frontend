@@ -7,6 +7,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Putting a project on a server asks one step at a time, keeps answers when going back, and
+  reviews them before renting; a public ssh key chosen as the private one is refused first.
+
 ### Added
 
 - Task starts show the machine's steps, what they wait on, and the cause when a dependency fails,

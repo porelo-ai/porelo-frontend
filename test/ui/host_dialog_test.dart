@@ -75,6 +75,252 @@ void main() {
     await World.settle(tester);
   }
 
+  Future<void> navigate(WidgetTester tester, String key) async {
+    await tester.tap(find.byKey(Key(key)));
+    await World.settle(tester);
+  }
+
+  /// Gives each answer on its own step, without bypassing the wizard's checks.
+  Future<void> fillSteps(
+    WidgetTester tester,
+    Map<String, String> values, {
+    int? stopAt,
+    Future<void> Function()? onDrive,
+    void Function(TextField field, String key)? beforeFill,
+  }) async {
+    final answers = <String, String>{
+      'host-identity': '/keys/default',
+      'host-public-key': '/keys/default.pub',
+      ...values,
+    };
+    const fields = [
+      ['host-scaleway-project', 'host-account'],
+      ['host-tresor', 'host-repository', 'host-signing-key'],
+      ['host-identity', 'host-public-key'],
+      ['host-collection'],
+    ];
+    for (var step = 0; step < fields.length; step++) {
+      if (step == 1) await onDrive?.call();
+      for (final key in fields[step]) {
+        if (!answers.containsKey(key)) continue;
+        await tester.ensureVisible(find.byKey(Key(key)));
+        beforeFill?.call(tester.widget<TextField>(find.byKey(Key(key))), key);
+        await tester.enterText(find.byKey(Key(key)), answers[key]!);
+      }
+      await tester.pump();
+      if (step == stopAt) return;
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
+        isNotNull,
+        reason: 'the supplied answers must pass step ${step + 1}',
+      );
+      await navigate(tester, 'wizard-next');
+    }
+  }
+
+  // Harm: renting with a public key as the identity leaves a billing host inaccessible.
+  testWidgets('a public key path is refused before up starts', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            machines: machines,
+            secretStore: _MemorySecrets(),
+            start: (_, _) async {
+              starts++;
+              final process = _HostProcess();
+              process.end(65);
+              return process;
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, <String, String>{
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-identity': '/keys/id_ed25519.pub',
+      'host-collection': 'collection',
+    }, stopAt: 2);
+    await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    expect(find.byKey(const Key('host-up')), findsNothing);
+    expect(starts, 0, reason: 'a public key cannot log in to the rented host');
+    expect(find.textContaining('Choose the private ssh key'), findsOneWidget);
+  });
+
+  for (final missing in {
+    'host-scaleway-project': 0,
+    'host-account': 0,
+    'host-tresor': 1,
+    'host-repository': 1,
+    'host-signing-key': 1,
+    'host-identity': 2,
+    'host-public-key': 2,
+    'host-collection': 3,
+  }.entries) {
+    // Harm: an incomplete answer rents a billing server that cannot be set up.
+    testWidgets('${missing.key} must be given before the start decision can be reached', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      await settings.rememberTresorFolder('demo', scratch.path);
+      var starts = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: 'demo',
+              machines: machines,
+              settings: settings,
+              secretStore: _MemorySecrets(),
+              start: (_, _) async {
+                starts++;
+                return _HostProcess();
+              },
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project',
+        'host-account': 'porelo',
+        'host-tresor': 'drive',
+        'host-repository': 'https://example.org/demo.git',
+        'host-signing-key': '/keys/signing.pub',
+        'host-collection': 'collection',
+        missing.key: '   ',
+      }, stopAt: missing.value);
+      final next = tester.widget<FilledButton>(find.byKey(const Key('wizard-next')));
+      expect(next.onPressed, isNull, reason: '${missing.key} cannot be skipped');
+      await navigate(tester, 'wizard-next');
+      expect(find.byKey(Key(missing.key)), findsOneWidget);
+      expect(find.byKey(const Key('host-up')), findsNothing);
+      expect(starts, 0, reason: 'nothing may be rented before all steps and review');
+    });
+  }
+
+  // Harm: a renamed public key is accepted as an identity and setup rents an inaccessible host.
+  testWidgets('a public key without a pub suffix is refused before up starts', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final public = File(path.join(scratch.path, 'identity'));
+    public.writeAsStringSync('ssh-ed25519 public-key-fixture');
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            machines: machines,
+            secretStore: _MemorySecrets(),
+            start: (_, _) async {
+              starts++;
+              return _HostProcess();
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-identity': public.path,
+    }, stopAt: 2);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    expect(find.textContaining('Choose the private ssh key'), findsOneWidget);
+    expect(find.byKey(const Key('host-up')), findsNothing);
+    expect(starts, 0);
+  });
+
+  // Harm: moving back loses a key path or changes the server that the review will start.
+  testWidgets('back keeps every host answer before starting', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(project: 'demo', machines: machines, secretStore: _MemorySecrets()),
+        ),
+      ),
+    );
+    const answers = {
+      'host-scaleway-project': 'project',
+      'host-account': 'account',
+      'host-tresor': 'drive',
+      'host-identity': '/keys/private',
+      'host-public-key': '/keys/public.pub',
+      'host-collection': '/setup.tar.gz',
+    };
+    await fillSteps(tester, answers);
+    final seen = <String>{};
+    for (var step = 0; step < 4; step++) {
+      await navigate(tester, 'wizard-back');
+      for (final answer in answers.entries) {
+        final field = find.byKey(Key(answer.key));
+        if (field.evaluate().isNotEmpty) {
+          seen.add(answer.key);
+          expect(tester.widget<TextField>(field).controller!.text, answer.value);
+        }
+      }
+    }
+    expect(seen, answers.keys.toSet(), reason: 'every supplied answer must have been inspected');
+    expect(find.byKey(const Key('host-scaleway-project')), findsOneWidget);
+  });
+
+  // Harm: a confirmed leave crashes when the unfinished process delivers its final answer.
+  testWidgets('leaving a running host action safely lets its process answer', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final process = _HostProcess();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => HostDialog(
+                  project: 'demo',
+                  machines: machines,
+                  secretStore: _MemorySecrets(),
+                  start: (_, _) async => process,
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-collection': 'collection',
+    });
+    await tapAndRun(tester, const Key('host-up'));
+    await navigate(tester, 'wizard-leave');
+    expect(find.byKey(const Key('wizard-confirm-leave')), findsOneWidget);
+    await navigate(tester, 'wizard-confirm-leave');
+    expect(find.byType(HostDialog), findsNothing);
+    process.line(const host.Step('up', host.StepState.done));
+    process.end(0);
+    await World.settle(tester);
+    expect(tester.takeException(), isNull, reason: 'a process answer must not notify a disposed dialog');
+    expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
+  });
+
   for (final field in <String, String?>{
     'host-public-key': '--public-key',
     'host-identity': '--identity',
@@ -116,16 +362,14 @@ void main() {
           ),
         ),
       );
-      for (final entry in <String, String>{
+      await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': 'collection',
         'host-repository': 'https://example.org/demo.git',
         'host-signing-key': signing.path,
         field.key: field.value == null ? '~/.ssh/key.pub' : '~/.ssh/key',
-      }.entries) {
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
+      });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
       expect(commands, hasLength(1), reason: 'the signing key must be readable and file preparation must finish');
@@ -161,17 +405,24 @@ void main() {
           ),
         ),
       );
-      for (final entry in <String, String>{
-        'host-scaleway-project': 'project',
-        'host-tresor': 'tresor',
-        'host-collection': 'collection',
-        'host-repository': 'https://example.org/demo.git',
-        field.key: '~user/key',
-      }.entries) {
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
+      await fillSteps(
+        tester,
+        <String, String>{
+          'host-scaleway-project': 'project',
+          'host-tresor': 'tresor',
+          'host-collection': 'collection',
+          'host-repository': 'https://example.org/demo.git',
+          field.key: '~user/key',
+        },
+        stopAt: switch (field.key) {
+          'host-signing-key' => 1,
+          'host-collection' => 3,
+          _ => 2,
+        },
+      );
       await tester.pump();
-      await tapAndRun(tester, const Key('host-up'));
+      expect(find.byKey(const Key('host-up')), findsNothing);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
       expect(starts, 0, reason: 'unsupported paths must block provisioning');
       expect(find.textContaining(RegExp(r'~user.*only ~/ is understood')), findsOneWidget);
     });
@@ -206,13 +457,11 @@ void main() {
         ),
       ),
     );
-    for (final entry in {
+    await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project',
       'host-tresor': 'drive',
       'host-collection': 'collection',
-    }.entries) {
-      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-    }
+    });
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
     expect(launched, executable.path);
@@ -252,15 +501,13 @@ void main() {
         ),
       ),
     );
-    for (final entry in <String, String>{
+    await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project',
       'host-tresor': 'tresor',
       'host-collection': 'collection',
       'host-repository': 'https://example.org/demo.git',
       'host-signing-key': signing.path,
-    }.entries) {
-      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-    }
+    });
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
     expect(starts, 0, reason: 'file conflicts must block renting');
@@ -318,20 +565,23 @@ void main() {
         ),
       ),
     );
-    expect(find.textContaining('Copy machine.yml'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('host-folder')));
-    await tester.tap(find.byKey(const Key('host-folder')));
-    await World.settle(tester);
-    expect(settings.tresorFolder('demo'), scratch.path);
-    for (final entry in <String, String>{
-      'host-scaleway-project': 'project',
-      'host-tresor': 'tresor',
-      'host-collection': 'collection',
-      'host-repository': 'https://example.org/demo.git',
-      'host-signing-key': signing.path,
-    }.entries) {
-      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-    }
+    await fillSteps(
+      tester,
+      <String, String>{
+        'host-scaleway-project': 'project',
+        'host-tresor': 'tresor',
+        'host-collection': 'collection',
+        'host-repository': 'https://example.org/demo.git',
+        'host-signing-key': signing.path,
+      },
+      onDrive: () async {
+        expect(find.textContaining('Copy machine.yml'), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const Key('host-folder')));
+        await tester.tap(find.byKey(const Key('host-folder')));
+        await World.settle(tester);
+        expect(settings.tresorFolder('demo'), scratch.path);
+      },
+    );
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
     expect(commands.length, 1);
@@ -437,14 +687,12 @@ void main() {
           ),
         ),
       );
-      for (final entry in <String, String>{
+      await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': 'collection',
         if (signing != null) ...{'host-repository': 'url', 'host-signing-key': signing!.path},
-      }.entries) {
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
+      });
       await tester.pump();
       if (operation == 'export') {
         await tapAndRun(tester, const Key('host-up'));
@@ -510,13 +758,11 @@ void main() {
           ),
         ),
       );
-      for (final entry in {
+      await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project',
         'host-tresor': 'tresor',
         'host-collection': 'collection',
-      }.entries) {
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
+      });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
       expect(starts, 0);
@@ -563,15 +809,13 @@ void main() {
         ),
       ),
     );
-    for (final entry in <String, String>{
+    await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project-1',
       'host-tresor': 'drive',
       'host-collection': '/tmp/collection.tar.gz',
       'host-identity': '/keys/new',
       'host-account': 'form-account',
-    }.entries) {
-      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-    }
+    });
     await tester.pump();
     await tester.ensureVisible(find.byKey(const Key('host-up')));
     await tester.tap(find.byKey(const Key('host-up')));
@@ -591,6 +835,7 @@ void main() {
     await World.settle(tester);
     expect(find.byKey(const Key('host-add')), findsNothing, reason: 'a refused up must not be added');
     expect(machines.all, <Machine>[old]);
+    await navigate(tester, 'wizard-back');
     await tester.tap(find.byKey(const Key('host-up')));
     await World.settle(tester);
     processes.last.line(done);
@@ -683,13 +928,11 @@ void main() {
           ),
         ),
       );
-      for (final entry in <String, String>{
+      await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project-1',
         'host-tresor': 'drive',
         'host-collection': 'collection',
-      }.entries) {
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
+      });
       await tester.pump();
       for (final code in <int>[65, 75, 0]) {
         await tester.ensureVisible(find.byKey(const Key('host-down')));
@@ -755,13 +998,11 @@ void main() {
           ),
         ),
       );
-      for (final entry in <String, String>{
+      await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'p',
         'host-tresor': 'd',
         'host-collection': 'c',
-      }.entries) {
-        await tester.enterText(find.byKey(Key(entry.key)), entry.value);
-      }
+      });
       await tester.pump();
       await tester.ensureVisible(find.byKey(const Key('host-up')));
       await tester.tap(find.byKey(const Key('host-up')));
@@ -802,20 +1043,37 @@ void main() {
       'host-identity': '/tmp/demo-key',
       'host-collection': '/tmp/porelo-host.tar.gz',
     };
-    for (final field in fields.entries) {
-      expect(tester.widget<TextField>(find.byKey(Key(field.key))).readOnly, isFalse);
-      await tester.enterText(find.byKey(Key(field.key)), field.value);
-    }
+    await fillSteps(tester, fields, beforeFill: (field, _) => expect(field.readOnly, isFalse));
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
     expect(find.byKey(const Key('host-stop')), findsOneWidget);
-    for (final key in fields.keys) {
-      expect(
-        tester.widget<TextField>(find.byKey(Key(key))).readOnly,
-        isTrue,
-        reason: '$key must not redirect teardown after a host has been rented',
-      );
+    Future<void> checkLockedFields() async {
+      for (var step = 0; step < 5; step++) {
+        await navigate(tester, 'wizard-back');
+        if (find.byKey(const Key('wizard-confirm-back')).evaluate().isNotEmpty) {
+          await navigate(tester, 'wizard-confirm-back');
+        }
+      }
+      final seen = <String>{};
+      for (var step = 0; step < 4; step++) {
+        for (final entry in fields.entries) {
+          final found = find.byKey(Key(entry.key));
+          if (found.evaluate().isEmpty) continue;
+          seen.add(entry.key);
+          final field = tester.widget<TextField>(found);
+          expect(
+            field.readOnly,
+            isTrue,
+            reason: '${entry.key} must not redirect teardown after a host has been rented',
+          );
+          expect(field.controller!.text, entry.value, reason: 'host identity stays locked for the rest of the dialog');
+        }
+        await navigate(tester, 'wizard-next');
+      }
+      expect(seen, fields.keys.toSet(), reason: 'every host identity field must have been inspected');
     }
+
+    await checkLockedFields();
     await tapAndRun(tester, const Key('host-down'));
     final up = File(path.join(scratch.path, 'arguments-1')).readAsLinesSync();
     expect(File(path.join(scratch.path, 'arguments-2')).readAsLinesSync(), <String>[
@@ -823,11 +1081,7 @@ void main() {
       ...up.skip(1),
     ], reason: 'teardown must find the host that up rented');
     expect(find.byKey(const Key('host-done')), findsOneWidget);
-    for (final field in fields.entries) {
-      final widget = tester.widget<TextField>(find.byKey(Key(field.key)));
-      expect(widget.readOnly, isTrue, reason: 'host identity stays locked for the rest of the dialog');
-      expect(widget.controller!.text, field.value);
-    }
+    await checkLockedFields();
   });
 
   // Unknown stops must not be hidden or repeatedly resumed with answers that cannot satisfy them.
@@ -854,9 +1108,11 @@ void main() {
           ),
         ),
       );
-      await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'project-1');
-      await tester.enterText(find.byKey(const Key('host-tresor')), 'demo-drive');
-      await tester.enterText(find.byKey(const Key('host-collection')), '/tmp/porelo-host.tar.gz');
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project-1',
+        'host-tresor': 'demo-drive',
+        'host-collection': '/tmp/porelo-host.tar.gz',
+      });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
       expect(find.byKey(const Key('host-stop')), findsOneWidget);
@@ -908,19 +1164,27 @@ void main() {
         ),
       ),
     );
-    await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'project-1');
-    await tester.enterText(find.byKey(const Key('host-collection')), '/tmp/porelo-host.tar.gz');
-    await tester.pump();
+    await fillSteps(tester, {'host-scaleway-project': 'project-1'}, stopAt: 1);
+    expect(find.byKey(const Key('host-up')), findsNothing);
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed,
+      tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
       isNull,
       reason: 'the drive must be named before a host can be rented',
     );
     await tester.enterText(find.byKey(const Key('host-tresor')), '   ');
     await tester.pump();
-    expect(tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed, isNull);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
     await tester.enterText(find.byKey(const Key('host-tresor')), 'demo-drive');
     await tester.pump();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNotNull);
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-identity')), '/keys/default');
+    await tester.enterText(find.byKey(const Key('host-public-key')), '/keys/default.pub');
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-collection')), '/tmp/porelo-host.tar.gz');
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
     expect(tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed, isNotNull);
   });
 
@@ -969,15 +1233,13 @@ void main() {
           ),
         ),
       );
-      for (final field in {
+      await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project-1',
         'host-tresor': 'drive',
         'host-collection': 'collection',
         'host-identity': '/keys/dialog identity',
         'host-account': 'form-account',
-      }.entries) {
-        await tester.enterText(find.byKey(Key(field.key)), field.value);
-      }
+      });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
       final fields = tester
@@ -1054,9 +1316,11 @@ void main() {
           ),
         ),
       );
-      for (final field in {'host-scaleway-project': 'p', 'host-tresor': 't', 'host-collection': 'c'}.entries) {
-        await tester.enterText(find.byKey(Key(field.key)), field.value);
-      }
+      await fillSteps(tester, <String, String>{
+        'host-scaleway-project': 'p',
+        'host-tresor': 't',
+        'host-collection': 'c',
+      });
       await tester.pump();
       await tapAndRun(tester, const Key('host-up'));
       await tester.enterText(find.byKey(const Key('host-drive-email')), email);

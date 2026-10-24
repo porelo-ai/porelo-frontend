@@ -45,38 +45,40 @@ void main() {
       expect(find.text('Put this project on a server…'), findsOneWidget);
       await screen.tap(_key('project.server'));
 
+      expect(_key('host-up'), findsNothing, reason: 'the review cannot be reached on half an answer');
+      expect(tester.widget<FilledButton>(_key('wizard-next')).onPressed, isNull);
+      await screen.fill('host-scaleway-project', 'walk');
+      await screen.tap(_key('wizard-next'));
+
       await screen.see(find.text('Project tresor folder on this computer: $walk/tresor'));
       await screen.see(_key('host-folder'));
       expect(find.descendant(of: _key('host-folder'), matching: find.text('Choose another')), findsOneWidget);
       await screen.field('host-repository', 'Project repository address');
       await screen.field('host-signing-key', 'Public key for signing commits (.pub)');
+      await screen.chooseBeside('host-signing-key');
+      await screen.fill('host-tresor', 'walk');
+      await screen.fill('host-repository', 'https://example.org/walk.git');
+      await screen.fill('host-signing-key', '~/.ssh/id_ed25519.pub');
+      await screen.tap(_key('wizard-next'));
 
-      for (final id in ['host-signing-key', 'host-public-key', 'host-identity', 'host-collection']) {
-        final row = find.ancestor(of: _key(id), matching: find.byType(Row)).first;
-        final choose = find.descendant(of: row, matching: find.text('Choose…'));
-        await screen.see(choose);
-        expect(choose.hitTestable(), findsOneWidget, reason: '$id has its own reachable Choose… button');
-      }
-
-      for (final entry in <String, String>{
-        'host-scaleway-project': 'walk',
-        'host-tresor': 'walk',
-        'host-collection': '$walk/porelo-host',
-        'host-repository': 'https://example.org/walk.git',
-        'host-identity': '~/.ssh/id_ed25519',
-        'host-public-key': '~/.ssh/id_ed25519.pub',
-        'host-signing-key': '~/.ssh/id_ed25519.pub',
-      }.entries) {
-        await screen.fill(entry.key, entry.value);
-      }
-
+      await screen.chooseBeside('host-identity');
+      await screen.chooseBeside('host-public-key');
       await screen.fill('host-identity', '~nobody/key');
-      await screen.tap(_key('host-up'));
+      expect(tester.widget<FilledButton>(_key('wizard-next')).onPressed, isNull);
       await screen.see(find.text('Cannot use ~nobody; only ~/ is understood.'));
       expect(_steps(), findsNothing, reason: 'a refused path must not start host setup');
       expect(_key('host-stop'), findsNothing);
+      expect(_key('host-up'), findsNothing);
+      await screen.fill('host-identity', '~/.ssh/id_ed25519.pub');
+      expect(tester.widget<FilledButton>(_key('wizard-next')).onPressed, isNull);
+      await screen.see(find.textContaining('Choose the private ssh key'));
       await screen.fill('host-identity', '~/.ssh/id_ed25519');
+      await screen.fill('host-public-key', '~/.ssh/id_ed25519.pub');
+      await screen.tap(_key('wizard-next'));
 
+      await screen.chooseBeside('host-collection');
+      await screen.fill('host-collection', '$walk/porelo-host');
+      await screen.tap(_key('wizard-next'));
       await screen.tap(_key('host-up'));
       await screen.shown(_key('host-stop'));
       for (final name in ['rent', 'ssh', 'copy', 'ansible', 'play', 'person']) {
@@ -215,6 +217,13 @@ class _Screen {
     final entry = _key('rail $place');
     if (entry.evaluate().isEmpty) await tap(find.byTooltip('Open navigation menu'));
     await tap(entry);
+  }
+
+  Future<void> chooseBeside(String id) async {
+    final row = find.ancestor(of: _key(id), matching: find.byType(Row)).first;
+    final choose = find.descendant(of: row, matching: find.text('Choose…'));
+    await see(choose);
+    expect(choose.hitTestable(), findsOneWidget, reason: '$id has its own reachable Choose… button');
   }
 
   Future<void> field(String id, String label) async {
