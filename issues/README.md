@@ -31,11 +31,16 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f116"></a>[F116](F116-A-Refused-Ssh-Login-Explained-When-Connecting-Again.md) | — | — | A refused ssh login explained when a machine is connected again, with the key it would take. |
 | <a id="f113"></a>[F113](F113-The-MSIX-Installed-And-Started-In-The-Build.md) | — | — | The MSIX installed and started in the Build's Windows job. |
 
-### Backlog
+### Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f162"></a>[F162](F162-The-Host-Flow-Walked-Against-Stand-Ins.md) | M | — | The host flow walked in a development build against a stand-in `porelo-host`, a host reached through a stand-in `ssh` and the mock daemon, and stand-in terminal steps. |
+
+### Backlog
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
 | <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | S | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |

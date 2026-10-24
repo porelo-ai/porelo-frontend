@@ -147,8 +147,10 @@ class HostSession extends ChangeNotifier {
   }
 }
 
-/// The `porelo-host` that came with this interface: beside it on Windows, in its library on Linux.
-String shippedPoreloHost() {
+/// The development stand-in when named, otherwise the host command shipped with this interface.
+String poreloHost({Map<String, String>? environment, bool release = kReleaseMode}) {
+  final standin = (environment ?? Platform.environment)['PORELO_HOST_STANDIN'];
+  if (!release && standin != null && standin.isNotEmpty) return standin;
   if (Platform.isWindows) return '${File(Platform.resolvedExecutable).parent.path}\\porelo-host.exe';
   return '/usr/lib/porelo-frontend/porelo-host';
 }

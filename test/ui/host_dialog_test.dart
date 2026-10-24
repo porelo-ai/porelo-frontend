@@ -67,6 +67,48 @@ void main() {
     await World.settle(tester);
   }
 
+  // Harm: a development walk accidentally launches the installed host provisioning command.
+  testWidgets('the dialog runs the executable named by its injected environment', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final executable = File('${scratch.path}/host');
+    final marker = File('${scratch.path}/ran');
+    await tester.runAsync(() async {
+      await executable.writeAsString('#!/bin/sh\ncat >/dev/null\nprintf ran > "${marker.path}"\nexit 65\n');
+      expect((await Process.run('chmod', ['700', executable.path])).exitCode, 0);
+    });
+    String? launched;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            machines: machines,
+            secretStore: _MemorySecrets(),
+            environment: {'PORELO_HOST_STANDIN': executable.path},
+            start: (program, arguments) async {
+              launched = program;
+              // A wrong selection must fail without running a real provisioning command.
+              return Process.start(program == executable.path ? program : '/bin/false', arguments);
+            },
+          ),
+        ),
+      ),
+    );
+    for (final entry in {
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-collection': 'collection',
+    }.entries) {
+      await tester.enterText(find.byKey(Key(entry.key)), entry.value);
+    }
+    await tester.pump();
+    await tapAndRun(tester, const Key('host-up'));
+    expect(launched, executable.path);
+    expect(await tester.runAsync(() => marker.readAsString()), 'ran');
+  });
+
   // Harm: a conflicting file is destroyed or a rented host starts with incomplete files.
   // Red: start the session before awaiting prepare, or truncate an existing machine.yml.
   testWidgets('a conflicting machine file is named and up never starts', (tester) async {

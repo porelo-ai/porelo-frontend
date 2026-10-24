@@ -570,8 +570,8 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
-  /// Whether the `porelo-host` this interface ships came with it: not in a development build.
-  static final bool _poreloHostIsHere = File(shippedPoreloHost()).existsSync();
+  /// Whether the selected host command is present, including a development walk stand-in.
+  static final bool _poreloHostIsHere = File(poreloHost()).existsSync();
 
   /// Puts the selected project on a server, by the `porelo-host` shipped beside the interface.
   Future<void> _putOnAServer() async {

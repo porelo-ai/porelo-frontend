@@ -9,6 +9,18 @@ import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 void main() {
+  // Harm: a shipped build runs an environment-selected executable or work goes to the wrong host.
+  test('the host command honors a stand-in only outside release builds', () {
+    final shipped = Platform.isWindows
+        ? '${File(Platform.resolvedExecutable).parent.path}\\porelo-host.exe'
+        : '/usr/lib/porelo-frontend/porelo-host';
+    const environment = {'PORELO_HOST_STANDIN': '/walk/porelo-host'};
+    expect(poreloHost(environment: environment, release: false), '/walk/porelo-host');
+    expect(poreloHost(environment: environment, release: true), shipped);
+    expect(poreloHost(environment: const {}, release: false), shipped);
+    expect(poreloHost(environment: const {'PORELO_HOST_STANDIN': ''}, release: false), shipped);
+  });
+
   late Directory scratch;
   setUp(() async => scratch = await Directory.systemTemp.createTemp('host-session-'));
   tearDown(() => scratch.delete(recursive: true));

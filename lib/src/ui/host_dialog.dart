@@ -36,6 +36,7 @@ class HostDialog extends StatefulWidget {
     required this.project,
     required this.machines,
     this.start,
+    this.environment,
     this.settings,
     this.secretStore,
     this.pickFolder,
@@ -48,6 +49,9 @@ class HostDialog extends StatefulWidget {
 
   /// Starts the command; the shipped one when null.
   final StartHostCommand? start;
+
+  /// Overrides command selection for a development walk.
+  final Map<String, String>? environment;
 
   /// The fleet to add the completed host to and remove it from.
   final Machines machines;
@@ -131,7 +135,7 @@ class _HostDialogState extends State<HostDialog> {
   HostSession _newSession() {
     _session?.dispose();
     final session = HostSession(
-      executable: shippedPoreloHost(),
+      executable: poreloHost(environment: widget.environment),
       arguments: <String>[
         '--project',
         widget.project,

@@ -21,7 +21,8 @@ class MockMachine {
   /// [situation] is one of the names in [situations]. [pace] is how fast a launch prints — a real
   /// one takes minutes, a person watching wants to see the lines arrive, and a test wants neither.
   MockMachine(this.daemon, {this.situation = 'work', this.pace = const Duration(milliseconds: 400)}) {
-    tasks = situation == 'empty' ? <Map<String, dynamic>>[] : _aMachineWithWorkOnIt();
+    tasks = const {'empty', 'host'}.contains(situation) ? <Map<String, dynamic>>[] : _aMachineWithWorkOnIt();
+    if (situation == 'host') _waiting.clear();
     daemon.version = '0.1.0+mock';
     daemon.method('List', (_) => <String, dynamic>{'tasks': _listing});
     daemon.method(
@@ -172,6 +173,7 @@ class MockMachine {
   static const situations = <String, String>{
     'work': 'two projects, one of them with work stopped',
     'empty': 'a machine nothing has ever run on',
+    'host': 'a fresh host with checkout and no earlier work',
     'no-watch': 'a backend too old to have Watch, so nothing arrives by itself',
     'holds-work': 'a task that refuses to be removed because it holds unpushed commits',
     'nothing-knows': 'a task nothing can say anything about, which is refused too',
@@ -1419,11 +1421,11 @@ class MockMachine {
   /// nothing can act on it.
   Map<String, dynamic> _projects(Map<String, dynamic> parameters) => <String, dynamic>{
     'projects': <Map<String, dynamic>>[
-      for (final project in _everyProject)
+      for (final project in _listedProjects)
         if (!_removedProjects.contains(project['name'])) project,
       // What was followed here and taken is a project, with its follow state on it.
       for (final MapEntry(key: name, value: state) in _followed.entries)
-        if (!_removedProjects.contains(name) && !_everyProject.any((each) => each['name'] == name))
+        if (!_removedProjects.contains(name) && !_listedProjects.any((each) => each['name'] == name))
           <String, dynamic>{
             'name': name,
             'securityClass': 'guarded',
@@ -1439,6 +1441,26 @@ class MockMachine {
           },
     ],
   };
+
+  List<Map<String, dynamic>> get _listedProjects => situation == 'host' ? _hostProjects : _everyProject;
+
+  List<Map<String, dynamic>> get _hostProjects => <Map<String, dynamic>>[
+    <String, dynamic>{
+      'name': 'checkout',
+      'securityClass': 'guarded',
+      'file': '/srv/checkout/project.yml',
+      'mirror': '',
+      'prepared': false,
+      'preparedState': 'ABSENT',
+      'behind': 0,
+      'behindMeasured': '',
+      'behindReason': 'NEVER_CHECKED',
+      'behindDetail': '',
+      'pending': _waiting.length,
+      'tasks': tasks.length,
+      'running': tasks.where((task) => task['running'] == true).length,
+    },
+  ];
 
   List<Map<String, dynamic>> get _everyProject => <Map<String, dynamic>>[
     <String, dynamic>{
