@@ -88,6 +88,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | — | `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13) | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |
 | <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | — | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
 | <a id="f159"></a>[F159](F159-Work-Started-From-The-Project-Page.md) | — | — | Visible start buttons on the project page and each repository row, with a chosen repository shown as text and a *Change* link in the start form. |
+| <a id="f165"></a>[F165](F165-A-Projects-Commands-As-Tiles-On-Its-Page.md) | — | — | A project's commands as tiles on its page, not only in its ⋮. |
 
 ### Idea
 
@@ -98,7 +99,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-On-With-Its-Repositories.md) | — | `porelo-host` [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) | The host's own forge switched on in the host dialog or on `porelo_host`, with the repositories that move there and where the central forge's token lies. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
-| <a id="f165"></a>[F165](F165-A-Projects-Commands-As-Tiles-On-Its-Page.md) | — | — | A project's commands as tiles on its page, not only in its ⋮. |
 
 ### Finished
 

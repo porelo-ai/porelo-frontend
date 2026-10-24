@@ -1,6 +1,6 @@
 # F165 — A Project's Commands As Tiles On Its Page
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A project's page shows its commands as tiles with a line each on what they
 do, beside *Start work*, rather than only in its `⋮` menu, so a person sees what can be done with a
