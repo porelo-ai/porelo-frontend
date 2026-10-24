@@ -1,7 +1,8 @@
 # F154 — A Host Stands In Machines While It Is Prepared
 
-**Status:** Accepted; blocked by `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21), which gives each step a
+**Status:** Analyzed; blocked by `porelo-host` [HO21](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho21), which gives each step a
 plain-words text and its usual duration.
+**Size:** M - a run that outlives the dialog, a row under *Machines*, the stop under *Needs you*.
 
 **Order.** In the host flow, after [F152](README.md#f152).
 
@@ -19,6 +20,32 @@ internal phase names (`rent`, `ssh`, `ansible`), asks *Add this server to your m
 separate step after a finished `up`, and stays open with *Put it on a server* still as its main
 button.
 
+## Plan
+
+- **Today**, read in the code: `HostSession` lives only inside `HostDialog`
+  (`host_dialog.dart`), so closing the dialog ends what the interface knows of a run. *Machines*
+  (`machines_page.dart`) lists only `Machine` entries, each of which opens a `FleetModel` at once;
+  nothing can stand there before a daemon exists. `Attention` reads no host run, and `Step` reads
+  no `text` or `seconds`.
+- **A run that outlives the dialog:** one `HostRuns` model beside `Operations`, holding the
+  running `HostSession` per project. *Put it on a server* hands the session to it, and the dialog
+  closes. The arguments it ran with are kept on the run (no secret is among them).
+- **The host under *Machines* at once:** the page lists each running `up` as its own row, *In
+  preparation*, under the project's server name, before any `Machine` exists, so no machine of a
+  new kind is stored. The row shows the current step's `text` as `porelo-host` sends it, the time
+  left of that step from its `seconds` and the time it began, *Needs you* at a stop, and the
+  protocol (every step and the words on standard error) on a click. When `up` ends 0 the row is
+  replaced by the `host` machine, added as the dialog adds it today, with no button to press; a
+  refusal or a failure keeps the row with its `fix` and the protocol, never marked ready.
+- **The stop under *Needs you*:** `Attention` reads `HostRuns`; a waiting run is a row naming the
+  project and what the host needs, whose action is [F152](README.md#f152)'s terminal.
+- **Words come from the lines:** `Step` (`packages/porelo_host`) reads `text` and `seconds`, and
+  `porelo-host`'s own steps (`rent`, `ssh`, `copy`, `ansible`) carry theirs in the same lines. No
+  view writes a word of its own for a host's step; a step without `text` shows its name.
+- **Tests, their harm, red first:** a host never shows as ready unless `up` ended 0 (a person
+  sends work to a host that is not there); the stop reaches *Needs you* (a run that waits unseen
+  while a rented host bills); the run survives closing the dialog (today it does not).
+
 ## Acceptance
 
 - Starting `up` adds the host to *Machines* as *In preparation* with a plain-words step, estimated
@@ -32,7 +59,14 @@ button.
   step lines; `porelo-host`'s own steps (`rent`, `ssh`, `copy`) get theirs in
   `packages/porelo_host`, in the same lines. The interface's views write no text for a host's step.
 
+## Open questions
+
+- The time left: only the running step's is known, since each line names its own step alone.
+  Proposed: show that step's time left, and add the whole run's once `porelo-host` names every step
+  ahead with its usual duration in a first line, asked of its owner.
+
 ## To be checked
 
-- The time left is first read from each step's usual duration; later it is learned from measured
-  runs.
+- Whether a run survives the interface being closed: `porelo-host` is a child of the interface,
+  and what becomes of a rented host when it is killed mid-`up` is measured with the stand-in and
+  asked of `porelo-host`'s owner.
