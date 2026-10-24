@@ -129,11 +129,11 @@ class HostDialog extends StatefulWidget {
   /// An injected store for tests; otherwise opened and closed for each operation.
   final SecretStore? secretStore;
 
-  /// System pickers, replaceable without platform calls in widget tests.
-  final Future<String?> Function()? pickFolder;
+  /// System pickers, replaceable without platform calls in widget tests; each starts where the last one ended.
+  final Future<String?> Function(String? initialDirectory)? pickFolder;
 
-  /// Chooses a path file without opening a platform dialog in tests.
-  final Future<String?> Function()? pickFile;
+  /// Chooses a path file without opening a platform dialog in tests, starting where the last pick ended.
+  final Future<String?> Function(String? initialDirectory)? pickFile;
 
   /// Chooses the explicitly requested tunnel export destination.
   final Future<String?> Function()? saveTunnel;
@@ -165,6 +165,9 @@ class _HostDialogState extends State<HostDialog> {
   final _stopStart = GlobalKey();
   bool _stopShown = false;
   String? _folder;
+
+  // Where the next picker starts: the folder of the last file or folder chosen in this dialog.
+  String? _lastFolder;
   HostTunnel? _tunnel;
   bool _preparing = false;
   HostSession? _session;
@@ -300,8 +303,9 @@ class _HostDialogState extends State<HostDialog> {
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
 
   Future<void> _chooseFolder() async {
-    final folder = await (widget.pickFolder?.call() ?? getDirectoryPath());
+    final folder = await (widget.pickFolder?.call(_lastFolder) ?? getDirectoryPath(initialDirectory: _lastFolder));
     if (folder == null || !mounted) return;
+    _lastFolder = folder;
     await widget.settings?.rememberTresorFolder(widget.project, folder);
     if (mounted) {
       setState(() {
@@ -334,7 +338,13 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  Future<String?> _pickFile() async => widget.pickFile == null ? (await openFile())?.path : await widget.pickFile!();
+  Future<String?> _pickFile() async {
+    final file = widget.pickFile == null
+        ? (await openFile(initialDirectory: _lastFolder))?.path
+        : await widget.pickFile!(_lastFolder);
+    if (file != null) _lastFolder = path.dirname(desk.expandHome(file.trim()));
+    return file;
+  }
 
   Future<void> _chooseFile(TextEditingController field) async {
     final file = await _pickFile();

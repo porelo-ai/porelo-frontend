@@ -466,7 +466,7 @@ void main() {
                 machines: machines,
                 settings: settings,
                 secretStore: _MemorySecrets(),
-                pickFile: () async => '~/unusable',
+                pickFile: (_) async => '~/unusable',
                 start: (_, _) async {
                   starts++;
                   return _HostProcess();
@@ -499,6 +499,49 @@ void main() {
       });
     }
   }
+
+  // Harm: every Choose… starting elsewhere makes a person walk back to the folder they were just in.
+  hostWidgets('each picker starts in the folder of the file chosen before it', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final keys = Directory(fixture('keys'))..createSync();
+    final picks = [fixture('keys/walk_ed25519'), fixture('keys/walk_ed25519.pub')];
+    final startedIn = <String?>[];
+    final settings = newSettings(MemorySettingsStore());
+    await settings.rememberTresorFolder('demo', scratch.path);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            hostFiles: filesFor,
+            hostRuns: runs,
+            project: 'demo',
+            machines: machines,
+            settings: settings,
+            secretStore: _MemorySecrets(),
+            pickFile: (initialDirectory) async {
+              startedIn.add(initialDirectory);
+              return picks.removeAt(0);
+            },
+            start: (_, _) async => _HostProcess(),
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-repository': 'https://example.org/demo.git',
+    }, stopAt: 2);
+    for (final choose in [0, 1]) {
+      await tester.ensureVisible(find.text('Choose…').at(choose));
+      await tester.tap(find.text('Choose…').at(choose));
+      await World.settle(tester);
+    }
+    expect(startedIn, [null, keys.path]);
+    expect(tester.widget<TextField>(find.byKey(const Key('host-public-key'))).controller!.text, endsWith('.pub'));
+  });
 
   // Harm: an input refusal without its field and step prevents correcting setup before renting.
   hostWidgets('a preparation refusal names the input and back correct next retries with the new file', (tester) async {
@@ -587,7 +630,7 @@ void main() {
             hostRuns: runs,
             project: 'demo',
             machines: machines,
-            pickFolder: () async => folder,
+            pickFolder: (_) async => folder,
           ),
         ),
       ),
@@ -1086,7 +1129,7 @@ void main() {
             project: 'demo',
             settings: settings,
             secretStore: store,
-            pickFolder: () async => scratch.path,
+            pickFolder: (_) async => scratch.path,
             saveTunnel: () async => exported.path,
             openTerminal: (_, _, {columns = 80, rows = 24}) => terminal,
             start: (_, arguments) async {
