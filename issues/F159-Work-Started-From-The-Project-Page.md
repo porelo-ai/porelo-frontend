@@ -1,6 +1,6 @@
 # F159 — Work Started From The Project Page
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - a start button on each repository row, the start form's repository fixed with *Change*.
 
 **What must be true.** The project page offers a visible start button on each repository row and
