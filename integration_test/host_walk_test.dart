@@ -42,7 +42,10 @@ void main() {
       await screen.tap(_key('project checkout'));
       await screen.tap(_key('project-menu'));
       await screen.shown(_key('project.server'));
-      expect(find.text('Put this project on a server…'), findsOneWidget);
+      expect(
+        find.descendant(of: _key('project.server'), matching: find.text('Put this project on a server…')),
+        findsOneWidget,
+      );
       await screen.tap(_key('project.server'));
 
       expect(_key('host-up'), findsNothing, reason: 'the review cannot be reached on half an answer');
