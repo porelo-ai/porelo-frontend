@@ -100,7 +100,6 @@ void main() {
       if (step!.state != StepState.plan) steps.add(step);
       if (step.state == StepState.started) {
         final map = jsonDecode(line) as Map<String, dynamic>;
-        expect(map.keys.toList().sublist(map.length - 2), ['text', 'seconds']);
         expect(map['text'], isA<String>().having((text) => text.isNotEmpty, 'English words', isTrue));
         expect(map['seconds'], isA<num>().having((seconds) => seconds >= 0, 'nonnegative duration', isTrue));
       }
@@ -135,7 +134,7 @@ void main() {
       expect(result.steps.map((step) => '${step.step}:${step.state.name}'), switch (name) {
         'stop' => [...beforeStop, 'person:waiting'],
         'refused' => ['rent:started', 'rent:refused'],
-        'slow' => ['play:started', 'play:done', 'up:done'],
+        'slow' => ['play:started', 'play:done', ...afterStop],
         'down' => ['give-back:started', 'give-back:done'],
         _ => [...beforeStop, ...afterStop],
       });

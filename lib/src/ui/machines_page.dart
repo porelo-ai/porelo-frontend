@@ -206,8 +206,11 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
             const Text('In preparation'),
             if (session.stepText.isNotEmpty) Text(session.stepText),
             if (running) ...[
-              if (session.secondsLeft case final seconds?) Text('${_about(seconds)} left in all'),
-              if (session.stepSecondsLeft case final seconds?) Text('${_about(seconds)} left in this step'),
+              if (session.timeLeftText case final text?) Text(text),
+              if (session.stepOverrun case final text?)
+                Text(text)
+              else if (session.stepSecondsLeft case final seconds?)
+                Text('${_about(seconds)} left in this step'),
             ],
             if (run.waiting) const Text('Needs you'),
             if (run.problem ?? session.fix case final fix?) Text(fix),

@@ -42,6 +42,40 @@ enum HostRunState {
 /// Starts a program; injectable, so the session is proven without one.
 typedef StartHostCommand = Future<Process> Function(String executable, List<String> arguments);
 
+/// One step's progress and emission times within a single attempt.
+class HostStepRecord {
+  HostStepRecord._(this._step, this.startedAt, this._text, this._seconds);
+
+  Step _step;
+  String _text;
+  int? _seconds;
+  DateTime? _endedAt;
+
+  /// The latest event for this step.
+  Step get step => _step;
+
+  /// The first event's instant, or its arrival time for an older host.
+  final DateTime startedAt;
+
+  /// The terminal event's instant, or its arrival time for an older host.
+  DateTime? get endedAt => _endedAt;
+
+  /// The step's words, retained when a later event omits them.
+  String get text => _text;
+
+  /// The usual duration supplied by the step or plan.
+  int? get seconds => _seconds;
+}
+
+class _ProtocolWords {
+  _ProtocolWords(this.line, this.echoes);
+  final String line;
+  final Set<String> echoes;
+  bool get unmatched => !echoes.contains(line);
+}
+
+String _duration(int seconds) => seconds < 60 ? '$seconds s' : '${(seconds / 60).ceil()} min';
+
 /// One `porelo-host` command the interface runs, read line by line: the steps as they come, the
 /// one stop, and how it ended.
 ///
@@ -68,11 +102,77 @@ class HostSession extends ChangeNotifier {
   final StartHostCommand _start;
   final DateTime Function() _now;
   bool _disposed = false;
-  DateTime? _stepStarted;
   Step? _currentStep;
+  final Map<String, HostStepRecord> _history = {};
+  final List<Object> _protocol = [];
+  Set<String> _echoes = {};
+  List<_ProtocolWords> _words = [];
 
-  /// Every valid event and stderr line, including earlier attempts, in arrival order.
-  final List<String> protocol = [];
+  /// One line per step and unmatched stderr line, including earlier attempts.
+  List<String> get protocol => [
+    for (final entry in _protocol)
+      if (entry is HostStepRecord) stepLine(entry) else if (entry is _ProtocolWords && entry.unmatched) entry.line,
+  ];
+
+  /// The current attempt's steps in the order they began, with their start and end times.
+  List<HostStepRecord> get history => List.unmodifiable(_history.values);
+
+  HostStepRecord? get _currentRecord => _history[_currentStep?.step];
+
+  /// The current step's running time, absent once it has ended.
+  int? get stepSecondsRunning {
+    final record = _currentRecord;
+    if (state != HostRunState.running || record == null || record.endedAt != null) return null;
+    final elapsed = _now().difference(record.startedAt).inSeconds;
+    return elapsed < 0 ? 0 : elapsed;
+  }
+
+  /// The explanation shown once a running step exceeds its usual duration.
+  String? get stepOverrun {
+    final elapsed = stepSecondsRunning;
+    final expected = _currentRecord?.seconds;
+    if (elapsed == null || expected == null || elapsed <= expected) return null;
+    return 'taking longer than the usual ${_duration(expected)}, running for ${_duration(elapsed)}';
+  }
+
+  /// The estimate for all steps still ahead of the current one.
+  int? get secondsAfterStep {
+    final at = plan.indexWhere((step) => step.task == _currentStep?.step);
+    if (at < 0) return null;
+    var total = 0;
+    for (final step in plan.skip(at + 1)) {
+      if (step.seconds == null) return null;
+      total += step.seconds!;
+    }
+    return total;
+  }
+
+  /// The overall estimate, with an overrun's remaining work explicitly after the current step.
+  String? get timeLeftText {
+    final overrun = stepOverrun != null;
+    final seconds = overrun ? secondsAfterStep : secondsLeft;
+    if (seconds == null) return null;
+    return 'about ${_duration(seconds)} left ${overrun ? 'after this step' : 'in all'}';
+  }
+
+  /// Renders a step's local start time, words, and its completed duration or current overrun.
+  String stepLine(HostStepRecord record) {
+    final local = record.startedAt.toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    final time = '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+    final details = <String>{
+      if (record.step.words?.isNotEmpty == true) record.step.words!,
+      if (record.step.fix?.isNotEmpty == true) record.step.fix!,
+    };
+    final parts = <String>['$time ${record.text}', ...details];
+    if (record.endedAt case final ended?) {
+      final seconds = ended.difference(record.startedAt).inSeconds;
+      parts.add('${record.step.state.name}, took ${_duration(seconds < 0 ? 0 : seconds)}');
+    } else if (identical(record, _currentRecord)) {
+      if (stepOverrun case final overrun?) parts.add(overrun);
+    }
+    return parts.join(' — ');
+  }
 
   /// The ordered plan supplied by the command, matched by task identity.
   List<PlannedStep> plan = const [];
@@ -87,25 +187,19 @@ class HostSession extends ChangeNotifier {
 
   /// Estimated time left in this step; elapsed work never makes it negative.
   int? get stepSecondsLeft {
-    final seconds = _currentStep?.seconds ?? _plannedCurrent?.seconds;
-    if (seconds == null || _stepStarted == null) return null;
+    final seconds = _currentRecord?.seconds;
+    if (seconds == null || _currentRecord == null) return null;
     if (_currentStep?.state == StepState.done || state == HostRunState.done) return 0;
-    final elapsed = state == HostRunState.running ? _now().difference(_stepStarted!).inSeconds : 0;
+    final elapsed = stepSecondsRunning ?? 0;
     return (seconds - elapsed).clamp(0, seconds);
   }
 
   /// About the whole run, including conditional tasks until a later task begins.
   int? get secondsLeft {
     if (state == HostRunState.done) return 0;
-    final at = plan.indexWhere((step) => step.task == _currentStep?.step);
     final current = stepSecondsLeft;
-    if (at < 0 || current == null) return null;
-    var total = current;
-    for (final step in plan.skip(at + 1)) {
-      if (step.seconds == null) return null;
-      total += step.seconds!;
-    }
-    return total;
+    final after = secondsAfterStep;
+    return current == null || after == null ? null : current + after;
   }
 
   void _changed() {
@@ -119,7 +213,7 @@ class HostSession extends ChangeNotifier {
   }
 
   /// Every step said so far, the last state of each in the order they began.
-  final List<Step> steps = <Step>[];
+  List<Step> get steps => [for (final record in _history.values) record.step];
 
   /// Where it has got to.
   HostRunState state = HostRunState.idle;
@@ -143,7 +237,7 @@ class HostSession extends ChangeNotifier {
   String? fix;
 
   /// What the command said for a person, as it came.
-  String said = '';
+  String get said => _words.where((words) => words.unmatched).map((words) => words.line).join('\n').trim();
 
   /// Brings the host up, as far as it goes.
   Future<void> up() => _run(<String>['up', ...arguments]);
@@ -153,31 +247,31 @@ class HostSession extends ChangeNotifier {
 
   Future<void> _run(List<String> command) async {
     if (state == HostRunState.running) return;
-    steps.clear();
     plan = const [];
     _currentStep = null;
-    _stepStarted = null;
+    _history.clear();
+    _echoes = {};
+    _words = [];
     needs = const <String>[];
     address = null;
     releasedAddress = null;
     account = null;
     socket = null;
     fix = null;
-    said = '';
     state = HostRunState.running;
     _changed();
     final process = await _start(executable, command);
     await process.stdin.close();
     final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
     final words = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
-      said = said.isEmpty ? line : '$said\n$line';
-      protocol.add(line);
+      final words = _ProtocolWords(line, _echoes);
+      _words.add(words);
+      _protocol.add(words);
       _changed();
     });
     final code = await process.exitCode;
     await lines;
     await words;
-    said = said.trim();
     state = switch (code) {
       Exit.done => HostRunState.done,
       Exit.waiting => HostRunState.waiting,
@@ -193,23 +287,33 @@ class HostSession extends ChangeNotifier {
   void _line(String line) {
     final step = Step.fromLine(line);
     if (step == null) return;
-    protocol.add(step.toLine());
     if (step.state == StepState.plan) {
       plan = List.unmodifiable(step.steps);
       _changed();
       return;
     }
+    // Either pipe can arrive first; matching echoes stay filtered even when stdout comes later.
+    _echoes.addAll(const LineSplitter().convert(hostStepWords(step)));
+    final instant = step.at ?? _now();
+    final planned = plan.where((each) => each.task == step.step).firstOrNull;
+    final record = _history.putIfAbsent(step.step, () {
+      final record = HostStepRecord._(
+        step,
+        instant,
+        step.text ?? planned?.text ?? step.step,
+        step.seconds ?? planned?.seconds,
+      );
+      _protocol.add(record);
+      return record;
+    });
+    record._step = step;
+    record._text = step.text ?? planned?.text ?? record.text;
+    record._seconds = step.seconds ?? planned?.seconds ?? record.seconds;
+    if (step.state != StepState.started) record._endedAt = instant;
     if (step.state == StepState.started || step.state == StepState.waiting || step.state == StepState.refused) {
       _currentStep = step;
-      _stepStarted = _now();
     } else if (_currentStep?.step == step.step) {
       _currentStep = step;
-    }
-    final at = steps.indexWhere((s) => s.step == step.step);
-    if (at < 0) {
-      steps.add(step);
-    } else {
-      steps[at] = step;
     }
     if (step.state == StepState.waiting) {
       needs = step.needs;

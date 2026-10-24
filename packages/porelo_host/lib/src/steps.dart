@@ -20,6 +20,7 @@ class Step {
     this.socket,
     this.text,
     this.seconds,
+    this.at,
     this.steps = const [],
   });
 
@@ -28,6 +29,9 @@ class Step {
 
   /// Its usual duration, absent where the step has no estimate.
   final int? seconds;
+
+  /// The emission instant, absent on lines from older hosts.
+  final DateTime? at;
 
   /// The run ahead, only on a plan line.
   final List<PlannedStep> steps;
@@ -65,10 +69,12 @@ class Step {
       return null;
     }
     if (decoded is! Map<String, Object?>) return null;
+    final at = _readInstant(decoded['at']);
+    if (decoded.containsKey('at') && at == null) return null;
     if (decoded['state'] == 'plan') {
       final steps = PlannedStep.readMany(decoded['steps']);
       if (decoded['v'] != 1 || steps == null) return null;
-      return Step('plan', StepState.plan, steps: steps);
+      return Step('plan', StepState.plan, steps: steps, at: at);
     }
     if (!validStepFields(decoded)) return null;
     final step = decoded['step'];
@@ -80,6 +86,7 @@ class Step {
       state,
       text: decoded['text'] as String?,
       seconds: decoded['seconds'] as int?,
+      at: at,
       fix: decoded['fix'] as String?,
       needs: (decoded['needs'] as List<Object?>? ?? const <Object?>[]).whereType<String>().toList(),
       words: decoded['words'] as String?,
@@ -93,11 +100,13 @@ class Step {
   String toLine() => state == StepState.plan
       ? jsonEncode({
           'v': 1,
+          'at': ?at?.toUtc().toIso8601String(),
           'state': 'plan',
           'steps': [for (final step in steps) step.toJson()],
         })
       : jsonEncode(<String, Object>{
           'step': step,
+          'at': ?at?.toUtc().toIso8601String(),
           'state': state.name,
           'fix': ?fix,
           if (needs.isNotEmpty) 'needs': needs,
@@ -111,6 +120,29 @@ class Step {
 
   @override
   String toString() => toLine();
+}
+
+DateTime? _readInstant(Object? value) {
+  if (value is! String) return null;
+  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|[+-](\d{2}):(\d{2}))$')
+      .firstMatch(value);
+  if (match == null) return null;
+  final year = int.parse(match[1]!);
+  final month = int.parse(match[2]!);
+  final day = int.parse(match[3]!);
+  final date = DateTime.utc(year, month, day);
+  // DateTime accepts overflowing calendar fields; the wire must not silently change their meaning.
+  if (date.year != year ||
+      date.month != month ||
+      date.day != day ||
+      int.parse(match[4]!) > 23 ||
+      int.parse(match[5]!) > 59 ||
+      int.parse(match[6]!) > 59 ||
+      int.parse(match[7] ?? '0') > 23 ||
+      int.parse(match[8] ?? '0') > 59) {
+    return null;
+  }
+  return DateTime.tryParse(value.toUpperCase())?.toUtc();
 }
 
 /// A task's identity, words and usual duration in the collection's ordered plan.

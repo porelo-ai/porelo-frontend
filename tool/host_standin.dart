@@ -113,13 +113,18 @@ Future<int> _run(List<String> arguments) async {
         StepState.plan,
         steps: [
           ..._ownSteps,
-          PlannedStep('play', 'Prepare the server', seconds: (pace / 1000).ceil()),
+          PlannedStep('play', 'Prepare the server', seconds: (pace / 2000).ceil()),
+          ..._collectionSteps.skip(1),
         ],
       ),
     );
-    _emit(Step('play', StepState.started, text: 'Prepare the server', seconds: (pace / 1000).ceil()));
+    _emit(Step('play', StepState.started, text: 'Prepare the server', seconds: (pace / 2000).ceil()));
     await Future<void>.delayed(Duration(milliseconds: pace));
     _emit(const Step('play', StepState.done));
+    for (final name in ['drive', 'vault']) {
+      _emit(Step(name, StepState.started));
+      _emit(Step(name, StepState.done));
+    }
   } else {
     for (final name in ['rent', 'ssh', 'copy', 'ansible']) {
       _emit(Step(name, StepState.started));
@@ -178,8 +183,5 @@ void _emit(Step step) {
     line['text'] = step.text ?? planned.text;
     line['seconds'] = step.seconds ?? planned.seconds;
   }
-  stdout.writeln(jsonEncode(line));
-  if (step.state != StepState.plan) {
-    stderr.writeln(step.fix ?? step.words ?? step.text ?? planned?.text ?? '${step.step}: ${step.state.name}');
-  }
+  writeHostStep(Step.fromLine(jsonEncode(line))!, output: stdout, errors: stderr);
 }

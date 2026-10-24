@@ -174,6 +174,7 @@ class _HostDialogState extends State<HostDialog> {
   HostPreparation? _hostRun;
   bool _transferred = false;
   bool _sessionActive = false;
+  Timer? _ticker;
 
   @override
   void initState() {
@@ -232,6 +233,7 @@ class _HostDialogState extends State<HostDialog> {
       field.dispose();
     }
     widget.hostRuns?.removeListener(_sessionChanged);
+    _ticker?.cancel();
     _session?.removeListener(_sessionChanged);
     // A confirmed leave must not dispose a notifier while its process is still answering.
     if (!_sessionActive && !_transferred) _session?.dispose();
@@ -860,19 +862,29 @@ class _HostDialogState extends State<HostDialog> {
 
   Widget _progress(BuildContext context) {
     final session = _session;
+    if (session?.state == HostRunState.running) {
+      _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _ticker?.cancel();
+      _ticker = null;
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (session != null) ...<Widget>[
-          for (final step in session.steps) _stepRow(step),
+          for (final record in session.history) _stepRow(record),
+          if (session.state == HostRunState.running)
+            if (session.timeLeftText case final text?) Text(text),
           if (session.state == HostRunState.waiting)
             if (_takingDown)
               const Text('The host has not completed teardown. Your machines have been kept.')
             else
               _askForTheStop(session.needs),
           if (session.said.isNotEmpty && session.said != session.fix) Text(session.said),
-          if (session.fix != null)
+          if (session.fix != null && !session.history.any((record) => record.step.fix == session.fix))
             Padding(
               padding: const EdgeInsets.only(top: Space.small),
               child: Text(
@@ -957,10 +969,10 @@ class _HostDialogState extends State<HostDialog> {
     ),
   );
 
-  Widget _stepRow(Step step) => Row(
-    key: Key('host-step-${step.step}'),
+  Widget _stepRow(HostStepRecord record) => Row(
+    key: Key('host-step-${record.step.step}'),
     children: <Widget>[
-      Icon(switch (step.state) {
+      Icon(switch (record.step.state) {
         StepState.started => Icons.pending_outlined,
         StepState.done => Icons.check,
         StepState.refused => Icons.error_outline,
@@ -968,7 +980,12 @@ class _HostDialogState extends State<HostDialog> {
         StepState.plan => Icons.list_alt_outlined,
       }, size: Sizes.mark),
       const SizedBox(width: Space.small),
-      Expanded(child: Text([step.text ?? step.step, if (step.words?.isNotEmpty == true) step.words!].join(': '))),
+      Expanded(
+        child: Text(
+          _session!.stepLine(record),
+          key: record.step.fix != null && record.step.fix == _session!.fix ? const Key('host-fix') : null,
+        ),
+      ),
     ],
   );
 
