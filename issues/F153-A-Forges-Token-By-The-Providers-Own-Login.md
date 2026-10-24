@@ -1,6 +1,6 @@
 # F153 — A Forge's Token By The Provider's Own Login
 
-**Status:** Implementing; ships together with `porelo` [B269](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b269), which retires the daemon's deploy keys.
+**Status:** Review.
 **Size:** L - the forges view, the deploy keys in five modules, the token's two places, the decisions; with porelo.
 
 **Order.** Right after [F152](README.md#f152).

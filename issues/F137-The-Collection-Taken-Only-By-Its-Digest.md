@@ -1,7 +1,6 @@
 # F137 — The Collection Taken Only By Its Digest
 
-**Status:** Implementing; blocked by porelo-host's release issue, which attaches the tarball and its
-`SHA256SUMS` to each release.
+**Status:** Review.
 **Size:** S - one pinned digest, checked twice, with a test seen red on a changed byte.
 
 **What must be true.** `porelo-host up` installs on the host only the porelo-host collection whose

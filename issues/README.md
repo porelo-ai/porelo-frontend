@@ -19,26 +19,21 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
-
-### Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | M | — | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
-| <a id="f162"></a>[F162](F162-The-Host-Flow-Walked-Against-Stand-Ins.md) | M | — | The host flow walked in a development build against a stand-in `porelo-host`, a host reached through a stand-in `ssh` and the mock daemon, and stand-in terminal steps. |
-| <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | S | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. |
-| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | M | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
-| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | S | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. |
-| <a id="f161"></a>[F161](F161-A-Starts-Progress-And-Refusal-In-Words.md) | M | `porelo` [B268](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b268) | Task start showing its step and what it waits on in plain words, stopping with the cause when a dependency fails, and explaining a refused `porelo.yml`. |
-| <a id="f164"></a>[F164](F164-Putting-A-Project-On-A-Server-Step-By-Step.md) | L | — | Putting a project on a server as a wizard of explained steps with an indicator, back and next, and a summary, on a wizard frame other wizards use too; the drive named as Tresorit, its tresor and folder apart. |
-| <a id="f159"></a>[F159](F159-Work-Started-From-The-Project-Page.md) | S | — | Visible start buttons on the project page and each repository row, with a chosen repository shown as text and a *Change* link in the start form. |
-| <a id="f165"></a>[F165](F165-A-Projects-Commands-As-Tiles-On-Its-Page.md) | S | — | A project's commands as tiles on its page, not only in its ⋮. |
-| <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | S | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |
-| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | M | — | VPN saving from the server menu across restarts and local terminals for VPN up and down; the project's room through Messages with its homeserver forward, client details and mention-pill hint. |
-| <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | S | porelo-host's release of the tarball and its `SHA256SUMS` | The collection installed on the host only by the digest the package expects, checked here and there. |
-| <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | M | `porelo-host` [HO13](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho13) | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |
-| <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | M | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
-| <a id="f153"></a>[F153](F153-A-Forges-Token-By-The-Providers-Own-Login.md) | L | ships with `porelo` [B269](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b269) | A forge reached by its own login, the person's token kept in each machine's vault, and deploy keys gone. |
+| <a id="f154"></a>[F154](F154-A-Host-Stands-In-Machines-While-It-Is-Prepared.md) | — | — | A host being prepared shown at once in *Machines* as *In preparation* with its plain-words step, time left, protocol and *Needs you* link, and added by itself when ready. |
+| <a id="f162"></a>[F162](F162-The-Host-Flow-Walked-Against-Stand-Ins.md) | — | — | The host flow walked in a development build against a stand-in `porelo-host`, a host reached through a stand-in `ssh` and the mock daemon, and stand-in terminal steps. |
+| <a id="f160"></a>[F160](F160-The-Interfaces-Terminals-Paste-As-Linux-Terminals-Do.md) | — | — | The interface's terminals pasting on `Ctrl+Shift+V` and `Shift+Insert` as well as `Ctrl+V`, with the shortcut named beside the terminal. |
+| <a id="f152"></a>[F152](F152-Secrets-For-A-Host-Typed-Only-In-A-Terminal.md) | — | — | The drive login and vault passphrase at the host stop typed into an ssh terminal on the host, never into a form of the interface. |
+| <a id="f156"></a>[F156](F156-The-Host-Dialogs-Fields-And-Words.md) | — | — | Expanding `~` in host dialog paths, hiding repository fields until the tresor folder is chosen, scrolling to a stop, and explaining the VPN file and `/etc/wireguard` commands in plain words. |
+| <a id="f161"></a>[F161](F161-A-Starts-Progress-And-Refusal-In-Words.md) | — | — | Task start showing its step and what it waits on in plain words, stopping with the cause when a dependency fails, and explaining a refused `porelo.yml`. |
+| <a id="f164"></a>[F164](F164-Putting-A-Project-On-A-Server-Step-By-Step.md) | — | — | Putting a project on a server as a wizard of explained steps with an indicator, back and next, and a summary, on a wizard frame other wizards use too; the drive named as Tresorit, its tresor and folder apart. |
+| <a id="f159"></a>[F159](F159-Work-Started-From-The-Project-Page.md) | — | — | Visible start buttons on the project page and each repository row, with a chosen repository shown as text and a *Change* link in the start form. |
+| <a id="f165"></a>[F165](F165-A-Projects-Commands-As-Tiles-On-Its-Page.md) | — | — | A project's commands as tiles on its page, not only in its ⋮. |
+| <a id="f155"></a>[F155](F155-A-Host-Taken-Down-From-Machines.md) | — | — | Taking a host down from *Machines* using its stored record, a billing and reconnection warning with take-down beside *Remove from this list*, and the setup dialog keeping its last values. |
+| <a id="f157"></a>[F157](F157-A-Persons-Terminal-Steps-Offered-By-The-Interface.md) | — | — | VPN saving from the server menu across restarts and local terminals for VPN up and down; the project's room through Messages with its homeserver forward, client details and mention-pill hint. |
+| <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
+| <a id="f163"></a>[F163](F163-The-Collection-Comes-With-Porelo-Host.md) | — | — | The porelo-host collection brought by `porelo-host` from its own release, never chosen in the dialog outside a development build. |
+| <a id="f158"></a>[F158](F158-A-Needs-You-Row-Names-Its-Machine-And-Its-Way-Out.md) | — | — | Every *Needs you* row naming its machine, offering the action that resolves it, and staying readable as *Resolved* instead of vanishing. |
+| <a id="f153"></a>[F153](F153-A-Forges-Token-By-The-Providers-Own-Login.md) | — | — | A forge reached by its own login, the person's token kept in each machine's vault, and deploy keys gone. |
 
 ### Backlog
 

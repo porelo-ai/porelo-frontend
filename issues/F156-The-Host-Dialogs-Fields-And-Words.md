@@ -1,6 +1,6 @@
 # F156 — The Host Dialog's Fields And Words
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - the host dialog, one shared helper for `~`, its test.
 
 **Order.** In the host flow, after [F155](README.md#f155).

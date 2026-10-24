@@ -1,6 +1,6 @@
 # F155 — A Host Taken Down From Machines
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a kept record of `up`, two actions on the host machine, the dialog refilled from it.
 
 **Order.** In the host flow, after [F154](README.md#f154).
