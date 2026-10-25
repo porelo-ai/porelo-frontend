@@ -29,6 +29,9 @@ enum HostRunState {
   /// Stopped for the person, with [HostSession.needs] saying for what.
   waiting,
 
+  /// Another command still holds the project's setup lock.
+  busy,
+
   /// Ended done.
   done,
 
@@ -274,6 +277,7 @@ class HostSession extends ChangeNotifier {
     await words;
     state = switch (code) {
       Exit.done => HostRunState.done,
+      Exit.waiting when _currentStep?.step == 'lock' && _currentStep?.state == StepState.refused => HostRunState.busy,
       Exit.waiting => HostRunState.waiting,
       Exit.unreachable => HostRunState.unreachable,
       _ => HostRunState.refused,

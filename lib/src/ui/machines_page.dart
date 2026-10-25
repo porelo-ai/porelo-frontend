@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/host_runs.dart';
+import '../app/host_session.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
@@ -222,6 +223,7 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(run.awaitingVpn ? 'Setting up the VPN' : 'In preparation'),
+            if (session.state == HostRunState.busy) Text('Setup of ${run.project} is still running from before.'),
             if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
             if (session.stepText.isNotEmpty) Text(session.stepText),
             if (running) ...[

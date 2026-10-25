@@ -104,6 +104,21 @@ String line(Map<String, Object> fields) => jsonEncode(<String, Object>{'v': 1, .
 void main() {
   late HostPlan plan;
   late Directory scratch;
+  late String processEntrypoint;
+  setUpAll(() async {
+    final compiled = await Directory.systemTemp.createTemp('host-lock-entrypoint-');
+    addTearDown(() => compiled.delete(recursive: true));
+    processEntrypoint = '${compiled.path}/host.dill';
+    final result = await Process.run(Platform.resolvedExecutable, [
+      '--suppress-analytics',
+      'compile',
+      'kernel',
+      'test/support/host_lock_process.dart',
+      '-o',
+      processEntrypoint,
+    ]);
+    expect(result.exitCode, 0, reason: 'the real-process fixture must compile: ${result.stderr}');
+  });
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('host-run-');
     final collection = File('${scratch.path}/c.tar.gz');
@@ -117,6 +132,127 @@ void main() {
     );
   });
   tearDown(() => scratch.delete(recursive: true));
+
+  Future<_HostChild> startHost(String name, String command, {bool hold = false, String project = 'demo'}) async {
+    final process = await Process.start(
+      Platform.resolvedExecutable,
+      ['--disable-dart-dev', processEntrypoint, scratch.path, name, command, project, hold ? 'hold' : 'go'],
+      environment: {'XDG_STATE_HOME': '${scratch.path}/state', 'LOCALAPPDATA': '${scratch.path}/state'},
+    );
+    final child = _HostChild(process);
+    addTearDown(() async {
+      process.kill();
+      await process.exitCode;
+      await child.output;
+      await child.errors;
+    });
+    return child;
+  }
+
+  Future<void> found(String name) async {
+    await (() async {
+      while (!await File('${scratch.path}/$name-find').exists()) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    })().timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> refused(_HostChild child, String name) async {
+    expect(
+      await child.process.exitCode.timeout(const Duration(seconds: 10)),
+      Exit.waiting,
+      reason: 'a competing command must stop before it can rent or change the host: ${await child.errors}',
+    );
+    final steps = const LineSplitter().convert(await child.output).map(Step.fromLine).toList();
+    expect(steps, hasLength(1), reason: 'contention emits only its lock refusal');
+    expect(steps.single?.step, 'lock', reason: 'exit 75 must identify contention rather than a person stop');
+    expect(steps.single?.state, StepState.refused, reason: 'a held lock is a refusal rather than a host login stop');
+    expect(
+      File('${scratch.path}/$name-find').existsSync(),
+      isFalse,
+      reason: 'the provider must not be contacted by a competing command',
+    );
+    expect(
+      File('${scratch.path}/$name-ssh').existsSync(),
+      isFalse,
+      reason: 'a competing command must never reach the host',
+    );
+  }
+
+  // Harm: concurrent commands rent twice or tear down a host while setup changes it.
+  for (final first in ['up', 'down']) {
+    for (final second in ['up', 'down']) {
+      test('a second $second process is refused while $first holds the project lock', () async {
+        final holder = await startHost('holder', first, hold: true);
+        await found('holder');
+        final contender = await startHost('contender', second);
+        await refused(contender, 'contender');
+        await File('${scratch.path}/release').writeAsString('go');
+        expect(await holder.process.exitCode, Exit.done, reason: 'the holder must complete normally');
+        final creates = File('${scratch.path}/creates');
+        expect(
+          await creates.exists() ? await creates.readAsLines() : <String>[],
+          first == 'up' ? ['holder'] : isEmpty,
+          reason: 'only the holder may rent a server, once',
+        );
+      });
+    }
+  }
+
+  // Harm: a killed setup leaves a stale lock that prevents recovery of a billed server.
+  test('a killed holder releases the project lock for the next up process', () async {
+    final holder = await startHost('holder', 'up', hold: true);
+    await found('holder');
+    await refused(await startHost('contender', 'up'), 'contender');
+    expect(holder.process.kill(ProcessSignal.sigkill), isTrue, reason: 'the holder must be killed without cleanup');
+    expect(
+      await holder.process.exitCode,
+      -ProcessSignal.sigkill.signalNumber,
+      reason: 'the operating system must release the lock without a Dart finally block',
+    );
+    final next = await startHost('next', 'up');
+    expect(
+      await next.process.exitCode,
+      Exit.done,
+      reason: 'a remaining lock file must not block recovery: ${await next.errors}',
+    );
+    expect(await File('${scratch.path}/creates').readAsLines(), [
+      'next',
+    ], reason: 'only the recovered setup rents a server');
+  }, skip: Platform.isWindows ? 'Windows does not support SIGKILL' : false);
+
+  // Harm: locking every project together strands unrelated server recovery.
+  test('different projects can run in separate processes together', () async {
+    final holder = await startHost('holder', 'up', hold: true);
+    await found('holder');
+    final other = await startHost('other', 'up', project: 'other');
+    expect(await other.process.exitCode, Exit.done, reason: 'a project owns only its own lock');
+    await File('${scratch.path}/release').writeAsString('go');
+    expect(await holder.process.exitCode, Exit.done, reason: 'the first project must still complete');
+    expect(await File('${scratch.path}/creates').readAsLines(), [
+      'other',
+      'holder',
+    ], reason: 'each project rents its own host once');
+  });
+
+  // Harm: a project path escapes the state directory or bypasses another command's lock.
+  for (final command in ['up', 'down']) {
+    test('$command refuses project paths before contacting the provider', () async {
+      for (final project in ['', '.', '..', '../escape', 'nested/name', r'nested\name', 'C:escape', 'demo\n']) {
+        final child = await startHost('invalid', command, project: project);
+        expect(
+          await child.process.exitCode,
+          isNot(Exit.done),
+          reason: 'project ${jsonEncode(project)} is not a safe path segment',
+        );
+        expect(
+          File('${scratch.path}/invalid-find').existsSync(),
+          isFalse,
+          reason: 'invalid names must be refused before provider access',
+        );
+      }
+    });
+  }
   final waits = <String>[
     line(<String, Object>{'play': 'first', 'task': 'base', 'state': 'started'}),
     line(<String, Object>{'play': 'first', 'task': 'base', 'state': 'ok'}),
@@ -149,7 +285,12 @@ void main() {
       line({'state': 'ok', 'task': 'base'}),
     ];
     final steps = <Step>[];
-    final result = await HostRun(provider: CountingProvider(), remote: ScriptedRemote(lines), emit: steps.add).up(plan);
+    final result = await HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: ScriptedRemote(lines),
+      emit: steps.add,
+    ).up(plan);
     expect(result, Exit.done);
     expect(steps.where((step) => step.step.startsWith('broken-')), isEmpty);
     final plans = steps
@@ -170,7 +311,12 @@ void main() {
   test('done up carries exactly the address account and account daemon socket', () async {
     final steps = <Step>[];
     final remote = ScriptedRemote(finishes);
-    final run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: remote,
+      emit: steps.add,
+    );
     expect(await run.up(plan), Exit.done);
     expect(jsonDecode(steps.last.toLine()), <String, Object>{
       'step': 'up',
@@ -193,6 +339,7 @@ void main() {
     test('up refuses invalid uid $uid', () async {
       final steps = <Step>[];
       final run = HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
         provider: CountingProvider(),
         remote: ScriptedRemote(finishes, uid: uid),
         emit: steps.add,
@@ -203,7 +350,12 @@ void main() {
     });
   }
   test('up refuses a failed uid lookup even with digits on stdout', () async {
-    final run = HostRun(provider: CountingProvider(), remote: ScriptedRemote(finishes, uidExit: 1), emit: (_) {});
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: ScriptedRemote(finishes, uidExit: 1),
+      emit: (_) {},
+    );
     expect(await run.up(plan), Exit.refused);
   });
 
@@ -218,7 +370,15 @@ void main() {
         'account': 'root',
       }),
     ], playExit: 2);
-    expect(await HostRun(provider: CountingProvider(), remote: remote, emit: steps.add).up(plan), Exit.waiting);
+    expect(
+      await HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: CountingProvider(),
+        remote: remote,
+        emit: steps.add,
+      ).up(plan),
+      Exit.waiting,
+    );
     expect(jsonDecode(steps.last.toLine()), <String, Object>{
       'step': 'person',
       'state': 'waiting',
@@ -234,6 +394,7 @@ void main() {
     final trusted = <String>[];
     final steps = <Step>[];
     final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
       provider: provider,
       remote: remote,
       emit: steps.add,
@@ -267,7 +428,12 @@ void main() {
     final provider = CountingProvider();
     final remote = ScriptedRemote(waits, playExit: 2);
     final steps = <Step>[];
-    final run = HostRun(provider: provider, remote: remote, emit: steps.add);
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: provider,
+      remote: remote,
+      emit: steps.add,
+    );
     expect(await run.up(plan), Exit.waiting);
     remote.lines = finishes;
     remote.playExit = 0;
@@ -300,7 +466,12 @@ void main() {
   });
 
   test('ssh is asked again for twenty minutes by default, a bare-metal host\'s first boot', () {
-    final run = HostRun(provider: CountingProvider(), remote: ScriptedRemote(<String>[]), emit: (_) {});
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: ScriptedRemote(<String>[]),
+      emit: (_) {},
+    );
     expect(run.sshWithin, const Duration(minutes: 20), reason: 'Elastic Metal answered ssh after about 13 minutes');
   });
 
@@ -308,6 +479,7 @@ void main() {
     final down = FlakySsh(<RemoteResult>[const RemoteResult(255, 'Connection refused')], forever: true);
     final steps = <Step>[];
     final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
       provider: CountingProvider(),
       remote: down,
       emit: steps.add,
@@ -324,7 +496,13 @@ void main() {
       const RemoteResult(255, 'kex_exchange_identification: read: Connection reset by peer'),
       const RemoteResult(255, 'Connection refused'),
     ]);
-    final run = HostRun(provider: CountingProvider(), remote: starting, emit: (_) {}, sshEvery: Duration.zero);
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: starting,
+      emit: (_) {},
+      sshEvery: Duration.zero,
+    );
     expect(await run.up(plan), Exit.done);
     expect(starting.tries, 3);
 
@@ -332,7 +510,13 @@ void main() {
       const RemoteResult(255, 'WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!\nHost key verification failed.'),
     ], forever: true);
     final steps = <Step>[];
-    final refused = HostRun(provider: CountingProvider(), remote: forged, emit: steps.add, sshEvery: Duration.zero);
+    final refused = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: forged,
+      emit: steps.add,
+      sshEvery: Duration.zero,
+    );
     expect(await refused.up(plan), Exit.unreachable);
     expect(forged.tries, 1, reason: 'waiting cannot change a host key');
     expect(steps.map((s) => s.step), isNot(contains('copy')));
@@ -340,7 +524,12 @@ void main() {
 
   test('a provider\'s refusal ends up and down with a refused step and 65, never an exception', () async {
     final steps = <Step>[];
-    final run = HostRun(provider: _RefusingProvider(), remote: ScriptedRemote(<String>[]), emit: steps.add);
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: _RefusingProvider(),
+      remote: ScriptedRemote(<String>[]),
+      emit: steps.add,
+    );
     expect(await run.up(plan), Exit.refused);
     expect(steps.last.step, 'rent');
     expect(steps.last.state, StepState.refused);
@@ -352,7 +541,12 @@ void main() {
       line(<String, Object>{'play': 'first', 'task': 'base', 'state': 'failed', 'msg': 'no space left'}),
     ], playExit: 2);
     final steps = <Step>[];
-    final run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: remote,
+      emit: steps.add,
+    );
 
     expect(await run.up(plan), Exit.refused);
     expect(steps.last.state, StepState.refused);
@@ -362,7 +556,12 @@ void main() {
   test('a line that is not the callback\'s is not relayed', () async {
     final remote = ScriptedRemote(<String>['PLAY [first] ****', '{"v": 2, "state": "ok"}', ...finishes]);
     final steps = <Step>[];
-    await HostRun(provider: CountingProvider(), remote: remote, emit: steps.add).up(plan);
+    await HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: CountingProvider(),
+      remote: remote,
+      emit: steps.add,
+    ).up(plan);
     expect(steps.map((s) => s.step), isNot(contains('PLAY [first] ****')));
     expect(steps.where((s) => s.step == 'play'), isEmpty);
   });
@@ -373,7 +572,12 @@ void main() {
     final provider = CountingProvider()
       ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
     final steps = <Step>[];
-    final run = HostRun(provider: provider, remote: ScriptedRemote(finishes), emit: steps.add);
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: provider,
+      remote: ScriptedRemote(finishes),
+      emit: steps.add,
+    );
     expect(await run.down(plan), Exit.done);
     expect(provider.released, <String>['h1']);
     expect(jsonDecode(steps.last.toLine()), <String, Object>{
@@ -399,7 +603,12 @@ void main() {
     final provider = CountingProvider()
       ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
     final remote = ScriptedRemote(finishes);
-    final run = HostRun(provider: provider, remote: remote, emit: (_) {});
+    final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      provider: provider,
+      remote: remote,
+      emit: (_) {},
+    );
 
     expect(await run.down(plan), Exit.done);
     expect(remote.commands.single, contains('porelo.host.down'));
@@ -420,7 +629,12 @@ void main() {
 
     test('keeps the host, says it is kept and names both ways out', () async {
       final steps = <Step>[];
-      final run = HostRun(provider: provider, remote: remote, emit: steps.add);
+      final run = HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: provider,
+        remote: remote,
+        emit: steps.add,
+      );
 
       expect(await run.down(plan), Exit.refused);
       expect(provider.released, isEmpty, reason: 'a host whose last copy failed still holds the only copy');
@@ -433,7 +647,12 @@ void main() {
 
     test('gives it back when told to anyway, and says what went with it', () async {
       final steps = <Step>[];
-      final run = HostRun(provider: provider, remote: remote, emit: steps.add);
+      final run = HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: provider,
+        remote: remote,
+        emit: steps.add,
+      );
 
       expect(await run.down(plan, giveBackAnyway: true), Exit.refused, reason: 'the failed step is still reported');
       expect(provider.released, <String>['h1']);
@@ -446,12 +665,25 @@ void main() {
       provider.rented = const RentedHost(id: 'h1', address: null, hostKey: null, ready: true);
       final steps = <Step>[];
 
-      expect(await HostRun(provider: provider, remote: remote, emit: steps.add).down(plan), Exit.unreachable);
+      expect(
+        await HostRun(
+          environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+          provider: provider,
+          remote: remote,
+          emit: steps.add,
+        ).down(plan),
+        Exit.unreachable,
+      );
       expect(provider.released, isEmpty);
       expect(steps.last.state, StepState.refused);
 
       expect(
-        await HostRun(provider: provider, remote: remote, emit: steps.add).down(plan, giveBackAnyway: true),
+        await HostRun(
+          environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+          provider: provider,
+          remote: remote,
+          emit: steps.add,
+        ).down(plan, giveBackAnyway: true),
         Exit.unreachable,
       );
       expect(provider.released, <String>['h1']);
@@ -464,7 +696,12 @@ void main() {
       final provider = CountingProvider()
         ..rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: 'ssh-ed25519 AAAA', ready: true);
       final steps = <Step>[];
-      final run = HostRun(provider: provider, remote: ScriptedRemote(finishes), emit: steps.add);
+      final run = HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: provider,
+        remote: ScriptedRemote(finishes),
+        emit: steps.add,
+      );
 
       expect(await run.down(plan, giveBackAnyway: anyway), Exit.done);
       expect(provider.released, <String>['h1']);
@@ -477,6 +714,7 @@ void main() {
     final provider = _AskingProvider((request) => asked = request);
     final remote = ScriptedRemote(finishes);
     final run = HostRun(
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
       provider: provider,
       remote: remote,
       emit: (_) {},
@@ -494,6 +732,15 @@ void main() {
       expect(command, isNot(contains('PRIVATE')), reason: 'the private half goes to the provider only');
     }
   });
+}
+
+class _HostChild {
+  _HostChild(this.process)
+    : output = process.stdout.transform(utf8.decoder).join(),
+      errors = process.stderr.transform(utf8.decoder).join();
+  final Process process;
+  final Future<String> output;
+  final Future<String> errors;
 }
 
 /// A provider that keeps what it was asked to rent, and rents it ready.

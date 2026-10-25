@@ -9,6 +9,7 @@ import 'collection.dart';
 import 'provider.dart';
 import 'remote.dart';
 import 'steps.dart';
+import 'state.dart';
 
 /// What one host of one project is made from.
 class HostPlan {
@@ -113,6 +114,7 @@ class HostRun {
     this.sshEvery = const Duration(seconds: 10),
     this.collectionRelease = hostCollection,
     this.resolvedExecutable,
+    this.environment,
   });
 
   /// Who rents the host.
@@ -185,8 +187,50 @@ class HostRun {
   /// The command's executable path; defaults to Platform.resolvedExecutable.
   final String? resolvedExecutable;
 
+  /// State directory settings for this run; defaults to the process environment.
+  final Map<String, String>? environment;
+
   /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
-  Future<int> up(HostPlan plan) async {
+  Future<int> up(HostPlan plan) => _withProjectLock(plan, () => _up(plan));
+
+  Future<int> _withProjectLock(HostPlan plan, Future<int> Function() run) async {
+    final File file;
+    try {
+      file = File(poreloHostProjectLock(plan.project, environment: environment));
+    } on FormatException catch (error) {
+      _write(Step('lock', StepState.refused, fix: error.message));
+      return Exit.refused;
+    }
+    await file.parent.create(recursive: true);
+    if (!Platform.isWindows) {
+      final permissions = await Process.run('chmod', ['700', '--', file.parent.path]);
+      if (permissions.exitCode != 0 || ((await file.parent.stat()).mode & 0x1ff) != 0x1c0) {
+        throw FileSystemException('Cannot keep the host state directory private (0700)', file.parent.path);
+      }
+    }
+    final handle = await file.open(mode: FileMode.append);
+    try {
+      try {
+        await handle.lock(FileLock.exclusive);
+      } on FileSystemException {
+        _write(
+          Step(
+            'lock',
+            StepState.refused,
+            words: 'setup of ${plan.project} is still running from before',
+            fix: 'wait for it, or end it',
+          ),
+        );
+        return Exit.waiting;
+      }
+      return await run();
+    } finally {
+      // Keep the inode in place so every contender locks the same file, including after a crash.
+      await handle.close();
+    }
+  }
+
+  Future<int> _up(HostPlan plan) async {
     if ((plan.collection == null) != (plan.collectionSha256 == null)) {
       _write(const Step('collection', StepState.refused, fix: '--collection needs --collection-sha256 and vice versa'));
       return Exit.refused;
@@ -312,14 +356,14 @@ class HostRun {
   /// copy that failed may have left the only copy of its data there. The play's own line says what
   /// failed, and the last step says the host is kept and names the ways out. [giveBackAnyway] gives
   /// it back all the same, for a person who has read that.
-  Future<int> down(HostPlan plan, {bool giveBackAnyway = false}) async {
+  Future<int> down(HostPlan plan, {bool giveBackAnyway = false}) => _withProjectLock(plan, () async {
     try {
       return await _down(plan, giveBackAnyway);
     } on ProviderFailed catch (e) {
       _write(Step('give-back', StepState.refused, fix: e.message));
       return Exit.refused;
     }
-  }
+  });
 
   Future<int> _down(HostPlan plan, bool giveBackAnyway) async {
     _ownSteps = downSteps;

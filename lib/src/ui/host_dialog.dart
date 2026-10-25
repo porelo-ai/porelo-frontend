@@ -945,6 +945,7 @@ class _HostDialogState extends State<HostDialog> {
           for (final record in session.history) _stepRow(record),
           if (session.state == HostRunState.running)
             if (session.timeLeftText case final text?) Text(text),
+          if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),
           if (session.state == HostRunState.waiting)
             if (_takingDown)
               const Text('The host has not completed teardown. Your machines have been kept.')

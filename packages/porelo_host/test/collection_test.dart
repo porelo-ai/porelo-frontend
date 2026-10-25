@@ -24,6 +24,7 @@ void main() {
     remote = ScriptedRemote([]);
     steps = [];
     run = HostRun(
+      environment: {'XDG_STATE_HOME': folder.path, 'LOCALAPPDATA': folder.path},
       provider: provider,
       remote: remote,
       emit: steps.add,
@@ -105,7 +106,12 @@ void main() {
       () async {
         await file.writeAsBytes(original);
         final checkedRemote = _CheckingRemote(folder, corrupt: corrupt);
-        final run = HostRun(provider: provider, remote: checkedRemote, emit: steps.add);
+        final run = HostRun(
+          environment: {'XDG_STATE_HOME': folder.path, 'LOCALAPPDATA': folder.path},
+          provider: provider,
+          remote: checkedRemote,
+          emit: steps.add,
+        );
         final code = await run.up(
           HostPlan(
             project: 'demo',

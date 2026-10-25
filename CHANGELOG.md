@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host setup and teardown hold one project lock across processes, refuse overlapping commands,
+  and show lock contention separately from a host login stop.
 - Server preparations survive restarting the interface with recovery actions in Machines and a
   warning that closing keeps the server rented and billed.
 - A server's menu offers Save the VPN connection… after closing its setup dialog or restarting

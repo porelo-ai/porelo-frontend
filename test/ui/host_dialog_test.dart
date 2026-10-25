@@ -28,6 +28,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
+import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
 
 void main() {
@@ -112,6 +113,58 @@ void main() {
   }
 
   tearDown(() => scratch.delete(recursive: true));
+
+  // Harm: lock contention offers credential-stop actions against a host owned by another setup.
+  hostWidgets('a lock refusal does not offer or open the host person stop', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final process = _HostProcess();
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const ['--project', 'demo'],
+      start: (_, _) async => process,
+    );
+    final run = runs.start(
+      project: 'demo',
+      session: session,
+      record: const HostUpRecord(
+        scalewayProject: 'provider-project',
+        account: 'worker',
+        tresor: 'drive',
+        folder: null,
+        repository: '',
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public.pub',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+      ),
+    );
+    process.line(
+      const host.Step(
+        'lock',
+        host.StepState.refused,
+        words: 'setup of demo is still running from before',
+        fix: 'wait for it, or end it',
+      ),
+    );
+    process.end(host.Exit.waiting);
+    await tester.runAsync(() => run.finished);
+    expect(session.state, isNot(HostRunState.waiting), reason: 'contention must not be treated as a credential stop');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(project: 'demo', machines: machines, hostRuns: runs, existingRun: run),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-stop')), findsNothing, reason: 'no person stop may be offered for contention');
+    expect(find.byKey(const Key('host-complete-setup')), findsNothing, reason: 'another setup owns the host');
+    expect(find.byType(HostStopDialog), findsNothing, reason: 'contention must never open the credential dialog');
+  });
 
   // Harm: a forgotten server keeps billing without anyone knowing how to find it.
   hostWidgets('removing a host warns before forgetting and offers teardown beside removal', (tester) async {
