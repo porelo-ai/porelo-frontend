@@ -1,6 +1,6 @@
 # F177 — Every Navigation Entry Counts What Its List Shows
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** XS - `Shell._rail` in `lib/src/ui/shell.dart` and `Attention` in `lib/src/app/attention.dart`.
 
 **What must be true.** Every entry in the left navigation rail that opens a list shows the count of

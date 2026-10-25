@@ -1,6 +1,6 @@
 # F182 — The VPN Interface Left Unmanaged By NetworkManager
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** XS - `_vpnRootStep` in `lib/src/app/host_vpn.dart` and its test in `test/host_vpn_test.dart`.
 
 **What must be true.** When the interface brings the `porelo` WireGuard tunnel up on Linux, its

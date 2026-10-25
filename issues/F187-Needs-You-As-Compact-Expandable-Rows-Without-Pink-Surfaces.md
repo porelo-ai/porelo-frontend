@@ -1,6 +1,6 @@
 # F187 — Needs You As Compact Expandable Rows Without Pink Surfaces
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - `AttentionView` in `lib/src/ui/attention_view.dart` and 21 other files under `lib/src/ui/` using `errorContainer`.
 
 **What must be true.** Every row under *Needs you* is a single-line row of fixed height (icon, short

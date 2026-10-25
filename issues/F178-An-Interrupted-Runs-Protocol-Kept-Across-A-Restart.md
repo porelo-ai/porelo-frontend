@@ -1,6 +1,6 @@
 # F178 — An Interrupted Run's Protocol Kept Across A Restart
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - `HostUpRecord` in `lib/src/app/settings.dart`, `HostRuns` and `HostSession` in `lib/src/app/`, and `HostDialog` in `lib/src/ui/host_dialog.dart`.
 
 **What must be true.** When a server preparation is interrupted, its protocol is kept with the run's

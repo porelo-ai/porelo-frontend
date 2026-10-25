@@ -1,6 +1,6 @@
 # F184 — The Room's Accounts Listed With Remove And New Password
 
-**Status:** Implementing; Remove waits for porelo's removal of a room account.
+**Status:** Review; Remove waits for porelo's removal of a room account.
 **Size:** M - `PoreloClient` in `lib/src/client/porelo_client.dart`, `FleetBackend` in `lib/src/app/fleet_backend.dart`, `ProjectConversation` in `lib/src/app/conversation.dart`, `Settings` in `lib/src/app/settings.dart`, and `MessagesDialog` in `lib/src/ui/messages_view.dart`.
 
 **What must be true.** The project's *Messages* dialog lists everyone who has an account in the

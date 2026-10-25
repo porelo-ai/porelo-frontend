@@ -1,6 +1,6 @@
 # F180 — One Host Command At A Time Per Project
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - `packages/porelo_host/lib/src/state.dart`, `packages/porelo_host/lib/src/host_run.dart`, and `HostSession` in `lib/src/app/host_session.dart`.
 
 **What must be true.** Only one `porelo-host up` or `porelo-host down` runs at a time for a given

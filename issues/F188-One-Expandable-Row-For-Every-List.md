@@ -1,6 +1,6 @@
 # F188 — One Expandable List Row For Every List
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - new shared row widget in `lib/src/ui/`, `lib/src/ui/tokens.dart`, `lib/src/ui/projects_page.dart`, `lib/src/ui/forges_page.dart`, `lib/src/ui/machines_page.dart`, and `lib/src/ui/attention_view.dart`.
 
 **What must be true.** *Projects*, *Forges*, *Machines*, and *Needs you* all use one shared list-row
