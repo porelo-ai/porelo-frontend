@@ -2954,6 +2954,7 @@ class _ShellState extends State<Shell> {
     // chosen on it, so the choice is kept for when Projects opens one again.
     final narrowed = widget.shell.section == Section.project ? fleet.selectedProject : null;
     final jobs = narrowed == null ? const <Template>[] : widget.templates.forProject(narrowed.name);
+    final hostCommandsHere = narrowed == null ? _hostCommands(machine) : const <Command>[];
     // Built once for the page: its menu and its tiles share the command objects.
     final projectCommandsHere = narrowed == null
         ? null
@@ -2972,7 +2973,9 @@ class _ShellState extends State<Shell> {
         },
       ),
       icon: Icons.play_circle_outline,
-      description: 'Show the work belonging to this project.',
+      description: narrowed == null
+          ? 'Show the work belonging to this machine.'
+          : 'Show the work belonging to this project.',
     );
     return Column(
       children: <Widget>[
@@ -2984,21 +2987,33 @@ class _ShellState extends State<Shell> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 if (narrowed == null)
-                  for (final command in _hostCommands(machine))
-                    CommandTile(
-                      command: command,
-                      icon: switch (command.id) {
-                        'machine.vpnUp' => Icons.vpn_key_outlined,
-                        'machine.vpnDown' => Icons.link_off_outlined,
-                        _ => Icons.cloud_off_outlined,
-                      },
-                      description: switch (command.id) {
-                        'machine.vpnUp' => 'Bring WireGuard up on this computer and check that the server answers.',
-                        'machine.saveTunnel' => 'Save a private connection file for another device.',
-                        'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
-                        _ => 'End the project tasks and room, copy its files back and give the server back.',
-                      },
-                    ),
+                  Wrap(
+                    spacing: Space.normal,
+                    runSpacing: Space.normal,
+                    children: <Widget>[
+                      for (final command in hostCommandsHere)
+                        if (command.id != 'machine.takeDown')
+                          CommandTile(
+                            command: command,
+                            icon: switch (command.id) {
+                              'host.protocol' => Icons.receipt_long_outlined,
+                              'machine.vpnUp' => Icons.vpn_key_outlined,
+                              'machine.vpnDown' => Icons.link_off_outlined,
+                              'machine.saveTunnel' => Icons.download_outlined,
+                              _ => Icons.tune_outlined,
+                            },
+                            description: switch (command.id) {
+                              'host.protocol' => 'Read the protocol from setting up this server.',
+                              'machine.vpnUp' =>
+                                'Bring WireGuard up on this computer and check that the server answers.',
+                              'machine.saveTunnel' => 'Save a private connection file for another device.',
+                              'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
+                              _ => command.label,
+                            },
+                          ),
+                      itsWork,
+                    ],
+                  ),
                 // Scrolls with the work: a project with many repositories is taller than any window,
                 // and a fixed header that grows pushes the work out of sight. The title bar still
                 // names the project.
@@ -3078,9 +3093,7 @@ class _ShellState extends State<Shell> {
                   ),
                 const SizedBox(height: Space.small),
                 if (narrowed != null)
-                  ProjectCommandTiles(commands: projectCommandsHere!, itsWork: itsWork, highlight: highlight)
-                else
-                  itsWork,
+                  ProjectCommandTiles(commands: projectCommandsHere!, itsWork: itsWork, highlight: highlight),
                 Wrap(
                   spacing: Space.normal,
                   runSpacing: Space.normal,
@@ -3096,6 +3109,23 @@ class _ShellState extends State<Shell> {
                       ),
                   ],
                 ),
+                for (final command in hostCommandsHere)
+                  if (command.id == 'machine.takeDown') ...<Widget>[
+                    const SizedBox(height: Space.loose),
+                    const Divider(),
+                    const SizedBox(height: Space.small),
+                    Tooltip(
+                      message:
+                          command.unavailable ??
+                          'End the project tasks and room, copy its files back and give the server back.',
+                      child: TextButton.icon(
+                        onPressed: command.available ? command.run : null,
+                        style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                        icon: const Icon(Icons.delete_outline, size: Sizes.rowIcon),
+                        label: Text(command.label),
+                      ),
+                    ),
+                  ],
               ],
             ),
           ),

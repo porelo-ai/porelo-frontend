@@ -33,6 +33,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Server actions appear in a spaced tile grid with distinct icons; Take this server down stands
+  alone at the bottom as a red button.
 - Server setup finishes with a checked local VPN, removes its temporary private key file, and
   offers recovery when the tunnel stops answering.
 - Host setup stops open a small dialog and use the retrying host script, keep cancelled or
