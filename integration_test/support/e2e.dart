@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -68,12 +69,12 @@ Future<void> pumpUntilShown(WidgetTester tester, Key key) =>
 /// Pumps until [done] holds, and fails naming [what] when it never does.
 Future<void> pumpUntil(
   WidgetTester tester,
-  bool Function() done, {
+  FutureOr<bool> Function() done, {
   Duration timeout = const Duration(seconds: 15),
   String what = 'the window',
 }) async {
   final by = DateTime.now().add(timeout);
-  while (!done()) {
+  while (!await done()) {
     if (DateTime.now().isAfter(by)) {
       // What was there instead, so a red run says what it saw rather than only what it missed.
       final shown = tester.widgetList<Text>(find.byType(Text)).map((each) => each.data).nonNulls.toList();

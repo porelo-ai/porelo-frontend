@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,6 +9,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:porelo_frontend/main.dart' as app;
 import 'package:porelo_frontend/src/ui/terminal_copy.dart';
 import 'package:xterm/xterm.dart';
+
+import '../test/support/expand_list_rows.dart';
 
 // Harm: host setup must not expose secrets or resume without the person's terminal.
 void main() {
@@ -93,7 +96,10 @@ void main() {
       expect(find.text('In preparation'), findsOneWidget);
       expect(_key('machines-row checkout server'), findsNothing, reason: 'a stopped host is not a ready machine');
       await screen.goTo('attention');
-      await screen.shown(_key('host-needs checkout'));
+      await screen.until(() async {
+        await expandListRows(tester);
+        return _key('host-needs checkout').evaluate().isNotEmpty;
+      }, 'the host setup row to show its details');
       expect(
         find.descendant(of: _key('host-needs checkout'), matching: find.text('on checkout server')),
         findsOneWidget,
@@ -224,9 +230,9 @@ class _Screen {
     if (error != null) throw TestFailure('$error');
   }
 
-  Future<void> until(bool Function() ready, String what) async {
+  Future<void> until(FutureOr<bool> Function() ready, String what) async {
     final elapsed = Stopwatch()..start();
-    while (!ready()) {
+    while (!await ready()) {
       if (elapsed.elapsed >= _deadline) fail('Timed out waiting for $what\n${dump()}');
       await tick();
     }

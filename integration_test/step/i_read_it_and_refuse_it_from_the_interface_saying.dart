@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../test/support/expand_list_rows.dart';
 import '../support/e2e.dart';
 import '../support/remote.dart';
 
 /// Usage: I read it and refuse it from the interface, saying {'not before the tests pass'}
 Future<void> iReadItAndRefuseItFromTheInterfaceSaying(WidgetTester tester, String reason) async {
+  await expandListRows(tester);
   final row = find.byWidgetPredicate(
     (each) =>
         each.key is ValueKey<String> &&

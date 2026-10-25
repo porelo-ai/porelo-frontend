@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../test/support/expand_list_rows.dart';
 import '../support/e2e.dart';
 
 /// Usage: I grant {'e2e-needed'} from what needs a person in the interface
@@ -11,7 +12,10 @@ Future<void> iGrantFromWhatNeedsAPersonInTheInterface(WidgetTester tester, Strin
   final grant = find.byKey(ValueKey<String>('grant-needed $entry'));
   await pumpUntil(
     tester,
-    () => grant.evaluate().isNotEmpty,
+    () async {
+      await expandListRows(tester);
+      return grant.evaluate().isNotEmpty;
+    },
     timeout: const Duration(seconds: 30),
     what: 'what needs a person to ask for a grant of $entry',
   );

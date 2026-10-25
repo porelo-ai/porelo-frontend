@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../test/support/expand_list_rows.dart';
 import '../support/e2e.dart';
 
 /// Usage: what needs a person no longer asks for {'e2e-needed'}
@@ -12,7 +13,10 @@ Future<void> whatNeedsAPersonNoLongerAsksFor(WidgetTester tester, String entry) 
   final resolved = find.descendant(of: find.byKey(const Key('recently-resolved')), matching: question);
   await pumpUntil(
     tester,
-    () => question.evaluate().length == resolved.evaluate().length,
+    () async {
+      await expandListRows(tester);
+      return question.evaluate().length == resolved.evaluate().length;
+    },
     timeout: const Duration(seconds: 30),
     what: 'the question about $entry to go',
   );
