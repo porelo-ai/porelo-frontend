@@ -59,6 +59,19 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f177"></a>[F177](F177-Every-Navigation-Entry-Counts-What-Its-List-Shows.md) | XS | — | Every navigation entry that opens a list counts the rows that list shows, including servers in preparation and interrupted ones. | — |
+| <a id="f178"></a>[F178](F178-An-Interrupted-Runs-Protocol-Kept-Across-A-Restart.md) | S | — | An interrupted run's protocol kept with its answers across a restart until give-back, and one button named *Go on* for interrupted or *Try again* for failed runs. | — |
+| <a id="f179"></a>[F179](F179-An-Interrupted-Setup-In-Needs-You-And-A-Running-One-Found-Again.md) | M | [F180](README.md#f180) | An interrupted setup shown in *Needs you* with *Go on*, *Leave* ending `up` before `ssh` or leaving it running with `ssh`, and a running `up` found again after a restart. | — |
+| <a id="f180"></a>[F180](F180-One-Host-Command-At-A-Time-Per-Project.md) | S | — | `porelo-host up` and `down` holding an exclusive per-project lock before `provider.find`, refusing a second run with step `lock` and exit `75`. | — |
+| <a id="f181"></a>[F181](F181-One-Setup-Protocol-That-Stays-Still-While-Read.md) | S | — | One setup protocol list with earlier attempts collapsed at the end, unmatched lines in place, *Copy the protocol*, and scrolling that follows only at the bottom. | — |
+| <a id="f182"></a>[F182](F182-The-VPN-Interface-Left-Unmanaged-By-NetworkManager.md) | XS | — | The VPN step writing `/etc/NetworkManager/conf.d/porelo.conf` and reloading NetworkManager under its one `sudo` the first time. | — |
+| <a id="f183"></a>[F183](F183-One-VPN-Action-That-Follows-The-Tunnels-State.md) | S | — | One VPN tile whose action follows the tunnel state read via `ip link` without `sudo`, opening no terminal when there is nothing to do. | — |
+| <a id="f184"></a>[F184](F184-The-Rooms-Accounts-Listed-With-Remove-And-New-Password.md) | M | porelo, the removal of a room account (*Remove* only) | The messages dialog listing every room account with *Remove*, and showing `"You are in as <name>"` with *New password* when already joined. | — |
+| <a id="f185"></a>[F185](F185-The-VPN-Taken-Down-When-A-Server-Is-Given-Back.md) | S | — | Giving a server back taking this computer's VPN tunnel down as its last step before *Done.*, or putting a *Take the VPN down* row into *Needs you* if cancelled. | — |
+| <a id="f186"></a>[F186](F186-The-Scaleway-Key-Checked-When-Stored-And-In-The-Wizard.md) | M | — | `porelo-host key set scaleway` (and `--from-file`) checking UUID format and Scaleway's offers endpoint before storing, and step 1 of the wizard checking the kept key. | — |
+| <a id="f187"></a>[F187](F187-Needs-You-As-Compact-Expandable-Rows-Without-Pink-Surfaces.md) | L | — | *Needs you* and *Recently resolved* as single-line expandable rows, and `errorContainer` removed as a surface everywhere except review diffs and dangerous confirmations. | — |
+| <a id="f188"></a>[F188](F188-One-Expandable-Row-For-Every-List.md) | L | — | One shared fixed-height expandable row component for *Projects*, *Forges*, *Machines*, and *Needs you*, where the row opens the detail page and only the arrow expands. | — |
+| <a id="f189"></a>[F189](F189-The-Server-Pages-Actions-As-A-Grid-Of-Tiles.md) | S | — | The server page using the project page's `CommandTile` grid with one icon per action, and *Take this server down* alone at the end as a red button. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 
