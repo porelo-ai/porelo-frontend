@@ -268,6 +268,9 @@ repositories, changed only after agreement in both.
 - **An unknown `kind`** is kept in the file and shown as not reachable by this version, never dropped.
 - **`tresorFolders`:** a map from project name to its chosen local Tresorit folder path, checked on
   load and written in the same settings file, never in `project.yml`.
+- **`hostUp`:** the kept setup arguments and preparation state per project, written atomically
+  before `up` starts, keeping a server in preparation across restarts and refilling the setup dialog
+  or `down` command without typing fields again.
 
 ### A test on a Windows machine
 

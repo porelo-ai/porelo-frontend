@@ -153,7 +153,7 @@ the server itself, so this computer needs only ssh.
 
 ```sh
 porelo-host up --project <name> --account porelo --public-key ~/.ssh/id_ed25519.pub \
-    --identity ~/.ssh/id_ed25519 --collection porelo-host-<version>.tar.gz --scaleway-project <project id>
+    --identity ~/.ssh/id_ed25519 --scaleway-project <project id>
 ```
 
 It rents the host, or finds it again by its tag, and stops once with exit code 75 for what only you
@@ -163,11 +163,16 @@ password, code or passphrase. `porelo-host down` with the same options takes the
 fails, it keeps the host, says what would be lost, and names the ways out: `down` again, or `down
 --give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
 
-**In the interface**, *Put this project on a server…* on a project's menu runs the `porelo-host`
-that came with the interface, shows its steps and opens a terminal at its stop. After setup
-finishes, adding the host to *Machines* is a separate action;
-*Take it off the server* runs `down` and removes it. A Tresorit folder chosen for the project
-receives the host's files, while the person's own WireGuard key stays in the system secret store.
+**In the interface**, *Put this project on a server…* leads through a step-by-step wizard (rental
+details, Tresorit folder, SSH keys, check and start). The interface writes the followed project's git
+bundle into the Tresorit folder as `porelo-host/<project>.bundle` and derives its path on the host.
+Starting setup places the host under *Machines* as *In preparation*, showing the current step,
+start times, durations and estimated time remaining; closing the interface keeps the server under
+*Machines* across restarts with *Go on* and *Take it down*. At the stop, *Complete setup on the host*
+opens a terminal running `porelo-host-stop` on the host to complete the Tresorit login and vault
+passphrase. Setup then brings the WireGuard VPN up on this computer via `sudo`, checks ping and
+handshake, and marks the machine ready. Under *Machines*, *Take this server down* confirms the
+consequences before running `down` from the kept record and giving the server back.
 
 ## What the other pages hold
 

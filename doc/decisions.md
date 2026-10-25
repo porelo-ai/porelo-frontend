@@ -267,9 +267,11 @@ not in it**: it is under *Work*, where the same tile carries the same menu.
 a list of every tile is fifty tiles of which two need anybody, and a filter added later to fix that
 would hide something without saying what. Nothing is hidden this way; it is placed.
 
-**A question that was answered or ran out stays, with its outcome, until it is put away** with *Got
-it* on its tile: a question that ran out while nobody looked would otherwise leave the view without
-a trace, and the confirmation of an answer would vanish with the click that gave it.
+**A question that was answered or ran out, a resolved row, or a read message moves into *Recently
+resolved*** below the open rows, newest first, kept in memory with its buttons disabled until a set
+time passes (one hour by default, or removed at once with 0); it does not survive a restart. A
+question that ran out while nobody looked would otherwise leave the view without a trace, and the
+confirmation of an answer would vanish with the click that gave it.
 
 **An operation somebody started that failed waits there too, until it has been opened** — from its
 card, from the session record, or by having been open while it failed — so a failed start is not
@@ -675,7 +677,9 @@ before the host is given back. When every step of it finishes, or `up` never got
 data, `down` gives the host back. When a step does not finish, or the host cannot be reached, `down`
 keeps the host: the failed step says what failed and what would be lost, and the last line says the
 host is kept and still billed, and names the ways out: `down` again, or `down --give-back-anyway`
-to give it back knowingly. The test script says a host kept so as plainly.
+to give it back knowingly. Taking a server down confirms the consequences (giving the server
+back, deletion at the provider, billing stops, server vault and room history lost) with a red
+*Give the server back* button before running `down`. The test script says a host kept so as plainly.
 
 **What it costs:** a host kept goes on billing until somebody looks, and the person who closed the
 window may not. The other way, giving back whatever the play answered, ends the bill but can take
@@ -747,16 +751,22 @@ the Build.
 The Linux packages install `porelo-host` at `/usr/lib/porelo-frontend/porelo-host`, and the Windows
 ZIP and MSIX place `porelo-host.exe` beside the interface, compiled from the same commit with the
 package's version baked in; the packaging refuses a binary that reports another version. The
-interface starts `porelo-host` by that path, never by `PATH`, so neither an older copy on the
-machine nor a binary placed earlier on `PATH` can stand in for the one built with the interface.
+release's collection tarball is packaged beside `porelo-host`, and `up` uses it by default; the
+dialog has no collection field in release builds. The interface starts `porelo-host` by that path,
+never by `PATH`, so neither an older copy on the machine nor a binary placed earlier on `PATH` can
+stand in for the one built with the interface.
 
 ## The host's files reach it through Tresorit, and the person's WireGuard key stays in the secret store
 
-When a local Tresorit folder is chosen for a project, the interface writes the host's machine file,
-any copied keys and the host's private WireGuard key there without replacing differing files or
-following links. The person's private WireGuard key stays in the system secret store and is written
-out only when the person exports it. That gives the host its key without a secret on a command line
-or in a log, while the person's own key never travels.
+When a local Tresorit folder is chosen for a project, the interface writes the followed project's git
+bundle (`porelo-host/<project>.bundle`), the host's machine file, any copied keys and the host's
+private WireGuard key there without replacing differing files or following links. The person's
+private WireGuard key stays in the system secret store; during setup, it reaches root via a temporary
+`0600` file in the user's runtime directory that is removed immediately after the VPN terminal exits.
+Setup checks ping and WireGuard handshake before marking the host ready, and only one `porelo` VPN
+interface is active at a time. The key is written out to a file only when the person explicitly
+exports it for another device. That gives the host its key without a secret on a command line or in a
+log, while the person's own key never travels.
 
 ## An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned
 
