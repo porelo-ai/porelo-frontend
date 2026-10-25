@@ -1362,7 +1362,32 @@ List<Command> hostRecoveryCommands({
   required VoidCallback goOn,
   required VoidCallback takeDown,
 }) {
-  final unavailable =
+  final resume = resumeHostPreparationCommand(run: run, resume: goOn, home: Home.machineRow);
+  return [
+    resume,
+    Command(
+      id: 'host.takeDown',
+      label: 'Take it down',
+      group: run.name,
+      home: Home.machineRow,
+      run: takeDown,
+      unavailable: resume.unavailable,
+    ),
+  ];
+}
+
+/// Continues an interrupted setup or retries a failed attempt after the previous command ended.
+Command resumeHostPreparationCommand({
+  required HostPreparation run,
+  required VoidCallback resume,
+  Home home = Home.openedView,
+}) => Command(
+  id: run.interrupted ? 'host.goOn' : 'host.retry',
+  label: run.interrupted ? 'Go on' : 'Try again',
+  group: run.name,
+  home: home,
+  run: resume,
+  unavailable:
       run.lockProblem ??
       (run.running
           ? 'the host command is still running'
@@ -1370,30 +1395,8 @@ List<Command> hostRecoveryCommands({
           ? 'preparation has ended'
           : run.awaitingVpn
           ? 'setup waits for the VPN on this computer'
-          : null);
-  return [
-    Command(
-      id: 'host.goOn',
-      label: 'Go on',
-      group: run.name,
-      home: Home.machineRow,
-      run: goOn,
-      unavailable: unavailable,
-    ),
-    Command(
-      id: 'host.takeDown',
-      label: 'Take it down',
-      group: run.name,
-      home: Home.machineRow,
-      run: takeDown,
-      unavailable: unavailable,
-    ),
-  ];
-}
-
-/// Retries the same setup arguments only after the previous command has ended.
-Command retryHostPreparationCommand({required String project, required VoidCallback retry}) =>
-    Command(id: 'host.retry', label: 'Try setup again', group: '$project server', run: retry);
+          : null),
+);
 
 /// Opens the provider's hidden terminal prompt before host setup continues.
 Command setScalewayKeyCommand({required VoidCallback run, bool checking = false}) => Command(

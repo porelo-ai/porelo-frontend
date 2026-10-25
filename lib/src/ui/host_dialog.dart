@@ -971,11 +971,18 @@ class _HostDialogState extends State<HostDialog> {
       else if (_hostRun case final run? when !run.ready && !run.givenBack && !run.running && !run.waiting)
         Builder(
           builder: (_) {
-            final command = retryHostPreparationCommand(
-              project: run.project,
-              retry: () => unawaited(widget.hostRuns!.resume(run)),
+            final command = resumeHostPreparationCommand(
+              run: run,
+              resume: () => unawaited(widget.hostRuns!.resume(run)),
             );
-            return TextButton(key: const Key('host-retry'), onPressed: command.run, child: Text(command.label));
+            return Tooltip(
+              message: command.unavailable ?? command.label,
+              child: TextButton(
+                key: Key(run.interrupted ? 'host-go-on' : 'host-retry'),
+                onPressed: command.available ? command.run : null,
+                child: Text(command.label),
+              ),
+            );
           },
         ),
     ],
@@ -1058,9 +1065,11 @@ class _HostDialogState extends State<HostDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         if (session != null) ...<Widget>[
-          if (_hostRun?.interrupted == true && _hostRun?.givenBack != true)
-            const Text('Interrupted when the interface closed; the server is still rented'),
           for (final record in session.history) _stepRow(record),
+          if (_hostRun?.interrupted == true && _hostRun?.givenBack != true) ...[
+            if (session.interruptionText case final text?) Text(text),
+            const Text('Nothing runs now. Go on continues from where it stopped.'),
+          ],
           if (session.state == HostRunState.running)
             if (session.timeLeftText case final text?) Text(text),
           if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),

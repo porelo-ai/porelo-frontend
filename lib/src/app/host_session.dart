@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import 'settings.dart';
+import 'host_protocol.dart';
 
 /// Uses the carried collection in release builds, with explicit overrides only for debug tests.
 List<String> hostArguments(HostUpRecord record, String project, {bool debug = kDebugMode}) => [
@@ -165,8 +166,73 @@ class HostSession extends ChangeNotifier {
   /// One line per step and unmatched stderr line, including earlier attempts.
   List<String> get protocol => [
     for (final entry in _protocol)
-      if (entry is HostStepRecord) stepLine(entry) else if (entry is _ProtocolWords && entry.unmatched) entry.line,
+      if (entry is HostStepRecord)
+        stepLine(entry)
+      else if (entry is _ProtocolWords && entry.unmatched)
+        entry.line
+      else if (entry is HostProtocolLine)
+        entry.text
+      else if (entry is HostProtocolInterruption)
+        interruptionLine(entry),
   ];
+
+  /// The public steps and unmatched diagnostics, frozen before an asynchronous settings write.
+  List<HostProtocolEntry> get keptProtocol => List.unmodifiable([
+    for (final entry in _protocol)
+      if (entry is HostStepRecord)
+        HostProtocolStep(
+          name: entry.step.step,
+          state: entry.step.state,
+          text: entry.text,
+          words: entry.step.words,
+          fix: entry.step.fix,
+          seconds: entry.seconds,
+          startedAt: entry.startedAt,
+          endedAt: entry.endedAt,
+          current: identical(_history[entry.step.step], entry),
+        )
+      else if (entry is _ProtocolWords && entry.unmatched)
+        HostProtocolLine(entry.line)
+      else if (entry is HostProtocolEntry)
+        entry,
+  ]);
+
+  /// Restores recorded presentation without treating past events as a running command or a destination.
+  void restoreProtocol(List<HostProtocolEntry> entries) {
+    for (final entry in entries) {
+      if (entry is HostProtocolStep) {
+        final step = Step(entry.name, entry.state, text: entry.text, words: entry.words, fix: entry.fix);
+        final record = HostStepRecord._(step, entry.startedAt, entry.text, entry.seconds).._endedAt = entry.endedAt;
+        _protocol.add(record);
+        if (entry.current) {
+          _history[entry.name] = record;
+          _currentStep = step;
+        }
+      } else {
+        _protocol.add(entry);
+      }
+    }
+  }
+
+  /// Records a confirmed interruption once, preserving its first observed instant across restarts.
+  void interrupt() {
+    if (_protocol.lastOrNull is HostProtocolInterruption) return;
+    _protocol.add(HostProtocolInterruption(_now().toUtc()));
+    _changed();
+  }
+
+  /// The latest confirmed interruption, absent while another attempt is being recorded.
+  String? get interruptionText => switch (_protocol.lastOrNull) {
+    final HostProtocolInterruption entry => interruptionLine(entry),
+    _ => null,
+  };
+
+  /// The local time a free lock confirmed that the earlier command had ended.
+  String interruptionLine(HostProtocolInterruption entry) {
+    final local = entry.at.toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return 'Interrupted at ${two(local.hour)}:${two(local.minute)}';
+  }
 
   /// The current attempt's steps in the order they began, with their start and end times.
   List<HostStepRecord> get history => List.unmodifiable(_history.values);

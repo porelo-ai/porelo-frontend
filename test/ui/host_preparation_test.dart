@@ -248,7 +248,7 @@ void main() {
         ),
       );
       process.end(75);
-      await Future<void>.delayed(Duration.zero);
+      await run.finished;
     });
 
     tearDown(() {

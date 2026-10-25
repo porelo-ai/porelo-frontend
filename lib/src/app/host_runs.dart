@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -72,6 +73,13 @@ class HostPreparation {
   /// Whether the provider confirmed that the server was given back.
   bool givenBack = false;
 
+  /// Completes once the latest protocol update has reached settings.
+  Future<void> get saved => _saved ?? Future.value();
+  Future<void>? _saved;
+  String? _lastProtocol;
+  VoidCallback? _listener;
+  bool _saveFailed = false;
+
   bool _upActive = false;
   Future<void>? _probe;
   Timer? _poll;
@@ -110,7 +118,7 @@ class HostRuns extends ChangeNotifier {
        _probeLink = probeLink ?? probeHostVpnLink {
     for (final entry in machines.settings.hostUps.entries) {
       if (!entry.value.preparing) continue;
-      final session = sessionFor(entry.key, entry.value);
+      final session = sessionFor(entry.key, entry.value)..restoreProtocol(entry.value.protocol);
       final run = HostPreparation(
         project: entry.key,
         session: session,
@@ -119,7 +127,7 @@ class HostRuns extends ChangeNotifier {
         interrupted: false,
       );
       _runs[entry.key] = run;
-      session.addListener(_changed);
+      _listen(run);
       session.state = HostRunState.busy;
       _check(run);
     }
@@ -177,7 +185,12 @@ class HostRuns extends ChangeNotifier {
       run.interrupted = !held;
       run.problem = null;
       run._lockFailed = false;
-      if (held) _poll(run);
+      if (held) {
+        _poll(run);
+      } else {
+        run.session.interrupt();
+        await run.saved;
+      }
     } on Exception {
       if (_disposed || _leaving) return;
       run._lockFailed = true;
@@ -204,6 +217,10 @@ class HostRuns extends ChangeNotifier {
     _leaving = true;
     try {
       await Future.wait([for (final run in preparing) run.session.leave()]);
+      await Future.wait([for (final run in preparing) run.saved]);
+      if (preparing.any((run) => run._saveFailed)) {
+        throw const FileSystemException('The setup protocol could not be kept. Keep the interface open.');
+      }
     } on Exception {
       _leaving = false;
       rethrow;
@@ -295,7 +312,7 @@ class HostRuns extends ChangeNotifier {
       throw StateError('This project already has a host run.');
     }
     previous?._poll?.cancel();
-    previous?.session.removeListener(_changed);
+    if (previous?._listener case final listener?) previous!.session.removeListener(listener);
     previous?.session.dispose();
     final run = HostPreparation(
       project: project,
@@ -305,7 +322,7 @@ class HostRuns extends ChangeNotifier {
       settings: settings ?? machines.settings,
     );
     _runs[project] = run;
-    session.addListener(_changed);
+    _listen(run);
     run.finished = _up(run, newPreparation: true);
     _changed();
     return run;
@@ -348,13 +365,15 @@ class HostRuns extends ChangeNotifier {
       if (_disposed || _leaving) return;
       run.interrupted = false;
       await run.session.up();
+      await run.saved;
+      if (run._saveFailed) throw const FileSystemException('The setup protocol could not be kept.');
       if (_disposed) return;
       if (run.session.state == HostRunState.done) await _addHost(run);
       if (run.session.state == HostRunState.busy) _poll(run);
     } on Exception {
       if (!_disposed) {
         run.session.state = HostRunState.refused;
-        run.problem = 'The host command could not complete. Your machines have been kept.';
+        run.problem ??= 'The host command could not complete. Your machines have been kept.';
       }
     } finally {
       run._upActive = false;
@@ -437,8 +456,12 @@ class HostRuns extends ChangeNotifier {
   /// Removes recovery only after the provider confirmed give-back and the command succeeded.
   Future<void> confirmDown(String project, HostSession session) async {
     if (!hostGivenBack(session)) return;
+    final pending = _runs[project];
+    await pending?.saved;
     final kept = machines.settings.hostUp(project);
-    if (kept != null) await machines.settings.rememberHostUp(project, kept.withPreparation(null));
+    if (kept != null) {
+      await machines.settings.rememberHostUp(project, kept.withPreparation(null).withProtocol(const []));
+    }
     final run = _runs[project];
     if (run != null) {
       run._poll?.cancel();
@@ -446,6 +469,42 @@ class HostRuns extends ChangeNotifier {
       run.interrupted = false;
     }
     _changed();
+  }
+
+  void _listen(HostPreparation run) {
+    run._lastProtocol = jsonEncode([for (final entry in run.session.keptProtocol) entry.stored]);
+    void changed() {
+      final protocol = run.session.keptProtocol;
+      final encoded = jsonEncode([for (final entry in protocol) entry.stored]);
+      if (!run.givenBack && run._lastProtocol != encoded) {
+        run._lastProtocol = encoded;
+        Future<void> keep() async {
+          final settings = run.settings;
+          if (settings == null || run.givenBack) return;
+          final kept = settings.hostUp(run.project) ?? run.record;
+          await settings.rememberHostUp(run.project, kept.withProtocol(protocol));
+          run._saveFailed = false;
+        }
+
+        late final Future<void> saving;
+        saving = (run._saved?.then((_) => keep()) ?? keep()).then(
+          (_) {
+            if (identical(run._saved, saving)) run._saved = null;
+          },
+          onError: (Object _, StackTrace _) {
+            if (identical(run._saved, saving)) run._saved = null;
+            run._saveFailed = true;
+            run.problem = 'The setup protocol could not be kept. Keep the interface open and check the settings file.';
+            _changed();
+          },
+        );
+        run._saved = saving;
+      }
+      _changed();
+    }
+
+    run._listener = changed;
+    run.session.addListener(changed);
   }
 
   void _changed() {
@@ -457,7 +516,7 @@ class HostRuns extends ChangeNotifier {
     _disposed = true;
     for (final run in _runs.values) {
       run._poll?.cancel();
-      run.session.removeListener(_changed);
+      if (run._listener case final listener?) run.session.removeListener(listener);
       run.session.dispose();
     }
     super.dispose();

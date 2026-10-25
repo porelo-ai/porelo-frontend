@@ -4,7 +4,20 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'desk.dart';
+import 'host_protocol.dart';
 import 'machines.dart';
+
+bool _sameStored(Object? left, Object? right) {
+  if (left is Map && right is Map) {
+    return left.length == right.length &&
+        left.keys.every((key) => right.containsKey(key) && _sameStored(left[key], right[key]));
+  }
+  if (left is List && right is List) {
+    return left.length == right.length &&
+        Iterable<int>.generate(left.length).every((index) => _sameStored(left[index], right[index]));
+  }
+  return left == right;
+}
 
 /// The non-secret inputs of one project's last host setup, kept together for teardown.
 @immutable
@@ -28,6 +41,7 @@ class HostUpRecord {
     this.vpnFile,
     this.preparing = false,
     this.startedAt,
+    this.protocol = const [],
   });
 
   /// The provider project that owns the rented host.
@@ -81,6 +95,9 @@ class HostUpRecord {
   /// The UTC instant preparation began, absent before setup or after confirmation.
   final DateTime? startedAt;
 
+  /// The public protocol retained until the server is given back.
+  final List<HostProtocolEntry> protocol;
+
   /// Keeps recovery until a machine or give-back has been confirmed.
   HostUpRecord withPreparation(DateTime? instant) => HostUpRecord(
     scalewayProject: scalewayProject,
@@ -100,6 +117,7 @@ class HostUpRecord {
     vpnFile: vpnFile,
     preparing: instant != null,
     startedAt: instant?.toUtc(),
+    protocol: protocol,
   );
 
   /// Keeps the same host identity when the exported file is saved or explicitly deleted.
@@ -121,6 +139,7 @@ class HostUpRecord {
     vpnFile: file,
     preparing: preparing,
     startedAt: startedAt,
+    protocol: protocol,
   );
 
   /// Keeps the confirmed public tunnel settings without changing setup or the chosen file.
@@ -142,6 +161,29 @@ class HostUpRecord {
     vpnFile: vpnFile,
     preparing: preparing,
     startedAt: startedAt,
+    protocol: protocol,
+  );
+
+  /// Replaces the kept protocol without changing the setup answers.
+  HostUpRecord withProtocol(List<HostProtocolEntry> entries) => HostUpRecord(
+    scalewayProject: scalewayProject,
+    account: account,
+    tresor: tresor,
+    folder: folder,
+    repository: repository,
+    signingKey: signingKey,
+    identity: identity,
+    publicKey: publicKey,
+    collection: collection,
+    collectionSha256: collectionSha256,
+    vpnPeerPublicKey: vpnPeerPublicKey,
+    vpnPeerAddress: vpnPeerAddress,
+    vpnHostPublicKey: vpnHostPublicKey,
+    vpnEndpointAddress: vpnEndpointAddress,
+    vpnFile: vpnFile,
+    preparing: preparing,
+    startedAt: startedAt,
+    protocol: List.unmodifiable(entries),
   );
 
   /// Reads every field or drops the entire unusable record.
@@ -158,6 +200,8 @@ class HostUpRecord {
       'vpnPeerPublicKey': final String vpnPeerPublicKey,
       'vpnPeerAddress': final String vpnPeerAddress,
     }) {
+      // Unreadable progress must not erase the answers needed to give a billed server back.
+      final protocol = HostProtocolEntry.readMany(value['protocol']) ?? const <HostProtocolEntry>[];
       final preparing = value.containsKey('preparing') ? value['preparing'] : false;
       if (preparing is! bool) return null;
       final start = value['startedAt'];
@@ -222,6 +266,7 @@ class HostUpRecord {
         vpnFile: vpnFile as String?,
         preparing: preparing,
         startedAt: startedAt,
+        protocol: protocol,
       );
     }
     return null;
@@ -243,6 +288,7 @@ class HostUpRecord {
     if (vpnHostPublicKey.isNotEmpty) 'vpnHostPublicKey': vpnHostPublicKey,
     if (vpnEndpointAddress.isNotEmpty) 'vpnEndpointAddress': vpnEndpointAddress,
     if (vpnFile != null) 'vpnFile': vpnFile,
+    if (protocol.isNotEmpty) 'protocol': [for (final entry in protocol) entry.stored],
     if (preparing) 'preparing': true,
     if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
   };
@@ -557,7 +603,7 @@ class Settings extends ChangeNotifier {
       await _write();
       final saved = (await _store.read())['hostUps'];
       final savedRecord = saved is Map ? saved[project] : null;
-      if (savedRecord is! Map || !record.stored.entries.every((entry) => savedRecord[entry.key] == entry.value)) {
+      if (savedRecord is! Map || !_sameStored(savedRecord, record.stored)) {
         throw const FileSystemException('Cannot keep the host setup in the interface settings.');
       }
     } on Exception {
@@ -726,11 +772,24 @@ class Settings extends ChangeNotifier {
 
   List<Map<String, Object?>> _templates = const <Map<String, Object?>>[];
 
-  /// Writes every choice, **keeping the keys this version does not know**: the file is shared with
-  /// the IntelliJ plugin and outlives this version, and what a later one wrote is not this one's to
-  /// drop.
-  Future<void> _write() async {
+  // Protocol updates and other preferences share one atomic replacement file.
+  Future<void>? _writes;
+
+  /// Keeps unknown settings because the file also serves other versions and the IntelliJ plugin.
+  Future<void> _write() {
     final known = _known;
+    final writing = _writes?.then((_) => _writeKnown(known)) ?? _writeKnown(known);
+    late final Future<void> tail;
+    void finished() {
+      if (identical(_writes, tail)) _writes = null;
+    }
+
+    tail = writing.then((_) => finished(), onError: (Object _, StackTrace _) => finished());
+    _writes = tail;
+    return writing;
+  }
+
+  Future<void> _writeKnown(Map<String, Object?> known) async {
     final kept = <String, Object?>{
       for (final entry in (await _store.read()).entries)
         if (!known.containsKey(entry.key)) entry.key: entry.value,

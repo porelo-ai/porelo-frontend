@@ -139,11 +139,22 @@ void main() {
       await machines.add(hostMachine);
       final commands = <List<String>>[];
       final process = HostProcess();
+      var vpnChecks = 0;
       final runs = (await tester.runAsync(
-        () async => _RestoredRuns(machines, (_, arguments) async {
-          commands.add(List.of(arguments));
-          return process;
-        }, environment: environment),
+        () async => _RestoredRuns(
+          machines,
+          (_, arguments) async {
+            commands.add(List.of(arguments));
+            return process;
+          },
+          environment: environment,
+          // VPN checks must not depend on this computer's tunnel or process timing.
+          probeLink: () async {
+            vpnChecks++;
+            return false;
+          },
+          ping: () async => false,
+        ),
       ))!;
       await tester.runAsync(() => runs.of('demo')!.checked);
       addTearDown(() {
@@ -197,6 +208,7 @@ void main() {
         isTrue,
         reason: 'a progress line alone must never erase recovery',
       );
+      expect(vpnChecks, 0, reason: 'a progress line alone must never authorize VPN teardown');
       beforeExit.dispose();
       process.end(outcome == 'unreachable' ? 69 : 0);
       await World.settle(tester);
@@ -210,6 +222,12 @@ void main() {
       ))!;
       await tester.runAsync(() => Future.wait([for (final run in afterRestart.preparing) run.checked]));
       final confirmed = outcome == 'confirmed' || outcome == 'missing';
+      expect(vpnChecks, confirmed ? greaterThan(0) : 0, reason: 'confirmed give-back must reach the local VPN check');
+      expect(
+        find.byKey(const Key('host-done')),
+        confirmed ? findsOneWidget : findsNothing,
+        reason: 'give-back completes only after provider confirmation and an absent VPN',
+      );
       expect(afterRestart.preparing.map((run) => run.project), confirmed ? isEmpty : ['demo']);
       expect(runs.preparing.map((run) => run.project), confirmed ? isEmpty : ['demo']);
       expect(preparation!.interrupted, !confirmed, reason: 'confirmed give-back ends interruption recovery');
@@ -234,7 +252,17 @@ void main() {
     final store = MemorySettingsStore();
     final settings = Settings(store);
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-    final runs = HostRuns(machines, endpointFor: (_) => '/ready.sock');
+    var vpnChecks = 0;
+    final runs = HostRuns(
+      machines,
+      endpointFor: (_) => '/ready.sock',
+      // VPN checks must not depend on this computer's tunnel or process timing.
+      probeLink: () async {
+        vpnChecks++;
+        return false;
+      },
+      ping: () async => false,
+    );
     addTearDown(() {
       runs.dispose();
       machines.dispose();
@@ -300,6 +328,8 @@ void main() {
     ]);
     expect(session.address, address, reason: 'teardown must not erase the setup destination');
     expect(session.protocol, protocol, reason: 'the completed setup protocol must stay readable');
+    expect(vpnChecks, greaterThan(0), reason: 'a ready host still needs its local VPN checked after give-back');
+    expect(find.byKey(const Key('host-done')), findsOneWidget, reason: 'the absent VPN completes give-back');
     expect(runs.preparing, isEmpty);
     final reopened = Settings(store);
     await reopened.load();
@@ -370,7 +400,7 @@ void main() {
 }
 
 class _RestoredRuns extends HostRuns {
-  _RestoredRuns(super.machines, this.startCommand, {super.environment});
+  _RestoredRuns(super.machines, this.startCommand, {super.environment, super.probeLink, super.ping});
   final StartHostCommand startCommand;
 
   @override
