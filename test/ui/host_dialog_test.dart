@@ -31,6 +31,8 @@ import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
 
+Future<Process> _acceptedKey(String executable, List<String> arguments) async => _HostProcess()..end(0);
+
 void main() {
   late Directory scratch;
   late Machines machines;
@@ -165,6 +167,79 @@ void main() {
     expect(find.byKey(const Key('host-complete-setup')), findsNothing, reason: 'another setup owns the host');
     expect(find.byType(HostStopDialog), findsNothing, reason: 'contention must never open the credential dialog');
   });
+
+  for (final code in [65, 69]) {
+    // Harm: advancing with a refused key defers authentication failure until after server setup starts.
+    hostWidgets('a key check ending with $code blocks setup until a successful retry', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final checks = <List<String>>[];
+      final first = _HostProcess();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HostDialog(
+            project: 'demo',
+            machines: machines,
+            hostRuns: runs,
+            environment: const {'PORELO_HOST_STANDIN': '/fake/porelo-host'},
+            checkKey: (executable, arguments) async {
+              checks.add([executable, ...arguments]);
+              return checks.length == 1 ? first : (_HostProcess()..end(0));
+            },
+            start: (_, _) async => fail('Host setup must not start while the key is being checked.'),
+          ),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'provider');
+      // Entering text schedules the rebuild that enables Next; a tap does not pump that frame.
+      await tester.pump();
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
+        isNotNull,
+        reason: 'the valid project and default account must enable Next before the check can start',
+      );
+      await tester.tap(find.byKey(const Key('wizard-next')));
+      await World.settle(tester);
+      expect(checks, [
+        ['/fake/porelo-host', 'key', 'check', 'scaleway'],
+      ], reason: 'the key check must start before its response is supplied');
+      expect(
+        find.byKey(const Key('host-tresor')),
+        findsNothing,
+        reason: 'a pending authentication check must hold the current step',
+      );
+      first._errors.add(utf8.encode('provider refused or unreachable\n'));
+      first.end(code);
+      await World.settle(tester);
+      expect(checks, [
+        ['/fake/porelo-host', 'key', 'check', 'scaleway'],
+      ], reason: 'the wizard must check using the configured host executable');
+      expect(
+        find.byKey(const Key('host-scaleway-project')),
+        findsOneWidget,
+        reason: 'a refused check must preserve the first step',
+      );
+      expect(
+        find.byKey(const Key('host-scaleway-key-problem')),
+        findsOneWidget,
+        reason: 'a refused check must have its own visible reason',
+      );
+      expect(
+        find.byKey(const Key('host-set-scaleway-key')),
+        findsOneWidget,
+        reason: 'a refused credential must be repairable before continuing',
+      );
+      await tester.tap(find.byKey(const Key('wizard-next')));
+      await World.settle(tester);
+      expect(checks.length, 2, reason: 'retrying must ask the command again');
+      expect(
+        find.byKey(const Key('host-tresor')),
+        findsOneWidget,
+        reason: 'only the successful check may allow step two',
+      );
+    });
+  }
 
   // Harm: a forgotten server keeps billing without anyone knowing how to find it.
   hostWidgets('removing a host warns before forgetting and offers teardown beside removal', (tester) async {
@@ -315,6 +390,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -369,6 +445,7 @@ void main() {
       MaterialApp(
         home: HostDialog(
           hostFiles: filesFor,
+          checkKey: _acceptedKey,
           hostRuns: runs,
           project: 'demo',
           machines: machines,
@@ -402,7 +479,14 @@ void main() {
     await reopened.load();
     await tester.pumpWidget(
       MaterialApp(
-        home: HostDialog(hostFiles: filesFor, hostRuns: runs, project: 'demo', machines: machines, settings: reopened),
+        home: HostDialog(
+          hostFiles: filesFor,
+          checkKey: _acceptedKey,
+          hostRuns: runs,
+          project: 'demo',
+          machines: machines,
+          settings: reopened,
+        ),
       ),
     );
     final seen = <String>{};
@@ -459,6 +543,7 @@ void main() {
       MaterialApp(
         home: HostDialog(
           hostFiles: filesFor,
+          checkKey: _acceptedKey,
           hostRuns: runs,
           project: 'demo',
           machines: machines,
@@ -632,6 +717,7 @@ void main() {
             home: Scaffold(
               body: HostDialog(
                 hostFiles: filesFor,
+                checkKey: _acceptedKey,
                 hostRuns: runs,
                 project: 'demo',
                 machines: machines,
@@ -685,6 +771,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -724,6 +811,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -792,6 +880,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -837,6 +926,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -888,6 +978,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               project: 'demo',
               machines: machines,
@@ -932,6 +1023,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -965,6 +1057,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -1013,6 +1106,7 @@ void main() {
                 context: context,
                 builder: (_) => HostDialog(
                   hostFiles: filesFor,
+                  checkKey: _acceptedKey,
                   hostRuns: runs,
                   project: 'demo',
                   machines: machines,
@@ -1149,6 +1243,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               project: 'demo',
               machines: machines,
@@ -1195,6 +1290,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               project: 'demo',
               machines: machines,
@@ -1246,6 +1342,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             project: 'demo',
             machines: machines,
@@ -1293,6 +1390,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             machines: machines,
             project: 'demo',
@@ -1348,6 +1446,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             machines: machines,
             project: 'demo',
@@ -1465,6 +1564,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               machines: machines,
               project: 'demo',
@@ -1519,6 +1619,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               machines: machines,
               project: 'demo',
@@ -1573,6 +1674,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             secretStore: _MemorySecrets(),
             machines: machines,
@@ -1701,6 +1803,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
@@ -1778,6 +1881,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
@@ -1816,6 +1920,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             secretStore: _MemorySecrets(),
             machines: machines,
@@ -1892,6 +1997,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
@@ -1952,6 +2058,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             hostFiles: filesFor,
+            checkKey: _acceptedKey,
             hostRuns: runs,
             secretStore: _MemorySecrets(),
             machines: machines,
@@ -2007,6 +2114,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
@@ -2089,6 +2197,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,
@@ -2141,6 +2250,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               hostFiles: filesFor,
+              checkKey: _acceptedKey,
               hostRuns: runs,
               secretStore: _MemorySecrets(),
               machines: machines,

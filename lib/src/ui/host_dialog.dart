@@ -22,6 +22,7 @@ import 'tokens.dart';
 import 'host_stop_dialog.dart';
 import 'dialog_scroll.dart';
 import 'host_vpn_dialog.dart';
+import 'host_key_dialog.dart';
 
 /// Confirms teardown and shows the host's steps using only the kept setup arguments.
 Future<void> openHostTakeDownDialog(
@@ -102,6 +103,7 @@ class HostDialog extends StatefulWidget {
     required this.project,
     required this.machines,
     this.start,
+    this.checkKey,
     this.hostRuns,
     this.hostFiles,
     this.backend,
@@ -138,6 +140,9 @@ class HostDialog extends StatefulWidget {
 
   /// Starts the command; the shipped one when null.
   final StartHostCommand? start;
+
+  /// Starts the non-interactive key check; replaceable without running a provider request in tests.
+  final StartHostCommand? checkKey;
 
   /// Opens the host terminal; replaceable without a real SSH process in tests.
   final OpenTerminal? openTerminal;
@@ -183,6 +188,8 @@ class _HostDialogState extends State<HostDialog> {
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   String? _folder;
+  String? _keyProblem;
+  bool _checkingKey = false;
 
   // Where the next picker starts: the folder of the last file or folder chosen in this dialog.
   String? _lastFolder;
@@ -665,6 +672,34 @@ class _HostDialogState extends State<HostDialog> {
     children: [...children, if (_machineProblem != null) Text(_machineProblem!)],
   );
 
+  Future<bool> _checkScalewayKey() async {
+    setState(() => _checkingKey = true);
+    final answer = await checkHostScalewayKey(start: widget.checkKey, environment: widget.environment);
+    if (!mounted) return false;
+    setState(() {
+      _checkingKey = false;
+      _keyProblem = answer.code == 0 ? null : answer.message;
+    });
+    return answer.code == 0;
+  }
+
+  Future<void> _setScalewayKey() async {
+    final accepted = await openHostKeyDialog(context, open: widget.openTerminal, environment: widget.environment);
+    if (mounted && accepted) await _checkScalewayKey();
+  }
+
+  Widget _scalewayKeyAction() {
+    final command = setScalewayKeyCommand(run: () => unawaited(_setScalewayKey()), checking: _checkingKey);
+    return Tooltip(
+      message: command.unavailable ?? 'Enter the secret key in a terminal on this computer.',
+      child: TextButton(
+        key: const Key('host-set-scaleway-key'),
+        onPressed: command.available ? command.run : null,
+        child: Text(command.label),
+      ),
+    );
+  }
+
   List<WizardStep> get _steps => [
     WizardStep(
       title: 'Where it is rented',
@@ -676,8 +711,11 @@ class _HostDialogState extends State<HostDialog> {
       panel: (_) => _panel([
         _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
         _field(_account, 'Account on the server', 'host-account', namesHost: true),
+        if (_keyProblem != null) Text(_keyProblem!, key: const Key('host-scaleway-key-problem')),
+        _scalewayKeyAction(),
       ]),
       check: () => _required([_scaleway, _account], 'Give the Scaleway project id and the account on the server.'),
+      beforeNext: _checkScalewayKey,
       summary: () => ['Scaleway project id: ${_scaleway.text}', 'Account on the server: ${_account.text}'],
     ),
     WizardStep(

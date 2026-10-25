@@ -1332,6 +1332,16 @@ List<Command> hostRecoveryCommands({
 Command retryHostPreparationCommand({required String project, required VoidCallback retry}) =>
     Command(id: 'host.retry', label: 'Try setup again', group: '$project server', run: retry);
 
+/// Opens the provider's hidden terminal prompt before host setup continues.
+Command setScalewayKeyCommand({required VoidCallback run, bool checking = false}) => Command(
+  id: 'host.setScalewayKey',
+  label: 'Set Scaleway key',
+  group: 'Server setup',
+  home: Home.openedView,
+  run: run,
+  unavailable: checking ? 'wait for the Scaleway key check to answer' : null,
+);
+
 /// Opens the selected project's existing work under Work.
 Command projectWorkCommand({required VoidCallback open}) =>
     Command(id: 'project.itsWork', label: 'Its work, under Work', group: 'Project', home: Home.startTile, run: open);

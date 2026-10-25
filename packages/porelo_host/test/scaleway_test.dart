@@ -53,6 +53,44 @@ Map<String, Object?> server({
 void main() {
   ScalewayElasticMetal adapter(RecordedApi api) => ScalewayElasticMetal(api: api.call, projectId: 'project-1');
 
+  for (final (label, body) in <(String, Object?)>[
+    ('text', 'upstream returned a page'),
+    ('empty', null),
+    ('number', 42),
+    ('boolean', true),
+  ]) {
+    // Harm: a malformed successful response crashes host setup instead of returning a recoverable provider refusal.
+    test('a successful $label body becomes a provider failure before parsing servers', () async {
+      final api = RecordedApi({'GET $zone/servers': ApiAnswer(200, body)});
+      await expectLater(
+        adapter(api).find('porelo-project=demo'),
+        throwsA(isA<ProviderFailed>()),
+        reason: 'an invalid response must be a provider refusal rather than an uncaught cast error',
+      );
+      expect(api.requests, [
+        ('GET', '$zone/servers?project_id=project-1&tags=porelo-project%3Ddemo', null),
+      ], reason: 'a malformed list response must stop before any further provider request');
+    });
+  }
+
+  for (final status in [403, 502]) {
+    // Harm: treating a text error as malformed success hides the provider refusal needed to recover safely.
+    test('an HTTP $status text refusal remains a readable provider failure', () async {
+      final api = RecordedApi({'GET $zone/servers': ApiAnswer(status, 'upstream refused this request')});
+      await expectLater(
+        adapter(api).find('porelo-project=demo'),
+        throwsA(
+          isA<ProviderFailed>().having(
+            (error) => error.message,
+            'provider reason',
+            contains('upstream refused this request'),
+          ),
+        ),
+        reason: 'a text refusal must retain its cause instead of being mistaken for an invalid success body',
+      );
+    });
+  }
+
   test('a rent names the offer, Ubuntu 26.04, the tags, the person\'s key and cloud-init\'s data', () async {
     final api = RecordedApi(<String, ApiAnswer>{
       'GET $zone/offers': offers,

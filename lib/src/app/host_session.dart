@@ -45,6 +45,36 @@ enum HostRunState {
 /// Starts a program; injectable, so the session is proven without one.
 typedef StartHostCommand = Future<Process> Function(String executable, List<String> arguments);
 
+/// Checks the kept provider key with the same executable used for host setup.
+Future<({int code, String message})> checkHostScalewayKey({
+  StartHostCommand? start,
+  Map<String, String>? environment,
+}) async {
+  Process? process;
+  try {
+    process = await (start ?? Process.start)(poreloHost(environment: environment), ['key', 'check', 'scaleway']);
+    await process.stdin.close();
+    final result = await Future.wait<Object>([
+      process.exitCode,
+      process.stdout.transform(utf8.decoder).join(),
+      process.stderr.transform(utf8.decoder).join(),
+    ]).timeout(const Duration(seconds: 35));
+    final code = result[0] as int;
+    final errors = (result[2] as String).trim();
+    return (
+      code: code,
+      message: code == 0
+          ? 'accepted'
+          : errors.isEmpty
+          ? 'Scaleway key check ended with $code.'
+          : errors,
+    );
+  } on Exception {
+    process?.kill();
+    return (code: 69, message: 'The Scaleway key check could not complete.');
+  }
+}
+
 /// One step's progress and emission times within a single attempt.
 class HostStepRecord {
   HostStepRecord._(this._step, this.startedAt, this._text, this._seconds);

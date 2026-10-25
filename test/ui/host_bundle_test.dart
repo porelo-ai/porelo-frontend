@@ -111,6 +111,7 @@ void main() {
             settings: settings,
             hostRuns: runs,
             secretStore: _Secrets(),
+            checkKey: (_, _) async => HostProcess()..end(0),
             hostFiles: (store) => HostFiles(
               store,
               gitEnvironment: const {

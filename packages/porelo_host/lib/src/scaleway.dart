@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'host_run.dart' show hostKeyTag;
 import 'provider.dart';
+import 'steps.dart';
 
 /// One answer of Scaleway's API: its status and its JSON body.
 class ApiAnswer {
@@ -12,12 +14,54 @@ class ApiAnswer {
   /// The HTTP status.
   final int status;
 
-  /// The decoded JSON body, or null for none.
+  /// The decoded JSON body, raw text for a non-JSON answer, or null for none.
   final Object? body;
 }
 
 /// Sends one request to Scaleway's API. A seam, so the adapter is proven against recorded answers.
 typedef ScalewayApi = Future<ApiAnswer> Function(String method, String path, {Map<String, Object?>? body});
+
+/// Checks a secret before storing or using it, without creating any provider resources.
+Future<({int code, String message})> checkScalewayKey(
+  String value, {
+  ScalewayApi Function(String) exchange = scalewayOverHttps,
+}) async {
+  final key = value.trim();
+  if (key.startsWith('SCW')) {
+    return (code: Exit.refused, message: 'that is the access key (SCW…); the secret key is a UUID');
+  }
+  final uuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+  if (!uuid.hasMatch(key)) {
+    return (code: Exit.refused, message: 'that is not a secret key; the secret key is a UUID');
+  }
+  try {
+    final answer = await exchange(key)(
+      'GET',
+      '/baremetal/v1/zones/fr-par-1/offers?name=EM-I220E-NVME',
+    ).timeout(const Duration(seconds: 30));
+    if (answer.status >= 200 && answer.status < 300) {
+      if (answer.body is! Map) {
+        return (
+          code: Exit.refused,
+          message: 'that is not Scaleway’s answer; the offers response must be a JSON object',
+        );
+      }
+      return (code: Exit.done, message: 'accepted');
+    }
+    if (answer.status >= 500) {
+      return (code: Exit.unreachable, message: 'Scaleway is unavailable (HTTP ${answer.status})');
+    }
+    final said = switch (answer.body) {
+      {'message': final String message} => message,
+      final String message => message,
+      _ => 'HTTP ${answer.status}',
+    };
+    // A remote error can echo the authentication header, so it is never trusted with the secret.
+    return (code: Exit.refused, message: 'refused by Scaleway: ${said.replaceAll(key, '[redacted]')}');
+  } on Exception {
+    return (code: Exit.unreachable, message: 'Scaleway could not be reached');
+  }
+}
 
 /// The real API over HTTPS, with the key in `X-Auth-Token` and nowhere else.
 ScalewayApi scalewayOverHttps(String secretKey, {String base = 'https://api.scaleway.com'}) {
@@ -25,6 +69,8 @@ ScalewayApi scalewayOverHttps(String secretKey, {String base = 'https://api.scal
   return (method, path, {body}) async {
     try {
       final request = await client.openUrl(method, Uri.parse('$base$path'));
+      // A key check must make one request and must not forward its credential to another host.
+      request.followRedirects = false;
       request.headers.set('X-Auth-Token', secretKey);
       if (body != null) {
         request.headers.contentType = ContentType.json;
@@ -32,9 +78,15 @@ ScalewayApi scalewayOverHttps(String secretKey, {String base = 'https://api.scal
       }
       final response = await request.close();
       final text = await response.transform(utf8.decoder).join();
-      return ApiAnswer(response.statusCode, text.isEmpty ? null : jsonDecode(text));
-    } on IOException catch (e) {
-      throw ProviderFailed('Scaleway\'s API could not be reached: $e');
+      Object? decoded;
+      try {
+        decoded = text.isEmpty ? null : jsonDecode(text);
+      } on FormatException {
+        decoded = text;
+      }
+      return ApiAnswer(response.statusCode, decoded);
+    } on IOException {
+      throw const ProviderFailed('Scaleway\'s API could not be reached');
     } on FormatException {
       throw const ProviderFailed('Scaleway answered with something that is not JSON');
     }
@@ -125,7 +177,8 @@ class ScalewayElasticMetal implements HostProvider {
     if (!tags.any((t) => t.startsWith('porelo-project='))) {
       throw ProviderFailed('$id carries no porelo-project tag, so it is not this package\'s to give back');
     }
-    await _ok('DELETE', '$_servers/$id', 'give back $id');
+    // A successful deletion has no JSON body to validate.
+    await _request('DELETE', '$_servers/$id', 'give back $id');
   }
 
   /// A host as the API describes it. The host key is never the API's: it is the one the request
@@ -184,8 +237,16 @@ class ScalewayElasticMetal implements HostProvider {
   }
 
   Future<Object?> _ok(String method, String path, String what, {Map<String, Object?>? body}) async {
+    final answer = await _request(method, path, what, body: body);
+    if (answer.body is! Map && answer.body is! List) {
+      throw const ProviderFailed('Scaleway answered with something that is not JSON');
+    }
+    return answer.body;
+  }
+
+  Future<ApiAnswer> _request(String method, String path, String what, {Map<String, Object?>? body}) async {
     final answer = await api(method, path, body: body);
-    if (answer.status >= 200 && answer.status < 300) return answer.body;
+    if (answer.status >= 200 && answer.status < 300) return answer;
     final said = answer.body is Map ? ((answer.body as Map)['message'] ?? answer.body) : answer.body;
     final reason = switch (answer.status) {
       401 || 403 => 'the key may not $what: $said',

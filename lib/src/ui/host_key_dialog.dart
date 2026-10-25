@@ -1,8 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../app/host_keys.dart';
+import '../app/host_session.dart';
+import '../app/machines.dart';
+import '../app/session.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
+import 'unlock_terminal.dart';
+
+/// Sets the provider key in its hidden terminal prompt and retains the acceptance or refusal.
+Future<bool> openHostKeyDialog(BuildContext context, {OpenTerminal? open, Map<String, String>? environment}) async {
+  var accepted = false;
+  await runInATerminal(
+    context,
+    title: 'Set Scaleway key',
+    explanation: 'Enter the Scaleway secret key (a UUID) in the terminal. Scaleway checks it before it is kept in this computer’s system secret store.',
+    machine: Machine.local(),
+    command: [
+      poreloHost(environment: environment),
+      'key',
+      'set',
+      'scaleway',
+    ],
+    shownCommand: 'porelo-host key set scaleway',
+    open: open,
+    onExit: (code) => accepted = code == 0,
+    completed: 'accepted',
+    stillWorking: 'Waiting for the secret key and Scaleway’s answer in this terminal.',
+  );
+  return accepted;
+}
 
 /// Shows a host's keys the first time it is reached and asks whether to trust them.
 ///
