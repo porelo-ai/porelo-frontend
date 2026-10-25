@@ -20,8 +20,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
-| <a id="f184"></a>[F184](F184-The-Rooms-Accounts-Listed-With-Remove-And-New-Password.md) | — | porelo, the removal of a room account (*Remove* only) | The messages dialog listing every room account with *Remove*, and showing `"You are in as <name>"` with *New password* when already joined. |
-| <a id="f186"></a>[F186](F186-The-Scaleway-Key-Checked-When-Stored-And-In-The-Wizard.md) | — | — | `porelo-host key set scaleway` (and `--from-file`) checking UUID format and Scaleway's offers endpoint before storing, and step 1 of the wizard checking the kept key. |
 
 ### Backlog
 
@@ -95,7 +93,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f181"></a>F181 | One Setup Protocol That Stays Still While Read | A single setup protocol list keeping unmatched lines in place, grouping earlier attempts into a collapsed section at the end, providing *Copy the protocol*, and scrolling only when already at the bottom. |
 | <a id="f182"></a>F182 | The VPN Interface Left Unmanaged By NetworkManager | The VPN setup step writing `/etc/NetworkManager/conf.d/porelo.conf` to mark the `porelo` interface unmanaged and reloading NetworkManager under the initial `sudo` prompt to prevent desktop connection failure notifications. |
 | <a id="f183"></a>F183 | One VPN Action That Follows The Tunnel's State | A single server VPN tile and menu action reflecting the current tunnel state checked without root privileges via `ip link`, opening no terminal when the tunnel is already in the requested state. |
+| <a id="f184"></a>F184 | The Room's Accounts Listed With Remove And New Password | The messages dialog listing every account in the project's room with *Remove*, confirmed and with the reasons an account is kept, and `"You are in as <name>"` with *New password* when already joined. |
 | <a id="f185"></a>F185 | The VPN Taken Down When A Server Is Given Back | Teardown of the local WireGuard VPN tunnel as the final step of giving back a server before *Done.*, placing a *Take the VPN down* action into *Needs you* if the terminal step was cancelled. |
+| <a id="f186"></a>F186 | The Scaleway Key Checked When Stored And In The Wizard | `porelo-host key set scaleway` and `--from-file` checking the key's UUID form, a quoted key taken, and Scaleway's offers endpoint before storing, a redirect named as one, and step 1 of the wizard checking the kept key. |
 | <a id="f187"></a>F187 | Needs You As Compact Expandable Rows Without Pink Surfaces | Single-line expandable rows for *Needs you* and *Recently resolved* with inline primary resolution buttons, and removal of pink `errorContainer` surface fills everywhere except review diffs and dangerous confirmations. |
 | <a id="f188"></a>F188 | One Expandable List Row For Every List | One shared fixed-height expandable list-row component across *Projects*, *Forges*, *Machines*, and *Needs you*, where tapping the row navigates to details and tapping the arrow expands status information in place. |
 | <a id="f189"></a>F189 | The Server Page's Actions As A Grid Of Tiles | Multi-column `CommandTile` action grid on the server page with dedicated outlined icons per action, placing *Take this server down* at the end of the page as a separate red button. |
