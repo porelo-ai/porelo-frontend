@@ -24,6 +24,7 @@ class _Backend extends FakeBackend {
     if (refuses) {
       throw const VarlinkException('org.fuin.porelo.Tasks1.ConversationRefused', {'message': 'room refused'});
     }
+    membersOf[project] = [MessageMember(person: person, user: '@$person:localhost')];
     return const MessagesJoined(
       transport: 'matrix',
       shown: '',
@@ -64,7 +65,13 @@ void main() {
         },
       );
       addTearDown(forwards.dispose);
-      final model = ProjectConversation(backend, machine, project, forwards: forwards);
+      final model = ProjectConversation(
+        backend,
+        machine,
+        project,
+        settings: Settings(MemorySettingsStore()),
+        forwards: forwards,
+      );
       addTearDown(model.dispose);
       await tester.pumpWidget(MaterialApp(home: MessagesDialog(conversation: model)));
       await tester.enterText(find.byKey(const Key('join-person')), 'anna');
@@ -96,7 +103,13 @@ void main() {
       },
     );
     addTearDown(forwards.dispose);
-    final model = ProjectConversation(backend, machine, project, forwards: forwards);
+    final model = ProjectConversation(
+      backend,
+      machine,
+      project,
+      settings: Settings(MemorySettingsStore()),
+      forwards: forwards,
+    );
     addTearDown(model.dispose);
     final joining = model.join('anna');
     await pumpEventQueue(times: 10);
@@ -124,7 +137,13 @@ void main() {
       },
     );
     addTearDown(forwards.dispose);
-    final model = ProjectConversation(backend, machine, project, forwards: forwards);
+    final model = ProjectConversation(
+      backend,
+      machine,
+      project,
+      settings: Settings(MemorySettingsStore()),
+      forwards: forwards,
+    );
     addTearDown(model.dispose);
     await model.join('anna');
     expect(model.joined, isNull);
@@ -147,7 +166,13 @@ void main() {
       answers: (_) async => false,
     );
     addTearDown(forwards.dispose);
-    final model = ProjectConversation(backend, machine, project, forwards: forwards);
+    final model = ProjectConversation(
+      backend,
+      machine,
+      project,
+      settings: Settings(MemorySettingsStore()),
+      forwards: forwards,
+    );
     addTearDown(model.dispose);
     await model.join('anna');
     expect(model.joined, isNotNull);

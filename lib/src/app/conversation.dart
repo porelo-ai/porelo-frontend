@@ -7,6 +7,7 @@ import 'fleet_backend.dart';
 import 'homeserver_forwards.dart';
 import 'login_forward.dart';
 import 'machines.dart';
+import 'settings.dart';
 
 /// A project's conversation as a person sees it: where it is, who has joined, and joining it.
 ///
@@ -14,7 +15,9 @@ import 'machines.dart';
 /// goes with it. The machine keeps no copy either, so a second look is a new password (reset).
 class ProjectConversation extends ChangeNotifier {
   /// Constructor taking the machine, where it is reached, and the project.
-  ProjectConversation(this._backend, this.machine, this.project, {this._forwards}) {
+  ProjectConversation(this._backend, this.machine, this.project, {required Settings settings, this._forwards})
+    : _settings = settings,
+      _person = settings.messagePerson(machine.name, project.name) {
     _forwards?.addListener(_forwardsChanged);
   }
 
@@ -23,6 +26,8 @@ class ProjectConversation extends ChangeNotifier {
   final HomeserverForwards? _forwards;
 
   final FleetBackend _backend;
+  final Settings _settings;
+  String? _person;
 
   /// The machine the conversation's homeserver is on, when it is the account's own.
   final Machine machine;
@@ -32,6 +37,9 @@ class ProjectConversation extends ChangeNotifier {
 
   /// Who has joined, or null before the machine answered.
   List<MessageMember>? members;
+
+  /// This computer's remembered person, only while present in the daemon's member answer.
+  MessageMember? get joinedAs => members?.where((each) => each.person == _person).firstOrNull;
 
   /// The answered join only while its homeserver is reachable; never kept beyond this dialog.
   MessagesJoined? get joined {
@@ -66,9 +74,28 @@ class ProjectConversation extends ChangeNotifier {
   bool _gone = false;
 
   /// Asks who has joined.
-  Future<void> load() => _asking(() async {
-    members = await _backend.messageMembers(project.name);
-  });
+  Future<void> load() => _asking(_loadMembers);
+
+  Future<void> _loadMembers({String? joinedPerson}) async {
+    final answer = await _backend.messageMembers(project.name);
+    if (_gone) return;
+    members = List<MessageMember>.unmodifiable(answer);
+    final person = joinedPerson ?? _person;
+    _person = answer.any((each) => each.person == person) ? person : null;
+    if (_person == null) {
+      _joined = null;
+      _pendingJoin = null;
+      _pendingPerson = null;
+    }
+    await _settings.rememberMessagePerson(machine.name, project.name, _person);
+  }
+
+  /// Replaces the confirmed account's password after an explicit request.
+  Future<void> newPassword() async {
+    final member = joinedAs;
+    if (member == null || busy) return;
+    await join(member.person, reset: true);
+  }
 
   /// Clears the previous name's refusal and password-reset offer when the name changes.
   void personChanged() {
@@ -87,6 +114,8 @@ class ProjectConversation extends ChangeNotifier {
     if (_gone) return;
     _pendingJoin = answer;
     _pendingPerson = person;
+    await _loadMembers(joinedPerson: person);
+    if (_gone || joinedAs == null) return;
     await _forwardTheHomeserver(answer);
     if (_gone) return;
     if (forwardProblem != null) {
@@ -94,7 +123,6 @@ class ProjectConversation extends ChangeNotifier {
       return;
     }
     _joined = answer;
-    members = await _backend.messageMembers(project.name);
   });
 
   /// Where the homeserver is the machine's own loopback, a client on this computer reaches it only

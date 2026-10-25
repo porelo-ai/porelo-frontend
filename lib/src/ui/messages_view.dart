@@ -10,6 +10,7 @@ import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/machines.dart';
+import '../app/settings.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
 
@@ -19,9 +20,10 @@ Future<void> showProjectMessages(
   required FleetBackend backend,
   required Machine machine,
   required Project project,
+  required Settings settings,
   HomeserverForwards? forwards,
 }) async {
-  final conversation = ProjectConversation(backend, machine, project, forwards: forwards);
+  final conversation = ProjectConversation(backend, machine, project, settings: settings, forwards: forwards);
   unawaited(conversation.load());
   await showDialog<void>(
     context: context,
@@ -61,6 +63,16 @@ class _MessagesDialogState extends State<MessagesDialog> {
       final scheme = Theme.of(context).colorScheme;
       final members = model.members;
       final joined = model.joined;
+      final joinedAs = model.joinedAs;
+      final join = joinMessagesCommand(
+        person: _person.text.trim(),
+        busy: model.busy,
+        run: () => unawaited(model.join(_person.text.trim())),
+      );
+      final reset = newMessagePasswordCommand(
+        busy: model.busy,
+        run: () => unawaited(joinedAs != null ? model.newPassword() : model.join(model.alreadyJoined!, reset: true)),
+      );
       return AlertDialog(
         key: const Key('messages-dialog'),
         title: Text('Messages of ${model.project.name}'),
@@ -81,17 +93,13 @@ class _MessagesDialogState extends State<MessagesDialog> {
                     style: text.bodySmall,
                   ),
                 const SizedBox(height: Space.small),
-                Text('Who has joined', style: text.titleSmall),
+                Text('Who is in it', style: text.titleSmall),
                 if (members == null && model.problem == null) const Text('Asking the machine…'),
                 if (members != null && members.isEmpty) const Text('Nobody has joined yet.', key: Key('no-members')),
-                for (final each in members ?? const <MessageMember>[])
-                  SelectableText(
-                    '${each.person}, as ${each.user}',
-                    key: ValueKey<String>('member ${each.person}'),
-                    style: text.bodySmall,
-                  ),
+                for (final each in members ?? const <MessageMember>[]) _member(context, each),
                 const SizedBox(height: Space.normal),
-                if (joined == null) ...<Widget>[
+                if (joinedAs != null) Text('You are in as ${joinedAs.person}', key: const Key('joined-as')),
+                if (joined == null && joinedAs == null) ...<Widget>[
                   Text('Join it', style: text.titleSmall),
                   Text(
                     'An account is made for the person and invited into the room. Its password is shown '
@@ -125,19 +133,23 @@ class _MessagesDialogState extends State<MessagesDialog> {
           ),
         ),
         actions: <Widget>[
-          if (joined == null && model.alreadyJoined != null)
-            OutlinedButton(
-              key: const Key('join-reset'),
-              onPressed: model.busy ? null : () => unawaited(model.join(model.alreadyJoined!, reset: true)),
-              child: const Text('Give a new password'),
+          if (joinedAs != null || (joined == null && model.alreadyJoined != null))
+            Tooltip(
+              message: reset.unavailable ?? '',
+              child: OutlinedButton(
+                key: ValueKey<String>(reset.id),
+                onPressed: reset.available ? reset.run : null,
+                child: Text(reset.label),
+              ),
             ),
-          if (joined == null)
-            FilledButton(
-              key: const Key('join-it'),
-              onPressed: model.busy || _person.text.trim().isEmpty
-                  ? null
-                  : () => unawaited(model.join(_person.text.trim())),
-              child: const Text('Join'),
+          if (joined == null && joinedAs == null)
+            Tooltip(
+              message: join.unavailable ?? '',
+              child: FilledButton(
+                key: ValueKey<String>(join.id),
+                onPressed: join.available ? join.run : null,
+                child: Text(join.label),
+              ),
             ),
           TextButton(
             key: const Key('messages-close'),
@@ -148,6 +160,33 @@ class _MessagesDialogState extends State<MessagesDialog> {
       );
     },
   );
+
+  Widget _member(BuildContext context, MessageMember member) {
+    final remove = removeMessageMemberCommand(member.person);
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: SelectableText(
+                '${member.person}, as ${member.user}',
+                key: ValueKey<String>('member ${member.person}'),
+                style: text.bodySmall,
+              ),
+            ),
+            OutlinedButton(
+              key: ValueKey<String>(remove.id),
+              onPressed: remove.available ? remove.run : null,
+              child: Text(remove.label),
+            ),
+          ],
+        ),
+        Text(remove.unavailable!, style: text.bodySmall),
+      ],
+    );
+  }
 
   List<Widget> _where(BuildContext context, ProjectMessages messages) {
     final text = Theme.of(context).textTheme;

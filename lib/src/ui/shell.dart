@@ -900,6 +900,7 @@ class _ShellState extends State<Shell> {
       machine: widget.machines.current,
       project: project.project,
       forwards: _homeservers,
+      settings: widget.settings,
     );
   }
 

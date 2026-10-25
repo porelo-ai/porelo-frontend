@@ -427,6 +427,22 @@ class Settings extends ChangeNotifier {
     if (retention is int && retention >= 0) _keepResolvedMinutes = retention;
     final user = stored['workUser'];
     if (user is String && isUserName(user)) _workUser = user;
+    _messagePeople.clear();
+    final people = stored['messagePeople'];
+    if (people is Map) {
+      for (final entry in people.entries) {
+        final machine = entry.key;
+        final projects = entry.value;
+        if (machine is! String || !_isConversationName(machine) || projects is! Map) continue;
+        for (final entry in projects.entries) {
+          final project = entry.key;
+          final person = entry.value;
+          if (project is String && _isConversationName(project) && person is String && _isMessagePerson(person)) {
+            (_messagePeople[machine] ??= <String, String>{})[project] = person;
+          }
+        }
+      }
+    }
     final draft = stored['setupDraft'];
     if (draft is Map) _setupDraft = <String, Object?>{for (final e in draft.entries) '${e.key}': e.value};
     final folders = stored['tresorFolders'];
@@ -491,6 +507,33 @@ class Settings extends ChangeNotifier {
     final forges = stored['forges'];
     if (forges is List) _forges = List<Object?>.of(forges);
     notifyListeners();
+  }
+
+  final _messagePeople = <String, Map<String, String>>{};
+
+  static bool _isConversationName(String name) => name.trim().isNotEmpty && !name.contains('\x00');
+
+  static bool _isMessagePerson(String person) => RegExp(r'^[a-z0-9._=\-]+$').hasMatch(person);
+
+  /// The name this computer joined a machine's project room as, subject to its member list.
+  String? messagePerson(String machine, String project) => _messagePeople[machine]?[project];
+
+  /// Keeps only a confirmed person's name, or forgets a member the daemon no longer lists.
+  Future<void> rememberMessagePerson(String machine, String project, String? person) async {
+    if (!_isConversationName(machine) ||
+        !_isConversationName(project) ||
+        (person != null && !_isMessagePerson(person))) {
+      throw ArgumentError('A machine, project, and valid chat name are required.');
+    }
+    if (messagePerson(machine, project) == person) return;
+    if (person == null) {
+      final projects = _messagePeople[machine]!;
+      projects.remove(project);
+      if (projects.isEmpty) _messagePeople.remove(machine);
+    } else {
+      (_messagePeople[machine] ??= <String, String>{})[project] = person;
+    }
+    await _write();
   }
 
   Map<String, String> _tresorFolders = <String, String>{};
@@ -699,6 +742,7 @@ class Settings extends ChangeNotifier {
     'refreshSeconds': _refreshSeconds,
     'keepResolvedMinutes': _keepResolvedMinutes,
     'workUser': _workUser,
+    'messagePeople': {for (final entry in _messagePeople.entries) entry.key: Map<String, String>.of(entry.value)},
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,
     'machines': _machines,

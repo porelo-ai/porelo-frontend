@@ -734,6 +734,40 @@ List<Command> hostMachineCommands({
   ],
 ];
 
+/// Names the unavailable removal on a room member's own row.
+Command removeMessageMemberCommand(String person) => Command(
+  id: 'member-remove $person',
+  label: 'Remove',
+  group: 'Messages',
+  home: Home.messagesDialog,
+  unavailable: 'this Porelo cannot remove an account from the room yet',
+  run: () {},
+);
+
+/// Lets a named person join the room after an explicit request.
+Command joinMessagesCommand({required String person, required bool busy, required VoidCallback run}) => Command(
+  id: 'join-it',
+  label: 'Join',
+  group: 'Messages',
+  home: Home.messagesDialog,
+  unavailable: busy
+      ? 'the machine is still answering'
+      : person.trim().isEmpty
+      ? 'enter your name in the chat'
+      : null,
+  run: run,
+);
+
+/// Replaces the chosen account's password after an explicit request.
+Command newMessagePasswordCommand({required bool busy, required VoidCallback run}) => Command(
+  id: 'join-reset',
+  label: 'New password',
+  group: 'Messages',
+  home: Home.messagesDialog,
+  unavailable: busy ? 'the machine is still answering' : null,
+  run: run,
+);
+
 /// Opens Element without sending any part of the once-shown login to its website.
 Command openElementCommand() => Command(
   id: 'open-element',

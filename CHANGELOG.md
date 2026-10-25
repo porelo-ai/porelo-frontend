@@ -63,6 +63,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Project rooms list their accounts and remember your name per machine and project, with New password when
+  you are already a member; each account shows why Remove is unavailable.
+
 - Servers offer VPN up and down in a terminal on this computer, with an optional cleanup of the
   saved private-key file after connecting, and a route into the project's room with Matrix client guidance.
 
