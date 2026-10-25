@@ -126,7 +126,8 @@ void main() {
       expect(result.exitCode, Exit.usage, reason: '${result.stderr}');
       expect(result.stdout, isEmpty);
     }
-  });
+    // Each CLI subprocess compiles from source, which can exceed the default timeout on CI.
+  }, timeout: const Timeout(Duration(minutes: 2)));
 
   // Harm: the walk captures typed secrets in output, stderr or a file.
   for (final entry in commands.entries) {

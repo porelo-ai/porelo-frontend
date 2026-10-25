@@ -9,8 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Giving a server back takes down this computer's VPN before showing Done. Cancelling keeps
-  a Take the VPN down action in Needs you until the tunnel is gone.
+- Giving a server back takes down this computer's VPN on Linux before showing Done. Cancelling keeps
+  a Take the VPN down action in Needs you until the tunnel is gone. Other platforms finish without
+  opening a local VPN terminal or keeping a VPN cleanup action.
 - Interrupted server setups keep their recorded steps and messages across restarts until the server
   is given back, with Go on for an interruption and Try again for a failed attempt.
 

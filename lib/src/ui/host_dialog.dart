@@ -35,6 +35,7 @@ Future<void> openHostTakeDownDialog(
   StartHostCommand? start,
   HostRuns? hostRuns,
   OpenTerminal? openTerminal,
+  bool? linux,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
@@ -45,6 +46,7 @@ Future<void> openHostTakeDownDialog(
     start: start,
     hostRuns: hostRuns,
     openTerminal: openTerminal,
+    linux: linux,
     existingRun: switch (hostRuns?.of(project)) {
       final run? when !run.ready && !run.givenBack => run,
       _ => null,
@@ -114,6 +116,7 @@ class HostDialog extends StatefulWidget {
     this.existingRun,
     this.onStarted,
     this.openTerminal,
+    this.linux,
     this.environment,
     this.settings,
     this.secretStore,
@@ -150,6 +153,9 @@ class HostDialog extends StatefulWidget {
 
   /// Opens the host terminal; replaceable without a real SSH process in tests.
   final OpenTerminal? openTerminal;
+
+  /// Overrides the local VPN platform choice for tests.
+  final bool? linux;
 
   /// Overrides command selection for a development walk.
   final Map<String, String>? environment;
@@ -638,6 +644,11 @@ class _HostDialogState extends State<HostDialog> {
         }
       }
       _givenBack = true;
+      // Only Linux brings up a local VPN that needs cleanup after give-back.
+      if (!(widget.linux ?? Platform.isLinux)) {
+        _vpnDownConfirmed = true;
+        return;
+      }
       _givenBackMachine = Machine(
         name: '${widget.project} server',
         kind: 'host',
@@ -664,6 +675,7 @@ class _HostDialogState extends State<HostDialog> {
         up: false,
         open: widget.openTerminal,
         probeLink: owner?.probeVpnLink,
+        linux: widget.linux,
       );
       bool? linkUp;
       if (owner != null) {

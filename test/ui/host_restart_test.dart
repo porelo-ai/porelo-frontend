@@ -224,7 +224,11 @@ void main() {
       ))!;
       await tester.runAsync(() => Future.wait([for (final run in afterRestart.preparing) run.checked]));
       final confirmed = outcome == 'confirmed' || outcome == 'missing';
-      expect(vpnChecks, confirmed ? greaterThan(0) : 0, reason: 'confirmed give-back must reach the local VPN check');
+      expect(
+        vpnChecks,
+        confirmed && Platform.isLinux ? greaterThan(0) : 0,
+        reason: 'confirmed give-back checks the local VPN only on Linux',
+      );
       expect(
         find.byKey(const Key('host-done')),
         confirmed ? findsOneWidget : findsNothing,
@@ -313,6 +317,9 @@ void main() {
                   settings: settings,
                   hostRuns: runs,
                   start: down,
+                  linux: true,
+                  openTerminal: (_, _, {columns = 80, rows = 24}) =>
+                      throw StateError('an absent VPN must never open a terminal'),
                 ),
               ),
               child: const Text('Open teardown'),
@@ -337,6 +344,52 @@ void main() {
     await reopened.load();
     expect(reopened.hostUp('demo')!.preparing, isFalse);
     reopened.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: give-back on other platforms crashes by opening an unsupported local PTY.
+  testWidgets('off Linux give-back finishes without opening a terminal', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    await settings.rememberHostUp('demo', _record);
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+    final runs = HostRuns(machines);
+    addTearDown(() {
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    });
+    final process = HostProcess();
+    var terminals = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            machines: machines,
+            settings: settings,
+            hostRuns: runs,
+            takeDownOnly: true,
+            linux: false,
+            start: (_, _) async => process,
+            openTerminal: (_, _, {columns = 80, rows = 24}) {
+              terminals++;
+              throw StateError('off Linux give-back must never open a terminal');
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Give the server back'));
+    await World.settle(tester);
+    process.line(const Step('give-back', StepState.done, address: '203.0.113.7'));
+    process.end(0);
+    await World.settle(tester);
+    expect(terminals, 0, reason: 'off Linux the interface never manages the local VPN');
+    expect(find.byKey(const Key('host-done')), findsOneWidget, reason: 'provider confirmation completes give-back');
+    expect(runs.vpnsToTakeDown, isEmpty, reason: 'off Linux no local VPN cleanup belongs in Needs you');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
