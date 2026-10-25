@@ -13,6 +13,16 @@ import 'host_dialog.dart';
 import 'machine_switcher.dart';
 import 'tokens.dart';
 
+/// Lists preparations and machines once for both the page and its navigation count.
+({List<HostPreparation> preparations, List<Machine> machines}) machinesPageRows(Machines machines, HostRuns? hostRuns) {
+  final preparations = hostRuns?.preparing ?? <HostPreparation>[];
+  final preparingNames = preparations.map((run) => run.name).toSet();
+  return (
+    preparations: preparations,
+    machines: machines.all.where((machine) => !preparingNames.contains(machine.name)).toList(),
+  );
+}
+
 /// Every machine watched, as a list: where work runs, set up rarely (walk 9). One row
 /// per machine says how it stands; its details are a page of their own, and its projects and work
 /// are under *Projects* and *Work*, never here.
@@ -53,6 +63,7 @@ class MachinesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final rows = machinesPageRows(machines, hostRuns);
     return ListView(
       // The key the tree carried: what lists the machines, wherever a step looks for them.
       key: const Key('machine-tree'),
@@ -75,7 +86,7 @@ class MachinesPage extends StatelessWidget {
         const SizedBox(height: Space.tight),
         Text('Where work runs. Its projects are under Projects, and its work under Work.', style: text.bodySmall),
         const SizedBox(height: Space.normal),
-        for (final run in hostRuns?.preparing ?? <HostPreparation>[])
+        for (final run in rows.preparations)
           _HostPreparationRow(
             run: run,
             open: onHostProtocol == null ? null : () => onHostProtocol!(run),
@@ -93,8 +104,7 @@ class MachinesPage extends StatelessWidget {
               ),
             ),
           ),
-        for (final machine in machines.all)
-          if (!(hostRuns?.preparing.any((run) => run.name == machine.name) ?? false)) _row(context, machine),
+        for (final machine in rows.machines) _row(context, machine),
       ],
     );
   }

@@ -2597,38 +2597,43 @@ class _ShellState extends State<Shell> {
       _attention,
       widget.shell,
       _forges,
+      widget.machines,
+      _hostRuns,
+      _workView,
       for (final machine in widget.machines.all) widget.machines.of(machine),
     ]),
-    builder: (context, _) => ShellRail(
-      section: widget.shell.section,
-      running: <int>[
-        for (final machine in widget.machines.all)
-          widget.machines.of(machine).tasks.where((task) => task.running).length,
-      ].fold(0, (sum, each) => sum + each),
-      work: <int>[for (final machine in widget.machines.all) widget.machines.of(machine).tasks.length]
-          .fold<int>(0, (sum, each) => sum + each),
-      needing: _attention.needingSomebody,
-      machines: widget.machines.all.length,
-      // Each project once, as the Projects page lists them (walk 10: Default on two
-      // machines counted twice).
-      // Default is not among them: it left Projects (walk 10).
-      projects: <String>{
-        for (final machine in widget.machines.all)
-          for (final project in widget.machines.of(machine).projects)
-            if (project.name != defaultProject) project.name,
-      }.length,
-      forges: _forges.entries.length,
-      width: width,
-      onGo: (section) {
-        _leaveDrawer();
-        widget.shell.goTo(section);
-      },
-      onRefresh: () => unawaited(_refreshAll()),
-      onStopEverywhere:
-          widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
-          ? _stopEverywhere
-          : null,
-    ),
+    builder: (context, _) {
+      final rows = machinesPageRows(widget.machines, _hostRuns);
+      return ShellRail(
+        section: widget.shell.section,
+        running: <int>[
+          for (final machine in widget.machines.all)
+            widget.machines.of(machine).tasks.where((task) => task.running).length,
+        ].fold(0, (sum, each) => sum + each),
+        work: _workView.shownTiles([for (final machine in widget.machines.all) ..._attention.tilesOn(machine)]).length,
+        needing: _attention.openRows.length,
+        machines: rows.preparations.length + rows.machines.length,
+        // Each project once, as the Projects page lists them (walk 10: Default on two
+        // machines counted twice).
+        // Default is not among them: it left Projects (walk 10).
+        projects: <String>{
+          for (final machine in widget.machines.all)
+            for (final project in widget.machines.of(machine).projects)
+              if (project.name != defaultProject) project.name,
+        }.length,
+        forges: _forges.entries.length,
+        width: width,
+        onGo: (section) {
+          _leaveDrawer();
+          widget.shell.goTo(section);
+        },
+        onRefresh: () => unawaited(_refreshAll()),
+        onStopEverywhere:
+            widget.machines.all.any((each) => widget.machines.of(each).reachability == Reachability.connected)
+            ? _stopEverywhere
+            : null,
+      );
+    },
   );
 
   /// Every machine watched, as a list: setting up, out of the daily way. A machine's details are its
@@ -3269,6 +3274,7 @@ class _ShellState extends State<Shell> {
     _check.removeListener(_homeserversChanged);
     _check.dispose();
     _attention.dispose();
+    _workView.dispose();
     _hostRuns.dispose();
     widget.machines.removeListener(_vpnMachinesChanged);
     _homeservers.dispose();

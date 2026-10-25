@@ -13,12 +13,36 @@ import 'tokens.dart';
 /// How the work page was left: its filters, its folded groups and its opened tiles. Kept by the
 /// window rather than the page, so they stay when something takes the page's place for a while - a
 /// refusal, a detail - and the page comes back (walk 9).
-class WorkView {
+class WorkView extends ChangeNotifier {
   /// The machine the work is narrowed to, or null for every machine.
-  String? machine;
+  String? get machine => _machine;
+  String? _machine;
+  set machine(String? value) {
+    if (_machine == value) return;
+    _machine = value;
+    notifyListeners();
+  }
 
   /// The project the work is narrowed to, empty for work in none, or null for every project.
-  String? project;
+  String? get project => _project;
+  String? _project;
+  set project(String? value) {
+    if (_project == value) return;
+    _project = value;
+    notifyListeners();
+  }
+
+  /// Selects the work listed by the page and counted in navigation.
+  List<Tile> shownTiles(Iterable<Tile> tiles) => tiles
+      .where(
+        (tile) => (machine == null || tile.machine.name == machine) && (project == null || _projectOf(tile) == project),
+      )
+      .toList();
+
+  static String _projectOf(Tile tile) {
+    final project = tile.task?.project ?? '';
+    return project == 'default' ? _noProject : project;
+  }
 
   /// The tiles folded open, by machine and work.
   Set<String> open = <String>{};
@@ -219,12 +243,6 @@ class _WorkPageState extends State<WorkPage> {
     _ => _Group.running,
   };
 
-  /// The project a tile's work is in, `default` (work in none) said as none.
-  static String _projectOf(Tile tile) {
-    final project = tile.task?.project ?? '';
-    return project == 'default' ? _noProject : project;
-  }
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge(<Listenable>[
@@ -237,14 +255,9 @@ class _WorkPageState extends State<WorkPage> {
   Widget _build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final tiles = <Tile>[for (final machine in widget.machines.all) ...widget.attention.tilesOn(machine)];
-    final projects = <String>{for (final tile in tiles) _projectOf(tile)}.toList()
+    final projects = <String>{for (final tile in tiles) WorkView._projectOf(tile)}.toList()
       ..sort((a, b) => a == _noProject ? 1 : (b == _noProject ? -1 : a.compareTo(b)));
-    final shown = tiles
-        .where(
-          (tile) =>
-              (_machine == null || tile.machine.name == _machine) && (_project == null || _projectOf(tile) == _project),
-        )
-        .toList();
+    final shown = _view.shownTiles(tiles);
     final reveal = widget.reveal;
     if (reveal != null) {
       final revealed = tiles.where((tile) => '${tile.machine.name}/${tile.task?.name ?? ''}' == reveal).firstOrNull;

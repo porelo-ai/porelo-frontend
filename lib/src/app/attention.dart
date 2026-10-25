@@ -558,8 +558,7 @@ class Attention extends ChangeNotifier {
       if (_machines.of(machine).clearance.missed > 0) machine,
   ];
 
-  /// How many things need somebody now: an open question, a machine that cannot say, or a failure
-  /// nobody has seen; the count *Needs you*'s badge shows.
+  /// How many things need somebody now: an open question, a machine that cannot say, or a failure nobody has seen.
   int get needingSomebody => _openRows
       .where(
         (row) =>
