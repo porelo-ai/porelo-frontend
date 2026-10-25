@@ -1,6 +1,6 @@
 # F166 — A Host Rented Through OpenTofu
 
-**Status:** Idea.
+**Status:** Accepted.
 **Size:** M - a provider of `porelo-host` driving `tofu`, its secrets only in `tofu`'s environment, the module's checked arrival, and its tests against a stand-in.
 
 **What must be true.** `porelo-host up` rents its host through `porelo-host`'s OpenTofu module
