@@ -1,6 +1,6 @@
 # F181 — One Setup Protocol That Stays Still While Read
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - `HostSession` in `lib/src/app/host_session.dart` and `HostDialog` in `lib/src/ui/host_dialog.dart`.
 
 **What must be true.** The setup dialog shows one protocol list and no *Full protocol* drawer.

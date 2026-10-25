@@ -1,6 +1,6 @@
 # F189 — The Server Page's Actions As A Grid Of Tiles
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - `Shell._machineBody` in `lib/src/ui/shell.dart` and `ProjectCommandTiles` in `lib/src/ui/machine_view.dart`.
 
 **What must be true.** A server's page lays out its action tiles in the same multi-column tile grid

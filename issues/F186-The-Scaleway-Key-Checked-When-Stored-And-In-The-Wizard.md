@@ -1,6 +1,6 @@
 # F186 — The Scaleway Key Checked When Stored And In The Wizard
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** M - `packages/porelo_host/bin/porelo_host.dart`, `packages/porelo_host/lib/src/scaleway.dart`, and `HostDialog` in `lib/src/ui/host_dialog.dart`.
 
 **What must be true.** `porelo-host key set scaleway` checks the key's format before any network

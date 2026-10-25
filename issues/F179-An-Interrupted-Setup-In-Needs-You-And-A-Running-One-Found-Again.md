@@ -1,6 +1,6 @@
 # F179 — An Interrupted Setup In Needs You And A Running One Found Again
 
-**Status:** Analyzed; blocked by [F180](README.md#f180).
+**Status:** Implementing.
 **Size:** M - `Attention` in `lib/src/app/attention.dart`, `HostRuns` and `HostSession` in `lib/src/app/`, and `confirmQuit` in `lib/src/ui/leaving.dart`.
 
 **What must be true.** When a server setup was interrupted, *Needs you* shows `"Setup of <server>
