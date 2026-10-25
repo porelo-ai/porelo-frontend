@@ -214,7 +214,11 @@ Future<int> runKeyCommand(
           return equals >= 0 && line.substring(0, equals).trim() == 'SECRET_KEY';
         }).toList();
         if (values.length != 1) return refused('the file must contain exactly one SECRET_KEY assignment');
-        line = values.single.substring(values.single.indexOf('=') + 1);
+        final value = values.single.substring(values.single.indexOf('=') + 1).trim();
+        final quoted =
+            value.length >= 2 &&
+            ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")));
+        line = quoted ? value.substring(1, value.length - 1) : value;
       } else {
         line = content;
       }

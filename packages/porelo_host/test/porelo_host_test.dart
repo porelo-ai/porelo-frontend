@@ -204,6 +204,34 @@ void main() {
     }, skip: kind == 'symlink' && Platform.isWindows ? 'Creating symlinks requires Windows privileges.' : false);
   }
 
+  for (final (label, value, accepted) in [
+    ('double quotes', '"$_secret"', true),
+    ('single quotes', "'$_secret'", true),
+    ('unmatched quotes', '"$_secret\'', false),
+    ('two quote pairs', '""$_secret""', false),
+  ]) {
+    // Harm: keeping quotes or removing extra or unmatched quotes checks or stores a different key from the file.
+    test('assignment with $label preserves the key when parsing quotes', () async {
+      final file = await keyFile('SECRET_KEY=$value\n');
+      store.values[providerKeyName('scaleway')] = 'previous-key';
+      final code = await run(['set', 'scaleway', '--from-file', file.path]);
+
+      noLeak(_secret);
+      expect(code, accepted ? 0 : 65, reason: 'only one matching quote pair may wrap a UUID');
+      expect(
+        calls,
+        accepted ? [('GET', '/baremetal/v1/zones/fr-par-1/offers?name=EM-I220E-NVME')] : isEmpty,
+        reason: 'only the bare UUID may reach authentication',
+      );
+      expect(
+        store.values[providerKeyName('scaleway')] == (accepted ? _secret : 'previous-key'),
+        isTrue,
+        reason: 'accepted keys must be stored bare and refused keys must preserve the earlier key',
+      );
+      expect(store.writes, accepted ? 1 : 0, reason: 'invalid quoting must never authorize a write');
+    });
+  }
+
   // Harm: a download with assignments but no secret key could store the access key instead.
   test('assignments without SECRET_KEY are refused without using another value', () async {
     final file = await keyFile('ACCESS_KEY=$_secret\nPROJECT_ID=unused\n');

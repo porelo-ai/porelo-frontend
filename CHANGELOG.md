@@ -39,6 +39,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- A redirect from Scaleway is named as one and is not followed.
 - Server setup shows one protocol with earlier attempts grouped below it, copies its public text
   in one click, and keeps the view and buttons still while you read earlier entries.
 - Needs you keeps explanations and further actions in expandable rows; Recently resolved stays

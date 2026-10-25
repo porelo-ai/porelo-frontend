@@ -48,6 +48,9 @@ Future<({int code, String message})> checkScalewayKey(
       }
       return (code: Exit.done, message: 'accepted');
     }
+    if (answer.status >= 300 && answer.status < 400) {
+      return (code: Exit.refused, message: _redirectMessage('check the key', answer.status));
+    }
     if (answer.status >= 500) {
       return (code: Exit.unreachable, message: 'Scaleway is unavailable (HTTP ${answer.status})');
     }
@@ -62,6 +65,9 @@ Future<({int code, String message})> checkScalewayKey(
     return (code: Exit.unreachable, message: 'Scaleway could not be reached');
   }
 }
+
+String _redirectMessage(String what, int status) =>
+    'Scaleway answered $what with a redirect ($status), which is not followed, so the key goes to no other host';
 
 /// The real API over HTTPS, with the key in `X-Auth-Token` and nowhere else.
 ScalewayApi scalewayOverHttps(String secretKey, {String base = 'https://api.scaleway.com'}) {
@@ -249,6 +255,7 @@ class ScalewayElasticMetal implements HostProvider {
     if (answer.status >= 200 && answer.status < 300) return answer;
     final said = answer.body is Map ? ((answer.body as Map)['message'] ?? answer.body) : answer.body;
     final reason = switch (answer.status) {
+      >= 300 && < 400 => _redirectMessage(what, answer.status),
       401 || 403 => 'the key may not $what: $said',
       _ => 'Scaleway refused to $what (${answer.status}): $said',
     };
