@@ -213,12 +213,28 @@ class HostRuns extends ChangeNotifier {
   /// Existing hosts whose last unprivileged VPN probe failed.
   final Set<String> vpnDown = {};
 
+  final Map<String, Machine> _vpnsToTakeDown = {};
+
+  /// Given-back servers whose local tunnel has not yet been confirmed absent.
+  List<Machine> get vpnsToTakeDown => List.unmodifiable(_vpnsToTakeDown.values);
+
+  /// Keeps cleanup reachable after the server has left Machines.
+  void rememberVpnToTakeDown(Machine machine) {
+    ++_vpnProbe;
+    vpnLinkUp = null;
+    _vpnsToTakeDown[machine.hostProject] = machine;
+    _changed();
+  }
+
+  /// Uses the same unprivileged link probe for actions and refreshes.
+  Future<bool> probeVpnLink() => _probeLink();
+
   /// Checks existing hosts at startup and on refresh; setup itself needs a handshake.
   Future<void> refreshVpns() async {
     final generation = ++_vpnProbe;
     final hosts = machines.all.where((machine) => machine.kind == 'host').toList();
     // The local VPN is brought up only on Linux; elsewhere a failed ping says nothing about it.
-    if (hosts.isEmpty || !Platform.isLinux) {
+    if (hosts.isEmpty && _vpnsToTakeDown.isEmpty || !Platform.isLinux) {
       vpnLinkUp = false;
       vpnUp = false;
       vpnDown.clear();
@@ -228,7 +244,7 @@ class HostRuns extends ChangeNotifier {
     bool? link;
     var answers = false;
     try {
-      final probes = await Future.wait([_probeLink(), _ping()]);
+      final probes = await Future.wait([_probeLink(), hosts.isEmpty ? Future.value(false) : _ping()]);
       link = probes[0];
       answers = link && probes[1];
     } on HostFilesRefused {
@@ -239,6 +255,7 @@ class HostRuns extends ChangeNotifier {
     if (_disposed || generation != _vpnProbe) return;
     vpnLinkUp = link;
     vpnUp = answers;
+    if (link == false) _vpnsToTakeDown.clear();
     final present = machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toSet();
     vpnDown
       ..clear()

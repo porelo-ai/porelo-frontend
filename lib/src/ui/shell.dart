@@ -597,6 +597,7 @@ class _ShellState extends State<Shell> {
       machines: widget.machines,
       settings: widget.settings,
       hostRuns: _hostRuns,
+      openTerminal: widget.sessions.openTerminal,
     );
     if (mounted && !widget.machines.all.contains(machine)) widget.shell.goTo(Section.machines);
   }
@@ -2848,6 +2849,7 @@ class _ShellState extends State<Shell> {
           if (run != null) unawaited(_openHostRun(run));
         },
         onBringVpnUp: (machine) => unawaited(_bringVpnUp(machine)),
+        onTakeVpnDown: (machine) => unawaited(_changeVpn(machine, up: false)),
         unlockFor: _unlockFor,
         onStopFollowing: (machine, project) =>
             unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),

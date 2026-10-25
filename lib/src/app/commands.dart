@@ -679,6 +679,17 @@ Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailab
   unavailable: unavailable,
 );
 
+/// Finishes local tunnel cleanup after a server has been given back.
+Command takeGivenBackVpnDownCommand({required VoidCallback run, String? unavailable, Home home = Home.attentionRow}) =>
+    Command(
+      id: 'host.vpnCleanup',
+      label: 'Take the VPN down',
+      group: 'Machine',
+      home: home,
+      run: run,
+      unavailable: unavailable,
+    );
+
 /// The host's lifecycle, local VPN and project room, sharing the machine's home.
 List<Command> hostMachineCommands({
   required Machine machine,

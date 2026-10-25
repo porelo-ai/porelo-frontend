@@ -32,6 +32,7 @@ Future<void> openHostTakeDownDialog(
   required Settings settings,
   StartHostCommand? start,
   HostRuns? hostRuns,
+  OpenTerminal? openTerminal,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
@@ -41,6 +42,7 @@ Future<void> openHostTakeDownDialog(
     settings: settings,
     start: start,
     hostRuns: hostRuns,
+    openTerminal: openTerminal,
     existingRun: switch (hostRuns?.of(project)) {
       final run? when !run.ready && !run.givenBack => run,
       _ => null,
@@ -286,6 +288,11 @@ class _HostDialogState extends State<HostDialog> {
 
   bool _upStarted = false;
   bool _takingDown = false;
+  bool _finishingDown = false;
+  bool _givenBack = false;
+  bool _vpnDownConfirmed = false;
+  Machine? _givenBackMachine;
+  String? _vpnProblem;
   String? _machineProblem;
 
   static String _home(String relativePath) => desk.expandHome('~/$relativePath');
@@ -316,6 +323,10 @@ class _HostDialogState extends State<HostDialog> {
 
   void _sessionChanged() {
     if (!mounted) return;
+    if (_givenBack && widget.hostRuns?.vpnLinkUp == false) {
+      _vpnDownConfirmed = true;
+      _vpnProblem = null;
+    }
     if (_hostRun?.ready == true && widget.existingRun != null && !_closingAfterVpn) {
       _closingAfterVpn = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -364,7 +375,8 @@ class _HostDialogState extends State<HostDialog> {
     if (widget.debug) ...[_collection, _collectionSha256], //
   ].every((field) => field.text.trim().isNotEmpty);
 
-  bool get _running => _preparing || _hostRun?.running == true || _session?.state == HostRunState.running;
+  bool get _running =>
+      _preparing || _finishingDown || _hostRun?.running == true || _session?.state == HostRunState.running;
 
   Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
@@ -511,6 +523,7 @@ class _HostDialogState extends State<HostDialog> {
   // Keep the rented host's identity so teardown cannot silently target a different host.
   Future<void> _down() async {
     if (_running) return;
+    if (_givenBack) return _takeVpnDown();
     final kept = widget.settings?.hostUp(widget.project);
     if (widget.takeDownOnly && kept == null) return;
     setState(() => _takingDown = true);
@@ -555,22 +568,75 @@ class _HostDialogState extends State<HostDialog> {
       return;
     }
     final owner = widget.hostRuns;
-    if (owner != null) {
-      await owner.confirmDown(widget.project, session);
-    } else if (kept != null) {
-      await widget.settings?.rememberHostUp(widget.project, kept.withPreparation(null));
-    }
-    final address = session.releasedAddress;
-    if (address == null || address.isEmpty) {
-      if (mounted) setState(() => _machineProblem = 'No host was found. Your machines have been kept.');
-      return;
-    }
-    for (final machine in widget.machines.all) {
-      if (machine.kind == 'host' && machine.host == '$account@$address') {
-        await widget.machines.forget(machine);
+    if (mounted) setState(() => _finishingDown = true);
+    try {
+      if (owner != null) {
+        await owner.confirmDown(widget.project, session);
+      } else if (kept != null) {
+        await widget.settings?.rememberHostUp(widget.project, kept.withPreparation(null));
       }
+      final address = session.releasedAddress;
+      if (address == null || address.isEmpty) {
+        if (mounted) setState(() => _machineProblem = 'No host was found. Your machines have been kept.');
+      } else {
+        for (final machine in widget.machines.all) {
+          if (machine.kind == 'host' && machine.host == '$account@$address') {
+            await widget.machines.forget(machine);
+          }
+        }
+      }
+      _givenBack = true;
+      _givenBackMachine = Machine(
+        name: '${widget.project} server',
+        kind: 'host',
+        hostProject: widget.project,
+        socketPath: '',
+      );
+      owner?.rememberVpnToTakeDown(_givenBackMachine!);
+      if (mounted) await _takeVpnDown();
+    } finally {
+      if (mounted) setState(() => _finishingDown = false);
     }
-    if (mounted) setState(() {});
+  }
+
+  Future<void> _takeVpnDown() async {
+    final machine = _givenBackMachine;
+    if (machine == null) return;
+    setState(() => _finishingDown = true);
+    final owner = widget.hostRuns;
+    try {
+      await openHostVpnDialog(
+        context,
+        machine: machine,
+        settings: widget.settings ?? widget.machines.settings,
+        up: false,
+        open: widget.openTerminal,
+        probeLink: owner?.probeVpnLink,
+      );
+      bool? linkUp;
+      if (owner != null) {
+        await owner.refreshVpns();
+        linkUp = owner.vpnLinkUp;
+      } else {
+        try {
+          linkUp = await probeHostVpnLink();
+        } on HostFilesRefused {
+          linkUp = null;
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _vpnDownConfirmed = linkUp == false;
+          _vpnProblem = linkUp == false
+              ? null
+              : linkUp == true
+              ? 'The server is given back; the VPN on this computer is still up'
+              : 'The server is given back; the VPN on this computer could not be checked';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _finishingDown = false);
+    }
   }
 
   Future<void> _runHost(Future<void> Function() run) async {
@@ -947,7 +1013,21 @@ class _HostDialogState extends State<HostDialog> {
             onPressed: _running ? null : () => Navigator.pop(context),
             child: Text(started ? 'Close' : 'Cancel'),
           ),
-          if (!started || _actionState != WizardActionState.done)
+          if (_givenBack && !_vpnDownConfirmed)
+            Builder(
+              builder: (context) {
+                final command = takeGivenBackVpnDownCommand(
+                  home: Home.openedView,
+                  run: () => unawaited(_takeVpnDown()),
+                  unavailable: _running ? 'the VPN is still being checked' : null,
+                );
+                return Tooltip(
+                  message: command.unavailable ?? 'Take WireGuard down on this computer.',
+                  child: TextButton(onPressed: command.available ? command.run : null, child: Text(command.label)),
+                );
+              },
+            ),
+          if (!_givenBack && (!started || _actionState != WizardActionState.done))
             FilledButton(
               key: Key(confirmationOnly ? 'host-confirm-down' : 'host-down'),
               style: FilledButton.styleFrom(backgroundColor: colors.error, foregroundColor: colors.onError),
@@ -999,7 +1079,8 @@ class _HostDialogState extends State<HostDialog> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
-          if (session.state == HostRunState.done && (_takingDown || _hostRun == null || _hostRun!.ready))
+          if (session.state == HostRunState.done &&
+              (_takingDown ? _vpnDownConfirmed : _hostRun == null || _hostRun!.ready))
             Padding(
               padding: const EdgeInsets.only(top: Space.small),
               child: Text(
@@ -1013,6 +1094,7 @@ class _HostDialogState extends State<HostDialog> {
         if (!_takingDown)
           if (_hostRun?.problem case final problem?) Text(problem),
         if (_machineProblem != null) Text(_machineProblem!),
+        if (_vpnProblem != null) Text(_vpnProblem!),
         if (session != null)
           ExpansionTile(
             key: const Key('host-full-protocol'),

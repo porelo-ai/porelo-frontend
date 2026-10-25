@@ -16,6 +16,7 @@ import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
+import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
@@ -28,6 +29,8 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
+import 'package:porelo_frontend/src/ui/host_vpn_dialog.dart';
+import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
 
@@ -94,7 +97,12 @@ void main() {
         }),
       ];
     machines = Machines(newSettings(MemorySettingsStore()), reach: (_) => backend, tunnels: _HostTunnels());
-    runs = HostRuns(machines, endpointFor: (name) => '/tmp/${Machine.slug(name)}.sock');
+    runs = HostRuns(
+      machines,
+      endpointFor: (name) => '/tmp/${Machine.slug(name)}.sock',
+      probeLink: () async => false,
+      ping: () async => false,
+    );
   });
 
   void hostWidgets(String name, Future<void> Function(WidgetTester) body) {
@@ -115,6 +123,219 @@ void main() {
   }
 
   tearDown(() => scratch.delete(recursive: true));
+
+  for (final outcome in [
+    'down',
+    'cancelled',
+    'already down',
+    'still up',
+    'terminal failed',
+    'probe refused',
+    'recheck refused',
+  ]) {
+    // Harm: unchecked give-back hides a dead tunnel or runs an unnecessary root command.
+    hostWidgets('give-back waits for the local VPN when $outcome', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var linkUp = outcome != 'already down';
+      var probeRefused = outcome == 'probe refused';
+      runs.dispose();
+      runs = HostRuns(
+        machines,
+        probeLink: () async {
+          if (probeRefused) throw const host.HostFilesRefused('The local VPN interface could not be checked.');
+          return linkUp;
+        },
+        ping: () async => false,
+      );
+      final attention = Attention(machines, machines.settings)..hostRuns = runs;
+      addTearDown(attention.dispose);
+      const server = Machine(
+        name: 'demo server',
+        kind: 'host',
+        hostProject: 'demo',
+        socketPath: '/unused',
+        host: 'porelo@203.0.113.9',
+        remoteSocket: '/run/user/1007/porelo/porelod.sock',
+      );
+      await machines.add(server);
+      await machines.settings.rememberHostUp(
+        'demo',
+        const HostUpRecord(
+          scalewayProject: 'provider',
+          account: 'porelo',
+          tresor: 'drive',
+          folder: null,
+          repository: '',
+          signingKey: '',
+          identity: '/keys/private',
+          publicKey: '/keys/public.pub',
+          collection: '/setup',
+          vpnPeerPublicKey: '',
+          vpnPeerAddress: '',
+        ),
+      );
+      final process = _HostProcess();
+      var providerCalls = 0;
+      final terminal = FakeTerminal([]);
+      final commands = <List<String>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HostDialog(
+            project: 'demo',
+            machines: machines,
+            settings: machines.settings,
+            hostRuns: runs,
+            takeDownOnly: true,
+            start: (_, _) async {
+              providerCalls++;
+              return process;
+            },
+            openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
+              commands.add([executable, ...arguments]);
+              return terminal;
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('host-down')));
+      await World.settle(tester);
+      process.line(const host.Step('give-back', host.StepState.done, address: '203.0.113.9'));
+      await World.settle(tester);
+      expect(commands, isEmpty, reason: 'a provider step without exit zero cannot authorize VPN teardown');
+      process.end(0);
+      await World.settle(tester);
+      if (outcome == 'already down') {
+        expect(commands, isEmpty, reason: 'an absent tunnel must not open a sudo terminal');
+      } else if (probeRefused) {
+        expect(commands, isEmpty, reason: 'an unreadable link cannot authorize a sudo command');
+        expect(
+          find.byKey(const Key('vpn-problem')),
+          findsOneWidget,
+          reason: 'a failed probe must be refused before any terminal opens',
+        );
+        await tester.tap(
+          find.descendant(
+            of: find.ancestor(of: find.byKey(const Key('vpn-problem')), matching: find.byType(AlertDialog)),
+            matching: find.widgetWithText(TextButton, 'Close'),
+          ),
+        );
+        await World.settle(tester);
+      } else {
+        expect(commands, [
+          ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
+        ], reason: 'confirmed server release must take the local tunnel down as its last step');
+        expect(machines.all.contains(server), isFalse, reason: 'the provider release is confirmed before VPN cleanup');
+        expect(
+          find.byKey(const Key('host-done')),
+          findsNothing,
+          reason: 'provider release alone cannot complete teardown while the VPN is up',
+        );
+        if (outcome == 'cancelled') {
+          await tester.tap(find.byKey(const Key('unlock-cancel')));
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('unlock-cancel-yes')));
+        } else {
+          linkUp = outcome != 'down';
+          probeRefused = outcome == 'recheck refused';
+          terminal.endsWith(outcome == 'terminal failed' ? 65 : 0);
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('unlock-done')));
+        }
+        await World.settle(tester);
+      }
+      final completed = outcome == 'down' || outcome == 'already down';
+      expect(
+        find.byKey(const Key('host-done')),
+        completed ? findsOneWidget : findsNothing,
+        reason: 'only a measured absent tunnel can complete give-back',
+      );
+      final leftovers = attention.openRows.where((row) => row.machine == server.name);
+      expect(
+        leftovers,
+        completed ? isEmpty : hasLength(1),
+        reason: 'removing the server from Machines must not discard unfinished tunnel cleanup',
+      );
+      if (!completed) {
+        if (outcome == 'cancelled') {
+          expect(
+            find.text('The server is given back; the VPN on this computer is still up'),
+            findsOneWidget,
+            reason: 'cancelling sudo must leave the unfinished cleanup visible',
+          );
+        }
+        final retryTerminal = FakeTerminal([]);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => AttentionView(
+                  attention: attention,
+                  onDecide: (_, _, {required allow}) {},
+                  onReview: (_) {},
+                  actionsFor: (_) => [],
+                  onTakeVpnDown: (machine) async {
+                    expect(machine.hostProject, 'demo', reason: 'cleanup must name the server that was given back');
+                    await openHostVpnDialog(
+                      context,
+                      machine: machine,
+                      settings: machines.settings,
+                      up: false,
+                      probeLink: runs.probeVpnLink,
+                      open: (executable, arguments, {int columns = 80, int rows = 24}) {
+                        commands.add([executable, ...arguments]);
+                        return retryTerminal;
+                      },
+                    );
+                    await runs.refreshVpns();
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await World.settle(tester);
+        probeRefused = false;
+        final beforeRetry = commands.length;
+        if (outcome == 'still up') linkUp = false;
+        final row = find.byKey(const ValueKey('vpn-cleanup demo'));
+        final action = find.descendant(of: row, matching: find.widgetWithText(TextButton, 'Take the VPN down'));
+        expect(action, findsOneWidget, reason: 'a forgotten server still needs an executable cleanup action');
+        await tester.tap(action);
+        await World.settle(tester);
+        if (linkUp) {
+          expect(commands.skip(beforeRetry), [
+            ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
+          ], reason: 'Needs you must retry local teardown rather than bring the VPN back up');
+          expect(
+            attention.openRows.where((row) => row.kind == AttentionKind.vpnCleanup),
+            hasLength(1),
+            reason: 'opening the terminal cannot resolve cleanup before its effect is measured',
+          );
+          linkUp = false;
+          retryTerminal.endsWith(0);
+          await World.settle(tester);
+          await tester.tap(find.byKey(const Key('unlock-done')));
+          await World.settle(tester);
+        } else {
+          expect(commands.length, beforeRetry, reason: 'a retry with the link already gone must not ask for sudo');
+        }
+        expect(providerCalls, 1, reason: 'retrying VPN cleanup must never give the server back a second time');
+        linkUp = false;
+        expect(
+          attention.openRows.where((row) => row.machine == server.name),
+          isEmpty,
+          reason: 'cleanup resolves only once the local link is observed gone',
+        );
+        expect(
+          attention.recentlyResolved.where((row) => row.row.kind == AttentionKind.vpnCleanup),
+          hasLength(1),
+          reason: 'the cleanup result stays readable even though its server has left Machines',
+        );
+      }
+    });
+  }
 
   // Harm: lock contention offers credential-stop actions against a host owned by another setup.
   hostWidgets('a lock refusal does not offer or open the host person stop', (tester) async {
@@ -634,6 +855,7 @@ void main() {
                         project: machine.hostProject,
                         machines: machines,
                         settings: settings,
+                        hostRuns: runs,
                         start: (_, arguments) async {
                           commands.add(List.of(arguments));
                           return process;
@@ -1976,7 +2198,6 @@ void main() {
       'down',
       ...up.skip(1),
     ], reason: 'teardown must find the host that up rented');
-    expect(find.byKey(const Key('host-done')), findsOneWidget);
     await checkLockedFields();
   });
 

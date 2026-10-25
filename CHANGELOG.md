@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Giving a server back takes down this computer's VPN before showing Done. Cancelling keeps
+  a Take the VPN down action in Needs you until the tunnel is gone.
 - Each server offers one VPN action that follows the local tunnel state, and skips the sudo
   password prompt when the requested state already holds.
 - Interrupted server setups appear in Needs you with Go on. Closing stops setup still renting,

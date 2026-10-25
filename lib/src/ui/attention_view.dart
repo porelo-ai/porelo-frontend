@@ -38,6 +38,7 @@ class AttentionView extends StatefulWidget {
     this.onOpenOperation,
     this.onOpenHost,
     this.onBringVpnUp,
+    this.onTakeVpnDown,
     super.key,
   });
 
@@ -70,6 +71,9 @@ class AttentionView extends StatefulWidget {
 
   /// Opens the same local root check used by the machine menu.
   final void Function(Machine machine)? onBringVpnUp;
+
+  /// Takes down the local tunnel left by a given-back server.
+  final void Function(Machine machine)? onTakeVpnDown;
 
   /// Opens what a failed operation printed, which is what puts it away.
   final void Function(Operation operation)? onOpenOperation;
@@ -197,6 +201,34 @@ extension on _AttentionViewState {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
+      case AttentionKind.vpnCleanup:
+        final machine = row.value as Machine;
+        final command = takeGivenBackVpnDownCommand(
+          run: () => widget.onTakeVpnDown?.call(machine),
+          unavailable: resolved
+              ? 'this row is resolved'
+              : widget.onTakeVpnDown == null
+              ? 'VPN cleanup is unavailable here'
+              : null,
+        );
+        return Card(
+          key: ValueKey('vpn-cleanup ${machine.hostProject}'),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.normal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                NeedsMachine(row.machine),
+                Text(
+                  attention.hostRuns?.vpnLinkUp == true
+                      ? 'The server is given back; the VPN on this computer is still up'
+                      : 'The server is given back; the VPN on this computer could not be checked',
+                ),
+                _RowCommand(command),
+              ],
+            ),
+          ),
+        );
       case AttentionKind.vpn:
         final machine = row.value as Machine;
         final command = bringHostVpnUpAgainCommand(
