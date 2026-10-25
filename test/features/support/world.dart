@@ -1722,6 +1722,29 @@ class FakeBackend implements FleetBackend {
   /// Who has joined each project's conversation, by project.
   final Map<String, List<MessageMember>> membersOf = <String, List<MessageMember>>{};
 
+  /// Whether this daemon lacks only the removal method.
+  bool withoutMemberRemoval = false;
+
+  /// A transport refusal for removal, if the scenario supplies one.
+  VarlinkException? memberRemovalRefusal;
+
+  /// Accounts retained by the transport, with its explanation.
+  final Map<String, String> retainedMessageAccounts = <String, String>{};
+
+  @override
+  Future<MessageMemberRemoved> removeMessageMember(String project, String person) async {
+    if (withoutMemberRemoval) throw const FeatureNotSupported('RemoveMessageMember');
+    if (memberRemovalRefusal case final refusal?) throw refusal;
+    final members = membersOf[project];
+    final index = members?.indexWhere((each) => each.person == person) ?? -1;
+    if (index < 0) {
+      throw VarlinkException('org.fuin.porelo.Tasks1.NoSuchMember', <String, dynamic>{'person': person});
+    }
+    final member = members!.removeAt(index);
+    final why = retainedMessageAccounts[member.user];
+    return MessageMemberRemoved(user: why == null ? '' : member.user, kept: why != null, why: why ?? '');
+  }
+
   /// Every join asked for, in order.
   final List<({String project, String person, bool reset})> joins = <({String project, String person, bool reset})>[];
 

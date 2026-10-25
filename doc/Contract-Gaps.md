@@ -18,11 +18,6 @@ gap here is a backend method that has to be added, not a workaround waiting to b
 
 ## Not on the wire yet
 
-- **Removing a person's account from a project's room.**
-  `RemoveMessageMember(project, person) -> (user)`, with error `NoSuchMember(person)`, is not
-  served yet and its contract is not final. Each listed member keeps an unavailable *Remove*
-  action saying "this Porelo cannot remove an account from the room yet".
-
 - **Whether an agent is waiting on a person for its own question.** `WAITING` covers clearance
   questions only. The backend will observe working and quiet from outside for every agent, and let
   each agent declare waiting where it can; until then a quiet task is shown as a guess.

@@ -28,6 +28,32 @@ class MockRefusal implements Exception {
 ///
 /// It also means the suite needs no podman, no containers and no runtime - so it runs anywhere.
 class MockDaemon {
+  /// Registers stateful room membership methods; tests may replace or remove them.
+  MockDaemon() {
+    method(
+      'MessageMembers',
+      (parameters) => <String, dynamic>{
+        'members': <Map<String, dynamic>>[
+          for (final member in membersOf[parameters['project']] ?? const <Map<String, dynamic>>[])
+            Map<String, dynamic>.of(member),
+        ],
+      },
+    );
+    method('RemoveMessageMember', (parameters) {
+      final members = membersOf[parameters['project']];
+      final person = parameters['person'];
+      final index = members?.indexWhere((member) => member['person'] == person) ?? -1;
+      if (index < 0) {
+        throw MockRefusal('$interfaceName.NoSuchMember', <String, dynamic>{'person': person});
+      }
+      members!.removeAt(index);
+      return <String, dynamic>{'user': '', 'kept': false, 'why': ''};
+    });
+  }
+
+  /// The room members returned by project, changed only by confirmed mock calls.
+  final Map<String, List<Map<String, dynamic>>> membersOf = <String, List<Map<String, dynamic>>>{};
+
   /// Interfaces this pretends to serve, in the order `GetInfo` reports them.
   ///
   /// Set it to something newer to check that a client picks the highest name it understands, or

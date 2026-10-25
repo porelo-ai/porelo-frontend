@@ -137,6 +137,10 @@ class _Wedged implements FleetBackend {
   @override
   Future<List<MessageMember>> messageMembers(String project) async => const <MessageMember>[];
 
+  @override
+  Future<MessageMemberRemoved> removeMessageMember(String project, String person) async =>
+      throw const FeatureNotSupported('RemoveMessageMember');
+
   Future<MachineDeployKey> deployKey(
     String project, {
     String? repository,
@@ -493,6 +497,10 @@ class _Machine implements FleetBackend {
 
   @override
   Future<List<MessageMember>> messageMembers(String project) async => const <MessageMember>[];
+
+  @override
+  Future<MessageMemberRemoved> removeMessageMember(String project, String person) async =>
+      throw const FeatureNotSupported('RemoveMessageMember');
 
   Future<MachineDeployKey> deployKey(
     String project, {

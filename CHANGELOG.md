@@ -83,6 +83,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Removing a member from a project's Messages dialog confirms the account, refreshes the room's
+  members, and offers Join again after removing this computer's account. Kept accounts and
+  transport refusals show the daemon's explanation.
+
 - Project rooms list their accounts and remember your name per machine and project, with New password when
   you are already a member; each account shows why Remove is unavailable.
 

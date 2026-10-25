@@ -255,6 +255,9 @@ abstract class FleetBackend {
   /// Who has joined [project]'s conversation.
   Future<List<MessageMember>> messageMembers(String project);
 
+  /// Removes a joined person and reports any account the transport kept.
+  Future<MessageMemberRemoved> removeMessageMember(String project, String person);
+
   /// This machine's message key, for its `machine-signers` line.
   Future<MachineKey> messageKey();
 
@@ -700,6 +703,10 @@ class PoreloBackend implements FleetBackend {
 
   @override
   Future<List<MessageMember>> messageMembers(String project) => _opened().messageMembers(project);
+
+  @override
+  Future<MessageMemberRemoved> removeMessageMember(String project, String person) =>
+      _opened().removeMessageMember(project, person);
 
   @override
   Future<MachineKey> messageKey() => _opened().messageKey();

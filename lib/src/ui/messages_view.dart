@@ -118,6 +118,11 @@ class _MessagesDialogState extends State<MessagesDialog> {
                     onChanged: (_) => model.personChanged(),
                   ),
                 ],
+                if (model.removed case final answer? when answer.kept)
+                  Padding(
+                    padding: const EdgeInsets.only(top: Space.small),
+                    child: SelectableText(answer.why, key: const Key('member-removal-kept')),
+                  ),
                 if (model.problem != null)
                   Padding(
                     padding: const EdgeInsets.only(top: Space.small),
@@ -162,7 +167,13 @@ class _MessagesDialogState extends State<MessagesDialog> {
   );
 
   Widget _member(BuildContext context, MessageMember member) {
-    final remove = removeMessageMemberCommand(member.person);
+    final model = widget.conversation;
+    final remove = removeMessageMemberCommand(
+      member.person,
+      supported: model.removalSupported,
+      busy: model.busy,
+      run: () => unawaited(_confirmRemoval(member)),
+    );
     final text = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,9 +194,32 @@ class _MessagesDialogState extends State<MessagesDialog> {
             ),
           ],
         ),
-        Text(remove.unavailable!, style: text.bodySmall),
+        if (remove.unavailable != null) Text(remove.unavailable!, style: text.bodySmall),
       ],
     );
+  }
+
+  Future<void> _confirmRemoval(MessageMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${member.person}?'),
+        content: Text('Remove ${member.person}, as ${member.user}, from this project’s room?'),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('member-remove-cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('member-remove-confirm'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await widget.conversation.remove(member.person);
   }
 
   List<Widget> _where(BuildContext context, ProjectMessages messages) {

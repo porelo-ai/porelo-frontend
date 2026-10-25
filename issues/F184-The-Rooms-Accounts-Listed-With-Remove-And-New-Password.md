@@ -1,6 +1,6 @@
 # F184 — The Room's Accounts Listed With Remove And New Password
 
-**Status:** Review; Remove waits for porelo's removal of a room account.
+**Status:** Review.
 **Size:** M - `PoreloClient` in `lib/src/client/porelo_client.dart`, `FleetBackend` in `lib/src/app/fleet_backend.dart`, `ProjectConversation` in `lib/src/app/conversation.dart`, `Settings` in `lib/src/app/settings.dart`, and `MessagesDialog` in `lib/src/ui/messages_view.dart`.
 
 **What must be true.** The project's *Messages* dialog lists everyone who has an account in the
@@ -17,7 +17,7 @@ password* (`talk join --reset`) instead of the *Join* form.
     `JoinMessages` with `project`, `person`, and `reset: true | false`.
   - What the daemon lacks today: a removal. The list is `MessageMembers` and the new password is
     `JoinMessages` with `reset: true` (its `MemberExists` error exists), so the list and *New
-    password* can be built now. *Remove* is `RemoveMessageMember(project, person) -> (user)` with
+    password* can be built now. *Remove* is `RemoveMessageMember(project, person) -> (user, kept, why)` with
     the error `NoSuchMember(person)`, which porelo is filing as an issue of its own; until it
     ships, it goes into `doc/Contract-Gaps.md` and *Remove* is listed as unavailable with that
     reason.

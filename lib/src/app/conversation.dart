@@ -59,6 +59,12 @@ class ProjectConversation extends ChangeNotifier {
   /// Why the last thing asked did not happen, in words, or null.
   String? problem;
 
+  /// The latest confirmed removal answer, including the daemon's explanation.
+  MessageMemberRemoved? removed;
+
+  /// Whether this daemon has served removal, or has not refused the method yet.
+  bool removalSupported = true;
+
   /// Why the homeserver's port could not be forwarded here, or null.
   String? forwardProblem;
 
@@ -88,6 +94,25 @@ class ProjectConversation extends ChangeNotifier {
       _pendingPerson = null;
     }
     await _settings.rememberMessagePerson(machine.name, project.name, _person);
+  }
+
+  /// Removes [person], then asks the daemon for the authoritative member list.
+  Future<void> remove(String person) async {
+    if (busy || !removalSupported) return;
+    removed = null;
+    await _asking(() async {
+      try {
+        final answer = await _backend.removeMessageMember(project.name, person);
+        if (_gone) return;
+        removed = answer;
+        alreadyJoined = null;
+        await _loadMembers();
+      } on FeatureNotSupported catch (unsupported) {
+        if (unsupported.method != 'RemoveMessageMember') rethrow;
+        removalSupported = false;
+        problem = 'this Porelo cannot remove an account from the room yet';
+      }
+    });
   }
 
   /// Replaces the confirmed account's password after an explicit request.
@@ -184,6 +209,8 @@ class ProjectConversation extends ChangeNotifier {
           problem =
               '${project.name} has no conversation: none of its peers is reached through a transport '
               'of its own.';
+        case 'NoSuchMember':
+          problem = '${said['person'] ?? 'This person'} has not joined ${project.name}’s conversation.';
         case 'ConversationRefused':
           problem = 'The transport refused it: ${said['message'] ?? ''}';
         case 'NoSuchProject':

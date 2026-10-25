@@ -1028,6 +1028,11 @@ class PoreloClient {
   Future<ProjectFileCheck> checkProjectFile(String text) async =>
       ProjectFileCheck.from(await _call('CheckProjectFile', <String, dynamic>{'text': text}));
 
+  /// Removes [person] from [project]'s conversation and reports any account kept.
+  Future<MessageMemberRemoved> removeMessageMember(String project, String person) async => MessageMemberRemoved.from(
+    await _call('RemoveMessageMember', <String, dynamic>{'project': project, 'person': person}),
+  );
+
   /// Who has joined [project]'s conversation.
   Future<List<MessageMember>> messageMembers(String project) async {
     final reply = await _call('MessageMembers', <String, dynamic>{'project': project});

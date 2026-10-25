@@ -756,14 +756,23 @@ List<Command> hostMachineCommands({
   ],
 ];
 
-/// Names the unavailable removal on a room member's own row.
-Command removeMessageMemberCommand(String person) => Command(
+/// Removes an account from its room after confirmation on the member's own row.
+Command removeMessageMemberCommand(
+  String person, {
+  required bool supported,
+  required bool busy,
+  required VoidCallback run,
+}) => Command(
   id: 'member-remove $person',
   label: 'Remove',
   group: 'Messages',
   home: Home.messagesDialog,
-  unavailable: 'this Porelo cannot remove an account from the room yet',
-  run: () {},
+  unavailable: !supported
+      ? 'this Porelo cannot remove an account from the room yet'
+      : busy
+      ? 'the machine is still answering'
+      : null,
+  run: run,
 );
 
 /// Lets a named person join the room after an explicit request.

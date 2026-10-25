@@ -1371,6 +1371,25 @@ class MessageMember {
       MessageMember(person: _string(map, 'person'), user: _string(map, 'user'));
 }
 
+/// What removing a joined person answered, including any account the transport kept.
+class MessageMemberRemoved {
+  /// The remaining account, or empty when nothing remained.
+  final String user;
+
+  /// Whether the transport kept the account.
+  final bool kept;
+
+  /// The daemon's explanation of the kept account.
+  final String why;
+
+  /// Constructs the daemon's removal answer.
+  const MessageMemberRemoved({required this.user, required this.kept, required this.why});
+
+  /// Reads each known field, tolerating older replies.
+  factory MessageMemberRemoved.from(Map<String, dynamic> map) =>
+      MessageMemberRemoved(user: _string(map, 'user'), kept: map['kept'] == true, why: _string(map, 'why'));
+}
+
 /// What joining a project's conversation answered: **once**, the login in it and nowhere else.
 class MessagesJoined {
   /// The transport it is on.
