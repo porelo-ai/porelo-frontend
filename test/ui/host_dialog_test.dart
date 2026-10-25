@@ -34,6 +34,8 @@ import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
 import 'package:porelo_host/porelo_host.dart' as host;
 
+import '../support/expand_list_rows.dart';
+
 Future<Process> _acceptedKey(String executable, List<String> arguments) async => _HostProcess()..end(0);
 
 void main() {
@@ -299,6 +301,7 @@ void main() {
         probeRefused = false;
         final beforeRetry = commands.length;
         if (outcome == 'still up') linkUp = false;
+        await expandListRows(tester);
         final row = find.byKey(const ValueKey('vpn-cleanup demo'));
         final action = find.descendant(of: row, matching: find.widgetWithText(TextButton, 'Take the VPN down'));
         expect(action, findsOneWidget, reason: 'a forgotten server still needs an executable cleanup action');
@@ -477,6 +480,7 @@ void main() {
     await World.machines.add(machine);
     World.shell.goTo(Section.machines);
     await World.settle(tester);
+    await expandListRows(tester);
     await tester.tap(find.byKey(const Key('machines-menu demo server')));
     await World.settle(tester);
     expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('machine.takeDown'))).enabled, isFalse);
@@ -493,6 +497,7 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await World.settle(tester);
     expect(World.machines.all, contains(machine));
+    await expandListRows(tester);
     await tester.tap(find.byKey(const Key('machines-menu demo server')));
     await World.settle(tester);
     await tester.tap(find.text('Remove from this list'));
@@ -868,6 +873,7 @@ void main() {
             ),
           ),
         );
+        await expandListRows(tester);
         await tester.tap(find.byKey(const Key('machines-menu demo server')));
         await World.settle(tester);
         await tester.tap(find.text('Take this server down'));

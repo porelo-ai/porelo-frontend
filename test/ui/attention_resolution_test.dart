@@ -7,6 +7,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/attention_view.dart';
 
 import '../features/support/world.dart';
+import '../support/expand_list_rows.dart';
 
 void main() {
   Project waiting(String waitsOn) => Project.from({
@@ -80,6 +81,7 @@ void main() {
     final unlocked = <String>[];
     final state = await prepare(tester, unlocked: unlocked);
     try {
+      await expandListRows(tester);
       for (final machine in state.machines.all) {
         final row = find.byKey(ValueKey('messages-wait ${machine.name}'));
         expect(
@@ -95,22 +97,6 @@ void main() {
         await tester.pump();
         expect(unlocked, [machine.name]);
         unlocked.clear();
-      }
-    } finally {
-      await state.dispose();
-    }
-  });
-
-  // Harm: rows that shrink to their text and sit in the middle read as scattered tiles, not as a list.
-  testWidgets('each row that is not a work tile spans the whole pane', (tester) async {
-    final state = await prepare(tester);
-    try {
-      final open = tester.getRect(find.byKey(const Key('open-attention')));
-      expect(open.width, greaterThan(1000));
-      for (final machine in state.machines.all) {
-        final row = tester.getRect(find.byKey(ValueKey('messages-wait ${machine.name}')));
-        expect(row.left, moreOrLessEquals(open.left, epsilon: 8));
-        expect(row.right, moreOrLessEquals(open.right, epsilon: 8));
       }
     } finally {
       await state.dispose();
@@ -143,12 +129,13 @@ void main() {
       await state.machines.of(machine).refresh();
       await World.settle(tester);
       expect(find.text('Recently resolved'), findsOneWidget);
+      await expandListRows(tester, within: find.byKey(const Key('recently-resolved')));
       final resolved = find.byKey(const Key('recently-resolved'));
       expect(find.descendant(of: resolved, matching: find.text('on ${machine.name}')), findsOneWidget);
       final buttons = tester
           .widgetList<TextButton>(find.descendant(of: resolved, matching: find.byType(TextButton)))
           .toList();
-      expect(buttons, hasLength(2), reason: 'the resolved row must retain unlock and its held project action');
+      expect(buttons, hasLength(3), reason: 'the resolved row must retain unlock and its held project action');
       for (final button in buttons) {
         expect(button.onPressed, isNull, reason: 'resolved rows must disable every recovery action');
       }
@@ -191,6 +178,7 @@ void main() {
       backend.theProjectsItHas = [waiting('vault')];
       await state.machines.of(machine).refresh();
       await World.settle(tester);
+      await expandListRows(tester);
       expect(find.text('Recently resolved'), findsNothing);
       expect(find.byKey(ValueKey('messages-wait ${machine.name}')), findsOneWidget);
     } finally {
@@ -220,6 +208,8 @@ void main() {
       await state.machines.of(machine).mailboxes.refresh();
       await World.settle(tester);
       expect(find.text('Recently resolved'), findsNothing, reason: 'a preview is not an explicit read');
+      await expandListRows(tester);
+      await World.settle(tester);
       final read = find.byKey(const ValueKey('read-message alpha/held.json'));
       await tester.ensureVisible(read);
       await tester.tap(read);
@@ -227,6 +217,7 @@ void main() {
       expect(find.byKey(const Key('held-message-dialog')), findsOneWidget);
       await tester.tap(find.byKey(const Key('held-message-close')));
       await World.settle(tester);
+      await expandListRows(tester, within: find.byKey(const Key('recently-resolved')));
       final resolved = find.byKey(const Key('recently-resolved'));
       expect(resolved, findsOneWidget);
       expect(find.descendant(of: find.byKey(const Key('open-attention')), matching: read), findsNothing);

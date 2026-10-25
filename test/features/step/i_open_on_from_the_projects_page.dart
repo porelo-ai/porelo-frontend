@@ -5,7 +5,8 @@ import '../support/world.dart';
 
 /// Usage: I open {'billing'} on {'this machine'} from the projects page
 Future<void> iOpenOnFromTheProjectsPage(WidgetTester tester, String project, String machine) async {
-  await tester.tap(find.byKey(ValueKey<String>('projects-row $project')));
+  final row = find.byKey(ValueKey<String>('projects-row $project'));
+  await tester.tap(find.descendant(of: row, matching: find.byType(InkWell)).first);
   await World.settle(tester);
   // Where it lies on several machines, its page chooses which one it shows.
   final on = find.byKey(ValueKey<String>('project-on $machine'));

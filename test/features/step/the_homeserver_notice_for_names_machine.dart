@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/expand_list_rows.dart';
+
 /// Usage: the homeserver notice for {'checkout'} names machine {'vm'}
 Future<void> theHomeserverNoticeForNamesMachine(WidgetTester tester, String project, String machine) async {
+  await expandListRows(tester);
   final row = find.descendant(
     of: find.byKey(const Key('open-attention')),
     matching: find.byKey(ValueKey<String>('homeserver-unforwarded $machine/$project')),

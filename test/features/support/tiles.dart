@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import 'world.dart';
+import '../../support/expand_list_rows.dart';
 
 /// The tile for one piece of work, matched on its key rather than on text it happens to show.
 ///
@@ -51,7 +52,8 @@ Future<void> tapOnScreen(WidgetTester tester, Finder target) async {
   }
   await tester.ensureVisible(target.first);
   await tester.pump();
-  await tester.tap(target.first);
+  final body = find.descendant(of: target.first, matching: find.byType(InkWell));
+  await tester.tap(body.evaluate().isEmpty ? target.first : body.first);
 }
 
 /// Everything a piece of work's tile says, as one line.
@@ -126,7 +128,7 @@ Future<void> toTheChosenProject(WidgetTester tester) async {
   final project = World.fleet.selectedProject?.name;
   if (project == null) return;
   await toTheProjects(tester);
-  await tester.tap(cardFor(project).first);
+  await tapOnScreen(tester, cardFor(project));
   await World.settle(tester);
 }
 
@@ -134,6 +136,7 @@ Future<void> toTheChosenProject(WidgetTester tester) async {
 /// that may be shut and as a tile that may be folded, and is gone to, opened and unfolded as a
 /// person would.
 Future<void> toTheTile(WidgetTester tester, String work) async {
+  await expandListRows(tester, within: find.byKey(const Key('open-attention')));
   // Asked again at each step: which machine's tile is meant can change once the page is drawn.
   Finder tile() => tileFor(work);
   if (tile().evaluate().isEmpty && find.byKey(const Key('work-page')).evaluate().isEmpty) {
@@ -190,6 +193,7 @@ Future<void> toTheProjects(WidgetTester tester, {bool timePasses = true}) async 
 Future<T> lookingAtTheProjects<T>(WidgetTester tester, Future<T> Function() look) async {
   final before = World.shell.section;
   await toTheProjects(tester, timePasses: false);
+  await expandListRows(tester);
   final seen = await look();
   if (World.shell.section != before) {
     World.shell.goTo(before);

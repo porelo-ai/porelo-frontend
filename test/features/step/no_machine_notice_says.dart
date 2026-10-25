@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/expand_list_rows.dart';
+
 /// Usage: no machine notice says {'cannot be reached'}
 Future<void> noMachineNoticeSays(WidgetTester tester, String words) async {
+  await expandListRows(tester);
   expect(
     find.descendant(
       of: find.byKey(const Key('open-attention')),

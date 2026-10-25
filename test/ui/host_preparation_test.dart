@@ -15,6 +15,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
+import '../support/expand_list_rows.dart';
 
 const _record = HostUpRecord(
   scalewayProject: 'provider',
@@ -128,14 +129,15 @@ void main() {
       process.line(const Step('install', StepState.started, text: 'Install the operating system', seconds: 60));
       process.words('The provider accepted the request.');
       await World.settle(tester);
+      await expandListRows(tester);
       final row = find.byKey(const Key('host-preparing demo'));
       expect(row, findsOneWidget);
-      expect(find.descendant(of: row, matching: find.text('In preparation')), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('In preparation')), findsWidgets);
       expect(find.descendant(of: row, matching: find.text('Install the operating system')), findsOneWidget);
       expect(find.textContaining('left in all'), findsOneWidget);
       expect(find.textContaining('left in this step'), findsOneWidget);
       expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
-      await tester.tap(row);
+      await tester.tap(find.text('demo server').first);
       await World.settle(tester);
       await tester.tap(find.byKey(const Key('host-full-protocol')));
       await World.settle(tester);
@@ -158,6 +160,7 @@ void main() {
       expect(find.text('Needs you'), findsOneWidget);
       change(() => needs = true);
       await World.settle(tester);
+      await expandListRows(tester);
       final stop = find.byKey(const Key('host-needs demo'));
       expect(find.descendant(of: stop, matching: find.text('on demo server')), findsOneWidget);
       expect(find.descendant(of: stop, matching: find.text('Unlock the project vault')), findsOneWidget);
@@ -192,6 +195,7 @@ void main() {
       expect(run.ready, isTrue);
       expect(find.byType(HostDialog), findsNothing, reason: 'verified setup closes itself');
       expect(find.byKey(const Key('recently-resolved')), findsOneWidget);
+      await expandListRows(tester, within: find.byKey(const Key('recently-resolved')));
       final resolved = find.descendant(
         of: find.byKey(const Key('recently-resolved')),
         matching: find.byKey(const Key('host-needs demo')),

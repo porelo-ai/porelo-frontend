@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_model.dart';
+import '../app/commands.dart';
 import '../app/machines.dart';
 import 'dialog_scroll.dart';
 import 'tokens.dart';
@@ -84,12 +85,15 @@ class HeldMessageRow extends StatelessWidget {
               key: ValueKey<String>('read-message ${message.task}/${message.handle}'),
               onPressed: resolved
                   ? null
-                  : () => unawaited(
-                      showDialog<void>(
-                        context: context,
-                        builder: (_) => HeldMessageDialog(fleet: fleet, message: message, onRead: onRead),
+                  : readAttentionMessageCommand(
+                      message: message,
+                      run: () => unawaited(
+                        showDialog<void>(
+                          context: context,
+                          builder: (_) => HeldMessageDialog(fleet: fleet, message: message, onRead: onRead),
+                        ),
                       ),
-                    ),
+                    ).run,
               icon: const Icon(Icons.mail_outline, size: Sizes.rowIcon),
               label: Text(
                 message.direction == 'in'

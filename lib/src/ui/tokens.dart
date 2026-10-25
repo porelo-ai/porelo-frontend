@@ -234,6 +234,15 @@ abstract final class Space {
 
 /// Fixed sizes that carry a decision rather than a measurement.
 abstract final class Sizes {
+  /// The collapsed line shared by every expandable list entry.
+  static const listRowHeight = 64.0;
+
+  /// The main action leaves room for the name and disclosure on a phone.
+  static const listActionCompact = 88.0;
+
+  /// Long action names cannot crowd the item name on a desktop.
+  static const listAction = 200.0;
+
   /// The projects column. Wide enough for a project name and its counts, no wider.
   static const projectsPane = 260.0;
 

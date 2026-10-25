@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/expand_list_rows.dart';
+
 /// Usage: what needs a person shows a message from {'porelo-checkout-shell'}
 Future<void> whatNeedsAPersonShowsAMessageFrom(WidgetTester tester, String task) async {
+  await expandListRows(tester);
   expect(
     find.byWidgetPredicate(
       (each) =>

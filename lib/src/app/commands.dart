@@ -56,6 +56,12 @@ enum Home {
   /// An action on a machine or a server in preparation.
   machineRow,
 
+  /// Navigation from a project row on the Projects page.
+  projectRow,
+
+  /// An action on a forge row.
+  forgeRow,
+
   /// An action on a Needs you row.
   attentionRow,
 
@@ -1420,4 +1426,109 @@ Command setupHostVpnCommand({required VoidCallback run, required bool alreadyOpe
   home: Home.machineRow,
   run: run,
   unavailable: alreadyOpen ? 'the VPN terminal is already open' : null,
+);
+
+/// Opens an item's details without running the item's main action.
+Command listOpenCommand({required String label, required Home home, required VoidCallback open}) =>
+    Command(id: 'list.open', label: label, group: 'Details', home: home, run: open);
+
+/// Discloses local details without navigating or changing the item.
+Command listDisclosureCommand({required bool expanded, required VoidCallback toggle}) =>
+    Command(id: 'list.disclose', label: expanded ? 'Show less' : 'Show more', group: 'Details', run: toggle);
+
+/// Changes a saved forge or removes its local entry through the existing confirmation.
+List<Command> forgeRowCommands({
+  required String name,
+  required VoidCallback change,
+  required VoidCallback remove,
+  required bool busy,
+}) => [
+  Command(
+    id: 'change',
+    label: 'Change its name or token',
+    group: name,
+    home: Home.forgeRow,
+    run: change,
+    unavailable: busy ? 'wait for the forge to answer' : null,
+  ),
+  Command(
+    id: 'remove',
+    label: 'Remove from this computer',
+    group: name,
+    home: Home.forgeRow,
+    run: remove,
+    unavailable: busy ? 'wait for the forge to answer' : null,
+  ),
+];
+
+Command _attentionRowCommand({
+  required String id,
+  required String label,
+  required VoidCallback run,
+  String? unavailable,
+}) => Command(id: id, label: label, group: 'Needs you', home: Home.attentionRow, run: run, unavailable: unavailable);
+
+/// Retries only the homeserver forward named by the row.
+Command retryAttentionForwardCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'messages.retryForward', label: 'Try again', run: run, unavailable: unavailable);
+
+/// Reads a held message before any release or refusal can be decided.
+Command readAttentionMessageCommand({required HeldMessage message, required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(
+      id: 'message.read',
+      label: message.direction == 'in' ? 'Read it, and decide whether ${message.task} gets it' : 'Read it and decide',
+      run: run,
+      unavailable: unavailable,
+    );
+
+/// Starts the existing grant flow for the credential named by the row.
+Command grantAttentionCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'authorization.grant', label: 'Grant it', run: run, unavailable: unavailable);
+
+/// Opens the failed operation's retained output.
+Command openAttentionOperationCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'operation.open', label: 'Open what it printed', run: run, unavailable: unavailable);
+
+/// Opens review for the work named by the row without approving it.
+Command reviewAttentionWorkCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'work.review', label: 'Review at the gate', run: run, unavailable: unavailable);
+
+/// Acknowledges dropped questions only on their own machine.
+Command missedQuestionsSeenCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'questions.seen', label: 'Seen', run: run, unavailable: unavailable);
+
+/// Acknowledges a connection notice only on its own machine.
+Command machineNoticeSeenCommand({required VoidCallback run, String? unavailable}) =>
+    _attentionRowCommand(id: 'machine.noticeSeen', label: 'Seen', run: run, unavailable: unavailable);
+
+/// Opens confirmation before accepting a rewritten upstream history.
+Command acceptAttentionRewriteCommand({required VoidCallback run, String? unavailable}) => _attentionRowCommand(
+  id: 'project.acceptRewrite',
+  label: 'Take the rewritten history',
+  run: run,
+  unavailable: unavailable,
+);
+
+/// Closes a list item's detail dialog without changing the item.
+Command closeListDetailsCommand(VoidCallback close) =>
+    Command(id: 'list.closeDetails', label: 'Close', group: 'Details', home: Home.openedView, run: close);
+
+/// Answers the row's specific blocked connection, keeping a refusal unavailable.
+Command questionDecisionCommand({required bool allow, required VoidCallback run, String? unavailable}) => Command(
+  id: allow ? 'question.allow' : 'question.block',
+  label: allow ? 'Let it through' : 'Keep it blocked',
+  group: 'Work',
+  home: Home.tileMenu,
+  run: run,
+  unavailable: unavailable,
+);
+
+/// Puts away a settled question only on the work that asked it.
+Command putAwayQuestionCommand({required VoidCallback run, String? unavailable}) => Command(
+  id: 'question.putAway',
+  label: 'Got it',
+  group: 'Work',
+  home: Home.tileMenu,
+  run: run,
+  unavailable: unavailable,
 );

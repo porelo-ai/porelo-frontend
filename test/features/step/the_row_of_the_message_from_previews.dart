@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/world.dart';
+import '../../support/expand_list_rows.dart';
 
 /// Usage: the row of the message from {'porelo-checkout-shell'} previews {'please look'}
 ///
 /// Empty words: it previews nothing at all.
 Future<void> theRowOfTheMessageFromPreviews(WidgetTester tester, String task, String words) async {
+  await expandListRows(tester);
   // The preview is read after the row is drawn.
   await World.settle(tester);
   final row = find.byWidgetPredicate(

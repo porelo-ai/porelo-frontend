@@ -5,6 +5,7 @@ import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import '../app/commands.dart';
 import 'command_menu.dart';
+import 'expandable_list_row.dart';
 import 'machine_view.dart';
 import 'tokens.dart';
 
@@ -134,90 +135,110 @@ class ProjectsPage extends StatelessWidget {
     final running = on.fold<int>(0, (sum, each) => sum + each.project.running);
     final work = on.fold<int>(0, (sum, each) => sum + each.project.howMuchWork);
     final label = project.name == defaultProject ? 'Default' : project.label;
-    final entry = Card(
+    final open = listOpenCommand(
+      label: 'Open project',
+      home: Home.projectRow,
+      open: () => onProject(machine, project.name),
+    );
+    final commands = menuFor(machine, project);
+    final primary = project.project.pending > 0
+        ? commands.where((command) => command.id == 'gate.open').firstOrNull ?? open
+        : open;
+    final entry = ExpandableListRow(
       key: ValueKey<String>('projects-row ${project.name}'),
-      child: ListTile(
-        key: ValueKey<String>('project ${project.name}'),
-        selected: selected,
-        leading: Icon(running > 0 ? Icons.folder : Icons.folder_outlined),
-        title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(
-          'on ${on.map((each) => each.machine.name).join(', ')}  ·  $running running of $work',
-          key: const Key('projects-row-machines'),
-          style: text.bodySmall,
-        ),
-        trailing: Wrap(
-          spacing: Space.tight,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: <Widget>[
-            if (muted.contains(project.name))
-              Tooltip(
-                message: 'Nothing about this project will be notified.',
-                child: Icon(Icons.notifications_off_outlined, size: Sizes.mark, color: scheme.outline),
-              ),
-            // Waiting for review is what makes a project need a person, so it is a number here.
-            if (on.any((each) => each.project.project.pending > 0))
-              Tooltip(
-                message:
-                    'Pushes are waiting at the gate, and will not leave their machine until somebody '
-                    'approves them.',
-                child: Chip(
-                  avatar: Icon(Icons.outbox_outlined, size: Sizes.mark, color: scheme.onTertiaryContainer),
-                  label: Text('${on.fold<int>(0, (sum, each) => sum + each.project.project.pending)}'),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  backgroundColor: scheme.tertiaryContainer,
+      bodyKey: ValueKey<String>('project ${project.name}'),
+      selected: selected,
+      leading: Icon(selected ? Icons.folder : Icons.folder_outlined),
+      title: label,
+      state: project.project.pending > 0
+          ? 'Needs review'
+          : !project.project.prepared
+          ? 'Not prepared'
+          : project.project.environmentIsStale
+          ? 'Out of date'
+          : '$running running',
+      primary: primary,
+      onOpen: open.run,
+      details: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'on ${on.map((each) => each.machine.name).join(', ')}  ·  $running running of $work',
+            key: const Key('projects-row-machines'),
+            style: text.bodySmall,
+          ),
+          Wrap(
+            spacing: Space.tight,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              if (muted.contains(project.name))
+                Tooltip(
+                  message: 'Nothing about this project will be notified.',
+                  child: Icon(Icons.notifications_off_outlined, size: Sizes.mark, color: scheme.outline),
                 ),
-              ),
-            if (!project.project.prepared && project.name != defaultProject)
-              Tooltip(
-                message: 'Its environment is not prepared: a task started here would have to build an image first.',
-                child: Icon(
-                  Icons.construction_outlined,
-                  key: const Key('project-unprepared'),
-                  size: Sizes.mark,
-                  color: scheme.tertiary,
+              // Waiting for review is what makes a project need a person, so it is a number here.
+              if (on.any((each) => each.project.project.pending > 0))
+                Tooltip(
+                  message:
+                      'Pushes are waiting at the gate, and will not leave their machine until somebody '
+                      'approves them.',
+                  child: Chip(
+                    avatar: Icon(Icons.outbox_outlined, size: Sizes.mark, color: scheme.onTertiaryContainer),
+                    label: Text('${on.fold<int>(0, (sum, each) => sum + each.project.project.pending)}'),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    backgroundColor: scheme.tertiaryContainer,
+                  ),
                 ),
-              ),
-            // Prepared and up to date are different questions.
-            if (project.project.environmentIsStale)
-              Tooltip(
-                message: 'Its environment was built before the project file changed.',
-                child: Icon(
-                  Icons.update_disabled,
-                  key: const Key('project-stale'),
-                  size: Sizes.mark,
-                  color: scheme.error,
+              if (!project.project.prepared && project.name != defaultProject)
+                Tooltip(
+                  message: 'Its environment is not prepared: a task started here would have to build an image first.',
+                  child: Icon(
+                    Icons.construction_outlined,
+                    key: const Key('project-unprepared'),
+                    size: Sizes.mark,
+                    color: scheme.tertiary,
+                  ),
                 ),
-              ),
-            // Said wherever the project is: nothing checks what this machine is handed for it.
-            if (project.project.following?.unverified ?? false)
-              Tooltip(
-                message: 'Followed unverified: anybody who can push to its repository decides what this machine runs.',
-                child: Icon(
-                  Icons.gpp_maybe_outlined,
-                  key: const Key('project-unverified'),
-                  size: Sizes.mark,
-                  color: scheme.error,
+              // Prepared and up to date are different questions.
+              if (project.project.environmentIsStale)
+                Tooltip(
+                  message: 'Its environment was built before the project file changed.',
+                  child: Icon(
+                    Icons.update_disabled,
+                    key: const Key('project-stale'),
+                    size: Sizes.mark,
+                    color: scheme.error,
+                  ),
                 ),
-              ),
-            if (!project.canBeActedOn)
-              Tooltip(
-                message:
-                    'This machine does not follow it, so nothing can act on it. Following its repository makes '
-                    'it a project here.',
-                child: Icon(Icons.link_off, size: Sizes.mark, color: scheme.outline),
-              ),
-            if (menuFor(machine, project) case final commands when commands.isNotEmpty)
-              CommandMenu(
-                key: ValueKey<String>('projects-menu ${machine.name}/${project.name}'),
-                commands: commands,
-                tooltip: 'What can be done with ${project.label}',
-              ),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
-        onTap: () => onProject(machine, project.name),
+              // Said wherever the project is: nothing checks what this machine is handed for it.
+              if (project.project.following?.unverified ?? false)
+                Tooltip(
+                  message:
+                      'Followed unverified: anybody who can push to its repository decides what this machine runs.',
+                  child: Icon(
+                    Icons.gpp_maybe_outlined,
+                    key: const Key('project-unverified'),
+                    size: Sizes.mark,
+                    color: scheme.error,
+                  ),
+                ),
+              if (!project.canBeActedOn)
+                Tooltip(
+                  message:
+                      'This machine does not follow it, so nothing can act on it. Following its repository makes '
+                      'it a project here.',
+                  child: Icon(Icons.link_off, size: Sizes.mark, color: scheme.outline),
+                ),
+              if (commands.isNotEmpty)
+                CommandMenu(
+                  key: ValueKey<String>('projects-menu ${machine.name}/${project.name}'),
+                  commands: commands,
+                  tooltip: 'What can be done with ${project.label}',
+                ),
+            ],
+          ),
+        ],
       ),
     );
     return selected ? KeyedSubtree(key: const Key('selected-row'), child: entry) : entry;

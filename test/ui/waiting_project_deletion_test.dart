@@ -5,6 +5,7 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
 import '../features/support/world.dart';
+import '../support/expand_list_rows.dart';
 
 void main() {
   List<Project> heldProjects() => [
@@ -25,6 +26,7 @@ void main() {
     await World.machines.of(World.machines.all.last).untilAsked();
     World.shell.goTo(Section.attention);
     await World.settle(tester);
+    await expandListRows(tester);
     for (final machine in World.machines.all) {
       expect(
         find.byKey(ValueKey('messages-wait ${machine.name}')),

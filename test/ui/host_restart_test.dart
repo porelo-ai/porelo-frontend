@@ -16,6 +16,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
+import '../support/expand_list_rows.dart';
 
 const _record = HostUpRecord(
   scalewayProject: 'kept-provider-project',
@@ -175,6 +176,7 @@ void main() {
           ),
         ),
       );
+      await expandListRows(tester, within: find.byKey(const Key('host-preparing demo')));
       await tester.tap(find.text('Take it down'));
       await World.settle(tester);
       expect(commands, isEmpty);

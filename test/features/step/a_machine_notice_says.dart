@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/expand_list_rows.dart';
+
 /// Usage: a machine notice says {'cannot be reached'}
 Future<void> aMachineNoticeSays(WidgetTester tester, String words) async {
+  await expandListRows(tester);
   expect(_notices(words), findsWidgets);
 }
 

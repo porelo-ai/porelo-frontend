@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/default_at_forge.dart';
+import '../app/commands.dart';
+import 'expandable_list_row.dart';
 import '../app/fleet_backend.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
@@ -96,28 +98,34 @@ class _ForgesPageState extends State<ForgesPage> {
   Widget _row(BuildContext context, ForgeConnection forges, ForgeEntry entry) {
     final mine = forges.current?.id == entry.id && forges.connected;
     final count = mine ? forges.repositories?.length : null;
-    return Card(
+    final open = listOpenCommand(label: 'Open forge', home: Home.forgeRow, open: () => widget.onOpen(entry));
+    return ExpandableListRow(
       key: ValueKey<String>('forges-row ${entry.name}'),
-      child: ListTile(
-        key: ValueKey<String>('forge ${entry.name}'),
-        leading: const Icon(Icons.hub_outlined),
-        title: Text(entry.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(
-          <String>[
-            entry.kindWords,
-            entry.address,
-            if (mine) 'as ${forges.account!.login}',
-            if (count != null) count == 1 ? '1 repository' : '$count repositories',
-          ].join('  ·  '),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            forgeMenu(context, forges, entry, widget.usedBy, said: (words) => setState(() => _said = words)),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
-        onTap: () => widget.onOpen(entry),
+      bodyKey: ValueKey<String>('forge ${entry.name}'),
+      leading: Icon(mine ? Icons.hub : Icons.hub_outlined),
+      selected: mine,
+      title: entry.name,
+      state: mine ? 'Connected' : 'Configured',
+      primary: open,
+      onOpen: open.run,
+      details: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            <String>[
+              entry.kindWords,
+              entry.address,
+              if (mine) 'as ${forges.account!.login}',
+              if (count != null) count == 1 ? '1 repository' : '$count repositories',
+            ].join('  ·  '),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              forgeMenu(context, forges, entry, widget.usedBy, said: (words) => setState(() => _said = words)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -135,31 +143,41 @@ Widget forgeMenu(
   ForgeEntry entry,
   List<String> Function(ForgeEntry entry) usedBy, {
   required void Function(String said) said,
-}) => PopupMenuButton<String>(
-  key: ValueKey<String>('forges-menu ${entry.name}'),
-  tooltip: 'What can be done with ${entry.name}',
-  onSelected: (chosen) async {
-    if (chosen == 'change') {
+}) {
+  final commands = forgeRowCommands(
+    name: entry.name,
+    busy: forges.busy,
+    change: () => unawaited(() async {
       final words = await showForgeForm(context, forges, editing: entry);
       if (words != null && words.isNotEmpty) said(words);
-    } else if (chosen == 'remove' && context.mounted) {
+    }()),
+    remove: () => unawaited(() async {
       final words = await removeForge(context, forges, entry, usedBy(entry));
       if (words != null) said(words);
-    }
-  },
-  itemBuilder: (_) => <PopupMenuEntry<String>>[
-    PopupMenuItem<String>(
-      key: ValueKey<String>('forge-change ${entry.name}'),
-      value: 'change',
-      child: const Text('Change its name or token'),
-    ),
-    PopupMenuItem<String>(
-      key: ValueKey<String>('forge-remove ${entry.name}'),
-      value: 'remove',
-      child: const Text('Remove from this computer'),
-    ),
-  ],
-);
+    }()),
+  );
+  return PopupMenuButton<String>(
+    key: ValueKey<String>('forges-menu ${entry.name}'),
+    tooltip: 'What can be done with ${entry.name}',
+    onSelected: (id) {
+      final command = commands.firstWhere((command) => command.id == id);
+      if (command.available) command.run();
+    },
+    itemBuilder: (_) => [
+      for (final command in commands)
+        PopupMenuItem<String>(
+          key: ValueKey<String>('forge-${command.id} ${entry.name}'),
+          value: command.id,
+          enabled: command.available,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(command.label),
+            subtitle: command.unavailable == null ? null : Text(command.unavailable!),
+          ),
+        ),
+    ],
+  );
+}
 
 /// Sets up a forge, or changes [editing], in a dialog of its own; answers what happened, or null.
 Future<String?> showForgeForm(

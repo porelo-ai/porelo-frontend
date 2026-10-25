@@ -126,7 +126,9 @@ void main() {
       hasLength(1),
       reason: 'the rented server must be reachable from Needs you',
     );
-    final row = find.byKey(const Key('host-needs demo'));
+    final row = find.byKey(
+      ValueKey('attention-row ${attention.openRows.firstWhere((row) => row.kind == AttentionKind.host).id}'),
+    );
     final goOn = find.descendant(of: row, matching: find.text('Go on'));
     expect(goOn, findsOneWidget, reason: 'recovery must act directly on the interrupted server');
     await tester.tap(goOn);

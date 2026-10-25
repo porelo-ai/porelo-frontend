@@ -2403,6 +2403,8 @@ class _ShellState extends State<Shell> {
           Home.followRepository => Section.projects,
           Home.attentionRow => Section.attention,
           Home.machineRow => Section.machines,
+          Home.forgeRow => Section.forges,
+          Home.projectRow => Section.projects,
           _ => Section.machine,
         },
       );

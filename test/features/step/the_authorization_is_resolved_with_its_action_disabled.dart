@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/expand_list_rows.dart';
+
 /// Usage: the authorization {'jira'} is resolved with its action disabled
 Future<void> theAuthorizationIsResolvedWithItsActionDisabled(WidgetTester tester, String entry) async {
+  await expandListRows(tester);
   final rows = find.byWidgetPredicate((widget) {
     final key = widget.key;
     return widget is Card &&

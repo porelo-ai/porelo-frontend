@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/expand_list_rows.dart';
+
 /// Usage: what needs a person names the project {'checkout'}
 Future<void> whatNeedsAPersonNamesTheProject(WidgetTester tester, String project) async {
+  await expandListRows(tester);
   expect(notFollowing(project), findsOneWidget);
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_model.dart';
+import '../app/commands.dart';
 import '../app/granting.dart';
 import '../app/links.dart';
 import '../app/machines.dart';
@@ -218,7 +219,9 @@ class AuthorizationRow extends StatelessWidget {
               key: ValueKey<String>('grant-needed ${needed.credential}'),
               onPressed: resolved
                   ? null
-                  : () => unawaited(showGranting(context, Granting(fleet.backend, machine, needed.credential))),
+                  : grantAttentionCommand(
+                      run: () => unawaited(showGranting(context, Granting(fleet.backend, machine, needed.credential))),
+                    ).run,
               icon: const Icon(Icons.verified_user_outlined, size: Sizes.rowIcon),
               label: const Text('Grant it'),
             ),

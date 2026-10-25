@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/builds.dart';
+import '../app/granting.dart';
 import '../app/host_runs.dart';
 import '../app/attention.dart';
 import '../app/commands.dart';
@@ -11,6 +12,7 @@ import '../app/fleet_model.dart';
 import '../app/machines.dart';
 import '../app/operations.dart';
 import 'command_menu.dart';
+import 'expandable_list_row.dart';
 import 'grant_view.dart';
 import 'held_message_view.dart';
 import 'how_long.dart';
@@ -138,20 +140,7 @@ class _AttentionViewState extends State<AttentionView> {
                         Column(
                           key: const Key('open-attention'),
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final row in rows)
-                              if (row.kind != AttentionKind.tile && row.kind != AttentionKind.operation)
-                                _row(context, row),
-                            Wrap(
-                              spacing: Space.normal,
-                              runSpacing: Space.normal,
-                              children: [
-                                for (final row in rows)
-                                  if (row.kind == AttentionKind.tile || row.kind == AttentionKind.operation)
-                                    _row(context, row),
-                              ],
-                            ),
-                          ],
+                          children: [for (final row in rows) _row(context, row)],
                         ),
                         if (resolved.isNotEmpty)
                           Column(
@@ -161,27 +150,6 @@ class _AttentionViewState extends State<AttentionView> {
                               const Padding(padding: EdgeInsets.all(Space.normal), child: Text('Recently resolved')),
                               for (final each in resolved)
                                 _ResolvedRow(
-                                  onOpen: each.row.kind == AttentionKind.message
-                                      ? null
-                                      : () => showDialog<void>(
-                                          context: context,
-                                          builder: (_) => AlertDialog(
-                                            title: const Text('Recently resolved'),
-                                            content: SingleChildScrollView(
-                                              child: _ResolvedRow(
-                                                child: Builder(
-                                                  builder: (context) => _row(context, each.row, resolved: true),
-                                                ),
-                                              ),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Close'),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
                                   child: Builder(builder: (context) => _row(context, each.row, resolved: true)),
                                 ),
                             ],
@@ -198,6 +166,196 @@ class _AttentionViewState extends State<AttentionView> {
 
 extension on _AttentionViewState {
   Widget _row(BuildContext context, AttentionRow row, {bool resolved = false}) {
+    final attention = widget.attention;
+    final reason = resolved ? 'this row is resolved' : null;
+    void details() => unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(row.machine),
+          content: SizedBox(
+            width: Sizes.dialogMedium,
+            child: SingleChildScrollView(child: _details(context, row, resolved: resolved)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: closeListDetailsCommand(() => Navigator.pop(context)).run,
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+    var title = row.machine;
+    var state = resolved ? 'Resolved' : 'Needs you';
+    var icon = Icons.info_outline;
+    VoidCallback open = details;
+    Command? primary;
+    Key? primaryKey;
+    switch (row.kind) {
+      case AttentionKind.host:
+        final stop = row.value as HostStop;
+        final runs = attention.hostRuns;
+        final run = runs?.of(stop.project);
+        title = '${stop.project} server';
+        state = stop.interrupted ? 'Interrupted' : 'Needs you';
+        icon = Icons.dns_outlined;
+        open = resolved || widget.onOpenHost == null ? details : () => widget.onOpenHost!(stop.project);
+        primary = stop.interrupted
+            ? continueHostPreparationCommand(
+                project: stop.project,
+                resolved: resolved,
+                goOn: () {
+                  if (runs != null && run != null) unawaited(runs.resume(run));
+                },
+              ).unless(run == null || runs == null ? 'host setup is unavailable here' : null)
+            : hostPreparationCommand(
+                project: stop.project,
+                resolved: resolved,
+                open: () => widget.onOpenHost?.call(stop.project),
+              ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
+      case AttentionKind.vpn:
+        final machine = row.value as Machine;
+        title = '${machine.hostProject} server';
+        state = 'VPN down';
+        icon = Icons.link_off;
+        primary = bringHostVpnUpAgainCommand(
+          run: () => widget.onBringVpnUp?.call(machine),
+          unavailable: reason ?? (widget.onBringVpnUp == null ? 'VPN setup is unavailable here' : null),
+        );
+      case AttentionKind.vpnCleanup:
+        final machine = row.value as Machine;
+        title = '${machine.hostProject} server';
+        state = 'Given back, VPN still up';
+        icon = Icons.link_off;
+        primary = takeGivenBackVpnDownCommand(
+          run: () => widget.onTakeVpnDown?.call(machine),
+          unavailable: reason ?? (widget.onTakeVpnDown == null ? 'VPN cleanup is unavailable here' : null),
+        );
+      case AttentionKind.silent:
+        final each = row.value as ({Machine machine, String words});
+        state = 'Not answering';
+        icon = Icons.cloud_off_outlined;
+        primary = retrySilentMachine(each.machine, attention.fleetOf(each.machine)).unless(reason);
+      case AttentionKind.following:
+        final each = row.value as ({Machine machine, Project project, Followed followed});
+        title = each.project.name;
+        state = 'Not following';
+        icon = Icons.folder_outlined;
+      case AttentionKind.forward:
+        final each = row.value as ({String machine, String project, String words});
+        final machine = attention.machineNamed(each.machine);
+        title = each.project;
+        state = 'Homeserver unreachable';
+        icon = Icons.link_off;
+        primary = retryAttentionForwardCommand(
+          run: () {
+            if (machine != null) unawaited(attention.homeservers?.retry(machine, each.project));
+          },
+          unavailable: reason ?? (machine == null ? 'the machine is no longer watched' : null),
+        );
+      case AttentionKind.waiting:
+        final each = row.value as WaitingMessages;
+        title = 'Messages wait';
+        state = each.waitsOn == 'vault' ? 'Vault locked' : 'Waiting';
+        icon = Icons.mail_outline;
+        if (each.waitsOn == 'vault') {
+          primary = unlockWaitingMessages(
+            each.machine,
+            attention.fleetOf(each.machine),
+            widget.unlockFor?.call(each.machine),
+          ).unless(reason);
+        }
+      case AttentionKind.unlisted:
+        final each = row.value as ({Machine machine, String problem});
+        title = 'Held messages';
+        state = 'Cannot list';
+        icon = Icons.mail_outline;
+        primary = askForHeldMessages(each.machine, attention.fleetOf(each.machine)).unless(reason);
+      case AttentionKind.message:
+        final each = row.value as ({Machine machine, HeldMessage message});
+        title = HeldMessageRow.headline(each.message);
+        state = each.message.standing;
+        icon = Icons.mail_outline;
+        open = () => unawaited(
+          showDialog<void>(
+            context: context,
+            builder: (_) => HeldMessageDialog(
+              fleet: attention.fleetOf(each.machine),
+              message: each.message,
+              readOnly: resolved,
+              initialRead: row.read,
+              onRead: resolved ? null : (read) => attention.messageRead(each.machine, each.message, read),
+            ),
+          ),
+        );
+        primary = readAttentionMessageCommand(message: each.message, run: open, unavailable: reason);
+      case AttentionKind.authorization:
+        final each = row.value as ({Machine machine, AuthorizationNeeded needed});
+        title = AuthorizationRow.headline(each.needed);
+        state = 'Grant needed';
+        icon = Icons.verified_user_outlined;
+        primary = grantAttentionCommand(
+          run: () => unawaited(
+            showGranting(
+              context,
+              Granting(attention.fleetOf(each.machine).backend, each.machine, each.needed.credential),
+            ),
+          ),
+          unavailable: reason,
+        );
+      case AttentionKind.operation:
+        final operation = row.value as Operation;
+        title = operation.title;
+        state = 'Failed';
+        icon = Icons.error_outline;
+        open = widget.onOpenOperation == null || resolved ? details : () => widget.onOpenOperation!(operation);
+        primary = openAttentionOperationCommand(
+          run: open,
+          unavailable: reason ?? (widget.onOpenOperation == null ? 'operation details are unavailable here' : null),
+        );
+        primaryKey = const Key('failed-operation-open');
+      case AttentionKind.tile:
+        final tile = row.value as Tile;
+        title = tile.task == null
+            ? tile.questions.firstOrNull?.task ?? tile.settled?.task ?? 'Unknown work'
+            : tile.task!.label.isEmpty
+            ? tile.task!.name
+            : tile.task!.label;
+        state = TaskTile._headline(tile);
+        icon = Icons.work_outline;
+        open = resolved || widget.onSelect == null ? details : () => widget.onSelect!(tile);
+        if (tile.task?.hasWorkWaiting ?? false) {
+          primary = reviewAttentionWorkCommand(
+            run: () => widget.onReview(tile),
+            unavailable:
+                reason ?? (tile.fleet.reachability == Reachability.connected ? null : 'the machine is not answering'),
+          );
+        }
+      case AttentionKind.missed:
+        final each = row.value as ({Machine machine, int count});
+        title = 'Dropped questions';
+        state = '${each.count} unseen';
+        icon = Icons.help_outline;
+        primary = missedQuestionsSeenCommand(
+          run: attention.fleetOf(each.machine).clearance.missedSeen,
+          unavailable: reason,
+        );
+    }
+    final navigation = listOpenCommand(label: 'Open details', home: Home.attentionRow, open: open);
+    return ExpandableListRow(
+      key: ValueKey('attention-row ${row.id}'),
+      leading: Icon(icon),
+      title: '$title · ${row.machine}',
+      state: resolved ? 'Resolved' : state,
+      onOpen: navigation.run,
+      primary: primary ?? navigation,
+      primaryKey: primaryKey,
+      details: _details(context, row, resolved: resolved, includePrimary: false),
+    );
+  }
+
+  Widget _details(BuildContext context, AttentionRow row, {bool resolved = false, bool includePrimary = true}) {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
@@ -248,7 +406,7 @@ extension on _AttentionViewState {
               children: [
                 NeedsMachine(row.machine),
                 Text('The VPN to ${machine.hostProject} server is down'),
-                _RowCommand(command),
+                if (includePrimary) _RowCommand(command),
               ],
             ),
           ),
@@ -280,7 +438,7 @@ extension on _AttentionViewState {
                 NeedsMachine(row.machine),
                 Text(stop.text),
                 for (final need in stop.needs) Text(need),
-                _RowCommand(command),
+                if (includePrimary) _RowCommand(command),
               ],
             ),
           ),
@@ -322,7 +480,9 @@ extension on _AttentionViewState {
               key: ValueKey('homeserver-retry ${each.machine}/${each.project}'),
               onPressed: resolved || machine == null
                   ? null
-                  : () => unawaited(attention.homeservers?.retry(machine, each.project)),
+                  : retryAttentionForwardCommand(
+                      run: () => unawaited(attention.homeservers?.retry(machine, each.project)),
+                    ).run,
               child: const Text('Try again'),
             ),
           ),
@@ -380,7 +540,8 @@ extension on _AttentionViewState {
               children: [
                 Text(each.problem),
                 NeedsMachine(each.machine.name),
-                _RowCommand(askForHeldMessages(each.machine, attention.fleetOf(each.machine)).unless(reason)),
+                if (includePrimary)
+                  _RowCommand(askForHeldMessages(each.machine, attention.fleetOf(each.machine)).unless(reason)),
               ],
             ),
           ),
@@ -457,10 +618,9 @@ class _RowCommand extends StatelessWidget {
 }
 
 class _ResolvedRow extends StatelessWidget {
-  const _ResolvedRow({required this.child, this.onOpen});
+  const _ResolvedRow({required this.child});
 
   final Widget child;
-  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -472,7 +632,7 @@ class _ResolvedRow extends StatelessWidget {
         textTheme: theme.textTheme.apply(bodyColor: colour, displayColor: colour),
         colorScheme: scheme.copyWith(onSurface: colour, onErrorContainer: colour, error: colour, primary: colour),
       ),
-      child: InkWell(onTap: onOpen, child: child),
+      child: child,
     );
   }
 }
@@ -526,7 +686,9 @@ class _NotFollowing extends StatelessWidget {
               const SizedBox(height: Space.small),
               OutlinedButton(
                 key: ValueKey<String>('accept-rewrite ${machine.name}/${project.name}'),
-                onPressed: resolved ? null : () => unawaited(_acceptTheRewrite(context)),
+                onPressed: resolved
+                    ? null
+                    : acceptAttentionRewriteCommand(run: () => unawaited(_acceptTheRewrite(context))).run,
                 child: const Text('Take the rewritten history'),
               ),
             ],
@@ -607,8 +769,7 @@ class _FailedOperation extends StatelessWidget {
               NeedsMachine(operation.machine),
               Text(operation.summary, style: text.bodySmall),
               TextButton(
-                key: const Key('failed-operation-open'),
-                onPressed: onOpen,
+                onPressed: onOpen == null ? null : openAttentionOperationCommand(run: onOpen!).run,
                 child: const Text('Open what it printed'),
               ),
             ],
@@ -650,7 +811,7 @@ class _MissedQuestions extends StatelessWidget {
         ),
         trailing: TextButton(
           key: ValueKey<String>('missed-questions-seen ${machine.name}'),
-          onPressed: onSeen,
+          onPressed: onSeen == null ? null : missedQuestionsSeenCommand(run: onSeen!).run,
           child: const Text('Seen'),
         ),
       ),
@@ -682,7 +843,11 @@ class _MachineNotice extends StatelessWidget {
             spacing: Space.small,
             children: [
               _RowCommand(retry),
-              TextButton(key: ValueKey('notice-seen ${machine.name}'), onPressed: onSeen, child: const Text('Seen')),
+              TextButton(
+                key: ValueKey('notice-seen ${machine.name}'),
+                onPressed: onSeen == null ? null : machineNoticeSeenCommand(run: onSeen!).run,
+                child: const Text('Seen'),
+              ),
             ],
           ),
         ],
@@ -954,7 +1119,9 @@ class TaskTile extends StatelessWidget {
                     if (first == null && tile.settled != null && onPutAway != null)
                       TextButton(
                         key: const Key('tile-put-away'),
-                        onPressed: resolved ? null : () => onPutAway!(tile, tile.settled!),
+                        onPressed: resolved
+                            ? null
+                            : putAwayQuestionCommand(run: () => onPutAway!(tile, tile.settled!)).run,
                         child: const Text('Got it'),
                       ),
                     if (first != null || (session?.available ?? false) || (task?.hasWorkWaiting ?? false)) ...<Widget>[
@@ -965,12 +1132,22 @@ class TaskTile extends StatelessWidget {
                           if (first != null) ...<Widget>[
                             TextButton(
                               key: const Key('tile-let-through'),
-                              onPressed: answering || !answers ? null : () => onDecide(tile, first, allow: true),
+                              onPressed: answering || !answers
+                                  ? null
+                                  : questionDecisionCommand(
+                                      allow: true,
+                                      run: () => onDecide(tile, first, allow: true),
+                                    ).run,
                               child: const Text('Let it through'),
                             ),
                             TextButton(
                               key: const Key('tile-keep-blocked'),
-                              onPressed: answering || !answers ? null : () => onDecide(tile, first, allow: false),
+                              onPressed: answering || !answers
+                                  ? null
+                                  : questionDecisionCommand(
+                                      allow: false,
+                                      run: () => onDecide(tile, first, allow: false),
+                                    ).run,
                               child: const Text('Keep it blocked'),
                             ),
                           ],
@@ -983,7 +1160,7 @@ class TaskTile extends StatelessWidget {
                           if (task?.hasWorkWaiting ?? false)
                             TextButton(
                               key: const Key('tile-review'),
-                              onPressed: answers ? () => onReview(tile) : null,
+                              onPressed: answers ? reviewAttentionWorkCommand(run: () => onReview(tile)).run : null,
                               child: const Text('Review at the gate'),
                             ),
                         ],
