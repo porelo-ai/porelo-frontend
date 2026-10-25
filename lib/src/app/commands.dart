@@ -687,6 +687,7 @@ List<Command> hostMachineCommands({
   VoidCallback? saveTunnel,
   VoidCallback? bringVpnUp,
   VoidCallback? takeVpnDown,
+  bool? vpnLinkUp = false,
 }) => [
   if (machine.kind == 'host') ...[
     Command(
@@ -711,26 +712,30 @@ List<Command> hostMachineCommands({
           ? 'not offered here'
           : null,
     ),
-    Command(
-      id: 'machine.vpnUp',
-      label: 'Bring the VPN up',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: bringVpnUp ?? () {},
-      unavailable: settings.hostUp(machine.hostProject)?.vpnHostPublicKey.isNotEmpty != true
-          ? 'complete the server setup first'
-          : bringVpnUp == null
-          ? 'not offered here'
-          : null,
-    ),
-    Command(
-      id: 'machine.vpnDown',
-      label: 'Take the VPN down',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: takeVpnDown ?? () {},
-      unavailable: takeVpnDown == null ? 'not offered here' : null,
-    ),
+    if (vpnLinkUp != true)
+      Command(
+        id: 'machine.vpnUp',
+        label: 'Bring the VPN up',
+        group: 'Machine',
+        home: Home.machineMenu,
+        run: bringVpnUp ?? () {},
+        unavailable: vpnLinkUp == null
+            ? 'the local VPN interface has not been checked; refresh Machines'
+            : settings.hostUp(machine.hostProject)?.vpnHostPublicKey.isNotEmpty != true
+            ? 'complete the server setup first'
+            : bringVpnUp == null
+            ? 'not offered here'
+            : null,
+      ),
+    if (vpnLinkUp == true)
+      Command(
+        id: 'machine.vpnDown',
+        label: 'Take the VPN down',
+        group: 'Machine',
+        home: Home.machineMenu,
+        run: takeVpnDown ?? () {},
+        unavailable: takeVpnDown == null ? 'not offered here' : null,
+      ),
   ],
 ];
 

@@ -255,6 +255,30 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
   }
 }
 
+/// Checks local link presence without opening a privileged terminal.
+Future<bool> probeHostVpnLink({Future<Process> Function(String, List<String>)? start}) async {
+  const refused = HostFilesRefused(
+    'The local VPN interface could not be checked. Check that ip is installed and try again.',
+  );
+  try {
+    final process = await (start ?? Process.start)('ip', ['link', 'show', 'dev', 'porelo']);
+    final drained = Future.wait([process.stdout.drain<void>(), process.stderr.drain<void>()]);
+    try {
+      final code = await process.exitCode.timeout(const Duration(seconds: 4));
+      if (code != 0 && code != 1) throw refused;
+      return code == 0;
+    } on TimeoutException {
+      process.kill();
+      await process.exitCode;
+      throw refused;
+    } finally {
+      await drained;
+    }
+  } on ProcessException {
+    throw refused;
+  }
+}
+
 /// Probes the VPN without root, bounded even when the peer is gone.
 Future<bool> pingHostVpn() async {
   try {

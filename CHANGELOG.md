@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Each server offers one VPN action that follows the local tunnel state, and skips the sudo
+  password prompt when the requested state already holds.
 - Host setup and teardown hold one project lock across processes, refuse overlapping commands,
   and show lock contention separately from a host login stop.
 - Navigation counts match their lists, including servers still being prepared, every open Needs you

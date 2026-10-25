@@ -120,12 +120,18 @@ void main() {
   // Harm: a stale VPN probe marks a working host's VPN as down, or puts a removed host back into the warning.
   test('only the latest VPN probe writes, and only for hosts still present', () async {
     final pings = <Completer<bool>>[];
+    final links = <Completer<bool>>[];
     final probing = HostRuns(
       machines,
       endpointFor: (name) => '/tmp/$name.sock',
       ping: () {
         final answer = Completer<bool>();
         pings.add(answer);
+        return answer.future;
+      },
+      probeLink: () {
+        final answer = Completer<bool>();
+        links.add(answer);
         return answer.future;
       },
     );
@@ -144,16 +150,53 @@ void main() {
     final newer = probing.refreshVpns();
     expect(pings, hasLength(2), reason: 'each refresh probes once');
     pings[1].complete(true);
+    links[1].complete(true);
     await newer;
     pings[0].complete(false);
+    links[0].complete(false);
     await older;
     expect(probing.vpnDown, isEmpty, reason: 'the newer probe answered; the older one is stale');
+    expect(probing.vpnLinkUp, isTrue, reason: 'a stale absent link must not route a new VPN up command');
+    expect(probing.vpnUp, isTrue, reason: 'the newer link and ping both succeeded');
     final removedMeanwhile = probing.refreshVpns();
     await machines.forget(machines.all.singleWhere((machine) => machine.kind == 'host'));
     pings[2].complete(false);
+    links[2].complete(true);
     await removedMeanwhile;
     expect(probing.vpnDown, isEmpty, reason: 'a host removed while the probe ran is not put back');
   }, testOn: 'linux');
+
+  for (final link in <bool?>[false, true, null]) {
+    for (final answers in [false, true]) {
+      // Harm: confusing reachability with link presence routes the wrong root action or hides lost connectivity.
+      test('VPN refresh keeps link $link separate from ping $answers', () async {
+        await machines.add(
+          const Machine(name: 'demo server', kind: 'host', hostProject: 'demo', socketPath: '/unused'),
+        );
+        final probing = HostRuns(
+          machines,
+          ping: () async => answers,
+          probeLink: () async {
+            if (link == null) throw const HostFilesRefused('The local VPN interface could not be checked.');
+            return link;
+          },
+        );
+        addTearDown(probing.dispose);
+        await probing.refreshVpns();
+        expect(
+          probing.vpnLinkUp,
+          link,
+          reason: 'root actions follow link presence even when the server does not answer',
+        );
+        expect(probing.vpnUp, link == true && answers, reason: 'reachability requires both a link and an answer');
+        expect(
+          probing.vpnDown,
+          link == true && answers ? isEmpty : {'demo server'},
+          reason: 'a failed or unknown check must keep the host in the lost connectivity warning',
+        );
+      }, testOn: 'linux');
+    }
+  }
 
   // Harm: work is sent to a host that does not exist when a progress line is mistaken for success.
   for (final code in [0, 65, 69, 75]) {

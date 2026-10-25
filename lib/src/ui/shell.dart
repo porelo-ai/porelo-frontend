@@ -532,18 +532,11 @@ class _ShellState extends State<Shell> {
       ...hostMachineCommands(
         machine: machine,
         settings: widget.settings,
+        vpnLinkUp: _hostRuns.vpnLinkUp,
         takeDown: () => unawaited(_takeDown(machine)),
         saveTunnel: () => unawaited(_saveTunnel(machine)),
         bringVpnUp: () => unawaited(_bringVpnUp(machine)),
-        takeVpnDown: () => unawaited(
-          openHostVpnDialog(
-            context,
-            machine: machine,
-            settings: widget.settings,
-            up: false,
-            open: widget.sessions.openTerminal,
-          ),
-        ),
+        takeVpnDown: () => unawaited(_changeVpn(machine, up: false)),
       ),
     ];
   }
@@ -560,12 +553,14 @@ class _ShellState extends State<Shell> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _bringVpnUp(Machine machine) async {
+  Future<void> _bringVpnUp(Machine machine) => _changeVpn(machine, up: true);
+
+  Future<void> _changeVpn(Machine machine, {required bool up}) async {
     await openHostVpnDialog(
       context,
       machine: machine,
       settings: widget.settings,
-      up: true,
+      up: up,
       open: widget.sessions.openTerminal,
     );
     await _hostRuns.refreshVpns();
@@ -2491,7 +2486,10 @@ class _ShellState extends State<Shell> {
                             Section.projects => _projectsPage(),
                             Section.forges => _forgesPage(),
                             Section.forge => _forgePage(),
-                            Section.machine || Section.project => _machineArea(),
+                            Section.machine || Section.project => ListenableBuilder(
+                              listenable: _hostRuns,
+                              builder: (context, _) => _machineArea(),
+                            ),
                           },
                         ),
                       ],

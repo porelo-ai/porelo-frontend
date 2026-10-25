@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart';
 
@@ -31,14 +33,16 @@ Future<void> openPreparationVpn(
       secretStore: secretStore,
       hostFiles: hostFiles,
       environment: environment,
+      requireFreshHandshake: true,
     );
     await runs.vpnChecked(run, verified: verified);
+    await runs.refreshVpns();
   } finally {
     runs.vpnTerminalChanged(run, open: false);
   }
 }
 
-/// Runs the local VPN check, retaining its private runtime file only until the terminal ends.
+/// Changes the local VPN only when needed, returning true only for a fresh handshake receipt.
 Future<bool> openHostVpnDialog(
   BuildContext context, {
   required Machine machine,
@@ -49,10 +53,21 @@ Future<bool> openHostVpnDialog(
   HostFiles Function(SecretStore)? hostFiles,
   Map<String, String>? environment,
   DateTime Function()? now,
+  Future<bool> Function()? probeLink,
+  Future<bool> Function()? ping,
+  bool requireFreshHandshake = false,
+  bool? linux,
 }) async {
   HostVpnAttempt? attempt;
   var verified = false;
   try {
+    // Other platforms retain their existing preparation refusal and terminal command.
+    if (linux ?? Platform.isLinux) {
+      final linkUp = await (probeLink ?? probeHostVpnLink)();
+      if (!up && !linkUp) return false;
+      // Setup needs an expected peer's fresh receipt; a shared VPN address cannot prove its identity.
+      if (up && linkUp && !requireFreshHandshake && await (ping ?? pingHostVpn)()) return false;
+    }
     if (up) {
       final record = settings.hostUp(machine.hostProject);
       if (record == null || record.vpnHostPublicKey.isEmpty || record.vpnEndpointAddress.isEmpty) {

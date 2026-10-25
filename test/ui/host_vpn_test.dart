@@ -42,6 +42,12 @@ void main() {
     bool up = true,
     bool throwsOnOpen = false,
     bool receipt = true,
+    bool? linkUp,
+    bool answers = false,
+    ValueChanged<bool>? finished,
+    bool requireFreshHandshake = false,
+    SecretStore? secretStore,
+    Future<bool> Function()? probeLink,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -60,6 +66,7 @@ void main() {
             .withTunnel(hostPublicKey: host, address: '203.0.113.8'),
       );
     }
+    var completed = false;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -70,7 +77,10 @@ void main() {
                 machine: _machine,
                 settings: settings,
                 up: up,
-                secretStore: _TunnelSecrets({HostFiles.keyName('demo'): private}),
+                probeLink: probeLink ?? () async => linkUp ?? !up,
+                ping: () async => answers,
+                requireFreshHandshake: requireFreshHandshake,
+                secretStore: secretStore ?? _TunnelSecrets({HostFiles.keyName('demo'): private}),
                 environment: {'XDG_RUNTIME_DIR': runtime.path},
                 now: () => DateTime.fromMillisecondsSinceEpoch(100000),
                 open: (executable, arguments, {int columns = 80, int rows = 24}) {
@@ -82,7 +92,10 @@ void main() {
                   if (throwsOnOpen) throw const PtyRefused('invented terminal failure');
                   return terminal;
                 },
-              ),
+              ).then((verified) {
+                completed = true;
+                finished?.call(verified);
+              }),
             ),
             child: const Text('Open'),
           ),
@@ -90,11 +103,182 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open'));
-    for (var turn = 0; turn < 100 && commands.isEmpty; turn++) {
+    for (var turn = 0; turn < 100 && commands.isEmpty && !completed; turn++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
       await World.settle(tester);
     }
   }
+
+  for (final linkUp in <bool?>[false, true, null]) {
+    // Harm: routing the wrong VPN action runs an unnecessary or destructive root command.
+    test('the measured link selects exactly one executable VPN action when present $linkUp', () async {
+      final settings = Settings(MemorySettingsStore());
+      addTearDown(settings.dispose);
+      final publicKey = base64Encode(List<int>.filled(32, 9));
+      await settings.rememberHostUp(
+        'demo',
+        HostUpRecord.fromStored({..._record.stored, 'vpnPeerPublicKey': publicKey})!
+            .withTunnel(hostPublicKey: publicKey, address: '203.0.113.8'),
+      );
+      final actions = <bool>[];
+      final commands = hostMachineCommands(
+        machine: _machine,
+        settings: settings,
+        takeDown: () {},
+        bringVpnUp: () => actions.add(true),
+        takeVpnDown: () => actions.add(false),
+        vpnLinkUp: linkUp,
+      ).where((command) => command.id == 'machine.vpnUp' || command.id == 'machine.vpnDown').toList();
+      expect(commands.map((command) => command.id), [
+        linkUp == true ? 'machine.vpnDown' : 'machine.vpnUp',
+      ], reason: 'the menu and tiles must expose only the action that changes the measured link');
+      expect(commands.single.available, linkUp != null, reason: 'an unknown link cannot authorize a root action');
+      if (linkUp != null) {
+        commands.single.run();
+        expect(actions, [!linkUp], reason: 'the selected action must invoke the matching VPN operation');
+      }
+    });
+  }
+
+  for (final up in [false, true]) {
+    // Harm: a no-op VPN action asks for a root password and can needlessly replace a working tunnel.
+    testWidgets('VPN ${up ? 'up' : 'down'} already satisfied opens no sudo terminal', (tester) async {
+      final settings = Settings(MemorySettingsStore());
+      addTearDown(settings.dispose);
+      final commands = <List<String>>[];
+      final secrets = _TunnelSecrets({HostFiles.keyName('demo'): base64Encode(List<int>.filled(32, 7))});
+      bool? result;
+      await open(
+        tester,
+        settings,
+        commands,
+        FakeTerminal([]),
+        up: up,
+        linkUp: up,
+        answers: up,
+        finished: (verified) => result = verified,
+        secretStore: secrets,
+      );
+      expect(commands, isEmpty, reason: 'the requested state already holds, so no root action is needed');
+      expect(result, isFalse, reason: 'an unprivileged probe cannot supply a fresh handshake receipt for setup');
+      expect(secrets.reads, 0, reason: 'an action needing no root work must not export a private key');
+    }, skip: _notLinux);
+  }
+
+  // Harm: treating an unanswered existing link as connected strands recovery without running the needed root action.
+  testWidgets('an existing link that does not answer can be brought up again', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final commands = <List<String>>[];
+    await open(tester, settings, commands, FakeTerminal([]), linkUp: true);
+    expect(commands.length, 1, reason: 'a present link alone does not satisfy VPN up');
+    expect(commands.single.first, '/usr/bin/sudo', reason: 'renewing the link requires a privileged action');
+  }, skip: _notLinux);
+
+  // Harm: a ping substituted for an expected fresh handshake can complete setup against the wrong server.
+  testWidgets('setup still verifies a fresh handshake when the shared VPN address answers', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final commands = <List<String>>[];
+    final terminal = FakeTerminal([]);
+    bool? result;
+    await open(
+      tester,
+      settings,
+      commands,
+      terminal,
+      linkUp: true,
+      answers: true,
+      requireFreshHandshake: true,
+      finished: (verified) => result = verified,
+    );
+    expect(commands.length, 1, reason: 'setup must still run the existing fresh handshake verification');
+    terminal.endsWith(0);
+    for (var turn = 0; turn < 100 && result == null; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+    expect(result, isTrue, reason: 'only the completed root check and its receipt confirm setup');
+  }, skip: _notLinux);
+
+  // Harm: an unhandled probe refusal hides the stop, opens sudo on guessed state, or blocks an existing platform path.
+  testWidgets('unawaited VPN actions show probe refusals and preserve paths without Linux probes', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final publicKey = base64Encode(List<int>.filled(32, 9));
+    await settings.rememberHostUp(
+      'demo',
+      HostUpRecord.fromStored({..._record.stored, 'vpnPeerPublicKey': publicKey})!
+          .withTunnel(hostPublicKey: publicKey, address: '203.0.113.8'),
+    );
+    for (final scenario in [
+      (linux: true, up: false),
+      (linux: true, up: true),
+      (linux: false, up: true),
+      (linux: false, up: false),
+    ]) {
+      var probes = 0;
+      bool? result;
+      final commands = <List<String>>[];
+      final terminal = FakeTerminal([]);
+      const probeRefusal = 'The local VPN interface could not be checked.';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => unawaited(
+                openHostVpnDialog(
+                  context,
+                  machine: _machine,
+                  settings: settings,
+                  up: scenario.up,
+                  linux: scenario.linux,
+                  environment: const {},
+                  probeLink: () async {
+                    probes++;
+                    throw const HostFilesRefused(probeRefusal);
+                  },
+                  open: (executable, arguments, {int columns = 80, int rows = 24}) {
+                    commands.add([executable, ...arguments]);
+                    return terminal;
+                  },
+                ).then((verified) => result = verified),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await World.settle(tester);
+      expect(tester.takeException(), isNull, reason: 'a menu callback must not leak an unhandled async refusal');
+      if (scenario.linux || scenario.up) {
+        expect(commands, isEmpty, reason: 'a refused probe or unsupported preparation must not start sudo');
+        final problem = find.byKey(const Key('vpn-problem'));
+        expect(problem, findsOneWidget, reason: 'the refusal needs its own place before the action ends');
+        expect(
+          tester.widget<Text>(problem).data,
+          scenario.linux ? probeRefusal : 'The VPN needs XDG_RUNTIME_DIR owned by this user with permissions 0700.',
+          reason: 'platforms without Linux probes must retain the existing preparation refusal',
+        );
+        expect(result, isNull, reason: 'the refusal remains open until dismissed');
+        await tester.tap(find.text('Close'));
+      } else {
+        expect(commands, [
+          ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
+        ], reason: 'taking the VPN down must keep the command offered before Linux state probing');
+        terminal.endsWith(0);
+        await World.settle(tester);
+        await tester.tap(find.byKey(const Key('unlock-done')));
+      }
+      await World.settle(tester);
+      expect(probes, scenario.linux ? 1 : 0, reason: 'only Linux actions may depend on ip being installed');
+      expect(result, isFalse, reason: 'each action must complete safely without claiming a fresh handshake');
+    }
+  });
 
   for (final ending in ['success', 'failure', 'cancelled sudo', 'closed dialog', 'exception']) {
     // Harm: a private WireGuard key left after any terminal ending can be read or reused later.
@@ -368,9 +552,13 @@ void main() {
 class _TunnelSecrets implements SecretStore {
   _TunnelSecrets(this.values);
   final Map<String, String> values;
+  int reads = 0;
 
   @override
-  Future<String?> read(String name) async => values[name];
+  Future<String?> read(String name) async {
+    reads++;
+    return values[name];
+  }
 
   @override
   Future<void> write(String name, String value) async => values[name] = value;

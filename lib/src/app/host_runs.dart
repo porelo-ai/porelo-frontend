@@ -90,9 +90,14 @@ class HostPreparation {
 /// Owns host setup just as Operations owns other long actions; views only observe it.
 class HostRuns extends ChangeNotifier {
   /// Adds successful runs through the ordinary Machines path.
-  HostRuns(this.machines, {String Function(String)? endpointFor, Future<bool> Function()? ping})
-    : _endpointFor = endpointFor ?? Machine.endpointFor,
-      _ping = ping ?? pingHostVpn {
+  HostRuns(
+    this.machines, {
+    String Function(String)? endpointFor,
+    Future<bool> Function()? ping,
+    Future<bool> Function()? probeLink,
+  }) : _endpointFor = endpointFor ?? Machine.endpointFor,
+       _ping = ping ?? pingHostVpn,
+       _probeLink = probeLink ?? probeHostVpnLink {
     for (final entry in machines.settings.hostUps.entries) {
       if (!entry.value.preparing) continue;
       final session = sessionFor(entry.key, entry.value);
@@ -114,6 +119,13 @@ class HostRuns extends ChangeNotifier {
 
   final String Function(String) _endpointFor;
   final Future<bool> Function() _ping;
+  final Future<bool> Function() _probeLink;
+
+  /// Whether the local link exists; null until checked or when the check fails.
+  bool? vpnLinkUp;
+
+  /// Whether the last check found both the local link and an answering VPN address.
+  bool vpnUp = false;
 
   /// Existing hosts whose last unprivileged VPN probe failed.
   final Set<String> vpnDown = {};
@@ -124,13 +136,26 @@ class HostRuns extends ChangeNotifier {
     final hosts = machines.all.where((machine) => machine.kind == 'host').toList();
     // The local VPN is brought up only on Linux; elsewhere a failed ping says nothing about it.
     if (hosts.isEmpty || !Platform.isLinux) {
+      vpnLinkUp = false;
+      vpnUp = false;
       vpnDown.clear();
       _changed();
       return;
     }
-    final answers = await _ping();
+    bool? link;
+    var answers = false;
+    try {
+      final probes = await Future.wait([_probeLink(), _ping()]);
+      link = probes[0];
+      answers = link && probes[1];
+    } on HostFilesRefused {
+      // An unreadable link must not offer a root action based on a guessed state.
+      link = null;
+    }
     // A slower earlier probe must not overwrite a later answer.
     if (_disposed || generation != _vpnProbe) return;
+    vpnLinkUp = link;
+    vpnUp = answers;
     final present = machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toSet();
     vpnDown
       ..clear()
