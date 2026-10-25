@@ -223,11 +223,21 @@ extension on _AttentionViewState {
         );
       case AttentionKind.host:
         final stop = row.value as HostStop;
-        final command = hostPreparationCommand(
-          project: stop.project,
-          resolved: resolved,
-          open: () => widget.onOpenHost?.call(stop.project),
-        ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
+        final runs = attention.hostRuns;
+        final run = runs?.of(stop.project);
+        final command = stop.interrupted
+            ? continueHostPreparationCommand(
+                project: stop.project,
+                resolved: resolved,
+                goOn: () {
+                  if (runs != null && run != null) unawaited(runs.resume(run));
+                },
+              ).unless(run == null || runs == null ? 'host setup is unavailable here' : null)
+            : hostPreparationCommand(
+                project: stop.project,
+                resolved: resolved,
+                open: () => widget.onOpenHost?.call(stop.project),
+              ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
         return Card(
           key: ValueKey('host-needs ${stop.project}'),
           child: Padding(

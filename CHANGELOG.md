@@ -11,6 +11,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Each server offers one VPN action that follows the local tunnel state, and skips the sudo
   password prompt when the requested state already holds.
+- Interrupted server setups appear in Needs you with Go on. Closing stops setup still renting,
+  keeps later setup running, and finds it again when the interface reopens.
 - Host setup and teardown hold one project lock across processes, refuse overlapping commands,
   and show lock contention separately from a host login stop.
 - Navigation counts match their lists, including servers still being prepared, every open Needs you

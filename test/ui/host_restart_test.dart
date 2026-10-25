@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart' hide Step, StepState;
@@ -31,6 +32,13 @@ const _record = HostUpRecord(
 );
 
 void main() {
+  late Directory state;
+  late Map<String, String> environment;
+  setUp(() async {
+    state = await Directory.systemTemp.createTemp('host-restart-');
+    environment = {'XDG_STATE_HOME': state.path, 'LOCALAPPDATA': state.path};
+  });
+  tearDown(() => state.delete(recursive: true));
   // Harm: a billing server disappears after restart, or Go on targets a different server.
   testWidgets('a stopped preparation survives new settings and runs and resumes the kept command', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -60,10 +68,13 @@ void main() {
     final fleet = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
     final commands = <List<String>>[];
     final resumed = HostProcess();
-    final restored = _RestoredRuns(fleet, (_, arguments) async {
-      commands.add(List.of(arguments));
-      return resumed;
-    });
+    final restored = (await tester.runAsync(
+      () async => _RestoredRuns(fleet, (_, arguments) async {
+        commands.add(List.of(arguments));
+        return resumed;
+      }, environment: environment),
+    ))!;
+    await tester.runAsync(() => restored.of('demo')!.checked);
     addTearDown(() {
       restored.dispose();
       fleet.dispose();
@@ -128,10 +139,13 @@ void main() {
       await machines.add(hostMachine);
       final commands = <List<String>>[];
       final process = HostProcess();
-      final runs = _RestoredRuns(machines, (_, arguments) async {
-        commands.add(List.of(arguments));
-        return process;
-      });
+      final runs = (await tester.runAsync(
+        () async => _RestoredRuns(machines, (_, arguments) async {
+          commands.add(List.of(arguments));
+          return process;
+        }, environment: environment),
+      ))!;
+      await tester.runAsync(() => runs.of('demo')!.checked);
       addTearDown(() {
         runs.dispose();
         machines.dispose();
@@ -188,7 +202,13 @@ void main() {
       await World.settle(tester);
       final reopened = Settings(store);
       await reopened.load();
-      final afterRestart = HostRuns(Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels()));
+      final afterRestart = (await tester.runAsync(
+        () async => HostRuns(
+          Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels()),
+          environment: environment,
+        ),
+      ))!;
+      await tester.runAsync(() => Future.wait([for (final run in afterRestart.preparing) run.checked]));
       final confirmed = outcome == 'confirmed' || outcome == 'missing';
       expect(afterRestart.preparing.map((run) => run.project), confirmed ? isEmpty : ['demo']);
       expect(runs.preparing.map((run) => run.project), confirmed ? isEmpty : ['demo']);
@@ -297,6 +317,9 @@ void main() {
     await World.startApp(tester);
     await World.settings.rememberHostUp('checkout', _record.withPreparation(DateTime.utc(2000)));
     await World.restartApp(tester);
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    await _settleChecks(tester, tester.widget<MachinesPage>(find.byType(MachinesPage)).hostRuns!);
     World.machines.fleet.selectProject('checkout');
     World.shell.goTo(Section.project);
     await World.settle(tester);
@@ -332,6 +355,7 @@ void main() {
     await World.restartApp(tester);
     World.shell.goTo(Section.machines);
     await World.settle(tester);
+    await _settleChecks(tester, tester.widget<MachinesPage>(find.byType(MachinesPage)).hostRuns!);
     // ignore: invalid_use_of_protected_member
     final closing = tester.binding.handleRequestAppExit();
     await World.settle(tester);
@@ -346,10 +370,21 @@ void main() {
 }
 
 class _RestoredRuns extends HostRuns {
-  _RestoredRuns(super.machines, this.startCommand);
+  _RestoredRuns(super.machines, this.startCommand, {super.environment});
   final StartHostCommand startCommand;
 
   @override
   HostSession sessionFor(String project, HostUpRecord record) =>
       HostSession(executable: 'fake', arguments: hostArguments(record, project), start: startCommand);
+}
+
+// File events need fake microtasks pumped between the probe's asynchronous operations.
+Future<void> _settleChecks(WidgetTester tester, HostRuns runs) async {
+  var checked = false;
+  unawaited(Future.wait([for (final run in runs.preparing) run.checked]).then((_) => checked = true));
+  for (var turn = 0; turn < 500 && !checked; turn++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+    await World.settle(tester);
+  }
+  expect(checked, isTrue, reason: 'restored setup must finish its lock check before testing recovery actions');
 }

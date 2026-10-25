@@ -215,7 +215,9 @@ class Attention extends ChangeNotifier {
       }
     }
     for (final run in _hostRuns?.preparing ?? <HostPreparation>[]) {
-      if (run.waiting) yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
+      if (run.waiting || run.interrupted) {
+        yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
+      }
     }
     for (final machine in missedQuestions) {
       yield AttentionRow(AttentionKind.missed, 'missed ${machine.name}', machine.name, (
@@ -304,7 +306,7 @@ class Attention extends ChangeNotifier {
       final resolved =
           row.kind == AttentionKind.operation ||
           row.kind == AttentionKind.vpn && _hostRuns?.vpnDown.contains(row.machine) == false ||
-          row.kind == AttentionKind.host && _hostRuns?.of((row.value as HostStop).project)?.ready == true ||
+          row.kind == AttentionKind.host && _hostResolved(row.value as HostStop) ||
           (row.kind != AttentionKind.host &&
               machine != null &&
               (fleetOf(machine).reachability == Reachability.connected &&
@@ -330,6 +332,11 @@ class Attention extends ChangeNotifier {
     );
     _prune();
     _scheduleExpiry();
+  }
+
+  bool _hostResolved(HostStop stop) {
+    final run = _hostRuns?.of(stop.project);
+    return run != null && (run.ready || run.givenBack || stop.interrupted && !run.interrupted);
   }
 
   Duration get _retention => Duration(minutes: _settings?.keepResolvedMinutes ?? 60);

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
@@ -342,11 +343,17 @@ void main() {
     await reopened.load();
     final fleet = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: _Tunnels());
     final process = HostProcess();
-    final restored = _RestoredHostRuns(fleet, process);
-    addTearDown(() {
+    final state = await Directory.systemTemp.createTemp('restored-host-');
+    final restored = _RestoredHostRuns(
+      fleet,
+      process,
+      environment: {'XDG_STATE_HOME': state.path, 'LOCALAPPDATA': state.path},
+    );
+    addTearDown(() async {
       restored.dispose();
       fleet.dispose();
       reopened.dispose();
+      await state.delete(recursive: true);
     });
     final resumed = restored.resume(restored.of('demo')!);
     process.line(_done);
@@ -484,7 +491,7 @@ class _Tunnels extends Tunnels {
 }
 
 class _RestoredHostRuns extends HostRuns {
-  _RestoredHostRuns(super.machines, this.process) : super(endpointFor: (_) => '/restored.sock');
+  _RestoredHostRuns(super.machines, this.process, {super.environment}) : super(endpointFor: (_) => '/restored.sock');
   final HostProcess process;
   @override
   HostSession sessionFor(String project, HostUpRecord record) =>

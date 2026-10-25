@@ -331,8 +331,7 @@ class _ShellState extends State<Shell> {
     }
   }
 
-  /// Asks before the window closes, naming what carries on without it, then lets go of the
-  /// forwards it raised. Closing never stops running work, so the question says what keeps going.
+  /// Stops setup still renting, preserves remote work, and releases this window's forwards.
   Future<AppExitResponse> _letGo() async {
     final running = <String>[
       for (final machine in widget.machines.all)
@@ -347,6 +346,11 @@ class _ShellState extends State<Shell> {
       running: running,
       waiting: waiting,
       preparing: _hostRuns.preparing.map((run) => run.project).toList(),
+      continuingSetup: [
+        for (final run in _hostRuns.preparing)
+          if (run.running && !run.session.renting) run.project,
+      ],
+      onLeave: _hostRuns.leave,
     );
     if (!agreed) return AppExitResponse.cancel;
     // Only what this interface raised is taken down; nothing somebody else raised is in there.

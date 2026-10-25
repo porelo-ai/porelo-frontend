@@ -135,6 +135,27 @@ class HostSession extends ChangeNotifier {
   final StartHostCommand _start;
   final DateTime Function() _now;
   bool _disposed = false;
+  Future<Process>? _starting;
+  Process? _process;
+  bool _upCommand = false;
+
+  /// Whether leaving can still stop setup without interrupting work on the server.
+  bool get renting => _upCommand && !steps.any((step) => step.step == 'rent' && step.state == StepState.done);
+
+  /// Stops only an up still before its completed rent step and waits briefly for its exit.
+  Future<void> leave() async {
+    final starting = _starting;
+    if (!renting || starting == null) return;
+    final process = await starting;
+    if (!renting || !identical(process, _process)) return;
+    process.kill(ProcessSignal.sigterm);
+    try {
+      await process.exitCode.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      throw TimeoutException('Setup did not stop. Keep the interface open and try leaving again.');
+    }
+  }
+
   Step? _currentStep;
   final Map<String, HostStepRecord> _history = {};
   final List<Object> _protocol = [];
@@ -293,29 +314,37 @@ class HostSession extends ChangeNotifier {
     fix = null;
     state = HostRunState.running;
     _changed();
-    final process = await _start(executable, command);
-    await process.stdin.close();
-    final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
-    final words = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
-      final words = _ProtocolWords(line, _echoes);
-      _words.add(words);
-      _protocol.add(words);
+    _upCommand = command.first == 'up';
+    try {
+      _starting = _start(executable, command);
+      final process = _process = await _starting!;
+      await process.stdin.close();
+      final lines = process.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach(_line);
+      final words = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
+        final words = _ProtocolWords(line, _echoes);
+        _words.add(words);
+        _protocol.add(words);
+        _changed();
+      });
+      final code = await process.exitCode;
+      await lines;
+      await words;
+      state = switch (code) {
+        Exit.done => HostRunState.done,
+        Exit.waiting when _currentStep?.step == 'lock' && _currentStep?.state == StepState.refused => HostRunState.busy,
+        Exit.waiting => HostRunState.waiting,
+        Exit.unreachable => HostRunState.unreachable,
+        _ => HostRunState.refused,
+      };
+      if (state != HostRunState.done && state != HostRunState.waiting) {
+        fix ??= said.isEmpty ? 'porelo-host ended with $code' : said;
+      }
       _changed();
-    });
-    final code = await process.exitCode;
-    await lines;
-    await words;
-    state = switch (code) {
-      Exit.done => HostRunState.done,
-      Exit.waiting when _currentStep?.step == 'lock' && _currentStep?.state == StepState.refused => HostRunState.busy,
-      Exit.waiting => HostRunState.waiting,
-      Exit.unreachable => HostRunState.unreachable,
-      _ => HostRunState.refused,
-    };
-    if (state != HostRunState.done && state != HostRunState.waiting) {
-      fix ??= said.isEmpty ? 'porelo-host ended with $code' : said;
+    } finally {
+      _process = null;
+      _starting = null;
+      _upCommand = false;
     }
-    _changed();
   }
 
   void _line(String line) {

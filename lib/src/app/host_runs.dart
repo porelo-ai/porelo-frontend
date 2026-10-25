@@ -73,9 +73,18 @@ class HostPreparation {
   bool givenBack = false;
 
   bool _upActive = false;
+  Future<void>? _probe;
+  Timer? _poll;
+  bool _lockFailed = false;
+
+  /// Why recovery must wait for a fresh lock check on restart.
+  String? get lockProblem => _lockFailed ? problem : null;
+
+  /// The pending lock check, completed before recovery can start a command.
+  Future<void> get checked => _probe ?? Future.value();
 
   /// Whether setup owns an active attempt, including persistence and machine confirmation.
-  bool get running => _upActive || session.state == HostRunState.running;
+  bool get running => _upActive || session.state == HostRunState.running || session.state == HostRunState.busy;
 
   /// A local refusal, such as an unusable completion destination.
   String? problem;
@@ -95,6 +104,7 @@ class HostRuns extends ChangeNotifier {
     String Function(String)? endpointFor,
     Future<bool> Function()? ping,
     Future<bool> Function()? probeLink,
+    this.environment,
   }) : _endpointFor = endpointFor ?? Machine.endpointFor,
        _ping = ping ?? pingHostVpn,
        _probeLink = probeLink ?? probeHostVpnLink {
@@ -106,10 +116,12 @@ class HostRuns extends ChangeNotifier {
         session: session,
         record: entry.value,
         settings: machines.settings,
-        interrupted: true,
+        interrupted: false,
       );
       _runs[entry.key] = run;
       session.addListener(_changed);
+      session.state = HostRunState.busy;
+      _check(run);
     }
   }
 
@@ -126,6 +138,77 @@ class HostRuns extends ChangeNotifier {
 
   /// Whether the last check found both the local link and an answering VPN address.
   bool vpnUp = false;
+
+  /// State directory overrides shared with an explicitly configured host command.
+  final Map<String, String>? environment;
+  bool _leaving = false;
+
+  void _check(HostPreparation run) {
+    final probe = _probe(run);
+    run._probe = probe;
+    unawaited(
+      probe.whenComplete(() {
+        if (identical(run._probe, probe)) run._probe = null;
+      }),
+    );
+  }
+
+  Future<void> _probe(HostPreparation run) async {
+    if (_disposed || _leaving || run._upActive || run.session.state == HostRunState.running) return;
+    try {
+      final file = File(poreloHostProjectLock(run.project, environment: environment));
+      await file.parent.create(recursive: true);
+      final handle = await openProjectLock(file);
+      var held = false;
+      try {
+        try {
+          await handle.lock(FileLock.exclusive);
+        } on FileSystemException catch (error) {
+          // Only contention proves another command is running; other failures need a refusal.
+          if (![11, 13, 32, 33].contains(error.osError?.errorCode)) rethrow;
+          held = true;
+        }
+      } finally {
+        // Closing any descriptor can release this process's fcntl lock, so close before any action.
+        await handle.close();
+      }
+      if (_disposed || _leaving || run.givenBack) return;
+      run.session.state = held ? HostRunState.busy : HostRunState.idle;
+      run.interrupted = !held;
+      run.problem = null;
+      run._lockFailed = false;
+      if (held) _poll(run);
+    } on Exception {
+      if (_disposed || _leaving) return;
+      run._lockFailed = true;
+      run.session.state = HostRunState.refused;
+      run.problem = 'The setup lock could not be checked. Close and reopen the interface to try again.';
+    }
+    _changed();
+  }
+
+  /// Opens the single probe descriptor; tests can delay its lock to exercise a concurrent resume.
+  @visibleForTesting
+  Future<RandomAccessFile> openProjectLock(File file) => file.open(mode: FileMode.append);
+
+  void _poll(HostPreparation run) {
+    run._poll?.cancel();
+    run._poll = Timer(const Duration(seconds: 1), () {
+      if (_disposed || _leaving || run.givenBack || run._upActive || run.session.state != HostRunState.busy) return;
+      _check(run);
+    });
+  }
+
+  /// Ends only setup attempts that have not finished renting; later work survives the window.
+  Future<void> leave() async {
+    _leaving = true;
+    try {
+      await Future.wait([for (final run in preparing) run.session.leave()]);
+    } on Exception {
+      _leaving = false;
+      rethrow;
+    }
+  }
 
   /// Existing hosts whose last unprivileged VPN probe failed.
   final Set<String> vpnDown = {};
@@ -191,9 +274,10 @@ class HostRuns extends ChangeNotifier {
     Settings? settings,
   }) {
     final previous = _runs[project];
-    if (previous != null && (previous.running || previous.waiting || previous.awaitingVpn)) {
+    if (_leaving || previous != null && (previous.running || previous.waiting || previous.awaitingVpn)) {
       throw StateError('This project already has a host run.');
     }
+    previous?._poll?.cancel();
     previous?.session.removeListener(_changed);
     previous?.session.dispose();
     final run = HostPreparation(
@@ -212,25 +296,44 @@ class HostRuns extends ChangeNotifier {
 
   /// Checks the stop again using exactly the arguments the original command ran with.
   Future<void> resume(HostPreparation run) {
-    if (_disposed || run.ready || run.givenBack || run.awaitingVpn || run.running) return run.finished;
+    if (_disposed ||
+        _leaving ||
+        run.ready ||
+        run.givenBack ||
+        run.awaitingVpn ||
+        run._upActive ||
+        run.session.state == HostRunState.running ||
+        run._lockFailed) {
+      return run.finished;
+    }
     return run.finished = _up(run);
   }
 
   Future<void> _up(HostPreparation run, {bool newPreparation = false}) async {
+    final probe = run._probe;
     run._upActive = true;
+    run._poll?.cancel();
     run.problem = null;
     _changed();
     try {
+      await probe;
+      if (_disposed || _leaving) return;
+      if (run.session.state == HostRunState.busy) {
+        _poll(run);
+        return;
+      }
+      if (run.problem != null) return;
       final settings = run.settings;
       if (settings != null) {
         final kept = newPreparation ? run.record : settings.hostUp(run.project) ?? run.record;
         await settings.rememberHostUp(run.project, kept.withPreparation(run.record.startedAt));
       }
-      if (_disposed) return;
+      if (_disposed || _leaving) return;
       run.interrupted = false;
       await run.session.up();
       if (_disposed) return;
       if (run.session.state == HostRunState.done) await _addHost(run);
+      if (run.session.state == HostRunState.busy) _poll(run);
     } on Exception {
       if (!_disposed) {
         run.session.state = HostRunState.refused;
@@ -321,6 +424,7 @@ class HostRuns extends ChangeNotifier {
     if (kept != null) await machines.settings.rememberHostUp(project, kept.withPreparation(null));
     final run = _runs[project];
     if (run != null) {
+      run._poll?.cancel();
       run.givenBack = true;
       run.interrupted = false;
     }
@@ -335,6 +439,7 @@ class HostRuns extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     for (final run in _runs.values) {
+      run._poll?.cancel();
       run.session.removeListener(_changed);
       run.session.dispose();
     }
@@ -348,11 +453,17 @@ class HostStop {
   /// Captures a run's stop and its source text without deriving new step words.
   HostStop(HostPreparation run)
     : project = run.project,
-      text = run.session.stepText,
+      interrupted = run.interrupted,
+      text = run.interrupted
+          ? 'Setup of ${run.name} was interrupted — the server is rented and billed'
+          : run.session.stepText,
       needs = List.unmodifiable(run.session.needs);
 
   /// Project to find when the stop's action is opened.
   final String project;
+
+  /// Whether this row offers recovery rather than a terminal for a host stop.
+  final bool interrupted;
 
   /// Words sent on the stop line, or its task name if none were sent.
   final String text;

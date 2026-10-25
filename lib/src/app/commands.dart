@@ -1334,19 +1334,32 @@ Command hostPreparationCommand({
 Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
     Command(id: 'host.protocol', label: 'Open the host protocol', group: '$project server', home: home, run: open);
 
+/// Continues an interrupted setup from the row that names its billing server.
+Command continueHostPreparationCommand({required String project, required VoidCallback goOn, bool resolved = false}) =>
+    Command(
+      id: 'host.goOn',
+      label: 'Go on',
+      group: '$project server',
+      home: Home.attentionRow,
+      run: goOn,
+      unavailable: resolved ? 'this row is resolved' : null,
+    );
+
 /// Continues or gives back a retained server only after its previous command ended.
 List<Command> hostRecoveryCommands({
   required HostPreparation run,
   required VoidCallback goOn,
   required VoidCallback takeDown,
 }) {
-  final unavailable = run.running
-      ? 'the host command is still running'
-      : run.ready || run.givenBack
-      ? 'preparation has ended'
-      : run.awaitingVpn
-      ? 'setup waits for the VPN on this computer'
-      : null;
+  final unavailable =
+      run.lockProblem ??
+      (run.running
+          ? 'the host command is still running'
+          : run.ready || run.givenBack
+          ? 'preparation has ended'
+          : run.awaitingVpn
+          ? 'setup waits for the VPN on this computer'
+          : null);
   return [
     Command(
       id: 'host.goOn',

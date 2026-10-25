@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
@@ -102,10 +104,16 @@ void main() {
       final reopened = Settings(store);
       await reopened.load();
       final restoredMachines = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-      final restored = HostRuns(restoredMachines);
+      final state = await Directory.systemTemp.createTemp('host-record-');
+      final restored = HostRuns(
+        restoredMachines,
+        environment: {'XDG_STATE_HOME': state.path, 'LOCALAPPDATA': state.path},
+      );
+      await Future.wait([for (final run in restored.preparing) run.checked]);
       expect(restored.preparing.map((run) => run.project), code == 0 ? isEmpty : ['demo']);
       expect(machines.all.where((machine) => machine.kind == 'host'), code == 0 ? hasLength(1) : isEmpty);
       restored.dispose();
+      await state.delete(recursive: true);
       restoredMachines.dispose();
       reopened.dispose();
     });
