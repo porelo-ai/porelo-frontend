@@ -58,6 +58,22 @@ for interface in $interfaces; do
 done
 # WireGuard records whole seconds; the first handshake must be later than the start.
 sleep 1 || fail 'The VPN handshake check could not start.'
+# NetworkManager must leave this link alone before WireGuard replaces it.
+nm_directory=/etc/NetworkManager/conf.d
+nm_rule='[keyfile]
+unmanaged-devices=interface-name:porelo'
+if [ -d "$nm_directory" ] && ! printf '%s\n' "$nm_rule" | cmp -s "$nm_directory/porelo.conf" -; then
+  nm_temporary=$(mktemp "$nm_directory/.porelo.conf.XXXXXX") || fail 'The NetworkManager configuration could not be staged.'
+  trap 'rm -f -- "$nm_temporary"' 0
+  trap 'exit 1' HUP INT TERM
+  printf '%s\n' "$nm_rule" > "$nm_temporary" || fail 'The NetworkManager configuration could not be written.'
+  chmod 0644 "$nm_temporary" || fail 'The NetworkManager configuration could not be protected.'
+  mv -f -- "$nm_temporary" "$nm_directory/porelo.conf" || fail 'The NetworkManager configuration could not be installed.'
+  trap - 0 HUP INT TERM
+  if nmcli=$(command -v nmcli); then
+    "$nmcli" general reload conf >/dev/null 2>&1 || true
+  fi
+fi
 # A running tunnel does not handshake again within its rekey window and keeps its old configuration.
 if [ "$up" = yes ]; then
   wg-quick down porelo >/dev/null 2>&1 || fail 'The VPN to this server could not be taken down to renew it.'
@@ -166,7 +182,7 @@ Future<void> checkHostVpnRootTools({
   List<String> directories = const ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
 }) async {
   const refused = HostFilesRefused(
-    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, and awk in protected system directories.',
+    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, and optional nmcli in protected system directories.',
   );
   try {
     await _checkRootTools(directories, refused);
@@ -186,19 +202,39 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
     }
   }
 
-  Future<File> lookUp(String name) async {
+  Future<File?> lookUp(String name) async {
     for (final directory in directories) {
       final binary = File(path.join(directory, name));
       if (await FileSystemEntity.type(binary.path) != FileSystemEntityType.notFound) return binary;
     }
-    throw refused;
+    return null;
   }
 
   for (final directory in directories) {
     includePath(await Directory(directory).resolveSymbolicLinks());
   }
-  for (final name in ['sudo', 'sh', 'wg', 'wg-quick', 'ping', 'install', 'date', 'sleep', 'awk']) {
+  for (final name in [
+    'sudo',
+    'sh',
+    'wg',
+    'wg-quick',
+    'ping',
+    'install',
+    'date',
+    'sleep',
+    'awk',
+    'cmp',
+    'mktemp',
+    'chmod',
+    'mv',
+    'rm',
+    'nmcli',
+  ]) {
     final binary = await lookUp(name);
+    if (binary == null) {
+      if (name == 'nmcli') continue;
+      throw refused;
+    }
     final resolved = await binary.resolveSymbolicLinks();
     if (await FileSystemEntity.type(resolved) != FileSystemEntityType.file ||
         ((await binary.stat()).mode & 0x40) == 0) {
