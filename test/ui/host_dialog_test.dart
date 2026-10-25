@@ -11,10 +11,12 @@ import 'package:path/path.dart' as path;
 import 'package:crypto/crypto.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
+import 'package:porelo_frontend/src/app/host_protocol.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
@@ -22,6 +24,7 @@ import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
 
 import '../features/support/world.dart';
+import '../support/host_process.dart';
 import '../../packages/porelo_host/test/support/pinned_ssh.dart';
 
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -1377,6 +1380,184 @@ void main() {
     // No folder was chosen, so the host files were supplied by hand and there is no VPN to wait for.
     expect(machines.all.where((machine) => machine.kind == 'host').single.name, 'demo server');
     expect(runs.of('demo')!.ready, isTrue);
+  });
+
+  // Harm: losing unexpected host diagnostics hides failures when retrying or sharing a setup protocol.
+  hostWidgets('unexpected diagnostics remain readable and copyable across attempts and restart', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final first = HostProcess();
+    final second = HostProcess();
+    final processes = [first, second].iterator;
+    var now = DateTime.utc(2000);
+    final session = HostSession(
+      executable: 'fake',
+      arguments: const [],
+      now: () => now,
+      start: (_, _) async {
+        processes.moveNext();
+        return processes.current;
+      },
+    );
+    final run = runs.start(
+      project: 'demo',
+      session: session,
+      record: const HostUpRecord(
+        scalewayProject: 'provider',
+        account: 'worker',
+        tresor: 'drive',
+        folder: null,
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(project: 'demo', machines: machines, hostRuns: runs, existingRun: run),
+        ),
+      ),
+    );
+    first.line(const host.Step('check', host.StepState.done, text: 'Check the project'));
+    await World.settle(tester);
+    first.words('Unexpected public setup diagnostic');
+    await World.settle(tester);
+    first.line(const host.Step('rent', host.StepState.refused, text: 'Rent the server', fix: 'No server available'));
+    now = now.add(const Duration(minutes: 1));
+    first.end(65);
+    await World.settle(tester);
+    await run.finished;
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('host-protocol-list')),
+        matching: find.text('Unexpected public setup diagnostic'),
+      ),
+      findsOneWidget,
+      reason: 'an unexpected diagnostic must be readable without opening another protocol',
+    );
+    final resumed = runs.resume(run);
+    second.line(const host.Step('check', host.StepState.done, text: 'Check the project again'));
+    await World.settle(tester);
+    second.words('Another public setup diagnostic');
+    await World.settle(tester);
+    second.line(const host.Step('rent', host.StepState.refused, text: 'Retry renting', fix: 'Still no server'));
+    now = now.add(const Duration(minutes: 1));
+    second.end(65);
+    await World.settle(tester);
+    await resumed;
+    await tester.tap(find.byType(ExpansionTile));
+    await World.settle(tester);
+    for (final message in ['Unexpected public setup diagnostic', 'Another public setup diagnostic']) {
+      expect(find.text(message), findsOneWidget, reason: 'each attempt must retain its unexpected failure message');
+    }
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.tap(find.byKey(const Key('host-copy-protocol')));
+    await World.settle(tester);
+    final publicLines = [
+      'Check the project',
+      'Unexpected public setup diagnostic',
+      'Rent the server',
+      'Check the project again',
+      'Another public setup diagnostic',
+      'Retry renting',
+    ];
+    var previous = -1;
+    for (final line in publicLines) {
+      final index = copied?.indexOf(line) ?? -1;
+      expect(index, greaterThan(previous), reason: 'copy must include the diagnostics with their original attempts');
+      previous = index;
+    }
+    final stored = jsonDecode(jsonEncode([for (final entry in session.keptProtocol) entry.stored]));
+    final restored = HostSession(executable: 'fake', arguments: const [])
+      ..restoreProtocol(HostProtocolEntry.readMany(stored)!);
+    addTearDown(restored.dispose);
+    expect(restored.protocolText, copied, reason: 'restarting must retain all public diagnostic evidence for copying');
+    expect(restored.attempts, hasLength(2), reason: 'restarting must not merge separate failed commands');
+    expect(restored.steps.map((step) => step.text), [
+      'Check the project again',
+      'Retry renting',
+    ], reason: 'old steps must never satisfy the current command completion checks');
+  });
+
+  // Harm: copying raw wire fields or setup inputs can disclose credentials to the clipboard.
+  hostWidgets('copying the protocol exports only public presentation fields', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    final run = runs.start(
+      project: 'demo',
+      session: session,
+      record: const HostUpRecord(
+        scalewayProject: 'provider',
+        account: 'worker',
+        tresor: 'drive',
+        folder: null,
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+      ),
+    );
+    final nonpublic = String.fromCharCodes(List.generate(24, (index) => 65 + index % 26));
+    process.raw(
+      jsonEncode({
+        'step': 'check',
+        'state': 'refused',
+        'text': 'Check the project',
+        'fix': 'Public refusal',
+        'password': nonpublic,
+        'credentials': {'token': nonpublic},
+      }),
+    );
+    process.words('check refused — Public refusal');
+    process.end(65);
+    await World.settle(tester);
+    await run.finished;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(project: 'demo', machines: machines, hostRuns: runs, existingRun: run),
+        ),
+      ),
+    );
+    final copies = <Map<Object?, Object?>>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copies.add(Map<Object?, Object?>.from(call.arguments as Map));
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.tap(find.byKey(const Key('host-copy-protocol')));
+    await World.settle(tester);
+    expect(copies, hasLength(1), reason: 'one action must write the whole public protocol once');
+    expect(copies.single.keys, ['text'], reason: 'the clipboard payload must contain only public text');
+    final text = copies.single['text']! as String;
+    expect(text.contains(nonpublic), isFalse, reason: 'unrecognized credential fields must never reach the clipboard');
+    expect(text.contains('/keys/private'), isFalse, reason: 'copy must not export setup arguments');
+    expect(text.contains('Check the project'), isTrue, reason: 'the safe export must still contain the actual step');
+    expect(
+      text.contains('Public refusal'),
+      isTrue,
+      reason: 'the safe export must retain the public failure explanation',
+    );
+    expect(
+      text.contains('check refused — Public refusal'),
+      isFalse,
+      reason: 'stderr echoes must not become duplicate diagnostics',
+    );
   });
 
   // Harm: a finished setup's protocol closes itself on the next change, so what the setup reported cannot be read.

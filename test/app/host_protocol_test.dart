@@ -216,7 +216,7 @@ void main() {
     final stored = await store.read();
     final persisted = jsonEncode(stored);
     final diskEntry = switch (stored) {
-      {'hostUps': {'demo': {'protocol': [final Map<String, Object?> entry]}}} => entry,
+      {'hostUps': {'demo': {'protocol': [_, final Map<String, Object?> entry]}}} => entry,
       _ => fail('The file must contain exactly the recorded public step.'),
     };
     expect(
@@ -227,7 +227,7 @@ void main() {
     final readBack = Settings(store);
     addTearDown(readBack.dispose);
     await readBack.load();
-    final entry = readBack.hostUp('demo')!.protocol.single;
+    final entry = readBack.hostUp('demo')!.protocol.whereType<HostProtocolStep>().single;
     expect(diskEntry.keys.toSet(), {
       'kind',
       'name',
@@ -355,6 +355,12 @@ void main() {
       ],
       [
         {'kind': 'interruption', 'at': false},
+      ],
+      [
+        {'kind': 'attempt', 'startedAt': false},
+      ],
+      [
+        {'kind': 'attempt', 'startedAt': DateTime.utc(2000).toIso8601String(), 'endedAt': false},
       ],
     ]) {
       expect(HostProtocolEntry.readMany(invalid), isNull, reason: 'an invalid entry must not crash startup');

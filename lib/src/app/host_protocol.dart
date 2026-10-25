@@ -14,6 +14,11 @@ sealed class HostProtocolEntry {
     for (final item in value) {
       if (item is! Map) return null;
       switch (item['kind']) {
+        case 'attempt':
+          final startedAt = _instant(item['startedAt']);
+          final endedAt = _instant(item['endedAt']);
+          if (startedAt == null || item['endedAt'] != null && endedAt == null) return null;
+          entries.add(HostProtocolAttempt(startedAt, endedAt: endedAt));
         case 'line':
           final text = item['text'];
           if (text is! String) return null;
@@ -71,6 +76,25 @@ sealed class HostProtocolEntry {
     final instant = DateTime.tryParse(value);
     return instant != null && instant.isUtc && instant.toIso8601String() == value ? instant : null;
   }
+}
+
+/// The recorded bounds of an attempt, including attempts that emitted no steps.
+class HostProtocolAttempt extends HostProtocolEntry {
+  /// Keeps attempt timing independently of the host's optional step timestamps.
+  const HostProtocolAttempt(this.startedAt, {this.endedAt});
+
+  /// The instant the command was started.
+  final DateTime startedAt;
+
+  /// The instant the command ended or was confirmed interrupted.
+  final DateTime? endedAt;
+
+  @override
+  Map<String, Object?> get stored => {
+    'kind': 'attempt',
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    if (endedAt != null) 'endedAt': endedAt!.toUtc().toIso8601String(),
+  };
 }
 
 /// One step's recorded words and timing, including which attempt it belongs to.

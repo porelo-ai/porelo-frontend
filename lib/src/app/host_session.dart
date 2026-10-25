@@ -102,10 +102,40 @@ class HostStepRecord {
 }
 
 class _ProtocolWords {
-  _ProtocolWords(this.line, this.echoes);
+  _ProtocolWords(this.line, this.echoes) : public = HostProtocolLine(line);
   final String line;
   final Set<String> echoes;
+  final HostProtocolLine public;
   bool get unmatched => !echoes.contains(line);
+}
+
+/// One command attempt's timing and ordered public entries.
+class HostAttemptRecord {
+  HostAttemptRecord._(this.startedAt, [this._endedAt]);
+
+  /// The instant the command started, or the first recorded event for older settings.
+  final DateTime startedAt;
+  DateTime? _endedAt;
+  final List<Object> _entries = [];
+
+  /// The instant the command ended or was confirmed interrupted.
+  DateTime? get endedAt => _endedAt;
+
+  /// The steps, unmatched diagnostics, and interruptions in arrival order.
+  List<Object> get entries => List.unmodifiable([
+    for (final entry in _entries)
+      if (entry is _ProtocolWords) ...[if (entry.unmatched) entry.public] else entry,
+  ]);
+
+  /// The local bounds shown when this attempt is collapsed.
+  String get earlierLabel {
+    String time(DateTime instant) {
+      final local = instant.toLocal();
+      return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    }
+
+    return 'Earlier attempt, ${time(startedAt)}–${time(endedAt ?? startedAt)}';
+  }
 }
 
 String _duration(int seconds) => seconds < 60 ? '$seconds s' : '${(seconds / 60).ceil()} min';
@@ -159,9 +189,13 @@ class HostSession extends ChangeNotifier {
 
   Step? _currentStep;
   final Map<String, HostStepRecord> _history = {};
-  final List<Object> _protocol = [];
+  final List<HostAttemptRecord> _attempts = [];
+  Iterable<Object> get _protocol => _attempts.expand((attempt) => attempt._entries);
   Set<String> _echoes = {};
   List<_ProtocolWords> _words = [];
+
+  /// The attempts in command order, with the latest last.
+  List<HostAttemptRecord> get attempts => List.unmodifiable(_attempts);
 
   /// One line per step and unmatched stderr line, including earlier attempts.
   List<String> get protocol => [
@@ -176,40 +210,80 @@ class HostSession extends ChangeNotifier {
         interruptionLine(entry),
   ];
 
+  /// The whole public protocol for sharing, including collapsed attempts.
+  String get protocolText => [
+    for (final attempt in _attempts)
+      [
+        identical(attempt, _attempts.last) ? 'Current attempt' : attempt.earlierLabel,
+        for (final entry in attempt.entries)
+          if (entry is HostStepRecord)
+            stepLine(entry)
+          else if (entry is HostProtocolLine)
+            entry.text
+          else if (entry is HostProtocolInterruption)
+            interruptionLine(entry),
+      ].join('\n'),
+  ].join('\n\n');
+
   /// The public steps and unmatched diagnostics, frozen before an asynchronous settings write.
   List<HostProtocolEntry> get keptProtocol => List.unmodifiable([
-    for (final entry in _protocol)
-      if (entry is HostStepRecord)
-        HostProtocolStep(
-          name: entry.step.step,
-          state: entry.step.state,
-          text: entry.text,
-          words: entry.step.words,
-          fix: entry.step.fix,
-          seconds: entry.seconds,
-          startedAt: entry.startedAt,
-          endedAt: entry.endedAt,
-          current: identical(_history[entry.step.step], entry),
-        )
-      else if (entry is _ProtocolWords && entry.unmatched)
-        HostProtocolLine(entry.line)
-      else if (entry is HostProtocolEntry)
-        entry,
+    for (final attempt in _attempts) ...[
+      HostProtocolAttempt(attempt.startedAt, endedAt: attempt.endedAt),
+      for (final entry in attempt._entries)
+        if (entry is HostStepRecord)
+          HostProtocolStep(
+            name: entry.step.step,
+            state: entry.step.state,
+            text: entry.text,
+            words: entry.step.words,
+            fix: entry.step.fix,
+            seconds: entry.seconds,
+            startedAt: entry.startedAt,
+            endedAt: entry.endedAt,
+            current: identical(_history[entry.step.step], entry),
+          )
+        else if (entry is _ProtocolWords && entry.unmatched)
+          HostProtocolLine(entry.line)
+        else if (entry is HostProtocolEntry)
+          entry,
+    ],
   ]);
 
   /// Restores recorded presentation without treating past events as a running command or a destination.
   void restoreProtocol(List<HostProtocolEntry> entries) {
+    var explicitAttempts = false;
+    bool? legacyCurrent;
     for (final entry in entries) {
+      if (entry is HostProtocolAttempt) {
+        explicitAttempts = true;
+        _attempts.add(HostAttemptRecord._(entry.startedAt, entry.endedAt));
+        continue;
+      }
+      if (!explicitAttempts && entry is HostProtocolStep) {
+        final previous = _attempts.lastOrNull;
+        // Older settings have no boundaries; repeated steps and current flags identify known retries.
+        if (previous == null ||
+            legacyCurrent != null && legacyCurrent != entry.current ||
+            previous._entries.whereType<HostStepRecord>().any((record) => record.step.step == entry.name)) {
+          _attempts.add(HostAttemptRecord._(entry.startedAt));
+        }
+        legacyCurrent = entry.current;
+        _attempts.last._endedAt = entry.endedAt ?? entry.startedAt;
+      }
+      if (_attempts.isEmpty) {
+        final at = entry is HostProtocolInterruption ? entry.at : _now();
+        _attempts.add(HostAttemptRecord._(at));
+      }
       if (entry is HostProtocolStep) {
         final step = Step(entry.name, entry.state, text: entry.text, words: entry.words, fix: entry.fix);
         final record = HostStepRecord._(step, entry.startedAt, entry.text, entry.seconds).._endedAt = entry.endedAt;
-        _protocol.add(record);
+        _attempts.last._entries.add(record);
         if (entry.current) {
           _history[entry.name] = record;
           _currentStep = step;
         }
       } else {
-        _protocol.add(entry);
+        _attempts.last._entries.add(entry);
       }
     }
   }
@@ -217,7 +291,10 @@ class HostSession extends ChangeNotifier {
   /// Records a confirmed interruption once, preserving its first observed instant across restarts.
   void interrupt() {
     if (_protocol.lastOrNull is HostProtocolInterruption) return;
-    _protocol.add(HostProtocolInterruption(_now().toUtc()));
+    final at = _now().toUtc();
+    if (_attempts.isEmpty) _attempts.add(HostAttemptRecord._(at));
+    _attempts.last._endedAt ??= at;
+    _attempts.last._entries.add(HostProtocolInterruption(at));
     _changed();
   }
 
@@ -367,6 +444,8 @@ class HostSession extends ChangeNotifier {
 
   Future<void> _run(List<String> command) async {
     if (state == HostRunState.running) return;
+    final attempt = HostAttemptRecord._(_now());
+    _attempts.add(attempt);
     plan = const [];
     _currentStep = null;
     _history.clear();
@@ -389,7 +468,7 @@ class HostSession extends ChangeNotifier {
       final words = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
         final words = _ProtocolWords(line, _echoes);
         _words.add(words);
-        _protocol.add(words);
+        attempt._entries.add(words);
         _changed();
       });
       final code = await process.exitCode;
@@ -405,8 +484,13 @@ class HostSession extends ChangeNotifier {
       if (state != HostRunState.done && state != HostRunState.waiting) {
         fix ??= said.isEmpty ? 'porelo-host ended with $code' : said;
       }
+      attempt._endedAt = _now();
       _changed();
     } finally {
+      if (attempt._endedAt == null) {
+        attempt._endedAt = _now();
+        _changed();
+      }
       _process = null;
       _starting = null;
       _upCommand = false;
@@ -432,7 +516,7 @@ class HostSession extends ChangeNotifier {
         step.text ?? planned?.text ?? step.step,
         step.seconds ?? planned?.seconds,
       );
-      _protocol.add(record);
+      _attempts.last._entries.add(record);
       return record;
     });
     record._step = step;

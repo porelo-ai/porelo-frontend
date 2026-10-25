@@ -139,9 +139,11 @@ void main() {
       expect(machines.all.where((machine) => machine.kind == 'host'), isEmpty);
       await tester.tap(find.text('demo server').first);
       await World.settle(tester);
-      await tester.tap(find.byKey(const Key('host-full-protocol')));
-      await World.settle(tester);
-      expect(find.textContaining('The provider accepted the request.'), findsWidgets);
+      expect(
+        find.textContaining('The provider accepted the request.'),
+        findsWidgets,
+        reason: 'the unexpected host message must remain readable from the running preparation',
+      );
       await tester.tap(find.byKey(const Key('host-close')));
       await World.settle(tester);
       expect(row, findsOneWidget);

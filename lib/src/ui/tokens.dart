@@ -347,6 +347,12 @@ abstract final class Sizes {
 
   /// The terminal pane of the terminal diagnosis: a dozen rows to type into, the log below it.
   static const diagnosisTerminal = 220.0;
+
+  /// A stable reading area keeps host setup actions still as its protocol grows.
+  static const hostProtocolHeight = 400.0;
+
+  /// A reader this close to the protocol's end follows incoming entries.
+  static const hostProtocolEndThreshold = Space.small;
 }
 
 /// Corner radii.

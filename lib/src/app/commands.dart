@@ -1351,6 +1351,15 @@ Command hostPreparationCommand({
 Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
     Command(id: 'host.protocol', label: 'Open the host protocol', group: '$project server', home: home, run: open);
 
+/// Copies the public protocol without reopening setup inputs or a terminal.
+Command copyHostProtocolCommand({required String project, required VoidCallback copy}) => Command(
+  id: 'host.copyProtocol',
+  label: 'Copy the protocol',
+  group: '$project server',
+  home: Home.openedView,
+  run: copy,
+);
+
 /// Continues an interrupted setup from the row that names its billing server.
 Command continueHostPreparationCommand({required String project, required VoidCallback goOn, bool resolved = false}) =>
     Command(

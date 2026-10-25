@@ -38,6 +38,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Server setup shows one protocol with earlier attempts grouped below it, copies its public text
+  in one click, and keeps the view and buttons still while you read earlier entries.
 - Server actions appear in a spaced tile grid with distinct icons; Take this server down stands
   alone at the bottom as a red button.
 - Projects, Forges, Machines, and Needs you use compact rows with separate buttons for the main

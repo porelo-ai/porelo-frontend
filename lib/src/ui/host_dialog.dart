@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Step, StepState;
+import 'package:flutter/services.dart';
 import 'package:porelo_host/porelo_host.dart';
 import 'package:path/path.dart' as path;
 
@@ -12,6 +13,7 @@ import '../app/fleet_backend.dart';
 import '../client/models.dart';
 import '../app/commands.dart';
 import '../app/host_session.dart';
+import '../app/host_protocol.dart';
 import '../app/host_runs.dart';
 import '../app/host_vpn.dart';
 import '../app/machines.dart';
@@ -189,6 +191,11 @@ class _HostDialogState extends State<HostDialog> {
   final _keyName = TextEditingController();
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
+  final _protocolScroll = ScrollController();
+  final _protocolViewport = GlobalKey();
+  final _protocolKeys = Expando<GlobalKey>();
+  List<GlobalKey> _protocolRows = [];
+  bool _protocolUpdateScheduled = false;
   String? _folder;
   String? _keyProblem;
   bool _checkingKey = false;
@@ -318,11 +325,13 @@ class _HostDialogState extends State<HostDialog> {
     // A confirmed leave must not dispose a notifier while its process is still answering.
     if (!_sessionActive && !_transferred) _session?.dispose();
     _scroll.dispose();
+    _protocolScroll.dispose();
     super.dispose();
   }
 
   void _sessionChanged() {
     if (!mounted) return;
+    _keepProtocolPosition();
     if (_givenBack && widget.hostRuns?.vpnLinkUp == false) {
       _vpnDownConfirmed = true;
       _vpnProblem = null;
@@ -334,6 +343,49 @@ class _HostDialogState extends State<HostDialog> {
       });
     }
     setState(() {});
+  }
+
+  void _keepProtocolPosition() {
+    if (_protocolUpdateScheduled || !_protocolScroll.hasClients) return;
+    final position = _protocolScroll.position;
+    final before = position.pixels;
+    final follow = before >= position.maxScrollExtent - Sizes.hostProtocolEndThreshold;
+    GlobalKey? anchor;
+    double? anchorTop;
+    if (!follow) {
+      final viewport = _protocolViewport.currentContext?.findRenderObject();
+      if (viewport is RenderBox && viewport.hasSize) {
+        final top = viewport.localToGlobal(Offset.zero).dy;
+        for (final key in _protocolRows) {
+          final box = key.currentContext?.findRenderObject();
+          if (box is! RenderBox || !box.hasSize) continue;
+          final y = box.localToGlobal(Offset.zero).dy;
+          if (y + box.size.height > top && y < top + viewport.size.height) {
+            anchor = key;
+            anchorTop = y;
+            break;
+          }
+        }
+      }
+    }
+    _protocolUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _protocolUpdateScheduled = false;
+      if (!mounted || !_protocolScroll.hasClients) return;
+      // A reader who scrolled after the update keeps control of the view.
+      final position = _protocolScroll.position;
+      if ((position.pixels - before).abs() > Sizes.hostProtocolEndThreshold) return;
+      if (follow) {
+        _protocolScroll.jumpTo(position.maxScrollExtent);
+      } else {
+        // Growing current steps can insert content above an earlier attempt being read.
+        final box = anchor?.currentContext?.findRenderObject();
+        if (box is RenderBox && box.hasSize && anchorTop != null) {
+          final delta = box.localToGlobal(Offset.zero).dy - anchorTop;
+          _protocolScroll.jumpTo((position.pixels + delta).clamp(position.minScrollExtent, position.maxScrollExtent));
+        }
+      }
+    });
   }
 
   void _expandPaths() {
@@ -919,29 +971,35 @@ class _HostDialogState extends State<HostDialog> {
               state: () => _actionState,
             ),
           ],
-          actions: (_, run) => OutlinedButton(
-            key: const Key('host-down'),
-            onPressed: _running || !_complete
-                ? null
-                : () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => _takeDownDialog(context, confirmationOnly: true),
-                    );
-                    if (confirmed == true && mounted) await run(_down);
-                  },
-            child: Text(_takingDown ? 'Try taking it down again' : 'Take this server down'),
+          actions: (_, run) => Wrap(
+            spacing: Space.small,
+            children: [
+              if (_session != null) _copyProtocolButton(),
+              if (_session?.state == HostRunState.waiting && !_takingDown) _askForTheStop(),
+              OutlinedButton(
+                key: const Key('host-down'),
+                onPressed: _running || !_complete
+                    ? null
+                    : () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => _takeDownDialog(context, confirmationOnly: true),
+                        );
+                        if (confirmed == true && mounted) await run(_down);
+                      },
+                child: Text(_takingDown ? 'Try taking it down again' : 'Take this server down'),
+              ),
+            ],
           ),
         );
 
   Widget _runDialog(BuildContext context) => AlertDialog(
     key: const Key('host-protocol'),
     title: Text('${widget.project} server'),
-    content: SizedBox(
-      width: Sizes.dialogMedium,
-      child: DialogScroll(child: _progress(context)),
-    ),
+    content: SizedBox(width: Sizes.dialogMedium, child: _progress(context)),
     actions: [
+      if (_session != null) _copyProtocolButton(),
+      if (_session?.state == HostRunState.waiting) _askForTheStop(),
       TextButton(key: const Key('host-close'), onPressed: () => Navigator.pop(context), child: const Text('Close')),
       if (_hostRun case final run? when run.awaitingVpn)
         Builder(
@@ -1015,6 +1073,7 @@ class _HostDialogState extends State<HostDialog> {
           ),
         ),
         actions: [
+          if (started) _copyProtocolButton(),
           TextButton(
             key: const Key('host-close'),
             onPressed: _running ? null : () => Navigator.pop(context),
@@ -1054,63 +1113,108 @@ class _HostDialogState extends State<HostDialog> {
     final session = _session;
     if (session?.state == HostRunState.running) {
       _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
+        if (mounted) {
+          _keepProtocolPosition();
+          setState(() {});
+        }
       });
     } else {
       _ticker?.cancel();
       _ticker = null;
     }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        if (session != null) ...<Widget>[
-          for (final record in session.history) _stepRow(record),
-          if (_hostRun?.interrupted == true && _hostRun?.givenBack != true) ...[
-            if (session.interruptionText case final text?) Text(text),
-            const Text('Nothing runs now. Go on continues from where it stopped.'),
-          ],
-          if (session.state == HostRunState.running)
-            if (session.timeLeftText case final text?) Text(text),
-          if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),
-          if (session.state == HostRunState.waiting)
-            if (_takingDown)
-              const Text('The host has not completed teardown. Your machines have been kept.')
-            else
-              _askForTheStop(),
-          if (session.said.isNotEmpty && session.said != session.fix) Text(session.said),
-          if (session.fix != null && !session.history.any((record) => record.step.fix == session.fix))
-            Padding(
-              padding: const EdgeInsets.only(top: Space.small),
-              child: Text(
-                session.fix!,
-                key: const Key('host-fix'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          if (session.state == HostRunState.done &&
-              (_takingDown ? _vpnDownConfirmed : _hostRun == null || _hostRun!.ready))
-            Padding(
-              padding: const EdgeInsets.only(top: Space.small),
-              child: Text(
-                !_takingDown && _hostRun?.ready == true
-                    ? 'Ready: ${widget.project} server is in your machines'
-                    : 'Done.',
-                key: const Key('host-done'),
-              ),
-            ),
+    final attempts = session?.attempts ?? const <HostAttemptRecord>[];
+    _protocolRows = [];
+    Widget anchored(Object identity, Widget child) {
+      final key = _protocolKeys[identity] ??= GlobalKey();
+      _protocolRows.add(key);
+      return KeyedSubtree(key: key, child: child);
+    }
+
+    final rows = <Widget>[
+      if (session != null) ...<Widget>[
+        if (attempts.isNotEmpty)
+          for (final entry in attempts.last.entries) anchored(entry, _protocolRow(entry)),
+        if (_hostRun?.interrupted == true && _hostRun?.givenBack != true) ...[
+          const Text('Nothing runs now. Go on continues from where it stopped.'),
         ],
-        if (!_takingDown)
-          if (_hostRun?.problem case final problem?) Text(problem),
-        if (_machineProblem != null) Text(_machineProblem!),
-        if (_vpnProblem != null) Text(_vpnProblem!),
-        if (session != null)
-          ExpansionTile(
-            key: const Key('host-full-protocol'),
-            title: const Text('Full protocol'),
-            children: [SelectableText(session.protocol.join('\n'))],
+        if (session.state == HostRunState.running)
+          if (session.timeLeftText case final text?) Text(text),
+        if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),
+        if (session.state == HostRunState.waiting && _takingDown)
+          const Text('The host has not completed teardown. Your machines have been kept.'),
+        if (session.fix != null &&
+            session.fix != session.said &&
+            !session.history.any((record) => record.step.fix == session.fix))
+          Padding(
+            padding: const EdgeInsets.only(top: Space.small),
+            child: Text(
+              session.fix!,
+              key: const Key('host-fix'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        if (session.state == HostRunState.done &&
+            (_takingDown ? _vpnDownConfirmed : _hostRun == null || _hostRun!.ready))
+          Padding(
+            padding: const EdgeInsets.only(top: Space.small),
+            child: Text(
+              !_takingDown && _hostRun?.ready == true ? 'Ready: ${widget.project} server is in your machines' : 'Done.',
+              key: const Key('host-done'),
+            ),
           ),
       ],
+      if (!_takingDown)
+        if (_hostRun?.problem case final problem?) Text(problem),
+      if (_machineProblem != null) Text(_machineProblem!),
+      if (_vpnProblem != null) Text(_vpnProblem!),
+      for (final attempt in attempts.take(attempts.length - (attempts.isEmpty ? 0 : 1)))
+        anchored(
+          attempt,
+          ExpansionTile(
+            key: PageStorageKey(attempt),
+            title: Text(attempt.earlierLabel),
+            children: [for (final entry in attempt.entries) _protocolRow(entry, current: false)],
+          ),
+        ),
+    ];
+    return SizedBox(
+      key: _protocolViewport,
+      height: Sizes.hostProtocolHeight,
+      child: Scrollbar(
+        controller: _protocolScroll,
+        thumbVisibility: true,
+        child: ListView.builder(
+          key: const Key('host-protocol-list'),
+          controller: _protocolScroll,
+          padding: const EdgeInsets.only(right: Space.normal),
+          itemCount: rows.length,
+          findChildIndexCallback: (key) {
+            final index = rows.indexWhere((row) => row.key == key);
+            return index < 0 ? null : index;
+          },
+          itemBuilder: (_, index) => rows[index],
+        ),
+      ),
+    );
+  }
+
+  Widget _protocolRow(Object entry, {bool current = true}) => switch (entry) {
+    final HostStepRecord record => _stepRow(record, current: current),
+    final HostProtocolLine line => Text(line.text),
+    final HostProtocolInterruption interruption => Text(_session!.interruptionLine(interruption)),
+    _ => throw StateError('Unsupported public protocol entry.'),
+  };
+
+  Widget _copyProtocolButton() {
+    final command = copyHostProtocolCommand(
+      project: widget.project,
+      copy: () => unawaited(Clipboard.setData(ClipboardData(text: _session!.protocolText))),
+    );
+    return TextButton.icon(
+      key: const Key('host-copy-protocol'),
+      onPressed: command.run,
+      icon: const Icon(Icons.copy_outlined),
+      label: Text(command.label),
     );
   }
 
@@ -1137,7 +1241,7 @@ class _HostDialogState extends State<HostDialog> {
     ),
   );
 
-  Widget _stepRow(HostStepRecord record) => Row(
+  Widget _stepRow(HostStepRecord record, {bool current = true}) => Row(
     key: Key('host-step-${record.step.step}'),
     children: <Widget>[
       Icon(switch (record.step.state) {
@@ -1151,7 +1255,7 @@ class _HostDialogState extends State<HostDialog> {
       Expanded(
         child: Text(
           _session!.stepLine(record),
-          key: record.step.fix != null && record.step.fix == _session!.fix ? const Key('host-fix') : null,
+          key: current && record.step.fix != null && record.step.fix == _session!.fix ? const Key('host-fix') : null,
         ),
       ),
     ],
