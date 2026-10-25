@@ -56,14 +56,20 @@ class HostReadinessView extends StatelessWidget {
         if (readiness.problem != null)
           Container(
             width: double.infinity,
-            color: scheme.errorContainer,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
+            ),
             padding: const EdgeInsets.all(Space.normal),
             child: Text(readiness.problem!, key: const Key('readiness-problem')),
           )
         else if (ready != null)
           Container(
             width: double.infinity,
-            color: ready ? scheme.surfaceContainerHighest : scheme.errorContainer,
+            decoration: BoxDecoration(
+              color: ready ? scheme.surfaceContainerHighest : scheme.surfaceContainerLow,
+              border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
+            ),
             padding: const EdgeInsets.all(Space.normal),
             child: Text(
               readiness.verdict,

@@ -349,9 +349,9 @@ extension on _AttentionViewState {
       title: '$title · ${row.machine}',
       state: resolved ? 'Resolved' : state,
       onOpen: navigation.run,
-      primary: primary ?? navigation,
+      primary: resolved ? null : primary ?? navigation,
       primaryKey: primaryKey,
-      details: _details(context, row, resolved: resolved, includePrimary: false),
+      details: _details(context, row, resolved: resolved, includePrimary: resolved),
     );
   }
 
@@ -465,7 +465,7 @@ extension on _AttentionViewState {
         final machine = attention.machineNamed(each.machine);
         return Card(
           key: ValueKey('homeserver-unforwarded ${each.machine}/${each.project}'),
-          color: Theme.of(context).colorScheme.errorContainer,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           child: ListTile(
             leading: const Icon(Icons.link_off),
             title: Text('The homeserver of ${each.project} is not reachable from here'),
@@ -492,7 +492,7 @@ extension on _AttentionViewState {
         final namedVault = each.waitsOn == 'vault' && each.vault.isNotEmpty;
         return Card(
           key: ValueKey('messages-wait ${each.machine.name}'),
-          color: Theme.of(context).colorScheme.errorContainer,
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
           child: Padding(
             padding: const EdgeInsets.all(Space.normal),
             child: Column(
@@ -667,7 +667,7 @@ class _NotFollowing extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return Card(
       key: ValueKey<String>('not-following ${machine.name}/${project.name}'),
-      color: scheme.errorContainer,
+      color: scheme.surfaceContainerLow,
       child: Padding(
         padding: const EdgeInsets.all(Space.normal),
         child: Column(
@@ -753,7 +753,7 @@ class _FailedOperation extends StatelessWidget {
       width: Sizes.tile,
       child: Card(
         key: ValueKey<String>('failed-operation ${operation.id}'),
-        color: scheme.errorContainer,
+        color: scheme.surfaceContainerLow,
         child: Padding(
           padding: const EdgeInsets.all(Space.normal),
           child: Column(
@@ -831,7 +831,7 @@ class _MachineNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     key: ValueKey('machine-notice ${machine.name}'),
-    color: Theme.of(context).colorScheme.errorContainer,
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
     child: Padding(
       padding: const EdgeInsets.all(Space.normal),
       child: Column(
@@ -960,7 +960,7 @@ class TaskTile extends StatelessWidget {
           key: ValueKey<String>('tile ${tile.machine.name} ${task?.name ?? first?.task ?? ''}'),
           // A stopped piece of work is greyed as a whole, not only by its mark (walk 8).
           color: urgent
-              ? scheme.errorContainer
+              ? scheme.surfaceContainerLow
               : (tile.demand == Demand.stopped ? scheme.surfaceContainerHighest : null),
           shape: selected
               ? RoundedRectangleBorder(
@@ -1106,10 +1106,10 @@ class TaskTile extends StatelessWidget {
                             'No connection will be refused and nothing will be asked.',
                         child: Chip(
                           key: const Key('unenforced'),
-                          avatar: Icon(Icons.gpp_bad_outlined, size: Sizes.rowIcon, color: scheme.onErrorContainer),
+                          avatar: Icon(Icons.gpp_bad_outlined, size: Sizes.rowIcon, color: scheme.error),
                           label: const Text('unenforced'),
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: scheme.errorContainer,
+                          backgroundColor: scheme.surfaceContainerLow,
                         ),
                       ),
                     // The last answer, so a question that ran out does not quietly disappear.

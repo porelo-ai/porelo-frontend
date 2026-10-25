@@ -116,7 +116,10 @@ class _SessionViewState extends State<SessionView> {
           if (session.problem != null)
             Container(
               width: double.infinity,
-              color: scheme.errorContainer,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                border: Border.all(color: scheme.outlineVariant, width: Sizes.divider),
+              ),
               padding: const EdgeInsets.all(Space.normal),
               child: Text(session.problem!, key: const Key('session-problem')),
             )

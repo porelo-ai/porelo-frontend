@@ -226,7 +226,8 @@ class _Bad extends StatelessWidget {
     width: double.infinity,
     padding: const EdgeInsets.all(Space.normal),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.errorContainer,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(Radii.small),
     ),
     child: Text(words, key: Key(id)),

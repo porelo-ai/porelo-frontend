@@ -62,7 +62,7 @@ class BackupsView extends StatelessWidget {
           ),
           if (backups.problem != null)
             _Block(
-              colour: scheme.errorContainer,
+              colour: scheme.surfaceContainerLow,
               child: Text(backups.problem!, key: const Key('backups-problem')),
             ),
           if (backups.removed != null)
@@ -72,7 +72,9 @@ class BackupsView extends StatelessWidget {
             ),
           if (backups.restoring != null)
             _Block(
-              colour: backups.restoring!.done ? scheme.surfaceContainerHighest : scheme.errorContainer,
+              colour: !backups.restoring!.done && backups.restoring!.unreviewed.isNotEmpty
+                  ? scheme.errorContainer
+                  : scheme.surfaceContainerHighest,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -237,6 +239,13 @@ class _Block extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      Container(width: double.infinity, padding: const EdgeInsets.all(Space.normal), color: colour, child: child);
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(Space.normal),
+    decoration: BoxDecoration(
+      color: colour,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+    ),
+    child: child,
+  );
 }

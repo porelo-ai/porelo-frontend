@@ -87,7 +87,7 @@ class ProjectFollowingPanel extends StatelessWidget {
                   ],
                   if (following.held)
                     _Block(
-                      color: scheme.errorContainer,
+                      color: scheme.surfaceContainerLow,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
@@ -137,12 +137,12 @@ class ProjectFollowingPanel extends StatelessWidget {
                     ),
                   if (following.problem != null)
                     _Block(
-                      color: scheme.errorContainer,
+                      color: scheme.surfaceContainerLow,
                       child: Text(following.problem!, key: const Key('follow-problem')),
                     )
                   else if (answer != null)
                     _Block(
-                      color: following.taken ? scheme.surfaceContainerHighest : scheme.errorContainer,
+                      color: following.taken ? scheme.surfaceContainerHighest : scheme.surfaceContainerLow,
                       child: _WhatCameOfIt(
                         answer: answer,
                         onShowConnections: onShowItsConnection,
@@ -399,7 +399,11 @@ class _Block extends StatelessWidget {
     width: double.infinity,
     margin: const EdgeInsets.only(bottom: Space.normal),
     padding: const EdgeInsets.all(Space.normal),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.small)),
+    decoration: BoxDecoration(
+      color: color,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+      borderRadius: BorderRadius.circular(Radii.small),
+    ),
     child: child,
   );
 }

@@ -50,7 +50,7 @@ class ProjectDeletionDialog extends StatelessWidget {
               children: <Widget>[
                 if (deleting.problem != null)
                   _Block(
-                    color: scheme.errorContainer,
+                    color: scheme.surfaceContainerLow,
                     child: Text(deleting.problem!, key: const Key('deletion-problem')),
                   )
                 else if (deleting.busy && answer == null)
@@ -162,7 +162,11 @@ class _Block extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(Space.normal),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.small)),
+    decoration: BoxDecoration(
+      color: color,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+      borderRadius: BorderRadius.circular(Radii.small),
+    ),
     child: child,
   );
 }

@@ -174,7 +174,7 @@ class WorkDetail extends StatelessWidget {
               if (ungated) ...<Widget>[
                 const SizedBox(height: Space.wide),
                 Card(
-                  color: Theme.of(context).colorScheme.errorContainer,
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
                   child: const Padding(
                     padding: EdgeInsets.all(Space.normal),
                     child: Text(

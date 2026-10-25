@@ -48,7 +48,7 @@ class HeldMessageRow extends StatelessWidget {
     final refused = message.standing == 'refused-by-filter';
     final card = Card(
       key: ValueKey<String>('held-message ${machine.name}/${message.task}/${message.handle}'),
-      color: refused ? scheme.errorContainer : scheme.surfaceContainerHighest,
+      color: refused ? scheme.surfaceContainerLow : scheme.surfaceContainerHighest,
       child: Padding(
         padding: const EdgeInsets.all(Space.normal),
         child: Column(

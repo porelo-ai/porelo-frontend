@@ -164,7 +164,8 @@ class _StartWorkDialogState extends State<StartWorkDialog> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(Space.normal),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.errorContainer,
+                        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+                        color: Theme.of(context).colorScheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(Radii.small),
                       ),
                       child: Text(starting.problem!, key: const Key('start-problem')),
@@ -660,7 +661,8 @@ class _NotReady extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(Space.normal),
       decoration: BoxDecoration(
-        color: elsewhere ? scheme.tertiaryContainer : scheme.errorContainer,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+        color: elsewhere ? scheme.tertiaryContainer : scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(Radii.small),
       ),
       child: Column(

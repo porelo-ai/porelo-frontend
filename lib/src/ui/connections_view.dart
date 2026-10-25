@@ -73,7 +73,7 @@ class ConnectionsView extends StatelessWidget {
               children: <Widget>[
                 if (connections.problem != null)
                   _Box(
-                    color: scheme.errorContainer,
+                    color: scheme.surfaceContainerLow,
                     child: Text(connections.problem!, key: const Key('connections-problem')),
                   ),
                 if (connections.forgotten != null)
@@ -253,7 +253,7 @@ class _StoringState extends State<_Storing> {
     if (declared.storeCommand.isEmpty) {
       if (!declared.connection.present) {
         return _Box(
-          color: scheme.errorContainer,
+          color: scheme.surfaceContainerLow,
           child: Text(
             '$what Nothing is there yet: it is read ${declared.connection.sourceWords} on the '
             'machine, and a file of this computer is not on that machine. To send a key from '
@@ -344,7 +344,11 @@ class _Box extends StatelessWidget {
     width: double.infinity,
     margin: const EdgeInsets.only(bottom: Space.normal),
     padding: const EdgeInsets.all(Space.normal),
-    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.small)),
+    decoration: BoxDecoration(
+      color: color,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+      borderRadius: BorderRadius.circular(Radii.small),
+    ),
     child: child,
   );
 }

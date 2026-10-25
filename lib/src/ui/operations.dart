@@ -363,7 +363,7 @@ class _Summary extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      color: operation.failed ? scheme.errorContainer : scheme.surfaceContainerHighest,
+      color: operation.failed ? scheme.surfaceContainerLow : scheme.surfaceContainerHighest,
       padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.small),
       child: Row(
         children: <Widget>[

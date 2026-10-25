@@ -36,7 +36,10 @@ class EgressView extends StatelessWidget {
         if (egress.problem != null)
           Container(
             width: double.infinity,
-            color: Theme.of(context).colorScheme.errorContainer,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: Sizes.divider),
+            ),
             padding: const EdgeInsets.all(Space.normal),
             child: Text(egress.problem!, key: const Key('egress-problem')),
           ),

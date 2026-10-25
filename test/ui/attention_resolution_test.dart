@@ -87,6 +87,7 @@ void main() {
         expect(
           tester.widget<Text>(find.descendant(of: row, matching: find.byKey(const Key('needs-machine')))).data,
           'on ${machine.name}',
+          reason: 'the recovery action must name the machine whose vault is blocked',
         );
         final button = find.descendant(
           of: row,
@@ -95,7 +96,7 @@ void main() {
         await tester.ensureVisible(button);
         await tester.tap(button);
         await tester.pump();
-        expect(unlocked, [machine.name]);
+        expect(unlocked, [machine.name], reason: 'unlock must reach only the machine on this row');
         unlocked.clear();
       }
     } finally {
@@ -107,13 +108,21 @@ void main() {
   testWidgets('missing and unknown wait reasons never offer unlock', (tester) async {
     final state = await prepare(tester, waitsOn: '');
     try {
-      expect(find.textContaining('Unlock the vault on'), findsNothing);
+      expect(
+        find.textContaining('Unlock the vault on'),
+        findsNothing,
+        reason: 'only an explicit vault wait reason permits unlocking',
+      );
       for (final machine in state.machines.all) {
         state.backends[machine.name]!.theProjectsItHas = [waiting('future-reason')];
         await state.machines.of(machine).refresh();
       }
       await World.settle(tester);
-      expect(find.textContaining('Unlock the vault on'), findsNothing);
+      expect(
+        find.textContaining('Unlock the vault on'),
+        findsNothing,
+        reason: 'only an explicit vault wait reason permits unlocking',
+      );
     } finally {
       await state.dispose();
     }
@@ -128,23 +137,39 @@ void main() {
       state.backends[machine.name]!.theProjectsItHas = [];
       await state.machines.of(machine).refresh();
       await World.settle(tester);
-      expect(find.text('Recently resolved'), findsOneWidget);
+      expect(
+        find.text('Recently resolved'),
+        findsOneWidget,
+        reason: 'resolved conditions must retain a readable trace',
+      );
       await expandListRows(tester, within: find.byKey(const Key('recently-resolved')));
       final resolved = find.byKey(const Key('recently-resolved'));
-      expect(find.descendant(of: resolved, matching: find.text('on ${machine.name}')), findsOneWidget);
+      expect(
+        find.descendant(of: resolved, matching: find.text('on ${machine.name}')),
+        findsOneWidget,
+        reason: 'the retained condition must still identify its machine',
+      );
       final buttons = tester
           .widgetList<TextButton>(find.descendant(of: resolved, matching: find.byType(TextButton)))
           .toList();
-      expect(buttons, hasLength(3), reason: 'the resolved row must retain unlock and its held project action');
+      expect(buttons, hasLength(2), reason: 'the resolved details must retain unlock and its held project action');
       for (final button in buttons) {
         expect(button.onPressed, isNull, reason: 'resolved rows must disable every recovery action');
       }
       now = now.add(const Duration(minutes: 1, seconds: 59));
       await tester.pump(const Duration(minutes: 1, seconds: 59));
-      expect(find.byKey(const Key('recently-resolved')), findsOneWidget);
+      expect(
+        find.byKey(const Key('recently-resolved')),
+        findsOneWidget,
+        reason: 'retention must last until its deadline',
+      );
       now = now.add(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 1));
-      expect(find.byKey(const Key('recently-resolved')), findsNothing);
+      expect(
+        find.byKey(const Key('recently-resolved')),
+        findsNothing,
+        reason: 'expired conditions must leave no retained content',
+      );
     } finally {
       await state.dispose();
     }
@@ -158,8 +183,12 @@ void main() {
       state.backends[machine.name]!.theProjectsItHas = [];
       await state.machines.of(machine).refresh();
       await World.settle(tester);
-      expect(find.byKey(ValueKey('messages-wait ${machine.name}')), findsNothing);
-      expect(find.text('Recently resolved'), findsNothing);
+      expect(
+        find.byKey(ValueKey('messages-wait ${machine.name}')),
+        findsNothing,
+        reason: 'zero retention must discard the resolved condition immediately',
+      );
+      expect(find.text('Recently resolved'), findsNothing, reason: 'zero retention must leave no resolved content');
     } finally {
       await state.dispose();
     }
@@ -174,13 +203,25 @@ void main() {
       backend.theProjectsItHas = [];
       await state.machines.of(machine).refresh();
       await World.settle(tester);
-      expect(find.text('Recently resolved'), findsOneWidget);
+      expect(
+        find.text('Recently resolved'),
+        findsOneWidget,
+        reason: 'resolved conditions must retain a readable trace',
+      );
       backend.theProjectsItHas = [waiting('vault')];
       await state.machines.of(machine).refresh();
       await World.settle(tester);
       await expandListRows(tester);
-      expect(find.text('Recently resolved'), findsNothing);
-      expect(find.byKey(ValueKey('messages-wait ${machine.name}')), findsOneWidget);
+      expect(
+        find.text('Recently resolved'),
+        findsNothing,
+        reason: 'the returning condition must leave the resolved list',
+      );
+      expect(
+        find.byKey(ValueKey('messages-wait ${machine.name}')),
+        findsOneWidget,
+        reason: 'the returning condition must offer a fresh decision',
+      );
     } finally {
       await state.dispose();
     }
@@ -214,14 +255,26 @@ void main() {
       await tester.ensureVisible(read);
       await tester.tap(read);
       await World.settle(tester);
-      expect(find.byKey(const Key('held-message-dialog')), findsOneWidget);
+      expect(
+        find.byKey(const Key('held-message-dialog')),
+        findsOneWidget,
+        reason: 'an explicit read must open the full message before any decision',
+      );
       await tester.tap(find.byKey(const Key('held-message-close')));
       await World.settle(tester);
       await expandListRows(tester, within: find.byKey(const Key('recently-resolved')));
       final resolved = find.byKey(const Key('recently-resolved'));
-      expect(resolved, findsOneWidget);
-      expect(find.descendant(of: find.byKey(const Key('open-attention')), matching: read), findsNothing);
-      expect(tester.widget<OutlinedButton>(find.descendant(of: resolved, matching: read)).onPressed, isNull);
+      expect(resolved, findsOneWidget, reason: 'an explicitly read message must remain available in the resolved list');
+      expect(
+        find.descendant(of: find.byKey(const Key('open-attention')), matching: read),
+        findsNothing,
+        reason: 'a read message must not remain an open decision',
+      );
+      expect(
+        tester.widget<OutlinedButton>(find.descendant(of: resolved, matching: read)).onPressed,
+        isNull,
+        reason: 'retained message actions must not decide the message again',
+      );
       final row = find.descendant(
         of: resolved,
         matching: find.byKey(ValueKey('held-message ${machine.name}/alpha/held.json')),
@@ -229,10 +282,22 @@ void main() {
       await tester.ensureVisible(row);
       await tester.tap(row);
       await World.settle(tester);
-      expect(find.text('Please review this work.'), findsWidgets);
-      expect(find.byKey(const Key('release-message')), findsNothing);
-      expect(find.byKey(const Key('refuse-message')), findsNothing);
-      expect(backend.released, isEmpty);
+      expect(
+        find.text('Please review this work.'),
+        findsWidgets,
+        reason: 'the explicitly read text must remain readable',
+      );
+      expect(
+        find.byKey(const Key('release-message')),
+        findsNothing,
+        reason: 'a retained read must not offer another release',
+      );
+      expect(
+        find.byKey(const Key('refuse-message')),
+        findsNothing,
+        reason: 'a retained read must not offer another refusal',
+      );
+      expect(backend.released, isEmpty, reason: 'reading retained text must never deliver the message');
     } finally {
       await state.dispose();
     }
