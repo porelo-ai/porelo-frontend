@@ -37,31 +37,11 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|---|
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
-
-| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
-| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
-| <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |
-| <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | — | A waiting push fetched here, into a clone the person chooses. |
-| <a id="f96"></a>[F96](F96-Keys-A-Machine-No-Longer-Knows.md) | M | the test organisation and its token from the operator | Clearing a machine also removes the forge keys it no longer knows. |
-| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | the test organisation and its token from the operator | Forwarding to a chosen branch measured against GitHub. |
-| <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | — | A task's terminal in the interface behaves as in a plain terminal. |
-| <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | M | — | A waiting push read as a pull request. |
-| <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | L | `porelo` [B166](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b166), [B171](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b171), [F78](README.md#f78) | Comments on lines in the review: written, read with their origin, held and released. |
-| <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | `porelo` [B95](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b95) | A waiting push's tests run in a container of their own on the machine. |
-| <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. |
-| <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. |
-| <a id="f64"></a>[F64](F64-The-Guided-Walk-As-A-Package-Of-Its-Own.md) | L | — | The guided walk as a package any Flutter app can use. |
-| <a id="f75"></a>[F75](F75-One-Definition-For-A-UI-Test-And-A-Guided-Walk.md) | XL | `flutter-guided-walk`: a scenario that is also a walk | Each scenario tagged `@walk` is also a walk. |
-| <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
-| <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
-| <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
-| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55), on Apple silicon | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
-| <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `porelo` [B160](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. |
-| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `porelo` [B174](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b174) | What a piece of work did, in words, at the top of its tile. |
-| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. |
-| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `porelo` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. |
-| <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `porelo`'s part of `porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. |
-| <a id="f142"></a>[F142](F142-The-Drafts-Offered-Before-The-First-Task-In-Default.md) | M | `porelo` [B221](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b221) | The machine's proposed tools and rules shown before the first task on a repository in `default`, and the choice passed back. | — |
+| <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |
+| <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | M | `porelo` [B150](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b150), [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push read as a pull request, with source level, per-file risk classes, and bidi escaping. | 1 |
+| <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | L | [F78](README.md#f78), `porelo` [B166](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b166), [B172](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b172), [B291](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b291) | Comments and findings on lines in the review in Porelo's SARIF 2.1.0 profile, with origin, source level, suggestions, and run completeness. | — |
+| <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | `porelo` [B95](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b95), [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. | — |
+| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | `porelo` [B166](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b166), [B174](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b174), [B291](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b291), [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | What a piece of work did, in words, at the top of its tile, with its SARIF check round, completeness, open findings and threads, and risk class. | — |
 
 ### Accepted
 
@@ -81,7 +61,32 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-On-With-Its-Repositories.md) | — | `porelo-host` [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) | The host's own forge switched on in the host dialog or on `porelo_host`, with the repositories that move there and where the central forge's token lies. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
-| <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | — | `porelo-buildtools` [BT06](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt06) | Approved work brought from the host's forge to the central forge from the interface: the pull request merged with its build's verdict, the gathered push started with the token asked for hidden, its result per repository. |
+| <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | — | — | Approved work on the host's Forgejo reviewed in SARIF 2.1.0 and brought to the central forge, bound to the reviewed commit, repository, and pull request. |
+| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | — | — | Held inbound forge comments (`E0`, and `E1` under policy) released alone to a task, and outgoing forge comments released bound to the reviewed commit and pull request. |
+
+### Estimated
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
+| <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
+| <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |
+| <a id="f96"></a>[F96](F96-Keys-A-Machine-No-Longer-Knows.md) | M | the test organisation and its token from the operator | Clearing a machine also removes the forge keys it no longer knows. |
+| <a id="f97"></a>[F97](F97-Forwarding-Measured-Against-GitHub.md) | M | the test organisation and its token from the operator | Forwarding to a chosen branch measured against GitHub. |
+| <a id="f105"></a>[F105](F105-A-Tasks-Terminal-In-The-Interface-As-Outside-It.md) | M | — | A task's terminal in the interface behaves as in a plain terminal. |
+| <a id="f59"></a>[F59](F59-A-Project-From-A-Repository-Measured-Against-GitHub.md) | S | the test organisation, its token and signing key from the operator | Making a project from a repository measured against GitHub. |
+| <a id="f84"></a>[F84](F84-A-Signing-Key-Found-Or-Made-From-The-Window.md) | M | — | A signing key chosen from a file or made from the window. |
+| <a id="f64"></a>[F64](F64-The-Guided-Walk-As-A-Package-Of-Its-Own.md) | L | — | The guided walk as a package any Flutter app can use. |
+| <a id="f75"></a>[F75](F75-One-Definition-For-A-UI-Test-And-A-Guided-Walk.md) | XL | `flutter-guided-walk`: a scenario that is also a walk | Each scenario tagged `@walk` is also a walk. |
+| <a id="f72"></a>[F72](F72-Forges-Beyond-GitHub.md) | L | the operator's evaluation licence for Bitbucket Data Center | Forges beyond GitHub: Bitbucket Data Center first, measured against a test installation of its own. |
+| <a id="f37"></a>[F37](F37-Reach-A-Machine-Without-An-ssh-Binary.md) | L | — | A machine reached without an `ssh` binary. |
+| <a id="f52"></a>[F52](F52-Release-A-Devices-Key-Only-With-A-Touch-Or-A-PIN.md) | XL | — | A device's key released only behind a TPM2 PIN; a touch later. |
+| <a id="f109"></a>[F109](F109-The-Interface-On-macOS-With-Porelo-In-A-Local-VM.md) | XL | `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55), on Apple silicon | The interface on macOS, with Porelo in a local Lima VM set up from the window, and remote machines over ssh. |
+| <a id="f104"></a>[F104](F104-A-Project-Followed-From-A-File.md) | M | `porelo` [B160](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b160) | A project followed from a bundle or a directory; offline projects again. |
+| <a id="f81"></a>[F81](F81-The-Setup-Script-Checked-By-Its-Signature.md) | M | `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99) | The setup script verified by its signature before it runs. |
+| <a id="f88"></a>[F88](F88-A-Nickname-For-Each-Agent.md) | M | `porelo` (`@label`, the agent card, the label handed to the transport) | A nickname for each agent. |
+| <a id="f62"></a>[F62](F62-An-Organisations-Policy-Is-Shown.md) | M | `porelo`'s part of `porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16) | An organisation's policy shown. |
+| <a id="f142"></a>[F142](F142-The-Drafts-Offered-Before-The-First-Task-In-Default.md) | M | `porelo` [B221](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b221) | The machine's proposed tools and rules shown before the first task on a repository in `default`, and the choice passed back. | — |
 
 ### Finished
 
