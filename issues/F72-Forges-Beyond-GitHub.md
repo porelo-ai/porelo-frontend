@@ -39,8 +39,8 @@ from Bitbucket Data Center and Jenkins, is `porelo-project`
   under Atlassian's evaluation licence, its web and ssh ports reached from the build only.
 - **The operator provides** the evaluation licence, made at Atlassian for the installation's server
   ID; it is typed into the installation's setup on the VM, and never into a file in a repository or
-  the channel. The agent sets up the container, a project, the test repositories as at GitHub
-  (`porelo-test-project`, `porelo-test-1`, `porelo-test-2`), a test user and its token.
+  the channel. The agent sets up the container, a project, test repositories of the installation's
+  own, a test user and its token.
 - The leg runs `project_from_repository.feature`'s Bitbucket scenarios against it, on the operator's
   word for a release, not in every build, since the evaluation licence runs out and is renewed by
   hand.
