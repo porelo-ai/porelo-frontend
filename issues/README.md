@@ -63,6 +63,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
 | <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | — | — | Approved work on the host's Forgejo reviewed in SARIF 2.1.0 and brought to the central forge, bound to the reviewed commit, repository, and pull request. |
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | — | — | Held inbound forge comments (`E0`, and `E1` under policy) released alone to a task, and outgoing forge comments released bound to the reviewed commit and pull request. |
+| <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
+| <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
 
 ### Estimated
 
