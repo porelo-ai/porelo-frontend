@@ -49,6 +49,9 @@ survives leaving the review.
   `PendingPush.commit` changes. Red first: a scenario in `test/features/work_handover.feature` that ticks a file, goes
   back to the gate and opens the push again, and one that restarts the interface and finds the tick, and none after a
   new commit.
+- **Approve waits on every C3 file.** `_Decision` lists *Approve* as unable to run, with its reason, until every
+  file of risk class `C3` in the push is ticked as read; a `C2` file needs no tick. Red first: a scenario that leaves
+  one `C3` file unticked and finds *Approve* refused, and one with only `C2` files unticked that approves.
 - **Bidi and control-character escaping.** Every line and text span rendered in `ReviewView` (diff lines in `_Line`,
   file paths in `_RankedFile` and `_File`, commit messages, and branch names) is rendered as plain text with Unicode
   bidi overrides (`U+202A`–`U+202E`, `U+2066`–`U+2069`) and control characters (`< 0x20` except `\t` and `\n`, plus
@@ -69,15 +72,13 @@ survives leaving the review.
 - Each file can be ticked as read, and the review remembers it until the push is decided, across a restart of the
   interface, and forgets it once `PendingPush.commit` changes. Seen to fail: a scenario where a tick is lost on leaving
   and coming back, or after a restart, or kept for a new commit.
+- *Approve* cannot run while a `C3` file of the push is not ticked as read, and says so; unticked `C2` files do not
+  hold it. Seen to fail: a scenario where an unticked `C3` file lets *Approve* run, or an unticked `C2` file stops it.
 - Diff lines, file paths, commit subjects, and branch names containing Unicode bidi overrides or control characters
   render them as visible badges rather than interpreting them. Seen to fail: a widget test with `U+202E` in a diff line
   or file path.
 - Copying the diff and the fetch into one's own clone stay, for what an IDE does better. Seen to fail: the existing
   scenarios for both go red.
-
-## Open questions
-
-- Should `Approve` wait until every `C2` or `C3` file is ticked as read?
 
 ## To be checked
 
