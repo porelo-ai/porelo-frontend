@@ -7,8 +7,8 @@ contract with `porelo-host`.
 
 **What must be true.** At a host's stop, the person types the master password of `secrets.kdbx` once, in the
 terminal the interface opens, and the host gets what its stop asks - its vault passphrase, its WireGuard key, the
-keys for its vault - from the file, on standard input, without the person typing any of them (step 3 of the host's
-new setup). The drive's login is no longer among them: the drive leaves the setup ([F201](README.md#f201)). A secret
+keys for its vault - from the file, on standard input, without the person typing any of them (step 2 of the host's
+new setup, before the upload of [F197](README.md#f197)). The drive's login is no longer among them: the drive leaves the setup ([F201](README.md#f201)). A secret
 the file lacks is asked as today.
 
 ## Why
@@ -45,8 +45,8 @@ these is typed at every `up`, and a new host has a new vault.
 
 ## Acceptance
 
-- A host set up with the file and a drive holding no secret: at the stop the person types the master password and
-  sudo, nothing else, and the host's vault comes up.
+- A host set up with the file and a drive holding only `machine.yml`: at the stop the person types the master
+  password and sudo, nothing else, and the host's vault comes up.
 - A file without the vault passphrase: the stop asks it as today.
 - Seen to fail: the command test red against today's interactive stop.
 
