@@ -44,8 +44,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="f197"></a>[F197](F197-A-Hosts-Own-Folder-Beside-What-All-Hosts-Share.md) | L | `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | A host's files in its own `hosts/<project>/` beside `shared/`, in its own tresor or a shared one, the old layout refused, and the person's private drives named for the host. | — |
-| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. | 1 |
-| <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | M | [F198](README.md#f198), `porelo-host`'s part of `porelo-project` [PJ51](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj51) | A host's stop fed from the file on standard input, the master password typed once, only the one-time code at the host's prompt. | — |
+| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. | — |
+| <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | M | [F198](README.md#f198), `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) | A host's stop fed from the file on standard input, the master password typed once, only the one-time code at the host's prompt. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |
@@ -75,6 +75,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | — | — | Held inbound forge comments (`E0`, and `E1` under policy) released alone to a task, and outgoing forge comments released bound to the reviewed commit and pull request. |
 | <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
 | <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
+| <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | — | — | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |
 
 ### Estimated
 

@@ -1,8 +1,8 @@
 # F198 — A Host's Secrets Kept Once In The Person's KeePass File
 
 **Status:** Analyzed.
-**Size:** L - a new part beside the host dialog (the file's entries, its terminal, a first-use step), no contract of
-the daemon, but one with `porelo-host` through [F199](README.md#f199).
+**Size:** L - a new part beside the host dialog (the file's entries, its terminal, a first-use step) and a package
+dependency, no contract of the daemon, but one with `porelo-host` through [F199](README.md#f199).
 
 **What must be true.** The secrets a person needs to put a project on a host are kept once, in `secrets.kdbx` on
 the person's drive, a KDBX 4 file they can open with KeePassXC: one master password for all hosts; a group `shared`
@@ -26,15 +26,21 @@ operator's shape: one password to remember for setting up a host.
   a terminal here, by `keepassxc-cli`, and its entries go from there to where they are used ([F199](README.md#f199));
   the interface holds none of them (decided: the master password and every entry stay out of the interface; at the
   first host the lasting forge password is typed in that terminal and goes into the file there).
-- **Measured here:** `keepassxc-cli` 2.8.0 comes with the KeePassXC snap, and the snap may not write in `/tmp` or in
-  a hidden folder of the home (`Zugriff verweigert`), so the file lives on the drive, never under `~/.porelo`; the
-  Dart package `kdbx` 2.5.0 (authpass, August 2026) reads and writes KDBX 4, with Argon2 through a native library.
+- **KeePassXC comes with the interface (decided):** the Linux packages depend on `keepassxc-minimal` (Debian,
+  Ubuntu; 2.7.10 on Ubuntu 26.04) or `keepassxc` (Fedora), installed by apt or dnf with the interface, and the
+  interface calls that `keepassxc-cli` by its absolute path. A person's own KeePassXC, snap or not, stays theirs for
+  opening the file. Measured: the snap's `keepassxc.cli` may not write in `/tmp` or a hidden folder of the home
+  (`Zugriff verweigert`), which the packaged one does not share; 2.7.10's manual page lists `open` (a shell on one
+  unlocked file), `show`, `export` (XML or CSV to standard output), `db-create`, `mkdir` and `add`.
+  Windows and macOS are [F200](README.md#f200).
 - **The entries the interface relies on**, so a person's own file works: `shared/drive-login`,
   `shared/forge-password`, `shared/forge-ca-key`, `hosts/<name>/wireguard`, `hosts/<name>/vault-passphrase`, each a
   KeePass entry whose password field holds the secret. A missing entry is said by its name, never guessed.
 - **First use:** a step before *The drive* when no file exists: create it in a terminal (`keepassxc-cli db-create`),
   then put in what is already known (the WireGuard key from the tresor, then removed from it); a person with an
   existing file names it.
+- **The package:** `tool/package.sh`'s nfpm template gains the dependency per format, with its test in
+  `test/packaging_test.dart`.
 - **Red first:** a widget test that a run with the file never writes `wireguard.key` into the drive, and a test of
   the entry names against a file made with `keepassxc-cli` from a fixture.
 
@@ -49,9 +55,6 @@ operator's shape: one password to remember for setting up a host.
 
 ## Open questions
 
-- **QF65:** KeePassXC as a requirement on the desktop (the person has it, since they open the file with it), or the
-  file written by the interface itself? Recommended: KeePassXC required, found as `keepassxc-cli` or the snap's
-  `keepassxc.cli`, and said plainly when missing.
 
 ## To be checked
 

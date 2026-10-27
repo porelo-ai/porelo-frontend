@@ -1,8 +1,9 @@
 # F199 — A Host's Stop Fed From The File Without Typing
 
-**Status:** Analyzed; blocked by [F198](README.md#f198) and by `porelo-host`'s part of `porelo-project`
-[PJ51](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj51), not yet numbered.
-**Size:** M - the stop's terminal in the host dialog and its tests, on a contract with `porelo-host`.
+**Status:** Analyzed; blocked by [F198](README.md#f198) and by `porelo-host`
+[HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37).
+**Size:** M - the stop's terminal in the host dialog, the certificate's signing in it, and their tests, on a
+contract with `porelo-host`.
 
 **What must be true.** At a host's stop, the person types the master password of `secrets.kdbx` once, in the
 terminal the interface opens, and the host gets what its stop asks - the drive's login, its vault passphrase, its
@@ -19,10 +20,15 @@ these is typed at every `up`, and a new host has a new vault.
 - **Read in today's code:** *Needs you* → *Complete setup on the host* opens a terminal running ssh into
   `porelo-host-stop` on the host, which asks the e-mail, the Tresorit password and code, and the vault passphrase in
   turn; `HostSession.needs` names what the stop waits for.
-- **The terminal's command becomes one pipeline on this desktop**, so the interface never holds a secret: the
-  master password is asked once by `keepassxc-cli`, which hands the entries the stop names to ssh, and
-  `porelo-host-stop` reads them from standard input in a form agreed with Machines (one line per need, named), then
-  asks only what is missing and the one-time code at its own prompt.
+- **The terminal's command becomes one pipeline on this desktop**, so the interface never holds a secret
+  (decided): the master password is asked once by the packaged `keepassxc-cli`, whose entries go through the pipe to
+  `ssh <admin>@<host> sudo porelo-host-stop --stdin [--email ADDRESS] NEED...`, one line per secret,
+  `<need> [<name>] <value in base64>` (agreed with Machines for the host's side); the stop asks only what is missing and the
+  one-time code at its own prompt. The needs are `drive`, `vault` or `vault-new`, `keys` with `key <name>` lines,
+  `wireguard` and `forge-certificate`.
+- **The forge's certificate is signed here (decided):** the host makes its key and sends only its request; the same
+  terminal signs it with the CA key from the file and hands the certificate back, so the CA key never leaves the
+  desktop. The request's and the answer's form on the wire come from Machines.
 - **Nothing written:** the entries pass through the pipe only, never into a file, argument, environment or log here
   or on the host; the terminal's own scrollback shows none.
 - **Red first:** a test of the command the interface builds for the stop terminal: it names the entries and the host,
@@ -37,5 +43,7 @@ these is typed at every `up`, and a new host has a new vault.
 
 ## To be checked
 
-- With Machines: `porelo-host-stop`'s form for standard input, and that it never echoes or keeps what it reads.
+- How one unlock yields several entries inside the pipe: `keepassxc-cli open`'s shell fed from the pipe, or
+  `export` filtered to the named entries without a file; posted before anything changes.
+- With Machines: the certificate request's and answer's form, and that the stop never echoes or keeps what it reads.
 - Whether one terminal can carry both the pipeline and the one-time code's prompt, or the code needs a second step.
