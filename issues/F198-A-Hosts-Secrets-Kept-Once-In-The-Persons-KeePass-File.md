@@ -4,8 +4,8 @@
 **Size:** L - a new part beside the host dialog (the file's entries, its terminal, a first-use step) and a package
 dependency, no contract of the daemon, but one with `porelo-host` through [F199](README.md#f199).
 
-**What must be true.** The secrets a person needs to put a project on a host are kept once, in `secrets.kdbx` on
-the person's drive, a KDBX 4 file they can open with KeePassXC: one master password for all hosts; a group `shared`
+**What must be true.** The secrets a person needs to put a project on a host are kept once, in `secrets.kdbx` where
+the person chooses, a KDBX 4 file they can open with KeePassXC: one master password for all hosts; a group `shared`
 (the lasting forge CA's key, the forge password) and a group per host under `hosts/<name>` (its
 WireGuard key, its vault passphrase). The file is unlocked on the person's desktop only, never on a host, and no
 secret lies in the clear on the drive. The drive's (Tresorit's) login stays out of it
@@ -36,6 +36,8 @@ operator's shape: one password to remember for setting up a host.
   Windows and macOS are [F200](README.md#f200).
 - **The entries the interface relies on**, so a person's own file works: `shared/forge-password`, `shared/forge-ca-key`, `hosts/<name>/wireguard`, `hosts/<name>/vault-passphrase`, each a
   KeePass entry whose password field holds the secret. A missing entry is said by its name, never guessed.
+- **Where it lies (decided):** the person chooses the file at first use, offered `~/Porelo/secrets.kdbx`, or a drive
+  folder where one is set up; the interface keeps only its path in its settings, never a copy.
 - **First use:** a step before *The drive* when no file exists: create it in a terminal (`keepassxc-cli db-create`),
   then put in what is already known (the WireGuard key from the tresor, then removed from it); a person with an
   existing file names it.
@@ -54,9 +56,6 @@ operator's shape: one password to remember for setting up a host.
 - Seen to fail: the first test red against today's `wireguard.key` in the tresor.
 
 ## Open questions
-
-- **QF68:** where does the file live when the person has no drive (optional from 6g)? Recommended: chosen at first
-  use, offered in the drive folder where one is set up and otherwise in `~/Porelo/`; only its path is kept here.
 
 ## To be checked
 
