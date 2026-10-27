@@ -28,12 +28,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. |
+| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. |
 | <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | M | [F198](README.md#f198), `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) | A host's stop fed from the file on standard input, the master password typed once, no drive login among its needs, and the central forge's token after `up`. |
 | <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | [F199](README.md#f199), `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | The host's `machine.yml` and bundle uploaded over its own ssh into `/etc/porelo-host/setup/`, read by Porelo's account, the desktop's copy kept in the interface's own folder. |
 | <a id="f201"></a>[F201](F201-The-Persons-Own-Drive-Mounted-In-Their-Account.md) | L | [F197](README.md#f197) | A person's own Tresorit drive mounted in their own account by the machine setup, optional, never Porelo's and never part of renting a host. |
