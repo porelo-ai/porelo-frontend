@@ -28,7 +28,9 @@ its phase following from that issue, which is a start of its own and not this on
   file names neither an agent nor a provider"; `porelo-project`
   [PJ53](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj53) calls the key new. `porelo`
   [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) adds an `agent` key under
-  `repositories.<repository>` and `Repository.agent` in `Projects` (`""` when none is named). `Start` taking the
+  `repositories.<repository>` and `Repository.agent` in `Projects` (`""` when none is named), with an optional
+  nickname: `Repository` also carries `nickname` and `goesBy`, the name the daemon composes (`Agent Pi`, or
+  `Agent porelo-pi` without a nickname), which each row, task and summary line shows verbatim. `Start` taking the
   repository's agent when none is given would be a default this interface must not rely on: it sends the agent it
   showed. The gap is in [Contract-Gaps](../doc/Contract-Gaps.md) and comes off once landed; an older daemon without
   the field gets no such command (absent, never "no agent named").
