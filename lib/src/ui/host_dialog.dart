@@ -226,9 +226,6 @@ class _HostDialogState extends State<HostDialog> {
   String? _pairAnsweredFor;
   bool? _pairBelongs;
   String? _pairRefusal;
-  // The pair the newest check is about, and that check's number: an older check's answer is dropped.
-  String? _pairCheckFor;
-  int _pairChecks = 0;
   String? _identityShown;
   String? _publicKeyShown;
   String? _sourceProblem = 'The drive: reading the project’s verified source from its machine.';
@@ -260,15 +257,17 @@ class _HostDialogState extends State<HostDialog> {
       _collection.text = kept.collection;
       _collectionSha256.text = kept.collectionSha256;
     }
-    _signingKeyShown = _signingKey.text.trim();
+    _signingKeyShown = _expanded(_signingKey.text);
     _signingKey.addListener(_signingKeyChanged);
-    _identityShown = _identity.text.trim();
-    _publicKeyShown = _publicKey.text.trim();
+    _identityShown = _expanded(_identity.text);
+    _publicKeyShown = _expanded(_publicKey.text);
     _identity.addListener(_identityChanged);
     _publicKey.addListener(_publicKeyChanged);
-    // A kept pair is checked as soon as the dialog shows, not in initState, where no state may change yet.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPairWhenReady());
-    if (widget.existingRun == null && !widget.takeDownOnly) unawaited(_readSource());
+    if (widget.existingRun == null && !widget.takeDownOnly) {
+      // After the first frame: the check's answer changes state, which initState may not.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkPairWhenReady());
+      unawaited(_readSource());
+    }
     final run = widget.existingRun;
     if (run != null) {
       _hostRun = run;
@@ -325,7 +324,9 @@ class _HostDialogState extends State<HostDialog> {
 
   static String? _fingerprint(String file) {
     try {
-      return HostFiles.signingFingerprint(File(desk.expandHome(file.trim())).readAsStringSync());
+      final expanded = desk.expandHome(file.trim());
+      if (_namesADevice(expanded)) return null;
+      return HostFiles.signingFingerprint(File(expanded).readAsStringSync());
     } on HostFilesRefused {
       return null;
     } on FileSystemException {
@@ -346,7 +347,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// Drops the answer about the key the field held before and asks about the one it holds now.
   void _signingKeyChanged() {
-    final typed = _signingKey.text.trim();
+    final typed = _expanded(_signingKey.text);
     if (typed == _signingKeyShown) return;
     _signingKeyShown = typed;
     // Rebuilt in any case: a check mark is drawn for the key in the field, which a text set from code changes too.
@@ -461,7 +462,7 @@ class _HostDialogState extends State<HostDialog> {
       'host-public-key',
       refused: _pairRefusal != null,
       passed: pair != null && _pairAnsweredFor == pair && _pairBelongs == true,
-      checking: pair != null && _pairCheckFor == pair,
+      checking: false,
       passedLabel: 'This public key belongs to the private key',
       refusedLabel: 'This public key does not belong to the private key',
     );
@@ -498,21 +499,42 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  /// [text] as a full path, so a path and its `~/` form, as the start writes it out, count as one.
+  static String _expanded(String text) {
+    try {
+      return desk.expandHome(text.trim());
+    } on FormatException {
+      return text.trim();
+    }
+  }
+
+  /// Whether [file] names a Windows device, which reading would wait on rather than read.
+  static bool _namesADevice(String file) =>
+      desk.isWindows &&
+      RegExp(r'^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9]|LPT[1-9])$')
+          .hasMatch(path.windows.basename(file).split('.').first.trimRight().toUpperCase());
+
+  /// Whether [file] begins as a public key does; only those four bytes are read, never a private key's contents.
+  static bool _startsAsPublicKey(String file) {
+    final input = File(file).openSync();
+    try {
+      return String.fromCharCodes(input.readSync(4)) == 'ssh-';
+    } finally {
+      input.closeSync();
+    }
+  }
+
   /// Fills the public key with the private key's own `.pub` when there is one, over whatever it held.
   void _identityChanged() {
-    final typed = _identity.text.trim();
-    if (typed == _identityShown) return;
-    _identityShown = typed;
-    String? companion;
-    try {
-      final private = desk.expandHome(typed);
-      if (private.isNotEmpty && !private.endsWith('.pub') && File('$private.pub').existsSync()) {
-        companion = '$private.pub';
-      }
-    } on FormatException {
-      companion = null;
-    }
-    if (companion != null && companion != _publicKey.text.trim()) {
+    final private = _expanded(_identity.text);
+    if (private == _identityShown) return;
+    _identityShown = private;
+    final companion = '$private.pub';
+    if (private.isNotEmpty &&
+        !private.endsWith('.pub') &&
+        !_namesADevice(private) &&
+        File(companion).existsSync() &&
+        companion != _expanded(_publicKey.text)) {
       // Changing the public key asks about the pair again.
       _publicKey.text = companion;
     } else {
@@ -521,9 +543,9 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   void _publicKeyChanged() {
-    final typed = _publicKey.text.trim();
-    if (typed == _publicKeyShown) return;
-    _publicKeyShown = typed;
+    final public = _expanded(_publicKey.text);
+    if (public == _publicKeyShown) return;
+    _publicKeyShown = public;
     _pairChanged();
   }
 
@@ -534,43 +556,71 @@ class _HostDialogState extends State<HostDialog> {
     _checkPairWhenReady();
   }
 
-  /// Checks the pair at once, when the private key exists and the public one reads as a public key.
   void _checkPairWhenReady() {
-    if (!mounted) return;
+    final asked = _pairToCheck;
+    if (mounted && asked != null) _checkPair(asked);
+  }
+
+  /// The pair as it stands when it can be asked about: a private key that is a regular file and no public key, and
+  /// a public key that reads as one. Null otherwise, which refuses nothing.
+  ({String pair, String private, String public})? get _pairToCheck {
     final pair = _pairPaths;
-    if (pair == null) return;
-    final [private, public] = pair.split('\n');
-    if (!File(private).existsSync() || private.endsWith('.pub') || _fingerprint(public) == null) return;
-    unawaited(_checkPair(pair, private, _fingerprint(public)!));
+    if (pair == null) return null;
+    final [private, publicPath] = pair.split('\n');
+    try {
+      // A pipe or a device would hold the answer forever, and the answer is waited for.
+      if (private.endsWith('.pub') || _namesADevice(private)) return null;
+      if (FileSystemEntity.typeSync(private) != FileSystemEntityType.file || _startsAsPublicKey(private)) return null;
+    } on FileSystemException {
+      return null;
+    }
+    final public = _fingerprint(publicPath);
+    return public == null ? null : (pair: pair, private: private, public: public);
+  }
+
+  /// Next asks about the pair itself, as it stands when Next is pressed.
+  Future<bool> _checkPairForNext() async {
+    final asked = _pairToCheck;
+    return asked == null || _checkPair(asked) != false;
   }
 
   /// Asks ssh-keygen, in a process of its own, for the private key's fingerprint, which it reads without the
-  /// passphrase, so the private key never enters this program.
-  Future<void> _checkPair(String pair, String private, String public) async {
-    final check = ++_pairChecks;
-    bool stillAsked() => mounted && _pairChecks == check && _pairPaths == pair;
-    setState(() {
-      _pairCheckFor = pair;
-      _pairRefusal = null;
-    });
+  /// passphrase, so the private key never enters this program. It is asked through a link alone in a private
+  /// folder: beside the key, ssh-keygen reads the key's `.pub` instead, and would compare that with itself.
+  /// Waited for, since it answers in milliseconds and asks nothing; so no answer can come late or about another pair.
+  /// True when the two belong together, false when not, null when ssh-keygen cannot say.
+  bool? _checkPair(({String pair, String private, String public}) asked) {
     String? fingerprint;
+    Directory? alone;
     try {
-      final answer = await Process.run('ssh-keygen', ['-l', '-f', private]);
+      alone = Directory.systemTemp.createTempSync('porelo-key-');
+      final link = Link(path.join(alone.path, 'key'))..createSync(asked.private);
+      final answer = Process.runSync(openSsh('ssh-keygen'), ['-l', '-f', link.path]);
       final fields = '${answer.stdout}'.trim().split(RegExp(r'\s+'));
       if (answer.exitCode == 0 && fields.length > 1 && fields[1].startsWith('SHA256:')) fingerprint = fields[1];
     } on ProcessException {
       fingerprint = null;
+    } on FileSystemException {
+      // No link here (Windows without the right to make one), so nothing can be said.
+      fingerprint = null;
+    } finally {
+      try {
+        // The link goes, never what it points to.
+        alone?.deleteSync(recursive: true);
+      } on FileSystemException {
+        // A folder left in the temporary folder holds a link only, no key.
+      }
     }
-    if (!stillAsked()) return;
+    final belongs = fingerprint == null ? null : fingerprint == asked.public;
     setState(() {
-      _pairCheckFor = null;
-      _pairAnsweredFor = pair;
-      _pairBelongs = fingerprint == null ? null : fingerprint == public;
-      _pairRefusal = fingerprint == null || fingerprint == public
-          ? null
-          : 'Your public ssh key $public does not belong to the private key, whose key is $fingerprint. '
-                'Choose the .pub file of that private key.';
+      _pairAnsweredFor = asked.pair;
+      _pairBelongs = belongs;
+      _pairRefusal = belongs == false
+          ? 'Your public ssh key ${asked.public} does not belong to the private key, whose key is $fingerprint. '
+                'Choose the .pub file of that private key.'
+          : null;
     });
+    return belongs;
   }
 
   // A signing key kept from an earlier run is never replaced by a pinned one.
@@ -1039,14 +1089,7 @@ class _HostDialogState extends State<HostDialog> {
     const public = 'Choose the private ssh key here; this is a public key. The public key goes in the next field.';
     if (identity.endsWith('.pub')) return public;
     try {
-      final file = File(identity);
-      // Inspect only the public-key prefix, never the private key's contents.
-      final input = file.openSync();
-      try {
-        if (String.fromCharCodes(input.readSync(4)) == 'ssh-') return public;
-      } finally {
-        input.closeSync();
-      }
+      if (_startsAsPublicKey(identity)) return public;
     } on FileSystemException {
       return 'Cannot read the private ssh key file.';
     }
@@ -1194,6 +1237,7 @@ class _HostDialogState extends State<HostDialog> {
         ),
       ]),
       check: () => _keysProblem,
+      beforeNext: _checkPairForNext,
       summary: () => [
         'Private ssh key: ${_identity.text}',
         'Public ssh key: ${_publicKey.text}',

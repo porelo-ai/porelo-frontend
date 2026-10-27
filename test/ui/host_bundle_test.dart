@@ -324,35 +324,6 @@ void main() {
     expect(find.textContaining('not by'), findsNothing);
   });
 
-  // Harm: a public key that does not belong to the login key rents a server this computer cannot sign in to.
-  testWidgets('the public ssh key follows its private one and a key of another pair is refused', (tester) async {
-    await open(tester);
-    await drive(tester);
-    expect(find.byKey(const Key('host-identity')), findsOneWidget, reason: 'the signing key passes the drive');
-    // The field holds a public key from before, as a kept run leaves it.
-    await choose(tester, path.join(scratch.path, 'signer.pub'), field: 'host-public-key');
-
-    await choose(tester, path.join(scratch.path, 'other'), field: 'host-identity');
-    expect(
-      tester.widget<TextField>(find.byKey(const Key('host-public-key'))).controller!.text,
-      path.join(scratch.path, 'other.pub'),
-      reason: 'the public key follows the private one over the earlier value',
-    );
-    await answered(tester, field: 'host-public-key');
-    expect(find.byKey(const Key('host-public-key-ok')), findsOneWidget, reason: 'the pair belongs together');
-
-    await choose(tester, path.join(scratch.path, 'signer.pub'), field: 'host-public-key');
-    expect(find.byKey(const Key('host-public-key-ok')), findsNothing, reason: 'no check mark beside a changed key');
-    await answered(tester, field: 'host-public-key');
-    expect(find.byKey(const Key('host-public-key-refused')), findsOneWidget);
-    expect(find.textContaining('does not belong to the private key'), findsOneWidget);
-    expect(
-      tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
-      isNull,
-      reason: 'a pair that does not belong together goes no further',
-    );
-  });
-
   group('with a home of its own', () {
     late Desk previous;
     late Directory ssh;
@@ -380,6 +351,104 @@ void main() {
       expect(starts, hasLength(1), reason: 'the key that signed the commit must go on to renting');
       final yaml = File(path.join(folder.path, 'porelo-host', 'machine.yml')).readAsStringSync();
       expect(yaml, contains('signed_by: "${fingerprint('signer')}"'));
+    });
+
+    /// Leaves the drive with the key that signed, and waits on *Your ssh keys*.
+    Future<void> toTheSshKeys(WidgetTester tester) async {
+      await open(tester);
+      await drive(tester);
+      expect(find.byKey(const Key('host-identity')), findsOneWidget, reason: 'the signing key passes the drive');
+    }
+
+    /// Presses Next and lets the check it starts finish.
+    Future<void> next(WidgetTester tester) async {
+      final pressed = tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed!;
+      await tester.runAsync(() async {
+        pressed();
+        for (var waited = 0; waited < 100; waited++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
+      await World.settle(tester);
+    }
+
+    // Harm: a public key that does not belong to the login key rents a server this computer cannot sign in to.
+    testWidgets('the public ssh key follows its private one and a key of another pair is refused', (tester) async {
+      await toTheSshKeys(tester);
+      // The field holds a public key from before, as a kept run leaves it.
+      await choose(tester, path.join(scratch.path, 'signer.pub'), field: 'host-public-key');
+
+      await choose(tester, path.join(scratch.path, 'other'), field: 'host-identity');
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('host-public-key'))).controller!.text,
+        path.join(scratch.path, 'other.pub'),
+        reason: 'the public key follows the private one over the earlier value',
+      );
+      await answered(tester, field: 'host-public-key');
+      expect(find.byKey(const Key('host-public-key-ok')), findsOneWidget, reason: 'the pair belongs together');
+
+      await choose(tester, path.join(scratch.path, 'signer.pub'), field: 'host-public-key');
+      expect(find.byKey(const Key('host-public-key-ok')), findsNothing, reason: 'no check mark beside a changed key');
+      await answered(tester, field: 'host-public-key');
+      expect(find.byKey(const Key('host-public-key-refused')), findsOneWidget);
+      expect(
+        find.textContaining(
+          '${fingerprint('signer')} does not belong to the private key, whose key is ${fingerprint('other')}',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
+        isNull,
+        reason: 'a pair that does not belong together goes no further',
+      );
+    });
+
+    // Harm: ssh-keygen reads the .pub beside a private key in its stead, so a wrong .pub would pass as its own pair.
+    testWidgets('a .pub beside the private key that belongs to another pair is refused', (tester) async {
+      File(path.join(scratch.path, 'other')).copySync(path.join(ssh.path, 'login'));
+      File(path.join(scratch.path, 'signer.pub')).copySync(path.join(ssh.path, 'login.pub'));
+      await toTheSshKeys(tester);
+      await choose(tester, path.join(ssh.path, 'login'), field: 'host-identity');
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('host-public-key'))).controller!.text,
+        path.join(ssh.path, 'login.pub'),
+      );
+      await answered(tester, field: 'host-public-key');
+      expect(find.byKey(const Key('host-public-key-refused')), findsOneWidget, reason: 'the key itself is asked');
+      expect(find.textContaining('whose key is ${fingerprint('other')}'), findsOneWidget);
+    });
+
+    // Harm: the start writing out ~/ would put the private key's .pub back over the public key the person chose.
+    testWidgets('the public key chosen after a ~/ private key is the one the start takes', (tester) async {
+      File(path.join(scratch.path, 'other')).copySync(path.join(ssh.path, 'login'));
+      File(path.join(scratch.path, 'other.pub')).copySync(path.join(ssh.path, 'login.pub'));
+      File(path.join(scratch.path, 'other.pub')).copySync(path.join(scratch.path, 'chosen.pub'));
+      await toTheSshKeys(tester);
+      await choose(tester, '~/.ssh/login', field: 'host-identity');
+      await choose(tester, path.join(scratch.path, 'chosen.pub'), field: 'host-public-key');
+      await answered(tester, field: 'host-public-key');
+      expect(find.byKey(const Key('host-public-key-ok')), findsOneWidget);
+      await next(tester);
+      final wizard = tester.widget<Wizard>(find.byType(Wizard));
+      await tester.runAsync(wizard.actionSteps.single.run);
+      await World.settle(tester);
+      expect(starts, hasLength(1));
+      final arguments = starts.single;
+      expect(arguments[arguments.indexOf('--public-key') + 1], path.join(scratch.path, 'chosen.pub'));
+    });
+
+    // Harm: a .pub changed on disk after the field answered would let a pair of two keys through Next.
+    testWidgets('Next asks about the pair itself before it goes on', (tester) async {
+      await toTheSshKeys(tester);
+      File(path.join(scratch.path, 'other.pub')).copySync(path.join(ssh.path, 'login.pub'));
+      File(path.join(scratch.path, 'other')).copySync(path.join(ssh.path, 'login'));
+      await choose(tester, path.join(ssh.path, 'login'), field: 'host-identity');
+      expect(find.byKey(const Key('host-public-key-ok')), findsOneWidget, reason: 'the pair belongs together');
+      File(path.join(scratch.path, 'signer.pub')).copySync(path.join(ssh.path, 'login.pub'));
+      await next(tester);
+      expect(find.byKey(const Key('host-identity')), findsOneWidget, reason: 'Next stays on the keys');
+      expect(find.textContaining('does not belong to the private key'), findsOneWidget);
     });
 
     // Harm: a key changed after the drive passed would write its fingerprint beside a bundle it never signed.
