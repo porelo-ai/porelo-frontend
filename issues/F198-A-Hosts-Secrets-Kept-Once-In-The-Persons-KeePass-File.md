@@ -33,7 +33,8 @@ operator's shape: one password to remember for setting up a host.
   opening the file. Measured: the snap's `keepassxc.cli` may not write in `/tmp` or a hidden folder of the home
   (`Zugriff verweigert`), which the packaged one does not share; 2.7.10's manual page lists `open` (a shell on one
   unlocked file), `show`, `export` (XML or CSV to standard output), `db-create`, `mkdir` and `add`.
-  Windows and macOS are [F200](README.md#f200).
+  Windows and macOS are [F200](README.md#f200); until then *Put this project on a server…* is unavailable on
+  Windows with its reason, since a server's keys are kept in the file (found by the Windows Build after the push).
 - **The entries the interface relies on**, so a person's own file works: `shared/forge-password`,
   `shared/forge-ca-key`, `hosts/<project>/wireguard`, `hosts/<project>/vault-passphrase`, each a KeePass entry whose
   password field holds the secret, named by its path below the root group (whose own name is localized). A missing

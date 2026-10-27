@@ -32,6 +32,7 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
+import 'package:porelo_frontend/src/ui/wizard.dart';
 import 'package:porelo_frontend/src/ui/host_vpn_dialog.dart';
 import 'package:porelo_frontend/src/ui/attention_view.dart';
 import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
@@ -2744,6 +2745,42 @@ void main() {
   }
 
   // Renting without a tresor would leave the project's drive unsynced.
+  // Harm: a server rented from where its keys cannot be kept, which then waits at a stop nothing here answers.
+  hostWidgets('on Windows Start refuses, saying why, and nothing is rented', (tester) async {
+    final previous = desk;
+    addTearDown(() => desk = previous);
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: _secretsOpened,
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            project: 'demo',
+            start: (_, _) async {
+              starts++;
+              return _HostProcess();
+            },
+          ),
+        ),
+      ),
+    );
+    desk = Desk.of('windows', const {'USERPROFILE': r'C:\Users\person', 'SystemRoot': r'C:\Windows'});
+    final wizard = tester.widget<Wizard>(find.byType(Wizard));
+    await tester.runAsync(wizard.actionSteps.single.run);
+    await World.settle(tester);
+    expect(starts, 0);
+    expect(
+      find.textContaining('opens only on Linux so far'),
+      findsOneWidget,
+      reason: 'the reason, before any step check',
+    );
+  });
+
   hostWidgets('a host cannot be brought up without the project tresor', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;

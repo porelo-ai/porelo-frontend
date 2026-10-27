@@ -114,7 +114,7 @@ void main() {
     await process.stderr.drain<void>();
     expect(await process.exitCode, 3, reason: 'the login\'s own exit');
     expect(await File(calls).readAsLines(), hasLength(1), reason: 'no second ssh, no pipe');
-  });
+  }, skip: Platform.isWindows ? 'the feed runs bash, which only Linux has here' : null);
 
   group('run', () {
     final cli = Platform.environment['KEEPASSXC_CLI'] ?? SecretsFile.keepassxcCli;

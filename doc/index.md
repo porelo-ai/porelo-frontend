@@ -163,7 +163,8 @@ password, code or passphrase. `porelo-host down` with the same options takes the
 fails, it keeps the host, says what would be lost, and names the ways out: `down` again, or `down
 --give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
 
-**In the interface**, *Put this project on a server…* leads through a step-by-step wizard (rental
+**In the interface** on Linux (on Windows it waits until the interface brings KeePassXC there, for the secrets
+file), *Put this project on a server…* leads through a step-by-step wizard (rental
 details, Tresorit folder, SSH keys, check and start). The interface writes the followed project's git
 bundle into the Tresorit folder as `porelo-host/<project>.bundle` and derives its path on the host.
 Starting setup places the host under *Machines* as *In preparation*, showing the current step,

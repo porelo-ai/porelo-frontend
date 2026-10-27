@@ -850,6 +850,10 @@ class _HostDialogState extends State<HostDialog> {
 
   Future<void> _up() async {
     if (_running) return;
+    if (noSecretsFileHere(desk) case final reason?) {
+      setState(() => _machineProblem = 'A server cannot be set up here: $reason.');
+      return;
+    }
     for (final step in _steps) {
       final reason = step.check();
       if (reason != null) {

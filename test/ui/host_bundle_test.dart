@@ -382,6 +382,14 @@ void main() {
     });
     tearDown(() => desk = previous);
 
+    /// On Windows no server is set up yet: Start refuses, saying why, and nothing is rented.
+    bool refusedOnWindows() {
+      if (!Platform.isWindows) return false;
+      expect(starts, isEmpty);
+      expect(find.textContaining('opens only on Linux so far'), findsOneWidget);
+      return true;
+    }
+
     // Harm: the host refuses machine.yml only after a server is rented and set up for about 20 minutes.
     testWidgets('a signing key that did not sign the commit stops the drive, naming both keys', (tester) async {
       await open(tester, signingKey: path.join(scratch.path, 'other.pub'));
@@ -395,6 +403,7 @@ void main() {
       await choose(tester, path.join(scratch.path, 'signing.pub'));
       await tester.pump();
       await put(tester);
+      if (refusedOnWindows()) return;
       expect(starts, hasLength(1), reason: 'the key that signed the commit must go on to renting');
       final yaml = File(path.join(folder.path, 'porelo-host', 'machine.yml')).readAsStringSync();
       expect(yaml, contains('signed_by: "${fingerprint('signer')}"'));
@@ -492,6 +501,7 @@ void main() {
       final wizard = tester.widget<Wizard>(find.byType(Wizard));
       await tester.runAsync(wizard.actionSteps.single.run);
       await World.settle(tester);
+      if (refusedOnWindows()) return;
       expect(starts, hasLength(1));
       final arguments = starts.single;
       expect(arguments[arguments.indexOf('--public-key') + 1], path.join(scratch.path, 'chosen.pub'));
@@ -543,6 +553,7 @@ void main() {
         path.join(ssh.path, 'b.pub'),
       );
       await put(tester);
+      if (refusedOnWindows()) return;
       expect(starts, hasLength(1));
     });
 

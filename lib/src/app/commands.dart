@@ -668,7 +668,7 @@ List<Command> projectCommands({
           ? 'default is this machine\'s own: it goes on no server'
           : putOnAServer == null
           ? 'porelo-host is not installed beside the interface'
-          : null,
+          : noSecretsFileHere(desk),
     ),
     Command(
       id: 'project.delete',
@@ -1353,6 +1353,12 @@ String describeShortcut(SingleActivator shortcut) {
   ];
   return parts.join('+');
 }
+
+/// Why a server cannot be set up from [here], or null: a server takes its secrets from the person's secrets file,
+/// which this interface opens with the `keepassxc-cli` it brings only on Linux so far.
+String? noSecretsFileHere(Desk here) => here.isWindows
+    ? 'a server takes its keys from your secrets file, which this interface opens only on Linux so far'
+    : null;
 
 /// Opens the dialog for completing a host setup stop.
 Command hostPreparationCommand({

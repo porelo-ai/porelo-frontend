@@ -103,6 +103,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   this computer. A setup that stops for the central forge's token, or a vault entry, waits under Needs you, gives it
   from the file and goes on. Files chosen for vault entries are kept in the secrets file instead of on the drive,
   and only the entries a server's setup names are sent to it.
+- On Windows, *Put this project on a server…* is unavailable with its reason until the interface brings
+  KeePassXC there: a server's keys are kept in the secrets file, which it opens only on Linux so far.
 
 - Putting a project on a server keeps the server's VPN key and vault passphrase in the person's own `secrets.kdbx`,
   which KeePassXC opens too: a step names the file or where a new one is made, and setup opens it in a terminal on
