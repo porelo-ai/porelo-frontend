@@ -263,24 +263,23 @@ void main() {
   String fingerprint(String name) =>
       HostFiles.signingFingerprint(File(path.join(scratch.path, '$name.pub')).readAsStringSync());
 
-  /// Puts [key] into the signing field as a choice would, outside the test's clock, so the check it starts runs git.
-  Future<void> choose(WidgetTester tester, String key) async {
-    final field = tester.widget<TextField>(find.byKey(const Key('host-signing-key')));
-    await tester.runAsync(() async => field.controller!.text = key);
+  /// Puts [value] into [field] as a choice would, outside the test's clock, so the check it starts runs its program.
+  Future<void> choose(WidgetTester tester, String value, {String field = 'host-signing-key'}) async {
+    final widget = tester.widget<TextField>(find.byKey(Key(field)));
+    await tester.runAsync(() async => widget.controller!.text = value);
     await tester.pump();
   }
 
-  /// Lets the signing key's check, which runs git, finish, until the field shows an answer.
-  Future<void> answered(WidgetTester tester) async {
+  /// Lets [field]'s check, which runs git or ssh-keygen, finish, until the field shows an answer.
+  Future<void> answered(WidgetTester tester, {String field = 'host-signing-key'}) async {
     for (var waited = 0; waited < 300; waited++) {
       final shown =
-          find.byKey(const Key('host-signing-key-ok')).evaluate().isNotEmpty ||
-          find.byKey(const Key('host-signing-key-refused')).evaluate().isNotEmpty;
+          find.byKey(Key('$field-ok')).evaluate().isNotEmpty || find.byKey(Key('$field-refused')).evaluate().isNotEmpty;
       if (shown) return;
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
     }
-    fail('the signing key field showed no answer within 15 seconds');
+    fail('$field showed no answer within 15 seconds');
   }
 
   // Harm: a check mark beside a key it was not given for lets the person rent with a key that did not sign the commit.
@@ -308,6 +307,35 @@ void main() {
     await answered(tester);
     expect(find.byKey(const Key('host-signing-key-refused')), findsOneWidget);
     expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'nothing went on to the next step');
+  });
+
+  // Harm: a public key that does not belong to the login key rents a server this computer cannot sign in to.
+  testWidgets('the public ssh key follows its private one and a key of another pair is refused', (tester) async {
+    await open(tester);
+    await drive(tester);
+    expect(find.byKey(const Key('host-identity')), findsOneWidget, reason: 'the signing key passes the drive');
+    // The field holds a public key from before, as a kept run leaves it.
+    await choose(tester, path.join(scratch.path, 'signer.pub'), field: 'host-public-key');
+
+    await choose(tester, path.join(scratch.path, 'other'), field: 'host-identity');
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('host-public-key'))).controller!.text,
+      path.join(scratch.path, 'other.pub'),
+      reason: 'the public key follows the private one over the earlier value',
+    );
+    await answered(tester, field: 'host-public-key');
+    expect(find.byKey(const Key('host-public-key-ok')), findsOneWidget, reason: 'the pair belongs together');
+
+    await choose(tester, path.join(scratch.path, 'signer.pub'), field: 'host-public-key');
+    expect(find.byKey(const Key('host-public-key-ok')), findsNothing, reason: 'no check mark beside a changed key');
+    await answered(tester, field: 'host-public-key');
+    expect(find.byKey(const Key('host-public-key-refused')), findsOneWidget);
+    expect(find.textContaining('does not belong to the private key'), findsOneWidget);
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
+      isNull,
+      reason: 'a pair that does not belong together goes no further',
+    );
   });
 
   group('with a home of its own', () {

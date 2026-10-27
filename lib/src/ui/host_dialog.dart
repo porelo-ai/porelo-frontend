@@ -221,6 +221,16 @@ class _HostDialogState extends State<HostDialog> {
   String? _signingRefusal;
   // What the field held when it was last looked at, so a rebuild with the same text asks nothing again.
   String? _signingKeyShown;
+  // Whether the public ssh key belongs to the private one: the two paths the answer is about, and the answer;
+  // null when ssh-keygen cannot say, which refuses nothing.
+  String? _pairAnsweredFor;
+  bool? _pairBelongs;
+  String? _pairRefusal;
+  // The pair the newest check is about, and that check's number: an older check's answer is dropped.
+  String? _pairCheckFor;
+  int _pairChecks = 0;
+  String? _identityShown;
+  String? _publicKeyShown;
   String? _sourceProblem = 'The drive: reading the project’s verified source from its machine.';
 
   HostSession? _session;
@@ -252,6 +262,12 @@ class _HostDialogState extends State<HostDialog> {
     }
     _signingKeyShown = _signingKey.text.trim();
     _signingKey.addListener(_signingKeyChanged);
+    _identityShown = _identity.text.trim();
+    _publicKeyShown = _publicKey.text.trim();
+    _identity.addListener(_identityChanged);
+    _publicKey.addListener(_publicKeyChanged);
+    // A kept pair is checked as soon as the dialog shows, not in initState, where no state may change yet.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPairWhenReady());
     if (widget.existingRun == null && !widget.takeDownOnly) unawaited(_readSource());
     final run = widget.existingRun;
     if (run != null) {
@@ -418,36 +434,135 @@ class _HostDialogState extends State<HostDialog> {
 
   /// What the signing key field says of the key in it: being checked, signed the commit, or refused.
   Widget? _signingKeyMark(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final key = _signingKeyPath;
-    if (_signingRefusal != null) {
-      return Icon(
-        Icons.error_outline,
-        key: const Key('host-signing-key-refused'),
-        size: Sizes.mark,
-        color: scheme.error,
-        semanticLabel: 'This key did not sign the verified commit',
-      );
+    return _mark(
+      context,
+      'host-signing-key',
+      refused: _signingRefusal != null,
+      passed: key != null && _bundle != null && _bundleKey == key,
+      checking: key != null && _signingCheckKey == key,
+      passedLabel: 'This key signed the verified commit',
+      refusedLabel: 'This key did not sign the verified commit',
+    );
+  }
+
+  /// What the public ssh key field says of the pair: being checked, belonging together, or refused.
+  Widget? _publicKeyMark(BuildContext context) {
+    final pair = _pairPaths;
+    return _mark(
+      context,
+      'host-public-key',
+      refused: _pairRefusal != null,
+      passed: pair != null && _pairAnsweredFor == pair && _pairBelongs == true,
+      checking: pair != null && _pairCheckFor == pair,
+      passedLabel: 'This public key belongs to the private key',
+      refusedLabel: 'This public key does not belong to the private key',
+    );
+  }
+
+  /// A checked field's mark: an error icon, a check mark, or an hourglass while it is checked; none otherwise.
+  Widget? _mark(
+    BuildContext context,
+    String field, {
+    required bool refused,
+    required bool passed,
+    required bool checking,
+    required String passedLabel,
+    required String refusedLabel,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final (icon, suffix, colour, label) = refused
+        ? (Icons.error_outline, 'refused', scheme.error, refusedLabel)
+        : passed
+        ? (Icons.check_circle_outline, 'ok', scheme.primary, passedLabel)
+        : checking
+        ? (Icons.hourglass_empty, 'checking', scheme.onSurfaceVariant, 'Being checked')
+        : (null, '', null, '');
+    if (icon == null) return null;
+    return Icon(icon, key: Key('$field-$suffix'), size: Sizes.mark, color: colour, semanticLabel: label);
+  }
+
+  /// The two key paths in full, one per line, or null while either cannot be read as a path.
+  String? get _pairPaths {
+    try {
+      return '${desk.expandHome(_identity.text.trim())}\n${desk.expandHome(_publicKey.text.trim())}';
+    } on FormatException {
+      return null;
     }
-    if (key != null && _bundle != null && _bundleKey == key) {
-      return Icon(
-        Icons.check_circle_outline,
-        key: const Key('host-signing-key-ok'),
-        size: Sizes.mark,
-        color: scheme.primary,
-        semanticLabel: 'This key signed the verified commit',
-      );
+  }
+
+  /// Fills the public key with the private key's own `.pub` when there is one, over whatever it held.
+  void _identityChanged() {
+    final typed = _identity.text.trim();
+    if (typed == _identityShown) return;
+    _identityShown = typed;
+    String? companion;
+    try {
+      final private = desk.expandHome(typed);
+      if (private.isNotEmpty && !private.endsWith('.pub') && File('$private.pub').existsSync()) {
+        companion = '$private.pub';
+      }
+    } on FormatException {
+      companion = null;
     }
-    if (key != null && _signingCheckKey == key) {
-      return Icon(
-        Icons.hourglass_empty,
-        key: const Key('host-signing-key-checking'),
-        size: Sizes.mark,
-        color: scheme.onSurfaceVariant,
-        semanticLabel: 'Checking the key against the verified commit',
-      );
+    if (companion != null && companion != _publicKey.text.trim()) {
+      // Changing the public key asks about the pair again.
+      _publicKey.text = companion;
+    } else {
+      _pairChanged();
     }
-    return null;
+  }
+
+  void _publicKeyChanged() {
+    final typed = _publicKey.text.trim();
+    if (typed == _publicKeyShown) return;
+    _publicKeyShown = typed;
+    _pairChanged();
+  }
+
+  /// Drops the answer about the pair the fields held before and asks about the one they hold now.
+  void _pairChanged() {
+    if (_pairRefusal != null && mounted) setState(() => _pairRefusal = null);
+    _checkPairWhenReady();
+  }
+
+  /// Checks the pair at once, when the private key exists and the public one reads as a public key.
+  void _checkPairWhenReady() {
+    if (!mounted) return;
+    final pair = _pairPaths;
+    if (pair == null) return;
+    final [private, public] = pair.split('\n');
+    if (!File(private).existsSync() || private.endsWith('.pub') || _fingerprint(public) == null) return;
+    unawaited(_checkPair(pair, private, _fingerprint(public)!));
+  }
+
+  /// Asks ssh-keygen, in a process of its own, for the private key's fingerprint, which it reads without the
+  /// passphrase, so the private key never enters this program.
+  Future<void> _checkPair(String pair, String private, String public) async {
+    final check = ++_pairChecks;
+    bool stillAsked() => mounted && _pairChecks == check && _pairPaths == pair;
+    setState(() {
+      _pairCheckFor = pair;
+      _pairRefusal = null;
+    });
+    String? fingerprint;
+    try {
+      final answer = await Process.run('ssh-keygen', ['-l', '-f', private]);
+      final fields = '${answer.stdout}'.trim().split(RegExp(r'\s+'));
+      if (answer.exitCode == 0 && fields.length > 1 && fields[1].startsWith('SHA256:')) fingerprint = fields[1];
+    } on ProcessException {
+      fingerprint = null;
+    }
+    if (!stillAsked()) return;
+    setState(() {
+      _pairCheckFor = null;
+      _pairAnsweredFor = pair;
+      _pairBelongs = fingerprint == null ? null : fingerprint == public;
+      _pairRefusal = fingerprint == null || fingerprint == public
+          ? null
+          : 'Your public ssh key $public does not belong to the private key, whose key is $fingerprint. '
+                'Choose the .pub file of that private key.';
+    });
   }
 
   // A signing key kept from an earlier run is never replaced by a pinned one.
@@ -640,26 +755,8 @@ class _HostDialogState extends State<HostDialog> {
   Future<void> _chooseFile(TextEditingController field) async {
     final file = await _pickFile();
     if (file == null || !mounted) return;
-    String? expanded(String value) {
-      try {
-        return desk.expandHome(value.trim());
-      } on FormatException {
-        return null;
-      }
-    }
-
-    final previous = expanded(_identity.text);
-    final selected = expanded(file);
-    final nextDefault = selected == null ? null : '$selected.pub';
-    final prefill =
-        field == _identity &&
-        nextDefault != null &&
-        (_publicKey.text.trim().isEmpty || previous != null && expanded(_publicKey.text) == '$previous.pub') &&
-        File(nextDefault).existsSync();
-    setState(() {
-      field.text = file;
-      if (prefill) _publicKey.text = nextDefault;
-    });
+    // The private key's listener brings its .pub along.
+    setState(() => field.text = file);
   }
 
   Future<void> _up() async {
@@ -946,7 +1043,8 @@ class _HostDialogState extends State<HostDialog> {
     } on FileSystemException {
       return 'Cannot read the private ssh key file.';
     }
-    return _fileProblem(_publicKey.text, 'Your public ssh key');
+    return _fileProblem(_publicKey.text, 'Your public ssh key') ??
+        (_pairRefusal == null ? null : 'Choose the public key that belongs to the private key.');
   }
 
   Widget _panel(List<Widget> children) => Column(
@@ -1077,10 +1175,16 @@ class _HostDialogState extends State<HostDialog> {
       words:
           'The private key on this computer logs in to the server. '
           'Its public key is installed on the server to let that login in. '
-          'Choose the private key first, then its public .pub file.',
-      panel: (_) => _panel([
+          'Choose the private key; its .pub file beside it is filled in, and a public key of another pair is refused.',
+      panel: (context) => _panel([
         _pathField(_identity, 'Your private ssh key', 'host-identity'),
-        _pathField(_publicKey, 'Your public ssh key', 'host-public-key'),
+        _pathField(
+          _publicKey,
+          'Your public ssh key',
+          'host-public-key',
+          mark: _publicKeyMark(context),
+          refusal: _pairRefusal,
+        ),
       ]),
       check: () => _keysProblem,
       summary: () => [

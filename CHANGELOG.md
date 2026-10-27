@@ -44,6 +44,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fingerprints, and named as the server login key when the two key fields look swapped. The field
   opens on a key in `~/.ssh` that the project's machine already trusts, and checks a key as soon as
   it is chosen or typed, with a check mark or an error icon beside it.
+- Server setup fills in your public ssh key from the private key's own `.pub` whenever there is
+  one, also over a key kept from an earlier run, and refuses a public key of another pair at once.
 - Server setup installs porelo-host's collection 0.5.5, which brings up the host's forge and gives
   each agent its own forge account and token, the person a forge login of their own, and each
   account's gate its token, with every repository's main protected and merged by fast-forward
