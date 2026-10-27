@@ -43,9 +43,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The drive, before anything is rented: a key that did not sign it is refused with both keys'
   fingerprints, and named as the server login key when the two key fields look swapped. The field
   opens on a key in `~/.ssh` that the project's machine already trusts.
-- Server setup installs porelo-host's collection 0.5.4, which brings up the host's forge and gives
+- Server setup installs porelo-host's collection 0.5.5, which brings up the host's forge and gives
   each agent its own forge account and token, the person a forge login of their own, and each
-  account's gate its token, with every repository's main protected.
+  account's gate its token, with every repository's main protected and merged by fast-forward
+  only. The forge's runner takes four jobs at once and keeps a cache between runs.
 - A redirect from Scaleway is named as one and is not followed.
 - Server setup shows one protocol with earlier attempts grouped below it, copies its public text
   in one click, and keeps the view and buttons still while you read earlier entries.
