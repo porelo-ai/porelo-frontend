@@ -2,8 +2,9 @@
 
 **Status:** Backlog; blocked by [F198](README.md#f198) and by `porelo-host`
 [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37).
-**Size:** M - the stop's terminal in the host dialog, the central forge's token after `up`, and their tests, on a
-contract with `porelo-host`.
+**Size:** L - the stop's terminal in the host dialog, the central forge's token after `up`, the vault entries' files
+moved into the secrets file, and their tests, on a contract with `porelo-host` (grew from M once the entries' files
+had to move, agreed with Machines).
 
 **What must be true.** At a host's stop, the person types the master password of `secrets.kdbx` once, in the
 terminal the interface opens, and the host gets what its stop asks - its vault passphrase, its WireGuard key, the
@@ -32,6 +33,13 @@ these is typed at every `up`, and a new host has a new vault.
   central forge fails that step naming `forge-central-token`; the interface then sends it alone, `ssh <admin>@<host>
   sudo porelo-host-stop --stdin forge-central-token` with one line `forge-central-token <base64>`, from the file's
   `shared` group, and runs `up` again (decided: this issue takes the step).
+- **The call, agreed with Machines:** `sudo` on the host asks nothing, since the rented image's login user has
+  passwordless sudo, as `up` relies on; so the call needs no `-t`, and the only password typed is the master
+  password, here. A `key <name> <value>` line carries the base64 of the whole file the person chose for that vault
+  entry, `<name>` as `machine.yml`'s `keys` names it; the host pipes the bytes into `porelo vault put <name>`.
+- **The vault entries' files move into the secrets file:** a file chosen on *The drive* for a vault entry is no longer
+  copied to the drive but taken into `hosts/<project>/keys/<name>` by the secrets file's script (its bytes base64 in
+  the entry's password field), and fed from there as a `key` line.
 - **Later needs:** the project store's address and keys of `porelo-host`
   [HO07](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho07) join the stop's lines once that
   issue is built, not in sprint 6e (decided).
