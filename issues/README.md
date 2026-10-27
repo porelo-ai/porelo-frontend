@@ -71,6 +71,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | — | — | Held inbound forge comments (`E0`, and `E1` under policy) released alone to a task, and outgoing forge comments released bound to the reviewed commit and pull request. |
 | <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
 | <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
+| <a id="f195"></a>[F195](F195-The-Signing-Key-Checked-As-It-Is-Chosen.md) | — | — | The signing key on *The drive* checked against the verified commit as soon as it changes, with a check mark or an error icon at the field and no stale answer beside a changed key. |
 
 ### Estimated
 
