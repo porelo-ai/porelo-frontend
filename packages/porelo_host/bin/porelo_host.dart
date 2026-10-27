@@ -83,12 +83,18 @@ Future<int> _run(List<String> arguments) async {
           '--tresor',
           '--vpn-peer-public-key',
           '--vpn-peer-address',
+          '--machine-file',
+          '--bundle',
         }.contains(name) &&
         i + 1 < arguments.length) {
       options[name.substring(2)] = arguments[++i];
     } else {
       return _wrong('$name is not an option');
     }
+  }
+  if (options.containsKey('machine-file') != options.containsKey('bundle')) {
+    stderr.writeln('porelo-host: --machine-file needs --bundle and vice versa');
+    return Exit.refused;
   }
   if (options.containsKey('collection') != options.containsKey('collection-sha256')) {
     stderr.writeln('porelo-host: --collection needs --collection-sha256 and vice versa');
@@ -144,6 +150,8 @@ Future<int> _run(List<String> arguments) async {
     tresor: options['tresor'],
     vpnPeerPublicKey: options['vpn-peer-public-key'],
     vpnPeerAddress: options['vpn-peer-address'],
+    machineFile: options['machine-file'],
+    bundle: options['bundle'],
   );
   return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
 }

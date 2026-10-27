@@ -74,6 +74,26 @@ class ScriptedRemote implements Remote {
   }
 }
 
+/// A host whose copy of the setup files does not match their digests.
+class _RefusingDigest extends ScriptedRemote {
+  _RefusingDigest(super.lines);
+
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String line)? onLine,
+  }) async {
+    final result = await super.run(host, user, command, input: input, onLine: onLine);
+    if (command.contains('sha256sum') && (input ?? '').contains('/etc/porelo-host/setup/')) {
+      return const RemoteResult(65, 'machine.yml: FAILED');
+    }
+    return result;
+  }
+}
+
 /// A host whose ssh answers [failures] first, or for ever, before it lets anybody in.
 class FlakySsh extends ScriptedRemote {
   FlakySsh(this.failures, {this.forever = false}) : super(<String>[]);
@@ -200,6 +220,67 @@ void main() {
   }
 
   // Harm: a killed setup leaves a stale lock that prevents recovery of a billed server.
+  // Harm: the host's setup files left where its account could change them, or one taken whose bytes changed on the way.
+  group('the setup files', () {
+    late File machine;
+    late File bundle;
+    late HostPlan withFiles;
+    setUp(() async {
+      machine = await File('${scratch.path}/machine.yml').writeAsString('project:\n  name: "demo"\n');
+      bundle = await File('${scratch.path}/demo.bundle').writeAsBytes(<int>[0, 1, 2, 255]);
+      withFiles = HostPlan(
+        project: 'demo',
+        account: 'porelo',
+        publicKey: 'ssh-ed25519 BBBB me',
+        collection: plan.collection,
+        collectionSha256: plan.collectionSha256,
+        machineFile: machine.path,
+        bundle: bundle.path,
+      );
+    });
+
+    test('go up into a place only root reads, each checked by its digest there', () async {
+      final remote = ScriptedRemote(<String>[]);
+      await HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: CountingProvider(),
+        remote: remote,
+        emit: (_) {},
+      ).up(withFiles);
+
+      final setup = remote.commands.where((each) => each.contains('/etc/porelo-host/setup')).join('\n');
+      expect(setup, contains('sudo install -d -m 0700 -o root -g root /etc/porelo-host/setup'));
+      expect(setup, contains('sudo install -m 0600 -o root -g root'));
+      expect(setup, contains('/etc/porelo-host/setup/machine.yml'));
+      expect(setup, contains('/etc/porelo-host/setup/demo.bundle'));
+      final digests = remote.inputs.where((each) => each.contains('/etc/porelo-host/setup/')).join();
+      expect(digests, contains('${sha256.convert(await machine.readAsBytes())}  /etc/porelo-host/setup/machine.yml'));
+      expect(digests, contains('${sha256.convert(await bundle.readAsBytes())}  /etc/porelo-host/setup/demo.bundle'));
+      expect(
+        remote.commands.indexWhere((each) => each.contains('sha256sum') && each.contains('/etc/porelo-host/setup')),
+        lessThan(remote.commands.indexWhere((each) => each.contains('ansible-playbook'))),
+        reason: 'checked before the play reads them',
+      );
+    });
+
+    test('a digest the host does not find refuses copy, naming the file, and nothing is played', () async {
+      final remote = _RefusingDigest(<String>[]);
+      final steps = <Step>[];
+      final exit = await HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: CountingProvider(),
+        remote: remote,
+        emit: steps.add,
+      ).up(withFiles);
+
+      expect(exit, Exit.refused);
+      final refused = steps.lastWhere((step) => step.state == StepState.refused);
+      expect(refused.step, 'copy');
+      expect(refused.fix, contains('setup files'));
+      expect(remote.commands.where((each) => each.contains('ansible-playbook')), isEmpty);
+    });
+  });
+
   test('a killed holder releases the project lock for the next up process', () async {
     final holder = await startHost('holder', 'up', hold: true);
     await found('holder');

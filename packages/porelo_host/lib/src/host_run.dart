@@ -25,6 +25,8 @@ class HostPlan {
     this.tresor,
     this.vpnPeerPublicKey,
     this.vpnPeerAddress,
+    this.machineFile,
+    this.bundle,
   });
 
   /// The project's name: the host's name, and the tag it is found by.
@@ -57,6 +59,12 @@ class HostPlan {
 
   /// The person's WireGuard peer's address.
   final String? vpnPeerAddress;
+
+  /// This desktop's `machine.yml`, uploaded into the setup's place on the host; null where the drive still carries it.
+  final String? machineFile;
+
+  /// The project's bundle, uploaded beside it as `<project>.bundle`.
+  final String? bundle;
 
   /// The tag the host carries.
   String get tag => 'porelo-project=$project';
@@ -310,6 +318,10 @@ class HostRun {
         'the host refused the collection digest',
       );
     }
+    if (plan.machineFile != null && plan.bundle != null) {
+      final uploaded = await _uploadSetupFiles(address, plan);
+      if (uploaded != null) return uploaded;
+    }
     _write(const Step('copy', StepState.done));
 
     _write(const Step('ansible', StepState.started));
@@ -542,6 +554,52 @@ class HostRun {
       ),
       _ => null,
     };
+  }
+
+  /// Where the host's setup reads `machine.yml` and the bundle: root's alone until its account exists.
+  static const setupPlace = '/etc/porelo-host/setup';
+
+  /// Uploads the setup's files into [setupPlace] as root's, `0600`, and checks each by its SHA-256 there; the exit to
+  /// return when that is refused, or null when both are in place.
+  Future<int?> _uploadSetupFiles(String address, HostPlan plan) async {
+    final files = <String, String>{'machine.yml': plan.machineFile!, '${plan.project}.bundle': plan.bundle!};
+    final digests = StringBuffer();
+    for (final entry in files.entries) {
+      final local = File(entry.value);
+      if (FileSystemEntity.typeSync(local.path, followLinks: false) != FileSystemEntityType.file) {
+        _write(Step('copy', StepState.refused, fix: '${entry.value} is not a plain file to upload'));
+        return Exit.refused;
+      }
+      digests.write('${sha256.convert(await local.readAsBytes())}  $setupPlace/${entry.key}\n');
+      final copied = await remote.copy(address, plan.loginUser, local.path, '$_workdir/${entry.key}');
+      if (copied.exitCode != 0) return _refused('copy', copied, 'the setup files could not be copied');
+    }
+    final placed = await remote.run(
+      address,
+      plan.loginUser,
+      [
+        'sudo install -d -m 0700 -o root -g root $setupPlace',
+        for (final name in files.keys)
+          'sudo install -m 0600 -o root -g root $_workdir/$name $setupPlace/$name && rm -f $_workdir/$name',
+      ].join(' && '),
+    );
+    if (placed.exitCode != 0) return _refused('copy', placed, 'the host refused the setup files');
+    final words = <String>[];
+    final checked = await remote.run(
+      address,
+      plan.loginUser,
+      'sudo sha256sum -c -',
+      input: digests.toString(),
+      onLine: words.add,
+    );
+    if (checked.exitCode != 0) {
+      return _refused(
+        'copy',
+        RemoteResult(checked.exitCode, [...words, checked.stderr].where((line) => line.isNotEmpty).join('\n')),
+        'the setup files did not arrive as they were sent',
+      );
+    }
+    return null;
   }
 
   static bool _keyRefused(RemoteResult result) => result.stderr.contains('Host key verification failed');
