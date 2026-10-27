@@ -263,6 +263,53 @@ void main() {
   String fingerprint(String name) =>
       HostFiles.signingFingerprint(File(path.join(scratch.path, '$name.pub')).readAsStringSync());
 
+  /// Puts [key] into the signing field as a choice would, outside the test's clock, so the check it starts runs git.
+  Future<void> choose(WidgetTester tester, String key) async {
+    final field = tester.widget<TextField>(find.byKey(const Key('host-signing-key')));
+    await tester.runAsync(() async => field.controller!.text = key);
+    await tester.pump();
+  }
+
+  /// Lets the signing key's check, which runs git, finish, until the field shows an answer.
+  Future<void> answered(WidgetTester tester) async {
+    for (var waited = 0; waited < 300; waited++) {
+      final shown =
+          find.byKey(const Key('host-signing-key-ok')).evaluate().isNotEmpty ||
+          find.byKey(const Key('host-signing-key-refused')).evaluate().isNotEmpty;
+      if (shown) return;
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    fail('the signing key field showed no answer within 15 seconds');
+  }
+
+  // Harm: a check mark beside a key it was not given for lets the person rent with a key that did not sign the commit.
+  testWidgets('the signing key is checked as soon as it changes, and its answer goes with it', (tester) async {
+    await open(tester, signingKey: '');
+    await choose(tester, path.join(scratch.path, 'other.pub'));
+    await answered(tester);
+    expect(find.byKey(const Key('host-signing-key-refused')), findsOneWidget, reason: 'refused before Next');
+    expect(find.textContaining('not by ${fingerprint('other')}'), findsOneWidget);
+    expect(find.byKey(const Key('host-signing-key-ok')), findsNothing);
+
+    // Half typed: not yet a key to check, and still not the key that was refused.
+    await choose(tester, path.join(scratch.path, 'sign'));
+    expect(find.byKey(const Key('host-signing-key-refused')), findsNothing, reason: 'no refusal beside another value');
+    expect(find.textContaining('not by'), findsNothing);
+
+    await choose(tester, path.join(scratch.path, 'signing.pub'));
+    expect(find.byKey(const Key('host-signing-key-refused')), findsNothing, reason: 'the old refusal goes at once');
+    expect(find.textContaining('not by'), findsNothing);
+    await answered(tester);
+    expect(find.byKey(const Key('host-signing-key-ok')), findsOneWidget, reason: 'the key that signed is said to');
+
+    await choose(tester, path.join(scratch.path, 'other.pub'));
+    expect(find.byKey(const Key('host-signing-key-ok')), findsNothing, reason: 'no check mark beside a changed key');
+    await answered(tester);
+    expect(find.byKey(const Key('host-signing-key-refused')), findsOneWidget);
+    expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'nothing went on to the next step');
+  });
+
   group('with a home of its own', () {
     late Desk previous;
     late Directory ssh;

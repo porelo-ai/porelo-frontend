@@ -214,6 +214,13 @@ class _HostDialogState extends State<HostDialog> {
   List<int>? _bundle;
   // The signing key the bundle's commit was checked against: another key checks it again.
   String? _bundleKey;
+  // The key the newest check is about, and that check's number: an older check's answer is dropped.
+  String? _signingCheckKey;
+  int _signingChecks = 0;
+  // Why the key in the field did not pass; it goes the moment the field changes.
+  String? _signingRefusal;
+  // What the field held when it was last looked at, so a rebuild with the same text asks nothing again.
+  String? _signingKeyShown;
   String? _sourceProblem = 'The drive: reading the project’s verified source from its machine.';
 
   HostSession? _session;
@@ -243,6 +250,8 @@ class _HostDialogState extends State<HostDialog> {
       _collection.text = kept.collection;
       _collectionSha256.text = kept.collectionSha256;
     }
+    _signingKeyShown = _signingKey.text.trim();
+    _signingKey.addListener(_signingKeyChanged);
     if (widget.existingRun == null && !widget.takeDownOnly) unawaited(_readSource());
     final run = widget.existingRun;
     if (run != null) {
@@ -271,6 +280,7 @@ class _HostDialogState extends State<HostDialog> {
             ? 'The drive: the machine supplied no repository address for this project.'
             : null;
       });
+      _checkSigningKeyWhenReady();
     } on Exception {
       if (mounted) {
         setState(() => _sourceProblem = 'The drive: the project’s verified source could not be read from its machine.');
@@ -310,47 +320,134 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  /// The signing key as a full path, or null while what is typed cannot be one.
+  String? get _signingKeyPath {
+    try {
+      return desk.expandHome(_signingKey.text.trim());
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Drops the answer about the key the field held before and asks about the one it holds now.
+  void _signingKeyChanged() {
+    final typed = _signingKey.text.trim();
+    if (typed == _signingKeyShown) return;
+    _signingKeyShown = typed;
+    if (_signingRefusal != null) setState(() => _signingRefusal = null);
+    _checkSigningKeyWhenReady();
+  }
+
+  /// Checks the signing key at once, when it reads as a public key and the drive and the source are there.
+  void _checkSigningKeyWhenReady() {
+    if (!mounted || _folder == null || _followed == null || _sourceProblem != null) return;
+    final key = _signingKeyPath;
+    if (key == null || _fingerprint(key) == null || (_bundle != null && _bundleKey == key)) return;
+    unawaited(_checkSigningKey(key));
+  }
+
   Future<bool> _checkBundle() async {
     if (_sourceProblem != null) return false;
     // Expanded, so the same key written as ~/ before the action and in full after it is not checked twice.
     final key = desk.expandHome(_signingKey.text.trim());
     if (_folder == null || (_bundle != null && _bundleKey == key)) return true;
+    return _checkSigningKey(key, forNext: true);
+  }
+
+  /// Checks [key] against the verified commit; only a check [forNext] holds the dialog and speaks for the step.
+  Future<bool> _checkSigningKey(String key, {bool forNext = false}) async {
+    final check = ++_signingChecks;
+    _signingCheckKey = key;
+    // An answer about a key the field no longer holds, or from an older check, is dropped, never shown.
+    bool stillAsked() => mounted && _signingChecks == check && _signingKeyPath == key;
     setState(() {
-      _preparing = true;
-      _machineProblem = null;
+      if (forNext) {
+        _preparing = true;
+        _machineProblem = null;
+      }
+      _signingRefusal = null;
     });
     try {
       final source = _followed!;
-      _bundle = null;
+      List<int>? bundle;
       await _withFiles((files) async {
-        _bundle = await files.createBundle(
+        bundle = await files.createBundle(
           project: widget.project,
           url: source.url,
           commit: source.commit,
           signingKey: File(key),
         );
       });
-      _bundleKey = key;
-      return mounted;
+      if (!stillAsked()) return false;
+      setState(() {
+        _bundle = bundle;
+        _bundleKey = key;
+      });
+      return true;
     } on HostFilesRefused catch (error) {
       final chosen = _fingerprint(key);
       final swapped = error.message.contains(', not by ') && chosen != null && chosen == _fingerprint(_publicKey.text);
-      if (mounted) {
+      if (stillAsked()) {
         setState(
-          () => _machineProblem = swapped
+          () => _signingRefusal = swapped
               ? '${error.message} It is also your public ssh key for signing in to the server: '
                     'the two key fields may be swapped.'
               : error.message,
         );
       }
     } on FileSystemException catch (error) {
-      if (mounted) setState(() => _machineProblem = _preparationProblem(error));
+      // What only Next can act on is said by Next; a check of the field alone says it at the field.
+      if (stillAsked()) {
+        setState(
+          () => forNext ? _machineProblem = _preparationProblem(error) : _signingRefusal = _preparationProblem(error),
+        );
+      }
     } on SecretStoreFailed {
-      if (mounted) setState(() => _machineProblem = 'The system secret store could not be opened.');
+      const problem = 'The system secret store could not be opened.';
+      if (stillAsked()) setState(() => forNext ? _machineProblem = problem : _signingRefusal = problem);
     } finally {
-      if (mounted) setState(() => _preparing = false);
+      if (mounted && _signingChecks == check) {
+        setState(() {
+          if (forNext) _preparing = false;
+          _signingCheckKey = null;
+        });
+      }
     }
     return false;
+  }
+
+  /// What the signing key field says of the key in it: being checked, signed the commit, or refused.
+  Widget? _signingKeyMark(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final key = _signingKeyPath;
+    if (_signingRefusal != null) {
+      return Icon(
+        Icons.error_outline,
+        key: const Key('host-signing-key-refused'),
+        size: Sizes.mark,
+        color: scheme.error,
+        semanticLabel: 'This key did not sign the verified commit',
+      );
+    }
+    if (key != null && _bundle != null && _bundleKey == key) {
+      return Icon(
+        Icons.check_circle_outline,
+        key: const Key('host-signing-key-ok'),
+        size: Sizes.mark,
+        color: scheme.primary,
+        semanticLabel: 'This key signed the verified commit',
+      );
+    }
+    if (key != null && _signingCheckKey == key) {
+      return Icon(
+        Icons.hourglass_empty,
+        key: const Key('host-signing-key-checking'),
+        size: Sizes.mark,
+        color: scheme.onSurfaceVariant,
+        semanticLabel: 'Checking the key against the verified commit',
+      );
+    }
+    return null;
   }
 
   // A signing key kept from an earlier run is never replaced by a pinned one.
@@ -509,6 +606,7 @@ class _HostDialogState extends State<HostDialog> {
         _folder = folder;
         _machineProblem = null;
       });
+      _checkSigningKeyWhenReady();
     }
   }
 
@@ -910,7 +1008,7 @@ class _HostDialogState extends State<HostDialog> {
           'Tresorit, the one drive available today. Choose its synced folder on this computer. '
           'The project’s verified bundle is written into porelo-host in that folder. '
           'Give the public key used to sign its commits.',
-      panel: (_) => _panel([
+      panel: (context) => _panel([
         const Text('Its synced folder on this computer'),
         Row(
           children: [
@@ -932,7 +1030,13 @@ class _HostDialogState extends State<HostDialog> {
         if (Platform.isWindows)
           const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
         if (_folder != null) ...[
-          _pathField(_signingKey, 'Public key for signing commits (.pub)', 'host-signing-key'),
+          _pathField(
+            _signingKey,
+            'Public key for signing commits (.pub)',
+            'host-signing-key',
+            mark: _signingKeyMark(context),
+            refusal: _signingRefusal,
+          ),
           _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
           TextButton(
             onPressed: _running || _upStarted ? null : _addKey,
@@ -1286,9 +1390,11 @@ class _HostDialogState extends State<HostDialog> {
     );
   }
 
-  Widget _pathField(TextEditingController controller, String label, String key) => Row(
+  Widget _pathField(TextEditingController controller, String label, String key, {Widget? mark, String? refusal}) => Row(
     children: <Widget>[
-      Expanded(child: _field(controller, label, key, namesHost: true)),
+      Expanded(
+        child: _field(controller, label, key, namesHost: true, mark: mark, refusal: refusal),
+      ),
       const SizedBox(width: Space.small),
       TextButton(
         onPressed: _running || _upStarted ? null : () => _chooseFile(controller),
@@ -1297,14 +1403,26 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
-  Widget _field(TextEditingController controller, String label, String key, {bool namesHost = false}) => Padding(
+  Widget _field(
+    TextEditingController controller,
+    String label,
+    String key, {
+    bool namesHost = false,
+    Widget? mark,
+    String? refusal,
+  }) => Padding(
     padding: const EdgeInsets.only(bottom: Space.small),
     child: TextField(
       key: Key(key),
       controller: controller,
       enabled: !_running,
       readOnly: namesHost && _upStarted,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: mark == null ? null : Padding(padding: const EdgeInsets.all(Space.small), child: mark),
+        errorText: refusal,
+        errorMaxLines: 6,
+      ),
       onChanged: (_) => setState(() {}),
     ),
   );
