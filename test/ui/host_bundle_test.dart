@@ -310,6 +310,45 @@ void main() {
     expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'nothing went on to the next step');
   });
 
+  // Harm: a check of the field outliving Next's own check left the whole dialog busy, every field shut.
+  testWidgets('a key chosen while Next checks leaves the dialog free once both answered', (tester) async {
+    await open(tester, signingKey: '');
+    await choose(tester, path.join(scratch.path, 'other.pub'));
+    await answered(tester);
+    final pressed = tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed!;
+    final field = tester.widget<TextField>(find.byKey(const Key('host-signing-key'))).controller!;
+    await tester.runAsync(() async {
+      // Next's check of the refused key, then at once a check of another key from the field.
+      pressed();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      field.text = path.join(scratch.path, 'signing.pub');
+      await Future<void>.delayed(const Duration(seconds: 3));
+    });
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('host-signing-key'))).enabled,
+      isTrue,
+      reason: 'the dialog is free again once both checks answered',
+    );
+  });
+
+  // Harm: an earlier refusal left on screen after the key passed reads as if the key the person chose were refused.
+  testWidgets('what an earlier step said goes once the key passes and Next goes on', (tester) async {
+    await open(tester);
+    await answered(tester);
+    expect(find.byKey(const Key('host-signing-key-ok')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('host-key-name')), 'not/a name');
+    await tester.ensureVisible(find.text('Choose a file for this vault entry'));
+    await tester.tap(find.text('Choose a file for this vault entry'));
+    await tester.pump();
+    expect(find.textContaining('A name must not'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('host-key-name')), '');
+    await tester.pump();
+    await drive(tester);
+    expect(find.byKey(const Key('host-identity')), findsOneWidget);
+    expect(find.textContaining('A name must not'), findsNothing, reason: 'the earlier message goes with Next');
+  });
+
   // Harm: a late answer about the key the person left would stand beside the key they chose.
   testWidgets('of two checks running at once, the answer about the key in the field stands', (tester) async {
     await open(tester, signingKey: '');
@@ -417,6 +456,18 @@ void main() {
       await answered(tester, field: 'host-public-key');
       expect(find.byKey(const Key('host-public-key-refused')), findsOneWidget, reason: 'the key itself is asked');
       expect(find.textContaining('whose key is ${fingerprint('other')}'), findsOneWidget);
+    });
+
+    // Harm: a private key named relative to this program's folder pointed the link nowhere, and the check said nothing.
+    testWidgets('a private key given by a relative path is asked about too', (tester) async {
+      File(path.join(scratch.path, 'other')).copySync(path.join(ssh.path, 'login'));
+      File(path.join(scratch.path, 'signer.pub')).copySync(path.join(ssh.path, 'login.pub'));
+      final previous = Directory.current;
+      Directory.current = ssh;
+      addTearDown(() => Directory.current = previous);
+      await toTheSshKeys(tester);
+      await choose(tester, 'login', field: 'host-identity');
+      expect(find.byKey(const Key('host-public-key-refused')), findsOneWidget, reason: 'the key itself is asked');
     });
 
     // Harm: the start writing out ~/ would put the private key's .pub back over the public key the person chose.

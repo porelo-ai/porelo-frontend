@@ -38,5 +38,8 @@ key had been refused too.
   fingerprints, before **Next**.
 - Changing the key removes the refusal at once, also while what is typed is not yet a key.
 - The key that signed shows the check mark; changing it again removes the check mark at once.
-- Seen to fail: the test red before the change, and red again with the refusal kept on a change or
-  the check mark shown for another key.
+- A key chosen while **Next**'s own check runs leaves the dialog free once both answered, and what an
+  earlier step said goes when **Next** takes the key the field already passed.
+- Seen to fail: the test red before the change, and red again with the refusal kept on a change, the
+  check mark shown for another key, **Next**'s hold ended only by the newest check, and the earlier
+  message kept.

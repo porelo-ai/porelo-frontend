@@ -28,9 +28,13 @@ chose a new private key and the public field kept the earlier run's key, so they
   so the private key never enters the interface. Measured: `ssh-keygen -l -f <private>` reads
   `<private>.pub` instead when one lies beside it, so it is asked through a link to the key alone in
   a private temporary folder, which then goes; through the link it reads the key itself, also one with
-  a passphrase. Where it cannot say (no link, an encrypted PEM key, a key type
+  a passphrase; the link's target is made absolute, since a relative one would be read from the link's
+  own folder. Where it cannot say (no link, an encrypted PEM key, a key type
   `HostFiles.signingFingerprint` does not read, no `ssh-keygen`), nothing is refused. A Windows device
-  name met while typing (`con`) is never opened.
+  name met while typing (`con`) is never opened, and no file is read whole unless it begins as a public
+  key, so neither a pipe nor a private key in a public key field is read into the interface. That
+  Windows guard has no test of its own: it can only go red on Windows, where a regression hangs the run;
+  it is held by reading.
 - The check is waited for: ssh-keygen answers in milliseconds and asks nothing, so no answer can come
   late or about another pair, and only a regular file is asked about, never a pipe or a device that
   would hold it. The answer stands in the public key field with [F195](README.md#f195)'s marks, and a
@@ -47,6 +51,7 @@ chose a new private key and the public field kept the earlier run's key, so they
   held, also when the `.pub` changed on disk after the field answered.
 - A `.pub` beside the private key that belongs to another pair is refused, not compared with itself.
 - The public key chosen after a `~/` private key is the one the start takes.
+- A private key given by a relative path is asked about as well.
 - Seen to fail: the test red before the change, and red again with the public key following only an
   empty field, with the check mark shown for another pair, with **Next** not held, with ssh-keygen
   asked beside the `.pub`, with **Next** not asking itself, and with paths compared unexpanded.

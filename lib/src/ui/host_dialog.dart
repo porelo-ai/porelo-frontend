@@ -325,7 +325,8 @@ class _HostDialogState extends State<HostDialog> {
   static String? _fingerprint(String file) {
     try {
       final expanded = desk.expandHome(file.trim());
-      if (_namesADevice(expanded)) return null;
+      // Only a public key is read whole: never a private key, a pipe or a device.
+      if (!_startsAsPublicKey(expanded)) return null;
       return HostFiles.signingFingerprint(File(expanded).readAsStringSync());
     } on HostFilesRefused {
       return null;
@@ -516,6 +517,8 @@ class _HostDialogState extends State<HostDialog> {
 
   /// Whether [file] begins as a public key does; only those four bytes are read, never a private key's contents.
   static bool _startsAsPublicKey(String file) {
+    // A pipe or a device would hold the read forever.
+    if (_namesADevice(file) || FileSystemEntity.typeSync(file) != FileSystemEntityType.file) return false;
     final input = File(file).openSync();
     try {
       return String.fromCharCodes(input.readSync(4)) == 'ssh-';
@@ -594,7 +597,8 @@ class _HostDialogState extends State<HostDialog> {
     Directory? alone;
     try {
       alone = Directory.systemTemp.createTempSync('porelo-key-');
-      final link = Link(path.join(alone.path, 'key'))..createSync(asked.private);
+      // Absolute, since a link's relative target is read from the link's own folder.
+      final link = Link(path.join(alone.path, 'key'))..createSync(path.absolute(asked.private));
       final answer = Process.runSync(openSsh('ssh-keygen'), ['-l', '-f', link.path]);
       final fields = '${answer.stdout}'.trim().split(RegExp(r'\s+'));
       if (answer.exitCode == 0 && fields.length > 1 && fields[1].startsWith('SHA256:')) fingerprint = fields[1];
@@ -1036,6 +1040,8 @@ class _HostDialogState extends State<HostDialog> {
   String? _fileProblem(String value, String label) {
     try {
       final expanded = desk.expandHome(value.trim());
+      // Windows answers for a device as for a file, and reading it waits.
+      if (_namesADevice(expanded)) return '$label names a Windows device: $expanded.';
       return switch (FileSystemEntity.typeSync(expanded)) {
         FileSystemEntityType.notFound => '$label does not exist: $expanded.',
         FileSystemEntityType.file => null,
