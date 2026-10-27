@@ -23,10 +23,16 @@ these is typed at every `up`, and a new host has a new vault.
   turn; `HostSession.needs` names what the stop waits for.
 - **The terminal's command becomes one pipeline on this desktop**, so the interface never holds a secret
   (decided): the master password is asked once by the packaged `keepassxc-cli`, whose entries go through the pipe to
-  `ssh <admin>@<host> sudo porelo-host-stop --stdin [--email ADDRESS] NEED...`, one line per secret,
-  `<need> [<name>] <value in base64>` (agreed with Machines for the host's side); the stop asks only what is
-  missing. The needs are `vault` or `vault-new`, `keys` with `key <name>` lines, `wireguard` and
-  `forge-certificate`; `drive` is not one of them (decided).
+  `ssh <admin>@<host> sudo porelo-host-stop --stdin NEED...`, one line per secret, `<need> [<name>] <value in
+  base64>` (agreed with Machines for the host's side); the stop asks only what is missing. The needs are `vault` or
+  `vault-new`, `keys` with `key <name>` lines and `wireguard`; `drive` is not one of them (decided), and `--email`,
+  which belongs to `drive`, is refused with `--stdin` (exit 64). `forge-certificate` is taken only once `porelo-host`
+  [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) is built; before that `--stdin`
+  refuses it as an unknown need (exit 64) before any line is used.
+- **The central forge's token is no need of the stop:** an `up` that reaches the migration of a repository from the
+  central forge fails that step naming `forge-central-token`; the interface then sends it alone, `ssh <admin>@<host>
+  sudo porelo-host-stop --stdin forge-central-token` with one line `forge-central-token <base64>`, from the file's
+  `shared` group, and runs `up` again. Whether F199 takes this step or a later issue does is for the operator.
 - **The forge's certificate is signed here (decided):** the host makes its key and sends only its request; the same
   terminal signs it with the CA key from the file and hands the certificate back, so the CA key never leaves the
   desktop. On the wire, as agreed with Machines: `ssh <admin>@<host> sudo porelo-host-stop --request` prints the
