@@ -246,6 +246,19 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     command,
   ]);
 
+  /// Writes [bytes] to [path] as the work user, through the `Host` entry [alias]: base64 on standard input, decoded
+  /// there into a file only that user reads. Nothing of it is in a command line.
+  Future<ProcessResult> sendToUser(String alias, String path, List<int> bytes) => _run(<String>[
+    openSsh('ssh', on: _desk),
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ConnectTimeout=10',
+    '--',
+    alias,
+    'umask 077 && /usr/bin/base64 -d > ${quoteForAShell(path)}',
+  ], input: base64Encode(bytes));
+
   /// Adds a `Host` entry for the machine to `~/.ssh/config`: **as the work user, never root**.
   ///
   /// Appended, after a copy of the file is kept; an entry of that name that already says the same

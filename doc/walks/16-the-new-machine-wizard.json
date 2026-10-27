@@ -70,7 +70,15 @@
       "then": "setup-next"
     },
     {
-      "say": "„6. Closing the way root came in“: noch NICHT ausführen – es kommt ein zweiter Benutzer. „Watch it“.",
+      "say": "„Next step“ → „6. Your own drive (optional)“. Bestanden: der Schritt fragt nichts, solange Du nichts wählst, und „Install Tresorit for …“ ist das Einzige, was er anbietet. Hier NICHT installieren: „Next step“.",
+      "at": [
+        "drive-explained",
+        "drive-install"
+      ],
+      "then": "setup-next"
+    },
+    {
+      "say": "„7. Closing the way root came in“: noch NICHT ausführen – es kommt ein zweiter Benutzer. „Watch it“.",
       "at": [
         "watch-new"
       ],

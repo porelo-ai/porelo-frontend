@@ -111,7 +111,9 @@ is only as trustworthy as the ZIP or the MSIX it came in, which is why the check
 2. **Add a machine** with *Watch another machine…* in the title bar: one whose socket is forwarded
    already, one reached over ssh, where the interface raises the forward itself, or **a new machine
    just rented**, which a wizard prepares end to end, showing every command before it runs it and
-   using root only for setting up. The first time you go to it and it answers, the interface shows
+   using root only for setting up. Its optional step *Your own drive* installs Tresorit's client in the
+   work user's own account, from an installer whose own signature the machine checks first, and syncs
+   one tresor of yours into that user's home. The first time you go to it and it answers, the interface shows
    what it says about itself, as `porelo doctor` does on a terminal: each check green, yellow or red, with what to do.
    Nothing is repaired from here, and the machine is added either way.
 3. **Add your forge** under *Forges*, with a token, so a repository can be picked rather than typed.

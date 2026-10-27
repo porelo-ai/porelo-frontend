@@ -39,6 +39,9 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
 
   /// The terminal the vault's passphrase is typed into, while it is open.
   Session? _vault;
+  Session? _drive;
+  final _driveEmail = TextEditingController();
+  late final _tresor = TextEditingController(text: widget.run.tresor);
   final _selection = TerminalController();
 
   /// The private keys in `~/.ssh`, read once when the steps are drawn.
@@ -95,9 +98,38 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
     _selection.clearSelection();
   }
 
+  /// Opens the terminal for Tresorit's own sign-in, as the work user. **The password goes keyboard → terminal → ssh →
+  /// Tresorit's client**; this program never holds it. When the terminal ends, the client is asked who is signed in.
+  void _openDrive() {
+    final machine = run.ready;
+    if (machine == null || !SetupRun.isEmail(_driveEmail.text)) return;
+    final session = Session(
+      task: 'drive',
+      machine: machine,
+      open: widget.openTerminal,
+      run: run.driveLoginCommand(_driveEmail.text),
+    );
+    var asked = false;
+    session.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+      if (session.state == SessionState.over && !asked) {
+        asked = true;
+        run.checkDriveLogin();
+      }
+    });
+    final before = _drive;
+    setState(() => _drive = session);
+    before?.dispose();
+    _selection.clearSelection();
+  }
+
   @override
   void dispose() {
     _vault?.dispose();
+    _drive?.dispose();
+    _driveEmail.dispose();
+    _tresor.dispose();
     _selection.dispose();
     run.removeListener(_follow);
     _private.dispose();
@@ -117,6 +149,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
         SetupStep.prepare => _prepareStep(context),
         SetupStep.reach => _reachStep(context),
         SetupStep.vault => _vaultStep(context),
+        SetupStep.drive => _driveStep(context),
         SetupStep.harden => _hardenStep(context),
       },
       if (run.busy) ...<Widget>[
@@ -521,8 +554,103 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
     ];
   }
 
+  List<Widget> _driveStep(BuildContext context) {
+    final drive = _drive;
+    return <Widget>[
+      _title(context, '6. Your own drive (optional)'),
+      const SizedBox(height: Space.small),
+      Text(
+        'Tresorit, the one drive available today, in ${run.workUser}\'s own account and nobody else\'s: its client '
+        'is installed there and syncs one tresor of yours into that user\'s home. Leave it out with Next; nothing '
+        'here is needed for the machine to work.',
+        key: const Key('drive-explained'),
+      ),
+      const SizedBox(height: Space.normal),
+      if (!run.driveInstalled) ...<Widget>[
+        const Text(
+          'Tresorit publishes no digest for its installer. It carries its own signature, which the machine checks '
+          'against the pinned certificate of Tresorit\'s code signing before any of it runs.',
+        ),
+        const SizedBox(height: Space.small),
+        FilledButton.icon(
+          key: const Key('drive-install'),
+          onPressed: run.busy ? null : run.installDrive,
+          icon: const Icon(Icons.download, size: Sizes.rowIcon),
+          label: Text('Install Tresorit for ${run.workUser}'),
+        ),
+      ] else if (run.driveSignedInAs == null) ...<Widget>[
+        TextField(
+          key: const Key('drive-email'),
+          controller: _driveEmail,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Your Tresorit e-mail',
+            helperText: 'Tresorit asks its password and code in the terminal below, never here.',
+          ),
+        ),
+        const SizedBox(height: Space.small),
+        if (drive == null || drive.state == SessionState.over)
+          OutlinedButton.icon(
+            key: const Key('open-drive-terminal'),
+            onPressed: run.busy || !SetupRun.isEmail(_driveEmail.text) ? null : _openDrive,
+            icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
+            label: Text(drive == null ? 'Open a terminal to sign in' : 'Open it again'),
+          ),
+        if (drive != null) ...<Widget>[
+          const SizedBox(height: Space.small),
+          SizedBox(
+            height: Sizes.terminal,
+            child: ColoredBox(
+              color: TerminalLook.background,
+              child: CopiesAsShown(
+                terminal: drive.terminal,
+                controller: _selection,
+                child: TerminalView(
+                  drive.terminal,
+                  key: const Key('drive-terminal'),
+                  controller: _selection,
+                  shortcuts: terminalShortcuts,
+                  theme: TerminalLook.theme,
+                  autofocus: true,
+                  alwaysShowCursor: drive.live,
+                  readOnly: !drive.live,
+                  padding: const EdgeInsets.all(Space.small),
+                  textStyle: const TerminalStyle(fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+          const TerminalPasteHint(),
+        ],
+      ] else ...<Widget>[
+        Text('Signed in as ${run.driveSignedInAs}.', key: const Key('drive-signed-in')),
+        const SizedBox(height: Space.small),
+        TextField(
+          key: const Key('drive-tresor'),
+          controller: _tresor,
+          onChanged: (value) {
+            run.tresor = value;
+            setState(() {});
+          },
+          decoration: InputDecoration(
+            labelText: "The tresor's name in Tresorit",
+            helperText: 'It syncs into ~/${run.driveFolder} of ${run.workUser}.',
+          ),
+        ),
+        const SizedBox(height: Space.small),
+        FilledButton(
+          key: const Key('drive-sync'),
+          onPressed: run.busy || !SetupRun.isTresorName(_tresor.text) || run.driveSynced == run.tresor.trim()
+              ? null
+              : run.syncDrive,
+          child: const Text('Sync it'),
+        ),
+      ],
+    ];
+  }
+
   List<Widget> _hardenStep(BuildContext context) => <Widget>[
-    _title(context, '6. Closing the way root came in (optional)'),
+    _title(context, '7. Closing the way root came in (optional)'),
     const SizedBox(height: Space.small),
     Text(
       'This writes two lines into the ssh server\'s configuration there and reloads it: root can '

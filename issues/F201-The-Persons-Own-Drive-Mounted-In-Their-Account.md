@@ -1,7 +1,7 @@
 # F201 — The Person's Own Drive Mounted In Their Account
 
-**Status:** Implementing; part A (the drive out of the host dialog) built, part B (the machine setup's drive
-step) next. Part A goes out only with a `porelo-host` release carrying
+**Status:** Implementing; part A (the drive out of the host dialog) and part B (the machine setup's drive step)
+built. Part A goes out only with a `porelo-host` release carrying
 [HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38), since the interface carries that
 collection.
 **Size:** L - a new step of the machine setup that installs and signs in a third-party client in a user's account,
@@ -43,6 +43,13 @@ accounts, each mounting their own drive.
   the same push. **Declined, with the reason:** a test that `up` writes no tresor into the inventory cannot be made
   to fail by passing one, since `HostPlan` has no such field any more; the command line's refusal of `--tresor` is
   tested.
+- **Part B, built:** `SetupStep.drive`, after the vault, optional (Next leaves it with nothing run). *Install
+  Tresorit for <user>* fetches the installer here, finds the pinned CA (`TresoritInstaller`), sends the installer,
+  its signature and the two certificates into a `0700` folder of the user's home (base64 on standard input), and runs
+  the check there (`TresoritInstaller.checkScript`); only then the installer, `--update-v2 ~/.local/share/tresorit`,
+  and the daemon as the user's unit. The sign-in is Tresorit's own, in a terminal as that user, with the e-mail
+  refused unless plain; who is signed in is asked of the client afterwards, never read from the terminal. *Sync it*
+  starts the tresor into `~/Tresorit/<tresor>`. Its decision is in `doc/decisions.md`.
 - **Red first:** a test of `SetupRun` that a user without a drive is asked nothing about Tresorit and runs no step for
   it, and one that a chosen drive's commands run as that user and never as root or Porelo's account.
 

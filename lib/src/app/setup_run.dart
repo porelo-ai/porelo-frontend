@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
@@ -9,6 +11,7 @@ import 'host_keys.dart';
 import 'machine_setup.dart';
 import 'machines.dart';
 import 'settings.dart';
+import 'tresorit_installer.dart';
 
 /// The steps of preparing a machine, in order. Adding a user to a machine prepared before walks
 /// the same steps; only what the first one asks differs.
@@ -27,6 +30,9 @@ enum SetupStep {
 
   /// Making the vault, in a terminal the person types the passphrase into.
   vault,
+
+  /// Optionally the person's own Tresorit drive, in the work user's own account.
+  drive,
 
   /// Optionally turning off root and password login, then watching it.
   harden,
@@ -63,6 +69,8 @@ class SetupRun extends ChangeNotifier {
     this.trying,
     this.remember,
     this.countKeyslots,
+    this.download,
+    this.installerPin = TresoritInstaller.caSha256,
   }) : keyFile = addingAUser ? (setup.existingKeys().firstOrNull ?? setup.sshKeys().firstOrNull ?? '') : '';
 
   /// Picks a run up again from what [toStored] kept, or null when it is not one.
@@ -260,6 +268,8 @@ class SetupRun extends ChangeNotifier {
     // first credential later, far from where it is made. Where it
     // could not be asked, it is not held up on that.
     SetupStep.vault => hasVault != false,
+    // Optional: a user without a drive is asked nothing about it and goes on.
+    SetupStep.drive => true,
     SetupStep.harden => false,
   };
 
@@ -552,6 +562,162 @@ class SetupRun extends ChangeNotifier {
       // Unknown stays unknown: the terminal is still there to make it.
     }
   }
+
+  /// Tresorit's client of the work user, by its path in that user's home.
+  static const _client = r'"$HOME/.local/share/tresorit/tresorit-cli"';
+
+  /// Fetches Tresorit's installer; injected in tests, otherwise over https from [TresoritInstaller.url].
+  final Future<Uint8List> Function(Uri url)? download;
+
+  /// The fingerprint of the CA Tresorit's installer must be signed under; another only in tests.
+  final String installerPin;
+
+  /// Whether Tresorit's client was installed for the work user, checked before it ran.
+  bool driveInstalled = false;
+
+  /// Who the work user's client is signed in as, once it said; null before it was asked or while it is not.
+  String? driveSignedInAs;
+
+  /// The tresor synced into the work user's home, once it is.
+  String? driveSynced;
+
+  /// The tresor the person names, and where in the work user's home it syncs.
+  String tresor = '';
+
+  /// The folder [tresor] syncs into, below the work user's home.
+  String get driveFolder => 'Tresorit/${tresor.trim()}';
+
+  /// A tresor's name as it may reach the machine's shell: letters, digits, spaces and `._-` only.
+  static bool isTresorName(String name) => RegExp(r'^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$').hasMatch(name.trim());
+
+  /// Installs Tresorit's client for the work user, and only once its installer passed its check there.
+  ///
+  /// This desktop fetches the installer and finds the pinned CA in its chain; the machine's `openssl`, as the work
+  /// user, checks the rest ([TresoritInstaller.checkScript]) before any byte of it runs. The daemon then runs as that
+  /// user's own unit, which its linger keeps up without a login.
+  Future<void> installDrive() => _doing("Fetching Tresorit's installer and checking it on the machine…", () async {
+    final fetch = download ?? _fetchOverHttps;
+    final TresoritInstaller installer;
+    try {
+      installer = TresoritInstaller.read(await fetch(Uri.parse(TresoritInstaller.url)), pinned: installerPin);
+    } on FormatException catch (refused) {
+      throw MachineSetupFailed("Tresorit's installer was not taken: ${refused.message} Nothing was sent.");
+    }
+    final made = await setup.asUser(
+      alias,
+      r'umask 077 && /usr/bin/mkdir -p "$HOME/.cache" && /usr/bin/mktemp -d "$HOME/.cache/porelo-tresorit.XXXXXX"',
+    );
+    final folder = '${made.stdout}'.trim();
+    if (made.exitCode != 0 || !RegExp(r'^/[A-Za-z0-9._/-]+$').hasMatch(folder)) {
+      throw MachineSetupFailed('No folder for the installer could be made as $workUser: ${both(made)}');
+    }
+    for (final (name, bytes) in <(String, List<int>)>[
+      ('installer.run', installer.bytes),
+      ('signature.bin', installer.signature),
+      ('signing.pem', utf8.encode(installer.signing)),
+      ('ca.pem', utf8.encode(installer.ca)),
+    ]) {
+      final sent = await setup.sendToUser(alias, '$folder/$name', bytes);
+      if (sent.exitCode != 0) {
+        await setup.asUser(alias, '/usr/bin/rm -rf -- ${quoteForAShell(folder)}');
+        throw MachineSetupFailed('The installer could not be sent to $workUser: ${both(sent)}');
+      }
+    }
+    final checked = await setup.asUser(alias, '/bin/bash -c ${quoteForAShell(TresoritInstaller.checkScript(folder))}');
+    if (checked.exitCode != 0) {
+      throw MachineSetupFailed(
+        "Tresorit's installer did not pass its check on the machine, so nothing of it ran: ${both(checked)}",
+      );
+    }
+    final units = await setup.asUser(alias, r'/usr/bin/mkdir -p "$HOME/.config/systemd/user"');
+    if (units.exitCode != 0) throw MachineSetupFailed('No folder for its user unit: ${both(units)}');
+    final unit = await setup.sendToUser(alias, r'.config/systemd/user/tresorit-daemon.service', utf8.encode(_unit));
+    final started = unit.exitCode != 0
+        ? unit
+        : await setup.asUser(
+            alias,
+            'systemctl --user daemon-reload && systemctl --user enable --now tresorit-daemon.service',
+          );
+    if (started.exitCode != 0) {
+      throw MachineSetupFailed("Tresorit's daemon did not start as $workUser: ${both(started)}");
+    }
+    driveInstalled = true;
+    return "Tresorit's client is installed for $workUser, from an installer its signature vouched for, and runs.";
+  });
+
+  // Forking: tresorit-cli starts the daemon in a session of its own and stops it again.
+  static const _unit = '''[Unit]
+Description=Tresorit's daemon, syncing this user's own tresor
+
+[Service]
+Type=forking
+ExecStart=%h/.local/share/tresorit/tresorit-cli start
+ExecStop=%h/.local/share/tresorit/tresorit-cli stop
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+''';
+
+  static Future<Uint8List> _fetchOverHttps(Uri url) async {
+    final client = HttpClient();
+    try {
+      final response = await (await client.getUrl(url)).close();
+      if (response.statusCode != 200) {
+        throw MachineSetupFailed('Tresorit answered ${response.statusCode} for its installer.');
+      }
+      final bytes = BytesBuilder(copy: false);
+      await response.forEach(bytes.add);
+      return bytes.takeBytes();
+    } on SocketException catch (lost) {
+      throw MachineSetupFailed("Tresorit's installer could not be fetched: ${lost.message}");
+    } finally {
+      client.close();
+    }
+  }
+
+  /// The command the person signs the work user's client in with, in a terminal: Tresorit's own login, which asks the
+  /// password without echo and then the one-time code; nothing of it passes through this program.
+  ///
+  /// The e-mail is refused unless it is a plain address, as the host's stop refuses one: it reaches a shell there.
+  static bool isEmail(String email) =>
+      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$').hasMatch(email.trim());
+
+  /// [driveLoginCommand]'s command, for [email] as [isEmail] takes it.
+  List<String> driveLoginCommand(String email) => !isEmail(email)
+      ? throw const FormatException('Enter a plain Tresorit e-mail address with no spaces, quotes or shell characters.')
+      : <String>[
+          openSsh('ssh'),
+          '-t',
+          alias,
+          inTheLoginShell('$_client login --email ${quoteForAShell(email.trim())} --password-on-stdin'),
+        ];
+
+  /// Asks the work user's client who it is signed in as. **Never read out of the terminal.**
+  Future<void> checkDriveLogin() => _doing('Asking Tresorit who is signed in…', () async {
+    final status = await setup.asUser(alias, '$_client -p status');
+    final line = '${status.stdout}'.split('\n').where((each) => each.startsWith('Logged in as:\t')).firstOrNull;
+    final who = line?.substring('Logged in as:\t'.length).trim();
+    driveSignedInAs = status.exitCode == 0 && who != null && who.isNotEmpty && who != '-' ? who : null;
+    return driveSignedInAs == null
+        ? 'Tresorit is not signed in yet. Open the terminal again.'
+        : 'Tresorit is signed in as $driveSignedInAs.';
+  });
+
+  /// Syncs [tresor] into [driveFolder] of the work user's home.
+  Future<void> syncDrive() => _doing('Syncing ${tresor.trim()}…', () async {
+    if (!isTresorName(tresor)) {
+      throw const MachineSetupFailed('A tresor\'s name holds letters, digits, spaces and "._-" only here.');
+    }
+    final synced = await setup.asUser(
+      alias,
+      '$_client sync --start ${quoteForAShell(tresor.trim())} --path "\$HOME"/${quoteForAShell(driveFolder)}',
+    );
+    if (synced.exitCode != 0) throw MachineSetupFailed('Tresorit did not sync ${tresor.trim()}: ${both(synced)}');
+    driveSynced = tresor.trim();
+    return '${tresor.trim()} syncs into ~/$driveFolder for $workUser alone.';
+  });
 
   /// Turns off root's login and logging in with a password, now that the work user's key works.
   Future<void> harden() => _doing('Turning off root and password login…', () async {

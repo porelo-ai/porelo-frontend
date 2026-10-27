@@ -62,6 +62,7 @@ taken, `git log` answers.
 | [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
 | [The host's files reach it over its own ssh, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-over-its-own-ssh-and-the-persons-wireguard-key-stays-in-the-secret-store) |
 | [An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned](#an-agent-on-a-host-is-signed-in-at-task-start-and-every-ssh-trusts-only-the-key-porelo-host-pinned) |
+| [Tresorit's installer runs only when signed under a pinned CA, checked on the machine](#tresorits-installer-runs-only-when-signed-under-a-pinned-ca-checked-on-the-machine) |
 
 ## The interface can do what a console can
 
@@ -778,3 +779,29 @@ machine and an agent is signed in there when starting a task needs it, through t
 machine sign-in and its reply forward. Every ssh to a host uses the setup identity and trusts only
 the host key `porelo-host` pinned, refusing to scan or trust another key on screen: one sign-in
 path for every machine, and no on-screen trust of a key nobody checked.
+
+## Tresorit's installer runs only when signed under a pinned CA, checked on the machine
+
+**What holds.** Tresorit serves one Linux installer at a fixed address and replaces it without notice, so it cannot
+be pinned by its digest. Its line 2 is an RSASSA-PSS SHA-512 signature over everything from line 3 on, and line 3 is
+the signing certificate with the CA that issued it. The machine wizard's drive step installs the client for a user
+only when that CA's SHA-256 fingerprint is the pinned one, the CA issued the certificate, the certificate is made for
+code signing and both are valid now, and the signature covers the file as it is; the installer's own `CHECKSUM` is a
+CRC and is not relied on.
+
+**Where each check runs.** This desktop fetches the installer, splits lines 2 and 3, and takes from the chain exactly
+the certificate with the pinned fingerprint, which needs only the SHA-256 the interface has. The rest runs on the
+machine, as the user the client is for, with its own `/usr/bin/openssl`: `verify -partial_chain` against that one CA
+alone, the extended key usage, and `dgst` with PSS over the file from line 3 on. Only then does the installer run, as
+that user, never as root or Porelo's account; the folder it was sent to goes on every ending. Every machine Porelo
+sets up is Ubuntu or Fedora, which carry `openssl`; this interface's own cryptography reads no certificates and has
+no RSA-PSS, and Windows desktops set up machines too.
+
+**Where the pin comes from.** The fingerprint of "Tresorit Code Signing CA 2020" was read for the host's drive, from
+the installer as Tresorit's site serves it, fetched twice by separate ways, by curl and in the operator's browser,
+both byte-identical. Tresorit publishes no fingerprint that could be read instead. The CA's root, "Tresorit Root CA
+2014", is not in the file.
+
+**What would change the answer.** A fingerprint Tresorit publishes, which then replaces the one read; a new CA when
+this one expires at the end of 2029, which stops the drive step, naming the pinned fingerprint, until the pin is read
+again in the same way.
