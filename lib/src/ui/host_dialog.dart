@@ -216,7 +216,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The host key's public half, once the secrets file was opened for this file; dropped when the file changes.
   String? _hostPublicKey;
-  ({String file, String? drive, String keys})? _hostPublicKeyFor;
+  ({String file, String drive, String keys})? _hostPublicKeyFor;
   bool _openingSecrets = false;
   String? _secretsAnswer;
   final _keys = <HostKeyFile>[];
@@ -270,13 +270,14 @@ class _HostDialogState extends State<HostDialog> {
     if (widget.settings?.secretsFile case final file?) _secrets.text = file;
     if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
     final kept = widget.existingRun?.record ?? widget.settings?.hostUp(widget.project);
-    _signingKeyKept = kept != null;
+    // A record from host files given by hand kept no signing key: the field keeps its default or a pinned key.
+    _signingKeyKept = kept != null && kept.signingKey.isNotEmpty;
     if (kept != null) {
       _scaleway.text = kept.scalewayProject;
       _account.text = kept.account;
       _tresor.text = kept.tresor;
       _folder = kept.folder;
-      _signingKey.text = kept.signingKey;
+      if (kept.signingKey.isNotEmpty) _signingKey.text = kept.signingKey;
       _identity.text = kept.identity;
       _publicKey.text = kept.publicKey;
       _collection.text = kept.collection;
@@ -879,8 +880,16 @@ class _HostDialogState extends State<HostDialog> {
         // The secrets file keeps the host's key; the files `up` uploads are written in this desktop's own folder.
         final hostPublicKey = await _hostKeyFromTheSecretsFile();
         if (!mounted) return;
+        // The secrets file's script moves a key the drive held; one still there is a key in the clear, never ignored.
+        if (_drivesKey case final left?
+            when FileSystemEntity.typeSync(left, followLinks: false) != FileSystemEntityType.notFound) {
+          throw HostFilesRefused(
+            '$left still holds a host key while your secrets file keeps it. Open the secrets file again from its step, '
+            'which moves it, or remove it.',
+          );
+        }
         await _withFiles((files) async {
-          await files.publishBundle(project: widget.project, folder: _setupFolder, bytes: _bundle!, createFolder: true);
+          await files.publishBundle(project: widget.project, folder: _setupFolder, bytes: _bundle!, ownFolder: true);
           _tunnel = await files.prepare(
             project: widget.project,
             folder: _setupFolder,
@@ -888,6 +897,7 @@ class _HostDialogState extends State<HostDialog> {
             signingKey: File(_signingKey.text.trim()),
             keys: _keys,
             hostPublicKey: hostPublicKey,
+            ownFolder: true,
           );
         });
         if (!mounted) return;
@@ -1385,17 +1395,19 @@ class _HostDialogState extends State<HostDialog> {
     final drivesKey = _drivesKey;
     // Kept for this file and this drive only: another drive may hold a key that has to move first.
     final keys = <String, String>{for (final key in _keys) key.name: key.file.absolute.path};
-    // A file changed or replaced since it was opened is taken again, never the key kept for the old one.
-    String state(String file) {
+    // A file changed or replaced since it was opened is taken again, never the key kept for the old one: the vault
+    // entries' files, the secrets file itself, and a key the drive still holds.
+    String state(String? file) {
+      if (file == null) return 'none';
       final stat = File(file).statSync();
-      return '${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
+      return '$file ${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
           '${stat.modified.microsecondsSinceEpoch}';
     }
 
     final asked = (
-      file: file,
-      drive: drivesKey,
-      keys: keys.entries.map((each) => '${each.key}=${each.value} ${state(each.value)}').join('\n'),
+      file: state(file),
+      drive: state(drivesKey),
+      keys: keys.entries.map((each) => '${each.key}=${state(each.value)}').join('\n'),
     );
     if (_hostPublicKey != null && _hostPublicKeyFor == asked) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;

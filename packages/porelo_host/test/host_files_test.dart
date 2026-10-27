@@ -278,6 +278,51 @@ void main() {
 
   // Harm: a link redirects writes outside the chosen tresor.
   // Red: follow links when checking destination types.
+  // Harm: the host's files written where a link points, readable by others, or an earlier attempt's own file in
+  // the way of the next one.
+  group('in this desktop\'s own folder', () {
+    final hostKey = base64Encode(List<int>.filled(32, 5));
+    Future<HostTunnel> own(String folder, {String url = 'https://example.org/demo.git'}) async => files.prepare(
+      project: 'demo',
+      folder: folder,
+      url: url,
+      signingKey: signing,
+      hostPublicKey: await HostFiles.publicKey(hostKey),
+      ownFolder: true,
+    );
+
+    test('the folders it makes are its user\'s alone, and an earlier machine file is replaced', () async {
+      final folder = path.join(scratch.path, 'conf', 'hosts', 'demo');
+      await files.publishBundle(project: 'demo', folder: folder, bytes: [1, 2, 3], ownFolder: true);
+      await own(folder);
+      for (final made in [path.join(scratch.path, 'conf'), path.join(scratch.path, 'conf', 'hosts'), folder]) {
+        if (Platform.isLinux) expect((await Directory(made).stat()).mode & 0x1ff, 0x1c0, reason: made);
+      }
+      if (Platform.isLinux) {
+        expect((await Directory(path.join(folder, 'porelo-host')).stat()).mode & 0x1ff, 0x1c0);
+      }
+      await own(folder, url: '/etc/porelo-host/setup/demo.bundle');
+      expect(
+        await File(path.join(folder, 'porelo-host', 'machine.yml')).readAsString(),
+        contains('/etc/porelo-host/setup/demo.bundle'),
+        reason: 'the next attempt writes its own machine file',
+      );
+    });
+
+    test('a folder on the way that is a link is refused, and nothing is written through it', () async {
+      final outside = await Directory(path.join(scratch.path, 'outside')).create();
+      await Directory(path.join(scratch.path, 'conf')).create();
+      await Link(path.join(scratch.path, 'conf', 'hosts')).create(outside.path);
+      final folder = path.join(scratch.path, 'conf', 'hosts', 'demo');
+      await expectLater(
+        files.publishBundle(project: 'demo', folder: folder, bytes: [1, 2, 3], ownFolder: true),
+        throwsA(isA<HostFilesRefused>()),
+      );
+      await expectLater(own(folder), throwsA(isA<HostFilesRefused>()));
+      expect(outside.listSync(recursive: true), isEmpty, reason: 'nothing of the host is made where the link points');
+    }, skip: Platform.isLinux ? null : 'links are checked on Linux');
+  });
+
   test('symlink destinations and keys directory are refused', () async {
     final root = await Directory(path.join(scratch.path, 'porelo-host')).create();
     final expected = HostFiles.machineYaml(

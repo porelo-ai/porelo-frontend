@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
@@ -316,7 +318,10 @@ void main() {
     ) async {
       final record = byHand
           ? _record
-          : HostUpRecord.fromStored({..._record.stored, 'setupFolder': '/conf/hosts/demo'})!;
+          : HostUpRecord.fromStored({
+              ..._record.stored,
+              'setupFolder': path.join(Directory.systemTemp.path, 'conf', 'hosts', 'demo'),
+            })!;
       final settings = Settings(MemorySettingsStore());
       await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
       final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());

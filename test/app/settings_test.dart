@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
@@ -55,19 +56,21 @@ void main() {
     final store = MemorySettingsStore();
     final settings = Settings(store);
     addTearDown(settings.dispose);
-    await settings.rememberHostUp('demo', HostUpRecord.fromStored({...record, 'setupFolder': '/conf/hosts/demo'})!);
+    // An absolute folder as this platform writes one, with a step the arguments must not keep.
+    final conf = path.join(Directory.systemTemp.path, 'conf', 'hosts', 'demo');
+    await settings.rememberHostUp('demo', HostUpRecord.fromStored({...record, 'setupFolder': path.join(conf, '.')})!);
     final reopened = Settings(store);
     addTearDown(reopened.dispose);
     await reopened.load();
     final arguments = reopened.hostUp('demo')!.arguments('demo');
-    expect(
-      arguments.join(' '),
-      endsWith(
-        '--machine-file /conf/hosts/demo/porelo-host/machine.yml --bundle /conf/hosts/demo/porelo-host/demo.bundle',
-      ),
-    );
+    expect(arguments.skip(arguments.length - 4), [
+      '--machine-file',
+      path.join(conf, 'porelo-host', 'machine.yml'),
+      '--bundle',
+      path.join(conf, 'porelo-host', 'demo.bundle'),
+    ]);
     expect(HostUpRecord.fromStored(record)!.arguments('demo'), isNot(contains('--machine-file')));
-    for (final bad in <Object?>['relative/hosts', 7, '/conf/\x00x']) {
+    for (final bad in <Object?>['relative/hosts', 7, path.join(conf, '\x00x')]) {
       expect(HostUpRecord.fromStored({...record, 'setupFolder': bad}), isNull, reason: '$bad');
     }
   });

@@ -633,16 +633,20 @@ void main() {
     });
   }
 
-  for (final type in ['symlink', 'directory']) {
+  for (final type in ['symlink', 'directory', 'root symlink', 'setup symlink']) {
     // Harm: publication through an existing link or directory damages unrelated local files.
     testWidgets('bundle publication refuses a $type and leaves outside files untouched', (tester) async {
       final outside = Directory(path.join(scratch.path, 'outside'))..createSync();
       final sentinel = File(path.join(outside.path, 'demo.bundle'))..writeAsStringSync('keep');
       final root = Directory(path.join(scratch.path, 'setup', 'porelo-host'));
-      root.parent.createSync();
-      if (type == 'root symlink') {
+      if (type == 'setup symlink') {
+        // The interface's own folder itself is a link elsewhere.
+        Link(root.parent.path).createSync(outside.path);
+      } else if (type == 'root symlink') {
+        root.parent.createSync();
         Link(root.path).createSync(outside.path);
       } else {
+        root.parent.createSync();
         root.createSync();
         final target = path.join(root.path, 'demo.bundle');
         if (type == 'symlink') {

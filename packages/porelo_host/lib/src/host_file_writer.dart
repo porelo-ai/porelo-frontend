@@ -73,6 +73,23 @@ class HostFileWriter {
     if (result.exitCode != 0) throw HostFilesRefused('Cannot restrict $path to the current Windows user.');
   }
 
+  /// Keeps a directory this desktop made for itself to the current user alone (`0700`, or the Windows user's ACL).
+  Future<void> protectDirectory(Directory directory) async {
+    if (isWindows) {
+      await _windowsPrivate(directory.absolute.path, directory: true);
+      return;
+    }
+    ProcessResult result;
+    try {
+      result = await run('chmod', ['700', '--', directory.absolute.path]);
+    } on Exception {
+      throw HostFilesRefused('Cannot keep ${directory.path} private (0700).');
+    }
+    if (result.exitCode != 0 || ((await directory.stat()).mode & 0x1ff) != 0x1c0) {
+      throw HostFilesRefused('Cannot keep ${directory.path} private (0700).');
+    }
+  }
+
   /// Applies and checks the platform's private-file protection.
   Future<void> protect(File file) async {
     if (isWindows) {

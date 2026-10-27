@@ -346,11 +346,11 @@ class HostUpRecord {
     ],
     '--scaleway-project',
     scalewayProject,
-    if (setupFolder case final setup?) ...[
+    if (setupFolder case final folder?) ...[
       '--machine-file',
-      path.join(setup, 'porelo-host', 'machine.yml'),
+      path.join(path.normalize(folder), 'porelo-host', 'machine.yml'),
       '--bundle',
-      path.join(setup, 'porelo-host', '$project.bundle'),
+      path.join(path.normalize(folder), 'porelo-host', '$project.bundle'),
     ],
   ];
 }

@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'collection.dart';
 import 'provider.dart';
 import 'remote.dart';
+import 'ssh.dart' show quoteForAShell;
 import 'steps.dart';
 import 'state.dart';
 
@@ -276,6 +277,14 @@ class HostRun {
       );
       return Exit.refused;
     }
+    // The setup's files are read before anything is rented: a missing one costs no server.
+    final Map<String, ({String path, String digest})>? setupFiles;
+    try {
+      setupFiles = _setupFiles(plan);
+    } on FormatException catch (error) {
+      _write(Step('copy', StepState.refused, fix: error.message));
+      return Exit.refused;
+    }
     _ownSteps = upSteps;
     _write(Step('plan', StepState.plan, steps: _ownSteps));
     final RentedHost? host;
@@ -318,8 +327,8 @@ class HostRun {
         'the host refused the collection digest',
       );
     }
-    if (plan.machineFile != null && plan.bundle != null) {
-      final uploaded = await _uploadSetupFiles(address, plan);
+    if (setupFiles != null) {
+      final uploaded = await _uploadSetupFiles(address, plan, setupFiles);
       if (uploaded != null) return uploaded;
     }
     _write(const Step('copy', StepState.done));
@@ -559,44 +568,95 @@ class HostRun {
   /// Where the host's setup reads `machine.yml` and the bundle: root's alone until its account exists.
   static const setupPlace = '/etc/porelo-host/setup';
 
-  /// Uploads the setup's files into [setupPlace] as root's, `0600`, and checks each by its SHA-256 there; the exit to
-  /// return when that is refused, or null when both are in place.
-  Future<int?> _uploadSetupFiles(String address, HostPlan plan) async {
-    final files = <String, String>{'machine.yml': plan.machineFile!, '${plan.project}.bundle': plan.bundle!};
-    final digests = StringBuffer();
-    for (final entry in files.entries) {
-      final local = File(entry.value);
-      if (FileSystemEntity.typeSync(local.path, followLinks: false) != FileSystemEntityType.file) {
-        _write(Step('copy', StepState.refused, fix: '${entry.value} is not a plain file to upload'));
-        return Exit.refused;
+  /// The setup's files by the name they take on the host, each with its local path and SHA-256, read before anything
+  /// is rented; null when [plan] names none. Refuses a plan naming only one, or a file that is no plain file.
+  static Map<String, ({String path, String digest})>? _setupFiles(HostPlan plan) {
+    if ((plan.machineFile == null) != (plan.bundle == null)) {
+      throw const FormatException('--machine-file needs --bundle and vice versa');
+    }
+    if (plan.machineFile == null) return null;
+    final files = <String, ({String path, String digest})>{};
+    for (final (name, local) in [('machine.yml', plan.machineFile!), ('${plan.project}.bundle', plan.bundle!)]) {
+      if (FileSystemEntity.typeSync(local, followLinks: false) != FileSystemEntityType.file) {
+        throw FormatException('$local is not a plain file to upload');
       }
-      digests.write('${sha256.convert(await local.readAsBytes())}  $setupPlace/${entry.key}\n');
-      final copied = await remote.copy(address, plan.loginUser, local.path, '$_workdir/${entry.key}');
-      if (copied.exitCode != 0) return _refused('copy', copied, 'the setup files could not be copied');
+      try {
+        files[name] = (path: local, digest: sha256.convert(File(local).readAsBytesSync()).toString());
+      } on FileSystemException catch (error) {
+        throw FormatException('Cannot read $local: ${error.osError?.message ?? error.message}');
+      }
+    }
+    return files;
+  }
+
+  /// Uploads the setup's [files] into [setupPlace] as root's, `0600`, and checks each by its SHA-256 there; the exit
+  /// to return when that is refused, or null when both are in place.
+  ///
+  /// They are staged in a folder only the login user reads and checked there before anything is placed; a check that
+  /// fails once they are placed removes them, so the host never finds a file it was not sent.
+  Future<int?> _uploadSetupFiles(
+    String address,
+    HostPlan plan,
+    Map<String, ({String path, String digest})> files,
+  ) async {
+    const staging = '$_workdir/setup';
+    String digestsIn(String folder) =>
+        [for (final entry in files.entries) '${entry.value.digest}  $folder/${entry.key}\n'].join();
+    Future<int> refusedWithoutStaging(RemoteResult result, String fix) async {
+      await remote.run(address, plan.loginUser, '/usr/bin/rm -rf $staging');
+      return _refused('copy', result, fix);
+    }
+
+    final made = await remote.run(
+      address,
+      plan.loginUser,
+      '/usr/bin/rm -rf $staging && /usr/bin/install -d -m 0700 $staging',
+    );
+    if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
+    for (final entry in files.entries) {
+      final copied = await remote.copy(address, plan.loginUser, entry.value.path, '$staging/${entry.key}');
+      if (copied.exitCode != 0) return refusedWithoutStaging(copied, 'the setup files could not be copied');
+    }
+    final words = <String>[];
+    final arrived = await remote.run(
+      address,
+      plan.loginUser,
+      '/usr/bin/sha256sum -c -',
+      input: digestsIn(staging),
+      onLine: words.add,
+    );
+    if (arrived.exitCode != 0) {
+      return refusedWithoutStaging(
+        RemoteResult(arrived.exitCode, [...words, arrived.stderr].where((line) => line.isNotEmpty).join('\n')),
+        'the setup files did not arrive as they were sent',
+      );
     }
     final placed = await remote.run(
       address,
       plan.loginUser,
       [
-        'sudo install -d -m 0700 -o root -g root $setupPlace',
+        '/usr/bin/sudo /usr/bin/install -d -m 0700 -o root -g root $setupPlace',
         for (final name in files.keys)
-          'sudo install -m 0600 -o root -g root $_workdir/$name $setupPlace/$name && rm -f $_workdir/$name',
+          '/usr/bin/sudo /usr/bin/install -m 0600 -o root -g root '
+              '${quoteForAShell('$staging/$name')} ${quoteForAShell('$setupPlace/$name')}',
       ].join(' && '),
     );
-    if (placed.exitCode != 0) return _refused('copy', placed, 'the host refused the setup files');
-    final words = <String>[];
+    if (placed.exitCode != 0) return refusedWithoutStaging(placed, 'the host refused the setup files');
+    await remote.run(address, plan.loginUser, '/usr/bin/rm -rf $staging');
+    words.clear();
     final checked = await remote.run(
       address,
       plan.loginUser,
-      'sudo sha256sum -c -',
-      input: digests.toString(),
+      '/usr/bin/sudo /usr/bin/sha256sum -c -',
+      input: digestsIn(setupPlace),
       onLine: words.add,
     );
     if (checked.exitCode != 0) {
+      await remote.run(address, plan.loginUser, '/usr/bin/sudo /usr/bin/rm -rf $setupPlace');
       return _refused(
         'copy',
         RemoteResult(checked.exitCode, [...words, checked.stderr].where((line) => line.isNotEmpty).join('\n')),
-        'the setup files did not arrive as they were sent',
+        'the setup files did not stay as they were sent; they were removed',
       );
     }
     return null;

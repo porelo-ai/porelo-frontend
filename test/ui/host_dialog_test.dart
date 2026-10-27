@@ -1022,39 +1022,147 @@ void main() {
   }
 
   // Harm: a vault entry's file read through a link, an entry the stop refuses after renting, or none in the file.
-  hostWidgets('a vault entry is a plain file named once, and goes into the secrets file and the record', (
-    tester,
-  ) async {
+  for (final changed in ['the entry\'s file', 'the secrets file']) {
+    hostWidgets('a vault entry is a plain file named once, and goes into the secrets file and the record ($changed)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final previousDesk = desk;
+      desk = Desk.of('linux', {'HOME': scratch.path});
+      addTearDown(() => desk = previousDesk);
+      final token = File(fixture('token'))..writeAsBytesSync([1, 2, 3]);
+      Link(fixture('linked')).createSync(token.path);
+      final picks = <String>[];
+      final opened = <Map<String, String>>[];
+      final settings = newSettings(MemorySettingsStore());
+      await settings.rememberTresorFolder('demo', scratch.path);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              setupFolder: '${scratch.path}/setup',
+              openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+                opened.add(keys);
+                return _secretsOpened(file: file, project: project);
+              },
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              hostRuns: runs,
+              project: 'demo',
+              machines: machines,
+              settings: settings,
+              secretStore: _MemorySecrets(),
+              pickFile: (_) async => picks.removeAt(0),
+              start: stopsThenGoesOn(),
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project',
+        'host-tresor': 'drive',
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+      }, stopAt: 1);
+      Future<void> add(String name, String file) async {
+        picks.add(file);
+        await tester.ensureVisible(find.byKey(const Key('host-key-name')));
+        await tester.enterText(find.byKey(const Key('host-key-name')), name);
+        await tester.ensureVisible(find.text('Choose a file for this vault entry'));
+        await tester.tap(find.text('Choose a file for this vault entry'));
+        await World.settle(tester);
+      }
+
+      await add('_forge', token.path);
+      expect(find.textContaining('A vault entry name holds only'), findsOneWidget, reason: 'the stop takes no _forge');
+      picks.clear();
+      await add('forge', fixture('linked'));
+      expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+      expect(find.textContaining('not a regular file'), findsOneWidget, reason: 'a link is refused');
+      Future<void> remove() async {
+        await tester.ensureVisible(find.byTooltip('Remove this file'));
+        await tester.tap(find.byTooltip('Remove this file'));
+        await World.settle(tester);
+      }
+
+      await remove();
+      // As the secrets file's script refuses them, before anything is rented: an empty file, a folder that is a link.
+      final empty = File(fixture('empty'))..writeAsBytesSync([]);
+      await add('forge', empty.path);
+      expect(find.textContaining('is empty'), findsOneWidget);
+      await remove();
+      final real = Directory(fixture('real'))..createSync();
+      File(path.join(real.path, 'token')).writeAsBytesSync([4]);
+      Link(fixture('via')).createSync(real.path);
+      await add('forge', fixture('via/token'));
+      expect(find.textContaining('reached through a link'), findsOneWidget);
+      await remove();
+      await add('forge', token.path);
+      await add('forge', token.path);
+      expect(find.textContaining('A vault entry forge is chosen already'), findsOneWidget);
+      await navigate(tester, 'wizard-next');
+      await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
+      await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
+      await tester.pump();
+      await navigate(tester, 'wizard-next');
+      // Opened on its step, then a file it read changes: Start opens the file again, never the key kept for the old.
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(opened, hasLength(1));
+      if (changed == 'the secrets file') {
+        final secrets = File(path.join(scratch.path, 'Porelo', 'secrets.kdbx'));
+        await tester.runAsync(() async {
+          await secrets.parent.create(recursive: true);
+          await secrets.writeAsBytes([9]);
+        });
+      } else {
+        token.writeAsBytesSync([1, 2, 3, 4]);
+      }
+      await navigate(tester, 'wizard-next');
+      await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
+      await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
+      await tester.pump();
+      await navigate(tester, 'wizard-next');
+      await tapAndRun(tester, const Key('host-up'));
+
+      expect(opened, hasLength(2), reason: 'the changed file is taken again');
+      expect(opened.last, {'forge': token.path}, reason: 'the chosen file goes into the secrets file');
+      expect(settings.hostUps['demo']?.vaultKeys, ['forge'], reason: 'the stop sends this entry, and no other');
+    });
+  }
+
+  // Harm: a key in the clear left on the drive beside the secrets file, ignored because the files go elsewhere now.
+  hostWidgets('a host key the drive still holds stops the start, naming it', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final previousDesk = desk;
-    desk = Desk.of('linux', {'HOME': scratch.path});
-    addTearDown(() => desk = previousDesk);
-    final token = File(fixture('token'))..writeAsBytesSync([1, 2, 3]);
-    Link(fixture('linked')).createSync(token.path);
-    final picks = <String>[];
-    final opened = <Map<String, String>>[];
     final settings = newSettings(MemorySettingsStore());
     await settings.rememberTresorFolder('demo', scratch.path);
+    final left = File(path.join(scratch.path, 'porelo-host', 'wireguard.key'));
+    await tester.runAsync(() async {
+      await left.parent.create(recursive: true);
+      await left.writeAsString('${base64Encode(List<int>.filled(32, 7))}\n');
+    });
+    var starts = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            // The stand-in moves nothing, as a file the drive synced back after the move would be.
+            openSecretsFile: _secretsOpened,
             setupFolder: '${scratch.path}/setup',
-            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
-              opened.add(keys);
-              return _secretsOpened(file: file, project: project);
-            },
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
-            project: 'demo',
+            secretStore: _MemorySecrets(),
             machines: machines,
             settings: settings,
-            secretStore: _MemorySecrets(),
-            pickFile: (_) async => picks.removeAt(0),
-            start: stopsThenGoesOn(),
+            project: 'demo',
+            start: (_, _) async {
+              starts++;
+              return _HostProcess();
+            },
           ),
         ),
       ),
@@ -1064,62 +1172,54 @@ void main() {
       'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
-    }, stopAt: 1);
-    Future<void> add(String name, String file) async {
-      picks.add(file);
-      await tester.ensureVisible(find.byKey(const Key('host-key-name')));
-      await tester.enterText(find.byKey(const Key('host-key-name')), name);
-      await tester.ensureVisible(find.text('Choose a file for this vault entry'));
-      await tester.tap(find.text('Choose a file for this vault entry'));
-      await World.settle(tester);
-    }
-
-    await add('_forge', token.path);
-    expect(find.textContaining('A vault entry name holds only'), findsOneWidget, reason: 'the stop takes no _forge');
-    picks.clear();
-    await add('forge', fixture('linked'));
-    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
-    expect(find.textContaining('not a regular file'), findsOneWidget, reason: 'a link is refused');
-    Future<void> remove() async {
-      await tester.ensureVisible(find.byTooltip('Remove this file'));
-      await tester.tap(find.byTooltip('Remove this file'));
-      await World.settle(tester);
-    }
-
-    await remove();
-    // As the secrets file's script refuses them, before anything is rented: an empty file, a folder that is a link.
-    final empty = File(fixture('empty'))..writeAsBytesSync([]);
-    await add('forge', empty.path);
-    expect(find.textContaining('is empty'), findsOneWidget);
-    await remove();
-    final real = Directory(fixture('real'))..createSync();
-    File(path.join(real.path, 'token')).writeAsBytesSync([4]);
-    Link(fixture('via')).createSync(real.path);
-    await add('forge', fixture('via/token'));
-    expect(find.textContaining('reached through a link'), findsOneWidget);
-    await remove();
-    await add('forge', token.path);
-    await add('forge', token.path);
-    expect(find.textContaining('A vault entry forge is chosen already'), findsOneWidget);
-    await navigate(tester, 'wizard-next');
-    await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
-    await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
-    await tester.pump();
-    await navigate(tester, 'wizard-next');
-    // Opened on its step, then the entry's file changes: Start opens the file again, never the key kept for the old.
-    await tapAndRun(tester, const Key('host-secrets-open'));
-    expect(opened, hasLength(1));
-    token.writeAsBytesSync([1, 2, 3, 4]);
-    await navigate(tester, 'wizard-next');
-    await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
-    await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
-    await tester.pump();
-    await navigate(tester, 'wizard-next');
+    });
     await tapAndRun(tester, const Key('host-up'));
+    expect(starts, 0);
+    expect(find.textContaining('still holds a host key'), findsOneWidget);
+    expect(File(path.join(scratch.path, 'setup', 'porelo-host', 'machine.yml')).existsSync(), isFalse);
+  });
 
-    expect(opened, hasLength(2), reason: 'the changed file is taken again');
-    expect(opened.last, {'forge': token.path}, reason: 'the chosen file goes into the secrets file');
-    expect(settings.hostUps['demo']?.vaultKeys, ['forge'], reason: 'the stop sends this entry, and no other');
+  // Harm: a record from host files given by hand empties the signing key, and Next stays shut.
+  hostWidgets('a kept record without a signing key keeps the field\'s own key', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = newSettings(MemorySettingsStore());
+    await settings.rememberHostUp(
+      'demo',
+      const HostUpRecord(
+        scalewayProject: 'project',
+        account: 'porelo',
+        tresor: 'drive',
+        folder: null,
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public.pub',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            settings: settings,
+            project: 'demo',
+            start: (_, _) async => _HostProcess(),
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, const {}, stopAt: 1);
+    expect(tester.widget<TextField>(find.byKey(const Key('host-signing-key'))).controller!.text, isNotEmpty);
   });
 
   // Harm: every Choose… starting elsewhere makes a person walk back to the folder they were just in.
@@ -1937,8 +2037,9 @@ void main() {
     expect(launched, executable.path);
   });
 
-  // Harm: a conflicting file is destroyed or a rented host starts with incomplete files.
-  // Red: start the session before awaiting prepare, or truncate an existing machine.yml.
+  // Harm: something that is no file of its own destroyed where the machine file goes, or a rented host started with
+  // incomplete files. A machine file of an earlier attempt in the interface's own folder is its own, and replaced.
+  // Red: start the session before awaiting prepare, or remove what lies there.
   hostWidgets('a conflicting machine file is named and up never starts', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -1946,11 +2047,13 @@ void main() {
     final settings = newSettings(MemorySettingsStore());
     await settings.rememberTresorFolder('demo', scratch.path);
     var starts = 0;
-    late File conflict;
+    late Directory conflict;
+    late File inside;
     late File signing;
     await tester.runAsync(() async {
       await Directory(path.join(scratch.path, 'setup', 'porelo-host')).create(recursive: true);
-      conflict = await File(path.join(scratch.path, 'setup', 'porelo-host', 'machine.yml')).writeAsString('keep');
+      conflict = await Directory(path.join(scratch.path, 'setup', 'porelo-host', 'machine.yml')).create();
+      inside = await File(path.join(conflict.path, 'keep')).writeAsString('keep');
       signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(signingPublic);
     });
     await tester.pumpWidget(
@@ -1986,7 +2089,7 @@ void main() {
     await tapAndRun(tester, const Key('host-up'));
     expect(starts, 0, reason: 'file conflicts must block renting');
     expect(find.textContaining(conflict.path), findsOneWidget);
-    expect(await tester.runAsync(() => conflict.readAsString()), 'keep');
+    expect(await tester.runAsync(() => inside.readAsString()), 'keep');
   });
 
   // Harm: the secrets file can be made and checked only by renting a server; or the person types the master password
@@ -3370,9 +3473,8 @@ class _ControlledHostFiles extends host.HostFiles {
     required String project,
     required String folder,
     required List<int> bytes,
-    bool createFolder = false,
-  }) =>
-      work.defer(() => super.publishBundle(project: project, folder: folder, bytes: bytes, createFolder: createFolder));
+    bool ownFolder = false,
+  }) => work.defer(() => super.publishBundle(project: project, folder: folder, bytes: bytes, ownFolder: ownFolder));
 
   @override
   Future<host.HostTunnel> prepare({
@@ -3382,6 +3484,7 @@ class _ControlledHostFiles extends host.HostFiles {
     required File signingKey,
     List<host.HostKeyFile> keys = const [],
     String? hostPublicKey,
+    bool ownFolder = false,
   }) => work.defer(
     () => super.prepare(
       project: project,
@@ -3390,6 +3493,7 @@ class _ControlledHostFiles extends host.HostFiles {
       signingKey: signingKey,
       keys: keys,
       hostPublicKey: hostPublicKey,
+      ownFolder: ownFolder,
     ),
   );
 

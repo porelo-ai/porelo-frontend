@@ -44,6 +44,9 @@ class ScriptedRemote implements Remote {
   final inputs = <String>[];
   final users = <String>[];
 
+  /// Each command run, with what it was given on standard input, in order.
+  final runs = <({String command, String input})>[];
+
   @override
   Future<RemoteResult> run(
     String host,
@@ -55,6 +58,7 @@ class ScriptedRemote implements Remote {
     commands.add(command);
     users.add(user);
     if (input != null) inputs.add(input);
+    runs.add((command: command, input: input ?? ''));
     if (command == 'id -u') {
       onLine?.call(uid);
       return RemoteResult(uidExit, '');
@@ -74,9 +78,11 @@ class ScriptedRemote implements Remote {
   }
 }
 
-/// A host whose copy of the setup files does not match their digests.
+/// A host whose copy of the setup files does not match their digests in [place].
 class _RefusingDigest extends ScriptedRemote {
-  _RefusingDigest(super.lines);
+  _RefusingDigest(super.lines, {this.place = '/etc/porelo-host/setup/'});
+
+  final String place;
 
   @override
   Future<RemoteResult> run(
@@ -87,7 +93,7 @@ class _RefusingDigest extends ScriptedRemote {
     void Function(String line)? onLine,
   }) async {
     final result = await super.run(host, user, command, input: input, onLine: onLine);
-    if (command.contains('sha256sum') && (input ?? '').contains('/etc/porelo-host/setup/')) {
+    if (command.contains('sha256sum') && (input ?? '').contains(place)) {
       return const RemoteResult(65, 'machine.yml: FAILED');
     }
     return result;
@@ -248,36 +254,104 @@ void main() {
         emit: (_) {},
       ).up(withFiles);
 
-      final setup = remote.commands.where((each) => each.contains('/etc/porelo-host/setup')).join('\n');
-      expect(setup, contains('sudo install -d -m 0700 -o root -g root /etc/porelo-host/setup'));
-      expect(setup, contains('sudo install -m 0600 -o root -g root'));
-      expect(setup, contains('/etc/porelo-host/setup/machine.yml'));
-      expect(setup, contains('/etc/porelo-host/setup/demo.bundle'));
-      final digests = remote.inputs.where((each) => each.contains('/etc/porelo-host/setup/')).join();
-      expect(digests, contains('${sha256.convert(await machine.readAsBytes())}  /etc/porelo-host/setup/machine.yml'));
-      expect(digests, contains('${sha256.convert(await bundle.readAsBytes())}  /etc/porelo-host/setup/demo.bundle'));
+      int at(bool Function(({String command, String input})) test) => remote.runs.indexWhere(test);
+      final staged = at((each) => each.command.contains('install -d -m 0700 /var/tmp/porelo-host/setup'));
+      final stagedCheck = at(
+        (each) =>
+            each.command == '/usr/bin/sha256sum -c -' &&
+            each.input.contains('${sha256.convert(machine.readAsBytesSync())}  /var/tmp/porelo-host/setup/machine.yml'),
+      );
+      final placed = at(
+        (each) =>
+            each.command.startsWith('/usr/bin/sudo /usr/bin/install -d -m 0700 -o root -g root /etc/porelo-host/setup'),
+      );
+      final placedCheck = at(
+        (each) =>
+            each.command == '/usr/bin/sudo /usr/bin/sha256sum -c -' &&
+            each.input.contains('${sha256.convert(machine.readAsBytesSync())}  /etc/porelo-host/setup/machine.yml') &&
+            each.input.contains('${sha256.convert(bundle.readAsBytesSync())}  /etc/porelo-host/setup/demo.bundle'),
+      );
+      final played = at((each) => each.command.contains('ansible-playbook'));
+      expect(staged, greaterThan(-1), reason: 'a staging folder only the login user reads');
+      expect(stagedCheck, greaterThan(staged), reason: 'checked where they arrived');
+      expect(placed, greaterThan(stagedCheck), reason: 'placed only once they arrived whole');
+      expect(placedCheck, greaterThan(placed), reason: 'and checked where they stay');
+      expect(played, greaterThan(placedCheck), reason: 'before the play reads them');
+      final place = remote.runs[placed].command;
+      expect(place, contains('/usr/bin/sudo /usr/bin/install -m 0600 -o root -g root'));
+      expect(place, contains('/etc/porelo-host/setup/machine.yml'));
+      expect(place, contains('/etc/porelo-host/setup/demo.bundle'));
       expect(
-        remote.commands.indexWhere((each) => each.contains('sha256sum') && each.contains('/etc/porelo-host/setup')),
-        lessThan(remote.commands.indexWhere((each) => each.contains('ansible-playbook'))),
-        reason: 'checked before the play reads them',
+        remote.commands.where((each) => each.contains('copy ') && !each.contains('/var/tmp/porelo-host/setup/')),
+        everyElement(isNot(contains('machine.yml'))),
+        reason: 'copied only into the staging folder',
       );
     });
 
-    test('a digest the host does not find refuses copy, naming the file, and nothing is played', () async {
-      final remote = _RefusingDigest(<String>[]);
-      final steps = <Step>[];
-      final exit = await HostRun(
-        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
-        provider: CountingProvider(),
-        remote: remote,
-        emit: steps.add,
-      ).up(withFiles);
+    for (final (place, placedAtAll) in [('/var/tmp/porelo-host/setup/', false), ('/etc/porelo-host/setup/', true)]) {
+      test('a digest the host does not find in $place refuses copy and leaves nothing there', () async {
+        final remote = _RefusingDigest(<String>[], place: place);
+        final steps = <Step>[];
+        final exit = await HostRun(
+          environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+          provider: CountingProvider(),
+          remote: remote,
+          emit: steps.add,
+        ).up(withFiles);
 
-      expect(exit, Exit.refused);
-      final refused = steps.lastWhere((step) => step.state == StepState.refused);
-      expect(refused.step, 'copy');
-      expect(refused.fix, contains('setup files'));
-      expect(remote.commands.where((each) => each.contains('ansible-playbook')), isEmpty);
+        expect(exit, Exit.refused);
+        final refused = steps.lastWhere((step) => step.state == StepState.refused);
+        expect(refused.step, 'copy');
+        expect(refused.fix, contains('setup files'));
+        expect(remote.commands.where((each) => each.contains('ansible-playbook')), isEmpty);
+        expect(
+          remote.commands.any((each) => each.contains('install -m 0600 -o root -g root')),
+          placedAtAll,
+          reason: 'nothing is placed before it arrived whole',
+        );
+        expect(
+          remote.commands.last,
+          placedAtAll
+              ? '/usr/bin/sudo /usr/bin/rm -rf /etc/porelo-host/setup'
+              : '/usr/bin/rm -rf /var/tmp/porelo-host/setup',
+          reason: 'what did not arrive as sent is removed',
+        );
+      });
+    }
+
+    // Harm: a server rented and billed for files that were never there.
+    test('a missing file, or one named without the other, is refused before anything is rented', () async {
+      for (final broken in [
+        HostPlan(
+          project: 'demo',
+          account: 'porelo',
+          publicKey: 'ssh-ed25519 BBBB me',
+          collection: plan.collection,
+          collectionSha256: plan.collectionSha256,
+          machineFile: '${scratch.path}/missing.yml',
+          bundle: bundle.path,
+        ),
+        HostPlan(
+          project: 'demo',
+          account: 'porelo',
+          publicKey: 'ssh-ed25519 BBBB me',
+          collection: plan.collection,
+          collectionSha256: plan.collectionSha256,
+          machineFile: machine.path,
+        ),
+      ]) {
+        final provider = CountingProvider();
+        final steps = <Step>[];
+        final exit = await HostRun(
+          environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+          provider: provider,
+          remote: ScriptedRemote(<String>[]),
+          emit: steps.add,
+        ).up(broken);
+        expect(exit, Exit.refused);
+        expect(provider.created, 0, reason: 'no server for it');
+        expect(steps.last.step, 'copy');
+      }
     });
   });
 

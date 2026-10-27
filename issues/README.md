@@ -68,6 +68,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f205"></a>[F205](F205-The-Hosts-Setup-Commands-Run-By-Their-Paths.md) | — | — | Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path. |
 | <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-On-With-Its-Repositories.md) | — | `porelo-host` [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) | The host's own forge switched on in the host dialog or on `porelo_host`, with the repositories that move there and where the central forge's token lies. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12) | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |

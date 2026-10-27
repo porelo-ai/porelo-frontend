@@ -43,6 +43,20 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   files, every setup takes the host's key from the secrets file and waits for the VPN; only a record from before,
   with neither a drive folder nor a setup folder, had host files given by hand, and its stop gives no VPN key from
   the file.
+- **From its harm reading (eleven findings, ten taken):**
+  - **On the host:** both files are read and hashed before anything is rented, and one named without the other is
+    refused. They are staged in a `0700` folder of the login user and checked there before anything is placed. They
+    are placed with `/usr/bin/sudo /usr/bin/install` and checked again where they stay; a mismatch there removes
+    them. The staging folder goes on every ending.
+  - **On this desktop:** the interface's own folder refuses a link on its way, its folders are kept `0700`, and a
+    machine file of its own earlier attempt is replaced. The arguments normalize the folder, and an older record
+    without a signing key keeps the field's own.
+  - **The secrets file:** a key the drive still holds stops the start, and the opened file's cache follows the
+    secrets file's and the drive's key's own state.
+  - **Tests:** the digest check's order is asserted on what was run, and the setup folder's links are tested.
+  - **Declined, with the reason:** a local file swapped between its hash and its copy is caught by the check on the
+    host, which refuses it. The older commands of `up` that run by `PATH` (`mkdir`, `sha256sum`,
+    `sudo ansible-playbook`) are [F205](README.md#f205)'s, an Idea.
 
 ## Acceptance
 

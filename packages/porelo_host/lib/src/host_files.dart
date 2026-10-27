@@ -346,16 +346,21 @@ class HostFiles {
 
   /// Stages a complete bundle beside its target before replacing a regular file.
   ///
-  /// [createFolder] makes [folder] where it is this desktop's own; a drive's folder must exist already.
+  /// [ownFolder] is this desktop's own folder for the host's files: made where missing, kept private, and reached
+  /// through no link; a drive's folder must exist already.
   Future<void> publishBundle({
     required String project,
     required String folder,
     required List<int> bytes,
-    bool createFolder = false,
+    bool ownFolder = false,
   }) async {
     final target = File(destinationPath(folder, '$project.bundle'));
-    await _directory(Directory(folder), create: createFolder);
-    await _directory(target.parent);
+    if (ownFolder) {
+      await _own(folder);
+    } else {
+      await _directory(Directory(folder), create: false);
+      await _directory(target.parent);
+    }
     Future<void> checkTarget() async {
       final type = await FileSystemEntity.type(target.path, followLinks: false);
       if (type != FileSystemEntityType.notFound && type != FileSystemEntityType.file) _conflict(target.path);
@@ -377,7 +382,8 @@ class HostFiles {
   /// Reuses existing keys. Without a folder the host files are supplied manually.
   ///
   /// With [hostPublicKey], the public half of the host's key the person's secrets file keeps, no host key is made
-  /// or written to the drive: the private half never leaves that file.
+  /// or written to the drive: the private half never leaves that file. With [ownFolder], [folder] is this desktop's
+  /// own, as for [publishBundle], and a machine file of an earlier attempt there is replaced.
   Future<HostTunnel> prepare({
     required String project,
     String? folder,
@@ -385,6 +391,7 @@ class HostFiles {
     required File signingKey,
     List<HostKeyFile> keys = const [],
     String? hostPublicKey,
+    bool ownFolder = false,
   }) async {
     checkName(project);
     _checkKeys(keys, windows: _writer.isWindows || _paths.style == path.Style.windows);
@@ -401,9 +408,13 @@ class HostFiles {
         keys: keys,
         windows: _writer.isWindows,
       );
-      await _directory(Directory(folder), create: false);
       final root = Directory(_paths.join(_paths.normalize(folder), 'porelo-host'));
-      await _directory(root);
+      if (ownFolder) {
+        await _own(folder);
+      } else {
+        await _directory(Directory(folder), create: false);
+        await _directory(root);
+      }
       final hostFile = File(destinationPath(folder, 'wireguard.key'));
       final onTheDrive = await FileSystemEntity.type(hostFile.path, followLinks: false);
       // The secrets file keeps the key now; a copy left on the drive is a key in the clear, said and never ignored.
@@ -432,6 +443,12 @@ class HostFiles {
         if (hostPrivate != null) hostFile.path: utf8.encode('$hostPrivate\n'),
         for (final key in copied) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
       };
+      // In this desktop's own folder a machine file of an earlier attempt is this desktop's own, and replaced.
+      if (ownFolder) {
+        final earlier = File(destinationPath(folder, 'machine.yml'));
+        final type = await FileSystemEntity.type(earlier.path, followLinks: false);
+        if (type == FileSystemEntityType.file && await earlier.readAsString() != yaml) await earlier.delete();
+      }
       for (final entry in contents.entries) {
         await _writer.check(File(entry.key), entry.value);
       }
@@ -481,6 +498,28 @@ class HostFiles {
   static Never _conflict(String path) => throw HostFilesRefused(
     '$path already exists and differs or is not a regular file. Remove it or choose another folder.',
   );
+
+  /// Makes [folder] and its `porelo-host` where missing, each kept private, and refuses one reached through a link.
+  Future<void> _own(String folder) async {
+    final normalized = _paths.normalize(_paths.absolute(folder));
+    final root = Directory(_paths.join(normalized, 'porelo-host'));
+    final missing = <Directory>[];
+    // Up to the first folder that is one: a link on the way is refused before anything is made. A folder above it,
+    // such as a configuration folder the person links elsewhere, is theirs.
+    for (var each = root; ; each = each.parent) {
+      final type = await FileSystemEntity.type(each.path, followLinks: false);
+      if (type == FileSystemEntityType.directory) break;
+      if (type != FileSystemEntityType.notFound) _conflict(each.path);
+      missing.add(each);
+      if (each.parent.path == each.path) break;
+    }
+    await root.create(recursive: true);
+    for (final made in missing.reversed) {
+      await _writer.protectDirectory(made);
+    }
+    await _writer.protectDirectory(Directory(normalized));
+    await _writer.protectDirectory(root);
+  }
 
   static Future<void> _directory(Directory directory, {bool create = true}) async {
     final type = await FileSystemEntity.type(directory.path, followLinks: false);
