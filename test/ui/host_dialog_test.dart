@@ -1045,7 +1045,7 @@ void main() {
   });
 
   // Harm: an input refusal without its field and step prevents correcting setup before renting.
-  hostWidgets('a preparation refusal names the input and back correct next retries with the new file', (tester) async {
+  hostWidgets('an unreadable signing key is refused on its own step and a corrected one goes on', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
