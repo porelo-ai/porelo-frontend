@@ -268,7 +268,8 @@ void main() {
     late Directory ssh;
     setUp(() {
       previous = desk;
-      desk = Desk.of('linux', {'HOME': scratch.path});
+      // This system's desk, so its separator is the one the files listed in ~/.ssh come back with.
+      desk = Desk.of(Platform.operatingSystem, {'HOME': scratch.path, 'USERPROFILE': scratch.path});
       ssh = Directory(path.join(scratch.path, '.ssh'))..createSync();
     });
     tearDown(() => desk = previous);
