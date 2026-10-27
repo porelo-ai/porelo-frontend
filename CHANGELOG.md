@@ -39,6 +39,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The Linux packages require KeePassXC (`keepassxc-minimal` or `keepassxc`) and `wireguard-tools`, the programs the
+  interface runs for a person's secrets file and for a server's VPN.
+
 - Server setup checks the project's verified commit against the public key for signing commits on
   The drive, before anything is rented: a key that did not sign it is refused with both keys'
   fingerprints, and named as the server login key when the two key fields look swapped. The field
