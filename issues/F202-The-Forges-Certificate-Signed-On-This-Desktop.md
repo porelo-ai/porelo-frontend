@@ -13,7 +13,7 @@ setup).
 ## Why
 
 Split from [F199](README.md#f199) (decided): the host takes `forge-certificate` only from `porelo-host`
-[HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35), in sprint 6h, so F199 is tested
+[HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35), in sprint 6h, so that issue is tested
 whole in 6e.
 
 ## Plan
