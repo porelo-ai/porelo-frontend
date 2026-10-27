@@ -53,7 +53,7 @@ class HostUpRecord {
   /// The OS user on the host.
   final String account;
 
-  /// The remote Tresorit tresor name.
+  /// The Tresorit tresor a host synced in setups before the drive left them; empty since, and never passed on.
   final String tresor;
 
   /// Its local synced folder, absent when the host files were supplied manually.
@@ -255,7 +255,7 @@ class HostUpRecord {
         return null;
       }
       if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
-      final required = [scalewayProject, account, tresor, identity, publicKey];
+      final required = [scalewayProject, account, identity, publicKey];
       if (required.any((field) => field.trim().isEmpty)) return null;
       final collectionSha256 = switch (value) {
         {'collectionSha256': final Object? digest} => digest,
@@ -268,6 +268,7 @@ class HostUpRecord {
       }
       if ([
         ...required,
+        tresor,
         signingKey,
         collection,
         vpnPeerPublicKey,
@@ -330,8 +331,6 @@ class HostUpRecord {
   List<String> arguments(String project) => [
     '--project',
     project,
-    '--tresor',
-    tresor,
     '--account',
     account,
     '--public-key',

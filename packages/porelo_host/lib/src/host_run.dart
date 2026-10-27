@@ -23,7 +23,6 @@ class HostPlan {
     this.collectionSha256,
     this.loginUser = 'ubuntu',
     this.distribution = 'snapshots',
-    this.tresor,
     this.vpnPeerPublicKey,
     this.vpnPeerAddress,
     this.machineFile,
@@ -51,9 +50,6 @@ class HostPlan {
   /// Where Porelo's package comes from: `releases` or `snapshots`. `snapshots` until a release of
   /// Porelo carries `vault status`, which the host's plays ask; 0.5.0 has none.
   final String distribution;
-
-  /// The drive's tresor the host syncs.
-  final String? tresor;
 
   /// The person's WireGuard peer: a public key, never a secret.
   final String? vpnPeerPublicKey;
@@ -688,7 +684,6 @@ class HostRun {
         'porelo_host_authorized_key': plan.publicKey,
         'porelo_host_project': plan.project,
         'porelo_host_distribution': plan.distribution,
-        'porelo_host_tresor': ?plan.tresor,
         'porelo_host_vpn_peer_public_key': ?plan.vpnPeerPublicKey,
         'porelo_host_vpn_peer_address': ?plan.vpnPeerAddress,
       },

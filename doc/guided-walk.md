@@ -59,7 +59,7 @@ folder short so Unix socket paths stay under 100 bytes:
 
 ```bash
 walk=/tmp/porelo-walk
-mkdir -p "$walk/bin" "$walk/keys" "$walk/tresor"
+mkdir -p "$walk/bin" "$walk/keys"
 ssh-keygen -q -t ed25519 -N '' -C walk-invented -f /tmp/porelo-walk/keys/walk_ed25519
 tool/walk_project.sh "$walk"
 dart compile exe tool/host_standin.dart -o "$walk/porelo-host"
@@ -82,12 +82,12 @@ timeout 20m dart tool/mock_daemon.dart host /tmp/porelo-walk/host.sock \
 Then start the interface from a third terminal with its settings isolated from everyday machines.
 The host dialog still uses the system secret store for its generated WireGuard key. Use invented
 answers only in the terminal opened at the stop; no real host keys, provider credentials or collection
-are needed. Choose `/tmp/porelo-walk/tresor` as the local folder. Use the invented
+are needed. The host's setup mounts no drive, so no folder is chosen. Use the invented
 `/tmp/porelo-walk/keys/walk_ed25519` and `.pub` files for the SSH keys, the `.pub` file for signing,
 and `/tmp/porelo-walk/porelo-host` as the test collection, with the digest from
 `sha256sum /tmp/porelo-walk/porelo-host`. This collection step appears only in debug builds.
 The dialog writes the host files and `porelo-host/checkout.bundle` into its own configuration folder,
-`hosts/checkout`, which `up` uploads; the walk's tresor folder gets neither.
+`hosts/checkout`, which `up` uploads.
 
 ```bash
 PATH="$walk/bin:$PATH" \

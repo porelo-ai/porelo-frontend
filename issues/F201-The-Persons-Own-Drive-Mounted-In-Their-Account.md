@@ -1,6 +1,9 @@
 # F201 — The Person's Own Drive Mounted In Their Account
 
-**Status:** Backlog; blocked by [F197](README.md#f197), which takes the host's files off the drive.
+**Status:** Implementing; part A (the drive out of the host dialog) built, part B (the machine setup's drive
+step) next. Part A goes out only with a `porelo-host` release carrying
+[HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38), since the interface carries that
+collection.
 **Size:** L - a new step of the machine setup that installs and signs in a third-party client in a user's account,
 with a download to verify and a login terminal; no contract of the daemon or of `porelo-host`.
 
@@ -28,6 +31,10 @@ accounts, each mounting their own drive.
   linger the client's daemon needs.
 - **The host dialog:** *The drive* step and its settings (`Settings` tresor and synced folder) leave it; the host's
   files no longer go through a drive ([F197](README.md#f197)).
+- **Part A, built:** the host dialog's step *The project* holds the signing key and the vault entries' files only;
+  the synced folder, its picker and the tresor's name are gone, and `porelo-host up` takes no `--tresor` (refused
+  as an option). A drive folder remembered from an earlier setup is still read for a host key it holds, which the
+  secrets file takes over. A kept record without a tresor is valid, and none passes one on.
 - **Red first:** a test of `SetupRun` that a user without a drive is asked nothing about Tresorit and runs no step for
   it, and one that a chosen drive's commands run as that user and never as root or Porelo's account.
 
@@ -37,8 +44,19 @@ accounts, each mounting their own drive.
 - A user set up with a drive on a machine: the tresor syncs in that user's home, and another account cannot list it.
 - Seen to fail: the first test red against today's host dialog, which always asks for the drive.
 
+- **The download's check (decided 2026-10-27 with the Coordinator, noted for the operator):** Tresorit publishes no
+  digest for its Linux installer. The installer carries its own signature instead: line 2 `SIGNATURE=`, RSASSA-PSS
+  SHA-512 over everything from line 3 on, and line 3 `CERT_CHAIN=`, the chain. It is taken only when the chain holds
+  the pinned CA (SHA-256 `AC:46:31:BC:…:3D:D2:42`), that CA issued the code-signing certificate, the certificate is
+  valid now, and the signature covers the rest, as `porelo-host`'s `tresorit_installer` module took it until
+  [HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38). The signature pins more than a
+  digest would: every later installer Tresorit signs passes, and nothing else does. The check runs on this desktop
+  before any byte of the installer runs anywhere.
+
 ## To be checked
 
-- How Tresorit's Linux client installs into one user's account, and what digest its download publishes; without one,
-  the download cannot be checked as the rules ask, and that is said in the channel before anything is built.
-- Whether the client's login works in a terminal over ssh without a desktop session.
+- Read in `porelo-host`'s drive role before [HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38) (348921c), to be seen on a machine: the installer puts the client into
+  one account, its daemon that account's user unit `tresorit-daemon.service`, kept up by its linger; the login works in
+  a terminal over ssh without a desktop session, `tresorit-cli login --email <e-mail> --password-on-stdin` as the
+  account with `XDG_RUNTIME_DIR` set (client 3.5.1300.4870), asking `Password:` without echo and then the one-time
+  code.

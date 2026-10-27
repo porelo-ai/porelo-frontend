@@ -103,6 +103,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   this computer. A setup that stops for the central forge's token, or a vault entry, waits under Needs you, gives it
   from the file and goes on. Files chosen for vault entries are kept in the secrets file instead of on the drive,
   and only the entries a server's setup names are sent to it.
+- A server's setup mounts no drive: *Put this project on a server…* asks for no Tresorit folder or tresor, and
+  `porelo-host up` takes no `--tresor`. A host key a drive folder chosen before still holds moves into the
+  secrets file.
 - On Windows, *Put this project on a server…* is unavailable with its reason until the interface brings
   KeePassXC there: a server's keys are kept in the secrets file, which it opens only on Linux so far.
 - A server's `machine.yml` and the project's bundle are written into the interface's own configuration folder and

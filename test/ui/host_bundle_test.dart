@@ -181,7 +181,6 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('wizard-next')));
     await World.settle(tester);
-    await tester.enterText(find.byKey(const Key('host-tresor')), 'drive');
     if (chooseFolder) {
       final oldRepository = find.byKey(const Key('host-repository'));
       if (oldRepository.evaluate().isNotEmpty) await tester.enterText(oldRepository, '/wrong-stored-repository');

@@ -277,6 +277,21 @@ void main() {
     noLeak(_secret);
     expect(code, 65, reason: 'an unavailable secret store must refuse the write');
   });
+
+  // Harm: a tresor named for a host whose setup mounts no drive, taken without a word.
+  test('up takes no tresor, since the host\'s setup mounts no drive', () async {
+    final result = await Process.run(Platform.resolvedExecutable, [
+      'run',
+      'bin/porelo_host.dart',
+      'up',
+      '--tresor',
+      'drive',
+      '--project',
+      'demo',
+    ]);
+    expect(result.exitCode, 64, reason: '${result.stderr}');
+    expect('${result.stderr}', contains('--tresor is not an option'));
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }
 
 bool _sameValues(Map<String, String> left, Map<String, String> right) =>

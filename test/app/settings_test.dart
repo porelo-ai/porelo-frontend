@@ -170,7 +170,7 @@ void main() {
 
   // Harm: missing host identity or setup inputs can redirect teardown or lose access to a billing server.
   test('stored host records with empty or whitespace-only required fields are dropped on load', () async {
-    for (final field in ['scalewayProject', 'account', 'tresor', 'identity', 'publicKey']) {
+    for (final field in ['scalewayProject', 'account', 'identity', 'publicKey']) {
       for (final empty in ['', ' \t\n ']) {
         final settings = Settings(
           MemorySettingsStore({
@@ -185,6 +185,16 @@ void main() {
         expect(settings.hostUp('broken'), isNull, reason: 'empty $field must discard the entire record');
       }
     }
+  });
+
+  // Harm: a record of a host set up since the drive left its setup dropped for naming no tresor, or one from
+  // before passing its tresor to a collection that mounts no drive.
+  test('a record with no tresor is kept, and no record passes one on', () async {
+    final none = HostUpRecord.fromStored({...record, 'tresor': ''});
+    expect(none, isNotNull);
+    expect(none!.arguments('demo'), isNot(contains('--tresor')));
+    expect(HostUpRecord.fromStored(record)!.arguments('demo'), isNot(contains('--tresor')), reason: 'one from before');
+    expect(HostUpRecord.fromStored({...record, 'tresor': 'a\x00b'}), isNull);
   });
 
   // Harm: keeping only one tunnel option makes teardown run with a different host setup identity.

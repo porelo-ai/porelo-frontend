@@ -31,12 +31,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. |
 | <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | [F199](README.md#f199), `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | The host's `machine.yml` and bundle uploaded over its own ssh into `/etc/porelo-host/setup/`, read by Porelo's account, the desktop's copy kept in the interface's own folder. |
+| <a id="f201"></a>[F201](F201-The-Persons-Own-Drive-Mounted-In-Their-Account.md) | L | [F197](README.md#f197) | A person's own Tresorit drive mounted in their own account by the machine setup, optional, never Porelo's and never part of renting a host. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f201"></a>[F201](F201-The-Persons-Own-Drive-Mounted-In-Their-Account.md) | L | [F197](README.md#f197) | A person's own Tresorit drive mounted in their own account by the machine setup, optional, never Porelo's and never part of renting a host. |
 | <a id="f202"></a>[F202](F202-The-Forges-Certificate-Signed-On-This-Desktop.md) | M | [F199](README.md#f199), `porelo-host` [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) | The forge's certificate signed on this desktop by the lasting CA in `secrets.kdbx`, its key never on the host. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |

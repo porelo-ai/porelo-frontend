@@ -266,8 +266,9 @@ repositories, changed only after agreement in both.
   `porelo-host`'s pinned host key and that identity, including temporary trial tunnels. The
   interface never offers to trust a different key for it.
 - **An unknown `kind`** is kept in the file and shown as not reachable by this version, never dropped.
-- **`tresorFolders`:** a map from project name to its chosen local Tresorit folder path, checked on
-  load and written in the same settings file, never in `project.yml`.
+- **`tresorFolders`:** a map from project name to the local Tresorit folder chosen in setups before the drive left
+  the host's setup, checked on load and written in the same settings file, never in `project.yml`. It is read only
+  for a host key such a folder may still hold, which the secrets file takes over; nothing chooses one any more.
 - **`hostUp`:** the kept setup arguments and preparation state per project, written atomically
   before `up` starts, keeping a server in preparation across restarts and refilling the setup dialog
   or `down` command without typing fields again.

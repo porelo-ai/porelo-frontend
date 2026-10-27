@@ -7,7 +7,7 @@ const _usage = '''
 porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE
             (--scaleway-project ID [--zone fr-par-1] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
-            [--tresor NAME] [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
+            [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
             [--give-back-anyway]
             [--collection FILE --collection-sha256 HEX]
 porelo-host key set|forget PROVIDER
@@ -80,7 +80,6 @@ Future<int> _run(List<String> arguments) async {
           '--host-key',
           '--login-user',
           '--distribution',
-          '--tresor',
           '--vpn-peer-public-key',
           '--vpn-peer-address',
           '--machine-file',
@@ -147,7 +146,6 @@ Future<int> _run(List<String> arguments) async {
     collectionSha256: options['collection-sha256'],
     loginUser: options['login-user'] ?? 'ubuntu',
     distribution: options['distribution'] ?? 'snapshots',
-    tresor: options['tresor'],
     vpnPeerPublicKey: options['vpn-peer-public-key'],
     vpnPeerAddress: options['vpn-peer-address'],
     machineFile: options['machine-file'],

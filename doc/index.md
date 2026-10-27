@@ -164,8 +164,8 @@ fails, it keeps the host, says what would be lost, and names the ways out: `down
 --give-back-anyway` to give it back knowingly. Every step is one JSON line on standard output.
 
 **In the interface** on Linux (on Windows it waits until the interface brings KeePassXC there, for the secrets
-file), *Put this project on a server…* leads through a step-by-step wizard (rental details, Tresorit folder,
-SSH keys, your secrets file, check and start). The interface writes the followed project's git bundle and the
+file), *Put this project on a server…* leads through a step-by-step wizard (rental details, the project's
+signing key and vault entries, SSH keys, your secrets file, check and start); the host's setup mounts no drive. The interface writes the followed project's git bundle and the
 host's `machine.yml` into its own configuration folder, `hosts/<project>`, and `porelo-host up` uploads both
 to `/etc/porelo-host/setup/` on the host, where only root writes them.
 Starting setup places the host under *Machines* as *In preparation*, showing the current step,

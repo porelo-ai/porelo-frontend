@@ -454,7 +454,7 @@ void main() {
         ['/fake/porelo-host', 'key', 'check', 'scaleway'],
       ], reason: 'the key check must start before its response is supplied');
       expect(
-        find.byKey(const Key('host-tresor')),
+        find.byKey(const Key('host-signing-key')),
         findsNothing,
         reason: 'a pending authentication check must hold the current step',
       );
@@ -483,7 +483,7 @@ void main() {
       await World.settle(tester);
       expect(checks.length, 2, reason: 'retrying must ask the command again');
       expect(
-        find.byKey(const Key('host-tresor')),
+        find.byKey(const Key('host-signing-key')),
         findsOneWidget,
         reason: 'only the successful check may allow step two',
       );
@@ -601,7 +601,7 @@ void main() {
     };
     const fields = [
       ['host-scaleway-project', 'host-account'],
-      ['host-tresor', 'host-signing-key'],
+      ['host-signing-key'],
       ['host-identity', 'host-public-key'],
       ['host-secrets-file'],
       ['host-collection', 'host-collection-sha256'],
@@ -659,7 +659,7 @@ void main() {
         ),
       ),
     );
-    await fillSteps(tester, {'host-scaleway-project': 'provider', 'host-tresor': 'drive'}, stopAt: 3);
+    await fillSteps(tester, {'host-scaleway-project': 'provider'}, stopAt: 3);
     await navigate(tester, 'wizard-next');
     expect(find.byKey(const Key('host-collection')), findsNothing);
     expect(find.byKey(const Key('host-collection-sha256')), findsNothing);
@@ -685,7 +685,6 @@ void main() {
     final answers = {
       'host-scaleway-project': 'project',
       'host-account': 'worker',
-      'host-tresor': 'remote-drive',
       'host-signing-key': fixture('signing.pub'),
       'host-identity': fixture('private'),
       'host-public-key': fixture('public.pub'),
@@ -757,7 +756,6 @@ void main() {
         expect(field.controller!.text, answers[key], reason: '$key must restore the last up answer');
         expect(field.readOnly, isFalse, reason: 'reopened answers remain editable');
       },
-      onDrive: () async => expect(find.text(scratch.path), findsOneWidget),
     );
     expect(seen, answers.keys.toSet());
   });
@@ -822,7 +820,6 @@ void main() {
       {
         'host-scaleway-project': 'corrected-provider',
         'host-account': 'corrected-account',
-        'host-tresor': 'drive',
         'host-identity': fixture('private'),
         'host-public-key': fixture('public.pub'),
         'host-collection': fixture('collection.tar.gz'),
@@ -922,8 +919,6 @@ void main() {
             'down',
             '--project',
             'demo',
-            '--tresor',
-            'remote-drive',
             '--account',
             'worker',
             '--public-key',
@@ -999,7 +994,6 @@ void main() {
         );
         await fillSteps(tester, {
           'host-scaleway-project': 'project',
-          'host-tresor': 'drive',
           'host-collection': fixture('collection.tar.gz'),
           'host-collection-sha256': collectionDigest,
           if (field.key != 'vault-entry') field.key: '~/unusable',
@@ -1064,7 +1058,6 @@ void main() {
       );
       await fillSteps(tester, {
         'host-scaleway-project': 'project',
-        'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       }, stopAt: 1);
@@ -1189,7 +1182,6 @@ void main() {
     );
     await fillSteps(tester, {
       'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
     });
@@ -1274,7 +1266,7 @@ void main() {
         ),
       ),
     );
-    await fillSteps(tester, {'host-scaleway-project': 'project', 'host-tresor': 'drive'}, stopAt: 2);
+    await fillSteps(tester, {'host-scaleway-project': 'project'}, stopAt: 2);
     for (final choose in [0, 1]) {
       await tester.ensureVisible(find.text('Choose…').at(choose));
       await tester.tap(find.text('Choose…').at(choose));
@@ -1326,11 +1318,7 @@ void main() {
         ),
       ),
     );
-    await fillSteps(tester, {
-      'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
-      'host-signing-key': unreadable.path,
-    }, stopAt: 1);
+    await fillSteps(tester, {'host-scaleway-project': 'project', 'host-signing-key': unreadable.path}, stopAt: 1);
     // A file that is no public key is refused by the step itself, before anything reads it whole.
     expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
     expect(commands, isEmpty, reason: 'unreadable setup input must stop before renting');
@@ -1360,12 +1348,12 @@ void main() {
     expect(yaml, contains(host.HostFiles.signingFingerprint(replacement.readAsStringSync())));
   });
 
-  // Harm: confusing the local folder with the remote tresor syncs the wrong project on the server.
-  hostWidgets('the folder and its picker share a line and suggest only an unedited tresor name', (tester) async {
+  // Harm: a host asked for a drive its setup no longer mounts, or told a tresor it would sync after all.
+  hostWidgets('the project step asks for no drive, and up is told no tresor', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    var folder = fixture('first-drive');
+    final commands = <List<String>>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -1375,37 +1363,33 @@ void main() {
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
+            secretStore: _MemorySecrets(),
             project: 'demo',
             machines: machines,
-            pickFolder: (_) async => folder,
+            start: (_, arguments) async {
+              commands.add(List.of(arguments));
+              return _HostProcess();
+            },
           ),
         ),
       ),
     );
-    await fillSteps(tester, {'host-scaleway-project': 'project'}, stopAt: 1);
-    final button = find.byKey(const Key('host-folder'));
-    expect(find.text('No folder chosen'), findsOneWidget);
-    expect(find.descendant(of: button, matching: find.text('Choose…')), findsOneWidget);
-    Future<void> choose() async {
-      await tester.ensureVisible(button);
-      await tester.tap(button);
-      await World.settle(tester);
-      final row = find.ancestor(of: button, matching: find.byType(Row)).first;
-      expect(find.descendant(of: row, matching: find.text(folder)), findsOneWidget);
-      expect(find.descendant(of: row, matching: find.byType(TextField)), findsNothing);
-      expect(tester.getTopLeft(row).dy, lessThan(tester.getTopLeft(find.byKey(const Key('host-tresor'))).dy));
-    }
-
-    String tresor() => tester.widget<TextField>(find.byKey(const Key('host-tresor'))).controller!.text;
-    await choose();
-    expect(tresor(), 'first-drive');
-    folder = fixture('second-drive');
-    await choose();
-    expect(tresor(), 'second-drive');
-    await tester.enterText(find.byKey(const Key('host-tresor')), 'remote-project');
-    folder = fixture('third-drive');
-    await choose();
-    expect(tresor(), 'remote-project', reason: 'choosing a folder must preserve an edited remote name');
+    await fillSteps(
+      tester,
+      {
+        'host-scaleway-project': 'project',
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+      },
+      onDrive: () async {
+        expect(find.textContaining('— The project'), findsOneWidget);
+        expect(find.byKey(const Key('host-folder')), findsNothing);
+        expect(find.byKey(const Key('host-tresor')), findsNothing);
+        expect(find.textContaining('Tresorit'), findsNothing, reason: 'the drive is no part of the host\'s setup');
+      },
+    );
+    await tapAndRun(tester, const Key('host-up'));
+    expect(commands.single, isNot(contains('--tresor')));
   });
 
   // Harm: renting with a public key as the identity leaves a billing host inaccessible.
@@ -1438,7 +1422,6 @@ void main() {
     );
     await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
       'host-identity': fixture('id_ed25519.pub'),
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
@@ -1453,7 +1436,6 @@ void main() {
   for (final missing in {
     'host-scaleway-project': 0,
     'host-account': 0,
-    'host-tresor': 1,
 
     'host-signing-key': 1,
     'host-identity': 2,
@@ -1492,7 +1474,6 @@ void main() {
       await fillSteps(tester, {
         'host-scaleway-project': 'project',
         'host-account': 'porelo',
-        'host-tresor': 'drive',
         'host-signing-key': fixture('signing.pub'),
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
@@ -1535,11 +1516,7 @@ void main() {
         ),
       ),
     );
-    await fillSteps(tester, {
-      'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
-      'host-identity': public.path,
-    }, stopAt: 2);
+    await fillSteps(tester, {'host-scaleway-project': 'project', 'host-identity': public.path}, stopAt: 2);
     expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
     expect(find.textContaining('Choose the private ssh key'), findsOneWidget);
     expect(find.byKey(const Key('host-up')), findsNothing);
@@ -1570,7 +1547,6 @@ void main() {
     final answers = {
       'host-scaleway-project': 'project',
       'host-account': 'account',
-      'host-tresor': 'drive',
       'host-identity': fixture('private'),
       'host-public-key': fixture('public.pub'),
       'host-collection': fixture('collection.tar.gz'),
@@ -1627,7 +1603,6 @@ void main() {
     await World.settle(tester);
     await fillSteps(tester, {
       'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
     });
@@ -1946,7 +1921,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project',
-        'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
 
@@ -1997,7 +1971,6 @@ void main() {
         tester,
         <String, String>{
           'host-scaleway-project': 'project',
-          'host-tresor': 'tresor',
           'host-collection': fixture('collection.tar.gz'),
           'host-collection-sha256': collectionDigest,
 
@@ -2048,7 +2021,6 @@ void main() {
     );
     await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
     });
@@ -2099,7 +2071,6 @@ void main() {
     );
     await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project',
-      'host-tresor': 'tresor',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
 
@@ -2150,7 +2121,6 @@ void main() {
     );
     await fillSteps(tester, {
       'host-scaleway-project': 'project',
-      'host-tresor': 'drive',
       'host-signing-key': fixture('signing.pub'),
     }, stopAt: 3);
 
@@ -2211,7 +2181,6 @@ void main() {
       );
       await fillSteps(tester, {
         'host-scaleway-project': 'project',
-        'host-tresor': 'drive',
         'host-signing-key': fixture('signing.pub'),
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
@@ -2280,7 +2249,6 @@ void main() {
             project: 'demo',
             settings: settings,
             secretStore: store,
-            pickFolder: (_) async => scratch.path,
             openTerminal: (_, _, {columns = 80, rows = 24}) => terminal,
             start: (_, arguments) async {
               commands.add(List.of(arguments));
@@ -2292,23 +2260,13 @@ void main() {
         ),
       ),
     );
-    await fillSteps(
-      tester,
-      <String, String>{
-        'host-scaleway-project': 'project',
-        'host-tresor': 'tresor',
-        'host-collection': fixture('collection.tar.gz'),
-        'host-collection-sha256': collectionDigest,
+    await fillSteps(tester, <String, String>{
+      'host-scaleway-project': 'project',
+      'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
 
-        'host-signing-key': signing.path,
-      },
-      onDrive: () async {
-        await tester.ensureVisible(find.byKey(const Key('host-folder')));
-        await tester.tap(find.byKey(const Key('host-folder')));
-        await World.settle(tester);
-        expect(settings.tresorFolder('demo'), scratch.path);
-      },
-    );
+      'host-signing-key': signing.path,
+    });
     await tester.pump();
     await tapAndRun(tester, const Key('host-up'));
     expect(commands.length, 1);
@@ -2441,7 +2399,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project',
-        'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });
@@ -2498,7 +2455,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project',
-        'host-tresor': 'tresor',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });
@@ -2555,7 +2511,6 @@ void main() {
     );
     await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project-1',
-      'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
       'host-identity': fixture('new'),
@@ -2689,7 +2644,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project-1',
-        'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });
@@ -2765,7 +2719,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'p',
-        'host-tresor': 'd',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });
@@ -2806,7 +2759,6 @@ void main() {
     );
     final fields = <String, String>{
       'host-scaleway-project': 'project-1',
-      'host-tresor': 'demo-drive',
       'host-account': 'demo-user',
       'host-public-key': fixture('demo.pub'),
       'host-identity': fixture('demo-key'),
@@ -2884,7 +2836,6 @@ void main() {
       );
       await fillSteps(tester, {
         'host-scaleway-project': 'project-1',
-        'host-tresor': 'demo-drive',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });
@@ -2923,7 +2874,6 @@ void main() {
     });
   }
 
-  // Renting without a tresor would leave the project's drive unsynced.
   // Harm: a server rented from where its keys cannot be kept, which then waits at a stop nothing here answers.
   hostWidgets('on Windows Start refuses, saying why, and nothing is rented', (tester) async {
     final previous = desk;
@@ -2958,54 +2908,6 @@ void main() {
       findsOneWidget,
       reason: 'the reason, before any step check',
     );
-  });
-
-  hostWidgets('a host cannot be brought up without the project tresor', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: HostDialog(
-            openSecretsFile: _secretsOpened,
-            setupFolder: '${scratch.path}/setup',
-            hostFiles: filesFor,
-            checkKey: _acceptedKey,
-            hostRuns: runs,
-            secretStore: _MemorySecrets(),
-            machines: machines,
-            project: 'demo',
-            start: stopsThenGoesOn(),
-          ),
-        ),
-      ),
-    );
-    await fillSteps(tester, {'host-scaleway-project': 'project-1'}, stopAt: 1);
-    expect(find.byKey(const Key('host-up')), findsNothing);
-    expect(
-      tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed,
-      isNull,
-      reason: 'the drive must be named before a host can be rented',
-    );
-    await tester.enterText(find.byKey(const Key('host-tresor')), '   ');
-    await tester.pump();
-    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
-    await tester.enterText(find.byKey(const Key('host-tresor')), 'demo-drive');
-    await tester.pump();
-    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNotNull);
-    await navigate(tester, 'wizard-next');
-    await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
-    await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
-    await tester.pump();
-    await navigate(tester, 'wizard-next');
-    // Your secrets file: its default place is taken.
-    await navigate(tester, 'wizard-next');
-    await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
-    await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
-    await tester.pump();
-    await navigate(tester, 'wizard-next');
-    expect(tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed, isNotNull);
   });
 
   // Harm: a secret typed at the host where the file keeps it, or a stop the interface cannot answer offered anyway.
@@ -3043,7 +2945,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project-1',
-        'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
         'host-identity': fixture('dialog identity'),
@@ -3132,7 +3033,6 @@ void main() {
     );
     await fillSteps(tester, <String, String>{
       'host-scaleway-project': 'project-1',
-      'host-tresor': 'drive',
       'host-collection': fixture('collection.tar.gz'),
       'host-collection-sha256': collectionDigest,
       'host-identity': fixture('dialog identity'),
@@ -3192,7 +3092,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'project-1',
-        'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
         'host-identity': fixture('dialog identity'),
@@ -3273,7 +3172,6 @@ void main() {
       );
       await fillSteps(tester, {
         'host-scaleway-project': 'project-1',
-        'host-tresor': 'drive',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });
@@ -3331,7 +3229,6 @@ void main() {
       );
       await fillSteps(tester, <String, String>{
         'host-scaleway-project': 'p',
-        'host-tresor': 't',
         'host-collection': fixture('collection.tar.gz'),
         'host-collection-sha256': collectionDigest,
       });

@@ -660,7 +660,7 @@ void main() {
     expect(
       vars.containsKey('porelo_host_tresor'),
       isFalse,
-      reason: 'a name not given is left out, for the role to say',
+      reason: 'the host\'s setup mounts no drive and is told no tresor',
     );
   });
 

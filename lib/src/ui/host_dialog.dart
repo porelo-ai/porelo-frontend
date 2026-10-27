@@ -121,7 +121,6 @@ class HostDialog extends StatefulWidget {
     this.environment,
     this.settings,
     this.secretStore,
-    this.pickFolder,
     this.pickFile,
     this.openSecretsFile,
     this.setupFolder,
@@ -172,9 +171,6 @@ class HostDialog extends StatefulWidget {
   /// An injected store for tests; otherwise opened and closed for each operation.
   final SecretStore? secretStore;
 
-  /// System pickers, replaceable without platform calls in widget tests; each starts where the last one ended.
-  final Future<String?> Function(String? initialDirectory)? pickFolder;
-
   /// Chooses a path file without opening a platform dialog in tests, starting where the last pick ended.
   final Future<String?> Function(String? initialDirectory)? pickFile;
 
@@ -204,7 +200,6 @@ class HostDialog extends StatefulWidget {
 
 class _HostDialogState extends State<HostDialog> {
   final _scaleway = TextEditingController();
-  final _tresor = TextEditingController();
   final _account = TextEditingController(text: 'porelo');
   final _publicKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _identity = TextEditingController(text: _home('.ssh/id_ed25519'));
@@ -226,6 +221,8 @@ class _HostDialogState extends State<HostDialog> {
   final _protocolKeys = Expando<GlobalKey>();
   List<GlobalKey> _protocolRows = [];
   bool _protocolUpdateScheduled = false;
+  // A drive's synced folder remembered from setups before the drive left them: read only for a host key it may still
+  // hold, which the secrets file takes over.
   String? _folder;
   String? _keyProblem;
   bool _checkingKey = false;
@@ -268,15 +265,13 @@ class _HostDialogState extends State<HostDialog> {
     widget.hostRuns?.addListener(_sessionChanged);
     _folder = widget.settings?.tresorFolder(widget.project);
     if (widget.settings?.secretsFile case final file?) _secrets.text = file;
-    if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
     final kept = widget.existingRun?.record ?? widget.settings?.hostUp(widget.project);
     // A record from host files given by hand kept no signing key: the field keeps its default or a pinned key.
     _signingKeyKept = kept != null && kept.signingKey.isNotEmpty;
     if (kept != null) {
       _scaleway.text = kept.scalewayProject;
       _account.text = kept.account;
-      _tresor.text = kept.tresor;
-      _folder = kept.folder;
+      _folder = kept.folder ?? _folder;
       if (kept.signingKey.isNotEmpty) _signingKey.text = kept.signingKey;
       _identity.text = kept.identity;
       _publicKey.text = kept.publicKey;
@@ -672,7 +667,6 @@ class _HostDialogState extends State<HostDialog> {
       _signingKey,
       _keyName,
       _scaleway,
-      _tresor,
       _account,
       _publicKey,
       _identity,
@@ -761,7 +755,7 @@ class _HostDialogState extends State<HostDialog> {
   HostUpRecord _record() => HostUpRecord(
     scalewayProject: _scaleway.text.trim(),
     account: _account.text.trim(),
-    tresor: _tresor.text.trim(),
+    tresor: '',
     folder: _folder,
     setupFolder: _setupFolder,
     repository: '',
@@ -787,7 +781,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   bool get _complete => <TextEditingController>[
-    _scaleway, _tresor, _account, _publicKey, _identity,
+    _scaleway, _account, _publicKey, _identity,
     if (widget.debug) ...[_collection, _collectionSha256], //
   ].every((field) => field.text.trim().isNotEmpty);
 
@@ -796,23 +790,6 @@ class _HostDialogState extends State<HostDialog> {
 
   Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
-
-  Future<void> _chooseFolder() async {
-    final folder = await (widget.pickFolder?.call(_lastFolder) ?? getDirectoryPath(initialDirectory: _lastFolder));
-    if (folder == null || !mounted) return;
-    _lastFolder = folder;
-    await widget.settings?.rememberTresorFolder(widget.project, folder);
-    if (mounted) {
-      setState(() {
-        final previousName = _folder == null ? '' : path.basename(path.normalize(_folder!));
-        if (_tresor.text.trim().isEmpty || _tresor.text == previousName) {
-          _tresor.text = path.basename(path.normalize(folder));
-        }
-        _folder = folder;
-        _machineProblem = null;
-      });
-    }
-  }
 
   Future<void> _addKey() async {
     try {
@@ -1227,26 +1204,11 @@ class _HostDialogState extends State<HostDialog> {
       summary: () => ['Scaleway project id: ${_scaleway.text}', 'Account on the server: ${_account.text}'],
     ),
     WizardStep(
-      title: 'The drive',
+      title: 'The project',
       words:
-          'Tresorit, the one drive available today, which the server still mounts. Its synced folder on this computer '
-          'is read only for a VPN key it held from before. The project’s verified bundle goes up to the server '
-          'with the setup itself. Give the public key used to sign its commits.',
+          'The project’s verified bundle goes up to the server with the setup itself. Give the public key used to '
+          'sign its commits, and the files of the vault entries the server is to have, which your secrets file keeps.',
       panel: (context) => _panel([
-        const Text('Its synced folder on this computer'),
-        Row(
-          children: [
-            Flexible(child: Text(_folder ?? 'No folder chosen')),
-            const SizedBox(width: Space.small),
-            TextButton(
-              key: const Key('host-folder'),
-              onPressed: _running || _upStarted ? null : _chooseFolder,
-              child: const Text('Choose…'),
-            ),
-          ],
-        ),
-        _field(_tresor, "The tresor's name in Tresorit", 'host-tresor', namesHost: true),
-        const Text('The server signs in to Tresorit and syncs the tresor by this name.'),
         if (Platform.isWindows)
           const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
         ...[
@@ -1276,14 +1238,9 @@ class _HostDialogState extends State<HostDialog> {
         ],
       ]),
       check: () =>
-          _required([_tresor], 'Give the tresor name from Tresorit.') ??
-          _sourceProblem ??
-          _required([_signingKey], 'Give the public key used to sign commits.') ??
-          _driveFilesProblem,
+          _sourceProblem ?? _required([_signingKey], 'Give the public key used to sign commits.') ?? _driveFilesProblem,
       beforeNext: _checkBundle,
       summary: () => [
-        'Tresorit tresor: ${_tresor.text}',
-        'Synced folder on this computer: ${_folder ?? 'not chosen'}',
         'Project bundle: uploaded as /etc/porelo-host/setup/${widget.project}.bundle',
         'Public signing key: ${_signingKey.text}',
         for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}, kept in your secrets file',
