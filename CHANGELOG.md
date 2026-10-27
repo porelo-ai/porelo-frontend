@@ -39,8 +39,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Server setup installs porelo-host's collection 0.5.3, which brings up the host's forge and gives
-  each agent its own forge account and token.
+- Server setup installs porelo-host's collection 0.5.4, which brings up the host's forge and gives
+  each agent its own forge account and token, the person a forge login of their own, and each
+  account's gate its token, with every repository's main protected.
 - A redirect from Scaleway is named as one and is not followed.
 - Server setup shows one protocol with earlier attempts grouped below it, copies its public text
   in one click, and keeps the view and buttons still while you read earlier entries.
