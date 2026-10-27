@@ -136,6 +136,30 @@ void main() {
       expect(await File(out).readAsString(), before, reason: 'the same host key, not a new one');
     }, skip: skip);
 
+    // Harm: a key left in the clear on the drive beside the file, or the file's key silently replaced by another.
+    test('a drive key beside the file is removed when it is the same, and refused when it differs', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'checkout.pub');
+      final drive = File(path.join(home.path, 'wireguard.key'));
+      final made = SecretsFile(kdbx, cli: cli).prepareHost(project: 'checkout', create: true, publicKeyOut: out);
+      expect((await run(made, 'm', twice: true)).exitCode, 0);
+      final kept = await show(kdbx, 'hosts/checkout/wireguard', 'm');
+
+      await drive.writeAsString('$kept\n');
+      final same = SecretsFile(
+        kdbx,
+        cli: cli,
+      ).prepareHost(project: 'checkout', create: false, publicKeyOut: out, migrateKeyFrom: drive.path);
+      expect((await run(same, 'm')).exitCode, 0);
+      expect(await drive.exists(), isFalse, reason: 'the copy on the drive goes once the file holds the same key');
+
+      await drive.writeAsString('${base64Encode(List<int>.filled(32, 3))}\n');
+      final other = await run(same, 'm');
+      expect(other.exitCode, isNot(0), reason: 'two different keys for one host are never merged silently');
+      expect(await drive.exists(), isTrue, reason: 'nothing is removed when they differ');
+      expect(await show(kdbx, 'hosts/checkout/wireguard', 'm'), kept, reason: 'the file keeps its own key');
+    }, skip: skip);
+
     test('a wrong master password writes nothing and fails', () async {
       final kdbx = path.join(home.path, 'secrets.kdbx');
       final out = path.join(home.path, 'checkout.pub');

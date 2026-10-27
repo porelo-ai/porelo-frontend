@@ -86,6 +86,12 @@ class SecretsFile {
       ],
       'kp ls "\$file" $group >/dev/null 2>&1 || kp mkdir "\$file" $group >/dev/null',
       'if private="\$(kp show -s -a password "\$file" $key 2>/dev/null)" && [ -n "\$private" ]; then :',
+      // A copy still on the drive goes only when it is the file's own key; another key for the host stops it all.
+      if (migrateKeyFrom != null)
+        '  if [ -f ${_word(migrateKeyFrom)} ]; then '
+            'if [ "\$(tr -d \'[:space:]\' < ${_word(migrateKeyFrom)})" = "\$private" ]; then rm -f ${_word(migrateKeyFrom)}; '
+            'else echo "The drive holds another key for this server than your secrets file; nothing was changed." >&2; '
+            'exit 1; fi; fi',
       if (migrateKeyFrom != null)
         'elif [ -f ${_word(migrateKeyFrom)} ]; then private="\$(tr -d \'[:space:]\' < ${_word(migrateKeyFrom)})"; '
             '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null; '
