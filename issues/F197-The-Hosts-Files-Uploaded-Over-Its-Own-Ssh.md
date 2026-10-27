@@ -1,14 +1,13 @@
 # F197 — The Host's Files Uploaded Over Its Own Ssh
 
-**Status:** Analyzed; re-cut from a drive layout (step 2 of the host's new setup), blocked by `porelo-host`'s
-step-2 issue, not yet numbered.
+**Status:** Analyzed; re-cut from a drive layout (a step of the host's new setup, after [F199](README.md#f199)),
+blocked by `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36).
 **Size:** M - `porelo_host`'s `copy` step and `HostFiles`, the host dialog's step *The drive*, and their tests; one
 path both repositories read.
 
 **What must be true.** The host's setup files, `machine.yml` and the project's bundle, both made on the desktop,
 reach the host over the ssh its setup already has, into a place only root reads, and the host reads them there.
-The drive is still mounted and still holds the secrets until the next steps take them; nothing else changes for the
-person. The desktop keeps its copy of `machine.yml` on the person's drive, so a second desktop sets up a host the
+The secrets already come from `secrets.kdbx` ([F199](README.md#f199)); nothing else changes for the person. The desktop keeps its copy of `machine.yml` on the person's drive, so a second desktop sets up a host the
 same way.
 
 ## Why
@@ -23,9 +22,12 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   `copy` step after `ssh`: it writes the inventory through `remote.run` (`cat >` on standard input) and the
   collection through `remote.copy`, then checks the collection's digest on the host. `HostFiles.prepare` writes
   `machine.yml` and the bundle into the tresor (`porelo-host/`), where the host's drive role reads them.
-- **The upload:** the `copy` step also sends `machine.yml` and the bundle, each on standard input to a root-owned
-  place agreed with Machines (proposed: `sudo install -D -m 0600 -o root -g root /dev/stdin
-  /etc/porelo-host/setup/<file>`), and checks each by its SHA-256 on the host, as the collection is checked.
+- **The upload, agreed with Machines:** the `copy` step makes `/etc/porelo-host/setup` (`0750 root:<account>`) and
+  sends `machine.yml` and the bundle, each on standard input with `sudo install -m 0640 -o root -g <account>
+  /dev/stdin /etc/porelo-host/setup/<file>`, then checks each by its SHA-256 on the host, as the collection is checked.
+  Porelo's account reads them and never writes them; `down` removes the folder.
+- **The bundle is what the host follows:** `HostFiles.bundleUrl` names it in `machine.yml`'s `project.url`, and
+  becomes `/etc/porelo-host/setup/<project>.bundle`; `porelo project follow` reads it as the repository, unchanged.
 - **The desktop's copy:** `HostFiles` still writes `machine.yml` to the person's drive for other desktops, under
   the project's name; the bundle is made fresh at each `up` and is not kept there.
 - **Red first:** a test of `porelo_host`'s `up` against its remote stand-in: the two files are sent to the agreed
@@ -39,4 +41,4 @@ the drive out of the host's setup, step by step, with nothing broken in between.
 
 ## To be checked
 
-- With Machines: the place on the host, its owner and mode, and that the host's roles read it in place of the drive.
+- That the host's roles read the uploaded files in place of the drive's.

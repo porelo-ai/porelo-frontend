@@ -45,7 +45,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | `porelo-host`'s step-2 issue | The host's `machine.yml` and bundle uploaded over its own ssh into a root-only place, the drive still mounted, the desktop's copy kept. | — |
+| <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | [F199](README.md#f199), `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | The host's `machine.yml` and bundle uploaded over its own ssh into `/etc/porelo-host/setup/`, read by Porelo's account, the desktop's copy kept. | — |
 | <a id="f201"></a>[F201](F201-The-Persons-Own-Drive-Mounted-In-Their-Account.md) | M | [F197](README.md#f197), `porelo-host`'s step-4 issue | The drive out of the host's setup and optional for the person's own data, mounted in their account, never in Porelo's. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
