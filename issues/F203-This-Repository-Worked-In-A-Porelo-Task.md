@@ -16,4 +16,3 @@ issue is worked to Review from inside that task, to show the move done.
 
 - What the integration leg needs inside a task: a display under `xvfb-run`, and a VM to test against, which the
   task reaches only as the move's procedure and the VM pool allow.
-- Whether `flutter-guided-walk`, also kept by this repository's agent, moves with it or on its own.
