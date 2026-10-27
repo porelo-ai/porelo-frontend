@@ -32,6 +32,9 @@ these is typed at every `up`, and a new host has a new vault.
   central forge fails that step naming `forge-central-token`; the interface then sends it alone, `ssh <admin>@<host>
   sudo porelo-host-stop --stdin forge-central-token` with one line `forge-central-token <base64>`, from the file's
   `shared` group, and runs `up` again (decided: this issue takes the step).
+- **Later needs:** the project store's address and keys of `porelo-host`
+  [HO07](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho07) join the stop's lines once that
+  issue is built, not in sprint 6e (decided).
 - **Nothing written:** the entries pass through the pipe only, never into a file, argument, environment or log here
   or on the host; the terminal's own scrollback shows none.
 - **Red first:** a test of the command the interface builds for the stop terminal: it names the entries and the host,
