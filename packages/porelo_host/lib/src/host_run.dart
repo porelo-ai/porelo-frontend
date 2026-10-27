@@ -156,6 +156,7 @@ class HostRun {
         needs: step.needs,
         address: step.address,
         account: step.account,
+        admin: step.admin,
         socket: step.socket,
       ),
     );

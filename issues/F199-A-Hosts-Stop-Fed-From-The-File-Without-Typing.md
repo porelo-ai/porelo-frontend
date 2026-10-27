@@ -47,6 +47,16 @@ these is typed at every `up`, and a new host has a new vault.
   or on the host; the terminal's own scrollback shows none.
 - **Red first:** a test of the command the interface builds for the stop terminal: it names the entries and the host,
   and no secret value can appear in it, against a fixture file.
+- **From its harm reading (eight findings, all taken):** the `keys` lines are the entries `machine.yml` names, kept
+  by name in the setup's record, never every entry of the file's group; a need list that is empty, or names `vault`
+  with `vault-new`, is refused. `ssh` runs by its path, the far end's call is `/usr/bin/sudo -n` without a login
+  shell, whose profile would run with the pipe on its standard input, and the host and the drive's login are checked
+  as a user at an address. Echo is off on this desktop before the drive's login connects. Every value is checked as
+  whole base64 and encoded before the first line goes. The secrets file's script checks everything (vault entry
+  files reached through no link, with content; an entry kept with other bytes; the drive's key) before its first
+  change, and removes the drive's key last. A refusal of `up` that asks on its own call (`forge-central-token:`,
+  `keys:`) waits under *Needs you* behind *Complete setup on the host*, as the user that refusal names (after a restart *Go on* runs `up`, which refuses the same way); Start opens
+  the secrets file and names it with no drive folder too.
 
 ## Acceptance
 

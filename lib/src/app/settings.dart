@@ -39,6 +39,7 @@ class HostUpRecord {
     this.vpnHostPublicKey = '',
     this.vpnEndpointAddress = '',
     this.vpnFile,
+    this.vaultKeys = const [],
     this.preparing = false,
     this.startedAt,
     this.protocol = const [],
@@ -89,6 +90,9 @@ class HostUpRecord {
   /// The explicitly exported VPN file's local path, never its private key contents.
   final String? vpnFile;
 
+  /// The names of the vault entries `machine.yml` names, never their files' contents: the stop sends these alone.
+  final List<String> vaultKeys;
+
   /// Whether setup still needs a confirmed machine or server give-back.
   final bool preparing;
 
@@ -115,6 +119,7 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: vpnFile,
+    vaultKeys: vaultKeys,
     preparing: instant != null,
     startedAt: instant?.toUtc(),
     protocol: protocol,
@@ -137,6 +142,7 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: file,
+    vaultKeys: vaultKeys,
     preparing: preparing,
     startedAt: startedAt,
     protocol: protocol,
@@ -159,6 +165,7 @@ class HostUpRecord {
     vpnHostPublicKey: hostPublicKey,
     vpnEndpointAddress: address,
     vpnFile: vpnFile,
+    vaultKeys: vaultKeys,
     preparing: preparing,
     startedAt: startedAt,
     protocol: protocol,
@@ -181,6 +188,7 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: vpnFile,
+    vaultKeys: vaultKeys,
     preparing: preparing,
     startedAt: startedAt,
     protocol: List.unmodifiable(entries),
@@ -211,6 +219,12 @@ class HostUpRecord {
       if (preparing && startedAt == null) return null;
       final vpnFile = value['vpnFile'];
       if (vpnFile != null && vpnFile is! String) return null;
+      final vaultKeys = value['vaultKeys'] ?? const <Object?>[];
+      if (vaultKeys is! List ||
+          vaultKeys.any((name) => name is! String || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) ||
+          vaultKeys.toSet().length != vaultKeys.length) {
+        return null;
+      }
       final vpnHostPublicKey = value['vpnHostPublicKey'] ?? '';
       final vpnEndpointAddress = value['vpnEndpointAddress'] ?? '';
       if (vpnHostPublicKey is! String || vpnEndpointAddress is! String) return null;
@@ -264,6 +278,7 @@ class HostUpRecord {
         vpnHostPublicKey: vpnHostPublicKey,
         vpnEndpointAddress: vpnEndpointAddress,
         vpnFile: vpnFile as String?,
+        vaultKeys: List.unmodifiable(vaultKeys.cast<String>()),
         preparing: preparing,
         startedAt: startedAt,
         protocol: protocol,
@@ -288,6 +303,7 @@ class HostUpRecord {
     if (vpnHostPublicKey.isNotEmpty) 'vpnHostPublicKey': vpnHostPublicKey,
     if (vpnEndpointAddress.isNotEmpty) 'vpnEndpointAddress': vpnEndpointAddress,
     if (vpnFile != null) 'vpnFile': vpnFile,
+    if (vaultKeys.isNotEmpty) 'vaultKeys': vaultKeys,
     if (protocol.isNotEmpty) 'protocol': [for (final entry in protocol) entry.stored],
     if (preparing) 'preparing': true,
     if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),

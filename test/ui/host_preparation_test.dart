@@ -217,6 +217,97 @@ void main() {
     }
   });
 
+  // Harm: a refusal of up that asks for a secret on its own call, left without a way on, or answered with an entry
+  // machine.yml does not name.
+  for (final (need, fix) in [
+    ('forge-central-token', 'forge-central-token: stand-in still to migrate'),
+    ('keys', 'keys: the vault lacks forge'),
+  ]) {
+    testWidgets('up refused for $need waits under Needs you and gives it on its own call', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+      final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+      final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
+      final attention = Attention(machines)..hostRuns = runs;
+      final process = HostProcess();
+      final terminals = <FakeTerminal>[];
+      var starts = 0;
+      final run = runs.start(
+        project: 'demo',
+        session: HostSession(
+          executable: 'fake',
+          arguments: const ['--project', 'demo'],
+          start: (_, _) async => starts++ == 0 ? process : HostProcess(),
+        ),
+        record: HostUpRecord.fromStored({
+          ..._record.stored,
+          'vaultKeys': ['forge'],
+        })!,
+      );
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: AttentionView(
+                  attention: attention,
+                  onDecide: (_, _, {required allow}) {},
+                  actionsFor: (_) => [],
+                  onReview: (_) {},
+                  onOpenHost: (project) => unawaited(
+                    openHostStopDialog(
+                      context,
+                      run: runs.of(project)!,
+                      hostRuns: runs,
+                      machines: machines,
+                      settings: settings,
+                      needs: runs.of(project)!.asksOnItsOwn,
+                      openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+                        final terminal = FakeTerminal([program, ...arguments]);
+                        terminals.add(terminal);
+                        return terminal;
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        process.line(Step('repositories', StepState.refused, fix: fix, address: '203.0.113.7', admin: 'ubuntu'));
+        process.end(2);
+        await World.settle(tester);
+        expect(run.needsYou, isTrue);
+        await expandListRows(tester);
+        final row = find.byKey(const Key('host-needs demo'));
+        expect(find.descendant(of: row, matching: find.text(need)), findsOneWidget);
+        await tester.tap(find.text('Complete setup on the host'));
+        await World.settle(tester);
+        await tester.ensureVisible(find.byKey(const Key('host-open-terminal')));
+        await tester.tap(find.byKey(const Key('host-open-terminal')));
+        await World.settle(tester);
+        final script = terminals.single.command.last;
+        expect(script, contains('porelo-host-stop --stdin $need'));
+        expect(script, contains('ubuntu@203.0.113.7'), reason: 'as the refusal\'s own user');
+        if (need == 'keys') expect(script, contains("'hosts/demo/keys/forge'"), reason: 'the entry machine.yml names');
+        terminals.single.endsWith(0);
+        await World.settle(tester);
+        await tester.tap(find.byKey(const Key('unlock-done')));
+        await World.settle(tester);
+        expect(starts, 2, reason: 'up runs again once the host has it');
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        attention.dispose();
+        runs.dispose();
+        machines.dispose();
+        settings.dispose();
+      }
+    });
+  }
+
   group('a stopped setup', () {
     late Settings settings;
     late Machines machines;

@@ -1013,6 +1013,86 @@ void main() {
     }
   }
 
+  // Harm: a vault entry's file read through a link, an entry the stop refuses after renting, or none in the file.
+  hostWidgets('a vault entry is a plain file named once, and goes into the secrets file and the record', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final previousDesk = desk;
+    desk = Desk.of('linux', {'HOME': scratch.path});
+    addTearDown(() => desk = previousDesk);
+    final token = File(fixture('token'))..writeAsBytesSync([1, 2, 3]);
+    Link(fixture('linked')).createSync(token.path);
+    final picks = <String>[];
+    final opened = <Map<String, String>>[];
+    final settings = newSettings(MemorySettingsStore());
+    await settings.rememberTresorFolder('demo', scratch.path);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+              opened.add(keys);
+              return _secretsOpened(file: file, project: project);
+            },
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            project: 'demo',
+            machines: machines,
+            settings: settings,
+            secretStore: _MemorySecrets(),
+            pickFile: (_) async => picks.removeAt(0),
+            start: stopsThenGoesOn(),
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
+    }, stopAt: 1);
+    Future<void> add(String name, String file) async {
+      picks.add(file);
+      await tester.ensureVisible(find.byKey(const Key('host-key-name')));
+      await tester.enterText(find.byKey(const Key('host-key-name')), name);
+      await tester.ensureVisible(find.text('Choose a file for this vault entry'));
+      await tester.tap(find.text('Choose a file for this vault entry'));
+      await World.settle(tester);
+    }
+
+    await add('_forge', token.path);
+    expect(find.textContaining('A vault entry name holds only'), findsOneWidget, reason: 'the stop takes no _forge');
+    picks.clear();
+    await add('forge', fixture('linked'));
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+    expect(find.textContaining('not a regular file'), findsOneWidget, reason: 'a link is refused');
+    await tester.ensureVisible(find.byTooltip('Remove this file'));
+    await tester.tap(find.byTooltip('Remove this file'));
+    await World.settle(tester);
+    await add('forge', token.path);
+    await add('forge', token.path);
+    expect(find.textContaining('A vault entry forge is chosen already'), findsOneWidget);
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
+    await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
+    await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
+    await tapAndRun(tester, const Key('host-up'));
+
+    expect(opened.last, {'forge': token.path}, reason: 'the chosen file goes into the secrets file');
+    expect(settings.hostUps['demo']?.vaultKeys, ['forge'], reason: 'the stop sends this entry, and no other');
+  });
+
   // Harm: every Choose… starting elsewhere makes a person walk back to the folder they were just in.
   hostWidgets('each picker starts in the folder of the file chosen before it', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -2730,12 +2810,20 @@ void main() {
         'host-identity': fixture('dialog identity'),
       });
       await tapAndRun(tester, const Key('host-up'));
+      expect(
+        settings.secretsFile,
+        isNotNull,
+        reason: 'Start opens the secrets file and names it for the stop, with no drive folder too',
+      );
+      // A setup from before the file names none: nothing here can give the VPN key, and that is said.
+      await settings.rememberSecretsFile(null);
       await tapAndRun(tester, const Key('host-complete-setup'));
       expect(
         tester.widget<FilledButton>(find.byKey(const Key('host-open-terminal'))).onPressed,
         isNull,
         reason: 'without the secrets file nothing here can give the VPN key',
       );
+      expect(find.textContaining('which comes from your secrets file'), findsOneWidget);
       await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
       await World.settle(tester);
       await tapAndRun(tester, const Key('host-open-terminal'));
@@ -2812,7 +2900,7 @@ void main() {
     await tapAndRun(tester, const Key('host-up'));
     expect(starts, 1);
 
-    await tapAndRun(tester, const Key('host-forge-token'));
+    await tapAndRun(tester, const Key('host-complete-setup'));
     await tapAndRun(tester, const Key('host-open-terminal'));
     final command = terminals.single.command;
     expect(command.last, contains('porelo-host-stop --stdin forge-central-token'));

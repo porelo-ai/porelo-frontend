@@ -160,8 +160,10 @@ class _HostStopDialogState extends State<HostStopDialog> {
               secretsFile: secrets,
               project: widget.run.project,
               needs: needs,
+              keys: widget.run.record.vaultKeys,
               email: _email.text,
-              ssh: openSsh('ssh'),
+              // The program that gets every secret on its standard input, by its path: the feed runs on Linux only.
+              ssh: '/usr/bin/ssh',
               sshOptions: machine.loginSshOptions,
               host: machine.host,
               driveHost: '$account@$address',
@@ -235,12 +237,21 @@ class _HostStopDialogState extends State<HostStopDialog> {
                 if (needs.contains('wireguard')) const Text('The host needs its VPN key.'),
                 if (needs.contains('keys')) const Text('The host needs the files of its vault entries.'),
                 if (needs.contains('forge-central-token'))
-                  const Text('The host needs the central forge\'s token, to bring a repository over from it.'),
+                  const Text(
+                    'The host needs the central forge\'s token, to bring a repository over from it. Your secrets file '
+                    'keeps it in the entry shared/forge-central-token: add it there in KeePassXC first.',
+                  ),
                 if (file && needs.any(SecretsFile.stopNeeds.contains))
                   const Text(
                     'They come from your secrets file: type its master password once, in the terminal on this computer.',
                   ),
-                for (final need in unknown) Text('porelo-host waits for $need; this interface cannot answer it yet.'),
+                for (final need in unknown)
+                  Text(
+                    SecretsFile.stopNeeds.contains(need)
+                        ? 'porelo-host waits for $need, which comes from your secrets file; this computer has none '
+                              'named yet. Take the server down and put it on a server again, naming it.'
+                        : 'porelo-host waits for $need; this interface cannot answer it yet.',
+                  ),
                 if (needs.contains('drive')) ...[
                   const SizedBox(height: Space.small),
                   TextField(

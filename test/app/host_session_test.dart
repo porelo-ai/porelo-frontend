@@ -115,6 +115,22 @@ void main() {
     expect(commands, List.filled(3, ['up', '--project', 'demo']));
   });
 
+  // Harm: a refusal's own call sent as the user an earlier line of the same attempt named.
+  test('a refusal names its user itself, and one that names none leaves none', () async {
+    final session = HostSession(
+      executable: 'porelo-host',
+      arguments: const <String>[],
+      start: saying(<String>[
+        const Step('person', StepState.waiting, needs: ['vault'], address: '203.0.113.7', admin: 'ubuntu').toLine(),
+        const Step('forge', StepState.refused, fix: 'forge-central-token: still to migrate').toLine(),
+      ], code: 65),
+    );
+    await session.up();
+    expect(session.fix, startsWith('forge-central-token:'));
+    expect(session.admin, isNull);
+    expect(session.address, '203.0.113.7', reason: 'the attempt\'s one host');
+  });
+
   test('a refusal keeps the step\'s fix, and an ending with no step keeps the command\'s words', () async {
     final refused = HostSession(
       executable: 'porelo-host',

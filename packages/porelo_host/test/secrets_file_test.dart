@@ -13,8 +13,14 @@ void main() {
   group('the script', () {
     // A secret in an argument is readable by every process on the desktop; in the script it is on disk.
     test('asks the master password once and hands it on only on standard input', () {
-      final script = SecretsFile(file).prepareHost(project: 'checkout', create: false, publicKeyOut: publicKeyOut);
+      final script = SecretsFile(file).prepareHost(
+        project: 'checkout',
+        create: false,
+        publicKeyOut: publicKeyOut,
+        keys: {'forge': '/home/person/forge-token'},
+      );
       final made = SecretsFile(file).prepareHost(project: 'checkout', create: true, publicKeyOut: publicKeyOut);
+      final fed = SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'keys'], keys: ['forge']);
 
       expect(RegExp(r'read -rs').allMatches(script).length, 1, reason: 'one master password, asked once');
       expect(RegExp(r'read -rs').allMatches(made).length, 2, reason: 'a new one asked twice, to be sure of it');
@@ -26,21 +32,26 @@ void main() {
           reason: 'nothing goes into another program\'s environment: $needle',
         );
       }
-      expect(script.split('\n').first, contains('stty -echo'), reason: 'no echo from the first byte typed');
-      expect(script, contains('set +x'), reason: 'an inherited trace never prints a secret');
-      expect(script, contains("trap '/usr/bin/stty echo"), reason: 'echo comes back however the script ends');
+      for (final each in <String>[script, made, fed]) {
+        expect(
+          each.split('\n').first,
+          '/usr/bin/stty -echo 2>/dev/null || true',
+          reason: 'no echo from the first byte',
+        );
+        expect(each, contains('\nset +x\n'), reason: 'an inherited trace never prints a secret');
+        expect(each, contains("trap '/usr/bin/stty echo"), reason: 'echo comes back however the script ends');
+      }
       final drives = SecretsFile(file).prepareHost(
         project: 'checkout',
         create: true,
         publicKeyOut: publicKeyOut,
         migrateKeyFrom: '/home/person/w.key',
       );
-      final fed = SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'keys']);
       for (final each in <String>[script, made, drives, fed]) {
         expect(each, isNot(contains('<<<')), reason: 'a here-string may be a file on an older bash');
         expect(
           RegExp(
-            r'(^|[;|&(]\s*|\$\(|then |else )(wg|mkdir|dirname|tr|rm|mv|base64|stty) ',
+            r"(^|[;|&('{!]\s*|\$\(|then |else |do )(wg|mkdir|dirname|tr|rm|mv|base64|stty|realpath|cat) ",
             multiLine: true,
           ).hasMatch(each),
           isFalse,
@@ -53,7 +64,7 @@ void main() {
         reason: 'the file is read back before the drive copy goes',
       );
       // Every use of it, with the builtin printf's and the shell's own comparison taken away, leaves none.
-      for (final line in '$script\n$made'.split('\n')) {
+      for (final line in '$script\n$made\n$fed'.split('\n')) {
         final rest = line
             .replaceAll(r'''printf '%s\n%s\n' "$MASTER" "$MASTER"''', '')
             .replaceAll(r'''printf '%s\n' "$MASTER"''', '')
@@ -108,12 +119,19 @@ void main() {
   group('the stop\'s lines', () {
     // Harm: a secret in an argument, or a line for a need the host did not ask, which it refuses after renting.
     test('reads the master password once and writes only the lines the stop named', () {
-      final feed = SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'wireguard', 'keys']);
+      final feed = SecretsFile(file)
+          .stopLines(project: 'checkout', needs: ['vault', 'wireguard', 'keys'], keys: ['forge', 'ci.key']);
 
       expect(RegExp(r'read -rs').allMatches(feed).length, 1);
       expect(feed, contains("'hosts/checkout/vault-passphrase'"));
       expect(feed, contains("'hosts/checkout/wireguard'"));
-      expect(feed, contains("'hosts/checkout/keys'"), reason: 'every entry of the group');
+      expect(feed, contains("'hosts/checkout/keys/forge'"));
+      expect(feed, contains("'hosts/checkout/keys/ci.key'"));
+      expect(
+        feed,
+        isNot(contains(' ls "\$file" \'hosts/checkout/keys\'')),
+        reason: 'only the entries machine.yml names',
+      );
       expect(feed, isNot(contains('db-create')), reason: 'the stop never makes a file');
       expect(
         SecretsFile(file).stopLines(project: 'checkout', needs: ['forge-central-token']),
@@ -132,6 +150,28 @@ void main() {
         );
       }
       expect(() => SecretsFile(file).stopLines(project: "a'b", needs: ['keys']), throwsA(isA<HostFilesRefused>()));
+      expect(() => SecretsFile(file).stopLines(project: 'checkout', needs: []), throwsFormatException);
+      expect(
+        () => SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'vault-new']),
+        throwsFormatException,
+        reason: 'a new vault and an open one are never asked at once',
+      );
+      expect(
+        () => SecretsFile(file).stopLines(project: 'checkout', needs: ['vault'], keys: ['forge']),
+        throwsFormatException,
+        reason: 'no key line where the host did not ask for its entries',
+      );
+      for (final name in <String>['_x', 'a b', "a'b", 'a/b', '']) {
+        expect(
+          () => SecretsFile(file).stopLines(project: 'checkout', needs: ['keys'], keys: [name]),
+          throwsA(isA<HostFilesRefused>()),
+          reason: name,
+        );
+      }
+      expect(
+        () => SecretsFile(file).stopLines(project: 'checkout', needs: ['keys'], keys: ['forge', 'forge']),
+        throwsFormatException,
+      );
     });
   });
 
@@ -333,6 +373,90 @@ void main() {
         'm',
       );
       expect(gone.exitCode, isNot(0), reason: 'a file that is not there is refused');
+
+      final empty = await File(path.join(home.path, 'empty')).create();
+      final none = await run(
+        SecretsFile(
+          kdbx,
+          cli: cli,
+        ).prepareHost(project: 'checkout', create: false, publicKeyOut: out, keys: {'other': empty.path}),
+        'm',
+      );
+      expect(none.exitCode, isNot(0), reason: 'an empty file would be an entry the stop cannot send');
+
+      final real = await Directory(path.join(home.path, 'real')).create();
+      await File(path.join(real.path, 'token')).writeAsBytes([4]);
+      await Link(path.join(home.path, 'via')).create(real.path);
+      final through = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(
+          project: 'checkout',
+          create: false,
+          publicKeyOut: out,
+          keys: {'other': path.join(home.path, 'via', 'token')},
+        ),
+        'm',
+      );
+      expect(through.exitCode, isNot(0), reason: 'a folder on the way that is a link is refused too');
+      expect(
+        Process.runSync(cli, ['show', kdbx, 'hosts/checkout/keys/other']).exitCode,
+        isNot(0),
+        reason: 'none of these kept anything',
+      );
+    }, skip: skip);
+
+    // Harm: the drive's key removed, or the file changed, by a run that then refuses.
+    test('another file for a kept vault entry changes nothing, and the same one is taken as it is', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'checkout.pub');
+      final drive = File(path.join(home.path, 'wireguard.key'));
+      final first = await File(path.join(home.path, 'first')).writeAsBytes([1, 2, 3]);
+      final second = await File(path.join(home.path, 'second')).writeAsBytes([7, 7, 7]);
+      expect(
+        (await run(
+          SecretsFile(
+            kdbx,
+            cli: cli,
+          ).prepareHost(project: 'checkout', create: true, publicKeyOut: out, keys: {'forge': first.path}),
+          'm',
+          twice: true,
+        )).exitCode,
+        0,
+      );
+      final kept = await show(kdbx, 'hosts/checkout/wireguard', 'm');
+      await drive.writeAsString('$kept\n');
+
+      final other = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(
+          project: 'checkout',
+          create: false,
+          publicKeyOut: out,
+          migrateKeyFrom: drive.path,
+          keys: {'forge': second.path, 'ci': second.path},
+        ),
+        'm',
+      );
+      expect(other.exitCode, isNot(0));
+      expect('${other.stderr}', contains('keeps another forge'));
+      expect(await drive.exists(), isTrue, reason: 'the drive\'s key stays where a refusal follows');
+      expect(await show(kdbx, 'hosts/checkout/keys/forge', 'm'), base64Encode([1, 2, 3]));
+      expect(
+        Process.runSync('bash', ['-c', 'printf "m\\n" | $cli show "$kdbx" hosts/checkout/keys/ci']).exitCode,
+        isNot(0),
+        reason: 'nothing added before the refusal',
+      );
+
+      final same = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(
+          project: 'checkout',
+          create: false,
+          publicKeyOut: out,
+          migrateKeyFrom: drive.path,
+          keys: {'forge': first.path},
+        ),
+        'm',
+      );
+      expect(same.exitCode, 0, reason: '${same.stderr}');
+      expect(await drive.exists(), isFalse);
     }, skip: skip);
 
     test('an empty master password makes no file', () async {
@@ -395,12 +519,29 @@ void main() {
         then: base64Encode(utf8.encode('token-bytes')),
       );
       await cliIn(kdbx, ['add', '-p', kdbx, 'hosts/checkout/keys/ci.key'], 'm', then: base64Encode([0, 1, 2, 255]));
-      final keys = await run(SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['vault', 'keys']), 'm');
+      // An entry kept from an earlier setup that machine.yml no longer names.
+      await cliIn(kdbx, ['add', '-p', kdbx, 'hosts/checkout/keys/legacy'], 'm', then: base64Encode([9]));
+      final keys = await run(
+        SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['vault', 'keys'], keys: ['forge', 'ci.key']),
+        'm',
+      );
       expect(keys.exitCode, 0, reason: '${keys.stderr}');
-      expect('${keys.stdout}'.trim().split('\n').skip(1).toSet(), <String>{
+      expect('${keys.stdout}'.trim().split('\n').skip(1).toList(), <String>[
         'key forge ${base64Encode(utf8.encode('token-bytes'))}',
         'key ci.key ${base64Encode([0, 1, 2, 255])}',
-      });
+      ], reason: 'the entries machine.yml names, and no other');
+
+      // A value kept by hand that is no whole base64 sends nothing.
+      for (final (name, value) in [('plain', 'token'), ('short', 'a'), ('cut', 'ab=')]) {
+        await cliIn(kdbx, ['add', '-p', kdbx, 'hosts/checkout/keys/$name'], 'm', then: value);
+        final refused = await run(
+          SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['vault', 'keys'], keys: ['forge', name]),
+          'm',
+        );
+        expect(refused.exitCode, isNot(0), reason: value);
+        expect('${refused.stdout}', isEmpty, reason: 'no line at all for $value');
+        expect('${refused.stderr}', contains('hosts/checkout/keys/$name is not base64'));
+      }
       expect('${missing.stderr}', contains('hosts/other/vault-passphrase'), reason: 'what is missing is named');
     }, skip: skip);
 

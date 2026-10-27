@@ -733,7 +733,7 @@ class _ShellState extends State<Shell> {
     unawaited(_fleet.refresh(quietly: true));
   }
 
-  Future<void> _openHostRun(HostPreparation run) => run.waiting
+  Future<void> _openHostRun(HostPreparation run) => run.needsYou
       ? openHostStopDialog(
           context,
           run: run,
@@ -741,6 +741,7 @@ class _ShellState extends State<Shell> {
           machines: widget.machines,
           settings: widget.settings,
           openTerminal: widget.sessions.openTerminal,
+          needs: run.asksOnItsOwn,
         )
       : openHostRunDialog(
           context,

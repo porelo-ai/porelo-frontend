@@ -221,7 +221,7 @@ class Attention extends ChangeNotifier {
       }
     }
     for (final run in _hostRuns?.preparing ?? <HostPreparation>[]) {
-      if (run.waiting || run.interrupted) {
+      if (run.needsYou || run.interrupted) {
         yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
       }
     }

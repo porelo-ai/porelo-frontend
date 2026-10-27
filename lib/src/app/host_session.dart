@@ -538,8 +538,9 @@ class HostSession extends ChangeNotifier {
       account = step.account;
       admin = step.admin;
     }
-    if (step.state == StepState.refused && step.address != null) {
-      address = step.address;
+    // A refusal's call goes as the user that refusal names, never one an earlier line named.
+    if (step.state == StepState.refused) {
+      address = step.address ?? address;
       admin = step.admin;
     }
     if (step.step == 'up' && step.state == StepState.done) {

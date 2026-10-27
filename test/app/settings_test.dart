@@ -50,6 +50,35 @@ void main() {
     expect(HostUpRecord.fromStored(record)!.vpnFile, isNull, reason: 'older records remain usable');
   });
 
+  // Harm: a stored name the stop would send as a line of its own, or an entry sent twice.
+  test('the vault entries\' names survive reload, and a name the stop would refuse drops the record', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.rememberHostUp(
+      'demo',
+      HostUpRecord.fromStored({
+        ...record,
+        'vaultKeys': ['forge', 'ci.key'],
+      })!,
+    );
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    expect(reopened.hostUp('demo')!.vaultKeys, ['forge', 'ci.key']);
+    expect(HostUpRecord.fromStored(record)!.vaultKeys, isEmpty, reason: 'older records remain usable');
+    for (final bad in <Object?>[
+      'forge',
+      ['a b'],
+      ["a'b"],
+      ['_x'],
+      [7],
+      ['forge', 'forge'],
+    ]) {
+      expect(HostUpRecord.fromStored({...record, 'vaultKeys': bad}), isNull, reason: '$bad');
+    }
+  });
+
   // Harm: saving or deleting a VPN file must not remove the digest that verifies the setup collection.
   test('changing the saved VPN path preserves the collection digest and host record', () async {
     final digest = List.filled(64, 'a').join();

@@ -219,17 +219,17 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
       _ticker = null;
     }
     final command =
-        (run.waiting
+        (run.needsYou
                 ? hostPreparationCommand(project: run.project, open: widget.open ?? () {}, home: Home.machineRow)
                 : hostProtocolCommand(project: run.project, open: widget.open ?? () {}))
             .unless(widget.open == null ? 'host setup is unavailable here' : null);
     final primary = run.interrupted ? widget.actions.firstWhere((action) => action.id == 'host.goOn') : command;
     return ExpandableListRow(
-      leading: Icon(run.waiting ? Icons.person_outline : Icons.dns_outlined),
+      leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
       title: run.name,
       state: run.interrupted
           ? 'Interrupted'
-          : run.waiting
+          : run.needsYou
           ? 'Needs you'
           : session.state == HostRunState.busy
           ? 'Still running'

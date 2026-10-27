@@ -360,28 +360,34 @@ void main() {
   });
 
   // Harm: the token's own call sent to another host or user than the one rented.
-  test('a refusal naming a secret carries the trusted host and its login user, never the callback\'s', () async {
-    final steps = <Step>[];
-    final remote = ScriptedRemote(<String>[
-      line(<String, Object>{
-        'state': 'failed',
-        'task': 'repositories | Stop while a repository is to migrate',
-        'msg': 'forge-central-token: stand-in still to migrate',
-        'address': 'wrong',
-        'admin': 'root',
-      }),
-    ], playExit: 2);
-    await HostRun(
-      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
-      provider: CountingProvider(),
-      remote: remote,
-      emit: steps.add,
-    ).up(plan);
-    final refused = steps.lastWhere((step) => step.state == StepState.refused);
-    expect(refused.fix, startsWith('forge-central-token:'));
-    expect(refused.address, '203.0.113.7');
-    expect(refused.admin, 'ubuntu');
-  });
+  // A task named as one of this command's own steps is written in this command's words, its user kept.
+  for (final task in <String>['repositories | Stop while a repository is to migrate', 'ansible']) {
+    test(
+      'a refusal naming a secret carries the trusted host and its login user, never the callback\'s: $task',
+      () async {
+        final steps = <Step>[];
+        final remote = ScriptedRemote(<String>[
+          line(<String, Object>{
+            'state': 'failed',
+            'task': task,
+            'msg': 'forge-central-token: stand-in still to migrate',
+            'address': 'wrong',
+            'admin': 'root',
+          }),
+        ], playExit: 2);
+        await HostRun(
+          environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+          provider: CountingProvider(),
+          remote: remote,
+          emit: steps.add,
+        ).up(plan);
+        final refused = steps.lastWhere((step) => step.state == StepState.refused);
+        expect(refused.fix, startsWith('forge-central-token:'));
+        expect(refused.address, '203.0.113.7');
+        expect(refused.admin, 'ubuntu');
+      },
+    );
+  }
 
   // Harm: a terminal reaches a different account or an untrusted address from callback data.
   test('a waiting line carries needs and the trusted host destination', () async {

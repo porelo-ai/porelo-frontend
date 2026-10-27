@@ -767,6 +767,7 @@ class _HostDialogState extends State<HostDialog> {
     vpnPeerPublicKey: _tunnel?.peerPublicKey ?? '',
     vpnPeerAddress: _tunnel == null ? '' : '10.73.0.2/32',
     vpnHostPublicKey: _tunnel?.hostPublicKey ?? '',
+    vaultKeys: [for (final key in _keys) key.name],
   );
 
   HostSession _newSession({HostUpRecord? record}) {
@@ -810,10 +811,16 @@ class _HostDialogState extends State<HostDialog> {
   Future<void> _addKey() async {
     try {
       HostFiles.checkName(_keyName.text);
+      // The secrets file, machine.yml and the host's stop must all take the name, and each only once.
+      SecretsFile.checkKeyName(_keyName.text);
+      if (_keys.any((key) => key.name == _keyName.text)) {
+        throw HostFilesRefused('A vault entry ${_keyName.text} is chosen already.');
+      }
       final selected = await _pickFile();
       if (selected == null || !mounted) return;
-      final file = desk.expandHome(selected.trim());
+      final file = path.normalize(path.absolute(desk.expandHome(selected.trim())));
       HostFiles.checkBasename(path.basename(file));
+      if (!desk.isWindows) SecretsFile.checkPath(file);
       final key = HostKeyFile(_keyName.text, File(file));
       setState(() {
         _keys.add(key);
@@ -860,12 +867,11 @@ class _HostDialogState extends State<HostDialog> {
       if (!_upStarted) {
         if (!await _checkBundle()) return;
         setState(() => _preparing = true);
-        // The secrets file keeps the host's key where the drive kept it before; without a folder there is none.
-        String? hostPublicKey;
-        if (_drivesKey != null) {
-          hostPublicKey = await _hostKeyFromTheSecretsFile();
-          if (!mounted) return;
-        }
+        // The secrets file is opened and named for the stop with a drive folder or without one; only the drive's
+        // host takes its key from it, as host files given by hand carry the person's own.
+        final fromTheFile = await _hostKeyFromTheSecretsFile();
+        if (!mounted) return;
+        final hostPublicKey = _folder == null ? null : fromTheFile;
         await _withFiles((files) async {
           if (_folder != null) {
             await files.publishBundle(project: widget.project, folder: _folder!, bytes: _bundle!);
@@ -1067,12 +1073,13 @@ class _HostDialogState extends State<HostDialog> {
   String? _required(List<TextEditingController> fields, String reason) =>
       fields.any((field) => field.text.trim().isEmpty) ? reason : null;
 
-  String? _fileProblem(String value, String label) {
+  String? _fileProblem(String value, String label, {bool link = true}) {
     try {
       final expanded = desk.expandHome(value.trim());
       // Windows answers for a device as for a file, and reading it waits.
       if (_namesADevice(expanded)) return '$label names a Windows device: $expanded.';
-      return switch (FileSystemEntity.typeSync(expanded)) {
+      // A vault entry's link is refused, as the secrets file's script refuses it: what it points at can change.
+      return switch (FileSystemEntity.typeSync(expanded, followLinks: link)) {
         FileSystemEntityType.notFound => '$label does not exist: $expanded.',
         FileSystemEntityType.file => null,
         _ => '$label is not a regular file: $expanded.',
@@ -1096,7 +1103,7 @@ class _HostDialogState extends State<HostDialog> {
       return 'The public key for signing commits cannot be read: ${_signingKey.text.trim()}.';
     }
     for (final key in _keys) {
-      final problem = _fileProblem(key.file.path, 'The file for vault entry ${key.name}');
+      final problem = _fileProblem(key.file.path, 'The file for vault entry ${key.name}', link: false);
       if (problem != null) return problem;
     }
     return null;
@@ -1367,10 +1374,16 @@ class _HostDialogState extends State<HostDialog> {
     final drivesKey = _drivesKey;
     // Kept for this file and this drive only: another drive may hold a key that has to move first.
     final keys = <String, String>{for (final key in _keys) key.name: key.file.absolute.path};
+    // A file changed or replaced since it was opened is taken again, never the key kept for the old one.
+    String state(String file) {
+      final stat = File(file).statSync();
+      return '${stat.type} ${stat.size} ${stat.modified.microsecondsSinceEpoch}';
+    }
+
     final asked = (
       file: file,
       drive: drivesKey,
-      keys: keys.entries.map((each) => '${each.key}=${each.value}').join('\n'),
+      keys: keys.entries.map((each) => '${each.key}=${each.value} ${state(each.value)}').join('\n'),
     );
     if (_hostPublicKey != null && _hostPublicKeyFor == asked) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
@@ -1501,8 +1514,7 @@ class _HostDialogState extends State<HostDialog> {
             spacing: Space.small,
             children: [
               if (_session != null) _copyProtocolButton(),
-              if (_session?.state == HostRunState.waiting && !_takingDown) _askForTheStop(),
-              if (!_takingDown) ?_giveTheCentralForgesToken(),
+              if (_needsYou && !_takingDown) _askForTheStop(),
               OutlinedButton(
                 key: const Key('host-down'),
                 onPressed: _running || !_complete
@@ -1526,7 +1538,7 @@ class _HostDialogState extends State<HostDialog> {
     content: SizedBox(width: Sizes.dialogMedium, child: _progress(context)),
     actions: [
       if (_session != null) _copyProtocolButton(),
-      if (_session?.state == HostRunState.waiting) _askForTheStop(),
+      if (_needsYou) _askForTheStop(),
       TextButton(key: const Key('host-close'), onPressed: () => Navigator.pop(context), child: const Text('Close')),
       if (_hostRun case final run? when run.awaitingVpn)
         Builder(
@@ -1570,31 +1582,8 @@ class _HostDialogState extends State<HostDialog> {
             );
           },
         ),
-      ?_giveTheCentralForgesToken(),
     ],
   );
-
-  /// Offered where `up` stopped because a repository moves over from the central forge: its token from the file,
-  /// on its own call, then `up` again.
-  Widget? _giveTheCentralForgesToken() {
-    final run = _hostRun;
-    if (run == null || run.running || run.waiting || !(run.session.fix?.startsWith('forge-central-token:') ?? false)) {
-      return null;
-    }
-    return TextButton(
-      key: const Key('host-forge-token'),
-      onPressed: () => openHostStopDialog(
-        context,
-        run: run,
-        hostRuns: widget.hostRuns!,
-        machines: widget.machines,
-        settings: widget.settings,
-        openTerminal: widget.openTerminal,
-        needs: const ['forge-central-token'],
-      ),
-      child: const Text('Give the central forge’s token'),
-    );
-  }
 
   Widget _takeDownDialog(BuildContext context, {bool confirmationOnly = false}) {
     final started = !confirmationOnly && _takingDown && _session != null;
@@ -1825,21 +1814,32 @@ class _HostDialogState extends State<HostDialog> {
     ],
   );
 
+  /// A stop, or a refusal of `up` that asks on a call of its own (the central forge's token, a vault entry).
+  bool get _needsYou => _session?.state == HostRunState.waiting || (_hostRun?.asksOnItsOwn != null && !_running);
+
   Widget _askForTheStop() => KeyedSubtree(
     key: const Key('host-stop'),
-    child: FilledButton(
-      key: const Key('host-complete-setup'),
-      onPressed: _running || _hostRun == null
-          ? null
-          : () => openHostStopDialog(
-              context,
-              run: _hostRun!,
-              hostRuns: widget.hostRuns!,
-              machines: widget.machines,
-              settings: widget.settings,
-              openTerminal: widget.openTerminal,
-            ),
-      child: const Text('Complete setup on the host'),
+    child: Builder(
+      builder: (_) {
+        final command = hostPreparationCommand(
+          project: widget.project,
+          home: Home.openedView,
+          open: () => openHostStopDialog(
+            context,
+            run: _hostRun!,
+            hostRuns: widget.hostRuns!,
+            machines: widget.machines,
+            settings: widget.settings,
+            openTerminal: widget.openTerminal,
+            needs: _hostRun!.asksOnItsOwn,
+          ),
+        ).unless(_running || _hostRun == null ? 'the host command is still running' : null);
+        return FilledButton(
+          key: const Key('host-complete-setup'),
+          onPressed: command.available ? command.run : null,
+          child: Text(command.label),
+        );
+      },
     ),
   );
 }

@@ -102,6 +102,20 @@ class HostPreparation {
 
   /// Whether the command has stopped for the person.
   bool get waiting => session.state == HostRunState.waiting;
+
+  /// What `up`'s refusal asks of the person on a call of its own before `up` runs again, as porelo-host names it
+  /// in the refusal's first word (`forge-central-token:`, `keys:`); null for any other ending.
+  List<String>? get asksOnItsOwn {
+    if (running || waiting) return null;
+    final fix = session.fix ?? '';
+    for (final need in const ['forge-central-token', 'keys']) {
+      if (fix.startsWith('$need:')) return [need];
+    }
+    return null;
+  }
+
+  /// Whether the setup needs the person before it can go on: a stop, or a refusal that asks on its own call.
+  bool get needsYou => waiting || asksOnItsOwn != null;
 }
 
 /// Owns host setup just as Operations owns other long actions; views only observe it.
@@ -532,8 +546,10 @@ class HostStop {
       interrupted = run.interrupted,
       text = run.interrupted
           ? 'Setup of ${run.name} was interrupted — the server is rented and billed'
+          : run.asksOnItsOwn != null
+          ? run.session.fix!
           : run.session.stepText,
-      needs = List.unmodifiable(run.session.needs);
+      needs = List.unmodifiable(run.asksOnItsOwn ?? run.session.needs);
 
   /// Project to find when the stop's action is opened.
   final String project;
