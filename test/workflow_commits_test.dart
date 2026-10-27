@@ -158,14 +158,14 @@ esac''');
   });
 
   // The harm: a missing start of the range silently checking nothing.
-  test('a missing start fails loudly', () async {
-    for (final ref in <String>['refs/heads/main', 'refs/heads/topic']) {
+  for (final ref in <String>['refs/heads/main', 'refs/heads/topic', 'refs/tags/v1.2.3']) {
+    test('a missing start fails loudly on $ref', () async {
       final run = await push(ref, '', '1111111');
-      expect(run.exit, isNot(0), reason: '$ref: ${run.log}');
-      expect(run.log, contains('::error::'), reason: ref);
-      expect(run.java, isEmpty, reason: '$ref: check-commits started without a range');
-    }
-  });
+      expect(run.exit, isNot(0), reason: run.log);
+      expect(run.log, contains('::error::'));
+      expect(run.java, isEmpty, reason: 'check-commits started without a range');
+    });
+  }
 
   // The harm: a push the Build never starts, of [skip ci] commits or documents alone, going unchecked.
   test("the schedule checks main's last day", () async {
