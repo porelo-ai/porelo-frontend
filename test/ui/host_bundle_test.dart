@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -148,6 +149,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             project: 'demo',
             machines: machines,
             settings: settings,
@@ -271,8 +273,7 @@ void main() {
     expect(root.listSync().map((file) => path.basename(file.path)).toSet(), {
       'demo.bundle',
       'machine.yml',
-      'wireguard.key',
-    }, reason: 'no staging directory may remain after publication');
+    }, reason: 'no staging directory may remain after publication, and no host key: the secrets file keeps it');
   });
 
   String fingerprint(String name) =>
@@ -660,3 +661,7 @@ void main() {
     });
   }
 }
+
+/// Stands in for the secrets file's terminal: the public half of a fixed host key.
+Future<String> _secretsOpened({required String file, required String project, String? migrateKeyFrom}) =>
+    HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));

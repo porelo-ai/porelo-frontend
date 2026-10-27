@@ -98,6 +98,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Putting a project on a server keeps the server's VPN key and vault passphrase in the person's own `secrets.kdbx`,
+  which KeePassXC opens too: a step names the file or where a new one is made, and setup opens it in a terminal on
+  this computer with one master password. The key no longer lies on the drive; a key already there moves into the
+  file. Nothing of the file passes through the interface but the key's public half.
+
 - A project's menu offers Start an agent for each repository: a wizard starts, one after another, an
   attended task for each repository whose `project.yml` names an agent, with that agent and the name
   the machine gives it. Repositories can be left out, an agent with nothing to sign in with is signed

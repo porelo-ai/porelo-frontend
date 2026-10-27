@@ -205,6 +205,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: HostDialog(
+            openSecretsFile: _secretsOpened,
             project: 'demo',
             machines: machines,
             settings: machines.settings,
@@ -423,6 +424,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: HostDialog(
+            openSecretsFile: _secretsOpened,
             project: 'demo',
             machines: machines,
             hostRuns: runs,
@@ -597,6 +599,7 @@ void main() {
       ['host-scaleway-project', 'host-account'],
       ['host-tresor', 'host-signing-key'],
       ['host-identity', 'host-public-key'],
+      ['host-secrets-file'],
       ['host-collection', 'host-collection-sha256'],
     ];
     for (var step = 0; step < fields.length; step++) {
@@ -635,6 +638,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -650,7 +654,7 @@ void main() {
         ),
       ),
     );
-    await fillSteps(tester, {'host-scaleway-project': 'provider', 'host-tresor': 'drive'}, stopAt: 2);
+    await fillSteps(tester, {'host-scaleway-project': 'provider', 'host-tresor': 'drive'}, stopAt: 3);
     await navigate(tester, 'wizard-next');
     expect(find.byKey(const Key('host-collection')), findsNothing);
     expect(find.byKey(const Key('host-collection-sha256')), findsNothing);
@@ -690,6 +694,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
+          openSecretsFile: _secretsOpened,
           hostFiles: filesFor,
           checkKey: _acceptedKey,
           hostRuns: runs,
@@ -726,6 +731,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
+          openSecretsFile: _secretsOpened,
           hostFiles: filesFor,
           checkKey: _acceptedKey,
           hostRuns: runs,
@@ -788,6 +794,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: HostDialog(
+          openSecretsFile: _secretsOpened,
           hostFiles: filesFor,
           checkKey: _acceptedKey,
           hostRuns: runs,
@@ -943,7 +950,7 @@ void main() {
     (key: 'host-signing-key', label: 'public key for signing commits', step: 1),
     (key: 'host-identity', label: 'private ssh key', step: 2),
     (key: 'host-public-key', label: 'public ssh key', step: 2),
-    (key: 'host-collection', label: 'test collection', step: 3),
+    (key: 'host-collection', label: 'test collection', step: 4),
     (key: 'vault-entry', label: 'vault entry deployment', step: 1),
   ]) {
     for (final directory in [false, true]) {
@@ -964,6 +971,7 @@ void main() {
           MaterialApp(
             home: Scaffold(
               body: HostDialog(
+                openSecretsFile: _secretsOpened,
                 hostFiles: filesFor,
                 checkKey: _acceptedKey,
                 hostRuns: runs,
@@ -1018,6 +1026,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1058,6 +1067,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1103,6 +1113,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
     await tester.pump();
     await navigate(tester, 'wizard-next');
+    // Your secrets file: its default place is taken.
+    await navigate(tester, 'wizard-next');
     await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
     await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
     await tester.pump();
@@ -1126,6 +1138,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1172,6 +1185,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1210,7 +1224,7 @@ void main() {
     'host-signing-key': 1,
     'host-identity': 2,
     'host-public-key': 2,
-    'host-collection': 3,
+    'host-collection': 4,
   }.entries) {
     // Harm: an incomplete answer rents a billing server that cannot be set up.
     hostWidgets('${missing.key} must be given before the start decision can be reached', (tester) async {
@@ -1224,6 +1238,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -1269,6 +1284,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1303,6 +1319,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1324,7 +1341,7 @@ void main() {
     };
     await fillSteps(tester, answers);
     final seen = <String>{};
-    for (var step = 0; step < 4; step++) {
+    for (var step = 0; step < 5; step++) {
       await navigate(tester, 'wizard-back');
       for (final answer in answers.entries) {
         final field = find.byKey(Key(answer.key));
@@ -1352,6 +1369,7 @@ void main() {
               onPressed: () => showDialog<void>(
                 context: context,
                 builder: (_) => HostDialog(
+                  openSecretsFile: _secretsOpened,
                   hostFiles: filesFor,
                   checkKey: _acceptedKey,
                   hostRuns: runs,
@@ -1666,6 +1684,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -1713,6 +1732,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -1742,7 +1762,7 @@ void main() {
         },
         stopAt: switch (field.key) {
           'host-signing-key' => 1,
-          'host-collection' => 3,
+          'host-collection' => 4,
           _ => 2,
         },
       );
@@ -1765,6 +1785,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1812,6 +1833,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1842,6 +1864,71 @@ void main() {
     expect(await tester.runAsync(() => conflict.readAsString()), 'keep');
   });
 
+  // Harm: a host rented without its key, or a secret on a command line every process on the desktop can read.
+  hostWidgets(
+    'the secrets file opens in a terminal here with no secret in its command, and a failed one rents nothing',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = newSettings(MemorySettingsStore());
+      await settings.rememberTresorFolder('demo', scratch.path);
+      final terminals = <FakeTerminal>[];
+      final commands = <List<String>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              hostRuns: runs,
+              machines: machines,
+              project: 'demo',
+              settings: settings,
+              secretStore: _MemorySecrets(),
+              start: (_, arguments) async {
+                commands.add(List.of(arguments));
+                return _HostProcess()..end(65);
+              },
+              openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+                final terminal = FakeTerminal([program, ...arguments]);
+                terminals.add(terminal);
+                return terminal;
+              },
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project',
+        'host-tresor': 'drive',
+        'host-signing-key': fixture('signing.pub'),
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+      });
+      await tapAndRun(tester, const Key('host-up'));
+      // The secrets file's folder for the public half is made by real file work, which the test clock never runs.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await World.settle(tester);
+
+      expect(terminals, hasLength(1), reason: 'the secrets file is opened before anything is rented');
+      final command = terminals.single.command;
+      expect(command.take(2), ['/bin/bash', '-c'], reason: 'a script of this desktop, run here');
+      expect(command.last, contains("'hosts/demo/wireguard'"));
+      expect(command.last, contains('read -rs'), reason: 'the master password is typed into the terminal');
+      expect(commands, isEmpty, reason: 'nothing is rented while the secrets file is open');
+
+      terminals.single.endsWith(1);
+      await World.settle(tester);
+      await tapAndRun(tester, const Key('unlock-done'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await World.settle(tester);
+
+      expect(commands, isEmpty, reason: 'a secrets file that did not open rents nothing');
+      expect(find.textContaining('The secrets file was not opened'), findsOneWidget);
+    },
+  );
+
   // Harm: the private key reaches a process/log/UI, or repeated up/down configure the wrong peer.
   // Red: pass a private key as the peer option, show it in a step, or omit the options on repeated up/down.
   hostWidgets('folder picker prepares private files and up and down carry only public keys', (tester) async {
@@ -1867,6 +1954,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1940,9 +2028,13 @@ void main() {
     await deliver(() => processes.last.end(0));
     final private = store.values[host.HostFiles.keyName('demo')]!;
     final peer = await host.HostFiles.publicKey(private);
-    final hostPrivate = (await tester.runAsync(
-      () => File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).readAsString(),
-    ))!.trim();
+    // The host's key is the secrets file's: its private half never reaches the drive.
+    final hostPrivate = base64Encode(List<int>.filled(32, 5));
+    expect(
+      await tester.runAsync(() => File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).exists()),
+      isFalse,
+      reason: 'with the secrets file the drive holds no host key',
+    );
     final hostPublic = await host.HostFiles.publicKey(hostPrivate);
     expect(settings.hostUp('demo')!.vpnHostPublicKey, hostPublic);
     for (final secret in [private, hostPrivate]) {
@@ -1985,6 +2077,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2040,6 +2133,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2095,6 +2189,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2224,6 +2319,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2302,6 +2398,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2341,6 +2438,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2366,14 +2464,14 @@ void main() {
     await tapAndRun(tester, const Key('host-up'));
     expect(find.byKey(const Key('host-stop')), findsOneWidget);
     Future<void> checkLockedFields() async {
-      for (var step = 0; step < 5; step++) {
+      for (var step = 0; step < 6; step++) {
         await navigate(tester, 'wizard-back');
         if (find.byKey(const Key('wizard-confirm-back')).evaluate().isNotEmpty) {
           await navigate(tester, 'wizard-confirm-back');
         }
       }
       final seen = <String>{};
-      for (var step = 0; step < 4; step++) {
+      for (var step = 0; step < 5; step++) {
         for (final entry in fields.entries) {
           final found = find.byKey(Key(entry.key));
           if (found.evaluate().isEmpty) continue;
@@ -2417,6 +2515,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2478,6 +2577,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            openSecretsFile: _secretsOpened,
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2507,6 +2607,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
     await tester.pump();
     await navigate(tester, 'wizard-next');
+    // Your secrets file: its default place is taken.
+    await navigate(tester, 'wizard-next');
     await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
     await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
     await tester.pump();
@@ -2534,6 +2636,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2617,6 +2720,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2670,6 +2774,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              openSecretsFile: _secretsOpened,
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2855,7 +2960,17 @@ class _ControlledHostFiles extends host.HostFiles {
     required String url,
     required File signingKey,
     List<host.HostKeyFile> keys = const [],
-  }) => work.defer(() => super.prepare(project: project, folder: folder, url: url, signingKey: signingKey, keys: keys));
+    String? hostPublicKey,
+  }) => work.defer(
+    () => super.prepare(
+      project: project,
+      folder: folder,
+      url: url,
+      signingKey: signingKey,
+      keys: keys,
+      hostPublicKey: hostPublicKey,
+    ),
+  );
 
   @override
   Future<void> exportTunnel({
@@ -2867,3 +2982,7 @@ class _ControlledHostFiles extends host.HostFiles {
     () => super.exportTunnel(project: project, tunnel: tunnel, address: address, destination: destination),
   );
 }
+
+/// Stands in for the secrets file's terminal: the public half of a fixed host key, as the script would write it.
+Future<String> _secretsOpened({required String file, required String project, String? migrateKeyFrom}) =>
+    host.HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));

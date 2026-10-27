@@ -21,6 +21,7 @@ import '../app/settings.dart';
 import '../app/session.dart';
 import 'wizard.dart';
 import 'tokens.dart';
+import 'unlock_terminal.dart';
 import 'host_stop_dialog.dart';
 import 'dialog_scroll.dart';
 import 'host_vpn_dialog.dart';
@@ -122,6 +123,7 @@ class HostDialog extends StatefulWidget {
     this.secretStore,
     this.pickFolder,
     this.pickFile,
+    this.openSecretsFile,
     this.takeDownOnly = false,
     this.debug = kDebugMode,
     super.key,
@@ -175,6 +177,11 @@ class HostDialog extends StatefulWidget {
   /// Chooses a path file without opening a platform dialog in tests, starting where the last pick ended.
   final Future<String?> Function(String? initialDirectory)? pickFile;
 
+  /// Opens the person's secrets file in a terminal on this desktop and answers the host key's public half; the
+  /// terminal with `keepassxc-cli` when null, a stand-in in tests. It refuses with [HostFilesRefused].
+  final Future<String> Function({required String file, required String project, String? migrateKeyFrom})?
+  openSecretsFile;
+
   /// Shows the machine's teardown confirmation and progress without asking setup questions.
   final bool takeDownOnly;
 
@@ -195,6 +202,7 @@ class _HostDialogState extends State<HostDialog> {
   final _collectionSha256 = TextEditingController();
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _keyName = TextEditingController();
+  final _secrets = TextEditingController(text: _home('Porelo/secrets.kdbx'));
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   final _protocolScroll = ScrollController();
@@ -243,6 +251,7 @@ class _HostDialogState extends State<HostDialog> {
     super.initState();
     widget.hostRuns?.addListener(_sessionChanged);
     _folder = widget.settings?.tresorFolder(widget.project);
+    if (widget.settings?.secretsFile case final file?) _secrets.text = file;
     if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
     final kept = widget.existingRun?.record ?? widget.settings?.hostUp(widget.project);
     _signingKeyKept = kept != null;
@@ -643,6 +652,7 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     for (final field in <TextEditingController>[
+      _secrets,
       _signingKey,
       _keyName,
       _scaleway,
@@ -839,6 +849,19 @@ class _HostDialogState extends State<HostDialog> {
       if (!_upStarted) {
         if (!await _checkBundle()) return;
         setState(() => _preparing = true);
+        final drivesKey = _folder == null ? null : path.join(path.normalize(_folder!), 'porelo-host', 'wireguard.key');
+        // The secrets file keeps the host's key where the drive kept it before; without a folder there is none.
+        String? hostPublicKey;
+        if (drivesKey != null) {
+          final open = widget.openSecretsFile ?? _openTheSecretsFile;
+          hostPublicKey = await open(
+            file: _secretsPath,
+            project: widget.project,
+            migrateKeyFrom: File(drivesKey).existsSync() ? drivesKey : null,
+          );
+          if (!mounted) return;
+          await widget.settings?.rememberSecretsFile(_secretsPath);
+        }
         await _withFiles((files) async {
           if (_folder != null) {
             await files.publishBundle(project: widget.project, folder: _folder!, bytes: _bundle!);
@@ -849,6 +872,7 @@ class _HostDialogState extends State<HostDialog> {
             url: HostFiles.bundleUrl(widget.project),
             signingKey: File(_signingKey.text.trim()),
             keys: _keys,
+            hostPublicKey: hostPublicKey,
           );
         });
         if (!mounted) return;
@@ -1258,6 +1282,23 @@ class _HostDialogState extends State<HostDialog> {
         if (!widget.debug) 'Server setup collection: ${hostCollection.version}',
       ],
     ),
+    WizardStep(
+      title: 'Your secrets file',
+      words:
+          'Your secrets file, secrets.kdbx, keeps the server’s VPN key and its vault passphrase under one master '
+          'password, which you type into a terminal on this computer when setup starts; it never passes through this '
+          'program. Name the file you have, or where a new one is made. KeePassXC opens it too.',
+      panel: (_) => _panel([
+        _pathField(_secrets, 'Your secrets file (.kdbx)', 'host-secrets-file'),
+        Text(
+          _secretsExist
+              ? 'It is there: setup opens it with its master password.'
+              : 'It is not there yet: setup makes it, with a master password you choose.',
+        ),
+      ]),
+      check: () => _secretsProblem,
+      summary: () => ['Secrets file: ${_secrets.text}${_secretsExist ? '' : ' (made when setup starts)'}'],
+    ),
     if (widget.debug)
       WizardStep(
         title: 'A test collection',
@@ -1277,6 +1318,61 @@ class _HostDialogState extends State<HostDialog> {
         summary: () => ['Test collection: ${_collection.text}', 'Test collection SHA-256: ${_collectionSha256.text}'],
       ),
   ];
+
+  String get _secretsPath => _expanded(_secrets.text.trim());
+
+  bool get _secretsExist => File(_secretsPath).existsSync();
+
+  String? get _secretsProblem {
+    if (_secrets.text.trim().isEmpty) return 'Give where your secrets file lies, or where a new one is made.';
+    try {
+      SecretsFile.checkPath(_secretsPath);
+    } on FormatException catch (refusal) {
+      return refusal.message;
+    }
+    final kind = FileSystemEntity.typeSync(_secretsPath, followLinks: false);
+    if (kind != FileSystemEntityType.notFound && kind != FileSystemEntityType.file) {
+      return 'The secrets file is a folder or a link, not a file.';
+    }
+    return null;
+  }
+
+  /// Opens the secrets file in a terminal here and answers the host key's public half, never its private one.
+  Future<String> _openTheSecretsFile({required String file, required String project, String? migrateKeyFrom}) async {
+    final folder = await Directory.systemTemp.createTemp('porelo-host-key-');
+    try {
+      final out = path.join(folder.path, '$project.pub');
+      final script = SecretsFile(file).prepareHost(
+        project: project,
+        create: !File(file).existsSync(),
+        publicKeyOut: out,
+        migrateKeyFrom: migrateKeyFrom,
+      );
+      var exit = -1;
+      if (!mounted) throw const HostFilesRefused('The secrets file was not opened.');
+      await runInATerminal(
+        context,
+        key: const Key('host-secrets-terminal'),
+        title: 'Your secrets file',
+        explanation:
+            'Type the master password of your secrets file into this terminal. It goes to keepassxc-cli on this '
+            'computer and never through this program, which gets back only the public half of the server’s VPN key.',
+        machine: Machine.local(),
+        command: ['/bin/bash', '-c', script],
+        shownCommand: 'keepassxc-cli opens $file and keeps the server’s keys for ${widget.project}',
+        completed: 'The secrets file is ready.',
+        onExit: (code) => exit = code,
+        open: widget.openTerminal,
+      );
+      final written = File(out);
+      if (exit != 0 || !await written.exists()) {
+        throw const HostFilesRefused('The secrets file was not opened, so setup did not start.');
+      }
+      return (await written.readAsString()).trim();
+    } finally {
+      await folder.delete(recursive: true);
+    }
+  }
 
   WizardActionState get _actionState {
     if (_running) return WizardActionState.running;

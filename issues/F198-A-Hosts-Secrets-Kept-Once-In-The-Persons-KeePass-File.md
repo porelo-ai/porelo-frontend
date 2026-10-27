@@ -48,9 +48,11 @@ operator's shape: one password to remember for setting up a host.
   today.
 - **Where it lies (decided):** the person chooses the file at first use, offered `~/Porelo/secrets.kdbx`, or a drive
   folder where one is set up; the interface keeps only its path in its settings, never a copy.
-- **First use:** a step of the host dialog when no file is known: the person names an existing file, or the script
-  creates one (`keepassxc-cli db-create`, then the groups `shared`, `hosts` and `hosts/<project>`); a host's key
-  already in the tresor is moved into the file in that script and then removed from the tresor.
+- **First use:** the host dialog's step *Your secrets file*, after *Your ssh keys*, names an existing file or where
+  the script creates one (`keepassxc-cli db-create`, then the groups `shared`, `hosts` and `hosts/<project>`); a
+  host's key already in the tresor is moved into the file in that script and then removed from the tresor. The file
+  takes the place of the drive's `wireguard.key`, so it is opened only where a drive folder is chosen; without one
+  the host's files are supplied by hand, as before.
 - **Between 6d and 6e:** with the file, `wireguard.key` no longer goes to the drive, while the host still reads it
   there until `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) takes it
   on standard input ([F199](README.md#f199)); so 6d is tested without a host, as its sprint says.
