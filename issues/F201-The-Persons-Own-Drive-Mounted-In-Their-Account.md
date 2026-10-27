@@ -35,6 +35,14 @@ accounts, each mounting their own drive.
   the synced folder, its picker and the tresor's name are gone, and `porelo-host up` takes no `--tresor` (refused
   as an option). A drive folder remembered from an earlier setup is still read for a host key it holds, which the
   secrets file takes over. A kept record without a tresor is valid, and none passes one on.
+- **From part A's harm reading (seven findings, five taken):** a drive folder remembered from an earlier setup is
+  shown on *The project*, with *Forget it*, so a refusal about a key it holds can be acted on; a test reads such a
+  folder again; the walk no longer looks for drive answers, and its rework for the secrets file and a host without a
+  drive is [F206](README.md#f206). **The carried collection** (`porelo-host` v0.5.5) still mounts a drive and needs a
+  tresor: part A goes out only with a `porelo-host` release carrying [HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38) and the collection's pin moved to it, in
+  the same push. **Declined, with the reason:** a test that `up` writes no tresor into the inventory cannot be made
+  to fail by passing one, since `HostPlan` has no such field any more; the command line's refusal of `--tresor` is
+  tested.
 - **Red first:** a test of `SetupRun` that a user without a drive is asked nothing about Tresorit and runs no step for
   it, and one that a chosen drive's commands run as that user and never as root or Porelo's account.
 

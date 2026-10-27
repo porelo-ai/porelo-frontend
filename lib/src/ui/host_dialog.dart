@@ -791,6 +791,17 @@ class _HostDialogState extends State<HostDialog> {
   Future<void> _withFiles(Future<void> Function(HostFiles) use) =>
       withHostFiles(use, secretStore: widget.secretStore, hostFiles: widget.hostFiles);
 
+  /// Lets go of a drive folder from an earlier setup: nothing reads it any more.
+  Future<void> _forgetTheOldDrive() async {
+    await widget.settings?.rememberTresorFolder(widget.project, null);
+    if (mounted) {
+      setState(() {
+        _folder = null;
+        _machineProblem = null;
+      });
+    }
+  }
+
   Future<void> _addKey() async {
     try {
       HostFiles.checkName(_keyName.text);
@@ -1211,6 +1222,24 @@ class _HostDialogState extends State<HostDialog> {
       panel: (context) => _panel([
         if (Platform.isWindows)
           const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
+        // Read only for a host key it may still hold, which the secrets file takes over: said, and let go of here.
+        if (_folder case final folder?)
+          Row(
+            key: const Key('host-old-drive'),
+            children: [
+              Expanded(
+                child: Text(
+                  'A drive folder from an earlier setup, $folder, is read once more: a server key it still holds '
+                  'moves into your secrets file.',
+                ),
+              ),
+              TextButton(
+                key: const Key('host-old-drive-forget'),
+                onPressed: _running || _upStarted ? null : _forgetTheOldDrive,
+                child: const Text('Forget it'),
+              ),
+            ],
+          ),
         ...[
           _pathField(
             _signingKey,

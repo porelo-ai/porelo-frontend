@@ -1348,6 +1348,64 @@ void main() {
     expect(yaml, contains(host.HostFiles.signingFingerprint(replacement.readAsStringSync())));
   });
 
+  // Harm: a drive folder from an earlier setup read without a word, whose refusal the person cannot act on.
+  hostWidgets('a drive folder from an earlier setup is shown, and once forgotten nothing reads it', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = newSettings(MemorySettingsStore());
+    final old = fixture('old-drive');
+    await settings.rememberTresorFolder('demo', old);
+    final opened = <String?>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+              opened.add(migrateKeyFrom);
+              return _secretsOpened(file: file, project: project);
+            },
+            setupFolder: '${scratch.path}/setup',
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            settings: settings,
+            project: 'demo',
+            start: (_, _) async => _HostProcess(),
+          ),
+        ),
+      ),
+    );
+    await fillSteps(
+      tester,
+      {
+        'host-scaleway-project': 'project',
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+      },
+      onDrive: () async {
+        expect(
+          find.descendant(of: find.byKey(const Key('host-old-drive')), matching: find.textContaining(old)),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const Key('host-old-drive-forget')));
+        await World.settle(tester);
+        expect(find.byKey(const Key('host-old-drive')), findsNothing);
+        expect(settings.tresorFolder('demo'), isNull);
+      },
+    );
+    await tester.runAsync(() async {
+      await Directory(path.join(old, 'porelo-host')).create(recursive: true);
+      await File(path.join(old, 'porelo-host', 'wireguard.key'))
+          .writeAsString('${base64Encode(List<int>.filled(32, 7))}\n');
+    });
+    await tapAndRun(tester, const Key('host-up'));
+    expect(opened.single, isNull, reason: 'a forgotten folder is read no more');
+    expect(settings.hostUp('demo')?.folder, isNull);
+  });
+
   // Harm: a host asked for a drive its setup no longer mounts, or told a tresor it would sync after all.
   hostWidgets('the project step asks for no drive, and up is told no tresor', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -2223,6 +2281,8 @@ void main() {
     addTearDown(tester.view.reset);
     final settingsStore = MemorySettingsStore();
     final settings = newSettings(settingsStore);
+    // A drive folder from an earlier setup, read once more for a host key it may hold.
+    await settings.rememberTresorFolder('demo', scratch.path);
     final store = _MemorySecrets();
     final commands = <List<String>>[];
     final processes = <_HostProcess>[];
