@@ -39,7 +39,10 @@ class SecretsFile {
   static String _word(String value) => "'$value'";
 
   /// The needs a host's stop takes on standard input, as `porelo-host-stop --stdin` names them.
-  static const stopNeeds = <String>{'vault', 'vault-new', 'wireguard', 'keys'};
+  static const stopNeeds = <String>{'vault', 'vault-new', 'wireguard', 'keys', 'forge-central-token'};
+
+  /// The entry of the central forge's token, which every host of the person shares.
+  static const centralForgeToken = 'shared/forge-central-token';
 
   /// The entry of a vault entry's file for [project]'s host, its bytes base64 in the password field.
   static String vaultKey(String project, String name) => 'hosts/$project/keys/$name';
@@ -81,6 +84,8 @@ class SecretsFile {
           entry(need, vaultPassphrase(project));
         case 'wireguard':
           entry(need, hostKey(project));
+        case 'forge-central-token':
+          entry(need, centralForgeToken);
         case 'keys':
           final group = _word('hosts/$project/keys');
           // Every entry of the group, each name checked and each value kept base64 already.

@@ -427,6 +427,9 @@ class HostSession extends ChangeNotifier {
   /// The account named by the person or completed up line.
   String? account;
 
+  /// The host's own login user, named at a stop or a refusal, whose passwordless sudo takes the stop's `--stdin` call.
+  String? admin;
+
   /// The account daemon socket named by the completed up line.
   String? socket;
 
@@ -455,6 +458,7 @@ class HostSession extends ChangeNotifier {
     address = null;
     releasedAddress = null;
     account = null;
+    admin = null;
     socket = null;
     fix = null;
     state = HostRunState.running;
@@ -532,6 +536,11 @@ class HostSession extends ChangeNotifier {
       needs = step.needs;
       address = step.address;
       account = step.account;
+      admin = step.admin;
+    }
+    if (step.state == StepState.refused && step.address != null) {
+      address = step.address;
+      admin = step.admin;
     }
     if (step.step == 'up' && step.state == StepState.done) {
       address = step.address;

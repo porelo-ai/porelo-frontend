@@ -663,5 +663,9 @@ void main() {
 }
 
 /// Stands in for the secrets file's terminal: the public half of a fixed host key.
-Future<String> _secretsOpened({required String file, required String project, String? migrateKeyFrom}) =>
-    HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));
+Future<String> _secretsOpened({
+  required String file,
+  required String project,
+  String? migrateKeyFrom,
+  Map<String, String> keys = const {},
+}) => HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));

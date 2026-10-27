@@ -17,6 +17,7 @@ class Step {
     this.words,
     this.address,
     this.account,
+    this.admin,
     this.socket,
     this.text,
     this.seconds,
@@ -53,6 +54,9 @@ class Step {
 
   /// The account at the person stop or after a successful up.
   final String? account;
+
+  /// The host's own login user, whose passwordless sudo runs the stop's `--stdin` call, at a stop or a refusal.
+  final String? admin;
 
   /// The account daemon socket after a successful up.
   final String? socket;
@@ -92,6 +96,7 @@ class Step {
       words: decoded['words'] as String?,
       address: decoded['address'] is String ? decoded['address'] as String : null,
       account: decoded['account'] is String ? decoded['account'] as String : null,
+      admin: decoded['admin'] is String ? decoded['admin'] as String : null,
       socket: decoded['socket'] is String ? decoded['socket'] as String : null,
     );
   }
@@ -115,6 +120,7 @@ class Step {
           'seconds': ?seconds,
           'address': ?address,
           'account': ?account,
+          'admin': ?admin,
           'socket': ?socket,
         });
 
@@ -192,7 +198,7 @@ class PlannedStep {
 
 /// Validates optional fields before either a callback or a command line is read.
 bool validStepFields(Map<String, Object?> fields) {
-  for (final name in ['msg', 'task', 'play', 'text', 'fix', 'words', 'address', 'account', 'socket']) {
+  for (final name in ['msg', 'task', 'play', 'text', 'fix', 'words', 'address', 'account', 'admin', 'socket']) {
     if (fields.containsKey(name) && fields[name] is! String) return false;
   }
   final seconds = fields['seconds'];

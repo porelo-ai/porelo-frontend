@@ -539,6 +539,7 @@ void main() {
       needs: needs,
       address: '203.0.113.7',
       account: 'actual-account',
+      admin: 'image-user',
     );
     const done = host.Step(
       'up',
@@ -1879,7 +1880,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
-            openSecretsFile: ({required file, required project, migrateKeyFrom}) async {
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) async {
               opened.add(file);
               if (refuse) throw const host.HostFilesRefused('The secrets file was not opened, so setup did not start.');
               return _secretsOpened(file: file, project: project);
@@ -2064,7 +2065,14 @@ void main() {
     expect(commands.length, 1);
     await deliver(() {
       processes.last.line(
-        const host.Step('person', host.StepState.waiting, needs: ['vault'], address: '203.0.113.8', account: 'porelo'),
+        const host.Step(
+          'person',
+          host.StepState.waiting,
+          needs: ['vault'],
+          address: '203.0.113.8',
+          account: 'porelo',
+          admin: 'image-user',
+        ),
       );
       processes.last.end(75);
     });
@@ -2683,6 +2691,139 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('host-up'))).onPressed, isNotNull);
   });
 
+  // Harm: a secret typed at the host where the file keeps it, or a stop the interface cannot answer offered anyway.
+  hostWidgets(
+    'a stop for the file\'s secrets feeds them from it on standard input, and without the file is not offered',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = newSettings(MemorySettingsStore());
+      final terminals = <FakeTerminal>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              openSecretsFile: _secretsOpened,
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              hostRuns: runs,
+              secretStore: _MemorySecrets(),
+              machines: machines,
+              settings: settings,
+              project: 'demo',
+              start: stopsThenGoesOn(needs: ['vault-new', 'wireguard']),
+              openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+                final terminal = FakeTerminal([program, ...arguments]);
+                terminals.add(terminal);
+                return terminal;
+              },
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, <String, String>{
+        'host-scaleway-project': 'project-1',
+        'host-tresor': 'drive',
+        'host-collection': fixture('collection.tar.gz'),
+        'host-collection-sha256': collectionDigest,
+        'host-identity': fixture('dialog identity'),
+      });
+      await tapAndRun(tester, const Key('host-up'));
+      await tapAndRun(tester, const Key('host-complete-setup'));
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('host-open-terminal'))).onPressed,
+        isNull,
+        reason: 'without the secrets file nothing here can give the VPN key',
+      );
+      await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+      await World.settle(tester);
+      await tapAndRun(tester, const Key('host-open-terminal'));
+
+      final command = terminals.single.command;
+      expect(command.first, '/usr/bin/env', reason: 'the pipe runs on this desktop');
+      expect(command.last, contains('porelo-host-stop --stdin vault-new wireguard'));
+      expect(command.last, contains("'hosts/demo/wireguard'"));
+      expect(command.last, contains('image-user@203.0.113.7'), reason: 'the call runs as the host\'s login user');
+    },
+  );
+
+  // Harm: a repository never brought over, or the central forge's token typed where the file keeps it.
+  hostWidgets('up refused for the central forge\'s token gives it from the file and runs up again', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = newSettings(MemorySettingsStore());
+    await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+    final terminals = <FakeTerminal>[];
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: _secretsOpened,
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            settings: settings,
+            project: 'demo',
+            start: (_, _) async {
+              starts++;
+              final process = _HostProcess();
+              process.line(
+                const host.Step(
+                  'up',
+                  host.StepState.started,
+                  address: '203.0.113.7',
+                  account: 'actual-account',
+                  socket: '/run/user/1007/porelo/porelod.sock',
+                ),
+              );
+              process.line(
+                const host.Step(
+                  'repositories',
+                  host.StepState.refused,
+                  fix: 'forge-central-token: stand-in still to migrate; give it with porelo-host-stop --stdin forge-central-token',
+                  address: '203.0.113.7',
+                  admin: 'image-user',
+                ),
+              );
+              process.end(2);
+              return process;
+            },
+            openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+              final terminal = FakeTerminal([program, ...arguments]);
+              terminals.add(terminal);
+              return terminal;
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, <String, String>{
+      'host-scaleway-project': 'project-1',
+      'host-tresor': 'drive',
+      'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
+      'host-identity': fixture('dialog identity'),
+    });
+    await tapAndRun(tester, const Key('host-up'));
+    expect(starts, 1);
+
+    await tapAndRun(tester, const Key('host-forge-token'));
+    await tapAndRun(tester, const Key('host-open-terminal'));
+    final command = terminals.single.command;
+    expect(command.last, contains('porelo-host-stop --stdin forge-central-token'));
+    expect(command.last, contains("'shared/forge-central-token'"));
+    terminals.single.endsWith(0);
+    await World.settle(tester);
+    await tapAndRun(tester, const Key('unlock-done'));
+
+    expect(starts, 2, reason: 'up runs again once the host has the token');
+  });
+
   final commands = <List<String>, String>{
     ['drive']: "'/usr/local/bin/porelo-host-stop' '--email' 'me@example.org' 'drive'",
     ['vault-new']: "'/usr/local/bin/porelo-host-stop' 'vault-new'",
@@ -3051,5 +3192,9 @@ class _ControlledHostFiles extends host.HostFiles {
 }
 
 /// Stands in for the secrets file's terminal: the public half of a fixed host key, as the script would write it.
-Future<String> _secretsOpened({required String file, required String project, String? migrateKeyFrom}) =>
-    host.HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));
+Future<String> _secretsOpened({
+  required String file,
+  required String project,
+  String? migrateKeyFrom,
+  Map<String, String> keys = const {},
+}) => host.HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));

@@ -195,6 +195,25 @@ void main() {
     expect(await left.exists(), isTrue, reason: 'nothing is removed by refusing');
   });
 
+  // Harm: a vault entry's file copied to the drive in the clear once the secrets file keeps it.
+  test(
+    'with the secrets file the vault entries are named in machine.yml and none of their files goes to the drive',
+    () async {
+      final source = await File(path.join(scratch.path, 'forge-token')).writeAsString('token-bytes');
+      await files.prepare(
+        project: 'demo',
+        folder: scratch.path,
+        url: 'https://example.org/demo.git',
+        signingKey: signing,
+        keys: [HostKeyFile('forge', source)],
+        hostPublicKey: await HostFiles.publicKey(base64Encode(List<int>.filled(32, 1))),
+      );
+      expect(await Directory(path.join(scratch.path, 'porelo-host', 'keys')).exists(), isFalse);
+      final yaml = await File(path.join(scratch.path, 'porelo-host', 'machine.yml')).readAsString();
+      expect(yaml, contains('forge'), reason: 'the host learns the entry by its name');
+    },
+  );
+
   // Harm: a malformed public key reaches the tunnel's configuration and the host's arguments.
   test('a host public key that is not one is refused', () async {
     expect(

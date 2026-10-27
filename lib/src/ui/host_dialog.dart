@@ -179,7 +179,12 @@ class HostDialog extends StatefulWidget {
 
   /// Opens the person's secrets file in a terminal on this desktop and answers the host key's public half; the
   /// terminal with `keepassxc-cli` when null, a stand-in in tests. It refuses with [HostFilesRefused].
-  final Future<String> Function({required String file, required String project, String? migrateKeyFrom})?
+  final Future<String> Function({
+    required String file,
+    required String project,
+    String? migrateKeyFrom,
+    Map<String, String> keys,
+  })?
   openSecretsFile;
 
   /// Shows the machine's teardown confirmation and progress without asking setup questions.
@@ -206,7 +211,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The host key's public half, once the secrets file was opened for this file; dropped when the file changes.
   String? _hostPublicKey;
-  ({String file, String? drive})? _hostPublicKeyFor;
+  ({String file, String? drive, String keys})? _hostPublicKeyFor;
   bool _openingSecrets = false;
   String? _secretsAnswer;
   final _keys = <HostKeyFile>[];
@@ -1361,13 +1366,19 @@ class _HostDialogState extends State<HostDialog> {
     final file = _secretsPath;
     final drivesKey = _drivesKey;
     // Kept for this file and this drive only: another drive may hold a key that has to move first.
-    final asked = (file: file, drive: drivesKey);
+    final keys = <String, String>{for (final key in _keys) key.name: key.file.absolute.path};
+    final asked = (
+      file: file,
+      drive: drivesKey,
+      keys: keys.entries.map((each) => '${each.key}=${each.value}').join('\n'),
+    );
     if (_hostPublicKey != null && _hostPublicKeyFor == asked) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
     final key = await open(
       file: file,
       project: widget.project,
       migrateKeyFrom: drivesKey != null && File(drivesKey).existsSync() ? drivesKey : null,
+      keys: keys,
     );
     HostFiles.checkPublicKey(key);
     _hostPublicKey = key;
@@ -1393,7 +1404,12 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   /// Opens the secrets file in a terminal here and answers the host key's public half, never its private one.
-  Future<String> _openTheSecretsFile({required String file, required String project, String? migrateKeyFrom}) async {
+  Future<String> _openTheSecretsFile({
+    required String file,
+    required String project,
+    String? migrateKeyFrom,
+    Map<String, String> keys = const {},
+  }) async {
     final folder = await Directory.systemTemp.createTemp('porelo-host-key-');
     try {
       final out = path.join(folder.path, '$project.pub');
@@ -1402,6 +1418,7 @@ class _HostDialogState extends State<HostDialog> {
         create: !File(file).existsSync(),
         publicKeyOut: out,
         migrateKeyFrom: migrateKeyFrom,
+        keys: keys,
       );
       var exit = -1;
       if (!mounted) throw const HostFilesRefused('The secrets file was not opened.');
@@ -1485,6 +1502,7 @@ class _HostDialogState extends State<HostDialog> {
             children: [
               if (_session != null) _copyProtocolButton(),
               if (_session?.state == HostRunState.waiting && !_takingDown) _askForTheStop(),
+              if (!_takingDown) ?_giveTheCentralForgesToken(),
               OutlinedButton(
                 key: const Key('host-down'),
                 onPressed: _running || !_complete
@@ -1552,8 +1570,31 @@ class _HostDialogState extends State<HostDialog> {
             );
           },
         ),
+      ?_giveTheCentralForgesToken(),
     ],
   );
+
+  /// Offered where `up` stopped because a repository moves over from the central forge: its token from the file,
+  /// on its own call, then `up` again.
+  Widget? _giveTheCentralForgesToken() {
+    final run = _hostRun;
+    if (run == null || run.running || run.waiting || !(run.session.fix?.startsWith('forge-central-token:') ?? false)) {
+      return null;
+    }
+    return TextButton(
+      key: const Key('host-forge-token'),
+      onPressed: () => openHostStopDialog(
+        context,
+        run: run,
+        hostRuns: widget.hostRuns!,
+        machines: widget.machines,
+        settings: widget.settings,
+        openTerminal: widget.openTerminal,
+        needs: const ['forge-central-token'],
+      ),
+      child: const Text('Give the central forge’s token'),
+    );
+  }
 
   Widget _takeDownDialog(BuildContext context, {bool confirmationOnly = false}) {
     final started = !confirmationOnly && _takingDown && _session != null;

@@ -98,6 +98,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A server's stop takes what it needs from the person's `secrets.kdbx`: its vault passphrase, its VPN key and the
+  files of its vault entries go to the server on standard input after one master password, typed in the terminal on
+  this computer. A setup that stops for the central forge's token offers to give it from the file and goes on.
+  Files chosen for vault entries are kept in the secrets file instead of on the drive.
+
 - Putting a project on a server keeps the server's VPN key and vault passphrase in the person's own `secrets.kdbx`,
   which KeePassXC opens too: a step names the file or where a new one is made, and setup opens it in a terminal on
   this computer with one master password. The key no longer lies on the drive; a key already there moves into the

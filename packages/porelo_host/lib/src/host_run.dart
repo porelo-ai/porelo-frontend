@@ -472,7 +472,7 @@ class HostRun {
       'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_workdir/collections '
       'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i $_workdir/inventory.yml $playbook',
       onLine: (line) {
-        final step = _relayed(line, address, plan.account);
+        final step = _relayed(line, address, plan.account, plan.loginUser);
         if (step == null) return;
         if (step.state == StepState.waiting) waiting = step;
         if (step.state == StepState.refused) failed = step;
@@ -488,7 +488,7 @@ class HostRun {
   }
 
   /// One line of the collection's callback as a step, or null for one that is not its.
-  Step? _relayed(String line, String address, String account) {
+  Step? _relayed(String line, String address, String account, String admin) {
     final Object? decoded;
     try {
       decoded = jsonDecode(line);
@@ -521,13 +521,24 @@ class HostRun {
         seconds: seconds,
         address: address,
         account: account,
+        admin: admin,
       );
     }
     final name = decoded['task'] as String? ?? decoded['play'] as String? ?? 'play';
     return switch (state) {
       'started' => Step(name, StepState.started, text: text, seconds: seconds, words: words),
       'ok' || 'changed' || 'skipped' => Step(name, StepState.done, text: text, seconds: seconds, words: words),
-      'failed' => Step(name, StepState.refused, fix: words, words: words, text: text, seconds: seconds),
+      // Where `up` refuses for a secret it then takes on its own call, the call needs the host and its login user.
+      'failed' => Step(
+        name,
+        StepState.refused,
+        fix: words,
+        words: words,
+        text: text,
+        seconds: seconds,
+        address: address,
+        admin: admin,
+      ),
       _ => null,
     };
   }

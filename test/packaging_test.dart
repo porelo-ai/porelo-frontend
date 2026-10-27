@@ -93,9 +93,11 @@ void main() {
   // Harm: the secrets file cannot be made or opened, and the VPN not brought up, on an installed desktop.
   test('the programs the interface runs by path are required in both formats', () {
     final script = File('tool/package.sh').readAsStringSync();
-    final deb = RegExp(r'^\s*echo "depends:"$(.*?)^\s*echo "overrides:"$', multiLine: true, dotAll: true)
-        .firstMatch(script)!
-        .group(1)!;
+    final deb = RegExp(
+      r'^\s*echo "depends:"$(.*?)^\s*echo "overrides:"$',
+      multiLine: true,
+      dotAll: true,
+    ).firstMatch(script)!.group(1)!;
     final rpm = script.substring(script.indexOf('echo "    depends:"'));
     expect(deb, contains('keepassxc-minimal | keepassxc'), reason: 'Ubuntu 22.04 has no keepassxc-minimal');
     expect(deb, contains('wireguard-tools'));

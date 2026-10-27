@@ -250,20 +250,23 @@ void main() {
   });
 
   // Harm: a host's key goes into a file the person did not choose, or one they let go is opened again.
-  test('the secrets file is kept by its path, a relative or broken one is ignored, and letting it go is kept', () async {
-    final store = MemorySettingsStore(<String, Object?>{'secretsFile': 'relative.kdbx'});
-    final settings = Settings(store);
-    await settings.load();
-    expect(settings.secretsFile, isNull);
-    await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
-    final again = Settings(store);
-    await again.load();
-    expect(again.secretsFile, '/home/person/Porelo/secrets.kdbx');
-    await again.rememberSecretsFile(null);
-    final last = Settings(store);
-    await last.load();
-    expect(last.secretsFile, isNull);
-  });
+  test(
+    'the secrets file is kept by its path, a relative or broken one is ignored, and letting it go is kept',
+    () async {
+      final store = MemorySettingsStore(<String, Object?>{'secretsFile': 'relative.kdbx'});
+      final settings = Settings(store);
+      await settings.load();
+      expect(settings.secretsFile, isNull);
+      await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+      final again = Settings(store);
+      await again.load();
+      expect(again.secretsFile, '/home/person/Porelo/secrets.kdbx');
+      await again.rememberSecretsFile(null);
+      final last = Settings(store);
+      await last.load();
+      expect(last.secretsFile, isNull);
+    },
+  );
 
   test('new machines run work as agent until somebody says otherwise, and it is kept', () async {
     final store = MemorySettingsStore();

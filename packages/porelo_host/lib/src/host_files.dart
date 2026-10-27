@@ -418,11 +418,13 @@ class HostFiles {
         }
       }
       if (hostPublicKey == null) hostPrivate ??= await _privateKey();
-      if (keys.isNotEmpty) await _directory(Directory(_paths.join(root.path, 'keys')));
+      // With the secrets file the entries' files stay there: machine.yml names them, the stop's lines carry them.
+      final copied = hostPublicKey == null ? keys : const <HostKeyFile>[];
+      if (copied.isNotEmpty) await _directory(Directory(_paths.join(root.path, 'keys')));
       final contents = <String, List<int>>{
         destinationPath(folder, 'machine.yml'): utf8.encode(yaml),
         if (hostPrivate != null) hostFile.path: utf8.encode('$hostPrivate\n'),
-        for (final key in keys) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
+        for (final key in copied) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
       };
       for (final entry in contents.entries) {
         await _writer.check(File(entry.key), entry.value);

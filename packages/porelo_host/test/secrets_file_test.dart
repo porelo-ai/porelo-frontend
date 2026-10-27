@@ -115,6 +115,11 @@ void main() {
       expect(feed, contains("'hosts/checkout/wireguard'"));
       expect(feed, contains("'hosts/checkout/keys'"), reason: 'every entry of the group');
       expect(feed, isNot(contains('db-create')), reason: 'the stop never makes a file');
+      expect(
+        SecretsFile(file).stopLines(project: 'checkout', needs: ['forge-central-token']),
+        contains("'shared/forge-central-token'"),
+        reason: 'the central forge\'s token is the person\'s, shared by every host',
+      );
       expect(feed, isNot(contains('add ')), reason: 'the stop changes nothing in the file');
     });
 
