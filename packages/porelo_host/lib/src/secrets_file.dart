@@ -38,6 +38,86 @@ class SecretsFile {
 
   static String _word(String value) => "'$value'";
 
+  /// The needs a host's stop takes on standard input, as `porelo-host-stop --stdin` names them.
+  static const stopNeeds = <String>{'vault', 'vault-new', 'wireguard', 'keys'};
+
+  /// The entry of a vault entry's file for [project]'s host, its bytes base64 in the password field.
+  static String vaultKey(String project, String name) => 'hosts/$project/keys/$name';
+
+  /// The script that writes the stop's lines for [needs], one `<need> [<name>] <base64>` per secret, to standard output,
+  /// which is the pipe to the host's `porelo-host-stop --stdin`; [keys] names the vault entries `keys` brings.
+  ///
+  /// Every entry is read before the first line is written, so a missing one sends nothing and is named.
+  String stopLines({required String project, required List<String> needs, List<String> keys = const []}) {
+    _checkProject(project);
+    for (final need in needs) {
+      if (!stopNeeds.contains(need)) {
+        throw FormatException('The host asked for "$need", which the secrets file does not give.');
+      }
+    }
+    if (needs.toSet().length != needs.length) throw const FormatException('The host named a need twice.');
+    for (final name in keys) {
+      if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) {
+        throw const HostFilesRefused('A vault entry name holds only letters, digits, ".", "_" and "-".');
+      }
+    }
+    final reads = <String>[];
+    final writes = <String>[];
+    var index = 0;
+    void entry(String line, String path, {bool base64 = false}) {
+      final variable = 'v${index++}';
+      reads.add('$variable="\$(get ${_word(path)})"');
+      if (base64) {
+        // Kept base64 already: checked, and sent as it is.
+        reads.add(
+          'if ! [[ "\$$variable" =~ ^[A-Za-z0-9+/]+={0,2}\$ ]]; then '
+          'echo "${path.replaceAll('"', '')} is not base64; nothing was sent." >&2; exit 1; fi',
+        );
+        writes.add("printf '%s %s\\n' ${_word(line)} \"\$$variable\"");
+      } else {
+        writes.add("printf '%s %s\\n' ${_word(line)} \"\$(printf '%s' \"\$$variable\" | /usr/bin/base64 -w0)\"");
+      }
+    }
+
+    for (final need in needs) {
+      switch (need) {
+        case 'vault' || 'vault-new':
+          entry(need, vaultPassphrase(project));
+        case 'wireguard':
+          entry(need, hostKey(project));
+        case 'keys':
+          for (final name in keys) {
+            entry('key $name', vaultKey(project, name), base64: true);
+          }
+      }
+    }
+    return [
+      '/usr/bin/stty -echo 2>/dev/null || true',
+      "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
+      'set +x',
+      'set -euo pipefail',
+      'umask 077',
+      'cli=${_word(cli)}',
+      'file=${_word(file)}',
+      r'kp() { printf'
+          " '%s\\n' "
+          r'"$MASTER" | "$cli" "$@"; }',
+      r'''get() { local value; value="$(kp show -s -a password "$file" "$1" 2>/dev/null || true)"; if [ -z "$value" ]; then echo "$file has no entry $1; nothing was sent." >&2; return 1; fi; printf '%s' "$value"; }''',
+      r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
+      r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
+      r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was sent." >&2; exit 1; fi',
+      ...reads,
+      ...writes,
+      'unset MASTER ${[for (var i = 0; i < index; i++) 'v$i'].join(' ')}',
+    ].join('\n');
+  }
+
+  static void _checkProject(String project) {
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
+      throw const HostFilesRefused('A project name holds only letters, digits, ".", "_" and "-".');
+    }
+  }
+
   /// The script that makes the file where [create] says so, gives [project]'s host a WireGuard key and a vault
   /// passphrase where it has none, and writes only the key's public half to [publicKeyOut], `0600`.
   ///
@@ -49,9 +129,7 @@ class SecretsFile {
     required String publicKeyOut,
     String? migrateKeyFrom,
   }) {
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
-      throw const HostFilesRefused('A project name holds only letters, digits, ".", "_" and "-".');
-    }
+    _checkProject(project);
     checkPath(publicKeyOut);
     if (migrateKeyFrom != null) checkPath(migrateKeyFrom);
     final key = _word(hostKey(project));
@@ -83,6 +161,16 @@ class SecretsFile {
       ] else
         r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
       r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was changed." >&2; exit 1; fi',
+      // The drive is read before the file is made or changed, so a refusal leaves both as they were.
+      if (drive != null) ...[
+        // The drive's copy is outside input: a link or a key wg cannot read is refused, and nothing is changed.
+        'if [ -L $drive ]; then echo "The drive\'s wireguard.key is a link; nothing was changed." >&2; exit 1; fi',
+        'if [ -e $drive ] && [ ! -f $drive ]; then echo "The drive\'s wireguard.key is not a file; nothing was changed." >&2; exit 1; fi',
+        'if [ -f $drive ]; then old="\$(/usr/bin/tr -d \'[:space:]\' < $drive)"; '
+            'if ! valid "\$old"; then echo "The drive\'s wireguard.key is no WireGuard key; nothing was changed." >&2; exit 1; fi; '
+            'else old=""; fi',
+      ],
+
       if (create) ...[
         r'/usr/bin/mkdir -p "$(/usr/bin/dirname "$file")"',
         r'printf'
@@ -95,13 +183,6 @@ class SecretsFile {
         'kp ls "\$file" ${_word('hosts')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('hosts')} >/dev/null',
       ],
       'kp ls "\$file" $group >/dev/null 2>&1 || kp mkdir "\$file" $group >/dev/null',
-      if (drive != null) ...[
-        // The drive's copy is outside input: a link or a key wg cannot read is refused, and nothing is changed.
-        'if [ -L $drive ]; then echo "The drive\'s wireguard.key is a link; nothing was changed." >&2; exit 1; fi',
-        'if [ -f $drive ]; then old="\$(/usr/bin/tr -d \'[:space:]\' < $drive)"; '
-            'if ! valid "\$old"; then echo "The drive\'s wireguard.key is no WireGuard key; nothing was changed." >&2; exit 1; fi; '
-            'else old=""; fi',
-      ],
       'private="\$(kp show -s -a password "\$file" $key 2>/dev/null || true)"',
       'if [ -n "\$private" ]; then :',
       // A copy still on the drive goes only when it is the file's own key; another key for the host stops it all.

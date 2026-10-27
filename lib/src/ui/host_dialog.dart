@@ -901,6 +901,8 @@ class _HostDialogState extends State<HostDialog> {
     } on FormatException catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
     } on HostFilesRefused catch (error) {
+      // Asked again on the next try: a drive's key that turned up since must move into the file first.
+      _hostPublicKey = null;
       if (mounted) setState(() => _machineProblem = error.message);
     } on FileSystemException catch (error) {
       if (mounted) setState(() => _machineProblem = _preparationProblem(error));
