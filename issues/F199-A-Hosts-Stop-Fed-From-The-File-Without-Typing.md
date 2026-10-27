@@ -6,9 +6,10 @@
 contract with `porelo-host`.
 
 **What must be true.** At a host's stop, the person types the master password of `secrets.kdbx` once, in the
-terminal the interface opens, and the host gets what its stop asks - the drive's login, its vault passphrase, its
-WireGuard key - from the file, on standard input, without the person typing any of them. Only the drive's one-time
-code is still typed, at the host's own prompt. A secret the file lacks is asked as today.
+terminal the interface opens, and the host gets what its stop asks - its vault passphrase, its WireGuard key, the
+keys for its vault - from the file, on standard input, without the person typing any of them (step 3 of the host's
+new setup). The drive's login is no longer among them: the drive leaves the setup ([F201](README.md#f201)). A secret
+the file lacks is asked as today.
 
 ## Why
 
@@ -23,9 +24,9 @@ these is typed at every `up`, and a new host has a new vault.
 - **The terminal's command becomes one pipeline on this desktop**, so the interface never holds a secret
   (decided): the master password is asked once by the packaged `keepassxc-cli`, whose entries go through the pipe to
   `ssh <admin>@<host> sudo porelo-host-stop --stdin [--email ADDRESS] NEED...`, one line per secret,
-  `<need> [<name>] <value in base64>` (agreed with Machines for the host's side); the stop asks only what is missing and the
-  one-time code at its own prompt. The needs are `drive`, `vault` or `vault-new`, `keys` with `key <name>` lines,
-  `wireguard` and `forge-certificate`.
+  `<need> [<name>] <value in base64>` (agreed with Machines for the host's side); the stop asks only what is
+  missing. The needs are `vault` or `vault-new`, `keys` with `key <name>` lines, `wireguard` and
+  `forge-certificate`; `drive` is not one of them (decided).
 - **The forge's certificate is signed here (decided):** the host makes its key and sends only its request; the same
   terminal signs it with the CA key from the file and hands the certificate back, so the CA key never leaves the
   desktop. On the wire, as agreed with Machines: `ssh <admin>@<host> sudo porelo-host-stop --request` prints the
@@ -44,8 +45,8 @@ these is typed at every `up`, and a new host has a new vault.
 
 ## Acceptance
 
-- A host set up with the file: at the stop the person types the master password and the code, nothing else, and
-  the host's drive and vault come up.
+- A host set up with the file and a drive holding no secret: at the stop the person types the master password and
+  sudo, nothing else, and the host's vault comes up.
 - A file without the vault passphrase: the stop asks it as today.
 - Seen to fail: the command test red against today's interactive stop.
 
@@ -54,4 +55,3 @@ these is typed at every `up`, and a new host has a new vault.
 - How one unlock yields several entries inside the pipe: `keepassxc-cli open`'s shell fed from the pipe, or
   `export` filtered to the named entries without a file; posted before anything changes.
 - That the CA key reaches `openssl` only on a pipe, never as a file, also on the desktop's own temporary folder.
-- Whether one terminal can carry both the pipeline and the one-time code's prompt, or the code needs a second step.
