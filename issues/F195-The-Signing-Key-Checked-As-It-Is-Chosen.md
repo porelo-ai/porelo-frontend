@@ -10,6 +10,6 @@ was not about: while a changed key is being checked, the old answer is gone.
 
 ## Why
 
-In the re-test of [F194](README.md#f194), the person chose the right key after a refusal, and the
+In the re-test of the refusal of a key that did not sign the commit, the person chose the right key after a refusal, and the
 refusal for the wrong key stayed under the field until the next **Next**, so it read as if the right
 key had been refused too.

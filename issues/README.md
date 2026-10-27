@@ -18,7 +18,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f194"></a>[F194](F194-A-Signing-Key-That-Did-Not-Sign-The-Bundle-Refused.md) | — | — | A signing key that did not sign the commit put on the drive refused on "The drive", before a server is rented, naming both fingerprints, with the field opening on a key the machine pins. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
 
@@ -102,6 +101,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f194"></a>F194 | A Signing Key That Did Not Sign The Bundle Refused | Server setup checks the verified commit against the chosen public key for signing commits on *The drive*, before a server is rented, refusing a key that did not sign it with both fingerprints, naming swapped key fields, and opening the field on a key the project's machine pins. |
 | <a id="f177"></a>F177 | Every Navigation Entry Counts What Its List Shows | Navigation rail badge counts matching the exact number of rows displayed on each opened list, including servers in preparation and interrupted ones under *Machines* and all open rows under *Needs you*. |
 | <a id="f178"></a>F178 | An Interrupted Run's Protocol Kept Across A Restart | Persistence of an interrupted server setup's protocol and wizard answers in settings across restarts until the server is given back, with one button named *Go on* for interrupted runs and *Try again* for failed runs. |
 | <a id="f179"></a>F179 | An Interrupted Setup In Needs You And A Running One Found Again | Interrupted server setups surfaced in *Needs you* with *Go on*, clean termination of `porelo-host up` before SSH when leaving, and unattended background execution after SSH that is rediscovered as running upon restart. |
