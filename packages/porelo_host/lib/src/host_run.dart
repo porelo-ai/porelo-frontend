@@ -641,7 +641,11 @@ class HostRun {
               '${quoteForAShell('$staging/$name')} ${quoteForAShell('$setupPlace/$name')}',
       ].join(' && '),
     );
-    if (placed.exitCode != 0) return refusedWithoutStaging(placed, 'the host refused the setup files');
+    if (placed.exitCode != 0) {
+      // A first file placed before the second failed is no file the host was sent whole.
+      await remote.run(address, plan.loginUser, '/usr/bin/sudo /usr/bin/rm -rf $setupPlace');
+      return refusedWithoutStaging(placed, 'the host refused the setup files');
+    }
     await remote.run(address, plan.loginUser, '/usr/bin/rm -rf $staging');
     words.clear();
     final checked = await remote.run(

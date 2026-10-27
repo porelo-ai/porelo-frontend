@@ -57,6 +57,11 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   - **Declined, with the reason:** a local file swapped between its hash and its copy is caught by the check on the
     host, which refuses it. The older commands of `up` that run by `PATH` (`mkdir`, `sha256sum`,
     `sudo ansible-playbook`) are [F205](README.md#f205)'s, an Idea.
+- **From the reading of those fixes (seven findings, all taken):** the opened file's cache is kept as the opening left
+  it, so the master password is asked once; a link above the interface's own folders (`hosts`, the project's, its
+  `porelo-host`) is the person's and taken; an earlier machine file goes only once every other file has passed, and
+  is compared by its bytes; a placing the host refuses removes the place too; folders there from before are
+  tightened; and tests now see the staging folder go and the drive's key change the cache.
 
 ## Acceptance
 

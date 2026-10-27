@@ -1022,7 +1022,7 @@ void main() {
   }
 
   // Harm: a vault entry's file read through a link, an entry the stop refuses after renting, or none in the file.
-  for (final changed in ['the entry\'s file', 'the secrets file']) {
+  for (final changed in ['the entry\'s file', 'the secrets file', 'the drive\'s key', 'nothing']) {
     hostWidgets('a vault entry is a plain file named once, and goes into the secrets file and the record ($changed)', (
       tester,
     ) async {
@@ -1045,6 +1045,8 @@ void main() {
               setupFolder: '${scratch.path}/setup',
               openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
                 opened.add(keys);
+                // As the script does: a key the drive held moves into the file.
+                if (migrateKeyFrom != null) File(migrateKeyFrom).deleteSync();
                 return _secretsOpened(file: file, project: project);
               },
               hostFiles: filesFor,
@@ -1110,14 +1112,22 @@ void main() {
       // Opened on its step, then a file it read changes: Start opens the file again, never the key kept for the old.
       await tapAndRun(tester, const Key('host-secrets-open'));
       expect(opened, hasLength(1));
-      if (changed == 'the secrets file') {
-        final secrets = File(path.join(scratch.path, 'Porelo', 'secrets.kdbx'));
-        await tester.runAsync(() async {
-          await secrets.parent.create(recursive: true);
-          await secrets.writeAsBytes([9]);
-        });
-      } else {
-        token.writeAsBytesSync([1, 2, 3, 4]);
+      final drivesKey = File(path.join(scratch.path, 'porelo-host', 'wireguard.key'));
+      switch (changed) {
+        case 'the secrets file':
+          final secrets = File(path.join(scratch.path, 'Porelo', 'secrets.kdbx'));
+          await tester.runAsync(() async {
+            await secrets.parent.create(recursive: true);
+            await secrets.writeAsBytes([9]);
+          });
+        case 'the drive\'s key':
+          // The drive synced a key back after it moved.
+          await tester.runAsync(() async {
+            await drivesKey.parent.create(recursive: true);
+            await drivesKey.writeAsString('${base64Encode(List<int>.filled(32, 7))}\n');
+          });
+        case 'the entry\'s file':
+          token.writeAsBytesSync([1, 2, 3, 4]);
       }
       await navigate(tester, 'wizard-next');
       await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
@@ -1126,7 +1136,11 @@ void main() {
       await navigate(tester, 'wizard-next');
       await tapAndRun(tester, const Key('host-up'));
 
-      expect(opened, hasLength(2), reason: 'the changed file is taken again');
+      expect(
+        opened,
+        hasLength(changed == 'nothing' ? 1 : 2),
+        reason: changed == 'nothing' ? 'the master password asked once' : 'the changed file is taken again',
+      );
       expect(opened.last, {'forge': token.path}, reason: 'the chosen file goes into the secrets file');
       expect(settings.hostUps['demo']?.vaultKeys, ['forge'], reason: 'the stop sends this entry, and no other');
     });

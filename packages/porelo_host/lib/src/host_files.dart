@@ -443,15 +443,20 @@ class HostFiles {
         if (hostPrivate != null) hostFile.path: utf8.encode('$hostPrivate\n'),
         for (final key in copied) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
       };
-      // In this desktop's own folder a machine file of an earlier attempt is this desktop's own, and replaced.
-      if (ownFolder) {
-        final earlier = File(destinationPath(folder, 'machine.yml'));
-        final type = await FileSystemEntity.type(earlier.path, followLinks: false);
-        if (type == FileSystemEntityType.file && await earlier.readAsString() != yaml) await earlier.delete();
+      // In this desktop's own folder a machine file of an earlier attempt is this desktop's own, and replaced once
+      // every other file has passed its check.
+      final machineFile = File(destinationPath(folder, 'machine.yml'));
+      var earlier = false;
+      if (ownFolder && await FileSystemEntity.type(machineFile.path, followLinks: false) == FileSystemEntityType.file) {
+        final kept = await machineFile.readAsBytes();
+        final wanted = utf8.encode(yaml);
+        earlier = kept.length != wanted.length || Iterable<int>.generate(kept.length).any((i) => kept[i] != wanted[i]);
       }
       for (final entry in contents.entries) {
+        if (earlier && entry.key == machineFile.path) continue;
         await _writer.check(File(entry.key), entry.value);
       }
+      if (earlier) await machineFile.delete();
       for (final entry in contents.entries) {
         await _writer.write(File(entry.key), entry.value);
       }
@@ -506,9 +511,13 @@ class HostFiles {
     final missing = <Directory>[];
     // Up to the first folder that is one: a link on the way is refused before anything is made. A folder above it,
     // such as a configuration folder the person links elsewhere, is theirs.
+    // This desktop's folders: the one holding every project's (`hosts`), the project's, and its porelo-host.
+    final own = {_paths.dirname(normalized), normalized, root.path};
     for (var each = root; ; each = each.parent) {
       final type = await FileSystemEntity.type(each.path, followLinks: false);
       if (type == FileSystemEntityType.directory) break;
+      // This desktop's own folders are never a link; above them a link to a folder is the person's own choice.
+      if (type == FileSystemEntityType.link && !own.contains(each.path) && await Directory(each.path).exists()) break;
       if (type != FileSystemEntityType.notFound) _conflict(each.path);
       missing.add(each);
       if (each.parent.path == each.path) break;

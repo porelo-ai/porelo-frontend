@@ -1404,12 +1404,12 @@ class _HostDialogState extends State<HostDialog> {
           '${stat.modified.microsecondsSinceEpoch}';
     }
 
-    final asked = (
+    ({String file, String drive, String keys}) asked() => (
       file: state(file),
       drive: state(drivesKey),
       keys: keys.entries.map((each) => '${each.key}=${state(each.value)}').join('\n'),
     );
-    if (_hostPublicKey != null && _hostPublicKeyFor == asked) return _hostPublicKey!;
+    if (_hostPublicKey != null && _hostPublicKeyFor == asked()) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
     final key = await open(
       file: file,
@@ -1419,7 +1419,8 @@ class _HostDialogState extends State<HostDialog> {
     );
     HostFiles.checkPublicKey(key);
     _hostPublicKey = key;
-    _hostPublicKeyFor = asked;
+    // As opening left them: it writes the secrets file and moves the drive's key, which asks nothing new.
+    _hostPublicKeyFor = asked();
     await widget.settings?.rememberSecretsFile(file);
     return key;
   }

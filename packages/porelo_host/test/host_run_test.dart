@@ -78,6 +78,24 @@ class ScriptedRemote implements Remote {
   }
 }
 
+/// A host that refuses to place the setup files.
+class _RefusingPlace extends ScriptedRemote {
+  _RefusingPlace(super.lines);
+
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String line)? onLine,
+  }) async {
+    final result = await super.run(host, user, command, input: input, onLine: onLine);
+    if (command.contains('install -m 0600 -o root -g root')) return const RemoteResult(1, 'No space left on device');
+    return result;
+  }
+}
+
 /// A host whose copy of the setup files does not match their digests in [place].
 class _RefusingDigest extends ScriptedRemote {
   _RefusingDigest(super.lines, {this.place = '/etc/porelo-host/setup/'});
@@ -259,7 +277,10 @@ void main() {
       final stagedCheck = at(
         (each) =>
             each.command == '/usr/bin/sha256sum -c -' &&
-            each.input.contains('${sha256.convert(machine.readAsBytesSync())}  /var/tmp/porelo-host/setup/machine.yml'),
+            each.input.contains(
+              '${sha256.convert(machine.readAsBytesSync())}  /var/tmp/porelo-host/setup/machine.yml',
+            ) &&
+            each.input.contains('${sha256.convert(bundle.readAsBytesSync())}  /var/tmp/porelo-host/setup/demo.bundle'),
       );
       final placed = at(
         (each) =>
@@ -277,6 +298,11 @@ void main() {
       expect(placed, greaterThan(stagedCheck), reason: 'placed only once they arrived whole');
       expect(placedCheck, greaterThan(placed), reason: 'and checked where they stay');
       expect(played, greaterThan(placedCheck), reason: 'before the play reads them');
+      expect(
+        remote.runs.lastIndexWhere((each) => each.command == '/usr/bin/rm -rf /var/tmp/porelo-host/setup'),
+        allOf(greaterThan(placed), lessThan(played)),
+        reason: 'the staging folder goes once they are placed',
+      );
       final place = remote.runs[placed].command;
       expect(place, contains('/usr/bin/sudo /usr/bin/install -m 0600 -o root -g root'));
       expect(place, contains('/etc/porelo-host/setup/machine.yml'));
@@ -319,6 +345,26 @@ void main() {
       });
     }
 
+    // Harm: the first file placed before the second failed, found by the host as if sent whole.
+    test('a placing the host refuses leaves neither the place nor the staging folder', () async {
+      final remote = _RefusingPlace(<String>[]);
+      final exit = await HostRun(
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+        provider: CountingProvider(),
+        remote: remote,
+        emit: (_) {},
+      ).up(withFiles);
+      expect(exit, Exit.refused);
+      final placing = remote.commands.indexWhere((each) => each.contains('install -m 0600 -o root -g root'));
+      expect(
+        remote.commands.skip(placing),
+        containsAllInOrder([
+          '/usr/bin/sudo /usr/bin/rm -rf /etc/porelo-host/setup',
+          '/usr/bin/rm -rf /var/tmp/porelo-host/setup',
+        ]),
+      );
+    });
+
     // Harm: a server rented and billed for files that were never there.
     test('a missing file, or one named without the other, is refused before anything is rented', () async {
       for (final broken in [
@@ -338,6 +384,14 @@ void main() {
           collection: plan.collection,
           collectionSha256: plan.collectionSha256,
           machineFile: machine.path,
+        ),
+        HostPlan(
+          project: 'demo',
+          account: 'porelo',
+          publicKey: 'ssh-ed25519 BBBB me',
+          collection: plan.collection,
+          collectionSha256: plan.collectionSha256,
+          bundle: bundle.path,
         ),
       ]) {
         final provider = CountingProvider();

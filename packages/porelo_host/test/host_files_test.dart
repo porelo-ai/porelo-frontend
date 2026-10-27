@@ -309,6 +309,53 @@ void main() {
       );
     });
 
+    test(
+      'folders there from before are tightened, and an earlier machine file stays when another check fails',
+      () async {
+        final folder = path.join(scratch.path, 'conf', 'hosts', 'demo');
+        final root = await Directory(path.join(folder, 'porelo-host')).create(recursive: true);
+        if (Platform.isLinux) {
+          await Process.run('chmod', ['755', folder, root.path]);
+        }
+        final earlier = await File(path.join(root.path, 'machine.yml')).writeAsBytes([0xff, 0xfe, 0x00]);
+        // Another destination that is no file: its refusal must come before the earlier machine file goes.
+        final token = await File(path.join(scratch.path, 'token')).writeAsBytes([1]);
+        await Directory(path.join(root.path, 'keys', 'token')).create(recursive: true);
+        await expectLater(
+          files.prepare(
+            project: 'demo',
+            folder: folder,
+            url: 'https://example.org/demo.git',
+            signingKey: signing,
+            keys: [HostKeyFile('forge', token)],
+            ownFolder: true,
+          ),
+          throwsA(isA<HostFilesRefused>()),
+        );
+        expect(await earlier.readAsBytes(), [0xff, 0xfe, 0x00], reason: 'not removed before the refusal');
+        if (Platform.isLinux) {
+          for (final each in [folder, root.path]) {
+            expect((await Directory(each).stat()).mode & 0x1ff, 0x1c0, reason: '$each tightened');
+          }
+        }
+        await Directory(path.join(root.path, 'keys')).delete(recursive: true);
+        await own(folder);
+        expect(
+          await File(path.join(root.path, 'machine.yml')).readAsString(),
+          contains('https://example.org/demo.git'),
+          reason: 'bytes that are no text are replaced as any other',
+        );
+      },
+    );
+
+    test('a configuration folder above its own that the person links elsewhere is theirs', () async {
+      final real = await Directory(path.join(scratch.path, 'dotfiles')).create();
+      await Link(path.join(scratch.path, 'conf')).create(real.path);
+      final folder = path.join(scratch.path, 'conf', 'hosts', 'demo');
+      await own(folder);
+      expect(File(path.join(real.path, 'hosts', 'demo', 'porelo-host', 'machine.yml')).existsSync(), isTrue);
+    }, skip: Platform.isLinux ? null : 'links are checked on Linux');
+
     test('a folder on the way that is a link is refused, and nothing is written through it', () async {
       final outside = await Directory(path.join(scratch.path, 'outside')).create();
       await Directory(path.join(scratch.path, 'conf')).create();
