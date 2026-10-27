@@ -72,6 +72,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
 | <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
 | <a id="f195"></a>[F195](F195-The-Signing-Key-Checked-As-It-Is-Chosen.md) | — | — | The signing key on *The drive* checked against the verified commit as soon as it changes, with a check mark or an error icon at the field and no stale answer beside a changed key. |
+| <a id="f196"></a>[F196](F196-The-Public-Ssh-Key-Follows-Its-Private-One.md) | — | — | The public ssh key filled from the private one as `<private>.pub` whenever that exists, also over a kept value, and a public key that does not belong to it refused at the field with [F195](README.md#f195)'s icons. |
 
 ### Estimated
 
