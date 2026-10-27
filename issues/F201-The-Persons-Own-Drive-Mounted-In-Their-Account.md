@@ -1,6 +1,6 @@
 # F201 — The Person's Own Drive Mounted In Their Account
 
-**Status:** Analyzed; blocked by [F197](README.md#f197) and `porelo-host`'s step-4 issue, not yet numbered.
+**Status:** Backlog; blocked by [F197](README.md#f197) and `porelo-host` [HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38).
 **Size:** M - the host dialog's per-user setup, the kept run, and their tests; the drive roles are `porelo-host`'s.
 
 **What must be true.** The drive leaves the host's setup (step 4 of its new setup): a host comes up with no drive

@@ -1,6 +1,6 @@
 # F197 — The Host's Files Uploaded Over Its Own Ssh
 
-**Status:** Analyzed; re-cut from a drive layout (a step of the host's new setup, after [F199](README.md#f199)),
+**Status:** Backlog; re-cut from a drive layout (a step of the host's new setup, after [F199](README.md#f199)),
 blocked by `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36).
 **Size:** M - `porelo_host`'s `copy` step and `HostFiles`, the host dialog's step *The drive*, and their tests; one
 path both repositories read.
