@@ -82,8 +82,8 @@ its phase following from that issue, which is a start of its own and not this on
 ## To be checked
 
 - Against a daemon with `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) published:
-  `Repository.agent`, `nickname` and `goesBy` read as agreed, the command offered, and the walk of the acceptance
-  through.
+  the command offered, and the walk of the acceptance through. The fields were read in porelo's IDL at `ac7b4f71`:
+  `Repository.agent` (`""` when none is named), `nickname` and `goesBy`, shown as it is, as this interface reads them.
 - Whether `Start` with `now: true` returns before the image build on a project never prepared, measured against a
   daemon, so twelve starts do not take twelve builds in a row.
 - Whether a sign-in started from the wizard returns to it, as it returns to `StartWorkView` today.
