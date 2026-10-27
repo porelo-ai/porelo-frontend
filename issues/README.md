@@ -33,6 +33,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. |
+| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. |
+| <a id="f197"></a>[F197](F197-A-Hosts-Own-Folder-Beside-What-All-Hosts-Share.md) | L | `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | A host's files in its own `hosts/<project>/` beside `shared/`, in its own tresor or a shared one, the old layout refused, and the person's private drives named for the host. |
+| <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | M | [F198](README.md#f198), `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) | A host's stop fed from the file on standard input, the master password typed once, only the one-time code at the host's prompt. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -43,9 +46,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f197"></a>[F197](F197-A-Hosts-Own-Folder-Beside-What-All-Hosts-Share.md) | L | `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | A host's files in its own `hosts/<project>/` beside `shared/`, in its own tresor or a shared one, the old layout refused, and the person's private drives named for the host. | — |
-| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. | — |
-| <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | M | [F198](README.md#f198), `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) | A host's stop fed from the file on standard input, the master password typed once, only the one-time code at the host's prompt. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |

@@ -1,6 +1,6 @@
 # F198 — A Host's Secrets Kept Once In The Person's KeePass File
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** L - a new part beside the host dialog (the file's entries, its terminal, a first-use step) and a package
 dependency, no contract of the daemon, but one with `porelo-host` through [F199](README.md#f199).
 

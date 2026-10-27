@@ -1,6 +1,6 @@
 # F197 — A Host's Own Folder Beside What All Hosts Share
 
-**Status:** Analyzed; blocked by `porelo-host`
+**Status:** Backlog; blocked by `porelo-host`
 [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36), its part of `porelo-project`
 [PJ50](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj50).
 **Size:** L - the host dialog's step *The drive*, `HostFiles` and the kept run, and a path both repositories read.

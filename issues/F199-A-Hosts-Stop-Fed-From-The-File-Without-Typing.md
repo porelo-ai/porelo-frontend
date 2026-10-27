@@ -1,6 +1,6 @@
 # F199 — A Host's Stop Fed From The File Without Typing
 
-**Status:** Analyzed; blocked by [F198](README.md#f198) and by `porelo-host`
+**Status:** Backlog; blocked by [F198](README.md#f198) and by `porelo-host`
 [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37).
 **Size:** M - the stop's terminal in the host dialog, the certificate's signing in it, and their tests, on a
 contract with `porelo-host`.
