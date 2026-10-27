@@ -506,6 +506,8 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    final secrets = stored['secretsFile'];
+    _secretsFile = secrets is String && secrets.startsWith('/') && !secrets.contains('\x00') ? secrets : null;
     _hostUps.clear();
     final hostUps = stored['hostUps'];
     if (hostUps is Map) {
@@ -583,6 +585,21 @@ class Settings extends ChangeNotifier {
   }
 
   Map<String, String> _tresorFolders = <String, String>{};
+
+  String? _secretsFile;
+
+  /// Where the person's `secrets.kdbx` lies on this desktop, or null before it is chosen. Only its path is kept.
+  String? get secretsFile => _secretsFile;
+
+  /// Keeps where the secrets file lies, never anything of what it holds.
+  Future<void> rememberSecretsFile(String? file) async {
+    if (file != null && (!file.startsWith('/') || file.contains('\x00'))) {
+      throw ArgumentError('The secrets file needs an absolute path.');
+    }
+    _secretsFile = file;
+    await _write();
+    notifyListeners();
+  }
 
   final _hostUps = <String, HostUpRecord>{};
 
@@ -815,6 +832,7 @@ class Settings extends ChangeNotifier {
     'templates': _templates,
     'forges': _forges,
     'tresorFolders': _tresorFolders,
+    'secretsFile': _secretsFile,
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
   };
 
