@@ -296,7 +296,6 @@ class _HostDialogState extends State<HostDialog> {
             ? 'The drive: the machine supplied no repository address for this project.'
             : null;
       });
-      _checkSigningKeyWhenReady();
     } on Exception {
       if (mounted) {
         setState(() => _sourceProblem = 'The drive: the project’s verified source could not be read from its machine.');
@@ -350,7 +349,8 @@ class _HostDialogState extends State<HostDialog> {
     final typed = _signingKey.text.trim();
     if (typed == _signingKeyShown) return;
     _signingKeyShown = typed;
-    if (_signingRefusal != null) setState(() => _signingRefusal = null);
+    // Rebuilt in any case: a check mark is drawn for the key in the field, which a text set from code changes too.
+    if (mounted) setState(() => _signingRefusal = null);
     _checkSigningKeyWhenReady();
   }
 
@@ -366,7 +366,12 @@ class _HostDialogState extends State<HostDialog> {
     if (_sourceProblem != null) return false;
     // Expanded, so the same key written as ~/ before the action and in full after it is not checked twice.
     final key = desk.expandHome(_signingKey.text.trim());
-    if (_folder == null || (_bundle != null && _bundleKey == key)) return true;
+    if (_folder == null) return true;
+    if (_bundle != null && _bundleKey == key) {
+      // The field's own check passed for this key; what an earlier Next said no longer stands.
+      setState(() => _machineProblem = null);
+      return true;
+    }
     return _checkSigningKey(key, forNext: true);
   }
 
@@ -374,8 +379,9 @@ class _HostDialogState extends State<HostDialog> {
   Future<bool> _checkSigningKey(String key, {bool forNext = false}) async {
     final check = ++_signingChecks;
     _signingCheckKey = key;
-    // An answer about a key the field no longer holds, or from an older check, is dropped, never shown.
-    bool stillAsked() => mounted && _signingChecks == check && _signingKeyPath == key;
+    // An answer about a key the field no longer holds is dropped, never shown. Two checks of the same key
+    // answer alike, so either may.
+    bool stillAsked() => mounted && _signingKeyPath == key;
     setState(() {
       if (forNext) {
         _preparing = true;
@@ -422,10 +428,11 @@ class _HostDialogState extends State<HostDialog> {
       const problem = 'The system secret store could not be opened.';
       if (stillAsked()) setState(() => forNext ? _machineProblem = problem : _signingRefusal = problem);
     } finally {
-      if (mounted && _signingChecks == check) {
+      // Next's hold ends with Next's own check, even when a newer check of the field runs on.
+      if (mounted) {
         setState(() {
           if (forNext) _preparing = false;
-          _signingCheckKey = null;
+          if (_signingChecks == check) _signingCheckKey = null;
         });
       }
     }
@@ -522,7 +529,8 @@ class _HostDialogState extends State<HostDialog> {
 
   /// Drops the answer about the pair the fields held before and asks about the one they hold now.
   void _pairChanged() {
-    if (_pairRefusal != null && mounted) setState(() => _pairRefusal = null);
+    // Rebuilt in any case: a check mark is drawn for the pair in the fields, which a text set from code changes too.
+    if (mounted) setState(() => _pairRefusal = null);
     _checkPairWhenReady();
   }
 
@@ -721,7 +729,6 @@ class _HostDialogState extends State<HostDialog> {
         _folder = folder;
         _machineProblem = null;
       });
-      _checkSigningKeyWhenReady();
     }
   }
 

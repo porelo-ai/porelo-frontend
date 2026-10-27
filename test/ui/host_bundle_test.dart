@@ -107,6 +107,25 @@ void main() {
     await scratch.delete(recursive: true);
   });
 
+  /// Puts [value] into [field] as a choice would, outside the test's clock, so the check it starts runs its program.
+  Future<void> choose(WidgetTester tester, String value, {String field = 'host-signing-key'}) async {
+    final widget = tester.widget<TextField>(find.byKey(Key(field)));
+    await tester.runAsync(() async => widget.controller!.text = value);
+    await tester.pump();
+  }
+
+  /// Lets [field]'s check, which runs git or ssh-keygen, finish, until the field shows an answer.
+  Future<void> answered(WidgetTester tester, {String field = 'host-signing-key'}) async {
+    for (var waited = 0; waited < 300; waited++) {
+      final shown =
+          find.byKey(Key('$field-ok')).evaluate().isNotEmpty || find.byKey(Key('$field-refused')).evaluate().isNotEmpty;
+      if (shown) return;
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+    }
+    fail('$field showed no answer within 15 seconds');
+  }
+
   Future<void> open(
     WidgetTester tester, {
     String? commit,
@@ -163,12 +182,8 @@ void main() {
     if (chooseFolder) {
       final oldRepository = find.byKey(const Key('host-repository'));
       if (oldRepository.evaluate().isNotEmpty) await tester.enterText(oldRepository, '/wrong-stored-repository');
-      if (signingKey != '') {
-        await tester.enterText(
-          find.byKey(const Key('host-signing-key')),
-          signingKey ?? path.join(scratch.path, 'signing.pub'),
-        );
-      }
+      // Outside the test's clock, so the check the field starts finishes and removes its scratch work.
+      if (signingKey != '') await choose(tester, signingKey ?? path.join(scratch.path, 'signing.pub'));
     }
     await tester.pump();
   }
@@ -263,25 +278,6 @@ void main() {
   String fingerprint(String name) =>
       HostFiles.signingFingerprint(File(path.join(scratch.path, '$name.pub')).readAsStringSync());
 
-  /// Puts [value] into [field] as a choice would, outside the test's clock, so the check it starts runs its program.
-  Future<void> choose(WidgetTester tester, String value, {String field = 'host-signing-key'}) async {
-    final widget = tester.widget<TextField>(find.byKey(Key(field)));
-    await tester.runAsync(() async => widget.controller!.text = value);
-    await tester.pump();
-  }
-
-  /// Lets [field]'s check, which runs git or ssh-keygen, finish, until the field shows an answer.
-  Future<void> answered(WidgetTester tester, {String field = 'host-signing-key'}) async {
-    for (var waited = 0; waited < 300; waited++) {
-      final shown =
-          find.byKey(Key('$field-ok')).evaluate().isNotEmpty || find.byKey(Key('$field-refused')).evaluate().isNotEmpty;
-      if (shown) return;
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-    }
-    fail('$field showed no answer within 15 seconds');
-  }
-
   // Harm: a check mark beside a key it was not given for lets the person rent with a key that did not sign the commit.
   testWidgets('the signing key is checked as soon as it changes, and its answer goes with it', (tester) async {
     await open(tester, signingKey: '');
@@ -302,11 +298,30 @@ void main() {
     await answered(tester);
     expect(find.byKey(const Key('host-signing-key-ok')), findsOneWidget, reason: 'the key that signed is said to');
 
+    await choose(tester, path.join(scratch.path, 'sign'));
+    expect(find.byKey(const Key('host-signing-key-ok')), findsNothing, reason: 'no check mark beside a half typed key');
+    await choose(tester, path.join(scratch.path, 'signing.pub'));
+    await answered(tester);
+
     await choose(tester, path.join(scratch.path, 'other.pub'));
     expect(find.byKey(const Key('host-signing-key-ok')), findsNothing, reason: 'no check mark beside a changed key');
     await answered(tester);
     expect(find.byKey(const Key('host-signing-key-refused')), findsOneWidget);
     expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'nothing went on to the next step');
+  });
+
+  // Harm: a late answer about the key the person left would stand beside the key they chose.
+  testWidgets('of two checks running at once, the answer about the key in the field stands', (tester) async {
+    await open(tester, signingKey: '');
+    await choose(tester, path.join(scratch.path, 'other.pub'));
+    await choose(tester, path.join(scratch.path, 'signing.pub'));
+    await answered(tester);
+    // Both checks have had time to answer.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 2)));
+    await tester.pump();
+    expect(find.byKey(const Key('host-signing-key-ok')), findsOneWidget);
+    expect(find.byKey(const Key('host-signing-key-refused')), findsNothing, reason: 'the left key answers nothing');
+    expect(find.textContaining('not by'), findsNothing);
   });
 
   // Harm: a public key that does not belong to the login key rents a server this computer cannot sign in to.
@@ -359,7 +374,7 @@ void main() {
       expect(find.textContaining('may be swapped'), findsNothing, reason: 'the login key is another one');
       expect(File(path.join(folder.path, 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
       // The corrected key is checked again rather than the refused bundle taken.
-      await tester.enterText(find.byKey(const Key('host-signing-key')), path.join(scratch.path, 'signing.pub'));
+      await choose(tester, path.join(scratch.path, 'signing.pub'));
       await tester.pump();
       await put(tester);
       expect(starts, hasLength(1), reason: 'the key that signed the commit must go on to renting');
@@ -374,7 +389,7 @@ void main() {
       expect(find.byKey(const Key('host-identity')), findsOneWidget, reason: 'the signing key passes the drive');
       await tester.tap(find.byKey(const Key('wizard-back')));
       await World.settle(tester);
-      await tester.enterText(find.byKey(const Key('host-signing-key')), path.join(scratch.path, 'other.pub'));
+      await choose(tester, path.join(scratch.path, 'other.pub'));
       await tester.pump();
       await drive(tester);
       expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'the changed key must be checked again');
@@ -455,6 +470,8 @@ void main() {
             ? '--upload-pack=touch'
             : source.path,
       );
+      // The field's own check of the key, which also prepares a bundle, has answered and cleared its scratch work.
+      await answered(tester);
       // The action checks every step again even if navigation has been bypassed.
       final wizard = tester.widget<Wizard>(find.byType(Wizard));
       // Reach the key fields when the drive itself has already accepted the source.
@@ -464,11 +481,14 @@ void main() {
         await tester.runAsync(wizard.actionSteps.single.run);
       }
       expect(starts, isEmpty, reason: 'unreadable or invalid followed sources must never rent a host');
-      expect(
-        scratchWork().difference(before),
-        isEmpty,
-        reason: 'failed preparation must remove its private scratch directory',
-      );
+      // Other test files prepare bundles in the same temporary folder at the same time; what this test left
+      // stays, while theirs goes once their work ends.
+      var left = scratchWork().difference(before);
+      for (var waited = 0; left.isNotEmpty && waited < 100; waited++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        left = left.intersection(scratchWork());
+      }
+      expect(left, isEmpty, reason: 'failed preparation must remove its private scratch directory');
       expect(File(path.join(folder.path, 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
     });
   }
