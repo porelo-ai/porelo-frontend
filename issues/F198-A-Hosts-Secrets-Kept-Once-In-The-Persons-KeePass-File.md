@@ -6,9 +6,10 @@ dependency, no contract of the daemon, but one with `porelo-host` through [F199]
 
 **What must be true.** The secrets a person needs to put a project on a host are kept once, in `secrets.kdbx` on
 the person's drive, a KDBX 4 file they can open with KeePassXC: one master password for all hosts; a group `shared`
-(the lasting forge CA's key, the forge password, the drive's login) and a group per host under `hosts/<name>` (its
+(the lasting forge CA's key, the forge password) and a group per host under `hosts/<name>` (its
 WireGuard key, its vault passphrase). The file is unlocked on the person's desktop only, never on a host, and no
-secret lies in the clear on the drive. The one-time code of the drive's login stays out of it.
+secret lies in the clear on the drive. The drive's (Tresorit's) login stays out of it
+altogether (decided).
 
 ## Why
 
@@ -33,8 +34,7 @@ operator's shape: one password to remember for setting up a host.
   (`Zugriff verweigert`), which the packaged one does not share; 2.7.10's manual page lists `open` (a shell on one
   unlocked file), `show`, `export` (XML or CSV to standard output), `db-create`, `mkdir` and `add`.
   Windows and macOS are [F200](README.md#f200).
-- **The entries the interface relies on**, so a person's own file works: `shared/drive-login`,
-  `shared/forge-password`, `shared/forge-ca-key`, `hosts/<name>/wireguard`, `hosts/<name>/vault-passphrase`, each a
+- **The entries the interface relies on**, so a person's own file works: `shared/forge-password`, `shared/forge-ca-key`, `hosts/<name>/wireguard`, `hosts/<name>/vault-passphrase`, each a
   KeePass entry whose password field holds the secret. A missing entry is said by its name, never guessed.
 - **First use:** a step before *The drive* when no file exists: create it in a terminal (`keepassxc-cli db-create`),
   then put in what is already known (the WireGuard key from the tresor, then removed from it); a person with an
@@ -55,8 +55,6 @@ operator's shape: one password to remember for setting up a host.
 
 ## Open questions
 
-- **QF67:** does the file keep the drive's login? Nothing reads it once the drive's login is typed at the host (from
-  6e) and the drive is the person's own (from 6g). Recommended: left out until an issue feeds it from the file.
 - **QF68:** where does the file live when the person has no drive (optional from 6g)? Recommended: chosen at first
   use, offered in the drive folder where one is set up and otherwise in `~/Porelo/`; only its path is kept here.
 
