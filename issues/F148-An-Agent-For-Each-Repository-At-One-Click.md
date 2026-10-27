@@ -1,7 +1,8 @@
 # F148 — An Agent For Each Repository, At One Click
 
-**Status:** Analyzed; blocked by two `porelo` requirements not yet filed, raised in the channel: the agent a
-repository names, and the values a project declares.
+**Status:** Analyzed; blocked by `porelo`
+[B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) and `porelo`
+[B299](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b299).
 **Size:** L - a new wizard over the existing start, M on its own, but it crosses repositories: neither the agent of a
 repository nor a project's declared values is on the wire yet.
 
@@ -27,12 +28,14 @@ same on the rented host as on any machine.
   - **No repository names an agent.** `ProjectSchema` allows a repository `upstream`, `description`, `egress`,
     `limits`, `issues` and `image`, and `Start`'s IDL says "a project file names neither an agent nor a provider";
     `porelo-project` [PJ53](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj53) calls the key
-    new. `porelo` needs an `agent` key under `repositories.<repository>` and `Repository.agent` in `Projects` (`""`
-    when none is named), and `Start` taking the repository's agent when none is given would be a default this
+    new. `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) adds an `agent`
+    key under `repositories.<repository>` and `Repository.agent` in `Projects` (`""` when none is named), and `Start` taking the repository's agent when none is given would be a default this
     interface must not rely on: it sends the agent it showed.
   - **A project's declared values are not readable.** `Start` and `CanStart` take `parameters` and refuse with
     `PARAMETER_REFUSED`, whose `detail` is prose; `Project` carries no declarations, and `ProjectFileSchema` describes
-    keys, not this project's values. `porelo` needs `Project.parameters`: each declared name with whether it is
+    keys, not this project's values; `project.yml` and `core`'s `Parameter` already declare them. `porelo`
+    [B299](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b299) adds `Project.parameters`: each
+    declared name with whether it is
     required, its allowed values where they are a fixed set, and its default. Without it the interface would guess
     which fields to ask for, or parse a refusal.
   - Both are in [Contract-Gaps](../doc/Contract-Gaps.md) and come off once landed. An older daemon without either
