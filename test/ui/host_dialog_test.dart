@@ -1973,7 +1973,14 @@ void main() {
 
       expect(terminals, hasLength(1), reason: 'the secrets file is opened before anything is rented');
       final command = terminals.single.command;
-      expect(command.take(2), ['/bin/bash', '-c'], reason: 'a script of this desktop, run here');
+      expect(command.first, '/usr/bin/env', reason: 'a script of this desktop, run here');
+      expect(
+        command.join(' '),
+        contains('-u BASH_ENV'),
+        reason: 'no startup file of the caller runs beside the secrets',
+      );
+      expect(command.join(' '), contains('-u SHELLOPTS'), reason: 'no inherited trace prints a secret');
+      expect(command, containsAllInOrder(<String>['/bin/bash', '--noprofile', '--norc', '-c']));
       expect(command.last, contains("'hosts/demo/wireguard'"));
       expect(command.last, contains('read -rs'), reason: 'the master password is typed into the terminal');
       expect(commands, isEmpty, reason: 'nothing is rented while the secrets file is open');

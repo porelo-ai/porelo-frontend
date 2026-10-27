@@ -206,7 +206,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The host key's public half, once the secrets file was opened for this file; dropped when the file changes.
   String? _hostPublicKey;
-  String? _hostPublicKeyFor;
+  ({String file, String? drive})? _hostPublicKeyFor;
   bool _openingSecrets = false;
   String? _secretsAnswer;
   final _keys = <HostKeyFile>[];
@@ -1285,8 +1285,9 @@ class _HostDialogState extends State<HostDialog> {
       title: 'Your secrets file',
       words:
           'Your secrets file, secrets.kdbx, keeps the server’s VPN key and its vault passphrase under one master '
-          'password, which you type into a terminal on this computer when setup starts; it never passes through this '
-          'program. Name the file you have, or where a new one is made. KeePassXC opens it too.',
+          'password, which you type into this program’s terminal, without echo; it goes straight to keepassxc-cli on '
+          'this computer, and this program keeps none of it. Name the file you have, or where a new one is made. '
+          'KeePassXC opens it too.',
       panel: (_) => _panel([
         _pathField(_secrets, 'Your secrets file (.kdbx)', 'host-secrets-file'),
         Text(
@@ -1356,8 +1357,10 @@ class _HostDialogState extends State<HostDialog> {
   /// The host key's public half from the secrets file, opened once per file and kept for the setup that follows.
   Future<String> _hostKeyFromTheSecretsFile() async {
     final file = _secretsPath;
-    if (_hostPublicKey != null && _hostPublicKeyFor == file) return _hostPublicKey!;
     final drivesKey = _drivesKey;
+    // Kept for this file and this drive only: another drive may hold a key that has to move first.
+    final asked = (file: file, drive: drivesKey);
+    if (_hostPublicKey != null && _hostPublicKeyFor == asked) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
     final key = await open(
       file: file,
@@ -1366,7 +1369,7 @@ class _HostDialogState extends State<HostDialog> {
     );
     HostFiles.checkPublicKey(key);
     _hostPublicKey = key;
-    _hostPublicKeyFor = file;
+    _hostPublicKeyFor = asked;
     await widget.settings?.rememberSecretsFile(file);
     return key;
   }
@@ -1405,10 +1408,27 @@ class _HostDialogState extends State<HostDialog> {
         key: const Key('host-secrets-terminal'),
         title: 'Your secrets file',
         explanation:
-            'Type the master password of your secrets file into this terminal. It goes to keepassxc-cli on this '
-            'computer and never through this program, which gets back only the public half of the server’s VPN key.',
+            'Type the master password of your secrets file into this terminal; it is not shown. It goes straight to '
+            'keepassxc-cli on this computer, and this program keeps none of it: it gets back only the public half of '
+            'the server’s VPN key.',
         machine: Machine.local(),
-        command: ['/bin/bash', '-c', script],
+        // Neither the caller's startup files nor an inherited trace may run in the shell that holds the secrets.
+        command: [
+          '/usr/bin/env',
+          '-u',
+          'BASH_ENV',
+          '-u',
+          'ENV',
+          '-u',
+          'SHELLOPTS',
+          '-u',
+          'BASHOPTS',
+          '/bin/bash',
+          '--noprofile',
+          '--norc',
+          '-c',
+          script,
+        ],
         shownCommand: 'keepassxc-cli opens $file and keeps the server’s keys for ${widget.project}',
         completed: 'The secrets file is ready.',
         onExit: (code) => exit = code,

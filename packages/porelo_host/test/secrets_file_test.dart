@@ -19,14 +19,23 @@ void main() {
       expect(RegExp(r'read -rs').allMatches(script).length, 1, reason: 'one master password, asked once');
       expect(RegExp(r'read -rs').allMatches(made).length, 2, reason: 'a new one asked twice, to be sure of it');
       expect(script, isNot(contains('--password')), reason: 'keepassxc-cli takes no password as an argument');
-      expect(script, isNot(contains('export ')), reason: 'nothing goes into the environment of another program');
+      for (final needle in <String>['export ', 'set -a', 'declare -x', 'env ', r'${MASTER', r'${private']) {
+        expect(
+          '$script\n$made',
+          isNot(contains(needle)),
+          reason: 'nothing goes into another program\'s environment: $needle',
+        );
+      }
+      expect(script.split('\n').first, contains('stty -echo'), reason: 'no echo from the first byte typed');
+      expect(script, contains('set +x'), reason: 'an inherited trace never prints a secret');
       // Every use of it, with the builtin printf's and the shell's own comparison taken away, leaves none.
       for (final line in '$script\n$made'.split('\n')) {
         final rest = line
             .replaceAll(r'''printf '%s\n%s\n' "$MASTER" "$MASTER"''', '')
             .replaceAll(r'''printf '%s\n' "$MASTER"''', '')
             .replaceAll(r'''printf '%s\n%s\n' "$MASTER"''', '')
-            .replaceAll(r'''[ "$MASTER" != "$AGAIN" ]''', '');
+            .replaceAll(r'''[ "$MASTER" != "$AGAIN" ]''', '')
+            .replaceAll(r'''[ -z "$MASTER" ]''', '');
         expect(rest, isNot(contains(r'$MASTER')), reason: 'only the builtin printf sees it: $line');
       }
     });
@@ -158,6 +167,67 @@ void main() {
       expect(other.exitCode, isNot(0), reason: 'two different keys for one host are never merged silently');
       expect(await drive.exists(), isTrue, reason: 'nothing is removed when they differ');
       expect(await show(kdbx, 'hosts/checkout/wireguard', 'm'), kept, reason: 'the file keeps its own key');
+    }, skip: skip);
+
+    // Harm: the host's key left in the clear on the drive, or lost when what lay there was no key.
+    test(
+      'a valid drive key moves into the file and leaves the drive; a broken one or a link is refused and kept',
+      () async {
+        final kdbx = path.join(home.path, 'secrets.kdbx');
+        final out = path.join(home.path, 'checkout.pub');
+        final drive = File(path.join(home.path, 'wireguard.key'));
+        final original = base64Encode(List<int>.filled(32, 7));
+
+        await drive.writeAsString('not a key\n');
+        final broken = await run(
+          SecretsFile(
+            kdbx,
+            cli: cli,
+          ).prepareHost(project: 'checkout', create: true, publicKeyOut: out, migrateKeyFrom: drive.path),
+          'm',
+          twice: true,
+        );
+        expect(broken.exitCode, isNot(0), reason: 'a drive file that is no key is refused');
+        expect(await drive.readAsString(), 'not a key\n', reason: 'and kept as it was');
+
+        await drive.writeAsString('$original\n');
+        final moved = await run(
+          SecretsFile(
+            kdbx,
+            cli: cli,
+          ).prepareHost(project: 'checkout', create: false, publicKeyOut: out, migrateKeyFrom: drive.path),
+          'm',
+        );
+        expect(moved.exitCode, 0, reason: '${moved.stderr}');
+        expect(await show(kdbx, 'hosts/checkout/wireguard', 'm'), original, reason: 'the drive key is the file\'s now');
+        expect(await drive.exists(), isFalse, reason: 'and gone from the drive');
+        expect((await File(out).readAsString()).trim(), await HostFiles.publicKey(original));
+
+        final target = await File(path.join(home.path, 'elsewhere')).writeAsString('$original\n');
+        await Link(drive.path).create(target.path);
+        final linked = await run(
+          SecretsFile(
+            kdbx,
+            cli: cli,
+          ).prepareHost(project: 'checkout', create: false, publicKeyOut: out, migrateKeyFrom: drive.path),
+          'm',
+        );
+        expect(linked.exitCode, isNot(0), reason: 'a link on the drive is outside input and refused');
+        expect(await target.exists(), isTrue);
+      },
+      skip: skip,
+    );
+
+    test('an empty master password makes no file', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'checkout.pub');
+      final result = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(project: 'checkout', create: true, publicKeyOut: out),
+        '',
+        twice: true,
+      );
+      expect(result.exitCode, isNot(0));
+      expect(await File(kdbx).exists(), isFalse);
     }, skip: skip);
 
     test('a wrong master password writes nothing and fails', () async {

@@ -176,6 +176,25 @@ void main() {
     },
   );
 
+  // Harm: a private key left in the clear on the drive while the secrets file holds the host's key.
+  test('a host key still on the drive beside the secrets file is refused, not ignored', () async {
+    await Directory(path.join(scratch.path, 'porelo-host')).create();
+    final left = await File(path.join(scratch.path, 'porelo-host', 'wireguard.key'))
+        .writeAsString('${base64Encode(List<int>.filled(32, 2))}\n');
+    final fromTheFile = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 1)));
+    await expectLater(
+      () => files.prepare(
+        project: 'demo',
+        folder: scratch.path,
+        url: 'https://example.org/demo.git',
+        signingKey: signing,
+        hostPublicKey: fromTheFile,
+      ),
+      throwsA(isA<HostFilesRefused>()),
+    );
+    expect(await left.exists(), isTrue, reason: 'nothing is removed by refusing');
+  });
+
   // Harm: a malformed public key reaches the tunnel's configuration and the host's arguments.
   test('a host public key that is not one is refused', () async {
     expect(

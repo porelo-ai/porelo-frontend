@@ -399,9 +399,15 @@ class HostFiles {
       final root = Directory(_paths.join(_paths.normalize(folder), 'porelo-host'));
       await _directory(root);
       final hostFile = File(destinationPath(folder, 'wireguard.key'));
-      final existing = hostPublicKey != null
-          ? FileSystemEntityType.notFound
-          : await FileSystemEntity.type(hostFile.path, followLinks: false);
+      final onTheDrive = await FileSystemEntity.type(hostFile.path, followLinks: false);
+      // The secrets file keeps the key now; a copy left on the drive is a key in the clear, said and never ignored.
+      if (hostPublicKey != null && onTheDrive != FileSystemEntityType.notFound) {
+        throw HostFilesRefused(
+          '${hostFile.path} still holds a host key while your secrets file keeps it. Open the secrets file again from '
+          'its step, which moves it, or remove it.',
+        );
+      }
+      final existing = hostPublicKey != null ? FileSystemEntityType.notFound : onTheDrive;
       if (existing != FileSystemEntityType.notFound) {
         if (existing != FileSystemEntityType.file) _conflict(hostFile.path);
         hostPrivate = (await hostFile.readAsString()).trim();

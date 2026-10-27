@@ -57,7 +57,12 @@ class SecretsFile {
     final key = _word(hostKey(project));
     final passphrase = _word(vaultPassphrase(project));
     final group = _word('hosts/$project');
+    final drive = migrateKeyFrom == null ? null : _word(migrateKeyFrom);
     return [
+      // No echo from the first byte, and none of the caller's tracing: neither may draw a secret on the terminal.
+      '/usr/bin/stty -echo 2>/dev/null || true',
+      "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
+      'set +x',
       'set -euo pipefail',
       'umask 077',
       'cli=${_word(cli)}',
@@ -67,45 +72,57 @@ class SecretsFile {
       r'kp() { printf'
           " '%s\\n' "
           r'"$MASTER" | "$cli" "$@"; }',
+      // A WireGuard private key is one whose public half wg can derive.
+      r'''valid() { local half; half="$(printf '%s\n' "$1" | /usr/bin/wg pubkey 2>/dev/null)" && [ -n "$half" ]; }''',
       if (create) ...[
         r'if [ -e "$file" ]; then echo "$file exists already; name it instead of making it anew." >&2; exit 65; fi',
         r'IFS= read -rs -p "A new master password for $file: " MASTER; echo >&2',
         r'IFS= read -rs -p "The same once more: " AGAIN; echo >&2',
         r'if [ "$MASTER" != "$AGAIN" ]; then echo "The two did not match; nothing was made." >&2; exit 1; fi',
         'unset AGAIN',
-        r'mkdir -p "$(dirname "$file")"',
+      ] else
+        r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
+      r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was changed." >&2; exit 1; fi',
+      if (create) ...[
+        r'/usr/bin/mkdir -p "$(/usr/bin/dirname "$file")"',
         r'printf'
             " '%s\\n%s\\n' "
             r'"$MASTER" "$MASTER" | "$cli" db-create -p "$file" >/dev/null',
         'kp mkdir "\$file" ${_word('shared')} >/dev/null',
         'kp mkdir "\$file" ${_word('hosts')} >/dev/null',
       ] else ...[
-        r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
         r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was changed." >&2; exit 1; fi',
         'kp ls "\$file" ${_word('hosts')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('hosts')} >/dev/null',
       ],
       'kp ls "\$file" $group >/dev/null 2>&1 || kp mkdir "\$file" $group >/dev/null',
-      'if private="\$(kp show -s -a password "\$file" $key 2>/dev/null)" && [ -n "\$private" ]; then :',
+      if (drive != null) ...[
+        // The drive's copy is outside input: a link or a key wg cannot read is refused, and nothing is changed.
+        'if [ -L $drive ]; then echo "The drive\'s wireguard.key is a link; nothing was changed." >&2; exit 1; fi',
+        'if [ -f $drive ]; then old="\$(/usr/bin/tr -d \'[:space:]\' < $drive)"; '
+            'if ! valid "\$old"; then echo "The drive\'s wireguard.key is no WireGuard key; nothing was changed." >&2; exit 1; fi; '
+            'else old=""; fi',
+      ],
+      'private="\$(kp show -s -a password "\$file" $key 2>/dev/null || true)"',
+      'if [ -n "\$private" ]; then :',
       // A copy still on the drive goes only when it is the file's own key; another key for the host stops it all.
-      if (migrateKeyFrom != null)
-        '  if [ -f ${_word(migrateKeyFrom)} ]; then '
-            'if [ "\$(tr -d \'[:space:]\' < ${_word(migrateKeyFrom)})" = "\$private" ]; then rm -f ${_word(migrateKeyFrom)}; '
-            'else echo "The drive holds another key for this server than your secrets file; nothing was changed." >&2; '
-            'exit 1; fi; fi',
-      if (migrateKeyFrom != null)
-        'elif [ -f ${_word(migrateKeyFrom)} ]; then private="\$(tr -d \'[:space:]\' < ${_word(migrateKeyFrom)})"; '
-            '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null; '
-            'rm -f ${_word(migrateKeyFrom)}',
-      'else private="\$(wg genkey)"; '
+      if (drive != null)
+        '  if [ -n "\$old" ] && [ "\$old" != "\$private" ]; then '
+            'echo "The drive holds another key for this server than your secrets file; nothing was changed." >&2; exit 1; fi',
+      'elif [ -n "\${old:-}" ]; then private="\$old"; '
+          '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null',
+      'else private="\$(/usr/bin/wg genkey)"; '
           '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null',
       'fi',
+      // Read back before anything is removed: the file must hold the key that is used.
+      'if [ "\$(kp show -s -a password "\$file" $key 2>/dev/null)" != "\$private" ] || ! valid "\$private"; then '
+          'echo "The secrets file does not hold a WireGuard key for this server; nothing was removed." >&2; exit 1; fi',
+      if (drive != null) 'if [ -n "\$old" ]; then /usr/bin/rm -f $drive; fi',
       'kp show "\$file" $passphrase >/dev/null 2>&1 || kp add -g -L 32 "\$file" $passphrase >/dev/null',
-      // Read through a pipe and checked: a public key that came out empty is refused, never written.
-      r'pub="$(wg pubkey <<<"$private")"',
+      r'''pub="$(printf '%s\n' "$private" | /usr/bin/wg pubkey)"''',
       r'if [ -z "$pub" ]; then echo "wg gave no public key; nothing was written." >&2; exit 1; fi',
       r'''printf '%s\n' "$pub" > "$out.new"''',
-      r'mv "$out.new" "$out"',
-      'unset MASTER private pub',
+      r'/usr/bin/mv "$out.new" "$out"',
+      'unset MASTER private pub old',
       r'echo "The secrets file is ready."',
     ].join('\n');
   }
