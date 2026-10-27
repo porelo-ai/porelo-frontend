@@ -63,6 +63,16 @@ operator's shape: one password to remember for setting up a host.
 - **Red first:** a widget test that a run with the file never writes `wireguard.key` into the drive, and a test of
   the entry names against a file made with `keepassxc-cli` from a fixture.
 
+- **Pushed only with the host's side:** with the file, setup writes no `wireguard.key` to the drive, and a host
+  that still reads it there stops at its VPN step after it is rented. So this issue's code goes out only with
+  [F199](README.md#f199) and once `porelo-host`
+  [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) is published.
+- **Declined from its harm reading, with the reason:** the master password is typed into the interface's own
+  terminal, as every sign-in here is, and the words now say so rather than that it never passes through the
+  program; the tests that run the real `keepassxc-cli` are skipped where none is installed, the Build among them,
+  and each skip names why; the dialog's test does not tell a non-zero exit from a missing public half, since either
+  refuses before anything is rented.
+
 ## Acceptance
 
 - After setting up a host with the file, the drive holds no secret in the clear; KeePassXC opens the file and shows
