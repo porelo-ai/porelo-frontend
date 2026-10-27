@@ -124,6 +124,7 @@ class HostDialog extends StatefulWidget {
     this.pickFolder,
     this.pickFile,
     this.openSecretsFile,
+    this.setupFolder,
     this.takeDownOnly = false,
     this.debug = kDebugMode,
     super.key,
@@ -186,6 +187,10 @@ class HostDialog extends StatefulWidget {
     Map<String, String> keys,
   })?
   openSecretsFile;
+
+  /// The interface's own folder for the host's `machine.yml` and bundle, which `up` uploads; the configuration
+  /// folder's `hosts/<project>` when null, a scratch folder in tests.
+  final String? setupFolder;
 
   /// Shows the machine's teardown confirmation and progress without asking setup questions.
   final bool takeDownOnly;
@@ -378,7 +383,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// Checks the signing key at once, when it reads as a public key and the drive and the source are there.
   void _checkSigningKeyWhenReady() {
-    if (!mounted || _folder == null || _followed == null || _sourceProblem != null) return;
+    if (!mounted || _followed == null || _sourceProblem != null) return;
     final key = _signingKeyPath;
     if (key == null || _fingerprint(key) == null || (_bundle != null && _bundleKey == key)) return;
     unawaited(_checkSigningKey(key));
@@ -388,7 +393,6 @@ class _HostDialogState extends State<HostDialog> {
     if (_sourceProblem != null) return false;
     // Expanded, so the same key written as ~/ before the action and in full after it is not checked twice.
     final key = desk.expandHome(_signingKey.text.trim());
-    if (_folder == null) return true;
     if (_bundle != null && _bundleKey == key) {
       // The field's own check passed for this key; what an earlier Next said no longer stands.
       setState(() => _machineProblem = null);
@@ -758,6 +762,7 @@ class _HostDialogState extends State<HostDialog> {
     account: _account.text.trim(),
     tresor: _tresor.text.trim(),
     folder: _folder,
+    setupFolder: _setupFolder,
     repository: '',
     signingKey: _signingKey.text.trim(),
     identity: _identity.text.trim(),
@@ -871,18 +876,14 @@ class _HostDialogState extends State<HostDialog> {
       if (!_upStarted) {
         if (!await _checkBundle()) return;
         setState(() => _preparing = true);
-        // The secrets file is opened and named for the stop with a drive folder or without one; only the drive's
-        // host takes its key from it, as host files given by hand carry the person's own.
-        final fromTheFile = await _hostKeyFromTheSecretsFile();
+        // The secrets file keeps the host's key; the files `up` uploads are written in this desktop's own folder.
+        final hostPublicKey = await _hostKeyFromTheSecretsFile();
         if (!mounted) return;
-        final hostPublicKey = _folder == null ? null : fromTheFile;
         await _withFiles((files) async {
-          if (_folder != null) {
-            await files.publishBundle(project: widget.project, folder: _folder!, bytes: _bundle!);
-          }
+          await files.publishBundle(project: widget.project, folder: _setupFolder, bytes: _bundle!, createFolder: true);
           _tunnel = await files.prepare(
             project: widget.project,
-            folder: _folder,
+            folder: _setupFolder,
             url: HostFiles.bundleUrl(widget.project),
             signingKey: File(_signingKey.text.trim()),
             keys: _keys,
@@ -1218,9 +1219,9 @@ class _HostDialogState extends State<HostDialog> {
     WizardStep(
       title: 'The drive',
       words:
-          'Tresorit, the one drive available today. Choose its synced folder on this computer. '
-          'The project’s verified bundle is written into porelo-host in that folder. '
-          'Give the public key used to sign its commits.',
+          'Tresorit, the one drive available today, which the server still mounts. Its synced folder on this computer '
+          'is read only for a VPN key it held from before. The project’s verified bundle goes up to the server '
+          'with the setup itself. Give the public key used to sign its commits.',
       panel: (context) => _panel([
         const Text('Its synced folder on this computer'),
         Row(
@@ -1234,15 +1235,11 @@ class _HostDialogState extends State<HostDialog> {
             ),
           ],
         ),
-        if (_folder == null) const Text('Supply the host files manually if no folder is chosen.'),
         _field(_tresor, "The tresor's name in Tresorit", 'host-tresor', namesHost: true),
-        const Text(
-          'The server signs in to Tresorit and syncs the tresor by this name; '
-          'the folder is this computer’s copy, where the server’s files are written.',
-        ),
+        const Text('The server signs in to Tresorit and syncs the tresor by this name.'),
         if (Platform.isWindows)
           const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
-        if (_folder != null) ...[
+        ...[
           _pathField(
             _signingKey,
             'Public key for signing commits (.pub)',
@@ -1271,18 +1268,15 @@ class _HostDialogState extends State<HostDialog> {
       check: () =>
           _required([_tresor], 'Give the tresor name from Tresorit.') ??
           _sourceProblem ??
-          (_folder == null
-              ? null
-              : _required([_signingKey], 'Give the public key used to sign commits.') ?? _driveFilesProblem),
+          _required([_signingKey], 'Give the public key used to sign commits.') ??
+          _driveFilesProblem,
       beforeNext: _checkBundle,
       summary: () => [
         'Tresorit tresor: ${_tresor.text}',
-        'Synced folder on this computer: ${_folder ?? 'not chosen; supply the host files manually'}',
-        if (_folder != null) ...[
-          'Project bundle: porelo-host/${widget.project}.bundle',
-          'Public signing key: ${_signingKey.text}',
-          for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}',
-        ],
+        'Synced folder on this computer: ${_folder ?? 'not chosen'}',
+        'Project bundle: uploaded as /etc/porelo-host/setup/${widget.project}.bundle',
+        'Public signing key: ${_signingKey.text}',
+        for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}, kept in your secrets file',
       ],
     ),
     WizardStep(
@@ -1360,6 +1354,9 @@ class _HostDialogState extends State<HostDialog> {
   ];
 
   String get _secretsPath => _expanded(_secrets.text.trim());
+
+  /// Where the host's setup files are written on this desktop; never the drive, which has no part in the setup.
+  late final String _setupFolder = widget.setupFolder ?? path.join(desk.configuration, 'hosts', widget.project);
 
   String? get _drivesKey =>
       _folder == null ? null : path.join(path.normalize(_folder!), 'porelo-host', 'wireguard.key');

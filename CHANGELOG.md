@@ -105,6 +105,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and only the entries a server's setup names are sent to it.
 - On Windows, *Put this project on a server…* is unavailable with its reason until the interface brings
   KeePassXC there: a server's keys are kept in the secrets file, which it opens only on Linux so far.
+- A server's `machine.yml` and the project's bundle are written into the interface's own configuration folder and
+  uploaded over the server's own ssh into a place only root writes, checked there by their digests; the drive gets
+  neither.
 
 - Putting a project on a server keeps the server's VPN key and vault passphrase in the person's own `secrets.kdbx`,
   which KeePassXC opens too: a step names the file or where a new one is made, and setup opens it in a terminal on

@@ -86,7 +86,8 @@ are needed. Choose `/tmp/porelo-walk/tresor` as the local folder. Use the invent
 `/tmp/porelo-walk/keys/walk_ed25519` and `.pub` files for the SSH keys, the `.pub` file for signing,
 and `/tmp/porelo-walk/porelo-host` as the test collection, with the digest from
 `sha256sum /tmp/porelo-walk/porelo-host`. This collection step appears only in debug builds.
-The dialog writes the host files and `porelo-host/checkout.bundle` under the walk's tresor folder.
+The dialog writes the host files and `porelo-host/checkout.bundle` into its own configuration folder,
+`hosts/checkout`, which `up` uploads; the walk's tresor folder gets neither.
 
 ```bash
 PATH="$walk/bin:$PATH" \

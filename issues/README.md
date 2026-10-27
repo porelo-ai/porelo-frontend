@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. |
+| <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | L | [F198](README.md#f198), `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) | A host's stop fed from the file on standard input, the master password typed once, no drive login among its needs, and the central forge's token after `up`. |
 | <a id="f195"></a>[F195](F195-The-Signing-Key-Checked-As-It-Is-Chosen.md) | — | — | The signing key on *The drive* checked against the verified commit as soon as it changes, with a check mark or an error icon at the field and no stale answer beside a changed key. |
 | <a id="f196"></a>[F196](F196-The-Public-Ssh-Key-Follows-Its-Private-One.md) | — | — | The public ssh key filled from the private one as `<private>.pub` whenever that exists, also over a kept value, and a public key that does not belong to it refused at the field with [F195](README.md#f195)'s icons. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
@@ -28,14 +30,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. |
-| <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. |
-| <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | L | [F198](README.md#f198), `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) | A host's stop fed from the file on standard input, the master password typed once, no drive login among its needs, and the central forge's token after `up`. |
+| <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | [F199](README.md#f199), `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | The host's `machine.yml` and bundle uploaded over its own ssh into `/etc/porelo-host/setup/`, read by Porelo's account, the desktop's copy kept in the interface's own folder. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | [F199](README.md#f199), `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | The host's `machine.yml` and bundle uploaded over its own ssh into `/etc/porelo-host/setup/`, read by Porelo's account, the desktop's copy kept in the interface's own folder. |
 | <a id="f201"></a>[F201](F201-The-Persons-Own-Drive-Mounted-In-Their-Account.md) | L | [F197](README.md#f197) | A person's own Tresorit drive mounted in their own account by the machine setup, optional, never Porelo's and never part of renting a host. |
 | <a id="f202"></a>[F202](F202-The-Forges-Certificate-Signed-On-This-Desktop.md) | M | [F199](README.md#f199), `porelo-host` [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) | The forge's certificate signed on this desktop by the lasting CA in `secrets.kdbx`, its key never on the host. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |

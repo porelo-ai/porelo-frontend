@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 
 import 'desk.dart';
 import 'host_protocol.dart';
@@ -28,6 +29,7 @@ class HostUpRecord {
     required this.account,
     required this.tresor,
     required this.folder,
+    this.setupFolder,
     this.repository = '',
     required this.signingKey,
     required this.identity,
@@ -56,6 +58,10 @@ class HostUpRecord {
 
   /// Its local synced folder, absent when the host files were supplied manually.
   final String? folder;
+
+  /// The interface's own folder holding the host's `machine.yml` and bundle, which `up` uploads; absent in a record
+  /// from before the upload, whose host read them from the drive.
+  final String? setupFolder;
 
   /// Retained for source compatibility; stored repository addresses are ignored.
   final String repository;
@@ -108,6 +114,7 @@ class HostUpRecord {
     account: account,
     tresor: tresor,
     folder: folder,
+    setupFolder: setupFolder,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -131,6 +138,7 @@ class HostUpRecord {
     account: account,
     tresor: tresor,
     folder: folder,
+    setupFolder: setupFolder,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -154,6 +162,7 @@ class HostUpRecord {
     account: account,
     tresor: tresor,
     folder: folder,
+    setupFolder: setupFolder,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -177,6 +186,7 @@ class HostUpRecord {
     account: account,
     tresor: tresor,
     folder: folder,
+    setupFolder: setupFolder,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -223,6 +233,11 @@ class HostUpRecord {
       if (vaultKeys is! List ||
           vaultKeys.any((name) => name is! String || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) ||
           vaultKeys.toSet().length != vaultKeys.length) {
+        return null;
+      }
+      final setupFolder = value['setupFolder'];
+      if (setupFolder != null &&
+          (setupFolder is! String || !path.isAbsolute(setupFolder) || setupFolder.contains('\x00'))) {
         return null;
       }
       final vpnHostPublicKey = value['vpnHostPublicKey'] ?? '';
@@ -279,6 +294,7 @@ class HostUpRecord {
         vpnEndpointAddress: vpnEndpointAddress,
         vpnFile: vpnFile as String?,
         vaultKeys: List.unmodifiable(vaultKeys.cast<String>()),
+        setupFolder: setupFolder as String?,
         preparing: preparing,
         startedAt: startedAt,
         protocol: protocol,
@@ -293,6 +309,7 @@ class HostUpRecord {
     'account': account,
     'tresor': tresor,
     'folder': folder,
+    if (setupFolder != null) 'setupFolder': setupFolder,
     'signingKey': signingKey,
     'identity': identity,
     'publicKey': publicKey,
@@ -329,6 +346,12 @@ class HostUpRecord {
     ],
     '--scaleway-project',
     scalewayProject,
+    if (setupFolder case final setup?) ...[
+      '--machine-file',
+      path.join(setup, 'porelo-host', 'machine.yml'),
+      '--bundle',
+      path.join(setup, 'porelo-host', '$project.bundle'),
+    ],
   ];
 }
 

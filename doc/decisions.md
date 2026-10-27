@@ -60,7 +60,7 @@ taken, `git log` answers.
 | [Secrets for a host are typed only in its terminal](#secrets-for-a-host-are-typed-only-in-its-terminal) |
 | [No Scaleway secret is on GitHub: the Build tests against recorded answers, with one real rent per release](#no-scaleway-secret-is-on-github) |
 | [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
-| [The host's files reach it through Tresorit, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-through-tresorit-and-the-persons-wireguard-key-stays-in-the-secret-store) |
+| [The host's files reach it over its own ssh, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-over-its-own-ssh-and-the-persons-wireguard-key-stays-in-the-secret-store) |
 | [An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned](#an-agent-on-a-host-is-signed-in-at-task-start-and-every-ssh-trusts-only-the-key-porelo-host-pinned) |
 
 ## The interface can do what a console can
@@ -756,11 +756,14 @@ dialog has no collection field in release builds. The interface starts `porelo-h
 never by `PATH`, so neither an older copy on the machine nor a binary placed earlier on `PATH` can
 stand in for the one built with the interface.
 
-## The host's files reach it through Tresorit, and the person's WireGuard key stays in the secret store
+## The host's files reach it over its own ssh, and the person's WireGuard key stays in the secret store
 
-When a local Tresorit folder is chosen for a project, the interface writes the followed project's git
-bundle (`porelo-host/<project>.bundle`), the host's machine file, any copied keys and the host's
-private WireGuard key there without replacing differing files or following links. The person's
+The interface writes the followed project's git bundle (`porelo-host/<project>.bundle`) and the host's
+machine file into its own configuration folder, `hosts/<project>`, without replacing differing files or
+following links, and `porelo-host up` uploads both into `/etc/porelo-host/setup/` on the host, root's
+alone, each checked there by its SHA-256. The host's own WireGuard key, its vault passphrase and
+its vault entries' files are kept in the person's `secrets.kdbx` and reach the host only on standard
+input at its stop; the drive holds none of them. The person's
 private WireGuard key stays in the system secret store; during setup, it reaches root via a temporary
 `0600` file in the user's runtime directory that is removed immediately after the VPN terminal exits.
 Setup checks ping and WireGuard handshake before marking the host ready, and only one `porelo` VPN

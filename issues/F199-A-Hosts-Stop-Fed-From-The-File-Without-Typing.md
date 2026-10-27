@@ -1,7 +1,7 @@
 # F199 — A Host's Stop Fed From The File Without Typing
 
-**Status:** Implementing; blocked by [F198](README.md#f198) and by `porelo-host`
-[HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37).
+**Status:** Review; published 2026-10-27 with [F198](README.md#f198) and `porelo-host`
+[HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37), not yet run on a rented host.
 **Size:** L - the stop's terminal in the host dialog, the central forge's token after `up`, the vault entries' files
 moved into the secrets file, and their tests, on a contract with `porelo-host` (grew from M once the entries' files
 had to move, agreed with Machines).

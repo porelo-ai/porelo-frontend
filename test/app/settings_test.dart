@@ -50,6 +50,28 @@ void main() {
     expect(HostUpRecord.fromStored(record)!.vpnFile, isNull, reason: 'older records remain usable');
   });
 
+  // Harm: up uploads files from another place than the interface wrote them, or a resumed setup none at all.
+  test('the setup folder survives reload and names the files up uploads; an older record names none', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.rememberHostUp('demo', HostUpRecord.fromStored({...record, 'setupFolder': '/conf/hosts/demo'})!);
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    final arguments = reopened.hostUp('demo')!.arguments('demo');
+    expect(
+      arguments.join(' '),
+      endsWith(
+        '--machine-file /conf/hosts/demo/porelo-host/machine.yml --bundle /conf/hosts/demo/porelo-host/demo.bundle',
+      ),
+    );
+    expect(HostUpRecord.fromStored(record)!.arguments('demo'), isNot(contains('--machine-file')));
+    for (final bad in <Object?>['relative/hosts', 7, '/conf/\x00x']) {
+      expect(HostUpRecord.fromStored({...record, 'setupFolder': bad}), isNull, reason: '$bad');
+    }
+  });
+
   // Harm: a stored name the stop would send as a line of its own, or an entry sent twice.
   test('the vault entries\' names survive reload, and a name the stop would refuse drops the record', () async {
     final store = MemorySettingsStore();

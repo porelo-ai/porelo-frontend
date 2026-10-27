@@ -207,6 +207,7 @@ void main() {
         MaterialApp(
           home: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             project: 'demo',
             machines: machines,
             settings: machines.settings,
@@ -426,6 +427,7 @@ void main() {
         MaterialApp(
           home: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             project: 'demo',
             machines: machines,
             hostRuns: runs,
@@ -641,6 +643,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -697,6 +700,7 @@ void main() {
       MaterialApp(
         home: HostDialog(
           openSecretsFile: _secretsOpened,
+          setupFolder: '${scratch.path}/setup',
           hostFiles: filesFor,
           checkKey: _acceptedKey,
           hostRuns: runs,
@@ -734,6 +738,7 @@ void main() {
       MaterialApp(
         home: HostDialog(
           openSecretsFile: _secretsOpened,
+          setupFolder: '${scratch.path}/setup',
           hostFiles: filesFor,
           checkKey: _acceptedKey,
           hostRuns: runs,
@@ -797,6 +802,7 @@ void main() {
       MaterialApp(
         home: HostDialog(
           openSecretsFile: _secretsOpened,
+          setupFolder: '${scratch.path}/setup',
           hostFiles: filesFor,
           checkKey: _acceptedKey,
           hostRuns: runs,
@@ -974,6 +980,7 @@ void main() {
             home: Scaffold(
               body: HostDialog(
                 openSecretsFile: _secretsOpened,
+                setupFolder: '${scratch.path}/setup',
                 hostFiles: filesFor,
                 checkKey: _acceptedKey,
                 hostRuns: runs,
@@ -1034,6 +1041,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            setupFolder: '${scratch.path}/setup',
             openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
               opened.add(keys);
               return _secretsOpened(file: file, project: project);
@@ -1129,6 +1137,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1170,6 +1179,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1226,7 +1236,7 @@ void main() {
     expect(find.textContaining(unreadable.path), findsNothing);
     expect(find.text('refused'), findsNothing);
     expect(runs.of('demo')!.awaitingVpn, isTrue, reason: 'corrected host setup still needs a verified local VPN');
-    final yaml = File(fixture('porelo-host/machine.yml')).readAsStringSync();
+    final yaml = File(fixture('setup/porelo-host/machine.yml')).readAsStringSync();
     expect(yaml, contains(host.HostFiles.signingFingerprint(replacement.readAsStringSync())));
   });
 
@@ -1241,6 +1251,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1288,6 +1299,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1341,6 +1353,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -1387,6 +1400,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1422,6 +1436,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1472,6 +1487,7 @@ void main() {
                 context: context,
                 builder: (_) => HostDialog(
                   openSecretsFile: _secretsOpened,
+                  setupFolder: '${scratch.path}/setup',
                   hostFiles: filesFor,
                   checkKey: _acceptedKey,
                   hostRuns: runs,
@@ -1513,7 +1529,10 @@ void main() {
     process.end(0);
     await World.settle(tester);
     expect(tester.takeException(), isNull, reason: 'a process answer must not notify a disposed dialog');
-    // No folder was chosen, so the host files were supplied by hand and there is no VPN to wait for.
+    // The host's key comes from the secrets file, so the machine is added once the VPN answers.
+    expect(runs.of('demo')!.awaitingVpn, isTrue);
+    await runs.vpnChecked(runs.of('demo')!, verified: true);
+    await World.settle(tester);
     expect(machines.all.where((machine) => machine.kind == 'host').single.name, 'demo server');
     expect(runs.of('demo')!.ready, isTrue);
   });
@@ -1787,6 +1806,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -1835,6 +1855,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -1888,6 +1909,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1927,8 +1949,8 @@ void main() {
     late File conflict;
     late File signing;
     await tester.runAsync(() async {
-      await Directory(path.join(scratch.path, 'porelo-host')).create();
-      conflict = await File(path.join(scratch.path, 'porelo-host', 'machine.yml')).writeAsString('keep');
+      await Directory(path.join(scratch.path, 'setup', 'porelo-host')).create(recursive: true);
+      conflict = await File(path.join(scratch.path, 'setup', 'porelo-host', 'machine.yml')).writeAsString('keep');
       signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(signingPublic);
     });
     await tester.pumpWidget(
@@ -1936,6 +1958,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -1981,6 +2004,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: HostDialog(
+            setupFolder: '${scratch.path}/setup',
             openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) async {
               opened.add(file);
               if (refuse) throw const host.HostFilesRefused('The secrets file was not opened, so setup did not start.');
@@ -2041,6 +2065,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: HostDialog(
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2124,6 +2149,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2154,7 +2180,6 @@ void main() {
         'host-signing-key': signing.path,
       },
       onDrive: () async {
-        expect(find.textContaining('Supply the host files manually'), findsOneWidget);
         await tester.ensureVisible(find.byKey(const Key('host-folder')));
         await tester.tap(find.byKey(const Key('host-folder')));
         await World.settle(tester);
@@ -2226,7 +2251,27 @@ void main() {
     expect(reopened.hostUp('demo')!.vpnFile, isNull, reason: 'local bring-up does not save an export');
     await tapAndRun(tester, const Key('host-down'));
     expect(commands.map((a) => a.first), ['up', 'up', 'down']);
+    // Harm: the host reading its setup from the drive, or up uploading files from another place than written.
+    final setup = path.join(scratch.path, 'setup', 'porelo-host');
+    expect(File(path.join(setup, 'machine.yml')).existsSync(), isTrue);
+    expect(File(path.join(setup, 'demo.bundle')).existsSync(), isTrue);
+    for (final name in ['machine.yml', 'demo.bundle']) {
+      expect(
+        File(path.join(scratch.path, 'porelo-host', name)).existsSync(),
+        isFalse,
+        reason: 'the drive has no part in the setup: $name',
+      );
+    }
     for (final command in commands) {
+      expect(
+        command,
+        containsAllInOrder([
+          '--machine-file',
+          path.join(setup, 'machine.yml'),
+          '--bundle',
+          path.join(setup, 'demo.bundle'),
+        ]),
+      );
       expect(command, containsAllInOrder(['--vpn-peer-public-key', peer, '--vpn-peer-address', '10.73.0.2/32']));
       for (final secret in [private, hostPrivate]) {
         expect(command.join(' '), isNot(contains(secret)));
@@ -2254,6 +2299,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2310,6 +2356,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2366,6 +2413,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2416,7 +2464,11 @@ void main() {
     processes.last.end(0);
     await World.settle(tester);
     expect(find.byKey(const Key('host-add')), findsNothing, reason: 'successful setup adds the host automatically');
-    expect(runs.of('demo')!.ready, isTrue, reason: 'host files supplied by hand leave no VPN to wait for');
+    // The host's key comes from the secrets file, with a drive folder or without: every setup waits for the VPN.
+    expect(runs.of('demo')!.awaitingVpn, isTrue);
+    await runs.vpnChecked(runs.of('demo')!, verified: true);
+    await World.settle(tester);
+    expect(runs.of('demo')!.ready, isTrue);
     await World.settle(tester);
     final added = machines.all.single;
     expect(added.name, 'demo server');
@@ -2496,6 +2548,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2575,6 +2628,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2615,6 +2669,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2692,6 +2747,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2790,6 +2846,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2843,6 +2900,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -2908,6 +2966,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             hostFiles: filesFor,
             checkKey: _acceptedKey,
             hostRuns: runs,
@@ -2991,6 +3050,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -3054,7 +3114,7 @@ void main() {
       await World.settle(tester);
       expect(find.byKey(const Key('host-done')), findsNothing, reason: 'terminal exit is no setup verdict');
       await tapAndRun(tester, const Key('unlock-done'));
-      expect(runs.of('demo')!.ready, isTrue, reason: 'the second up completes setup; no folder, so no VPN');
+      expect(runs.of('demo')!.awaitingVpn, isTrue, reason: 'the second up completes setup, which waits for the VPN');
       final first = File('${scratch.path}/arguments-1').readAsLinesSync();
       expect(File('${scratch.path}/arguments-2').readAsLinesSync(), first);
       for (var n = 1; n <= 2; n++) {
@@ -3075,6 +3135,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -3129,6 +3190,7 @@ void main() {
           home: Scaffold(
             body: HostDialog(
               openSecretsFile: _secretsOpened,
+              setupFolder: '${scratch.path}/setup',
               hostFiles: filesFor,
               checkKey: _acceptedKey,
               hostRuns: runs,
@@ -3304,8 +3366,13 @@ class _ControlledHostFiles extends host.HostFiles {
   }) => work.defer(() => super.createBundle(project: project, url: url, commit: commit, signingKey: signingKey));
 
   @override
-  Future<void> publishBundle({required String project, required String folder, required List<int> bytes}) =>
-      work.defer(() => super.publishBundle(project: project, folder: folder, bytes: bytes));
+  Future<void> publishBundle({
+    required String project,
+    required String folder,
+    required List<int> bytes,
+    bool createFolder = false,
+  }) =>
+      work.defer(() => super.publishBundle(project: project, folder: folder, bytes: bytes, createFolder: createFolder));
 
   @override
   Future<host.HostTunnel> prepare({

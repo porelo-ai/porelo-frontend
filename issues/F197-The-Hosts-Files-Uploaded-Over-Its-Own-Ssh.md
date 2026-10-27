@@ -1,7 +1,8 @@
 # F197 — The Host's Files Uploaded Over Its Own Ssh
 
-**Status:** Backlog; re-cut from a drive layout (a step of the host's new setup, after [F199](README.md#f199)),
-blocked by `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36).
+**Status:** Implementing; re-cut from a drive layout (a step of the host's new setup, after
+[F199](README.md#f199)); `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36)
+is published, and no porelo-host release carries it before this issue is out.
 **Size:** M - `porelo_host`'s `copy` step and `HostFiles`, the host dialog's step *The drive*, and their tests; one
 path both repositories read.
 
@@ -35,6 +36,13 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   at each `up` and is not kept.
 - **Red first:** a test of `porelo_host`'s `up` against its remote stand-in: the two files are sent to the agreed
   place with their digests checked, and a mismatch refuses `copy`.
+- **Built:** `porelo-host up --machine-file … --bundle …` uploads both (both or neither). The setup's record keeps
+  the folder (`setupFolder`) and passes both paths on every `up`, resume and `down`; a record from before it names
+  none, and its host reads the drive as before. *The drive* no longer writes anything into the synced folder; it is
+  read only for a VPN key it held from before, which moves into the secrets file. With the interface writing the
+  files, every setup takes the host's key from the secrets file and waits for the VPN; only a record from before,
+  with neither a drive folder nor a setup folder, had host files given by hand, and its stop gives no VPN key from
+  the file.
 
 ## Acceptance
 

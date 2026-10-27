@@ -150,6 +150,7 @@ void main() {
         home: Scaffold(
           body: HostDialog(
             openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
             project: 'demo',
             machines: machines,
             settings: settings,
@@ -214,7 +215,7 @@ void main() {
   testWidgets('the published bundle contains exactly the followed commit as main and HEAD', (tester) async {
     await open(tester);
     await put(tester);
-    final bundle = File(path.join(folder.path, 'porelo-host', 'demo.bundle'));
+    final bundle = File(path.join(scratch.path, 'setup', 'porelo-host', 'demo.bundle'));
     expect(bundle.existsSync(), isTrue, reason: 'setup must publish the selected project bundle before renting');
     await tester.runAsync(() async {
       final heads = await _git(source, ['bundle', 'list-heads', bundle.path]);
@@ -231,7 +232,7 @@ void main() {
       );
       expect(rejected.exitCode, isNot(0), reason: 'unverified history must not leave this computer');
       final yaml = await File(path.join(bundle.parent.path, 'machine.yml')).readAsString();
-      expect(yaml, contains('url: "/srv/porelo-host/drive/porelo-host/demo.bundle"'));
+      expect(yaml, contains('url: "/etc/porelo-host/setup/demo.bundle"'));
     });
     expect(starts, hasLength(1));
   });
@@ -242,7 +243,7 @@ void main() {
     await tester.runAsync(() => _git(source, ['bundle', 'create', input.path, 'HEAD', 'main']));
     await open(tester, url: input.path);
     await put(tester);
-    final output = File(path.join(folder.path, 'porelo-host', 'demo.bundle'));
+    final output = File(path.join(scratch.path, 'setup', 'porelo-host', 'demo.bundle'));
     expect(output.existsSync(), isTrue, reason: 'the daemon supplied bundle must be readable before renting');
     await tester.runAsync(() async {
       expect((await _git(source, ['bundle', 'list-heads', output.path])).split('\n').toSet(), {
@@ -255,7 +256,7 @@ void main() {
 
   // Harm: an outdated bundle leaves a resumed server running the wrong verified project revision.
   testWidgets('publication replaces an existing regular bundle with the verified revision', (tester) async {
-    final root = Directory(path.join(folder.path, 'porelo-host'))..createSync();
+    final root = Directory(path.join(scratch.path, 'setup', 'porelo-host'))..createSync(recursive: true);
     final output = File(path.join(root.path, 'demo.bundle'))..writeAsStringSync('previous bundle');
     await open(tester);
     await put(tester);
@@ -398,14 +399,14 @@ void main() {
       final refusal = find.textContaining('signed by ${fingerprint('signer')}, not by ${fingerprint('other')}');
       expect(refusal, findsOneWidget);
       expect(find.textContaining('may be swapped'), findsNothing, reason: 'the login key is another one');
-      expect(File(path.join(folder.path, 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
+      expect(File(path.join(scratch.path, 'setup', 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
       // The corrected key is checked again rather than the refused bundle taken.
       await choose(tester, path.join(scratch.path, 'signing.pub'));
       await tester.pump();
       await put(tester);
       if (refusedOnWindows()) return;
       expect(starts, hasLength(1), reason: 'the key that signed the commit must go on to renting');
-      final yaml = File(path.join(folder.path, 'porelo-host', 'machine.yml')).readAsStringSync();
+      final yaml = File(path.join(scratch.path, 'setup', 'porelo-host', 'machine.yml')).readAsStringSync();
       expect(yaml, contains('signed_by: "${fingerprint('signer')}"'));
     });
 
@@ -628,7 +629,7 @@ void main() {
         left = left.intersection(scratchWork());
       }
       expect(left, isEmpty, reason: 'failed preparation must remove its private scratch directory');
-      expect(File(path.join(folder.path, 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
+      expect(File(path.join(scratch.path, 'setup', 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
     });
   }
 
@@ -637,7 +638,8 @@ void main() {
     testWidgets('bundle publication refuses a $type and leaves outside files untouched', (tester) async {
       final outside = Directory(path.join(scratch.path, 'outside'))..createSync();
       final sentinel = File(path.join(outside.path, 'demo.bundle'))..writeAsStringSync('keep');
-      final root = Directory(path.join(folder.path, 'porelo-host'));
+      final root = Directory(path.join(scratch.path, 'setup', 'porelo-host'));
+      root.parent.createSync();
       if (type == 'root symlink') {
         Link(root.path).createSync(outside.path);
       } else {

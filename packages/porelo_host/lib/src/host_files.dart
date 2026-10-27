@@ -7,7 +7,6 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
 import 'secret_store.dart';
-import 'collection.dart';
 import 'host_file_writer.dart';
 
 /// A vault entry and the file selected for import by the host.
@@ -232,10 +231,10 @@ class HostFiles {
     }
   }
 
-  /// The host reads this bundle from the collection's mounted drive.
+  /// The host reads this bundle where `up` uploaded it, a place only root writes.
   static String bundleUrl(String project) {
     checkName(project);
-    return path.posix.join(hostDrivePath, 'porelo-host', '$project.bundle');
+    return path.posix.join('/etc/porelo-host/setup', '$project.bundle');
   }
 
   /// Builds only the daemon's verified revision, without reading daemon-owned files.
@@ -346,9 +345,16 @@ class HostFiles {
   }
 
   /// Stages a complete bundle beside its target before replacing a regular file.
-  Future<void> publishBundle({required String project, required String folder, required List<int> bytes}) async {
+  ///
+  /// [createFolder] makes [folder] where it is this desktop's own; a drive's folder must exist already.
+  Future<void> publishBundle({
+    required String project,
+    required String folder,
+    required List<int> bytes,
+    bool createFolder = false,
+  }) async {
     final target = File(destinationPath(folder, '$project.bundle'));
-    await _directory(Directory(folder), create: false);
+    await _directory(Directory(folder), create: createFolder);
     await _directory(target.parent);
     Future<void> checkTarget() async {
       final type = await FileSystemEntity.type(target.path, followLinks: false);
@@ -479,7 +485,7 @@ class HostFiles {
   static Future<void> _directory(Directory directory, {bool create = true}) async {
     final type = await FileSystemEntity.type(directory.path, followLinks: false);
     if (type != FileSystemEntityType.notFound && type != FileSystemEntityType.directory) _conflict(directory.path);
-    if (create) await directory.create();
+    if (create) await directory.create(recursive: true);
     if (!create && type != FileSystemEntityType.directory) _conflict(directory.path);
   }
 }
