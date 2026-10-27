@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f194"></a>[F194](F194-A-Signing-Key-That-Did-Not-Sign-The-Bundle-Refused.md) | — | — | A signing key that did not sign the commit put on the drive refused on "The drive", before a server is rented, naming both fingerprints, with the field opening on a key the machine pins. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
 
@@ -25,12 +26,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f194"></a>[F194](F194-A-Signing-Key-That-Did-Not-Sign-The-Bundle-Refused.md) | M | — | A signing key that did not sign the commit put on the drive refused on "The drive", before a server is rented, naming both fingerprints, with the field opening on a key the machine pins. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f196"></a>[F196](F196-The-Public-Ssh-Key-Follows-Its-Private-One.md) | S | — | The public ssh key filled from the private one as `<private>.pub` whenever that exists, also over a kept value, and a public key that does not belong to it refused at the field with [F195](README.md#f195)'s icons. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -41,7 +42,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |
@@ -72,12 +72,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
 | <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
 | <a id="f195"></a>[F195](F195-The-Signing-Key-Checked-As-It-Is-Chosen.md) | — | — | The signing key on *The drive* checked against the verified commit as soon as it changes, with a check mark or an error icon at the field and no stale answer beside a changed key. |
-| <a id="f196"></a>[F196](F196-The-Public-Ssh-Key-Follows-Its-Private-One.md) | — | — | The public ssh key filled from the private one as `<private>.pub` whenever that exists, also over a kept value, and a public key that does not belong to it refused at the field with [F195](README.md#f195)'s icons. |
 
 ### Estimated
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |

@@ -1,6 +1,6 @@
 # F148 — An Agent For Each Repository, At One Click
 
-**Status:** Analyzed; blocked by `porelo`
+**Status:** Estimated; blocked by `porelo`
 [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298).
 **Size:** L - a new wizard over the existing start, M on its own, but it crosses repositories: the agent a repository
 names is not on the wire yet.

@@ -1,6 +1,7 @@
 # F196 — The Public Ssh Key Follows Its Private One
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** S - the step *Your ssh keys* in the host dialog and its tests, on [F195](README.md#f195)'s check and icons.
 
 **What must be true.** On *Your ssh keys*, choosing or typing the private key fills the public key
 field with the same name and `.pub` whenever that file exists, also over a value kept from an

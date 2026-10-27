@@ -1,6 +1,6 @@
 # F194 — A Signing Key That Did Not Sign The Bundle Refused
 
-**Status:** Implementing (Backlog 2026-10-27).
+**Status:** Review; in the operator's re-test with `porelo-frontend 0.5.1~snapshot.192`.
 **Size:** M - two modules (`HostFiles` and the host dialog's step "The drive") with their tests; no
 contract change, since the machine's `Following` answer already carries the pinned fingerprints.
 
