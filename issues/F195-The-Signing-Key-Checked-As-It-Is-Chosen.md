@@ -1,6 +1,6 @@
 # F195 — The Signing Key Checked As It Is Chosen
 
-**Status:** Implementing.
+**Status:** Review; published in `porelo-frontend 0.5.1~snapshot.194`.
 **Size:** S - the host dialog's step *The drive* and its widget tests; no contract and no other module.
 
 **What must be true.** On *The drive*, the public key for signing commits is checked against the

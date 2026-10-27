@@ -18,6 +18,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f195"></a>[F195](F195-The-Signing-Key-Checked-As-It-Is-Chosen.md) | — | — | The signing key on *The drive* checked against the verified commit as soon as it changes, with a check mark or an error icon at the field and no stale answer beside a changed key. |
+| <a id="f196"></a>[F196](F196-The-Public-Ssh-Key-Follows-Its-Private-One.md) | — | — | The public ssh key filled from the private one as `<private>.pub` whenever that exists, also over a kept value, and a public key that does not belong to it refused at the field with [F195](README.md#f195)'s icons. |
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
 
@@ -25,8 +27,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f195"></a>[F195](F195-The-Signing-Key-Checked-As-It-Is-Chosen.md) | S | — | The signing key on *The drive* checked against the verified commit as soon as it changes, with a check mark or an error icon at the field and no stale answer beside a changed key. |
-| <a id="f196"></a>[F196](F196-The-Public-Ssh-Key-Follows-Its-Private-One.md) | S | — | The public ssh key filled from the private one as `<private>.pub` whenever that exists, also over a kept value, and a public key that does not belong to it refused at the field with [F195](README.md#f195)'s icons. |
 
 ### Backlog
 

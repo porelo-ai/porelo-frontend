@@ -1,6 +1,6 @@
 # F196 — The Public Ssh Key Follows Its Private One
 
-**Status:** Implementing.
+**Status:** Review; published in `porelo-frontend 0.5.1~snapshot.194`.
 **Size:** S - the step *Your ssh keys* in the host dialog and its tests, on [F195](README.md#f195)'s check and icons.
 
 **What must be true.** On *Your ssh keys*, choosing or typing the private key fills the public key
