@@ -45,10 +45,11 @@ class SecretsFile {
   static String vaultKey(String project, String name) => 'hosts/$project/keys/$name';
 
   /// The script that writes the stop's lines for [needs], one `<need> [<name>] <base64>` per secret, to standard output,
-  /// which is the pipe to the host's `porelo-host-stop --stdin`; [keys] names the vault entries `keys` brings.
+  /// which is the pipe to the host's `porelo-host-stop --stdin`; `keys` brings every entry under
+  /// `hosts/<project>/keys/`.
   ///
   /// Every entry is read before the first line is written, so a missing one sends nothing and is named.
-  String stopLines({required String project, required List<String> needs, List<String> keys = const []}) {
+  String stopLines({required String project, required List<String> needs}) {
     _checkProject(project);
     for (final need in needs) {
       if (!stopNeeds.contains(need)) {
@@ -56,11 +57,6 @@ class SecretsFile {
       }
     }
     if (needs.toSet().length != needs.length) throw const FormatException('The host named a need twice.');
-    for (final name in keys) {
-      if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) {
-        throw const HostFilesRefused('A vault entry name holds only letters, digits, ".", "_" and "-".');
-      }
-    }
     final reads = <String>[];
     final writes = <String>[];
     var index = 0;
@@ -86,9 +82,26 @@ class SecretsFile {
         case 'wireguard':
           entry(need, hostKey(project));
         case 'keys':
-          for (final name in keys) {
-            entry('key $name', vaultKey(project, name), base64: true);
-          }
+          final group = _word('hosts/$project/keys');
+          // Every entry of the group, each name checked and each value kept base64 already.
+          reads.addAll([
+            'keys=()',
+            'names="\$(kp ls "\$file" $group 2>/dev/null || true)"',
+            'while IFS= read -r name; do',
+            '  case "\$name" in ""|*/) continue;; esac',
+            '  if ! [[ "\$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\$ ]]; then '
+                'echo "\$file has an entry named \$name under hosts/$project/keys; nothing was sent." >&2; exit 1; fi',
+            '  value="\$(get "hosts/$project/keys/\$name")"',
+            '  if ! [[ "\$value" =~ ^[A-Za-z0-9+/]+={0,2}\$ ]]; then '
+                'echo "hosts/$project/keys/\$name is not base64; nothing was sent." >&2; exit 1; fi',
+            '  keys+=("key \$name \$value")',
+            r'''done < <(printf '%s
+' "$names")''',
+            'if [ \${#keys[@]} -eq 0 ]; then '
+                'echo "\$file keeps no vault entry under hosts/$project/keys; nothing was sent." >&2; exit 1; fi',
+          ]);
+          writes.add(r'''for line in "${keys[@]}"; do printf '%s
+' "$line"; done''');
       }
     }
     return [
@@ -108,7 +121,7 @@ class SecretsFile {
       r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was sent." >&2; exit 1; fi',
       ...reads,
       ...writes,
-      'unset MASTER ${[for (var i = 0; i < index; i++) 'v$i'].join(' ')}',
+      'unset MASTER ${[for (var i = 0; i < index; i++) 'v$i'].join(' ')}${needs.contains('keys') ? ' keys value' : ''}',
     ].join('\n');
   }
 
@@ -128,10 +141,17 @@ class SecretsFile {
     required bool create,
     required String publicKeyOut,
     String? migrateKeyFrom,
+    Map<String, String> keys = const {},
   }) {
     _checkProject(project);
     checkPath(publicKeyOut);
     if (migrateKeyFrom != null) checkPath(migrateKeyFrom);
+    for (final entry in keys.entries) {
+      if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(entry.key)) {
+        throw const HostFilesRefused('A vault entry name holds only letters, digits, ".", "_" and "-".');
+      }
+      checkPath(entry.value);
+    }
     final key = _word(hostKey(project));
     final passphrase = _word(vaultPassphrase(project));
     final group = _word('hosts/$project');
@@ -161,6 +181,10 @@ class SecretsFile {
       ] else
         r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
       r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was changed." >&2; exit 1; fi',
+      // A vault entry's file is outside input: checked before anything changes.
+      for (final file in keys.values)
+        'if [ -L ${_word(file)} ] || [ ! -f ${_word(file)} ]; then '
+            'echo "${file.replaceAll('"', '')} is not a plain file; nothing was changed." >&2; exit 1; fi',
       // The drive is read before the file is made or changed, so a refusal leaves both as they were.
       if (drive != null) ...[
         // The drive's copy is outside input: a link or a key wg cannot read is refused, and nothing is changed.
@@ -199,11 +223,23 @@ class SecretsFile {
           'echo "The secrets file does not hold a WireGuard key for this server; nothing was removed." >&2; exit 1; fi',
       if (drive != null) 'if [ -n "\$old" ]; then /usr/bin/rm -f $drive; fi',
       'kp show "\$file" $passphrase >/dev/null 2>&1 || kp add -g -L 32 "\$file" $passphrase >/dev/null',
+      if (keys.isNotEmpty)
+        'kp ls "\$file" ${_word('hosts/$project/keys')} >/dev/null 2>&1 || '
+            'kp mkdir "\$file" ${_word('hosts/$project/keys')} >/dev/null',
+      // A vault entry's file, kept base64; one already kept under that name is replaced only by the same bytes.
+      for (final entry in keys.entries) ...[
+        'value="\$(/usr/bin/base64 -w0 < ${_word(entry.value)})"',
+        'have="\$(kp show -s -a password "\$file" ${_word(vaultKey(project, entry.key))} 2>/dev/null || true)"',
+        'if [ -z "\$have" ]; then { printf \'%s\\n%s\\n\' "\$MASTER" "\$value"; } | '
+            '"\$cli" add -p "\$file" ${_word(vaultKey(project, entry.key))} >/dev/null; '
+            'elif [ "\$have" != "\$value" ]; then echo "Your secrets file keeps another ${entry.key} for this server; '
+            'remove it there to take the new one." >&2; exit 1; fi',
+      ],
       r'''pub="$(printf '%s\n' "$private" | /usr/bin/wg pubkey)"''',
       r'if [ -z "$pub" ]; then echo "wg gave no public key; nothing was written." >&2; exit 1; fi',
       r'''printf '%s\n' "$pub" > "$out.new"''',
       r'/usr/bin/mv "$out.new" "$out"',
-      'unset MASTER private pub old',
+      'unset MASTER private pub old value have',
       r'echo "The secrets file is ready."',
     ].join('\n');
   }

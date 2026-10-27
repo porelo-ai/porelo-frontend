@@ -35,7 +35,7 @@ void main() {
         publicKeyOut: publicKeyOut,
         migrateKeyFrom: '/home/person/w.key',
       );
-      final fed = SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'keys'], keys: ['forge']);
+      final fed = SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'keys']);
       for (final each in <String>[script, made, drives, fed]) {
         expect(each, isNot(contains('<<<')), reason: 'a here-string may be a file on an older bash');
         expect(
@@ -108,13 +108,12 @@ void main() {
   group('the stop\'s lines', () {
     // Harm: a secret in an argument, or a line for a need the host did not ask, which it refuses after renting.
     test('reads the master password once and writes only the lines the stop named', () {
-      final feed = SecretsFile(file)
-          .stopLines(project: 'checkout', needs: ['vault', 'wireguard', 'keys'], keys: ['forge']);
+      final feed = SecretsFile(file).stopLines(project: 'checkout', needs: ['vault', 'wireguard', 'keys']);
 
       expect(RegExp(r'read -rs').allMatches(feed).length, 1);
       expect(feed, contains("'hosts/checkout/vault-passphrase'"));
       expect(feed, contains("'hosts/checkout/wireguard'"));
-      expect(feed, contains("'hosts/checkout/keys/forge'"));
+      expect(feed, contains("'hosts/checkout/keys'"), reason: 'every entry of the group');
       expect(feed, isNot(contains('db-create')), reason: 'the stop never makes a file');
       expect(feed, isNot(contains('add ')), reason: 'the stop changes nothing in the file');
     });
@@ -127,10 +126,7 @@ void main() {
           reason: need,
         );
       }
-      expect(
-        () => SecretsFile(file).stopLines(project: 'checkout', needs: ['keys'], keys: ["a'b"]),
-        throwsA(isA<HostFilesRefused>()),
-      );
+      expect(() => SecretsFile(file).stopLines(project: "a'b", needs: ['keys']), throwsA(isA<HostFilesRefused>()));
     });
   });
 
@@ -158,6 +154,15 @@ void main() {
       final out = await process.stdout.transform(utf8.decoder).join();
       final err = await process.stderr.transform(utf8.decoder).join();
       return ProcessResult(process.pid, await process.exitCode, out, err);
+    }
+
+    Future<void> cliIn(String kdbx, List<String> arguments, String master, {String? then}) async {
+      final process = await Process.start(cli, arguments);
+      process.stdin.write(then == null ? '$master\n' : '$master\n$then\n');
+      await process.stdin.close();
+      await process.stdout.drain<void>();
+      await process.stderr.drain<void>();
+      expect(await process.exitCode, 0, reason: '${arguments.first} in the file');
     }
 
     Future<String> show(String kdbx, String entry, String master) async {
@@ -285,6 +290,46 @@ void main() {
       skip: skip,
     );
 
+    // Harm: a vault entry's file copied to the drive in the clear, or replaced by another without a word.
+    test('a vault entry\'s file goes into the file base64, and a link or a missing file is refused', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'checkout.pub');
+      final chosen = await File(path.join(home.path, 'forge-token')).writeAsBytes([1, 2, 3, 250]);
+
+      final made = await run(
+        SecretsFile(
+          kdbx,
+          cli: cli,
+        ).prepareHost(project: 'checkout', create: true, publicKeyOut: out, keys: {'forge': chosen.path}),
+        'm',
+        twice: true,
+      );
+      expect(made.exitCode, 0, reason: '${made.stderr}');
+      expect(await show(kdbx, 'hosts/checkout/keys/forge', 'm'), base64Encode([1, 2, 3, 250]));
+      expect(await chosen.exists(), isTrue, reason: 'the person\'s own file stays theirs');
+
+      final link = path.join(home.path, 'link-token');
+      await Link(link).create(chosen.path);
+      final linked = await run(
+        SecretsFile(
+          kdbx,
+          cli: cli,
+        ).prepareHost(project: 'checkout', create: false, publicKeyOut: out, keys: {'other': link}),
+        'm',
+      );
+      expect(linked.exitCode, isNot(0), reason: 'a link is refused');
+      final gone = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(
+          project: 'checkout',
+          create: false,
+          publicKeyOut: out,
+          keys: {'other': path.join(home.path, 'nothing')},
+        ),
+        'm',
+      );
+      expect(gone.exitCode, isNot(0), reason: 'a file that is not there is refused');
+    }, skip: skip);
+
     test('an empty master password makes no file', () async {
       final kdbx = path.join(home.path, 'secrets.kdbx');
       final out = path.join(home.path, 'checkout.pub');
@@ -324,13 +369,26 @@ void main() {
       ]);
       expect('${fed.stderr}', isNot(contains(key)), reason: 'nothing of it on the terminal');
 
-      final missing = await run(
-        SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['keys'], keys: ['forge']),
-        'm',
-      );
+      final missing = await run(SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['keys']), 'm');
       expect(missing.exitCode, isNot(0));
-      expect('${missing.stdout}', isEmpty, reason: 'no line at all when one entry is missing');
-      expect('${missing.stderr}', contains('hosts/checkout/keys/forge'), reason: 'the missing entry is named');
+      expect('${missing.stdout}', isEmpty, reason: 'no line at all when the entries are missing');
+
+      // The vault entries' files, kept base64 in the group, go out as they are, one line each.
+      await cliIn(kdbx, ['mkdir', kdbx, 'hosts/checkout/keys'], 'm');
+      await cliIn(
+        kdbx,
+        ['add', '-p', kdbx, 'hosts/checkout/keys/forge'],
+        'm',
+        then: base64Encode(utf8.encode('token-bytes')),
+      );
+      await cliIn(kdbx, ['add', '-p', kdbx, 'hosts/checkout/keys/ci.key'], 'm', then: base64Encode([0, 1, 2, 255]));
+      final keys = await run(SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['vault', 'keys']), 'm');
+      expect(keys.exitCode, 0, reason: '${keys.stderr}');
+      expect('${keys.stdout}'.trim().split('\n').skip(1).toSet(), <String>{
+        'key forge ${base64Encode(utf8.encode('token-bytes'))}',
+        'key ci.key ${base64Encode([0, 1, 2, 255])}',
+      });
+      expect('${missing.stderr}', contains('hosts/checkout/keys'), reason: 'what is missing is named');
     }, skip: skip);
 
     test('a wrong master password writes nothing and fails', () async {
