@@ -41,6 +41,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo`, two requirements raised in the channel | At one click, a task for each of a project's repositories that names an agent, repositories left out and `issue` and `phase` given before the start, agents signed in on the way. | 3 |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293) | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |
@@ -55,7 +56,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | `porelo` [B198](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b198) | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225) | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
-| <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | — | — | At one click, a task for each of a project's repositories that names an agent, repositories left out and `issue` and `phase` given before the start, agents signed in on the way. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | `porelo-host`'s OpenTofu module | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
 
 ### Idea
