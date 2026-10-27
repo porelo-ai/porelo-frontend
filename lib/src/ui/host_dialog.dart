@@ -203,6 +203,12 @@ class _HostDialogState extends State<HostDialog> {
   final _signingKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
   final _keyName = TextEditingController();
   final _secrets = TextEditingController(text: _home('Porelo/secrets.kdbx'));
+
+  /// The host key's public half, once the secrets file was opened for this file; dropped when the file changes.
+  String? _hostPublicKey;
+  String? _hostPublicKeyFor;
+  bool _openingSecrets = false;
+  String? _secretsAnswer;
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   final _protocolScroll = ScrollController();
@@ -849,18 +855,11 @@ class _HostDialogState extends State<HostDialog> {
       if (!_upStarted) {
         if (!await _checkBundle()) return;
         setState(() => _preparing = true);
-        final drivesKey = _folder == null ? null : path.join(path.normalize(_folder!), 'porelo-host', 'wireguard.key');
         // The secrets file keeps the host's key where the drive kept it before; without a folder there is none.
         String? hostPublicKey;
-        if (drivesKey != null) {
-          final open = widget.openSecretsFile ?? _openTheSecretsFile;
-          hostPublicKey = await open(
-            file: _secretsPath,
-            project: widget.project,
-            migrateKeyFrom: File(drivesKey).existsSync() ? drivesKey : null,
-          );
+        if (_drivesKey != null) {
+          hostPublicKey = await _hostKeyFromTheSecretsFile();
           if (!mounted) return;
-          await widget.settings?.rememberSecretsFile(_secretsPath);
         }
         await _withFiles((files) async {
           if (_folder != null) {
@@ -1295,6 +1294,18 @@ class _HostDialogState extends State<HostDialog> {
               ? 'It is there: setup opens it with its master password.'
               : 'It is not there yet: setup makes it, with a master password you choose.',
         ),
+        Wrap(
+          spacing: Space.small,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            OutlinedButton(
+              key: const Key('host-secrets-open'),
+              onPressed: _running || _upStarted || _openingSecrets || _secretsProblem != null ? null : _openSecretsNow,
+              child: Text(_secretsExist ? 'Open it now' : 'Make it now'),
+            ),
+            if (_secretsAnswer case final answer?) Text(answer, key: const Key('host-secrets-answer')),
+          ],
+        ),
       ]),
       check: () => _secretsProblem,
       summary: () => ['Secrets file: ${_secrets.text}${_secretsExist ? '' : ' (made when setup starts)'}'],
@@ -1320,6 +1331,45 @@ class _HostDialogState extends State<HostDialog> {
   ];
 
   String get _secretsPath => _expanded(_secrets.text.trim());
+
+  String? get _drivesKey =>
+      _folder == null ? null : path.join(path.normalize(_folder!), 'porelo-host', 'wireguard.key');
+
+  /// The secrets file opened from its own step, before anything is rented: what the person sets up once.
+  Future<void> _openSecretsNow() async {
+    setState(() {
+      _openingSecrets = true;
+      _secretsAnswer = null;
+    });
+    try {
+      await _hostKeyFromTheSecretsFile();
+      if (mounted) setState(() => _secretsAnswer = 'Ready: the file keeps the server’s keys.');
+    } on HostFilesRefused catch (refusal) {
+      if (mounted) setState(() => _secretsAnswer = refusal.message);
+    } on FormatException catch (refusal) {
+      if (mounted) setState(() => _secretsAnswer = refusal.message);
+    } finally {
+      if (mounted) setState(() => _openingSecrets = false);
+    }
+  }
+
+  /// The host key's public half from the secrets file, opened once per file and kept for the setup that follows.
+  Future<String> _hostKeyFromTheSecretsFile() async {
+    final file = _secretsPath;
+    if (_hostPublicKey != null && _hostPublicKeyFor == file) return _hostPublicKey!;
+    final drivesKey = _drivesKey;
+    final open = widget.openSecretsFile ?? _openTheSecretsFile;
+    final key = await open(
+      file: file,
+      project: widget.project,
+      migrateKeyFrom: drivesKey != null && File(drivesKey).existsSync() ? drivesKey : null,
+    );
+    HostFiles.checkPublicKey(key);
+    _hostPublicKey = key;
+    _hostPublicKeyFor = file;
+    await widget.settings?.rememberSecretsFile(file);
+    return key;
+  }
 
   bool get _secretsExist => File(_secretsPath).existsSync();
 

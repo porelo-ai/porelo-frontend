@@ -1864,6 +1864,66 @@ void main() {
     expect(await tester.runAsync(() => conflict.readAsString()), 'keep');
   });
 
+  // Harm: the secrets file can be made and checked only by renting a server; or the person types the master password
+  // twice, once at the step and again at setup.
+  hostWidgets('the secrets file is opened from its own step once, and setup takes the key it gave', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = newSettings(MemorySettingsStore());
+    await settings.rememberTresorFolder('demo', scratch.path);
+    final opened = <String>[];
+    final commands = <List<String>>[];
+    var refuse = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: ({required file, required project, migrateKeyFrom}) async {
+              opened.add(file);
+              if (refuse) throw const host.HostFilesRefused('The secrets file was not opened, so setup did not start.');
+              return _secretsOpened(file: file, project: project);
+            },
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            machines: machines,
+            project: 'demo',
+            settings: settings,
+            secretStore: _MemorySecrets(),
+            start: (_, arguments) async {
+              commands.add(List.of(arguments));
+              return _HostProcess()..end(65);
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-tresor': 'drive',
+      'host-signing-key': fixture('signing.pub'),
+    }, stopAt: 3);
+
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.text('The secrets file was not opened, so setup did not start.'), findsOneWidget);
+    refuse = false;
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.text('Ready: the file keeps the server’s keys.'), findsOneWidget);
+    expect(commands, isEmpty, reason: 'opening the file rents nothing');
+    expect(settings.secretsFile, opened.last, reason: 'the file is remembered once it opened');
+
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
+    await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
+    await tapAndRun(tester, const Key('host-up'));
+
+    expect(opened, hasLength(2), reason: 'setup takes the key the step got, and asks no master password again');
+    expect(commands, hasLength(1));
+  });
+
   // Harm: a host rented without its key, or a secret on a command line every process on the desktop can read.
   hostWidgets(
     'the secrets file opens in a terminal here with no secret in its command, and a failed one rents nothing',
