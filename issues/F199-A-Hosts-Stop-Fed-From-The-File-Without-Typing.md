@@ -47,5 +47,9 @@ these is typed at every `up`, and a new host has a new vault.
 
 ## To be checked
 
-- How one unlock yields several entries inside the pipe: `keepassxc-cli open`'s shell fed from the pipe, or
-  `export` filtered to the named entries without a file; posted before anything changes.
+- How one unlock yields several entries inside the pipe. Measured with the snap's `keepassxc.cli` 2.8.0 on a
+  probe file in a plain folder of the home: `open` takes the password from the pipe but runs no command from it
+  (its prompt needs a terminal); `export -f csv` after one unlock prints every entry with its group path, whose root
+  is the localized root group's name (`Passwörter/shared`), so a filter matches on the path below the root. Still to
+  settle: what filters the CSV to the named entries and turns them into the stop's lines without holding the whole
+  export anywhere but the pipe, posted before anything changes.
