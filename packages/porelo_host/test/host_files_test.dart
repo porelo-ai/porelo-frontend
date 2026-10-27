@@ -155,6 +155,41 @@ void main() {
     if (Platform.isLinux) expect((await hostFile.stat()).mode & 0x1ff, 0x180);
   });
 
+  // Harm: the host's private key lies in the clear on the drive once the secrets file keeps it.
+  test(
+    'with the host key in the secrets file, no wireguard.key goes to the drive and its public half is used',
+    () async {
+      final hostPrivate = base64Encode(List<int>.generate(32, (index) => index + 1));
+      final hostPublic = await HostFiles.publicKey(hostPrivate);
+
+      final tunnel = await files.prepare(
+        project: 'demo',
+        folder: scratch.path,
+        url: 'https://example.org/demo.git',
+        signingKey: signing,
+        hostPublicKey: hostPublic,
+      );
+
+      expect(await File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).exists(), isFalse);
+      expect(tunnel.hostPublicKey, hostPublic, reason: 'the half the secrets file gave');
+      expect(await File(path.join(scratch.path, 'porelo-host', 'machine.yml')).exists(), isTrue);
+    },
+  );
+
+  // Harm: a malformed public key reaches the tunnel's configuration and the host's arguments.
+  test('a host public key that is not one is refused', () async {
+    expect(
+      () => files.prepare(
+        project: 'demo',
+        folder: scratch.path,
+        url: 'https://example.org/demo.git',
+        signingKey: signing,
+        hostPublicKey: 'not a key',
+      ),
+      throwsA(isA<HostFilesRefused>()),
+    );
+  });
+
   // Harm: private material is exported without consent or with world-readable permissions.
   // Red: export the host private key, omit chmod, or export automatically during prepare.
   test('only explicit wg-quick export writes the stored person key with 0600', () async {

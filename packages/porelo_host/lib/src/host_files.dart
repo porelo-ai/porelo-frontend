@@ -116,6 +116,19 @@ class HostFiles {
     }
   }
 
+  /// Refuses anything but a WireGuard public key: 32 bytes in standard base64.
+  static void checkPublicKey(String key) {
+    List<int> bytes;
+    try {
+      bytes = base64Decode(key);
+    } on FormatException {
+      throw const HostFilesRefused('The host key the secrets file gave is not a WireGuard public key.');
+    }
+    if (bytes.length != 32 || base64Encode(bytes) != key) {
+      throw const HostFilesRefused('The host key the secrets file gave is not a WireGuard public key.');
+    }
+  }
+
   static Future<String> _privateKey() async {
     final pair = await X25519().newKeyPair();
     try {
@@ -356,15 +369,20 @@ class HostFiles {
   }
 
   /// Reuses existing keys. Without a folder the host files are supplied manually.
+  ///
+  /// With [hostPublicKey], the public half of the host's key the person's secrets file keeps, no host key is made
+  /// or written to the drive: the private half never leaves that file.
   Future<HostTunnel> prepare({
     required String project,
     String? folder,
     required String url,
     required File signingKey,
     List<HostKeyFile> keys = const [],
+    String? hostPublicKey,
   }) async {
     checkName(project);
     _checkKeys(keys, windows: _writer.isWindows || _paths.style == path.Style.windows);
+    if (hostPublicKey != null) checkPublicKey(hostPublicKey);
     String? hostPrivate;
     if (folder != null) {
       if (url.trim().isEmpty || _paths.extension(signingKey.path) != '.pub') {
@@ -381,7 +399,9 @@ class HostFiles {
       final root = Directory(_paths.join(_paths.normalize(folder), 'porelo-host'));
       await _directory(root);
       final hostFile = File(destinationPath(folder, 'wireguard.key'));
-      final existing = await FileSystemEntity.type(hostFile.path, followLinks: false);
+      final existing = hostPublicKey != null
+          ? FileSystemEntityType.notFound
+          : await FileSystemEntity.type(hostFile.path, followLinks: false);
       if (existing != FileSystemEntityType.notFound) {
         if (existing != FileSystemEntityType.file) _conflict(hostFile.path);
         hostPrivate = (await hostFile.readAsString()).trim();
@@ -391,11 +411,11 @@ class HostFiles {
           _conflict(hostFile.path);
         }
       }
-      hostPrivate ??= await _privateKey();
+      if (hostPublicKey == null) hostPrivate ??= await _privateKey();
       if (keys.isNotEmpty) await _directory(Directory(_paths.join(root.path, 'keys')));
       final contents = <String, List<int>>{
         destinationPath(folder, 'machine.yml'): utf8.encode(yaml),
-        hostFile.path: utf8.encode('$hostPrivate\n'),
+        if (hostPrivate != null) hostFile.path: utf8.encode('$hostPrivate\n'),
         for (final key in keys) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
       };
       for (final entry in contents.entries) {
@@ -415,7 +435,7 @@ class HostFiles {
       }
     }
     return HostTunnel(
-      hostPublicKey: hostPrivate == null ? '' : await publicKey(hostPrivate),
+      hostPublicKey: hostPublicKey ?? (hostPrivate == null ? '' : await publicKey(hostPrivate)),
       peerPublicKey: await publicKey(peerPrivate),
     );
   }
