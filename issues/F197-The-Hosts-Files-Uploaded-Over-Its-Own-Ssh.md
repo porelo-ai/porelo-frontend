@@ -7,8 +7,8 @@ path both repositories read.
 
 **What must be true.** The host's setup files, `machine.yml` and the project's bundle, both made on the desktop,
 reach the host over the ssh its setup already has, into a place only root reads, and the host reads them there.
-The secrets already come from `secrets.kdbx` ([F199](README.md#f199)); nothing else changes for the person. The desktop keeps its copy of `machine.yml` on the person's drive, so a second desktop sets up a host the
-same way.
+The secrets already come from `secrets.kdbx` ([F199](README.md#f199)); nothing else changes for the person. The
+desktop keeps its copy of `machine.yml` in the interface's own folder; the drive has no part in the host's setup.
 
 ## Why
 
@@ -30,14 +30,15 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   has made the account: it reads them and never writes them. `down` removes the folder.
 - **The bundle is what the host follows:** `HostFiles.bundleUrl` names it in `machine.yml`'s `project.url`, and
   becomes `/etc/porelo-host/setup/<project>.bundle`; `porelo project follow` reads it as the repository, unchanged.
-- **The desktop's copy:** `HostFiles` still writes `machine.yml` to the person's drive for other desktops, under
-  the project's name; the bundle is made fresh at each `up` and is not kept there.
+- **The desktop's copy:** `HostFiles` keeps `machine.yml` in the interface's own data folder, under the project's
+  name, no longer on a drive (the drive has nothing to do with the host's setup, decided); the bundle is made fresh
+  at each `up` and is not kept.
 - **Red first:** a test of `porelo_host`'s `up` against its remote stand-in: the two files are sent to the agreed
   place with their digests checked, and a mismatch refuses `copy`.
 
 ## Acceptance
 
-- Rented once: the setup comes up with the uploaded `machine.yml` and bundle, the drive still mounted.
+- Rented once: the setup comes up with the uploaded `machine.yml` and bundle, and reads nothing from a drive.
 - A digest that does not match on the host refuses `copy`, naming the file.
 - Seen to fail: the test red against today's `copy`, which sends neither.
 
