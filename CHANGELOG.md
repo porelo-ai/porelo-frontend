@@ -95,6 +95,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A project's menu offers Start an agent for each repository: a wizard starts, one after another, an
+  attended task for each repository whose `project.yml` names an agent, with that agent and the name
+  the machine gives it. Repositories can be left out, an agent with nothing to sign in with is signed
+  in first, a running agent is not started twice, a stopped one continues, and a refused start keeps
+  its answer while the others start. It stays unavailable against a Porelo that does not say which
+  agent a repository names.
+
 - Removing a member from a project's Messages dialog confirms the account, refreshes the room's
   members, and offers Join again after removing this computer's account. Kept accounts and
   transport refusals show the daemon's explanation.

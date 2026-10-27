@@ -38,6 +38,7 @@ class _Wedged implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    bool? now,
   }) => const Stream<StartEvent>.empty();
 
   @override
@@ -419,6 +420,7 @@ class _Machine implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    bool? now,
   }) => const Stream<StartEvent>.empty();
 
   @override

@@ -40,9 +40,9 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   there, a machine's `Project.messages` says it is not admitted, with its address and the room, and
   a person invites each machine's account from a client of their own.
 
-- **The agent a repository names.** `project.yml` has no `agent` key under a repository, and
-  `Repository` carries none, so starting an agent for each repository at one click has nothing to
-  read which agent that is.
+- **The agent a repository names.** `project.yml` has no `agent` key under a repository yet, and
+  `Repository` carries no `agent`, `nickname` or `goesBy`. The interface reads the three as agreed,
+  and starting an agent for each repository at one click stays unavailable until a daemon says them.
 
 ## On the wire, not used here yet
 

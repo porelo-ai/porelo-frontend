@@ -326,6 +326,7 @@ class PoreloClient {
     bool? dryRun,
     String? clearance,
     bool? rm,
+    bool? now,
     Mode? mode,
     String? prompt,
     String? model,
@@ -348,6 +349,8 @@ class PoreloClient {
       'dryRun': ?dryRun,
       'clearance': ?clearance,
       'rm': ?rm,
+      // Answers once the task exists, without waiting for its image to be built.
+      'now': ?now,
       'mode': ?mode?.name,
       'prompt': ?prompt,
       'model': ?model,

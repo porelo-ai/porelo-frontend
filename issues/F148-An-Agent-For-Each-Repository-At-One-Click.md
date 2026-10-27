@@ -41,8 +41,9 @@ its phase following from that issue, which is a start of its own and not this on
   that names an agent: chosen or left out, its agent, and `CanStart`'s answer for that row. Every task is
   `Mode.agent`, with no prompt and no parameters. It reuses `StartWork`'s name rule and suggestion (moved to a shared
   function, not copied) and `whyNotStart`.
-- **Already running:** a row whose repository has a task with the same agent (`Task.repository`, `Task.agent`) that is
-  running is shown as running and not started. A stopped one is brought back (`RESUME`, its session continued), and
+- **Already running:** a row whose repository has an attended (`AGENT`) task with the same agent (`Task.repository`,
+  `Task.agent`, `Task.mode`) that is running is shown as running and not started; an unattended run of that agent is
+  work on one issue, not the repository's agent. A stopped one is brought back (`RESUME`, its session continued), and
   the summary says it "continues" (decided).
 - **The wizard** (`lib/src/ui/start_agents_view.dart`, on `wizard.dart`'s `WizardStep`), one step per screen:
   1. *Which repositories* - every repository naming an agent, checked; one naming none is listed as such, not
@@ -80,6 +81,9 @@ its phase following from that issue, which is a start of its own and not this on
 
 ## To be checked
 
+- Against a daemon with `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) published:
+  `Repository.agent`, `nickname` and `goesBy` read as agreed, the command offered, and the walk of the acceptance
+  through.
 - Whether `Start` with `now: true` returns before the image build on a project never prepared, measured against a
   daemon, so twelve starts do not take twelve builds in a row.
 - Whether a sign-in started from the wizard returns to it, as it returns to `StartWorkView` today.

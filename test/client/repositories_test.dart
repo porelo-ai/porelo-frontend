@@ -98,6 +98,50 @@ void main() {
     expect(other.upstream, 'git@example.org:payments-api.git');
   });
 
+  // An agent started for the wrong repository, or a one-click start offered from a daemon that never said.
+  test("a repository's agent is read as named, as none, and as not said by an older daemon", () async {
+    daemon.method(
+      'Projects',
+      (_) => <String, dynamic>{
+        'projects': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'checkout',
+            'repositories': <Map<String, dynamic>>[
+              <String, dynamic>{'name': 'checkout', 'own': true},
+              <String, dynamic>{
+                'name': 'payments-api',
+                'agent': 'pi',
+                'nickname': 'Payments',
+                'goesBy': 'Agent Payments',
+              },
+              <String, dynamic>{'name': 'docs', 'agent': '', 'goesBy': 'Agent docs'},
+            ],
+          },
+          <String, dynamic>{
+            'name': 'older',
+            'repositories': <Map<String, dynamic>>[
+              <String, dynamic>{'name': 'older', 'own': true},
+              <String, dynamic>{'name': 'api'},
+            ],
+          },
+        ],
+      },
+    );
+
+    final projects = await (await connect()).projects();
+
+    final named = projects.first.repositoryStates.firstWhere((each) => each.name == 'payments-api');
+    expect(named.agent, 'pi', reason: 'the agent its project file names');
+    expect(named.nickname, 'Payments');
+    expect(named.goesBy, 'Agent Payments', reason: 'the name the machine composes, shown verbatim');
+    expect(projects.first.repositoryStates.firstWhere((each) => each.name == 'docs').agent, '', reason: 'none named');
+    expect(
+      projects.last.repositoryStates.map((each) => each.agent),
+      everyElement(isNull),
+      reason: 'a daemon older than the field says nothing, which is not "none named"',
+    );
+  });
+
   group('each repository has a gate of its own', () {
     Future<Map<String, String?>> asked({String? repository}) async {
       final names = <String, String?>{};

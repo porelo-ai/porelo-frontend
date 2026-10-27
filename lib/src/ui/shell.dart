@@ -26,6 +26,7 @@ import '../app/authentication.dart';
 import '../app/backups.dart';
 import '../app/project_check.dart';
 import '../app/emergency_stop.dart';
+import '../app/start_agents.dart';
 import '../app/start_work.dart';
 import '../app/templates.dart';
 import '../app/tunnel.dart';
@@ -72,6 +73,7 @@ import 'session_view.dart';
 import 'shell_rail.dart';
 import 'vault_actions.dart';
 import 'vault_view.dart';
+import 'start_agents_view.dart';
 import 'start_work_view.dart';
 import 'widening_view.dart';
 import 'gate_view.dart';
@@ -244,6 +246,9 @@ class _ShellState extends State<Shell> {
 
   final _openedFocus = FocusNode(debugLabel: 'opened');
   final _scaffold = GlobalKey<ScaffoldState>();
+
+  /// Starting the agent each repository of a project names, at one click.
+  final _startingAgents = StartAgents();
   // The frame's own focus, so the keyboard works the moment the window opens and after anything
   // open over it closes.
   final _frameFocus = FocusNode(debugLabel: 'frame');
@@ -424,6 +429,10 @@ class _ShellState extends State<Shell> {
     removeWhatWasBuilt: _removeWhatWasBuilt,
     clearTheProject: _clearTheProject,
     putOnAServer: Shell.poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
+    startTheAgents: switch (_fleet.selectedProject?.project.name) {
+      final name? => () => unawaited(_startTheAgents(name)),
+      null => null,
+    },
     checkTheMachine: _checkTheMachine,
     startThenCheck: () => unawaited(_startThenCheck()),
     showTheProviders: _showTheProviders,
@@ -621,6 +630,7 @@ class _ShellState extends State<Shell> {
       openItsForge: () => unawaited(_openItsForge()),
       itsForgeIsMissing: _itsForgeIsMissing(),
       showTheDefault: () => unawaited(_showTheDefault()),
+      startTheAgents: () => unawaited(_startTheAgents(project.name)),
     ))
       // Run on the project's own machine, with it chosen there: a row on Projects can be another
       // machine's than the one acted on.
@@ -634,6 +644,7 @@ class _ShellState extends State<Shell> {
   /// starting work, what waits at its gate, being told about it, clearing it, letting it go.
   static const List<String> _projectAsAWhole = <String>[
     'work.start',
+    'project.startAgents',
     'gate.open',
     'notifications.mute',
     'project.clear',
@@ -1742,7 +1753,42 @@ class _ShellState extends State<Shell> {
   /// Runs [agent]'s own login on the machine, through Porelo, in a terminal there: its page is offered
   /// as a link to open here, and its reply to `localhost` is forwarded while the terminal is open.
   /// Then asks the machine again whether work can start.
-  Future<void> _logInWithTheAgent(Agent agent) async {
+  Future<void> _logInWithTheAgent(Agent agent) => _logIn(
+    agent,
+    askAgain: widget.starting.askAgain,
+    stillMissing: () => widget.starting.needsASignIn,
+    from: 'the start form',
+  );
+
+  /// Opens the wizard that starts the agent each repository of [name] names, on the machine acted on.
+  Future<void> _startTheAgents(String name) async {
+    await _fleet.refresh(quietly: true);
+    final project = _fleet.projects.where((each) => each.project.name == name).firstOrNull?.project;
+    if (project == null || !mounted) return;
+    final starting = _startingAgents;
+    unawaited(starting.open(_fleet.backend, project));
+    await openStartAgents(
+      context,
+      starting: starting,
+      onLogIn: onTheMachineAsWritten(widget.machines.current, 'porelo') == null
+          ? null
+          : (agent) => _logIn(
+              agent,
+              askAgain: starting.askAgain,
+              stillMissing: () => starting.signInsNeeded.any((each) => each.name == agent.name),
+              from: 'the wizard',
+            ),
+    );
+  }
+
+  /// Runs [agent]'s own login on the machine, then asks again through [askAgain] whether work can
+  /// start; [stillMissing] says whether it still has nothing to sign in with, and [from] where to try again.
+  Future<void> _logIn(
+    Agent agent, {
+    required Future<void> Function() askAgain,
+    required bool Function() stillMissing,
+    required String from,
+  }) async {
     final machine = widget.machines.current;
     // The machine's own command; spelled here only for a Porelo that declared a login before it named one.
     final command = onTheMachine(
@@ -1769,16 +1815,16 @@ class _ShellState extends State<Shell> {
           'print nothing for a while. Then its own sign-in starts here.',
       cancel: 'Cancel the sign-in',
       whatCameOfIt: () async {
-        await widget.starting.askAgain();
+        await askAgain();
         final label = agent.label.isEmpty ? agent.name : agent.label;
-        return widget.starting.needsASignIn
+        return stillMissing()
             ? 'Nothing was stored for $label on ${machine.name}. What the terminal printed says why; '
-                  'sign in again from the start form.'
+                  'sign in again from $from.'
             : 'Signed in to $label: the credential is stored on ${machine.name}. You can close this.';
       },
     );
     if (!mounted) return;
-    await widget.starting.askAgain();
+    await askAgain();
   }
 
   /// Keeps what is on screen as a recurring job.
@@ -3319,6 +3365,7 @@ class _ShellState extends State<Shell> {
     _frameFocus.dispose();
     _handing.dispose();
     _handIns.dispose();
+    _startingAgents.dispose();
     // Only the one made here: a connection the app handed in is the app's.
     if (widget.forges == null) _forges.dispose();
     super.dispose();

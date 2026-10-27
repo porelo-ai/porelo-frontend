@@ -93,6 +93,9 @@ class FakeBackend implements FleetBackend {
   final List<({String? task, String? project, String? agent, Mode? mode, String? prompt, String? repository})> starts =
       <({String? task, String? project, String? agent, Mode? mode, String? prompt, String? repository})>[];
 
+  /// Whether each launch asked to be answered once its task exists, rather than after its build.
+  final List<bool?> startedNow = <bool?>[];
+
   /// What `Agents` answers, and what could not be read.
   List<Agent> theAgentsItHas = <Agent>[
     Agent.from(const <String, dynamic>{
@@ -224,6 +227,36 @@ class FakeBackend implements FleetBackend {
     }),
   ];
 
+  /// Answers each repository of every project as [change] makes it, the way a Porelo that says more does.
+  void answerRepositories(Repository Function(Project project, Repository repository) change) {
+    theProjectsItHas = <Project>[
+      for (final project in theProjectsItHas)
+        Project(
+          name: project.name,
+          securityClass: project.securityClass,
+          file: project.file,
+          mirror: project.mirror,
+          pending: project.pending,
+          tasks: project.tasks,
+          running: project.running,
+          prepared: project.prepared,
+          preparedState: project.preparedState,
+          behind: project.behind,
+          behindMeasured: project.behindMeasured,
+          behindReason: project.behindReason,
+          behindDetail: project.behindDetail,
+          repositories: project.repositories,
+          repositoryStates: <Repository>[for (final each in project.repositoryStates) change(project, each)],
+          following: project.following,
+          followingAnswered: project.followingAnswered,
+          credentials: project.credentials,
+          credentialsAnswered: project.credentialsAnswered,
+          messages: project.messages,
+          lastUsed: project.lastUsed,
+        ),
+    ];
+  }
+
   /// How often the projects were listed, and how often by the time the gate was last decided on.
   int projectsListed = 0;
   int projectsListedAtTheGate = -1;
@@ -272,9 +305,11 @@ class FakeBackend implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    bool? now,
   }) {
     if (project != null) mustBeAProject(project);
     launched.add(dryRun);
+    startedNow.add(now);
     starts.add((task: task, project: project, agent: agent, mode: mode, prompt: prompt, repository: repository));
     startedWith.add(credentials ?? const <String, String>{});
     launch = StreamController<Object>();
@@ -924,6 +959,10 @@ class FakeBackend implements FleetBackend {
   /// credential, neither of which a contrived agent list can produce.
   Readiness? nextReadiness;
 
+  /// What [canStart] answers for one agent, before [nextReadiness]: a vault holds what each agent
+  /// signs in with on its own.
+  final Map<String, Readiness> readinessOf = <String, Readiness>{};
+
   /// How often whether work can start was asked.
   int canStartAsked = 0;
 
@@ -1150,6 +1189,8 @@ class FakeBackend implements FleetBackend {
         detail: refused.words,
       );
     }
+    final ofTheAgent = agent == null ? null : readinessOf[agent];
+    if (ofTheAgent != null) return ofTheAgent;
     return nextReadiness ??
         const Readiness(
           ready: true,
@@ -2749,6 +2790,14 @@ class World {
 
   /// A task as the machine lists it, for a step to put on the machine.
   static Task aTask(String name, String project, {String mode = ''}) => _task(name, project, mode: mode);
+
+  /// An attended task of [agent] in [repository], named [task], running or stopped as the machine lists it.
+  static Task anAgentsTask(String agent, String repository, String project, String task, {required bool running}) =>
+      Task.from(<String, dynamic>{
+        ...wire(_task('porelo-$project-$task', project, running: running, mode: 'AGENT', agent: agent)),
+        'repository': repository,
+        'startAction': running ? 'RUNNING' : 'RESUME',
+      });
 
   // Built from a wire-shaped map on purpose, so a fixture cannot describe a task the contract
   // could not actually deliver.

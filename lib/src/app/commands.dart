@@ -16,6 +16,7 @@ import 'operations.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'shell_model.dart';
+import 'start_agents.dart';
 import 'start_work.dart';
 import 'templates.dart';
 import 'vault.dart';
@@ -505,6 +506,7 @@ List<Command> projectCommands({
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
   VoidCallback? putOnAServer,
+  VoidCallback? startTheAgents,
 }) {
   const nothing = 'no project selected';
   // default's settings are Porelo's own and fixed: nothing here changes what it may reach.
@@ -515,6 +517,15 @@ List<Command> projectCommands({
       ? null
       : '${project.name} is not a project this machine follows';
   return <Command>[
+    // The long-running agents of the project's repositories, each with the agent its project.yml names.
+    Command(
+      id: 'project.startAgents',
+      label: 'Start an agent for each repository…',
+      group: 'Project',
+      home: Home.projectMenu,
+      run: startTheAgents ?? () {},
+      unavailable: noFile ?? (startTheAgents == null ? 'not offered here' : StartAgents.whyNot(project!.project)),
+    ),
     Command(
       id: 'gate.open',
       label: 'Review what is waiting at the gate',
@@ -1051,6 +1062,7 @@ List<Command> commandsFor({
   required VoidCallback removeWhatWasBuilt,
   VoidCallback? clearTheProject,
   VoidCallback? putOnAServer,
+  VoidCallback? startTheAgents,
   required VoidCallback checkTheMachine,
   VoidCallback? startThenCheck,
   required VoidCallback showTheProviders,
@@ -1240,6 +1252,7 @@ List<Command> commandsFor({
       openItsForge: openItsForge,
       itsForgeIsMissing: itsForgeIsMissing,
       showTheDefault: showTheDefault,
+      startTheAgents: startTheAgents,
     ),
     Command(
       id: 'work.start',

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
+import 'task_names.dart';
 import 'templates.dart';
 
 /// Starting work: which project, which agent, which way of being involved, and what to ask for.
@@ -60,15 +61,7 @@ class StartWork extends ChangeNotifier {
   /// can have, and numbered on where a task of the project has it already. Never over a typed one.
   void _suggestAName() {
     if (_named || continuing != null) return;
-    final from = repository ?? project?.name ?? '';
-    var base = from.toLowerCase().replaceAll(RegExp('[^a-z0-9-]+'), '-').replaceAll(RegExp('-+'), '-');
-    base = base.replaceAll(RegExp(r'^-+|-+$'), '');
-    if (base.isEmpty || _onlyDigits.hasMatch(base)) base = 'work${base.isEmpty ? '' : '-$base'}';
-    var candidate = base;
-    for (var number = 2; _taken.contains(candidate); number++) {
-      candidate = '$base-$number';
-    }
-    name = candidate;
+    name = suggestedTaskName(repository ?? project?.name ?? '', _taken);
   }
 
   /// The task being continued, or null when this is new work.
@@ -233,15 +226,8 @@ class StartWork extends ChangeNotifier {
       !readinessIsAboutTheName &&
       !readinessIsAboutTheRepository;
 
-  /// Why the name cannot be a task's, or null when it can or none was typed.
-  ///
-  /// **Porelo's rule for a task name**, accepted after `Foo Bar` was
-  /// sent, the image built, and only `podman create` refused it. Lowercase letters, digits and
-  /// inner hyphens: podman names the container `porelo-<project>-<task>`, git names the ref after the
-  /// task, and a case-insensitive filesystem makes `Foo` and `foo` one ref. Not only digits, which a
-  /// login container's name is. And the container name at most [longestContainerName] characters,
-  /// because the task's longest socket path must fit. Start stays the authority; this only stops a
-  /// name it will refuse from being sent.
+  /// Why the name cannot be a task's, or null when it can or none was typed: [taskNameProblem],
+  /// then the machine's own refusal.
   String? get nameProblem => _localNameProblem ?? _refusedName;
 
   /// The machine's own refusal of the name, when it answered for the name on screen.
@@ -257,37 +243,13 @@ class StartWork extends ChangeNotifier {
   /// Whether what the machine last said is about the name rather than about starting at all.
   bool get readinessIsAboutTheName => readiness?.outcome == StartOutcome.badTaskName;
 
-  String? get _localNameProblem {
-    if (name.isEmpty) return null;
-    if (name.contains(' ')) return 'A name cannot hold a space. Use lowercase letters, digits and "-".';
-    if (name != name.toLowerCase()) return 'A name is lowercase: letters, digits and "-".';
-    if (!_taskName.hasMatch(name)) {
-      return 'A name holds only lowercase letters, digits and "-", and starts and ends with a letter '
-          'or a digit.';
-    }
-    if (_onlyDigits.hasMatch(name)) return 'A name cannot be only digits.';
-    // A start under a name the project has means *that* work again, so new work never takes one
-    // (walk 9: said at once, not only when it is started).
-    if (continuing == null && restarting?.task != name && _taken.contains(name)) {
-      return 'The name "$name" is taken: work of this project on this machine has it already. Choose '
-          'another, or open that work from its tile.';
-    }
-    final where = project;
-    if (where != null) {
-      final container = 'porelo-${where.name}-$name';
-      if (container.length > longestContainerName) {
-        return 'That name is too long for this project: "$container" is ${container.length} '
-            'characters, and at most $longestContainerName fit.';
-      }
-    }
-    return null;
-  }
-
-  /// The longest a task's container name may be, prefix included.
-  static const int longestContainerName = 65;
-
-  static final RegExp _taskName = RegExp(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$');
-  static final RegExp _onlyDigits = RegExp(r'^[0-9]+$');
+  // A start under a name the project has means *that* work again, so new work never takes one
+  // (walk 9: said at once, not only when it is started).
+  String? get _localNameProblem => taskNameProblem(
+    name,
+    project: project?.name,
+    taken: continuing != null ? const <String>{} : _taken.difference(<String>{?restarting?.task}),
+  );
 
   /// Whether starting would be refused before anything was created.
   ///

@@ -53,8 +53,7 @@ abstract class FleetBackend {
   ///
   /// Yields detailed lines and the daemon's steps, without composing words about those steps.
   /// With [dryRun] it does everything up to starting the container and then reports, creating
-  /// nothing. That is all the frame uses today — the screen that chooses a name, an agent and a
-  /// mode fills in the rest of these parameters rather than replacing them.
+  /// nothing. With [now] it ends once the task exists, without waiting for its image to be built.
   Stream<StartEvent> startTask({
     String? task,
     String? project,
@@ -67,6 +66,7 @@ abstract class FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    bool? now,
   });
 
   /// Stops a task, keeping it and its workspace.
@@ -451,6 +451,7 @@ class PoreloBackend implements FleetBackend {
     int? minutes,
     String? repository,
     Map<String, String>? credentials,
+    bool? now,
   }) async* {
     // Keep final output too, so a refusal returned without intermediate replies retains its words.
     var exitCode = 0;
@@ -468,6 +469,7 @@ class PoreloBackend implements FleetBackend {
           minutes: minutes,
           repository: repository,
           credentials: credentials,
+          now: now,
         )
         .transform(startRefusalsSaid);
     await for (final progress in replies) {

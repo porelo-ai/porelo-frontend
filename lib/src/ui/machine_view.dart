@@ -307,6 +307,11 @@ class ProjectCommandTiles extends StatelessWidget {
 
   static ({String group, IconData icon, String description}) _presentation(Command command) => switch (command.id) {
     'work.start' => (group: 'Work', icon: Icons.add, description: 'Start a new piece of work in this project.'),
+    'project.startAgents' => (
+      group: 'Work',
+      icon: Icons.groups_outlined,
+      description: 'Start the agent each repository names, attended, one after another.',
+    ),
     'project.messages' => (
       group: 'Work',
       icon: Icons.chat_outlined,

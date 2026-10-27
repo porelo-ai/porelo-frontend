@@ -3878,6 +3878,17 @@ class Repository {
   /// What a task on it may consume, or null from a Porelo that does not say.
   final ResolvedLimits? limits;
 
+  /// The agent its `project.yml` names for it, `""` where it names none, and **null from a Porelo that
+  /// does not say** — which is not "none named".
+  final String? agent;
+
+  /// The nickname its `project.yml` gives that agent, or empty.
+  final String nickname;
+
+  /// The name the machine composes for its agent (`Agent Pi`, or `Agent porelo-pi` without a
+  /// nickname), shown verbatim; empty where it does not say.
+  final String goesBy;
+
   /// Whether it is behind its upstream by an amount somebody can act on.
   bool get hasFallenBehind => behindReason == 'MEASURED' && behind > 0;
 
@@ -3896,6 +3907,9 @@ class Repository {
     this.behindReason = '',
     this.behindDetail = '',
     this.limits,
+    this.agent,
+    this.nickname = '',
+    this.goesBy = '',
   });
 
   /// Reads one from a reply.
@@ -3910,6 +3924,9 @@ class Repository {
     behindReason: _string(map, 'behindReason'),
     behindDetail: _string(map, 'behindDetail'),
     limits: map['limits'] is Map<String, dynamic> ? ResolvedLimits.from(map['limits']! as Map<String, dynamic>) : null,
+    agent: map['agent'] is String ? map['agent']! as String : null,
+    nickname: _string(map, 'nickname'),
+    goesBy: _string(map, 'goesBy'),
   );
 
   /// A project's repositories, **the project's own first**, from either shape Porelo has answered:

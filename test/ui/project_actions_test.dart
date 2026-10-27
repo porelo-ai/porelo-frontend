@@ -143,6 +143,7 @@ void main() {
     final ids = menu.commands.map((each) => each.id).toSet();
     expect(ids, <String>{
       'work.start',
+      'project.startAgents',
       'gate.open',
       'egress.open',
       'notifications.mute',
