@@ -57,10 +57,24 @@ void main() {
   host.HostFiles filesFor(host.SecretStore store) => _ControlledHostFiles(store, fileWork);
   String fixture(String name) => path.join(scratch.path, name);
   final collectionDigest = sha256.convert(utf8.encode('invented-private-or-setup-fixture')).toString();
-  const signingPublic = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture';
+  // The key the project's commit is signed with: the drive puts only a commit the chosen key signed.
+  late String signingPublic;
   setUp(() async {
     fileWork = _HostFileWork();
     scratch = await Directory.systemTemp.createTemp('host-dialog-');
+    final keygen = await Process.run('ssh-keygen', [
+      '-q',
+      '-t',
+      'ed25519',
+      '-N',
+      '',
+      '-C',
+      'fixture',
+      '-f',
+      fixture('signer'),
+    ]);
+    expect(keygen.exitCode, 0, reason: 'ssh-keygen: ${keygen.stderr}');
+    signingPublic = File(fixture('signer.pub')).readAsStringSync();
     for (final name in ['default', 'private', 'new', 'dialog identity', 'demo-key', 'collection.tar.gz']) {
       File(fixture(name)).writeAsStringSync('invented-private-or-setup-fixture');
     }
@@ -88,8 +102,11 @@ void main() {
       '-c',
       'user.email=fixture@example.invalid',
       '-c',
-      'commit.gpgsign=false',
+      'gpg.format=ssh',
+      '-c',
+      'user.signingkey=${fixture('signer')}',
       'commit',
+      '-S',
       '-m',
       'Project fixture',
     ]);
@@ -1071,26 +1088,29 @@ void main() {
       'host-scaleway-project': 'project',
       'host-tresor': 'drive',
       'host-signing-key': unreadable.path,
-      'host-collection': fixture('collection.tar.gz'),
-      'host-collection-sha256': collectionDigest,
-    });
-    await tapAndRun(tester, const Key('host-up'));
+    }, stopAt: 1);
+    // The drive reads the key to check the bundle's signer, so the refusal comes before the next step.
+    await navigate(tester, 'wizard-next');
     expect(commands, isEmpty, reason: 'unreadable setup input must stop before renting');
-    final refusal = find.textContaining(unreadable.path);
+    // The field still shows the path on this step, so the refusal is found by its own words.
+    final refusal = find.textContaining('cannot be read: ${unreadable.path}');
     expect(refusal, findsOneWidget);
     final words = tester.widget<Text>(refusal).data!;
     expect(words, contains('Public key for signing commits (.pub)'));
     expect(words, contains('The drive'));
-    expect(words, contains('cannot be read'));
-    for (var back = 0; back < 4; back++) {
-      await navigate(tester, 'wizard-back');
-    }
+    expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'the refused key stops the drive step');
     await tester.ensureVisible(find.byKey(const Key('host-signing-key')));
     await tester.enterText(find.byKey(const Key('host-signing-key')), replacement.path);
     await tester.pump();
-    for (var next = 0; next < 3; next++) {
-      await navigate(tester, 'wizard-next');
-    }
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
+    await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
+    await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
+    await tester.pump();
+    await navigate(tester, 'wizard-next');
     await tapAndRun(tester, const Key('host-up'));
     expect(commands, hasLength(1), reason: 'the corrected answers must run preparation and start the action');
     expect(find.textContaining(unreadable.path), findsNothing);
@@ -1643,8 +1663,7 @@ void main() {
       await tester.runAsync(() async {
         await Directory(path.join(scratch.path, '.ssh')).create();
         await File(path.join(scratch.path, '.ssh', 'key')).writeAsString('invented-private-or-setup-fixture');
-        signing = await File(path.join(scratch.path, '.ssh', 'key.pub'))
-            .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+        signing = await File(path.join(scratch.path, '.ssh', 'key.pub')).writeAsString(signingPublic);
       });
       final commands = <List<String>>[];
       await tester.pumpWidget(
@@ -1791,8 +1810,7 @@ void main() {
     await tester.runAsync(() async {
       await Directory(path.join(scratch.path, 'porelo-host')).create();
       conflict = await File(path.join(scratch.path, 'porelo-host', 'machine.yml')).writeAsString('keep');
-      signing = await File(path.join(scratch.path, 'signing.pub'))
-          .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+      signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(signingPublic);
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -1847,8 +1865,7 @@ void main() {
     final terminal = FakeTerminal([]);
     late File signing;
     await tester.runAsync(() async {
-      signing = await File(path.join(scratch.path, 'signing.pub'))
-          .writeAsString('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture');
+      signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(signingPublic);
     });
     await tester.pumpWidget(
       MaterialApp(
@@ -2824,8 +2841,12 @@ class _ControlledHostFiles extends host.HostFiles {
   final _HostFileWork work;
 
   @override
-  Future<List<int>> createBundle({required String project, required String url, required String commit}) =>
-      work.defer(() => super.createBundle(project: project, url: url, commit: commit));
+  Future<List<int>> createBundle({
+    required String project,
+    required String url,
+    required String commit,
+    required File signingKey,
+  }) => work.defer(() => super.createBundle(project: project, url: url, commit: commit, signingKey: signingKey));
 
   @override
   Future<void> publishBundle({required String project, required String folder, required List<int> bytes}) =>

@@ -21,6 +21,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
 
+### Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="f194"></a>[F194](F194-A-Signing-Key-That-Did-Not-Sign-The-Bundle-Refused.md) | M | — | A signing key that did not sign the commit put on the drive refused on "The drive", before a server is rented, naming both fingerprints, with the field opening on a key the machine pins. |
+
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
@@ -70,7 +76,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f194"></a>[F194](F194-A-Signing-Key-That-Did-Not-Sign-The-Bundle-Refused.md) | M | — | A signing key that did not sign the commit put on the drive refused on "The drive", before a server is rented, naming both fingerprints, with the field opening on a key the machine pins. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
 | <a id="f94"></a>[F94](F94-A-Projects-Keys-Told-In-One-Place.md) | M | — | A project's keys told in one place, the signing key checked against a branch rule. |

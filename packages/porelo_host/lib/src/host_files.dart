@@ -226,7 +226,12 @@ class HostFiles {
   }
 
   /// Builds only the daemon's verified revision, without reading daemon-owned files.
-  Future<List<int>> createBundle({required String project, required String url, required String commit}) async {
+  Future<List<int>> createBundle({
+    required String project,
+    required String url,
+    required String commit,
+    required File signingKey,
+  }) async {
     checkBasename('$project.bundle', windows: _writer.isWindows);
     if (!RegExp(r'^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$').hasMatch(commit)) {
       throw const HostFilesRefused('The drive: this project has no valid verified commit to put on a server.');
@@ -234,6 +239,7 @@ class HostFiles {
     if (url.trim().isEmpty || url.startsWith('-') || url.contains('\x00')) {
       throw const HostFilesRefused('The drive: the followed repository address cannot be read by this computer.');
     }
+    final chosen = signingFingerprint(await signingKey.readAsString());
     final scratch = await _writer.createPrivateTemporary(Directory.systemTemp);
     try {
       final repository = path.join(scratch.path, 'repository');
@@ -247,6 +253,7 @@ class HostFiles {
       ], timeout: const Duration(minutes: 10));
       final cloned = Directory(repository);
       await _bundleGit(cloned, ['cat-file', '-e', '$commit^{commit}']);
+      await _checkSigner(scratch, cloned, commit, signingKey: await signingKey.readAsString(), chosen: chosen);
       await _bundleGit(cloned, ['update-ref', '--no-deref', 'HEAD', commit]);
       await _bundleGit(cloned, ['branch', '-f', 'main', commit]);
       await _bundleGit(cloned, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
@@ -258,7 +265,43 @@ class HostFiles {
     }
   }
 
-  Future<void> _bundleGit(
+  /// Holds the commit to the key the host checks it against, so a wrong key is refused before renting.
+  Future<void> _checkSigner(
+    Directory scratch,
+    Directory cloned,
+    String commit, {
+    required String signingKey,
+    required String chosen,
+  }) async {
+    final fields = signingKey.trim().split(RegExp(r'\s+'));
+    final allowed = File(path.join(scratch.path, 'allowed_signers'));
+    await allowed.writeAsString('porelo namespaces="git" ${fields[0]} ${fields[1]}\n');
+    final answer = (await _bundleGit(cloned, [
+      '-c',
+      'gpg.ssh.allowedSignersFile=${allowed.path}',
+      'log',
+      '-1',
+      '--format=%G?%n%GF',
+      commit,
+    ])).split('\n');
+    final status = answer.first.trim();
+    final signer = answer.length > 1 ? answer[1].trim() : '';
+    if (status == 'G' && signer == chosen) return;
+    if (status == 'N') {
+      throw const HostFilesRefused('The drive: the verified commit is not signed, so the host would refuse it.');
+    }
+    if (signer.isEmpty) {
+      throw const HostFilesRefused(
+        'The drive: the verified commit’s signature could not be checked; ssh-keygen must be installed.',
+      );
+    }
+    throw HostFilesRefused(
+      'The drive: the verified commit is signed by $signer, not by $chosen, the chosen public key for signing '
+      'commits. Choose the key that signed it. No server was rented.',
+    );
+  }
+
+  Future<String> _bundleGit(
     Directory directory,
     List<String> arguments, {
     Duration timeout = const Duration(seconds: 30),
@@ -272,17 +315,21 @@ class HostFiles {
     } on ProcessException {
       throw refused;
     }
-    final output = Future.wait([process.stdout.drain<void>(), process.stderr.drain<void>()]);
+    final stdout = process.stdout.transform(utf8.decoder).join();
+    final output = Future.wait([stdout, process.stderr.drain<void>()]);
     try {
       if (await process.exitCode.timeout(timeout) != 0) throw refused;
     } on TimeoutException {
       process.kill();
       await process.exitCode;
       final limit = timeout.inMinutes >= 1 ? '${timeout.inMinutes} minutes' : '${timeout.inSeconds} seconds';
-      throw HostFilesRefused('The drive: git ${arguments.first} did not answer within $limit. No server was rented.');
+      // The command, past a leading `-c name=value`.
+      final command = arguments.first == '-c' ? arguments[2] : arguments.first;
+      throw HostFilesRefused('The drive: git $command did not answer within $limit. No server was rented.');
     } finally {
       await output;
     }
+    return stdout;
   }
 
   /// Stages a complete bundle beside its target before replacing a regular file.

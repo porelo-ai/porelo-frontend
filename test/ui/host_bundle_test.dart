@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
@@ -13,8 +14,6 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
-
-const _signing = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture';
 
 Future<String> _git(Directory directory, List<String> arguments) async {
   final result = await Process.run(
@@ -70,7 +69,24 @@ void main() {
     await _git(source, ['init', '--initial-branch=main']);
     await _git(source, ['config', 'user.email', 'fixture@example.invalid']);
     await _git(source, ['config', 'user.name', 'Fixture']);
-    await _git(source, ['config', 'commit.gpgsign', 'false']);
+    // The daemon verified the commit by its signature, so the fixture signs it as a project's commit is.
+    for (final name in ['signer', 'other']) {
+      final made = await Process.run('ssh-keygen', [
+        '-q',
+        '-t',
+        'ed25519',
+        '-N',
+        '',
+        '-C',
+        name,
+        '-f',
+        path.join(scratch.path, name),
+      ]);
+      expect(made.exitCode, 0, reason: 'ssh-keygen: ${made.stderr}');
+    }
+    await _git(source, ['config', 'gpg.format', 'ssh']);
+    await _git(source, ['config', 'user.signingkey', path.join(scratch.path, 'signer')]);
+    await _git(source, ['config', 'commit.gpgsign', 'true']);
     await File(path.join(source.path, 'project.yml')).writeAsString('name: demo\n');
     await _git(source, ['add', 'project.yml']);
     await _git(source, ['commit', '-m', 'Verified project']);
@@ -78,7 +94,7 @@ void main() {
     await File(path.join(source.path, 'project.yml')).writeAsString('name: another\n');
     await _git(source, ['commit', '-am', 'Unverified tip']);
     tip = await _git(source, ['rev-parse', 'HEAD']);
-    await File(path.join(scratch.path, 'signing.pub')).writeAsString(_signing);
+    await File(path.join(scratch.path, 'signer.pub')).copy(path.join(scratch.path, 'signing.pub'));
     await File(path.join(scratch.path, 'identity')).writeAsString('invented key fixture');
     starts = [];
     settings = Settings(MemorySettingsStore());
@@ -91,14 +107,21 @@ void main() {
     await scratch.delete(recursive: true);
   });
 
-  Future<void> open(WidgetTester tester, {String? commit, String? url, bool chooseFolder = true}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    String? commit,
+    String? url,
+    bool chooseFolder = true,
+    String? signingKey,
+    List<String> signers = const [],
+  }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     if (chooseFolder) await settings.rememberTresorFolder('demo', folder.path);
     final backend = _Following([
       Followed(name: 'another', url: '/unreadable-other-project', commit: tip),
-      Followed(name: 'demo', url: url ?? source.path, commit: commit ?? verified),
+      Followed(name: 'demo', url: url ?? source.path, commit: commit ?? verified, signers: signers),
     ]);
     machines = Machines(settings, reach: (_) => backend, tunnels: FakeTunnels());
     runs = HostRuns(machines);
@@ -140,17 +163,27 @@ void main() {
     if (chooseFolder) {
       final oldRepository = find.byKey(const Key('host-repository'));
       if (oldRepository.evaluate().isNotEmpty) await tester.enterText(oldRepository, '/wrong-stored-repository');
-      await tester.enterText(find.byKey(const Key('host-signing-key')), path.join(scratch.path, 'signing.pub'));
+      if (signingKey != '') {
+        await tester.enterText(
+          find.byKey(const Key('host-signing-key')),
+          signingKey ?? path.join(scratch.path, 'signing.pub'),
+        );
+      }
     }
     await tester.pump();
   }
 
-  Future<void> put(WidgetTester tester) async {
+  /// Leaves the drive step: the bundle is made, and its signer checked, before the next step opens.
+  Future<void> drive(WidgetTester tester) async {
     final next = tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed!;
     await tester.runAsync(() async {
       await Function.apply(next, const []);
     });
     await World.settle(tester);
+  }
+
+  Future<void> put(WidgetTester tester) async {
+    await drive(tester);
     if (find.byKey(const Key('host-identity')).evaluate().isEmpty) return;
     await tester.enterText(find.byKey(const Key('host-identity')), path.join(scratch.path, 'identity'));
     await tester.enterText(find.byKey(const Key('host-public-key')), path.join(scratch.path, 'signing.pub'));
@@ -225,6 +258,102 @@ void main() {
       'machine.yml',
       'wireguard.key',
     }, reason: 'no staging directory may remain after publication');
+  });
+
+  String fingerprint(String name) =>
+      HostFiles.signingFingerprint(File(path.join(scratch.path, '$name.pub')).readAsStringSync());
+
+  group('with a home of its own', () {
+    late Desk previous;
+    late Directory ssh;
+    setUp(() {
+      previous = desk;
+      desk = Desk.of('linux', {'HOME': scratch.path});
+      ssh = Directory(path.join(scratch.path, '.ssh'))..createSync();
+    });
+    tearDown(() => desk = previous);
+
+    // Harm: the host refuses machine.yml only after a server is rented and set up for about 20 minutes.
+    testWidgets('a signing key that did not sign the commit stops the drive, naming both keys', (tester) async {
+      await open(tester, signingKey: path.join(scratch.path, 'other.pub'));
+      await drive(tester);
+      expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'the drive step must stop');
+      final refusal = find.textContaining('signed by ${fingerprint('signer')}, not by ${fingerprint('other')}');
+      expect(refusal, findsOneWidget);
+      expect(find.textContaining('may be swapped'), findsNothing, reason: 'the login key is another one');
+      expect(File(path.join(folder.path, 'porelo-host', 'demo.bundle')).existsSync(), isFalse);
+      // The corrected key is checked again rather than the refused bundle taken.
+      await tester.enterText(find.byKey(const Key('host-signing-key')), path.join(scratch.path, 'signing.pub'));
+      await tester.pump();
+      await put(tester);
+      expect(starts, hasLength(1), reason: 'the key that signed the commit must go on to renting');
+      final yaml = File(path.join(folder.path, 'porelo-host', 'machine.yml')).readAsStringSync();
+      expect(yaml, contains('signed_by: "${fingerprint('signer')}"'));
+    });
+
+    // Harm: a key changed after the drive passed would write its fingerprint beside a bundle it never signed.
+    testWidgets('a signing key changed after the drive passed is checked again', (tester) async {
+      await open(tester);
+      await drive(tester);
+      expect(find.byKey(const Key('host-identity')), findsOneWidget, reason: 'the signing key passes the drive');
+      await tester.tap(find.byKey(const Key('wizard-back')));
+      await World.settle(tester);
+      await tester.enterText(find.byKey(const Key('host-signing-key')), path.join(scratch.path, 'other.pub'));
+      await tester.pump();
+      await drive(tester);
+      expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'the changed key must be checked again');
+      expect(find.textContaining('not by ${fingerprint('other')}'), findsOneWidget);
+    });
+
+    // Harm: the server login key in the signing field went unnoticed until the rented host refused it.
+    testWidgets('the login key in the signing field is said to look swapped', (tester) async {
+      File(path.join(scratch.path, 'other.pub')).copySync(path.join(ssh.path, 'id_ed25519.pub'));
+      await open(tester, signingKey: path.join(ssh.path, 'id_ed25519.pub'));
+      await drive(tester);
+      expect(find.byKey(const Key('host-identity')), findsNothing);
+      expect(find.textContaining('the two key fields may be swapped'), findsOneWidget);
+    });
+
+    // Harm: the field opens on the person's ssh key, which is rarely the key the project's commits are signed with.
+    testWidgets("the signing field opens on a key the project's machine pins", (tester) async {
+      File(path.join(scratch.path, 'other.pub')).copySync(path.join(ssh.path, 'a.pub'));
+      File(path.join(scratch.path, 'signer.pub')).copySync(path.join(ssh.path, 'b.pub'));
+      await open(tester, signingKey: '', signers: [fingerprint('signer')]);
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('host-signing-key'))).controller!.text,
+        path.join(ssh.path, 'b.pub'),
+      );
+      await put(tester);
+      expect(starts, hasLength(1));
+    });
+
+    // Harm: a pin replacing the key the person chose and kept on an earlier run.
+    testWidgets('a signing key kept from an earlier run is not replaced by a pinned one', (tester) async {
+      File(path.join(scratch.path, 'signer.pub')).copySync(path.join(ssh.path, 'b.pub'));
+      await settings.rememberHostUp(
+        'demo',
+        HostUpRecord(
+          scalewayProject: 'provider',
+          account: 'porelo',
+          tresor: 'drive',
+          folder: folder.path,
+          repository: '',
+          signingKey: path.join(scratch.path, 'signing.pub'),
+          identity: path.join(scratch.path, 'identity'),
+          publicKey: path.join(scratch.path, 'signing.pub'),
+          collection: '',
+          collectionSha256: '',
+          vpnPeerPublicKey: '',
+          vpnPeerAddress: '',
+          vpnHostPublicKey: '',
+        ),
+      );
+      await open(tester, signingKey: '', signers: [fingerprint('signer')]);
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('host-signing-key'))).controller!.text,
+        path.join(scratch.path, 'signing.pub'),
+      );
+    });
   });
 
   for (final refusal in ['missing commit', 'unreadable source', 'option source', 'invalid commit']) {

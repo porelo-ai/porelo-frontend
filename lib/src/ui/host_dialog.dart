@@ -212,6 +212,8 @@ class _HostDialogState extends State<HostDialog> {
   bool _preparing = false;
   Followed? _followed;
   List<int>? _bundle;
+  // The signing key the bundle's commit was checked against: another key checks it again.
+  String? _bundleKey;
   String? _sourceProblem = 'The drive: reading the project’s verified source from its machine.';
 
   HostSession? _session;
@@ -229,6 +231,7 @@ class _HostDialogState extends State<HostDialog> {
     _folder = widget.settings?.tresorFolder(widget.project);
     if (_folder != null) _tresor.text = path.basename(path.normalize(_folder!));
     final kept = widget.existingRun?.record ?? widget.settings?.hostUp(widget.project);
+    _signingKeyKept = kept != null;
     if (kept != null) {
       _scaleway.text = kept.scalewayProject;
       _account.text = kept.account;
@@ -260,6 +263,7 @@ class _HostDialogState extends State<HostDialog> {
       final source = records.where((record) => record.name == widget.project).singleOrNull;
       if (!mounted) return;
       setState(() {
+        if (source != null && !_signingKeyKept) _preferPinnedKey(source.signers);
         _followed = source;
         _sourceProblem = source == null || source.commit.isEmpty || source.unverified
             ? 'The drive: this project has no verified commit to put on a server.'
@@ -274,21 +278,71 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
+  /// Opens the signing key field on a public key the project's machine pins, not on the ssh key by default.
+  ///
+  /// Read at once: ~/.ssh holds a few small files, as `_fileProblem` reads the chosen ones.
+  void _preferPinnedKey(List<String> pinned) {
+    if (pinned.isEmpty) return;
+    try {
+      final keys =
+          Directory(_home('.ssh')).listSync().whereType<File>().where((file) => file.path.endsWith('.pub')).toList()
+            ..sort((a, b) => a.path.compareTo(b.path));
+      for (final key in keys) {
+        if (pinned.contains(_fingerprint(key.path))) {
+          _signingKey.text = key.path;
+          return;
+        }
+      }
+    } on FileSystemException {
+      // No ~/.ssh to look in: the field stays as it is.
+    }
+  }
+
+  static String? _fingerprint(String file) {
+    try {
+      return HostFiles.signingFingerprint(File(desk.expandHome(file.trim())).readAsStringSync());
+    } on HostFilesRefused {
+      return null;
+    } on FileSystemException {
+      return null;
+    } on FormatException {
+      return null;
+    }
+  }
+
   Future<bool> _checkBundle() async {
     if (_sourceProblem != null) return false;
-    if (_folder == null || _bundle != null) return true;
+    // Expanded, so the same key written as ~/ before the action and in full after it is not checked twice.
+    final key = desk.expandHome(_signingKey.text.trim());
+    if (_folder == null || (_bundle != null && _bundleKey == key)) return true;
     setState(() {
       _preparing = true;
       _machineProblem = null;
     });
     try {
       final source = _followed!;
+      _bundle = null;
       await _withFiles((files) async {
-        _bundle = await files.createBundle(project: widget.project, url: source.url, commit: source.commit);
+        _bundle = await files.createBundle(
+          project: widget.project,
+          url: source.url,
+          commit: source.commit,
+          signingKey: File(key),
+        );
       });
+      _bundleKey = key;
       return mounted;
     } on HostFilesRefused catch (error) {
-      if (mounted) setState(() => _machineProblem = error.message);
+      final chosen = _fingerprint(key);
+      final swapped = error.message.contains(', not by ') && chosen != null && chosen == _fingerprint(_publicKey.text);
+      if (mounted) {
+        setState(
+          () => _machineProblem = swapped
+              ? '${error.message} It is also your public ssh key for signing in to the server: '
+                    'the two key fields may be swapped.'
+              : error.message,
+        );
+      }
     } on FileSystemException catch (error) {
       if (mounted) setState(() => _machineProblem = _preparationProblem(error));
     } on SecretStoreFailed {
@@ -299,6 +353,8 @@ class _HostDialogState extends State<HostDialog> {
     return false;
   }
 
+  // A signing key kept from an earlier run is never replaced by a pinned one.
+  bool _signingKeyKept = false;
   bool _upStarted = false;
   bool _takingDown = false;
   bool _finishingDown = false;

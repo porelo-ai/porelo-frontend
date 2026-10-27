@@ -1,6 +1,6 @@
 # F194 — A Signing Key That Did Not Sign The Bundle Refused
 
-**Status:** Estimated (2026-10-27).
+**Status:** Implementing (Backlog 2026-10-27).
 **Size:** M - two modules (`HostFiles` and the host dialog's step "The drive") with their tests; no
 contract change, since the machine's `Following` answer already carries the pinned fingerprints.
 
@@ -35,12 +35,13 @@ signed with, so a wrong key goes through every step unnoticed.
   that the two key fields look swapped. Not a refusal of its own: both fields default to
   `~/.ssh/id_ed25519.pub`, and one key for both is valid when it signed the commit.
 - **The dialog, in `lib/src/ui/host_dialog.dart`.** `_checkBundle` passes `_signingKey`, and the bundle is
-  dropped (`_bundle = null`) whenever the field changes, so a key corrected after a refusal is checked again.
-  The refusal shows in `_machineProblem` on "The drive", where the step stops; nothing is rented.
+  kept with the key it was checked against (`_bundleKey`, expanded), so a key changed after the drive passed,
+  or corrected after a refusal, is checked again. The refusal shows in `_machineProblem` on "The drive",
+  where the step stops; nothing is rented.
 - **The prefill.** `Followed.signers` already holds the fingerprints the project's machine pins (`_readSource`
-  reads it). With no key kept from an earlier run, the field opens on the first public key that matches one
-  of them, from the project workspace's signing keys and `~/.ssh/*.pub`, instead of `~/.ssh/id_ed25519.pub`;
-  with no match, as today. The check above holds either way.
+  reads it). With no key kept from an earlier run, the field opens on the first public key in `~/.ssh`, by
+  name, that matches one of them, instead of `~/.ssh/id_ed25519.pub`; with no match, as today. The few small
+  files there are read at once, as the dialog's other file checks are. The check above holds either way.
 - **Red first.** In `packages/porelo_host/test/`, a repository with a commit signed by key A and
   `createBundle` given key B: today it answers a bundle; it must refuse, naming both fingerprints. Then in
   `test/ui/host_dialog_test.dart`, the same on "The drive" with no session started and the step not passed.
