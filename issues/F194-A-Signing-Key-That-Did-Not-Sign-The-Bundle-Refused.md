@@ -1,6 +1,6 @@
 # F194 — A Signing Key That Did Not Sign The Bundle Refused
 
-**Status:** Analyzed (Accepted 2026-10-27).
+**Status:** Estimated (2026-10-27).
 **Size:** M - two modules (`HostFiles` and the host dialog's step "The drive") with their tests; no
 contract change, since the machine's `Following` answer already carries the pinned fingerprints.
 
