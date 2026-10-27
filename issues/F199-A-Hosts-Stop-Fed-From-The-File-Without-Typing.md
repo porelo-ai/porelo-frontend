@@ -32,7 +32,7 @@ these is typed at every `up`, and a new host has a new vault.
 - **The central forge's token is no need of the stop:** an `up` that reaches the migration of a repository from the
   central forge fails that step naming `forge-central-token`; the interface then sends it alone, `ssh <admin>@<host>
   sudo porelo-host-stop --stdin forge-central-token` with one line `forge-central-token <base64>`, from the file's
-  `shared` group, and runs `up` again. Whether F199 takes this step or a later issue does is for the operator.
+  `shared` group, and runs `up` again (decided: F199 takes this step).
 - **The forge's certificate is signed here (decided):** the host makes its key and sends only its request; the same
   terminal signs it with the CA key from the file and hands the certificate back, so the CA key never leaves the
   desktop. On the wire, as agreed with Machines: `ssh <admin>@<host> sudo porelo-host-stop --request` prints the
