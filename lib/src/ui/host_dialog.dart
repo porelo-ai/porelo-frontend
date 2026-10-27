@@ -1057,6 +1057,14 @@ class _HostDialogState extends State<HostDialog> {
   String? get _driveFilesProblem {
     final signing = _fileProblem(_signingKey.text, 'The public key for signing commits');
     if (signing != null) return signing;
+    // Refused before anything reads the file whole: a private key chosen here must not enter the interface.
+    try {
+      if (!_startsAsPublicKey(desk.expandHome(_signingKey.text.trim()))) {
+        return 'The public key for signing commits is not a public key (.pub): ${_signingKey.text.trim()}.';
+      }
+    } on FileSystemException {
+      return 'The public key for signing commits cannot be read: ${_signingKey.text.trim()}.';
+    }
     for (final key in _keys) {
       final problem = _fileProblem(key.file.path, 'The file for vault entry ${key.name}');
       if (problem != null) return problem;

@@ -349,6 +349,13 @@ void main() {
     expect(find.textContaining('A name must not'), findsNothing, reason: 'the earlier message goes with Next');
   });
 
+  // Harm: a private key chosen as the signing key would be read whole into the interface by Next's check.
+  testWidgets('a private key in the signing key field is refused before anything reads it', (tester) async {
+    await open(tester, signingKey: path.join(scratch.path, 'signer'));
+    expect(find.textContaining('is not a public key (.pub)'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+  });
+
   // Harm: a late answer about the key the person left would stand beside the key they chose.
   testWidgets('of two checks running at once, the answer about the key in the field stands', (tester) async {
     await open(tester, signingKey: '');

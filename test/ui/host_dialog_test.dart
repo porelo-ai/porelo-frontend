@@ -1089,15 +1089,11 @@ void main() {
       'host-tresor': 'drive',
       'host-signing-key': unreadable.path,
     }, stopAt: 1);
-    // The drive reads the key to check the bundle's signer, so the refusal comes before the next step.
-    await navigate(tester, 'wizard-next');
+    // A file that is no public key is refused by the step itself, before anything reads it whole.
+    expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
     expect(commands, isEmpty, reason: 'unreadable setup input must stop before renting');
     // The field still shows the path on this step, so the refusal is found by its own words.
-    final refusal = find.textContaining('cannot be read: ${unreadable.path}');
-    expect(refusal, findsOneWidget);
-    final words = tester.widget<Text>(refusal).data!;
-    expect(words, contains('Public key for signing commits (.pub)'));
-    expect(words, contains('The drive'));
+    expect(find.textContaining('is not a public key (.pub): ${unreadable.path}'), findsOneWidget);
     expect(find.byKey(const Key('host-identity')), findsNothing, reason: 'the refused key stops the drive step');
     await tester.ensureVisible(find.byKey(const Key('host-signing-key')));
     await tester.enterText(find.byKey(const Key('host-signing-key')), replacement.path);

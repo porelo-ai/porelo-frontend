@@ -27,6 +27,8 @@ key had been refused too.
   that never answers cannot hold **Next** (declined from the review: the second clone costs seconds).
 - An answer about a key the field no longer holds is dropped; two checks of the same key answer
   alike, so either may stand.
+- A file in the field that does not begin as a public key is refused by the step itself, before any
+  check reads it, so a private key chosen there never enters the interface.
 - The answer stands in the field: an hourglass while it is checked, a check mark when the key signed
   the commit, an error icon with the refusal as the field's error text when it did not.
 - Red first: `test/ui/host_bundle_test.dart`, "the signing key is checked as soon as it changes, and
@@ -37,6 +39,7 @@ key had been refused too.
 - A key that did not sign the commit is refused at the field, with its error icon and both
   fingerprints, before **Next**.
 - Changing the key removes the refusal at once, also while what is typed is not yet a key.
+- A private key in the field holds **Next**, named as no public key.
 - The key that signed shows the check mark; changing it again removes the check mark at once.
 - A key chosen while **Next**'s own check runs leaves the dialog free once both answered, and what an
   earlier step said goes when **Next** takes the key the field already passed.
