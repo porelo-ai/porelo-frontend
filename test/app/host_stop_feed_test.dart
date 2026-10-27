@@ -51,7 +51,7 @@ void main() {
     );
     expect(script, contains('set -o pipefail'), reason: 'a feed that fails fails the terminal');
     expect(script.indexOf('} | '), greaterThan(script.indexOf('read -rs')), reason: 'the lines go into the pipe');
-    expect(script.split('\n').first, '/usr/bin/stty -echo 2>/dev/null || true', reason: 'no echo from the first byte');
+    expect(script.indexOf('/usr/bin/stty -echo'), lessThan(script.indexOf('} | ')), reason: 'no echo for the file');
     expect(script, contains("trap '/usr/bin/stty echo"));
   });
 
@@ -73,8 +73,9 @@ void main() {
     expect(login, endsWith(' || exit \$?'), reason: 'a failed login sends nothing after it');
     expect(
       script.indexOf('/usr/bin/stty -echo'),
-      lessThan(script.indexOf(' -t ')),
-      reason: 'no echo while it connects',
+      greaterThan(script.indexOf(' -t ')),
+      // ssh hands this terminal's modes to the far end's: with echo off there, the e-mail typed would not show.
+      reason: 'echo kept for the drive\'s login',
     );
     expect(script.substring(0, script.indexOf('--stdin')), contains('me@example.org'));
     expect(script.substring(script.indexOf('--stdin')), isNot(contains('drive')));

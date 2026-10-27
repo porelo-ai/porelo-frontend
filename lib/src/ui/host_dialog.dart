@@ -1105,6 +1105,16 @@ class _HostDialogState extends State<HostDialog> {
     for (final key in _keys) {
       final problem = _fileProblem(key.file.path, 'The file for vault entry ${key.name}', link: false);
       if (problem != null) return problem;
+      // As the secrets file's script takes it: reached through no link on the way, and with content.
+      try {
+        final file = path.normalize(path.absolute(desk.expandHome(key.file.path)));
+        if (!desk.isWindows && File(file).resolveSymbolicLinksSync() != file) {
+          return 'The file for vault entry ${key.name} lies in a folder reached through a link: $file.';
+        }
+        if (File(file).lengthSync() == 0) return 'The file for vault entry ${key.name} is empty: $file.';
+      } on FileSystemException {
+        return 'The file for vault entry ${key.name} cannot be checked: ${key.file.path}.';
+      }
     }
     return null;
   }
@@ -1377,7 +1387,8 @@ class _HostDialogState extends State<HostDialog> {
     // A file changed or replaced since it was opened is taken again, never the key kept for the old one.
     String state(String file) {
       final stat = File(file).statSync();
-      return '${stat.type} ${stat.size} ${stat.modified.microsecondsSinceEpoch}';
+      return '${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
+          '${stat.modified.microsecondsSinceEpoch}';
     }
 
     final asked = (

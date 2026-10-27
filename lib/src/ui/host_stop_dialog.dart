@@ -216,8 +216,9 @@ class _HostStopDialogState extends State<HostStopDialog> {
       final needs = widget.needs ?? widget.run.session.needs;
       final file = widget.settings?.secretsFile != null;
       // With the secrets file the host takes its secrets on standard input; without it only what is typed there.
+      // Host files given by hand carry the person's own VPN key, which the file does not keep.
       final answerable = file
-          ? <String>{'drive', ...SecretsFile.stopNeeds}
+          ? <String>{'drive', ...SecretsFile.stopNeeds}.difference({if (widget.run.record.folder == null) 'wireguard'})
           : const <String>{'drive', 'vault', 'vault-new'};
       final unknown = needs.where((need) => !answerable.contains(need));
       return AlertDialog(

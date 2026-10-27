@@ -308,6 +308,50 @@ void main() {
     });
   }
 
+  // Harm: a VPN key from the file fed to a host whose files, given by hand, carry the person's own.
+  testWidgets('with host files given by hand the file gives no VPN key, and says so', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+    final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
+    final process = HostProcess();
+    final run = runs.start(
+      project: 'demo',
+      session: HostSession(executable: 'fake', arguments: const ['--project', 'demo'], start: (_, _) async => process),
+      record: _record,
+    );
+    try {
+      process.line(
+        const Step(
+          'person',
+          StepState.waiting,
+          needs: ['vault', 'wireguard'],
+          address: '203.0.113.7',
+          account: 'worker',
+          admin: 'ubuntu',
+        ),
+      );
+      process.end(75);
+      await run.finished;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostStopDialog(run: run, hostRuns: runs, machines: machines, settings: settings),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      expect(_record.folder, isNull);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('host-open-terminal'))).onPressed, isNull);
+      expect(find.textContaining('porelo-host waits for wireguard'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    }
+  });
+
   group('a stopped setup', () {
     late Settings settings;
     late Machines machines;

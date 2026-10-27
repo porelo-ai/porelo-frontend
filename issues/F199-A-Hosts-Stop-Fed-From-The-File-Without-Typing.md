@@ -57,6 +57,13 @@ these is typed at every `up`, and a new host has a new vault.
   change, and removes the drive's key last. A refusal of `up` that asks on its own call (`forge-central-token:`,
   `keys:`) waits under *Needs you* behind *Complete setup on the host*, as the user that refusal names (after a restart *Go on* runs `up`, which refuses the same way); Start opens
   the secrets file and names it with no drive folder too.
+- **From the reading of those fixes (ten findings, nine taken):** echo stays on for the drive's login, since ssh
+  hands this terminal's modes to the far end's and the e-mail typed there would not show, and goes off before the
+  file is opened; `keys` with no entry named is refused but beside `vault-new`; an empty value or encoding is no
+  base64; a kept host key that is none, or an empty entry, is refused before any change; *The drive* refuses an empty
+  vault entry file and one in a folder reached through a link, as the script does; with host files given by hand the
+  file gives no VPN key, as those files carry the person's own. **Declined, with the reason:** the feed's own exit
+  trap turns echo back on while `ssh -T` still runs, but nothing reads this terminal then.
 
 ## Acceptance
 

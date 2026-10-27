@@ -68,6 +68,13 @@ class SecretsFile {
     if (keys.isNotEmpty && !needs.contains('keys')) {
       throw const FormatException('The host did not ask for the files of its vault entries.');
     }
+    // The host takes `keys` with no line only beside a new vault, for a machine without vault entries.
+    if (needs.contains('keys') && keys.isEmpty && !needs.contains('vault-new')) {
+      throw const FormatException(
+        'The host asks for the files of its vault entries, and this setup names none. Choose them on the drive\'s '
+        'step and put the server on again.',
+      );
+    }
     for (final name in keys) {
       checkKeyName(name);
     }
@@ -90,7 +97,8 @@ class SecretsFile {
           '$variable="\$(get ${_word(path)})"',
           // Encoded here, before any line goes: a failure later would leave the host a part of its feed.
           'e$variable="\$(printf \'%s\' "\$$variable" | /usr/bin/base64 -w0)"',
-          'if ! [[ "\$e$variable" =~ \$b64 ]]; then echo "$path did not encode; nothing was sent." >&2; exit 1; fi',
+          'if [ -z "\$e$variable" ] || ! [[ "\$e$variable" =~ \$b64 ]]; then '
+              'echo "$path did not encode; nothing was sent." >&2; exit 1; fi',
         ]);
         writes.add("printf '%s %s\\n' ${_word(need)} \"\$e$variable\"");
       } else {
@@ -100,7 +108,7 @@ class SecretsFile {
           variables.add(variable);
           reads.addAll([
             '$variable="\$(get ${_word(vaultKey(project, name))})"',
-            'if ! [[ "\$$variable" =~ \$b64 ]]; then '
+            'if [ -z "\$$variable" ] || ! [[ "\$$variable" =~ \$b64 ]]; then '
                 'echo "${vaultKey(project, name)} is not base64; nothing was sent." >&2; exit 1; fi',
           ]);
           writes.add("printf 'key %s %s\\n' ${_word(name)} \"\$$variable\"");
@@ -213,12 +221,20 @@ class SecretsFile {
       ] else ...[
         r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was changed." >&2; exit 1; fi',
         'private="\$(kp show -s -a password "\$file" $key 2>/dev/null || true)"',
+        // An entry there that holds no key, or nothing, is the person's to mend: never added over, nor used.
+        'if [ -z "\$private" ] && kp show "\$file" $key >/dev/null 2>&1; then '
+            'echo "Your secrets file has an empty ${hostKey(project)}; remove it there. Nothing was changed." >&2; exit 1; fi',
+        'if [ -n "\$private" ] && ! valid "\$private"; then '
+            'echo "Your secrets file keeps no WireGuard key in ${hostKey(project)}; nothing was changed." >&2; exit 1; fi',
         // A copy still on the drive goes only when it is the file's own key; another key for the host stops it all.
         'if [ -n "\$private" ] && [ -n "\$old" ] && [ "\$old" != "\$private" ]; then '
             'echo "The drive holds another key for this server than your secrets file; nothing was changed." >&2; exit 1; fi',
         // One already kept under that name is replaced only by the same bytes.
         for (var i = 0; i < files.length; i++) ...[
           'have$i="\$(kp show -s -a password "\$file" ${_word(vaultKey(project, files[i].key))} 2>/dev/null || true)"',
+          'if [ -z "\$have$i" ] && kp show "\$file" ${_word(vaultKey(project, files[i].key))} >/dev/null 2>&1; then '
+              'echo "Your secrets file has an empty ${vaultKey(project, files[i].key)}; remove it there. Nothing was '
+              'changed." >&2; exit 1; fi',
           'if [ -n "\$have$i" ] && [ "\$have$i" != "\$k$i" ]; then echo "Your secrets file keeps another '
               '${files[i].key} for this server; remove it there to take the new one. Nothing was changed." >&2; exit 1; fi',
         ],

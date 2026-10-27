@@ -139,6 +139,14 @@ void main() {
         reason: 'the central forge\'s token is the person\'s, shared by every host',
       );
       expect(feed, isNot(contains('add ')), reason: 'the stop changes nothing in the file');
+      // Harm: a value that fails to encode after an earlier line went, which the host could take as its whole feed.
+      expect(
+        feed.lastIndexOf('/usr/bin/base64'),
+        lessThan(feed.indexOf("printf '%s %s\\n'")),
+        reason: 'every value encoded before the first line is written',
+      );
+      expect(feed, contains('if [ -z "\$ev0" ] ||'), reason: 'an empty encoding is no value');
+      expect(feed, contains('if [ -z "\$v2" ] ||'), reason: 'nor an empty entry');
     });
 
     test('refuses a need it does not know, the drive among them, before anything is read', () {
@@ -172,6 +180,13 @@ void main() {
         () => SecretsFile(file).stopLines(project: 'checkout', needs: ['keys'], keys: ['forge', 'forge']),
         throwsFormatException,
       );
+      // Harm: a stop for a missing entry answered with no line, and `up` refusing the same way again.
+      expect(
+        () => SecretsFile(file).stopLines(project: 'checkout', needs: ['keys']),
+        throwsFormatException,
+        reason: 'only beside a new vault may the entries be none',
+      );
+      expect(SecretsFile(file).stopLines(project: 'checkout', needs: ['vault-new', 'keys']), isNotEmpty);
     });
   });
 
@@ -404,6 +419,46 @@ void main() {
       );
     }, skip: skip);
 
+    // Harm: a key the file keeps that is none, used or added over after other entries were changed.
+    test('a kept host key that is no key, or an empty one, changes nothing', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'checkout.pub');
+      final chosen = await File(path.join(home.path, 'token')).writeAsBytes([5]);
+      expect(
+        (await run(
+          SecretsFile(kdbx, cli: cli).prepareHost(project: 'first', create: true, publicKeyOut: out),
+          'm',
+          twice: true,
+        )).exitCode,
+        0,
+      );
+      await cliIn(kdbx, ['mkdir', kdbx, 'hosts/checkout'], 'm');
+      for (final (project, value) in [('checkout', 'not a key'), ('other', '')]) {
+        if (project == 'other') await cliIn(kdbx, ['mkdir', kdbx, 'hosts/other'], 'm');
+        await cliIn(kdbx, ['add', '-p', kdbx, 'hosts/$project/wireguard'], 'm', then: value);
+        final refused = await run(
+          SecretsFile(
+            kdbx,
+            cli: cli,
+          ).prepareHost(project: project, create: false, publicKeyOut: out, keys: {'forge': chosen.path}),
+          'm',
+        );
+        expect(refused.exitCode, isNot(0), reason: project);
+        expect(
+          '${refused.stderr}',
+          contains(value.isEmpty ? 'has an empty hosts/other/wireguard' : 'keeps no WireGuard key'),
+          reason: 'what to mend is named',
+        );
+        for (final entry in ['hosts/$project/vault-passphrase', 'hosts/$project/keys/forge']) {
+          expect(
+            Process.runSync('bash', ['-c', 'printf "m\\n" | $cli show "$kdbx" $entry']).exitCode,
+            isNot(0),
+            reason: '$entry not added before the refusal',
+          );
+        }
+      }
+    }, skip: skip);
+
     // Harm: the drive's key removed, or the file changed, by a run that then refuses.
     test('another file for a kept vault entry changes nothing, and the same one is taken as it is', () async {
       final kdbx = path.join(home.path, 'secrets.kdbx');
@@ -431,7 +486,8 @@ void main() {
           create: false,
           publicKeyOut: out,
           migrateKeyFrom: drive.path,
-          keys: {'forge': second.path, 'ci': second.path},
+          // The new entry first: a check made in the adding loop would have added it before refusing.
+          keys: {'ci': second.path, 'forge': second.path},
         ),
         'm',
       );

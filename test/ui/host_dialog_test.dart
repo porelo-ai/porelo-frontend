@@ -1071,9 +1071,24 @@ void main() {
     await add('forge', fixture('linked'));
     expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
     expect(find.textContaining('not a regular file'), findsOneWidget, reason: 'a link is refused');
-    await tester.ensureVisible(find.byTooltip('Remove this file'));
-    await tester.tap(find.byTooltip('Remove this file'));
-    await World.settle(tester);
+    Future<void> remove() async {
+      await tester.ensureVisible(find.byTooltip('Remove this file'));
+      await tester.tap(find.byTooltip('Remove this file'));
+      await World.settle(tester);
+    }
+
+    await remove();
+    // As the secrets file's script refuses them, before anything is rented: an empty file, a folder that is a link.
+    final empty = File(fixture('empty'))..writeAsBytesSync([]);
+    await add('forge', empty.path);
+    expect(find.textContaining('is empty'), findsOneWidget);
+    await remove();
+    final real = Directory(fixture('real'))..createSync();
+    File(path.join(real.path, 'token')).writeAsBytesSync([4]);
+    Link(fixture('via')).createSync(real.path);
+    await add('forge', fixture('via/token'));
+    expect(find.textContaining('reached through a link'), findsOneWidget);
+    await remove();
     await add('forge', token.path);
     await add('forge', token.path);
     expect(find.textContaining('A vault entry forge is chosen already'), findsOneWidget);
@@ -1082,6 +1097,10 @@ void main() {
     await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
     await tester.pump();
     await navigate(tester, 'wizard-next');
+    // Opened on its step, then the entry's file changes: Start opens the file again, never the key kept for the old.
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(opened, hasLength(1));
+    token.writeAsBytesSync([1, 2, 3, 4]);
     await navigate(tester, 'wizard-next');
     await tester.enterText(find.byKey(const Key('host-collection')), fixture('collection.tar.gz'));
     await tester.enterText(find.byKey(const Key('host-collection-sha256')), collectionDigest);
@@ -1089,6 +1108,7 @@ void main() {
     await navigate(tester, 'wizard-next');
     await tapAndRun(tester, const Key('host-up'));
 
+    expect(opened, hasLength(2), reason: 'the changed file is taken again');
     expect(opened.last, {'forge': token.path}, reason: 'the chosen file goes into the secrets file');
     expect(settings.hostUps['demo']?.vaultKeys, ['forge'], reason: 'the stop sends this entry, and no other');
   });
@@ -2779,6 +2799,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final settings = newSettings(MemorySettingsStore());
+      await settings.rememberTresorFolder('demo', scratch.path);
       final terminals = <FakeTerminal>[];
       await tester.pumpWidget(
         MaterialApp(

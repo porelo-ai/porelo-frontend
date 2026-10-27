@@ -39,10 +39,10 @@ List<String> hostStopFeedCommand({
   // asks a password fails instead of reading one from the pipe.
   final stop = '/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --stdin ${fed.join(' ')}';
   final script = [
-    // No echo here from the first byte: the drive's login connects before the file's script turns it off.
-    '/usr/bin/stty -echo 2>/dev/null || true',
     "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
     'set -o pipefail',
+    // The drive's login keeps this terminal's echo: ssh hands its modes to the far end's terminal, whose own
+    // prompts show the e-mail and hide the password. Echo goes off the moment it ends, before the file is opened.
     if (needs.contains('drive'))
       '${sshLine([
         '-t',
@@ -50,6 +50,7 @@ List<String> hostStopFeedCommand({
         driveHost ?? host,
         inTheLoginShell(hostStopCommand(['drive'], email: email)),
       ])} || exit \$?',
+    '/usr/bin/stty -echo 2>/dev/null || true',
     '{\n$feed\n} | ${sshLine(['-T', '--', host, stop])}',
   ].join('\n');
   // Neither the caller's startup files nor an inherited trace may run in the shell that holds the secrets.
