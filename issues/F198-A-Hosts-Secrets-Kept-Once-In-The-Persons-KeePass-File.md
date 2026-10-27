@@ -55,6 +55,10 @@ operator's shape: one password to remember for setting up a host.
 
 ## Open questions
 
+- **QF67:** does the file keep the drive's login? Nothing reads it once the drive's login is typed at the host (from
+  6e) and the drive is the person's own (from 6g). Recommended: left out until an issue feeds it from the file.
+- **QF68:** where does the file live when the person has no drive (optional from 6g)? Recommended: chosen at first
+  use, offered in the drive folder where one is set up and otherwise in `~/Porelo/`; only its path is kept here.
 
 ## To be checked
 

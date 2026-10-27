@@ -19,6 +19,9 @@ first meant to be, the person's own.
   another drive) for the person's data, kept per host in the kept run.
 - **At `up`:** with no personal drive, no Tresorit login is asked and nothing is synced; with one, its login is
   asked in the person's terminal at the stop, and it is mounted in the person's account.
+- **The person's account is the admin account** the interface already logs in as over ssh (agreed with Machines):
+  it exists before `up`, holds the person's own ssh session for the drive's login, and is never Porelo's account,
+  so Porelo's tasks cannot read the drive; `up` gives it the linger Tresorit's daemon needs.
 - **Red first:** a test that `up` without a personal drive names no drive need, and one that a chosen drive is
   given as the person's, never as Porelo's.
 

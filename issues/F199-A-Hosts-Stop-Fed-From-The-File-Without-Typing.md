@@ -9,7 +9,7 @@ contract with `porelo-host`.
 terminal the interface opens, and the host gets what its stop asks - its vault passphrase, its WireGuard key, the
 keys for its vault - from the file, on standard input, without the person typing any of them (step 2 of the host's
 new setup, before the upload of [F197](README.md#f197)). The drive's login is no longer among them: the drive leaves the setup ([F201](README.md#f201)). A secret
-the file lacks is asked as today.
+the file lacks is said by its entry's name before anything is sent; the stop never prompts for one.
 
 ## Why
 
@@ -53,8 +53,15 @@ these is typed at every `up`, and a new host has a new vault.
 
 - A host set up with the file and a drive holding only `machine.yml`: at the stop the person types the master
   password and sudo, nothing else, and the host's vault comes up.
-- A file without the vault passphrase: the stop asks it as today.
+- A file without an entry the stop needs: the terminal names the missing entry and sends nothing; a host's new vault
+  passphrase is made into the file in that terminal before the pipe, so a first host needs no typed passphrase.
 - Seen to fail: the command test red against today's interactive stop.
+
+## Open questions
+
+- **QF69:** does the forge certificate's signing move into an issue of its own in sprint 6h, beside `porelo-host`
+  [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35), which is the first to take
+  `forge-certificate`? Recommended: yes, so this issue is tested whole in 6e.
 
 ## To be checked
 
