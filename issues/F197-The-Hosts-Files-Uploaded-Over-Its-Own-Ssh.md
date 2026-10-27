@@ -62,6 +62,9 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   `porelo-host`) is the person's and taken; an earlier machine file goes only once every other file has passed, and
   is compared by its bytes; a placing the host refuses removes the place too; folders there from before are
   tightened; and tests now see the staging folder go and the drive's key change the cache.
+- **From a third reading (two findings, both taken):** the interface's own folders are looked at from the top down,
+  since a link at `hosts` hides behind a folder below it to a walk from the bottom; and the test of an opening that
+  changes nothing new moves a drive key, so a cache taken before opening would ask again.
 
 ## Acceptance
 

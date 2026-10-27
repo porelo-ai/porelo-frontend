@@ -1110,9 +1110,15 @@ void main() {
       await tester.pump();
       await navigate(tester, 'wizard-next');
       // Opened on its step, then a file it read changes: Start opens the file again, never the key kept for the old.
+      // A key the drive held, which opening moves: opening changes what it read, and asks nothing new for it.
+      final drivesKey = File(path.join(scratch.path, 'porelo-host', 'wireguard.key'));
+      await tester.runAsync(() async {
+        await drivesKey.parent.create(recursive: true);
+        await drivesKey.writeAsString('${base64Encode(List<int>.filled(32, 6))}\n');
+      });
       await tapAndRun(tester, const Key('host-secrets-open'));
       expect(opened, hasLength(1));
-      final drivesKey = File(path.join(scratch.path, 'porelo-host', 'wireguard.key'));
+      expect(drivesKey.existsSync(), isFalse);
       switch (changed) {
         case 'the secrets file':
           final secrets = File(path.join(scratch.path, 'Porelo', 'secrets.kdbx'));

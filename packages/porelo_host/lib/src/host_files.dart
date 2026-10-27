@@ -511,8 +511,14 @@ class HostFiles {
     final missing = <Directory>[];
     // Up to the first folder that is one: a link on the way is refused before anything is made. A folder above it,
     // such as a configuration folder the person links elsewhere, is theirs.
-    // This desktop's folders: the one holding every project's (`hosts`), the project's, and its porelo-host.
-    final own = {_paths.dirname(normalized), normalized, root.path};
+    // This desktop's folders: the one holding every project's (`hosts`), the project's, and its porelo-host. Each is
+    // looked at from the top down, so a link at one is seen before any path through it is.
+    final own = [_paths.dirname(normalized), normalized, root.path];
+    for (final each in own) {
+      final type = await FileSystemEntity.type(each, followLinks: false);
+      if (type == FileSystemEntityType.notFound) break;
+      if (type != FileSystemEntityType.directory) _conflict(each);
+    }
     for (var each = root; ; each = each.parent) {
       final type = await FileSystemEntity.type(each.path, followLinks: false);
       if (type == FileSystemEntityType.directory) break;

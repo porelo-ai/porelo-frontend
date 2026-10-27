@@ -348,6 +348,24 @@ void main() {
       },
     );
 
+    for (final linked in ['hosts', 'demo']) {
+      test('$linked linked to a place that holds the folders below already is refused', () async {
+        final outside = await Directory(path.join(scratch.path, 'outside', 'demo', 'porelo-host'))
+            .create(recursive: true);
+        await Directory(path.join(scratch.path, 'conf', 'hosts')).create(recursive: true);
+        final at = linked == 'hosts'
+            ? path.join(scratch.path, 'conf', 'hosts')
+            : path.join(scratch.path, 'conf', 'hosts', 'demo');
+        if (linked == 'hosts') await Directory(at).delete();
+        await Link(
+          at,
+        ).create(linked == 'hosts' ? path.join(scratch.path, 'outside') : path.join(scratch.path, 'outside', 'demo'));
+        final folder = path.join(scratch.path, 'conf', 'hosts', 'demo');
+        await expectLater(own(folder), throwsA(isA<HostFilesRefused>()));
+        expect(outside.listSync(), isEmpty, reason: 'nothing written where $linked points');
+      }, skip: Platform.isLinux ? null : 'links are checked on Linux');
+    }
+
     test('a configuration folder above its own that the person links elsewhere is theirs', () async {
       final real = await Directory(path.join(scratch.path, 'dotfiles')).create();
       await Link(path.join(scratch.path, 'conf')).create(real.path);
