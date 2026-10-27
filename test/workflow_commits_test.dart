@@ -78,15 +78,16 @@ esac''');
   Future<({int exit, String log, List<String> java})> pullRequest(
     String repository,
     String association,
-    String author,
-  ) => execute(_named(sharedRules, 'check', pullRequestStep), <String, String>{
+    String author, {
+    int checkExit = 0,
+  }) => execute(_named(sharedRules, 'check', pullRequestStep), <String, String>{
     'PR_BASE': '6666666',
     'PR_HEAD': '7777777',
     'PR_REPOSITORY': repository,
     'GITHUB_REPOSITORY': 'porelo-ai/porelo-frontend',
     'PR_ASSOCIATION': association,
     'PR_AUTHOR': author,
-  });
+  }, checkExit: checkExit);
 
   List<String> checked(String range, [List<String> more = const <String>[]]) => <String>[
     '-cp',
@@ -192,15 +193,22 @@ esac''');
 
   // The harm: a second fetch, which a private forge copy refuses to a checkout without credentials.
   test("a member's pull request is checked from the checkout alone", () async {
-    final run = await pullRequest('porelo-ai/porelo-frontend', 'MEMBER', 'someone');
-    expect(run.exit, 0, reason: run.log);
-    expect(run.java, checked('6666666..7777777'));
+    for (final association in <String>['MEMBER', 'OWNER']) {
+      final run = await pullRequest('porelo-ai/porelo-frontend', association, 'someone');
+      expect(run.exit, 0, reason: '$association: ${run.log}');
+      expect(run.java, checked('6666666..7777777'), reason: '$association is from inside');
+    }
+    final refused = await pullRequest('porelo-ai/porelo-frontend', 'MEMBER', 'someone', checkExit: 1);
+    expect(refused.exit, isNot(0), reason: 'a refused pull request passed: ${refused.log}');
   });
 
   // The harm: a workflow expression in the script running what a pull request's title or branch carries.
   test("the pull request's facts reach the script through its environment", () {
     final step = _named(sharedRules, 'check', pullRequestStep);
+    expect(step['if'], "github.event_name == 'pull_request'", reason: 'the step runs on a pull request');
     final env = step['env'] as YamlMap;
+    expect(env['PR_BASE'], r'${{ github.event.pull_request.base.sha }}');
+    expect(env['PR_HEAD'], r'${{ github.event.pull_request.head.sha }}');
     expect(env['PR_AUTHOR'], r'${{ github.event.pull_request.user.login }}');
     expect(env['PR_REPOSITORY'], r'${{ github.event.pull_request.head.repo.full_name }}');
     expect(env['PR_ASSOCIATION'], r'${{ github.event.pull_request.author_association }}');
