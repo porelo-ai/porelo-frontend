@@ -2,7 +2,7 @@
 
 **Status:** Backlog; blocked by [F198](README.md#f198) and by `porelo-host`
 [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37).
-**Size:** M - the stop's terminal in the host dialog, the certificate's signing in it, and their tests, on a
+**Size:** M - the stop's terminal in the host dialog, the central forge's token after `up`, and their tests, on a
 contract with `porelo-host`.
 
 **What must be true.** At a host's stop, the person types the master password of `secrets.kdbx` once, in the
@@ -26,24 +26,12 @@ these is typed at every `up`, and a new host has a new vault.
   `ssh <admin>@<host> sudo porelo-host-stop --stdin NEED...`, one line per secret, `<need> [<name>] <value in
   base64>` (agreed with Machines for the host's side); the stop asks only what is missing. The needs are `vault` or
   `vault-new`, `keys` with `key <name>` lines and `wireguard`; `drive` is not one of them (decided), and `--email`,
-  which belongs to `drive`, is refused with `--stdin` (exit 64). `forge-certificate` is taken only once `porelo-host`
-  [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) is built; before that `--stdin`
-  refuses it as an unknown need (exit 64) before any line is used.
+  which belongs to `drive`, is refused with `--stdin` (exit 64). The forge's certificate is
+  [F202](README.md#f202)'s, in sprint 6h.
 - **The central forge's token is no need of the stop:** an `up` that reaches the migration of a repository from the
   central forge fails that step naming `forge-central-token`; the interface then sends it alone, `ssh <admin>@<host>
   sudo porelo-host-stop --stdin forge-central-token` with one line `forge-central-token <base64>`, from the file's
-  `shared` group, and runs `up` again (decided: F199 takes this step).
-- **The forge's certificate is signed here (decided):** the host makes its key and sends only its request; the same
-  terminal signs it with the CA key from the file and hands the certificate back, so the CA key never leaves the
-  desktop. On the wire, as agreed with Machines: `ssh <admin>@<host> sudo porelo-host-stop --request` prints the
-  waiting request as one PEM block (exit 65 when none waits); `openssl x509 -req -days 365` signs it with the CA key
-  on a pipe from `keepassxc-cli`, setting every extension itself and copying none from the request
-  (`subjectAltName=IP:10.73.0.1,DNS:forge.porelo.internal`, `basicConstraints=critical,CA:FALSE`,
-  `extendedKeyUsage=serverAuth`, address and name from the inventory the interface wrote); the answer is the line
-  `forge-certificate <base64 of the certificate's PEM, then the CA's>` in the `--stdin` pipeline.
-- **The lasting CA is made once in that terminal:** `nameConstraints=critical,permitted;DNS:porelo.internal,
-  permitted;IP:10.73.0.0/255.255.255.0`, `basicConstraints=critical,CA:TRUE,pathlen:0`, ten years, its key straight
-  into `secrets.kdbx`.
+  `shared` group, and runs `up` again (decided: this issue takes the step).
 - **Nothing written:** the entries pass through the pipe only, never into a file, argument, environment or log here
   or on the host; the terminal's own scrollback shows none.
 - **Red first:** a test of the command the interface builds for the stop terminal: it names the entries and the host,
@@ -57,14 +45,7 @@ these is typed at every `up`, and a new host has a new vault.
   passphrase is made into the file in that terminal before the pipe, so a first host needs no typed passphrase.
 - Seen to fail: the command test red against today's interactive stop.
 
-## Open questions
-
-- **QF69:** does the forge certificate's signing move into an issue of its own in sprint 6h, beside `porelo-host`
-  [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35), which is the first to take
-  `forge-certificate`? Recommended: yes, so this issue is tested whole in 6e.
-
 ## To be checked
 
 - How one unlock yields several entries inside the pipe: `keepassxc-cli open`'s shell fed from the pipe, or
   `export` filtered to the named entries without a file; posted before anything changes.
-- That the CA key reaches `openssl` only on a pipe, never as a file, also on the desktop's own temporary folder.
