@@ -79,6 +79,7 @@ esac''');
     String repository,
     String association,
     String author, {
+    String server = 'https://github.com',
     int checkExit = 0,
   }) => execute(_named(sharedRules, 'check', pullRequestStep), <String, String>{
     'PR_BASE': '6666666',
@@ -87,6 +88,7 @@ esac''');
     'GITHUB_REPOSITORY': 'porelo-ai/porelo-frontend',
     'PR_ASSOCIATION': association,
     'PR_AUTHOR': author,
+    'PR_SERVER': server,
   }, checkExit: checkExit);
 
   List<String> checked(String range, [List<String> more = const <String>[]]) => <String>[
@@ -212,6 +214,7 @@ esac''');
     expect(env['PR_AUTHOR'], r'${{ github.event.pull_request.user.login }}');
     expect(env['PR_REPOSITORY'], r'${{ github.event.pull_request.head.repo.full_name }}');
     expect(env['PR_ASSOCIATION'], r'${{ github.event.pull_request.author_association }}');
+    expect(env['PR_SERVER'], r'${{ github.server_url }}');
     expect(step['run'], isNot(contains(r'${{')));
   });
 
@@ -220,6 +223,22 @@ esac''');
     final run = await pullRequest('porelo-ai/porelo-frontend', 'CONTRIBUTOR', 'github-actions[bot]');
     expect(run.exit, 0, reason: run.log);
     expect(run.java, checked('6666666..7777777'));
+  });
+
+  // The host's forge, as its runner names itself: it sends no author association at all.
+  const forge = 'https://10.73.0.1:3000';
+
+  // The harm: every pull request on the host's forge refused for want of a sign-off our own commits never carry.
+  test("a forge pull request from the same repository is from inside", () async {
+    final run = await pullRequest('porelo-ai/porelo-frontend', '', 'agent-machines', server: forge);
+    expect(run.exit, 0, reason: run.log);
+    expect(run.java, checked('6666666..7777777'));
+  });
+
+  // The harm: code from another forge repository passing without its author's sign-off.
+  test('a forge pull request from elsewhere stays from outside', () async {
+    final run = await pullRequest('someone/porelo-frontend', '', 'someone', server: forge);
+    expect(run.java, checked('6666666..7777777', <String>['--outside']));
   });
 
   // The harm: code from outside passing without its author's sign-off.
