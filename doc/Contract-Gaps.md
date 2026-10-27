@@ -44,10 +44,6 @@ gap here is a backend method that has to be added, not a workaround waiting to b
   `Repository` carries none, so starting an agent for each repository at one click has nothing to
   read which agent that is.
 
-- **The values a project declares.** `Start` takes `parameters` and refuses a wrong one with prose,
-  but `Project` does not say which names it declares, which are required, and what each allows, so
-  a start cannot ask for `issue` and `phase` without guessing.
-
 ## On the wire, not used here yet
 
 - **`WatchProjects`**, a push for what `Projects` answers. The project row still asks again after
