@@ -24,7 +24,8 @@ operator's shape: one password to remember for setting up a host.
 - **AGENTS.md's rule decides where the master password goes:** "The interface takes no secret into a form of its
   own"; a password is typed into a terminal on the machine it is for. The file is this desktop's, so it is opened in
   a terminal here, by `keepassxc-cli`, and its entries go from there to where they are used ([F199](README.md#f199));
-  the interface holds none of them. QF64 asks whether that stands.
+  the interface holds none of them (decided: the master password and every entry stay out of the interface; at the
+  first host the lasting forge password is typed in that terminal and goes into the file there).
 - **Measured here:** `keepassxc-cli` 2.8.0 comes with the KeePassXC snap, and the snap may not write in `/tmp` or in
   a hidden folder of the home (`Zugriff verweigert`), so the file lives on the drive, never under `~/.porelo`; the
   Dart package `kdbx` 2.5.0 (authpass, August 2026) reads and writes KDBX 4, with Argon2 through a native library.
@@ -48,9 +49,6 @@ operator's shape: one password to remember for setting up a host.
 
 ## Open questions
 
-- **QF64:** The master password typed in a terminal here, with `keepassxc-cli` as the only reader of the file, as
-  AGENTS.md's rule asks; or a field in the interface, reading the file with the `kdbx` package, which changes that
-  rule? Recommended: the terminal.
 - **QF65:** KeePassXC as a requirement on the desktop (the person has it, since they open the file with it), or the
   file written by the interface itself? Recommended: KeePassXC required, found as `keepassxc-cli` or the snap's
   `keepassxc.cli`, and said plainly when missing.
