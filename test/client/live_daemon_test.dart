@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
+import 'package:porelo_frontend/src/app/start_agents.dart';
 
 import 'support/idl.dart';
 
@@ -275,4 +277,77 @@ void main() {
       expect(await client.tasks(), isA<List<Task>>());
     });
   }, skip: there ? false : 'no daemon: set PORELO_SOCKET to a running porelod to run these');
+
+  // The agent of each repository at one click, against a daemon that names them: what the wizard was built against a
+  // stand-in for, said by the real one.
+  final walk = Platform.environment['PORELO_AGENTS_PROJECT'];
+  group(
+    'a project whose repositories name agents',
+    () {
+      late PoreloBackend backend;
+      final started = <String>[];
+
+      setUpAll(() async {
+        backend = PoreloBackend(Backend(socketPath: socket, label: 'the live daemon'));
+        await backend.open();
+      });
+
+      tearDownAll(() async {
+        for (final task in started) {
+          await backend.stopTask(task);
+          await backend.removeTask(task, force: true);
+        }
+      });
+
+      Future<Project> project() async => (await backend.projects()).singleWhere((each) => each.name == walk);
+
+      test('names each repository\'s agent, and one click starts exactly those, attended', () async {
+        final read = await project();
+        final named = {for (final each in read.repositoryStates) each.name: each.agent};
+        expect(
+          named.values,
+          everyElement(isNotNull),
+          reason: 'a daemon that names agents says it for every repository',
+        );
+        expect(StartAgents.whyNot(read), isNull, reason: 'the command is offered');
+
+        final model = StartAgents();
+        addTearDown(model.dispose);
+        await model.open(backend, read);
+        expect(model.problem, isNull);
+        final wanted = {
+          for (final entry in named.entries)
+            if (entry.value!.isNotEmpty) entry.key: entry.value,
+        };
+        expect({for (final row in model.toStart) row.repository: row.agent}, wanted, reason: 'one row each, its agent');
+        expect(model.rows.where((row) => !row.namesAnAgent).map((row) => row.repository), isNotEmpty);
+        for (final row in model.rows.where((row) => row.namesAnAgent)) {
+          final repository = read.repositoryStates.singleWhere((each) => each.name == row.repository);
+          expect(row.goesBy, repository.goesBy, reason: 'shown as the daemon says it, ${repository.goesBy}');
+        }
+
+        // What the wizard waits on before its start, each said by the machine.
+        expect(model.askProblem, isNull);
+        expect(model.signInsNeeded.map((agent) => agent.name), isEmpty, reason: 'the stub needs no sign-in');
+        expect({for (final row in model.held) row.repository: row.held}, isEmpty);
+        expect(model.asked, isTrue);
+        await model.startAll();
+        expect({for (final row in model.rows) row.repository: row.refusal}.values.nonNulls, isEmpty);
+        final tasks = await backend.tasks();
+        final made = tasks.where((task) => task.project == walk).toList();
+        started.addAll(made.map((task) => task.name));
+        expect({for (final task in made) task.repository: task.agent}, wanted, reason: 'exactly those were started');
+        expect(made.map((task) => task.mode), everyElement(Mode.agent), reason: 'attended, with no prompt');
+
+        // Opened again, nothing is started twice: each runs already.
+        final again = StartAgents();
+        addTearDown(again.dispose);
+        await again.open(backend, await project());
+        expect(again.toStart, isEmpty, reason: 'every one runs, or continues, already');
+      }, timeout: const Timeout(Duration(minutes: 20)));
+    },
+    skip: there && walk != null
+        ? false
+        : 'needs a daemon that names repositories\' agents and a project naming them: set PORELO_AGENTS_PROJECT',
+  );
 }

@@ -81,9 +81,18 @@ its phase following from that issue, which is a start of its own and not this on
 
 ## To be checked
 
-- Against a daemon with `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) published:
-  the command offered, and the walk of the acceptance through. The fields were read in porelo's IDL at `ac7b4f71`:
-  `Repository.agent` (`""` when none is named), `nickname` and `goesBy`, shown as it is, as this interface reads them.
-- Whether `Start` with `now: true` returns before the image build on a project never prepared, measured against a
-  daemon, so twelve starts do not take twelve builds in a row.
-- Whether a sign-in started from the wizard returns to it, as it returns to `StartWorkView` today.
+- **Seen 2026-10-28 against a daemon with `porelo`
+  [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) published** (`0.5.1~snapshot.344`,
+  from `6fd3f518`, in the test account `frontend` of the shared VM, over a forwarded socket), by the live-daemon test's
+  group for a project naming agents (`PORELO_AGENTS_PROJECT`), on an offline project of three repositories, two naming
+  the `stub` agent and one none:
+  - the daemon names each repository's agent and the command is offered; the rows are the two, with the name each
+    goes by as the daemon composes it, and the third is listed as naming none;
+  - with the account's vault locked, both rows are held with the machine's words ("the vault is locked, so whether
+    'anthropic' is there cannot be answered"); open, without the agent's credential, the wizard holds at its
+    sign-in; nothing starts in either;
+  - with a stand-in credential in the test vault, one click started exactly the two, attended, with the `stub`; opened
+    again, nothing is started twice. The tasks were stopped and removed after.
+- Still to measure against a daemon: whether `Start` with `now: true` returns before the image build on a project
+  never prepared, so twelve starts do not take twelve builds in a row (the two above took 22 s together, which does
+  not tell it); and whether a sign-in started from the wizard returns to it, as it returns to `StartWorkView` today.
