@@ -34,15 +34,30 @@ operator's shape: one password to remember for setting up a host.
   (`Zugriff verweigert`), which the packaged one does not share; 2.7.10's manual page lists `open` (a shell on one
   unlocked file), `show`, `export` (XML or CSV to standard output), `db-create`, `mkdir` and `add`.
   Windows and macOS are [F200](README.md#f200).
-- **The entries the interface relies on**, so a person's own file works: `shared/forge-password`, `shared/forge-ca-key`, `hosts/<name>/wireguard`, `hosts/<name>/vault-passphrase`, each a
-  KeePass entry whose password field holds the secret. A missing entry is said by its name, never guessed.
+- **The entries the interface relies on**, so a person's own file works: `shared/forge-password`,
+  `shared/forge-ca-key`, `hosts/<project>/wireguard`, `hosts/<project>/vault-passphrase`, each a KeePass entry whose
+  password field holds the secret, named by its path below the root group (whose own name is localized). A missing
+  entry is said by its name, never guessed.
+- **The terminal's script, so no secret enters the interface:** a `bash` script the interface writes, with no secret
+  in it, runs in the interface's terminal on this desktop. It asks the master password once with `read -rs` and
+  hands it to each `keepassxc-cli` call on standard input with the shell's builtin `printf`, never as an argument or
+  in the environment of another program. The host's WireGuard key is made there (`wg genkey`) straight into
+  `hosts/<project>/wireguard`, and only its public half (`wg pubkey`) is written to a `0600` file in a private folder
+  of the interface, which `HostTunnel` reads; a new host's vault passphrase is generated into
+  `hosts/<project>/vault-passphrase` by `keepassxc-cli add -g`. The person's own half stays in the system store, as
+  today.
 - **Where it lies (decided):** the person chooses the file at first use, offered `~/Porelo/secrets.kdbx`, or a drive
   folder where one is set up; the interface keeps only its path in its settings, never a copy.
-- **First use:** a step before *The drive* when no file exists: create it in a terminal (`keepassxc-cli db-create`),
-  then put in what is already known (the WireGuard key from the tresor, then removed from it); a person with an
-  existing file names it.
-- **The package:** `tool/package.sh`'s nfpm template gains the dependency per format, with its test in
-  `test/packaging_test.dart`.
+- **First use:** a step of the host dialog when no file is known: the person names an existing file, or the script
+  creates one (`keepassxc-cli db-create`, then the groups `shared`, `hosts` and `hosts/<project>`); a host's key
+  already in the tresor is moved into the file in that script and then removed from the tresor.
+- **Between 6d and 6e:** with the file, `wireguard.key` no longer goes to the drive, while the host still reads it
+  there until `porelo-host` [HO37](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho37) takes it
+  on standard input ([F199](README.md#f199)); so 6d is tested without a host, as its sprint says.
+- **The package:** `packaging/nfpm.yaml.in` names `keepassxc-minimal` (deb) and `keepassxc` (rpm), and
+  `wireguard-tools`, which the VPN action runs already and the script's `wg` needs: dependencies listed rather than
+  derived from the ELF files, since the interface runs them by path; `AGENTS.md`'s
+  packaging rule says so, and `test/packaging_test.dart` asserts it.
 - **Red first:** a widget test that a run with the file never writes `wireguard.key` into the drive, and a test of
   the entry names against a file made with `keepassxc-cli` from a fixture.
 
