@@ -61,6 +61,12 @@ its phase following from that issue, which is a start of its own and not this on
   the wizard on its step, and a refusal for one row while the other starts. The client's new field gets a
   `MockDaemon` test reading it absent from an older daemon.
 
+- **Declined from its readings, with the reason:** an in-flight start is not cancelled when the wizard is left,
+  since cancelling `Start`'s stream may stop a task half made, and the wizard says the start may keep running; the
+  confirmation on leaving an untouched wizard after the machine answered is wording, not harm; a stopped task
+  without a name is refused but not tested, since only a daemon that names agents offers the command, and every
+  such daemon names its tasks.
+
 ## Acceptance
 
 - A project with three repositories, two naming an agent, one of whose tasks runs: one click and the summary start
