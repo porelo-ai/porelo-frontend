@@ -43,7 +43,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f197"></a>[F197](F197-A-Hosts-Own-Folder-Beside-What-All-Hosts-Share.md) | L | `porelo-host`'s part of `porelo-project` [PJ50](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj50) | A host's own folder `hosts/<name>/` in a tresor several hosts share, beside `shared/`, or a tresor of its own as today, and the person's private drives named for the host. | 1 |
+| <a id="f197"></a>[F197](F197-A-Hosts-Own-Folder-Beside-What-All-Hosts-Share.md) | L | `porelo-host`'s part of `porelo-project` [PJ50](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj50) | A host's own folder `hosts/<name>/` in a tresor several hosts share, beside `shared/`, or a tresor of its own as today, and the person's private drives named for the host. | — |
 | <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | L | — | A host's secrets kept once in `secrets.kdbx` on the drive, one master password, `shared` and `hosts/<name>` groups, opened on the desktop only. | 2 |
 | <a id="f199"></a>[F199](F199-A-Hosts-Stop-Fed-From-The-File-Without-Typing.md) | M | [F198](README.md#f198), `porelo-host`'s part of `porelo-project` [PJ51](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj51) | A host's stop fed from the file on standard input, the master password typed once, only the one-time code at the host's prompt. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |

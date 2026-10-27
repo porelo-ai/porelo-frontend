@@ -25,7 +25,7 @@ host is work to keep, and one tresor for every host lets each host read every ot
 - **The place, one value:** `HostUpRecord` gains where the host's files go - `own` (the tresor's root, today's
   layout, the default so a kept run stays as it is) or `shared` with the host's name; `destinationPath` takes it, and
   `up` passes it to `porelo-host` as one argument agreed with Machines, so both read one path. The host's name is
-  the project's, which is unique per person today; the wizard shows it.
+  always its project's, one host per project (decided); the wizard shows it.
 - **The person's private drives:** a list on *The drive* (tresor or folder, an optional subfolder), written into
   `machine.yml` as entries marked as the person's; the host's own drive is the one marked as its setup. The shape of
   that list is agreed with Machines in the channel first, since `porelo-host` reads it.
@@ -41,11 +41,6 @@ host is work to keep, and one tresor for every host lets each host read every ot
 - A kept run from before opens unchanged and writes where it wrote.
 - A private drive added in the wizard appears in `machine.yml` as the person's, never as the host's setup.
 - Seen to fail: the first test red against today's fixed `porelo-host/`.
-
-## Open questions
-
-- **QF63:** The host's name: always the project's (one host per project, as today), or one the person gives, so one
-  project can have two hosts? Recommended: the project's, until a second host per project is asked for.
 
 ## To be checked
 
