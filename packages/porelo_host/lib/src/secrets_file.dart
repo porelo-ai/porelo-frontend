@@ -102,8 +102,7 @@ class SecretsFile {
             '  keys+=("key \$name \$value")',
             r'''done < <(printf '%s
 ' "$names")''',
-            'if [ \${#keys[@]} -eq 0 ]; then '
-                'echo "\$file keeps no vault entry under hosts/$project/keys; nothing was sent." >&2; exit 1; fi',
+            // None is a machine without vault entries, which the stop takes beside `vault-new`.
           ]);
           writes.add(r'''for line in "${keys[@]}"; do printf '%s
 ' "$line"; done''');

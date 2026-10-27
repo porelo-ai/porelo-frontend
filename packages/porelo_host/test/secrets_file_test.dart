@@ -374,9 +374,17 @@ void main() {
       ]);
       expect('${fed.stderr}', isNot(contains(key)), reason: 'nothing of it on the terminal');
 
-      final missing = await run(SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['keys']), 'm');
+      // A machine without vault entries: no key line at all, as the stop takes `keys` beside `vault-new`.
+      final none = await run(
+        SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['vault-new', 'keys']),
+        'm',
+      );
+      expect(none.exitCode, 0, reason: '${none.stderr}');
+      expect('${none.stdout}'.trim().split('\n'), hasLength(1), reason: 'the passphrase alone');
+
+      final missing = await run(SecretsFile(kdbx, cli: cli).stopLines(project: 'other', needs: ['vault']), 'm');
       expect(missing.exitCode, isNot(0));
-      expect('${missing.stdout}', isEmpty, reason: 'no line at all when the entries are missing');
+      expect('${missing.stdout}', isEmpty, reason: 'no line at all when an entry is missing');
 
       // The vault entries' files, kept base64 in the group, go out as they are, one line each.
       await cliIn(kdbx, ['mkdir', kdbx, 'hosts/checkout/keys'], 'm');
@@ -393,7 +401,7 @@ void main() {
         'key forge ${base64Encode(utf8.encode('token-bytes'))}',
         'key ci.key ${base64Encode([0, 1, 2, 255])}',
       });
-      expect('${missing.stderr}', contains('hosts/checkout/keys'), reason: 'what is missing is named');
+      expect('${missing.stderr}', contains('hosts/other/vault-passphrase'), reason: 'what is missing is named');
     }, skip: skip);
 
     test('a wrong master password writes nothing and fails', () async {
