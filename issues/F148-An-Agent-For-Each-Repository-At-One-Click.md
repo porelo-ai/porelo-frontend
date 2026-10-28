@@ -1,6 +1,6 @@
 # F148 — An Agent For Each Repository, At One Click
 
-**Status:** Implementing; blocked by `porelo`
+**Status:** Review; built, published with `a6a4ef5`, and measured against a daemon carrying `porelo`
 [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298).
 **Size:** L - a new wizard over the existing start, M on its own, but it crosses repositories: the agent a repository
 names is not on the wire yet.
@@ -93,6 +93,16 @@ its phase following from that issue, which is a start of its own and not this on
     sign-in; nothing starts in either;
   - with a stand-in credential in the test vault, one click started exactly the two, attended, with the `stub`; opened
     again, nothing is started twice. The tasks were stopped and removed after.
-- Still to measure against a daemon: whether `Start` with `now: true` returns before the image build on a project
-  never prepared, so twelve starts do not take twelve builds in a row (the two above took 22 s together, which does
-  not tell it); and whether a sign-in started from the wizard returns to it, as it returns to `StartWorkView` today.
+- **Measured 2026-10-28 against the same daemon**, on an offline project never prepared (`f148fresh`: two
+  repositories naming the `stub`, one none, and an image whose snippet sleeps 90 s, so its build is seen):
+  - **`Start` with `now: true` does not return before the build:** the first row's start came back after 101 s
+    (the 90 s step and the start), the second's 10 s later, both tasks up then. The IDL says it returns "as soon as
+    the task exists, instead of waiting for the build"; here the task exists only once its image does. The build is
+    one per image, not per start: twelve repositories on the project's image take one build and about 10 s each,
+    and one with an image of its own builds in its turn. The wizard shows each row *starting* meanwhile and says
+    the start may keep running; nothing here changes for it.
+  - **A sign-in from the wizard returns to it:** with nothing stored, the machine named `stub` as the one sign-in
+    for both rows; its own login (`porelo vault login stub`, the command the wizard's terminal runs) stored the
+    credential, and asking again in the same wizard took 2.3 s and held nothing; the start then went through. The
+    terminal itself was a stand-in here: it is `StartWorkView`'s, shared with this wizard, and its return to the
+    wizard is the feature's scenario against `FakeBackend`. Everything was removed after, and the vault locked.
