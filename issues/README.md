@@ -51,6 +51,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f226"></a>[F226](F226-A-Setup-Run-Again-Shows-In-Its-Servers-Row.md) | S | — | A setup run again on a ready server shown in its row as the first setup is, with its step and protocol, and taking it down meanwhile unavailable. |
 | <a id="f225"></a>[F225](F225-A-Line-To-Add-By-Hand-Copied-As-Its-Whole-Command.md) | XS | — | A line to add by hand on this computer shown and copied as the one command that adds it, starting with the homeserver's hosts line. |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
