@@ -49,10 +49,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it is chosen or typed, with a check mark or an error icon beside it.
 - Server setup fills in your public ssh key from the private key's own `.pub` whenever there is
   one, also over a key kept from an earlier run, and refuses a public key of another pair at once.
-- Server setup installs porelo-host's collection 0.5.5, which brings up the host's forge and gives
+- Server setup installs porelo-host's collection 0.5.6, which brings up the host's forge and gives
   each agent its own forge account and token, the person a forge login of their own, and each
   account's gate its token, with every repository's main protected and merged by fast-forward
-  only. The forge's runner takes four jobs at once and keeps a cache between runs.
+  only. The forge's runner takes four jobs at once and keeps a cache between runs. The host
+  mounts no drive, takes its secrets at the stop on standard input from the secrets file, reads
+  its setup files from `/etc/porelo-host/setup/`, and gets its forge's certificate from the
+  person's lasting CA.
 - A redirect from Scaleway is named as one and is not followed.
 - Server setup shows one protocol with earlier attempts grouped below it, copies its public text
   in one click, and keeps the view and buttons still while you read earlier entries.
