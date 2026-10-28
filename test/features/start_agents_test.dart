@@ -16,6 +16,8 @@ import './step/i_go_on.dart';
 import './step/i_agree_to_start_it.dart';
 import './step/the_operation_finishes.dart';
 import './step/the_agents_started_were.dart';
+import './step/the_task_of_in_runs_before_the_machine_says_its_agent.dart';
+import './step/it_does_not_say.dart';
 import './step/the_agent_works_in_of_as_and_it_is_stopped.dart';
 import './step/i_leave_out.dart';
 import './step/the_agent_has_nothing_to_sign_in_with.dart';
@@ -34,7 +36,6 @@ import './step/the_machine_fails_to_say_whether_work_can_start_with.dart';
 import './step/the_machine_answers_whether_work_can_start_again.dart';
 import './step/reading_the_agents_is_slow.dart';
 import './step/the_machine_has_answered.dart';
-import './step/it_does_not_say.dart';
 import './step/the_machine_refuses_the_start_as.dart';
 import './step/i_leave_the_wizard_while_it_works.dart';
 import './step/the_machine_does_not_say_which_agent_its_repositories_name.dart';
@@ -66,6 +67,15 @@ void main() {
       await theOperationFinishes(tester);
       await theAgentsStartedWere(tester, 'ledger/other-agent/ledger');
       await itSays(tester, 'Agent ledger started');
+    });
+    testWidgets('''an agent just started is not offered again while the machine has not said its agent yet''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theTaskOfInRunsBeforeTheMachineSaysItsAgent(tester, 'payments-api', 'checkout', 'payments-api');
+      await iChooseFromTheMenuOfTheProject(tester, 'Start an agent for each repository…', 'checkout');
+      await itSays(tester, 'Agent Payments runs already');
+      await itDoesNotSay(tester, 'payments-api-2');
     });
     testWidgets('''a stopped agent is brought back with its session, not started beside it''', (tester) async {
       await bddSetUp(tester);

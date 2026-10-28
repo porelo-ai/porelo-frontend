@@ -23,6 +23,13 @@ Feature: Starting the agent each repository names, at one click
         Then the agents started were {'ledger/other-agent/ledger'}
         And it says {'Agent ledger started'}
 
+    # In the first seconds after a start the machine lists the task before it says its agent: it is that row's.
+    Scenario: an agent just started is not offered again while the machine has not said its agent yet
+        Given the task {'payments-api'} of {'checkout'} in {'payments-api'} runs before the machine says its agent
+        When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}
+        Then it says {'Agent Payments runs already'}
+        And it does not say {'payments-api-2'}
+
     Scenario: a stopped agent is brought back with its session, not started beside it
         Given the agent {'an-agent'} works in {'payments-api'} of {'checkout'} as {'payments-api'} and it is stopped
         When I choose {'Start an agent for each repository…'} from the menu of the project {'checkout'}

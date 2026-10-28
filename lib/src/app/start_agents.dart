@@ -249,7 +249,12 @@ class StartAgents extends ChangeNotifier {
       final its = ofTheProject
           .where(
             (each) =>
-                project.repositoryOf(each) == row.repository && each.agent == row.agent && each.mode == Mode.agent,
+                project.repositoryOf(each) == row.repository &&
+                ((each.agent == row.agent && each.mode == Mode.agent) ||
+                    // In the first seconds after its start the machine lists it before it says its agent and mode.
+                    (each.agent.isEmpty &&
+                        each.mode.name.isEmpty &&
+                        each.task == suggestedTaskName(row.repository, const {}))),
           )
           .toList();
       row.existing =
