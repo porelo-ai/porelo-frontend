@@ -565,6 +565,16 @@ void main() {
       expect(wrong.exitCode, isNot(0));
       expect('${wrong.stdout}', isEmpty, reason: 'no line from a file that did not open');
 
+      // A mistyped master password is asked again in the same terminal, three times at most.
+      final again = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'checkout'), 'not it\nm');
+      expect(again.exitCode, 0, reason: '${again.stderr}');
+      expect('${again.stdout}', '$passphrase\n');
+      expect('${again.stderr}', contains('type it again'));
+      final thrice = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'checkout'), 'a\nb\nc\nm');
+      expect(thrice.exitCode, isNot(0));
+      expect('${thrice.stdout}', isEmpty);
+      expect('${thrice.stderr}', contains('did not open with that password three times'));
+
       final missing = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'other'), 'm');
       expect(missing.exitCode, isNot(0));
       expect('${missing.stdout}', isEmpty, reason: 'no line at all when the entry is missing');

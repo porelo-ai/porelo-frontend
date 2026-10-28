@@ -1,6 +1,6 @@
 # F222 — A Refused Unlock Asks Again In Its Terminal
 
-**Status:** Estimated; placed with the bug fixes after the operator's tests of sprints 6 to 6i.
+**Status:** Implementing; built, not yet published.
 **Size:** XS - the unlock terminal asks again after a refused password, up to three times, and its test.
 
 **What must be true.** A wrong password in the vault's unlock terminal (the master password where

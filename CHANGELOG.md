@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A refused passphrase in the vault's unlock terminal, or a mistyped master password of the secrets file, is asked
+  again in the same terminal, three attempts at most, instead of ending it at the first refusal.
 - Unlocking a rented server's vault asks the master password of the secrets file once, in its terminal, and feeds
   the vault passphrase its setup kept there to the server's `porelo vault unlock --passphrase-stdin`; nobody copies it
   by hand. A rented server's vault is no longer offered to be made here: its setup makes it, from the file.

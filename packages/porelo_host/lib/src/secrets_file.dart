@@ -211,9 +211,14 @@ class SecretsFile {
     'file=${_word(file)}',
     _kp,
     r'''get() { local value; value="$(kp show -s -a password "$file" "$1" 2>/dev/null || true)"; if [ -z "$value" ]; then echo "$file has no entry $1; nothing was sent." >&2; return 1; fi; printf '%s' "$value"; }''',
-    r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
-    r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
-    r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was sent." >&2; exit 1; fi',
+    // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
+    'for try in 1 2 3; do',
+    r'  IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
+    r'  if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
+    r'  if kp ls "$file" >/dev/null 2>&1; then break; fi',
+    r'  if [ "$try" = 3 ]; then echo "$file did not open with that password three times; nothing was sent." >&2; exit 1; fi',
+    r'  echo "$file did not open with that password; type it again." >&2',
+    'done',
   ];
 
   // No echo from the first byte, and none of the caller's tracing: neither may draw a secret on the terminal.
