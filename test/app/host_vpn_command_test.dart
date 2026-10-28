@@ -114,8 +114,9 @@ esac
 
   // Harm: the forge's name left pointing at a link that is down, a line of the person's own taken with it, or
   // /etc/hosts replaced by another file.
-  for (final downs in [true, false]) {
-    test('taking the VPN down takes the forge\'s name out of /etc/hosts, and nothing else (down $downs)', () async {
+  for (final (downs, copies) in [(true, true), (false, true), (true, false)]) {
+    test('taking the VPN down takes the forge\'s name out of /etc/hosts, and nothing else '
+        '(down $downs, copy written $copies)', () async {
       final scratch = Directory.systemTemp.createTempSync('vpn-down-');
       addTearDown(() => scratch.deleteSync(recursive: true));
       final hosts = File('${scratch.path}/hosts')
@@ -125,14 +126,25 @@ esac
       final inode = (await Process.run('stat', ['-c', '%i', hosts.path])).stdout;
       final wg = File('${scratch.path}/wg-quick')..writeAsStringSync('#!/bin/sh\n${downs ? 'exit 0' : 'exit 1'}\n');
       await Process.run('chmod', ['700', wg.path]);
+      if (!copies) {
+        // A full disk: the copy without the line is not written.
+        final grep = File('${scratch.path}/grep')
+          ..writeAsStringSync('#!/bin/sh\ncase "\$1" in -vxF) exit 2;; esac\nexec /usr/bin/grep "\$@"\n');
+        await Process.run('chmod', ['700', grep.path]);
+      }
+      expect(
+        hostVpnDownCommand[3],
+        startsWith('PATH=/usr/bin:/usr/sbin:/bin:/sbin\n'),
+        reason: 'root\'s own PATH, none of the person\'s; the test puts its stand-ins before it',
+      );
       final script = hostVpnDownCommand[3]
           .replaceAll('/etc/hosts', hosts.path)
           .replaceAll('PATH=/usr/bin:/usr/sbin:/bin:/sbin', 'PATH=${scratch.path}:/usr/bin:/bin');
       final result = await Process.run('/bin/sh', ['-c', script]);
-      expect(result.exitCode == 0, downs, reason: '${result.stderr}');
+      expect(result.exitCode == 0, downs && copies, reason: '${result.stderr}');
       expect(
         hosts.readAsStringSync(),
-        downs
+        downs && copies
             ? '127.0.0.1 localhost\n10.0.0.5 mine # porelo-host\n'
             : '127.0.0.1 localhost\n10.73.0.1 forge.porelo.internal # porelo-host\n10.0.0.5 mine # porelo-host\n',
         reason: 'that one line, never another that only ends like it',
@@ -183,7 +195,8 @@ esac
         'ping': 'exit 0',
         'date': "printf '100\\n'",
         'sleep': 'exit 0',
-        store: '''printf '%s\\n' '$store' >> "\$VPN_CAPTURE"\n${storeTakes ? 'exit 0' : 'exit 1'}''',
+        if (store.isNotEmpty)
+          store: '''printf '%s\\n' '$store' >> "\$VPN_CAPTURE"\n${storeTakes ? 'exit 0' : 'exit 1'}''',
         'wg': r'''case "$*" in
   'show interfaces') ;;
   'show porelo latest-handshakes') printf 'expected-key\t101\n';;
@@ -255,16 +268,37 @@ esac''',
       final linked = await up(forgeCa: ca);
       expect(linked.exitCode, 0);
       expect(FileSystemEntity.isLinkSync(policy().path), isTrue, reason: 'a dangling link is the person\'s too');
+      expect('${linked.stdout}', contains('Firefox has a policy of its own'));
+
+      // Staged under a name of its own making: a link at a name known in advance leads nowhere.
+      Link(policy().path).deleteSync();
+      final elsewhere = File('${scratch.path}/elsewhere')..writeAsStringSync('mine\n');
+      for (final known in ['policies.json.new', '.policies.json.new', 'policies.json.tmp']) {
+        Link('${etc.path}/firefox/policies/$known').createSync(elsewhere.path);
+      }
+      final staged = await up(forgeCa: ca);
+      expect(staged.exitCode, 0, reason: '${staged.stdout}${staged.stderr}');
+      expect(elsewhere.readAsStringSync(), 'mine\n');
+      expect(policy().readAsStringSync(), contains('porelo-host.crt'));
     });
 
-    test('Fedora\'s store, a store that does not take it, and no store at all', () async {
+    test('Fedora\'s store, and no store at all', () async {
       final fedora = await up(forgeCa: ca, store: 'update-ca-trust');
       expect(fedora.exitCode, 0, reason: '${fedora.stdout}${fedora.stderr}');
       expect(File('${etc.path}/pki/ca-trust/source/anchors/porelo-host.crt').readAsStringSync(), ca);
       expect(capture.readAsLinesSync(), ['update-ca-trust']);
+
+      capture.deleteSync();
+      File('${scratch.path}/update-ca-trust').deleteSync();
+      final none = await up(forgeCa: ca, store: '');
+      expect(none.exitCode, 0, reason: '${none.stdout}${none.stderr}');
+      expect('${none.stdout}', contains('no tool for a system store of certificates'));
+      expect(capture.existsSync(), isFalse);
+      expect(forFirefox().readAsStringSync(), ca, reason: 'Firefox trusts it all the same');
+      expect(File('${source.path}.checked').existsSync(), isTrue);
     });
 
-    test('a store that does not take it is tried again, and no store at all is said', () async {
+    test('a store that does not take it is tried again', () async {
       final refused = await up(forgeCa: ca, storeTakes: false);
       expect(refused.exitCode, isNot(0));
       expect(inStore().existsSync(), isFalse, reason: 'taken back, so the next start tries again');
@@ -280,16 +314,36 @@ esac''',
         '-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----\n',
         '$ca$ca',
         "-----BEGIN CERTIFICATE-----\nAAAA'\n-----END CERTIFICATE-----\n",
+        '-----BEGIN CERTIFICATE-----\n${'A' * 76}==\n-----END CERTIFICATE-----\n',
+        '-----BEGIN CERTIFICATE-----\n${'A' * 80}\n-----END CERTIFICATE-----\n',
+        '-----BEGIN CERTIFICATE-----\nA\n-----END CERTIFICATE-----\n',
+        '-----BEGIN CERTIFICATE-----\n====\n-----END CERTIFICATE-----\n',
       ]) {
         expect(isForgeCaCertificate(bad), isFalse, reason: bad);
         expect(() => hostVpnUpCommand(source.path, forgeCa: bad), throwsFormatException);
       }
-      // Root's own check, should something else reach it: nothing installed, no receipt.
-      final reached = await up(forgeCa: ca, argument: '$ca${ca}extra');
-      expect(reached.exitCode, isNot(0));
-      expect('${reached.stdout}', contains('not one certificate'));
-      expect(inStore().existsSync(), isFalse);
-      expect(forFirefox().existsSync(), isFalse);
+      // Root's own check, should something else reach it: each of its parts on its own, nothing installed, no receipt.
+      const begin = '-----BEGIN CERTIFICATE-----';
+      const end = '-----END CERTIFICATE-----';
+      for (final bad in [
+        '$begin\n$end',
+        '$end\nAAAA\n$end',
+        '$begin\nAAAA\n$begin',
+        '$begin\nAAAA\n$end\nextra',
+        '$begin\n${'A' * 80}\n$end',
+        '$begin\nAAA\u00e9\n$end',
+        '$begin\nA\n$end',
+        '$ca${ca.trimRight()}',
+      ]) {
+        final reached = await up(forgeCa: ca, argument: bad);
+        expect(reached.exitCode, isNot(0), reason: bad);
+        expect('${reached.stdout}', contains('not one certificate'), reason: bad);
+        expect(inStore().existsSync(), isFalse);
+        expect(forFirefox().existsSync(), isFalse);
+        expect(File('${source.path}.checked').existsSync(), isFalse);
+      }
+      final good = await up(forgeCa: ca, argument: '$begin\n${'A' * 76}\n$end');
+      expect(good.exitCode, 0, reason: 'a line of the full width is a certificate\'s: ${good.stdout}${good.stderr}');
     });
   });
 

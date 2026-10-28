@@ -63,6 +63,16 @@ whole in 6e.
   `PATH`. A kept certificate is refused unless it is one PEM certificate whose body decodes, and the stop's folder
   goes also where the command could not be built. **Declined, with the reason:** a Flatpak Firefox reads no policy
   under `/etc`, so it cannot be reached from the root step; a policy of the person's own is said, never changed.
+- **From the reading of that fix (twelve findings, nine taken):** root's check of the certificate now wants a body,
+  lines no wider than 76 in ASCII, and a body `base64 -d` decodes; root's temporary files are made in `/tmp` by name,
+  never in a `TMPDIR` kept through `sudo`; the line break before the hosts line is checked; *down* leaves `/etc/hosts`
+  as it is where its copy without the line was not written, and goes on a signal. Tests now see each part of root's
+  check on its own, no store at all, a link to the policy said, a link at a staging name known in advance not
+  followed, and *down*'s own `PATH`. **Declined, with the reasons:** a padded line of 78 passes the pattern here, but
+  its body never decodes, so it is refused all the same; a step that fails after the store took the CA leaves what it
+  put in place, each piece of which the next start finds there or puts in again, since nothing of it is the person's;
+  the stop dialog's last catch has no error to test it with, as building the command throws only the two it names.
+  `LC_ALL=C` stays in root's check although this computer's `grep` refuses a non-ASCII letter without it.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
   `porelo-host-forge-password` after `up`); the warning 90 days before the CA ends.
 

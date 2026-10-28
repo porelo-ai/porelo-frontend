@@ -107,12 +107,17 @@ case "$handshake" in ''|*[!0-9]*) fail 'The server did not complete the expected
 # root reads no file of the person's, and checks it is a certificate in a file of its own before any copy is made.
 forge_ca_pem=${6:-}
 if [ -n "$forge_ca_pem" ]; then
-  forge_ca=$(mktemp) || fail "The CA for the server's forge could not be staged."
+  # In /tmp by name: a TMPDIR kept through sudo could be a folder of the person's.
+  forge_ca=$(mktemp -p /tmp) || fail "The CA for the server's forge could not be staged."
   trap 'rm -f -- "$forge_ca"' 0
   trap 'exit 1' HUP INT TERM
   printf '%s\n' "$forge_ca_pem" > "$forge_ca" || fail "The CA for the server's forge could not be staged."
+  # Its two markers, between them base64 lines of PEM's width in ASCII, at least one, and a body that decodes.
+  forge_ca_body=$(sed '1d;$d' "$forge_ca")
   [ "$(head -n 1 "$forge_ca")" = '-----BEGIN CERTIFICATE-----' ] && [ "$(tail -n 1 "$forge_ca")" = '-----END CERTIFICATE-----' ] \
-    && [ "$(grep -c -- '-----' "$forge_ca")" = 2 ] && ! grep -vqE -- '^(-----(BEGIN|END) CERTIFICATE-----|[A-Za-z0-9+/=]+)$' "$forge_ca" \
+    && [ "$(grep -c -- '-----' "$forge_ca")" = 2 ] \
+    && ! LC_ALL=C grep -vqE -- '^(-----(BEGIN|END) CERTIFICATE-----|[A-Za-z0-9+/=]{1,76})$' "$forge_ca" \
+    && [ -n "$forge_ca_body" ] && printf '%s\n' "$forge_ca_body" | base64 -d >/dev/null 2>&1 \
     || fail "What was given as the CA for the server's forge is not one certificate."
   if command -v update-ca-certificates >/dev/null 2>&1; then
     store=/usr/local/share/ca-certificates/porelo-host.crt
@@ -147,7 +152,9 @@ if [ -n "$forge_ca_pem" ]; then
   hosts_line='10.73.0.1 forge.porelo.internal # porelo-host'
   if ! grep -qxF -- "$hosts_line" /etc/hosts; then
     # On a line of its own, and into the file as it is, so its owner, mode and label stay.
-    if [ -n "$(tail -c 1 /etc/hosts)" ]; then printf '\n' >> /etc/hosts; fi
+    if [ -n "$(tail -c 1 /etc/hosts)" ]; then
+      printf '\n' >> /etc/hosts || fail "The forge's name could not be written to /etc/hosts."
+    fi
     printf '%s\n' "$hosts_line" >> /etc/hosts || fail "The forge's name could not be written to /etc/hosts."
   fi
   rm -f -- "$forge_ca"
@@ -179,9 +186,12 @@ const hostVpnDownCommand = <String>[
 wg-quick down porelo || exit
 line='10.73.0.1 forge.porelo.internal # porelo-host'
 grep -qxF -- "$line" /etc/hosts || exit 0
-kept=$(mktemp) || exit
+kept=$(mktemp -p /tmp) || exit
 trap 'rm -f -- "$kept"' 0
+trap 'exit 1' HUP INT TERM
 grep -vxF -- "$line" /etc/hosts > "$kept"
+# 1 where no line is left beside it; more where the copy was not written, and /etc/hosts stays as it is.
+[ "$?" -le 1 ] || exit 1
 cat -- "$kept" > /etc/hosts''',
   'porelo-vpn-down',
 ];
@@ -334,6 +344,8 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
     'grep',
     'head',
     'tail',
+    'sed',
+    'base64',
     'nmcli',
   ]) {
     final binary = await lookUp(name);
