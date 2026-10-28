@@ -292,6 +292,12 @@ void main() {
     expect(result.exitCode, 64, reason: '${result.stderr}');
     expect('${result.stderr}', contains('--tresor is not an option'));
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test('--offer names the Elastic Metal offer rented, and EM-I220E-NVME stays the default', () {
+    Future<ApiAnswer> api(String method, String path, {Map<String, Object?>? body}) => throw StateError('not asked');
+    expect(cli.scalewayFor({'scaleway-project': 'p', 'offer': 'EM-B420E-NVME'}, api).offer, 'EM-B420E-NVME');
+    expect(cli.scalewayFor({'scaleway-project': 'p'}, api).offer, 'EM-I220E-NVME');
+  });
 }
 
 bool _sameValues(Map<String, String> left, Map<String, String> right) =>

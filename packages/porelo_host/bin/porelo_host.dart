@@ -5,7 +5,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 const _usage = '''
 porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE
-            (--scaleway-project ID [--zone fr-par-1] | --given ADDRESS --host-key "TYPE BASE64")
+            (--scaleway-project ID [--zone fr-par-1] [--offer EM-I220E-NVME] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
             [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
             [--give-back-anyway]
@@ -27,7 +27,8 @@ porelo-host --collection-info
 One JSON line per step on standard output; the words for a person on standard error.
 Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 waiting for the person.
 
---scaleway-project rents from Scaleway Elastic Metal, with the key `key set scaleway` kept.
+--scaleway-project rents from Scaleway Elastic Metal, with the key `key set scaleway` kept; --offer names
+            another Elastic Metal offer than EM-I220E-NVME.
 --given names a machine that exists already, with its host key; nothing is rented or given back.
 --give-back-anyway gives the host back after a down play that did not finish; what it held is gone.''';
 
@@ -76,6 +77,7 @@ Future<int> _run(List<String> arguments) async {
           '--collection-sha256',
           '--scaleway-project',
           '--zone',
+          '--offer',
           '--given',
           '--host-key',
           '--login-user',
@@ -109,6 +111,9 @@ Future<int> _run(List<String> arguments) async {
   final given = options.containsKey('given');
   if (given == options.containsKey('scaleway-project')) return _wrong('either --scaleway-project or --given');
   if (given && !options.containsKey('host-key')) return _wrong('--given needs --host-key');
+  if (options['offer'] case final String offer when given || !RegExp(r'^[A-Z0-9][A-Z0-9-]*$').hasMatch(offer)) {
+    return _wrong('--offer takes an Elastic Metal offer name such as EM-I220E-NVME, with --scaleway-project');
+  }
   final HostProvider provider;
   if (given) {
     provider = GivenMachine(address: options['given']!, hostKey: options['host-key']!);
@@ -124,11 +129,7 @@ Future<int> _run(List<String> arguments) async {
       await store.close();
     }
     if (key == null) return _wrong('no key for scaleway is kept: run `porelo-host key set scaleway` first');
-    provider = ScalewayElasticMetal(
-      api: scalewayOverHttps(key),
-      projectId: options['scaleway-project']!,
-      zone: options['zone'] ?? 'fr-par-1',
-    );
+    provider = scalewayFor(options, scalewayOverHttps(key));
   }
 
   final ssh = OpenSsh(knownHosts: File(poreloHostKnownHosts()), identity: options['identity']!);
@@ -153,6 +154,14 @@ Future<int> _run(List<String> arguments) async {
   );
   return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
 }
+
+/// The Elastic Metal host [options] name: their project, zone and offer, each with its default.
+ScalewayElasticMetal scalewayFor(Map<String, String> options, ScalewayApi api) => ScalewayElasticMetal(
+  api: api,
+  projectId: options['scaleway-project']!,
+  zone: options['zone'] ?? 'fr-par-1',
+  offer: options['offer'] ?? 'EM-I220E-NVME',
+);
 
 /// Runs key commands with replaceable storage, terminal input, and provider requests.
 Future<int> runKeyCommand(
