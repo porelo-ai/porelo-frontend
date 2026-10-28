@@ -69,7 +69,7 @@
       "then": "!leave-session"
     },
     {
-      "say": "21-8. Point 2, the room. In Element, the room #porelo-sluice-dry: an account Agent Sluice (else Agent porelo-message-sluice) has joined, and its first message is there. In the interface, under Work, the tile sluice; click Show more on it for its mini console.",
+      "say": "21-8. Point 2, the room. In Element, the room #porelo-sluice-dry: an account Agent Sluice has joined (the name the project gives the repository sluice), and its first message is there. In the interface, under Work, the tile sluice; click Show more on it for its mini console.",
       "at": [
         "tile-fold *sluice",
         "rail work",
