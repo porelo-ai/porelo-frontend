@@ -221,17 +221,21 @@ void main() {
 
   // Harm: a refusal of up that asks for a secret on its own call, left without a way on, or answered with an entry
   // machine.yml does not name.
-  for (final (need, fix) in [
-    ('forge-central-token', 'forge-central-token: stand-in still to migrate'),
-    ('keys', 'keys: the vault lacks forge'),
-    ('matrix-token', 'matrix-token: the account has no token for the laptop\'s homeserver'),
+  for (final (need, fix, withFile) in [
+    ('forge-central-token', 'forge-central-token: stand-in still to migrate', true),
+    ('keys', 'keys: the vault lacks forge', true),
+    ('matrix-token', 'matrix-token: the account has no token for the laptop\'s homeserver', true),
+    // The token is this computer's Porelo's to give: no secrets file is needed for it.
+    ('matrix-token', 'matrix-token: the account has no token for the laptop\'s homeserver', false),
   ]) {
-    testWidgets('up refused for $need waits under Needs you and gives it on its own call', (tester) async {
+    testWidgets('up refused for $need waits under Needs you and gives it on its own call (file $withFile)', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final settings = Settings(MemorySettingsStore());
-      await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+      if (withFile) await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
       final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
       final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
       final attention = Attention(machines)..hostRuns = runs;
@@ -314,6 +318,51 @@ void main() {
       }
     });
   }
+
+  // Harm: without a secrets file, the vault typed in the host's terminal and the token fed beside it, which one
+  // terminal cannot do: the stop says it, and opens nothing half.
+  testWidgets('without a secrets file, a stop for the vault and the token says it cannot give the token', (
+    tester,
+  ) async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+    final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
+    final process = HostProcess();
+    final run = runs.start(
+      project: 'demo',
+      session: HostSession(executable: 'fake', arguments: const ['--project', 'demo'], start: (_, _) async => process),
+      record: _record,
+    );
+    try {
+      process.line(
+        const Step(
+          'person',
+          StepState.waiting,
+          needs: ['vault', 'matrix-token'],
+          address: '203.0.113.7',
+          account: 'worker',
+          admin: 'ubuntu',
+        ),
+      );
+      process.end(75);
+      await run.finished;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostStopDialog(run: run, hostRuns: runs, machines: machines, settings: settings),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      expect(find.textContaining('porelo-host waits for matrix-token'), findsOneWidget);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('host-open-terminal'))).onPressed, isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    }
+  });
 
   // Harm: a VPN key from the file fed to a host whose files, given by hand, carry the person's own.
   // Since the upload, the interface writes the host's files itself, with the file's key, into its setup folder.

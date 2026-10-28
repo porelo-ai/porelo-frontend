@@ -37,6 +37,10 @@ List<String> hostStopFeedCommand({
   for (final each in [host, if (needs.contains('drive')) driveHost ?? host]) {
     if (!login.hasMatch(each)) throw FormatException('The host stop did not name a valid user and address: $each.');
   }
+  // The project reaches this computer's Porelo as a word of its own, never as an option.
+  if (matrix && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
+    throw FormatException('The project $project is not one this computer can let a host in for.');
+  }
   final feed = [
     if (fed.isNotEmpty)
       SecretsFile(
@@ -53,23 +57,28 @@ List<String> hostStopFeedCommand({
   final stop =
       '/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --stdin ${[...fed, if (matrix) 'matrix-token'].join(' ')}';
   final script = [
-    matrix
-        ? "trap '/usr/bin/stty echo 2>/dev/null || true; /usr/bin/rm -rf -- \"\$admitted\"' EXIT"
-        : "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
+    if (matrix) ...[
+      // The folder exists before anything can leave it behind; any end of the terminal takes it away.
+      r'admitted="$(/usr/bin/mktemp -d)" || exit 1',
+      "trap '/usr/bin/stty echo 2>/dev/null || true; /usr/bin/rm -rf -- \"\$admitted\"' EXIT",
+      "trap 'exit 1' HUP INT TERM",
+    ] else
+      "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
     'set -o pipefail',
     // This computer lets the host into the project's conversation; the admission, its token among it, lies in a
-    // folder of the person's own only until it is on the pipe.
+    // folder of the person's own only until the token is read from it.
     if (matrix) ...[
-      r'admitted="$(/usr/bin/mktemp -d)" || exit 1',
       // The host goes by its own hostname in the room, as its Porelo passes it at its first setup; read there.
       'machine="\$(${sshLine(['-n', '-T', '--', host, '/usr/bin/hostname'])})" '
           '|| { echo "The host did not say its name; nothing was sent." >&2; exit 1; }',
-      r'''case "$machine" in ''|-*|*[!A-Za-z0-9._-]*) echo "The host's name is not one a machine goes by; nothing was sent." >&2; exit 1;; esac''',
+      // In the C locale, so a range is ASCII alone: a letter or digit first, then those, dots, dashes, underscores.
+      r'''LC_ALL=C; case "$machine" in [A-Za-z0-9]*) ;; *) machine=;; esac; case "$machine" in ''|*[!A-Za-z0-9._-]*) echo "The host's name is not one a machine goes by; nothing was sent." >&2; exit 1;; esac''',
       '/usr/bin/porelo talk admit ${quoteForAShell(project)} "\$machine" '
           '--into "\$admitted/admission.json" >/dev/null '
           '|| { echo "This computer\'s Porelo did not let the host into the project\'s conversation; nothing was sent." >&2; exit 1; }',
       'matrixtoken="\$(/usr/bin/python3 -I -c ${quoteForAShell(_tokenOfTheAdmission)} "\$admitted/admission.json")" '
           '|| { echo "The admission held no registration token; nothing was sent." >&2; exit 1; }',
+      r'/usr/bin/rm -rf -- "$admitted"',
     ],
     // The drive's login keeps this terminal's echo: ssh hands its modes to the far end's terminal, whose own
     // prompts show the e-mail and hide the password. Echo goes off the moment it ends, before the file is opened.

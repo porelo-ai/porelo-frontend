@@ -126,8 +126,10 @@ class _HostStopDialogState extends State<HostStopDialog> {
     final needs = widget.needs ?? session.needs;
     final secrets = widget.settings?.secretsFile;
     // The host's matrix token comes from this computer's own Porelo, by the same feed, with or without the file.
+    // Without the file, only a token alone goes by the feed: what else the host asks is typed in its own terminal.
     final fromTheFile =
-        (secrets != null && needs.any(SecretsFile.stopNeeds.contains)) || needs.contains('matrix-token');
+        (secrets != null && needs.any(SecretsFile.stopNeeds.contains)) ||
+        (needs.contains('matrix-token') && !needs.any(SecretsFile.stopNeeds.contains));
     final String line;
     try {
       line = fromTheFile ? '' : hostStopCommand(needs, email: _email.text);
@@ -247,7 +249,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
       // The host's matrix token comes from this computer's own Porelo, with the file or without it.
       final answerable = file
           ? <String>{'drive', 'matrix-token', ...SecretsFile.stopNeeds}.difference({if (byHand) 'wireguard'})
-          : const <String>{'drive', 'vault', 'vault-new', 'matrix-token'};
+          : <String>{'drive', 'vault', 'vault-new', if (!needs.any(SecretsFile.stopNeeds.contains)) 'matrix-token'};
       final unknown = needs.where((need) => !answerable.contains(need));
       return AlertDialog(
         title: Text('Complete setup on ${widget.run.name}'),

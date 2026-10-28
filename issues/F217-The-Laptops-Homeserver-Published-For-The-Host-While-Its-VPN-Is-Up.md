@@ -70,6 +70,16 @@ interface brings the VPN up, so it is the one that knows when the address exists
   own `printf` into `sudo -n porelo-host-stop --stdin matrix-token`; the folder goes with the terminal. A token alone
   asks no master password. Against stand-ins for ssh and Porelo and the real `python3`, the host gets exactly that
   line, and a bad name sends nothing and asks Porelo nothing.
+- **From the token part's harm reading (eight findings, seven taken, one in part):** the admission is removed as
+  soon as its token is read, not only when the terminal ends, and the trap that removes it is armed once the folder
+  exists and also on HUP, INT and TERM; the project must be a plain name before this computer's Porelo is asked;
+  the host's name must begin with a letter or digit, checked in the C locale; without a secrets file, a stop that
+  also asks for the vault (typed in the host's terminal) is said not answerable, since one terminal cannot do both.
+  Tests now see the admission gone while its token is on the pipe, nothing sent where the host gave no name,
+  Porelo refused or the token was empty, both lines on the one pipe, and the stop without a file. **Declined, with
+  the reason:** that a lying host names another machine to be let in as: the name is the host's own word, which its
+  Porelo passes too, and a host that lies about it holds root on itself already; the interface knows no other name
+  of it. `LC_ALL=C` stays although this computer's bash already compares ranges by code point.
 - **Red first:** a test with a scratch `homeserver.conf` and a stand-in transport: after a verified VPN, `publish` ran
   once with exactly that address, port and name; after the give-back, `publish --off` ran; without the file, neither.
 

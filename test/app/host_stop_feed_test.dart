@@ -123,7 +123,27 @@ void main() {
     expect(only, contains('rm -rf -- "\$admitted"'), reason: 'the admission goes with the terminal');
     final both = command(needs: ['vault', 'matrix-token']).last;
     expect(both, contains('read -rs'), reason: 'the vault still comes from the file');
+    final pipe = both.substring(both.indexOf('{\n'), both.lastIndexOf('} | '));
+    expect(
+      pipe,
+      allOf(contains("'hosts/checkout/vault-passphrase'"), contains("printf 'matrix-token %s\\n'")),
+      reason: 'both go on the one pipe',
+    );
     expect(both, contains('--stdin vault matrix-token'));
+  });
+
+  test('a project that would read as an option is let in nowhere', () {
+    expect(
+      () => hostStopFeedCommand(
+        secretsFile: '',
+        project: '--help',
+        needs: const ['matrix-token'],
+        ssh: '/usr/bin/ssh',
+        sshOptions: const [],
+        host: 'ubuntu@203.0.113.7',
+      ),
+      throwsFormatException,
+    );
   });
 
   test('refuses a need the file cannot give, and a stop with nothing for the file', () {
@@ -144,55 +164,96 @@ void main() {
     }
   });
 
-  // Harm: the host's token read wrongly, sent as more than one line, or left on this computer once it is sent.
-  test('the stand-in host gets exactly its matrix token line, and the admission is gone after', () async {
-    final home = await Directory(Platform.environment['HOME']!).createTemp('porelo-stop-feed-test-');
-    addTearDown(() => home.delete(recursive: true));
-    final got = path.join(home.path, 'got');
-    final into = path.join(home.path, 'into');
-    final fakeSsh = await File(path.join(home.path, 'ssh')).writeAsString(
-      '#!/bin/sh\n'
-      'case "\$*" in *hostname*) echo checkout-host;; *porelo-host-stop*) cat > $got;; esac\n',
-    );
-    final fakePorelo = await File(path.join(home.path, 'porelo')).writeAsString(
-      '#!/bin/sh\n'
-      // Takes any machine's name, as a real Porelo might: the check of the name is the script's own.
-      '[ "\$1 \$2 \$3 \$5" = "talk admit checkout --into" ] || exit 9\n'
-      'echo "\$6" > $into\n'
-      'printf \'{"admission":{"machine":"checkout-host"},"secrets":{"registration_token":"tok en"}}\' > "\$6"\n',
-    );
-    for (final file in [fakeSsh, fakePorelo]) {
-      await Process.run('chmod', ['700', file.path]);
-    }
-    final run = command(needs: ['matrix-token'], ssh: fakeSsh.path);
-    final script = run.last.replaceAll('/usr/bin/porelo talk', '${fakePorelo.path} talk');
-    final process = await Process.start(run.first, [...run.skip(1).take(run.length - 2), script]);
-    await process.stdin.close();
-    final said = await process.stderr.transform(utf8.decoder).join();
-    await process.stdout.drain<void>();
-    expect(await process.exitCode, 0, reason: said);
-    expect(await File(got).readAsString(), 'matrix-token ${base64.encode(utf8.encode('tok en'))}\n');
-    final admission = File((await File(into).readAsString()).trim());
-    expect(admission.existsSync(), isFalse, reason: 'the admission goes with the terminal');
-    expect(admission.parent.existsSync(), isFalse);
+  // Harm: the host's token read wrongly, sent as more than one line, sent after a step failed, or left on this
+  // computer once it is read.
+  group('the stand-in host and this computer\'s stand-in Porelo', () {
+    late Directory home;
+    late String got;
+    late String calls;
+    late String intoFile;
+    late String still;
+    setUp(() async {
+      home = await Directory(Platform.environment['HOME']!).createTemp('porelo-stop-feed-test-');
+      got = path.join(home.path, 'got');
+      calls = path.join(home.path, 'calls');
+      intoFile = path.join(home.path, 'into');
+      still = path.join(home.path, 'still');
+    });
+    tearDown(() => home.delete(recursive: true));
 
-    // A host whose name reads as an option, or holds what a shell would split, is let in nowhere.
-    for (final name in ['-rf', 'a b', r'x$y']) {
-      for (final left in [got, into]) {
-        if (File(left).existsSync()) File(left).deleteSync();
+    /// Runs the feed for the matrix token alone; [name] is what the host says it is, [nameExit] how its ssh ends,
+    /// [admitExit] how this computer's Porelo ends, [token] what its admission holds.
+    Future<int> feed({
+      String name = 'checkout-host',
+      int nameExit = 0,
+      int admitExit = 0,
+      String token = 'tok en',
+    }) async {
+      final fakeSsh = File(path.join(home.path, 'ssh'))
+        ..writeAsStringSync(
+          '#!/bin/sh\n'
+          'case "\$*" in\n'
+          "  *hostname*) printf '%s\\n' '$name'; exit $nameExit;;\n"
+          // Whether the admission still lies on this computer while its token goes over the pipe.
+          '  *porelo-host-stop*) [ -e "\$(cat $intoFile)" ] && echo still > $still; cat > $got;;\n'
+          'esac\n',
+        );
+      // Every call is written down first, whatever it is asked: a Porelo asked at all is seen.
+      final fakePorelo = File(path.join(home.path, 'porelo'))
+        ..writeAsStringSync(
+          '#!/bin/sh\n'
+          'printf \'%s|\' "\$@" >> $calls; echo >> $calls\n'
+          '[ $admitExit = 0 ] || exit $admitExit\n'
+          'printf \'%s\' "\$6" > $intoFile\n'
+          'printf \'{"admission":{"machine":"%s"},"secrets":{"registration_token":"%s"}}\' "\$4" \'$token\' > "\$6"\n',
+        );
+      for (final file in [fakeSsh, fakePorelo]) {
+        await Process.run('chmod', ['700', file.path]);
       }
-      await fakeSsh.writeAsString(
-        '#!/bin/sh\n'
-        "case \"\$*\" in *hostname*) printf '%s\\n' '$name';; *porelo-host-stop*) cat > $got;; esac\n",
-      );
-      final refused = await Process.start(run.first, [...run.skip(1).take(run.length - 2), script]);
-      await refused.stdin.close();
-      await refused.stdout.drain<void>();
-      await refused.stderr.drain<void>();
-      expect(await refused.exitCode, isNot(0), reason: name);
-      expect(File(got).existsSync(), isFalse, reason: 'nothing sent for $name');
-      expect(File(into).existsSync(), isFalse, reason: 'this computer\'s Porelo not asked for $name');
+      final run = command(needs: ['matrix-token'], ssh: fakeSsh.path);
+      final script = run.last.replaceAll('/usr/bin/porelo talk', '${fakePorelo.path} talk');
+      final process = await Process.start(run.first, [...run.skip(1).take(run.length - 2), script]);
+      await process.stdin.close();
+      await process.stdout.drain<void>();
+      await process.stderr.drain<void>();
+      return process.exitCode;
     }
+
+    List<String> admitted() => File(calls).existsSync() ? File(calls).readAsLinesSync() : const [];
+
+    test('gets exactly its matrix token line, and the admission is gone at once', () async {
+      expect(await feed(), 0);
+      expect(File(got).readAsStringSync(), 'matrix-token ${base64.encode(utf8.encode('tok en'))}\n');
+      final into = admitted().single.split('|')[5];
+      expect(admitted().single, startsWith('talk|admit|checkout|checkout-host|--into|'));
+      expect(File(into).existsSync(), isFalse, reason: 'the admission goes once its token is read');
+      expect(File(still).existsSync(), isFalse, reason: 'gone before the pipe, not only at the terminal\'s end');
+      expect(File(into).parent.existsSync(), isFalse);
+    });
+
+    test('a host whose name reads as an option, or holds what a shell splits, is let in nowhere', () async {
+      for (final name in ['-rf', 'a b', r'x$y', '.', '..', '_x', 'ä']) {
+        expect(await feed(name: name), isNot(0), reason: name);
+        expect(File(got).existsSync(), isFalse, reason: 'nothing sent for $name');
+        expect(admitted(), isEmpty, reason: 'this computer\'s Porelo not asked for $name');
+      }
+    });
+
+    test('nothing is sent where the host gave no name, Porelo refused, or the admission held no token', () async {
+      for (final (why, run) in [
+        ('no name', () => feed(nameExit: 255)),
+        ('admit refused', () => feed(admitExit: 1)),
+        ('an empty token', () => feed(token: '')),
+      ]) {
+        if (File(intoFile).existsSync()) File(intoFile).deleteSync();
+        expect(await run(), isNot(0), reason: why);
+        expect(File(got).existsSync(), isFalse, reason: 'nothing sent: $why');
+        if (File(intoFile).existsSync()) {
+          final into = File(File(intoFile).readAsStringSync());
+          expect(into.parent.existsSync(), isFalse, reason: 'the admission goes with the terminal: $why');
+        }
+      }
+    });
   }, skip: Platform.isWindows ? 'the feed runs bash, which only Linux has here' : null);
 
   // Against the real keepassxc-cli: what reaches the far end is the lines and nothing else.
