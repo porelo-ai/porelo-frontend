@@ -1,6 +1,6 @@
 # F223 — A Ready Server Runs Its Setup Again
 
-**Status:** Estimated; placed with the bug fixes after the operator's tests of sprints 6 to 6i.
+**Status:** Implementing; built, not yet published.
 **Size:** S - a *Run its setup again* action on a ready server's row and menu, through the run the interface already
 keeps, and its tests.
 

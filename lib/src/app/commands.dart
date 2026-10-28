@@ -1417,6 +1417,16 @@ Command continueHostPreparationCommand({required String project, required VoidCa
       unavailable: resolved ? 'this row is resolved' : null,
     );
 
+/// Runs the saved setup of a ready server after its previous attempt ended.
+Command runHostSetupAgainCommand({required String project, required HostRuns hostRuns}) => Command(
+  id: 'host.again',
+  label: 'Run its setup again',
+  group: '$project server',
+  home: Home.machineRow,
+  run: () => unawaited(hostRuns.again(project)),
+  unavailable: hostRuns.againUnavailable(project),
+);
+
 /// Continues or gives back a retained server only after its previous command ended.
 List<Command> hostRecoveryCommands({
   required HostPreparation run,
@@ -1452,7 +1462,7 @@ Command resumeHostPreparationCommand({
       run.lockProblem ??
       (run.running
           ? 'the host command is still running'
-          : run.ready || run.givenBack
+          : run.ready && !run.needsYou && !run.interrupted || run.givenBack
           ? 'preparation has ended'
           : run.awaitingVpn
           ? 'setup waits for the VPN on this computer'

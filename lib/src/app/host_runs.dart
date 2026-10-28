@@ -309,6 +309,44 @@ class HostRuns extends ChangeNotifier {
   /// The latest setup of a project, including its completed protocol.
   HostPreparation? of(String project) => _runs[project];
 
+  /// Stops and interruptions needing a person, including setup run again on a ready server.
+  List<HostPreparation> get needingYou =>
+      _runs.values.where((run) => !run.givenBack && (run.needsYou || run.interrupted)).toList();
+
+  /// Why a ready server cannot start another setup attempt now.
+  String? againUnavailable(String project) {
+    if (_disposed || _leaving) return 'the interface is closing';
+    final run = _runs[project];
+    if (run?.lockProblem case final problem?) return problem;
+    if (run?.running == true) return 'the host command is still running';
+    if (run?.waiting == true) return 'setup waits for you under Needs you';
+    if (run != null && (!run.ready || run.givenBack)) return 'the server is not ready';
+    final record = machines.settings.hostUp(project);
+    if (record == null) return 'the setup arguments were not kept';
+    if (record.preparing || !machines.all.any((machine) => machine.kind == 'host' && machine.hostProject == project)) {
+      return 'the server is not ready';
+    }
+    return null;
+  }
+
+  /// Runs a ready server's kept setup as a new attempt without taking it out of Machines.
+  Future<void> again(String project) {
+    if (againUnavailable(project) != null) return _runs[project]?.finished ?? Future.value();
+    var run = _runs[project];
+    if (run == null) {
+      final record = machines.settings.hostUp(project)!;
+      run = HostPreparation(
+        project: project,
+        session: sessionFor(project, record)..restoreProtocol(record.protocol),
+        record: record,
+        settings: machines.settings,
+      )..phase = HostPreparationPhase.reachable;
+      _runs[project] = run;
+      _listen(run);
+    }
+    return run.finished = _up(run);
+  }
+
   /// Keeps retry availability in sync when a local terminal opens or closes.
   void vpnTerminalChanged(HostPreparation run, {required bool open}) {
     run.vpnOpen = open;
@@ -348,7 +386,7 @@ class HostRuns extends ChangeNotifier {
   Future<void> resume(HostPreparation run) {
     if (_disposed ||
         _leaving ||
-        run.ready ||
+        run.ready && !run.needsYou && !run.interrupted ||
         run.givenBack ||
         run.awaitingVpn ||
         run._upActive ||
@@ -374,7 +412,7 @@ class HostRuns extends ChangeNotifier {
       }
       if (run.problem != null) return;
       final settings = run.settings;
-      if (settings != null) {
+      if (settings != null && !run.ready) {
         final kept = newPreparation ? run.record : settings.hostUp(run.project) ?? run.record;
         await settings.rememberHostUp(run.project, kept.withPreparation(run.record.startedAt));
       }
@@ -384,7 +422,7 @@ class HostRuns extends ChangeNotifier {
       await run.saved;
       if (run._saveFailed) throw const FileSystemException('The setup protocol could not be kept.');
       if (_disposed) return;
-      if (run.session.state == HostRunState.done) await _addHost(run);
+      if (run.session.state == HostRunState.done && !run.ready) await _addHost(run);
       if (run.session.state == HostRunState.busy) _poll(run);
     } on Exception {
       if (!_disposed) {

@@ -124,6 +124,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A ready rented server offers Run its setup again in its menu in Machines: `porelo-host up` runs with the arguments
+  and files of its setup, as a new attempt in its protocol, a stop in it is completed from Needs you, and the server
+  stays in Machines meanwhile. While a setup of the project runs or waits, the action says why it is unavailable.
 - `porelo-host find --project NAME --scaleway-project ID [--zone Z]` names the server rented for a project now, as
   one JSON line with its id, address and whether it is ready, or exits 69 when none is; it rents, reaches and writes
   nothing.

@@ -220,10 +220,8 @@ class Attention extends ChangeNotifier {
         yield AttentionRow(AttentionKind.vpn, 'vpn ${machine.name}', machine.name, machine);
       }
     }
-    for (final run in _hostRuns?.preparing ?? <HostPreparation>[]) {
-      if (run.needsYou || run.interrupted) {
-        yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
-      }
+    for (final run in _hostRuns?.needingYou ?? <HostPreparation>[]) {
+      yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
     }
     for (final machine in missedQuestions) {
       yield AttentionRow(AttentionKind.missed, 'missed ${machine.name}', machine.name, (

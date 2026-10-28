@@ -122,6 +122,8 @@ class MachinesPage extends StatelessWidget {
     final thisComputer = !machine.needsATunnel && machine.name == local.name && machine.socketPath == local.socketPath;
     final actions = <Command>[
       ...?hostCommands?.call(machine),
+      if (hostRuns != null && machine.kind == 'host' && machines.settings.hostUp(machine.hostProject) != null)
+        runHostSetupAgainCommand(project: machine.hostProject, hostRuns: hostRuns!),
       forgetMachineCommand(
         forget: () => onForget(machine),
         canForget: machines.all.length > 1,

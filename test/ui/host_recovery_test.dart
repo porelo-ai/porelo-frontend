@@ -93,6 +93,227 @@ void main() {
     return runs;
   }
 
+  final setupRecord = HostUpRecord.fromStored({
+    ..._record.stored,
+    'setupFolder': '/setup/demo',
+    'collection': '/setup/collection',
+    'collectionSha256': List.filled(64, 'a').join(),
+    'vpnPeerPublicKey': 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+    'vpnPeerAddress': '10.73.0.2/32',
+    'vpnHostPublicKey': 'CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=',
+  })!;
+  const completed = Step(
+    'up',
+    StepState.done,
+    address: '203.0.113.7',
+    account: 'worker',
+    socket: '/run/user/1007/porelo/porelod.sock',
+  );
+
+  Future<HostPreparation> ready(HostRuns runs, StartHostCommand start) async {
+    final initial = HostProcess();
+    var first = true;
+    final run = runs.start(
+      project: 'demo',
+      record: setupRecord,
+      session: HostSession(
+        executable: 'stand-in',
+        arguments: hostArguments(setupRecord, 'demo'),
+        start: (executable, arguments) async {
+          if (!first) return start(executable, arguments);
+          first = false;
+          return initial;
+        },
+      ),
+    );
+    initial
+      ..line(completed)
+      ..end(0);
+    await run.finished;
+    await runs.vpnChecked(run, verified: true);
+    expect(run.ready, isTrue, reason: 'the original setup must finish before it can be run again');
+    return run;
+  }
+
+  Future<void> showMachines(WidgetTester tester, HostRuns runs) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: runs,
+            builder: (_, _) =>
+                MachinesPage(machines: machines, hostRuns: runs, onAdd: () {}, onDetails: (_) {}, onForget: (_) {}),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('machines-row demo server')),
+        matching: find.byTooltip('Show more'),
+      ),
+    );
+    await World.settle(tester);
+  }
+
+  Future<void> openAgain(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('machines-menu demo server')));
+    await World.settle(tester);
+    expect(find.text('Run its setup again'), findsOneWidget, reason: 'the ready server must offer its setup');
+  }
+
+  for (final reopened in [false, true]) {
+    // Harm: rerunning setup with changed arguments can upload files to or modify the wrong server.
+    testWidgets('a ${reopened ? 'reopened' : 'retained'} ready server runs its recorded setup as one new attempt', (
+      tester,
+    ) async {
+      final commands = <List<String>>[];
+      final process = HostProcess();
+      Future<Process> start(String executable, List<String> arguments) async {
+        commands.add(List.of(arguments));
+        return process;
+      }
+
+      HostRuns runs = _RestoredRuns(machines, environment, start, null);
+      owners.add(runs);
+      await ready(runs, start);
+      if (reopened) {
+        runs = _RestoredRuns(machines, environment, start, null);
+        owners.add(runs);
+      }
+      await showMachines(tester, runs);
+      await openAgain(tester);
+      await tester.tap(find.text('Run its setup again'));
+      await World.settle(tester);
+      expect(commands, [
+        ['up', ...hostArguments(setupRecord, 'demo')],
+      ], reason: 'one click must reuse every recorded option, including the setup files uploaded by up');
+      final run = runs.of('demo')!;
+      expect(run.session.attempts, hasLength(2), reason: 'the original protocol must survive the new attempt');
+      process
+        ..line(completed)
+        ..end(0);
+      await World.settle(tester);
+      await run.finished;
+      expect(run.ready, isTrue, reason: 'rerunning must not send a ready server back to the VPN setup step');
+      expect(run.session.attempts.every((attempt) => attempt.endedAt != null), isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  // Harm: a stop in a ready server's setup waits unseen, preventing its required secrets from being supplied.
+  testWidgets('a ready server setup stop reaches Needs you and resumes through the kept run', (tester) async {
+    final process = HostProcess();
+    final next = HostProcess();
+    var starts = 0;
+    final runs = HostRuns(machines, environment: environment);
+    owners.add(runs);
+    final run = await ready(runs, (_, _) async => starts++ == 0 ? process : next);
+    final attention = Attention(machines)..hostRuns = runs;
+    await showMachines(tester, runs);
+    await openAgain(tester);
+    await tester.tap(find.text('Run its setup again'));
+    process
+      ..line(const Step('person', StepState.waiting, needs: ['drive'], text: 'Sign in to the drive'))
+      ..end(75);
+    await World.settle(tester);
+    await run.finished;
+    final row = attention.openRows.singleWhere((row) => row.kind == AttentionKind.host);
+    expect(row.machine, 'demo server');
+    expect((row.value as HostStop).needs, ['drive']);
+    expect((row.value as HostStop).text, 'Sign in to the drive');
+    final resumed = runs.resume(run);
+    await World.settle(tester);
+    expect(starts, 2, reason: 'completing the stop must resume up even though the server remains ready');
+    next
+      ..line(completed)
+      ..end(0);
+    await World.settle(tester);
+    await resumed;
+    expect(attention.openRows.where((row) => row.kind == AttentionKind.host), isEmpty);
+    expect(run.session.attempts, hasLength(3));
+    expect(attention.recentlyResolved.where((row) => row.row.kind == AttentionKind.host), hasLength(1));
+    // Its timer for the resolved row ends with it, before the test checks that none is left.
+    attention.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: marking a ready server as preparing removes its machine row and disrupts access to its running work.
+  testWidgets('a ready server stays in Machines throughout another setup', (tester) async {
+    final process = HostProcess();
+    final runs = HostRuns(machines, environment: environment);
+    owners.add(runs);
+    final run = await ready(runs, (_, _) async => process);
+    final preparations = <bool>[];
+    settings.addListener(() => preparations.add(settings.hostUp('demo')!.preparing));
+    await showMachines(tester, runs);
+    await openAgain(tester);
+    await tester.tap(find.text('Run its setup again'));
+    await World.settle(tester);
+    expect(run.running, isTrue, reason: 'the assertions must observe an active setup');
+    expect(run.ready, isTrue);
+    expect(machinesPageRows(machines, runs).machines.where((machine) => machine.hostProject == 'demo'), hasLength(1));
+    expect(find.byKey(const ValueKey('machines-row demo server')), findsOneWidget);
+    expect(find.byKey(const ValueKey('host-preparing demo')), findsNothing);
+    expect(settings.hostUp('demo')!.preparing, isFalse);
+    process
+      ..line(completed)
+      ..end(0);
+    await World.settle(tester);
+    await run.finished;
+    expect(preparations, isNotEmpty, reason: 'the protocol must still be persisted during the rerun');
+    expect(preparations, everyElement(isFalse), reason: 'no settings write may mark the ready server as preparing');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final waiting in [false, true]) {
+    // Harm: a second setup can modify the same server while an attempt runs or waits for its secrets.
+    testWidgets('another setup cannot start while the ready server ${waiting ? 'waits' : 'runs'}', (tester) async {
+      var starts = 0;
+      final process = HostProcess();
+      final runs = HostRuns(machines, environment: environment);
+      owners.add(runs);
+      final run = await ready(runs, (_, _) async {
+        starts++;
+        return process;
+      });
+      await showMachines(tester, runs);
+      await openAgain(tester);
+      await tester.tap(find.text('Run its setup again'));
+      await World.settle(tester);
+      if (waiting) {
+        process
+          ..line(const Step('person', StepState.waiting, needs: ['drive']))
+          ..end(75);
+        await World.settle(tester);
+        await run.finished;
+      }
+      await openAgain(tester);
+      final item = tester.widget<PopupMenuItem<String>>(
+        find.ancestor(of: find.text('Run its setup again'), matching: find.byType(PopupMenuItem<String>)),
+      );
+      expect(item.enabled, isFalse, reason: 'setup must serialize all attempts of the project');
+      expect(
+        find.descendant(of: find.byWidget(item), matching: find.textContaining('Unavailable: ')),
+        findsOneWidget,
+        reason: 'the unavailable action must say why',
+      );
+      await tester.tap(find.text('Run its setup again'), warnIfMissed: false);
+      unawaited(runs.again('demo'));
+      await World.settle(tester);
+      expect(starts, 1, reason: 'neither the unavailable action nor a direct call may start another host command');
+      if (!waiting) {
+        process.end(65);
+        await World.settle(tester);
+        await run.finished;
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   // Harm: a forgotten interrupted preparation keeps billing without a reachable way to resume it.
   testWidgets('Needs you resumes the interrupted server from its own row', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
