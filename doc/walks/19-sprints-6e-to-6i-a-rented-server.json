@@ -119,18 +119,19 @@
       "then": "!walk-next"
     },
     {
-      "say": "6e-11. In the rail click Machines and your server's row. Expected: it is ready, reached over the VPN. Work through porelo-host's guides for 6e to 6i (~/.porelo/handover/porelo-project/sprint6e … sprint6i/steps-porelo-host.md); their commands need no values: they read the server rented now from this interface's settings. Then come back here.",
+      "say": "6e-11. In the rail click Machines and your server's row. Expected: it is ready, reached over the VPN. Work through porelo-host's guides for 6e to 6i (~/.porelo/handover/porelo-project/sprint6e … sprint6i/steps-porelo-host.md); their commands need no values: they read the server rented now from this interface's settings. Then come back here and click Next in this panel.",
       "at": [
-        "rail-machine *",
+        "rail-machine sprint5 server",
         "rail machines"
-      ]
+      ],
+      "then": "!walk-next"
     },
     {
-      "say": "End-1. In Machines, open the server's menu and Take this server down, then confirm. Expected: the server's give-back is confirmed and it leaves Machines. With 6i, a failure to close your homeserver's published address is said in this dialog; in Claude, ! grep -c PORELO_MATRIX_PUBLISH ~/.config/porelo/matrix/homeserver.conf prints 0. Then tell me what differed.",
+      "say": "End-1. In Machines, open the menu of the row sprint5 server (⋮ at its right) and Take this server down, then confirm. Expected: the server's give-back is confirmed and it leaves Machines. With 6i, a failure to close your homeserver's published address is said in this dialog; in Claude, ! grep -c PORELO_MATRIX_PUBLISH ~/.config/porelo/matrix/homeserver.conf prints 0. Then tell me what differed.",
       "at": [
         "host-down",
         "machine.takeDown",
-        "machines-menu *",
+        "machines-menu sprint5 server",
         "rail machines"
       ],
       "then": "host-done"
