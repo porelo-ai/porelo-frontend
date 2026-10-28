@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -298,6 +299,71 @@ void main() {
     expect(cli.scalewayFor({'scaleway-project': 'p', 'offer': 'EM-B420E-NVME'}, api).offer, 'EM-B420E-NVME');
     expect(cli.scalewayFor({'scaleway-project': 'p'}, api).offer, 'EM-I220E-NVME');
   });
+
+  group('find', () {
+    // Harm: a guide sshing to a server given back, whose address may be somebody else's now.
+    test('names the server rented for the project, and asks the provider for nothing but its list', () async {
+      final provider = _ListingProvider(
+        const RentedHost(id: 'srv-1', address: '51.15.1.2', hostKey: 'ssh-ed25519 AAAA', ready: true),
+      );
+      final out = StringBuffer();
+      final code = await cli.findRented(provider, 'sprint5', out: out, err: StringBuffer());
+      expect(code, 0);
+      expect(jsonDecode('$out'), {'id': 'srv-1', 'address': '51.15.1.2', 'ready': true});
+      expect(provider.asked, ['porelo-project=sprint5']);
+    });
+
+    test('says no server is rented and exits 69 once it is given back', () async {
+      final provider = _ListingProvider(null);
+      final out = StringBuffer();
+      final err = StringBuffer();
+      final code = await cli.findRented(provider, 'sprint5', out: out, err: err);
+      expect(code, 69);
+      expect('$out', isEmpty);
+      expect('$err', contains('no server of sprint5 is rented'));
+    });
+
+    test('takes only --project, --scaleway-project and --zone', () async {
+      final result = await Process.run(Platform.resolvedExecutable, [
+        'run',
+        'bin/porelo_host.dart',
+        'find',
+        '--project',
+        'sprint5',
+        '--scaleway-project',
+        'p',
+        '--identity',
+        'id',
+      ]);
+      expect(result.exitCode, 64, reason: '${result.stderr}');
+      expect('${result.stderr}', contains('--identity is not an option'));
+    }, timeout: const Timeout(Duration(minutes: 3)));
+  });
+}
+
+/// A provider that only lists: anything else it is asked fails the test.
+class _ListingProvider implements HostProvider {
+  _ListingProvider(this._rented);
+
+  final RentedHost? _rented;
+
+  /// The tags it was asked to list.
+  final asked = <String>[];
+
+  @override
+  Future<RentedHost?> find(String tag) async {
+    asked.add(tag);
+    return _rented;
+  }
+
+  @override
+  Future<RentedHost> create(HostRequest request) => throw StateError('find must not rent');
+
+  @override
+  Future<RentedHost> state(String id) => throw StateError('find must not ask more than the list');
+
+  @override
+  Future<void> release(String id) => throw StateError('find must not give back');
 }
 
 bool _sameValues(Map<String, String> left, Map<String, String> right) =>

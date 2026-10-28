@@ -69,7 +69,10 @@ class HostPlan {
   final bool forge;
 
   /// The tag the host carries.
-  String get tag => 'porelo-project=$project';
+  String get tag => tagFor(project);
+
+  /// The tag the host of [project] carries.
+  static String tagFor(String project) => 'porelo-project=$project';
 }
 
 /// The tag a rented host's public ssh host key is kept in, after the key's type `ssh-ed25519`.

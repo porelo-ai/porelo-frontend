@@ -119,6 +119,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `porelo-host find --project NAME --scaleway-project ID [--zone Z]` names the server rented for a project now, as
+  one JSON line with its id, address and whether it is ready, or exits 69 when none is; it rents, reaches and writes
+  nothing.
 - A server that asks for its token for this computer's homeserver gets it at its stop: this computer lets the
   server into the project's conversation and sends the token on standard input, without a master password.
 - A server set up from here runs a forge of its own: its first inventory says `porelo_host_forge: true`.

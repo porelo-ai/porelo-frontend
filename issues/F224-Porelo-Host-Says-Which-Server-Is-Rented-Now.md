@@ -1,6 +1,6 @@
 # F224 — Porelo-Host Says Which Server Is Rented Now
 
-**Status:** Estimated; placed with the bug fixes after the operator's tests of sprints 6 to 6i.
+**Status:** Implementing; built, not yet published.
 **Size:** S - a read-only `porelo-host find` over the provider's existing `find`, and its tests; about 1 hour.
 
 **What must be true.** `porelo-host find --project NAME --scaleway-project ID [--zone Z]` asks the provider which

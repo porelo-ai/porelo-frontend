@@ -10,6 +10,7 @@ porelo-host up|down --project NAME --account NAME --public-key FILE --identity F
             [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
             [--give-back-anyway]
             [--collection FILE --collection-sha256 HEX]
+porelo-host find --project NAME --scaleway-project ID [--zone fr-par-1]
 porelo-host key set|forget PROVIDER
 porelo-host key set scaleway [--from-file FILE]
 porelo-host key check scaleway
@@ -20,6 +21,8 @@ porelo-host --collection-info
           stops with 75 for the person; run up again after completing the stop on the host
   down    runs the down play, then gives the host back; a host whose down play did not finish is
           kept, since a failed copy may have left the only copy there, and down says so
+  find    names the server rented for the project now, as one JSON line with its id, address and
+          whether it is ready, or exits 69 when none is; it changes nothing
   key     checks and keeps Scaleway's secret key or keeps a forge token, or forgets it;
           set reads from a terminal without echo; Scaleway also accepts an owner-only regular file
           check scaleway checks the stored secret without prompting or changing it
@@ -60,6 +63,7 @@ Future<int> _run(List<String> arguments) async {
     return Exit.done;
   }
   if (arguments.isNotEmpty && arguments.first == 'key') return runKeyCommand(arguments.sublist(1));
+  if (arguments.isNotEmpty && arguments.first == 'find') return _find(arguments.sublist(1));
   if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return _wrong('up or down first');
   final verb = arguments.first;
   final options = <String, String>{};
@@ -118,17 +122,8 @@ Future<int> _run(List<String> arguments) async {
   if (given) {
     provider = GivenMachine(address: options['given']!, hostKey: options['host-key']!);
   } else {
-    final store = SecretStore.forThisSystem();
-    final String? key;
-    try {
-      key = await store.read(providerKeyName('scaleway'));
-    } on SecretStoreFailed catch (e) {
-      stderr.writeln('porelo-host: $e');
-      return Exit.refused;
-    } finally {
-      await store.close();
-    }
-    if (key == null) return _wrong('no key for scaleway is kept: run `porelo-host key set scaleway` first');
+    final (key, failed) = await _scalewayKey();
+    if (key == null) return failed!;
     provider = scalewayFor(options, scalewayOverHttps(key));
   }
 
@@ -153,6 +148,62 @@ Future<int> _run(List<String> arguments) async {
     bundle: options['bundle'],
   );
   return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
+}
+
+/// `find`: the server rented for `--project` now, asked of the provider alone.
+Future<int> _find(List<String> arguments) async {
+  final options = <String, String>{};
+  for (var i = 0; i < arguments.length; i++) {
+    final name = arguments[i];
+    if (!const <String>{'--project', '--scaleway-project', '--zone'}.contains(name) || i + 1 >= arguments.length) {
+      return _wrong('$name is not an option of find');
+    }
+    options[name.substring(2)] = arguments[++i];
+  }
+  final missing = const <String>['project', 'scaleway-project'].where((n) => !options.containsKey(n)).toList();
+  if (missing.isNotEmpty) return _wrong('missing ${missing.map((n) => '--$n').join(', ')}');
+  final (key, failed) = await _scalewayKey();
+  if (key == null) return failed!;
+  return findRented(scalewayFor(options, scalewayOverHttps(key)), options['project']!, out: stdout, err: stderr);
+}
+
+/// Prints the server [provider] lists for [project] as one JSON line to [out] and returns 0, or says to [err] that
+/// none is rented and returns 69. Asks [provider] for its list once and nothing else.
+Future<int> findRented(
+  HostProvider provider,
+  String project, {
+  required StringSink out,
+  required StringSink err,
+}) async {
+  final RentedHost? host;
+  try {
+    host = await provider.find(HostPlan.tagFor(project));
+  } on ProviderFailed catch (e) {
+    err.writeln('porelo-host: $e');
+    return Exit.unreachable;
+  }
+  if (host == null) {
+    err.writeln('porelo-host: no server of $project is rented');
+    return Exit.unreachable;
+  }
+  out.writeln(jsonEncode({'id': host.id, 'address': host.address, 'ready': host.ready}));
+  return Exit.done;
+}
+
+/// Scaleway's secret key from the secret store, or null and the code to end with.
+Future<(String?, int?)> _scalewayKey() async {
+  final store = SecretStore.forThisSystem();
+  final String? key;
+  try {
+    key = await store.read(providerKeyName('scaleway'));
+  } on SecretStoreFailed catch (e) {
+    stderr.writeln('porelo-host: $e');
+    return (null, Exit.refused);
+  } finally {
+    await store.close();
+  }
+  if (key == null) return (null, _wrong('no key for scaleway is kept: run `porelo-host key set scaleway` first'));
+  return (key, null);
 }
 
 /// The Elastic Metal host [options] name: their project, zone and offer, each with its default.
