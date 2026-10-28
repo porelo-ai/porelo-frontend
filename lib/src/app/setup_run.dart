@@ -106,6 +106,11 @@ class SetupRun extends ChangeNotifier {
         ..kept = kept
         ..keyFile = kept;
     }
+    run
+      ..driveInstalled = stored['driveInstalled'] == true
+      ..driveSignedInAs = text('driveSignedInAs').isEmpty ? null : text('driveSignedInAs')
+      ..driveSynced = text('driveSynced').isEmpty ? null : text('driveSynced')
+      ..tresor = text('tresor');
     final userKey = text('userKeyFile');
     if (userKey.isNotEmpty && File(userKey).existsSync()) run.userKeyFile = userKey;
     final chosen = stored['chosen'];
@@ -313,6 +318,10 @@ class SetupRun extends ChangeNotifier {
     'prepared': prepared,
     'chosen': chosen.toList()..sort(),
     'userKeyFile': userKeyFile ?? '',
+    'driveInstalled': driveInstalled,
+    'driveSignedInAs': driveSignedInAs ?? '',
+    'driveSynced': driveSynced ?? '',
+    'tresor': tresor,
   };
 
   void _keep() => remember?.call(toStored());
@@ -625,6 +634,8 @@ class SetupRun extends ChangeNotifier {
     }
     final checked = await setup.asUser(alias, '/bin/bash -c ${quoteForAShell(TresoritInstaller.checkScript(folder))}');
     if (checked.exitCode != 0) {
+      // The script removes the folder on every ending of its own; this one is for an ssh that never ran it.
+      await setup.asUser(alias, '/usr/bin/rm -rf -- ${quoteForAShell(folder)}');
       throw MachineSetupFailed(
         "Tresorit's installer did not pass its check on the machine, so nothing of it ran: ${both(checked)}",
       );
@@ -636,7 +647,7 @@ class SetupRun extends ChangeNotifier {
         ? unit
         : await setup.asUser(
             alias,
-            'systemctl --user daemon-reload && systemctl --user enable --now tresorit-daemon.service',
+            '/usr/bin/systemctl --user daemon-reload && /usr/bin/systemctl --user enable --now tresorit-daemon.service',
           );
     if (started.exitCode != 0) {
       throw MachineSetupFailed("Tresorit's daemon did not start as $workUser: ${both(started)}");

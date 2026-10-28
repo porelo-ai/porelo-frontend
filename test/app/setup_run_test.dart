@@ -30,9 +30,15 @@ class _Recording extends MachineSetup {
   final sent = <String, List<int>>{};
   final rootScripts = <String>[];
 
+  /// Every call in order, with the `Host` entry it went through.
+  final log = <String>[];
+  final aliases = <String>{};
+
   @override
   Future<ProcessResult> asUser(String alias, String command) async {
     asUserCommands.add(command);
+    aliases.add(alias);
+    log.add('run $command');
     if (command.contains('mktemp -d')) return ProcessResult(0, 0, '/home/agent/.cache/porelo-tresorit.Ab12Cd\n', '');
     if (command.contains('/bin/bash -c') && !checkPasses) {
       return ProcessResult(0, 1, '', 'signing.pem: verification failed');
@@ -44,6 +50,8 @@ class _Recording extends MachineSetup {
   @override
   Future<ProcessResult> sendToUser(String alias, String path, List<int> bytes) async {
     sent[path] = bytes;
+    aliases.add(alias);
+    log.add('send $path');
     return ProcessResult(0, 0, '', '');
   }
 
@@ -105,6 +113,16 @@ void main() {
       expect(run.saidIsBad, isFalse, reason: run.said);
       expect(run.driveInstalled, isTrue);
       expect(machine.rootScripts, isEmpty, reason: 'nothing of it as root');
+      expect(machine.aliases, {run.alias}, reason: 'everything through the work user\'s own entry');
+      int at(String prefix) => machine.log.indexWhere((each) => each.startsWith(prefix));
+      final checking = machine.log.indexWhere((each) => each.contains('/bin/bash -c'));
+      for (final name in ['installer.run', 'signature.bin', 'signing.pem', 'ca.pem']) {
+        expect(machine.log.indexWhere((each) => each.endsWith('/$name')), lessThan(checking), reason: '$name before');
+      }
+      expect(at('send .config/systemd/user/tresorit-daemon.service'), greaterThan(checking));
+      expect(machine.log.indexWhere((each) => each.contains('enable --now')), greaterThan(at('send .config/systemd')));
+      final kept = SetupRun.fromStored(run.toStored(), setup: machine)!;
+      expect(kept.driveInstalled, isTrue, reason: 'a resumed run does not install it again');
       const folder = '/home/agent/.cache/porelo-tresorit.Ab12Cd';
       expect(
         machine.sent.keys,
@@ -126,6 +144,11 @@ void main() {
       await run.syncDrive();
       expect(machine.asUserCommands.last, contains("sync --start 'my files' --path"));
       expect(run.driveSynced, 'my files');
+      final resumed = SetupRun.fromStored(run.toStored(), setup: machine)!;
+      expect(
+        (resumed.driveSignedInAs, resumed.driveSynced, resumed.tresor),
+        ('me@example.org', 'my files', 'my files'),
+      );
     }, skip: TresoritFixture.skip);
 
     test('an installer the machine refuses, or one under another CA, never runs and starts nothing', () async {
@@ -136,6 +159,11 @@ void main() {
       expect(run.said, contains('did not pass its check'));
       expect(run.driveInstalled, isFalse);
       expect(refusing.asUserCommands.where((each) => each.contains('tresorit-daemon')), isEmpty);
+      expect(
+        refusing.asUserCommands.last,
+        '/usr/bin/rm -rf -- /home/agent/.cache/porelo-tresorit.Ab12Cd',
+        reason: 'the folder goes even where the check never ran',
+      );
 
       final foreign = _Recording(home.path);
       final other = runOn(foreign, pinned: 'ab' * 32);

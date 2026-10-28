@@ -60,9 +60,21 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(run.canGoOn, isTrue, reason: 'Next leaves it out');
 
-    // As if the install had passed its check.
+    // As if the install had passed its check, on a machine not reached in this run yet.
     run
       ..driveInstalled = true
+      ..ready = null
+      ..changed();
+    await World.settle(tester);
+    await tester.enterText(find.byKey(const Key('drive-email')), 'me@example.org');
+    await tester.pump();
+    expect(
+      tester.widget<OutlinedButton>(find.byKey(const Key('open-drive-terminal'))).onPressed,
+      isNull,
+      reason: 'nothing to sign in on before the machine answers',
+    );
+    run
+      ..ready = reached
       ..changed();
     await World.settle(tester);
     expect(find.byType(TextField), findsOneWidget, reason: 'the e-mail alone; the password is Tresorit\'s to ask');
@@ -75,7 +87,11 @@ void main() {
     await tester.tap(open());
     await World.settle(tester);
     expect(terminals.single.command.last, contains('login --email me@example.org --password-on-stdin'));
-    expect(terminals.single.command, contains('-t'), reason: 'a terminal of its own, as alice');
+    expect(
+      terminals.single.command,
+      containsAllInOrder(['-t', run.alias]),
+      reason: 'a terminal of its own, as alice through her own entry',
+    );
 
     terminals.single.endsWith(0);
     await World.settle(tester);

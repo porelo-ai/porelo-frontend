@@ -592,7 +592,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
         if (drive == null || drive.state == SessionState.over)
           OutlinedButton.icon(
             key: const Key('open-drive-terminal'),
-            onPressed: run.busy || !SetupRun.isEmail(_driveEmail.text) ? null : _openDrive,
+            onPressed: run.busy || run.ready == null || !SetupRun.isEmail(_driveEmail.text) ? null : _openDrive,
             icon: const Icon(Icons.terminal, size: Sizes.rowIcon),
             label: Text(drive == null ? 'Open a terminal to sign in' : 'Open it again'),
           ),

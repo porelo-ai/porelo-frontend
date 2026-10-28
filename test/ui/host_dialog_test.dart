@@ -1406,6 +1406,57 @@ void main() {
     expect(settings.hostUp('demo')?.folder, isNull);
   });
 
+  // Harm: a refusal about a key on a drive folder left standing after the person let that folder go.
+  hostWidgets('forgetting the earlier drive folder takes back what its key refused', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = newSettings(MemorySettingsStore());
+    final old = fixture('left-drive');
+    await settings.rememberTresorFolder('demo', old);
+    await tester.runAsync(() async {
+      await Directory(path.join(old, 'porelo-host')).create(recursive: true);
+      await File(path.join(old, 'porelo-host', 'wireguard.key'))
+          .writeAsString('${base64Encode(List<int>.filled(32, 7))}\n');
+    });
+    var starts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            openSecretsFile: _secretsOpened,
+            setupFolder: '${scratch.path}/setup',
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            secretStore: _MemorySecrets(),
+            machines: machines,
+            settings: settings,
+            project: 'demo',
+            start: (_, _) async {
+              starts++;
+              return _HostProcess();
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-collection': fixture('collection.tar.gz'),
+      'host-collection-sha256': collectionDigest,
+    });
+    await tapAndRun(tester, const Key('host-up'));
+    expect(starts, 0);
+    expect(find.textContaining('still holds a host key'), findsOneWidget);
+    while (find.byKey(const Key('host-old-drive-forget')).evaluate().isEmpty) {
+      await navigate(tester, 'wizard-back');
+    }
+    await tester.tap(find.byKey(const Key('host-old-drive-forget')));
+    await World.settle(tester);
+    expect(find.textContaining('still holds a host key'), findsNothing, reason: 'the folder it was about is let go');
+  });
+
   // Harm: a host asked for a drive its setup no longer mounts, or told a tresor it would sync after all.
   hostWidgets('the project step asks for no drive, and up is told no tresor', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);

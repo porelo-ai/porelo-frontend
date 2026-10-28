@@ -786,8 +786,10 @@ path for every machine, and no on-screen trust of a key nobody checked.
 be pinned by its digest. Its line 2 is an RSASSA-PSS SHA-512 signature over everything from line 3 on, and line 3 is
 the signing certificate with the CA that issued it. The machine wizard's drive step installs the client for a user
 only when that CA's SHA-256 fingerprint is the pinned one, the CA issued the certificate, the certificate is made for
-code signing and both are valid now, and the signature covers the file as it is; the installer's own `CHECKSUM` is a
-CRC and is not relied on.
+code signing and both are valid now, and the signature covers the file from line 3 on as it is. Lines 1 and 2, which
+the signature does not cover and the file runs from, may only be `#!/bin/sh` (or `#!/bin/bash`), a comment to the
+shell, and `SIGNATURE=` with hex, an assignment, checked here and again on the machine. The installer's own
+`CHECKSUM` is a CRC and is not relied on.
 
 **Where each check runs.** This desktop fetches the installer, splits lines 2 and 3, and takes from the chain exactly
 the certificate with the pinned fingerprint, which needs only the SHA-256 the interface has. The rest runs on the

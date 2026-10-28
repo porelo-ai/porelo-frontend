@@ -88,6 +88,24 @@ void main() {
       final foreign = TresoritInstaller.read(await installer('other', [other.signing, good.ca]), pinned: pin);
       expect((await check(foreign)).installed, isFalse, reason: 'not issued by the pinned CA');
 
+      // Line 1 is not under the signature, and the file runs from it: only the shell's comment may stand there.
+      final signed = await installer('tresorit', [good.signing, good.ca]);
+      final evil = Uint8List.fromList([...utf8.encode('touch "\$HOME/pwned"'), ...signed.sublist(signed.indexOf(10))]);
+      expect(() => TresoritInstaller.read(evil, pinned: pin), throwsFormatException, reason: 'refused here');
+      // And on the machine, should such a file reach it after all.
+      final reached = TresoritInstaller.read(Uint8List.fromList(signed), pinned: pin);
+      reached.bytes.setRange(0, 9, utf8.encode('exit 0 ;#'));
+      final ran = await check(reached);
+      expect(ran.installed, isFalse, reason: ran.said);
+      expect(ran.said, contains('Line 1'));
+      // Line 2 is the signature's assignment and runs too; anything beside the hex would.
+      final second = TresoritInstaller.read(Uint8List.fromList(signed), pinned: pin);
+      final hex = second.bytes.indexOf(10) + 1 + 'SIGNATURE='.length;
+      second.bytes.setRange(hex, hex + 4, utf8.encode('0;:;'));
+      final ran2 = await check(second);
+      expect(ran2.installed, isFalse, reason: ran2.said);
+      expect(ran2.said, contains('Line 2'));
+
       final mail = await certificates('mail', usage: 'emailProtection');
       final notForCode = TresoritInstaller.read(
         await installer('mail', [mail.signing, mail.ca]),

@@ -39,6 +39,13 @@ class TresoritInstaller {
     final second = first == 0 ? -1 : bytes.indexOf(10, first) + 1;
     final third = second <= 0 ? -1 : bytes.indexOf(10, second) + 1;
     if (third <= 0) throw const FormatException('This is no installer Tresorit signed: it has fewer than three lines.');
+    // The signature covers only line 3 on, and the file runs from line 1: line 1 may only be the shell's own comment,
+    // and line 2 only the signature's assignment, so nothing outside the signature can run.
+    if (!headers.contains(latin1.decode(bytes.sublist(0, first - 1)))) {
+      throw const FormatException(
+        'Line 1 is not #!/bin/sh, so the installer would run what its signature does not cover.',
+      );
+    }
     final signatureLine = latin1.decode(bytes.sublist(first, second - 1));
     final chainLine = latin1.decode(bytes.sublist(second, third - 1));
     final hex = RegExp(r'^SIGNATURE=([0-9a-fA-F]+)$').firstMatch(signatureLine)?.group(1);
@@ -68,6 +75,9 @@ class TresoritInstaller {
     );
   }
 
+  /// The first lines an installer may have: a comment to `/bin/sh`, which runs it.
+  static const headers = {'#!/bin/sh', '#!/bin/bash'};
+
   static final _block = RegExp(r'-----BEGIN CERTIFICATE-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END CERTIFICATE-----');
 
   static List<String> _certificates(String chain) => [
@@ -80,19 +90,24 @@ class TresoritInstaller {
     return sha256.convert(base64.decode(body)).toString();
   }
 
+  static String _quoted(String word) => "'${word.replaceAll("'", r"'\''")}'";
+
   /// The script the user's account runs in [folder], where `installer.run`, `signature.bin`, `signing.pem` and
   /// `ca.pem` were put: `openssl` checks that the pinned CA issued the signing certificate, both valid now, that it is
   /// made for code signing, and that its signature covers the installer from line 3 on as it is; only then does the
   /// installer run, into [clientDir]. Every tool by its path; the folder goes on every ending.
   static String checkScript(String folder, {String clientDir = r'$HOME/.local/share/tresorit'}) => [
     'set -eu',
-    'd=$folder',
+    'd=${_quoted(folder)}',
     r"""trap '/usr/bin/rm -rf -- "$d"' EXIT""",
     r'cd -- "$d"',
     // Against the pinned CA alone: nothing of the system's own trust store counts.
     '/usr/bin/openssl verify -no-CApath -no-CAstore -partial_chain -CAfile ca.pem signing.pem',
     r"/usr/bin/openssl x509 -in signing.pem -noout -ext extendedKeyUsage | /usr/bin/grep -q 'Code Signing'",
     '/usr/bin/openssl x509 -in signing.pem -noout -pubkey > signing.pub',
+    // What the signature does not cover may only be the shell's comment and the signature's own assignment.
+    r'''case "$(/usr/bin/head -n 1 installer.run)" in '#!/bin/sh'|'#!/bin/bash') ;; *) echo 'Line 1 is not #!/bin/sh.' >&2; exit 1;; esac''',
+    r'''/usr/bin/sed -n 2p installer.run | /usr/bin/grep -Eqx 'SIGNATURE=[0-9a-fA-F]+' || { echo 'Line 2 is not SIGNATURE=<hex>.' >&2; exit 1; }''',
     '/usr/bin/tail -n +3 installer.run > signed.bin',
     '/usr/bin/openssl dgst -sha512 -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:digest '
         '-sigopt rsa_mgf1_md:sha512 -verify signing.pub -signature signature.bin signed.bin',

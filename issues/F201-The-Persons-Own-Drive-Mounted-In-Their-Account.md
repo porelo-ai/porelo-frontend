@@ -50,6 +50,13 @@ accounts, each mounting their own drive.
   and the daemon as the user's unit. The sign-in is Tresorit's own, in a terminal as that user, with the e-mail
   refused unless plain; who is signed in is asked of the client afterwards, never read from the terminal. *Sync it*
   starts the tresor into `~/Tresorit/<tresor>`. Its decision is in `doc/decisions.md`.
+- **From part B's harm reading (seven findings, six taken):** the signature covers the installer from line 3 on, but
+  the file runs from line 1, so line 1 may only be `#!/bin/sh` (or `#!/bin/bash`) and line 2 only `SIGNATURE=` with
+  hex, checked when it is read here and again on the machine before it runs; the folder sent to goes also where the
+  ssh that would run the check fails; the folder is quoted in the check; the drive's state is kept with the run, and
+  the sign-in waits for the machine to answer; `systemctl` runs by its path; the decision says what the signature
+  covers. Tests now see the user, the order and a resumed run. **Declined, with the reason:** `-no-CAstore` needs
+  OpenSSL 3, which every machine Porelo sets up has (Ubuntu 26.04, Fedora); an older one refuses, closed.
 - **Red first:** a test of `SetupRun` that a user without a drive is asked nothing about Tresorit and runs no step for
   it, and one that a chosen drive's commands run as that user and never as root or Porelo's account.
 
