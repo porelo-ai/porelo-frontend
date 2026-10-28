@@ -159,6 +159,13 @@ class _HostStopDialogState extends State<HostStopDialog> {
       host: '${fromTheFile ? admin : account}@$address',
       identity: widget.run.record.identity,
     );
+    // Said before a real terminal asks a master password that nothing could take; a stand-in terminal needs none.
+    if (widget.openTerminal == null && fromTheFile && needs.any(SecretsFile.stopNeeds.contains)) {
+      if (SecretsFile.missingCli() case final missing?) {
+        setState(() => _problem = missing);
+        return;
+      }
+    }
     // The lasting CA's certificate comes back public, beside the forge's own: kept for this desktop to trust.
     final forgeCa = fromTheFile && needs.contains('forge-certificate')
         ? Directory.systemTemp.createTempSync('porelo-forge-ca-')

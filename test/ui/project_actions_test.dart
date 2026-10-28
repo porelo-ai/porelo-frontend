@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
@@ -166,6 +167,30 @@ void main() {
       );
     });
   }
+
+  // Harm: a server set up where its secrets file cannot be opened, found only after the master password was typed.
+  testWidgets('putting a project on a server is unavailable without keepassxc-cli, saying how to install it', (
+    tester,
+  ) async {
+    final wasHere = Shell.poreloHostIsHere;
+    addTearDown(() {
+      keepassxcCliIsHere = true;
+      Shell.poreloHostIsHere = wasHere;
+    });
+    Shell.poreloHostIsHere = true;
+    keepassxcCliIsHere = false;
+    await _project(tester);
+    World.fleet.selectProject('checkout');
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    World.shell.goTo(Section.project);
+    await World.settle(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    expect(
+      menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
+      contains('sudo apt install keepassxc-minimal'),
+    );
+  });
 
   testWidgets('every project menu command has exactly one tile and every tile a menu item', (tester) async {
     await _project(tester);

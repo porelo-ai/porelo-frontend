@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'host_files.dart' show HostFilesRefused;
 
 /// The person's `secrets.kdbx`, opened only by `keepassxc-cli` in a terminal on this desktop.
@@ -14,6 +16,16 @@ class SecretsFile {
 
   /// The packaged `keepassxc-cli`, run by its absolute path.
   static const keepassxcCli = '/usr/bin/keepassxc-cli';
+
+  /// What to say where [cli] is not there, before a terminal asks a master password it cannot use; null where it
+  /// is. The interface's package brings it; a build run from its sources does not.
+  static String? missingCli([String cli = keepassxcCli]) => File(cli).existsSync()
+      ? null
+      : 'KeePassXC\'s command line is not installed here ($cli), so the secrets file cannot be opened. Install it, '
+            'in a terminal of your own: $installCli';
+
+  /// What installs [keepassxcCli], to be run by the person in a terminal of their own.
+  static const installCli = 'sudo apt install keepassxc-minimal';
 
   /// The file, an absolute path on this desktop.
   final String file;

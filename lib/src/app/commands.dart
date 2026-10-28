@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'dart:async';
 
+import 'package:porelo_host/porelo_host.dart' show SecretsFile;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
@@ -1354,11 +1357,22 @@ String describeShortcut(SingleActivator shortcut) {
   return parts.join('+');
 }
 
+/// Whether `keepassxc-cli` is there now; the tests stand in for it.
+bool Function() keepassxcCliThere = () => File(SecretsFile.keepassxcCli).existsSync();
+
+/// Whether this computer has the `keepassxc-cli` that opens the secrets file: read when the interface starts, and
+/// again where the person asks to open the file, so one installed meanwhile counts at once. The interface's package
+/// brings it; a build run from its sources does not. The tests set it.
+bool keepassxcCliIsHere = keepassxcCliThere();
+
 /// Why a server cannot be set up from [here], or null: a server takes its secrets from the person's secrets file,
 /// which this interface opens with the `keepassxc-cli` it brings only on Linux so far.
 String? noSecretsFileHere(Desk here) => here.isWindows
     ? 'a server takes its keys from your secrets file, which this interface opens only on Linux so far'
-    : null;
+    : keepassxcCliIsHere
+    ? null
+    : 'a server takes its keys from your secrets file, which needs KeePassXC\'s command line: install it, in a '
+          'terminal of your own, with sudo apt install keepassxc-minimal';
 
 /// Opens the dialog for completing a host setup stop.
 Command hostPreparationCommand({

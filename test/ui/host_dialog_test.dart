@@ -2203,6 +2203,70 @@ void main() {
     expect(await tester.runAsync(() => inside.readAsString()), 'keep');
   });
 
+  // Harm: a master password typed into a terminal whose keepassxc-cli is not there, or the command that installs it
+  // only to be retyped from a sentence.
+  hostWidgets('without keepassxc-cli the secrets step gives its install command to copy, and looks again on a press', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var there = false;
+    keepassxcCliThere = () => there;
+    keepassxcCliIsHere = false;
+    addTearDown(() {
+      keepassxcCliIsHere = true;
+      keepassxcCliThere = () => true;
+    });
+    final settings = newSettings(MemorySettingsStore());
+    // A file of its own that is not there yet, never the person's own in their home.
+    await settings.rememberSecretsFile('${scratch.path}/Porelo/secrets.kdbx');
+    final opened = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            setupFolder: '${scratch.path}/setup',
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) async {
+              opened.add(file);
+              return _secretsOpened(file: file, project: project);
+            },
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            hostRuns: runs,
+            machines: machines,
+            project: 'demo',
+            settings: settings,
+            secretStore: _MemorySecrets(),
+            start: (_, _) async => _HostProcess()..end(65),
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-signing-key': fixture('signing.pub'),
+    }, stopAt: 3);
+    expect(
+      tester.widget<SelectableText>(find.byKey(const Key('host-secrets-install'))).data,
+      'sudo apt install keepassxc-minimal',
+      reason: 'the command in a box of its own, to copy as it is',
+    );
+    expect(find.byKey(const Key('host-secrets-file-refused')), findsOneWidget, reason: 'marked as an error');
+    expect(find.textContaining('is not installed on this computer'), findsOneWidget, reason: 'said once');
+    expect(find.text('Make it now (try again)'), findsOneWidget, reason: 'the button says it looks again');
+    // Still not there: the press looks again, says it again, and opens nothing.
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(opened, isEmpty);
+    expect(find.textContaining('is not installed on this computer'), findsOneWidget);
+    // Installed meanwhile: the next press finds it, the hint goes, and the file opens.
+    there = true;
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(opened, hasLength(1), reason: 'no new start needed');
+    expect(find.byKey(const Key('host-secrets-install')), findsNothing);
+    expect(find.textContaining('(try again)'), findsNothing);
+  });
+
   // Harm: the secrets file can be made and checked only by renting a server; or the person types the master password
   // twice, once at the step and again at setup.
   hostWidgets('the secrets file is opened from its own step once, and setup takes the key it gave', (tester) async {

@@ -23,6 +23,7 @@ import 'wizard.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'host_stop_dialog.dart';
+import 'command_to_copy.dart';
 import 'dialog_scroll.dart';
 import 'host_vpn_dialog.dart';
 import 'host_key_dialog.dart';
@@ -1325,6 +1326,31 @@ class _HostDialogState extends State<HostDialog> {
               ? 'It is there: setup opens it with its master password.'
               : 'It is not there yet: setup makes it, with a master password you choose.',
         ),
+        // Read once at the start: said here, before any terminal asks a master password nothing could take.
+        if (!keepassxcCliIsHere) ...[
+          Builder(
+            builder: (context) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: Space.small,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  key: const Key('host-secrets-file-refused'),
+                  size: Sizes.mark,
+                  color: Theme.of(context).colorScheme.error,
+                  semanticLabel: 'Refused',
+                ),
+                const Expanded(
+                  child: Text(
+                    'KeePassXC\'s command line (keepassxc-cli) is not installed on this computer, so the file cannot '
+                    'be opened. Install it in a terminal of your own, then press the button below again:',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const CommandToCopy(command: SecretsFile.installCli, textKey: Key('host-secrets-install')),
+        ],
         Wrap(
           spacing: Space.small,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -1332,9 +1358,13 @@ class _HostDialogState extends State<HostDialog> {
             OutlinedButton(
               key: const Key('host-secrets-open'),
               onPressed: _running || _upStarted || _openingSecrets || _secretsProblem != null ? null : _openSecretsNow,
-              child: Text(_secretsExist ? 'Open it now' : 'Make it now'),
+              child: Text(
+                '${_secretsExist ? 'Open it now' : 'Make it now'}${keepassxcCliIsHere ? '' : ' (try again)'}',
+              ),
             ),
-            if (_secretsAnswer case final answer?) Text(answer, key: const Key('host-secrets-answer')),
+            // Without keepassxc-cli the step says it once, above; an answer from before would say it twice.
+            if (_secretsAnswer case final answer? when keepassxcCliIsHere)
+              Text(answer, key: const Key('host-secrets-answer')),
           ],
         ),
       ]),
@@ -1371,6 +1401,12 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The secrets file opened from its own step, before anything is rented: what the person sets up once.
   Future<void> _openSecretsNow() async {
+    // Looked at again on every press: one installed since the start counts at once, and none is said above.
+    keepassxcCliIsHere = keepassxcCliThere();
+    if (!keepassxcCliIsHere) {
+      setState(() => _secretsAnswer = null);
+      return;
+    }
     setState(() {
       _openingSecrets = true;
       _secretsAnswer = null;
@@ -1446,6 +1482,8 @@ class _HostDialogState extends State<HostDialog> {
     String? migrateKeyFrom,
     Map<String, String> keys = const {},
   }) async {
+    // Said before any terminal asks a master password that nothing could take.
+    if (SecretsFile.missingCli() case final missing?) throw HostFilesRefused(missing);
     final folder = await Directory.systemTemp.createTemp('porelo-host-key-');
     try {
       final out = path.join(folder.path, '$project.pub');

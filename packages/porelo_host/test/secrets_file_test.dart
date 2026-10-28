@@ -7,6 +7,15 @@ import 'package:test/test.dart';
 
 /// The secrets file's script: what runs in the terminal so that no secret passes through the interface.
 void main() {
+  // Harm: a terminal opened on a keepassxc-cli that is not there, which ends with 127 and says nothing a person reads.
+  test('a missing keepassxc-cli is said with how it is installed, before any terminal opens', () {
+    expect(
+      SecretsFile.missingCli('/nonexistent/keepassxc-cli'),
+      allOf(contains('keepassxc-cli'), contains('sudo apt install keepassxc-minimal')),
+    );
+    expect(SecretsFile.missingCli(Platform.resolvedExecutable), isNull, reason: 'one that is there is said nothing of');
+  });
+
   const file = '/home/person/Porelo/secrets.kdbx';
   const publicKeyOut = '/home/person/.local/state/porelo-frontend/host-checkout.pub';
 

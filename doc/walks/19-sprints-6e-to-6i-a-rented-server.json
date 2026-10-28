@@ -3,7 +3,7 @@
   "from": 0,
   "steps": [
     {
-      "say": "0-1. Before you start, on the laptop in your own account: this walk rents one server for about 40 minutes and gives it back at the end. Your Scaleway key is set in Forges, your secrets file exists (walk 18), and porelo-host's guides for 6e to 6i lie beside you (~/.porelo/handover/porelo-project/sprint6e … sprint6i/steps-porelo-host.md). Start this walk from ~/git/porelo-frontend with: mkdir -p ~/.porelo/walk && cp doc/walks/19-sprints-6e-to-6i-a-rented-server.json ~/.porelo/walk/walk.json && (cd packages/porelo_host && dart compile exe bin/porelo_host.dart -o ~/.porelo/walk/porelo-host) && curl -fsSL -o ~/.porelo/walk/porelo-host-0.5.6.tar.gz https://github.com/porelo-ai/porelo-host/releases/download/v0.5.6/porelo-host-0.5.6.tar.gz && PORELO_HOST_STANDIN=$HOME/.porelo/walk/porelo-host PORELO_WALK=$HOME/.porelo/walk flutter run -d linux Expected: the interface opens with this panel beside it; porelo-host is the one built from this checkout.",
+      "say": "0-1. Before you start, on the laptop in your own account: this walk rents one server for about 40 minutes and gives it back at the end. Your Scaleway key is set in Forges, your secrets file exists (walk 18), and porelo-host's guides for 6e to 6i lie beside you (~/.porelo/handover/porelo-project/sprint6e … sprint6i/steps-porelo-host.md). Start this walk from ~/git/porelo-frontend with: mkdir -p ~/.porelo/walk && cp doc/walks/19-sprints-6e-to-6i-a-rented-server.json ~/.porelo/walk/walk.json && (cd packages/porelo_host && dart compile exe bin/porelo_host.dart -o ~/.porelo/walk/porelo-host) && curl -fsSL -o ~/.porelo/walk/porelo-host-0.5.6.tar.gz https://github.com/porelo-ai/porelo-host/releases/download/v0.5.6/porelo-host-0.5.6.tar.gz && PORELO_HOST_STANDIN=$HOME/.porelo/walk/porelo-host PORELO_WALK=$HOME/.porelo/walk flutter run -d linux Run from the checkout, the interface brings no keepassxc-cli of its own: once, in a separate terminal (it asks your sudo password), sudo apt install keepassxc-minimal. Expected: the interface opens with this panel beside it; porelo-host is the one built from this checkout.",
       "at": []
     },
     {
@@ -38,7 +38,7 @@
       "say": "6e-4. Click Open it now and type your master password in its terminal; click Done. Expected: Ready: the file keeps the server's keys. Click Next.",
       "at": [
         "host-secrets-open",
-        "host-secrets-terminal",
+        "unlock-terminal",
         "host-secrets-answer",
         "wizard-next"
       ],
