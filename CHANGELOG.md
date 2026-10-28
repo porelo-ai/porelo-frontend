@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Putting a project on a server checks first that KeePassXC's command line is installed: without it the
   command says so with the line that installs it, the secrets step shows that line once with an error
   mark and a copy button, and its button says Make it now (try again) and looks again on each press.
+- Renting a server is expected to take 15 minutes, as Elastic Metal does, so its protocol no longer says it takes
+  longer than usual after 5.
 - Bringing a server's VPN up is refused before sudo, with how to start the interface outside it, where the
   interface runs confined by a snap (as under `flutter run` of the flutter snap), in which wg-quick cannot run. Where
   the VPN step fails, its line, with wg-quick's own last words, is kept in the server's protocol.

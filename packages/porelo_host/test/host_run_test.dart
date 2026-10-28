@@ -146,6 +146,11 @@ class FlakySsh extends ScriptedRemote {
 String line(Map<String, Object> fields) => jsonEncode(<String, Object>{'v': 1, ...fields});
 
 void main() {
+  // Harm: a usual time far below the real one says "taking longer than usual" on every rent.
+  test('renting is planned at the 15 minutes Elastic Metal takes, not 5', () {
+    expect(HostRun.upSteps.firstWhere((step) => step.task == 'rent').seconds, 900);
+  });
+
   late HostPlan plan;
   late Directory scratch;
   late String processEntrypoint;

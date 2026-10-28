@@ -138,7 +138,7 @@ class HostRun {
 
   /// This command's steps, before the collection can announce its own.
   static const upSteps = [
-    PlannedStep('rent', 'Rent the project server', seconds: 300),
+    PlannedStep('rent', 'Rent the project server', seconds: 900),
     PlannedStep('ssh', 'Wait for the server to accept SSH', seconds: 780),
     PlannedStep('copy', 'Copy the server setup files', seconds: 30),
     PlannedStep('ansible', 'Install the server setup tools', seconds: 120),
