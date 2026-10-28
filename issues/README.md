@@ -51,7 +51,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f230"></a>[F230](F230-Text-Selected-With-The-Mouse-In-A-Tasks-Terminal.md) | S | — | Text selected with the mouse in a task's terminal while tmux or the agent takes mouse reports, Shift+drag always selecting here. |
+| <a id="f230"></a>[F230](F230-Text-Selected-With-The-Mouse-In-A-Tasks-Terminal.md) | S | — | Shift+drag selecting in a task's terminal whatever the program inside asks for, and tmux's own copy reaching the clipboard over OSC 52. |
 | <a id="f231"></a>[F231](F231-A-Link-Only-The-Task-Can-Reach-Is-Not-Offered-For-The-Browser.md) | XS | — | A link a task prints to an address only its container reaches shown as such, not as a button to the browser. |
 | <a id="f229"></a>[F229](F229-A-Restarted-Task-Says-So-In-Its-Terminal.md) | S | — | A task's terminal and tile say when it was started, so what the agent redraws from before a restart is not read as now. |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
