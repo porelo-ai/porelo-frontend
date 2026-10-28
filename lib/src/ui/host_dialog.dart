@@ -1483,7 +1483,7 @@ class _HostDialogState extends State<HostDialog> {
     Map<String, String> keys = const {},
   }) async {
     // Said before any terminal asks a master password that nothing could take.
-    if (SecretsFile.missingCli() case final missing?) throw HostFilesRefused(missing);
+    if (keepassxcCliMissing() case final missing?) throw HostFilesRefused(missing);
     final folder = await Directory.systemTemp.createTemp('porelo-host-key-');
     try {
       final out = path.join(folder.path, '$project.pub');

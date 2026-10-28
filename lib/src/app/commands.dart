@@ -1365,6 +1365,10 @@ bool Function() keepassxcCliThere = () => File(SecretsFile.keepassxcCli).existsS
 /// brings it; a build run from its sources does not. The tests set it.
 bool keepassxcCliIsHere = keepassxcCliThere();
 
+/// What is said where keepassxc-cli is not there, before a terminal asks a master password it cannot use; null where
+/// it is. Asked through [keepassxcCliThere], so a test stands it in.
+String? keepassxcCliMissing() => keepassxcCliThere() ? null : SecretsFile.cliMissing();
+
 /// Why a server cannot be set up from [here], or null: a server takes its secrets from the person's secrets file,
 /// which this interface opens with the `keepassxc-cli` it brings only on Linux so far.
 String? noSecretsFileHere(Desk here) => here.isWindows

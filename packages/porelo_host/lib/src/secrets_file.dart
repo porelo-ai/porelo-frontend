@@ -19,10 +19,12 @@ class SecretsFile {
 
   /// What to say where [cli] is not there, before a terminal asks a master password it cannot use; null where it
   /// is. The interface's package brings it; a build run from its sources does not.
-  static String? missingCli([String cli = keepassxcCli]) => File(cli).existsSync()
-      ? null
-      : 'KeePassXC\'s command line is not installed here ($cli), so the secrets file cannot be opened. Install it, '
-            'in a terminal of your own: $installCli';
+  static String? missingCli([String cli = keepassxcCli]) => File(cli).existsSync() ? null : cliMissing(cli);
+
+  /// What is said where [cli] is not there.
+  static String cliMissing([String cli = keepassxcCli]) =>
+      'KeePassXC\'s command line is not installed here ($cli), so the secrets file cannot be opened. Install it, '
+      'in a terminal of your own: $installCli';
 
   /// What installs [keepassxcCli], to be run by the person in a terminal of their own.
   static const installCli = 'sudo apt install keepassxc-minimal';

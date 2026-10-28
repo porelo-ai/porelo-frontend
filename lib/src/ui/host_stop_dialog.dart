@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import '../app/commands.dart' show keepassxcCliMissing;
 import '../app/host_stop_feed.dart';
 import '../app/host_runs.dart';
 import '../app/machines.dart';
@@ -161,7 +162,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
     );
     // Said before a real terminal asks a master password that nothing could take; a stand-in terminal needs none.
     if (widget.openTerminal == null && fromTheFile && needs.any(SecretsFile.stopNeeds.contains)) {
-      if (SecretsFile.missingCli() case final missing?) {
+      if (keepassxcCliMissing() case final missing?) {
         setState(() => _problem = missing);
         return;
       }
