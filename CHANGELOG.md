@@ -12,6 +12,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Putting a project on a server checks first that KeePassXC's command line is installed: without it the
   command says so with the line that installs it, the secrets step shows that line once with an error
   mark and a copy button, and its button says Make it now (try again) and looks again on each press.
+- A guided walk's panel, detached into its own window, starts that window once at a time, ends it with
+  the interface, and stays beside the interface saying so when the window does not answer; its field
+  to write in keeps four lines however long a step is (guided_walk 0.3.0).
 - Start an agent for each repository no longer offers an agent a second time in the first seconds after
   its start, while the machine lists the task before it says its agent.
 - Giving a server back takes down this computer's VPN on Linux before showing Done. Cancelling keeps

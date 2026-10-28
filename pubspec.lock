@@ -414,11 +414,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "v0.2.0"
-      resolved-ref: "991cf7aa4240f8d379ae5ca3cc9069b397107a9c"
+      ref: "v0.3.0"
+      resolved-ref: a47e233b064856744bbb1c0c6a2fd96545f02415
       url: "https://github.com/fuinorg/flutter-guided-walk.git"
     source: git
-    version: "0.2.0"
+    version: "0.3.0"
   hooks:
     dependency: transitive
     description:
