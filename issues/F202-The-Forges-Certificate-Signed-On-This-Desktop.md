@@ -84,7 +84,9 @@ whole in 6e.
   a minute 61 is refused rather than rolled into a later date; the warning names the hour in UTC, says that a server
   set up before is not trusted here until it is set up again, and, at the stop, that this stop makes the new CA
   where the entries are gone; the stop's text has no trailing space. Tests now build certificates by hand for each
-  form and each refusal, so none depends on today's date. **Declined, with the reason:** fractional seconds and an
+  form and each refusal, independent of today's date; beside them, one compares with what `openssl` reads from
+  certificates it makes now. Its reading found nothing in the code; it gave the case of a validity outside its part
+  and of 30 February. **Declined, with the reason:** fractional seconds and an
   offset in place of `Z` are refused, not read: RFC 5280 forbids both in a certificate's validity, and `openssl`
   writes neither.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into

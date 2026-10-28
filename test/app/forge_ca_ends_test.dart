@@ -75,6 +75,18 @@ void main() {
         'an issuer of indefinite length',
         _certificate(notAfter: _utc('361025034012Z'), rawIssuer: [0x30, 0x80, ...List<int>.filled(128, 0x41)]),
       ),
+      // Read up to the certificate's end, not the part's, the fields after a short part would give a date.
+      (
+        'a validity outside the part it belongs to',
+        _element(0x30, [
+          ..._element(0x30, _element(0x02, [1])),
+          ..._element(0x30, []),
+          ..._element(0x30, []),
+          ..._element(0x30, [..._utc('260101000000Z'), ..._utc('361025034012Z')]),
+          ..._element(0x03, [0]),
+        ]),
+      ),
+      ('a 30 February, which would roll into March', _certificate(notAfter: _generalized('20260230000000Z'))),
       ('a part longer than its certificate', _element(0x30, [0x30, 0x7f, 0x02, 0x01, 0x01, 0x30, 0x00])),
       (
         'a serial longer than the part it is in',
