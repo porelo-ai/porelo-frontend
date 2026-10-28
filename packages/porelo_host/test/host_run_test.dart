@@ -689,6 +689,7 @@ void main() {
           'porelo_host_authorized_key': 'ssh-ed25519 BBBB me',
           'porelo_host_project': 'demo',
           'porelo_host_distribution': 'snapshots',
+          'porelo_host_forge': true,
         },
       },
     });
@@ -704,6 +705,41 @@ void main() {
       isEmpty,
       reason: 'up never runs a command taking a password, code or passphrase',
     );
+  });
+
+  // Harm: a host with no forge of its own where the person did not choose against it, or one where they did.
+  test('the host\'s own forge is on unless the plan turns it off, said in the inventory either way', () async {
+    for (final forge in [true, false]) {
+      // A first up each time, with no state of the other's.
+      final state = Directory('${scratch.path}/forge-$forge')..createSync();
+      final remote = ScriptedRemote(waits, playExit: 2);
+      final run = HostRun(
+        environment: {'XDG_STATE_HOME': state.path, 'LOCALAPPDATA': state.path},
+        provider: CountingProvider(),
+        remote: remote,
+        emit: (_) {},
+      );
+      // On is what a plan says when it names nothing: only off is named.
+      final chosen = forge
+          ? HostPlan(
+              project: plan.project,
+              account: plan.account,
+              publicKey: plan.publicKey,
+              collection: plan.collection,
+              collectionSha256: plan.collectionSha256,
+            )
+          : HostPlan(
+              project: plan.project,
+              account: plan.account,
+              publicKey: plan.publicKey,
+              collection: plan.collection,
+              collectionSha256: plan.collectionSha256,
+              forge: false,
+            );
+      expect(await run.up(chosen), Exit.waiting);
+      final vars = (jsonDecode(remote.inputs.first) as Map)['all']['vars'] as Map;
+      expect(vars['porelo_host_forge'], forge, reason: 'a boolean, never a string');
+    }
   });
 
   test('ssh is asked again for twenty minutes by default, a bare-metal host\'s first boot', () {

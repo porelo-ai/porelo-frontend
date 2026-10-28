@@ -27,6 +27,7 @@ class HostPlan {
     this.vpnPeerAddress,
     this.machineFile,
     this.bundle,
+    this.forge = true,
   });
 
   /// The project's name: the host's name, and the tag it is found by.
@@ -62,6 +63,10 @@ class HostPlan {
 
   /// The project's bundle, uploaded beside it as `<project>.bundle`.
   final String? bundle;
+
+  /// Whether the host runs a forge of its own: on unless the person turned it off, since a host whose people use
+  /// a central forge needs none.
+  final bool forge;
 
   /// The tag the host carries.
   String get tag => 'porelo-project=$project';
@@ -686,6 +691,7 @@ class HostRun {
         'porelo_host_distribution': plan.distribution,
         'porelo_host_vpn_peer_public_key': ?plan.vpnPeerPublicKey,
         'porelo_host_vpn_peer_address': ?plan.vpnPeerAddress,
+        'porelo_host_forge': plan.forge,
       },
     },
   });

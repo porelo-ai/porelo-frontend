@@ -62,7 +62,7 @@
       ]
     },
     {
-      "say": "6e-6. When the setup stops, open Needs you and Complete setup on the host. Expected: it names what the host needs (its new vault's passphrase, its VPN key, the files of its vault entries, and with 6h's forge its certificate) and says They come from your secrets file: type its master password once, in the terminal on this computer. No Tresorit login is asked (6g).",
+      "say": "6e-6. When the setup stops, open Needs you and Complete setup on the host. Expected: it names what the host needs (its new vault's passphrase, its VPN key, the files of its vault entries, and its forge's certificate) and says They come from your secrets file: type its master password once, in the terminal on this computer. No Tresorit login is asked (6g).",
       "at": [
         "rail attention",
         "host-needs *",
@@ -79,7 +79,7 @@
       ]
     },
     {
-      "say": "6h-1. Only where the forge runs on this server (porelo_host_forge, as the operator decided for 6h): the stop above also said The host's forge needs its certificate: signed on this computer by your lasting CA. Expected in the same terminal: the CA is made once in your secrets file (shared/forge-ca-key, shared/forge-ca), and the certificate goes to the host; no file of the CA is left on this computer.",
+      "say": "6h-1. The stop above also said The host's forge needs its certificate: signed on this computer by your lasting CA. Expected in the same terminal: the CA is made once in your secrets file (shared/forge-ca-key, shared/forge-ca), and the certificate goes to the host; no file of the CA is left on this computer.",
       "at": []
     },
     {
@@ -97,7 +97,7 @@
       ]
     },
     {
-      "say": "6h-2. Only with the forge: in Firefox, open https://forge.porelo.internal/ . Expected: no certificate warning, and no CA imported or hosts line written by hand; the VPN step put the CA into the system store and Firefox's policy and the name into /etc/hosts. Signing in with the lasting password is not in this sprint.",
+      "say": "6h-2. In Firefox, open https://forge.porelo.internal/ . Expected: no certificate warning, and no CA imported or hosts line written by hand; the VPN step put the CA into the system store and Firefox's policy and the name into /etc/hosts. Signing in with the lasting password is not in this sprint.",
       "at": []
     },
     {

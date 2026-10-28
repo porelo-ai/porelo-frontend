@@ -101,6 +101,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A server set up from here runs a forge of its own: its first inventory says `porelo_host_forge: true`.
 - During the move, once a server's VPN is up, this computer's own homeserver is published on its VPN address
   under `matrix.porelo.internal`, so the server's tasks reach the project's room here; it is closed again when the
   server is given back. Where `/etc/hosts` lacks `127.0.0.1 matrix.porelo.internal`, the line is shown to be added
