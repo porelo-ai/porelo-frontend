@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart';
@@ -153,6 +154,10 @@ class _HostStopDialogState extends State<HostStopDialog> {
       host: '${fromTheFile ? admin : account}@$address',
       identity: widget.run.record.identity,
     );
+    // The lasting CA's certificate comes back public, beside the forge's own: kept for this desktop to trust.
+    final forgeCa = fromTheFile && needs.contains('forge-certificate')
+        ? Directory.systemTemp.createTempSync('porelo-forge-ca-')
+        : null;
     final List<String> command;
     try {
       command = fromTheFile
@@ -167,12 +172,15 @@ class _HostStopDialogState extends State<HostStopDialog> {
               sshOptions: machine.loginSshOptions,
               host: machine.host,
               driveHost: '$account@$address',
+              caOut: forgeCa == null ? null : '${forgeCa.path}/ca.pem',
             )
           : [openSsh('ssh'), ...machine.loginSshOptions, '-t', machine.host, inTheLoginShell(line)];
     } on FormatException catch (error) {
+      forgeCa?.deleteSync(recursive: true);
       setState(() => _problem = error.message);
       return;
     } on HostFilesRefused catch (error) {
+      forgeCa?.deleteSync(recursive: true);
       setState(() => _problem = error.message);
       return;
     }
@@ -196,6 +204,11 @@ class _HostStopDialogState extends State<HostStopDialog> {
         onExit: (value) => code = value,
         whatCameOfIt: () async => _outcome(code),
       );
+      final ca = forgeCa == null ? null : File('${forgeCa.path}/ca.pem');
+      if (code == 0 && ca != null && ca.existsSync()) {
+        final pem = ca.readAsStringSync();
+        if (Settings.isCertificate(pem)) await widget.settings?.rememberForgeCa(pem);
+      }
       if (!mounted) return;
       if (code == 0) {
         unawaited(widget.hostRuns.resume(widget.run));
@@ -204,6 +217,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
         setState(() => _problem = _outcome(code));
       }
     } finally {
+      if (forgeCa?.existsSync() ?? false) forgeCa!.deleteSync(recursive: true);
       if (mounted) setState(() => _terminalOpen = false);
     }
   }

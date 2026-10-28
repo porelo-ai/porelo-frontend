@@ -111,6 +111,112 @@ esac
     });
   }
 
+  // Harm: the forge's name left pointing at a link that is down, or a line of the person's own taken with it.
+  for (final downs in [true, false]) {
+    test('taking the VPN down takes the forge\'s name out of /etc/hosts, and nothing else (down $downs)', () async {
+      final scratch = Directory.systemTemp.createTempSync('vpn-down-');
+      addTearDown(() => scratch.deleteSync(recursive: true));
+      final hosts = File('${scratch.path}/hosts')
+        ..writeAsStringSync('127.0.0.1 localhost\n10.73.0.1 forge.porelo.internal # porelo-host\n10.0.0.5 mine\n');
+      final wg = File('${scratch.path}/wg-quick')..writeAsStringSync('#!/bin/sh\n${downs ? 'exit 0' : 'exit 1'}\n');
+      await Process.run('chmod', ['700', wg.path]);
+      final script = hostVpnDownCommand[3].replaceAll('/etc/hosts', hosts.path);
+      final result = await Process.run(
+        '/bin/sh',
+        ['-c', script],
+        environment: {'PATH': '${scratch.path}:/usr/bin:/bin'},
+      );
+      expect(result.exitCode == 0, downs);
+      expect(
+        hosts.readAsStringSync(),
+        downs
+            ? '127.0.0.1 localhost\n10.0.0.5 mine\n'
+            : '127.0.0.1 localhost\n10.73.0.1 forge.porelo.internal # porelo-host\n10.0.0.5 mine\n',
+      );
+    });
+  }
+
+  // Harm: the forge's CA put where nothing reads it, written again on every VPN start, another policy of Firefox's
+  // overwritten, or the forge's name added twice; or anything of it done without a CA a stop gave.
+  test('the VPN puts the forge\'s CA and name in place once, and leaves a policy of its own alone', () async {
+    final scratch = Directory.systemTemp.createTempSync('vpn-forge-');
+    addTearDown(() => scratch.deleteSync(recursive: true));
+    final folder = Directory('${scratch.path}/private')..createSync();
+    final source = File('${folder.path}/porelo.conf')
+      ..writeAsStringSync(
+        '[Interface]\nPrivateKey = invented-private-key\n[Peer]\nPublicKey = expected-key\nEndpoint = 203.0.113.7:51820\n',
+      );
+    final ca = File('${folder.path}/forge-ca.pem')
+      ..writeAsStringSync('-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n');
+    final etc = Directory('${scratch.path}/etc')..createSync();
+    Directory('${etc.path}/wireguard').createSync();
+    final hosts = File('${etc.path}/hosts')..writeAsStringSync('127.0.0.1 localhost\n');
+    final tools = <String, String>{
+      'sudo': r'exec "$@"',
+      'wg-quick': 'exit 0',
+      'ping': 'exit 0',
+      'date': "printf '100\\n'",
+      'sleep': 'exit 0',
+      'update-ca-certificates': r'''printf 'store\n' >> "$VPN_CAPTURE"''',
+      'wg': r'''case "$*" in
+  'show interfaces') ;;
+  'show porelo latest-handshakes') printf 'expected-key\t101\n';;
+  *) exit 1;;
+esac''',
+    };
+    for (final entry in tools.entries) {
+      final file = File('${scratch.path}/${entry.key}')..writeAsStringSync('#!/bin/sh\n${entry.value}\n');
+      expect((await Process.run('chmod', ['700', file.path])).exitCode, 0);
+    }
+    final capture = File('${scratch.path}/capture');
+    Future<ProcessResult> up({String? forgeCa}) {
+      final command = hostVpnUpCommand(source.path, commandPath: '${scratch.path}:/usr/bin:/bin', forgeCa: forgeCa);
+      command[3] = command[3]
+          .replaceAll('/etc/', '${etc.path}/')
+          .replaceAll('/usr/local/share/', '${scratch.path}/usr/local/share/');
+      return Process.run(
+        command.first,
+        command.skip(1).toList(),
+        environment: {'PATH': '${scratch.path}:/usr/bin:/bin', 'VPN_CAPTURE': capture.path},
+      );
+    }
+
+    final none = await up();
+    expect(none.exitCode, 0, reason: '${none.stdout}${none.stderr}');
+    expect(Directory('${etc.path}/firefox').existsSync(), isFalse, reason: 'nothing of it without a CA a stop gave');
+    expect(hosts.readAsStringSync(), '127.0.0.1 localhost\n');
+
+    final first = await up(forgeCa: ca.path);
+    expect(first.exitCode, 0, reason: '${first.stdout}${first.stderr}');
+    expect(
+      File('${scratch.path}/usr/local/share/ca-certificates/porelo-host.crt').readAsStringSync(),
+      ca.readAsStringSync(),
+    );
+    expect(File('${etc.path}/firefox/porelo/porelo-host.crt').readAsStringSync(), ca.readAsStringSync());
+    expect(
+      File('${etc.path}/firefox/policies/policies.json').readAsStringSync(),
+      // The test moved /etc into its scratch folder, the policy's path with it.
+      contains('"Install":["${etc.path}/firefox/porelo/porelo-host.crt"]'),
+      reason: 'the policy names the copy Firefox, a snap, can read',
+    );
+    expect(capture.readAsLinesSync(), ['store'], reason: 'the system store is told once');
+    expect(hosts.readAsStringSync(), '127.0.0.1 localhost\n10.73.0.1 forge.porelo.internal # porelo-host\n');
+
+    final again = await up(forgeCa: ca.path);
+    expect(again.exitCode, 0, reason: '${again.stdout}${again.stderr}');
+    expect(capture.readAsLinesSync(), ['store'], reason: 'the same CA is not put in again');
+    expect('forge.porelo.internal'.allMatches(hosts.readAsStringSync()), hasLength(1), reason: 'the name once');
+
+    File('${etc.path}/firefox/policies/policies.json').writeAsStringSync('{"policies":{"DisableTelemetry":true}}\n');
+    final foreign = await up(forgeCa: ca.path);
+    expect(foreign.exitCode, 0);
+    expect(
+      File('${etc.path}/firefox/policies/policies.json').readAsStringSync(),
+      '{"policies":{"DisableTelemetry":true}}\n',
+    );
+    expect('${foreign.stdout}', contains('Firefox has a policy of its own'), reason: 'said, never overwritten');
+  });
+
   for (final scenario in [
     (directory: false, nmcli: 'available', content: null),
     (directory: false, nmcli: 'missing', content: null),

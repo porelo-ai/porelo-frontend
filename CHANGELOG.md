@@ -104,7 +104,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from the file and goes on. Files chosen for vault entries are kept in the secrets file instead of on the drive,
   and only the entries a server's setup names are sent to it.
 - A server's forge gets its certificate at the stop: signed on this computer by one lasting CA, made once into the
-  secrets file, whose key never leaves it.
+  secrets file, whose key never leaves it. Bringing the VPN up then trusts that CA on this computer (the system
+  store and Firefox's policy) and names the forge in `/etc/hosts`, each once; taking it down takes the name out.
 - The machine wizard has an optional step *Your own drive*: Tresorit's client installed in the work user's own
   account, from an installer the machine checks against its own signature under a pinned CA before any of it runs,
   signed in by Tresorit's own login in a terminal, and one tresor synced into that user's home.

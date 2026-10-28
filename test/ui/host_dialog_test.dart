@@ -13,6 +13,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/host_vpn.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
@@ -249,7 +250,7 @@ void main() {
         await World.settle(tester);
       } else {
         expect(commands, [
-          ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
+          hostVpnDownCommand,
         ], reason: 'confirmed server release must take the local tunnel down as its last step');
         expect(machines.all.contains(server), isFalse, reason: 'the provider release is confirmed before VPN cleanup');
         expect(
@@ -332,7 +333,7 @@ void main() {
         await World.settle(tester);
         if (linkUp) {
           expect(commands.skip(beforeRetry), [
-            ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
+            hostVpnDownCommand,
           ], reason: 'Needs you must retry local teardown rather than bring the VPN back up');
           expect(
             attention.openRows.where((row) => row.kind == AttentionKind.vpnCleanup),

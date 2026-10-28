@@ -17,6 +17,7 @@ List<String> hostStopFeedCommand({
   String? driveHost,
   String email = '',
   String cli = SecretsFile.keepassxcCli,
+  String? caOut,
 }) {
   final unknown = needs.where((need) => need != 'drive' && !SecretsFile.stopNeeds.contains(need));
   if (unknown.isNotEmpty) {
@@ -24,6 +25,8 @@ List<String> hostStopFeedCommand({
   }
   final fed = needs.where(SecretsFile.stopNeeds.contains).toList();
   if (fed.isEmpty) throw const FormatException('The host asks for nothing the secrets file gives.');
+  // Where the lasting CA's certificate is written, public, once the forge's request is signed.
+  if (caOut != null) SecretsFile.checkPath(caOut);
   // The program that receives every secret on its standard input is taken by its path, never by PATH.
   if (!ssh.startsWith('/')) throw const FormatException('ssh is run by its absolute path.');
   final login = RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$');
@@ -54,6 +57,7 @@ List<String> hostStopFeedCommand({
     if (fed.contains('forge-certificate'))
       'request="\$(${sshLine(['-n', '-T', '--', host, '/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --request'])})" '
           '|| { echo "The host gave no certificate request for its forge; nothing was sent." >&2; exit 1; }',
+    if (caOut != null && fed.contains('forge-certificate')) 'caout=${quoteForAShell(caOut)}',
     '/usr/bin/stty -echo 2>/dev/null || true',
     '{\n$feed\n} | ${sshLine(['-T', '--', host, stop])}',
   ].join('\n');

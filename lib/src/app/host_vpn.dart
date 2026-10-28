@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ffi';
 
@@ -27,13 +28,26 @@ void checkVpnSaveFile(String file, {bool? windows}) {
 }
 
 /// Checks the active endpoint before installation and confirms a fresh handshake after a ping.
-List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/sbin:/bin:/sbin'}) {
+List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/sbin:/bin:/sbin', String? forgeCa}) {
   checkVpnFile(file);
+  if (forgeCa != null) checkVpnFile(forgeCa);
   final lines = File(file).readAsLinesSync();
   String field(String name) => lines.where((line) => line.startsWith('$name = ')).single.substring(name.length + 3);
   final key = field('PublicKey');
   final endpoint = field('Endpoint');
-  return ['sudo', '/bin/sh', '-c', _vpnRootStep, 'porelo-vpn', file, '$file.checked', key, endpoint, commandPath];
+  return [
+    'sudo',
+    '/bin/sh',
+    '-c',
+    _vpnRootStep,
+    'porelo-vpn',
+    file,
+    '$file.checked',
+    key,
+    endpoint,
+    commandPath,
+    forgeCa ?? '',
+  ];
 }
 
 const _vpnRootStep = r'''
@@ -86,12 +100,56 @@ handshake=$(printf '%s\n' "$handshakes" | awk -v key="$expected" '$1 == key { pr
 case "$handshake" in ''|*[!0-9]*) fail 'The server did not complete the expected VPN handshake.';; esac
 [ "$handshake" -gt "$started" ] || fail 'The server did not complete a new VPN handshake.'
 printf '%s\t%s\t%s\n' "$expected" "$started" "$handshake" > "$receipt" || fail 'The VPN check could not be kept.'
+# The person's lasting CA for the hosts' forges, and the forge's name, where a stop gave the CA: in the system store,
+# in Firefox's policy and in /etc/hosts, each only where it is not there already.
+forge_ca=${6:-}
+if [ -n "$forge_ca" ]; then
+  if command -v update-ca-certificates >/dev/null 2>&1; then
+    store=/usr/local/share/ca-certificates/porelo-host.crt
+    if ! cmp -s -- "$forge_ca" "$store"; then
+      install -D -m 0644 -- "$forge_ca" "$store" || fail "The CA for the server's forge could not be put into the system store."
+      update-ca-certificates >/dev/null 2>&1 || fail "The system store did not take the CA for the server's forge."
+    fi
+  elif command -v update-ca-trust >/dev/null 2>&1; then
+    store=/etc/pki/ca-trust/source/anchors/porelo-host.crt
+    if ! cmp -s -- "$forge_ca" "$store"; then
+      install -D -m 0644 -- "$forge_ca" "$store" || fail "The CA for the server's forge could not be put into the system store."
+      update-ca-trust >/dev/null 2>&1 || fail "The system store did not take the CA for the server's forge."
+    fi
+  fi
+  # Firefox, a snap here, reads /etc/firefox alone; its policy names this copy.
+  firefox_ca=/etc/firefox/porelo/porelo-host.crt
+  cmp -s -- "$forge_ca" "$firefox_ca" || install -D -m 0644 -- "$forge_ca" "$firefox_ca" || fail "The CA for the server's forge could not be put where Firefox reads it."
+  policy=/etc/firefox/policies/policies.json
+  if [ ! -e "$policy" ]; then
+    install -d -m 0755 /etc/firefox/policies || fail "Firefox's policy folder could not be made."
+    printf '%s\n' '{"policies":{"Certificates":{"Install":["/etc/firefox/porelo/porelo-host.crt"]}}}' > "$policy.new" \
+      && chmod 0644 "$policy.new" && mv -f -- "$policy.new" "$policy" || fail "Firefox's policy could not be written."
+    printf '%s\n' 'Firefox trusts the forge once it is started again.'
+  elif ! grep -q '/etc/firefox/porelo/porelo-host.crt' "$policy"; then
+    printf '%s\n' "Firefox has a policy of its own in $policy: add /etc/firefox/porelo/porelo-host.crt to its Certificates.Install to open the forge there."
+  fi
+  hosts_line='10.73.0.1 forge.porelo.internal # porelo-host'
+  grep -qxF -- "$hosts_line" /etc/hosts || printf '%s\n' "$hosts_line" >> /etc/hosts || fail "The forge's name could not be written to /etc/hosts."
+fi
 printf '%s\n' 'The VPN is up and the server answers. You can close this window.'
 ''';
 
+/// Takes the VPN down, and the forge's name with it from `/etc/hosts`, which only this link reaches.
+const hostVpnDownCommand = <String>[
+  '/usr/bin/sudo',
+  '/bin/sh',
+  '-c',
+  r"wg-quick down porelo && sed -i '\| # porelo-host$|d' /etc/hosts",
+  'porelo-vpn-down',
+];
+
 /// A private configuration whose lifetime is the local terminal, including cancellation.
 class HostVpnAttempt {
-  HostVpnAttempt._(this.directory, this.file, this.publicKey, this.started);
+  HostVpnAttempt._(this.directory, this.file, this.publicKey, this.started, {this.forgeCa});
+
+  /// The lasting CA's certificate for the hosts' forges, public, beside the configuration; null where none is kept.
+  final File? forgeCa;
 
   /// The exclusively created private directory in this account's runtime directory.
   final Directory directory;
@@ -106,7 +164,7 @@ class HostVpnAttempt {
   final int started;
 
   /// Builds the privileged command with public values only.
-  List<String> get command => hostVpnUpCommand(file.path)..[0] = '/usr/bin/sudo';
+  List<String> get command => hostVpnUpCommand(file.path, forgeCa: forgeCa?.path)..[0] = '/usr/bin/sudo';
 
   /// A process exit alone cannot confirm the expected peer's fresh handshake.
   Future<bool> verified() async {
@@ -139,6 +197,7 @@ Future<HostVpnAttempt> prepareHostVpn({
   Map<String, String>? environment,
   DateTime Function()? now,
   Future<void> Function()? checkRootTools,
+  String? forgeCa,
 }) async {
   final runtime = (environment ?? Platform.environment)['XDG_RUNTIME_DIR'];
   const refused = HostFilesRefused('The VPN needs XDG_RUNTIME_DIR owned by this user with permissions 0700.');
@@ -159,6 +218,7 @@ Future<HostVpnAttempt> prepareHostVpn({
     file,
     tunnel.hostPublicKey,
     (now ?? DateTime.now)().millisecondsSinceEpoch ~/ 1000,
+    forgeCa: forgeCa == null ? null : File(path.join(scratch.path, 'forge-ca.pem')),
   );
   try {
     await withHostFiles(
@@ -166,6 +226,7 @@ Future<HostVpnAttempt> prepareHostVpn({
       secretStore: secretStore,
       hostFiles: hostFiles,
     );
+    if (forgeCa != null) await HostFileWriter().write(attempt.forgeCa!, utf8.encode(forgeCa));
     // The root step writes through this existing user-owned receipt without changing its owner.
     await HostFileWriter().write(File('${file.path}.checked'), const []);
     return attempt;
@@ -182,7 +243,7 @@ Future<void> checkHostVpnRootTools({
   List<String> directories = const ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
 }) async {
   const refused = HostFilesRefused(
-    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, and optional nmcli in protected system directories.',
+    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, grep, and optional nmcli in protected system directories.',
   );
   try {
     await _checkRootTools(directories, refused);
@@ -228,6 +289,7 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
     'chmod',
     'mv',
     'rm',
+    'grep',
     'nmcli',
   ]) {
     final binary = await lookUp(name);

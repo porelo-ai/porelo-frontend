@@ -85,6 +85,8 @@ class SecretsFile {
     r'''cert="$(/usr/bin/openssl x509 -req -in <(printf '%s\n' "$request") -subj '/CN=forge.porelo.internal' -CA <(printf '%s\n' "$ca") -CAkey <(printf '%s\n' "$cakey") -days 365 -set_serial "0x$(/usr/bin/openssl rand -hex 16)" -extfile <(printf '%s\n' 'subjectAltName=IP:10.73.0.1,DNS:forge.porelo.internal' 'basicConstraints=critical,CA:FALSE' 'extendedKeyUsage=serverAuth') 2>/dev/null)"''',
     r'''eforge="$(printf '%s\n%s\n' "$cert" "$ca" | /usr/bin/base64 -w0)"''',
     r'''if [ -z "$cert" ] || ! [[ "$eforge" =~ $b64 ]]; then echo "The forge's certificate could not be signed; nothing was sent." >&2; exit 1; fi''',
+    // The CA's certificate, public, for this desktop to trust: where the stop's terminal names a file for it.
+    r'''if [ -n "${caout:-}" ]; then printf '%s\n' "$ca" > "$caout"; fi''',
   ];
 
   /// The entry of the central forge's token, which every host of the person shares.

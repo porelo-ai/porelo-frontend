@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/host_vpn.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
@@ -268,7 +269,7 @@ void main() {
         await tester.tap(find.text('Close'));
       } else {
         expect(commands, [
-          ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
+          hostVpnDownCommand,
         ], reason: 'taking the VPN down must keep the command offered before Linux state probing');
         terminal.endsWith(0);
         await World.settle(tester);
@@ -543,9 +544,7 @@ void main() {
   testWidgets('VPN down runs only wg-quick locally without needing a saved file', (tester) async {
     final commands = <List<String>>[];
     await open(tester, Settings(MemorySettingsStore()), commands, FakeTerminal([]), up: false);
-    expect(commands, [
-      ['/usr/bin/sudo', 'wg-quick', 'down', 'porelo'],
-    ]);
+    expect(commands, [hostVpnDownCommand]);
   });
 }
 

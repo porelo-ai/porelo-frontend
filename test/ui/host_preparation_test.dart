@@ -372,6 +372,80 @@ void main() {
     });
   }
 
+  // Harm: the lasting CA signed with but never trusted here, or a stale file of it left in the temporary folder.
+  testWidgets('a stop for the forge\'s certificate keeps the lasting CA it signed with, and its folder goes', (
+    tester,
+  ) async {
+    final settings = Settings(MemorySettingsStore());
+    await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+    final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
+    final process = HostProcess();
+    final terminals = <FakeTerminal>[];
+    var starts = 0;
+    final run = runs.start(
+      project: 'demo',
+      session: HostSession(
+        executable: 'fake',
+        arguments: const ['--project', 'demo'],
+        start: (_, _) async => starts++ == 0 ? process : HostProcess(),
+      ),
+      record: HostUpRecord.fromStored({
+        ..._record.stored,
+        'setupFolder': path.join(Directory.systemTemp.path, 'conf', 'hosts', 'demo'),
+      })!,
+    );
+    try {
+      process.line(
+        const Step(
+          'person',
+          StepState.waiting,
+          needs: ['forge-certificate'],
+          address: '203.0.113.7',
+          account: 'worker',
+          admin: 'ubuntu',
+        ),
+      );
+      process.end(75);
+      await run.finished;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostStopDialog(
+              run: run,
+              hostRuns: runs,
+              machines: machines,
+              settings: settings,
+              openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+                final terminal = FakeTerminal([program, ...arguments]);
+                terminals.add(terminal);
+                return terminal;
+              },
+            ),
+          ),
+        ),
+      );
+      await World.settle(tester);
+      expect(find.textContaining('signed on this computer by your lasting CA'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('host-open-terminal')));
+      await World.settle(tester);
+      final caout = RegExp(r"caout='?([^'\n]+)'?\n").firstMatch(terminals.single.command.last)!.group(1)!;
+      const pem = '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n';
+      File(caout).writeAsStringSync(pem);
+      terminals.single.endsWith(0);
+      await World.settle(tester);
+      await tester.tap(find.byKey(const Key('unlock-done')));
+      await World.settle(tester);
+      expect(settings.forgeCa, pem);
+      expect(File(caout).parent.existsSync(), isFalse, reason: 'the folder goes once it is read');
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      runs.dispose();
+      machines.dispose();
+      settings.dispose();
+    }
+  });
+
   group('a stopped setup', () {
     late Settings settings;
     late Machines machines;

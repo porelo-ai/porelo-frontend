@@ -544,6 +544,8 @@ class Settings extends ChangeNotifier {
         }
       }
     }
+    final forgeCa = stored['forgeCa'];
+    _forgeCa = forgeCa is String && isCertificate(forgeCa) ? forgeCa : null;
     final secrets = stored['secretsFile'];
     _secretsFile = secrets is String && secrets.startsWith('/') && !secrets.contains('\x00') ? secrets : null;
     _hostUps.clear();
@@ -635,6 +637,24 @@ class Settings extends ChangeNotifier {
       throw ArgumentError('The secrets file needs an absolute path.');
     }
     _secretsFile = file;
+    await _write();
+    notifyListeners();
+  }
+
+  String? _forgeCa;
+
+  /// The certificate of the person's lasting CA for the hosts' forges, PEM, once a stop signed with it; public. Its key
+  /// is kept in the secrets file alone.
+  String? get forgeCa => _forgeCa;
+
+  /// One certificate in PEM, and nothing beside it.
+  static bool isCertificate(String pem) =>
+      RegExp(r'^-----BEGIN CERTIFICATE-----\n[A-Za-z0-9+/=\n]+-----END CERTIFICATE-----\n?$').hasMatch(pem);
+
+  /// Keeps the lasting CA's certificate, refusing anything that is not one.
+  Future<void> rememberForgeCa(String? pem) async {
+    if (pem != null && !isCertificate(pem)) throw ArgumentError('The forge\'s CA must be one certificate in PEM.');
+    _forgeCa = pem;
     await _write();
     notifyListeners();
   }
@@ -871,6 +891,7 @@ class Settings extends ChangeNotifier {
     'forges': _forges,
     'tresorFolders': _tresorFolders,
     'secretsFile': _secretsFile,
+    if (_forgeCa != null) 'forgeCa': _forgeCa,
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
   };
 

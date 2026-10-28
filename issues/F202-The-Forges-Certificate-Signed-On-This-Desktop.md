@@ -45,9 +45,17 @@ whole in 6e.
   the line is `forge-certificate <base64 of the forge's certificate, then the CA's>`. Seen against the real
   `keepassxc-cli` and `openssl`: no file is made, nothing of the request but its key counts, a second host gets the
   same CA, and no request sends nothing.
+- **Built, this desktop trusting the CA:** the stop's script writes the CA's certificate, public, into a private
+  temporary folder the dialog names; after a stop that ended well the interface keeps it (`Settings.forgeCa`, one
+  certificate in PEM or nothing) and the folder goes. The VPN's root step, given that certificate: puts it into the
+  system store (`/usr/local/share/ca-certificates/porelo-host.crt` and `update-ca-certificates`, or Fedora's
+  `/etc/pki/ca-trust/source/anchors/` and `update-ca-trust`), a copy into `/etc/firefox/porelo/porelo-host.crt` and a
+  `policies.json` naming it where none is there (one of the person's own is left alone, and said), and the line
+  `10.73.0.1 forge.porelo.internal # porelo-host` into `/etc/hosts`; each only where it is not there already.
+  Taking the VPN down takes that line out again, and nothing else. Seen with stand-in tools and the real
+  `install`, `cmp` and `grep`, every path moved into a scratch folder.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
-  `porelo-host-forge-password` after `up`); the VPN's root step (the hosts line, the CA in the system store and in
-  Firefox's policy, each only where missing); the warning 90 days before the CA ends.
+  `porelo-host-forge-password` after `up`); the warning 90 days before the CA ends.
 
 ## Acceptance
 
@@ -57,5 +65,14 @@ whole in 6e.
 - Seen to fail: the command test red before the signing step exists.
 
 ## To be checked
+
+- **Measured on this desktop (2026-10-28, read only):** Firefox is the snap (158.0.1, rev 9113), whose AppArmor profile
+  (`/var/lib/snapd/apparmor/profiles/snap.firefox.firefox`) lets it read `/etc/firefox/**` and nothing of
+  `/usr/local/share/ca-certificates` or `/etc/ssl`. So `policies.json`'s `Certificates.Install` names a copy of the CA
+  under `/etc/firefox` (e.g. `/etc/firefox/porelo/porelo-host.crt`), beside the system store's
+  `/usr/local/share/ca-certificates/porelo-host.crt` that `update-ca-certificates` reads; a path under
+  `/usr/local/share` would not be read by the snap.
+- On Fedora: the system store's `/etc/pki/ca-trust/source/anchors/` with `update-ca-trust`, and where the packaged
+  Firefox reads its policy; not measurable here.
 
 - That the CA key reaches `openssl` only on a pipe, never as a file, also on the desktop's own temporary folder.
