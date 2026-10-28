@@ -65,6 +65,8 @@ the drive out of the host's setup, step by step, with nothing broken in between.
   since a link at `hosts` hides behind a folder below it to a walk from the bottom; and the test of an opening that
   changes nothing new moves a drive key, so a cache taken before opening would ask again.
 
+- **What `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes (nothing reworked yet):** the setup's files go into the project admin's and the developers' own homes on the host, owner the person, instead of `/etc/porelo-host/setup/`; built as [F214](README.md#f214).
+
 ## Acceptance
 
 - Rented once: the setup comes up with the uploaded `machine.yml` and bundle, and reads nothing from a drive.

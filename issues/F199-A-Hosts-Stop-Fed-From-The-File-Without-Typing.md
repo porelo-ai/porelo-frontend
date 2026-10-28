@@ -65,6 +65,8 @@ these is typed at every `up`, and a new host has a new vault.
   file gives no VPN key, as those files carry the person's own. **Declined, with the reason:** the feed's own exit
   trap turns echo back on while `ssh -T` still runs, but nothing reads this terminal then.
 
+- **What `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes (nothing reworked yet):** the stop is fed by act: the host admin's root stop takes only the VPN key and the forge's certificate; a project admin's bring and a developer's join take their vault, keys and tokens in their own account, with no `sudo`; built as [F214](README.md#f214).
+
 ## Acceptance
 
 - A host set up with the file and a drive holding only `machine.yml`: at the stop the person types the master

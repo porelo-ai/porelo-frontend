@@ -1,10 +1,11 @@
 # F202 — The Forge's Certificate Signed On This Desktop
 
 **Status:** Implementing; the signing at the stop, the CA kept and trusted here, and its warning built. The lasting
-password waits for `porelo-project`'s idea of setting a host up apart from its projects (filed 2026-10-28, not yet
-published): the operator decided that setting up a host brings its forge with the person's login, password and
-certificate, and putting a project on it brings the project's parts; until that idea is accepted and analysed, none of it is built here and no
-switch of [F145](README.md#f145) is written, so a host set up from here runs no forge yet.
+password waits for `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) (accepted 2026-10-28): a host is prepared by its host admin with its forge always on
+([F145](README.md#f145) rejected), and each person sets their own lasting password at their own first start. What
+[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes in this issue (nothing reworked yet): one CA per host, constrained to its own names and network, as
+[F212](README.md#f212); the password at every person's first start, in [F213](README.md#f213) and
+[F216](README.md#f216).
 **Size:** L (grown from M once `porelo-host`
 [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) was read: the password call, the VPN's
 root step and the CA's warning) - a second step in the stop's terminal, the CA made once into the file, and their tests, on a contract
@@ -92,8 +93,7 @@ whole in 6e.
   offset in place of `Z` are refused, not read: RFC 5280 forbids both in a certificate's validity, and `openssl`
   writes neither.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
-  `porelo-host-forge-password`), which waits for that idea with Machines' change to that script: where it is set moves
-  with the forge into the host's own setup.
+  `porelo-host-forge-password`), which moves to every person's first start with [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
 
 ## Acceptance
 

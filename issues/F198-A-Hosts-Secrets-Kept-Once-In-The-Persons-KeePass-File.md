@@ -74,6 +74,8 @@ operator's shape: one password to remember for setting up a host.
   and each skip names why; the dialog's test does not tell a non-zero exit from a missing public half, since either
   refuses before anything is rented.
 
+- **What `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes (nothing reworked yet):** the entries are grouped by host (`hosts/<host>/`) and by project (`projects/<project>/`) instead of `hosts/<project>/`, today's moved once; built as [F210](README.md#f210).
+
 ## Acceptance
 
 - After setting up a host with the file, the drive holds no secret in the clear; KeePassXC opens the file and shows
