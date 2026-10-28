@@ -58,4 +58,23 @@ void main() {
     await World.settle(tester);
     expect(runs, 1);
   });
+
+  // Harm: giving a server back, which ends its work, looks like any harmless tile beside it.
+  testWidgets('a dangerous tile writes its label in the error colour', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommandTile(
+            command: Command(id: 'machine.takeDown', label: 'Take this server down', group: 'Machine', run: () {}),
+            icon: Icons.delete_outline,
+            description: 'Give the server back.',
+            danger: true,
+          ),
+        ),
+      ),
+    );
+    final context = tester.element(find.byType(CommandTile));
+    final style = DefaultTextStyle.of(tester.element(find.text('Take this server down'))).style;
+    expect(style.color, Theme.of(context).colorScheme.error);
+  });
 }

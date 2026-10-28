@@ -13,6 +13,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/ui/machine_view.dart';
 import 'package:porelo_frontend/src/app/host_vpn.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/client.dart';
@@ -490,6 +491,30 @@ void main() {
       );
     });
   }
+
+  // Harm: the one action that ends a billing server is a small link below the page, missed by its person.
+  hostWidgets('a server\'s page offers Take this server down as a tile among the others', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    const machine = Machine(
+      name: 'demo server',
+      kind: 'host',
+      socketPath: '/tmp/demo.sock',
+      host: 'porelo@203.0.113.7',
+      identity: '/keys/host',
+      remoteSocket: '/run/user/1007/porelo/porelod.sock',
+    );
+    await World.machines.add(machine);
+    World.machines.select(machine);
+    World.shell.goTo(Section.machine);
+    await World.settle(tester);
+    final tile = find.byWidgetPredicate((widget) => widget is CommandTile && widget.command.id == 'machine.takeDown');
+    expect(tile, findsOneWidget);
+    expect(tester.widget<CommandTile>(tile).danger, isTrue);
+    expect(find.widgetWithText(TextButton, 'Take this server down'), findsNothing);
+    // The page asked the server's VPN, whose probes end by their own timeout.
+    await tester.pump(const Duration(seconds: 5));
+  });
 
   // Harm: a forgotten server keeps billing without anyone knowing how to find it.
   hostWidgets('removing a host warns before forgetting and offers teardown beside removal', (tester) async {

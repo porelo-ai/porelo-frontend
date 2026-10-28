@@ -3100,25 +3100,27 @@ class _ShellState extends State<Shell> {
                     runSpacing: Space.normal,
                     children: <Widget>[
                       for (final command in hostCommandsHere)
-                        if (command.id != 'machine.takeDown')
-                          CommandTile(
-                            command: command,
-                            icon: switch (command.id) {
-                              'host.protocol' => Icons.receipt_long_outlined,
-                              'machine.vpnUp' => Icons.vpn_key_outlined,
-                              'machine.vpnDown' => Icons.link_off_outlined,
-                              'machine.saveTunnel' => Icons.download_outlined,
-                              _ => Icons.tune_outlined,
-                            },
-                            description: switch (command.id) {
-                              'host.protocol' => 'Read the protocol from setting up this server.',
-                              'machine.vpnUp' =>
-                                'Bring WireGuard up on this computer and check that the server answers.',
-                              'machine.saveTunnel' => 'Save a private connection file for another device.',
-                              'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
-                              _ => command.label,
-                            },
-                          ),
+                        CommandTile(
+                          command: command,
+                          icon: switch (command.id) {
+                            'host.protocol' => Icons.receipt_long_outlined,
+                            'machine.vpnUp' => Icons.vpn_key_outlined,
+                            'machine.vpnDown' => Icons.link_off_outlined,
+                            'machine.saveTunnel' => Icons.download_outlined,
+                            'machine.takeDown' => Icons.delete_outline,
+                            _ => Icons.tune_outlined,
+                          },
+                          description: switch (command.id) {
+                            'host.protocol' => 'Read the protocol from setting up this server.',
+                            'machine.vpnUp' => 'Bring WireGuard up on this computer and check that the server answers.',
+                            'machine.saveTunnel' => 'Save a private connection file for another device.',
+                            'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
+                            'machine.takeDown' =>
+                              'End the project tasks and room, copy its files back and give the server back.',
+                            _ => command.label,
+                          },
+                          danger: command.id == 'machine.takeDown',
+                        ),
                       itsWork,
                     ],
                   ),
@@ -3220,23 +3222,6 @@ class _ShellState extends State<Shell> {
                       ),
                   ],
                 ),
-                for (final command in hostCommandsHere)
-                  if (command.id == 'machine.takeDown') ...<Widget>[
-                    const SizedBox(height: Space.loose),
-                    const Divider(),
-                    const SizedBox(height: Space.small),
-                    Tooltip(
-                      message:
-                          command.unavailable ??
-                          'End the project tasks and room, copy its files back and give the server back.',
-                      child: TextButton.icon(
-                        onPressed: command.available ? command.run : null,
-                        style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-                        icon: const Icon(Icons.delete_outline, size: Sizes.rowIcon),
-                        label: Text(command.label),
-                      ),
-                    ),
-                  ],
               ],
             ),
           ),

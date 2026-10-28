@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Take this server down is a tile among the other tiles of a server's page, its label and mark in red, instead of a
+  small text button below them; its confirmation is as before.
 - The dialog Your homeserver for this server gives the one command that adds this computer's hosts line, in a box
   with a copy button, to run as it is in a terminal of your own; it adds the line only where it is missing.
 - A refused passphrase in the vault's unlock terminal, or a mistyped master password of the secrets file, is asked

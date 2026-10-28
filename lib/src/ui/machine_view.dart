@@ -169,6 +169,7 @@ class CommandTile extends StatelessWidget {
     required this.icon,
     required this.description,
     this.highlighted = false,
+    this.danger = false,
     super.key,
   });
 
@@ -184,12 +185,17 @@ class CommandTile extends StatelessWidget {
   /// Whether the finder went here.
   final bool highlighted;
 
+  /// Whether the action cannot be undone, such as giving a server back: its label and mark in the error colour.
+  final bool danger;
+
   @override
   Widget build(BuildContext context) {
     final starting = command.id == 'work.start';
     final scheme = Theme.of(context).colorScheme;
     Color foreground(Set<WidgetState> states) => states.contains(WidgetState.disabled)
         ? scheme.onSurface.withValues(alpha: ActionTiles.disabledInk)
+        : danger
+        ? scheme.error
         : scheme.primary;
     return Highlight(
       active: highlighted,
