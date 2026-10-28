@@ -16,11 +16,15 @@ Future<(String, DateTime)> _made(Directory scratch, int days) async {
   ]);
   expect(made.exitCode, 0, reason: '${made.stderr}');
   final pem = File('${scratch.path}/ca-$days.pem').readAsStringSync();
-  final read = await Process.run('openssl', [
-    'x509', '-noout', '-enddate', '-dateopt', 'iso_8601', '-in', '${scratch.path}/ca-$days.pem', //
-  ]).then((result) => '${result.stdout}'.trim());
-  // notAfter=2036-10-25 03:40:12Z
-  return (pem, DateTime.parse(read.substring('notAfter='.length).replaceFirst(' ', 'T')));
+  // openssl's own form, which every version prints (-dateopt came after 3.0): notAfter=Oct 25 03:40:12 2036 GMT.
+  final read = await Process.run('openssl', ['x509', '-noout', '-enddate', '-in', '${scratch.path}/ca-$days.pem']);
+  expect(read.exitCode, 0, reason: '${read.stderr}');
+  final said = RegExp(r'^notAfter=(\w{3}) +(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) (\d{4}) GMT$')
+      .firstMatch('${read.stdout}'.trim());
+  expect(said, isNotNull, reason: 'openssl said ${read.stdout}');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  int part(int group) => int.parse(said!.group(group)!);
+  return (pem, DateTime.utc(part(6), months.indexOf(said!.group(1)!) + 1, part(2), part(3), part(4), part(5)));
 }
 
 void main() {
