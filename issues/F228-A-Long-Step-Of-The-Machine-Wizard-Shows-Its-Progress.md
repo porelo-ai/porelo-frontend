@@ -1,6 +1,6 @@
 # F228 — A Long Step Of The Machine Wizard Shows Its Progress
 
-**Status:** Implementing; built, not yet published.
+**Status:** Finished; a fix of the operator's round of sprints 6 to 6i, finished on the operator's word without a test of its own.
 **Size:** S - *Install Tresorit for <user>* in phases with bytes and total, *Run Porelo's setup script* with its last
 line, and their tests; about 2 hours.
 

@@ -1,6 +1,6 @@
 # F227 — Take This Server Down As A Tile
 
-**Status:** Implementing; built, not yet published.
+**Status:** Finished; a fix of the operator's round of sprints 6 to 6i, finished on the operator's word without a test of its own.
 **Size:** XS - the server page's *Take this server down* drawn as a tile among the others, its text red, and its widget
 test; about 30 minutes.
 

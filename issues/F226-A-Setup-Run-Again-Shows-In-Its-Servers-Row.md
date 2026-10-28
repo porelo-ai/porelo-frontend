@@ -1,6 +1,6 @@
 # F226 — A Setup Run Again Shows In Its Server's Row
 
-**Status:** Implementing; built, not yet published.
+**Status:** Finished; a fix of the operator's round of sprints 6 to 6i, finished on the operator's word without a test of its own.
 **Size:** S - the ready server's row shows a setup run again as the first setup's row does, the commands that must
 not run meanwhile unavailable with the reason, and their tests; about 1.5 hours.
 

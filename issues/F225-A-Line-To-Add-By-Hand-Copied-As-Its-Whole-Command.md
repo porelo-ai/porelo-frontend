@@ -1,6 +1,6 @@
 # F225 — A Line To Add By Hand Copied As Its Whole Command
 
-**Status:** Implementing; built, not yet published.
+**Status:** Finished; a fix of the operator's round of sprints 6 to 6i, finished on the operator's word without a test of its own.
 **Size:** XS - the homeserver dialog's hosts line shown and copied as the one command that adds it, and its widget
 test; about 30 minutes.
 

@@ -31,10 +31,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f228"></a>[F228](F228-A-Long-Step-Of-The-Machine-Wizard-Shows-Its-Progress.md) | S | — | The machine wizard's Install Tresorit shown in phases with the megabytes moved, and its setup script with its last line. |
-| <a id="f226"></a>[F226](F226-A-Setup-Run-Again-Shows-In-Its-Servers-Row.md) | S | — | A setup run again on a ready server shown in its row as the first setup is, with its step and protocol, and taking it down meanwhile unavailable. |
-| <a id="f227"></a>[F227](F227-Take-This-Server-Down-As-A-Tile.md) | XS | — | Take this server down drawn as an ordinary tile on the server's page, in red, its confirmation unchanged. |
-| <a id="f225"></a>[F225](F225-A-Line-To-Add-By-Hand-Copied-As-Its-Whole-Command.md) | XS | — | A line to add by hand on this computer shown and copied as the one command that adds it, starting with the homeserver's hosts line. |
 | <a id="f223"></a>[F223](F223-A-Ready-Server-Runs-Its-Setup-Again.md) | S | — | A ready rented server offers Run its setup again, which runs `up` in the interface's own run, a stop in it completed from Needs you. |
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
@@ -129,6 +125,10 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f228"></a>[F228](F228-A-Long-Step-Of-The-Machine-Wizard-Shows-Its-Progress.md) | A Long Step Of The Machine Wizard Shows Its Progress | The machine wizard's Install Tresorit in phases with the megabytes fetched and sent, a failure naming its phase, and the setup script's last line. |
+| <a id="f227"></a>[F227](F227-Take-This-Server-Down-As-A-Tile.md) | Take This Server Down As A Tile | Take this server down drawn as a red tile among the server page's tiles, its confirmation unchanged. |
+| <a id="f226"></a>[F226](F226-A-Setup-Run-Again-Shows-In-Its-Servers-Row.md) | A Setup Run Again Shows In Its Server's Row | A setup run again on a ready server shown in its row with step, time left and protocol; taking it down, forgetting it, putting the project on a server and running it again unavailable meanwhile. |
+| <a id="f225"></a>[F225](F225-A-Line-To-Add-By-Hand-Copied-As-Its-Whole-Command.md) | A Line To Add By Hand Copied As Its Whole Command | The homeserver dialog gives the one command that adds this computer's hosts line, exact-line checked, in a box with a copy button. |
 | <a id="f198"></a>[F198](F198-A-Hosts-Secrets-Kept-Once-In-The-Persons-KeePass-File.md) | A Host's Secrets Kept Once In The Person's KeePass File | A host's secrets kept once in the person's `secrets.kdbx` under one master password, its `shared` and `hosts/<project>` groups, made and opened from server setup's own step in a terminal of the interface, with keepassxc-cli checked first. |
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | An Agent For Each Repository, At One Click | At one click, an attended task for each of a project's repositories that names an agent, a repository left out before the start, a stopped one brought back, agents signed in on the way, and one that runs not offered again. |
 | <a id="f194"></a>F194 | A Signing Key That Did Not Sign The Bundle Refused | Server setup checks the verified commit against the chosen public key for signing commits on *The drive*, before a server is rented, refusing a key that did not sign it with both fingerprints, naming swapped key fields, and opening the field on a key the project's machine pins. |
