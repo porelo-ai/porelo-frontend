@@ -57,6 +57,11 @@ accounts, each mounting their own drive.
   the sign-in waits for the machine to answer; `systemctl` runs by its path; the decision says what the signature
   covers. Tests now see the user, the order and a resumed run. **Declined, with the reason:** `-no-CAstore` needs
   OpenSSL 3, which every machine Porelo sets up has (Ubuntu 26.04, Fedora); an older one refuses, closed.
+- **From the reading of that fix (four findings, three taken):** found nothing that runs an unsigned command, a `\r`,
+  a NUL or a longer first line among them; tests now read what the run kept as it went, refuse an absent call that an
+  index of -1 let pass, and see the refusal still said before *Forget it* and the start going on after. **Declined,
+  with the reason:** the drive's state is kept after every action (`_doing` keeps the run), and a resumed run reaches
+  the drive step only after `reach`, which sets the machine again.
 - **Red first:** a test of `SetupRun` that a user without a drive is asked nothing about Tresorit and runs no step for
   it, and one that a chosen drive's commands run as that user and never as root or Porelo's account.
 

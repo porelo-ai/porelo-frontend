@@ -1452,9 +1452,19 @@ void main() {
     while (find.byKey(const Key('host-old-drive-forget')).evaluate().isEmpty) {
       await navigate(tester, 'wizard-back');
     }
+    expect(
+      find.textContaining('still holds a host key'),
+      findsOneWidget,
+      reason: 'still said where it can be acted on',
+    );
     await tester.tap(find.byKey(const Key('host-old-drive-forget')));
     await World.settle(tester);
     expect(find.textContaining('still holds a host key'), findsNothing, reason: 'the folder it was about is let go');
+    while (find.byKey(const Key('host-up')).evaluate().isEmpty) {
+      await navigate(tester, 'wizard-next');
+    }
+    await tapAndRun(tester, const Key('host-up'));
+    expect(starts, 1, reason: 'and nothing stops the start any more');
   });
 
   // Harm: a host asked for a drive its setup no longer mounts, or told a tresor it would sync after all.

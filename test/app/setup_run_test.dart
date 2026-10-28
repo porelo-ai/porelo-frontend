@@ -85,10 +85,12 @@ void main() {
       pin = fixture.fingerprint(made.ca);
     });
 
+    Map<String, Object?>? kept;
     SetupRun runOn(_Recording machine, {String? pinned}) => SetupRun(
       name: 'x',
       workUser: 'agent',
       setup: machine,
+      remember: (draft) async => kept = draft,
       download: (_) async => installer,
       installerPin: pinned ?? pin,
     )..step = SetupStep.drive;
@@ -116,13 +118,19 @@ void main() {
       expect(machine.aliases, {run.alias}, reason: 'everything through the work user\'s own entry');
       int at(String prefix) => machine.log.indexWhere((each) => each.startsWith(prefix));
       final checking = machine.log.indexWhere((each) => each.contains('/bin/bash -c'));
+      expect(checking, greaterThan(-1));
       for (final name in ['installer.run', 'signature.bin', 'signing.pem', 'ca.pem']) {
-        expect(machine.log.indexWhere((each) => each.endsWith('/$name')), lessThan(checking), reason: '$name before');
+        final sent = machine.log.indexWhere((each) => each.endsWith('/$name'));
+        expect(
+          sent,
+          allOf(greaterThan(at('run umask 077 && /usr/bin/mkdir')), lessThan(checking)),
+          reason: '$name between',
+        );
       }
       expect(at('send .config/systemd/user/tresorit-daemon.service'), greaterThan(checking));
       expect(machine.log.indexWhere((each) => each.contains('enable --now')), greaterThan(at('send .config/systemd')));
-      final kept = SetupRun.fromStored(run.toStored(), setup: machine)!;
-      expect(kept.driveInstalled, isTrue, reason: 'a resumed run does not install it again');
+      // What the run kept as it went, not what it would say now.
+      expect(SetupRun.fromStored(kept!, setup: machine)!.driveInstalled, isTrue, reason: 'a resumed run knows it');
       const folder = '/home/agent/.cache/porelo-tresorit.Ab12Cd';
       expect(
         machine.sent.keys,
@@ -144,7 +152,7 @@ void main() {
       await run.syncDrive();
       expect(machine.asUserCommands.last, contains("sync --start 'my files' --path"));
       expect(run.driveSynced, 'my files');
-      final resumed = SetupRun.fromStored(run.toStored(), setup: machine)!;
+      final resumed = SetupRun.fromStored(kept!, setup: machine)!;
       expect(
         (resumed.driveSignedInAs, resumed.driveSynced, resumed.tresor),
         ('me@example.org', 'my files', 'my files'),
