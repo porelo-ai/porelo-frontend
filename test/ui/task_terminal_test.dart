@@ -30,6 +30,12 @@ void main() {
   });
   tearDown(() => copyToClipboard = before);
 
+  void atTheTestSize(WidgetTester tester) {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
+
   Future<(Session, _Channel)> open(WidgetTester tester, {DateTime? startedAt}) async {
     final channel = _Channel();
     final session = Session(
@@ -38,13 +44,13 @@ void main() {
       open: (executable, arguments, {int columns = 80, int rows = 24}) => channel,
       startedAt: startedAt,
     );
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    atTheTestSize(tester);
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SessionView(session: session, focusNode: FocusNode(), onLeave: () {}),
+          body: SessionView(session: session, focusNode: focus, onLeave: () {}),
         ),
       ),
     );
@@ -60,16 +66,36 @@ void main() {
 
   bool offered(String address) => find.byKey(ValueKey<String>('terminal-link $address')).evaluate().isNotEmpty;
 
-  testWidgets('a link to the gate as the task sees it gets no browser button; one to the forge does', (tester) async {
+  testWidgets('a link only the container reaches gets no browser button; one this computer reaches does', (
+    tester,
+  ) async {
     final (_, channel) = await open(tester);
-    const inside = 'http://host.containers.internal/sluice.git';
-    const forge = 'https://github.com/example/sluice/pull/1';
-    await prints(tester, channel, '\x1b]8;;$inside\x1b\\$inside\x1b]8;;\x1b\\\r\n');
-    await prints(tester, channel, '\x1b]8;;$forge\x1b\\$forge\x1b]8;;\x1b\\\r\n');
+    const inside = <String>[
+      'http://host.containers.internal/sluice.git',
+      'http://host.containers.internal./sluice.git',
+      'http://localhost:8080/',
+      'http://app.localhost:3000/',
+      'http://127.0.0.1:8000/',
+      'http://[::1]:8000/',
+      'http://0.0.0.0:8000/',
+      'http://gate/sluice.git',
+    ];
+    const outside = <String>[
+      'https://github.com/example/sluice/pull/1',
+      'https://127.example.com/',
+      'http://192.0.2.10/',
+    ];
+    for (final address in <String>[...inside, ...outside]) {
+      await prints(tester, channel, '\x1b]8;;$address\x1b\\$address\x1b]8;;\x1b\\\r\n');
+    }
 
-    expect(offered(inside), isFalse, reason: 'the laptop’s browser cannot reach the container’s gate');
-    expect(find.textContaining('only reachable inside the task'), findsOneWidget);
-    expect(offered(forge), isTrue, reason: 'an address this computer reaches keeps its button');
+    for (final address in inside) {
+      expect(offered(address), isFalse, reason: 'the laptop’s browser cannot reach $address inside the task');
+    }
+    expect(find.textContaining('only reachable inside the task'), findsNWidgets(inside.length));
+    for (final address in outside) {
+      expect(offered(address), isTrue, reason: '$address is reached from this computer and keeps its button');
+    }
   });
 
   testWidgets('a task’s terminal says when the task was started, and nothing where that is unknown', (tester) async {
@@ -99,6 +125,7 @@ void main() {
       ),
     );
 
+    atTheTestSize(tester);
     await tile(startedAt: DateTime(2026, 10, 28, 20, 10));
     expect(find.text('started 20:10'), findsOneWidget);
 
@@ -133,6 +160,12 @@ void main() {
 
       expect(selection(tester).selection, isNotNull, reason: 'the drag selects in the interface');
       expect(channel.sent.where((each) => each.startsWith('\x1b[<')), isEmpty, reason: 'no mouse report');
+
+      // Then a plain click, in the same terminal: the Shift gesture left nothing suspended.
+      await tester.tapAt(cell(tester, 2), kind: PointerDeviceKind.mouse);
+      await tester.pump(const Duration(milliseconds: 500));
+      final reports = channel.sent.where((each) => each.startsWith('\x1b[<0;')).toList();
+      expect(reports.map((each) => each[each.length - 1]), <String>['M', 'm'], reason: 'press, then release');
     });
 
     testWidgets('a plain click still reaches the program, its press and its release', (tester) async {

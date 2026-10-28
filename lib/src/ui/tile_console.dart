@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
+import '../app/vault_devices.dart' show clockTime;
 import 'ansi.dart';
-import 'how_long.dart';
 import 'terminal_look.dart';
 import 'tokens.dart';
 
@@ -168,7 +168,7 @@ class _TileConsoleState extends State<TileConsole> {
         Padding(
           padding: const EdgeInsets.only(top: Space.small),
           child: Text(
-            'started ${clockTime(started)}',
+            'started ${clockTime(started.toIso8601String())}',
             key: ValueKey<String>('tile-console-started ${widget.task}'),
             style: Theme.of(context).textTheme.bodySmall,
           ),

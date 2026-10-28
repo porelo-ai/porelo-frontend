@@ -7,7 +7,7 @@ import 'package:xterm/xterm.dart';
 
 import '../app/desk.dart';
 import '../app/session.dart';
-import 'how_long.dart';
+import '../app/vault_devices.dart' show clockTime;
 import 'panes.dart';
 
 import 'package:guided_walk/guided_walk.dart';
@@ -142,7 +142,7 @@ class _SessionViewState extends State<SessionView> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
               child: Text(
-                '${session.task}, started ${clockTime(started)}: anything its screen shows from before then '
+                '${session.task}, started ${clockTime(started.toIso8601String())}: anything its screen shows from before then '
                 'is from an earlier start.',
                 key: const Key('session-started'),
                 style: Theme.of(context).textTheme.bodySmall,

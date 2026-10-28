@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'desk.dart';
 
 /// Opens an address in this desktop's browser. Injectable, so a test records what it would open.
@@ -25,12 +27,15 @@ class TerminalLink {
   /// loopback address, or a name without a dot. A browser here opens such an address somewhere else
   /// or nowhere.
   bool get onlyInsideTheTask {
-    final host = address.host.toLowerCase();
+    var host = address.host.toLowerCase();
+    if (host.endsWith('.')) host = host.substring(0, host.length - 1);
+    if (InternetAddress.tryParse(host) case final ip?) {
+      return ip.isLoopback || ip.address == '0.0.0.0' || ip.address == '::';
+    }
     return host == 'host.containers.internal' ||
         host == 'localhost' ||
-        host == '::1' ||
-        host.startsWith('127.') ||
-        !host.contains('.') && !host.contains(':');
+        host.endsWith('.localhost') ||
+        !host.contains('.');
   }
 
   @override
