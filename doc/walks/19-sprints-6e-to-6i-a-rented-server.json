@@ -127,7 +127,7 @@
       "then": "!walk-next"
     },
     {
-      "say": "End-1. In Machines, open the menu of the row sprint5 server (⋮ at its right) and Take this server down, then confirm. Expected: the server's give-back is confirmed and it leaves Machines. With 6i, a failure to close your homeserver's published address is said in this dialog; in Claude, ! grep -c PORELO_MATRIX_PUBLISH ~/.config/porelo/matrix/homeserver.conf prints 0. Then tell me what differed.",
+      "say": "End-1. In the rail click Machines, then open the menu of the row sprint5 server (⋮ at its right) and Take this server down, then confirm. Expected: the server's give-back is confirmed and it leaves Machines. With 6i, a failure to close your homeserver's published address is said in this dialog; in Claude, ! grep -c PORELO_MATRIX_PUBLISH ~/.config/porelo/matrix/homeserver.conf prints 0. Then tell me what differed.",
       "at": [
         "host-down",
         "machine.takeDown",
