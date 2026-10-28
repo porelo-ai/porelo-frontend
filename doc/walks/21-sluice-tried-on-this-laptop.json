@@ -52,14 +52,14 @@
       "then": "start-go"
     },
     {
-      "say": "21-6. In the form: Which repository sluice; Name sluice; Which agent Claude Code; How you are involved A terminal (the default). Where it says Sign in to Claude Code first, click it and sign in in the terminal it opens, then come back.\n\nThe next click starts the task: the image builds once (a few minutes), then Claude starts. Click Start it.",
+      "say": "21-6. In the form: Which repository sluice; Name sluice; Which agent Claude Code; How you are involved A terminal (the default). Where it says Sign in to Claude Code first, click it and sign in in the terminal it opens, then come back.\n\nThe next click starts the task: the image builds once (a few minutes), then Claude starts. Click Start it. This panel moves on once the task's terminal is open.",
       "at": [
         "start-go",
         "start-name",
         "start-repository-*",
         "start-sign-in"
       ],
-      "then": "!start-go"
+      "then": "leave-session"
     },
     {
       "say": "21-7. Point 1, the task runs. Expected: the terminal of sluice opens in the interface, and Claude Code waits at its prompt. Type nothing there. Click Leave at the top right: the task keeps running.",
