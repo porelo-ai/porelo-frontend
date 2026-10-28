@@ -87,6 +87,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
 | <a id="f208"></a>[F208](F208-Roles-Given-At-The-Start-Of-The-Interface.md) | M | — | Roles given at the start (`--roles`), each command shown only for its role; normal work alone without it. |
 | <a id="f209"></a>[F209](F209-The-VPN-Kept-Per-Host-Several-Up-At-Once.md) | M | [F208](README.md#f208) | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. |
 | <a id="f210"></a>[F210](F210-The-Secrets-File-Grouped-By-Host-And-By-Project.md) | S | — | The secrets file's entries under `hosts/<host>/` and `projects/<project>/`, today's moved once. |
@@ -194,6 +195,5 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
-| <a id="f145"></a>F145 | The Host's Forge Switched On With Its Repositories | With `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) a prepared host always runs its forge, so there is no switch; merged into [F211](README.md#f211). |
 | <a id="f139"></a>F139 | OneDrive As The Project's Drive | The host has no drive any more; a user's own drive is [F201](README.md#f201), where OneDrive may come later as an idea of its own. |
 | <a id="f150"></a>F150 | The Person's Tunnel Brought Up From The Interface | Merged into [F157](README.md#f157), which brings the VPN up and down from the interface. |
