@@ -319,6 +319,15 @@ void main() {
       reason: 'running setup needs no person to resume it',
     );
     expect(find.byType(HostStopDialog), findsNothing, reason: 'restoration must never open a host stop');
+    // Harm: a greyed button's reason under the buttons reads as an instruction; it is said on hovering it alone.
+    await tester.tap(find.byTooltip('Show more').first);
+    await World.settle(tester);
+    expect(find.textContaining('Take it down: '), findsNothing, reason: 'no line under the buttons says why');
+    expect(
+      find.byTooltip('the host command is still running'),
+      findsWidgets,
+      reason: 'the reason is the greyed button\'s tooltip',
+    );
     await tester.runAsync(() => runs.resume(run));
     expect(starts, 0, reason: 'neither the startup probe nor Go on may start up while another process owns the lock');
     await tester.runAsync(() async {

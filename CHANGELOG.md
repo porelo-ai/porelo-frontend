@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Putting a project on a server checks first that KeePassXC's command line is installed: without it the
   command says so with the line that installs it, the secrets step shows that line once with an error
   mark and a copy button, and its button says Make it now (try again) and looks again on each press.
+- A server's row in Machines no longer lists why a greyed button cannot be pressed below its buttons; the button's
+  tooltip says it.
 - A server's protocol shows its current attempt, and earlier attempts are chosen in a list above it, one at a time,
   instead of stacked below a protocol that scrolls them away while it grows.
 - Renting a server is expected to take 15 minutes, as Elastic Metal does, so its protocol no longer says it takes

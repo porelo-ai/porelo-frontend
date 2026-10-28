@@ -267,8 +267,6 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
                 ),
             ],
           ),
-          for (final action in widget.actions)
-            if (action.unavailable case final reason?) Text('${action.label}: $reason'),
         ],
       ),
     );
