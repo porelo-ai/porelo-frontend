@@ -1,6 +1,6 @@
 # F145 — The Host's Forge Switched Off In The Server Setup
 
-**Status:** Estimated (operator, 2026-10-28); revived from Rejected, placed later by the operator.
+**Status:** Estimated; revived from Rejected, to be placed in a later sprint.
 **Size:** S - one choice in the server setup dialog, kept in the host's record, passed to `porelo-host` and written
 into the first inventory; the inventory's value exists already.
 
@@ -10,7 +10,7 @@ nothing of a forge is set up there.
 
 ## Why
 
-The operator, 2026-10-28: a host gets a local Forgejo of its own only where the person wants it; where a central
+A host gets a local Forgejo of its own only where it is wanted; where a central
 forge is used, nothing is set up on the host. On by default is fine, as long as it can be switched off in the
 interface. Until this is built, the interface writes `porelo_host_forge: true` for every host
 ([F202](README.md#f202), sprint 6h).

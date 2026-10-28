@@ -12,7 +12,7 @@ the person to add once by hand.
 
 ## Why
 
-The operator's move keeps the project's room on the laptop while its tasks move to a rented host: `porelo-message-matrix` [MX42](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx42) serves the
+The move keeps the project's room on the laptop while its tasks move to a rented host: `porelo-message-matrix` [MX42](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx42) serves the
 account's own homeserver on a VPN address (`publish`), `porelo` [B304](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b304) admits another machine to it (`talk admit`), and
 `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41) writes the host's side (its hosts line naming the laptop's peer address, and the token at the stop). The
 interface brings the VPN up, so it is the one that knows when the address exists. Decided for the laptop's own line

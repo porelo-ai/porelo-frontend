@@ -14,7 +14,7 @@ user without one is asked nothing about Tresorit.
 
 ## Why
 
-The operator's decision (2026-10-27): the drive leaves the host's setup wholly (`porelo-host`
+Decided: the drive leaves the host's setup wholly (`porelo-host`
 [HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38)) and belongs to the users' own
 accounts, each mounting their own drive.
 
@@ -71,7 +71,7 @@ accounts, each mounting their own drive.
 - A user set up with a drive on a machine: the tresor syncs in that user's home, and another account cannot list it.
 - Seen to fail: the first test red against today's host dialog, which always asks for the drive.
 
-- **The download's check (decided 2026-10-27 with the Coordinator, noted for the operator):** Tresorit publishes no
+- **The download's check (decided):** Tresorit publishes no
   digest for its Linux installer. The installer carries its own signature instead: line 2 `SIGNATURE=`, RSASSA-PSS
   SHA-512 over everything from line 3 on, and line 3 `CERT_CHAIN=`, the chain. It is taken only when the chain holds
   the pinned CA (SHA-256 `AC:46:31:BC:…:3D:D2:42`), that CA issued the code-signing certificate, the certificate is

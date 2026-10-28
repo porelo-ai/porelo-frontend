@@ -1,6 +1,6 @@
 # F214 — The Setup Files And The Stop Split By Act
 
-**Status:** Estimated (operator, 2026-10-28); accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by `porelo-host` [HO42](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho42) and [HO45](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho45).
+**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by `porelo-host` [HO42](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho42) and [HO45](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho45).
 **Size:** M - [F197](README.md#f197)'s upload and [F199](README.md#f199)'s feed changed in place, by act, with their tests.
 
 **What must be true.** The setup's files reach the person's own home on the host, owned by them, and the stop is fed by act: the host admin's root stop takes only the VPN key and the forge's certificate; a project admin's bring and a developer's join take their vault, keys and tokens in their own account, with no `sudo`.

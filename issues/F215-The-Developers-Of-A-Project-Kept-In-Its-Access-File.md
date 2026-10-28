@@ -1,6 +1,6 @@
 # F215 — The Developers Of A Project Kept In Its Access File
 
-**Status:** Estimated (operator, 2026-10-28); accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F213](README.md#f213), `porelo-host` [HO46](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho46), and `porelo`'s access file with `developers`.
+**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F213](README.md#f213), `porelo-host` [HO46](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho46), and `porelo`'s access file with `developers`.
 **Size:** L - a settings section editing a signed file, the forge's API for read access, and the states read from host and forge.
 
 **What must be true.** A project admin keeps the project's developers in its settings: each with an account name on the host, their login at the central forge, and one or more laptops with their public keys and VPN address; the change is signed with the admin's own git, the developer gets read access to the access repository, and each developer shows what the host and the forge say of them.

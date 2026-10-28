@@ -12,7 +12,7 @@ desktop keeps its copy of `machine.yml` in the interface's own folder; the drive
 
 ## Why
 
-The operator's decision (2026-10-27): with every secret given on standard input from `secrets.kdbx`
+Decided: with every secret given on standard input from `secrets.kdbx`
 ([F198](README.md#f198), [F199](README.md#f199)), the drive would carry only these two files, so uploading them takes
 the drive out of the host's setup, step by step, with nothing broken in between.
 

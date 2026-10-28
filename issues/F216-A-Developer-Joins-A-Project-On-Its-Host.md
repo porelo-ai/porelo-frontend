@@ -1,6 +1,6 @@
 # F216 — A Developer Joins A Project On Its Host
 
-**Status:** Estimated (operator, 2026-10-28); accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215), `porelo-host` [HO45](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho45) and `porelo`'s `project verify --json` with the access repository.
+**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215), `porelo-host` [HO45](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho45) and `porelo`'s `project verify --json` with the access repository.
 **Size:** L - the join's steps from a signed file to a working account, the laptop's keys, and their tests.
 
 **What must be true.** A developer whom a project's signed access file lists joins it on its host with nothing handed over: the interface checks the file, brings this laptop's own VPN up with its address from the list, trusts the host's CA by its signed fingerprint, pins the host key, and runs the join in the developer's own account; *Copy my public keys for <host>* gives a project admin what the list needs.

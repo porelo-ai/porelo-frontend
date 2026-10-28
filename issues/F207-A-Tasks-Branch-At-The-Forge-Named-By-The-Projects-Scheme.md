@@ -1,6 +1,6 @@
 # F207 — A Task's Branch At The Forge Named By The Project's Scheme
 
-**Status:** Idea; it goes into a sprint by the operator's word.
+**Status:** Idea.
 
 **What must be true.** In a project whose `project.yml` has a `branch` block, the interface shows each task's branch
 at the forge, lets the person name it at the start where the scheme's template would not, and approves to it by

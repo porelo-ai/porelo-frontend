@@ -91,7 +91,7 @@ whole in 6e.
   and of 30 February. **Declined, with the reason:** fractional seconds and an
   offset in place of `Z` are refused, not read: RFC 5280 forbids both in a certificate's validity, and `openssl`
   writes neither.
-- **For sprint 6h (the operator, 2026-10-28):** every host's first inventory says `porelo_host_forge: true`
+- **For sprint 6h:** every host's first inventory says `porelo_host_forge: true`
   (`HostPlan.forge`, on by default), so its forge runs and its stop asks for `forge-certificate`; switching it off
   in the dialog is [F145](README.md#f145)'s.
 - **Split off:** the lasting forge password (typed into the file once, then piped into

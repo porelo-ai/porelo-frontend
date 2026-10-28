@@ -1,6 +1,6 @@
 # F212 — The Forge's CA One Per Host
 
-**Status:** Estimated (operator, 2026-10-28); accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F210](README.md#f210).
+**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F210](README.md#f210).
 **Size:** M - the CA's names and constraint, its place in the secrets file, its trust and warning per host, on [F202](README.md#f202)'s built pieces, and the lasting password split off from it.
 
 **What must be true.** Each host has its own lasting CA, made by its host admin once in their secrets file and constrained to `<host>.porelo.internal` and that host's network; it signs the host's forge (`forge.<host>.porelo.internal`) and homeserver (`matrix.<host>.porelo.internal`), and every laptop that reaches the host trusts that CA, and only for that host.
