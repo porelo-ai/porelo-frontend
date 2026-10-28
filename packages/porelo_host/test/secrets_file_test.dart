@@ -684,6 +684,14 @@ void main() {
           contains('DNS:porelo.internal'),
         );
 
+        // The CA's certificate, public, where the stop's terminal named a file for it; never its key.
+        final caout = path.join(home.path, 'ca-out.pem');
+        final written = await run(feed, 'm', environment: {'request': request, 'caout': caout});
+        expect(written.exitCode, 0, reason: '${written.stderr}');
+        final kept = await File(caout).readAsString();
+        expect(kept.trim(), blocks.last.trim());
+        expect(kept, isNot(contains('PRIVATE KEY')));
+
         // A second host: the same CA, so the browser trusts its forge without a new import.
         final again = await run(feed, 'm', environment: {'request': request});
         expect(again.exitCode, 0, reason: '${again.stderr}');

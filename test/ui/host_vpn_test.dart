@@ -540,6 +540,22 @@ void main() {
     expect(tester.widget<SelectableText>(find.byKey(const Key('unlock-command'))).data!.contains(private), isFalse);
   }, skip: _notLinux);
 
+  // Harm: the forge's CA kept here and never given to the root step, or given as a file the person could swap.
+  testWidgets('a kept forge CA reaches the root step as its argument, and none is given without one', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final ca =
+        '-----BEGIN CERTIFICATE-----\n${base64Encode(List<int>.generate(48, (i) => i))}\n-----END CERTIFICATE-----\n';
+    final without = <List<String>>[];
+    await open(tester, settings, without, FakeTerminal([]));
+    expect(without.single.last, isEmpty, reason: 'nothing of it without a CA');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await settings.rememberForgeCa(ca);
+    final commands = <List<String>>[];
+    await open(tester, settings, commands, FakeTerminal([]));
+    expect(commands.single.last, ca.trimRight(), reason: 'the certificate itself, public, read by root from no file');
+  }, skip: _notLinux);
+
   // Harm: a teardown action must not run installation or target the remote server.
   testWidgets('VPN down runs only wg-quick locally without needing a saved file', (tester) async {
     final commands = <List<String>>[];

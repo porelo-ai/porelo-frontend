@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 
 import 'desk.dart';
+import 'host_vpn.dart' show isForgeCaCertificate;
 import 'host_protocol.dart';
 import 'machines.dart';
 
@@ -648,8 +649,7 @@ class Settings extends ChangeNotifier {
   String? get forgeCa => _forgeCa;
 
   /// One certificate in PEM, and nothing beside it.
-  static bool isCertificate(String pem) =>
-      RegExp(r'^-----BEGIN CERTIFICATE-----\n[A-Za-z0-9+/=\n]+-----END CERTIFICATE-----\n?$').hasMatch(pem);
+  static bool isCertificate(String pem) => isForgeCaCertificate(pem);
 
   /// Keeps the lasting CA's certificate, refusing anything that is not one.
   Future<void> rememberForgeCa(String? pem) async {

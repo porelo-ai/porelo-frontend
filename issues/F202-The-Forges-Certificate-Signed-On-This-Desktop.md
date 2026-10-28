@@ -54,6 +54,15 @@ whole in 6e.
   `10.73.0.1 forge.porelo.internal # porelo-host` into `/etc/hosts`; each only where it is not there already.
   Taking the VPN down takes that line out again, and nothing else. Seen with stand-in tools and the real
   `install`, `cmp` and `grep`, every path moved into a scratch folder.
+- **From the harm reading of both (twelve findings, eleven taken):** the root step reads no file of the person's any
+  more: the certificate is its argument, checked here and again as root (one PEM block, base64 lines) in a folder of
+  root's own, before the receipt is written; a store whose update fails is taken back and tried again on the next
+  `up`; a machine with neither store is told so. `policies.json` is written only where neither a file nor a link is
+  there, through a temporary file beside it. The hosts line goes onto a line of its own and the file is changed in
+  place, so its owner, mode and label stay; *down* takes out that exact line, by a root step of its own with a fixed
+  `PATH`. A kept certificate is refused unless it is one PEM certificate whose body decodes, and the stop's folder
+  goes also where the command could not be built. **Declined, with the reason:** a Flatpak Firefox reads no policy
+  under `/etc`, so it cannot be reached from the root step; a policy of the person's own is said, never changed.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
   `porelo-host-forge-password` after `up`); the warning 90 days before the CA ends.
 

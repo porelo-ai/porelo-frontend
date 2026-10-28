@@ -75,7 +75,24 @@ void main() {
     }
   });
 
-  // Harm: a stored name the stop would send as a line of its own, or an entry sent twice.
+  // Harm: the forge's CA lost at a restart, or something that is not one certificate kept and installed.
+  test('the forge\'s CA survives reload, and nothing but one certificate is taken', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    final ca =
+        '-----BEGIN CERTIFICATE-----\n${base64Encode(List<int>.generate(48, (i) => i))}\n-----END CERTIFICATE-----\n';
+    await settings.rememberForgeCa(ca);
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    expect(reopened.forgeCa, ca);
+    expect(
+      () => settings.rememberForgeCa('-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----\n'),
+      throwsArgumentError,
+    );
+  });
+
   test('the vault entries\' names survive reload, and a name the stop would refuse drops the record', () async {
     final store = MemorySettingsStore();
     final settings = Settings(store);

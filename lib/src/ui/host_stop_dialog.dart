@@ -183,6 +183,9 @@ class _HostStopDialogState extends State<HostStopDialog> {
       forgeCa?.deleteSync(recursive: true);
       setState(() => _problem = error.message);
       return;
+    } catch (_) {
+      forgeCa?.deleteSync(recursive: true);
+      rethrow;
     }
     setState(() {
       _terminalOpen = true;

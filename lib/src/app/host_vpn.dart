@@ -30,7 +30,9 @@ void checkVpnSaveFile(String file, {bool? windows}) {
 /// Checks the active endpoint before installation and confirms a fresh handshake after a ping.
 List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/sbin:/bin:/sbin', String? forgeCa}) {
   checkVpnFile(file);
-  if (forgeCa != null) checkVpnFile(forgeCa);
+  if (forgeCa != null && !isForgeCaCertificate(forgeCa)) {
+    throw const FormatException('The CA for the server\'s forge is not one certificate.');
+  }
   final lines = File(file).readAsLinesSync();
   String field(String name) => lines.where((line) => line.startsWith('$name = ')).single.substring(name.length + 3);
   final key = field('PublicKey');
@@ -46,7 +48,8 @@ List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/
     key,
     endpoint,
     commandPath,
-    forgeCa ?? '',
+    // Without its last line break, which the root step writes back.
+    forgeCa?.trimRight() ?? '',
   ];
 }
 
@@ -99,48 +102,87 @@ handshakes=$(wg show porelo latest-handshakes) || fail 'The VPN handshake could 
 handshake=$(printf '%s\n' "$handshakes" | awk -v key="$expected" '$1 == key { print $2 }')
 case "$handshake" in ''|*[!0-9]*) fail 'The server did not complete the expected VPN handshake.';; esac
 [ "$handshake" -gt "$started" ] || fail 'The server did not complete a new VPN handshake.'
-printf '%s\t%s\t%s\n' "$expected" "$started" "$handshake" > "$receipt" || fail 'The VPN check could not be kept.'
 # The person's lasting CA for the hosts' forges, and the forge's name, where a stop gave the CA: in the system store,
-# in Firefox's policy and in /etc/hosts, each only where it is not there already.
-forge_ca=${6:-}
-if [ -n "$forge_ca" ]; then
+# in Firefox's policy and in /etc/hosts, each only where it is not there already. The CA comes as an argument, public:
+# root reads no file of the person's, and checks it is a certificate in a file of its own before any copy is made.
+forge_ca_pem=${6:-}
+if [ -n "$forge_ca_pem" ]; then
+  forge_ca=$(mktemp) || fail "The CA for the server's forge could not be staged."
+  trap 'rm -f -- "$forge_ca"' 0
+  trap 'exit 1' HUP INT TERM
+  printf '%s\n' "$forge_ca_pem" > "$forge_ca" || fail "The CA for the server's forge could not be staged."
+  [ "$(head -n 1 "$forge_ca")" = '-----BEGIN CERTIFICATE-----' ] && [ "$(tail -n 1 "$forge_ca")" = '-----END CERTIFICATE-----' ] \
+    && [ "$(grep -c -- '-----' "$forge_ca")" = 2 ] && ! grep -vqE -- '^(-----(BEGIN|END) CERTIFICATE-----|[A-Za-z0-9+/=]+)$' "$forge_ca" \
+    || fail "What was given as the CA for the server's forge is not one certificate."
   if command -v update-ca-certificates >/dev/null 2>&1; then
     store=/usr/local/share/ca-certificates/porelo-host.crt
-    if ! cmp -s -- "$forge_ca" "$store"; then
-      install -D -m 0644 -- "$forge_ca" "$store" || fail "The CA for the server's forge could not be put into the system store."
-      update-ca-certificates >/dev/null 2>&1 || fail "The system store did not take the CA for the server's forge."
-    fi
+    store_update=update-ca-certificates
   elif command -v update-ca-trust >/dev/null 2>&1; then
     store=/etc/pki/ca-trust/source/anchors/porelo-host.crt
-    if ! cmp -s -- "$forge_ca" "$store"; then
-      install -D -m 0644 -- "$forge_ca" "$store" || fail "The CA for the server's forge could not be put into the system store."
-      update-ca-trust >/dev/null 2>&1 || fail "The system store did not take the CA for the server's forge."
-    fi
+    store_update=update-ca-trust
+  else
+    store=
+  fi
+  if [ -z "$store" ]; then
+    printf '%s\n' "This computer has no tool for a system store of certificates; only Firefox trusts the forge."
+  elif ! cmp -s -- "$forge_ca" "$store"; then
+    install -D -m 0644 -- "$forge_ca" "$store" || fail "The CA for the server's forge could not be put into the system store."
+    # Taken back where the store did not take it, so the next start tries again.
+    "$store_update" >/dev/null 2>&1 || { rm -f -- "$store"; fail "The system store did not take the CA for the server's forge."; }
   fi
   # Firefox, a snap here, reads /etc/firefox alone; its policy names this copy.
   firefox_ca=/etc/firefox/porelo/porelo-host.crt
   cmp -s -- "$forge_ca" "$firefox_ca" || install -D -m 0644 -- "$forge_ca" "$firefox_ca" || fail "The CA for the server's forge could not be put where Firefox reads it."
   policy=/etc/firefox/policies/policies.json
-  if [ ! -e "$policy" ]; then
+  # A link in its place, dangling or not, is the person's: said, never replaced.
+  if [ ! -e "$policy" ] && [ ! -L "$policy" ]; then
     install -d -m 0755 /etc/firefox/policies || fail "Firefox's policy folder could not be made."
-    printf '%s\n' '{"policies":{"Certificates":{"Install":["/etc/firefox/porelo/porelo-host.crt"]}}}' > "$policy.new" \
-      && chmod 0644 "$policy.new" && mv -f -- "$policy.new" "$policy" || fail "Firefox's policy could not be written."
+    staged=$(mktemp /etc/firefox/policies/.policies.json.XXXXXX) || fail "Firefox's policy could not be staged."
+    printf '%s\n' '{"policies":{"Certificates":{"Install":["/etc/firefox/porelo/porelo-host.crt"]}}}' > "$staged" \
+      && chmod 0644 "$staged" && mv -f -- "$staged" "$policy" || { rm -f -- "$staged"; fail "Firefox's policy could not be written."; }
     printf '%s\n' 'Firefox trusts the forge once it is started again.'
   elif ! grep -q '/etc/firefox/porelo/porelo-host.crt' "$policy"; then
     printf '%s\n' "Firefox has a policy of its own in $policy: add /etc/firefox/porelo/porelo-host.crt to its Certificates.Install to open the forge there."
   fi
   hosts_line='10.73.0.1 forge.porelo.internal # porelo-host'
-  grep -qxF -- "$hosts_line" /etc/hosts || printf '%s\n' "$hosts_line" >> /etc/hosts || fail "The forge's name could not be written to /etc/hosts."
+  if ! grep -qxF -- "$hosts_line" /etc/hosts; then
+    # On a line of its own, and into the file as it is, so its owner, mode and label stay.
+    if [ -n "$(tail -c 1 /etc/hosts)" ]; then printf '\n' >> /etc/hosts; fi
+    printf '%s\n' "$hosts_line" >> /etc/hosts || fail "The forge's name could not be written to /etc/hosts."
+  fi
+  rm -f -- "$forge_ca"
+  trap - 0 HUP INT TERM
 fi
+printf '%s\t%s\t%s\n' "$expected" "$started" "$handshake" > "$receipt" || fail 'The VPN check could not be kept.'
 printf '%s\n' 'The VPN is up and the server answers. You can close this window.'
 ''';
 
-/// Takes the VPN down, and the forge's name with it from `/etc/hosts`, which only this link reaches.
+/// One certificate in PEM and nothing beside it: base64 lines between its two markers, which decode.
+bool isForgeCaCertificate(String pem) {
+  final match = RegExp(r'^-----BEGIN CERTIFICATE-----\n((?:[A-Za-z0-9+/]{1,76}={0,2}\n)+)-----END CERTIFICATE-----\n?$')
+      .firstMatch(pem);
+  if (match == null) return false;
+  try {
+    return base64.decode(match.group(1)!.replaceAll('\n', '')).isNotEmpty;
+  } on FormatException {
+    return false;
+  }
+}
+
+/// Takes the VPN down, and the forge's name with it from `/etc/hosts`, which only this link reaches: that one line,
+/// written into the file as it is, so its owner, mode and label stay.
 const hostVpnDownCommand = <String>[
   '/usr/bin/sudo',
   '/bin/sh',
   '-c',
-  r"wg-quick down porelo && sed -i '\| # porelo-host$|d' /etc/hosts",
+  r'''PATH=/usr/bin:/usr/sbin:/bin:/sbin
+wg-quick down porelo || exit
+line='10.73.0.1 forge.porelo.internal # porelo-host'
+grep -qxF -- "$line" /etc/hosts || exit 0
+kept=$(mktemp) || exit
+trap 'rm -f -- "$kept"' 0
+grep -vxF -- "$line" /etc/hosts > "$kept"
+cat -- "$kept" > /etc/hosts''',
   'porelo-vpn-down',
 ];
 
@@ -148,8 +190,9 @@ const hostVpnDownCommand = <String>[
 class HostVpnAttempt {
   HostVpnAttempt._(this.directory, this.file, this.publicKey, this.started, {this.forgeCa});
 
-  /// The lasting CA's certificate for the hosts' forges, public, beside the configuration; null where none is kept.
-  final File? forgeCa;
+  /// The lasting CA's certificate for the hosts' forges, PEM, public; null where none is kept. The root step gets it
+  /// as an argument and reads no file of this user's for it.
+  final String? forgeCa;
 
   /// The exclusively created private directory in this account's runtime directory.
   final Directory directory;
@@ -164,7 +207,7 @@ class HostVpnAttempt {
   final int started;
 
   /// Builds the privileged command with public values only.
-  List<String> get command => hostVpnUpCommand(file.path, forgeCa: forgeCa?.path)..[0] = '/usr/bin/sudo';
+  List<String> get command => hostVpnUpCommand(file.path, forgeCa: forgeCa)..[0] = '/usr/bin/sudo';
 
   /// A process exit alone cannot confirm the expected peer's fresh handshake.
   Future<bool> verified() async {
@@ -218,7 +261,7 @@ Future<HostVpnAttempt> prepareHostVpn({
     file,
     tunnel.hostPublicKey,
     (now ?? DateTime.now)().millisecondsSinceEpoch ~/ 1000,
-    forgeCa: forgeCa == null ? null : File(path.join(scratch.path, 'forge-ca.pem')),
+    forgeCa: forgeCa,
   );
   try {
     await withHostFiles(
@@ -226,7 +269,6 @@ Future<HostVpnAttempt> prepareHostVpn({
       secretStore: secretStore,
       hostFiles: hostFiles,
     );
-    if (forgeCa != null) await HostFileWriter().write(attempt.forgeCa!, utf8.encode(forgeCa));
     // The root step writes through this existing user-owned receipt without changing its owner.
     await HostFileWriter().write(File('${file.path}.checked'), const []);
     return attempt;
@@ -243,7 +285,7 @@ Future<void> checkHostVpnRootTools({
   List<String> directories = const ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
 }) async {
   const refused = HostFilesRefused(
-    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, grep, and optional nmcli in protected system directories.',
+    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, grep, head, tail, and optional nmcli in protected system directories.',
   );
   try {
     await _checkRootTools(directories, refused);
@@ -290,6 +332,8 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
     'mv',
     'rm',
     'grep',
+    'head',
+    'tail',
     'nmcli',
   ]) {
     final binary = await lookUp(name);
