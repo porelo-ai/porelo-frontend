@@ -1,6 +1,6 @@
 # F231 — A Link Only The Task Can Reach Is Not Offered For The Browser
 
-**Status:** Analyzed; found in walk 21 after the operator's round of sprints 6 to 6i.
+**Status:** Backlog; found in walk 21, placed in the backlog on the operator's word.
 **Size:** XS - links a task's program prints to a host only its container reaches shown as such, not as a button to
 the browser, and the test; about 30 minutes.
 

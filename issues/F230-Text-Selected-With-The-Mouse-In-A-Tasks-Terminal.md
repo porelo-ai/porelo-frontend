@@ -1,6 +1,6 @@
 # F230 — Text Selected With The Mouse In A Task's Terminal
 
-**Status:** Analyzed; found in walk 21 after the operator's round of sprints 6 to 6i.
+**Status:** Backlog; found in walk 21, placed in the backlog on the operator's word.
 **Size:** S - Shift+drag selecting in the widget whatever the program asks for, tmux's own copy reaching the
 clipboard over OSC 52, and their tests; about 2 hours.
 

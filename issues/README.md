@@ -41,6 +41,9 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f229"></a>[F229](F229-A-Restarted-Task-Says-So-In-Its-Terminal.md) | S | — | A task's terminal and tile say when it was started, so what the agent redraws from before a restart is not read as now. |
+| <a id="f230"></a>[F230](F230-Text-Selected-With-The-Mouse-In-A-Tasks-Terminal.md) | S | — | Shift+drag selecting in a task's terminal whatever the program inside asks for, and tmux's own copy reaching the clipboard over OSC 52. |
+| <a id="f231"></a>[F231](F231-A-Link-Only-The-Task-Can-Reach-Is-Not-Offered-For-The-Browser.md) | XS | — | A link a task prints to an address only its container reaches shown as such, not as a button to the browser. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | `porelo` [B118](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b118) | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -51,9 +54,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="f230"></a>[F230](F230-Text-Selected-With-The-Mouse-In-A-Tasks-Terminal.md) | S | — | Shift+drag selecting in a task's terminal whatever the program inside asks for, and tmux's own copy reaching the clipboard over OSC 52. |
-| <a id="f231"></a>[F231](F231-A-Link-Only-The-Task-Can-Reach-Is-Not-Offered-For-The-Browser.md) | XS | — | A link a task prints to an address only its container reaches shown as such, not as a button to the browser. |
-| <a id="f229"></a>[F229](F229-A-Restarted-Task-Says-So-In-Its-Terminal.md) | S | — | A task's terminal and tile say when it was started, so what the agent redraws from before a restart is not read as now. |
 | <a id="f219"></a>[F219](F219-An-Interface-Ended-Without-Asking-Leaves-No-Forward-Behind.md) | S | — | The ssh forwards this interface raised ended with it also when it ends without asking, and one left over found again by its socket at the next start. | — |
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |

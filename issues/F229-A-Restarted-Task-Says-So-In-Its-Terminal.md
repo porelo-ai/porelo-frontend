@@ -1,6 +1,6 @@
 # F229 — A Restarted Task Says So In Its Terminal
 
-**Status:** Analyzed; found in walk 21 after the operator's round of sprints 6 to 6i.
+**Status:** Backlog; found in walk 21, placed in the backlog on the operator's word.
 **Size:** S - a line in the task's terminal and on its tile naming when the task was started, set apart from what
 was on its screen before, and their tests; about 1 hour.
 
