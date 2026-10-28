@@ -122,6 +122,7 @@ void main() {
       vpnPeerAddress: '10.73.0.2/32',
     );
     await settings.rememberHostUp('demo', record);
+    String? said;
     Future<HostPreparation> givenBack() async {
       final process = HostProcess();
       final run = published.start(
@@ -140,9 +141,17 @@ void main() {
       final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => down);
       addTearDown(session.dispose);
       await session.down();
-      await published.confirmDown('demo', session);
+      said = await published.confirmDown('demo', session);
       return run;
     }
+
+    // A give-back the provider did not confirm leaves the server running, and its tasks still reach the room.
+    final failed = HostProcess()..end(69);
+    final notBack = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => failed);
+    addTearDown(notBack.dispose);
+    await notBack.down();
+    expect(await published.confirmDown('demo', notBack), isNull);
+    expect(ran, isEmpty, reason: 'nothing is closed for a server still there');
 
     final closed = await givenBack();
     expect(ran.single, ['publish', '--off']);
@@ -153,6 +162,7 @@ void main() {
     final refused = await givenBack();
     expect(ran.single, ['publish', '--off']);
     expect(refused.problem, contains('the socket could not be stopped'), reason: 'said where the run is shown');
+    expect(said, contains('the socket could not be stopped'), reason: 'and to the dialog that gave it back');
   });
 
   // Harm: an unchecked terminal exit zero must not make a host available for work.

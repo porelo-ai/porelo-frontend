@@ -979,12 +979,14 @@ class _HostDialogState extends State<HostDialog> {
     final owner = widget.hostRuns;
     if (mounted) setState(() => _finishingDown = true);
     try {
+      String? stillPublished;
       if (owner != null) {
-        await owner.confirmDown(widget.project, session);
+        stillPublished = await owner.confirmDown(widget.project, session);
       } else if (kept != null) {
         await widget.settings?.rememberHostUp(widget.project, kept.withPreparation(null));
       }
       final address = session.releasedAddress;
+      if (stillPublished != null && mounted) setState(() => _machineProblem = stillPublished);
       if (address == null || address.isEmpty) {
         if (mounted) setState(() => _machineProblem = 'No host was found. Your machines have been kept.');
       } else {

@@ -46,6 +46,14 @@ interface brings the VPN up, so it is the one that knows when the address exists
   lacks it; `HostRuns.confirmDown` closes it after the confirmed give-back, and a refusal to close stays on the run.
   The port must be one from 1024 on and the peer one plain IPv4 address, or nothing runs. Seen red with each of nine
   faults put back, the publishing before a handshake among them.
+- **From its harm reading (nine findings, eight taken, one in part):** the peer address must be a host's in
+  `10.73.0.0/16`, written plainly (no wildcard, loopback, broadcast, `.1` or leading zero); a quoted value of
+  `homeserver.conf` is read as the value; the transport is stopped after 60 seconds; the VPN's own outcome no
+  longer waits on the transport or the dialog; a failed close is said in the host dialog that gave the server back
+  as well as on the run. Tests now see a longer address of another host left alone, a port above 65535, a transport
+  not installed, the dialog without the line where it is there or nothing was published, *Close*, and nothing
+  closed for a give-back not confirmed. **Declined, with the reason:** a test of the shell's one line that gives
+  `HostRuns` its publishing on Linux; the walk sees it.
 - **Red first:** a test with a scratch `homeserver.conf` and a stand-in transport: after a verified VPN, `publish` ran
   once with exactly that address, port and name; after the give-back, `publish --off` ran; without the file, neither.
 

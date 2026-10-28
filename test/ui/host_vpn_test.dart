@@ -636,6 +636,7 @@ void main() {
           return;
         }
         expect(published.single, ['publish', '--address', '10.73.0.2:8008', '--name', 'matrix.porelo.internal']);
+        expect(run.vpnOpen, isFalse, reason: 'the VPN\'s own outcome waits on neither the transport nor this dialog');
         expect(find.textContaining('https://matrix.porelo.internal:8008'), findsOneWidget);
         expect(
           tester.widget<SelectableText>(find.byKey(const Key('homeserver-laptop-line'))).data,
@@ -644,6 +645,38 @@ void main() {
         );
       },
       skip: _notLinux,
+    );
+  }
+
+  // Harm: a person told to edit /etc/hosts for a line they have, or for a homeserver that was not published.
+  for (final (published, missing) in [(true, false), (false, true)]) {
+    testWidgets(
+      'the laptop\'s line is given only where it is missing and something was published ($published, $missing)',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => unawaited(
+                  showHomeserverPublished(
+                    context,
+                    PublishOutcome(published: published, words: published ? 'published' : 'refused'),
+                    laptopLineMissing: missing,
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('homeserver-published')), findsOneWidget);
+        expect(find.byKey(const Key('homeserver-laptop-line')), findsNothing);
+        await tester.tap(find.byKey(const Key('homeserver-published-close')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('homeserver-published')), findsNothing, reason: 'Close closes it');
+      },
     );
   }
 

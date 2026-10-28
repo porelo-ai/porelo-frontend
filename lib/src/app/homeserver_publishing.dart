@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -29,7 +30,22 @@ class HomeserverPublishing {
     this.hostsFile = '/etc/hosts',
     Future<ProcessResult> Function(String executable, List<String> arguments)? run,
   }) : _configuration = configuration ?? desk.configuration,
-       _run = run ?? ((executable, arguments) => Process.run(executable, arguments));
+       _run = run ?? _runAndStopWhenLate;
+
+  /// Runs the transport, and stops it where it outlives [patience], so nothing of it is left waiting.
+  static Future<ProcessResult> _runAndStopWhenLate(String executable, List<String> arguments) async {
+    final process = await Process.start(executable, arguments);
+    final output = process.stdout.transform(utf8.decoder).join();
+    final errors = process.stderr.transform(utf8.decoder).join();
+    final code = await process.exitCode.timeout(
+      patience,
+      onTimeout: () {
+        process.kill();
+        throw TimeoutException('the transport did not answer');
+      },
+    );
+    return ProcessResult(process.pid, code, await output, await errors);
+  }
 
   /// The matrix transport, by the path its package installs it to.
   static const transport = '/usr/libexec/porelo/transports/porelo-message-transport-matrix';
@@ -55,26 +71,30 @@ class HomeserverPublishing {
       if (!conf.existsSync()) return null;
       return {
         for (final line in conf.readAsLinesSync())
-          if (line.indexOf('=') case final at when at > 0) line.substring(0, at).trim(): line.substring(at + 1).trim(),
+          if (line.indexOf('=') case final at when at > 0)
+            line.substring(0, at).trim(): _unquoted(line.substring(at + 1)),
       };
     } on FileSystemException {
       return null;
     }
   }
 
-  /// The peer's address without its prefix, where it is one plain IPv4 address.
+  /// A value as a systemd environment file may hold it: one pair of quotes around it is no part of it.
+  static String _unquoted(String value) {
+    final trimmed = value.trim();
+    final quoted = trimmed.length > 1 && (trimmed[0] == '"' || trimmed[0] == "'") && trimmed.endsWith(trimmed[0]);
+    return quoted ? trimmed.substring(1, trimmed.length - 1) : trimmed;
+  }
+
+  /// The peer's address without its prefix, where it is a host's address in the VPN's `10.73.0.0/16`, written
+  /// plainly: never a wildcard, loopback or broadcast address, the host's own `.1`, or an octet with a leading zero.
   static String? _address(String peer) {
     final address = peer.split('/').first;
-    final parts = address.split('.');
-    final plain =
-        parts.length == 4 &&
-        parts.every(
-          (part) => switch (int.tryParse(part)) {
-            final n? => n >= 0 && n <= 255,
-            null => false,
-          },
-        );
-    return plain && RegExp(r'^[0-9.]+$').hasMatch(address) ? address : null;
+    final match = RegExp(r'^10\.73\.(0|[1-9][0-9]{0,2})\.([1-9][0-9]{0,2})$').firstMatch(address);
+    if (match == null) return null;
+    final network = int.parse(match.group(1)!);
+    final host = int.parse(match.group(2)!);
+    return network <= 255 && host >= 2 && host <= 254 ? address : null;
   }
 
   /// Publishes the homeserver on [peer], this laptop's VPN address, with its own loopback port, as `--name` asks.
@@ -124,11 +144,17 @@ class HomeserverPublishing {
     return true;
   }
 
+  /// How long the transport may take before it counts as refused: neither the VPN's outcome nor the give-back
+  /// waits longer on it.
+  static const patience = Duration(seconds: 60);
+
   Future<ProcessResult> _ran(List<String> arguments) async {
     try {
-      return await _run(transport, arguments);
+      return await _run(transport, arguments).timeout(patience);
     } on ProcessException catch (error) {
       return ProcessResult(0, 127, '', error.message);
+    } on TimeoutException {
+      return ProcessResult(0, 124, '', 'it did not answer within ${patience.inSeconds} seconds');
     }
   }
 

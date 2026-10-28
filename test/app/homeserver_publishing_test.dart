@@ -59,12 +59,38 @@ void main() {
     expect(refused.words, contains('no project has set up this homeserver yet'));
 
     ran.clear();
-    for (final (port, address) in [('80', '10.73.0.2/32'), ('eight', '10.73.0.2/32'), ('8008', 'not-an-address')]) {
+    for (final (port, address) in [
+      ('80', '10.73.0.2/32'),
+      ('70000', '10.73.0.2/32'),
+      ('eight', '10.73.0.2/32'),
+      ('8008', 'not-an-address'),
+      ('8008', '0.0.0.0/0'),
+      ('8008', '127.0.0.1/32'),
+      ('8008', '255.255.255.255/32'),
+      ('8008', '10.73.0.1/32'),
+      ('8008', '010.073.000.002/32'),
+      ('8008', '192.168.1.2/32'),
+      ('8008', '999.999.999.999'),
+      ('8008', '...'),
+    ]) {
       conf.writeAsStringSync('PORELO_MATRIX_PORT=$port\n');
       final outcome = (await publishing().publish(address))!;
       expect(outcome.published, isFalse, reason: '$port $address');
     }
     expect(ran, isEmpty, reason: 'nothing a shell or the transport could take wrongly is passed on');
+
+    conf.writeAsStringSync('PORELO_MATRIX_PORT="8008"\n');
+    answer = (_) => throw const ProcessException('porelo-message-transport-matrix', [], 'No such file or directory');
+    final missing = (await publishing().publish('10.73.0.2/32'))!;
+    expect(ran.single, [
+      'publish',
+      '--address',
+      '10.73.0.2:8008',
+      '--name',
+      'matrix.porelo.internal',
+    ], reason: 'a quoted value, as an environment file may hold it, is the same value');
+    expect(missing.published, isFalse);
+    expect(missing.words, contains('No such file or directory'), reason: 'a transport not installed is said');
   });
 
   test('closed at the give-back only where it is published for that host', () async {
@@ -75,7 +101,15 @@ void main() {
     expect(await publishing().unpublish('10.73.0.2/32'), isNull, reason: 'another host\'s address is left alone');
     expect(ran, isEmpty);
 
-    conf.writeAsStringSync('PORELO_MATRIX_PORT=8008\nPORELO_MATRIX_PUBLISH=10.73.0.2:8008\n');
+    conf.writeAsStringSync('PORELO_MATRIX_PORT=8008\nPORELO_MATRIX_PUBLISH=10.73.0.20:8008\n');
+    expect(
+      await publishing().unpublish('10.73.0.2/32'),
+      isNull,
+      reason: 'a longer address of another host is not this one',
+    );
+    expect(ran, isEmpty);
+
+    conf.writeAsStringSync("PORELO_MATRIX_PORT=8008\nPORELO_MATRIX_PUBLISH='10.73.0.2:8008'\n");
     final closed = (await publishing().unpublish('10.73.0.2/32'))!;
     expect(ran.single, ['publish', '--off']);
     expect(closed.published, isFalse);

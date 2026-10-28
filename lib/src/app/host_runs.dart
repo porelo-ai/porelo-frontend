@@ -473,9 +473,10 @@ class HostRuns extends ChangeNotifier {
   /// null where nothing here publishes it.
   final HomeserverPublishing? homeserver;
 
-  /// Removes recovery only after the provider confirmed give-back and the command succeeded.
-  Future<void> confirmDown(String project, HostSession session) async {
-    if (!hostGivenBack(session)) return;
+  /// Removes recovery only after the provider confirmed give-back and the command succeeded. Answers why this
+  /// computer's homeserver is still published for the host where closing it failed, and null otherwise.
+  Future<String?> confirmDown(String project, HostSession session) async {
+    if (!hostGivenBack(session)) return null;
     final pending = _runs[project];
     await pending?.saved;
     final kept = machines.settings.hostUp(project);
@@ -492,6 +493,7 @@ class HostRuns extends ChangeNotifier {
       if (closed != null && closed.published) run.problem = closed.words;
     }
     _changed();
+    return closed != null && closed.published ? closed.words : null;
   }
 
   void _listen(HostPreparation run) {

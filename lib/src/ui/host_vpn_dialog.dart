@@ -27,8 +27,9 @@ Future<void> openPreparationVpn(
 }) async {
   if (run.vpnOpen || run.ready || !run.awaitingVpn) return;
   runs.vpnTerminalChanged(run, open: true);
+  var verified = false;
   try {
-    final verified = await openHostVpnDialog(
+    verified = await openHostVpnDialog(
       context,
       machine: Machine(name: run.name, kind: 'host', hostProject: run.project, socketPath: ''),
       settings: settings,
@@ -41,16 +42,17 @@ Future<void> openPreparationVpn(
     );
     await runs.vpnChecked(run, verified: verified);
     await runs.refreshVpns();
-    // The VPN's address exists now: the host's tasks reach the room on this computer's own homeserver.
-    if (runs.homeserver case final homeserver? when verified) {
-      final peer = settings.hostUp(run.project)?.vpnPeerAddress ?? run.record.vpnPeerAddress;
-      final outcome = await homeserver.publish(peer);
-      if (outcome != null && context.mounted) {
-        await showHomeserverPublished(context, outcome, laptopLineMissing: homeserver.laptopLineMissing);
-      }
-    }
   } finally {
     runs.vpnTerminalChanged(run, open: false);
+  }
+  // The VPN's address exists now: the host's tasks reach the room on this computer's own homeserver. Said after the
+  // VPN's own outcome, which waits on neither the transport nor this dialog.
+  if (runs.homeserver case final homeserver? when verified) {
+    final peer = settings.hostUp(run.project)?.vpnPeerAddress ?? run.record.vpnPeerAddress;
+    final outcome = await homeserver.publish(peer);
+    if (outcome != null && context.mounted) {
+      await showHomeserverPublished(context, outcome, laptopLineMissing: homeserver.laptopLineMissing);
+    }
   }
 }
 
