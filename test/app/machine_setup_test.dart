@@ -47,6 +47,18 @@ void main() {
     expect(counts.last, bytes.length, reason: 'base64 expansion is not counted as installer bytes');
   });
 
+  // Harm: an ssh that ends early, as on a refused login, throws the interface's own broken pipe instead of saying why.
+  test('an ssh that ends while the installer is sent answers with its own exit and words', () async {
+    final machine = MachineSetup(
+      home: home.path,
+      start: (executable, arguments) => Process.start('/bin/bash', ['-c', 'echo "Permission denied" >&2; exit 255']),
+    );
+    final bytes = Uint8List(4 * 1024 * 1024);
+    final result = await machine.sendToUser('example', '${home.path}/never', bytes);
+    expect(result.exitCode, 255);
+    expect('${result.stderr}', contains('Permission denied'));
+  });
+
   // Harm: collecting output only at exit hides the check-to-install transition during a long installation.
   test('a work user command delivers each output line before it finishes', () async {
     late Process child;

@@ -692,7 +692,7 @@ void main() {
         expect(find.textContaining('https://matrix.porelo.internal:8008'), findsOneWidget);
         expect(
           tester.widget<SelectableText>(find.byKey(const Key('homeserver-laptop-line'))).data,
-          "grep -q 'matrix.porelo.internal' /etc/hosts || "
+          "grep -qxF '127.0.0.1 matrix.porelo.internal # porelo-matrix' /etc/hosts || "
           "echo '127.0.0.1 matrix.porelo.internal # porelo-matrix' | sudo tee -a /etc/hosts",
           reason: 'the laptop lacks the line, so the one command that adds it is given to copy and run',
         );
@@ -705,7 +705,10 @@ void main() {
   test('the laptop\'s command adds its line once, and leaves a file that has it as it is', () async {
     final folder = await Directory.systemTemp.createTemp('porelo-hosts-');
     addTearDown(() => folder.delete(recursive: true));
-    final hosts = File('${folder.path}/hosts')..writeAsStringSync('127.0.0.1 localhost\n');
+    // A commented line and one for another address must not count as the line.
+    final hosts = File(
+      '${folder.path}/hosts',
+    )..writeAsStringSync('127.0.0.1 localhost\n# 127.0.0.1 matrix.porelo.internal\n10.73.0.2 matrix.porelo.internal\n');
     // As the person runs it, but on a file of the test's own and without sudo.
     final command = HomeserverPublishing.laptopCommand
         .replaceAll('/etc/hosts', hosts.path)
@@ -714,7 +717,12 @@ void main() {
       final result = await Process.run('/bin/sh', ['-c', command]);
       expect(result.exitCode, 0, reason: '${result.stderr}');
     }
-    expect(hosts.readAsLinesSync(), ['127.0.0.1 localhost', HomeserverPublishing.laptopLine]);
+    expect(hosts.readAsLinesSync(), [
+      '127.0.0.1 localhost',
+      '# 127.0.0.1 matrix.porelo.internal',
+      '10.73.0.2 matrix.porelo.internal',
+      HomeserverPublishing.laptopLine,
+    ]);
   }, skip: _notLinux);
 
   // Harm: a person told to edit /etc/hosts for a line they have, or for a homeserver that was not published.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -285,10 +286,13 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       'umask 077 && /usr/bin/base64 -d > ${quoteForAShell(path)}',
     ]);
     final result = _resultOf(process);
+    // An ssh that ended early closes the pipe: its exit and its words say why, never the write that found it closed.
+    var broken = false;
+    unawaited(process.stdin.done.then<void>((_) {}, onError: (Object _) => broken = true));
     try {
       // Full blocks are divisible by three so only the final base64 block has padding.
       const blockSize = 48 * 1024;
-      for (var offset = 0; offset < bytes.length; offset += blockSize) {
+      for (var offset = 0; offset < bytes.length && !broken; offset += blockSize) {
         final end = offset + blockSize < bytes.length ? offset + blockSize : bytes.length;
         process.stdin.write(base64Encode(bytes.sublist(offset, end)));
         await process.stdin.flush();
@@ -296,10 +300,9 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       }
       await process.stdin.close();
     } on Object {
-      process.kill();
-      await result;
-      rethrow;
+      broken = true;
     }
+    if (broken) process.kill();
     return result;
   }
 

@@ -52,6 +52,7 @@ void main() {
     expect(fingerprint(read.signing), fingerprint(good.signing), reason: 'and the chain\'s first, the signer');
     final ran = await check(read);
     expect(ran.installed, isTrue, reason: ran.said);
+    expect(ran.said, contains(TresoritInstaller.installingLine), reason: 'the step says it installs, once checked');
   }, skip: skip);
 
   test('the chain without the pinned CA is refused before anything is sent', () async {
@@ -97,6 +98,7 @@ void main() {
       reached.bytes.setRange(0, 9, utf8.encode('exit 0 ;#'));
       final ran = await check(reached);
       expect(ran.installed, isFalse, reason: ran.said);
+      expect(ran.said, isNot(contains(TresoritInstaller.installingLine)));
       expect(ran.said, contains('Line 1'));
       // Line 2 is the signature's assignment and runs too; anything beside the hex would.
       final second = TresoritInstaller.read(Uint8List.fromList(signed), pinned: pin);

@@ -80,8 +80,9 @@ class HomeserverPublishing {
   static const laptopLine = '127.0.0.1 $name # porelo-matrix';
 
   /// The one command that adds [laptopLine] to `/etc/hosts` where no line names [name] yet, as the person copies and
-  /// runs it in a terminal of their own: run twice, the file still holds the line once.
-  static const laptopCommand = "grep -q '$name' /etc/hosts || echo '$laptopLine' | sudo tee -a /etc/hosts";
+  /// runs it in a terminal of their own: run twice, the file still holds the line once. It looks for exactly that line,
+  /// so a commented one or one naming another address does not keep it out.
+  static const laptopCommand = "grep -qxF '$laptopLine' /etc/hosts || echo '$laptopLine' | sudo tee -a /etc/hosts";
 
   final String _configuration;
 
