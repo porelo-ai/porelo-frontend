@@ -57,12 +57,15 @@ taken, `git log` answers.
 | [The person's ssh key is registered once by hand in Scaleway's console; the API key only reads keys](#the-persons-ssh-key-is-registered-once-by-hand-in-scaleways-console) |
 | [The host key is made by `porelo-host`, handed to cloud-init and kept in the server's tag, never scanned](#the-host-key-is-made-by-porelo-host-and-kept-in-the-servers-tag) |
 | [A server without the project's tag is never given back; `down` finds the host by the tag alone](#a-server-without-the-projects-tag-is-never-given-back) |
-| [Secrets for a host are typed only in its terminal](#secrets-for-a-host-are-typed-only-in-its-terminal) |
+| [A host's secrets are kept once in the person's `secrets.kdbx` and reach its stop on a pipe, only the master password typed](#a-hosts-secrets-are-kept-once-in-the-persons-secretskdbx) |
 | [No Scaleway secret is on GitHub: the Build tests against recorded answers, with one real rent per release](#no-scaleway-secret-is-on-github) |
 | [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
 | [The host's files reach it over its own ssh, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-over-its-own-ssh-and-the-persons-wireguard-key-stays-in-the-secret-store) |
 | [An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned](#an-agent-on-a-host-is-signed-in-at-task-start-and-every-ssh-trusts-only-the-key-porelo-host-pinned) |
 | [Tresorit's installer runs only when signed under a pinned CA, checked on the machine](#tresorits-installer-runs-only-when-signed-under-a-pinned-ca-checked-on-the-machine) |
+| [The forge's certificate is signed on this desktop by one lasting CA, whose key never leaves the secrets file](#the-forges-certificate-is-signed-on-this-desktop) |
+| [This computer's line for its own homeserver is added once by hand](#this-computers-line-for-its-own-homeserver-is-added-once-by-hand) |
+| [A task's program may write this computer's clipboard, never read it](#a-tasks-program-may-write-this-computers-clipboard-never-read-it) |
 
 ## The interface can do what a console can
 
@@ -724,18 +727,20 @@ a server that offers another key is refused before any login.
 carries a `porelo-project=` tag and refuses any server without one, so a server in the same
 Scaleway project that `porelo-host` did not rent can never be deleted by it.
 
-## Secrets for a host are typed only in its terminal
+## A host's secrets are kept once in the person's `secrets.kdbx`
 
-At the host stop, passwords, one-time codes and vault passphrases are typed into a terminal on
-that host, through the provider's own login and Porelo's own prompts. They never pass through the
-interface's forms or `porelo-host`. Only the Tresorit e-mail address is entered in the dialog; it
-is checked as a plain address and quoted before use.
+**What holds.** A host's vault passphrase, its WireGuard key, its vault entries' files, the forge's CA and the
+central forge's token are entries of the person's own KeePass file, chosen at first use and kept here by its path
+only. The interface never holds one: at the host's stop it opens a terminal on this desktop, where the master
+password is typed once into the packaged `keepassxc-cli` (a dependency of the Linux packages, called by its path),
+and the entries the stop names go through one pipe to `ssh <admin>@<host> sudo -n porelo-host-stop --stdin NEED...`,
+one line `<need> [<name>] <base64>` each, never into a file, an argument, the environment or a log here or on the
+host. A secret the file lacks is said by its entry's name before anything is sent, and the stop prompts for none.
+The drive has no part in it.
 
-The terminal uses the setup identity and pinned host key, runs in the account's login shell,
-and sets its runtime directory. Tresorit asks for the password without echo and then, when
-needed, a one-time code that shows as it is typed; the terminal warns about that before login.
-The vault asks its own passphrase. After the terminal is put away, the same `up` runs again;
-only its answer decides whether setup can continue.
+**What it costs:** the file is the one place these secrets are kept; a person who loses it or its master password
+sets the host's vault up again. Windows and macOS have no packaged `keepassxc-cli`, so a server is not set up from
+there yet.
 
 ## No Scaleway secret is on GitHub
 
@@ -807,3 +812,36 @@ both byte-identical. Tresorit publishes no fingerprint that could be read instea
 **What would change the answer.** A fingerprint Tresorit publishes, which then replaces the one read; a new CA when
 this one expires at the end of 2029, which stops the drive step, naming the pinned fingerprint, until the pin is read
 again in the same way.
+
+## The forge's certificate is signed on this desktop
+
+**What holds.** A host makes its forge's key and hands only its certificate request to the stop; the stop's terminal
+on this desktop signs it with one lasting CA whose key is kept in `secrets.kdbx` (`shared/forge-ca-key`, made once
+there: EC P-256, ten years, `CA:TRUE,pathlen:0`, named constraints to `porelo.internal` and `10.73.0.0/24`), setting
+every extension itself and copying none from the request. The CA key passes from `keepassxc-cli` to `openssl` on a
+pipe only. This computer trusts the CA through the VPN's root step: the system store, a copy under `/etc/firefox`
+named in a `policies.json` written only where there is none, and the forge's line in `/etc/hosts`, taken out again
+when the VPN goes down. From 90 days before the CA ends, the VPN's start and the signing stop say when it ends and
+how a new one is made.
+
+**What it costs:** the snap Firefox reads only `/etc/firefox`, so the copy lies there; a Flatpak Firefox reads no
+policy under `/etc` and is not reached, and a `policies.json` of the person's own is left alone and said. Fedora's
+store (`/etc/pki/ca-trust/source/anchors/`) is written as documented but has not been seen to work.
+
+## This computer's line for its own homeserver is added once by hand
+
+While a host's VPN is up, the interface publishes this account's homeserver on the laptop's VPN address under
+`matrix.porelo.internal` and closes it again when the host is given back. The laptop's own line, `127.0.0.1
+matrix.porelo.internal`, is shown with the command that adds it, to be run once by hand; the interface never writes
+`/etc/hosts` for it, so no root step runs on every VPN start for a line that changes once.
+
+## A task's program may write this computer's clipboard, never read it
+
+**What holds.** In a task's terminal, what the program copies itself (OSC 52, as tmux's copy mode sends it with
+`set-clipboard on`) is put on this computer's clipboard, up to a megabyte; a request to read the clipboard is never
+answered, since that would hand whatever was copied here to the container.
+
+**The accepted risk:** a program in a task can replace what is on the clipboard, so text pasted afterwards elsewhere
+may be the task's rather than the person's. It stays because copying out of tmux is otherwise impossible while tmux
+takes the mouse, and other terminals allow the same write. A paste into the interface's own terminals goes to the
+task it came from. What would change the answer: a task found writing the clipboard unasked.
