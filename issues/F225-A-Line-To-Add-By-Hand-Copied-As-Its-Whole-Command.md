@@ -1,6 +1,6 @@
 # F225 — A Line To Add By Hand Copied As Its Whole Command
 
-**Status:** Analyzed; placed with the bug fixes after the operator's tests of sprints 6 to 6i.
+**Status:** Implementing; built, not yet published.
 **Size:** XS - the homeserver dialog's hosts line shown and copied as the one command that adds it, and its widget
 test; about 30 minutes.
 

@@ -76,8 +76,12 @@ class HomeserverPublishing {
   /// The name the signed project file gives the homeserver, which the host resolves to this laptop's peer address.
   static const name = 'matrix.porelo.internal';
 
-  /// The laptop's own line, given to the person as it is to be added once by hand.
+  /// The laptop's own line, added once by hand with [laptopCommand].
   static const laptopLine = '127.0.0.1 $name # porelo-matrix';
+
+  /// The one command that adds [laptopLine] to `/etc/hosts` where no line names [name] yet, as the person copies and
+  /// runs it in a terminal of their own: run twice, the file still holds the line once.
+  static const laptopCommand = "grep -q '$name' /etc/hosts || echo '$laptopLine' | sudo tee -a /etc/hosts";
 
   final String _configuration;
 

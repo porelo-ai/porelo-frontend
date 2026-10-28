@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../app/homeserver_publishing.dart';
@@ -11,6 +10,7 @@ import '../app/host_runs.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
+import 'command_to_copy.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 
@@ -75,23 +75,11 @@ Future<void> showHomeserverPublished(BuildContext context, PublishOutcome outcom
             Text(outcome.words, key: const Key('homeserver-published')),
             if (outcome.published && laptopLineMissing) ...[
               const Text(
-                'This computer finds the homeserver under the same name only with this line in /etc/hosts. Add it '
-                'once, by hand, with sudo:',
+                'This computer finds the homeserver under the same name only with its line in /etc/hosts. Run this '
+                'once in a terminal of your own; it asks your sudo password and adds the line only where it is '
+                'missing:',
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: SelectableText(HomeserverPublishing.laptopLine, key: const Key('homeserver-laptop-line')),
-                  ),
-                  IconButton(
-                    key: const Key('homeserver-laptop-line-copy'),
-                    tooltip: 'Copy the line',
-                    icon: const Icon(Icons.copy, size: Sizes.rowIcon),
-                    onPressed: () =>
-                        unawaited(Clipboard.setData(const ClipboardData(text: HomeserverPublishing.laptopLine))),
-                  ),
-                ],
-              ),
+              const CommandToCopy(command: HomeserverPublishing.laptopCommand, textKey: Key('homeserver-laptop-line')),
             ],
           ],
         ),
