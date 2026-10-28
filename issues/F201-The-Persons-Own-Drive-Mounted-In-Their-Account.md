@@ -1,9 +1,9 @@
 # F201 — The Person's Own Drive Mounted In Their Account
 
-**Status:** Implementing; part A (the drive out of the host dialog) and part B (the machine setup's drive step)
-built. Part A goes out only with a `porelo-host` release carrying
-[HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38), since the interface carries that
-collection.
+**Status:** Review; parts A (the drive out of the host dialog) and B (the machine setup's drive step) published
+2026-10-28 (Build green on `46deaa8`) with the collection at `porelo-host` 0.5.6, which carries
+[HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38); not yet run on a rented host or
+against Tresorit's real installer.
 **Size:** L - a new step of the machine setup that installs and signs in a third-party client in a user's account,
 with a download to verify and a login terminal; no contract of the daemon or of `porelo-host`.
 
