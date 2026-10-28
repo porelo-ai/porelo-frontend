@@ -288,6 +288,13 @@ class HostSession extends ChangeNotifier {
     }
   }
 
+  /// A line of this interface's own in the current attempt, such as the VPN root step's fail line.
+  void note(String line) {
+    if (_attempts.isEmpty) _attempts.add(HostAttemptRecord._(_now().toUtc()));
+    _attempts.last._entries.add(HostProtocolLine(line));
+    _changed();
+  }
+
   /// Records a confirmed interruption once, preserving its first observed instant across restarts.
   void interrupt() {
     if (_protocol.lastOrNull is HostProtocolInterruption) return;

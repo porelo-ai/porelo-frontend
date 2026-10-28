@@ -54,6 +54,9 @@ void main() {
     SecretStore? secretStore,
     Future<bool> Function()? probeLink,
     DateTime Function()? now,
+    String? confinement,
+    String? failedLine,
+    ValueChanged<String>? failed,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -89,11 +92,17 @@ void main() {
                 secretStore: secretStore ?? _TunnelSecrets({HostFiles.keyName('demo'): private}),
                 environment: {'XDG_RUNTIME_DIR': runtime.path},
                 now: now ?? () => DateTime.fromMillisecondsSinceEpoch(100000),
+                confinement: () => confinement,
+                failed: failed,
                 open: (executable, arguments, {int columns = 80, int rows = 24}) {
                   commands.add([executable, ...arguments]);
                   if (up && receipt) {
                     final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
                     File('$source.checked').writeAsStringSync('$host\t100\t101\n');
+                  }
+                  if (failedLine != null) {
+                    final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
+                    File('$source.checked.failed').writeAsStringSync('$failedLine\n');
                   }
                   if (throwsOnOpen) throw const PtyRefused('invented terminal failure');
                   return terminal;
@@ -242,6 +251,7 @@ void main() {
                   settings: settings,
                   up: scenario.up,
                   linux: scenario.linux,
+                  confinement: () => null,
                   environment: const {},
                   probeLink: () async {
                     probes++;
@@ -511,6 +521,46 @@ void main() {
     await World.settle(tester);
   }, skip: _notLinux);
 
+  // Harm: under a snap's AppArmor label wg-quick cannot run, so a sudo terminal fails and leaves no word of why.
+  testWidgets('a VPN step under a snap is refused before sudo, saying how to start outside it', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final commands = <List<String>>[];
+    await open(tester, settings, commands, FakeTerminal([]), confinement: 'snap.flutter.flutter (complain)');
+    await World.settle(tester);
+    expect(commands, isEmpty, reason: 'no root command is opened under the snap');
+    expect(
+      tester.widget<Text>(find.byKey(const Key('vpn-problem'))).data,
+      contains('snap.flutter.flutter'),
+      reason: 'the refusal names the label it runs under',
+    );
+  }, skip: _notLinux);
+
+  // Harm: the root step's fail line was shown only in the terminal, and gone once it was closed.
+  testWidgets('the root step\'s fail line is handed on when the VPN is not confirmed', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final terminal = FakeTerminal([]);
+    final said = <String>[];
+    await open(
+      tester,
+      settings,
+      <List<String>>[],
+      terminal,
+      receipt: false,
+      failedLine: 'The VPN could not be brought up: invented wg-quick words',
+      failed: said.add,
+    );
+    terminal.endsWith(1);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-done')));
+    for (var turn = 0; turn < 30 && said.isEmpty; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+    expect(said, ['The VPN could not be brought up: invented wg-quick words']);
+  }, skip: _notLinux);
+
   // Harm: a verified finish closes the cancel confirmation instead of the terminal, so the VPN terminal stays open and setup does not go on.
   testWidgets('a verified finish closes the terminal and the confirmation above it', (tester) async {
     final settings = Settings(MemorySettingsStore());
@@ -605,6 +655,7 @@ void main() {
                     settings: settings,
                     secretStore: _TunnelSecrets({HostFiles.keyName('demo'): private}),
                     environment: {'XDG_RUNTIME_DIR': runtime.path},
+                    confinement: () => null,
                     open: (executable, arguments, {int columns = 80, int rows = 24}) {
                       final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
                       // The receipt of a fresh handshake, after the attempt started; none where the server never answered.

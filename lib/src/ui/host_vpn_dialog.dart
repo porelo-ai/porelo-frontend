@@ -24,6 +24,7 @@ Future<void> openPreparationVpn(
   SecretStore? secretStore,
   HostFiles Function(SecretStore)? hostFiles,
   Map<String, String>? environment,
+  String? Function()? confinement,
 }) async {
   if (run.vpnOpen || run.ready || !run.awaitingVpn) return;
   runs.vpnTerminalChanged(run, open: true);
@@ -39,6 +40,9 @@ Future<void> openPreparationVpn(
       hostFiles: hostFiles,
       environment: environment,
       requireFreshHandshake: true,
+      confinement: confinement,
+      // Kept in the setup's protocol: the terminal that said it is gone once closed.
+      failed: (line) => run.session.note('Bringing the VPN up on this computer: $line'),
     );
     await runs.vpnChecked(run, verified: verified);
     await runs.refreshVpns();
@@ -116,12 +120,23 @@ Future<bool> openHostVpnDialog(
   Future<bool> Function()? ping,
   bool requireFreshHandshake = false,
   bool? linux,
+  String? Function()? confinement,
+  ValueChanged<String>? failed,
 }) async {
   HostVpnAttempt? attempt;
   var verified = false;
   try {
     // Other platforms retain their existing preparation refusal and terminal command.
     if (linux ?? Platform.isLinux) {
+      // A snap's AppArmor label is inherited by the terminal and sudo, and wg-quick's own profile refuses to run under
+      // it: said before sudo, instead of a root step that fails.
+      final label = up ? (confinement ?? appArmorLabel)() : null;
+      if (label != null && label.startsWith('snap.')) {
+        throw HostFilesRefused(
+          'This interface runs confined by a snap ($label), where wg-quick cannot run. Start its program directly, '
+          'not through the flutter snap: flutter build linux --debug, then build/linux/x64/debug/bundle/porelo_frontend.',
+        );
+      }
       final linkUp = await (probeLink ?? probeHostVpnLink)();
       if (!up && !linkUp) return false;
       // Setup needs an expected peer's fresh receipt; a shared VPN address cannot prove its identity.
@@ -166,6 +181,9 @@ Future<bool> openHostVpnDialog(
           : (code) async {
               try {
                 verified = code == 0 && await pending.verified();
+                if (!verified) {
+                  if (await pending.failure() case final line?) failed?.call(line);
+                }
                 return verified;
               } finally {
                 await pending.close();
@@ -194,4 +212,14 @@ Future<bool> openHostVpnDialog(
     await attempt?.close();
   }
   return verified;
+}
+
+/// This process's AppArmor label, as `/proc/self/attr/current` says it; null where it cannot be read.
+String? appArmorLabel() {
+  try {
+    final label = File('/proc/self/attr/current').readAsStringSync().replaceAll('\x00', '').trim();
+    return label.isEmpty ? null : label;
+  } on FileSystemException {
+    return null;
+  }
 }

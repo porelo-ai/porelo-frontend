@@ -12,6 +12,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Putting a project on a server checks first that KeePassXC's command line is installed: without it the
   command says so with the line that installs it, the secrets step shows that line once with an error
   mark and a copy button, and its button says Make it now (try again) and looks again on each press.
+- Bringing a server's VPN up is refused before sudo, with how to start the interface outside it, where the
+  interface runs confined by a snap (as under `flutter run` of the flutter snap), in which wg-quick cannot run. Where
+  the VPN step fails, its line, with wg-quick's own last words, is kept in the server's protocol.
 - A guided walk's panel, detached into its own window, starts that window once at a time, ends it with
   the interface, and stays beside the interface saying so when the window does not answer; its field
   to write in keeps four lines however long a step is (guided_walk 0.3.0).
