@@ -1820,11 +1820,23 @@ void main() {
     second.end(65);
     await World.settle(tester);
     await resumed;
-    await tester.tap(find.byType(ExpansionTile));
+    // Earlier attempts are chosen above the protocol, never stacked below it where a growing protocol scrolls them away.
+    expect(find.text('Another public setup diagnostic'), findsOneWidget, reason: 'the current attempt is shown first');
+    expect(
+      find.text('Unexpected public setup diagnostic'),
+      findsNothing,
+      reason: 'an earlier attempt waits to be chosen',
+    );
+    await tester.tap(find.byKey(const Key('host-attempt')));
     await World.settle(tester);
-    for (final message in ['Unexpected public setup diagnostic', 'Another public setup diagnostic']) {
-      expect(find.text(message), findsOneWidget, reason: 'each attempt must retain its unexpected failure message');
-    }
+    await tester.tap(find.textContaining('Earlier attempt').last);
+    await World.settle(tester);
+    expect(
+      find.text('Unexpected public setup diagnostic'),
+      findsOneWidget,
+      reason: 'the earlier attempt keeps its message',
+    );
+    expect(find.text('Another public setup diagnostic'), findsNothing, reason: 'one attempt is shown at a time');
     String? copied;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
       if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;

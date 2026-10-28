@@ -260,6 +260,9 @@ class _HostDialogState extends State<HostDialog> {
   bool _closingAfterVpn = false;
   Timer? _ticker;
 
+  /// The earlier attempt chosen to be shown; null for the current one.
+  HostAttemptRecord? _shownAttempt;
+
   @override
   void initState() {
     super.initState();
@@ -1730,54 +1733,52 @@ class _HostDialogState extends State<HostDialog> {
       return KeyedSubtree(key: key, child: child);
     }
 
-    final rows = <Widget>[
-      if (session != null) ...<Widget>[
-        if (attempts.isNotEmpty)
-          for (final entry in attempts.last.entries) anchored(entry, _protocolRow(entry)),
-        if (_hostRun?.interrupted == true && _hostRun?.givenBack != true) ...[
-          const Text('Nothing runs now. Go on continues from where it stopped.'),
-        ],
-        if (session.state == HostRunState.running)
-          if (session.timeLeftText case final text?) Text(text),
-        if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),
-        if (session.state == HostRunState.waiting && _takingDown)
-          const Text('The host has not completed teardown. Your machines have been kept.'),
-        if (session.fix != null &&
-            session.fix != session.said &&
-            !session.history.any((record) => record.step.fix == session.fix))
-          Padding(
-            padding: const EdgeInsets.only(top: Space.small),
-            child: Text(
-              session.fix!,
-              key: const Key('host-fix'),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        if (session.state == HostRunState.done &&
-            (_takingDown ? _vpnDownConfirmed : _hostRun == null || _hostRun!.ready))
-          Padding(
-            padding: const EdgeInsets.only(top: Space.small),
-            child: Text(
-              !_takingDown && _hostRun?.ready == true ? 'Ready: ${widget.project} server is in your machines' : 'Done.',
-              key: const Key('host-done'),
-            ),
-          ),
-      ],
-      if (!_takingDown)
-        if (_hostRun?.problem case final problem?) Text(problem),
-      if (_machineProblem != null) Text(_machineProblem!),
-      if (_vpnProblem != null) Text(_vpnProblem!),
-      for (final attempt in attempts.take(attempts.length - (attempts.isEmpty ? 0 : 1)))
-        anchored(
-          attempt,
-          ExpansionTile(
-            key: PageStorageKey(attempt),
-            title: Text(attempt.earlierLabel),
-            children: [for (final entry in attempt.entries) _protocolRow(entry, current: false)],
-          ),
-        ),
-    ];
-    return SizedBox(
+    // An earlier attempt is chosen above the protocol and shown alone; the current one is shown by default.
+    final earlier = attempts.length > 1 ? attempts.sublist(0, attempts.length - 1) : const <HostAttemptRecord>[];
+    final shown = earlier.contains(_shownAttempt) ? _shownAttempt : null;
+    final rows = shown != null
+        ? <Widget>[for (final entry in shown.entries) _protocolRow(entry, current: false)]
+        : <Widget>[
+            if (session != null) ...<Widget>[
+              if (attempts.isNotEmpty)
+                for (final entry in attempts.last.entries) anchored(entry, _protocolRow(entry)),
+              if (_hostRun?.interrupted == true && _hostRun?.givenBack != true) ...[
+                const Text('Nothing runs now. Go on continues from where it stopped.'),
+              ],
+              if (session.state == HostRunState.running)
+                if (session.timeLeftText case final text?) Text(text),
+              if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),
+              if (session.state == HostRunState.waiting && _takingDown)
+                const Text('The host has not completed teardown. Your machines have been kept.'),
+              if (session.fix != null &&
+                  session.fix != session.said &&
+                  !session.history.any((record) => record.step.fix == session.fix))
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.small),
+                  child: Text(
+                    session.fix!,
+                    key: const Key('host-fix'),
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+              if (session.state == HostRunState.done &&
+                  (_takingDown ? _vpnDownConfirmed : _hostRun == null || _hostRun!.ready))
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.small),
+                  child: Text(
+                    !_takingDown && _hostRun?.ready == true
+                        ? 'Ready: ${widget.project} server is in your machines'
+                        : 'Done.',
+                    key: const Key('host-done'),
+                  ),
+                ),
+            ],
+            if (!_takingDown)
+              if (_hostRun?.problem case final problem?) Text(problem),
+            if (_machineProblem != null) Text(_machineProblem!),
+            if (_vpnProblem != null) Text(_vpnProblem!),
+          ];
+    final list = SizedBox(
       key: _protocolViewport,
       height: Sizes.hostProtocolHeight,
       child: Scrollbar(
@@ -1795,6 +1796,24 @@ class _HostDialogState extends State<HostDialog> {
           itemBuilder: (_, index) => rows[index],
         ),
       ),
+    );
+    if (earlier.isEmpty) return list;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButton<HostAttemptRecord?>(
+          key: const Key('host-attempt'),
+          value: shown,
+          onChanged: (attempt) => setState(() => _shownAttempt = attempt),
+          items: [
+            const DropdownMenuItem<HostAttemptRecord?>(value: null, child: Text('Current attempt')),
+            for (final attempt in earlier.reversed)
+              DropdownMenuItem<HostAttemptRecord?>(value: attempt, child: Text(attempt.earlierLabel)),
+          ],
+        ),
+        list,
+      ],
     );
   }
 
