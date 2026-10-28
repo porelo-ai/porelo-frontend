@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Unlocking a rented server's vault asks the master password of the secrets file once, in its terminal, and feeds
+  the vault passphrase its setup kept there to the server's `porelo vault unlock --passphrase-stdin`; nobody copies it
+  by hand. A rented server's vault is no longer offered to be made here: its setup makes it, from the file.
 - Putting a project on a server checks first that KeePassXC's command line is installed: without it the
   command says so with the line that installs it, the secrets step shows that line once with an error
   mark and a copy button, and its button says Make it now (try again) and looks again on each press.

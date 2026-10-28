@@ -1,6 +1,6 @@
 # F221 — A Host's Vault Unlocked From The Secrets File
 
-**Status:** Estimated; placed with the bug fixes after the operator's tests of sprints 6 to 6i.
+**Status:** Implementing; built, not yet published.
 **Size:** S - Unlock the vault for a rented server fed from the secrets file as the stop is, the vault's Make refused
 on a rented server, and their tests; about 2 hours.
 

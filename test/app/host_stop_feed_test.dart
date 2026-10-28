@@ -320,4 +320,35 @@ void main() {
       expect(shown, isNot(contains(key)), reason: 'nothing of it on this desktop\'s terminal');
     }, skip: skip);
   });
+
+  group('the vault unlocked from the file', () {
+    List<String> unlock({String host = 'porelo@203.0.113.7'}) => hostUnlockFeedCommand(
+      secretsFile: '/home/person/Porelo/secrets.kdbx',
+      project: 'checkout',
+      ssh: '/usr/bin/ssh',
+      sshOptions: const ['-o', 'StrictHostKeyChecking=yes'],
+      host: host,
+    );
+
+    // Harm: the vault passphrase on a command line, or the pipe read by a login shell's profile at the far end.
+    test('pipes the file\'s vault passphrase into the account\'s own porelo, on standard input', () {
+      final run = unlock();
+      expect(run, containsAllInOrder(<String>['/usr/bin/env', '/bin/bash', '--noprofile', '--norc', '-c']));
+      final script = run.last;
+      expect(script, contains("'hosts/checkout/vault-passphrase'"));
+      expect(
+        script.substring(script.lastIndexOf('} | ')),
+        endsWith(
+          '/usr/bin/ssh -o StrictHostKeyChecking=yes -T -- porelo@203.0.113.7 '
+          "'/usr/bin/porelo vault unlock --passphrase-stdin'",
+        ),
+      );
+      expect(script, contains('set -o pipefail'), reason: 'a feed that fails fails the terminal');
+      expect(script.indexOf('/usr/bin/stty -echo'), lessThan(script.indexOf('} | ')), reason: 'no echo for the file');
+    });
+
+    test('refuses a host that is not one login at one address', () {
+      expect(() => unlock(host: '-oProxyCommand=x'), throwsFormatException);
+    });
+  });
 }

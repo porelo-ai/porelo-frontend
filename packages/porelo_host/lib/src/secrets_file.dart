@@ -182,21 +182,39 @@ class SecretsFile {
       }
     }
     return [
-      ..._shellStart,
-      'cli=${_word(cli)}',
-      'file=${_word(file)}',
+      ..._opened,
       // Whole groups of four, padded at the end only: what the host decodes as it stands.
       r"b64='^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'",
-      _kp,
-      r'''get() { local value; value="$(kp show -s -a password "$file" "$1" 2>/dev/null || true)"; if [ -z "$value" ]; then echo "$file has no entry $1; nothing was sent." >&2; return 1; fi; printf '%s' "$value"; }''',
-      r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
-      r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
-      r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was sent." >&2; exit 1; fi',
       ...reads,
       ...writes,
       'unset MASTER ${variables.join(' ')}',
     ].join('\n');
   }
+
+  /// The script that writes [project]'s vault passphrase as one line to standard output, which is the pipe to the
+  /// host's `porelo vault unlock --passphrase-stdin`, after the file's master password is typed once. A file that
+  /// does not open, or has no such entry, writes nothing.
+  String unlockLine({required String project}) {
+    _checkProject(project);
+    return [
+      ..._opened,
+      'v="\$(get ${_word(vaultPassphrase(project))})"',
+      r'''printf '%s\n' "$v"''',
+      'unset MASTER v',
+    ].join('\n');
+  }
+
+  /// The script's start: no echo, `get` for an entry, and the master password asked and checked against the file.
+  List<String> get _opened => [
+    ..._shellStart,
+    'cli=${_word(cli)}',
+    'file=${_word(file)}',
+    _kp,
+    r'''get() { local value; value="$(kp show -s -a password "$file" "$1" 2>/dev/null || true)"; if [ -z "$value" ]; then echo "$file has no entry $1; nothing was sent." >&2; return 1; fi; printf '%s' "$value"; }''',
+    r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
+    r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was sent." >&2; exit 1; fi',
+    r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was sent." >&2; exit 1; fi',
+  ];
 
   // No echo from the first byte, and none of the caller's tracing: neither may draw a secret on the terminal.
   static const _shellStart = [

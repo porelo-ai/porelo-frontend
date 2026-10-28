@@ -542,6 +542,34 @@ void main() {
     }, skip: skip);
 
     // Harm: a host given the wrong secret, or a missing one, which the stop refuses only after the person typed.
+    // Harm: the vault passphrase typed by hand, or more than it sent to the host's `porelo vault unlock`.
+    test('the unlock line is the vault passphrase alone, and a missing entry gives none', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'checkout.pub');
+      expect(
+        (await run(
+          SecretsFile(kdbx, cli: cli).prepareHost(project: 'checkout', create: true, publicKeyOut: out),
+          'm',
+          twice: true,
+        )).exitCode,
+        0,
+      );
+      final passphrase = await show(kdbx, 'hosts/checkout/vault-passphrase', 'm');
+
+      final fed = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'checkout'), 'm');
+      expect(fed.exitCode, 0, reason: '${fed.stderr}');
+      expect('${fed.stdout}', '$passphrase\n');
+      expect('${fed.stderr}', isNot(contains(passphrase)), reason: 'nothing of it on the terminal');
+
+      final wrong = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'checkout'), 'not it');
+      expect(wrong.exitCode, isNot(0));
+      expect('${wrong.stdout}', isEmpty, reason: 'no line from a file that did not open');
+
+      final missing = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'other'), 'm');
+      expect(missing.exitCode, isNot(0));
+      expect('${missing.stdout}', isEmpty, reason: 'no line at all when the entry is missing');
+    });
+
     test('the stop\'s lines carry each entry base64, in the agreed form, and a missing entry gives none', () async {
       final kdbx = path.join(home.path, 'secrets.kdbx');
       final out = path.join(home.path, 'checkout.pub');

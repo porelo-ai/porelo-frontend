@@ -14,7 +14,8 @@ import 'terminal_copy.dart';
 import 'terminal_links.dart';
 import 'terminal_look.dart';
 
-/// Opens [machine]'s vault by its passphrase, typed into a terminal running [command] there.
+/// Opens [machine]'s vault by its passphrase, typed into a terminal running [command] there, or fed by it from the
+/// secrets file where [explanation] says so.
 ///
 /// The only way from here to a vault nothing has opened yet: unlocking with a device needs the
 /// device enrolled, and enrolling needs the vault open. Returns once the dialog is put away.
@@ -23,12 +24,14 @@ Future<void> unlockInATerminal(
   required Machine machine,
   required List<String> command,
   OpenTerminal? open,
+  String? explanation,
 }) => runInATerminal(
   context,
   title: 'Open the vault on ${machine.name}',
   explanation:
+      explanation ??
       "Type the vault's passphrase into the terminal. It goes straight to the machine "
-      'and never through this program, and nothing here keeps it.',
+          'and never through this program, and nothing here keeps it.',
   machine: machine,
   command: command,
   open: open,

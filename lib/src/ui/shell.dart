@@ -54,6 +54,7 @@ import '../app/settings.dart';
 import '../app/shell_model.dart';
 
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_host/porelo_host.dart' show HostFilesRefused;
 
 import 'attention_view.dart';
 import 'command_finder.dart';
@@ -469,7 +470,7 @@ class _ShellState extends State<Shell> {
     askTheWorkUser: () => unawaited(_askTheWorkUser()),
     addAUser: () => unawaited(_addAUser()),
     unlockWithThePassphrase: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
-    makeTheVault: _canUnlockHere ? () => unawaited(_makeTheVault()) : null,
+    makeTheVault: _canMakeHere ? () => unawaited(_makeTheVault()) : null,
   );
 
   UnattendedRun? get _openedRun => switch (widget.shell.opened) {
@@ -535,7 +536,7 @@ class _ShellState extends State<Shell> {
     actOnTheVault: (act) => unawaited(_actOnTheVault(act)),
     addAUser: () => unawaited(_addAUser()),
     unlockWithThePassphrase: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
-    makeTheVault: _canUnlockHere ? () => unawaited(_makeTheVault()) : null,
+    makeTheVault: _canMakeHere ? () => unawaited(_makeTheVault()) : null,
   );
 
   List<Command> _hostCommands(Machine machine) {
@@ -991,7 +992,7 @@ class _ShellState extends State<Shell> {
       ),
       pick: widget.pickAFile,
       keysAt: widget.machines.setup.sshDirectory,
-      makeTheVault: _canUnlockHere ? _makeTheVault : null,
+      makeTheVault: _canMakeHere ? _makeTheVault : null,
       openTheVault: _canUnlockHere ? _unlockHere : null,
     );
     if (asked == null || !mounted) return;
@@ -1141,6 +1142,9 @@ class _ShellState extends State<Shell> {
   /// Whether the current machine's own `porelo` can be reached for a terminal.
   bool get _canUnlockHere => unlockCommandFor(widget.machines.current) != null;
 
+  /// Whether the current machine's vault can be made here: never a rented server's, which its setup makes.
+  bool get _canMakeHere => makeCommandFor(widget.machines.current) != null;
+
   /// Grants what [credential] names, then asks the vault again: the grant is kept there.
   Future<void> _grant(Credential credential) async {
     final machine = widget.machines.current;
@@ -1160,9 +1164,36 @@ class _ShellState extends State<Shell> {
 
   Future<void> _unlockMachine(Machine machine) async {
     final fleet = widget.machines.of(machine);
-    final command = unlockCommandFor(machine);
+    final secrets = widget.settings.secretsFile;
+    final List<String>? command;
+    try {
+      command = unlockCommandFor(machine, secretsFile: secrets);
+    } on FormatException catch (error) {
+      _fleet.say(error.message);
+      return;
+    } on HostFilesRefused catch (error) {
+      _fleet.say(error.message);
+      return;
+    }
     if (command == null) return;
-    await unlockInATerminal(context, machine: machine, command: command, open: widget.sessions.openTerminal);
+    final fromTheFile = secrets != null && command.first == '/usr/bin/env';
+    // Said before a real terminal asks a master password that nothing could take.
+    if (fromTheFile && widget.sessions.openTerminal == null) {
+      if (keepassxcCliMissing() case final missing?) {
+        _fleet.say(missing);
+        return;
+      }
+    }
+    await unlockInATerminal(
+      context,
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      explanation: fromTheFile
+          ? 'Type the master password of $secrets, once. The vault passphrase comes from it and goes straight '
+                'to ${machine.name}, never through this program, and nothing here keeps it.'
+          : null,
+    );
     if (!mounted) return;
     await widget.vault.lookAt(fleet.backend, machine.name);
     await fleet.refresh(quietly: true);
@@ -3003,7 +3034,7 @@ class _ShellState extends State<Shell> {
               onOpenWithThePassphrase: fleet.reachability == Reachability.connected && _canUnlockHere
                   ? () => unawaited(_unlockHere())
                   : null,
-              onMakeIt: fleet.reachability == Reachability.connected && _canUnlockHere
+              onMakeIt: fleet.reachability == Reachability.connected && _canMakeHere
                   ? () => unawaited(_makeTheVault())
                   : null,
             ),
@@ -3157,9 +3188,12 @@ class _ShellState extends State<Shell> {
                                 'It keeps what your agent signs in with and the keys ${machine.name} '
                                 'pushes with, behind a passphrase only you know. Nothing can be kept there '
                                 'until it is made.',
-                            act: _canUnlockHere ? 'Make it, in a terminal' : null,
+                            act: _canMakeHere ? 'Make it, in a terminal' : null,
                             onAct: () => unawaited(_makeTheVault()),
-                            otherwise: "Run 'porelo setup' in a terminal on ${machine.name}, which makes it.",
+                            otherwise: machine.kind == 'host'
+                                ? "${machine.name}'s vault is made by its setup, from your secrets file: complete "
+                                      'its setup where Needs you asks for it.'
+                                : "Run 'porelo setup' in a terminal on ${machine.name}, which makes it.",
                           )
                         : const SizedBox.shrink(),
                   ),
@@ -3267,7 +3301,7 @@ class _ShellState extends State<Shell> {
           onRevoke: (slot) => widget.vault.devices.revoke(_fleet.backend, slot),
           onClose: widget.shell.close,
           onUnlockHere: _canUnlockHere ? () => unawaited(_unlockHere()) : null,
-          onMakeHere: _canUnlockHere ? () => unawaited(_makeTheVault()) : null,
+          onMakeHere: _canMakeHere ? () => unawaited(_makeTheVault()) : null,
           onGrant: (credential) => unawaited(_grant(credential)),
         );
       case BackupsOpened():

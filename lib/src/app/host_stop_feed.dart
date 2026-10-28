@@ -97,24 +97,54 @@ List<String> hostStopFeedCommand({
     '/usr/bin/stty -echo 2>/dev/null || true',
     '{\n$feed\n} | ${sshLine(['-T', '--', host, stop])}',
   ].join('\n');
-  // Neither the caller's startup files nor an inherited trace may run in the shell that holds the secrets.
-  return [
-    '/usr/bin/env',
-    '-u',
-    'BASH_ENV',
-    '-u',
-    'ENV',
-    '-u',
-    'SHELLOPTS',
-    '-u',
-    'BASHOPTS',
-    '/bin/bash',
-    '--noprofile',
-    '--norc',
-    '-c',
-    script,
-  ];
+  return _inACleanBash(script);
 }
+
+/// The command the vault's unlock terminal runs on this desktop for a rented server: the file's master password typed
+/// once, here, and the vault passphrase from its entry on a pipe into `porelo vault unlock --passphrase-stdin` as
+/// [host], the server's Porelo account. The passphrase reaches no argument, the far end's terminal or this program.
+List<String> hostUnlockFeedCommand({
+  required String secretsFile,
+  required String project,
+  required String ssh,
+  required List<String> sshOptions,
+  required String host,
+  String cli = SecretsFile.keepassxcCli,
+}) {
+  if (!ssh.startsWith('/')) throw const FormatException('ssh is run by its absolute path.');
+  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(host)) {
+    throw FormatException('The server is not named by a valid user and address: $host.');
+  }
+  final feed = SecretsFile(secretsFile, cli: cli).unlockLine(project: project);
+  final pipe = [ssh, ...sshOptions, '-T', '--', host, '/usr/bin/porelo vault unlock --passphrase-stdin'];
+  return _inACleanBash(
+    [
+      "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
+      'set -o pipefail',
+      '/usr/bin/stty -echo 2>/dev/null || true',
+      // No login shell at the far end: its profile would run with the pipe on its standard input.
+      '{\n$feed\n} | ${pipe.map(quoteForAShell).join(' ')}',
+    ].join('\n'),
+  );
+}
+
+// Neither the caller's startup files nor an inherited trace may run in the shell that holds the secrets.
+List<String> _inACleanBash(String script) => [
+  '/usr/bin/env',
+  '-u',
+  'BASH_ENV',
+  '-u',
+  'ENV',
+  '-u',
+  'SHELLOPTS',
+  '-u',
+  'BASHOPTS',
+  '/bin/bash',
+  '--noprofile',
+  '--norc',
+  '-c',
+  script,
+];
 
 /// Prints the admission's registration token in base64, the form `porelo-host-stop` reads; fails where there is none.
 const _tokenOfTheAdmission =
