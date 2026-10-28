@@ -1,8 +1,10 @@
 # F202 — The Forge's Certificate Signed On This Desktop
 
-**Status:** Implementing; the signing at the stop built. A host set up from here runs no forge until the interface
-writes `porelo_host_forge` ([F145](README.md#f145)), asked of the Coordinator (2026-10-28); until then nothing of
-this issue is reached on a rented host.
+**Status:** Implementing; the signing at the stop, the CA kept and trusted here, and its warning built. The lasting
+password waits for `porelo-project`'s idea of setting a host up apart from its projects (filed 2026-10-28, not yet
+published): the operator decided that setting up a host brings its forge with the person's login, password and
+certificate, and putting a project on it brings the project's parts; until that idea is accepted and analysed, none of it is built here and no
+switch of [F145](README.md#f145) is written, so a host set up from here runs no forge yet.
 **Size:** L (grown from M once `porelo-host`
 [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) was read: the password call, the VPN's
 root step and the CA's warning) - a second step in the stop's terminal, the CA made once into the file, and their tests, on a contract
@@ -90,7 +92,8 @@ whole in 6e.
   offset in place of `Z` are refused, not read: RFC 5280 forbids both in a certificate's validity, and `openssl`
   writes neither.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
-  `porelo-host-forge-password` after `up`), which waits for the operator with Machines' change to that script.
+  `porelo-host-forge-password`), which waits for that idea with Machines' change to that script: where it is set moves
+  with the forge into the host's own setup.
 
 ## Acceptance
 
