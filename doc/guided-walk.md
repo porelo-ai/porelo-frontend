@@ -51,6 +51,20 @@ account or address: it says "the test machine" and `<Konto>`, which the agent wa
   After starting Claude Code again, `/mcp` shows `guided-walk` as connected. The plugin's README
   says which scope fits whom, and how to ask for a walk.
 
+## The sprint walks
+
+The operator's tests of this repository are walks, started from this checkout with `flutter run`, so the interface
+can be corrected during the walk and the change seen live. Each walk's first step says what must run before it and
+the one command that starts it; a step a person does outside the interface says where: in Claude as `! <command>`,
+or in a separate terminal where it asks anything.
+
+- `18-sprint-6d-the-secrets-file-and-the-agents.json`: the secrets file made once, and each repository's agent at
+  one click; nothing is rented.
+- `19-sprints-6e-to-6i-a-rented-server.json`: a rented server set up from the secrets file, its files uploaded, no
+  drive, its forge's certificate, and this computer's homeserver published for it; it starts `porelo-host` built
+  from this checkout (`PORELO_HOST_STANDIN`), so the walk and the command are of one tree.
+- `20-sprint-6g-your-own-drive-on-a-machine.json`: a person's own Tresorit drive in a work user's account.
+
 ## The host flow on this computer
 
 The host walk uses two mock daemons and compiled stand-ins; it rents nothing. The override is

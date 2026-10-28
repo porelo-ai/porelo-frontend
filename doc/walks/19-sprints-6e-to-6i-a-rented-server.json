@@ -1,0 +1,121 @@
+{
+  "title": "Sprints 6e to 6i: a rented server set up from the secrets file, its files uploaded, no drive, its forge's certificate, the homeserver published",
+  "from": 0,
+  "steps": [
+    {
+      "say": "0-1. Before you start, on the laptop in your own account: this walk rents one server for about 40 minutes and gives it back at the end. Your Scaleway key is set in Forges, your secrets file exists (walk 18), and porelo-host's guides for 6e to 6i lie beside you (~/.porelo/handover/porelo-project/sprint6e … sprint6i/steps-porelo-host.md). Start this walk from ~/git/porelo-frontend with: mkdir -p ~/.porelo/walk && cp doc/walks/19-sprints-6e-to-6i-a-rented-server.json ~/.porelo/walk/walk.json && (cd packages/porelo_host && dart compile exe bin/porelo_host.dart -o ~/.porelo/walk/porelo-host) && curl -fsSL -o ~/.porelo/walk/porelo-host-0.5.6.tar.gz https://github.com/porelo-ai/porelo-host/releases/download/v0.5.6/porelo-host-0.5.6.tar.gz && PORELO_HOST_STANDIN=$HOME/.porelo/walk/porelo-host PORELO_WALK=$HOME/.porelo/walk flutter run -d linux Expected: the interface opens with this panel beside it; porelo-host is the one built from this checkout.",
+      "at": []
+    },
+    {
+      "say": "6e-1. Open Projects in the rail, choose your project, then its menu and Put this project on a server…. Expected: the wizard opens at Where it is rented.",
+      "at": [
+        "rail projects",
+        "project *",
+        "project-menu",
+        "project.server"
+      ],
+      "then": "host-scaleway-project"
+    },
+    {
+      "say": "6e-2. Fill Where it is rented and click Next. On The project, give the public key for signing commits and, where your vault entries need files, choose them. Expected: no Tresorit folder and no tresor name are asked (6g). Click Next.",
+      "at": [
+        "host-scaleway-project",
+        "wizard-next",
+        "host-signing-key"
+      ],
+      "then": "host-identity"
+    },
+    {
+      "say": "6e-3. On Your ssh keys, give your private key; the public one fills itself from its .pub. Click Next. Expected: Your secrets file, with Open it now.",
+      "at": [
+        "host-identity",
+        "host-public-key",
+        "wizard-next"
+      ],
+      "then": "host-secrets-file"
+    },
+    {
+      "say": "6e-4. Click Open it now and type your master password in its terminal; click Done. Expected: Ready: the file keeps the server's keys. Click Next.",
+      "at": [
+        "host-secrets-open",
+        "host-secrets-terminal",
+        "host-secrets-answer",
+        "wizard-next"
+      ],
+      "then": "host-collection"
+    },
+    {
+      "say": "6e-5. This is a development build, so it asks for A test collection: choose ~/.porelo/walk/porelo-host-0.5.6.tar.gz and give the SHA-256 7bfa0ddad670faaa26db8f384cb2704d3f3ffc685f1785ca77b28d5cec9051ed (v0.5.6's own SHA256SUMS). Click Next, read every answer, then Put it on a server. Expected: the wizard closes and Machines shows your project's server In preparation.",
+      "at": [
+        "host-collection",
+        "host-collection-sha256",
+        "wizard-next",
+        "host-up"
+      ],
+      "then": "host-preparing *"
+    },
+    {
+      "say": "6f-1. Click the In preparation row to open its protocol. Expected: before up, the machine file and the project bundle are uploaded over the server's own ssh (the summary named /etc/porelo-host/setup/<project>.bundle); nothing is read from a drive. On the server, porelo-host's 6f guide checks the files' owner and mode.",
+      "at": [
+        "host-preparing *",
+        "host-protocol-list"
+      ]
+    },
+    {
+      "say": "6e-6. When the setup stops, open Needs you and Complete setup on the host. Expected: it names what the host needs (its new vault's passphrase, its VPN key, the files of its vault entries, and with 6h's forge its certificate) and says They come from your secrets file: type its master password once, in the terminal on this computer. No Tresorit login is asked (6g).",
+      "at": [
+        "rail attention",
+        "host-needs *",
+        "text:Complete setup on",
+        "host-stop-fields"
+      ],
+      "then": "host-open-terminal"
+    },
+    {
+      "say": "6e-7. Click Open the terminal and type your master password once. Expected: nothing you type is shown; then The host has what it needs; setup goes on. Click Done. Failure signs: has no entry … nothing was sent names an entry missing from your file; a message beginning porelo-host-stop: with 64 is a line the host refused (porelo-host's 6e guide).",
+      "at": [
+        "host-open-terminal",
+        "unlock-done"
+      ]
+    },
+    {
+      "say": "6h-1. Only where the forge runs on this server (porelo_host_forge, as the operator decided for 6h): the stop above also said The host's forge needs its certificate: signed on this computer by your lasting CA. Expected in the same terminal: the CA is made once in your secrets file (shared/forge-ca-key, shared/forge-ca), and the certificate goes to the host; no file of the CA is left on this computer.",
+      "at": []
+    },
+    {
+      "say": "6e-8. The setup goes on by itself to its VPN step, and a terminal on this computer asks your sudo password for the VPN. Type it there. Expected: the VPN check pings the server and waits for a fresh handshake; then the terminal closes and the server shows as a machine in Machines.",
+      "at": [
+        "host-vpn-terminal"
+      ],
+      "then": "!host-vpn-terminal"
+    },
+    {
+      "say": "6i-1. Only where this account runs its own homeserver (porelo-message-matrix's 6i guide, steps M1 and M2): right after the VPN, Your homeserver for this server says Your homeserver is published for this server's tasks at https://matrix.porelo.internal:<port>, on 10.73.0.2. Where /etc/hosts lacks it, the line 127.0.0.1 matrix.porelo.internal # porelo-matrix is shown with a copy button: add it once, by hand, in a separate terminal with sudo. Click Close. This replaces Matrix's own publish step; go on there with the host's side and its matrix-token (porelo-host's 6i guide).",
+      "at": [
+        "homeserver-published",
+        "homeserver-published-close"
+      ]
+    },
+    {
+      "say": "6h-2. Only with the forge: in Firefox, open https://forge.porelo.internal/ . Expected: no certificate warning, and no CA imported or hosts line written by hand; the VPN step put the CA into the system store and Firefox's policy and the name into /etc/hosts. Signing in with the lasting password is not in this sprint.",
+      "at": []
+    },
+    {
+      "say": "6e-9. Open Machines and your server's page. Expected: it is ready, reached over the VPN. Work on it as porelo-host's guides for 6e to 6i say, then come back here.",
+      "at": [
+        "rail machines",
+        "rail-machine *"
+      ]
+    },
+    {
+      "say": "End-1. In Machines, open the server's menu and Take this server down, then confirm. Expected: the server's give-back is confirmed and it leaves Machines. With 6i, a failure to close your homeserver's published address is said in this dialog; in Claude, ! grep -c PORELO_MATRIX_PUBLISH ~/.config/porelo/matrix/homeserver.conf prints 0. Then tell me what differed.",
+      "at": [
+        "rail machines",
+        "machines-menu *",
+        "machine.takeDown",
+        "host-down"
+      ],
+      "then": "host-done"
+    }
+  ]
+}

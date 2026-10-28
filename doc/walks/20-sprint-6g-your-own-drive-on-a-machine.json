@@ -1,0 +1,51 @@
+{
+  "title": "Sprint 6g: your own Tresorit drive in a work user's account, installed only when its signature holds",
+  "from": 0,
+  "steps": [
+    {
+      "say": "6g-B0. Before you start, on the laptop in your own account: a machine you set up with Watch another machine… → A new machine just rented, or a test machine whose work user may be given a drive, and your Tresorit account. Start this walk from ~/git/porelo-frontend with: mkdir -p ~/.porelo/walk && cp doc/walks/20-sprint-6g-your-own-drive-on-a-machine.json ~/.porelo/walk/walk.json && PORELO_WALK=$HOME/.porelo/walk flutter run -d linux Expected: the interface opens with this panel beside it.",
+      "at": []
+    },
+    {
+      "say": "6g-B1. Walk the new machine's wizard to 6. Your own drive (optional). Expected: the text that it is optional, and Install Tresorit for <user> as the only thing offered; no field asks anything yet.",
+      "at": [
+        "machines.add",
+        "drive-explained",
+        "drive-install"
+      ]
+    },
+    {
+      "say": "6g-B2. Next step is offered here without installing anything: on a machine that is to have no drive, click it and see the wizard go on with nothing of Tresorit installed (in Claude: ! ssh <alias> 'ls -d ~/.local/share/tresorit' prints No such file or directory). On the machine that is to have your drive, do not click it yet.",
+      "at": [
+        "setup-next"
+      ]
+    },
+    {
+      "say": "6g-B3. Click Install Tresorit for <user>. Expected: Tresorit's client is installed for <user>, from an installer its signature vouched for, and runs. Failure signs: did not pass its check on the machine, so nothing of it ran, with openssl's words, or holds no CA with the pinned fingerprint: then nothing ran, and the installer Tresorit serves no longer matches the pin.",
+      "at": [
+        "drive-install"
+      ],
+      "then": "drive-email"
+    },
+    {
+      "say": "6g-B4. Type your Tresorit e-mail and click Open a terminal to sign in. In that terminal Tresorit asks its password without echo, then the one-time code. Expected after the terminal ends: Signed in as <your e-mail>.",
+      "at": [
+        "drive-email",
+        "open-drive-terminal",
+        "drive-terminal"
+      ],
+      "then": "drive-signed-in"
+    },
+    {
+      "say": "6g-B5. Type the name of one of your tresors and click Sync it. Expected: <tresor> syncs into ~/Tresorit/<tresor> for <user> alone. In Claude, as another account on that machine: ! ssh <another alias> 'ls /home/<user>/Tresorit' is refused.",
+      "at": [
+        "drive-tresor",
+        "drive-sync"
+      ]
+    },
+    {
+      "say": "6g-B6. To take it off again by hand, as the user on the machine: systemctl --user disable --now tresorit-daemon.service, then ~/.local/share/tresorit/tresorit-cli logout --unlink. Then tell me what differed.",
+      "at": []
+    }
+  ]
+}
