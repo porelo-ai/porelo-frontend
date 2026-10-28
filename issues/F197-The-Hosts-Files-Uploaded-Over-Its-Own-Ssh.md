@@ -1,8 +1,7 @@
 # F197 — The Host's Files Uploaded Over Its Own Ssh
 
-**Status:** Implementing; re-cut from a drive layout (a step of the host's new setup, after
-[F199](README.md#f199)); `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36)
-is published, and no porelo-host release carries it before this issue is out.
+**Status:** Review; published 2026-10-28 (Build green on `1c53dc5`), carried by `porelo-host` 0.5.6 with
+[HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36), not yet run on a rented host.
 **Size:** M - `porelo_host`'s `copy` step and `HostFiles`, the host dialog's step *The drive*, and their tests; one
 path both repositories read.
 
