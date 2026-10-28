@@ -473,15 +473,26 @@ class HostRuns extends ChangeNotifier {
   /// null where nothing here publishes it.
   final HomeserverPublishing? homeserver;
 
-  /// Removes recovery only after the provider confirmed give-back and the command succeeded. Answers why this
-  /// computer's homeserver is still published for the host where closing it failed, and null otherwise.
-  Future<String?> confirmDown(String project, HostSession session) async {
-    if (!hostGivenBack(session)) return null;
+  /// Closes this computer's homeserver published for [project]'s host, once that host was given back: its tasks
+  /// are gone, so nothing may reach the homeserver on that address any more. Answers why it is still published
+  /// where closing failed, and null otherwise; run after [confirmDown], which waits on nothing of it.
+  Future<String?> closeHomeserver(String project) async {
+    final kept = machines.settings.hostUp(project);
+    final closed = kept == null ? null : await homeserver?.unpublish(kept.vpnPeerAddress);
+    if (closed == null || !closed.published) return null;
+    if (_runs[project] case final run?) {
+      run.problem = closed.words;
+      _changed();
+    }
+    return closed.words;
+  }
+
+  /// Removes recovery only after the provider confirmed give-back and the command succeeded.
+  Future<void> confirmDown(String project, HostSession session) async {
+    if (!hostGivenBack(session)) return;
     final pending = _runs[project];
     await pending?.saved;
     final kept = machines.settings.hostUp(project);
-    // The host's tasks are gone, so nothing may reach the homeserver on that address any more.
-    final closed = kept == null ? null : await homeserver?.unpublish(kept.vpnPeerAddress);
     if (kept != null) {
       await machines.settings.rememberHostUp(project, kept.withPreparation(null).withProtocol(const []));
     }
@@ -490,10 +501,8 @@ class HostRuns extends ChangeNotifier {
       run._poll?.cancel();
       run.givenBack = true;
       run.interrupted = false;
-      if (closed != null && closed.published) run.problem = closed.words;
     }
     _changed();
-    return closed != null && closed.published ? closed.words : null;
   }
 
   void _listen(HostPreparation run) {

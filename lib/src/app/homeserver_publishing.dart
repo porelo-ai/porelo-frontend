@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,23 +27,47 @@ class HomeserverPublishing {
   HomeserverPublishing({
     String? configuration,
     this.hostsFile = '/etc/hosts',
-    Future<ProcessResult> Function(String executable, List<String> arguments)? run,
-  }) : _configuration = configuration ?? desk.configuration,
-       _run = run ?? _runAndStopWhenLate;
+    this.executable = transport,
+    this.patience = const Duration(seconds: 60),
+    this.run,
+  }) : _configuration = configuration ?? desk.configuration;
 
-  /// Runs the transport, and stops it where it outlives [patience], so nothing of it is left waiting.
-  static Future<ProcessResult> _runAndStopWhenLate(String executable, List<String> arguments) async {
+  /// The transport run, [transport] unless a test names a stand-in.
+  final String executable;
+
+  /// How long the transport may take before it counts as refused and is stopped: neither the VPN's outcome nor
+  /// the give-back waits longer on it.
+  final Duration patience;
+
+  /// Runs the transport, and stops it where it outlives [patience]: asked to end, then killed, so nothing of it
+  /// is left waiting; what it printed is read as far as it came, malformed bytes and all.
+  Future<ProcessResult> _runAndStopWhenLate(List<String> arguments) async {
     final process = await Process.start(executable, arguments);
-    final output = process.stdout.transform(utf8.decoder).join();
-    final errors = process.stderr.transform(utf8.decoder).join();
+    const decoder = Utf8Decoder(allowMalformed: true);
+    final output = process.stdout.transform(decoder).join();
+    final errors = process.stderr.transform(decoder).join();
+    var late = false;
     final code = await process.exitCode.timeout(
       patience,
       onTimeout: () {
+        late = true;
         process.kill();
-        throw TimeoutException('the transport did not answer');
+        return process.exitCode.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            process.kill(ProcessSignal.sigkill);
+            return process.exitCode;
+          },
+        );
       },
     );
-    return ProcessResult(process.pid, code, await output, await errors);
+    // A child the transport left behind may hold its output open: what came within a moment is enough.
+    Future<String> read(Future<String> all) => all.timeout(const Duration(seconds: 5), onTimeout: () => '');
+    final said = await read(output);
+    final complained = await read(errors);
+    return late
+        ? ProcessResult(process.pid, 124, said, 'it did not answer within ${patience.inSeconds} seconds')
+        : ProcessResult(process.pid, code, said, complained);
   }
 
   /// The matrix transport, by the path its package installs it to.
@@ -60,7 +83,9 @@ class HomeserverPublishing {
 
   /// The hosts file read for [laptopLineMissing].
   final String hostsFile;
-  final Future<ProcessResult> Function(String executable, List<String> arguments) _run;
+
+  /// How the transport is run, where a test stands in for it; otherwise it is started and stopped when late.
+  final Future<ProcessResult> Function(String executable, List<String> arguments)? run;
 
   File get _conf => File('$_configuration/matrix/homeserver.conf');
 
@@ -144,17 +169,11 @@ class HomeserverPublishing {
     return true;
   }
 
-  /// How long the transport may take before it counts as refused: neither the VPN's outcome nor the give-back
-  /// waits longer on it.
-  static const patience = Duration(seconds: 60);
-
   Future<ProcessResult> _ran(List<String> arguments) async {
     try {
-      return await _run(transport, arguments).timeout(patience);
+      return await (run?.call(executable, arguments) ?? _runAndStopWhenLate(arguments));
     } on ProcessException catch (error) {
       return ProcessResult(0, 127, '', error.message);
-    } on TimeoutException {
-      return ProcessResult(0, 124, '', 'it did not answer within ${patience.inSeconds} seconds');
     }
   }
 

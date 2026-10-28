@@ -549,6 +549,7 @@ void main() {
           ..writeAsStringSync('PORELO_MATRIX_PORT=8008\n');
         final hosts = File('${scratch.path}/hosts')..writeAsStringSync('127.0.0.1 localhost\n');
         final published = <List<String>>[];
+        final answered = Completer<void>();
         final private = base64Encode(List<int>.filled(32, 7));
         final peer = await HostFiles.publicKey(private);
         final host = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 9)));
@@ -564,6 +565,8 @@ void main() {
             hostsFile: hosts.path,
             run: (_, arguments) async {
               published.add(arguments);
+              // Held open until the test has seen the VPN's own outcome come first.
+              await answered.future;
               return ProcessResult(0, 0, '{"published": "10.73.0.2:8008", "name": "matrix.porelo.internal"}\n', '');
             },
           ),
@@ -623,6 +626,15 @@ void main() {
         }
         expect(published, isEmpty, reason: 'nothing is published before the handshake is seen');
         terminal.endsWith(0);
+        for (var turn = 0; turn < 100 && published.isEmpty && verified; turn++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+          await World.settle(tester);
+        }
+        if (verified) {
+          expect(run.vpnOpen, isFalse, reason: 'the VPN\'s own outcome waits on neither the transport nor its dialog');
+          expect(run.ready, isTrue, reason: 'the server is reachable before the homeserver is published');
+        }
+        answered.complete();
         for (var turn = 0; turn < 100 && find.byKey(const Key('homeserver-published')).evaluate().isEmpty; turn++) {
           await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
           await World.settle(tester);
@@ -636,7 +648,6 @@ void main() {
           return;
         }
         expect(published.single, ['publish', '--address', '10.73.0.2:8008', '--name', 'matrix.porelo.internal']);
-        expect(run.vpnOpen, isFalse, reason: 'the VPN\'s own outcome waits on neither the transport nor this dialog');
         expect(find.textContaining('https://matrix.porelo.internal:8008'), findsOneWidget);
         expect(
           tester.widget<SelectableText>(find.byKey(const Key('homeserver-laptop-line'))).data,

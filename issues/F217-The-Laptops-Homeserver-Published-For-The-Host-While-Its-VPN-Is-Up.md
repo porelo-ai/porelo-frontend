@@ -54,6 +54,14 @@ interface brings the VPN up, so it is the one that knows when the address exists
   not installed, the dialog without the line where it is there or nothing was published, *Close*, and nothing
   closed for a give-back not confirmed. **Declined, with the reason:** a test of the shell's one line that gives
   `HostRuns` its publishing on Linux; the walk sees it.
+- **From the reading of that fix (eight findings, seven taken):** the transport has one limit, its own: asked to
+  end after 60 seconds, killed five seconds later, its output read as far as it came and malformed bytes taken as
+  they are; the give-back no longer waits on it: `HostRuns.closeHomeserver` is started after the confirmed give-back
+  and waited for only after the VPN's cleanup, and what it says is added to the dialog's words, not put over them.
+  Tests now see a transport that sleeps stopped within seconds, the VPN's outcome reached while `publish` is still
+  running, and the third and fourth octets refused out of range or with a leading zero. **Declined, with the
+  reason:** a widget test of the host dialog showing a failed close: the return value is tested, and walk 19's
+  last step sees it.
 - **Red first:** a test with a scratch `homeserver.conf` and a stand-in transport: after a verified VPN, `publish` ran
   once with exactly that address, port and name; after the give-back, `publish --off` ran; without the file, neither.
 

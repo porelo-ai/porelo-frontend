@@ -979,14 +979,15 @@ class _HostDialogState extends State<HostDialog> {
     final owner = widget.hostRuns;
     if (mounted) setState(() => _finishingDown = true);
     try {
-      String? stillPublished;
+      Future<String?>? closing;
       if (owner != null) {
-        stillPublished = await owner.confirmDown(widget.project, session);
+        await owner.confirmDown(widget.project, session);
+        // Started now and waited for last: neither the machines nor the VPN wait on the transport.
+        closing = owner.closeHomeserver(widget.project);
       } else if (kept != null) {
         await widget.settings?.rememberHostUp(widget.project, kept.withPreparation(null));
       }
       final address = session.releasedAddress;
-      if (stillPublished != null && mounted) setState(() => _machineProblem = stillPublished);
       if (address == null || address.isEmpty) {
         if (mounted) setState(() => _machineProblem = 'No host was found. Your machines have been kept.');
       } else {
@@ -1000,6 +1001,7 @@ class _HostDialogState extends State<HostDialog> {
       // Only Linux brings up a local VPN that needs cleanup after give-back.
       if (!(widget.linux ?? Platform.isLinux)) {
         _vpnDownConfirmed = true;
+        await sayWhetherStillPublished(closing);
         return;
       }
       _givenBackMachine = Machine(
@@ -1010,9 +1012,17 @@ class _HostDialogState extends State<HostDialog> {
       );
       owner?.rememberVpnToTakeDown(_givenBackMachine!);
       if (mounted) await _takeVpnDown();
+      await sayWhetherStillPublished(closing);
     } finally {
       if (mounted) setState(() => _finishingDown = false);
     }
+  }
+
+  /// Says, beside what the give-back said, where this computer's homeserver is still published for the server.
+  Future<void> sayWhetherStillPublished(Future<String?>? closing) async {
+    final still = await closing;
+    if (still == null || !mounted) return;
+    setState(() => _machineProblem = [?_machineProblem, still].join(' '));
   }
 
   Future<void> _takeVpnDown() async {

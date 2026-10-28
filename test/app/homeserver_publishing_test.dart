@@ -68,6 +68,11 @@ void main() {
       ('8008', '127.0.0.1/32'),
       ('8008', '255.255.255.255/32'),
       ('8008', '10.73.0.1/32'),
+      ('8008', '10.73.0.0/32'),
+      ('8008', '10.73.0.255/32'),
+      ('8008', '10.73.256.2/32'),
+      ('8008', '10.73.00.2/32'),
+      ('8008', '10.73.0.02/32'),
       ('8008', '010.073.000.002/32'),
       ('8008', '192.168.1.2/32'),
       ('8008', '999.999.999.999'),
@@ -92,6 +97,37 @@ void main() {
     expect(missing.published, isFalse);
     expect(missing.words, contains('No such file or directory'), reason: 'a transport not installed is said');
   });
+
+  // Harm: a transport that hangs and holds the VPN's outcome or the give-back, or is left running.
+  test('a transport that does not answer is stopped and said, and malformed output is read', () async {
+    conf
+      ..createSync(recursive: true)
+      ..writeAsStringSync('PORELO_MATRIX_PORT=8008\n');
+    final hangs = File('${scratch.path}/transport')
+      ..writeAsStringSync('#!/bin/sh\nprintf "\\377bad\\n" >&2\necho \$\$ > "\$0.pid"\nexec sleep 30\n');
+    await Process.run('chmod', ['700', hangs.path]);
+    final late = HomeserverPublishing(
+      configuration: '${scratch.path}/porelo',
+      hostsFile: hosts.path,
+      executable: hangs.path,
+      patience: const Duration(seconds: 1),
+    );
+    final watch = Stopwatch()..start();
+    final outcome = (await late.publish('10.73.0.2/32'))!;
+    expect(
+      watch.elapsed,
+      lessThan(const Duration(seconds: 4)),
+      reason: 'asked to end at once, not killed late or left to sleep',
+    );
+    expect(outcome.published, isFalse);
+    expect(outcome.words, contains('did not answer within 1 seconds'));
+    final pid = File('${hangs.path}.pid').readAsStringSync().trim();
+    expect(Directory('/proc/$pid').existsSync(), isFalse, reason: 'the late transport is gone, not left running');
+
+    File(hangs.path).writeAsStringSync('#!/bin/sh\nprintf "refused \\377\\n" >&2\nexit 78\n');
+    final malformed = (await late.publish('10.73.0.2/32'))!;
+    expect(malformed.words, contains('refused'), reason: 'malformed bytes are read, not thrown');
+  }, skip: !Platform.isLinux);
 
   test('closed at the give-back only where it is published for that host', () async {
     conf

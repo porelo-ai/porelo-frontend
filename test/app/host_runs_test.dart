@@ -141,17 +141,11 @@ void main() {
       final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => down);
       addTearDown(session.dispose);
       await session.down();
-      said = await published.confirmDown('demo', session);
+      await published.confirmDown('demo', session);
+      expect(ran, isEmpty, reason: 'the give-back itself waits on nothing of the transport');
+      said = await published.closeHomeserver('demo');
       return run;
     }
-
-    // A give-back the provider did not confirm leaves the server running, and its tasks still reach the room.
-    final failed = HostProcess()..end(69);
-    final notBack = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => failed);
-    addTearDown(notBack.dispose);
-    await notBack.down();
-    expect(await published.confirmDown('demo', notBack), isNull);
-    expect(ran, isEmpty, reason: 'nothing is closed for a server still there');
 
     final closed = await givenBack();
     expect(ran.single, ['publish', '--off']);
