@@ -192,6 +192,10 @@ class _HostStopDialogState extends State<HostStopDialog> {
       _terminalOpen = true;
       _problem = null;
     });
+    // Said where this stop signs with the lasting CA, which is where a new one is made.
+    final caWarning = needs.contains('forge-certificate')
+        ? forgeCaWarning(widget.settings?.forgeCa, DateTime.now(), atTheStop: true)
+        : null;
     int? code;
     try {
       await runInATerminal(
@@ -200,7 +204,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
         explanation: fromTheFile
             ? 'Type the master password of your secrets file here; the host gets what it named from the file, on '
                   'standard input, and nothing is shown.${needs.contains('drive') ? ' The Tresorit login comes first, on the host.' : ''}'
-                  '${needs.contains('forge-certificate') ? ' ${forgeCaWarning(widget.settings?.forgeCa, DateTime.now()) ?? ''}' : ''}'
+                  '${caWarning == null ? '' : ' $caWarning'}'
             : 'Type the secrets into the host terminal. The Tresorit login asks again until it succeeds or you cancel, then the vault comes next.',
         machine: machine,
         command: command,

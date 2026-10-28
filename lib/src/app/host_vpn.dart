@@ -181,36 +181,41 @@ DateTime? certificateEnds(String pem) {
   if (!isForgeCaCertificate(pem)) return null;
   final der = base64.decode(pem.split('\n').where((line) => !line.startsWith('-----')).join());
   var at = 0;
-  // One element's tag, and where its content starts and ends; a long length in at most four bytes. A length past the
-  // end is the RangeError below.
-  (int, int, int) element() {
-    if (at + 2 > der.length) throw const FormatException('short');
+  // One element's tag, and where its content starts and ends, all of it inside [limit], its parent's end; a long
+  // length in at most four bytes, and none of indefinite length, which DER does not have.
+  (int, int, int) element(int limit) {
+    if (at + 2 > limit) throw const FormatException('short');
     final tag = der[at];
     var length = der[at + 1];
     at += 2;
+    if (length == 0x80) throw const FormatException('indefinite');
     if (length > 0x80) {
       final bytes = length - 0x80;
-      if (bytes > 4 || at + bytes > der.length) throw const FormatException('long');
+      if (bytes > 4 || at + bytes > limit) throw const FormatException('long');
       length = 0;
       for (var i = 0; i < bytes; i++) {
         length = length << 8 | der[at++];
       }
-    } else if (length == 0x80) {
-      throw const FormatException('indefinite');
     }
+    if (at + length > limit) throw const FormatException('beyond its parent');
     return (tag, at, at + length);
   }
 
-  void skip() => at = element().$3;
   try {
-    if (element().$1 != 0x30 || element().$1 != 0x30) return null; // Certificate, then tbsCertificate.
-    if (der[at] == 0xa0) skip(); // Its version.
+    final (certificate, _, certificateEnd) = element(der.length);
+    if (certificate != 0x30 || certificateEnd != der.length) return null;
+    final (tbs, _, tbsEnd) = element(certificateEnd);
+    if (tbs != 0x30) return null;
+    void skip() => at = element(tbsEnd).$3;
+    if (at < tbsEnd && der[at] == 0xa0) skip(); // Its version.
     skip(); // Serial.
     skip(); // Signature algorithm.
     skip(); // Issuer.
-    if (element().$1 != 0x30) return null; // Validity.
-    skip(); // Not before.
-    final (tag, start, end) = element();
+    final (validity, _, validityEnd) = element(tbsEnd);
+    if (validity != 0x30) return null;
+    at = element(validityEnd).$3; // Not before.
+    final (tag, start, end) = element(validityEnd);
+    if (end != validityEnd) return null; // Not after is the validity's last.
     final text = ascii.decode(der.sublist(start, end));
     final digits = switch (tag) {
       // UTCTime's two-digit year is 1950 to 2049.
@@ -219,23 +224,35 @@ DateTime? certificateEnds(String pem) {
       _ => null,
     };
     if (digits == null || !RegExp(r'^\d{14}Z$').hasMatch(digits)) return null;
-    int part(int from, int length) => int.parse(digits.substring(from, from + length));
-    return DateTime.utc(part(0, 4), part(4, 2), part(6, 2), part(8, 2), part(10, 2), part(12, 2));
+    final parts = [
+      for (final (from, length) in [(0, 4), (4, 2), (6, 2), (8, 2), (10, 2), (12, 2)])
+        int.parse(digits.substring(from, from + length)),
+    ];
+    final ends = DateTime.utc(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]);
+    // A month 13 or a minute 61 would roll on into a later date.
+    final back = [ends.year, ends.month, ends.day, ends.hour, ends.minute, ends.second];
+    for (var i = 0; i < parts.length; i++) {
+      if (back[i] != parts[i]) return null;
+    }
+    return ends;
   } on FormatException {
-    return null;
-  } on RangeError {
     return null;
   }
 }
 
 /// What the person is told where the lasting CA in [pem] ends within 90 days of [now], or has ended; null otherwise.
-String? forgeCaWarning(String? pem, DateTime now) {
+/// [atTheStop] for a stop that signs a forge's certificate, where the new CA is made.
+String? forgeCaWarning(String? pem, DateTime now, {bool atTheStop = false}) {
   final ends = pem == null ? null : certificateEnds(pem);
   if (ends == null || ends.difference(now) > const Duration(days: 90)) return null;
-  final day = ends.toIso8601String().substring(0, 10);
-  return '${ends.isAfter(now) ? 'The CA for your servers\' forges ends on $day' : 'The CA for your servers\' forges ended on $day'}'
-      ': remove shared/forge-ca and shared/forge-ca-key from your secrets file, and the next server\'s stop makes '
-      'a new one, which this computer trusts at its next VPN start.';
+  final when = '${ends.toIso8601String().substring(0, 16).replaceFirst('T', ' ')} UTC';
+  return [
+    'The CA for your servers\' forges ${ends.isAfter(now) ? 'ends' : 'ended'} on $when.',
+    'For a new one, remove shared/forge-ca and shared/forge-ca-key from your secrets file: the next server\'s stop',
+    'makes it, and this computer trusts it in place of the old at its next VPN start. A server set up before takes',
+    'it only when it is set up again; until then its forge is not trusted here.',
+    if (atTheStop) 'Where you removed them already, this stop makes the new one.',
+  ].join(' ');
 }
 
 /// Takes the VPN down, and the forge's name with it from `/etc/hosts`, which only this link reaches: that one line,

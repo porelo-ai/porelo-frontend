@@ -77,7 +77,16 @@ whole in 6e.
   GeneralizedTime, compared with what `openssl` reads); from 90 days before it, and after it, the VPN's start and a
   stop that signs the forge's certificate say when it ends and what to do: remove `shared/forge-ca` and
   `shared/forge-ca-key` from the secrets file, and the next stop makes a new CA, which the next VPN start trusts in
-  place of the old. A server set up before keeps a certificate of the old one until it is set up again.
+  place of the old. A server set up before keeps a certificate of the old one until it is set up again, and the
+  warning says so.
+- **From the warning's harm reading (seven findings, six taken, one in part):** every element of the certificate is
+  read inside its parent, the end must be the validity's last, nothing may follow the certificate, and a month 13 or
+  a minute 61 is refused rather than rolled into a later date; the warning names the hour in UTC, says that a server
+  set up before is not trusted here until it is set up again, and, at the stop, that this stop makes the new CA
+  where the entries are gone; the stop's text has no trailing space. Tests now build certificates by hand for each
+  form and each refusal, so none depends on today's date. **Declined, with the reason:** fractional seconds and an
+  offset in place of `Z` are refused, not read: RFC 5280 forbids both in a certificate's validity, and `openssl`
+  writes neither.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
   `porelo-host-forge-password` after `up`), which waits for the operator with Machines' change to that script.
 

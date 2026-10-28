@@ -442,7 +442,7 @@ void main() {
       await World.settle(tester);
       expect(
         tester.widget<Text>(find.byKey(const Key('unlock-explained'))).data,
-        contains('forges ends on'),
+        allOf(contains('forges ends on'), contains('this stop makes the new one')),
         reason: 'said where a new one is made',
       );
       final caout = RegExp(r"caout='?([^'\n]+)'?\n").firstMatch(terminals.single.command.last)!.group(1)!;
