@@ -1,6 +1,6 @@
 # F217 — The Laptop's Homeserver Published For The Host While Its VPN Is Up
 
-**Status:** Implementing (sprint 6i); the publishing and the token's part built, on `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41); it reaches a host once a `porelo-host` release carries it and the interface's collection is moved to it.
+**Status:** Implementing (sprint 6i); the publishing and the token's part built, on `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41); the interface's collection is pinned to `porelo-host` 0.5.7, which carries it.
 **Size:** M - the transport's `publish` after the tunnel and `publish --off` at the give-back, the laptop's hosts line
 shown, the host's registration token fed at its stop, and their tests; on `porelo-message-matrix` [MX42](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx42)'s and `porelo` [B304](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b304)'s published contracts.
 
