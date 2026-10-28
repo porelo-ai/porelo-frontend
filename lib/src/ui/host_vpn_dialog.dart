@@ -125,22 +125,24 @@ Future<bool> openHostVpnDialog(
 }) async {
   HostVpnAttempt? attempt;
   var verified = false;
+  // The terminal's last line when its command ended: the root step's fail line, wg-quick's own words in it.
+  var said = '';
   try {
     // Other platforms retain their existing preparation refusal and terminal command.
     if (linux ?? Platform.isLinux) {
+      final linkUp = await (probeLink ?? probeHostVpnLink)();
+      if (!up && !linkUp) return false;
+      // Setup needs an expected peer's fresh receipt; a shared VPN address cannot prove its identity.
+      if (up && linkUp && !requireFreshHandshake && await (ping ?? pingHostVpn)()) return false;
       // A snap's AppArmor label is inherited by the terminal and sudo, and wg-quick's own profile refuses to run under
       // it: said before sudo, instead of a root step that fails.
-      final label = up ? (confinement ?? appArmorLabel)() : null;
+      final label = (confinement ?? appArmorLabel)();
       if (label != null && label.startsWith('snap.')) {
         throw HostFilesRefused(
           'This interface runs confined by a snap ($label), where wg-quick cannot run. Start its program directly, '
           'not through the flutter snap: flutter build linux --debug, then build/linux/x64/debug/bundle/porelo_frontend.',
         );
       }
-      final linkUp = await (probeLink ?? probeHostVpnLink)();
-      if (!up && !linkUp) return false;
-      // Setup needs an expected peer's fresh receipt; a shared VPN address cannot prove its identity.
-      if (up && linkUp && !requireFreshHandshake && await (ping ?? pingHostVpn)()) return false;
     }
     if (up) {
       final record = settings.hostUp(machine.hostProject);
@@ -176,14 +178,13 @@ Future<bool> openHostVpnDialog(
           : 'sudo wg-quick down porelo, and the forge\'s name out of /etc/hosts',
       completed: up ? 'The VPN check did not confirm this server.' : 'The VPN was taken down.',
       afterClose: pending?.close,
+      lastLine: (line) => said = line,
       finish: pending == null
           ? null
           : (code) async {
               try {
                 verified = code == 0 && await pending.verified();
-                if (!verified) {
-                  if (await pending.failure() case final line?) failed?.call(line);
-                }
+                if (!verified && said.isNotEmpty) failed?.call(said);
                 return verified;
               } finally {
                 await pending.close();
@@ -214,8 +215,11 @@ Future<bool> openHostVpnDialog(
   return verified;
 }
 
+/// This process's AppArmor label; tests run under the flutter snap's own and set this to say none.
+String? Function() appArmorLabel = _appArmorLabel;
+
 /// This process's AppArmor label, as `/proc/self/attr/current` says it; null where it cannot be read.
-String? appArmorLabel() {
+String? _appArmorLabel() {
   try {
     final label = File('/proc/self/attr/current').readAsStringSync().replaceAll('\x00', '').trim();
     return label.isEmpty ? null : label;

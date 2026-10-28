@@ -56,6 +56,7 @@ Future<void> runInATerminal(
   String? completed,
   Future<bool> Function(int code)? finish,
   Future<void> Function()? afterClose,
+  ValueChanged<String>? lastLine,
   Key? key,
 }) async {
   final closed = Completer<void>();
@@ -79,6 +80,7 @@ Future<void> runInATerminal(
       completed: completed,
       finish: finish,
       afterClose: afterClose,
+      lastLine: lastLine,
       closing: (leaving) => leaving.then(closed.complete, onError: closed.completeError),
     ),
   );
@@ -102,6 +104,7 @@ class _UnlockTerminal extends StatefulWidget {
     this.completed,
     this.finish,
     this.afterClose,
+    this.lastLine,
     required this.closing,
     super.key,
   });
@@ -129,6 +132,9 @@ class _UnlockTerminal extends StatefulWidget {
   final String? completed;
   final Future<bool> Function(int code)? finish;
   final Future<void> Function()? afterClose;
+
+  /// Told the terminal's last line with text when its command ends, before [finish]: what a failed command said last.
+  final ValueChanged<String>? lastLine;
   final ValueChanged<Future<void>> closing;
 
   @override
@@ -194,6 +200,14 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
     if (!_reportedExit && code != null) {
       _reportedExit = true;
       widget.onExit?.call(code);
+      if (widget.lastLine case final told?) {
+        final term = _session.terminal;
+        final shown = copiedText(
+          term,
+          BufferRangeLine(CellOffset(0, 0), CellOffset(term.viewWidth - 1, term.buffer.height - 1)),
+        );
+        told(shown.split('\n').map((line) => line.trimRight()).lastWhere((line) => line.isNotEmpty, orElse: () => ''));
+      }
       if (widget.finish case final finish?) {
         _finishing = true;
         unawaited(() async {

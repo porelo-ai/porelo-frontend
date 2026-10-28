@@ -55,15 +55,7 @@ List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/
 
 const _vpnRootStep = r'''
 set -u
-# The line is also written through the user-owned file beside the receipt, for this interface's protocol: the
-# terminal is gone once closed.
-fail() {
-  printf '%s\n' "$1"
-  if [ -n "${receipt:-}" ] && [ -f "$receipt.failed" ] && [ ! -L "$receipt.failed" ]; then
-    printf '%s\n' "$1" > "$receipt.failed" 2>/dev/null
-  fi
-  exit 1
-}
+fail() { printf '%s\n' "$1"; exit 1; }
 source=$1
 receipt=$2
 expected=$3
@@ -317,14 +309,6 @@ class HostVpnAttempt {
     return start != null && handshake != null && start >= started && handshake > start;
   }
 
-  /// The root step's fail line, where it stopped on one; null where it did not.
-  Future<String?> failure() async {
-    final failed = File('${file.path}.checked.failed');
-    if (!await failed.exists()) return null;
-    final line = (await failed.readAsString()).trim();
-    return line.isEmpty ? null : line;
-  }
-
   /// Deletes the key and receipt once, whether the terminal succeeded or failed.
   Future<void> close() => _closing ??= _remove();
 
@@ -376,7 +360,6 @@ Future<HostVpnAttempt> prepareHostVpn({
     );
     // The root step writes through this existing user-owned receipt without changing its owner.
     await HostFileWriter().write(File('${file.path}.checked'), const []);
-    await HostFileWriter().write(File('${file.path}.checked.failed'), const []);
     return attempt;
   } catch (_) {
     await attempt.close();

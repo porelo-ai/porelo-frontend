@@ -55,7 +55,6 @@ void main() {
     Future<bool> Function()? probeLink,
     DateTime Function()? now,
     String? confinement,
-    String? failedLine,
     ValueChanged<String>? failed,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
@@ -99,10 +98,6 @@ void main() {
                   if (up && receipt) {
                     final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
                     File('$source.checked').writeAsStringSync('$host\t100\t101\n');
-                  }
-                  if (failedLine != null) {
-                    final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
-                    File('$source.checked.failed').writeAsStringSync('$failedLine\n');
                   }
                   if (throwsOnOpen) throw const PtyRefused('invented terminal failure');
                   return terminal;
@@ -542,15 +537,10 @@ void main() {
     addTearDown(settings.dispose);
     final terminal = FakeTerminal([]);
     final said = <String>[];
-    await open(
-      tester,
-      settings,
-      <List<String>>[],
-      terminal,
-      receipt: false,
-      failedLine: 'The VPN could not be brought up: invented wg-quick words',
-      failed: said.add,
-    );
+    await open(tester, settings, <List<String>>[], terminal, receipt: false, failed: said.add);
+    // As the root step ends on its fail line: the terminal's last words, read when the command has ended.
+    terminal.prints('[sudo] password for someone:\r\nThe VPN could not be brought up: invented wg-quick words\r\n');
+    await World.settle(tester);
     terminal.endsWith(1);
     await World.settle(tester);
     await tester.tap(find.byKey(const Key('unlock-done')));
