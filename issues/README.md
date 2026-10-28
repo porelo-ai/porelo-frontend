@@ -51,6 +51,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="f228"></a>[F228](F228-A-Long-Step-Of-The-Machine-Wizard-Shows-Its-Progress.md) | S | — | The machine wizard's Install Tresorit shown in phases with the megabytes moved, and its setup script with its last line. |
 | <a id="f227"></a>[F227](F227-Take-This-Server-Down-As-A-Tile.md) | XS | — | Take this server down drawn as an ordinary tile on the server's page, in red, its confirmation unchanged. |
 | <a id="f226"></a>[F226](F226-A-Setup-Run-Again-Shows-In-Its-Servers-Row.md) | S | — | A setup run again on a ready server shown in its row as the first setup is, with its step and protocol, and taking it down meanwhile unavailable. |
 | <a id="f225"></a>[F225](F225-A-Line-To-Add-By-Hand-Copied-As-Its-Whole-Command.md) | XS | — | A line to add by hand on this computer shown and copied as the one command that adds it, starting with the homeserver's hosts line. |
