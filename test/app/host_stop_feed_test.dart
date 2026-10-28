@@ -96,6 +96,36 @@ void main() {
     expect(script.substring(script.indexOf('--stdin')), isNot(contains('drive')));
   });
 
+  // Harm: the host's registration token through an argument, a field or a log of this program, or the master
+  // password asked for a token the secrets file has no part in.
+  test('the host\'s matrix token comes from this computer\'s own Porelo, on the pipe, and alone needs no file', () {
+    final only = command(needs: ['matrix-token']).last;
+    expect(
+      only,
+      contains("/usr/bin/ssh -o StrictHostKeyChecking=yes -n -T -- ubuntu@203.0.113.7 /usr/bin/hostname"),
+      reason: 'the host\'s name read on the host, as its Porelo will pass it',
+    );
+    expect(
+      only,
+      contains('/usr/bin/porelo talk admit checkout "\$machine" --into "\$admitted/admission.json"'),
+      reason: 'the project and the host\'s machine name, the admission into a folder of its own',
+    );
+    expect(only.indexOf('talk admit'), greaterThan(only.indexOf("case \"\$machine\" in")), reason: 'checked first');
+    expect(only, contains('/usr/bin/python3 -I'), reason: 'the token read from the file, never on a command line');
+    expect(only, contains("printf 'matrix-token %s\\n'"));
+    expect(
+      only,
+      isNot(contains('/usr/bin/printf')),
+      reason: 'the shell\'s own printf: the token in no process\'s arguments',
+    );
+    expect(only, isNot(contains('read -rs')), reason: 'no master password for what the file does not give');
+    expect(only, contains("'/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --stdin matrix-token'"));
+    expect(only, contains('rm -rf -- "\$admitted"'), reason: 'the admission goes with the terminal');
+    final both = command(needs: ['vault', 'matrix-token']).last;
+    expect(both, contains('read -rs'), reason: 'the vault still comes from the file');
+    expect(both, contains('--stdin vault matrix-token'));
+  });
+
   test('refuses a need the file cannot give, and a stop with nothing for the file', () {
     expect(() => command(needs: ['no-such-need']), throwsFormatException);
     expect(() => command(needs: ['drive'], email: 'me@example.org'), throwsFormatException);
@@ -113,6 +143,57 @@ void main() {
       );
     }
   });
+
+  // Harm: the host's token read wrongly, sent as more than one line, or left on this computer once it is sent.
+  test('the stand-in host gets exactly its matrix token line, and the admission is gone after', () async {
+    final home = await Directory(Platform.environment['HOME']!).createTemp('porelo-stop-feed-test-');
+    addTearDown(() => home.delete(recursive: true));
+    final got = path.join(home.path, 'got');
+    final into = path.join(home.path, 'into');
+    final fakeSsh = await File(path.join(home.path, 'ssh')).writeAsString(
+      '#!/bin/sh\n'
+      'case "\$*" in *hostname*) echo checkout-host;; *porelo-host-stop*) cat > $got;; esac\n',
+    );
+    final fakePorelo = await File(path.join(home.path, 'porelo')).writeAsString(
+      '#!/bin/sh\n'
+      // Takes any machine's name, as a real Porelo might: the check of the name is the script's own.
+      '[ "\$1 \$2 \$3 \$5" = "talk admit checkout --into" ] || exit 9\n'
+      'echo "\$6" > $into\n'
+      'printf \'{"admission":{"machine":"checkout-host"},"secrets":{"registration_token":"tok en"}}\' > "\$6"\n',
+    );
+    for (final file in [fakeSsh, fakePorelo]) {
+      await Process.run('chmod', ['700', file.path]);
+    }
+    final run = command(needs: ['matrix-token'], ssh: fakeSsh.path);
+    final script = run.last.replaceAll('/usr/bin/porelo talk', '${fakePorelo.path} talk');
+    final process = await Process.start(run.first, [...run.skip(1).take(run.length - 2), script]);
+    await process.stdin.close();
+    final said = await process.stderr.transform(utf8.decoder).join();
+    await process.stdout.drain<void>();
+    expect(await process.exitCode, 0, reason: said);
+    expect(await File(got).readAsString(), 'matrix-token ${base64.encode(utf8.encode('tok en'))}\n');
+    final admission = File((await File(into).readAsString()).trim());
+    expect(admission.existsSync(), isFalse, reason: 'the admission goes with the terminal');
+    expect(admission.parent.existsSync(), isFalse);
+
+    // A host whose name reads as an option, or holds what a shell would split, is let in nowhere.
+    for (final name in ['-rf', 'a b', r'x$y']) {
+      for (final left in [got, into]) {
+        if (File(left).existsSync()) File(left).deleteSync();
+      }
+      await fakeSsh.writeAsString(
+        '#!/bin/sh\n'
+        "case \"\$*\" in *hostname*) printf '%s\\n' '$name';; *porelo-host-stop*) cat > $got;; esac\n",
+      );
+      final refused = await Process.start(run.first, [...run.skip(1).take(run.length - 2), script]);
+      await refused.stdin.close();
+      await refused.stdout.drain<void>();
+      await refused.stderr.drain<void>();
+      expect(await refused.exitCode, isNot(0), reason: name);
+      expect(File(got).existsSync(), isFalse, reason: 'nothing sent for $name');
+      expect(File(into).existsSync(), isFalse, reason: 'this computer\'s Porelo not asked for $name');
+    }
+  }, skip: Platform.isWindows ? 'the feed runs bash, which only Linux has here' : null);
 
   // Against the real keepassxc-cli: what reaches the far end is the lines and nothing else.
   // Harm: a Tresorit login that failed, and the secrets piped after it all the same.

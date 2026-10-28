@@ -125,7 +125,9 @@ class _HostStopDialogState extends State<HostStopDialog> {
     final session = widget.run.session;
     final needs = widget.needs ?? session.needs;
     final secrets = widget.settings?.secretsFile;
-    final fromTheFile = secrets != null && needs.any(SecretsFile.stopNeeds.contains);
+    // The host's matrix token comes from this computer's own Porelo, by the same feed, with or without the file.
+    final fromTheFile =
+        (secrets != null && needs.any(SecretsFile.stopNeeds.contains)) || needs.contains('matrix-token');
     final String line;
     try {
       line = fromTheFile ? '' : hostStopCommand(needs, email: _email.text);
@@ -163,7 +165,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
     try {
       command = fromTheFile
           ? hostStopFeedCommand(
-              secretsFile: secrets,
+              secretsFile: secrets ?? '',
               project: widget.run.project,
               needs: needs,
               keys: widget.run.record.vaultKeys,
@@ -242,9 +244,10 @@ class _HostStopDialogState extends State<HostStopDialog> {
       // Host files given by hand, in a setup from before the interface wrote them, carry the person's own VPN key,
       // which the file does not keep.
       final byHand = widget.run.record.folder == null && widget.run.record.setupFolder == null;
+      // The host's matrix token comes from this computer's own Porelo, with the file or without it.
       final answerable = file
-          ? <String>{'drive', ...SecretsFile.stopNeeds}.difference({if (byHand) 'wireguard'})
-          : const <String>{'drive', 'vault', 'vault-new'};
+          ? <String>{'drive', 'matrix-token', ...SecretsFile.stopNeeds}.difference({if (byHand) 'wireguard'})
+          : const <String>{'drive', 'vault', 'vault-new', 'matrix-token'};
       final unknown = needs.where((need) => !answerable.contains(need));
       return AlertDialog(
         title: Text('Complete setup on ${widget.run.name}'),
@@ -266,6 +269,11 @@ class _HostStopDialogState extends State<HostStopDialog> {
                   const Text(
                     'The host\'s forge needs its certificate: signed on this computer by your lasting CA, whose key '
                     'stays in your secrets file. The first time, the CA is made there.',
+                  ),
+                if (needs.contains('matrix-token'))
+                  const Text(
+                    'The host needs its token for this computer\'s homeserver: this computer lets it into the '
+                    'project\'s conversation, and the token goes to the host on standard input, never shown.',
                   ),
                 if (needs.contains('forge-central-token'))
                   const Text(

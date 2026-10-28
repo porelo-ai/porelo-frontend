@@ -105,11 +105,11 @@ class HostPreparation {
   bool get waiting => session.state == HostRunState.waiting;
 
   /// What `up`'s refusal asks of the person on a call of its own before `up` runs again, as porelo-host names it
-  /// in the refusal's first word (`forge-central-token:`, `keys:`); null for any other ending.
+  /// in the refusal's first word (`forge-central-token:`, `keys:`, `matrix-token:`); null for any other ending.
   List<String>? get asksOnItsOwn {
     if (running || waiting) return null;
     final fix = session.fix ?? '';
-    for (final need in const ['forge-central-token', 'keys']) {
+    for (final need in const ['forge-central-token', 'keys', 'matrix-token']) {
       if (fix.startsWith('$need:')) return [need];
     }
     return null;

@@ -101,6 +101,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- A server that asks for its token for this computer's homeserver gets it at its stop: this computer lets the
+  server into the project's conversation and sends the token on standard input, without a master password.
 - A server set up from here runs a forge of its own: its first inventory says `porelo_host_forge: true`.
 - During the move, once a server's VPN is up, this computer's own homeserver is published on its VPN address
   under `matrix.porelo.internal`, so the server's tasks reach the project's room here; it is closed again when the

@@ -1,6 +1,6 @@
 # F217 — The Laptop's Homeserver Published For The Host While Its VPN Is Up
 
-**Status:** Implementing (sprint 6i); the publishing built, the token's part blocked by `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41).
+**Status:** Implementing (sprint 6i); the publishing and the token's part built, on `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41); it reaches a host once a `porelo-host` release carries it and the interface's collection is moved to it.
 **Size:** M - the transport's `publish` after the tunnel and `publish --off` at the give-back, the laptop's hosts line
 shown, the host's registration token fed at its stop, and their tests; on `porelo-message-matrix` [MX42](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx42)'s and `porelo` [B304](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b304)'s published contracts.
 
@@ -62,6 +62,14 @@ interface brings the VPN up, so it is the one that knows when the address exists
   running, and the third and fourth octets refused out of range or with a leading zero. **Declined, with the
   reason:** a widget test of the host dialog showing a failed close: the return value is tested, and walk 19's
   last step sees it.
+- **Built, the token at the stop:** where `up` refuses with `matrix-token:` (porelo-host's refusal), the run waits under
+  *Needs you* as for `forge-central-token:`. Its terminal reads the host's name over the host's own ssh
+  (`/usr/bin/hostname`, as the host's Porelo passes it at its first setup), refuses a name that reads as an option or
+  holds what a shell splits, runs `/usr/bin/porelo talk admit <project> <name> --into` a private temporary folder,
+  reads `secrets.registration_token` from it with `python3 -I`, and sends `matrix-token <base64>` with the shell's
+  own `printf` into `sudo -n porelo-host-stop --stdin matrix-token`; the folder goes with the terminal. A token alone
+  asks no master password. Against stand-ins for ssh and Porelo and the real `python3`, the host gets exactly that
+  line, and a bad name sends nothing and asks Porelo nothing.
 - **Red first:** a test with a scratch `homeserver.conf` and a stand-in transport: after a verified VPN, `publish` ran
   once with exactly that address, port and name; after the give-back, `publish --off` ran; without the file, neither.
 
@@ -72,8 +80,3 @@ interface brings the VPN up, so it is the one that knows when the address exists
 - After the host is given back, the published address is gone and the homeserver serves loopback alone.
 - No registration token appears in the interface's settings, logs or arguments.
 - Seen to fail: the publish test red before the call exists.
-
-## To be checked
-
-- How `up` asks for `matrix-token` and which machine name the host goes by in `talk admit`, once `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41) is built
-  (the transport's `files` in porelo's inventory, or the inventory flag `porelo_host_matrix_token`, as porelo-host and porelo settle it).
