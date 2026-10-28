@@ -666,9 +666,9 @@ List<Command> projectCommands({
           ? nothing
           : project.name == defaultProject
           ? 'default is this machine\'s own: it goes on no server'
-          : putOnAServer == null
-          ? 'porelo-host is not installed beside the interface'
-          : noSecretsFileHere(desk),
+          // Windows first: there it holds whether porelo-host is installed or not.
+          : noSecretsFileHere(desk) ??
+                (putOnAServer == null ? 'porelo-host is not installed beside the interface' : null),
     ),
     Command(
       id: 'project.delete',

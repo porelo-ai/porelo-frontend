@@ -5,6 +5,7 @@ import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/machine_view.dart';
+import 'package:porelo_frontend/src/ui/shell.dart';
 
 import '../features/step/the_project_has_the_repositories.dart';
 import '../features/support/world.dart';
@@ -139,22 +140,32 @@ void main() {
 
   // Harm: a command loses its visible route or a tile bypasses the shared menu.
   // Harm: a server put up from where its keys cannot be kept, refused only after the wizard was filled.
-  testWidgets('putting a project on a server is unavailable on Windows, saying why', (tester) async {
-    final previous = desk;
-    addTearDown(() => desk = previous);
-    await _project(tester);
-    desk = Desk.of('windows', const {'USERPROFILE': r'C:\Users\person', 'SystemRoot': r'C:\Windows'});
-    World.fleet.selectProject('checkout');
-    World.shell.goTo(Section.machines);
-    await World.settle(tester);
-    World.shell.goTo(Section.project);
-    await World.settle(tester);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    expect(
-      menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
-      contains('opens only on Linux so far'),
-    );
-  });
+  for (final installed in [true, false]) {
+    testWidgets('putting a project on a server is unavailable on Windows, saying why (porelo-host here $installed)', (
+      tester,
+    ) async {
+      final previous = desk;
+      final wasHere = Shell.poreloHostIsHere;
+      addTearDown(() {
+        desk = previous;
+        Shell.poreloHostIsHere = wasHere;
+      });
+      // A runner has no porelo-host beside the interface; Windows' reason holds all the same.
+      Shell.poreloHostIsHere = installed;
+      await _project(tester);
+      desk = Desk.of('windows', const {'USERPROFILE': r'C:\Users\person', 'SystemRoot': r'C:\Windows'});
+      World.fleet.selectProject('checkout');
+      World.shell.goTo(Section.machines);
+      await World.settle(tester);
+      World.shell.goTo(Section.project);
+      await World.settle(tester);
+      final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+      expect(
+        menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
+        contains('opens only on Linux so far'),
+      );
+    });
+  }
 
   testWidgets('every project menu command has exactly one tile and every tile a menu item', (tester) async {
     await _project(tester);
