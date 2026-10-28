@@ -11,6 +11,8 @@ Future<void> iRemoveFromTheListOfMachines(WidgetTester tester, String machine) a
   await expandListRows(tester, within: find.byKey(ValueKey<String>('machines-row $machine')));
   await tester.tap(find.byKey(ValueKey<String>('machines-menu $machine')));
   await World.settle(tester);
-  await tester.tap(find.text('Remove from this list').last);
+  await tester.tap(find.text('Forget this machine').last);
+  await World.settle(tester);
+  await tester.tap(find.byKey(const Key('forget-it')));
   await World.settle(tester);
 }

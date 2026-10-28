@@ -514,7 +514,7 @@ void main() {
       find.textContaining('nothing was kept from putting it on a server; use Put this project on a server…'),
       findsOneWidget,
     );
-    await tester.tap(find.text('Remove from this list'));
+    await tester.tap(find.text('Forget this machine'));
     await World.settle(tester);
     expect(World.machines.all, contains(machine), reason: 'opening removal must not forget a billing server');
     expect(find.textContaining('running and billing'), findsOneWidget);
@@ -526,7 +526,7 @@ void main() {
     await expandListRows(tester);
     await tester.tap(find.byKey(const Key('machines-menu demo server')));
     await World.settle(tester);
-    await tester.tap(find.text('Remove from this list'));
+    await tester.tap(find.text('Forget this machine'));
     await World.settle(tester);
     await tester.tap(find.byKey(const Key('forget-it')));
     await World.settle(tester);

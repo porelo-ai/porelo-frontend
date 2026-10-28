@@ -123,7 +123,6 @@ class MachinesPage extends StatelessWidget {
     final actions = <Command>[
       ...?hostCommands?.call(machine),
       forgetMachineCommand(
-        label: 'Remove from this list',
         forget: () => onForget(machine),
         canForget: machines.all.length > 1,
       ).unless(thisComputer ? 'this computer is always listed' : null),

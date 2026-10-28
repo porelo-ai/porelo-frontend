@@ -1436,6 +1436,11 @@ class _ShellState extends State<Shell> {
   }
 
   /// Stops watching the machine being acted on, and goes back to what needs a person.
+  /// What forgetting a machine does, said before it is done.
+  static const _forgetting =
+      'This interface stops watching it and takes down the tunnel it raised to it. Nothing on the machine '
+      'changes: its Porelo, its work and its vault stay as they are, and Watch another machine… adds it again.';
+
   Future<void> _forget() async {
     if (widget.machines.all.length < 2) return;
     final machine = widget.machines.current;
@@ -1445,7 +1450,7 @@ class _ShellState extends State<Shell> {
         context: context,
         builder: (context) => AlertDialog(
           key: const Key('host-forget-warning'),
-          title: Text('Remove ${machine.name} from this list?'),
+          title: Text('Forget ${machine.name}?'),
           content: SizedBox(
             width: Sizes.dialogMedium,
             child: DialogScroll(
@@ -1453,6 +1458,8 @@ class _ShellState extends State<Shell> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(_forgetting),
+                  const SizedBox(height: Space.normal),
                   const Text(
                     'The server keeps running and billing at the provider. '
                     'To add it back, use Put this project on a server… again; it finds the existing server by its tag.',
@@ -1472,7 +1479,7 @@ class _ShellState extends State<Shell> {
             FilledButton(
               key: const Key('forget-it'),
               onPressed: () => Navigator.pop(context, 'remove'),
-              child: const Text('Remove from this list'),
+              child: const Text('Forget it'),
             ),
           ],
         ),
@@ -1485,6 +1492,24 @@ class _ShellState extends State<Shell> {
     // Only what the wizard wrote is offered, and only ever offered: an entry somebody wrote or
     // changed by hand is theirs, and a key another entry uses would break that one.
     final written = machine.needsATunnel ? setup.entryWrittenFor(machine.host) : null;
+    if (written == null && machine.kind != 'host') {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Forget ${machine.name}?'),
+          content: const SizedBox(width: Sizes.dialogMedium, child: Text(_forgetting)),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(
+              key: const Key('forget-it'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Forget it'),
+            ),
+          ],
+        ),
+      );
+      if (yes != true || !mounted) return;
+    }
     var removeEntry = false;
     var removeKey = false;
     if (written != null) {
@@ -1501,7 +1526,7 @@ class _ShellState extends State<Shell> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text('This interface stops watching it. Nothing on the machine changes.'),
+                    const Text(_forgetting),
                     const SizedBox(height: Space.normal),
                     CheckboxListTile(
                       key: const Key('forget-host-entry'),

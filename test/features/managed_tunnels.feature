@@ -210,8 +210,19 @@ Feature: Raising and dropping the forward that reaches a machine
         Given the machine {'handmade'} is reached through a Host entry written by hand
         And I switch to the machine {'handmade'}
         When I ask to forget this machine
+        And I forget it
         Then the ssh config still has the Host {'handmade'}
         And the machine {'handmade'} is no longer watched
+
+    # One name wherever it is offered, and asked first: what forgetting does is said before it is done.
+    Scenario: forgetting a machine says what it does, and does nothing before it is agreed to
+        Given the machine {'handmade'} is reached through a Host entry written by hand
+        And I switch to the machine {'handmade'}
+        When I ask to forget this machine
+        Then it says {'This interface stops watching it and takes down the tunnel it raised to it. Nothing on the machine changes: its Porelo, its work and its vault stay as they are, and Watch another machine… adds it again.'}
+        And the machine {'handmade'} is still watched
+        When I forget it
+        Then the machine {'handmade'} is no longer watched
 
     Scenario: a forward whose login is refused explains why beside the machine on the machines page
         Given raising a forward will fail with {'Permission denied (publickey).'}

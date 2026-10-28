@@ -63,6 +63,7 @@ import './step/another_host_entry_uses_the_key_of.dart';
 import './step/deleting_its_key_cannot_be_chosen.dart';
 import './step/the_machine_is_reached_through_a_host_entry_written_by_hand.dart';
 import './step/the_machine_is_no_longer_watched.dart';
+import './step/the_machine_is_still_watched.dart';
 import './step/on_the_machines_page_shows_the_refusal.dart';
 
 void main() {
@@ -302,7 +303,21 @@ void main() {
       await theMachineIsReachedThroughAHostEntryWrittenByHand(tester, 'handmade');
       await iSwitchToTheMachine(tester, 'handmade');
       await iAskToForgetThisMachine(tester);
+      await iForgetIt(tester);
       await theSshConfigStillHasTheHost(tester, 'handmade');
+      await theMachineIsNoLongerWatched(tester, 'handmade');
+    });
+    testWidgets('''forgetting a machine says what it does, and does nothing before it is agreed to''', (tester) async {
+      await bddSetUp(tester);
+      await theMachineIsReachedThroughAHostEntryWrittenByHand(tester, 'handmade');
+      await iSwitchToTheMachine(tester, 'handmade');
+      await iAskToForgetThisMachine(tester);
+      await itSays(
+        tester,
+        'This interface stops watching it and takes down the tunnel it raised to it. Nothing on the machine changes: its Porelo, its work and its vault stay as they are, and Watch another machine… adds it again.',
+      );
+      await theMachineIsStillWatched(tester, 'handmade');
+      await iForgetIt(tester);
       await theMachineIsNoLongerWatched(tester, 'handmade');
     });
     testWidgets('''a forward whose login is refused explains why beside the machine on the machines page''', (
