@@ -8,6 +8,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/homeserver_forwards.dart';
 import '../app/host_session.dart';
+import '../app/homeserver_publishing.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -275,7 +276,7 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    _hostRuns = HostRuns(widget.machines);
+    _hostRuns = HostRuns(widget.machines, homeserver: Platform.isLinux ? HomeserverPublishing() : null);
     _hostRuns.addListener(_hostSetupChanged);
     widget.machines.addListener(_vpnMachinesChanged);
     _vpnMachinesChanged();

@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/homeserver_publishing.dart';
+import 'package:porelo_frontend/src/app/host_runs.dart';
+import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/host_vpn.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -15,6 +18,7 @@ import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
+import '../support/host_process.dart';
 
 const _machine = Machine(name: 'demo server', kind: 'host', hostProject: 'demo', socketPath: '/unused');
 const _record = HostUpRecord(
@@ -524,6 +528,124 @@ void main() {
     expect(find.byKey(const Key('unlock-terminal')), findsNothing, reason: 'the verified terminal closes itself');
     expect(find.byKey(const Key('unlock-cancel-yes')), findsNothing, reason: 'its confirmation goes with it');
   }, skip: _notLinux);
+
+  // Harm: a rented host's tasks that never reach the room on this laptop once its VPN is up, or the line this laptop
+  // needs for the same name left unsaid.
+  for (final verified in [true, false]) {
+    testWidgets(
+      'a prepared host\'s VPN, once verified, publishes this computer\'s homeserver and says it (verified $verified)',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final settings = Settings(MemorySettingsStore());
+        addTearDown(settings.dispose);
+        final scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('vpn-homeserver-')))!;
+        addTearDown(() => scratch.delete(recursive: true));
+        final runtime = Directory('${scratch.path}/runtime')..createSync();
+        await tester.runAsync(() => Process.run('chmod', ['700', runtime.path]));
+        File('${scratch.path}/porelo/matrix/homeserver.conf')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('PORELO_MATRIX_PORT=8008\n');
+        final hosts = File('${scratch.path}/hosts')..writeAsStringSync('127.0.0.1 localhost\n');
+        final published = <List<String>>[];
+        final private = base64Encode(List<int>.filled(32, 7));
+        final peer = await HostFiles.publicKey(private);
+        final host = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 9)));
+        final record = HostUpRecord.fromStored({..._record.stored, 'vpnPeerPublicKey': peer})!
+            .withTunnel(hostPublicKey: host, address: '203.0.113.8');
+        final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
+        addTearDown(machines.dispose);
+        final runs = HostRuns(
+          machines,
+          endpointFor: (_) => '/tmp/prepared.sock',
+          homeserver: HomeserverPublishing(
+            configuration: '${scratch.path}/porelo',
+            hostsFile: hosts.path,
+            run: (_, arguments) async {
+              published.add(arguments);
+              return ProcessResult(0, 0, '{"published": "10.73.0.2:8008", "name": "matrix.porelo.internal"}\n', '');
+            },
+          ),
+        );
+        addTearDown(runs.dispose);
+        final process = HostProcess();
+        final run = runs.start(
+          project: 'demo',
+          session: HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process),
+          record: record,
+          settings: settings,
+        );
+        process
+          ..line(
+            const Step(
+              'up',
+              StepState.done,
+              address: '203.0.113.7',
+              account: 'worker',
+              socket: '/run/user/1007/porelo/porelod.sock',
+            ),
+          )
+          ..end(0);
+        await tester.runAsync(() => run.finished);
+        expect(run.awaitingVpn, isTrue);
+        final terminal = FakeTerminal([]);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => unawaited(
+                  openPreparationVpn(
+                    context,
+                    run: run,
+                    runs: runs,
+                    settings: settings,
+                    secretStore: _TunnelSecrets({HostFiles.keyName('demo'): private}),
+                    environment: {'XDG_RUNTIME_DIR': runtime.path},
+                    open: (executable, arguments, {int columns = 80, int rows = 24}) {
+                      final source = arguments.firstWhere((arg) => arg.endsWith('/porelo.conf'));
+                      // The receipt of a fresh handshake, after the attempt started; none where the server never answered.
+                      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000 + 5;
+                      if (verified) File('$source.checked').writeAsStringSync('$host\t$now\t${now + 1}\n');
+                      return terminal;
+                    },
+                  ),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        for (var turn = 0; turn < 100 && find.byKey(const Key('unlock-terminal')).evaluate().isEmpty; turn++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+          await World.settle(tester);
+        }
+        expect(published, isEmpty, reason: 'nothing is published before the handshake is seen');
+        terminal.endsWith(0);
+        for (var turn = 0; turn < 100 && find.byKey(const Key('homeserver-published')).evaluate().isEmpty; turn++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+          await World.settle(tester);
+          if (!verified && find.byKey(const Key('unlock-done')).evaluate().isNotEmpty) {
+            await tester.tap(find.byKey(const Key('unlock-done')));
+          }
+        }
+        if (!verified) {
+          expect(published, isEmpty, reason: 'no address the host could reach without a handshake');
+          expect(find.byKey(const Key('homeserver-published')), findsNothing);
+          return;
+        }
+        expect(published.single, ['publish', '--address', '10.73.0.2:8008', '--name', 'matrix.porelo.internal']);
+        expect(find.textContaining('https://matrix.porelo.internal:8008'), findsOneWidget);
+        expect(
+          tester.widget<SelectableText>(find.byKey(const Key('homeserver-laptop-line'))).data,
+          '127.0.0.1 matrix.porelo.internal # porelo-matrix',
+          reason: 'the laptop lacks the line, so it is given to be added by hand',
+        );
+      },
+      skip: _notLinux,
+    );
+  }
 
   // Harm: exposing the WireGuard private key in process arguments leaks it to other processes.
   testWidgets('the private VPN key is absent from every argument and the displayed command', (tester) async {

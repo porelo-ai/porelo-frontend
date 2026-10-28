@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import '../app/homeserver_publishing.dart';
 import '../app/host_vpn.dart';
 import '../app/host_runs.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
+import 'tokens.dart';
 import 'unlock_terminal.dart';
 
 /// Completes the retained setup only after the local VPN check succeeds.
@@ -37,10 +41,63 @@ Future<void> openPreparationVpn(
     );
     await runs.vpnChecked(run, verified: verified);
     await runs.refreshVpns();
+    // The VPN's address exists now: the host's tasks reach the room on this computer's own homeserver.
+    if (runs.homeserver case final homeserver? when verified) {
+      final peer = settings.hostUp(run.project)?.vpnPeerAddress ?? run.record.vpnPeerAddress;
+      final outcome = await homeserver.publish(peer);
+      if (outcome != null && context.mounted) {
+        await showHomeserverPublished(context, outcome, laptopLineMissing: homeserver.laptopLineMissing);
+      }
+    }
   } finally {
     runs.vpnTerminalChanged(run, open: false);
   }
 }
+
+/// Says what came of publishing this computer's homeserver for the host, and gives the laptop's own line where
+/// `/etc/hosts` lacks it, to be added once by hand.
+Future<void> showHomeserverPublished(BuildContext context, PublishOutcome outcome, {required bool laptopLineMissing}) =>
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Your homeserver for this server'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: Space.small,
+          children: [
+            Text(outcome.words, key: const Key('homeserver-published')),
+            if (outcome.published && laptopLineMissing) ...[
+              const Text(
+                'This computer finds the homeserver under the same name only with this line in /etc/hosts. Add it '
+                'once, by hand, with sudo:',
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(HomeserverPublishing.laptopLine, key: const Key('homeserver-laptop-line')),
+                  ),
+                  IconButton(
+                    key: const Key('homeserver-laptop-line-copy'),
+                    tooltip: 'Copy the line',
+                    icon: const Icon(Icons.copy, size: Sizes.rowIcon),
+                    onPressed: () =>
+                        unawaited(Clipboard.setData(const ClipboardData(text: HomeserverPublishing.laptopLine))),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            key: const Key('homeserver-published-close'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
 
 /// Changes the local VPN only when needed, returning true only for a fresh handshake receipt.
 Future<bool> openHostVpnDialog(

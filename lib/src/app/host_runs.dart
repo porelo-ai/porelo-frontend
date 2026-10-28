@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import 'homeserver_publishing.dart';
 import 'host_session.dart';
 import 'host_vpn.dart';
 import 'machines.dart';
@@ -127,6 +128,7 @@ class HostRuns extends ChangeNotifier {
     Future<bool> Function()? ping,
     Future<bool> Function()? probeLink,
     this.environment,
+    this.homeserver,
   }) : _endpointFor = endpointFor ?? Machine.endpointFor,
        _ping = ping ?? pingHostVpn,
        _probeLink = probeLink ?? probeHostVpnLink {
@@ -467,12 +469,18 @@ class HostRuns extends ChangeNotifier {
     _changed();
   }
 
+  /// This account's homeserver, published for a host's tasks once its VPN is up and closed at its give-back;
+  /// null where nothing here publishes it.
+  final HomeserverPublishing? homeserver;
+
   /// Removes recovery only after the provider confirmed give-back and the command succeeded.
   Future<void> confirmDown(String project, HostSession session) async {
     if (!hostGivenBack(session)) return;
     final pending = _runs[project];
     await pending?.saved;
     final kept = machines.settings.hostUp(project);
+    // The host's tasks are gone, so nothing may reach the homeserver on that address any more.
+    final closed = kept == null ? null : await homeserver?.unpublish(kept.vpnPeerAddress);
     if (kept != null) {
       await machines.settings.rememberHostUp(project, kept.withPreparation(null).withProtocol(const []));
     }
@@ -481,6 +489,7 @@ class HostRuns extends ChangeNotifier {
       run._poll?.cancel();
       run.givenBack = true;
       run.interrupted = false;
+      if (closed != null && closed.published) run.problem = closed.words;
     }
     _changed();
   }

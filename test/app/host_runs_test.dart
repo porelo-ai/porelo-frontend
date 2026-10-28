@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
+import 'package:porelo_frontend/src/app/homeserver_publishing.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -83,6 +84,75 @@ void main() {
     await runs.vpnChecked(run, verified: true);
     expect(run.ready, isTrue);
     expect(settings.hostUp('demo')!.preparing, isFalse, reason: 'a reachable machine needs no recovery');
+  });
+
+  // Harm: the laptop's homeserver left published on the VPN for a host that is gone, or one closing refused unseen.
+  test('the give-back closes the homeserver published for that host, and says where it could not', () async {
+    final scratch = Directory.systemTemp.createTempSync('host-runs-homeserver-');
+    addTearDown(() => scratch.deleteSync(recursive: true));
+    File('${scratch.path}/porelo/matrix/homeserver.conf')
+      ..createSync(recursive: true)
+      ..writeAsStringSync('PORELO_MATRIX_PORT=8008\nPORELO_MATRIX_PUBLISH=10.73.0.2:8008\n');
+    final ran = <List<String>>[];
+    var exitCode = 0;
+    final published = HostRuns(
+      machines,
+      endpointFor: (name) => '/tmp/$name.sock',
+      homeserver: HomeserverPublishing(
+        configuration: '${scratch.path}/porelo',
+        run: (_, arguments) async {
+          ran.add(arguments);
+          return ProcessResult(0, exitCode, '', exitCode == 0 ? '' : 'publish: the socket could not be stopped\n');
+        },
+      ),
+    );
+    addTearDown(published.dispose);
+    const record = HostUpRecord(
+      scalewayProject: 'provider',
+      account: 'porelo',
+      tresor: 'drive',
+      identity: '/keys/private',
+      publicKey: '/keys/public',
+      folder: null,
+      repository: '',
+      signingKey: '',
+      collection: '',
+      // The peer's key and address go together, as a tunnel's public settings are kept.
+      vpnPeerPublicKey: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+      vpnPeerAddress: '10.73.0.2/32',
+    );
+    await settings.rememberHostUp('demo', record);
+    Future<HostPreparation> givenBack() async {
+      final process = HostProcess();
+      final run = published.start(
+        project: 'demo',
+        session: HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process),
+        record: record,
+        settings: settings,
+      );
+      process
+        ..line(const Step('give-back', StepState.done))
+        ..end(0);
+      await run.finished;
+      final down = HostProcess()
+        ..line(const Step('give-back', StepState.done))
+        ..end(0);
+      final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => down);
+      addTearDown(session.dispose);
+      await session.down();
+      await published.confirmDown('demo', session);
+      return run;
+    }
+
+    final closed = await givenBack();
+    expect(ran.single, ['publish', '--off']);
+    expect(closed.problem ?? '', isNot(contains('homeserver')), reason: 'closed: nothing to say about it');
+
+    ran.clear();
+    exitCode = 1;
+    final refused = await givenBack();
+    expect(ran.single, ['publish', '--off']);
+    expect(refused.problem, contains('the socket could not be stopped'), reason: 'said where the run is shown');
   });
 
   // Harm: an unchecked terminal exit zero must not make a host available for work.

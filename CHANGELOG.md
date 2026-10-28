@@ -101,6 +101,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- During the move, once a server's VPN is up, this computer's own homeserver is published on its VPN address
+  under `matrix.porelo.internal`, so the server's tasks reach the project's room here; it is closed again when the
+  server is given back. Where `/etc/hosts` lacks `127.0.0.1 matrix.porelo.internal`, the line is shown to be added
+  once by hand.
 - A server's stop takes what it needs from the person's `secrets.kdbx`: its vault passphrase, its VPN key and the
   files of its vault entries go to the server on standard input after one master password, typed in the terminal on
   this computer. A setup that stops for the central forge's token, or a vault entry, waits under Needs you, gives it

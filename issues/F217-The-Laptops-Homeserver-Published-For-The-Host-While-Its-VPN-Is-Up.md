@@ -1,6 +1,6 @@
 # F217 — The Laptop's Homeserver Published For The Host While Its VPN Is Up
 
-**Status:** Estimated (operator, 2026-10-28, placed in sprint 6i); the token's part blocked by `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41).
+**Status:** Implementing (sprint 6i); the publishing built, the token's part blocked by `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41).
 **Size:** M - the transport's `publish` after the tunnel and `publish --off` at the give-back, the laptop's hosts line
 shown, the host's registration token fed at its stop, and their tests; on `porelo-message-matrix` [MX42](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx42)'s and `porelo` [B304](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b304)'s published contracts.
 
@@ -40,6 +40,12 @@ interface brings the VPN up, so it is the one that knows when the address exists
   `porelo talk admit <project> <host's machine name> --into <a private temporary file>` in this account, takes the
   registration token from it into the line `matrix-token <base64>` on `porelo-host-stop --stdin`'s standard input, and
   removes the file; the token never reaches a field, argument or log of the interface.
+- **Built, the publishing:** `HomeserverPublishing` (`lib/src/app/homeserver_publishing.dart`), owned by `HostRuns` and
+  given by the shell on Linux alone. `openPreparationVpn` publishes after a fresh handshake and shows the outcome in a
+  dialog of its own (*Your homeserver for this server*), with the laptop's line and a copy button where `/etc/hosts`
+  lacks it; `HostRuns.confirmDown` closes it after the confirmed give-back, and a refusal to close stays on the run.
+  The port must be one from 1024 on and the peer one plain IPv4 address, or nothing runs. Seen red with each of nine
+  faults put back, the publishing before a handshake among them.
 - **Red first:** a test with a scratch `homeserver.conf` and a stand-in transport: after a verified VPN, `publish` ran
   once with exactly that address, port and name; after the give-back, `publish --off` ran; without the file, neither.
 

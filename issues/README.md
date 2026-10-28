@@ -33,6 +33,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f217"></a>[F217](F217-The-Laptops-Homeserver-Published-For-The-Host-While-Its-VPN-Is-Up.md) | M | `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41) (the token) | The laptop's homeserver published on its VPN address while a host's VPN is up, closed at the give-back; the host's token at the stop; the laptop's hosts line shown. |
 
 ### Backlog
 
@@ -86,7 +87,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f217"></a>[F217](F217-The-Laptops-Homeserver-Published-For-The-Host-While-Its-VPN-Is-Up.md) | M | `porelo-host` [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41) (the token) | The laptop's homeserver published on its VPN address while a host's VPN is up, closed at the give-back; the host's token at the stop; the laptop's hosts line shown. |
 | <a id="f208"></a>[F208](F208-Roles-Given-At-The-Start-Of-The-Interface.md) | M | — | Roles given at the start (`--roles`), each command shown only for its role; normal work alone without it. |
 | <a id="f209"></a>[F209](F209-The-VPN-Kept-Per-Host-Several-Up-At-Once.md) | M | [F208](README.md#f208) | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. |
 | <a id="f210"></a>[F210](F210-The-Secrets-File-Grouped-By-Host-And-By-Project.md) | S | — | The secrets file's entries under `hosts/<host>/` and `projects/<project>/`, today's moved once. |
