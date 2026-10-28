@@ -32,13 +32,19 @@ class KeyPair {
 /// **Everything that could hold the private key is owner-only before it is written**, and nothing
 /// here puts it in a command line, a log or an error.
 class MachineSetup {
-  /// Constructor, optionally with what runs a program, whose home `~/.ssh` is in, and the desk.
-  MachineSetup({RunWith? run, String? home, Desk? on})
-    : _run = run ?? _runForReal,
-      _desk = on ?? desk,
-      _home = home ?? (on ?? desk).home;
+  /// Constructor, optionally with what runs or starts a program, whose home `~/.ssh` is in, and the desk.
+  MachineSetup({
+    RunWith? run,
+    String? home,
+    Desk? on,
+    Future<Process> Function(String executable, List<String> arguments)? start,
+  }) : _run = run ?? _runForReal,
+       _start = start ?? Process.start,
+       _desk = on ?? desk,
+       _home = home ?? (on ?? desk).home;
 
   final RunWith _run;
+  final Future<Process> Function(String executable, List<String> arguments) _start;
   final Desk _desk;
   final String _home;
 
@@ -207,7 +213,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     String script,
     void Function(String line) onLine,
   ) async {
-    final process = await Process.start(openSsh('ssh', on: _desk), <String>[
+    final process = await _start(openSsh('ssh', on: _desk), <String>[
       '-i',
       keyFile,
       '-o',
@@ -220,14 +226,19 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       'bash',
       '-s',
     ]);
+    final result = _resultOf(process, onLine: onLine);
     process.stdin.write(script);
     await process.stdin.close();
+    return result;
+  }
+
+  static Future<ProcessResult> _resultOf(Process process, {void Function(String)? onLine}) async {
     final out = StringBuffer();
     final err = StringBuffer();
     Future<void> follow(Stream<List<int>> stream, StringBuffer into) =>
         stream.transform(const SystemEncoding().decoder).transform(const LineSplitter()).forEach((line) {
           into.writeln(line);
-          onLine(line);
+          onLine?.call(line);
         });
     await Future.wait(<Future<void>>[follow(process.stdout, out), follow(process.stderr, err)]);
     return ProcessResult(process.pid, await process.exitCode, '$out', '$err');
@@ -246,18 +257,51 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     command,
   ]);
 
+  /// [asUser], with output followed while the command runs, including its change of phase.
+  Future<ProcessResult> asUserLive(String alias, String command, void Function(String) onLine) async {
+    final process = await _start(openSsh('ssh', on: _desk), <String>[
+      '-n',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      '--',
+      alias,
+      command,
+    ]);
+    return _resultOf(process, onLine: onLine);
+  }
+
   /// Writes [bytes] to [path] as the work user, through the `Host` entry [alias]: base64 on standard input, decoded
-  /// there into a file only that user reads. Nothing of it is in a command line.
-  Future<ProcessResult> sendToUser(String alias, String path, List<int> bytes) => _run(<String>[
-    openSsh('ssh', on: _desk),
-    '-o',
-    'BatchMode=yes',
-    '-o',
-    'ConnectTimeout=10',
-    '--',
-    alias,
-    'umask 077 && /usr/bin/base64 -d > ${quoteForAShell(path)}',
-  ], input: base64Encode(bytes));
+  /// there into a file only that user reads. [onProgress] counts source bytes flushed to ssh's pipe.
+  Future<ProcessResult> sendToUser(String alias, String path, List<int> bytes, {void Function(int)? onProgress}) async {
+    final process = await _start(openSsh('ssh', on: _desk), <String>[
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=10',
+      '--',
+      alias,
+      'umask 077 && /usr/bin/base64 -d > ${quoteForAShell(path)}',
+    ]);
+    final result = _resultOf(process);
+    try {
+      // Full blocks are divisible by three so only the final base64 block has padding.
+      const blockSize = 48 * 1024;
+      for (var offset = 0; offset < bytes.length; offset += blockSize) {
+        final end = offset + blockSize < bytes.length ? offset + blockSize : bytes.length;
+        process.stdin.write(base64Encode(bytes.sublist(offset, end)));
+        await process.stdin.flush();
+        onProgress?.call(end);
+      }
+      await process.stdin.close();
+    } on Object {
+      process.kill();
+      await result;
+      rethrow;
+    }
+    return result;
+  }
 
   /// Adds a `Host` entry for the machine to `~/.ssh/config`: **as the work user, never root**.
   ///

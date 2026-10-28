@@ -3,6 +3,7 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/machine_setup.dart';
@@ -22,6 +23,54 @@ void main() {
   tearDown(() => home.deleteSync(recursive: true));
 
   int mode(String path) => FileStat.statSync(path).mode & 0x1FF;
+
+  // Harm: padding between base64 blocks truncates or corrupts the installer sent to the machine.
+  test('sending in blocks preserves every byte and reports source bytes as they reach the pipe', () async {
+    final received = File('${home.path}/installer.run');
+    final commands = <List<String>>[];
+    final machine = MachineSetup(
+      home: home.path,
+      start: (executable, arguments) {
+        commands.add([executable, ...arguments]);
+        return Process.start('/bin/bash', ['-c', arguments.last]);
+      },
+    );
+    final bytes = Uint8List.fromList(List<int>.generate(150001, (index) => index % 256));
+    final counts = <int>[];
+    final result = await machine.sendToUser('example', received.path, bytes, onProgress: counts.add);
+
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+    expect(await received.readAsBytes(), bytes, reason: 'all blocks decode as one installer, including the tail');
+    expect(commands.single, containsAllInOrder(['--', 'example']));
+    expect(counts.length, greaterThan(1), reason: 'progress is available before the whole file is sent');
+    expect(counts, orderedEquals(counts.toSet().toList()..sort()), reason: 'source byte counts advance each time');
+    expect(counts.last, bytes.length, reason: 'base64 expansion is not counted as installer bytes');
+  });
+
+  // Harm: collecting output only at exit hides the check-to-install transition during a long installation.
+  test('a work user command delivers each output line before it finishes', () async {
+    late Process child;
+    final machine = MachineSetup(
+      home: home.path,
+      start: (executable, arguments) async {
+        child = await Process.start('/bin/bash', ['-c', arguments.last]);
+        addTearDown(() => child.kill());
+        return child;
+      },
+    );
+    final lines = <String>[];
+    const command = r'''printf 'checked\n'; read -r answer; printf '%s\n' "$answer" >&2''';
+    final result = await machine.asUserLive('example', command, (line) {
+      lines.add(line);
+      if (line == 'checked') child.stdin.writeln('installing');
+    });
+    await child.stdin.close();
+
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+    expect(lines, ['checked', 'installing']);
+    expect(result.stdout, 'checked\n');
+    expect(result.stderr, 'installing\n');
+  });
 
   test('a generated pair belongs together and is written owner-only', () async {
     final pair = await setup.generate('porelo build machine');

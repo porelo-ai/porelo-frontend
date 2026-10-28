@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Install Tresorit for a work user shows its phase and how far it is: fetching and sending the installer in MB of
+  their total, then checking its signature and installing it, and a failure names its phase; Running Porelo's setup
+  script as root shows the script's last line.
 - While a ready server's setup runs again, its row in Machines says Setting up again (or Needs you at a stop) with the
   protocol's step and time left and opens the protocol; taking it down, forgetting it, putting the project on a server
   and running the setup again are unavailable meanwhile, each saying why.

@@ -161,7 +161,21 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
               child: CircularProgressIndicator(strokeWidth: Sizes.spinnerStroke),
             ),
             const SizedBox(width: Space.small),
-            Expanded(child: Text(run.doing!, key: const Key('setup-doing'))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    run.step == SetupStep.prepare || run.progress == null ? run.doing! : _progressWords(run.progress!),
+                    key: const Key('setup-doing'),
+                  ),
+                  if (run.progress case final progress? when run.step == SetupStep.prepare) ...<Widget>[
+                    const SizedBox(height: Space.tight),
+                    Text(progress.phase, key: const Key('setup-progress')),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ],
@@ -175,6 +189,14 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
       ],
     ],
   );
+
+  String _progressWords(SetupProgress progress) {
+    final done = progress.done;
+    if (done == null) return '${progress.phase}…';
+    const mb = 1024 * 1024;
+    final total = progress.total;
+    return '${progress.phase}: ${done ~/ mb}${total == null ? '' : ' of ${total ~/ mb}'} MB';
+  }
 
   Widget _title(BuildContext context, String words) => Text(words, style: Theme.of(context).textTheme.labelLarge);
 

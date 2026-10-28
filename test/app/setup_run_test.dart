@@ -48,10 +48,18 @@ class _Recording extends MachineSetup {
   }
 
   @override
-  Future<ProcessResult> sendToUser(String alias, String path, List<int> bytes) async {
+  Future<ProcessResult> asUserLive(String alias, String command, void Function(String) onLine) async {
+    final result = await asUser(alias, command);
+    if (result.exitCode == 0) onLine('PORELO_TRESORIT_INSTALLING');
+    return result;
+  }
+
+  @override
+  Future<ProcessResult> sendToUser(String alias, String path, List<int> bytes, {void Function(int)? onProgress}) async {
     sent[path] = bytes;
     aliases.add(alias);
     log.add('send $path');
+    onProgress?.call(bytes.length);
     return ProcessResult(0, 0, '', '');
   }
 

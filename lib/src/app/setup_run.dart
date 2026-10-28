@@ -53,6 +53,9 @@ enum RootAction {
   harden,
 }
 
+/// The current phase of a long action, with transferred bytes where they can be counted.
+typedef SetupProgress = ({String phase, int? done, int? total});
+
 /// One run of the machine wizard: what was said, what was done, and what is being done now.
 ///
 /// **Held apart from the screen** so going back and forth never loses anything, and **kept in the
@@ -241,6 +244,12 @@ class SetupRun extends ChangeNotifier {
 
   /// What is being done right now, in words, or null when nothing is.
   String? doing;
+
+  /// The phase of [doing], with bytes moved and the total when it is known.
+  SetupProgress? progress;
+
+  Timer? _progressTimer;
+  bool _disposed = false;
 
   /// What the last action said, and whether it was a refusal.
   String? said;
@@ -604,7 +613,8 @@ class SetupRun extends ChangeNotifier {
   /// This desktop fetches the installer and finds the pinned CA in its chain; the machine's `openssl`, as the work
   /// user, checks the rest ([TresoritInstaller.checkScript]) before any byte of it runs. The daemon then runs as that
   /// user's own unit, which its linger keeps up without a login.
-  Future<void> installDrive() => _doing("Fetching Tresorit's installer and checking it on the machine…", () async {
+  Future<void> installDrive() => _doing('Installing Tresorit for $workUser…', () async {
+    _showProgress("Fetching Tresorit's installer", done: 0);
     final fetch = download ?? _fetchOverHttps;
     final TresoritInstaller installer;
     try {
@@ -612,6 +622,8 @@ class SetupRun extends ChangeNotifier {
     } on FormatException catch (refused) {
       throw MachineSetupFailed("Tresorit's installer was not taken: ${refused.message} Nothing was sent.");
     }
+    final sending = 'Sending it to $workUser on the machine';
+    _showProgress(sending, done: 0, total: installer.bytes.length);
     final made = await setup.asUser(
       alias,
       r'umask 077 && /usr/bin/mkdir -p "$HOME/.cache" && /usr/bin/mktemp -d "$HOME/.cache/porelo-tresorit.XXXXXX"',
@@ -626,20 +638,42 @@ class SetupRun extends ChangeNotifier {
       ('signing.pem', utf8.encode(installer.signing)),
       ('ca.pem', utf8.encode(installer.ca)),
     ]) {
-      final sent = await setup.sendToUser(alias, '$folder/$name', bytes);
+      final sent = await setup.sendToUser(
+        alias,
+        '$folder/$name',
+        bytes,
+        onProgress: name == 'installer.run'
+            ? (done) => _showProgress(sending, done: done, total: installer.bytes.length)
+            : null,
+      );
       if (sent.exitCode != 0) {
         await setup.asUser(alias, '/usr/bin/rm -rf -- ${quoteForAShell(folder)}');
         throw MachineSetupFailed('The installer could not be sent to $workUser: ${both(sent)}');
       }
     }
-    final checked = await setup.asUser(alias, '/bin/bash -c ${quoteForAShell(TresoritInstaller.checkScript(folder))}');
+    _showProgress('Checking its signature on the machine');
+    var installing = false;
+    final checked = await setup.asUserLive(
+      alias,
+      '/bin/bash -c ${quoteForAShell(TresoritInstaller.checkScript(folder))}',
+      (line) {
+        if (line == TresoritInstaller.installingLine) {
+          installing = true;
+          _showProgress('Installing and starting it');
+        }
+      },
+    );
     if (checked.exitCode != 0) {
       // The script removes the folder on every ending of its own; this one is for an ssh that never ran it.
       await setup.asUser(alias, '/usr/bin/rm -rf -- ${quoteForAShell(folder)}');
+      final detail = both(checked).split('\n').where((line) => line != TresoritInstaller.installingLine).join('\n');
       throw MachineSetupFailed(
-        "Tresorit's installer did not pass its check on the machine, so nothing of it ran: ${both(checked)}",
+        installing
+            ? "Tresorit's installer failed on the machine: $detail"
+            : "Tresorit's installer did not pass its check on the machine, so nothing of it ran: $detail",
       );
     }
+    _showProgress('Installing and starting it');
     final units = await setup.asUser(alias, r'/usr/bin/mkdir -p "$HOME/.config/systemd/user"');
     if (units.exitCode != 0) throw MachineSetupFailed('No folder for its user unit: ${both(units)}');
     final unit = await setup.sendToUser(alias, r'.config/systemd/user/tresorit-daemon.service', utf8.encode(_unit));
@@ -654,7 +688,7 @@ class SetupRun extends ChangeNotifier {
     }
     driveInstalled = true;
     return "Tresorit's client is installed for $workUser, from an installer its signature vouched for, and runs.";
-  });
+  }, namePhase: true);
 
   // Forking: tresorit-cli starts the daemon in a session of its own and stops it again.
   static const _unit = '''[Unit]
@@ -671,7 +705,7 @@ RestartSec=10
 WantedBy=default.target
 ''';
 
-  static Future<Uint8List> _fetchOverHttps(Uri url) async {
+  Future<Uint8List> _fetchOverHttps(Uri url) async {
     final client = HttpClient();
     try {
       final response = await (await client.getUrl(url)).close();
@@ -679,7 +713,12 @@ WantedBy=default.target
         throw MachineSetupFailed('Tresorit answered ${response.statusCode} for its installer.');
       }
       final bytes = BytesBuilder(copy: false);
-      await response.forEach(bytes.add);
+      final total = response.contentLength < 0 ? null : response.contentLength;
+      _showProgress("Fetching Tresorit's installer", done: 0, total: total);
+      await response.forEach((chunk) {
+        bytes.add(chunk);
+        _showProgress("Fetching Tresorit's installer", done: bytes.length, total: total);
+      });
       return bytes.takeBytes();
     } on SocketException catch (lost) {
       throw MachineSetupFailed("Tresorit's installer could not be fetched: ${lost.message}");
@@ -744,8 +783,28 @@ WantedBy=default.target
     outputOf = action;
     return setup.asRootLive(loggedInTo!, kept!, script, (line) {
       output.add(line);
+      if (action == RootAction.prepare) {
+        _showProgress(line);
+      } else {
+        notifyListeners();
+      }
+    });
+  }
+
+  void _showProgress(String phase, {int? done, int? total}) {
+    if (_disposed) return;
+    progress = (phase: phase, done: done, total: total);
+    _progressTimer ??= Timer(const Duration(milliseconds: 250), () {
+      _progressTimer = null;
       notifyListeners();
     });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _progressTimer?.cancel();
+    super.dispose();
   }
 
   void _logged(String line) {
@@ -754,8 +813,9 @@ WantedBy=default.target
   }
 
   /// Runs one action, saying what it is doing while it does, and what it did or why it could not.
-  Future<void> _doing(String what, Future<String?> Function() action) async {
+  Future<void> _doing(String what, Future<String?> Function() action, {bool namePhase = false}) async {
     doing = what;
+    progress = null;
     said = null;
     notifyListeners();
     String? result;
@@ -771,10 +831,14 @@ WantedBy=default.target
       result = 'That did not work: $ex';
       bad = true;
     }
+    final phase = progress?.phase;
+    _progressTimer?.cancel();
+    _progressTimer = null;
     doing = null;
-    said = result;
+    progress = null;
+    said = bad && namePhase && phase != null ? '$phase: $result' : result;
     saidIsBad = bad;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
     _keep();
   }
 

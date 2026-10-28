@@ -19,6 +19,9 @@ class TresoritInstaller {
   /// by separate ways; valid until 2029-12-31.
   static const caSha256 = 'ac4631bcc981ca10063514fb42fd474a9c94bb8e50389c4df42ee201093dd242';
 
+  /// The check script's line after verification succeeds, immediately before the installer runs.
+  static const installingLine = 'PORELO_TRESORIT_INSTALLING';
+
   /// The installer as downloaded, which is what runs once it passed.
   final Uint8List bytes;
 
@@ -111,6 +114,7 @@ class TresoritInstaller {
     '/usr/bin/tail -n +3 installer.run > signed.bin',
     '/usr/bin/openssl dgst -sha512 -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:digest '
         '-sigopt rsa_mgf1_md:sha512 -verify signing.pub -signature signature.bin signed.bin',
+    "printf '%s\\n' '$installingLine'",
     '/bin/sh installer.run --update-v2 "$clientDir"',
   ].join('\n');
 }
