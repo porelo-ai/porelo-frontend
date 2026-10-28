@@ -18,6 +18,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f202"></a>[F202](F202-The-Forges-Certificate-Signed-On-This-Desktop.md) | L | [F199](README.md#f199), `porelo-host` [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35); its password `porelo-project`'s idea of a host set up apart from its projects | The forge's certificate signed on this desktop by the lasting CA in `secrets.kdbx`, its key never on the host. |
 | <a id="f201"></a>[F201](F201-The-Persons-Own-Drive-Mounted-In-Their-Account.md) | L | [F197](README.md#f197) | A person's own Tresorit drive mounted in their own account by the machine setup, optional, never Porelo's and never part of renting a host. |
 | <a id="f148"></a>[F148](F148-An-Agent-For-Each-Repository-At-One-Click.md) | L | `porelo` [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298) | At one click, an attended task for each of a project's repositories that names an agent, repositories left out before the start, a stopped one brought back, agents signed in on the way. |
 | <a id="f197"></a>[F197](F197-The-Hosts-Files-Uploaded-Over-Its-Own-Ssh.md) | M | [F199](README.md#f199), `porelo-host` [HO36](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho36) | The host's `machine.yml` and bundle uploaded over its own ssh into `/etc/porelo-host/setup/`, read by Porelo's account, the desktop's copy kept in the interface's own folder. |
@@ -32,7 +33,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f202"></a>[F202](F202-The-Forges-Certificate-Signed-On-This-Desktop.md) | L | [F199](README.md#f199), `porelo-host` [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35); its password `porelo-project`'s idea of a host set up apart from its projects | The forge's certificate signed on this desktop by the lasting CA in `secrets.kdbx`, its key never on the host. |
 
 ### Backlog
 
@@ -89,7 +89,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f208"></a>[F208](F208-Roles-Given-At-The-Start-Of-The-Interface.md) | M | — | Roles given at the start (`--roles`), each command shown only for its role; normal work alone without it. |
 | <a id="f209"></a>[F209](F209-The-VPN-Kept-Per-Host-Several-Up-At-Once.md) | M | [F208](README.md#f208) | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. |
 | <a id="f210"></a>[F210](F210-The-Secrets-File-Grouped-By-Host-And-By-Project.md) | S | — | The secrets file's entries under `hosts/<host>/` and `projects/<project>/`, today's moved once. |
-| <a id="f212"></a>[F212](F212-The-Forges-CA-One-Per-Host.md) | M | [F210](README.md#f210) | One lasting CA per host, constrained to its names and network, signing its forge and homeserver, trusted per host. |
+| <a id="f212"></a>[F212](F212-The-Forges-CA-One-Per-Host.md) | M | [F210](README.md#f210) | One lasting CA per host, constrained to its names and network, signing its forge and homeserver, trusted per host; the lasting forge password, split off from [F202](README.md#f202). |
 | <a id="f214"></a>[F214](F214-The-Setup-Files-And-The-Stop-Split-By-Act.md) | M | `porelo-host` [HO42](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho42), [HO45](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho45) | The setup files in the person's own home and the stop fed by act: root takes only the VPN key and the forge's certificate. |
 | <a id="f211"></a>[F211](F211-A-Server-Prepared-With-No-Project.md) | L | [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210), [F212](README.md#f212), `porelo-host` [HO42](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho42), [HO43](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho43), [HO44](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho44) | A server prepared by its host admin with no project, a project registered for its admin, project admins admitted by hand. |
 | <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | L | [F211](README.md#f211), [F214](README.md#f214), `porelo-host` [HO45](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho45), `porelo` ([PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78)) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |

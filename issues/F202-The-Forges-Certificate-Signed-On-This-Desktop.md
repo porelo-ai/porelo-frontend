@@ -1,17 +1,16 @@
 # F202 — The Forge's Certificate Signed On This Desktop
 
-**Status:** Implementing; the signing at the stop, the CA kept and trusted here, and its warning built. The lasting
-password waits for `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) (accepted 2026-10-28): a host is prepared by its host admin with its forge always on
-([F145](README.md#f145) rejected), and each person sets their own lasting password at their own first start. What
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes in this issue (nothing reworked yet): one CA per host, constrained to its own names and network, as
-[F212](README.md#f212); the password at every person's first start, in [F213](README.md#f213) and
-[F216](README.md#f216).
+**Status:** Review; the signing at the stop, the CA kept and trusted here, and its warning published 2026-10-28
+(Build green on `46deaa8`), not yet run on a rented host. **Split:** the lasting forge password is no part of this
+issue any more; it moved to [F212](README.md#f212), set at each person's first start in [F213](README.md#f213) and
+[F216](README.md#f216), as `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) decided. What [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes in what is built here (nothing
+reworked yet): one CA per host, constrained to its own names and network, as [F212](README.md#f212).
 **Size:** L (grown from M once `porelo-host`
 [HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) was read: the password call, the VPN's
 root step and the CA's warning) - a second step in the stop's terminal, the CA made once into the file, and their tests, on a contract
 with `porelo-host`.
 
-**What must be true.** Once the host's VPN is up, the person opens its forge in the browser and signs in, with
+**What must be true.** Once the host's VPN is up, the person opens its forge in the browser with no warning and
 nothing done by hand: the host's certificate is signed on this desktop by the lasting CA kept in `secrets.kdbx`, so
 the CA's key never reaches the host, and a second host needs no new CA in the browser (step 5 of the host's new
 setup).
@@ -92,13 +91,13 @@ whole in 6e.
   and of 30 February. **Declined, with the reason:** fractional seconds and an
   offset in place of `Z` are refused, not read: RFC 5280 forbids both in a certificate's validity, and `openssl`
   writes neither.
-- **Still to build:** the lasting forge password (typed into the file once, then piped into
-  `porelo-host-forge-password`), which moves to every person's first start with [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
+- **Split off:** the lasting forge password (typed into the file once, then piped into
+  `porelo-host-forge-password`) is [F212](README.md#f212)'s, at each person's first start.
 
 ## Acceptance
 
-- After the VPN, `https://forge.porelo.internal/` opens and signs in with the lasting password: no hosts line, CA
-  import or password file by hand, and the CA's key never reached the host.
+- After the VPN, `https://forge.porelo.internal/` opens with no certificate warning: no hosts line or CA import by
+  hand, and the CA's key never reached the host. Signing in with the lasting password is [F212](README.md#f212)'s.
 - A second host needs no new CA in the browser; a certificate for another name signed by the CA fails `openssl verify`.
 - Seen to fail: the command test red before the signing step exists.
 
