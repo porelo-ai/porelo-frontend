@@ -1,6 +1,6 @@
 # F148 — An Agent For Each Repository, At One Click
 
-**Status:** Review; built, published with `a6a4ef5`, and measured against a daemon carrying `porelo`
+**Status:** Finished; walk 18 (sprint 6d) walked to its end by the operator against the test machine: each repository naming an agent offered, one left out, an agent signed in on the way, the start, and the one that runs not offered again.
 [B298](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b298).
 **Size:** L - a new wizard over the existing start, M on its own, but it crosses repositories: the agent a repository
 names is not on the wire yet.

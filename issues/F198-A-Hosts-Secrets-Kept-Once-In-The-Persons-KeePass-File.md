@@ -1,6 +1,6 @@
 # F198 — A Host's Secrets Kept Once In The Person's KeePass File
 
-**Status:** Review; published 2026-10-27 with [F199](README.md#f199), not yet run on a rented host.
+**Status:** Finished; walk 18 (sprint 6d) walked to its end by the operator: the secrets file made once on this computer with its master password, its `shared` and `hosts/<project>` entries, and setup's step reading it; its use at a rented host's stop is [F199](README.md#f199)'s.
 **Size:** L - a new part beside the host dialog (the file's entries, its terminal, a first-use step) and a package
 dependency, no contract of the daemon, but one with `porelo-host` through [F199](README.md#f199).
 
