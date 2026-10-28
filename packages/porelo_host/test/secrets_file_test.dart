@@ -578,7 +578,7 @@ void main() {
       final missing = await run(SecretsFile(kdbx, cli: cli).unlockLine(project: 'other'), 'm');
       expect(missing.exitCode, isNot(0));
       expect('${missing.stdout}', isEmpty, reason: 'no line at all when the entry is missing');
-    });
+    }, skip: skip);
 
     test('the stop\'s lines carry each entry base64, in the agreed form, and a missing entry gives none', () async {
       final kdbx = path.join(home.path, 'secrets.kdbx');
