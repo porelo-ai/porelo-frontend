@@ -49,6 +49,7 @@ void main() {
     bool requireFreshHandshake = false,
     SecretStore? secretStore,
     Future<bool> Function()? probeLink,
+    DateTime Function()? now,
   }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -83,7 +84,7 @@ void main() {
                 requireFreshHandshake: requireFreshHandshake,
                 secretStore: secretStore ?? _TunnelSecrets({HostFiles.keyName('demo'): private}),
                 environment: {'XDG_RUNTIME_DIR': runtime.path},
-                now: () => DateTime.fromMillisecondsSinceEpoch(100000),
+                now: now ?? () => DateTime.fromMillisecondsSinceEpoch(100000),
                 open: (executable, arguments, {int columns = 80, int rows = 24}) {
                   commands.add([executable, ...arguments]);
                   if (up && receipt) {
@@ -554,6 +555,26 @@ void main() {
     final commands = <List<String>>[];
     await open(tester, settings, commands, FakeTerminal([]));
     expect(commands.single.last, ca.trimRight(), reason: 'the certificate itself, public, read by root from no file');
+    expect(find.textContaining('forges ends on'), findsNothing, reason: 'no end read, nothing said');
+  }, skip: _notLinux);
+
+  // Harm: the lasting CA ends unseen, and every server's forge stops opening in the browser on one day.
+  testWidgets('a kept forge CA that ends within 90 days is said at the VPN\'s start, with what to do', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('vpn-forge-ca-')))!;
+    addTearDown(() => scratch.delete(recursive: true));
+    final made = (await tester.runAsync(
+      () => Process.run('openssl', [
+        'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-days', '30', //
+        '-subj', '/CN=forge-ca-test', '-keyout', '${scratch.path}/key.pem', '-out', '${scratch.path}/ca.pem',
+      ]),
+    ))!;
+    expect(made.exitCode, 0, reason: '${made.stderr}');
+    await settings.rememberForgeCa(File('${scratch.path}/ca.pem').readAsStringSync());
+    await open(tester, settings, <List<String>>[], FakeTerminal([]), now: DateTime.now);
+    expect(find.textContaining('forges ends on'), findsOneWidget);
+    expect(find.textContaining('remove shared/forge-ca and shared/forge-ca-key'), findsOneWidget);
   }, skip: _notLinux);
 
   // Harm: a teardown action must not run installation or target the remote server.

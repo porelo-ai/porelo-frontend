@@ -373,11 +373,22 @@ void main() {
   }
 
   // Harm: the lasting CA signed with but never trusted here, or a stale file of it left in the temporary folder.
+  // Harm, too: a lasting CA that ends unseen, where the stop is the place a new one is made.
   testWidgets('a stop for the forge\'s certificate keeps the lasting CA it signed with, and its folder goes', (
     tester,
   ) async {
     final settings = Settings(MemorySettingsStore());
     await settings.rememberSecretsFile('/home/person/Porelo/secrets.kdbx');
+    final scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('stop-forge-ca-')))!;
+    addTearDown(() => scratch.delete(recursive: true));
+    final made = (await tester.runAsync(
+      () => Process.run('openssl', [
+        'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-days', '30', //
+        '-subj', '/CN=forge-ca-test', '-keyout', '${scratch.path}/key.pem', '-out', '${scratch.path}/ca.pem',
+      ]),
+    ))!;
+    expect(made.exitCode, 0, reason: '${made.stderr}');
+    await settings.rememberForgeCa(File('${scratch.path}/ca.pem').readAsStringSync());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
     final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
     final process = HostProcess();
@@ -429,6 +440,11 @@ void main() {
       expect(find.textContaining('signed on this computer by your lasting CA'), findsOneWidget);
       await tester.tap(find.byKey(const Key('host-open-terminal')));
       await World.settle(tester);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('unlock-explained'))).data,
+        contains('forges ends on'),
+        reason: 'said where a new one is made',
+      );
       final caout = RegExp(r"caout='?([^'\n]+)'?\n").firstMatch(terminals.single.command.last)!.group(1)!;
       const pem = '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n';
       File(caout).writeAsStringSync(pem);
@@ -444,7 +460,8 @@ void main() {
       machines.dispose();
       settings.dispose();
     }
-  });
+    // The stop is fed from the file on Linux only, and openssl makes the CA.
+  }, skip: !Platform.isLinux);
 
   group('a stopped setup', () {
     late Settings settings;

@@ -176,6 +176,68 @@ bool isForgeCaCertificate(String pem) {
   }
 }
 
+/// When the certificate in [pem] ends, read from its DER, or null where it is not one certificate.
+DateTime? certificateEnds(String pem) {
+  if (!isForgeCaCertificate(pem)) return null;
+  final der = base64.decode(pem.split('\n').where((line) => !line.startsWith('-----')).join());
+  var at = 0;
+  // One element's tag, and where its content starts and ends; a long length in at most four bytes. A length past the
+  // end is the RangeError below.
+  (int, int, int) element() {
+    if (at + 2 > der.length) throw const FormatException('short');
+    final tag = der[at];
+    var length = der[at + 1];
+    at += 2;
+    if (length > 0x80) {
+      final bytes = length - 0x80;
+      if (bytes > 4 || at + bytes > der.length) throw const FormatException('long');
+      length = 0;
+      for (var i = 0; i < bytes; i++) {
+        length = length << 8 | der[at++];
+      }
+    } else if (length == 0x80) {
+      throw const FormatException('indefinite');
+    }
+    return (tag, at, at + length);
+  }
+
+  void skip() => at = element().$3;
+  try {
+    if (element().$1 != 0x30 || element().$1 != 0x30) return null; // Certificate, then tbsCertificate.
+    if (der[at] == 0xa0) skip(); // Its version.
+    skip(); // Serial.
+    skip(); // Signature algorithm.
+    skip(); // Issuer.
+    if (element().$1 != 0x30) return null; // Validity.
+    skip(); // Not before.
+    final (tag, start, end) = element();
+    final text = ascii.decode(der.sublist(start, end));
+    final digits = switch (tag) {
+      // UTCTime's two-digit year is 1950 to 2049.
+      0x17 when text.length == 13 => '${int.parse(text.substring(0, 2)) < 50 ? '20' : '19'}$text',
+      0x18 when text.length == 15 => text,
+      _ => null,
+    };
+    if (digits == null || !RegExp(r'^\d{14}Z$').hasMatch(digits)) return null;
+    int part(int from, int length) => int.parse(digits.substring(from, from + length));
+    return DateTime.utc(part(0, 4), part(4, 2), part(6, 2), part(8, 2), part(10, 2), part(12, 2));
+  } on FormatException {
+    return null;
+  } on RangeError {
+    return null;
+  }
+}
+
+/// What the person is told where the lasting CA in [pem] ends within 90 days of [now], or has ended; null otherwise.
+String? forgeCaWarning(String? pem, DateTime now) {
+  final ends = pem == null ? null : certificateEnds(pem);
+  if (ends == null || ends.difference(now) > const Duration(days: 90)) return null;
+  final day = ends.toIso8601String().substring(0, 10);
+  return '${ends.isAfter(now) ? 'The CA for your servers\' forges ends on $day' : 'The CA for your servers\' forges ended on $day'}'
+      ': remove shared/forge-ca and shared/forge-ca-key from your secrets file, and the next server\'s stop makes '
+      'a new one, which this computer trusts at its next VPN start.';
+}
+
 /// Takes the VPN down, and the forge's name with it from `/etc/hosts`, which only this link reaches: that one line,
 /// written into the file as it is, so its owner, mode and label stay.
 const hostVpnDownCommand = <String>[

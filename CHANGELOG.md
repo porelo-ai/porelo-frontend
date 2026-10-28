@@ -106,6 +106,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A server's forge gets its certificate at the stop: signed on this computer by one lasting CA, made once into the
   secrets file, whose key never leaves it. Bringing the VPN up then trusts that CA on this computer (the system
   store and Firefox's policy) and names the forge in `/etc/hosts`, each once; taking it down takes the name out.
+  From 90 days before that CA ends, the VPN's start and the stop say so, and how the next stop makes a new one.
 - The machine wizard has an optional step *Your own drive*: Tresorit's client installed in the work user's own
   account, from an installer the machine checks against its own signature under a pinned CA before any of it runs,
   signed in by Tresorit's own login in a terminal, and one tresor synced into that user's home.

@@ -73,8 +73,13 @@ whole in 6e.
   put in place, each piece of which the next start finds there or puts in again, since nothing of it is the person's;
   the stop dialog's last catch has no error to test it with, as building the command throws only the two it names.
   `LC_ALL=C` stays in root's check although this computer's `grep` refuses a non-ASCII letter without it.
+- **Built, the CA's warning:** the end of the kept certificate is read from its DER (`certificateEnds`, UTCTime and
+  GeneralizedTime, compared with what `openssl` reads); from 90 days before it, and after it, the VPN's start and a
+  stop that signs the forge's certificate say when it ends and what to do: remove `shared/forge-ca` and
+  `shared/forge-ca-key` from the secrets file, and the next stop makes a new CA, which the next VPN start trusts in
+  place of the old. A server set up before keeps a certificate of the old one until it is set up again.
 - **Still to build:** the lasting forge password (typed into the file once, then piped into
-  `porelo-host-forge-password` after `up`); the warning 90 days before the CA ends.
+  `porelo-host-forge-password` after `up`), which waits for the operator with Machines' change to that script.
 
 ## Acceptance
 

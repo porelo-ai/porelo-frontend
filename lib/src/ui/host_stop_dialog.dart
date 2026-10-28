@@ -8,6 +8,7 @@ import '../app/host_stop_feed.dart';
 import '../app/host_runs.dart';
 import '../app/machines.dart';
 import '../app/session.dart';
+import '../app/host_vpn.dart';
 import '../app/settings.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
@@ -199,6 +200,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
         explanation: fromTheFile
             ? 'Type the master password of your secrets file here; the host gets what it named from the file, on '
                   'standard input, and nothing is shown.${needs.contains('drive') ? ' The Tresorit login comes first, on the host.' : ''}'
+                  '${needs.contains('forge-certificate') ? ' ${forgeCaWarning(widget.settings?.forgeCa, DateTime.now()) ?? ''}' : ''}'
             : 'Type the secrets into the host terminal. The Tresorit login asks again until it succeeds or you cancel, then the vault comes next.',
         machine: machine,
         command: command,

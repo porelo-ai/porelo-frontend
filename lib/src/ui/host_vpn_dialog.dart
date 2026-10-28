@@ -91,7 +91,10 @@ Future<bool> openHostVpnDialog(
       context,
       key: const Key('host-vpn-terminal'),
       title: '${up ? 'Bring the VPN up' : 'Take the VPN down'} for ${machine.name}',
-      explanation: 'This changes WireGuard on this computer. Type only your sudo password into this terminal.',
+      explanation: [
+        'This changes WireGuard on this computer. Type only your sudo password into this terminal.',
+        if (up) ?forgeCaWarning(settings.forgeCa, (now ?? DateTime.now)()),
+      ].join(' '),
       machine: Machine.local(),
       command: pending?.command ?? hostVpnDownCommand,
       shownCommand: up
