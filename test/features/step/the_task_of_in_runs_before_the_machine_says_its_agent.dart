@@ -13,10 +13,7 @@ Future<void> theTaskOfInRunsBeforeTheMachineSaysItsAgent(
   String repository,
 ) async {
   World.backend.bringsUp(
-    Task.from(<String, dynamic>{
-      ...wire(World.anAgentsTask('', repository, project, task, running: true)),
-      'mode': '',
-    }),
+    Task.from(<String, dynamic>{...wire(World.anAgentsTask('', repository, project, task, running: true)), 'mode': ''}),
   );
   await World.settle(tester);
 }
