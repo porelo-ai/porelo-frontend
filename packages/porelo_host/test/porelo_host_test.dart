@@ -323,6 +323,28 @@ void main() {
       expect('$err', contains('no server of sprint5 is rented'));
     });
 
+    test('says a provider that fails as refused, never as no server', () async {
+      final err = StringBuffer();
+      final code = await cli.findRented(_FailingProvider(), 'sprint5', out: StringBuffer(), err: err);
+      expect(code, 65);
+      expect('$err', isNot(contains('is rented')));
+    });
+
+    test('refuses an empty or odd value before asking the provider', () async {
+      for (final project in ['', '--zone', 'a/b']) {
+        final result = await Process.run(Platform.resolvedExecutable, [
+          'run',
+          'bin/porelo_host.dart',
+          'find',
+          '--scaleway-project',
+          'p',
+          '--project',
+          project,
+        ]);
+        expect(result.exitCode, 64, reason: '$project: ${result.stderr}');
+      }
+    }, timeout: const Timeout(Duration(minutes: 3)));
+
     test('takes only --project, --scaleway-project and --zone', () async {
       final result = await Process.run(Platform.resolvedExecutable, [
         'run',
@@ -339,6 +361,14 @@ void main() {
       expect('${result.stderr}', contains('--identity is not an option'));
     }, timeout: const Timeout(Duration(minutes: 3)));
   });
+}
+
+/// A provider whose list fails, as a refused key does.
+class _FailingProvider extends _ListingProvider {
+  _FailingProvider() : super(null);
+
+  @override
+  Future<RentedHost?> find(String tag) => throw ProviderFailed('the key may not list the servers');
 }
 
 /// A provider that only lists: anything else it is asked fails the test.

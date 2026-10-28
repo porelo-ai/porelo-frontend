@@ -158,7 +158,9 @@ Future<int> _find(List<String> arguments) async {
     if (!const <String>{'--project', '--scaleway-project', '--zone'}.contains(name) || i + 1 >= arguments.length) {
       return _wrong('$name is not an option of find');
     }
-    options[name.substring(2)] = arguments[++i];
+    final value = arguments[++i];
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(value)) return _wrong('$name takes a name, not "$value"');
+    options[name.substring(2)] = value;
   }
   final missing = const <String>['project', 'scaleway-project'].where((n) => !options.containsKey(n)).toList();
   if (missing.isNotEmpty) return _wrong('missing ${missing.map((n) => '--$n').join(', ')}');
@@ -168,7 +170,7 @@ Future<int> _find(List<String> arguments) async {
 }
 
 /// Prints the server [provider] lists for [project] as one JSON line to [out] and returns 0, or says to [err] that
-/// none is rented and returns 69. Asks [provider] for its list once and nothing else.
+/// none is rented and returns 69, or 65 where the provider fails. Asks [provider] for its list once and nothing else.
 Future<int> findRented(
   HostProvider provider,
   String project, {
@@ -179,8 +181,9 @@ Future<int> findRented(
   try {
     host = await provider.find(HostPlan.tagFor(project));
   } on ProviderFailed catch (e) {
+    // As up and down say it: the provider refused or could not be asked, which is no answer about the server.
     err.writeln('porelo-host: $e');
-    return Exit.unreachable;
+    return Exit.refused;
   }
   if (host == null) {
     err.writeln('porelo-host: no server of $project is rented');

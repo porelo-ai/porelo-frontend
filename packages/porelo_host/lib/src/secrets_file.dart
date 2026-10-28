@@ -211,6 +211,8 @@ class SecretsFile {
     'file=${_word(file)}',
     _kp,
     r'''get() { local value; value="$(kp show -s -a password "$file" "$1" 2>/dev/null || true)"; if [ -z "$value" ]; then echo "$file has no entry $1; nothing was sent." >&2; return 1; fi; printf '%s' "$value"; }''',
+    // A file that cannot be read is said as such, never asked about three times as a wrong password.
+    r'if ! [ -r "$file" ]; then echo "$file cannot be read; nothing was sent." >&2; exit 1; fi',
     // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
     'for try in 1 2 3; do',
     r'  IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',

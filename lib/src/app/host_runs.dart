@@ -319,7 +319,7 @@ class HostRuns extends ChangeNotifier {
     final run = _runs[project];
     if (run?.lockProblem case final problem?) return problem;
     if (run?.running == true) return 'the host command is still running';
-    if (run?.waiting == true) return 'setup waits for you under Needs you';
+    if (run != null && (run.needsYou || run.interrupted)) return 'setup waits for you under Needs you';
     if (run != null && (!run.ready || run.givenBack)) return 'the server is not ready';
     final record = machines.settings.hostUp(project);
     if (record == null) return 'the setup arguments were not kept';

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/vault_unlock.dart';
 import 'package:xterm/xterm.dart';
 
 import '../support/over_ssh.dart';
@@ -12,15 +10,11 @@ Future<void> aTerminalRunsOnTheMachine(WidgetTester tester, String command) asyn
   // What was run, and that it is a terminal somebody types into — never a value this program holds.
   expect(World.terminals, isNotEmpty, reason: 'no terminal was opened');
   if (command == 'porelo vault unlock' || command == 'ssh -t alice@vm porelo vault unlock') {
-    final machine = command.startsWith('ssh ')
-        ? const Machine(
-            name: 'remote',
-            socketPath: '/tmp/remote.sock',
-            host: 'alice@vm',
-            remoteSocket: '/run/porelo.sock',
-          )
-        : Machine.local(environment: const {});
-    expect(World.terminals.last.command, unlockCommandFor(machine));
+    // The unlock asks again after a refused passphrase: `porelo vault unlock` inside a small loop of sh.
+    final run = World.terminals.last.command;
+    final loop = run.last;
+    expect(run.take(run.length - 1), command.startsWith('ssh ') ? ['ssh', '-t', 'alice@vm'] : ['sh', '-c']);
+    expect(loop, allOf(contains('porelo vault unlock'), contains('for attempt in 1 2 3'), contains('-eq 70')));
   } else {
     expect(World.terminals.last.command.join(' '), asRunOverSsh(command));
   }
