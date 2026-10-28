@@ -45,27 +45,36 @@ class TerminalLinks extends StatelessWidget {
                   ...session.links.where((each) => each.isTheLogin),
                   ...session.links.where((each) => !each.isTheLogin),
                 ])
-                  Tooltip(
-                    message: '${link.address}',
-                    child: link.isTheLogin
-                        ? FilledButton.icon(
-                            key: ValueKey<String>('terminal-link ${link.address}'),
-                            onPressed: () => unawaited(openLink(link.address)),
-                            icon: const Icon(Icons.login, size: Sizes.rowIcon),
-                            label: const Text('Sign in: the reply comes back here'),
-                          )
-                        : OutlinedButton.icon(
-                            key: ValueKey<String>('terminal-link ${link.address}'),
-                            onPressed: () => unawaited(openLink(link.address)),
-                            icon: const Icon(Icons.open_in_new, size: Sizes.rowIcon),
-                            label: Text(
-                              session.links.any((each) => each.isTheLogin)
-                                  ? 'Another link the program printed: ${link.address.host}${link.address.path}'
-                                  : 'Open ${link.address.host}${link.address.path} in your browser',
-                              overflow: TextOverflow.ellipsis,
+                  // A login's terminal forwards its reply to this computer, so a loopback link there
+                  // may well open; in a task's terminal it would open this computer's, not the task's.
+                  if (!link.isTheLogin && !session.forwardsALoginReply && link.onlyInsideTheTask)
+                    Text(
+                      '${link.address.host}${link.address.path}: only reachable inside the task',
+                      key: ValueKey<String>('terminal-link-inside ${link.address}'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  else
+                    Tooltip(
+                      message: '${link.address}',
+                      child: link.isTheLogin
+                          ? FilledButton.icon(
+                              key: ValueKey<String>('terminal-link ${link.address}'),
+                              onPressed: () => unawaited(openLink(link.address)),
+                              icon: const Icon(Icons.login, size: Sizes.rowIcon),
+                              label: const Text('Sign in: the reply comes back here'),
+                            )
+                          : OutlinedButton.icon(
+                              key: ValueKey<String>('terminal-link ${link.address}'),
+                              onPressed: () => unawaited(openLink(link.address)),
+                              icon: const Icon(Icons.open_in_new, size: Sizes.rowIcon),
+                              label: Text(
+                                session.links.any((each) => each.isTheLogin)
+                                    ? 'Another link the program printed: ${link.address.host}${link.address.path}'
+                                    : 'Open ${link.address.host}${link.address.path} in your browser',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                  ),
+                    ),
               ],
             ),
           ),

@@ -62,12 +62,18 @@ Map<ShortcutActivator, Intent> get terminalShortcuts => <ShortcutActivator, Inte
 /// Names the paste shortcut beside a terminal.
 class TerminalPasteHint extends StatelessWidget {
   /// Creates the shared terminal hint.
-  const TerminalPasteHint({super.key});
+  const TerminalPasteHint({super.key, this.shiftSelects = false});
+
+  /// Whether a Shift+drag selects in this terminal whatever its program asked of the mouse.
+  final bool shiftSelects;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: Space.small, vertical: Space.tight),
-    child: Text(defaultTargetPlatform == TargetPlatform.macOS ? 'Paste with ⌘V' : 'Paste with Ctrl+Shift+V'),
+    child: Text(
+      '${shiftSelects ? 'Select with Shift+drag · ' : ''}'
+      '${defaultTargetPlatform == TargetPlatform.macOS ? 'Paste with ⌘V' : 'Paste with Ctrl+Shift+V'}',
+    ),
   );
 }
 

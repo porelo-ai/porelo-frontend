@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:xterm/xterm.dart';
 
@@ -15,6 +16,12 @@ import 'modified_keys.dart';
 import 'pty.dart';
 import 'shell_model.dart';
 import 'wsl.dart';
+
+/// Puts text on this computer's clipboard. Injectable, so a test records what a program copied.
+typedef CopyToClipboard = Future<void> Function(String text);
+
+/// What a terminal's program copies goes here: the desktop's clipboard.
+CopyToClipboard copyToClipboard = (text) => Clipboard.setData(ClipboardData(text: text));
 
 /// How a terminal is opened. Injectable, so everything above it runs without a process.
 typedef OpenTerminal = SessionChannel Function(String executable, List<String> arguments, {int columns, int rows});
@@ -72,6 +79,7 @@ class Session extends ChangeNotifier {
     int rows = 24,
     this.run,
     this.forwardsALoginReply = false,
+    this.startedAt,
   }) : _open = open ?? (desk.isWindows ? ConPty.start : Pty.start) {
     terminal = Terminal(maxLines: scrollback)
       ..inputHandler = CascadeInputHandler(<TerminalInputHandler>[_modifiedKeys, defaultInputHandler])
@@ -83,6 +91,10 @@ class Session extends ChangeNotifier {
 
   /// Which container, as `List` reports it and as every other method takes it.
   final String task;
+
+  /// When the task was started, as its listing says, or null when it does not. What its agent
+  /// shows from before then is an earlier start's, however current it looks.
+  final DateTime? startedAt;
 
   /// Which machine it is on. Named on screen because two machines can have a task of the same
   /// name.
@@ -143,8 +155,27 @@ class Session extends ChangeNotifier {
     }());
   }
 
+  /// The program's own copy (OSC 52, as tmux's `set-clipboard on` sends it), put on this computer's
+  /// clipboard. **Writing only**: a request to read the clipboard (`?`) is never answered, since that
+  /// would hand whatever was copied here to the container.
+  void _copied(List<String> arguments) {
+    if (!live || arguments.length != 2 || arguments.last == '?') return;
+    if (arguments.last.length > _mostCopied) return;
+    final String text;
+    try {
+      text = utf8.decode(base64.decode(arguments.last), allowMalformed: true);
+    } on FormatException {
+      return;
+    }
+    unawaited(copyToClipboard(text));
+  }
+
+  /// How much a program may copy at once, in base64: more than any selection, less than a flood.
+  static const int _mostCopied = 1 << 20;
+
   void _hyperlink(String code, List<String> arguments) {
     if (code == '5379') return _forwardTheReply(arguments);
+    if (code == '52') return _copied(arguments);
     final link = hyperlinkOf(code, arguments);
     if (link == null || links.contains(link)) return;
     links.add(link);
@@ -380,9 +411,9 @@ class Sessions extends ChangeNotifier {
   /// **The same work again returns what is there**, moved to where it was asked for: one container
   /// holds one session, and a second way in would draw the same screen twice. **Other work leaves
   /// the one that was open** without asking — nothing at the far end stops.
-  Session openOn(String task, Machine machine, {required ConsolePlace at}) {
+  Session openOn(String task, Machine machine, {required ConsolePlace at, DateTime? startedAt}) {
     final open = _current;
-    if (open != null && open.task == task && open.machine == machine) {
+    if (open != null && open.task == task && open.machine == machine && open.startedAt == startedAt) {
       if (_place != at) {
         _place = at;
         notifyListeners();
@@ -390,7 +421,7 @@ class Sessions extends ChangeNotifier {
       return open;
     }
     if (open != null) unawaited(_end(open));
-    final session = Session(task: task, machine: machine, open: openTerminal);
+    final session = Session(task: task, machine: machine, open: openTerminal, startedAt: startedAt);
     _current = session;
     _place = at;
     notifyListeners();

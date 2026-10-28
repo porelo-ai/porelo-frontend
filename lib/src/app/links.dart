@@ -21,6 +21,18 @@ class TerminalLink {
   /// machine by itself (`id=porelo-login`). Read from the mark, never from the address.
   final bool isTheLogin;
 
+  /// Whether only the task's own container reaches it: the gate's name as the task sees it, a
+  /// loopback address, or a name without a dot. A browser here opens such an address somewhere else
+  /// or nowhere.
+  bool get onlyInsideTheTask {
+    final host = address.host.toLowerCase();
+    return host == 'host.containers.internal' ||
+        host == 'localhost' ||
+        host == '::1' ||
+        host.startsWith('127.') ||
+        !host.contains('.') && !host.contains(':');
+  }
+
   @override
   bool operator ==(Object other) => other is TerminalLink && other.address == address && other.isTheLogin == isTheLogin;
 

@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
 
 import '../app/desk.dart';
 import '../app/session.dart';
+import 'how_long.dart';
 import 'panes.dart';
 
 import 'package:guided_walk/guided_walk.dart';
@@ -133,12 +135,28 @@ class _SessionViewState extends State<SessionView> {
                 key: Key('session-over'),
               ),
             ),
+          // Above the screen, since what tmux draws starts on a screen of its own: after a stop and a
+          // start, what the agent redraws from before can otherwise be read as its answer now.
+          if (session.startedAt case final started?)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: Space.normal, vertical: Space.tight),
+              child: Text(
+                '${session.task}, started ${clockTime(started)}: anything its screen shows from before then '
+                'is from an earlier start.',
+                key: const Key('session-started'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           Expanded(
             child: ColoredBox(
               color: scheme.surfaceContainerLowest,
               // On Windows the wheel is reported to tmux by the session itself; see
               // [Session.wheel]. Elsewhere the terminal answers it, as tmux asked it to.
               child: Listener(
+                // Shift+drag selects here whatever the program asked for, as in other terminals: the
+                // whole gesture, press and release included, then never reaches the program.
+                onPointerDown: (_) => _selection.setSuspendPointerInput(HardwareKeyboard.instance.isShiftPressed),
                 onPointerSignal: desk.isWindows
                     ? (event) {
                         if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
@@ -173,7 +191,7 @@ class _SessionViewState extends State<SessionView> {
               ),
             ),
           ),
-          const TerminalPasteHint(),
+          const TerminalPasteHint(shiftSelects: true),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.normal),
             child: TerminalLinks(session: session),

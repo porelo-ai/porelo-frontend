@@ -9,6 +9,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A task's terminal says above its screen when the task was started, and its tile says *started HH:MM*, so what its
+  agent still shows from before a stop and a start is not read as its state now.
+- Shift+drag selects text in a task's terminal while tmux or the agent in it takes the mouse, without reaching the
+  program, and the hint below the terminal says so; what a program copies itself (OSC 52, as tmux's copy mode sends
+  it) reaches this computer's clipboard, while a request to read the clipboard is never answered.
+- A link a task's program prints to an address only its container reaches (`host.containers.internal`, a loopback
+  address, a name without a dot) is shown below its terminal as only reachable inside the task, not as a button to
+  the browser.
 - Install Tresorit for a work user shows its phase and how far it is: fetching and sending the installer in MB of
   their total, then checking its signature and installing it, and a failure names its phase; Running Porelo's setup
   script as root shows the script's last line.

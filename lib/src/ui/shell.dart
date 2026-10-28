@@ -3387,7 +3387,7 @@ class _ShellState extends State<Shell> {
   void _openSession(Task task) {
     final machine = widget.machines.current;
     final before = widget.sessions.current;
-    widget.sessions.openOn(task.name, machine, at: _here);
+    widget.sessions.openOn(task.name, machine, at: _here, startedAt: task.startedAt);
     if (before != null && (before.task != task.name || before.machine != machine)) {
       _fleet.say('Left the session in ${before.task}; the work there carries on.');
     }

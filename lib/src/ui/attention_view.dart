@@ -1044,6 +1044,8 @@ class TaskTile extends StatelessWidget {
                         key: ValueKey<String>('tile-console-of ${tile.machine.name} ${task.name}'),
                         backend: tile.fleet.backend,
                         task: task.name,
+                        // `since` is when its current state began, so a start only while it runs.
+                        startedAt: task.running ? task.startedAt : null,
                         inATerminal: task.mode != Mode.unattended,
                         // Work in a terminal is enlarged into its session itself, as "Work in it by hand"
                         // does (walk 10: the tile's "Open" is the work's details, not its terminal).

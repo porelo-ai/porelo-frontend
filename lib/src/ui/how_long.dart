@@ -28,6 +28,12 @@ String? howLongSince(DateTime? began, {DateTime? now}) {
   return '${elapsed.inDays} days';
 }
 
+/// The local time of day of [time], hours and minutes.
+String clockTime(DateTime time) {
+  final local = time.toLocal();
+  return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+}
+
 /// How long until something, in words, or null when nothing can say or it has passed.
 String? howLongUntil(DateTime? end, {DateTime? now}) =>
     end == null ? null : howLongSince(now ?? DateTime.now(), now: end);

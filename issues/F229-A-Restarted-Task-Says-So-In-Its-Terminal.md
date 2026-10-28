@@ -19,9 +19,11 @@ it misleading and asked for a visible separator after a restart.
 ## Plan
 
 - The task's start time is in its listing already (`TaskRow.startedAt`, from `since`).
-- `session_view.dart`: when a task's terminal opens, the interface writes one dim line into the terminal's buffer
-  before the first byte of the attach: its name and `startedAt` in local time, and "anything above this line is from
-  before"; where `startedAt` is unknown (a task from before the field), nothing is written.
+- `session_view.dart`: a dim line drawn by the interface directly above the terminal, with the task's name and
+  `startedAt` in local time: anything its screen shows from before then is from an earlier start. Not written into
+  the terminal's buffer: tmux draws on the alternate screen, which hides whatever was written before it. Where
+  `startedAt` is unknown (a task from before the field), nothing is shown. `Session` carries `startedAt`, and
+  opening the same task with another start opens a new session.
 - The tile's mini console header names `started HH:MM`.
 - **Red first:** a terminal opened on a task with `startedAt` shows that line before the attach's output; a tile
   shows its start time; a task without one shows neither.

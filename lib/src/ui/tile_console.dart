@@ -7,6 +7,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_backend.dart';
 import 'ansi.dart';
+import 'how_long.dart';
 import 'terminal_look.dart';
 import 'tokens.dart';
 
@@ -23,8 +24,13 @@ class TileConsole extends StatefulWidget {
     required this.task,
     required this.onEnlarge,
     this.inATerminal = false,
+    this.startedAt,
     super.key,
   });
+
+  /// When the task was started, named over its lines, or null when its listing does not say: after
+  /// a stop and a start, what the screen still shows from before is not its state now.
+  final DateTime? startedAt;
 
   /// Whether its agent works in a terminal session, by hand, rather than unattended: such work writes
   /// no log of its own, so the tile shows the session's screen, asked of the machine every
@@ -150,7 +156,27 @@ class _TileConsoleState extends State<TileConsole> {
 
   // Its own layer: what it draws, every few seconds, never makes the rest of the window repaint.
   @override
-  Widget build(BuildContext context) => RepaintBoundary(child: _drawn(context));
+  Widget build(BuildContext context) => RepaintBoundary(child: _headed(context, _drawn(context)));
+
+  Widget _headed(BuildContext context, Widget drawn) {
+    final started = widget.startedAt;
+    if (started == null || _unreadable) return drawn;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: Space.small),
+          child: Text(
+            'started ${clockTime(started)}',
+            key: ValueKey<String>('tile-console-started ${widget.task}'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        drawn,
+      ],
+    );
+  }
 
   Widget _drawn(BuildContext context) {
     if (_unreadable) return const SizedBox.shrink();
