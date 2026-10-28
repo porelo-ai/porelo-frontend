@@ -239,6 +239,11 @@ class _HostStopDialogState extends State<HostStopDialog> {
                 if (needs.contains('vault')) const Text('The host needs its vault unlocked.'),
                 if (needs.contains('wireguard')) const Text('The host needs its VPN key.'),
                 if (needs.contains('keys')) const Text('The host needs the files of its vault entries.'),
+                if (needs.contains('forge-certificate'))
+                  const Text(
+                    'The host\'s forge needs its certificate: signed on this computer by your lasting CA, whose key '
+                    'stays in your secrets file. The first time, the CA is made there.',
+                  ),
                 if (needs.contains('forge-central-token'))
                   const Text(
                     'The host needs the central forge\'s token, to bring a repository over from it. Your secrets file '

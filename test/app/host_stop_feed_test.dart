@@ -55,6 +55,21 @@ void main() {
     expect(script, contains("trap '/usr/bin/stty echo"));
   });
 
+  // Harm: the forge signed for a request not its own, or the request read through the pipe that carries the secrets.
+  test('the forge\'s request is asked of the host before the file is opened, and only where it waits', () {
+    final script = command(needs: ['forge-certificate']).last;
+    final asked = script.indexOf('porelo-host-stop --request');
+    expect(asked, greaterThan(-1));
+    expect(asked, lessThan(script.indexOf('/usr/bin/stty -echo')), reason: 'before the file is opened');
+    expect(
+      script.substring(0, asked),
+      contains(" -n -T -- ubuntu@203.0.113.7 "),
+      reason: 'as the admin, with no input',
+    );
+    expect(script, contains('porelo-host-stop --stdin forge-certificate'));
+    expect(command().last, isNot(contains('--request')), reason: 'not asked where the host did not name it');
+  });
+
   // Harm: an entry the file keeps from an earlier setup sent to a host whose machine.yml does not name it.
   test('sends the vault entries machine.yml names, only where the host asked for them', () {
     final script = command(needs: ['vault-new', 'keys'], keys: ['forge']).last;
@@ -82,7 +97,7 @@ void main() {
   });
 
   test('refuses a need the file cannot give, and a stop with nothing for the file', () {
-    expect(() => command(needs: ['forge-certificate']), throwsFormatException);
+    expect(() => command(needs: ['no-such-need']), throwsFormatException);
     expect(() => command(needs: ['drive'], email: 'me@example.org'), throwsFormatException);
   });
 

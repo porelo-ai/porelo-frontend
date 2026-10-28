@@ -1,8 +1,11 @@
 # F202 — The Forge's Certificate Signed On This Desktop
 
-**Status:** Backlog; blocked by [F199](README.md#f199) and `porelo-host`
-[HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35).
-**Size:** M - a second step in the stop's terminal, the CA made once into the file, and their tests, on a contract
+**Status:** Implementing; the signing at the stop built. A host set up from here runs no forge until the interface
+writes `porelo_host_forge` ([F145](README.md#f145)), asked of the Coordinator (2026-10-28); until then nothing of
+this issue is reached on a rented host.
+**Size:** L (grown from M once `porelo-host`
+[HO35](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho35) was read: the password call, the VPN's
+root step and the CA's warning) - a second step in the stop's terminal, the CA made once into the file, and their tests, on a contract
 with `porelo-host`.
 
 **What must be true.** Once the host's VPN is up, the person opens its forge in the browser and signs in, with
@@ -33,6 +36,18 @@ whole in 6e.
   argument, environment or log here or on the host.
 - **Red first:** a test of the command the interface builds for the signing step: it names the request, the entry and
   the extensions, and no key or certificate value can appear in it, against a fixture file.
+
+- **Built, the signing at the stop:** where the host names `forge-certificate`, the stop's terminal asks it for the
+  request (`ssh <admin>@<host> sudo -n porelo-host-stop --request`, no input) before the file is opened. The file's
+  script makes the lasting CA once where neither `shared/forge-ca-key` nor `shared/forge-ca` is there (EC P-256, ten
+  years, the name constraint, `CA:TRUE,pathlen:0`), refuses where only one is, checks the request's own signature, and
+  signs it with `-subj /CN=forge.porelo.internal`, the three extensions and a random serial, every input on a pipe;
+  the line is `forge-certificate <base64 of the forge's certificate, then the CA's>`. Seen against the real
+  `keepassxc-cli` and `openssl`: no file is made, nothing of the request but its key counts, a second host gets the
+  same CA, and no request sends nothing.
+- **Still to build:** the lasting forge password (typed into the file once, then piped into
+  `porelo-host-forge-password` after `up`); the VPN's root step (the hosts line, the CA in the system store and in
+  Firefox's policy, each only where missing); the warning 90 days before the CA ends.
 
 ## Acceptance
 

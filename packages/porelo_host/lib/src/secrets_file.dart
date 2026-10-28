@@ -39,7 +39,53 @@ class SecretsFile {
   static String _word(String value) => "'$value'";
 
   /// The needs a host's stop takes on standard input, as `porelo-host-stop --stdin` names them.
-  static const stopNeeds = <String>{'vault', 'vault-new', 'wireguard', 'keys', 'forge-central-token'};
+  static const stopNeeds = <String>{
+    'vault',
+    'vault-new',
+    'wireguard',
+    'keys',
+    'forge-central-token',
+    'forge-certificate',
+  };
+
+  /// The entries of the person's lasting CA, which signs every host's forge certificate: its key and its certificate,
+  /// each PEM kept base64, made once.
+  static const forgeCaKey = 'shared/forge-ca-key';
+
+  /// The lasting CA's certificate, PEM kept base64.
+  static const forgeCa = 'shared/forge-ca';
+
+  /// The forge's address and name on the VPN, which every host's forge certificate names, set here and never taken
+  /// from the host's request.
+  static const forgeAddress = '10.73.0.1';
+
+  /// The forge's name, which the VPN step resolves to [forgeAddress] on this desktop.
+  static const forgeName = 'forge.porelo.internal';
+
+  // The host's request is in `$request`, fetched by the stop's terminal before the pipe; it is public. The CA's key
+  // passes from keepassxc-cli to openssl on pipes only. Every extension and the subject are set here; nothing of the
+  // request counts but its key.
+  static final _forgeCertificate = <String>[
+    r'''cakey64="$(kp show -s -a password "$file" 'shared/forge-ca-key' 2>/dev/null || true)"''',
+    r'''ca64="$(kp show -s -a password "$file" 'shared/forge-ca' 2>/dev/null || true)"''',
+    r'''if { [ -z "$cakey64" ] && [ -n "$ca64" ]; } || { [ -n "$cakey64" ] && [ -z "$ca64" ]; }; then echo "$file keeps only one of shared/forge-ca-key and shared/forge-ca; nothing was sent." >&2; exit 1; fi''',
+    // Made once, in this terminal, the first time a host asks: ten years, held to the VPN's names and addresses.
+    r'''if [ -z "$cakey64" ]; then''',
+    r'''  cakey="$(/usr/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 2>/dev/null)"''',
+    r'''  ca="$(/usr/bin/openssl req -x509 -new -key <(printf '%s\n' "$cakey") -subj '/CN=Porelo forge CA' -days 3650 -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' -addext 'keyUsage=critical,keyCertSign,cRLSign' -addext 'nameConstraints=critical,permitted;DNS:porelo.internal,permitted;IP:10.73.0.0/255.255.255.0')"''',
+    r'''  kp ls "$file" 'shared' >/dev/null 2>&1 || kp mkdir "$file" 'shared' >/dev/null''',
+    r'''  { printf '%s\n%s\n' "$MASTER" "$(printf '%s\n' "$cakey" | /usr/bin/base64 -w0)"; } | "$cli" add -p "$file" 'shared/forge-ca-key' >/dev/null''',
+    r'''  { printf '%s\n%s\n' "$MASTER" "$(printf '%s\n' "$ca" | /usr/bin/base64 -w0)"; } | "$cli" add -p "$file" 'shared/forge-ca' >/dev/null''',
+    r'''  echo "A lasting CA for your forges is made, and kept in your secrets file." >&2''',
+    r'''else''',
+    r'''  cakey="$(printf '%s' "$cakey64" | /usr/bin/base64 -d)"; ca="$(printf '%s' "$ca64" | /usr/bin/base64 -d)"''',
+    r'''fi''',
+    r'''unset cakey64 ca64''',
+    r'''if ! printf '%s\n' "${request:-}" | /usr/bin/openssl req -noout -verify >/dev/null 2>&1; then echo "The host gave no certificate request it signed itself; nothing was sent." >&2; exit 1; fi''',
+    r'''cert="$(/usr/bin/openssl x509 -req -in <(printf '%s\n' "$request") -subj '/CN=forge.porelo.internal' -CA <(printf '%s\n' "$ca") -CAkey <(printf '%s\n' "$cakey") -days 365 -set_serial "0x$(/usr/bin/openssl rand -hex 16)" -extfile <(printf '%s\n' 'subjectAltName=IP:10.73.0.1,DNS:forge.porelo.internal' 'basicConstraints=critical,CA:FALSE' 'extendedKeyUsage=serverAuth') 2>/dev/null)"''',
+    r'''eforge="$(printf '%s\n%s\n' "$cert" "$ca" | /usr/bin/base64 -w0)"''',
+    r'''if [ -z "$cert" ] || ! [[ "$eforge" =~ $b64 ]]; then echo "The forge's certificate could not be signed; nothing was sent." >&2; exit 1; fi''',
+  ];
 
   /// The entry of the central forge's token, which every host of the person shares.
   static const centralForgeToken = 'shared/forge-central-token';
@@ -101,6 +147,10 @@ class SecretsFile {
               'echo "$path did not encode; nothing was sent." >&2; exit 1; fi',
         ]);
         writes.add("printf '%s %s\\n' ${_word(need)} \"\$e$variable\"");
+      } else if (need == 'forge-certificate') {
+        reads.addAll(_forgeCertificate);
+        variables.addAll(['cakey', 'ca', 'cert', 'eforge']);
+        writes.add(r'''printf 'forge-certificate %s\n' "$eforge"''');
       } else {
         // Each entry kept base64 already, by prepareHost: checked as such, and sent as it is.
         for (final name in keys) {

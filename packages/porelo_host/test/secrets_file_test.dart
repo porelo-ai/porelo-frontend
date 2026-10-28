@@ -150,7 +150,7 @@ void main() {
     });
 
     test('refuses a need it does not know, the drive among them, before anything is read', () {
-      for (final need in <String>['drive', 'forge-certificate', 'vault; rm', '']) {
+      for (final need in <String>['drive', 'no-such-need', 'vault; rm', '']) {
         expect(
           () => SecretsFile(file).stopLines(project: 'checkout', needs: [need]),
           throwsFormatException,
@@ -207,8 +207,13 @@ void main() {
       if (await home.exists()) await home.delete(recursive: true);
     });
 
-    Future<ProcessResult> run(String script, String master, {bool twice = false}) async {
-      final process = await Process.start('bash', ['-c', script]);
+    Future<ProcessResult> run(
+      String script,
+      String master, {
+      bool twice = false,
+      Map<String, String>? environment,
+    }) async {
+      final process = await Process.start('bash', ['-c', script], environment: environment);
       process.stdin.write(twice ? '$master\n$master\n' : '$master\n');
       await process.stdin.close();
       final out = await process.stdout.transform(utf8.decoder).join();
@@ -600,6 +605,98 @@ void main() {
       }
       expect('${missing.stderr}', contains('hosts/other/vault-passphrase'), reason: 'what is missing is named');
     }, skip: skip);
+
+    // Harm: the forge signed for a name or key the host chose, the CA's key on disk, or a new CA for every host.
+    test(
+      'the forge\'s request is signed by one lasting CA, made once, for the forge\'s own name and address',
+      () async {
+        final kdbx = path.join(home.path, 'secrets.kdbx');
+        final out = path.join(home.path, 'checkout.pub');
+        expect(
+          (await run(
+            SecretsFile(kdbx, cli: cli).prepareHost(project: 'checkout', create: true, publicKeyOut: out),
+            'm',
+            twice: true,
+          )).exitCode,
+          0,
+        );
+        Future<String> openssl(List<String> arguments, {String? input}) async {
+          final process = await Process.start('/usr/bin/openssl', arguments, workingDirectory: home.path);
+          if (input != null) process.stdin.write(input);
+          await process.stdin.close();
+          final said = await process.stdout.transform(utf8.decoder).join();
+          await process.stderr.drain<void>();
+          expect(await process.exitCode, 0, reason: arguments.first);
+          return said;
+        }
+
+        await openssl(['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', 'forge.key']);
+        // A request that asks for another name: nothing of it but its key may count.
+        final request = await openssl([
+          'req',
+          '-new',
+          '-key',
+          'forge.key',
+          '-subj',
+          '/CN=evil.example',
+          '-addext',
+          'subjectAltName=DNS:evil.example',
+        ]);
+        final feed = SecretsFile(kdbx, cli: cli).stopLines(project: 'checkout', needs: ['forge-certificate']);
+        final before = home.listSync(recursive: true).map((each) => each.path).toSet();
+
+        final signed = await run(feed, 'm', environment: {'request': request});
+        expect(signed.exitCode, 0, reason: '${signed.stderr}');
+        expect(home.listSync(recursive: true).map((each) => each.path).toSet(), before, reason: 'no file of it here');
+        final line = '${signed.stdout}'.trim();
+        expect(line, startsWith('forge-certificate '));
+        final pems = utf8.decode(base64Decode(line.split(' ').last));
+        final blocks = RegExp(r'-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----')
+            .allMatches(pems)
+            .map((m) => m.group(0)!)
+            .toList();
+        expect(blocks, hasLength(2), reason: 'the forge\'s certificate, then the CA\'s');
+        await File(path.join(home.path, 'ca.pem')).writeAsString('${blocks.last}\n');
+        await File(path.join(home.path, 'forge.pem')).writeAsString('${blocks.first}\n');
+        expect(
+          await openssl(['verify', '-no-CApath', '-no-CAstore', '-CAfile', 'ca.pem', 'forge.pem']),
+          contains('OK'),
+        );
+        final text = await openssl([
+          'x509',
+          '-in',
+          'forge.pem',
+          '-noout',
+          '-subject',
+          '-ext',
+          'subjectAltName,basicConstraints',
+        ]);
+        expect(text, contains('CN=forge.porelo.internal'));
+        expect(text, contains('IP Address:10.73.0.1, DNS:forge.porelo.internal'));
+        expect(text, isNot(contains('evil')), reason: 'nothing of the request but its key');
+        expect(
+          await openssl(['x509', '-in', 'forge.pem', '-noout', '-pubkey']),
+          await openssl(['pkey', '-in', 'forge.key', '-pubout']),
+          reason: 'for the host\'s own key',
+        );
+        expect(
+          await openssl(['x509', '-in', 'ca.pem', '-noout', '-ext', 'nameConstraints']),
+          contains('DNS:porelo.internal'),
+        );
+
+        // A second host: the same CA, so the browser trusts its forge without a new import.
+        final again = await run(feed, 'm', environment: {'request': request});
+        expect(again.exitCode, 0, reason: '${again.stderr}');
+        final second = utf8.decode(base64Decode('${again.stdout}'.trim().split(' ').last));
+        expect(second, contains(blocks.last), reason: 'one lasting CA');
+
+        final none = await run(feed, 'm');
+        expect(none.exitCode, isNot(0), reason: 'no request, nothing signed');
+        expect('${none.stdout}', isEmpty);
+        expect('${none.stderr}', contains('no certificate request'), reason: 'what was missing is named');
+      },
+      skip: skip ?? (File('/usr/bin/openssl').existsSync() ? null : 'needs /usr/bin/openssl'),
+    );
 
     test('a wrong master password writes nothing and fails', () async {
       final kdbx = path.join(home.path, 'secrets.kdbx');

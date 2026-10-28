@@ -50,6 +50,10 @@ List<String> hostStopFeedCommand({
         driveHost ?? host,
         inTheLoginShell(hostStopCommand(['drive'], email: email)),
       ])} || exit \$?',
+    // The forge's certificate request is public, asked of the host before the file is opened; the file's script signs it.
+    if (fed.contains('forge-certificate'))
+      'request="\$(${sshLine(['-n', '-T', '--', host, '/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --request'])})" '
+          '|| { echo "The host gave no certificate request for its forge; nothing was sent." >&2; exit 1; }',
     '/usr/bin/stty -echo 2>/dev/null || true',
     '{\n$feed\n} | ${sshLine(['-T', '--', host, stop])}',
   ].join('\n');
