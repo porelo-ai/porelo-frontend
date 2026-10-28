@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/attention.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -164,6 +165,86 @@ void main() {
     await World.settle(tester);
     expect(find.text('Run its setup again'), findsOneWidget, reason: 'the ready server must offer its setup');
   }
+
+  // Harm: invisible setup invites a conflicting teardown, while an unseen stop leaves a rented server waiting.
+  testWidgets('a ready server row follows setup again through progress, a stop and completion', (tester) async {
+    final process = HostProcess();
+    final resumed = HostProcess();
+    var starts = 0;
+    final runs = HostRuns(machines, environment: environment);
+    owners.add(runs);
+    final run = await ready(runs, (_, _) async => starts++ == 0 ? process : resumed);
+    final machine = machines.all.singleWhere((machine) => machine.hostProject == 'demo');
+    final fleet = machines.of(machine);
+    HostPreparation? opened;
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: runs,
+            builder: (_, _) => MachinesPage(
+              machines: machines,
+              hostRuns: runs,
+              onAdd: () {},
+              onDetails: (_) {},
+              onForget: (_) {},
+              onHostProtocol: (run) => opened = run,
+              hostCommands: (machine) =>
+                  hostMachineCommands(machine: machine, settings: settings, hostRuns: runs, takeDown: () {}),
+            ),
+          ),
+        ),
+      ),
+    );
+    final row = find.byKey(const ValueKey('machines-row demo server'));
+    await tester.tap(find.descendant(of: row, matching: find.byTooltip('Show more')));
+    await World.settle(tester);
+    await openAgain(tester);
+    await tester.tap(find.text('Run its setup again'));
+    process.line(const Step('play', StepState.started, text: 'Configure the server', seconds: 120));
+    await World.settle(tester);
+    expect(find.descendant(of: row, matching: find.text('Setting up again')), findsWidgets);
+    expect(find.descendant(of: row, matching: find.text('Configure the server')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.textContaining('left in this step')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('host.protocol demo')));
+    expect(opened, same(run), reason: 'the primary action must open this attempt\'s protocol');
+    await openAgain(tester);
+    final takeDown = tester.widget<PopupMenuItem<String>>(find.byKey(const ValueKey('machine.takeDown')));
+    expect(takeDown.enabled, isFalse, reason: 'teardown must not overlap the server setup');
+    expect(find.textContaining('its setup is running again; see its protocol'), findsWidgets);
+    await tester.tapAt(const Offset(1, 1));
+    process
+      ..line(const Step('person', StepState.waiting, needs: ['drive'], text: 'Sign in to the drive'))
+      ..end(75);
+    await World.settle(tester);
+    await run.finished;
+    expect(find.descendant(of: row, matching: find.text('Needs you')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('Sign in to the drive')), findsOneWidget);
+    final finishing = runs.resume(run);
+    await World.settle(tester);
+    resumed
+      ..line(completed)
+      ..end(0);
+    await World.settle(tester);
+    await finishing;
+    expect(find.descendant(of: row, matching: find.text('Connected')), findsOneWidget);
+    expect(find.descendant(of: row, matching: find.text('Setting up again')), findsNothing);
+    expect(machines.of(machine), same(fleet), reason: 'setup must keep access to the watched machine');
+    await openAgain(tester);
+    for (final id in ['machine.takeDown', 'machine.forget', 'host.again']) {
+      expect(
+        tester.widget<PopupMenuItem<String>>(find.byKey(ValueKey(id))).enabled,
+        isTrue,
+        reason: 'the command must return after setup completes',
+      );
+    }
+    expect(run.session.steps.last.step, 'up', reason: 'the protocol must retain the completed setup');
+    expect(run.session.steps.last.state, StepState.done);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   for (final reopened in [false, true]) {
     // Harm: rerunning setup with changed arguments can upload files to or modify the wrong server.

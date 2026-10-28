@@ -120,6 +120,10 @@ class MachinesPage extends StatelessWidget {
     final answering = fleet.reachability == Reachability.connected && refused == null;
     final local = Machine.local();
     final thisComputer = !machine.needsATunnel && machine.name == local.name && machine.socketPath == local.socketPath;
+    final preparation = machine.kind == 'host' ? hostRuns?.of(machine.hostProject) : null;
+    final run = preparation != null && (preparation.running || preparation.needsYou || preparation.interrupted)
+        ? preparation
+        : null;
     final actions = <Command>[
       ...?hostCommands?.call(machine),
       if (hostRuns != null && machine.kind == 'host' && machines.settings.hostUp(machine.hostProject) != null)
@@ -127,17 +131,31 @@ class MachinesPage extends StatelessWidget {
       forgetMachineCommand(
         forget: () => onForget(machine),
         canForget: machines.all.length > 1,
+        machine: machine,
+        hostRuns: hostRuns,
       ).unless(thisComputer ? 'this computer is always listed' : null),
     ];
     final open = listOpenCommand(label: 'Open machine', home: Home.machineRow, open: () => onDetails(machine));
+    final protocol = run == null
+        ? null
+        : _hostProtocol(run, onHostProtocol == null ? null : () => onHostProtocol!(run));
     return ExpandableListRow(
       key: ValueKey<String>('machines-row ${machine.name}'),
       bodyKey: ValueKey<String>('tree-machine ${machine.name}'),
       title: machine.name,
       titleKey: ValueKey<String>('rail-machine ${machine.name}'),
-      state: answering ? 'Connected' : 'Not answering',
-      primary: open,
-      onOpen: open.run,
+      state: run != null
+          ? _hostState(run)
+          : answering
+          ? 'Connected'
+          : 'Not answering',
+      primary: protocol ?? open,
+      primaryKey: run == null ? null : ValueKey('host.protocol ${run.project}'),
+      onOpen: protocol == null
+          ? open.run
+          : protocol.available
+          ? protocol.run
+          : null,
       leading: Badge(
         key: ValueKey<String>('waiting-count ${machine.name}'),
         isLabelVisible: fleet.clearance.count > 0,
@@ -151,6 +169,7 @@ class MachinesPage extends StatelessWidget {
       details: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          if (run != null) _HostPreparationDetails(run: run),
           Text(
             <String>[
               machine.where,
@@ -185,17 +204,74 @@ class MachinesPage extends StatelessWidget {
   }
 }
 
-class _HostPreparationRow extends StatefulWidget {
+String _hostState(HostPreparation run) => run.interrupted
+    ? 'Interrupted'
+    : run.needsYou
+    ? 'Needs you'
+    : run.ready
+    ? 'Setting up again'
+    : run.session.state == HostRunState.busy
+    ? 'Still running'
+    : 'In preparation';
+
+Command _hostProtocol(HostPreparation run, VoidCallback? open) =>
+    (run.needsYou && !run.ready
+            ? hostPreparationCommand(project: run.project, open: open ?? () {}, home: Home.machineRow)
+            : hostProtocolCommand(project: run.project, open: open ?? () {}))
+        .unless(open == null ? 'host setup is unavailable here' : null);
+
+class _HostPreparationRow extends StatelessWidget {
   const _HostPreparationRow({required this.run, required this.actions, this.open, super.key});
   final HostPreparation run;
   final List<Command> actions;
   final VoidCallback? open;
 
   @override
-  State<_HostPreparationRow> createState() => _HostPreparationRowState();
+  Widget build(BuildContext context) {
+    final command = _hostProtocol(run, open);
+    final primary = run.interrupted ? actions.firstWhere((action) => action.id == 'host.goOn') : command;
+    return ExpandableListRow(
+      leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
+      title: run.name,
+      state: _hostState(run),
+      primary: primary,
+      primaryKey: ValueKey('${primary.id} ${run.project}'),
+      onOpen: command.available ? command.run : null,
+      details: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HostPreparationDetails(run: run),
+          if (command.unavailable case final reason?) Text(reason),
+          Wrap(
+            spacing: Space.small,
+            runSpacing: Space.tight,
+            children: [
+              for (final action in [command, ...actions].where((action) => action.id != primary.id))
+                Tooltip(
+                  message: action.unavailable ?? action.label,
+                  child: TextButton(
+                    key: ValueKey('${action.id} ${run.project}'),
+                    onPressed: action.available ? action.run : null,
+                    child: Text(action.label),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _HostPreparationRowState extends State<_HostPreparationRow> {
+class _HostPreparationDetails extends StatefulWidget {
+  const _HostPreparationDetails({required this.run});
+  final HostPreparation run;
+
+  @override
+  State<_HostPreparationDetails> createState() => _HostPreparationDetailsState();
+}
+
+class _HostPreparationDetailsState extends State<_HostPreparationDetails> {
   Timer? _ticker;
 
   @override
@@ -210,8 +286,7 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
   Widget build(BuildContext context) {
     final run = widget.run;
     final session = run.session;
-    final running = run.running;
-    if (running) {
+    if (run.running) {
       _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() {});
       });
@@ -219,58 +294,28 @@ class _HostPreparationRowState extends State<_HostPreparationRow> {
       _ticker?.cancel();
       _ticker = null;
     }
-    final command =
-        (run.needsYou
-                ? hostPreparationCommand(project: run.project, open: widget.open ?? () {}, home: Home.machineRow)
-                : hostProtocolCommand(project: run.project, open: widget.open ?? () {}))
-            .unless(widget.open == null ? 'host setup is unavailable here' : null);
-    final primary = run.interrupted ? widget.actions.firstWhere((action) => action.id == 'host.goOn') : command;
-    return ExpandableListRow(
-      leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
-      title: run.name,
-      state: run.interrupted
-          ? 'Interrupted'
-          : run.needsYou
-          ? 'Needs you'
-          : session.state == HostRunState.busy
-          ? 'Still running'
-          : 'In preparation',
-      primary: primary,
-      primaryKey: ValueKey('${primary.id} ${run.project}'),
-      onOpen: command.available ? command.run : null,
-      details: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(run.awaitingVpn ? 'Setting up the VPN' : 'In preparation'),
-          if (session.state == HostRunState.busy) Text('Setup of ${run.project} is still running from before.'),
-          if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
-          if (session.stepText.isNotEmpty) Text(session.stepText),
-          if (running) ...[
-            if (session.timeLeftText case final text?) Text(text),
-            if (session.stepOverrun case final text?)
-              Text(text)
-            else if (session.stepSecondsLeft case final seconds?)
-              Text('${_about(seconds)} left in this step'),
-          ],
-          if (run.problem ?? session.fix case final fix?) Text(fix),
-          if (command.unavailable case final reason?) Text(reason),
-          Wrap(
-            spacing: Space.small,
-            runSpacing: Space.tight,
-            children: [
-              for (final action in [command, ...widget.actions].where((action) => action.id != primary.id))
-                Tooltip(
-                  message: action.unavailable ?? action.label,
-                  child: TextButton(
-                    key: ValueKey('${action.id} ${run.project}'),
-                    onPressed: action.available ? action.run : null,
-                    child: Text(action.label),
-                  ),
-                ),
-            ],
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          run.ready
+              ? 'Setting up again'
+              : run.awaitingVpn
+              ? 'Setting up the VPN'
+              : 'In preparation',
+        ),
+        if (session.state == HostRunState.busy) Text('Setup of ${run.project} is still running from before.'),
+        if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
+        if (session.stepText.isNotEmpty) Text(session.stepText),
+        if (run.running) ...[
+          if (session.timeLeftText case final text?) Text(text),
+          if (session.stepOverrun case final text?)
+            Text(text)
+          else if (session.stepSecondsLeft case final seconds?)
+            Text('${_about(seconds)} left in this step'),
         ],
-      ),
+        if (run.problem ?? session.fix case final fix?) Text(fix),
+      ],
     );
   }
 }

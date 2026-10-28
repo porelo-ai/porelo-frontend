@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- While a ready server's setup runs again, its row in Machines says Setting up again (or Needs you at a stop) with the
+  protocol's step and time left and opens the protocol; taking it down, forgetting it, putting the project on a server
+  and running the setup again are unavailable meanwhile, each saying why.
 - Take this server down is a tile among the other tiles of a server's page, its label and mark in red, instead of a
   small text button below them; its confirmation is as before.
 - The dialog Your homeserver for this server gives the one command that adds this computer's hosts line, in a box

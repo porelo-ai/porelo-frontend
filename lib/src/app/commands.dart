@@ -495,6 +495,7 @@ String? whyNotStart(Task task) {
 List<Command> projectCommands({
   required ProjectOnScreen? project,
   required FleetModel fleet,
+  HostRuns? hostRuns,
   required Notifications notifications,
   required VoidCallback openTheGate,
   required VoidCallback openEgress,
@@ -669,8 +670,8 @@ List<Command> projectCommands({
           ? nothing
           : project.name == defaultProject
           ? 'default is this machine\'s own: it goes on no server'
-          // Windows first: there it holds whether porelo-host is installed or not.
-          : noSecretsFileHere(desk) ??
+          : _setupAgainUnavailable(hostRuns, project.name) ??
+                noSecretsFileHere(desk) ??
                 (putOnAServer == null ? 'porelo-host is not installed beside the interface' : null),
     ),
     Command(
@@ -714,6 +715,7 @@ Command takeGivenBackVpnDownCommand({required VoidCallback run, String? unavaila
 List<Command> hostMachineCommands({
   required Machine machine,
   required Settings settings,
+  HostRuns? hostRuns,
   required VoidCallback takeDown,
   VoidCallback? saveTunnel,
   VoidCallback? bringVpnUp,
@@ -727,9 +729,11 @@ List<Command> hostMachineCommands({
       group: 'Machine',
       home: Home.machineMenu,
       run: takeDown,
-      unavailable: settings.hostUp(machine.hostProject) == null
-          ? 'nothing was kept from putting it on a server; use Put this project on a server…'
-          : null,
+      unavailable:
+          _setupAgainUnavailable(hostRuns, machine.hostProject) ??
+          (settings.hostUp(machine.hostProject) == null
+              ? 'nothing was kept from putting it on a server; use Put this project on a server…'
+              : null),
     ),
     Command(
       id: 'machine.saveTunnel',
@@ -826,6 +830,8 @@ Command openElementCommand() => Command(
 Command forgetMachineCommand({
   required bool canForget,
   required VoidCallback forget,
+  Machine? machine,
+  HostRuns? hostRuns,
   String label = 'Forget this machine',
 }) => Command(
   id: 'machine.forget',
@@ -833,12 +839,16 @@ Command forgetMachineCommand({
   group: 'Machine',
   home: Home.machineMenu,
   run: forget,
-  unavailable: canForget ? null : 'it is the only machine watched',
+  unavailable:
+      (machine != null && machine.kind == 'host' ? _setupAgainUnavailable(hostRuns, machine.hostProject) : null) ??
+      (canForget ? null : 'it is the only machine watched'),
 );
 
 /// The machine's daemon actions and any host lifecycle actions, sharing one home.
 List<Command> machineCommands({
   required FleetModel fleet,
+  Machine? machine,
+  HostRuns? hostRuns,
   required bool canForget,
   required bool reachedOverSsh,
   bool canStart = false,
@@ -1020,7 +1030,7 @@ List<Command> machineCommands({
       run: clearTheMachine ?? () {},
       unavailable: clearTheMachine == null ? 'not from here' : null,
     ),
-    forgetMachineCommand(canForget: canForget, forget: forget),
+    forgetMachineCommand(canForget: canForget, forget: forget, machine: machine, hostRuns: hostRuns),
   ];
 }
 
@@ -1035,6 +1045,7 @@ List<Command> commandsFor({
   List<Command> viewActions = const [],
   required FleetModel fleet,
   required Machine machine,
+  HostRuns? hostRuns,
   List<Command> hostActions = const [],
   required bool canForget,
   required ShellModel shell,
@@ -1191,6 +1202,8 @@ List<Command> commandsFor({
     ),
     ...machineCommands(
       fleet: fleet,
+      machine: machine,
+      hostRuns: hostRuns,
       hostActions: hostActions,
       canForget: canForget,
       reachedOverSsh: machine.needsATunnel,
@@ -1241,6 +1254,7 @@ List<Command> commandsFor({
     ...projectCommands(
       project: selectedProject,
       fleet: fleet,
+      hostRuns: hostRuns,
       notifications: notifications,
       openTheGate: openTheGate,
       openEgress: openEgress,
@@ -1417,6 +1431,13 @@ Command continueHostPreparationCommand({required String project, required VoidCa
       unavailable: resolved ? 'this row is resolved' : null,
     );
 
+String? _setupAgainUnavailable(HostRuns? hostRuns, String project) {
+  final run = hostRuns?.of(project);
+  return run != null && run.ready && (run.running || run.needsYou || run.interrupted)
+      ? 'its setup is running again; see its protocol'
+      : null;
+}
+
 /// Runs the saved setup of a ready server after its previous attempt ended.
 Command runHostSetupAgainCommand({required String project, required HostRuns hostRuns}) => Command(
   id: 'host.again',
@@ -1424,7 +1445,7 @@ Command runHostSetupAgainCommand({required String project, required HostRuns hos
   group: '$project server',
   home: Home.machineRow,
   run: () => unawaited(hostRuns.again(project)),
-  unavailable: hostRuns.againUnavailable(project),
+  unavailable: _setupAgainUnavailable(hostRuns, project) ?? hostRuns.againUnavailable(project),
 );
 
 /// Continues or gives back a retained server only after its previous command ended.

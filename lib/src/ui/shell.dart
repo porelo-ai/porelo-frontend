@@ -385,6 +385,7 @@ class _ShellState extends State<Shell> {
     viewActions: _viewActions(),
     fleet: _fleet,
     machine: widget.machines.current,
+    hostRuns: _hostRuns,
     hostActions: [
       ..._hostCommands(widget.machines.current),
       for (final run in _hostRuns.preparing)
@@ -517,6 +518,8 @@ class _ShellState extends State<Shell> {
   /// The menu in the machine's title, for the machine being acted on.
   List<Command> _machineMenu() => machineCommands(
     fleet: _fleet,
+    machine: widget.machines.current,
+    hostRuns: _hostRuns,
     hostActions: _hostCommands(widget.machines.current),
     canForget: widget.machines.all.length > 1,
     reachedOverSsh: widget.machines.current.needsATunnel,
@@ -547,6 +550,7 @@ class _ShellState extends State<Shell> {
       ...hostMachineCommands(
         machine: machine,
         settings: widget.settings,
+        hostRuns: _hostRuns,
         vpnLinkUp: _hostRuns.vpnLinkUp,
         takeDown: () => unawaited(_takeDown(machine)),
         saveTunnel: () => unawaited(_saveTunnel(machine)),
@@ -618,6 +622,7 @@ class _ShellState extends State<Shell> {
     for (final command in projectCommands(
       project: project,
       fleet: on == null ? _fleet : widget.machines.of(on),
+      hostRuns: _hostRuns,
       notifications: widget.notifications,
       openTheGate: _openTheGate,
       openEgress: _openEgress,
