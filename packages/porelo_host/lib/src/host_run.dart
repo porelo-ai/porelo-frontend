@@ -789,7 +789,7 @@ class HostRun {
     String onHost(String file) => quoteForAShell(file);
     String digestsIn(String folder) =>
         [for (final entry in files.entries) '${entry.value.digest}  $folder/${entry.key}\n'].join();
-    String checkIn(String folder) => '/usr/bin/sha256sum -c -';
+    const checkFiles = '/usr/bin/sha256sum -c -';
     Future<int> refusedWithoutStaging(RemoteResult result, String fix) async {
       await remote.run(address, user, '/usr/bin/rm -rf ${onHost(staging)}');
       return _refused('copy', result, fix);
@@ -802,7 +802,7 @@ class HostRun {
       if (copied.exitCode != 0) return refusedWithoutStaging(copied, 'the setup files could not be copied');
     }
     final words = <String>[];
-    final arrived = await remote.run(address, user, checkIn(staging), input: digestsIn(staging), onLine: words.add);
+    final arrived = await remote.run(address, user, checkFiles, input: digestsIn(staging), onLine: words.add);
     if (arrived.exitCode != 0) {
       return refusedWithoutStaging(
         RemoteResult(arrived.exitCode, [...words, arrived.stderr].where((line) => line.isNotEmpty).join('\n')),
@@ -825,13 +825,7 @@ class HostRun {
     }
     await remote.run(address, user, '/usr/bin/rm -rf ${onHost(staging)}');
     words.clear();
-    final checked = await remote.run(
-      address,
-      user,
-      '$sudo${checkIn(place)}',
-      input: digestsIn(place),
-      onLine: words.add,
-    );
+    final checked = await remote.run(address, user, '$sudo$checkFiles', input: digestsIn(place), onLine: words.add);
     if (checked.exitCode != 0) {
       await remote.run(address, user, '$sudo/usr/bin/rm -rf ${onHost(place)}');
       return _refused(
@@ -848,6 +842,13 @@ class HostRun {
     String user,
     Map<String, ({String path, String digest})> files,
   ) async {
+    Future<RemoteResult> runScript(String script, {String? input, void Function(String)? onLine}) => remote.run(
+      address,
+      user,
+      '/bin/bash --noprofile --norc -c ${quoteForAShell(script)}',
+      input: input,
+      onLine: onLine,
+    );
     final place = HostAct.ownAccount.setupPlace;
     final parts = path.posix.split(place);
     final parents = [for (var count = 1; count < parts.length; count++) path.posix.joinAll(parts.take(count))];
@@ -859,21 +860,8 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
 ''';
     String underHome(String name) => '"\$setup_home"/${quoteForAShell(name)}';
     final lines = <String>[];
-    final made = await remote.run(
-      address,
-      user,
-      [
-        checkedHome,
-        for (final parent in parents)
-          'test ! -L ${underHome(parent)} && '
-              '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
-        'test ! -e ${underHome(place)} && test ! -L ${underHome(place)} || exit 1',
-        '/usr/bin/mkdir -m 0700 ${underHome('$place.upload')} || exit 1',
-        r'''printf '%s\n' "$setup_home"''',
-      ].join('\n'),
-      onLine: lines.add,
-    );
-    if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
+    final found = await runScript([checkedHome, r'''printf '%s\n' "$setup_home"'''].join('\n'), onLine: lines.add);
+    if (found.exitCode != 0) return _refused('copy', found, 'the host refused its home directory');
     if (lines.length != 1 || !path.posix.isAbsolute(lines.single) || lines.single.contains('\x00')) {
       return _refused(
         'copy',
@@ -896,7 +884,7 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         '/usr/bin/rmdir -- ${q(staging)}\n'
         'else echo ${q('Cannot safely clean staging at $staging.')} >&2; return 1; fi';
     Future<int> refused(RemoteResult result, String fix) async {
-      final cleaned = await remote.run(address, user, '$prefix\nclean_staging() { $removeStaging; }\nclean_staging');
+      final cleaned = await runScript('$prefix\nclean_staging() { $removeStaging; }\nclean_staging');
       return _refused(
         'copy',
         RemoteResult(result.exitCode, [result.stderr, cleaned.stderr].where((line) => line.isNotEmpty).join('\n')),
@@ -904,16 +892,46 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
       );
     }
 
+    lines.clear();
+    final made = await runScript(
+      [
+        'set -e',
+        prefix,
+        'reserved=0',
+        'cleanup_reservation() {',
+        '  result=\$?; trap - EXIT',
+        '  if [ "\$reserved" = 1 ]; then',
+        '    if safe && ${plainDirectory(staging)}; then /usr/bin/rmdir -- ${q(staging)} || result=1;',
+        '    else echo ${q('Cannot safely clean staging at $staging.')} >&2; result=1; fi',
+        '  fi',
+        '  exit "\$result"',
+        '}',
+        'trap cleanup_reservation EXIT',
+        for (final parent in parents)
+          'test ! -L ${underHome(parent)} && '
+              '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
+        'test ! -e ${q(destination)} && test ! -L ${q(destination)} || exit 1',
+        '/usr/bin/mkdir -m 0700 ${q(staging)}',
+        'reserved=1',
+        'trap - EXIT',
+      ].join('\n'),
+      onLine: lines.add,
+    );
+    if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
+    if (lines.isNotEmpty) {
+      return refused(
+        const RemoteResult(1, 'The host printed unexpected startup output.'),
+        'the setup reservation was refused',
+      );
+    }
     for (final file in files.entries) {
       final copied = await remote.copy(address, user, file.value.path, '$staging/${file.key}');
       if (copied.exitCode != 0) return refused(copied, 'the setup files could not be copied');
     }
     final digests = [for (final file in files.entries) '${file.value.digest}  ${file.key}\n'].join();
     lines.clear();
-    final arrived = await remote.run(
-      address,
-      user,
-      '$prefix\nsafe && ${plainDirectory(staging)} && cd -- ${q(staging)} && /usr/bin/sha256sum -c -',
+    final arrived = await runScript(
+      '$prefix\nsafe && ${plainDirectory(staging)} && cd -- ${q(staging)} && /usr/bin/sha256sum --quiet -c -',
       input: digests,
       onLine: lines.add,
     );
@@ -923,10 +941,14 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         'the setup files did not arrive as they were sent',
       );
     }
+    if (lines.isNotEmpty) {
+      return refused(
+        const RemoteResult(1, 'The host printed unexpected startup output.'),
+        'the setup check was refused',
+      );
+    }
     lines.clear();
-    final placed = await remote.run(
-      address,
-      user,
+    final placed = await runScript(
       [
         'set -e',
         prefix,
@@ -953,7 +975,7 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
           'installed+=(${q(name)})',
           '/usr/bin/install -m 0600 ${q('$staging/$name')} ${q('$destination/$name')}',
         ],
-        'cd -- ${q(destination)} && /usr/bin/sha256sum -c -',
+        'cd -- ${q(destination)} && /usr/bin/sha256sum --quiet -c -',
       ].join('\n'),
       input: digests,
       onLine: lines.add,
@@ -963,6 +985,22 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         'copy',
         RemoteResult(placed.exitCode, [...lines, placed.stderr].where((line) => line.isNotEmpty).join('\n')),
         'the setup files could not be checked and placed',
+      );
+    }
+    if (lines.isNotEmpty) {
+      final cleaned = await runScript(
+        '$prefix\nif safe && ${plainDirectory(destination)}; then\n'
+        '  /usr/bin/rm -f -- ${files.keys.map((name) => q('$destination/$name')).join(' ')} && '
+        '/usr/bin/rmdir -- ${q(destination)}\n'
+        'else echo ${q('Cannot safely clean setup at $destination.')} >&2; exit 1; fi',
+      );
+      return _refused(
+        'copy',
+        RemoteResult(
+          1,
+          ['The host printed unexpected startup output.', cleaned.stderr].where((line) => line.isNotEmpty).join('\n'),
+        ),
+        'the setup placement was refused',
       );
     }
     return null;

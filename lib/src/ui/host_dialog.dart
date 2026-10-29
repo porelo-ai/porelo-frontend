@@ -317,6 +317,8 @@ class _HostDialogState extends State<HostDialog> {
     _publicKeyShown = _expanded(_publicKey.text);
     _identity.addListener(_identityChanged);
     _publicKey.addListener(_publicKeyChanged);
+    _secrets.addListener(_secretsInputsChanged);
+    _hostName.addListener(_secretsInputsChanged);
     if (widget.existingRun == null && !widget.takeDownOnly) {
       // After the first frame: the check's answer changes state, which initState may not.
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkPairWhenReady());
@@ -839,6 +841,7 @@ class _HostDialogState extends State<HostDialog> {
       setState(() {
         _folder = null;
         _machineProblem = null;
+        _secretsAnswer = null;
       });
     }
   }
@@ -860,6 +863,7 @@ class _HostDialogState extends State<HostDialog> {
       setState(() {
         _keys.add(key);
         _keyName.clear();
+        _secretsAnswer = null;
       });
     } on HostFilesRefused catch (error) {
       if (mounted) setState(() => _machineProblem = error.message);
@@ -910,13 +914,7 @@ class _HostDialogState extends State<HostDialog> {
         final hostPublicKey = await _hostKeyFromTheSecretsFile();
         if (!mounted) return;
         // The secrets file's script moves a key the drive held; one still there is a key in the clear, never ignored.
-        if (_drivesKey case final left?
-            when FileSystemEntity.typeSync(left, followLinks: false) != FileSystemEntityType.notFound) {
-          throw HostFilesRefused(
-            '$left still holds a host key while your secrets file keeps it. Open the secrets file again from its step, '
-            'which moves it, or remove it.',
-          );
-        }
+        _checkDriveKeyMoved();
         await _withFiles((files) async {
           if (!_serverOnly) {
             await files.publishBundle(project: _hostId, folder: _setupFolder, bytes: _bundle!, ownFolder: true);
@@ -1358,7 +1356,12 @@ class _HostDialogState extends State<HostDialog> {
                 children: [
                   Expanded(child: Text('${key.name}: ${key.basename}')),
                   IconButton(
-                    onPressed: _running || _upStarted ? null : () => setState(() => _keys.remove(key)),
+                    onPressed: _running || _upStarted
+                        ? null
+                        : () => setState(() {
+                            _keys.remove(key);
+                            _secretsAnswer = null;
+                          }),
                     icon: const Icon(Icons.remove_circle_outline),
                     tooltip: 'Remove this file',
                   ),
@@ -1513,11 +1516,39 @@ class _HostDialogState extends State<HostDialog> {
 
   Map<String, String> get _hostKeyFiles => {for (final key in _keys) key.name: key.file.absolute.path};
 
+  String? get _remainingDriveKey {
+    final file = _drivesKey;
+    return file != null && FileSystemEntity.typeSync(file, followLinks: false) != FileSystemEntityType.notFound
+        ? file
+        : null;
+  }
+
+  void _checkDriveKeyMoved() {
+    if (_remainingDriveKey case final left?) {
+      throw HostFilesRefused(
+        '$left still holds a host key while your secrets file keeps it. Open the secrets file again from its step, '
+        'which moves it, or remove it.',
+      );
+    }
+  }
+
+  List<String?> get _secretsInputs => [
+    _secretsPath,
+    _hostId,
+    _drivesKey,
+    for (final key in _keys) ...[key.name, key.file.absolute.path],
+  ];
+
+  void _secretsInputsChanged() {
+    if (_secretsAnswer != null) setState(() => _secretsAnswer = null);
+  }
+
   bool get _secretsReady =>
       !_openingSecrets &&
       _secretsAnswer == null &&
       _secretsProblem == null &&
       _secretsExist &&
+      _remainingDriveKey == null &&
       _hostPublicKey != null &&
       _hostPublicKeyFor == _hostKeyState(file: _secretsPath, host: _hostId, drive: _drivesKey, keys: _hostKeyFiles);
 
@@ -1544,6 +1575,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The secrets file opened from its own step, before anything is rented: what the person sets up once.
   Future<void> _openSecretsNow() async {
+    final inputs = _secretsInputs;
     // Looked at again on every press: one installed since the start counts at once, and none is said above.
     keepassxcCliIsHere = keepassxcCliThere();
     if (!keepassxcCliIsHere) {
@@ -1561,9 +1593,9 @@ class _HostDialogState extends State<HostDialog> {
     try {
       await _hostKeyFromTheSecretsFile();
     } on HostFilesRefused catch (refusal) {
-      if (mounted) setState(() => _secretsAnswer = refusal.message);
+      if (mounted && listEquals(inputs, _secretsInputs)) setState(() => _secretsAnswer = refusal.message);
     } on FormatException catch (refusal) {
-      if (mounted) setState(() => _secretsAnswer = refusal.message);
+      if (mounted && listEquals(inputs, _secretsInputs)) setState(() => _secretsAnswer = refusal.message);
     } finally {
       if (mounted) setState(() => _openingSecrets = false);
     }
@@ -1581,7 +1613,7 @@ class _HostDialogState extends State<HostDialog> {
     ({String file, String host, String drive, String keys}) asked() =>
         _hostKeyState(file: file, host: host, drive: drivesKey, keys: keys);
     final requested = asked();
-    if (_hostPublicKey != null && _hostPublicKeyFor == requested) return _hostPublicKey!;
+    if (_remainingDriveKey == null && _hostPublicKey != null && _hostPublicKeyFor == requested) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
     final key = await open(
       file: file,
@@ -1590,6 +1622,7 @@ class _HostDialogState extends State<HostDialog> {
       keys: keys,
     );
     HostFiles.checkPublicKey(key);
+    _checkDriveKeyMoved();
     _hostPublicKey = key;
     // Opening changes the database and can move the drive key, but must not validate changes to source key files.
     final opened = asked();

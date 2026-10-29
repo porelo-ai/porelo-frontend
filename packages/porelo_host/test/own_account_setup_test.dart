@@ -123,6 +123,29 @@ void main() {
     expect(await previous.readAsString(), 'previous upload');
   });
 
+  // Harm: shell startup output leaves a reservation behind and blocks every retry.
+  test('a refusal after staging reservation removes the empty directory', () async {
+    final home = await Directory('${scratch.path}/person home').create();
+    final local = _HomeRemote(home, failReservation: true);
+    run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+    expect(await upload(), Exit.refused);
+    expect(await Directory('${home.path}/${HostAct.ownAccount.setupPlace}.upload').exists(), isFalse);
+    expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
+  });
+
+  for (final session in [1, 2, 3, 4]) {
+    test('startup output in session $session refuses the upload and removes its reservations', () async {
+      final home = await Directory('${scratch.path}/person home').create();
+      final local = _HomeRemote(home, noisySession: session);
+      run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+      expect(await upload(), Exit.refused);
+      final place = '${home.path}/${HostAct.ownAccount.setupPlace}';
+      expect(await Directory(place).exists(), isFalse);
+      expect(await Directory('$place.upload').exists(), isFalse);
+      if (session <= 2) expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
+    });
+  }
+
   // Harm: an invalid home redirects private setup files outside the account's directory.
   for (final kind in ['empty', 'relative', 'link', 'link with trailing slash']) {
     test('an invalid HOME ($kind) is refused before creating or copying setup files', () async {
@@ -359,6 +382,8 @@ class _HomeRemote extends ScriptedRemote {
     this.homeValue,
     this.copyDirectory,
     this.installHook,
+    this.noisySession,
+    this.failReservation = false,
   }) : super([]);
 
   final Directory home;
@@ -368,6 +393,8 @@ class _HomeRemote extends ScriptedRemote {
   final String? homeValue;
   final Directory? copyDirectory;
   final String? installHook;
+  final int? noisySession;
+  final bool failReservation;
 
   @override
   Future<RemoteResult> run(
@@ -378,23 +405,29 @@ class _HomeRemote extends ScriptedRemote {
     void Function(String line)? onLine,
   }) async {
     await super.run(host, user, command, input: input);
-    if (command.contains('sudo')) return const RemoteResult(65, 'sudo is forbidden in the own account');
-    if (command.contains('sha256sum') &&
+    const bash = '/bin/bash --noprofile --norc -c ';
+    final wrapped = command.startsWith(bash);
+    var script = wrapped ? command.substring(bash.length + 1, command.length - 1).replaceAll(r"'\''", "'") : command;
+    final original = script;
+    if (failReservation) script = script.replaceFirst('reserved=1\ntrap - EXIT', 'reserved=1\nfalse\ntrap - EXIT');
+    if (script.contains('sudo')) return const RemoteResult(65, 'sudo is forbidden in the own account');
+    if (script.contains('sha256sum') &&
         corruptStaging != null &&
-        !command.contains('install -m 0600') == corruptStaging) {
+        !script.contains('install -m 0600') == corruptStaging) {
       final folder = '${home.path}/${HostAct.ownAccount.setupPlace}${corruptStaging! ? '.upload' : ''}';
-      command = command.replaceFirst(
-        '/usr/bin/sha256sum -c -',
-        'printf changed > ${quoteForAShell('$folder/demo-access.bundle')}; /usr/bin/sha256sum -c -',
+      script = script.replaceFirst(
+        '/usr/bin/sha256sum --quiet -c -',
+        '{ printf changed > ${quoteForAShell('$folder/demo-access.bundle')}; /usr/bin/sha256sum --quiet -c -; }',
       );
     }
-    if (command.contains('install -m 0600')) await beforeInstall?.call();
+    if (script.contains('install -m 0600')) await beforeInstall?.call();
     if (installHook != null) {
-      command = command.replaceFirst('/usr/bin/install -m 0600', '{ $installHook; } && /usr/bin/install -m 0600');
+      script = script.replaceFirst('/usr/bin/install -m 0600', '{ $installHook; } && /usr/bin/install -m 0600');
     }
+    if (script != original) command = wrapped ? '$bash${quoteForAShell(script)}' : script;
     final process = await Process.start(
-      '/bin/bash',
-      ['--noprofile', '--norc', '-c', 'umask 000;\n$command'],
+      '/bin/sh',
+      ['-c', 'umask 000;\n${runs.length == noisySession ? "printf 'shell startup output\\n';\n" : ""}$command'],
       workingDirectory: home.path,
       environment: {'HOME': homeValue ?? home.path, 'BASH_ENV': '/dev/null', 'ENV': '/dev/null'},
     );
@@ -414,7 +447,7 @@ class _HomeRemote extends ScriptedRemote {
     final code = await process.exitCode;
     await output;
     if (code == 0 && inputFailure != null) throw inputFailure;
-    if (code == 0 && command.contains('sha256sum') && !command.contains('install -m 0600')) await afterStaging?.call();
+    if (code == 0 && script.contains('sha256sum') && !script.contains('install -m 0600')) await afterStaging?.call();
     return RemoteResult(code, await error);
   }
 

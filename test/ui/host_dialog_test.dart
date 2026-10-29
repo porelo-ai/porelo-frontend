@@ -2357,6 +2357,184 @@ void main() {
     expect(settings.secretsFile, fixture('other-secrets.kdbx'));
   });
 
+  // Harm: a failed open for another file hides the valid cached result when returning to the first file.
+  hostWidgets('returning to the opened file clears another file refusal and restores readiness', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    secretsCliPresent();
+    final settings = newSettings(MemorySettingsStore());
+    final first = File(fixture('first.kdbx'))..writeAsStringSync('first encrypted fixture');
+    final second = File(fixture('second.kdbx'))..writeAsStringSync('second encrypted fixture');
+    await settings.rememberSecretsFile(first.path);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            settings: settings,
+            machines: machines,
+            hostRuns: runs,
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+              if (file == second.path) throw const host.HostFilesRefused('This file did not open.');
+              return _secretsOpened(file: file, project: project);
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-signing-key': fixture('signing.pub'),
+    }, stopAt: 3);
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), second.path);
+    await World.settle(tester);
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.text('This file did not open.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), first.path);
+    await World.settle(tester);
+    expect(find.text('This file did not open.'), findsNothing);
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+  });
+
+  // Harm: another server or selection of vault entries inherits a refusal for the previous inputs.
+  for (final input in ['server name', 'vault entries']) {
+    hostWidgets('editing $input clears a secrets-open refusal', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      secretsCliPresent();
+      final settings = newSettings(MemorySettingsStore());
+      final secrets = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted fixture');
+      await settings.rememberSecretsFile(secrets.path);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: input == 'server name' ? '' : 'demo',
+              debug: input != 'server name',
+              settings: settings,
+              machines: machines,
+              hostRuns: runs,
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              pickFile: (_) async => fixture('new'),
+              openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+                throw const host.HostFilesRefused('The previous inputs were refused.');
+              },
+            ),
+          ),
+        ),
+      );
+      if (input == 'server name') {
+        await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'project');
+        await World.settle(tester);
+        await navigate(tester, 'wizard-next');
+        await tester.enterText(find.byKey(const Key('host-name')), 'orchard');
+        await World.settle(tester);
+        await navigate(tester, 'wizard-next');
+        await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
+        await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
+        await World.settle(tester);
+        await navigate(tester, 'wizard-next');
+      } else {
+        await fillSteps(tester, {
+          'host-scaleway-project': 'project',
+          'host-signing-key': fixture('signing.pub'),
+        }, stopAt: 3);
+      }
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(find.text('The previous inputs were refused.'), findsOneWidget);
+      await navigate(tester, 'wizard-back');
+      await navigate(tester, 'wizard-back');
+      if (input == 'server name') {
+        await tester.enterText(find.byKey(const Key('host-name')), 'meadow');
+      } else {
+        await tester.enterText(find.byKey(const Key('host-key-name')), 'extra');
+        await tester.ensureVisible(find.text('Choose a file for this vault entry'));
+        await tester.tap(find.text('Choose a file for this vault entry'));
+      }
+      await World.settle(tester);
+      await navigate(tester, 'wizard-next');
+      await navigate(tester, 'wizard-next');
+      expect(find.text('The previous inputs were refused.'), findsNothing);
+      expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+      if (input == 'vault entries') {
+        await tapAndRun(tester, const Key('host-secrets-open'));
+        expect(find.text('The previous inputs were refused.'), findsOneWidget);
+        await navigate(tester, 'wizard-back');
+        await navigate(tester, 'wizard-back');
+        await tester.ensureVisible(find.byTooltip('Remove this file'));
+        await tester.tap(find.byTooltip('Remove this file'));
+        await World.settle(tester);
+        await navigate(tester, 'wizard-next');
+        await navigate(tester, 'wizard-next');
+        expect(find.text('The previous inputs were refused.'), findsNothing);
+      }
+    });
+  }
+
+  // Harm: setup claims readiness and skips reopening while a legacy key still blocks the actual start.
+  for (final kind in ['empty file', 'dangling link', 'synced while opening']) {
+    hostWidgets('a remaining drive key ($kind) refuses readiness and retries opening', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      secretsCliPresent();
+      final settings = newSettings(MemorySettingsStore());
+      final secrets = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted fixture');
+      final legacy = File(fixture('old-drive/porelo-host/wireguard.key'));
+      legacy.parent.createSync(recursive: true);
+      if (kind == 'empty file') legacy.writeAsStringSync('');
+      if (kind == 'dangling link') Link(legacy.path).createSync(fixture('missing'));
+      await settings.rememberTresorFolder('demo', fixture('old-drive'));
+      await settings.rememberSecretsFile(secrets.path);
+      var opens = 0;
+      var keepLegacy = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: 'demo',
+              settings: settings,
+              machines: machines,
+              hostRuns: runs,
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+                opens++;
+                if (keepLegacy && kind == 'synced while opening') legacy.writeAsStringSync('synced fixture');
+                return _secretsOpened(file: file, project: project);
+              },
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project',
+        'host-signing-key': fixture('signing.pub'),
+      }, stopAt: 3);
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+      expect(find.textContaining('still holds a host key'), findsOneWidget);
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(opens, 2, reason: 'a remaining drive key must never satisfy the cache');
+      if (kind == 'dangling link') {
+        Link(legacy.path).deleteSync();
+      } else {
+        legacy.deleteSync();
+      }
+      keepLegacy = false;
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(opens, 3);
+      expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+    });
+  }
+
   // Harm: a changed or invalid file keeps the successful answer from its previous contents.
   for (final change in ['deleted', 'replaced', 'link', 'directory']) {
     hostWidgets('secrets readiness is invalidated when its file is $change', (tester) async {

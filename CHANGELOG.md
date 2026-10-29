@@ -29,9 +29,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Own-account setup refuses root logins, linked home directories, existing setup files, and upload data for the
   wrong act; failed uploads preserve setup material they did not create.
 - Own-account uploads validate the home itself, copy to its absolute path, and reserve, recheck, install, and
-  verify setup in one SSH session. Cleanup removes named files and empty directories, preserving unrelated files.
-- Own-account stops refuse SSH options that override the checked login.
-- The secrets step shows readiness only while its opened file, server name, and vault-entry files still match.
+  verify setup in one SSH session. Every script selects Bash explicitly. Unexpected shell startup output is refused
+  before reservation or cleaned up afterward; cleanup preserves unrelated files.
+- Own-account stops accept only the pinned SSH option pairs built by the interface.
+- The secrets step shows readiness only while its opened file, server name, and vault-entry files still match and
+  no key remains on the old drive. Editing its inputs clears refusals for earlier inputs.
 - Project removal validates the secrets file and optional central token before starting the remote helper.
 - Recovery actions in Machines use the desktop terminal opener for local VPN cleanup.
 - Server-only preparation keeps project secrets and this account's homeserver private; migrated CAs refuse

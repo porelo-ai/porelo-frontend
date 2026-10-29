@@ -32,11 +32,35 @@ void main() {
     ['-o', 'USER root'],
     ['-l', 'developer'],
     ['-o', 'User=developer'],
+    ['-Tl', 'root'],
+    ['-To', 'User=root'],
+    ['-o', '"User" root'],
+    ['-i', '-o', '-l', 'root'],
+    ['--', 'root@203.0.113.7'],
+    ['root@203.0.113.7'],
+    ['-F', '/tmp/config'],
+    ['-o', 'ProxyCommand=false'],
+    ['-i'],
+    ['-i', 'relative-key'],
+    ['-o', 'UserKnownHostsFile="/tmp/known" User=root'],
+    ['-oUserKnownHostsFile="/tmp/known"'],
+    ['-o', 'batchmode=yes'],
   ]) {
     test('the own-account stop refuses login override ${options.join(' ')}', () {
-      expect(() => command(HostAct.ownAccount, ['vault'], sshOptions: options), throwsFormatException);
+      expect(
+        () => command(HostAct.ownAccount, ['vault'], sshOptions: options),
+        throwsA(isA<FormatException>().having((error) => error.message, 'refused option', contains(options.first))),
+      );
     });
   }
+
+  // Harm: rejecting the program's pinned options prevents the account from completing setup.
+  test('the own-account stop accepts the pinned option pairs the app builds', () {
+    final options = pinnedHostSshOptions('/tmp/host keys/known_hosts', '/tmp/login keys/identity');
+    final script = command(HostAct.ownAccount, ['vault'], sshOptions: options).last;
+    expect(script, contains('developer@203.0.113.7'));
+    expect(script, contains('UserKnownHostsFile="/tmp/host keys/known_hosts"'));
+  });
 
   // Harm: a rental's normal login cannot complete the server's privileged stop.
   test('the root stop permits the rental login and uses noninteractive sudo', () {
