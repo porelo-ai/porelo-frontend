@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
@@ -276,6 +277,67 @@ void main() {
   group('run', () {
     final cli = Platform.environment['KEEPASSXC_CLI'] ?? SecretsFile.keepassxcCli;
     final skip = File(cli).existsSync() ? null : 'needs keepassxc-cli at $cli (set KEEPASSXC_CLI) and wg';
+
+    // Harm: the lasting password goes to the wrong login, appears in arguments, or a failed receiver looks successful.
+    test('the lasting password reaches only the own-login command on standard input', () async {
+      final home = await Directory.systemTemp.createTemp('porelo-forge-password-test-');
+      addTearDown(() => home.delete(recursive: true));
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      Future<ProcessResult> run(List<String> command, String input) async {
+        final process = await Process.start(command.first, command.skip(1).toList());
+        final out = process.stdout.transform(utf8.decoder).join();
+        final err = process.stderr.transform(utf8.decoder).join();
+        process.stdin.write(input);
+        await process.stdin.close();
+        return ProcessResult(process.pid, await process.exitCode, await out, await err);
+      }
+
+      final made = await run([
+        'bash',
+        '-c',
+        SecretsFile(
+          kdbx,
+          cli: cli,
+        ).prepareHost(host: 'checkout', project: 'checkout', create: true, publicKeyOut: path.join(home.path, 'k.pub')),
+      ], 'm\nm\n');
+      expect(made.exitCode, 0, reason: '${made.stderr}');
+      final random = Random.secure();
+      final password = base64Encode(List<int>.generate(24, (_) => random.nextInt(256)));
+      final digest = await run(['/usr/bin/openssl', 'dgst', '-sha256'], '$password\n');
+      expect(digest.exitCode, 0);
+      final calls = File(path.join(home.path, 'calls'));
+      final ssh = File(path.join(home.path, 'ssh'));
+      await ssh.writeAsString(
+        '#!/bin/sh\nprintf \'%s\\n\' "\$@" > "${calls.path}"\nexec /usr/bin/openssl dgst -sha256\n',
+      );
+      expect((await Process.run('/usr/bin/chmod', ['700', ssh.path])).exitCode, 0);
+      final command = hostForgePasswordFeedCommand(
+        secretsFile: kdbx,
+        ssh: ssh.path,
+        sshOptions: const ['-o', 'BatchMode=yes'],
+        host: 'person@203.0.113.7',
+        cli: cli,
+      );
+      final first = await run(command, 'm\n$password\n');
+      expect(first.exitCode, 0, reason: '${first.stderr}');
+      expect(first.stdout, digest.stdout, reason: 'the receiver hashes exactly the password line');
+      expect('${first.stderr}'.contains(password), isFalse);
+      expect(command.any((argument) => argument.contains(password)), isFalse);
+      expect(await calls.readAsLines(), [
+        '-o',
+        'BatchMode=yes',
+        '-T',
+        '--',
+        'person@203.0.113.7',
+        '/usr/bin/sudo -n /usr/local/bin/porelo-host-forge-password',
+      ], reason: 'no login name or password is a remote command argument');
+      final again = await run(command, 'm\n');
+      expect(again.exitCode, 0, reason: '${again.stderr}');
+      expect(again.stdout, digest.stdout, reason: 'another use takes the shared lasting password');
+      await ssh.writeAsString('#!/bin/sh\n/usr/bin/openssl dgst -sha256 >/dev/null\nexit 9\n');
+      final refused = await run(command, 'm\n');
+      expect(refused.exitCode, 9, reason: 'the host refusal propagates through the pipe');
+    }, skip: skip);
 
     test('the stand-in host gets exactly the file\'s lines on its standard input', () async {
       final home = await Directory.systemTemp.createTemp('porelo-stop-feed-test-');

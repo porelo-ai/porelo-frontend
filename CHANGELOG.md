@@ -9,6 +9,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Each host keeps its own forge and homeserver CA, constrained to its name and VPN network. Certificate setup
+  accepts exactly two verified requests and sends both service certificates followed by that host's CA.
 - A task's terminal says above its screen when the task was started, and its tile says *started HH:MM*, so what its
   agent still shows from before a stop and a start is not read as its state now.
 - Shift+drag selects text in a task's terminal while tmux or the agent in it takes the mouse, without reaching the

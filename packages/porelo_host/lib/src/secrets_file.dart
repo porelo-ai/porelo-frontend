@@ -89,15 +89,74 @@ class SecretsFile {
     return 'hosts/$host/forge-ca';
   }
 
-  /// The forge's address and name on the VPN, which every host's forge certificate names, set here and never taken
-  /// from the host's request.
-  static const forgeAddress = '10.73.0.1';
+  /// The services' address on the host's VPN, never taken from a certificate request.
+  static String forgeAddress(int networkNumber) {
+    checkNetworkNumber(networkNumber);
+    return '10.73.$networkNumber.1';
+  }
 
   /// The forge's name, which the VPN step resolves to [forgeAddress] on this desktop.
-  static const forgeName = 'forge.porelo.internal';
+  static String forgeName(String host) {
+    checkHost(host);
+    return 'forge.$host.porelo.internal';
+  }
+
+  /// Refuses a network outside the host VPN's third octet.
+  static void checkNetworkNumber(int networkNumber) {
+    if (networkNumber < 0 || networkNumber > 255) {
+      throw const FormatException('A host network number is between 0 and 255.');
+    }
+  }
+
+  static const _certificateRequests = r'''
+bad_requests() { echo "The host must give exactly two certificate requests it signed itself; nothing was sent." >&2; exit 1; }
+requests=()
+pem=
+inside=no
+while IFS= read -r line || [ -n "$line" ]; do
+  line=${line%$'\r'}
+  case "$line" in
+    '-----BEGIN CERTIFICATE REQUEST-----')
+      [ "$inside" = no ] || bad_requests
+      inside=yes
+      pem="$line"$'\n'
+      ;;
+    '-----END CERTIFICATE REQUEST-----')
+      [ "$inside" = yes ] || bad_requests
+      requests+=("$pem$line"$'\n')
+      [ "${#requests[@]}" -le 2 ] || bad_requests
+      inside=no
+      pem=
+      ;;
+    *)
+      if [ "$inside" = yes ]; then
+        [[ "$line" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || bad_requests
+        pem+="$line"$'\n'
+      else
+        [[ "$line" =~ ^[[:space:]]*$ ]] || bad_requests
+      fi
+      ;;
+  esac
+done <<< "${request:-}"
+[ "$inside" = no ] && [ "${#requests[@]}" = 2 ] || bad_requests
+for csr in "${requests[@]}"; do
+  printf '%s' "$csr" | /usr/bin/openssl req -noout -verify >/dev/null 2>&1 || bad_requests
+done
+''';
+
+  static String _signRequest(int networkNumber, int index, String name, String variable) =>
+      '$variable="\$(/usr/bin/openssl x509 -req -in <(printf \'%s\' "\${requests[$index]}") '
+      '-subj ${_word('/CN=$name')} -CA <(printf \'%s\\n\' "\$ca") '
+      '-CAkey <(printf \'%s\\n\' "\$cakey") -days 365 '
+      '-set_serial "0x\$(/usr/bin/openssl rand -hex 16)" '
+      '-extfile <(printf \'%s\\n\' ${_word('subjectAltName=DNS:$name,IP:${forgeAddress(networkNumber)}')} '
+      "'basicConstraints=critical,CA:FALSE' 'keyUsage=critical,digitalSignature' 'extendedKeyUsage=serverAuth') "
+      "2>/dev/null)\" "
+      '|| { echo "The certificate for $name could not be signed; nothing was sent." >&2; exit 1; }';
 
   // Only the public request's key counts; its subject and extensions must not broaden the certificate's scope.
-  static List<String> _forgeCertificate(String host) => <String>[
+  static List<String> _forgeCertificate(String host, int networkNumber) => <String>[
+    _certificateRequests,
     'cakey64="\$(kp show -s -a password "\$file" ${_word(forgeCaKey(host))} 2>/dev/null || true)"',
     'ca64="\$(kp show -s -a password "\$file" ${_word(forgeCa(host))} 2>/dev/null || true)"',
     'if { [ -z "\$cakey64" ] && [ -n "\$ca64" ]; } || { [ -n "\$cakey64" ] && [ -z "\$ca64" ]; }; then '
@@ -105,27 +164,33 @@ class SecretsFile {
     // Made once, in this terminal, the first time a host asks: ten years, held to the VPN's names and addresses.
     r'''if [ -z "$cakey64" ]; then''',
     r'''  cakey="$(/usr/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 2>/dev/null)"''',
-    r'''  ca="$(/usr/bin/openssl req -x509 -new -key <(printf '%s\n' "$cakey") -subj '/CN=Porelo forge CA' -days 3650 -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' -addext 'keyUsage=critical,keyCertSign,cRLSign' -addext 'nameConstraints=critical,permitted;DNS:porelo.internal,permitted;IP:10.73.0.0/255.255.255.0')"''',
+    '  ca="\$(/usr/bin/openssl req -x509 -new -key <(printf \'%s\\n\' "\$cakey") '
+        '-subj ${_word('/CN=Porelo $host CA')} -days 3650 '
+        "-addext 'basicConstraints=critical,CA:TRUE,pathlen:0' -addext 'keyUsage=critical,keyCertSign,cRLSign' "
+        "-addext 'nameConstraints=critical,permitted;DNS:$host.porelo.internal,permitted;IP:10.73.$networkNumber.0/255.255.255.0')\"",
     '  ensure_group ${_word('hosts/$host')}',
     '  { printf \'%s\\n%s\\n\' "\$MASTER" "\$(printf \'%s\\n\' "\$cakey" | /usr/bin/base64 -w0)"; } | '
         '"\$cli" add -p "\$file" ${_word(forgeCaKey(host))} >/dev/null',
     '  { printf \'%s\\n%s\\n\' "\$MASTER" "\$(printf \'%s\\n\' "\$ca" | /usr/bin/base64 -w0)"; } | '
         '"\$cli" add -p "\$file" ${_word(forgeCa(host))} >/dev/null',
-    r'''  echo "A lasting CA for your forges is made, and kept in your secrets file." >&2''',
+    '  echo "A lasting CA for $host is made, and kept in your secrets file." >&2',
     r'''else''',
     r'''  cakey="$(printf '%s' "$cakey64" | /usr/bin/base64 -d)"; ca="$(printf '%s' "$ca64" | /usr/bin/base64 -d)"''',
     r'''fi''',
     r'''unset cakey64 ca64''',
-    r'''if ! printf '%s\n' "${request:-}" | /usr/bin/openssl req -noout -verify >/dev/null 2>&1; then echo "The host gave no certificate request it signed itself; nothing was sent." >&2; exit 1; fi''',
-    r'''cert="$(/usr/bin/openssl x509 -req -in <(printf '%s\n' "$request") -subj '/CN=forge.porelo.internal' -CA <(printf '%s\n' "$ca") -CAkey <(printf '%s\n' "$cakey") -days 365 -set_serial "0x$(/usr/bin/openssl rand -hex 16)" -extfile <(printf '%s\n' 'subjectAltName=IP:10.73.0.1,DNS:forge.porelo.internal' 'basicConstraints=critical,CA:FALSE' 'extendedKeyUsage=serverAuth') 2>/dev/null)"''',
-    r'''eforge="$(printf '%s\n%s\n' "$cert" "$ca" | /usr/bin/base64 -w0)"''',
-    r'''if [ -z "$cert" ] || ! [[ "$eforge" =~ $b64 ]]; then echo "The forge's certificate could not be signed; nothing was sent." >&2; exit 1; fi''',
+    _signRequest(networkNumber, 0, forgeName(host), 'forgecert'),
+    _signRequest(networkNumber, 1, 'matrix.$host.porelo.internal', 'matrixcert'),
+    r'''eforge="$(printf '%s\n%s\n%s\n' "$forgecert" "$matrixcert" "$ca" | /usr/bin/base64 -w0)"''',
+    r'''if [ -z "$forgecert" ] || [ -z "$matrixcert" ] || ! [[ "$eforge" =~ $b64 ]]; then echo "The host's certificates could not be signed; nothing was sent." >&2; exit 1; fi''',
     // The CA's certificate, public, for this desktop to trust: where the stop's terminal names a file for it.
     r'''if [ -n "${caout:-}" ]; then printf '%s\n' "$ca" > "$caout"; fi''',
   ];
 
   /// The entry of the central forge's token, which every host of the person shares.
   static const centralForgeToken = 'shared/forge-central-token';
+
+  /// The person's lasting forge password, shared across their hosts.
+  static const forgePassword = 'shared/forge-password';
 
   /// The entry of [project]'s vault entry file, its bytes base64 in the password field.
   static String vaultKey(String project, String name) {
@@ -145,8 +210,10 @@ class SecretsFile {
     required String project,
     required List<String> needs,
     List<String> keys = const [],
+    int networkNumber = 0,
   }) {
     checkHost(host);
+    checkNetworkNumber(networkNumber);
     _checkProject(project);
     if (needs.isEmpty) throw const FormatException('The host asked for nothing the secrets file gives.');
     for (final need in needs) {
@@ -195,8 +262,8 @@ class SecretsFile {
         ]);
         writes.add("printf '%s %s\\n' ${_word(need)} \"\$e$variable\"");
       } else if (need == 'forge-certificate') {
-        reads.addAll(_forgeCertificate(host));
-        variables.addAll(['cakey', 'ca', 'cert', 'eforge']);
+        reads.addAll(_forgeCertificate(host, networkNumber));
+        variables.addAll(['cakey', 'ca', 'forgecert', 'matrixcert', 'eforge', 'requests', 'csr', 'pem']);
         writes.add(r'''printf 'forge-certificate %s\n' "$eforge"''');
       } else {
         // Each entry kept base64 already, by prepareHost: checked as such, and sent as it is.
@@ -235,6 +302,25 @@ class SecretsFile {
       'unset MASTER v',
     ].join('\n');
   }
+
+  /// The terminal-only password feed for this person's own forge login, stored once and reused on every host.
+  String forgePasswordLine() => [
+    ..._opened,
+    'password="\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null || true)"',
+    'if [ -z "\$password" ]; then',
+    '  if kp show "\$file" ${_word(forgePassword)} >/dev/null 2>&1; then '
+        'echo "Your secrets file has an empty $forgePassword; nothing was sent." >&2; exit 1; fi',
+    r'  IFS= read -rs -p "Your lasting forge password: " password; echo >&2',
+    r'  if [ -z "$password" ]; then echo "A forge password cannot be empty; nothing was sent." >&2; exit 1; fi',
+    '  kp ls "\$file" shared >/dev/null 2>&1 || kp mkdir "\$file" shared >/dev/null',
+    '  printf \'%s\\n%s\\n\' "\$MASTER" "\$password" | "\$cli" add -p "\$file" ${_word(forgePassword)} >/dev/null',
+    '  if [ "\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null)" != "\$password" ]; then '
+        'echo "The secrets file did not keep the forge password; nothing was sent." >&2; exit 1; fi',
+    'fi',
+    r'''if [[ "$password" == *$'\n'* || "$password" == *$'\r'* ]]; then echo "The kept forge password is not one line; nothing was sent." >&2; exit 1; fi''',
+    r'''printf '%s\n' "$password"''',
+    'unset MASTER password',
+  ].join('\n');
 
   /// The script's start: no echo, `get` for an entry, and the master password asked and checked against the file.
   List<String> get _opened => [

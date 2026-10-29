@@ -75,22 +75,59 @@ void main() {
     }
   });
 
-  // Harm: the forge's CA lost at a restart, or something that is not one certificate kept and installed.
-  test('the forge\'s CA survives reload, and nothing but one certificate is taken', () async {
+  // Harm: one host's CA is installed for another host, lost during updates, or replaced by invalid trust data.
+  test('each host keeps its CA across reload and record updates', () async {
     final store = MemorySettingsStore();
     final settings = Settings(store);
     addTearDown(settings.dispose);
     final ca =
         '-----BEGIN CERTIFICATE-----\n${base64Encode(List<int>.generate(48, (i) => i))}\n-----END CERTIFICATE-----\n';
-    await settings.rememberForgeCa(ca);
+    final otherCa = ca.replaceFirst('AAEC', 'AQEC');
+    for (final (host, pem) in [('demo', ca), ('second', otherCa)]) {
+      final hostRecord = HostUpRecord.fromStored({...record, 'forgeCa': pem})!;
+      await settings.rememberHostUp(host, hostRecord);
+    }
     final reopened = Settings(store);
     addTearDown(reopened.dispose);
     await reopened.load();
-    expect(reopened.forgeCa, ca);
-    expect(
-      () => settings.rememberForgeCa('-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----\n'),
-      throwsArgumentError,
-    );
+    expect(reopened.hostUp('demo')!.stored['forgeCa'], ca);
+    expect(reopened.hostUp('second')!.stored['forgeCa'], otherCa);
+    final kept = reopened.hostUp('demo')!;
+    for (final updated in [
+      kept.withPreparation(DateTime.utc(2026)),
+      kept.withPreparation(null),
+      kept.withVpnFile('/private/porelo.conf'),
+      kept.withTunnel(hostPublicKey: '', address: ''),
+      kept.withProtocol(const []),
+    ]) {
+      expect(updated.stored['forgeCa'], ca, reason: 'a public record update must preserve this host\'s trust');
+    }
+    for (final bad in <Object?>[7, '', '$ca$ca', '-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----\n']) {
+      expect(HostUpRecord.fromStored({...record, 'forgeCa': bad}), isNull, reason: 'invalid trust is refused');
+    }
+    expect(HostUpRecord.fromStored(record)!.stored['forgeCa'], isNull, reason: 'an older record has no trusted CA');
+    await settings.rememberForgeCa('demo', otherCa);
+    expect(settings.hostUp('demo')!.forgeCa, otherCa);
+    expect(settings.hostUp('second')!.forgeCa, otherCa, reason: 'only the selected host changes');
+    await settings.rememberForgeCa('demo', null);
+    expect(settings.hostUp('demo')!.forgeCa, isNull);
+    expect(settings.hostUp('second')!.forgeCa, otherCa);
+    await expectLater(settings.rememberForgeCa('missing', ca), throwsArgumentError);
+    await expectLater(settings.rememberForgeCa('demo', 'invalid'), throwsArgumentError);
+  });
+
+  // Harm: a certificate is constrained to the wrong network after reading the host's recorded peer.
+  test('the host network number comes from its VPN peer and refuses invalid octets', () {
+    for (final number in [0, 17, 255]) {
+      expect(HostUpRecord.fromStored({...record, 'vpnPeerAddress': '10.73.$number.2/32'})!.vpnNetworkNumber, number);
+    }
+    expect(HostUpRecord.fromStored({...record, 'vpnPeerAddress': '', 'vpnPeerPublicKey': ''})!.vpnNetworkNumber, 0);
+    for (final address in ['10.73.256.2/32', '10.73.17.256/32', '10.74.0.2/32', '10.73.0.2/24', 'invalid']) {
+      expect(
+        () => HostUpRecord.fromStored({...record, 'vpnPeerAddress': address})!.vpnNetworkNumber,
+        throwsFormatException,
+      );
+    }
   });
 
   test('the vault entries\' names survive reload, and a name the stop would refuse drops the record', () async {

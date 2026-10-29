@@ -18,6 +18,7 @@ List<String> hostStopFeedCommand({
   String email = '',
   String cli = SecretsFile.keepassxcCli,
   String? caOut,
+  int networkNumber = 0,
 }) {
   final unknown = needs.where(
     (need) => need != 'drive' && need != 'matrix-token' && !SecretsFile.stopNeeds.contains(need),
@@ -43,10 +44,13 @@ List<String> hostStopFeedCommand({
   }
   final feed = [
     if (fed.isNotEmpty)
-      SecretsFile(
-        secretsFile,
-        cli: cli,
-      ).stopLines(host: project, project: project, needs: fed, keys: fed.contains('keys') ? keys : const []),
+      SecretsFile(secretsFile, cli: cli).stopLines(
+        host: project,
+        project: project,
+        needs: fed,
+        keys: fed.contains('keys') ? keys : const [],
+        networkNumber: networkNumber,
+      ),
     if (matrix)
       r"printf 'matrix-token %s\n' "
           '"\$matrixtoken"',
@@ -126,6 +130,23 @@ List<String> hostUnlockFeedCommand({
       '{\n$feed\n} | ${pipe.map(quoteForAShell).join(' ')}',
     ].join('\n'),
   );
+}
+
+/// Feeds the lasting password to the host as the person's own login, for bring and join terminals.
+List<String> hostForgePasswordFeedCommand({
+  required String secretsFile,
+  required String ssh,
+  required List<String> sshOptions,
+  required String host,
+  String cli = SecretsFile.keepassxcCli,
+}) {
+  if (!ssh.startsWith('/')) throw const FormatException('ssh is run by its absolute path.');
+  if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(host)) {
+    throw const FormatException('The forge password needs the person\'s own host login and address.');
+  }
+  final feed = SecretsFile(secretsFile, cli: cli).forgePasswordLine();
+  final pipe = [ssh, ...sshOptions, '-T', '--', host, '/usr/bin/sudo -n /usr/local/bin/porelo-host-forge-password'];
+  return _inACleanBash('set -o pipefail\n{\n$feed\n} | ${pipe.map(quoteForAShell).join(' ')}');
 }
 
 // Neither the caller's startup files nor an inherited trace may run in the shell that holds the secrets.

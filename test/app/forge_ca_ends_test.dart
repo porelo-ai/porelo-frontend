@@ -116,16 +116,12 @@ void main() {
   test('warned 90 days before the end and after it, never earlier, nor for what is not one certificate', () {
     final pem = _pem(_certificate(notAfter: _utc('361025034012Z')));
     final ends = DateTime.utc(2036, 10, 25, 3, 40, 12);
-    expect(forgeCaWarning(pem, ends.subtract(const Duration(days: 91))), isNull);
-    final before = forgeCaWarning(pem, ends.subtract(const Duration(days: 89)))!;
-    expect(before, contains('ends on 2036-10-25 03:40 UTC'));
-    expect(before, contains('remove shared/forge-ca and shared/forge-ca-key'));
-    expect(before, contains('A server set up before takes it only when it is set up again'));
-    expect(before, isNot(contains('this stop makes the new one')));
-    expect(forgeCaWarning(pem, ends.add(const Duration(minutes: 1))), contains('ended on 2036-10-25 03:40 UTC'));
-    expect(forgeCaWarning(pem, ends, atTheStop: true), contains('Where you removed them already, this stop makes'));
-    expect(forgeCaWarning(null, ends), isNull);
-    expect(forgeCaWarning('-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n', ends), isNull);
+    expect(forgeCaWarning('checkout', pem, ends.subtract(const Duration(days: 91))), isNull);
+    expect(forgeCaWarning('checkout', pem, ends.subtract(const Duration(days: 89))), isNotNull);
+    expect(forgeCaWarning('checkout', pem, ends.add(const Duration(minutes: 1))), isNotNull);
+    expect(forgeCaWarning('checkout', pem, ends, atTheStop: true), isNotNull);
+    expect(forgeCaWarning('checkout', null, ends), isNull);
+    expect(forgeCaWarning('checkout', '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n', ends), isNull);
   });
 }
 

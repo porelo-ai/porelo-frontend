@@ -42,6 +42,7 @@ class HostUpRecord {
     this.vpnHostPublicKey = '',
     this.vpnEndpointAddress = '',
     this.vpnFile,
+    this.forgeCa,
     this.vaultKeys = const [],
     this.preparing = false,
     this.startedAt,
@@ -97,6 +98,9 @@ class HostUpRecord {
   /// The explicitly exported VPN file's local path, never its private key contents.
   final String? vpnFile;
 
+  /// This host's lasting CA certificate, public PEM; its key stays in the secrets file.
+  final String? forgeCa;
+
   /// The names of the vault entries `machine.yml` names, never their files' contents: the stop sends these alone.
   final List<String> vaultKeys;
 
@@ -127,6 +131,7 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: vpnFile,
+    forgeCa: forgeCa,
     vaultKeys: vaultKeys,
     preparing: instant != null,
     startedAt: instant?.toUtc(),
@@ -151,6 +156,7 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: file,
+    forgeCa: forgeCa,
     vaultKeys: vaultKeys,
     preparing: preparing,
     startedAt: startedAt,
@@ -175,6 +181,7 @@ class HostUpRecord {
     vpnHostPublicKey: hostPublicKey,
     vpnEndpointAddress: address,
     vpnFile: vpnFile,
+    forgeCa: forgeCa,
     vaultKeys: vaultKeys,
     preparing: preparing,
     startedAt: startedAt,
@@ -199,11 +206,32 @@ class HostUpRecord {
     vpnHostPublicKey: vpnHostPublicKey,
     vpnEndpointAddress: vpnEndpointAddress,
     vpnFile: vpnFile,
+    forgeCa: forgeCa,
     vaultKeys: vaultKeys,
     preparing: preparing,
     startedAt: startedAt,
     protocol: List.unmodifiable(entries),
   );
+
+  /// Keeps this host's trust with its setup identity.
+  HostUpRecord withForgeCa(String? pem) {
+    if (pem != null && !isForgeCaCertificate(pem)) {
+      throw ArgumentError('The host\'s CA must be one certificate in PEM.');
+    }
+    return HostUpRecord.fromStored({...stored, 'forgeCa': pem})!;
+  }
+
+  /// The third octet of the host's known VPN network, zero before a peer is chosen.
+  int get vpnNetworkNumber {
+    if (vpnPeerAddress.isEmpty) return 0;
+    final match = RegExp(r'^10\.73\.(\d{1,3})\.(\d{1,3})/32$').firstMatch(vpnPeerAddress);
+    final network = match == null ? null : int.tryParse(match[1]!);
+    final peer = match == null ? null : int.tryParse(match[2]!);
+    if (network == null || network > 255 || peer == null || peer > 255) {
+      throw const FormatException('The host peer must be in a 10.73.<network>.0/24 VPN network.');
+    }
+    return network;
+  }
 
   /// Reads every field or drops the entire unusable record.
   static HostUpRecord? fromStored(Object? value) {
@@ -230,6 +258,8 @@ class HostUpRecord {
       if (preparing && startedAt == null) return null;
       final vpnFile = value['vpnFile'];
       if (vpnFile != null && vpnFile is! String) return null;
+      final forgeCa = value['forgeCa'];
+      if (forgeCa != null && (forgeCa is! String || !isForgeCaCertificate(forgeCa))) return null;
       final vaultKeys = value['vaultKeys'] ?? const <Object?>[];
       if (vaultKeys is! List ||
           vaultKeys.any((name) => name is! String || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) ||
@@ -295,6 +325,7 @@ class HostUpRecord {
         vpnHostPublicKey: vpnHostPublicKey,
         vpnEndpointAddress: vpnEndpointAddress,
         vpnFile: vpnFile as String?,
+        forgeCa: forgeCa as String?,
         vaultKeys: List.unmodifiable(vaultKeys.cast<String>()),
         setupFolder: setupFolder as String?,
         preparing: preparing,
@@ -322,6 +353,7 @@ class HostUpRecord {
     if (vpnHostPublicKey.isNotEmpty) 'vpnHostPublicKey': vpnHostPublicKey,
     if (vpnEndpointAddress.isNotEmpty) 'vpnEndpointAddress': vpnEndpointAddress,
     if (vpnFile != null) 'vpnFile': vpnFile,
+    if (forgeCa != null) 'forgeCa': forgeCa,
     if (vaultKeys.isNotEmpty) 'vaultKeys': vaultKeys,
     if (protocol.isNotEmpty) 'protocol': [for (final entry in protocol) entry.stored],
     if (preparing) 'preparing': true,
@@ -545,8 +577,6 @@ class Settings extends ChangeNotifier {
         }
       }
     }
-    final forgeCa = stored['forgeCa'];
-    _forgeCa = forgeCa is String && isCertificate(forgeCa) ? forgeCa : null;
     final secrets = stored['secretsFile'];
     _secretsFile = secrets is String && secrets.startsWith('/') && !secrets.contains('\x00') ? secrets : null;
     _hostUps.clear();
@@ -642,21 +672,14 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? _forgeCa;
-
-  /// The certificate of the person's lasting CA for the hosts' forges, PEM, once a stop signed with it; public. Its key
-  /// is kept in the secrets file alone.
-  String? get forgeCa => _forgeCa;
-
   /// One certificate in PEM, and nothing beside it.
   static bool isCertificate(String pem) => isForgeCaCertificate(pem);
 
-  /// Keeps the lasting CA's certificate, refusing anything that is not one.
-  Future<void> rememberForgeCa(String? pem) async {
-    if (pem != null && !isCertificate(pem)) throw ArgumentError('The forge\'s CA must be one certificate in PEM.');
-    _forgeCa = pem;
-    await _write();
-    notifyListeners();
+  /// Keeps the lasting CA only with the host whose stop supplied it.
+  Future<void> rememberForgeCa(String host, String? pem) async {
+    final record = hostUp(host);
+    if (record == null) throw ArgumentError('The CA needs a kept host setup.');
+    await rememberHostUp(host, record.withForgeCa(pem));
   }
 
   final _hostUps = <String, HostUpRecord>{};
@@ -867,7 +890,7 @@ class Settings extends ChangeNotifier {
   Future<void> _writeKnown(Map<String, Object?> known) async {
     final kept = <String, Object?>{
       for (final entry in (await _store.read()).entries)
-        if (!known.containsKey(entry.key)) entry.key: entry.value,
+        if (entry.key != 'forgeCa' && !known.containsKey(entry.key)) entry.key: entry.value,
     };
     await _store.write(<String, Object?>{...kept, ...known});
   }
@@ -891,7 +914,6 @@ class Settings extends ChangeNotifier {
     'forges': _forges,
     'tresorFolders': _tresorFolders,
     'secretsFile': _secretsFile,
-    if (_forgeCa != null) 'forgeCa': _forgeCa,
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
   };
 

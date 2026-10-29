@@ -771,6 +771,7 @@ class _HostDialogState extends State<HostDialog> {
     vpnPeerPublicKey: _tunnel?.peerPublicKey ?? '',
     vpnPeerAddress: _tunnel == null ? '' : '10.73.0.2/32',
     vpnHostPublicKey: _tunnel?.hostPublicKey ?? '',
+    forgeCa: widget.settings?.hostUp(widget.project)?.forgeCa,
     vaultKeys: [for (final key in _keys) key.name],
   );
 

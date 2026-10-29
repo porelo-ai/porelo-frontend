@@ -146,7 +146,8 @@ Future<bool> openHostVpnDialog(
         environment: environment,
         now: now,
         checkRootTools: open == null ? null : () async {},
-        forgeCa: settings.forgeCa,
+        forgeCa: record.forgeCa,
+        networkNumber: record.vpnNetworkNumber,
       );
     }
     if (!context.mounted) return false;
@@ -157,10 +158,17 @@ Future<bool> openHostVpnDialog(
       title: '${up ? 'Bring the VPN up' : 'Take the VPN down'} for ${machine.name}',
       explanation: [
         'This changes WireGuard on this computer. Type only your sudo password into this terminal.',
-        if (up) ?forgeCaWarning(settings.forgeCa, (now ?? DateTime.now)()),
+        if (up)
+          ?forgeCaWarning(machine.hostProject, settings.hostUp(machine.hostProject)?.forgeCa, (now ?? DateTime.now)()),
       ].join(' '),
       machine: Machine.local(),
-      command: pending?.command ?? hostVpnDownCommand,
+      command:
+          pending?.command ??
+          [
+            ...hostVpnDownCommand,
+            machine.hostProject,
+            '${settings.hostUp(machine.hostProject)?.vpnNetworkNumber ?? 0}',
+          ],
       shownCommand: up
           ? 'Install the private VPN configuration, bring it up, and check the server.'
           : 'sudo wg-quick down porelo, and the forge\'s name out of /etc/hosts',

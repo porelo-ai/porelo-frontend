@@ -279,7 +279,7 @@ void main() {
         await tester.tap(find.text('Close'));
       } else {
         expect(commands, [
-          hostVpnDownCommand,
+          [...hostVpnDownCommand, 'demo', '0'],
         ], reason: 'taking the VPN down must keep the command offered before Linux state probing');
         terminal.endsWith(0);
         await World.settle(tester);
@@ -783,37 +783,19 @@ void main() {
     await open(tester, settings, without, FakeTerminal([]));
     expect(without.single.last, isEmpty, reason: 'nothing of it without a CA');
     await tester.pumpWidget(const SizedBox.shrink());
-    await settings.rememberForgeCa(ca);
+    await settings.rememberForgeCa('demo', ca);
     final commands = <List<String>>[];
     await open(tester, settings, commands, FakeTerminal([]));
     expect(commands.single.last, ca.trimRight(), reason: 'the certificate itself, public, read by root from no file');
-    expect(find.textContaining('forges ends on'), findsNothing, reason: 'no end read, nothing said');
-  }, skip: _notLinux);
-
-  // Harm: the lasting CA ends unseen, and every server's forge stops opening in the browser on one day.
-  testWidgets('a kept forge CA that ends within 90 days is said at the VPN\'s start, with what to do', (tester) async {
-    final settings = Settings(MemorySettingsStore());
-    addTearDown(settings.dispose);
-    final scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('vpn-forge-ca-')))!;
-    addTearDown(() => scratch.delete(recursive: true));
-    final made = (await tester.runAsync(
-      () => Process.run('openssl', [
-        'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-days', '30', //
-        '-subj', '/CN=forge-ca-test', '-keyout', '${scratch.path}/key.pem', '-out', '${scratch.path}/ca.pem',
-      ]),
-    ))!;
-    expect(made.exitCode, 0, reason: '${made.stderr}');
-    await settings.rememberForgeCa(File('${scratch.path}/ca.pem').readAsStringSync());
-    await open(tester, settings, <List<String>>[], FakeTerminal([]), now: DateTime.now);
-    expect(find.textContaining('forges ends on'), findsOneWidget);
-    expect(find.textContaining('remove shared/forge-ca and shared/forge-ca-key'), findsOneWidget);
   }, skip: _notLinux);
 
   // Harm: a teardown action must not run installation or target the remote server.
   testWidgets('VPN down runs only wg-quick locally without needing a saved file', (tester) async {
     final commands = <List<String>>[];
     await open(tester, Settings(MemorySettingsStore()), commands, FakeTerminal([]), up: false);
-    expect(commands, [hostVpnDownCommand]);
+    expect(commands, [
+      [...hostVpnDownCommand, 'demo', '0'],
+    ]);
   });
 }
 

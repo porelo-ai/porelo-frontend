@@ -121,7 +121,7 @@ esac
       addTearDown(() => scratch.deleteSync(recursive: true));
       final hosts = File('${scratch.path}/hosts')
         ..writeAsStringSync(
-          '127.0.0.1 localhost\n10.73.0.1 forge.porelo.internal # porelo-host\n10.0.0.5 mine # porelo-host\n',
+          '127.0.0.1 localhost\n10.73.0.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo\n10.0.0.5 mine # porelo-host\n',
         );
       final inode = (await Process.run('stat', ['-c', '%i', hosts.path])).stdout;
       final wg = File('${scratch.path}/wg-quick')..writeAsStringSync('#!/bin/sh\n${downs ? 'exit 0' : 'exit 1'}\n');
@@ -140,13 +140,11 @@ esac
       final script = hostVpnDownCommand[3]
           .replaceAll('/etc/hosts', hosts.path)
           .replaceAll('PATH=/usr/bin:/usr/sbin:/bin:/sbin', 'PATH=${scratch.path}:/usr/bin:/bin');
-      final result = await Process.run('/bin/sh', ['-c', script]);
+      final result = await Process.run('/bin/sh', ['-c', script, 'porelo-vpn-down', 'demo', '0']);
       expect(result.exitCode == 0, downs && copies, reason: '${result.stderr}');
       expect(
         hosts.readAsStringSync(),
-        downs && copies
-            ? '127.0.0.1 localhost\n10.0.0.5 mine # porelo-host\n'
-            : '127.0.0.1 localhost\n10.73.0.1 forge.porelo.internal # porelo-host\n10.0.0.5 mine # porelo-host\n',
+        downs && copies ? '127.0.0.1 localhost\n10.0.0.5 mine # porelo-host\n' : '127.0.0.1 localhost\n10.73.0.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo\n10.0.0.5 mine # porelo-host\n',
         reason: 'that one line, never another that only ends like it',
       );
       expect(
@@ -185,6 +183,8 @@ esac
 
     Future<ProcessResult> up({
       String? forgeCa,
+      String host = 'demo',
+      int networkNumber = 0,
       String store = 'update-ca-certificates',
       bool storeTakes = true,
       String? argument,
@@ -207,7 +207,13 @@ esac''',
         final file = File('${scratch.path}/${entry.key}')..writeAsStringSync('#!/bin/sh\n${entry.value}\n');
         await Process.run('chmod', ['700', file.path]);
       }
-      final command = hostVpnUpCommand(source.path, commandPath: '${scratch.path}:/usr/bin:/bin', forgeCa: forgeCa);
+      final command = hostVpnUpCommand(
+        source.path,
+        commandPath: '${scratch.path}:/usr/bin:/bin',
+        forgeCa: forgeCa,
+        host: host,
+        networkNumber: networkNumber,
+      );
       command[3] = command[3]
           .replaceAll('/etc/', '${etc.path}/')
           .replaceAll('/usr/local/share/', '${scratch.path}/usr/local/share/');
@@ -219,8 +225,8 @@ esac''',
       );
     }
 
-    File inStore() => File('${scratch.path}/usr/local/share/ca-certificates/porelo-host.crt');
-    File forFirefox() => File('${etc.path}/firefox/porelo/porelo-host.crt');
+    File inStore() => File('${scratch.path}/usr/local/share/ca-certificates/porelo-host-demo.crt');
+    File forFirefox() => File('${etc.path}/firefox/porelo/porelo-host-demo.crt');
     File policy() => File('${etc.path}/firefox/policies/policies.json');
 
     test('nothing of it without a CA a stop gave', () async {
@@ -237,11 +243,11 @@ esac''',
       expect(inStore().readAsStringSync(), ca);
       expect(forFirefox().readAsStringSync(), ca);
       // The test moved /etc into its scratch folder, the policy's path with it.
-      expect(policy().readAsStringSync(), contains('"Install":["${etc.path}/firefox/porelo/porelo-host.crt"]'));
+      expect(policy().readAsStringSync(), contains('"Install":["${etc.path}/firefox/porelo/porelo-host-demo.crt"]'));
       expect(capture.readAsLinesSync(), ['update-ca-certificates'], reason: 'the system store is told once');
       expect(
         hosts.readAsStringSync(),
-        '127.0.0.1 localhost\n192.168.1.50 nas.local\n10.73.0.1 forge.porelo.internal # porelo-host\n',
+        '127.0.0.1 localhost\n192.168.1.50 nas.local\n10.73.0.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo\n',
         reason: 'the person\'s last line stays as it was',
       );
       expect(File('${source.path}.checked').existsSync(), isTrue);
@@ -251,7 +257,7 @@ esac''',
       expect(again.exitCode, 0, reason: '${again.stdout}${again.stderr}');
       expect(capture.readAsLinesSync(), ['update-ca-certificates'], reason: 'the same CA is not put in again');
       expect(forFirefox().statSync().modified, copied, reason: 'nor Firefox\'s copy');
-      expect('forge.porelo.internal'.allMatches(hosts.readAsStringSync()), hasLength(1), reason: 'the name once');
+      expect('forge.demo.porelo.internal'.allMatches(hosts.readAsStringSync()), hasLength(1), reason: 'the name once');
       expect('${again.stdout}', isNot(contains('policy of its own')));
     });
 
@@ -279,13 +285,13 @@ esac''',
       final staged = await up(forgeCa: ca);
       expect(staged.exitCode, 0, reason: '${staged.stdout}${staged.stderr}');
       expect(elsewhere.readAsStringSync(), 'mine\n');
-      expect(policy().readAsStringSync(), contains('porelo-host.crt'));
+      expect(policy().readAsStringSync(), contains('porelo-host-demo.crt'));
     });
 
     test('Fedora\'s store, and no store at all', () async {
       final fedora = await up(forgeCa: ca, store: 'update-ca-trust');
       expect(fedora.exitCode, 0, reason: '${fedora.stdout}${fedora.stderr}');
-      expect(File('${etc.path}/pki/ca-trust/source/anchors/porelo-host.crt').readAsStringSync(), ca);
+      expect(File('${etc.path}/pki/ca-trust/source/anchors/porelo-host-demo.crt').readAsStringSync(), ca);
       expect(capture.readAsLinesSync(), ['update-ca-trust']);
 
       capture.deleteSync();
@@ -306,6 +312,27 @@ esac''',
       final retried = await up(forgeCa: ca);
       expect(retried.exitCode, 0, reason: '${retried.stdout}${retried.stderr}');
       expect(capture.readAsLinesSync(), ['update-ca-certificates', 'update-ca-certificates']);
+    });
+
+    // Harm: trusting a second host replaces the first host's CA or removes its service names.
+    test('a second host installs its own trust and names without replacing the first', () async {
+      final first = await up(forgeCa: ca);
+      expect(first.exitCode, 0, reason: '${first.stdout}${first.stderr}');
+      final otherCa = ca.replaceFirst('AAEC', 'AQEC');
+      final second = await up(forgeCa: otherCa, host: 'second', networkNumber: 17);
+      expect(second.exitCode, 0, reason: '${second.stdout}${second.stderr}');
+      expect(inStore().readAsStringSync(), ca);
+      expect(forFirefox().readAsStringSync(), ca);
+      expect(
+        File('${scratch.path}/usr/local/share/ca-certificates/porelo-host-second.crt').readAsStringSync(),
+        otherCa,
+      );
+      expect(File('${etc.path}/firefox/porelo/porelo-host-second.crt').readAsStringSync(), otherCa);
+      expect(hosts.readAsLinesSync(), [
+        '127.0.0.1 localhost',
+        '10.73.0.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo',
+        '10.73.17.1 forge.second.porelo.internal matrix.second.porelo.internal # porelo-host-second',
+      ]);
     });
 
     test('what is not one certificate is refused, here and by root', () async {

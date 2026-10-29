@@ -28,8 +28,17 @@ void checkVpnSaveFile(String file, {bool? windows}) {
 }
 
 /// Checks the active endpoint before installation and confirms a fresh handshake after a ping.
-List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/sbin:/bin:/sbin', String? forgeCa}) {
+List<String> hostVpnUpCommand(
+  String file, {
+  String commandPath = '/usr/bin:/usr/sbin:/bin:/sbin',
+  String? forgeCa,
+  String? host,
+  int networkNumber = 0,
+}) {
   checkVpnFile(file);
+  if (host != null) SecretsFile.checkHost(host);
+  SecretsFile.checkNetworkNumber(networkNumber);
+  if (forgeCa != null && host == null) throw const FormatException('The CA needs its host name.');
   if (forgeCa != null && !isForgeCaCertificate(forgeCa)) {
     throw const FormatException('The CA for the server\'s forge is not one certificate.');
   }
@@ -48,6 +57,8 @@ List<String> hostVpnUpCommand(String file, {String commandPath = '/usr/bin:/usr/
     key,
     endpoint,
     commandPath,
+    host ?? '',
+    '$networkNumber',
     // Without its last line break, which the root step writes back.
     forgeCa?.trimRight() ?? '',
   ];
@@ -102,11 +113,15 @@ handshakes=$(wg show porelo latest-handshakes) || fail 'The VPN handshake could 
 handshake=$(printf '%s\n' "$handshakes" | awk -v key="$expected" '$1 == key { print $2 }')
 case "$handshake" in ''|*[!0-9]*) fail 'The server did not complete the expected VPN handshake.';; esac
 [ "$handshake" -gt "$started" ] || fail 'The server did not complete a new VPN handshake.'
-# The person's lasting CA for the hosts' forges, and the forge's name, where a stop gave the CA: in the system store,
-# in Firefox's policy and in /etc/hosts, each only where it is not there already. The CA comes as an argument, public:
-# root reads no file of the person's, and checks it is a certificate in a file of its own before any copy is made.
-forge_ca_pem=${6:-}
+# Root reads no user-owned CA file that could change between validation and installation.
+forge_ca_pem=${8:-}
 if [ -n "$forge_ca_pem" ]; then
+  host=${6:-}
+  network=${7:-}
+  case "$host" in ''|*[!a-z0-9-]*|-*|*-) fail 'The CA needs a valid host name.';; esac
+  [ "${#host}" -le 63 ] || fail 'The CA needs a valid host name.'
+  case "$network" in ''|*[!0-9]*|????*) fail 'The CA needs a valid host network number.';; esac
+  [ "$network" -le 255 ] || fail 'The CA needs a valid host network number.'
   # In /tmp by name: a TMPDIR kept through sudo could be a folder of the person's.
   forge_ca=$(mktemp -p /tmp) || fail "The CA for the server's forge could not be staged."
   trap 'rm -f -- "$forge_ca"' 0
@@ -120,10 +135,10 @@ if [ -n "$forge_ca_pem" ]; then
     && [ -n "$forge_ca_body" ] && printf '%s\n' "$forge_ca_body" | base64 -d >/dev/null 2>&1 \
     || fail "What was given as the CA for the server's forge is not one certificate."
   if command -v update-ca-certificates >/dev/null 2>&1; then
-    store=/usr/local/share/ca-certificates/porelo-host.crt
+    store=/usr/local/share/ca-certificates/porelo-host-$host.crt
     store_update=update-ca-certificates
   elif command -v update-ca-trust >/dev/null 2>&1; then
-    store=/etc/pki/ca-trust/source/anchors/porelo-host.crt
+    store=/etc/pki/ca-trust/source/anchors/porelo-host-$host.crt
     store_update=update-ca-trust
   else
     store=
@@ -136,20 +151,20 @@ if [ -n "$forge_ca_pem" ]; then
     "$store_update" >/dev/null 2>&1 || { rm -f -- "$store"; fail "The system store did not take the CA for the server's forge."; }
   fi
   # Firefox, a snap here, reads /etc/firefox alone; its policy names this copy.
-  firefox_ca=/etc/firefox/porelo/porelo-host.crt
+  firefox_ca=/etc/firefox/porelo/porelo-host-$host.crt
   cmp -s -- "$forge_ca" "$firefox_ca" || install -D -m 0644 -- "$forge_ca" "$firefox_ca" || fail "The CA for the server's forge could not be put where Firefox reads it."
   policy=/etc/firefox/policies/policies.json
   # A link in its place, dangling or not, is the person's: said, never replaced.
   if [ ! -e "$policy" ] && [ ! -L "$policy" ]; then
     install -d -m 0755 /etc/firefox/policies || fail "Firefox's policy folder could not be made."
     staged=$(mktemp /etc/firefox/policies/.policies.json.XXXXXX) || fail "Firefox's policy could not be staged."
-    printf '%s\n' '{"policies":{"Certificates":{"Install":["/etc/firefox/porelo/porelo-host.crt"]}}}' > "$staged" \
+    printf '%s\n' "{\"policies\":{\"Certificates\":{\"Install\":[\"$firefox_ca\"]}}}" > "$staged" \
       && chmod 0644 "$staged" && mv -f -- "$staged" "$policy" || { rm -f -- "$staged"; fail "Firefox's policy could not be written."; }
     printf '%s\n' 'Firefox trusts the forge once it is started again.'
-  elif ! grep -q '/etc/firefox/porelo/porelo-host.crt' "$policy"; then
-    printf '%s\n' "Firefox has a policy of its own in $policy: add /etc/firefox/porelo/porelo-host.crt to its Certificates.Install to open the forge there."
+  elif ! grep -qF -- "$firefox_ca" "$policy"; then
+    printf '%s\n' "Firefox has a policy of its own in $policy: add $firefox_ca to its Certificates.Install to open the forge there."
   fi
-  hosts_line='10.73.0.1 forge.porelo.internal # porelo-host'
+  hosts_line="10.73.$network.1 forge.$host.porelo.internal matrix.$host.porelo.internal # porelo-host-$host"
   if ! grep -qxF -- "$hosts_line" /etc/hosts; then
     # On a line of its own, and into the file as it is, so its owner, mode and label stay.
     if [ -n "$(tail -c 1 /etc/hosts)" ]; then
@@ -242,13 +257,14 @@ DateTime? certificateEnds(String pem) {
 
 /// What the person is told where the lasting CA in [pem] ends within 90 days of [now], or has ended; null otherwise.
 /// [atTheStop] for a stop that signs a forge's certificate, where the new CA is made.
-String? forgeCaWarning(String? pem, DateTime now, {bool atTheStop = false}) {
+String? forgeCaWarning(String host, String? pem, DateTime now, {bool atTheStop = false}) {
+  SecretsFile.checkHost(host);
   final ends = pem == null ? null : certificateEnds(pem);
   if (ends == null || ends.difference(now) > const Duration(days: 90)) return null;
   final when = '${ends.toIso8601String().substring(0, 16).replaceFirst('T', ' ')} UTC';
   return [
-    'The CA for your servers\' forges ${ends.isAfter(now) ? 'ends' : 'ended'} on $when.',
-    'For a new one, remove shared/forge-ca and shared/forge-ca-key from your secrets file: the next server\'s stop',
+    'The CA for $host ${ends.isAfter(now) ? 'ends' : 'ended'} on $when.',
+    'For a new one, remove ${SecretsFile.forgeCa(host)} and ${SecretsFile.forgeCaKey(host)} from your secrets file: this host\'s next stop',
     'makes it, and this computer trusts it in place of the old at its next VPN start. A server set up before takes',
     'it only when it is set up again; until then its forge is not trusted here.',
     if (atTheStop) 'Where you removed them already, this stop makes the new one.',
@@ -263,7 +279,7 @@ const hostVpnDownCommand = <String>[
   '-c',
   r'''PATH=/usr/bin:/usr/sbin:/bin:/sbin
 wg-quick down porelo || exit
-line='10.73.0.1 forge.porelo.internal # porelo-host'
+line="10.73.$2.1 forge.$1.porelo.internal matrix.$1.porelo.internal # porelo-host-$1"
 grep -qxF -- "$line" /etc/hosts || exit 0
 kept=$(mktemp -p /tmp) || exit
 trap 'rm -f -- "$kept"' 0
@@ -277,7 +293,21 @@ cat -- "$kept" > /etc/hosts''',
 
 /// A private configuration whose lifetime is the local terminal, including cancellation.
 class HostVpnAttempt {
-  HostVpnAttempt._(this.directory, this.file, this.publicKey, this.started, {this.forgeCa});
+  HostVpnAttempt._(
+    this.directory,
+    this.file,
+    this.publicKey,
+    this.started, {
+    this.forgeCa,
+    required this.host,
+    required this.networkNumber,
+  });
+
+  /// The host whose CA and service names this VPN installs.
+  final String host;
+
+  /// The third octet of that host's VPN network.
+  final int networkNumber;
 
   /// The lasting CA's certificate for the hosts' forges, PEM, public; null where none is kept. The root step gets it
   /// as an argument and reads no file of this user's for it.
@@ -296,7 +326,8 @@ class HostVpnAttempt {
   final int started;
 
   /// Builds the privileged command with public values only.
-  List<String> get command => hostVpnUpCommand(file.path, forgeCa: forgeCa)..[0] = '/usr/bin/sudo';
+  List<String> get command =>
+      hostVpnUpCommand(file.path, forgeCa: forgeCa, host: host, networkNumber: networkNumber)..[0] = '/usr/bin/sudo';
 
   /// A process exit alone cannot confirm the expected peer's fresh handshake.
   Future<bool> verified() async {
@@ -330,7 +361,10 @@ Future<HostVpnAttempt> prepareHostVpn({
   DateTime Function()? now,
   Future<void> Function()? checkRootTools,
   String? forgeCa,
+  int networkNumber = 0,
 }) async {
+  SecretsFile.checkHost(project);
+  SecretsFile.checkNetworkNumber(networkNumber);
   final runtime = (environment ?? Platform.environment)['XDG_RUNTIME_DIR'];
   const refused = HostFilesRefused('The VPN needs XDG_RUNTIME_DIR owned by this user with permissions 0700.');
   if (!Platform.isLinux ||
@@ -351,6 +385,8 @@ Future<HostVpnAttempt> prepareHostVpn({
     tunnel.hostPublicKey,
     (now ?? DateTime.now)().millisecondsSinceEpoch ~/ 1000,
     forgeCa: forgeCa,
+    host: project,
+    networkNumber: networkNumber,
   );
   try {
     await withHostFiles(

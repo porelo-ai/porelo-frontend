@@ -186,6 +186,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
               host: machine.host,
               driveHost: '$account@$address',
               caOut: forgeCa == null ? null : '${forgeCa.path}/ca.pem',
+              networkNumber: widget.run.record.vpnNetworkNumber,
             )
           : [openSsh('ssh'), ...machine.loginSshOptions, '-t', machine.host, inTheLoginShell(line)];
     } on FormatException catch (error) {
@@ -206,7 +207,12 @@ class _HostStopDialogState extends State<HostStopDialog> {
     });
     // Said where this stop signs with the lasting CA, which is where a new one is made.
     final caWarning = needs.contains('forge-certificate')
-        ? forgeCaWarning(widget.settings?.forgeCa, DateTime.now(), atTheStop: true)
+        ? forgeCaWarning(
+            widget.run.project,
+            widget.settings?.hostUp(widget.run.project)?.forgeCa,
+            DateTime.now(),
+            atTheStop: true,
+          )
         : null;
     int? code;
     try {
@@ -228,7 +234,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
       final ca = forgeCa == null ? null : File('${forgeCa.path}/ca.pem');
       if (code == 0 && ca != null && ca.existsSync()) {
         final pem = ca.readAsStringSync();
-        if (Settings.isCertificate(pem)) await widget.settings?.rememberForgeCa(pem);
+        if (Settings.isCertificate(pem)) await widget.settings?.rememberForgeCa(widget.run.project, pem);
       }
       if (!mounted) return;
       if (code == 0) {
