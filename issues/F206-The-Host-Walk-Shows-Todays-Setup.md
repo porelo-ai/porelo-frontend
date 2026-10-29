@@ -13,7 +13,7 @@ the stop.
 Found by the harm reading of [F201](README.md#f201)'s first part (2026-10-28): the walk was written before
 [F198](README.md#f198), [F199](README.md#f199) and [F201](README.md#f201), shows no secrets file, and its stand-ins
 still stop for the drive's login, which a host set up with `porelo-host`
-[HO38](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho38) never asks.
+never asks.
 
 ## Plan
 

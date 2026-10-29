@@ -1,13 +1,13 @@
 # F211 — A Server Prepared With No Project
 
-**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210), [F212](README.md#f212), and `porelo-host` [HO42](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho42), [HO43](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho43) and [HO44](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho44).
+**Status:** Estimated; blocked by [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210) and [F212](README.md#f212).
 **Size:** L - the host dialog cut to the host admin's act, three new functions on a prepared host, on contracts with `porelo-host`.
 
 **What must be true.** A host admin prepares a server under *Machines* with no project: rented, its VPN, its forge (on by default, off where a central forge is used), its homeserver, its CA; then registers a project for its admin, admits project admins by hand from their public keys, and gives the server back. The values a project admin needs are shown for them to write into the project's access file.
 
 ## Why
 
-`porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78): setting up a host and putting a project on it are two acts, by two people. Today's host dialog (`lib/src/ui/host_dialog.dart`) does both in one `up` for one person.
+Decided: setting up a host and putting a project on it are two acts, by two people. Today's host dialog (`lib/src/ui/host_dialog.dart`) does both in one `up` for one person.
 
 ## Plan
 

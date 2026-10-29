@@ -1,6 +1,6 @@
 # F219 — An Interface Ended Without Asking Leaves No Forward Behind
 
-**Status:** Analyzed; a bug, placed with the bug fixes after the operator's tests of sprints 6 to 6i.
+**Status:** Analyzed; a bug.
 **Size:** S - the forwards this interface raised found again by their socket at the next start, or ended with it, and
 their tests.
 

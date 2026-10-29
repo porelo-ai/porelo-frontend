@@ -1,13 +1,11 @@
 # F78 — A Waiting Push Is Reviewed As At A Forge
 
-**Status:** Analyzed; blocked by `porelo` [B150](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b150)
-and `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293).
+**Status:** Analyzed.
 **Size:** M - one view (`lib/src/ui/gate_view.dart`), `Gate` (`lib/src/app/gate.dart`), `parseUnifiedDiff`
 (`lib/src/app/diff.dart`), and a syntax-highlighting dependency, with Gherkin scenarios.
 
 **What must be true.** A person reads a waiting push the way they read a pull request at a forge, not as git's change
-format, with the push's source level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3` from `porelo-project`
-[PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73)) shown above the file list and
+format, with the push's source level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3`) shown above the file list and
 each file's risk class shown in the list.
 
 ## Why
@@ -29,9 +27,7 @@ survives leaving the review.
   is reviewed in the order that matters, dangerous by kind first and volume last" in
   `test/features/work_handover.feature`, asserting the left list's order.
 - **Source level and risk class header.** Above the file list, `ReviewView` displays the waiting push's source level
-  (`E0`, `E1`, `I1`, `A`) and highest risk class (`C0`–`C3`), as defined in `porelo-project`
-  [PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73) and `porelo`
-  [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293).
+  (`E0`, `E1`, `I1`, `A`) and highest risk class (`C0`–`C3`), as the daemon reports them.
 - **Per-file risk class.** Every file row in the left list shows its risk class (`C0`–`C3`) alongside `gate.ranked`'s
   reason.
 - **Side by side or inline.** `lib/src/app/diff.dart` gains 1-based line numbers on `DiffLine` and a pairing of removed
@@ -40,8 +36,8 @@ survives leaving the review.
 - **Syntax colors.** By file extension, with a highlighting package added to `pubspec.yaml` (none is there today) and
   its licence passing `test/licence_test.dart`.
 - **Unchanged lines expandable.** Between hunks a row opens the lines around them up to the whole file, read from
-  `FleetBackend.pendingBundle` (`lib/src/app/fleet_backend.dart`, Varlink `PendingBundle`) or from `porelo`
-  [B150](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b150) at the waiting commit SHA
+  `FleetBackend.pendingBundle` (`lib/src/app/fleet_backend.dart`, Varlink `PendingBundle`) or from the daemon
+  at the waiting commit SHA
   (`PendingPush.commit`) and base commit SHA.
 - **Commit-bound read ticks.** `Gate` (`lib/src/app/gate.dart`) keeps a set of read paths per push name and commit,
   cleared when the push is approved or dropped, and kept on disk per piece of work beside the operations record (the
@@ -82,7 +78,7 @@ survives leaving the review.
 
 ## To be checked
 
-- Where the whole file comes from: `porelo` [B150](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b150)
+- Where the whole file comes from: the daemon
   answering a file or context at the waiting commit and base commit, or the interface reading `PendingBundle` with git
   on this computer.
 - Which highlighting package, and whether its licence and size pass `test/licence_test.dart`.

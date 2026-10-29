@@ -9,7 +9,7 @@ and acts as before (`porelo/<task>`).
 
 ## Why
 
-`porelo` [B190](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b190) names a task's branch at
+Porelo names a task's branch at
 the forge from the project's scheme (`branch.template`, `branch.pattern`), and its contract reaches the interface.
 Read for the interface, it breaks nothing: `StartOutcome` is an open class, so `BRANCH_REFUSED` is read; the new
 `Task.forgeBranch` is a field the client does not read yet; and the interface still names a branch on `Approve`.

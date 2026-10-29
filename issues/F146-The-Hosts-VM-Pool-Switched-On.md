@@ -1,6 +1,6 @@
 # F146 — The Host's VM Pool Switched On
 
-**Status:** Idea; blocked by `porelo-host` [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12).
+**Status:** Idea.
 
 **What must be true.** A person bringing a host up chooses whether it runs a pool of small test VMs,
 which systems and how many accounts, on `porelo_host`'s command line and in the host dialog.
@@ -8,7 +8,7 @@ which systems and how many accounts, on `porelo_host`'s command line and in the 
 ## The shape
 
 - **The first inventory carries one more key beside `porelo_host_account`**, as agreed with
-  `porelo-host` for [HO12](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho12): `porelo_host_vm_pool`, absent by default (no pool), else a
+  `porelo-host`: `porelo_host_vm_pool`, absent by default (no pool), else a
   JSON object `{"systems": ["ubuntu", "fedora"], "accounts": 4}`: `systems` a list of strings, each
   of `ubuntu` and `fedora` at most once; `accounts` an integer from `1` to `8` per system. Written
   by `_inventory(HostPlan)` in `packages/porelo_host/lib/src/host_run.dart`, left out when unset, as

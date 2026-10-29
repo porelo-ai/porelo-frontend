@@ -1,13 +1,13 @@
 # F209 — The VPN Kept Per Host, Several Up At Once
 
-**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by [F208](README.md#f208).
+**Status:** Estimated; blocked by [F208](README.md#f208).
 **Size:** M - the record moved from project to host with its migration, the root step's names per host, and their tests.
 
 **What must be true.** The VPN this laptop keeps is one per host, not per project: each with its own network `10.73.<n>.0/24`, its own hosts lines and its host's CA, and several hosts' VPNs may be up side by side; a network already up for another host is refused, naming both.
 
 ## Why
 
-With `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) one host holds several projects, and one laptop reaches several hosts, each with a network of its own (decided: `10.73.<n>.0/24`, a collision refused on the laptop).
+One host holds several projects, and one laptop reaches several hosts, each with a network of its own (decided: `10.73.<n>.0/24`, a collision refused on the laptop).
 
 ## Plan
 

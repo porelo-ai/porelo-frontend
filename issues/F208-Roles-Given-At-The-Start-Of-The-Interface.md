@@ -1,13 +1,13 @@
 # F208 — Roles Given At The Start Of The Interface
 
-**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by nothing.
+**Status:** Estimated; blocked by nothing.
 **Size:** M - an argument, a role on every command and the menus and tiles that read it, and their tests; no contract.
 
 **What must be true.** The interface is started with the roles its person holds, `--roles user,host-admin,project-admin`, and shows only the functions of those roles; without the argument it shows normal work alone (`user`). A role shows or hides; what a person may really do stays with the operating system, ssh and the keys.
 
 ## Why
 
-`porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) splits a host's life into three acts by three people: the host admin prepares it, a project admin brings a project onto it, a developer works there. Their functions must not all sit before everybody, as today, where *Put this project on a server…* rents and sets up a host for anyone (`porelo-project` [PJ71](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj71)'s roles, decided).
+The project splits a host's life into three acts by three people: the host admin prepares it, a project admin brings a project onto it, a developer works there. Their functions must not all sit before everybody, as today, where *Put this project on a server…* rents and sets up a host for anyone (decided).
 
 ## Plan
 

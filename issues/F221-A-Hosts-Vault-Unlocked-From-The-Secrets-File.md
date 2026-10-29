@@ -12,8 +12,8 @@ keeps today's terminal, where its passphrase is typed.
 
 ## Why
 
-Seen in the operator's round (6e, after the reboot): Needs you showed *Messages wait · Vault locked*; *Unlock the vault
-on sprint5 server* ran `porelo vault unlock` over ssh and asked *Vault passphrase:*. That passphrase was made by this
+Seen in an operator's round, after the reboot: Needs you showed *Messages wait · Vault locked*; *Unlock the vault
+on <project> server* ran `porelo vault unlock` over ssh and asked *Vault passphrase:*. That passphrase was made by this
 interface's stop and kept in the secrets file, where the person had never looked; the unlock dialog did not say where
 it is. The operator: the interface made it, so the interface should take it from the file with the master password
 typed once.

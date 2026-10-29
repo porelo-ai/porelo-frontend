@@ -1,13 +1,13 @@
 # F142 — The Drafts Offered Before The First Task In Default
 
-**Status:** Analyzed; blocked by `porelo` [B221](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b221).
+**Status:** Analyzed.
 **Size:** M - two calls and a field in the client, one dialog awaited at the one place a start
 begins, the mock and the fake taught them, a feature file.
 
 **What must be true.** When a person starts the first task on a repository in `default` that has no
 configuration yet, the interface shows the tools and rules the machine proposes from the repository's
-files, as `porelo-project` [PJ52](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj52)
-and the command line show them, and passes the person's choice back; the default choice changes
+files, as
+the command line shows them, and passes the person's choice back; the default choice changes
 nothing, a declined proposal is not asked again, and a machine that cannot propose starts the task as
 today.
 
@@ -55,5 +55,5 @@ today.
 
 ## To be checked
 
-- How long a proposal takes on a real repository, measured on the VM once `porelo` [B221](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b221) is there, to word the
+- How long a proposal takes on a real repository, measured on the VM once the machine proposes them, to word the
   wait.

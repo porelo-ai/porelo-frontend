@@ -1,16 +1,15 @@
 # F62 — An Organisation's Policy Is Shown
 
-**Status:** Estimated; blocked by Porelo's part of `porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16).
+**Status:** Estimated.
 **Size:** M - one contract change read from `porelo` (the policy and its refusals) across the
-machine, starting work, the clearance prompt and following, with the mock daemon and the docs; waits
-for `porelo`'s part of [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16).
+machine, starting work, the clearance prompt and following, with the mock daemon and the docs.
 
 **What must be true.** A person on a machine whose organisation set a policy sees that it is in
 force and what it allows, and is told why when it refuses something, rather than being surprised.
 
 ## Why
 
-`porelo-project` [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16), *An organisation decides which providers its machines use*. Porelo's part is
+An organisation decides which providers its machines use. Porelo's part is
 the policy file, its refusals and `doctor`; the contract carries none of it yet: not the policy, its
 refusals, or whether a prompt may be allowed.
 

@@ -10,7 +10,7 @@ reach the task and come back as they do outside the interface.
 
 ## Why
 
-Porelo's [B134](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b134), built on 2026-10-09 and 2026-10-10, set a task's tmux up to behave as the terminal
+Porelo sets a task's tmux up to behave as the terminal
 outside it, measured per key in a plain terminal:
 - Esc arrives at once.
 - Shift+Enter and focus events come through.
@@ -27,7 +27,7 @@ passed through it, not tmux's history.
 
 ## The shape
 
-- **Measure first**, through the interface on the VM, for the same keys and capabilities as [B134](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b134):
+- **Measure first**, through the interface on the VM, for the same keys and capabilities as above:
   Esc, Shift+Enter, Ctrl and Alt with the arrows, truecolor, OSC 52, focus events, the mouse wheel,
   and Shift+PageUp/PageDown. Do it once in a plain terminal and once in the interface, against the
   same task.

@@ -34,7 +34,7 @@ the walk was written.
   nothing was sent, with Porelo's `detail` whole. The interface does not match on its words, which
   are no contract: what to do is in them where Porelo names it (a task not in the project's
   conversation is started again, then released). A code beside `detail`, which would let it match the
-  other five cases, is `porelo` [B179](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b179); a remedy per code follows it, as an issue of
+  other five cases, is the daemon's to add; a remedy per code follows it, as an issue of
   its own.
 - **The project file after one's own push:** after the interface pushes to a followed project's
   repository (binding a machine writes `project.yml` and the machine signers,

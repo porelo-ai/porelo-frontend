@@ -1,6 +1,6 @@
 # F109 — The Interface On macOS, With Porelo In A Local VM
 
-**Status:** Estimated; blocked by `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) on Apple silicon, for Porelo's arm64 packages.
+**Status:** Estimated.
 **Size:** XL - a third desktop build, its signing and its package, and a VM set up from the window;
 it splits into three issues of L or smaller, as *Plan* says.
 
@@ -10,8 +10,7 @@ Porelo on remote machines over ssh, as on Linux.
 
 ## Why
 
-Many developers work on a Mac. Porelo does not run natively on macOS and will not soon (`porelo-project`
-[PJ25](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj25) stays parked), so on
+Many developers work on a Mac. Porelo does not run natively on macOS and will not soon, so on
 a Mac it runs in a Linux VM, and the interface on the Mac is how a person works with it.
 
 ## The shape
@@ -21,8 +20,8 @@ a Mac it runs in a Linux VM, and the interface on the Mac is how a person works 
   the Mac (`portForwards` with `guestSocket` and `hostSocket`). It is the one VM the window sets up,
   on Apple silicon and on Intel; UTM, Parallels, OrbStack and any other VM are reached over ssh as a
   remote machine. The interface drives `limactl` as it drives `wsl.exe` on Windows.
-- **Porelo in the VM is the Mac's architecture:** its arm64 packages on Apple silicon, built and
-  published as `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) plans, and its amd64 packages on an Intel Mac.
+- **Porelo in the VM is the Mac's architecture:** its arm64 packages on Apple silicon, once they are
+  published, and its amd64 packages on an Intel Mac.
 - **How the interface reaches it:** the daemon's socket in the VM, `/run/user/<uid>/porelo/porelod.sock`,
   forwarded by Lima to a socket on the Mac, which the interface opens as it opens a local socket on
   Linux: no ssh, no open port. Terminals and commands go `limactl shell <name> …` in a pseudoterminal.
@@ -45,7 +44,7 @@ a Mac it runs in a Linux VM, and the interface on the Mac is how a person works 
     leg over ssh against a leased machine, as the Linux job does.
   - **The VM leg cannot run there:** GitHub's macOS runners are VMs themselves and run no VM inside.
     For a release, a Mac with Apple silicon is rented through `porelo-machines` for the release's
-    whole test window, as `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) decides. On it, Porelo's arm64 packages run in an ARM Lima VM
+    whole test window. On it, Porelo's arm64 packages run in an ARM Lima VM
     with their acceptance legs, and this interface, built natively for macOS, is tested against that
     VM. The window's length and cost are posted before the rental and need the operator's word.
 
@@ -145,7 +144,7 @@ Three issues, in this order; this one is split before any is built:
 ## To be checked
 
 - **Porelo is published for amd64 only** (the deb repository's `Architectures: amd64 i386`,
-  read on 2026-10-21), so until `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55)'s arm64 packages are published there is nothing to install in
+  read on 2026-10-21), so until arm64 packages are published there is nothing to install in
   an ARM VM. A gap the probe below shows in an ARM VM is closed before the arm64 build is made.
   Porelo's amd64 build answers `--version` under Rosetta, as measured; whether its daemon runs a
   task there is not, and it stays a stop-gap only. (Agent Frontend's)
@@ -169,6 +168,6 @@ Three issues, in this order; this one is split before any is built:
   daemon's own socket, `Watch` held open across an idle hour, and what `static: true` changes are
   not measured. (Agent Frontend's)
 - **GitHub's macOS minute price** on the bill; the issue corrected if it differs. The Mac rented for
-  a release window is `porelo-machines`' work under `porelo-project` [PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55). (Agent Frontend's)
+  a release window is `porelo-machines`' work. (Agent Frontend's)
 - **`flutter_secure_storage` on macOS** without the App Sandbox: the keychain group its entitlement
   needs. (Agent Frontend's)

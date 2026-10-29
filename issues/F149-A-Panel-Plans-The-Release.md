@@ -3,8 +3,7 @@
 **Status:** Idea.
 
 **What must be true.** The interface has a panel that shows a project's release plan as
-`porelo-project` [PJ63](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj63)'s
-page does - each sprint's bar by its issues' states, each function tested or not - and lets the
+`porelo-project`'s plan page does for `plan/<release>/plan.yml` - each sprint's bar by its issues' states, each function tested or not - and lets the
 person search every issue of every repository of the project (by state, size and repository, with
 those in no sprint shown apart), and place an issue in a sprint and one of its functions, add and
 order sprints and functions, by dragging. Saving writes only the plan file, as a commit in the

@@ -1,30 +1,26 @@
 # F74 — A Waiting Push's Tests Run In A Container Of Its Own
 
-**Status:** Analyzed; blocked by `porelo` [B95](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b95) and
-`porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293).
+**Status:** Analyzed.
 **Size:** M - one action in `ReviewView` (`lib/src/ui/gate_view.dart`), a command setting in `Settings`
 (`lib/src/app/settings.dart`), and a terminal run in `lib/src/ui/unlock_terminal.dart`, with Gherkin scenarios.
 
 **What must be true.** A person can run a waiting push's build or tests, and later open it in an IDE, in a fresh
 container on the machine made from the project's image and pinned to the reviewed commit SHA, with the push's source
-level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3` from `porelo-project`
-[PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73)) shown before launch, and read the
+level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3`) shown before launch, and read the
 result beside the review without the run reaching the gate or loosening container isolation.
 
 ## Why
 
 Building or testing an agent's work runs whatever the agent or external contributor wrote; on the person's own computer
-it would run with their rights and credentials. `porelo`
-[B95](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b95) gives `gate try` on a fresh container from the
+it would run with their rights and credentials. Porelo's
+`gate try` runs on a fresh container from the
 project's image, pinned to the waiting commit SHA (`PendingPush.commit`), under `porelo`'s isolation, secret
-withholding, and egress rules for that push's source level and risk class (`porelo-project`
-[PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73), `porelo`
-[B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293)), with no way back to the gate. An IDE
+withholding, and egress rules for that push's source level and risk class, with no way back to the gate. An IDE
 backend on the host is not offered.
 
 ## Plan
 
-- **The action and `PJ73` notice:** `_Decision` in `lib/src/ui/gate_view.dart` gets *Run its tests* beside *Copy the
+- **The action and its isolation notice:** `_Decision` in `lib/src/ui/gate_view.dart` gets *Run its tests* beside *Copy the
   diff*, for the push `Gate.looking` holds (`lib/src/app/gate.dart`). Before launching the container, the dialog
   displays the push's source level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3`) and states that the trial
   container runs under `porelo`'s isolation rules for that source level and risk class (no task secrets or vault
@@ -33,8 +29,8 @@ backend on the host is not offered.
   list of arguments run without a shell). The interface may override the argv list for this computer in `Settings`
   (`lib/src/app/settings.dart`) by machine and project, set and cleared in a dialog that shows the project's own beside
   it (where neither holds one, the dialog asks and keeps the argv list in `Settings`; the interface never writes
-  `project.yml`). The override selects only the argv list passed after `--`; it never loosens `porelo-project`
-  [PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73) container isolation, secret
+  `project.yml`). The override selects only the argv list passed after `--`; it never loosens the source level's
+  container isolation, secret
   withholding, or egress rules, and the interface never reads or executes `runs[].invocations[].commandLine` from a
   SARIF file.
 - **The commit-pinned argv run:** `gate try` is built for the machine with `onTheMachine` in
@@ -67,5 +63,5 @@ backend on the host is not offered.
 ## To be checked
 
 - Whether `gate try` is reached as a Varlink method or only as a command on the machine, and how its commit pin, exit,
-  and container are named (`porelo` [B95](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b95)).
+  and container are named.
 - How Porelo offers an IDE for the container, and what the interface starts here for it.

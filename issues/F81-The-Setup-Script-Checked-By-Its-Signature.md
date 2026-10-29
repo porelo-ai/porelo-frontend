@@ -1,8 +1,8 @@
 # F81 — The Setup Script Checked By Its Signature
 
-**Status:** Estimated; blocked by `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99).
-**Size:** M - one module and its scenarios here, but it follows a contract `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99) sets (the
-key, the signature's form, the versioned names) and a leg on a leased machine; it waits for [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99).
+**Status:** Estimated.
+**Size:** M - one module and its scenarios here, but it follows a contract Porelo sets (the
+key, the signature's form, the versioned names) and a leg on a leased machine.
 
 **What must be true.** A person preparing a new machine can be sure the setup script that runs as root
 is Porelo's, for the version installed; one that cannot be verified is refused and nothing runs.
@@ -11,7 +11,7 @@ is Porelo's, for the version installed; one that cannot be verified is refused a
 
 The script that runs is already the one shown: fetched once into root's own directory, its SHA-256
 said beside what it would do, and nothing run where it differs. A checksum or versioned name from the
-same host proves nothing against whoever controls that host. `porelo` [B99](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b99) signs the script and every
+same host proves nothing against whoever controls that host. Porelo is to sign the script and every
 package with the packaging key and publishes that key's public half.
 
 ## Plan

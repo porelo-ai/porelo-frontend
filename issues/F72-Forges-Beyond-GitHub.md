@@ -17,8 +17,7 @@ forge's own API is the interface's; the backend is short of nothing known.
 ## Bitbucket Data Center first
 
 The operator chose it on 2026-10-11, Bitbucket Cloud later. The build side, a push's builds read
-from Bitbucket Data Center and Jenkins, is `porelo-project`
-[PJ36](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj36).
+from Bitbucket Data Center and Jenkins, is not this issue.
 
 - **On the organisation's own host:** its REST API is `https://<host>/rest/api/1.0/…`, so a forge is
   added with its address, not recognised by one; an upstream is Bitbucket's when its host is one of

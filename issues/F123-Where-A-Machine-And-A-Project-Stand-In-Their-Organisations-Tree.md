@@ -1,13 +1,13 @@
 # F123 — Where A Machine And A Project Stand In Their Organisation's Tree
 
-**Status:** Accepted; blocked by `porelo` [B198](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b198), *Settings Inherited Down An Organisation's Tree*.
+**Status:** Accepted.
 
 **What must be true.** A person sees where a machine and a project stand in their organisation's tree,
 and which settings bind them, before a start fails on one.
 
 ## Why
 
-`porelo` [B198](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b198) lets an organisation pass settings down to its teams and projects, and make some of them
+Porelo is to let an organisation pass settings down to its teams and projects, and make some of them
 binding: a lock is `fixed`, or `narrow-only`, where a value below may only get stricter. A machine
 follows one organisation file, pinned by its administrator; a project's settings come from its one
 path through the tree, organisation, team, sub-team and its own `project.yml`. A project that breaks

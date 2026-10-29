@@ -10,7 +10,7 @@ only Done left.
 
 ## Why
 
-Seen in the operator's round (6e): one wrong entry at *Vault passphrase:* ended the terminal with "that passphrase does
+Seen in an operator's round: one wrong entry at *Vault passphrase:* ended the terminal with "that passphrase does
 not open …/vault.bin - nothing was cached", exit 70, and the dialog offered only Done; trying again meant starting
 Unlock the vault anew from Needs you.
 

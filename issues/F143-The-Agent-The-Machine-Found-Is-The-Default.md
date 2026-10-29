@@ -1,10 +1,10 @@
 # F143 — The Agent The Machine Found Is The Default
 
-**Status:** Accepted; blocked by `porelo` [B225](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b225).
+**Status:** Accepted.
 
 **What must be true.** A person who starts work without picking an agent gets the one the machine
-chooses, as `porelo-project` [PJ53](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj53)
-and the command line choose it, and sees which it is and why; the picker shows which agents are
+chooses, as
+the command line chooses it, and sees which it is and why; the picker shows which agents are
 signed in on the machine, and an agent found there but not in the vault is offered for import.
 
 ## The shape

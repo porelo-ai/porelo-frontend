@@ -1,13 +1,13 @@
 # F210 — The Secrets File Grouped By Host And By Project
 
-**Status:** Estimated; accepted with `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78); blocked by nothing.
+**Status:** Estimated; blocked by nothing.
 **Size:** S - the entry names in one class, a one-time move, and their tests against the real `keepassxc-cli`.
 
 **What must be true.** The secrets file keeps a host's entries under `hosts/<host>/` (its WireGuard key, its CA key and certificate) and a project's under `projects/<project>/` (its vault passphrase, its keys' files); entries kept by an earlier version are moved there once, in the person's own terminal, and nothing is lost.
 
 ## Why
 
-Today every entry is under `hosts/<project>/` ([F198](README.md#f198)), since one host carried one project. With `porelo-project` [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) a host carries several projects, and a project's secrets are its admin's, in their own account.
+Today every entry is under `hosts/<project>/` ([F198](README.md#f198)), since one host carried one project. Now a host carries several projects, and a project's secrets are its admin's, in their own account.
 
 ## Plan
 

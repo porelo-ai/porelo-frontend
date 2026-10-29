@@ -1,12 +1,11 @@
 # F95 — A Waiting Push Fetched Here, Into A Clone Chosen
 
-**Status:** Analyzed; blocked by `porelo` [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293).
+**Status:** Analyzed.
 **Size:** M - a folder dialog, a git run here, the review's own-clone box and its wiring, and a changed decision in
 `doc/decisions.md`.
 
 **What must be true.** Beside a waiting push, a person can run its `git fetch` here, into a clone they choose, instead
-of only copying the command, with the push's source level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3` from
-`porelo-project` [PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73)) shown in
+of only copying the command, with the push's source level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3`) shown in
 `_OwnClone` and an explicit warning before fetching when the push is `E0` or `C2`/`C3`.
 
 ## Why
@@ -20,16 +19,11 @@ rule in `doc/decisions.md` that nothing in the local clone is checked out or bui
 - **Where it is today.** `_OwnClone` in `lib/src/ui/gate_view.dart` shows `PendingPush.fetchFrom(login)`
   (`lib/src/client/models.dart`) with a Copy button; `ReviewView` builds it, and `_ShellState` in
   `lib/src/ui/shell.dart` passes `login`.
-- **Source-level and risk-class warning (`porelo-project`
-  [PJ73](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj73), `porelo`
-  [B293](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b293)).** `_OwnClone` in
+- **Source-level and risk-class warning.** `_OwnClone` in
   `lib/src/ui/gate_view.dart` displays the push's source level (`E0`, `E1`, `I1`, `A`) and risk class (`C0`–`C3`). When
   the push is `E0` or has risk class `C2` or `C3`, `_OwnClone` shows an explicit warning before fetching or copying the
   command: fetching brings objects only, and checking out or opening the worktree in a local IDE can execute repository
-  hooks, build scripts, or IDE auto-tasks on this computer (`porelo`
-  [B141](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b141), `porelo`
-  [B283](https://github.com/porelo-ai/porelo/blob/main/issues/base/README.md#b283), `porelo-intellij`
-  [IJ01](https://github.com/porelo-ai/porelo-intellij/blob/main/issues/README.md#ij01)).
+  hooks, build scripts, or IDE auto-tasks on this computer.
 - **Choosing the clone.** `lib/src/ui/pick_a_file.dart` gets a folder twin of `PickAFile`, on `file_selector`'s
   `getDirectoryPath`, injected through `PoreloApp` (`lib/src/app/porelo_app.dart`) and `Shell` (`lib/src/ui/shell.dart`)
   as `pickAFile` is, so a scenario answers it.

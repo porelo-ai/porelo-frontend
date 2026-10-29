@@ -1,6 +1,6 @@
 # F218 — The Walks Walked Headless On The Central Test Machines
 
-**Status:** Estimated; placed after sprint 6i, since nothing new is built before the operator's tests of 6 to 6i close.
+**Status:** Estimated.
 **Size:** M - a runner that walks each sprint walk through its panel under `Xvfb`, the display set up by the run itself on a leased host and on a GitHub runner, and its job.
 
 **What must be true.** Every sprint walk in `doc/walks/` is walked headless on the central test machines before the operator meets it: the interface on a hidden display, driven step by step through the walk's panel, each step's pointer checked on screen and each move of the panel checked, as `tool/walk_on_this_laptop.sh 18` walks walk 18 on the laptop. The run installs and starts the display itself; no hand sets it up.
