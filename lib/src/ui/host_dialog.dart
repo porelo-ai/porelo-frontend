@@ -236,9 +236,7 @@ class _HostDialogState extends State<HostDialog> {
   String? _hostPublicKey;
   ({String file, String drive, String keys})? _hostPublicKeyFor;
   bool _openingSecrets = false;
-  String? _secretsAnswer;
-  // Whether [_secretsAnswer] says the file opened, so a walk can wait for that and not for a refusal.
-  bool _secretsReady = false;
+  ({String file, String text, bool ready})? _secretsAnswer;
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   final _protocolScroll = ScrollController();
@@ -1475,8 +1473,8 @@ class _HostDialogState extends State<HostDialog> {
               ),
             ),
             // Without keepassxc-cli the step says it once, above; an answer from before would say it twice.
-            if (_secretsAnswer case final answer? when keepassxcCliIsHere)
-              Text(answer, key: Key(_secretsReady ? 'host-secrets-ready' : 'host-secrets-answer')),
+            if (_secretsAnswer case final answer? when keepassxcCliIsHere && answer.file == _secretsPath)
+              Text(answer.text, key: Key(answer.ready ? 'host-secrets-ready' : 'host-secrets-answer')),
           ],
         ),
       ]),
@@ -1513,6 +1511,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The secrets file opened from its own step, before anything is rented: what the person sets up once.
   Future<void> _openSecretsNow() async {
+    final file = _secretsPath;
     // Looked at again on every press: one installed since the start counts at once, and none is said above.
     keepassxcCliIsHere = keepassxcCliThere();
     if (!keepassxcCliIsHere) {
@@ -1522,20 +1521,18 @@ class _HostDialogState extends State<HostDialog> {
     setState(() {
       _openingSecrets = true;
       _secretsAnswer = null;
-      _secretsReady = false;
     });
     try {
       await _hostKeyFromTheSecretsFile();
       if (mounted) {
         setState(() {
-          _secretsAnswer = 'Ready: the file keeps the server’s keys.';
-          _secretsReady = true;
+          _secretsAnswer = (file: file, text: 'Ready: the file keeps the server’s keys.', ready: true);
         });
       }
     } on HostFilesRefused catch (refusal) {
-      if (mounted) setState(() => _secretsAnswer = refusal.message);
+      if (mounted) setState(() => _secretsAnswer = (file: file, text: refusal.message, ready: false));
     } on FormatException catch (refusal) {
-      if (mounted) setState(() => _secretsAnswer = refusal.message);
+      if (mounted) setState(() => _secretsAnswer = (file: file, text: refusal.message, ready: false));
     } finally {
       if (mounted) setState(() => _openingSecrets = false);
     }

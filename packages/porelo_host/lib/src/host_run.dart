@@ -705,13 +705,14 @@ class HostRun {
     };
   }
 
-  /// The setup directory for [act], relative to the login's home for the person's own act.
+  /// Returns the setup directory for [act], relative to the login's home for the person's own act.
   static String setupPlace(HostAct act) => act.setupPlace;
 
   /// Uploads a bring or join's machine file and both bundles through the person's own login.
   ///
-  /// [accessBundle] is required for [HostAct.ownAccount]. Other acts retain the root directory used by the
-  /// combined `up`. Returns null once all files are checked in place, or the refusal exit code; invalid inputs
+  /// Requires [accessBundle] for [HostAct.ownAccount] and refuses project files for [HostAct.root].
+  /// [HostAct.legacyUp] accepts no access bundle and retains the combined `up` directory.
+  /// Returns `null` once all files are checked in place, or the refusal exit code; invalid inputs
   /// throw [FormatException] before any remote command runs.
   Future<int?> uploadSetupFiles({
     required HostAct act,
@@ -722,6 +723,11 @@ class HostRun {
     required String bundle,
     String? accessBundle,
   }) async {
+    if (act == HostAct.root || (act == HostAct.legacyUp && accessBundle != null)) {
+      throw const FormatException(
+        'Only an own-account upload accepts project access data; root accepts no project files.',
+      );
+    }
     if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
       throw const FormatException('The setup files need a plain project name.');
     }
@@ -794,8 +800,13 @@ class HostRun {
       address,
       user,
       own
-          ? '/usr/bin/install -d -m 0700 ${onHost(path.posix.dirname(place))} && '
-                '/usr/bin/mkdir -m 0700 ${onHost(staging)}'
+          ? [
+              for (final parent in ['.local', '.local/share', '.local/share/porelo-host'])
+                'test ! -L ${onHost(parent)} && '
+                    '{ test -d ${onHost(parent)} || /usr/bin/mkdir -m 0700 ${onHost(parent)}; }',
+              'test ! -e ${onHost(place)} && test ! -L ${onHost(place)}',
+              '/usr/bin/mkdir -m 0700 ${onHost(staging)}',
+            ].join(' && ')
           : '/usr/bin/rm -rf $staging && /usr/bin/install -d -m 0700 $staging',
     );
     if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
@@ -811,12 +822,18 @@ class HostRun {
         'the setup files did not arrive as they were sent',
       );
     }
+    if (own) {
+      // An exclusive mkdir makes only this run's setup eligible for failure cleanup.
+      final reserved = await remote.run(address, user, '/usr/bin/mkdir -m 0700 ${onHost(place)}');
+      if (reserved.exitCode != 0) {
+        return refusedWithoutStaging(reserved, 'the host refused a new setup directory');
+      }
+    }
     final placed = await remote.run(
       address,
       user,
       [
-        if (own) 'test ! -L ${onHost(place)}',
-        '$sudo/usr/bin/install -d -m 0700 $owner${onHost(place)}',
+        if (!own) '$sudo/usr/bin/install -d -m 0700 $owner${onHost(place)}',
         for (final name in files.keys)
           '$sudo/usr/bin/install -m 0600 $owner${onHost('$staging/$name')} ${onHost('$place/$name')}',
       ].join(' && '),

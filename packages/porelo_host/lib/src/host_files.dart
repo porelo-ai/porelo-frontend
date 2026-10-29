@@ -218,13 +218,13 @@ class HostFiles {
     }
   }
 
-  /// The bundle in the act's setup directory; an own-account path is relative to the person's host home.
+  /// Returns [project]'s bundle in [act]'s setup directory, relative to the host home for an own-account act.
   static String bundleUrl(String project, {HostAct act = HostAct.legacyUp}) {
     checkName(project);
     return path.posix.join(act.setupPlace, '$project.bundle');
   }
 
-  /// The access repository's bundle beside the project's, relative to the person's host home.
+  /// Returns [project]'s access bundle beside its project bundle, relative to the person's host home.
   static String accessBundleUrl(String project) {
     checkName(project);
     return path.posix.join(HostAct.ownAccount.setupPlace, '$project-access.bundle');

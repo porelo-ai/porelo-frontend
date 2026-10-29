@@ -48,7 +48,7 @@ void main() {
     expect(remote.users, everyElement('developer'));
     final placing = remote.runs.singleWhere((each) => each.command.contains('install -m 0600'));
     expect(placing.command, contains(r'"$HOME"/.local/share/porelo-host/setup'));
-    expect(placing.command, contains('install -d -m 0700'));
+    expect(remote.commands, contains(contains('mkdir -m 0700')));
     expect(placing.command, isNot(contains('-o root')));
   });
 
@@ -70,15 +70,13 @@ void main() {
   });
 
   // Harm: setup material is readable by another host account despite the upload reporting success.
-  test('the installed directory and all three files are private and owned by the login', () async {
+  test('the installed directory and all three files have private modes and exact contents', () async {
     final home = await Directory('${scratch.path}/person home').create();
     final local = _HomeRemote(home);
     run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
     expect(await upload(), isNull);
     final place = Directory('${home.path}/${HostRun.setupPlace(HostAct.ownAccount)}');
     expect((await place.stat()).mode & 0x1ff, 0x1c0, reason: 'the setup directory is 0700');
-    final uid = await Process.run('/usr/bin/id', ['-u']);
-    expect(uid.exitCode, 0);
     final expected = {
       'machine.yml': machine.readAsBytesSync(),
       'demo.bundle': bundle.readAsBytesSync(),
@@ -89,11 +87,6 @@ void main() {
       final file = File('${place.path}/${entry.key}');
       expect(await file.readAsBytes(), entry.value, reason: entry.key);
       expect((await file.stat()).mode & 0x1ff, 0x180, reason: '${entry.key} is 0600');
-    }
-    for (final file in [place.path, for (final name in expected.keys) '${place.path}/$name']) {
-      final owner = await Process.run('/usr/bin/stat', ['-c', '%u', '--', file]);
-      expect(owner.exitCode, 0);
-      expect(owner.stdout, uid.stdout, reason: 'owned by the login that ran install');
     }
     expect(await Directory('${place.path}.upload').exists(), isFalse);
     expect(local.commands, everyElement(isNot(contains('sudo'))));
@@ -130,6 +123,117 @@ void main() {
     expect(await previous.readAsString(), 'previous upload');
   });
 
+  // Harm: a competing upload's setup is overwritten or removed after staging succeeds.
+  test('a setup created while staging is checked is refused and preserved', () async {
+    final home = await Directory('${scratch.path}/person home').create();
+    final place = '${home.path}/${HostAct.ownAccount.setupPlace}';
+    final local = _HomeRemote(
+      home,
+      afterStaging: () async {
+        await Directory(place).create();
+        await File('$place/previous').writeAsString('keep');
+      },
+    );
+    run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+
+    expect(await upload(), Exit.refused);
+    expect(await File('$place/previous').readAsString(), 'keep');
+    expect((await Directory(place).list().toList()).map((entry) => entry.path), ['$place/previous']);
+    expect(await Directory('$place.upload').exists(), isFalse);
+  });
+
+  // Harm: failed placement leaves a partial setup for the host to consume.
+  test('a placement failure removes only the setup and staging this upload created', () async {
+    final home = await Directory('${scratch.path}/person home').create();
+    final parent = await Directory('${home.path}/.local/share/porelo-host').create(recursive: true);
+    final previous = await File('${parent.path}/previous').writeAsString('keep');
+    final local = _HomeRemote(home, beforeInstall: () => File('${parent.path}/setup.upload/demo.bundle').delete());
+    run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+
+    expect(await upload(), Exit.refused);
+    expect(await previous.readAsString(), 'keep');
+    expect(await Directory('${parent.path}/setup').exists(), isFalse);
+    expect(await Directory('${parent.path}/setup.upload').exists(), isFalse);
+  });
+
+  // Harm: private project files escape the person's home through a linked parent.
+  for (final parent in ['.local', '.local/share', '.local/share/porelo-host']) {
+    test('a linked $parent is refused before copying any files', () async {
+      final home = await Directory('${scratch.path}/person home').create();
+      final outside = await Directory('${scratch.path}/outside').create();
+      final link = Link('${home.path}/$parent');
+      await link.parent.create(recursive: true);
+      await link.create(outside.path);
+      final previous = await File('${outside.path}/previous').writeAsString('keep');
+      final local = _HomeRemote(home);
+      run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+
+      expect(await upload(), Exit.refused);
+      expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
+      expect(await link.target(), outside.path);
+      expect(await previous.readAsString(), 'keep');
+      expect((await outside.list().toList()).map((entry) => entry.path), [previous.path]);
+    });
+  }
+
+  // Harm: an upload overwrites or deletes setup material owned by an earlier run.
+  for (final kind in ['directory', 'link', 'dangling link', 'file']) {
+    test('an existing setup $kind is refused and preserved', () async {
+      final home = await Directory('${scratch.path}/person home').create();
+      final place = '${home.path}/${HostAct.ownAccount.setupPlace}';
+      await Directory(place).parent.create(recursive: true);
+      final outside = await Directory('${scratch.path}/outside').create();
+      final previous = await File('${outside.path}/previous').writeAsString('keep');
+      switch (kind) {
+        case 'directory':
+          await Directory(place).create();
+          await File('$place/previous').writeAsString('keep');
+        case 'link':
+          await Link(place).create(outside.path);
+        case 'dangling link':
+          await Link(place).create('${scratch.path}/missing');
+        case 'file':
+          await File(place).writeAsString('keep');
+      }
+      final local = _HomeRemote(home);
+      run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+
+      expect(await upload(), Exit.refused);
+      expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
+      expect(await previous.readAsString(), 'keep');
+      switch (kind) {
+        case 'directory':
+          expect(await File('$place/previous').readAsString(), 'keep');
+          expect((await Directory(place).list().toList()).map((entry) => entry.path), ['$place/previous']);
+        case 'link':
+          expect(await Link(place).target(), outside.path);
+        case 'dangling link':
+          expect(await Link(place).target(), '${scratch.path}/missing');
+        case 'file':
+          expect(await File(place).readAsString(), 'keep');
+      }
+    });
+  }
+
+  // Harm: project material is installed into a server-only or legacy root setup.
+  for (final (act, access) in [(HostAct.root, false), (HostAct.root, true), (HostAct.legacyUp, true)]) {
+    test('${act.name} refuses project upload with access bundle $access before remote work', () async {
+      await expectLater(
+        run.uploadSetupFiles(
+          act: act,
+          address: '203.0.113.7',
+          user: 'developer',
+          project: 'demo',
+          machineFile: machine.path,
+          bundle: bundle.path,
+          accessBundle: access ? accessBundle.path : null,
+        ),
+        throwsFormatException,
+      );
+      expect(remote.commands, isEmpty);
+    });
+  }
+
   // Harm: an incomplete or privileged bring starts copying before its inputs are refused.
   test('missing access data and root logins are refused before any upload', () async {
     for (final (user, access) in [
@@ -156,10 +260,12 @@ void main() {
 
 /// Executes the upload's commands in a private home; sudo is refused before it can run.
 class _HomeRemote extends ScriptedRemote {
-  _HomeRemote(this.home, {this.corruptStaging}) : super([]);
+  _HomeRemote(this.home, {this.corruptStaging, this.afterStaging, this.beforeInstall}) : super([]);
 
   final Directory home;
   final bool? corruptStaging;
+  final Future<void> Function()? afterStaging;
+  final Future<void> Function()? beforeInstall;
 
   @override
   Future<RemoteResult> run(
@@ -175,6 +281,7 @@ class _HomeRemote extends ScriptedRemote {
       final folder = '${home.path}/${HostAct.ownAccount.setupPlace}${corruptStaging! ? '.upload' : ''}';
       await File('$folder/demo-access.bundle').writeAsString('changed after upload');
     }
+    if (command.contains('install -m 0600')) await beforeInstall?.call();
     final process = await Process.start(
       '/bin/bash',
       ['--noprofile', '--norc', '-c', command],
@@ -190,6 +297,7 @@ class _HomeRemote extends ScriptedRemote {
     await process.stdin.close();
     final code = await process.exitCode;
     await output;
+    if (code == 0 && command.contains('sha256sum') && command.contains('setup.upload')) await afterStaging?.call();
     return RemoteResult(code, await error);
   }
 

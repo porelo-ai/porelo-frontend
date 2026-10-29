@@ -25,8 +25,17 @@ List<String> hostStopFeedCommand({
 }) {
   final allowed = switch (act) {
     HostAct.root => const {'wireguard', 'forge-certificate'},
-    HostAct.ownAccount => const {'vault-new', 'vault', 'keys', 'forge-central-token', 'identities'},
-    HostAct.legacyUp => {...SecretsFile.stopNeeds, 'drive', 'matrix-token'},
+    HostAct.ownAccount => const {'vault-new', 'vault', 'keys', 'forge-central-token'},
+    HostAct.legacyUp => const {
+      'vault',
+      'vault-new',
+      'wireguard',
+      'keys',
+      'forge-central-token',
+      'forge-certificate',
+      'drive',
+      'matrix-token',
+    },
   };
   for (final need in needs) {
     if (!allowed.contains(need)) {
@@ -50,6 +59,9 @@ List<String> hostStopFeedCommand({
   final login = RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$');
   for (final each in [host, if (needs.contains('drive')) driveHost ?? host]) {
     if (!login.hasMatch(each)) throw FormatException('The host stop did not name a valid user and address: $each.');
+  }
+  if (act == HostAct.ownAccount && host.startsWith('root@')) {
+    throw const FormatException('The own-account stop needs the person\'s login, never root.');
   }
   // The project reaches this computer's Porelo as a word of its own, never as an option.
   if (matrix && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {

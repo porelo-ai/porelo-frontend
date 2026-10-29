@@ -2302,6 +2302,44 @@ void main() {
     expect(find.textContaining('(try again)'), findsNothing);
   });
 
+  // Harm: setup appears ready for a different secrets file that the person never opened.
+  hostWidgets('editing the secrets path hides readiness until that file opens', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final settings = newSettings(MemorySettingsStore());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            settings: settings,
+            machines: machines,
+            hostRuns: runs,
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            openSecretsFile: _secretsOpened,
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-signing-key': fixture('signing.pub'),
+    }, stopAt: 3);
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), fixture('other-secrets.kdbx'));
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+    expect(find.text('Ready: the file keeps the server’s keys.'), findsNothing);
+
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+    expect(settings.secretsFile, fixture('other-secrets.kdbx'));
+  });
+
   // Harm: the secrets file can be made and checked only by renting a server; or the person types the master password
   // twice, once at the step and again at setup.
   hostWidgets('the secrets file is opened from its own step once, and setup takes the key it gave', (tester) async {
