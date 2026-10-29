@@ -38,7 +38,7 @@ void main() {
   // Harm: the host is sent lines for the wrong stop, or takes them as a prompt it never asked.
   test('pipes the file\'s lines into exactly the stop the host named, on standard input', () {
     final script = command().last;
-    expect(script, contains("'hosts/checkout/vault-passphrase'"));
+    expect(script, contains("'projects/checkout/vault-passphrase'"));
     expect(script, contains("'hosts/checkout/wireguard'"));
     final pipe = script.substring(script.lastIndexOf('} | '));
     expect(
@@ -73,7 +73,7 @@ void main() {
   // Harm: an entry the file keeps from an earlier setup sent to a host whose machine.yml does not name it.
   test('sends the vault entries machine.yml names, only where the host asked for them', () {
     final script = command(needs: ['vault-new', 'keys'], keys: ['forge']).last;
-    expect(script, contains("'hosts/checkout/keys/forge'"));
+    expect(script, contains("'projects/checkout/keys/forge'"));
     expect(command(needs: ['vault'], keys: ['forge']).last, isNot(contains('keys/forge')));
   });
 
@@ -126,7 +126,7 @@ void main() {
     final pipe = both.substring(both.indexOf('{\n'), both.lastIndexOf('} | '));
     expect(
       pipe,
-      allOf(contains("'hosts/checkout/vault-passphrase'"), contains("printf 'matrix-token %s\\n'")),
+      allOf(contains("'projects/checkout/vault-passphrase'"), contains("printf 'matrix-token %s\\n'")),
       reason: 'both go on the one pipe',
     );
     expect(both, contains('--stdin vault matrix-token'));
@@ -278,7 +278,7 @@ void main() {
     final skip = File(cli).existsSync() ? null : 'needs keepassxc-cli at $cli (set KEEPASSXC_CLI) and wg';
 
     test('the stand-in host gets exactly the file\'s lines on its standard input', () async {
-      final home = await Directory(Platform.environment['HOME']!).createTemp('porelo-stop-feed-test-');
+      final home = await Directory.systemTemp.createTemp('porelo-stop-feed-test-');
       addTearDown(() => home.delete(recursive: true));
       final kdbx = path.join(home.path, 'secrets.kdbx');
       final made = await Process.start('bash', [
@@ -286,7 +286,7 @@ void main() {
         SecretsFile(
           kdbx,
           cli: cli,
-        ).prepareHost(project: 'checkout', create: true, publicKeyOut: path.join(home.path, 'k.pub')),
+        ).prepareHost(host: 'checkout', project: 'checkout', create: true, publicKeyOut: path.join(home.path, 'k.pub')),
       ]);
       made.stdin.write('m\nm\n');
       await made.stdin.close();
@@ -335,7 +335,7 @@ void main() {
       final run = unlock();
       expect(run, containsAllInOrder(<String>['/usr/bin/env', '/bin/bash', '--noprofile', '--norc', '-c']));
       final script = run.last;
-      expect(script, contains("'hosts/checkout/vault-passphrase'"));
+      expect(script, contains("'projects/checkout/vault-passphrase'"));
       expect(
         script.substring(script.lastIndexOf('} | ')),
         endsWith(

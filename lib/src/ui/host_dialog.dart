@@ -1491,6 +1491,7 @@ class _HostDialogState extends State<HostDialog> {
     try {
       final out = path.join(folder.path, '$project.pub');
       final script = SecretsFile(file).prepareHost(
+        host: project,
         project: project,
         create: !File(file).existsSync(),
         publicKeyOut: out,

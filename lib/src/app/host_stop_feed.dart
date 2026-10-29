@@ -46,7 +46,7 @@ List<String> hostStopFeedCommand({
       SecretsFile(
         secretsFile,
         cli: cli,
-      ).stopLines(project: project, needs: fed, keys: fed.contains('keys') ? keys : const []),
+      ).stopLines(host: project, project: project, needs: fed, keys: fed.contains('keys') ? keys : const []),
     if (matrix)
       r"printf 'matrix-token %s\n' "
           '"\$matrixtoken"',
