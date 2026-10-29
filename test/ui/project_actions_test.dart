@@ -214,6 +214,7 @@ void main() {
       'project.backups',
       'project.clear',
       'project.server',
+      'project.takeOffServer',
       'project.delete',
       'project.follow',
     });

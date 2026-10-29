@@ -208,6 +208,7 @@ void main() {
     };
     expect(privileged, <String, Role>{
       'project.server': Role.projectAdmin,
+      'project.takeOffServer': Role.hostAdmin,
       'machine.takeDown': Role.hostAdmin,
       'machine.saveTunnel': Role.hostAdmin,
       'machine.vpnUp': Role.hostAdmin,
@@ -317,6 +318,7 @@ void main() {
       'project.server',
       'project.startAgents',
       'project.sync',
+      'project.takeOffServer',
       'question.allow',
       'question.block',
       'question.putAway',

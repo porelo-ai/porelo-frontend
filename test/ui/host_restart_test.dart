@@ -15,6 +15,7 @@ import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
 import 'package:porelo_frontend/src/ui/shell.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
+import 'package:porelo_frontend/src/ui/project_bring_dialog.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
@@ -438,8 +439,8 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  // Harm: a refused setup cannot correct its inputs if the project action always reopens a read-only run.
-  testWidgets('the project server action opens editable kept answers after an ended preparation', (tester) async {
+  // Harm: starting placement must not rent another server or erase an ended setup's billing recovery.
+  testWidgets('project placement preserves an ended setup while opening the own-account flow', (tester) async {
     final installed = Shell.poreloHostIsHere;
     Shell.poreloHostIsHere = true;
     addTearDown(() => Shell.poreloHostIsHere = installed);
@@ -460,11 +461,14 @@ void main() {
     await World.settle(tester);
     await tester.tap(find.byKey(const Key('project.server')));
     await World.settle(tester);
-    final provider = find.byKey(const Key('host-scaleway-project'));
-    expect(provider, findsOneWidget, reason: 'ended setup must allow correcting the provider project');
-    expect(tester.widget<TextField>(provider).controller!.text, _record.scalewayProject);
-    await tester.enterText(provider, 'corrected-provider');
-    expect(tester.widget<TextField>(provider).controller!.text, 'corrected-provider');
+    expect(find.byType(ProjectBringDialog), findsOneWidget);
+    expect(find.byKey(const Key('host-scaleway-project')), findsNothing, reason: 'placement rents no server');
+    expect(
+      World.settings.hostUp('checkout')!.scalewayProject,
+      _record.scalewayProject,
+      reason: 'the retained server still needs its original billing recovery',
+    );
+    expect(World.settings.hostUp('checkout')!.identity, _record.identity);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

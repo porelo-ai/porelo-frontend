@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guided_walk/guided_walk.dart';
 
+import '../app/desk.dart';
 import '../app/homeserver_forwards.dart';
 import '../app/host_session.dart';
 import '../app/homeserver_publishing.dart';
@@ -432,7 +433,8 @@ class _ShellState extends State<Shell> {
     openEgress: _openEgress,
     removeWhatWasBuilt: _removeWhatWasBuilt,
     clearTheProject: _clearTheProject,
-    putOnAServer: Shell.poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
+    putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
+    takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
       null => null,
@@ -651,7 +653,8 @@ class _ShellState extends State<Shell> {
       checkWorkCanStart: _checkWorkCanStart,
       removeWhatWasBuilt: _removeWhatWasBuilt,
       clearTheProject: _clearTheProject,
-      putOnAServer: Shell.poreloHostIsHere ? () => unawaited(_putOnAServer()) : null,
+      putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
+      takeOffServer: _takeOffServer(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
       itsForgeIsMissing: _itsForgeIsMissing(),
@@ -675,6 +678,7 @@ class _ShellState extends State<Shell> {
     'notifications.mute',
     'project.clear',
     'project.server',
+    'project.takeOffServer',
     'project.delete',
   ];
 
@@ -800,6 +804,23 @@ class _ShellState extends State<Shell> {
     );
     final started = _hostRuns.of(project.name);
     if (mounted && started != null && started != existing) widget.shell.goTo(Section.machines);
+  }
+
+  VoidCallback? _takeOffServer(String? project) {
+    if (project == null) return null;
+    final host = widget.settings.projectHost(project);
+    final record = host == null ? null : widget.settings.hostUp(host);
+    if (record?.preparedHost == null) return null;
+    return () => unawaited(
+      openHostAdminDialog(
+        context,
+        record: record!,
+        action: 'remove',
+        project: project,
+        secretsFile: widget.settings.secretsFile,
+        openTerminal: widget.sessions.openTerminal,
+      ),
+    );
   }
 
   /// Clears the machine and removes its trusted message signer from followed projects.

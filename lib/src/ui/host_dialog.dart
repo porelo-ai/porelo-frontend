@@ -28,6 +28,8 @@ import 'dialog_scroll.dart';
 import 'host_vpn_dialog.dart';
 import 'host_key_dialog.dart';
 import 'host_admin_dialog.dart';
+import 'project_bring_dialog.dart';
+import '../app/run_here.dart' show RunHere;
 
 /// Confirms teardown and shows the host's steps using only the kept setup arguments.
 Future<void> openHostTakeDownDialog(
@@ -58,8 +60,7 @@ Future<void> openHostTakeDownDialog(
   ),
 );
 
-/// Puts [project] on a server, or takes it off again, by the `porelo-host` shipped beside this
-/// interface, showing each step as it says it and asking at its one stop.
+/// Brings [project] onto an admitted host in the person's own account.
 Future<void> openHostDialog(
   BuildContext context, {
   required String project,
@@ -68,17 +69,23 @@ Future<void> openHostDialog(
   required Settings settings,
   required HostRuns hostRuns,
   required FleetBackend backend,
+  Remote? remote,
+  RunHere? runGit,
+  HostFiles? hostFiles,
+  String? accessRoot,
 }) => showDialog<void>(
   context: context,
   barrierDismissible: false,
-  builder: (context) => HostDialog(
+  builder: (context) => ProjectBringDialog(
     project: project,
     machines: machines,
     backend: backend,
-    start: start,
     settings: settings,
-    hostRuns: hostRuns,
-    onStarted: () => Navigator.pop(context),
+    remote: remote,
+    startSsh: start,
+    runGit: runGit,
+    hostFiles: hostFiles,
+    accessRoot: accessRoot,
   ),
 );
 

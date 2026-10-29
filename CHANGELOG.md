@@ -9,6 +9,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Project admins can bring a followed project onto a prepared server through their own pinned SSH account,
+  without renting or sudo. Private access settings preserve YAML comments, use the person's configured Git
+  signing and credentials, and are pushed before both bundles are uploaded. Migration URLs are checked before
+  upload. The bring makes the Matrix room and shows its final output. Host admins can take the project off
+  through its recorded host, with helper refusals preserved and following left for a separate decision.
+
 - The host's stop is fed by act: the host admin's root stop takes only the VPN key and the forge's certificate,
   a bring's or a join's runs in the person's own account with no `sudo`, and their setup files go into the
   person's own home on the host, theirs alone.

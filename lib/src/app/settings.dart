@@ -722,6 +722,20 @@ class Settings extends ChangeNotifier {
         if (unique && host != key) migratedHostKeys[key] = host;
       }
     }
+    _projectHosts.clear();
+    final projectHosts = stored['projectHosts'];
+    if (projectHosts is Map) {
+      for (final entry in projectHosts.entries) {
+        if (entry.key is! String || entry.value is! String) continue;
+        try {
+          SecretsFile.checkHost(entry.key as String);
+          SecretsFile.checkHost(entry.value as String);
+          _projectHosts[entry.key as String] = migratedHostKeys[entry.value] ?? entry.value as String;
+        } on Exception {
+          continue;
+        }
+      }
+    }
     final place = stored['place'];
     if (place is Map) {
       _place = <String, String>{
@@ -821,6 +835,33 @@ class Settings extends ChangeNotifier {
   }
 
   final _hostUps = <String, HostUpRecord>{};
+  final _projectHosts = <String, String>{};
+
+  /// The host this project was successfully brought onto, absent before a confirmed bring.
+  String? projectHost(String project) => _projectHosts[project];
+
+  /// Keeps the host association only after the bring has been confirmed.
+  Future<void> rememberProjectHost(String project, String host) async {
+    SecretsFile.checkHost(project);
+    SecretsFile.checkHost(host);
+    final previous = _projectHosts[project];
+    _projectHosts[project] = host;
+    try {
+      await _write();
+      final saved = (await _store.read())['projectHosts'];
+      if (saved is! Map || saved[project] != host) {
+        throw const FileSystemException('Cannot keep the project host association in the interface settings.');
+      }
+    } on Exception {
+      if (previous == null) {
+        _projectHosts.remove(project);
+      } else {
+        _projectHosts[project] = previous;
+      }
+      rethrow;
+    }
+    notifyListeners();
+  }
 
   /// Every kept host setup, keyed by host name.
   Map<String, HostUpRecord> get hostUps => Map.unmodifiable(_hostUps);
@@ -1055,6 +1096,7 @@ class Settings extends ChangeNotifier {
     'tresorFolders': _tresorFolders,
     'secretsFile': _secretsFile,
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
+    'projectHosts': Map<String, String>.of(_projectHosts),
   };
 
   static ThemeMode _appearanceNamed(Object? name) =>

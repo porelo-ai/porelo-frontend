@@ -208,6 +208,43 @@ The packaging requirement is met and retired; this is what it is made of.
 Windows the enabled platforms. A `packages/` split pays for itself only once something is shared, and nothing
 is; a second consumer of the client code is what would change that.
 
+## Projects on prepared hosts
+
+*Put this project on a server…* uses an already watched host connection in the project admin's own account.
+The project step remains; renting belongs to *Prepare a server…*. The public values supplied by the host admin
+are checked before they enter the access file. SSH reuses the host connection's pinned trust and the person's
+identity, with no root login or sudo.
+
+The daemon's verified project revision supplies `access.repository` and every central repository URL. The access
+checkout lives under `~/.local/share/porelo-frontend/access/<project>/`, mode `0700`, outside operation records.
+An existing checkout must be clean, have no unpublished commits, and use its default branch. Host settings and
+`transports.matrix` are edited with preserved comments. Git must already have commit signing configured; its own
+credential setup performs the clone and push, and its own signing setup signs the commit. The chosen project
+public key verifies the access commit before it is pushed. No public `project.yml` is edited.
+
+The own-account upload installs `machine.yml`, `project.bundle`, and `access.bundle` under the person's host
+home, with directory mode `0700` and file mode `0600`. A bring adds the checked Forgejo migration list to the
+machine file; a join omits it. Each migration has a unique repository name derived from a central HTTPS URL
+without a user, query, or fragment. The bring's stop receives only its allowed needs from the secrets-file
+terminal. Resuming a completed stop reruns the playbook without repeating the access push or setup upload.
+The playbook performs one sync and its last task runs `porelo talk room <project>` in the admin's account.
+The interface writes the supplied homeserver as `https://matrix.<host>.porelo.internal:8448` and suggests
+`#porelo-<project>:matrix.<host>.porelo.internal`, editable and checked, in `transports.matrix`. The project's
+Matrix peer belongs in the signed project file and is not edited here. The interface makes no separate room
+or sync call. It shows the playbook's latest public lines, including a room refusal in Porelo's own words.
+Completion also requires the host daemon to confirm the verified project revision, then refreshes the watched
+host's project list and keeps the project-to-host association in `frontend.json`. The checked host values
+determine that association, so a stale label on a watched connection cannot select another host for removal.
+
+*Take this project off the server* is the host admin's act. Its project-menu action uses that association to
+find the retained host record, then opens the existing root helper dialog with the project fixed for review.
+The helper runs over the same pinned admin SSH as registration. It receives only the central token, one line
+on standard input; it receives no central URL. A refusal is shown verbatim, and only exit zero with a matching
+`project` and `removed: true` is accepted. The reply may also list `locked` accounts. The helper checks before
+changing anything and does not unfollow. The separate *Stop following this project* action remains the unfollow.
+Without the host-admin role or the associated host's record, removal is unavailable because the host admin
+takes a project off its server.
+
 ## Windows
 
 On Windows the interface reaches a Porelo in a WSL2 distribution of the same Windows user. A unix

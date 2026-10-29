@@ -3,46 +3,9 @@ import 'dart:io';
 import 'machines.dart';
 import 'desk.dart';
 import 'forge.dart';
+import 'run_here.dart';
 
-/// What one git or ssh command answered.
-typedef Ran = ({int code, String out, String err});
-
-/// Runs one program on this computer. Injectable, so the rules are judged without a real git.
-typedef RunHere = Future<Ran> Function(
-  String program,
-  List<String> arguments, {
-  String? inDirectory,
-  Map<String, String> environment,
-  String? input,
-});
-
-/// The default: the program itself, with this computer's environment plus [environment].
-Future<Ran> runHere(
-  String program,
-  List<String> arguments, {
-  String? inDirectory,
-  Map<String, String> environment = const <String, String>{},
-  String? input,
-}) async {
-  final process = await Process.start(program, arguments, workingDirectory: inDirectory, environment: environment);
-  if (input != null) process.stdin.write(input);
-  await process.stdin.close();
-  final out = process.stdout.transform(const SystemEncoding().decoder).join();
-  final err = process.stderr.transform(const SystemEncoding().decoder).join();
-  return (code: await process.exitCode, out: await out, err: await err);
-}
-
-/// Why something on this computer did not happen, in words.
-class WorkspaceRefused implements Exception {
-  /// Constructor taking the sentence.
-  const WorkspaceRefused(this.words);
-
-  /// Why, in a sentence a person can act on.
-  final String words;
-
-  @override
-  String toString() => words;
-}
+export 'run_here.dart';
 
 /// A key in the person's ssh agent, which signs a commit to the project's configuration.
 class SigningKey {

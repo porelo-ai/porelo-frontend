@@ -367,7 +367,7 @@ class ProjectCommandTiles extends StatelessWidget {
     'project.server' => (
       group: 'Where it lives',
       icon: Icons.dns_outlined,
-      description: 'Set up a server for this project.',
+      description: 'Bring this project onto a prepared server in your own account.',
     ),
     'project.follow' => (
       group: 'Where it lives',
@@ -388,6 +388,11 @@ class ProjectCommandTiles extends StatelessWidget {
       group: 'Remove',
       icon: Icons.link_off_outlined,
       description: 'Review what stopping following would remove and keep.',
+    ),
+    'project.takeOffServer' => (
+      group: 'Remove',
+      icon: Icons.cloud_off_outlined,
+      description: 'Review taking this project off its server. Following is kept until you choose to stop.',
     ),
     _ => throw StateError('No project tile description for ${command.id}'),
   };

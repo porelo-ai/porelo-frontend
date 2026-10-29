@@ -15,21 +15,26 @@ import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
 
-/// Opens a checked root helper call using the rental's pinned SSH identity.
+/// Opens a checked root helper call using the rental's pinned SSH identity; [environment] isolates its state in tests.
 Future<void> openHostAdminDialog(
   BuildContext context, {
   required HostUpRecord record,
   required String action,
+  String? project,
+  OpenTerminal? openTerminal,
   String? secretsFile,
+  Map<String, String>? environment,
 }) {
   final host = record.preparedHost!;
-  final (:remote, :trust) = hostAdminRemote(record);
+  final (:remote, :trust) = hostAdminRemote(record, environment: environment);
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (_) => HostAdminDialog(
       host: host,
       action: action,
+      project: project,
+      openTerminal: openTerminal,
       remote: remote,
       secretsFile: secretsFile,
       identity: record.identity,
@@ -116,6 +121,7 @@ class HostAdminDialog extends StatefulWidget {
     required this.host,
     required this.action,
     required this.remote,
+    this.project,
     this.prepareRemote,
     this.secretsFile,
     this.identity = '',
@@ -129,6 +135,9 @@ class HostAdminDialog extends StatefulWidget {
 
   /// Register, remove, admit, lock, or purge.
   final String action;
+
+  /// The project fixed by its menu action, absent for the host's general helper panel.
+  final String? project;
 
   /// Carries a checked helper command without a terminal or a login shell.
   final Remote remote;
@@ -153,7 +162,7 @@ class HostAdminDialog extends StatefulWidget {
 }
 
 class _HostAdminDialogState extends State<HostAdminDialog> {
-  final _name = TextEditingController();
+  late final _name = TextEditingController(text: widget.project ?? '');
   final _admin = TextEditingController();
   final _key = TextEditingController();
   final _block = TextEditingController();
@@ -203,6 +212,7 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
     panel: (_) => TextField(
       key: Key(key),
       controller: field,
+      readOnly: identical(field, _name) && widget.project != null,
       minLines: multiline ? 3 : 1,
       maxLines: multiline ? null : 1,
       decoration: InputDecoration(labelText: title),

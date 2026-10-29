@@ -520,6 +520,7 @@ List<Command> projectCommands({
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
   VoidCallback? putOnAServer,
+  VoidCallback? takeOffServer,
   VoidCallback? startTheAgents,
 }) {
   const nothing = 'no project selected';
@@ -683,8 +684,9 @@ List<Command> projectCommands({
           ? 'default is this machine\'s own: it goes on no server'
           : _setupAgainUnavailable(hostRuns, project.name) ??
                 noSecretsFileHere(desk) ??
-                (putOnAServer == null ? 'porelo-host is not installed beside the interface' : null),
+                (putOnAServer == null ? 'project placement needs Linux and a pinned own-account SSH connection' : null),
     ),
+    takeProjectOffServerCommand(project?.name, run: takeOffServer),
     Command(
       id: 'project.delete',
       label: 'Stop following this project',
@@ -700,6 +702,23 @@ List<Command> projectCommands({
     ),
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
+
+/// Offers the root removal helper only to the host admin holding the target host's record.
+Command takeProjectOffServerCommand(String? project, {VoidCallback? run}) => Command(
+  id: 'project.takeOffServer',
+  role: Role.hostAdmin,
+  label: 'Take this project off the server',
+  group: 'Project',
+  home: Home.projectMenu,
+  run: run ?? () {},
+  unavailable: project == null
+      ? 'no project selected'
+      : project == defaultProject
+      ? 'default is this machine’s own'
+      : !roles.holds(Role.hostAdmin) || run == null
+      ? 'the host admin takes a project off its server'
+      : null,
+);
 
 /// Repeats the verified local VPN setup for an existing host whose ping failed.
 Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailable}) => Command(
@@ -1164,6 +1183,7 @@ List<Command> commandsFor({
   required VoidCallback removeWhatWasBuilt,
   VoidCallback? clearTheProject,
   VoidCallback? putOnAServer,
+  VoidCallback? takeOffServer,
   VoidCallback? startTheAgents,
   required VoidCallback checkTheMachine,
   VoidCallback? startThenCheck,
@@ -1355,6 +1375,7 @@ List<Command> commandsFor({
       removeWhatWasBuilt: removeWhatWasBuilt,
       clearTheProject: clearTheProject,
       putOnAServer: putOnAServer,
+      takeOffServer: takeOffServer,
       showTheMessages: showTheMessages,
       openItsForge: openItsForge,
       itsForgeIsMissing: itsForgeIsMissing,

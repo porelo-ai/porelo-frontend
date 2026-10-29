@@ -179,6 +179,40 @@ class HostFiles {
   /// The access repository bundle's fixed name beside an own-account machine file.
   static const accessBundleFileName = 'access.bundle';
 
+  /// Validates central migration URLs and derives their unique Forgejo names.
+  ///
+  /// Refusals name the field rather than repeating a URL that may contain a credential.
+  static List<({String name, String url})> migrationRepositories(List<String> urls) {
+    if (urls.isEmpty) throw const HostFilesRefused('forge.repositories must not be empty for a bring.');
+    final names = <String>{};
+    final repositories = <({String name, String url})>[];
+    for (var index = 0; index < urls.length; index++) {
+      final url = urls[index];
+      final uri = Uri.tryParse(url);
+      final segment = uri == null || uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
+      final name = segment.endsWith('.git') ? segment.substring(0, segment.length - 4) : segment;
+      if (uri == null ||
+          uri.scheme != 'https' ||
+          uri.host.isEmpty ||
+          uri.userInfo.isNotEmpty ||
+          uri.hasQuery ||
+          uri.hasFragment ||
+          uri.authority.contains('@') ||
+          RegExp(r'[\s\x00-\x1f\x7f\\]').hasMatch(url) ||
+          !RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(name) ||
+          name == '.' ||
+          name == '..' ||
+          uri.path.split('/').last != segment) {
+        throw HostFilesRefused(
+          'forge.repositories[$index].url must be a central HTTPS URL with a plain repository name, no user, query or fragment.',
+        );
+      }
+      if (!names.add(name)) throw HostFilesRefused('forge.repositories[$index].name duplicates another repository.');
+      repositories.add((name: name, url: url));
+    }
+    return repositories;
+  }
+
   /// Writes the machine contract with escaped, double-quoted YAML scalars only.
   ///
   /// For [HostAct.ownAccount], [url] names the absolute project bundle and `access.bundle` is relative to this file.
@@ -188,10 +222,15 @@ class HostFiles {
     required String fingerprint,
     HostAct act = HostAct.legacyUp,
     List<HostKeyFile> keys = const [],
+    List<String>? forgeRepositories,
     bool? windows,
   }) {
     checkName(project);
     _checkKeys(keys, windows: windows);
+    final repositories = forgeRepositories == null ? null : migrationRepositories(forgeRepositories);
+    if (repositories != null && act != HostAct.ownAccount) {
+      throw const HostFilesRefused('forge.repositories belongs only to an own-account bring.');
+    }
     if (act == HostAct.ownAccount) {
       final suffix = '/${act.setupPlace(project: project)}/$projectBundleFileName';
       if (!url.endsWith(suffix) ||
@@ -207,6 +246,7 @@ class HostFiles {
         '  url: ${_scalar(url)}\n'
         '  signed_by: ${_scalar(fingerprint)}\n'
         '${act == HostAct.ownAccount ? 'access: { bundle: ${_scalar(accessBundleFileName)} }\n' : ''}'
+        '${repositories == null ? '' : 'forge:\n  repositories:\n${repositories.map((repository) => '    - { name: ${_scalar(repository.name)}, url: ${_scalar(repository.url)} }\n').join()}'}'
         '${keys.isEmpty ? 'keys: []\n' : 'keys:\n'}'
         '${keys.map((key) => '  - { name: ${_scalar(key.name)}, path: ${_scalar(path.posix.join('keys', key.basename))} }\n').join()}';
   }
@@ -252,6 +292,14 @@ class HostFiles {
     required String url,
     required String commit,
     required File signingKey,
+  }) async => (await createProjectSetup(project: project, url: url, commit: commit, signingKey: signingKey)).bytes;
+
+  /// Reads the signed project file and builds its bundle from the same verified revision.
+  Future<({List<int> bytes, String projectYaml})> createProjectSetup({
+    required String project,
+    required String url,
+    required String commit,
+    required File signingKey,
   }) async {
     checkBasename('$project.bundle', windows: _writer.isWindows);
     if (!RegExp(r'^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$').hasMatch(commit)) {
@@ -280,7 +328,10 @@ class HostFiles {
       await _bundleGit(cloned, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
       final bundle = File(path.join(scratch.path, '$project.bundle'));
       await _bundleGit(cloned, ['bundle', 'create', bundle.path, 'HEAD', 'main']);
-      return await bundle.readAsBytes();
+      return (
+        bytes: await bundle.readAsBytes(),
+        projectYaml: await _bundleGit(cloned, ['show', '$commit:project.yml']),
+      );
     } finally {
       await scratch.delete(recursive: true);
     }
