@@ -1,3 +1,7 @@
+// Linux: the own-account setup script runs in /bin/bash against a home on this computer.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 

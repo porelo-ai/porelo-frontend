@@ -136,7 +136,8 @@ void main() {
     final answer = await ssh.run('203.0.113.7', 'root', '/usr/local/sbin/porelo-host-person lock alice');
     expect(answer.exitCode, 65);
     expect(answer.stderr, 'porelo-host-person: account is locked.\n');
-  });
+    // Linux: the stand-in for ssh is /bin/sh.
+  }, tags: 'linux');
 
   // Prevents an unsupported need from advertising a sign-in outside task start.
   // Red: print the per-agent ssh command again.

@@ -1,3 +1,7 @@
+// Linux: the stop's scripts run in bash in a pty driven by python3.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 

@@ -266,11 +266,12 @@ jobs:
               timeout-minutes: 20
               run: flutter test --exclude-tags "linux || documents" --timeout 60s --reporter expanded --concurrency 1
 
-            # The host package's own tests: the command `porelo-host` is built from it for Windows too.
+            # The host package's own tests: the command `porelo-host` is built from it for Windows too; those
+            # marked linux need what only Linux has, and the Linux job runs them.
             - name: Test the host package
               timeout-minutes: 5
               working-directory: packages/porelo_host
-              run: dart test --reporter expanded
+              run: dart test --exclude-tags linux --reporter expanded
 
             - name: Build
               timeout-minutes: 20

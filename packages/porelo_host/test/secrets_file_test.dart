@@ -1,3 +1,8 @@
+// Linux: the secrets file is kept by /usr/bin/keepassxc-cli, which this interface opens only on Linux; its
+// scripts run in bash.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';

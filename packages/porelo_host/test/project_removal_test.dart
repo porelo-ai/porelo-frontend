@@ -1,3 +1,7 @@
+// Linux: the removal script runs in /bin/bash with a keepassxc-cli stand-in made executable by /usr/bin/chmod.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 

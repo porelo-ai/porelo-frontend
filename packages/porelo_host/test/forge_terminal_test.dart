@@ -1,3 +1,7 @@
+// Linux: the forge prompt runs in a pty through /usr/bin/python3, its script made executable by /usr/bin/chmod.
+@Tags(<String>['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 

@@ -2,3 +2,6 @@ tags:
     # Needs the system's own secret store: Credential Manager on Windows, a Secret Service on Linux,
     # which `tool/keyring-test.sh` starts on a bus and in a home of its own.
     keystore:
+    # Needs what only Linux has here: bash, a pty, chmod, keepassxc-cli. The Windows build excludes it; each
+    # marked test or file says why.
+    linux:
