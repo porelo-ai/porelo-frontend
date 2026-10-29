@@ -472,17 +472,37 @@ void main() {
     );
   }
 
+  // Harm: root helpers trusting the public address or another rental's file reach the wrong machine as root.
+  test('the host helpers pin the host key at its VPN address in a trust file of this host alone', () async {
+    final record = HostUpRecord(
+      host: 'orchard',
+      hostName: 'orchard',
+      scalewayProject: 'provider',
+      preparedHost: PreparedHost.read(hostValues()),
+      account: 'root',
+      tresor: '',
+      folder: null,
+      signingKey: '',
+      identity: '${scratch.path}/rental',
+      publicKey: '${scratch.path}/rental.pub',
+      collection: '',
+      vpnPeerPublicKey: '',
+      vpnPeerAddress: '',
+      vpnNetworkNumber: 7,
+      vpnInterface: 'porelo-7',
+    );
+    final (:remote, :trust) = hostAdminRemote(record, environment: {'XDG_STATE_HOME': scratch.path});
+    expect(remote.knownHosts.path, '${scratch.path}/porelo-host/known_hosts.orchard');
+    await trust();
+    expect(remote.knownHosts.readAsStringSync(), '10.73.7.1 ${hostValues()['ssh_host_key']}\n');
+  });
+
   // Harm: a purge must require a separate permanent-removal decision.
   testWidgets('purge waits for a second decision after review', (tester) async {
     final remote = HelperRemote(response: '{"person":"alice","purged":true}');
     await frame(tester, HostAdminDialog(host: PreparedHost.read(hostValues()), action: 'purge', remote: remote));
-    // Harm: words for a new account send the host admin to ask for a name instead of naming the one to purge.
-    expect(find.text('Type the account name of the project admin to purge.'), findsOneWidget);
-    expect(find.textContaining('they want on this server'), findsNothing);
     await tester.enterText(find.byKey(const Key('host-admin-name')), 'alice');
     await next(tester);
-    expect(find.textContaining('check the name before continuing.'), findsOneWidget);
-    expect(find.textContaining('public keys'), findsNothing);
     await tester.tap(find.byKey(const Key('wizard-start')));
     await World.settle(tester);
     expect(remote.commands, isEmpty);

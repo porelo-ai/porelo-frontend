@@ -23,7 +23,7 @@ Future<void> openHostAdminDialog(
   String? secretsFile,
 }) {
   final host = record.preparedHost!;
-  final remote = OpenSsh(knownHosts: File('${poreloHostKnownHosts()}.${record.hostName}'), identity: record.identity);
+  final (:remote, :trust) = hostAdminRemote(record);
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -34,9 +34,23 @@ Future<void> openHostAdminDialog(
       secretsFile: secretsFile,
       identity: record.identity,
       knownHosts: remote.knownHosts.path,
-      prepareRemote: () => remote.trust(host.vpnAddress, host.values['ssh_host_key']!),
+      prepareRemote: trust,
     ),
   );
+}
+
+/// Builds the rental's SSH remote for [record]'s host helpers with a trust file of this host alone, and the step
+/// that pins the host's key there at its VPN address, the only address the helpers are reached on.
+({OpenSsh remote, Future<void> Function() trust}) hostAdminRemote(
+  HostUpRecord record, {
+  Map<String, String>? environment,
+}) {
+  final host = record.preparedHost!;
+  final remote = OpenSsh(
+    knownHosts: File('${poreloHostKnownHosts(environment: environment)}.${record.hostName}'),
+    identity: record.identity,
+  );
+  return (remote: remote, trust: () => remote.trust(host.vpnAddress, host.values['ssh_host_key']!));
 }
 
 /// Public completion values, each with its own copy action.

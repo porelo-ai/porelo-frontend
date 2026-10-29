@@ -223,20 +223,21 @@ Future<int> _run(List<String> arguments) async {
   return Exit.done;
 }
 
-/// The server's VPN public key the interface prepared for [host], as a real host reports it back after its stop; the
-/// interface refuses any other key.
+// The server's VPN public key the interface prepared for [host], as a real host reports it back after its stop; the
+// interface refuses any other key. Null where the interface's settings hold none.
 Future<String?> _preparedServerKey(String host) async {
   final environment = Platform.environment;
-  final configuration = environment['XDG_CONFIG_HOME'] ?? '${environment['HOME']}/.config';
-  final settings = File('$configuration/porelo/frontend.json');
-  if (!settings.existsSync()) return null;
+  final state = environment['XDG_CONFIG_HOME'];
+  final configuration = state != null && state.isNotEmpty ? state : '${environment['HOME']}/.config';
   try {
-    final key =
-        (jsonDecode(await settings.readAsString()) as Map<String, dynamic>)['hostUps']?[host]?['vpnHostPublicKey'];
-    return key is String && base64Decode(key).length == 32 ? key : null;
-  } on FormatException {
+    final settings = jsonDecode(await File('$configuration/porelo/frontend.json').readAsString());
+    if (settings case {'hostUps': final Map<String, dynamic> hosts}) {
+      if (hosts[host] case {'vpnHostPublicKey': final String key} when base64Decode(key).length == 32) return key;
+    }
     return null;
-  } on TypeError {
+  } on FileSystemException {
+    return null;
+  } on FormatException {
     return null;
   }
 }
