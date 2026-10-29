@@ -170,6 +170,20 @@ void main() {
     ], reason: 'the stop creates no answer file');
   });
 
+  // Harm: a walk stops at its first wizard step because the stand-in refuses the key check the real tool answers.
+  test('the Scaleway key check is accepted and any other key check refused', () async {
+    await situation('clean');
+    Future<int> check(List<String> arguments) async {
+      final process = await Process.start(hostExecutable, arguments, environment: {'PORELO_WALK': scratch.path});
+      await process.stdin.close();
+      return process.exitCode.timeout(const Duration(seconds: 15));
+    }
+
+    expect(await check(['key', 'check', 'scaleway']), 0);
+    expect(await check(['key', 'check', 'hetzner']), Exit.usage);
+    expect(await check(['key', 'set', 'scaleway']), Exit.usage);
+  });
+
   // Harm: a missing or invalid walk configuration silently selects the wrong host behavior.
   test('missing unreadable and malformed walk configuration is refused', () async {
     for (final environment in [

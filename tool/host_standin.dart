@@ -36,6 +36,10 @@ Future<int> _run(List<String> arguments) async {
       pace < 0) {
     throw const FormatException();
   }
+  // The wizard's first step checks the stored Scaleway key; the walk rents nothing, so there is no key to check.
+  if (arguments.length == 3 && arguments[0] == 'key' && arguments[1] == 'check' && arguments[2] == 'scaleway') {
+    return 0;
+  }
   if (arguments.isEmpty || !const {'up', 'down'}.contains(arguments.first)) {
     return _wrong('The host stand-in accepts up or down with host options.');
   }
