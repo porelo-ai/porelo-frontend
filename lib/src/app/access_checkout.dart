@@ -8,6 +8,7 @@ import 'package:yaml_edit/yaml_edit.dart';
 
 import 'run_here.dart';
 import 'host_matrix_settings.dart';
+import 'read_public_signing_key.dart';
 
 /// The person's private access checkout, signed and pushed through their own Git configuration.
 class AccessCheckout {
@@ -38,11 +39,14 @@ class AccessCheckout {
   String? _branch;
   String? _allowedSigners;
   String? _fingerprint;
+  Directory? _work;
+
+  String get _cache => path.join(root, project);
 
   /// The checkout, outside the public project repository and support records.
   String get folder {
     HostFiles.checkBasename(project);
-    return path.join(root, project);
+    return _work?.path ?? _cache;
   }
 
   /// Rejects credentials and unsafe Git source syntax without repeating the input.
@@ -59,13 +63,19 @@ class AccessCheckout {
 
   /// Clones privately or fast-forwards a clean checkout; never resets unpublished work.
   Future<void> open() async {
+    await close();
     checkRepository(repository);
     await privateDirectory(Directory(root), writer: _writer);
     final directory = Directory(folder);
     final type = await FileSystemEntity.type(folder, followLinks: false);
     if (type == FileSystemEntityType.notFound) {
       await privateDirectory(directory, writer: _writer);
-      await _git(['clone', '--', repository, folder], inCheckout: false);
+      try {
+        await _git(['clone', '--', repository, folder], inCheckout: false);
+      } on Exception {
+        if (await directory.exists()) await directory.delete(recursive: true);
+        rethrow;
+      }
     } else if (type != FileSystemEntityType.directory ||
         await FileSystemEntity.type('$folder/.git', followLinks: false) != FileSystemEntityType.directory) {
       throw const WorkspaceRefused('The access checkout must be a plain Git directory, without links.');
@@ -106,12 +116,30 @@ class AccessCheckout {
     }
     await _git(['fetch', 'origin']);
     await _git(['merge', '--ff-only', branch]);
-    _fingerprint = HostFiles.signingFingerprint(await signingKey.readAsString());
+    final signingPublic = readPublicSigningKey(signingKey);
+    _fingerprint = HostFiles.signingFingerprint(signingPublic);
     _allowedSigners = '$folder/.git/porelo-bring-signers';
-    final public = (await signingKey.readAsString()).trim().split(RegExp(r'\s+')).take(2).join(' ');
+    final public = signingPublic.trim().split(RegExp(r'\s+')).take(2).join(' ');
     await File(_allowedSigners!).writeAsString('porelo namespaces="git" $public\n');
     await _verifyHead();
     await _plainAccessFile();
+    final work = await _writer.createPrivateTemporary(Directory(root));
+    try {
+      await _git(['worktree', 'add', '--detach', work.path, 'HEAD']);
+      _work = work;
+    } on Exception {
+      if (await work.exists()) await work.delete(recursive: true);
+      rethrow;
+    }
+  }
+
+  /// Discards only this attempt's private worktree, leaving the persistent checkout untouched.
+  Future<void> close() async {
+    final work = _work;
+    if (work == null) return;
+    _work = null;
+    await _git(['worktree', 'remove', '--force', work.path]);
+    if (await work.exists()) await work.delete(recursive: true);
   }
 
   Future<void> _verifyHead() async {
@@ -119,6 +147,7 @@ class AccessCheckout {
       '-c',
       'gpg.ssh.allowedSignersFile=$_allowedSigners',
       'log',
+      '--no-show-signature',
       '-1',
       '--format=%G?%n%GF',
       'HEAD',
@@ -283,17 +312,21 @@ class AccessCheckout {
   /// Signs through the person's Git, verifies the signer, pushes, and only then creates the bundle.
   Future<void> commitPushAndBundle(String bundle) async {
     if (_branch == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
-    await _git(['add', '--', 'access.yml']);
-    final changed = await _git(['diff', '--cached', '--quiet', '--', 'access.yml'], optional: true);
-    if (changed.code == 1) {
-      await _git(['commit', '-S', '-m', 'Set project host and Matrix access', '--', 'access.yml']);
-    } else if (changed.code != 0) {
-      throw const WorkspaceRefused('Git could not check the staged access settings.');
+    try {
+      await _git(['add', '--', 'access.yml']);
+      final changed = await _git(['diff', '--cached', '--quiet', '--', 'access.yml'], optional: true);
+      if (changed.code == 1) {
+        await _git(['commit', '-S', '-m', 'Set project host and Matrix access', '--', 'access.yml']);
+      } else if (changed.code != 0) {
+        throw const WorkspaceRefused('Git could not check the staged access settings.');
+      }
+      await _verifyHead();
+      if (changed.code == 1) await _git(['push', 'origin', 'HEAD:$_branch']);
+      await _git(['bundle', 'create', bundle, 'HEAD']);
+      await _writer.protect(File(bundle));
+    } finally {
+      await close();
     }
-    await _verifyHead();
-    await _git(['push', 'origin', 'HEAD:$_branch']);
-    await _git(['bundle', 'create', bundle, 'HEAD', _branch!]);
-    await _writer.protect(File(bundle));
   }
 
   Future<Ran> _git(List<String> arguments, {bool optional = false, bool inCheckout = true}) async {

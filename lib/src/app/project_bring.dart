@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
-import 'package:yaml_edit/yaml_edit.dart';
+import 'package:porelo_frontend/client.dart';
 
 import 'access_checkout.dart';
 import 'bring_project_file.dart';
@@ -13,6 +13,7 @@ import 'host_stop_feed.dart';
 import 'host_matrix_settings.dart';
 import 'machines.dart';
 import 'run_here.dart';
+import 'read_public_signing_key.dart';
 
 /// A bring in the project admin's own account, with no rental or privileged command.
 class ProjectBring extends ChangeNotifier {
@@ -20,7 +21,7 @@ class ProjectBring extends ChangeNotifier {
   ProjectBring({
     required this.project,
     required this.backend,
-    required this.targetBackend,
+    this.targetBackend,
     required this.machine,
     required this.host,
     required this.knownHosts,
@@ -40,7 +41,7 @@ class ProjectBring extends ChangeNotifier {
   final FleetBackend backend;
 
   /// The host account's daemon, which confirms the followed commit after the playbook succeeds.
-  final FleetBackend targetBackend;
+  final FleetBackend? targetBackend;
 
   /// The admitted person's pinned host connection.
   final Machine machine;
@@ -107,34 +108,39 @@ class ProjectBring extends ChangeNotifier {
     problem = null;
     _notify();
     Directory? scratch;
+    AccessCheckout? access;
     try {
-      HostFiles.checkBasename(project);
-      if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
-        throw const WorkspaceRefused('The bring needs a plain project name.');
-      }
+      HostFiles.checkProjectName(project);
       SecretsFile.checkPath(secretsFile);
       checkHostMatrixCa(host, forgeCa);
       final login = RegExp(r'^([A-Za-z_][A-Za-z0-9_-]*)@([A-Za-z0-9][A-Za-z0-9.:-]*)$').firstMatch(machine.host);
-      if (machine.kind != 'host' ||
-          login == null ||
-          login[1] == 'root' ||
-          !path.isAbsolute(machine.identity) ||
-          !path.isAbsolute(knownHosts)) {
+      if (login == null || login[1] == 'root' || !path.isAbsolute(machine.identity) || !path.isAbsolute(knownHosts)) {
         throw const WorkspaceRefused(
           'Choose an admitted own-account host with a pinned SSH key and your own SSH identity.',
         );
       }
       final user = login[1]!;
       final address = login[2]!;
-      if (address != host.vpnAddress && address != host.values['address']) {
+      if (address != host.vpnAddress) {
         throw const WorkspaceRefused('The admitted SSH address differs from the host admin’s values.');
       }
+      if (FileSystemEntity.typeSync(machine.identity, followLinks: false) != FileSystemEntityType.file) {
+        throw const WorkspaceRefused('Choose your own plain SSH identity file for the host account.');
+      }
+      if (remote case final OpenSsh ssh) {
+        if (ssh.knownHosts.path != knownHosts ||
+            ssh.identity != machine.identity ||
+            !knownHosts.endsWith('.${host.values['homeserver']!.split('.')[1]}')) {
+          throw const WorkspaceRefused('The bring needs this host’s own pinned trust file and your SSH identity.');
+        }
+        await ssh.trust(address, host.values['ssh_host_key']!);
+      }
+      final fingerprint = HostFiles.signingFingerprint(readPublicSigningKey(signingKey));
       final followed = (await backend.following()).where((entry) => entry.name == project).firstOrNull;
       if (followed == null || followed.commit.isEmpty || followed.unverified) {
         throw const WorkspaceRefused('This project needs a verified followed commit before it can be brought.');
       }
       BringProjectFile.checkSource(followed.url);
-      final fingerprint = HostFiles.signingFingerprint(await signingKey.readAsString());
       final pinned = {...followed.signers, ...followed.pinned};
       if (pinned.isNotEmpty && !pinned.contains(fingerprint)) {
         throw const WorkspaceRefused('The chosen signing key is not pinned for this followed project.');
@@ -148,7 +154,7 @@ class ProjectBring extends ChangeNotifier {
       _expectedCommit = followed.commit;
       final contract = BringProjectFile.read(source.projectYaml);
       keys = contract.keys;
-      final access = AccessCheckout(
+      access = AccessCheckout(
         root: accessRoot,
         project: project,
         repository: contract.access,
@@ -171,23 +177,21 @@ class ProjectBring extends ChangeNotifier {
         fingerprint: fingerprint,
         act: HostAct.ownAccount,
         forgeRepositories: contract.repositories,
-      );
-      final editor = YamlEditor(yaml);
-      editor.update(
-        ['keys'],
-        [
-          for (final key in keys) {'name': key, 'path': 'keys/$key'},
-        ],
+        keys: [for (final key in keys) HostKeyFile(key, File(key))],
       );
       final writer = HostFileWriter();
       final machineFile = File(path.join(scratch.path, 'machine.yml'));
       final bundle = File(path.join(scratch.path, HostFiles.projectBundleFileName));
-      await writer.write(machineFile, utf8.encode(editor.toString()));
+      await writer.write(machineFile, utf8.encode(yaml));
       await writer.write(bundle, source.bytes);
       final runner = HostRun(
         provider: GivenMachine(address: address, hostKey: host.values['ssh_host_key']!),
         remote: remote,
-        emit: (_) {},
+        emit: (step) {
+          if (step.state == StepState.refused) {
+            _playbookFailure = step.words?.isNotEmpty == true ? step.words : step.fix;
+          }
+        },
       );
       final uploaded = await runner.uploadSetupFiles(
         act: HostAct.ownAccount,
@@ -199,7 +203,9 @@ class ProjectBring extends ChangeNotifier {
         accessBundle: accessBundle,
       );
       if (uploaded != null) {
-        throw const WorkspaceRefused('The own-account setup upload was refused. The bring did not start.');
+        throw WorkspaceRefused(
+          _playbookFailure ?? 'The own-account setup upload was refused. The bring did not start.',
+        );
       }
       await _runPlaybook();
     } on WorkspaceRefused catch (refusal) {
@@ -209,6 +215,7 @@ class ProjectBring extends ChangeNotifier {
     } on Exception {
       problem = 'The project bring could not complete. Check your own Git credentials, signing setup, and pinned host connection.';
     } finally {
+      await access?.close();
       if (scratch != null) await scratch.delete(recursive: true);
       busy = false;
       _notify();
@@ -239,13 +246,31 @@ class ProjectBring extends ChangeNotifier {
                 : 'The bring did not complete. Check the host in your own account.'),
       );
     }
-    final observed = (await targetBackend.following()).where((entry) => entry.name == project).firstOrNull;
+    final followed = targetBackend != null ? await targetBackend!.following() : await _followingOnHost();
+    final observed = followed.where((entry) => entry.name == project).firstOrNull;
     if (observed == null || observed.unverified || observed.commit != _expectedCommit) {
       throw const WorkspaceRefused(
         'The playbook ended, but the host daemon did not confirm the verified project revision.',
       );
     }
     brought = true;
+  }
+
+  Future<List<Followed>> _followingOnHost() async {
+    final connection = Backend(
+      socketPath: '',
+      label: machine.host,
+      relay: [
+        '/usr/bin/ssh',
+        ...pinnedHostSshOptions(knownHosts, machine.identity),
+        '-T',
+        '--',
+        machine.host,
+        inTheLoginShell('porelo daemon connect'),
+      ],
+    );
+    final daemon = await PoreloClient.connect(connection);
+    return daemon.following();
   }
 
   /// Resumes only a successfully fed stop, reusing the checked setup files already on the host.
@@ -306,6 +331,7 @@ class ProjectBring extends ChangeNotifier {
         act: HostAct.ownAccount,
         secretsFile: secretsFile,
         project: project,
+        secretsHost: host.values['homeserver']!.split('.')[1],
         needs: waiting.cast<String>(),
         keys: keys,
         ssh: '/usr/bin/ssh',

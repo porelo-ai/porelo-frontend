@@ -13,7 +13,6 @@ import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
-import 'package:porelo_frontend/src/ui/shell.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_frontend/src/ui/project_bring_dialog.dart';
 import 'package:porelo_host/porelo_host.dart';
@@ -441,9 +440,6 @@ void main() {
 
   // Harm: starting placement must not rent another server or erase an ended setup's billing recovery.
   testWidgets('project placement preserves an ended setup while opening the own-account flow', (tester) async {
-    final installed = Shell.poreloHostIsHere;
-    Shell.poreloHostIsHere = true;
-    addTearDown(() => Shell.poreloHostIsHere = installed);
     await World.startBackend(World.work);
     await World.startApp(tester);
     await World.settings.rememberHostUp('checkout', _record.withPreparation(DateTime.utc(2000)));

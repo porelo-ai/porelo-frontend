@@ -918,7 +918,8 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         for (final parent in parents)
           'test ! -L ${underHome(parent)} && '
               '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
-        'test ! -e ${q(destination)} && test ! -L ${q(destination)} || exit 1',
+        'test ! -e ${q(destination)} && test ! -L ${q(destination)} || '
+            '{ echo "The project setup folder already exists; it was preserved." >&2; exit 1; }',
         '/usr/bin/mkdir -m 0700 ${q(staging)}',
       ].join('\n'),
       onLine: lines.add,

@@ -1,3 +1,7 @@
+// Real Git and the private checkout use chmod and the system SSH signing tools.
+@Tags(['linux'])
+library;
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +18,11 @@ void main() {
   late String central;
   late String signer;
   late Map<String, String> isolated;
+  var failClone = false;
+  var failPush = false;
+  var failCommit = false;
+  var showSignature = false;
+  var accessPushes = 0;
 
   Future<Ran> git(
     String program,
@@ -21,27 +30,42 @@ void main() {
     String? inDirectory,
     Map<String, String> environment = const {},
     String? input,
-  }) => runHere(
-    program,
-    [
-      '-c',
-      'url.file://${scratch.path}/central.git.insteadOf=https://example.org/team/access.git',
-      '-c',
-      'commit.gpgsign=true',
-      '-c',
-      'gpg.format=ssh',
-      '-c',
-      'user.signingkey=$signer',
-      '-c',
-      'user.name=Fixture',
-      '-c',
-      'user.email=fixture@example.invalid',
-      ...args,
-    ],
-    inDirectory: inDirectory,
-    environment: {...environment, ...isolated},
-    input: input,
-  );
+  }) {
+    if (args.first == 'clone' && failClone) {
+      failClone = false;
+      return Future.value((code: 1, out: '', err: 'clone refused'));
+    }
+    if (args.first == 'commit' && failCommit) {
+      return Future.value((code: 1, out: '', err: 'signer unavailable'));
+    }
+    if (args.first == 'push' && inDirectory != source.path) {
+      accessPushes++;
+      if (failPush) return Future.value((code: 1, out: '', err: 'push refused'));
+    }
+    return runHere(
+      program,
+      [
+        '-c',
+        'url.file://${scratch.path}/central.git.insteadOf=https://example.org/team/access.git',
+        '-c',
+        'commit.gpgsign=true',
+        '-c',
+        'gpg.format=ssh',
+        '-c',
+        'user.signingkey=$signer',
+        '-c',
+        'user.name=Fixture',
+        '-c',
+        'user.email=fixture@example.invalid',
+        '-c',
+        'log.showSignature=$showSignature',
+        ...args,
+      ],
+      inDirectory: inDirectory,
+      environment: {...environment, ...isolated},
+      input: input,
+    );
+  }
 
   Future<String> checked(List<String> args, {String? directory}) async {
     final result = await git('git', args, inDirectory: directory ?? source.path);
@@ -55,6 +79,8 @@ void main() {
     central = '${scratch.path}/central.git';
     signer = '${scratch.path}/signer';
     isolated = {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_TERMINAL_PROMPT': '0'};
+    failClone = failPush = failCommit = showSignature = false;
+    accessPushes = 0;
     for (final key in ['signer', 'other']) {
       final generated = await Process.run('ssh-keygen', [
         '-q',
@@ -84,6 +110,54 @@ void main() {
     signingKey: File('${scratch.path}/signer.pub'),
     run: git,
   );
+
+  // Harm: a transient clone refusal must not poison every retry with an empty private directory.
+  test('a failed initial clone leaves a later bring able to clone', () async {
+    failClone = true;
+    await expectLater(checkout().open(), throwsA(isA<WorkspaceRefused>()));
+    await checkout().open();
+  });
+
+  // Harm: a person's signature display preference must not reject a valid trusted commit.
+  test('signature display in the own Git configuration does not prevent verification', () async {
+    showSignature = true;
+    await checkout().open();
+  });
+
+  // Harm: failed publication must not leave an unverified commit or dirty settings in the persistent checkout.
+  for (final failure in ['commit', 'signer', 'push']) {
+    test('a $failure refusal preserves the persistent access checkout and permits retry', () async {
+      final access = checkout();
+      await access.open();
+      final cache = '${scratch.path}/access/demo';
+      final before = await checked(['rev-parse', 'HEAD'], directory: cache);
+      await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      failCommit = failure == 'commit';
+      failPush = failure == 'push';
+      if (failure == 'signer') signer = '${scratch.path}/other';
+      await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
+      expect(await checked(['status', '--porcelain'], directory: cache), isEmpty);
+      expect(await checked(['rev-parse', 'HEAD'], directory: cache), before);
+      failCommit = failPush = false;
+      signer = '${scratch.path}/signer';
+      final retry = checkout();
+      await retry.open();
+      await retry.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      await retry.commitPushAndBundle('${scratch.path}/retry.bundle');
+      expect(File('${scratch.path}/retry.bundle').existsSync(), isTrue);
+    });
+  }
+
+  // Harm: retrying an interrupted host upload must not publish the same access update twice.
+  test('an identical published access block produces a bundle without another push', () async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final access = checkout();
+      await access.open();
+      await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      await access.commitPushAndBundle('${scratch.path}/access-$attempt.bundle');
+    }
+    expect(accessPushes, 1);
+  });
 
   // Harm: a plausible command transcript can hide an unsigned, unpushed, or outdated bundle.
   test('own git publishes a verified access commit and the bundle carries exactly that commit', () async {
@@ -143,8 +217,9 @@ void main() {
   test('an access checkout on another branch is preserved rather than published', () async {
     final access = checkout();
     await access.open();
-    await checked(['switch', '-c', 'side'], directory: access.folder);
+    final cache = '${scratch.path}/access/demo';
+    await checked(['switch', '-c', 'side'], directory: cache);
     await expectLater(checkout().open(), throwsA(isA<WorkspaceRefused>()));
-    expect(await checked(['symbolic-ref', '--short', 'HEAD'], directory: access.folder), 'side');
+    expect(await checked(['symbolic-ref', '--short', 'HEAD'], directory: cache), 'side');
   });
 }

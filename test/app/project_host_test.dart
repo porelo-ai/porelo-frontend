@@ -13,6 +13,24 @@ class _DiscardingStore extends MemorySettingsStore {
 }
 
 void main() {
+  // Harm: removing an old copy from another host must not lose the project's current host association.
+  test('confirmed removal clears only the associated host', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    final reloaded = Settings(store);
+    addTearDown(settings.dispose);
+    addTearDown(reloaded.dispose);
+    await settings.rememberProjectHost('demo', 'orchard');
+    await settings.forgetProjectHost('demo', host: 'garden');
+    await reloaded.load();
+    expect(settings.projectHost('demo'), 'orchard');
+    expect(reloaded.projectHost('demo'), 'orchard');
+    await settings.forgetProjectHost('demo', host: 'orchard');
+    await reloaded.load();
+    expect(settings.projectHost('demo'), isNull);
+    expect(reloaded.projectHost('demo'), isNull);
+  });
+
   // Harm: a lost or confused project association can direct a root removal to the wrong server.
   test('each project retains its own host across a settings reload', () async {
     final store = MemorySettingsStore();

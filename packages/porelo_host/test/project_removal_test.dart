@@ -1,4 +1,4 @@
-// Linux: the removal script runs in /bin/bash with a keepassxc-cli stand-in made executable by /usr/bin/chmod.
+// Linux: bash, a real PTY, and SSH/keepassxc-cli stand-ins made executable by chmod.
 @Tags(<String>['linux'])
 library;
 
@@ -143,6 +143,56 @@ sys.exit(code)
       ssh: ssh,
     );
 
+    // Harm: captured password prompts leave the terminal waiting without telling the person to type.
+    test('a real terminal sees the master-password prompt before it supplies input', () async {
+      final process = await Process.start(
+        '/usr/bin/python3',
+        [
+          '-I',
+          '-c',
+          r'''
+import json, os, pty, select, subprocess, sys, time
+master, slave = pty.openpty()
+child = subprocess.Popen(sys.argv[1:], stdin=slave, stderr=slave, stdout=subprocess.PIPE)
+os.close(slave)
+transcript = b''
+prompt = False
+deadline = time.monotonic() + 3
+try:
+    while time.monotonic() < deadline:
+        if select.select([master], [], [], 0.05)[0]:
+            try: transcript += os.read(master, 8192)
+            except OSError: break
+        if not prompt and b'The master password of ' in transcript:
+            prompt = True
+            os.write(master, (os.environ['FIXTURE_MASTER'] + '\n').encode())
+        if child.poll() is not None: break
+    if child.poll() is None: child.kill()
+    out = child.communicate(timeout=2)[0]
+finally:
+    os.close(master)
+print(json.dumps({'prompt_before_input': prompt, 'code': child.returncode,
+    'leaked': any(os.environ[key].encode() in transcript + out for key in ['FIXTURE_MASTER', 'FIXTURE_ENTRY'])}))
+''',
+          ...command(),
+        ],
+        environment: {
+          'FIXTURE_MASTER': 'fixture-master',
+          'FIXTURE_ENTRY': 'fixture-central-token',
+          'FIXTURE_OBSERVATION': '${scratch.path}/observation.json',
+        },
+        includeParentEnvironment: false,
+      );
+      await process.stdin.close();
+      final output = process.stdout.transform(utf8.decoder).join();
+      final errors = process.stderr.transform(utf8.decoder).join();
+      expect(await process.exitCode, 0, reason: await errors);
+      final observed = jsonDecode(await output);
+      expect(observed['prompt_before_input'], isTrue, reason: 'input must not wait behind the captured refusal');
+      expect(observed['code'], 0);
+      expect(observed['leaked'], isFalse);
+    });
+
     // Harm: a token in SSH arguments, a terminal stdin or an unpinned connection exposes the central forge.
     for (final present in [true, false]) {
       test('pipes ${present ? 'one token line' : 'no bytes when absent'} to pinned root SSH', () async {
@@ -198,6 +248,8 @@ sys.exit(code)
         expect(result.exitCode, isNot(0), reason: 'an unusable entry is not an absent optional token');
         expect(result.stdout, isEmpty);
         expect(await File(observation).exists(), isFalse, reason: 'no destructive helper is started');
+        expect(await File('${replies.path}/answer').readAsString(), isEmpty);
+        expect(await File('${replies.path}/refusal').readAsString(), isNotEmpty);
       });
     }
 

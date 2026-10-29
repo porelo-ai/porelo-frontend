@@ -67,8 +67,8 @@ Future<void> openHostDialog(
   required Machines machines,
   StartHostCommand? start,
   required Settings settings,
-  required HostRuns hostRuns,
   required FleetBackend backend,
+  OpenTerminal? openTerminal,
   Remote? remote,
   RunHere? runGit,
   HostFiles? hostFiles,
@@ -86,6 +86,7 @@ Future<void> openHostDialog(
     runGit: runGit,
     hostFiles: hostFiles,
     accessRoot: accessRoot,
+    openTerminal: openTerminal,
   ),
 );
 

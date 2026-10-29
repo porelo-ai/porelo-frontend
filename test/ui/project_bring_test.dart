@@ -1,10 +1,13 @@
+// The bring exercises OpenSSH's process boundary, bash upload scripts, and chmod.
+@Tags(['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
@@ -58,6 +61,45 @@ class _OwnSsh implements Remote {
   final commands = <String>[];
   final users = <String>[];
   bool stop = true;
+  final arguments = <List<String>>[];
+  Future<Process> start(String program, List<String> args) async {
+    arguments.add(List.of(args));
+    final trust = args
+        .singleWhere((arg) => arg.startsWith('UserKnownHostsFile='))
+        .substring('UserKnownHostsFile='.length)
+        .replaceAll('"', '');
+    expect(File(trust).readAsStringSync(), '10.73.7.1 ${matrixHostValues()['ssh_host_key']}\n');
+    expect(args, contains('StrictHostKeyChecking=yes'));
+    final destination = args[args.length - 2];
+    expect(destination, 'admin@10.73.7.1');
+    final command = args.last;
+    if (command.contains('ansible-playbook')) {
+      final process = HostProcess();
+      run('10.73.7.1', 'admin', command, onLine: process.raw).then((result) {
+        if (result.stderr.isNotEmpty) process.words(result.stderr);
+        process.end(result.exitCode);
+      });
+      return process;
+    }
+    commands.add(command);
+    users.add('admin');
+    return Process.start(
+      '/bin/bash',
+      ['--noprofile', '--norc', '-c', command],
+      workingDirectory: home.path,
+      environment: {'HOME': home.path},
+    );
+  }
+
+  Future<ProcessResult> scp(String program, List<String> args) async {
+    arguments.add(List.of(args));
+    expect(args, contains('StrictHostKeyChecking=yes'));
+    final destination = args.last;
+    expect(destination, startsWith('admin@10.73.7.1:'));
+    await copy('10.73.7.1', 'admin', args[args.length - 2], destination.substring(destination.indexOf(':') + 1));
+    return ProcessResult(1, 0, '', '');
+  }
+
   @override
   Future<RemoteResult> run(
     String host,
@@ -138,9 +180,7 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-    final runs = HostRuns(machines);
     addTearDown(() {
-      runs.dispose();
       machines.dispose();
       settings.dispose();
     });
@@ -154,7 +194,6 @@ void main() {
                 project: 'demo',
                 machines: machines,
                 settings: settings,
-                hostRuns: runs,
                 backend: FakeBackend(const []),
                 start: (_, _) async => HostProcess()..end(0),
               ),
@@ -177,12 +216,14 @@ void main() {
   });
 
   // Harm: bringing through root or repeating publication when feeding a stop changes the wrong account.
-  for (final outcome in ['brought', 'room-refused', 'ca-missing', 'ca-mismatch']) {
+  for (final outcome in ['brought', 'room-refused', 'ca-missing', 'ca-mismatch', 'setup-exists']) {
     final rejectRoom = outcome == 'room-refused';
     final refusedCa = outcome.startsWith('ca-');
     testWidgets(
       refusedCa
           ? 'the project bring refuses $outcome before editing or uploading access'
+          : outcome == 'setup-exists'
+          ? 'an interrupted bring retry preserves existing setup and publishes access once'
           : rejectRoom
           ? 'a room refusal stops the bring in Porelo’s words'
           : 'the project dialog signs with own git uploads privately and resumes without sudo',
@@ -194,6 +235,11 @@ void main() {
         final signing = File('${scratch.path}/signer.pub')..writeAsStringSync(hostValues()['ssh_host_key']! as String);
         final secrets = File('${scratch.path}/secrets.kdbx')..writeAsStringSync('encrypted fixture');
         final home = Directory('${scratch.path}/host-home')..createSync();
+        final existing = Directory('${home.path}/.local/share/porelo-host/setup/demo');
+        if (outcome == 'setup-exists') {
+          existing.createSync(recursive: true);
+          File('${existing.path}/keep').writeAsStringSync('interrupted bring');
+        }
         final target = _Following(empty: true);
         final remote = _OwnSsh(home, target, rejectRoom: rejectRoom);
         final settings = Settings(MemorySettingsStore());
@@ -208,7 +254,9 @@ void main() {
           hostProject: rejectRoom ? 'orchard' : 'old-host',
           socketPath: '/unused',
         );
-        await settings.rememberMachines([machine]);
+        File(machine.identity).writeAsStringSync('identity fixture');
+        final state = {'XDG_STATE_HOME': '${scratch.path}/state'};
+        final trust = File('${poreloHostKnownHosts(environment: state)}.orchard');
         final machines = Machines(settings, reach: (_) => target, tunnels: FakeTunnels());
         await machines.load();
         addTearDown(() async {
@@ -217,6 +265,9 @@ void main() {
           await tester.runAsync(() => scratch.delete(recursive: true));
         });
         final gitCommands = <List<String>>[];
+        String? publishedAccess;
+        final heads = <String, String>{};
+        final staged = <String, String>{};
         final terminals = <FakeTerminal>[];
         Future<Ran> git(
           String program,
@@ -226,13 +277,32 @@ void main() {
           String? input,
         }) async {
           gitCommands.add(List.of(args));
+          expect(
+            trust.readAsStringSync(),
+            '10.73.7.1 ${matrixHostValues()['ssh_host_key']}\n',
+            reason: 'trust must be pinned before any private Git operation',
+          );
           if (args.first == 'clone') {
             await Directory('${args.last}/.git').create();
             await File('${args.last}/access.yml').writeAsString('developers: {} # keep\n');
+            heads[args.last] = File('${args.last}/access.yml').readAsStringSync();
           }
           if (args.first == 'bundle') await File(args[2]).writeAsString('signed access bundle');
+          if (args.first == 'push') publishedAccess = File('$inDirectory/access.yml').readAsStringSync();
+          if (args.first == 'worktree' && args[1] == 'add') {
+            await File('$inDirectory/access.yml').copy('${args[3]}/access.yml');
+            heads[args[3]] = heads[inDirectory]!;
+          }
+          if (args.first == 'merge' && publishedAccess != null) {
+            await File('$inDirectory/access.yml').writeAsString(publishedAccess!);
+            heads[inDirectory!] = publishedAccess!;
+          }
+          if (args.first == 'add') {
+            expect(args, ['add', '--', 'access.yml']);
+            staged[inDirectory!] = File('$inDirectory/access.yml').readAsStringSync();
+          }
           return (
-            code: args.first == 'diff' ? 1 : 0,
+            code: args.first == 'diff' && staged[inDirectory] != heads[inDirectory] ? 1 : 0,
             err: '',
             out: switch (args.join(' ')) {
               'config --bool --get commit.gpgsign' => 'true\n',
@@ -254,7 +324,10 @@ void main() {
                 machines: machines,
                 settings: settings,
                 backend: backend,
-                remote: remote,
+                startSsh: remote.start,
+                runScp: remote.scp,
+                targetBackend: target,
+                environment: state,
                 runGit: git,
                 hostFiles: _SignedFiles(),
                 accessRoot: '${scratch.path}/access',
@@ -281,8 +354,13 @@ void main() {
         await World.settle(tester);
         await tester.tap(find.byKey(const Key('wizard-next')));
         await World.settle(tester);
-        expect(find.byKey(const Key('bring-host')), findsOneWidget);
-        expect(tester.widget<DropdownButton<Machine>>(find.byKey(const Key('bring-host'))).value, machine);
+        expect(
+          find.byKey(const Key('bring-account')),
+          findsOneWidget,
+          reason: 'a project admin can bring without a preexisting watched machine',
+        );
+        await tester.enterText(find.byKey(const Key('bring-account')), 'admin');
+        await tester.enterText(find.byKey(const Key('bring-identity')), machine.identity);
         await tester.enterText(
           find.byKey(const Key('bring-host-values')),
           jsonEncode({...matrixHostValues(), if (outcome == 'ca-mismatch') 'ca_sha256': '0' * 64}),
@@ -317,6 +395,27 @@ void main() {
         });
         await World.settle(tester);
         final action = tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first;
+        if (outcome == 'setup-exists') {
+          for (var attempt = 0; attempt < 2; attempt++) {
+            expect(tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first.state(), WizardActionState.refused);
+            expect(find.textContaining('The project setup folder already exists; it was preserved.'), findsWidgets);
+            expect(File('${existing.path}/keep').readAsStringSync(), 'interrupted bring');
+            expect(remote.commands.where((command) => command.contains('ansible-playbook')), isEmpty);
+            expect(
+              gitCommands.where((args) => args.first == 'push'),
+              hasLength(1),
+              reason: 'an interrupted bring retry must not republish identical access bytes',
+            );
+            if (attempt == 0) {
+              await tester.runAsync(() async {
+                await Function.apply(start, const []);
+              });
+              await World.settle(tester);
+            }
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          return;
+        }
         if (refusedCa) {
           expect(action.state(), WizardActionState.refused);
           expect(gitCommands, isEmpty, reason: 'untrusted Matrix access must never be edited or published');
@@ -333,7 +432,9 @@ void main() {
           {'name': 'api', 'url': 'https://example.org/team/api.git'},
         ]);
         expect(yaml['keys'].single['name'], 'search');
-        final access = loadYaml(File('${scratch.path}/access/demo/access.yml').readAsStringSync());
+        expect((yaml['keys'].single.nodes['name'] as YamlScalar).style, ScalarStyle.DOUBLE_QUOTED);
+        // Publication is checked against real Git in the access tests; this stand-in retains its sent bytes.
+        final access = loadYaml(publishedAccess!);
         expect(access['transports']['matrix'], {
           'homeserver': 'https://matrix.orchard.porelo.internal:8448',
           'room': '#porelo-demo:matrix.orchard.porelo.internal',
@@ -357,6 +458,12 @@ void main() {
           contains('porelo-host-stop --stdin vault-new keys forge-central-token'),
         );
         expect(terminals.single.command.join(' '), isNot(contains('sudo')));
+        expect(terminals.single.command.last, contains('hosts/orchard/forge-ca-key'));
+        expect(terminals.single.command.last, contains('hosts/orchard/forge-ca'));
+        expect(
+          terminals.single.command.last,
+          isNot(contains("move_entry 'shared/forge-ca-key' 'hosts/demo/forge-ca-key'")),
+        );
         terminals.single.endsWith(0);
         await World.settle(tester);
         await tester.tap(find.byKey(const Key('unlock-done')));

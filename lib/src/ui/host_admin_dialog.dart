@@ -24,6 +24,7 @@ Future<void> openHostAdminDialog(
   OpenTerminal? openTerminal,
   String? secretsFile,
   Map<String, String>? environment,
+  Future<void> Function(String project)? onRemoved,
 }) {
   final host = record.preparedHost!;
   final (:remote, :trust) = hostAdminRemote(record, environment: environment);
@@ -40,6 +41,7 @@ Future<void> openHostAdminDialog(
       identity: record.identity,
       knownHosts: remote.knownHosts.path,
       prepareRemote: trust,
+      onRemoved: onRemoved,
     ),
   );
 }
@@ -127,6 +129,7 @@ class HostAdminDialog extends StatefulWidget {
     this.identity = '',
     this.knownHosts = '',
     this.openTerminal,
+    this.onRemoved,
     super.key,
   });
 
@@ -156,6 +159,9 @@ class HostAdminDialog extends StatefulWidget {
 
   /// Replaces the removal terminal in widget tests.
   final OpenTerminal? openTerminal;
+
+  /// Clears a local association after confirmed removal without changing followed projects.
+  final Future<void> Function(String project)? onRemoved;
 
   @override
   State<HostAdminDialog> createState() => _HostAdminDialogState();
@@ -263,8 +269,15 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
         throw const FormatException('The terminal was closed before the host confirmed project removal.');
       }
       // Two small files the terminal wrote; read at once, so no further event is waited for.
-      final output = File('${reply.path}/answer').readAsStringSync();
-      final errors = File('${reply.path}/refusal').readAsStringSync();
+      final answer = File('${reply.path}/answer');
+      final refusal = File('${reply.path}/refusal');
+      if (!answer.existsSync() || !refusal.existsSync()) {
+        throw const FormatException(
+          'The local removal step did not produce a complete reply. Read its terminal refusal and retry.',
+        );
+      }
+      final output = answer.readAsStringSync();
+      final errors = refusal.readAsStringSync();
       return request.answer(RemoteResult(exitCode!, errors), const LineSplitter().convert(output), widget.host);
     } finally {
       reply.deleteSync(recursive: true);
@@ -300,6 +313,15 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
       final answer = widget.action == 'remove'
           ? await _removeProject(request)
           : await request.run(widget.remote, widget.host);
+      if (widget.action == 'remove') {
+        try {
+          await widget.onRemoved?.call(_name.text);
+        } on Exception {
+          throw const FormatException(
+            'The host removed the project, but its local host association could not be cleared.',
+          );
+        }
+      }
       if (mounted) {
         setState(() {
           _answer = answer;
@@ -320,10 +342,10 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
           _state = WizardActionState.refused;
         });
       }
-    } on Exception catch (error) {
+    } on Exception {
       if (mounted) {
         setState(() {
-          _refusal = 'The host helper could not be reached: $error';
+          _refusal = 'The host helper could not be reached. Check the pinned host connection and local files.';
           _state = WizardActionState.refused;
         });
       }

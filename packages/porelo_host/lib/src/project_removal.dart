@@ -4,7 +4,7 @@ import 'server_contract.dart';
 import 'ssh.dart';
 
 /// Runs project removal in the admin's terminal, piping the optional token only to SSH's stdin.
-/// Only the helper's public stdout and stderr are written in [replyDirectory].
+/// Public local refusals and the helper's reply are written in [replyDirectory].
 List<String> projectRemovalFeedCommand({
   required String project,
   required SecretsFile secretsFile,
@@ -35,8 +35,17 @@ List<String> projectRemovalFeedCommand({
     'set -o pipefail',
     "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
     '/usr/bin/stty -echo 2>/dev/null || true',
+    ': > $answer',
+    ': > $refusal',
     // Local validation must finish before the destructive helper can receive tokenless input.
-    'removal_token="\$(\n${secretsFile.projectRemovalTokenLine()}\n)" || exit \$?',
+    'exec {refusal_fd}> >(/usr/bin/tee -- $refusal >&2)',
+    r'refusal_reader=$!',
+    '{ removal_token="\$(\n${secretsFile.projectRemovalTokenLine()}\n)"; } 2>&\$refusal_fd',
+    r'local_result=$?',
+    // The reader must finish before a local refusal is read back or the helper replaces it.
+    r'exec {refusal_fd}>&-',
+    r'wait "$refusal_reader" || exit $?',
+    r'if [ "$local_result" != 0 ]; then exit "$local_result"; fi',
     r'''{ if [ -n "$removal_token" ]; then printf '%s\n' "$removal_token"; fi; } | '''
         '$command > $answer 2> $refusal',
     r'result=$?',

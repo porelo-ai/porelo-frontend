@@ -16,6 +16,16 @@ repositories:
 ''';
 
   // Harm: reading credential destinations as vault entry names feeds unrelated credentials or fails the stop.
+  for (final name in ['api token', 'api@token', 'api/token']) {
+    test('credential names rejected by the secrets file are refused before access publication ($name)', () {
+      expect(
+        () => BringProjectFile.read(project().replaceFirst('api-token:', '"$name":')),
+        throwsA(isA<HostFilesRefused>()),
+      );
+    });
+  }
+
+  // Harm: reading credential destinations as vault entry names feeds unrelated credentials or fails the stop.
   test('the signed project supplies vault entry names rather than their destinations', () {
     final file = BringProjectFile.read(project());
     expect(file.keys, ['search', 'api-token']);

@@ -863,6 +863,24 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears the association only after the host confirms removal; following is independent.
+  Future<void> forgetProjectHost(String project, {required String host}) async {
+    if (_projectHosts[project] != host) return;
+    final previous = _projectHosts.remove(project);
+    if (previous == null) return;
+    try {
+      await _write();
+      final saved = (await _store.read())['projectHosts'];
+      if (saved is! Map || saved.containsKey(project)) {
+        throw const FileSystemException('Cannot clear the project host association in the interface settings.');
+      }
+    } on Exception {
+      _projectHosts[project] = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
   /// Every kept host setup, keyed by host name.
   Map<String, HostUpRecord> get hostUps => Map.unmodifiable(_hostUps);
 

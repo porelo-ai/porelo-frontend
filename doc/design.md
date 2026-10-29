@@ -210,23 +210,33 @@ is; a second consumer of the client code is what would change that.
 
 ## Projects on prepared hosts
 
-*Put this project on a server…* uses an already watched host connection in the project admin's own account.
-The project step remains; renting belongs to *Prepare a server…*. The public values supplied by the host admin
-are checked before they enter the access file. SSH reuses the host connection's pinned trust and the person's
-identity, with no root login or sudo.
+*Put this project on a server…* takes the public JSON copied from *For the project admins…*, the project admin's
+own account name on that host, and their SSH identity file. A watched machine is not required. Renting belongs
+to *Prepare a server…*. Before any access edit or push, the public values, VPN address, identity path, project
+and credential names, and host CA are checked. The supplied SSH host key is pinned at that VPN address in a
+file for this host alone under porelo-host's state. Both SSH and the stop use that file, with no shared trust,
+root login, or sudo. A signing-key selection reads only its public prefix before reading the public key body.
 
 The daemon's verified project revision supplies `access.repository` and every central repository URL. The access
 checkout lives under `~/.local/share/porelo-frontend/access/<project>/`, mode `0700`, outside operation records.
 An existing checkout must be clean, have no unpublished commits, and use its default branch. Host settings and
 `transports.matrix` are edited with preserved comments. Git must already have commit signing configured; its own
 credential setup performs the clone and push, and its own signing setup signs the commit. The chosen project
-public key verifies the access commit before it is pushed. No public `project.yml` is edited.
+public key verifies the access commit before it is pushed, independently of Git's signature-display settings.
+Each attempt edits and signs in a private detached worktree. A failed initial clone removes its own incomplete
+directory; a signing, verification, or push failure discards only that attempt, preserving the clean persistent
+checkout for retry. Identical already published access bytes need no additional commit or push. No public
+`project.yml` is edited.
 
 The own-account upload installs `machine.yml`, `project.bundle`, and `access.bundle` under the person's host
 home, with directory mode `0700` and file mode `0600`. A bring adds the checked Forgejo migration list to the
 machine file; a join omits it. Each migration has a unique repository name derived from a central HTTPS URL
 without a user, query, or fragment. The bring's stop receives only its allowed needs from the secrets-file
-terminal. Resuming a completed stop reruns the playbook without repeating the access push or setup upload.
+terminal. Its entries must already exist: the stop names anything missing. Host entries use the prepared
+host's name, while vault and credential entries use the project name. Resuming a completed stop reruns the
+playbook without repeating the access push or setup upload. An interrupted bring can be retried without
+republishing identical access settings. An existing setup folder remains untouched and its host refusal is
+shown verbatim; the interface does not replace it.
 The playbook performs one sync and its last task runs `porelo talk room <project>` in the admin's account.
 The interface writes exactly four keys in `transports.matrix`: the supplied `homeserver` as
 `https://matrix.<host>.porelo.internal:8448`, the fixed `room` alias
@@ -242,18 +252,21 @@ only to the selected host. The written PEM must read back byte for byte, includi
 existing YAML comments are kept. Other Matrix keys, including `tls_verify` and `ca_file`, are removed.
 The project's Matrix peer belongs in the signed project file and is not edited here. The interface makes no
 separate room or sync call. It shows the playbook's latest public lines, including a room refusal in Porelo's own words.
-Completion also requires the host daemon to confirm the verified project revision, then refreshes the watched
-host's project list and keeps the project-to-host association in `frontend.json`. The checked host values
-determine that association, so a stale label on a watched connection cannot select another host for removal.
+Completion also requires the host daemon to confirm the verified project revision over the same pinned SSH
+connection. An already watched connection to that account is refreshed. The checked host values determine
+the project-to-host association kept in `frontend.json`.
 
 *Take this project off the server* is the host admin's act. Its project-menu action uses that association to
 find the retained host record, then opens the existing root helper dialog with the project fixed for review.
 The helper runs over the same pinned admin SSH as registration. It receives only the central token, one line
 on standard input; it receives no central URL. A refusal is shown verbatim, and only exit zero with a matching
 `project` and `removed: true` is accepted. The reply may also list `locked` accounts. The helper checks before
-changing anything and does not unfollow. The separate *Stop following this project* action remains the unfollow.
-Without the host-admin role or the associated host's record, removal is unavailable because the host admin
-takes a project off its server.
+changing anything and does not unfollow. A confirmed removal clears a local association to that same host;
+a refusal preserves it. Local secrets-file failures are shown without inventing a remote reply or exposing
+a temporary reply path. Password prompts remain visible while public refusals are captured; their capture
+finishes before the dialog reads the reply. The separate *Stop following this project* action remains the unfollow.
+The project-menu action is available only with the host-admin role and that host's record on this desktop.
+Otherwise its reason directs the host admin to the server's menu, *Take the project off*.
 
 ## Windows
 

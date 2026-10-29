@@ -14,8 +14,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   signing and credentials, and are pushed before both bundles are uploaded. Migration URLs are checked before
   upload. Matrix access uses the fixed room alias, the host-local admission token path, and this host's retained
   CA checked against its fingerprint, with no other Matrix keys. The bring makes the room and shows its final
-  output. Host admins can take the project off
-  through its recorded host, with helper refusals preserved and following left for a separate decision.
+  output. Public host values, an own account, and an identity file suffice without a watched machine; the
+  supplied SSH key is pinned for this host before private access changes. Interrupted brings preserve clean
+  checkouts, avoid repeated access pushes, and show existing-folder refusals. Host admins can take the project
+  off through its recorded host, preserving local and remote refusals and clearing the association only after
+  confirmation, with following left for a separate decision.
 
 - The host's stop is fed by act: the host admin's root stop takes only the VPN key and the forge's certificate,
   a bring's or a join's runs in the person's own account with no `sudo`, and their setup files go into the

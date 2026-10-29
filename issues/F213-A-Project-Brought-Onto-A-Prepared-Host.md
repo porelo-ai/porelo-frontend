@@ -11,7 +11,11 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 
 ## Plan
 
-- ***Put this project on a server…*** (`project-admin`, `Home.projectMenu`) chooses among hosts this person was admitted to; *The project* step stays, *Where it is rented* goes.
+- ***Put this project on a server…*** (`project-admin`, `Home.projectMenu`) takes the public JSON copied from
+  *For the project admins…*, the person's own admitted account name, and their SSH identity file. It requires
+  no watched machine. The supplied host key is pinned at the VPN address in a file for this host alone under
+  porelo-host's state before any SSH, access edit, or push; no shared known-hosts file. *The project* step stays,
+  *Where it is rented* goes.
 - **The access checkout:** cloned with the person's own git credentials from `access.repository` of the signed `project.yml` into `~/.local/share/porelo-frontend/access/<project>/` (`0700`); never into a log or a support bundle.
 - **The `host:` block and Matrix's settings** written into `access.yml` with `yaml_edit` (kept comments), from the values the host admin gave ([F211](README.md#f211)); committed and signed with the person's own git, pushed; the interface signs nothing itself and refuses where git's signing is not set up.
 - **The bring:** `ansible-playbook -c local porelo.host.bring -e porelo_project=<project>` over the admin's own ssh, `machine.yml`, `project.bundle`, and `access.bundle` uploaded into their own `~/.local/share/porelo-host/setup/<project>/` ([F214](README.md#f214)), its stop in own-account mode fed from their secrets file: `vault-new` or `vault`, `keys`, `forge-central-token` while a repository is to migrate. Its playbook runs one `sync` and makes the room as its last task.
@@ -37,7 +41,8 @@ Decided: bringing a project is the project admin's act in their own account; `ho
   refusal is shown verbatim. Exit zero confirms `project`, `removed: true`, and may report `locked` accounts.
   Nothing changes before the check passes, and removal does not unfollow. *Stop following this project* is the
   separate unfollow. Without the host-admin role or the associated host's record, the reason is that the host
-  admin takes a project off its server.
+  admin takes it off from the server's menu, *Take the project off*. A confirmed removal clears the local
+  project-to-host association; a refusal preserves it.
 - **Red first:** a widget test that the dialog offers no renting and runs the bring with no `sudo`, against stand-ins for `porelo-host` and git.
 
 ## Acceptance
@@ -58,10 +63,17 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 - The manual integration walk still targets combined setup and is outside this change; it is not bring
   acceptance coverage.
 
+## Open questions
+
+- Should the host support resuming or replacing an interrupted bring's existing setup folder, and under what
+  checks? The interface preserves it and shows the host's existing-folder refusal; replacement belongs to the
+  host, not the interface.
+
 ## Implementation
 
-- The project-menu placement action opens a separate wizard with the project, an admitted own-account host,
-  public host values, a Matrix room, and the secrets file; no rental step. The existing server-preparation and
+- The project-menu placement action opens a separate wizard with the project, pasted public host values,
+  an admitted account and identity path, the fixed Matrix room, and the secrets file; no rental step or watched
+  host prerequisite. The existing server-preparation and
   legacy recovery dialogs retain their separate work.
 - The signed project's verified revision supplies the project bundle, private access repository, central
   migration URLs, and declared credential names. Invalid migration fields are named without repeating their
@@ -69,10 +81,16 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 - The private access checkout preserves comments while updating `host` and `transports.matrix`. Own Git
   credentials and configured commit signing are required. Both old and new access commits are verified against
   the chosen project public key. Dirty work, unpublished commits, another branch, linked access files, and a
-  failed push prevent publication or upload; private Git diagnostics are not recorded.
+  failed push prevent publication or upload; private Git diagnostics are not recorded. A failed clone removes
+  its own incomplete target. Signing and verification occur in a private detached worktree, so failed signing,
+  a wrong signer, or a failed push leaves the persistent checkout clean and retryable. Identical published
+  access settings create no extra commit or push. Signature display configuration cannot alter verification.
 - The bring reuses the own-account upload and stop feed, with both fixed bundle names, checked home paths,
   modes, and digests. It runs the bring playbook over pinned SSH with no sudo, and resumes a successful stop
-  without repeating the access push or upload. Only the playbook runs sync.
+  without repeating the access push or upload. Host secrets use the prepared host's name; vault and credential
+  entries use the project name. The person's secrets file must already contain the requested entries, and the
+  stop's own refusal names anything missing; there is no second secrets-preparation flow. Existing setup
+  folders are preserved with the host's refusal shown in its words. Only the playbook runs sync.
 - The fixed room alias is derived from the project and checked host values. The host's retained public forge
   CA is selected by its Matrix server name, never by a stale connection label or another host's trust. One
   certificate and its DER fingerprint are checked before Git or upload. The four-key Matrix block keeps the
@@ -81,18 +99,60 @@ Decided: bringing a project is the project admin's act in their own account; `ho
   its final public lines and any refusal, without a separate room step or call. A task with an empty callback
   message still shows its name and state.
 - A successful bring records its project-to-host association, read back after writing and preserved on reload.
-  The checked host values determine that association, even if the watched connection has a stale host label.
+  The checked host values determine that association, independently of watched machines.
   A failed save retains the previous association. The host admin's project menu resolves only that host's record
-  and reuses the root remove dialog with the project fixed for review. Following is unchanged.
+  and reuses the root remove dialog with the project fixed for review. Removal clears that association after
+  confirmation and keeps following unchanged. Local secrets failures produce a safe refusal before SSH;
+  an absent reply is handled without reading a nonexistent file or showing its temporary path.
 
 ## Verification
 
-- Root and package `dart analyze`: no issues. The eight changed Dart files are formatted.
-- Package tests: all 477 passed with two workers, including the real system-store tests. None was skipped.
-  The package is unchanged; its suite passed before the final YAML review fixes. Root analysis and the
-  affected frontend tests were rerun after those fixes.
-- The final targeted frontend run passed 65 tests: the changed access unit and real-Git tests, bring widget
-  tests, removal and recovery regressions, roles, and layout. The 28 tests tagged `documents` passed.
+The review dispositions below refer to the numbered findings, against the exact four-key Matrix contract.
+
+| Finding | Disposition and reason |
+| --- | --- |
+| 1 | Fixed: the pasted host key is pinned at the VPN address in host-specific state before private Git or SSH. The widget uses OpenSsh and checks the trust bytes before either process boundary. |
+| 2 | Fixed: the stop feed receives the prepared host's name separately from the project; legacy host CA migration uses that host. |
+| 3 | Fixed: pasted values, own account, and identity path replace the watched-machine chooser. The widget completes with no watched host. |
+| 4 | Declined as a cross-desktop requirement: the host-admin role and associated host record must be held on this desktop. The unavailable reason directs the host admin to the server menu. Confirmed removal clears only an association to that same host. |
+| 5 | Fixed: the terminal retains public local refusals before SSH, and the dialog handles an absent reply without showing its temporary path or exception. |
+| 6 | Fixed: a plain, bounded file is checked for the OpenSSH public prefix before its body is read; private armor is refused after the prefix alone. |
+| 7 | Fixed: a failed initial clone removes only its own incomplete directory, allowing retry. |
+| 8 | Fixed: detached private worktrees isolate signed edits; signer, signature, and push failures leave the persistent checkout clean and retryable. No unverified commit is suggested for publication. |
+| 9 | Fixed: signature parsing explicitly disables signature display independently of the person's Git configuration. |
+| 10 | Fixed: declared credential names use the stop's SecretsFile key-name check before access changes. |
+| 11 | Fixed for trailing dots and names over 64 characters by using the shared project-name check first. Double dots were already refused by the basename check. |
+| 12 | Fixed: unchanged published access settings need no push; upload refusals retain the host's words. Existing setup folders remain intact. Folder replacement remains the open host-contract question above. |
+| 13 | Fixed: machine.yml uses HostFiles.machineYaml's keys parameter, keeping its validation and double-quoted key scalars. |
+| 14 | Fixed: the unused HostRuns argument and placement lookup are removed; the frame's terminal opener reaches the bring dialog. |
+| 15 | Fixed: the unused binary-presence flag is removed. |
+| 16 | Fixed: the widget crosses OpenSsh's process boundary and checks exact VPN trust, host-scoped stop paths, own-account commands, and pre-publication pinning. Removing pinning or the host argument makes it fail. |
+| 17 | Fixed: removal widgets execute the generated shell against SSH and secrets-tool stand-ins, including wrong-password and absent-reply failures. Project-menu cases keep a real backend and fleet, assert no unfollow on 65 or 0, and reload the association after each result. |
+| 18 | Fixed: the unit Git stand-in stages actual access bytes and compares them with its checkout head. Real Git separately verifies publication, bundle signatures, failure recovery, and idempotent retry. |
+| 19 | Fixed: the Windows test runs once without mutating a dead availability flag. |
+
+The clone, signature-display, failed signer, wrong signer, failed push, duplicate push, credential-name,
+project-name, private-key-read, missing local reply, and existing-folder cases reproduced failures before
+their fixes. The association-clear widget also failed before its callback was implemented. Deliberately
+omitting host-key pinning or the stop's host argument made the strengthened bring widget fail; restoring
+them made it pass. Reinstating the second YAML pass changed a key scalar from double-quoted to plain and
+failed its contract assertion. Reinstating the unconditional changed-diff stand-in failed the unchanged-access
+test. Dead-code and duplicate-test deletions need no new behavioral test.
+
+The final read-only review exposed a wrong-host association clear, a hidden interactive password prompt,
+and an incomplete identity fixture in the project-name guard. A mismatched-host regression and real-PTY
+prompt check failed before their fixes. The corrected identity fixture includes a valid-name control;
+replacing the early project-name check with the older basename check makes the unsafe-name cases fail.
+Local refusal capture now streams public prompts and errors to the terminal and waits for the capture reader
+before reading or replacing its reply. No secret is recorded. Removal from another host leaves the current
+project association unchanged.
+
+- Root and package `dart analyze`: no issues. All 24 changed Dart files are formatted.
+- Package tests: all 478 passed with two workers in 101 seconds, including the real system-store tests,
+  the real-PTY password prompt, and the changed removal and existing-folder refusal checks. None was skipped.
+- The final targeted frontend run passed 123 tests, covering every touched test, real Git, bring and removal
+  widgets, project-host persistence, settings, recovery, commands, roles, and layout. The 28 tests tagged
+  `documents` passed. The read-only final review and narrow fix rereads found no remaining findings.
 - The opt-in test `the written Matrix block is accepted by the installed transport settings check` was
   skipped because `porelo-message-transport-matrix` is not on PATH. With the installed binary and
   `PORELO_MATRIX_SETTINGS_TEST=1`, it gives the generated block to `settings` as JSON on stdin and requires
@@ -120,7 +180,7 @@ Decided: bringing a project is the project admin's act in their own account; `ho
   implementation, then green. Removal widget checks cover the correct host record and the helper's exit codes;
   replacing its refusal with generic words made the exit-65 widget test fail, then restoring the helper's words
   made it pass. The real project page exposed a missing removal-tile presentation before it was fixed.
-- Existing project-action and recovery tests now cover the added removal command and own-account placement,
+- Existing project-action and recovery tests cover the added removal command and own-account placement,
   retaining the ended setup's billing recovery instead of expecting rental fields in the project dialog.
 - Role, layout, and existing server-admin tests pass. No VM or live-host acceptance run was performed.
 
@@ -172,8 +232,9 @@ repository-key opt-in was not configured. No VM or rented-host acceptance was ru
 
 ## Assumptions
 
-- Admitted hosts are existing watched `kind: host` connections with the person's own login, identity, and pinned
-  trust. The bring does not infer admission from an account name or grant it.
+- The host admin supplies public prepared-host values and has already admitted the person's account. The
+  bring uses that account and identity with the supplied pinned host key; it neither grants admission nor
+  needs a watched machine. Required secrets entries already exist and the stop refuses missing ones.
 - The chosen project public key verifies both the project revision and the access commits. Git's configured
   signer must produce a matching signature; the interface does not choose or replace the person's signing key.
 - The host package follows the agreed room and removal contracts. Its installation and publication are checked

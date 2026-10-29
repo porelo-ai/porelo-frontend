@@ -8,7 +8,6 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/desk.dart';
 import '../app/homeserver_forwards.dart';
-import '../app/host_session.dart';
 import '../app/homeserver_publishing.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
@@ -121,11 +120,6 @@ import 'host_tunnel_export.dart';
 /// bar keeps only what belongs to no machine. Everything else opens over the frame rather than
 /// navigating away from it.
 class Shell extends StatefulWidget {
-  /// Whether the selected host command is present, including a development walk stand-in. A test
-  /// sets it, since whether this computer has `porelo-host` installed is not the test's business.
-  @visibleForTesting
-  static bool poreloHostIsHere = File(poreloHost()).existsSync();
-
   /// Constructor taking everything the frame renders and acts on.
   const Shell({
     required this.machines,
@@ -550,6 +544,7 @@ class _ShellState extends State<Shell> {
 
   List<Command> _hostCommands(Machine machine) {
     final run = _hostRuns.of(machine.hostProject);
+    final record = widget.settings.hostUp(machine.hostProject);
     return [
       ...preparedHostCommands(
         machine: machine,
@@ -558,9 +553,12 @@ class _ShellState extends State<Shell> {
         open: (action) => unawaited(
           openHostAdminDialog(
             context,
-            record: widget.settings.hostUp(machine.hostProject)!,
+            record: record!,
             action: action,
             secretsFile: widget.settings.secretsFile,
+            openTerminal: widget.sessions.openTerminal,
+            environment: desk.environment,
+            onRemoved: (project) => widget.settings.forgetProjectHost(project, host: record.hostName),
           ),
         ),
         showValues: () =>
@@ -782,28 +780,18 @@ class _ShellState extends State<Shell> {
           openTerminal: widget.sessions.openTerminal,
         );
 
-  /// Puts the selected project on a server, by the `porelo-host` shipped beside the interface.
+  /// Brings the selected project onto a prepared host in the person's own account.
   Future<void> _putOnAServer() async {
     final project = _fleet.selectedProject;
     if (project == null) return;
-    final existing = _hostRuns.of(project.name);
-    if (existing != null &&
-        !existing.ready &&
-        !existing.givenBack &&
-        (existing.running || existing.waiting || existing.awaitingVpn)) {
-      await _openHostRun(existing);
-      return;
-    }
     await openHostDialog(
       context,
       backend: _fleet.backend,
       project: project.name,
       machines: widget.machines,
       settings: widget.settings,
-      hostRuns: _hostRuns,
+      openTerminal: widget.sessions.openTerminal,
     );
-    final started = _hostRuns.of(project.name);
-    if (mounted && started != null && started != existing) widget.shell.goTo(Section.machines);
   }
 
   VoidCallback? _takeOffServer(String? project) {
@@ -817,8 +805,10 @@ class _ShellState extends State<Shell> {
         record: record!,
         action: 'remove',
         project: project,
+        environment: desk.environment,
         secretsFile: widget.settings.secretsFile,
         openTerminal: widget.sessions.openTerminal,
+        onRemoved: (removed) => widget.settings.forgetProjectHost(removed, host: record.hostName),
       ),
     );
   }

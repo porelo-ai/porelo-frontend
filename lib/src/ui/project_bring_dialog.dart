@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:porelo_host/porelo_host.dart';
+import 'package:path/path.dart' as path;
 
 import '../app/desk.dart';
 import '../app/fleet_backend.dart';
@@ -14,6 +15,7 @@ import '../app/project_bring.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
+import '../app/read_public_signing_key.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
@@ -32,13 +34,16 @@ class ProjectBringDialog extends StatefulWidget {
     this.hostFiles,
     this.accessRoot,
     this.openTerminal,
+    this.environment,
+    this.runScp,
+    this.targetBackend,
     super.key,
   });
 
   /// The verified, followed project.
   final String project;
 
-  /// The admitted account connections already watched here.
+  /// Already watched machines to refresh after a confirmed bring.
   final Machines machines;
 
   /// The person's secrets-file choice and prepared-host public values.
@@ -65,6 +70,15 @@ class ProjectBringDialog extends StatefulWidget {
   /// The terminal carrying the secrets-file feed.
   final OpenTerminal? openTerminal;
 
+  /// Isolates the host-specific SSH state in tests.
+  final Map<String, String>? environment;
+
+  /// Replaces only scp's process in transport tests.
+  final Future<ProcessResult> Function(String, List<String>)? runScp;
+
+  /// Replaces the post-bring daemon check in widget tests.
+  final FleetBackend? targetBackend;
+
   @override
   State<ProjectBringDialog> createState() => _ProjectBringDialogState();
 }
@@ -73,34 +87,13 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   late final _signingKey = TextEditingController(text: '${desk.home}/.ssh/id_ed25519.pub');
   late final _secretsFile = TextEditingController(text: widget.settings.secretsFile ?? '');
   final _values = TextEditingController();
-  late final _inputs = Listenable.merge([_signingKey, _secretsFile, _values]);
-  Machine? _machine;
+  final _account = TextEditingController();
+  late final _identity = TextEditingController(text: '${desk.home}/.ssh/id_ed25519');
+  late final _inputs = Listenable.merge([_signingKey, _secretsFile, _values, _account, _identity]);
   ProjectBring? _bring;
   SecretStore? _store;
   String? _problem;
   bool _feeding = false;
-
-  List<Machine> get _admitted => widget.machines.all
-      .where(
-        (machine) =>
-            machine.kind == 'host' &&
-            RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@').hasMatch(machine.host) &&
-            !machine.host.startsWith('root@') &&
-            machine.identity.isNotEmpty,
-      )
-      .toList();
-
-  @override
-  void initState() {
-    super.initState();
-    if (_admitted.length == 1) _choose(_admitted.single);
-  }
-
-  void _choose(Machine machine) {
-    _machine = machine;
-    final host = widget.settings.hostUp(machine.hostProject)?.preparedHost;
-    _values.text = host == null ? '' : const JsonEncoder.withIndent('  ').convert(host.values);
-  }
 
   PreparedHost _host() {
     try {
@@ -136,7 +129,7 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     _bring?.removeListener(_changed);
     _bring?.dispose();
     unawaited(_store?.close());
-    for (final controller in [_signingKey, _secretsFile, _values]) {
+    for (final controller in [_signingKey, _secretsFile, _values, _account, _identity]) {
       controller.dispose();
     }
     super.dispose();
@@ -149,16 +142,31 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   Future<void> _start() async {
     setState(() => _problem = null);
     try {
-      final machine = _machine!;
       final host = _host();
-      final knownHosts = poreloHostKnownHosts();
+      checkAdminName(_account.text.trim());
+      final identity = desk.expandHome(_identity.text.trim());
+      if (_account.text.trim() == 'root' ||
+          !path.isAbsolute(identity) ||
+          FileSystemEntity.typeSync(identity, followLinks: false) != FileSystemEntityType.file) {
+        throw const FormatException('Choose your own host account and a plain SSH identity file.');
+      }
+      final hostName = host.values['homeserver']!.split('.')[1];
+      final machine = Machine(
+        name: '${_account.text.trim()}@${host.vpnAddress}',
+        socketPath: '',
+        host: '${_account.text.trim()}@${host.vpnAddress}',
+        kind: 'host',
+        identity: identity,
+        hostProject: hostName,
+      );
+      final knownHosts = '${poreloHostKnownHosts(environment: widget.environment)}.$hostName';
       if (widget.hostFiles == null) _store ??= SecretStore.forThisSystem();
       _bring?.removeListener(_changed);
       _bring?.dispose();
       _bring = ProjectBring(
         project: widget.project,
         backend: widget.backend,
-        targetBackend: widget.machines.of(machine).backend,
+        targetBackend: widget.targetBackend,
         machine: machine,
         host: host,
         knownHosts: knownHosts,
@@ -167,13 +175,21 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         forgeCa: widget.settings.hostUp(host.values['homeserver']!.split('.')[1])?.forgeCa,
         accessRoot: widget.accessRoot ?? '${desk.data}/access',
         remote:
-            widget.remote ?? OpenSsh(knownHosts: File(knownHosts), identity: machine.identity, start: widget.startSsh),
+            widget.remote ??
+            OpenSsh(
+              knownHosts: File(knownHosts),
+              identity: machine.identity,
+              start: widget.startSsh,
+              run: widget.runScp,
+            ),
         files: widget.hostFiles ?? HostFiles(_store!),
         runGit: widget.runGit,
       )..addListener(_changed);
       setState(() {});
       await _bring!.bring();
       await _confirmedBring();
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _problem = error.message);
     } on Exception {
       if (mounted) setState(() => _problem = 'The bring could not start. Check the public host values and file paths.');
     }
@@ -219,7 +235,9 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       }
       return;
     }
-    await widget.machines.of(bring.machine).refresh(quietly: true);
+    for (final watched in widget.machines.all.where((machine) => machine.host == bring.machine.host)) {
+      await widget.machines.of(watched).refresh(quietly: true);
+    }
   }
 
   Widget _field(TextEditingController controller, String label, String key, {int? maxLines = 1}) => TextField(
@@ -254,45 +272,40 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
           ],
         ),
         check: () => _check(() {
-          HostFiles.checkBasename(widget.project);
+          HostFiles.checkProjectName(widget.project);
           final key = File(desk.expandHome(_signingKey.text.trim()));
           if (FileSystemEntity.typeSync(key.path, followLinks: false) != FileSystemEntityType.file) {
             throw const FormatException('Choose a plain public signing key file.');
           }
-          HostFiles.signingFingerprint(key.readAsStringSync());
+          readPublicSigningKey(key);
         }),
         summary: () => [widget.project, 'Signing public key: ${_signingKey.text}'],
       ),
       WizardStep(
         title: 'The server',
-        words: 'Choose a watched host where you have your own admitted SSH account. Paste the public values the host admin gave you. Add another admitted account through Watch another machine… first.',
+        words: 'Paste the JSON the host admin copies from For the project admins. Give your admitted account name and your own SSH identity file. The connection uses the host’s VPN address and supplied SSH host key.',
         panel: (_) => Column(
           mainAxisSize: MainAxisSize.min,
           spacing: Space.small,
           children: [
-            DropdownButton<Machine>(
-              key: const Key('bring-host'),
-              value: _machine,
-              isExpanded: true,
-              hint: const Text('Your admitted host account'),
-              items: [
-                for (final machine in _admitted)
-                  DropdownMenuItem(value: machine, child: Text('${machine.name}: ${machine.host}')),
-              ],
-              onChanged: (machine) {
-                if (machine != null) setState(() => _choose(machine));
-              },
-            ),
+            _field(_account, 'Your admitted account name on the host', 'bring-account'),
+            _field(_identity, 'Your SSH identity file', 'bring-identity'),
             _field(_values, 'Public host values (JSON)', 'bring-host-values', maxLines: null),
           ],
         ),
-        check: () => _machine == null
-            ? 'Choose your admitted host account.'
-            : _check(() {
-                _host();
-              }),
+        check: () => _check(() {
+          _host();
+          checkAdminName(_account.text.trim());
+          final identity = desk.expandHome(_identity.text.trim());
+          if (_account.text.trim() == 'root' ||
+              !path.isAbsolute(identity) ||
+              FileSystemEntity.typeSync(identity, followLinks: false) != FileSystemEntityType.file) {
+            throw const FormatException('Choose your own host account and a plain SSH identity file.');
+          }
+        }),
         summary: () => [
-          _machine?.host ?? 'No admitted account chosen',
+          'Your account: ${_account.text}',
+          'SSH identity: ${_identity.text}',
           'Your pinned SSH host key and own identity; no sudo.',
         ],
       ),

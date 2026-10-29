@@ -495,9 +495,11 @@ void main() {
           await File(place).writeAsString('keep');
       }
       final local = _HomeRemote(home);
-      run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
+      final steps = <Step>[];
+      run = HostRun(provider: CountingProvider(), remote: local, emit: steps.add);
 
       expect(await upload(), Exit.refused);
+      expect(steps.last.words, contains('already exists'));
       expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
       expect(await previous.readAsString(), 'keep');
       switch (kind) {

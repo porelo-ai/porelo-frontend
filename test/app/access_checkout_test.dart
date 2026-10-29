@@ -1,3 +1,7 @@
+// Private checkout and bundle protection invoke chmod on Linux.
+@Tags(['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -17,6 +21,8 @@ void main() {
   late bool signing;
   late bool dirty;
   late bool pushFails;
+  late Map<String, String> heads;
+  late Map<String, String> staged;
 
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('access-checkout-');
@@ -24,6 +30,8 @@ void main() {
     signing = true;
     dirty = false;
     pushFails = false;
+    heads = {};
+    staged = {};
   });
   tearDown(() => scratch.delete(recursive: true));
 
@@ -40,6 +48,19 @@ void main() {
       final destination = Directory(args.last);
       await Directory('${destination.path}/.git').create();
       await File('${destination.path}/access.yml').writeAsString('# Private settings\ndevelopers: {} # Keep people\n');
+      heads[destination.path] = File('${destination.path}/access.yml').readAsStringSync();
+    }
+    if (args.first == 'worktree' && args[1] == 'add') {
+      await File('$inDirectory/access.yml').copy('${args[3]}/access.yml');
+      heads[args[3]] = heads[inDirectory]!;
+    }
+    if (args.first == 'add') {
+      expect(args, ['add', '--', 'access.yml']);
+      staged[inDirectory!] = File('$inDirectory/access.yml').readAsStringSync();
+    }
+    if (args.first == 'commit') {
+      expect(staged[inDirectory], isNot(heads[inDirectory]), reason: 'a commit needs changed staged bytes');
+      heads[inDirectory!] = staged[inDirectory]!;
     }
     final out = switch (args.join(' ')) {
       'config --bool --get commit.gpgsign' => signing ? 'true\n' : '',
@@ -61,7 +82,7 @@ void main() {
     }
     if (args.contains('push') && pushFails) return (code: 1, out: '', err: 'private credential fixture');
     if (args.contains('bundle')) await File(args[2]).writeAsString('bundle fixture');
-    return (code: args.first == 'diff' ? 1 : 0, out: out, err: '');
+    return (code: args.first == 'diff' && staged[inDirectory] != heads[inDirectory] ? 1 : 0, out: out, err: '');
   }
 
   Future<AccessCheckout> checkout() async {
@@ -138,8 +159,9 @@ void main() {
     final access = await checkout();
     await access.open();
     await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
-    await access.commitPushAndBundle('${scratch.path}/access.bundle');
     final contents = File('${access.folder}/access.yml').readAsStringSync();
+    final mode = (await Directory(access.folder).stat()).mode & 0x1ff;
+    await access.commitPushAndBundle('${scratch.path}/access.bundle');
     expect(contents, contains('# Private settings'));
     expect(contents, contains('# Keep people'));
     final yaml = loadYaml(contents);
@@ -154,7 +176,7 @@ void main() {
     expect(commands.singleWhere((args) => args.first == 'commit'), contains('-S'));
     expect(commands.singleWhere((args) => args.first == 'push'), ['push', 'origin', 'HEAD:main']);
     expect(commands.expand((command) => command), isNot(contains('project.yml')));
-    expect((await Directory(access.folder).stat()).mode & 0x1ff, 0x1c0);
+    expect(mode, 0x1c0);
     expect(File('${scratch.path}/access.bundle').existsSync(), isTrue);
   });
 
@@ -247,6 +269,15 @@ room: '#old:old.example.org', tls_verify: false}} # Keep transport note
     });
   }
 
+  // Harm: retrying an already published configuration must not sign or push an extra commit.
+  test('unchanged access bytes create no commit or push', () async {
+    final access = await checkout();
+    await access.open();
+    await access.commitPushAndBundle('${scratch.path}/access.bundle');
+    expect(commands.where((args) => args.first == 'commit' || args.first == 'push'), isEmpty);
+    expect(File('${scratch.path}/access.bundle').existsSync(), isTrue);
+  });
+
   // Harm: overwriting a dirty checkout loses private, unpublished work.
   test('dirty access work is preserved before fetching or editing', () async {
     final access = await checkout();
@@ -261,6 +292,7 @@ room: '#old:old.example.org', tls_verify: false}} # Keep transport note
   test('a refused push produces no bundle and reveals no git diagnostics', () async {
     final access = await checkout();
     await access.open();
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
     pushFails = true;
     await expectLater(
       access.commitPushAndBundle('${scratch.path}/access.bundle'),

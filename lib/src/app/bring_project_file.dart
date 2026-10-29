@@ -67,7 +67,7 @@ class BringProjectFile {
       }
       for (final name in mapping.keys) {
         if (name is! String) throw const WorkspaceRefused('project.yml credentials must name vault entries.');
-        HostFiles.checkBasename(name);
+        SecretsFile.checkKeyName(name);
         entries.add(name);
       }
     }

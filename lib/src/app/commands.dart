@@ -716,7 +716,7 @@ Command takeProjectOffServerCommand(String? project, {VoidCallback? run}) => Com
       : project == defaultProject
       ? 'default is this machine’s own'
       : !roles.holds(Role.hostAdmin) || run == null
-      ? 'the host admin takes a project off its server'
+      ? 'the host admin takes it off from the server’s menu (Take the project off)'
       : null,
 );
 
