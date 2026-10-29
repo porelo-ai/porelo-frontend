@@ -509,7 +509,11 @@ void main() {
         host: PreparedHost.read(hostValues()),
         action: 'purge',
         remote: remote,
-        prepareRemote: () async => pinnedFirst = remote.commands.isEmpty,
+        // The pinning waits a turn, as writing known_hosts does, so a call made without awaiting it shows.
+        prepareRemote: () async {
+          await Future<void>.delayed(Duration.zero);
+          pinnedFirst = remote.commands.isEmpty;
+        },
       ),
     );
     await tester.enterText(find.byKey(const Key('host-admin-name')), 'alice');

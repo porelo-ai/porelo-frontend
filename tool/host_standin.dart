@@ -227,8 +227,8 @@ Future<int> _run(List<String> arguments) async {
 // interface refuses any other key. Null where the interface's settings hold none.
 Future<String?> _preparedServerKey(String host) async {
   final environment = Platform.environment;
-  final set = environment['XDG_CONFIG_HOME'];
-  final configuration = set != null && set.isNotEmpty ? set : '${environment['HOME']}/.config';
+  final configHome = environment['XDG_CONFIG_HOME'];
+  final configuration = configHome != null && configHome.isNotEmpty ? configHome : '${environment['HOME']}/.config';
   try {
     final settings = jsonDecode(await File('$configuration/porelo/frontend.json').readAsString());
     if (settings case {'hostUps': final Map<String, dynamic> hosts}) {

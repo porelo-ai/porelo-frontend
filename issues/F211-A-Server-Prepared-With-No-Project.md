@@ -1,6 +1,6 @@
 # F211 — A Server Prepared With No Project
 
-**Status:** Implementing; blocked by [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210) and [F212](README.md#f212).
+**Status:** Review; blocked by [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210) and [F212](README.md#f212).
 **Size:** L - the host dialog cut to the host admin's act, three new functions on a prepared host, on contracts with `porelo-host`.
 
 **What must be true.** A host admin prepares a server under *Machines* with no project: rented, its VPN, its forge (on by default, off where a central forge is used), its homeserver, its CA; then registers a project for its admin, admits project admins by hand from their public keys, and gives the server back. The values a project admin needs are shown for them to write into the project's access file.
