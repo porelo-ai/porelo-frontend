@@ -25,7 +25,8 @@ Decided: setting up a host and putting a project on it are two acts, by two peop
   `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`), `porelo_host_network` (`<n>`, 0 to 255; the host is `10.73.<n>.1/24`),
   `porelo_host_distribution`, `porelo_host_vpn_peer_public_key`, `porelo_host_vpn_peer_address` (the host admin's
   laptop, in `10.73.<n>.0/24`, not `.1`) and `porelo_host_forge`; no account, project or authorized key.
-- **The end of `up`:** one line `porelo-host: host {json}`, the same JSON in `/etc/porelo-host/host.json`: `address`,
+- **The end of `up`:** once, after its last `ok`, one line of the step protocol
+  `{"v": 1, "state": "host", "host": {…}}`; the same object in `/etc/porelo-host/host.json`: `address`,
   `endpoint` (`<address>:51820`), `wireguard_public_key`, `network`, `ssh_host_key`, `ca_sha256` (lower-case hex of
   the CA's DER) and `homeserver`. Each field is checked here and a missing one refused by name; an unknown one is
   ignored; the ssh host key's fingerprint is computed here.
