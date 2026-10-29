@@ -19,7 +19,14 @@ if [ ! -f "$state/complete" ]; then
     exit 0
 fi
 developer=$(cat "$state/developer")
-[ "${SUDO_USER:-}" != "$developer" ] || refuse "log out of $developer and run this from your own login"
+# Nothing this runs from may belong to the developer, however root was reached: their processes end below.
+uid=$(id -u "$developer" 2> /dev/null || true)
+pid=$$
+while [ -n "$uid" ] && [ "$pid" -gt 1 ]; do
+    awk -v uid="$uid" '/^Uid:/ { for (i = 2; i <= 5; i++) if ($i == uid) found = 1 } END { exit !found }' "/proc/$pid/status" &&
+        refuse "this runs inside $developer's login; log out of $developer and run it from your own"
+    pid=$(awk '/^PPid:/ { print $2 }' "/proc/$pid/status")
+done
 echo "ok: record in $state for $developer"
 
 step b-remove.2 "the VPN configurations the walk added are down and gone"
@@ -49,16 +56,18 @@ fi
 
 step b-remove.4 "the account $developer as it was before the walk"
 if [ "$(cat "$state/account-was-here")" = yes ]; then
-    if [ "$(cat "$state/sudo-was-given")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
+    if [ "$(cat "$state/had-sudo-before")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
         echo "taking $developer out of the sudo group, as before the walk"
         gpasswd -d "$developer" sudo
     fi
     echo "ok: $developer was here before the walk; kept"
 elif id "$developer" > /dev/null 2>&1; then
     echo "ending $developer's processes and removing the account with its home"
+    pkill -KILL -U "$developer" || true
     pkill -KILL -u "$developer" || true
-    for _ in $(seq 20); do pgrep -u "$developer" > /dev/null || break; sleep 0.5; done
-    pgrep -u "$developer" > /dev/null && refuse "$developer's processes do not end; log it out and run this again"
+    left() { pgrep -U "$developer" > /dev/null || pgrep -u "$developer" > /dev/null; }
+    for _ in $(seq 20); do left || break; sleep 0.5; done
+    left && refuse "$developer's processes do not end; log it out and run this again"
     userdel --remove "$developer"
     echo "ok: $developer removed"
 else
@@ -67,11 +76,12 @@ fi
 
 step b-remove.5 "porelo as before the walk"
 before=$(cat "$state/porelo-version")
-if [ "$(dpkg-query -W -f='${db:Status-Status}' porelo 2> /dev/null || true)" = installed ]; then
-    now=$(dpkg-query -W -f='${Version}' porelo)
-else
-    now=
-fi
+status=$(dpkg-query -W -f='${db:Status-Status}' porelo 2> /dev/null || true)
+case $status in
+installed) now=$(dpkg-query -W -f='${Version}' porelo) ;;
+'' | not-installed | config-files) now= ;;
+*) refuse "porelo is $status, half installed; repair it with sudo apt-get -f install and run this again" ;;
+esac
 if [ "$now" = "$before" ]; then
     echo "ok: porelo ${before:-not installed}, as before"
 elif [ -z "$before" ]; then

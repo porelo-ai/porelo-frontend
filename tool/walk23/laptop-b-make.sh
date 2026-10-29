@@ -43,7 +43,7 @@ if [ -f "$state/complete" ]; then
 else
     if id "$developer" > /dev/null 2>&1; then
         account=yes
-    elif [ -e "/home/$developer" ]; then
+    elif [ -e "/home/$developer" ] || [ -L "/home/$developer" ]; then
         refuse "/home/$developer is there without an account; move it away first, so that the removal cannot take it"
     else
         account=no
@@ -52,7 +52,7 @@ else
     printf '%s\n' "$developer" > "$record/developer"
     printf '%s\n' "$account" > "$record/account-was-here"
     if [ "$account" = yes ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then sudo=yes; else sudo=no; fi
-    printf '%s\n' "$sudo" > "$record/sudo-was-given"
+    printf '%s\n' "$sudo" > "$record/had-sudo-before"
     if installed; then dpkg-query -W -f='${Version}\n' porelo > "$record/porelo-version"; else : > "$record/porelo-version"; fi
     find /etc/wireguard -maxdepth 1 -name '*.conf' -printf '%f\n' > "$record/wireguard" 2> /dev/null || : > "$record/wireguard"
     cp /etc/hosts "$record/hosts"
@@ -65,15 +65,17 @@ else
 fi
 
 step b-make.4 "the account $developer, with a password, in the sudo group"
-if id "$developer" > /dev/null 2>&1; then
-    echo "ok: $developer is here already, kept"
-else
+if ! id "$developer" > /dev/null 2>&1; then
     echo "making the account $developer with a home"
     useradd --create-home --shell /bin/bash "$developer"
 fi
-if [ "$(passwd -S "$developer" | awk '{ print $2 }')" != P ]; then
-    echo "$developer has no usable password yet; passwd asks it now"
+if [ "$(passwd -S "$developer" | awk '{ print $2 }')" = P ]; then
+    echo "ok: $developer is here with a password"
+elif [ "$(cat "$state/account-was-here")" = no ]; then
+    echo "$developer has no password yet; passwd asks it now"
     passwd "$developer"
+else
+    refuse "$developer was here before the walk without a password; give it one yourself, as the walk does not change it"
 fi
 if id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
     echo "ok: $developer is in the sudo group"
