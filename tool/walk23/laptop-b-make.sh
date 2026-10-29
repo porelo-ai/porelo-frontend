@@ -79,9 +79,11 @@ if ! id "$developer" > /dev/null 2>&1; then
 fi
 if [ "$(passwd -S "$developer" | awk '{ print $2 }')" = P ]; then
     echo "ok: $developer is here with a password"
-else
+elif [ "$(cat "$state/account-was-here")" = no ]; then
     echo "$developer has no password yet; passwd asks it now"
     passwd "$developer"
+else
+    refuse "$developer was here before the walk and has lost its password; give it one yourself, as the walk does not change it"
 fi
 if id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
     echo "ok: $developer is in the sudo group"
