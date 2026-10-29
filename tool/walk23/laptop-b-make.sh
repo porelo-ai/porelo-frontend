@@ -74,6 +74,8 @@ fi
 
 step b-make.4 "the account $developer, with a password, in the sudo group"
 if ! id "$developer" > /dev/null 2>&1; then
+    [ "$(cat "$state/account-was-here")" = no ] ||
+        refuse "$developer was here before the walk and is gone; run laptop-b-remove.sh first, so that the record starts anew"
     echo "making the account $developer with a home"
     useradd --create-home --shell /bin/bash "$developer"
 fi
