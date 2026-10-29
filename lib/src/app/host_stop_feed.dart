@@ -64,29 +64,24 @@ List<String> hostStopFeedCommand({
     throw const FormatException('The own-account stop needs the person\'s login, never root.');
   }
   if (act == HostAct.ownAccount) {
-    const options = {
-      'StrictHostKeyChecking=yes',
-      'GlobalKnownHostsFile=none',
-      'KnownHostsCommand=none',
-      'VerifyHostKeyDNS=no',
-      'UpdateHostKeys=no',
-      'BatchMode=yes',
-      'ForwardAgent=no',
-      'ForwardX11=no',
-      'IdentitiesOnly=yes',
-      'ControlMaster=no',
-      'ControlPath=none',
-    };
-    for (var index = 0; index < sshOptions.length; index += 2) {
-      final option = sshOptions[index];
+    final pinned = pinnedHostSshOptions('', '');
+    for (var index = 0; index < pinned.length || index < sshOptions.length; index += 2) {
+      final option = index < sshOptions.length ? sshOptions[index] : '';
       final value = index + 1 < sshOptions.length ? sshOptions[index + 1] : '';
-      final allowed = switch (option) {
-        '-o' => options.contains(value) || RegExp(r'^UserKnownHostsFile="/[^"\r\n\x00]+"$').hasMatch(value),
-        '-i' => value.startsWith('/') && !RegExp(r'[\r\n\x00]').hasMatch(value),
-        _ => false,
-      };
-      if (!allowed) {
-        throw FormatException('The own-account stop does not accept SSH option $option $value.');
+      final expected = index < pinned.length ? pinned[index] : '';
+      final expectedValue = index + 1 < pinned.length ? pinned[index + 1] : '';
+      final matches =
+          option == expected &&
+          expected.isNotEmpty &&
+          switch (expectedValue) {
+            'UserKnownHostsFile=""' => RegExp(r'^UserKnownHostsFile="/[^"\r\n\x00]+"$').hasMatch(value),
+            '' => value.startsWith('/') && !RegExp(r'[\r\n\x00]').hasMatch(value),
+            _ => value == expectedValue,
+          };
+      if (!matches) {
+        throw FormatException(
+          'The own-account stop does not accept SSH option $option $value; expected $expected $expectedValue.',
+        );
       }
     }
   }

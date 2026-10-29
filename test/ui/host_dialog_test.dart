@@ -2357,6 +2357,188 @@ void main() {
     expect(settings.secretsFile, fixture('other-secrets.kdbx'));
   });
 
+  // Harm: a superseded terminal answer changes settings or cached keys for the current wizard inputs.
+  for (final outcome in ['success', 'refusal']) {
+    for (final edited in ['file path', 'server name', 'vault entries']) {
+      hostWidgets('a late secrets $outcome after changing $edited is discarded', (tester) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        secretsCliPresent();
+        final settings = newSettings(MemorySettingsStore());
+        final saved = File(fixture('saved.kdbx'))..writeAsStringSync('saved encrypted fixture');
+        final first = File(fixture('first.kdbx'))..writeAsStringSync('first encrypted fixture');
+        final second = File(fixture('second.kdbx'))..writeAsStringSync('second encrypted fixture');
+        await settings.rememberSecretsFile(saved.path);
+        final pending = Completer<String>();
+        var opens = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HostDialog(
+                project: edited == 'server name' ? '' : 'demo',
+                debug: edited != 'server name',
+                settings: settings,
+                machines: machines,
+                hostRuns: runs,
+                hostFiles: filesFor,
+                checkKey: _acceptedKey,
+                pickFile: (_) async => fixture('new'),
+                openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+                  opens++;
+                  return opens == 1 ? pending.future : _secretsOpened(file: file, project: project);
+                },
+              ),
+            ),
+          ),
+        );
+        if (edited == 'server name') {
+          await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'project');
+          await World.settle(tester);
+          await navigate(tester, 'wizard-next');
+          await tester.enterText(find.byKey(const Key('host-name')), 'orchard');
+          await World.settle(tester);
+          await navigate(tester, 'wizard-next');
+          await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
+          await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
+          await World.settle(tester);
+          await navigate(tester, 'wizard-next');
+        } else {
+          await fillSteps(tester, {
+            'host-scaleway-project': 'project',
+            'host-signing-key': fixture('signing.pub'),
+          }, stopAt: 3);
+        }
+        await tester.enterText(find.byKey(const Key('host-secrets-file')), first.path);
+        await World.settle(tester);
+        await tester.tap(find.byKey(const Key('host-secrets-open')));
+        await tester.pump();
+        expect(opens, 1);
+        if (edited == 'file path') {
+          await tester.enterText(find.byKey(const Key('host-secrets-file')), second.path);
+        } else {
+          await navigate(tester, 'wizard-back');
+          await navigate(tester, 'wizard-back');
+          if (edited == 'server name') {
+            await tester.enterText(find.byKey(const Key('host-name')), 'meadow');
+          } else {
+            await tester.enterText(find.byKey(const Key('host-key-name')), 'extra');
+            await tester.ensureVisible(find.text('Choose a file for this vault entry'));
+            await tester.tap(find.text('Choose a file for this vault entry'));
+          }
+          await World.settle(tester);
+          await navigate(tester, 'wizard-next');
+          await navigate(tester, 'wizard-next');
+        }
+        await tester.runAsync(() async {
+          if (outcome == 'success') {
+            pending.complete(await _secretsOpened(file: first.path, project: 'orchard'));
+          } else {
+            pending.completeError(const host.HostFilesRefused('The superseded open failed.'));
+          }
+          await Future<void>.delayed(Duration.zero);
+        });
+        await World.settle(tester);
+        expect(settings.secretsFile, saved.path, reason: 'a superseded open must not persist its path');
+        expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+        expect(find.text('The superseded open failed.'), findsNothing);
+        await tapAndRun(tester, const Key('host-secrets-open'));
+        expect(opens, 2, reason: 'the current inputs need their own open');
+        expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+      });
+    }
+  }
+
+  // Harm: merely selecting text hides the refusal that still applies to these exact inputs.
+  hostWidgets('selecting the secrets path preserves its refusal', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    secretsCliPresent();
+    final settings = newSettings(MemorySettingsStore());
+    final file = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted fixture');
+    await settings.rememberSecretsFile(file.path);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            settings: settings,
+            machines: machines,
+            hostRuns: runs,
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+              throw const host.HostFilesRefused('This file did not open.');
+            },
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-signing-key': fixture('signing.pub'),
+    }, stopAt: 3);
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.text('This file did not open.'), findsOneWidget);
+    final controller = tester.widget<TextField>(find.byKey(const Key('host-secrets-file'))).controller!;
+    controller.selection = const TextSelection.collapsed(offset: 1);
+    await World.settle(tester);
+    expect(find.text('This file did not open.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), fixture('other.kdbx'));
+    await World.settle(tester);
+    expect(find.text('This file did not open.'), findsNothing);
+  });
+
+  // Harm: an unforwarded legacy link or directory lets the opener mutate the secrets file before refusing it.
+  for (final kind in ['dangling link', 'directory']) {
+    hostWidgets('a legacy drive $kind reaches the opener before any secrets mutation', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      secretsCliPresent();
+      final settings = newSettings(MemorySettingsStore());
+      final file = File(fixture('secrets.kdbx'))..writeAsStringSync('unchanged encrypted fixture');
+      final legacy = fixture('old-drive/porelo-host/wireguard.key');
+      Directory(path.dirname(legacy)).createSync(recursive: true);
+      if (kind == 'directory') {
+        Directory(legacy).createSync();
+      } else {
+        Link(legacy).createSync(fixture('missing'));
+      }
+      await settings.rememberTresorFolder('demo', fixture('old-drive'));
+      await settings.rememberSecretsFile(file.path);
+      String? migration;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: 'demo',
+              settings: settings,
+              machines: machines,
+              hostRuns: runs,
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+                migration = migrateKeyFrom;
+                if (migrateKeyFrom == null) File(file).writeAsStringSync('unexpected mutation');
+                throw const host.HostFilesRefused('The legacy path was refused before writing.');
+              },
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project',
+        'host-signing-key': fixture('signing.pub'),
+      }, stopAt: 3);
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(migration, legacy);
+      expect(file.readAsStringSync(), 'unchanged encrypted fixture');
+      expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+    });
+  }
+
   // Harm: a failed open for another file hides the valid cached result when returning to the first file.
   hostWidgets('returning to the opened file clears another file refusal and restores readiness', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);

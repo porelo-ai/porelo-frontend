@@ -123,26 +123,68 @@ void main() {
     expect(await previous.readAsString(), 'previous upload');
   });
 
-  // Harm: shell startup output leaves a reservation behind and blocks every retry.
-  test('a refusal after staging reservation removes the empty directory', () async {
-    final home = await Directory('${scratch.path}/person home').create();
-    final local = _HomeRemote(home, failReservation: true);
-    run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
-    expect(await upload(), Exit.refused);
-    expect(await Directory('${home.path}/${HostAct.ownAccount.setupPlace}.upload').exists(), isFalse);
-    expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
-  });
-
   for (final session in [1, 2, 3, 4]) {
-    test('startup output in session $session refuses the upload and removes its reservations', () async {
+    test('startup output in session $session refuses the upload and preserves unproven files', () async {
       final home = await Directory('${scratch.path}/person home').create();
       final local = _HomeRemote(home, noisySession: session);
       run = HostRun(provider: CountingProvider(), remote: local, emit: (_) {});
       expect(await upload(), Exit.refused);
       final place = '${home.path}/${HostAct.ownAccount.setupPlace}';
-      expect(await Directory(place).exists(), isFalse);
+      expect(await Directory(place).exists(), session == 4);
+      if (session == 4) {
+        expect(await File('$place/machine.yml').readAsBytes(), machine.readAsBytesSync());
+      }
       expect(await Directory('$place.upload').exists(), isFalse);
       if (session <= 2) expect(local.commands.where((command) => command.startsWith('copy ')), isEmpty);
+    });
+  }
+
+  // Harm: inherited Bash startup commands redirect private setup material outside the checked home.
+  test('an inherited BASH_ENV cannot change the upload home or consume checksum input', () async {
+    final home = (remote as _HomeRemote).home;
+    final outside = await Directory('${scratch.path}/outside').create();
+    final startup = await File('${scratch.path}/startup').writeAsString(
+      'printf ran >> ${quoteForAShell('${scratch.path}/startup-ran')}\n'
+      'export HOME=${quoteForAShell(outside.path)}\n'
+      'read -r consumed || true\n',
+    );
+    remote = _HomeRemote(
+      home,
+      shellEnvironment: {'BASH_ENV': startup.path, 'ENV': startup.path, 'SHELLOPTS': 'xtrace', 'BASHOPTS': 'nullglob'},
+    );
+    run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
+    expect(await upload(), isNull);
+    expect(await File('${scratch.path}/startup-ran').exists(), isFalse);
+    expect(await outside.list().toList(), isEmpty);
+    expect(
+      await File('${home.path}/${HostAct.ownAccount.setupPlace}/machine.yml').readAsBytes(),
+      machine.readAsBytesSync(),
+    );
+  });
+
+  // Harm: a shell wrapper exits successfully without running the reservation or placement, and cleanup deletes another upload.
+  for (final session in [2, 4]) {
+    test('an early successful login exit in session $session preserves existing setup names', () async {
+      final home = (remote as _HomeRemote).home;
+      final target = '${home.path}/${HostAct.ownAccount.setupPlace}${session == 2 ? '.upload' : ''}';
+      remote = _HomeRemote(
+        home,
+        noisySession: session,
+        skipSession: session,
+        beforeSession: (number) async {
+          if (number != session) return;
+          await Directory(target).create(recursive: true);
+          for (final name in ['machine.yml', 'demo.bundle', 'demo-access.bundle']) {
+            await File('$target/$name').writeAsString('another upload');
+          }
+        },
+      );
+      run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
+      expect(await upload(), Exit.refused);
+      for (final name in ['machine.yml', 'demo.bundle', 'demo-access.bundle']) {
+        expect(await File('$target/$name').readAsString(), 'another upload');
+      }
+      if (session == 4) expect(await Directory('$target.upload').exists(), isFalse);
     });
   }
 
@@ -383,7 +425,9 @@ class _HomeRemote extends ScriptedRemote {
     this.copyDirectory,
     this.installHook,
     this.noisySession,
-    this.failReservation = false,
+    this.shellEnvironment = const {},
+    this.skipSession,
+    this.beforeSession,
   }) : super([]);
 
   final Directory home;
@@ -394,7 +438,9 @@ class _HomeRemote extends ScriptedRemote {
   final Directory? copyDirectory;
   final String? installHook;
   final int? noisySession;
-  final bool failReservation;
+  final Map<String, String> shellEnvironment;
+  final int? skipSession;
+  final Future<void> Function(int)? beforeSession;
 
   @override
   Future<RemoteResult> run(
@@ -405,11 +451,10 @@ class _HomeRemote extends ScriptedRemote {
     void Function(String line)? onLine,
   }) async {
     await super.run(host, user, command, input: input);
-    const bash = '/bin/bash --noprofile --norc -c ';
+    const bash = '/usr/bin/env -u BASH_ENV -u ENV -u SHELLOPTS -u BASHOPTS /bin/bash --noprofile --norc -c ';
     final wrapped = command.startsWith(bash);
     var script = wrapped ? command.substring(bash.length + 1, command.length - 1).replaceAll(r"'\''", "'") : command;
     final original = script;
-    if (failReservation) script = script.replaceFirst('reserved=1\ntrap - EXIT', 'reserved=1\nfalse\ntrap - EXIT');
     if (script.contains('sudo')) return const RemoteResult(65, 'sudo is forbidden in the own account');
     if (script.contains('sha256sum') &&
         corruptStaging != null &&
@@ -425,11 +470,15 @@ class _HomeRemote extends ScriptedRemote {
       script = script.replaceFirst('/usr/bin/install -m 0600', '{ $installHook; } && /usr/bin/install -m 0600');
     }
     if (script != original) command = wrapped ? '$bash${quoteForAShell(script)}' : script;
+    await beforeSession?.call(runs.length);
     final process = await Process.start(
       '/bin/sh',
-      ['-c', 'umask 000;\n${runs.length == noisySession ? "printf 'shell startup output\\n';\n" : ""}$command'],
+      [
+        '-c',
+        'umask 000;\n${runs.length == noisySession ? "printf 'shell startup output\\n';\n" : ""}${runs.length == skipSession ? "/usr/bin/cat >/dev/null; exit 0" : command}',
+      ],
       workingDirectory: home.path,
-      environment: {'HOME': homeValue ?? home.path, 'BASH_ENV': '/dev/null', 'ENV': '/dev/null'},
+      environment: {'HOME': homeValue ?? home.path, ...shellEnvironment},
     );
     final output = process.stdout
         .transform(utf8.decoder)

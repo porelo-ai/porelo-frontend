@@ -842,10 +842,11 @@ class HostRun {
     String user,
     Map<String, ({String path, String digest})> files,
   ) async {
+    // The remote login shell is Bash by porelo-host's account-creation contract.
     Future<RemoteResult> runScript(String script, {String? input, void Function(String)? onLine}) => remote.run(
       address,
       user,
-      '/bin/bash --noprofile --norc -c ${quoteForAShell(script)}',
+      '/usr/bin/env -u BASH_ENV -u ENV -u SHELLOPTS -u BASHOPTS /bin/bash --noprofile --norc -c ${quoteForAShell(script)}',
       input: input,
       onLine: onLine,
     );
@@ -884,7 +885,10 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         '/usr/bin/rmdir -- ${q(staging)}\n'
         'else echo ${q('Cannot safely clean staging at $staging.')} >&2; return 1; fi';
     Future<int> refused(RemoteResult result, String fix) async {
-      final cleaned = await runScript('$prefix\nclean_staging() { $removeStaging; }\nclean_staging');
+      final cleaned = await runScript(
+        '$prefix\nif test ! -e ${q(staging)} && test ! -L ${q(staging)}; then exit 0; fi\n'
+        'clean_staging() { $removeStaging; }\nclean_staging',
+      );
       return _refused(
         'copy',
         RemoteResult(result.exitCode, [result.stderr, cleaned.stderr].where((line) => line.isNotEmpty).join('\n')),
@@ -897,31 +901,24 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
       [
         'set -e',
         prefix,
-        'reserved=0',
-        'cleanup_reservation() {',
-        '  result=\$?; trap - EXIT',
-        '  if [ "\$reserved" = 1 ]; then',
-        '    if safe && ${plainDirectory(staging)}; then /usr/bin/rmdir -- ${q(staging)} || result=1;',
-        '    else echo ${q('Cannot safely clean staging at $staging.')} >&2; result=1; fi',
-        '  fi',
-        '  exit "\$result"',
-        '}',
-        'trap cleanup_reservation EXIT',
         for (final parent in parents)
           'test ! -L ${underHome(parent)} && '
               '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
         'test ! -e ${q(destination)} && test ! -L ${q(destination)} || exit 1',
         '/usr/bin/mkdir -m 0700 ${q(staging)}',
-        'reserved=1',
-        'trap - EXIT',
       ].join('\n'),
       onLine: lines.add,
     );
     if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
     if (lines.isNotEmpty) {
-      return refused(
-        const RemoteResult(1, 'The host printed unexpected startup output.'),
-        'the setup reservation was refused',
+      final cleaned = await runScript('$prefix\nsafe && ${plainDirectory(staging)} && /usr/bin/rmdir -- ${q(staging)}');
+      return _refused(
+        'copy',
+        RemoteResult(
+          1,
+          ['The host printed unexpected startup output.', cleaned.stderr].where((line) => line.isNotEmpty).join('\n'),
+        ),
+        'the setup reservation was refused; any populated reservation was preserved',
       );
     }
     for (final file in files.entries) {
@@ -990,17 +987,15 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
     if (lines.isNotEmpty) {
       final cleaned = await runScript(
         '$prefix\nif safe && ${plainDirectory(destination)}; then\n'
-        '  /usr/bin/rm -f -- ${files.keys.map((name) => q('$destination/$name')).join(' ')} && '
-        '/usr/bin/rmdir -- ${q(destination)}\n'
+        '  /usr/bin/rmdir -- ${q(destination)}\n'
         'else echo ${q('Cannot safely clean setup at $destination.')} >&2; exit 1; fi',
       );
-      return _refused(
-        'copy',
+      return refused(
         RemoteResult(
           1,
           ['The host printed unexpected startup output.', cleaned.stderr].where((line) => line.isNotEmpty).join('\n'),
         ),
-        'the setup placement was refused',
+        'the setup placement was refused; any populated setup was preserved',
       );
     }
     return null;

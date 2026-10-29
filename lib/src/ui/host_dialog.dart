@@ -236,7 +236,7 @@ class _HostDialogState extends State<HostDialog> {
   String? _hostPublicKey;
   ({String file, String host, String drive, String keys})? _hostPublicKeyFor;
   bool _openingSecrets = false;
-  String? _secretsAnswer;
+  ({String message, List<String?> inputs})? _secretsAnswer;
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   final _protocolScroll = ScrollController();
@@ -1477,7 +1477,7 @@ class _HostDialogState extends State<HostDialog> {
             ),
             // Without keepassxc-cli the step says it once, above; an answer from before would say it twice.
             if (_secretsAnswer case final answer? when keepassxcCliIsHere)
-              Text(answer, key: const Key('host-secrets-answer')),
+              Text(answer.message, key: const Key('host-secrets-answer')),
             if (keepassxcCliIsHere && _secretsReady)
               const Text('Ready: the file keeps the server’s keys.', key: Key('host-secrets-ready')),
           ],
@@ -1536,11 +1536,13 @@ class _HostDialogState extends State<HostDialog> {
     _secretsPath,
     _hostId,
     _drivesKey,
-    for (final key in _keys) ...[key.name, key.file.absolute.path],
+    _hostKeyState(file: _secretsPath, host: _hostId, drive: _drivesKey, keys: _hostKeyFiles).keys,
   ];
 
   void _secretsInputsChanged() {
-    if (_secretsAnswer != null) setState(() => _secretsAnswer = null);
+    if (_secretsAnswer case final answer? when !listEquals(answer.inputs, _secretsInputs)) {
+      setState(() => _secretsAnswer = null);
+    }
   }
 
   bool get _secretsReady =>
@@ -1593,9 +1595,13 @@ class _HostDialogState extends State<HostDialog> {
     try {
       await _hostKeyFromTheSecretsFile();
     } on HostFilesRefused catch (refusal) {
-      if (mounted && listEquals(inputs, _secretsInputs)) setState(() => _secretsAnswer = refusal.message);
+      if (mounted && listEquals(inputs, _secretsInputs)) {
+        setState(() => _secretsAnswer = (message: refusal.message, inputs: inputs));
+      }
     } on FormatException catch (refusal) {
-      if (mounted && listEquals(inputs, _secretsInputs)) setState(() => _secretsAnswer = refusal.message);
+      if (mounted && listEquals(inputs, _secretsInputs)) {
+        setState(() => _secretsAnswer = (message: refusal.message, inputs: inputs));
+      }
     } finally {
       if (mounted) setState(() => _openingSecrets = false);
     }
@@ -1603,6 +1609,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The host key's public half from the secrets file, opened once per file and kept for the setup that follows.
   Future<String> _hostKeyFromTheSecretsFile() async {
+    final inputs = _secretsInputs;
     final file = _secretsPath;
     final host = _hostId;
     final drivesKey = _drivesKey;
@@ -1618,9 +1625,17 @@ class _HostDialogState extends State<HostDialog> {
     final key = await open(
       file: file,
       project: host,
-      migrateKeyFrom: drivesKey != null && File(drivesKey).existsSync() ? drivesKey : null,
+      migrateKeyFrom:
+          drivesKey != null && FileSystemEntity.typeSync(drivesKey, followLinks: false) != FileSystemEntityType.notFound
+          ? drivesKey
+          : null,
       keys: keys,
     );
+    if (!mounted || !listEquals(inputs, _secretsInputs)) {
+      throw const HostFilesRefused(
+        'The secrets inputs changed while the file was open; open it for the current inputs.',
+      );
+    }
     HostFiles.checkPublicKey(key);
     _checkDriveKeyMoved();
     _hostPublicKey = key;

@@ -3,7 +3,7 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:porelo_frontend/src/app/host_stop_feed.dart';
 
 void main() {
-  List<String> command(HostAct act, List<String> needs, {String? host, List<String> sshOptions = const []}) =>
+  List<String> command(HostAct act, List<String> needs, {String? host, List<String>? sshOptions}) =>
       hostStopFeedCommand(
         secretsFile: '/tmp/secrets.kdbx',
         project: 'checkout',
@@ -11,7 +11,7 @@ void main() {
         needs: needs,
         keys: const ['forge'],
         ssh: '/usr/bin/ssh',
-        sshOptions: sshOptions,
+        sshOptions: sshOptions ?? pinnedHostSshOptions('/tmp/known_hosts', '/tmp/identity'),
         host: host ?? (act == HostAct.root ? 'root@203.0.113.7' : 'developer@203.0.113.7'),
         act: act,
       );
@@ -50,6 +50,34 @@ void main() {
       expect(
         () => command(HostAct.ownAccount, ['vault'], sshOptions: options),
         throwsA(isA<FormatException>().having((error) => error.message, 'refused option', contains(options.first))),
+      );
+    });
+  }
+
+  // Harm: a partial or duplicated pin policy reuses another login's socket or trusts unpinned keys.
+  final pinned = pinnedHostSshOptions('/tmp/known_hosts', '/tmp/identity');
+  for (final (name, options, refused) in [
+    ('empty policy', <String>[], 'StrictHostKeyChecking=yes'),
+    ('missing pair', [...pinned.take(20), ...pinned.skip(22)], 'ControlMaster=no'),
+    (
+      'duplicate known hosts',
+      [...pinned.take(4), '-o', 'UserKnownHostsFile="/tmp/other"', ...pinned.skip(4)],
+      'UserKnownHostsFile="/tmp/other"',
+    ),
+    ('bad pair after valid pairs', [...pinned.take(8), '-o', 'User=root', ...pinned.skip(8)], 'User=root'),
+    ('bad pair after all valid pairs', [...pinned, '-l', 'root'], '-l'),
+    (
+      'reordered pairs',
+      [...pinned.skip(2).take(2), ...pinned.take(2), ...pinned.skip(4)],
+      'UserKnownHostsFile="/tmp/known_hosts"',
+    ),
+  ]) {
+    test('the own-account stop refuses $name by name', () {
+      expect(
+        () => command(HostAct.ownAccount, ['vault'], sshOptions: options),
+        throwsA(
+          isA<FormatException>().having((error) => error.message, 'refused or missing option', contains(refused)),
+        ),
       );
     });
   }
