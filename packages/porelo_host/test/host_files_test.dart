@@ -50,6 +50,95 @@ void main() {
     }
   });
 
+  // Harm: the account play follows another project's bundle or cannot find its access repository.
+  test('own-account machine metadata uses the project directory and fixed access bundle', () {
+    const home = '/home/person';
+    const folder = '$home/.local/share/porelo-host/setup/demo';
+    final url = HostFiles.bundleUrl('demo', act: HostAct.ownAccount, home: home);
+    expect(url, '$folder/project.bundle');
+    expect(HostFiles.accessBundleUrl('demo'), '.local/share/porelo-host/setup/demo/access.bundle');
+    final yaml = loadYaml(
+      HostFiles.machineYaml(
+        project: 'demo',
+        url: '$folder/project.bundle',
+        fingerprint: fingerprint,
+        act: HostAct.ownAccount,
+      ),
+    ) as YamlMap;
+    expect(yaml.keys.toSet(), {'project', 'keys', 'access'});
+    expect(yaml['project']['url'], '$folder/project.bundle');
+    expect(yaml['access'], {'bundle': 'access.bundle'});
+    expect(HostFiles.bundleUrl('demo', act: HostAct.root), '/etc/porelo-host/setup/demo.bundle');
+    expect(HostFiles.bundleUrl('demo'), '/etc/porelo-host/setup/demo.bundle');
+  });
+
+  // Harm: an unresolved relative bundle URL is interpreted from the playbook's working directory.
+  test('own-account metadata refuses a relative project bundle and a missing home', () {
+    expect(() => HostFiles.bundleUrl('demo', act: HostAct.ownAccount), throwsA(isA<HostFilesRefused>()));
+    expect(
+      () => HostFiles.machineYaml(
+        project: 'demo',
+        url: 'project.bundle',
+        fingerprint: fingerprint,
+        act: HostAct.ownAccount,
+      ),
+      throwsA(isA<HostFilesRefused>()),
+    );
+  });
+
+  // Harm: preparing the account's files silently writes legacy metadata or a bundle the host will not read.
+  test('own-account preparation publishes fixed bundle names and access metadata', () async {
+    final publicKey = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 5)));
+    final url = HostFiles.bundleUrl('demo', act: HostAct.ownAccount, home: '/home/person');
+    await files.publishBundle(
+      project: 'demo',
+      folder: scratch.path,
+      bytes: [1, 2, 3],
+      ownFolder: true,
+      act: HostAct.ownAccount,
+    );
+    await files.prepare(
+      project: 'demo',
+      folder: scratch.path,
+      url: url,
+      signingKey: signing,
+      hostPublicKey: publicKey,
+      ownFolder: true,
+      act: HostAct.ownAccount,
+    );
+    final root = '${scratch.path}/porelo-host';
+    expect(await File('$root/project.bundle').readAsBytes(), [1, 2, 3]);
+    expect(File('$root/demo.bundle').existsSync(), isFalse);
+    final yaml = loadYaml(await File('$root/machine.yml').readAsString()) as YamlMap;
+    expect(yaml['access'], {'bundle': 'access.bundle'});
+    expect(yaml['project']['url'], url);
+  });
+
+  // Harm: an own-account play is directed at another project's or the legacy setup's repository.
+  test('own-account metadata refuses an absolute bundle outside its project setup directory', () {
+    for (final url in [
+      '/etc/porelo-host/setup/demo.bundle',
+      '/home/person/.local/share/porelo-host/setup/other/project.bundle',
+      '/home/person/.local/share/porelo-host/setup/demo/other.bundle',
+    ]) {
+      expect(
+        () => HostFiles.machineYaml(project: 'demo', url: url, fingerprint: fingerprint, act: HostAct.ownAccount),
+        throwsA(isA<HostFilesRefused>()),
+      );
+    }
+  });
+
+  // Harm: a project name reaches a filesystem path outside the account's project setup directory.
+  test('own-account setup paths refuse missing or escaping project names', () {
+    expect(() => HostAct.ownAccount.setupPlace(), throwsFormatException);
+    for (final project in ['', '.', '..', '../other', '/other', 'demo/other', 'demo\nother', 'demo\x00other']) {
+      expect(() => HostAct.ownAccount.setupPlace(project: project), throwsFormatException);
+    }
+    expect(HostAct.ownAccount.setupPlace(project: 'demo'), '.local/share/porelo-host/setup/demo');
+    expect(HostAct.root.setupPlace(), '/etc/porelo-host/setup');
+    expect(HostAct.legacyUp.setupPlace(), '/etc/porelo-host/setup');
+  });
+
   // Harm: malformed YAML changes which repository or vault entry the host trusts.
   // Red: interpolate a scalar without jsonEncode, or add tasks/agents.
   test('machine file is exactly the quoted host contract', () {

@@ -6,7 +6,8 @@ import 'package:porelo_host/porelo_host.dart';
 /// [driveHost] (the account, as today's stop). Then the file's lines for [needs], and for [keys], the vault entries
 /// `machine.yml` names, go on a pipe into `porelo-host-stop --stdin` as [host], with sudo for the root and legacy
 /// acts: the master password is typed once, here, and no secret reaches an argument, the far end's terminal or
-/// this program.
+/// this program. An own-account stop takes its needs from the project's own `setup/<project>/machine.yml`;
+/// fixed bundle names do not change the secret-line protocol.
 List<String> hostStopFeedCommand({
   required HostAct act,
   required String secretsFile,

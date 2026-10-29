@@ -18,7 +18,7 @@ Decided: developers come from the signed access file; the hand-carried access re
   3. the VPN for this host with this laptop's `vpn_address` ([F209](README.md#f209));
   4. the CA fetched over ssh from `/etc/porelo-host/forge/ca.pem` and installed only where its SHA-256 equals `ca_sha256` ([F212](README.md#f212)), refused with both fingerprints otherwise;
   5. the ssh host key pinned from `host:`;
-  6. `porelo-host join` in the developer's own account, its stop in own-account mode ([F214](README.md#f214)): their vault, the gate's and agents' tokens from the helper's file, their lasting forge password, their own forge write token for the gathered push.
+  6. `ansible-playbook -c local porelo.host.join -e porelo_project=<project>` in the developer's own account, using `machine.yml`, `project.bundle`, and `access.bundle` from `~/.local/share/porelo-host/setup/<project>/`, its stop in own-account mode ([F214](README.md#f214)): their vault, the gate's and agents' tokens from the helper's file, their lasting forge password, their own forge write token for the gathered push.
 - **Locked:** a developer the list dropped is told the host refuses them, and offered nothing to repair.
 - **Red first:** a test that a `ca.pem` whose SHA-256 differs from `ca_sha256` is refused before the root step, and that no step runs before `project verify` answers.
 

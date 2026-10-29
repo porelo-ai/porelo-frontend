@@ -14,7 +14,7 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 - ***Put this project on a server…*** (`project-admin`, `Home.projectMenu`) chooses among hosts this person was admitted to; *The project* step stays, *Where it is rented* goes.
 - **The access checkout:** cloned with the person's own git credentials from `access.repository` of the signed `project.yml` into `~/.local/share/porelo-frontend/access/<project>/` (`0700`); never into a log or a support bundle.
 - **The `host:` block and Matrix's settings** written into `access.yml` with `yaml_edit` (kept comments), from the values the host admin gave ([F211](README.md#f211)); committed and signed with the person's own git, pushed; the interface signs nothing itself and refuses where git's signing is not set up.
-- **The bring:** `porelo-host bring` over the admin's own ssh, both bundles uploaded into their own home ([F214](README.md#f214)), its stop in own-account mode fed from their secrets file: `vault-new` or `vault`, `keys`, `forge-central-token` while a repository is to migrate. It ends with one `sync`.
+- **The bring:** `ansible-playbook -c local porelo.host.bring -e porelo_project=<project>` over the admin's own ssh, `machine.yml`, `project.bundle`, and `access.bundle` uploaded into their own `~/.local/share/porelo-host/setup/<project>/` ([F214](README.md#f214)), its stop in own-account mode fed from their secrets file: `vault-new` or `vault`, `keys`, `forge-central-token` while a repository is to migrate. It ends with one `sync`.
 - **The repositories, agreed with porelo-host:** the bring loads each one as a Forgejo migration from the central
   forge, which keeps its `original_url`; `porelo-host-project remove` compares each repository with that URL and
   refuses only while a commit is on the host and nowhere centrally. The interface gives `remove` only the central
@@ -32,4 +32,4 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 
 ## To be checked
 
-- `porelo-host bring`'s and `porelo`'s exact commands once their issues are written.
+- `porelo`'s exact commands once their issues are written.

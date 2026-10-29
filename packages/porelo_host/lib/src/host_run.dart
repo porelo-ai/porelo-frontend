@@ -387,7 +387,13 @@ class HostRun {
       );
     }
     if (setupFiles != null) {
-      final uploaded = await _uploadSetupFiles(address, plan.loginUser, setupFiles, act: HostAct.legacyUp);
+      final uploaded = await _uploadSetupFiles(
+        address,
+        plan.loginUser,
+        setupFiles,
+        act: HostAct.legacyUp,
+        project: plan.project,
+      );
       if (uploaded != null) return uploaded;
     }
     _write(const Step('copy', StepState.done));
@@ -705,13 +711,15 @@ class HostRun {
     };
   }
 
-  /// Returns the setup directory for [act], relative to the login's home for the person's own act.
-  static String setupPlace(HostAct act) => act.setupPlace;
+  /// Returns [project]'s setup directory for [act], relative to the login's home for the person's own act.
+  static String setupPlace(HostAct act, {String? project}) => act.setupPlace(project: project);
 
   /// Uploads a bring or join's machine file and both bundles through the person's own login.
   ///
   /// Requires [accessBundle] for [HostAct.ownAccount] and refuses project files for [HostAct.root].
   /// [HostAct.legacyUp] accepts no access bundle and retains the combined `up` directory.
+  /// The caller then runs `ansible-playbook -c local porelo.host.bring -e porelo_project=<project>`
+  /// (or `porelo.host.join`) as the same login, without sudo.
   /// Returns `null` once all files are checked in place, or the refusal exit code; invalid inputs
   /// throw [FormatException] before any remote command runs.
   Future<int?> uploadSetupFiles({
@@ -741,13 +749,18 @@ class HostRun {
     final files = _setupFiles(
       HostPlan(project: project, publicKey: '', machineFile: machineFile, bundle: bundle),
       accessBundle: accessBundle,
+      act: act,
     )!;
-    return _uploadSetupFiles(address, user, files, act: act);
+    return _uploadSetupFiles(address, user, files, act: act, project: project);
   }
 
   /// The setup's files by the name they take on the host, each with its local path and SHA-256, read before anything
   /// is rented; null when [plan] names none. Refuses a plan naming only one, or a file that is no plain file.
-  static Map<String, ({String path, String digest})>? _setupFiles(HostPlan plan, {String? accessBundle}) {
+  static Map<String, ({String path, String digest})>? _setupFiles(
+    HostPlan plan, {
+    String? accessBundle,
+    HostAct act = HostAct.legacyUp,
+  }) {
     if ((plan.machineFile == null) != (plan.bundle == null)) {
       throw const FormatException('--machine-file needs --bundle and vice versa');
     }
@@ -755,8 +768,8 @@ class HostRun {
     final files = <String, ({String path, String digest})>{};
     for (final (name, local) in [
       ('machine.yml', plan.machineFile!),
-      ('${plan.project}.bundle', plan.bundle!),
-      if (accessBundle != null) ('${plan.project}-access.bundle', accessBundle),
+      (act == HostAct.ownAccount ? HostFiles.projectBundleFileName : '${plan.project}.bundle', plan.bundle!),
+      if (accessBundle != null) (HostFiles.accessBundleFileName, accessBundle),
     ]) {
       if (FileSystemEntity.typeSync(local, followLinks: false) != FileSystemEntityType.file) {
         throw FormatException('$local is not a plain file to upload');
@@ -780,8 +793,9 @@ class HostRun {
     String user,
     Map<String, ({String path, String digest})> files, {
     required HostAct act,
+    required String project,
   }) async {
-    if (act == HostAct.ownAccount) return _uploadOwnSetupFiles(address, user, files);
+    if (act == HostAct.ownAccount) return _uploadOwnSetupFiles(address, user, files, project: project);
     final place = setupPlace(act);
     final staging = '$_workdir/setup';
     const sudo = '/usr/bin/sudo ';
@@ -840,9 +854,11 @@ class HostRun {
   Future<int?> _uploadOwnSetupFiles(
     String address,
     String user,
-    Map<String, ({String path, String digest})> files,
-  ) async {
+    Map<String, ({String path, String digest})> files, {
+    required String project,
+  }) async {
     // The remote login shell is Bash by porelo-host's account-creation contract.
+    // Its startup files and environment belong to the account and are trusted as such.
     Future<RemoteResult> runScript(String script, {String? input, void Function(String)? onLine}) => remote.run(
       address,
       user,
@@ -850,7 +866,7 @@ class HostRun {
       input: input,
       onLine: onLine,
     );
-    final place = HostAct.ownAccount.setupPlace;
+    final place = setupPlace(HostAct.ownAccount, project: project);
     final parts = path.posix.split(place);
     final parents = [for (var count = 1; count < parts.length; count++) path.posix.joinAll(parts.take(count))];
     const checkedHome = r'''setup_home=${HOME-}
@@ -986,7 +1002,8 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
     }
     if (lines.isNotEmpty) {
       final cleaned = await runScript(
-        '$prefix\nif safe && ${plainDirectory(destination)}; then\n'
+        '$prefix\nif test ! -e ${q(destination)} && test ! -L ${q(destination)}; then exit 0; fi\n'
+        'if safe && ${plainDirectory(destination)}; then\n'
         '  /usr/bin/rmdir -- ${q(destination)}\n'
         'else echo ${q('Cannot safely clean setup at $destination.')} >&2; exit 1; fi',
       );

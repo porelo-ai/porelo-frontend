@@ -4195,7 +4195,10 @@ class _ControlledHostFiles extends host.HostFiles {
     required String folder,
     required List<int> bytes,
     bool ownFolder = false,
-  }) => work.defer(() => super.publishBundle(project: project, folder: folder, bytes: bytes, ownFolder: ownFolder));
+    host.HostAct act = host.HostAct.legacyUp,
+  }) => work.defer(
+    () => super.publishBundle(project: project, folder: folder, bytes: bytes, ownFolder: ownFolder, act: act),
+  );
 
   @override
   Future<host.HostTunnel> prepare({
@@ -4206,6 +4209,7 @@ class _ControlledHostFiles extends host.HostFiles {
     List<host.HostKeyFile> keys = const [],
     String? hostPublicKey,
     bool ownFolder = false,
+    host.HostAct act = host.HostAct.legacyUp,
   }) => work.defer(
     () => super.prepare(
       project: project,
@@ -4215,6 +4219,7 @@ class _ControlledHostFiles extends host.HostFiles {
       keys: keys,
       hostPublicKey: hostPublicKey,
       ownFolder: ownFolder,
+      act: act,
     ),
   );
 

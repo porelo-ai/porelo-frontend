@@ -1532,12 +1532,7 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  List<String?> get _secretsInputs => [
-    _secretsPath,
-    _hostId,
-    _drivesKey,
-    _hostKeyState(file: _secretsPath, host: _hostId, drive: _drivesKey, keys: _hostKeyFiles).keys,
-  ];
+  List<String?> get _secretsInputs => [_secretsPath, _hostId, _drivesKey, _hostKeyFilesState(_hostKeyFiles)];
 
   void _secretsInputsChanged() {
     if (_secretsAnswer case final answer? when !listEquals(answer.inputs, _secretsInputs)) {
@@ -1560,20 +1555,18 @@ class _HostDialogState extends State<HostDialog> {
     required String? drive,
     required Map<String, String> keys,
   }) {
-    String state(String? file) {
-      if (file == null) return 'none';
-      final stat = File(file).statSync();
-      return '$file ${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
-          '${stat.modified.microsecondsSinceEpoch} ${stat.changed.microsecondsSinceEpoch}';
-    }
-
-    return (
-      file: state(file),
-      host: host,
-      drive: state(drive),
-      keys: keys.entries.map((each) => '${each.key}=${state(each.value)}').join('\n'),
-    );
+    return (file: _hostKeyFileState(file), host: host, drive: _hostKeyFileState(drive), keys: _hostKeyFilesState(keys));
   }
+
+  String _hostKeyFileState(String? file) {
+    if (file == null) return 'none';
+    final stat = File(file).statSync();
+    return '$file ${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
+        '${stat.modified.microsecondsSinceEpoch} ${stat.changed.microsecondsSinceEpoch}';
+  }
+
+  String _hostKeyFilesState(Map<String, String> keys) =>
+      keys.entries.map((each) => '${each.key}=${_hostKeyFileState(each.value)}').join('\n');
 
   /// The secrets file opened from its own step, before anything is rented: what the person sets up once.
   Future<void> _openSecretsNow() async {
@@ -1622,15 +1615,7 @@ class _HostDialogState extends State<HostDialog> {
     final requested = asked();
     if (_remainingDriveKey == null && _hostPublicKey != null && _hostPublicKeyFor == requested) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
-    final key = await open(
-      file: file,
-      project: host,
-      migrateKeyFrom:
-          drivesKey != null && FileSystemEntity.typeSync(drivesKey, followLinks: false) != FileSystemEntityType.notFound
-          ? drivesKey
-          : null,
-      keys: keys,
-    );
+    final key = await open(file: file, project: host, migrateKeyFrom: _remainingDriveKey, keys: keys);
     if (!mounted || !listEquals(inputs, _secretsInputs)) {
       throw const HostFilesRefused(
         'The secrets inputs changed while the file was open; open it for the current inputs.',

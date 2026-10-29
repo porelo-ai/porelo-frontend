@@ -26,12 +26,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Own-account setup keeps each project's `machine.yml`, `project.bundle`, and `access.bundle` in its own
+  `~/.local/share/porelo-host/setup/<project>/` directory. Its machine file names `access.bundle` relatively
+  and the project bundle by its absolute path; root and combined setup retain their existing layout.
 - Own-account setup refuses root logins, linked home directories, existing setup files, and upload data for the
   wrong act; failed uploads preserve setup material they did not create.
 - Own-account uploads validate the home itself, copy to its absolute path, and reserve, recheck, install, and
   verify setup in one SSH session. Every script selects Bash explicitly with inherited startup variables removed.
-  The home reply refuses startup output before reservation; ambiguous later replies remove only empty
-  reservations and preserve populated directories.
+  The outer login shell remains trusted as the account’s own. The home reply refuses startup output before
+  reservation; ambiguous later replies remove only empty reservations and preserve populated directories.
+  An absent placement directory needs no cleanup.
 - Own-account stops require the complete pinned SSH option sequence built by the interface, with no duplicates.
 - The secrets step shows readiness only while its opened file, server name, and vault-entry files still match and
   no key remains on the old drive. Legacy links and directories reach the migration refusal before any write.

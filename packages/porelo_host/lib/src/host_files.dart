@@ -187,20 +187,36 @@ class HostFiles {
     }
   }
 
+  /// The project bundle's fixed name in an own-account setup directory.
+  static const projectBundleFileName = 'project.bundle';
+
+  /// The access repository bundle's fixed name beside an own-account machine file.
+  static const accessBundleFileName = 'access.bundle';
+
   /// Writes the machine contract with escaped, double-quoted YAML scalars only.
+  ///
+  /// For [HostAct.ownAccount], [url] names the absolute project bundle and `access.bundle` is relative to this file.
   static String machineYaml({
     required String project,
     required String url,
     required String fingerprint,
+    HostAct act = HostAct.legacyUp,
     List<HostKeyFile> keys = const [],
     bool? windows,
   }) {
     checkName(project);
     _checkKeys(keys, windows: windows);
+    if (act == HostAct.ownAccount &&
+        (!path.posix.isAbsolute(url) || !url.endsWith('/${act.setupPlace(project: project)}/$projectBundleFileName'))) {
+      throw const HostFilesRefused(
+        'An own-account machine file needs its absolute project.bundle in its project setup directory.',
+      );
+    }
     return 'project:\n'
         '  name: ${_scalar(project)}\n'
         '  url: ${_scalar(url)}\n'
         '  signed_by: ${_scalar(fingerprint)}\n'
+        '${act == HostAct.ownAccount ? 'access: { bundle: ${_scalar(accessBundleFileName)} }\n' : ''}'
         '${keys.isEmpty ? 'keys: []\n' : 'keys:\n'}'
         '${keys.map((key) => '  - { name: ${_scalar(key.name)}, path: ${_scalar(path.posix.join('keys', key.basename))} }\n').join()}';
   }
@@ -218,16 +234,20 @@ class HostFiles {
     }
   }
 
-  /// Returns [project]'s bundle in [act]'s setup directory, relative to the host home for an own-account act.
-  static String bundleUrl(String project, {HostAct act = HostAct.legacyUp}) {
+  /// Returns [project]'s absolute bundle URL for [act], using the checked host [home] for an own-account act.
+  static String bundleUrl(String project, {HostAct act = HostAct.legacyUp, String? home}) {
     checkName(project);
-    return path.posix.join(act.setupPlace, '$project.bundle');
+    if (act != HostAct.ownAccount) return path.posix.join(act.setupPlace(), '$project.bundle');
+    if (home == null || !path.posix.isAbsolute(home) || RegExp(r'[\r\n\x00]').hasMatch(home)) {
+      throw const HostFilesRefused('The own-account bundle URL needs the checked absolute host home.');
+    }
+    return path.posix.join(home, act.setupPlace(project: project), projectBundleFileName);
   }
 
   /// Returns [project]'s access bundle beside its project bundle, relative to the person's host home.
   static String accessBundleUrl(String project) {
     checkName(project);
-    return path.posix.join(HostAct.ownAccount.setupPlace, '$project-access.bundle');
+    return path.posix.join(HostAct.ownAccount.setupPlace(project: project), accessBundleFileName);
   }
 
   /// Builds only the daemon's verified revision, without reading daemon-owned files.
@@ -340,14 +360,16 @@ class HostFiles {
   /// Stages a complete bundle beside its target before replacing a regular file.
   ///
   /// [ownFolder] is this desktop's own folder for the host's files: made where missing, kept private, and reached
-  /// through no link; a drive's folder must exist already.
+  /// through no link; a drive's folder must exist already. [act] selects the bundle's fixed own-account name.
   Future<void> publishBundle({
     required String project,
     required String folder,
     required List<int> bytes,
     bool ownFolder = false,
+    HostAct act = HostAct.legacyUp,
   }) async {
-    final target = File(destinationPath(folder, '$project.bundle'));
+    final name = act == HostAct.ownAccount ? projectBundleFileName : '$project.bundle';
+    final target = File(destinationPath(folder, name));
     if (ownFolder) {
       await _own(folder);
     } else {
@@ -376,7 +398,7 @@ class HostFiles {
   ///
   /// With [hostPublicKey], the public half of the host's key the person's secrets file keeps, no host key is made
   /// or written to the drive: the private half never leaves that file. With [ownFolder], [folder] is this desktop's
-  /// own, as for [publishBundle], and a machine file of an earlier attempt there is replaced.
+  /// own, as for [publishBundle], and a machine file of an earlier attempt there is replaced. [act] selects its contract.
   Future<HostTunnel> prepare({
     required String project,
     String? folder,
@@ -385,6 +407,7 @@ class HostFiles {
     List<HostKeyFile> keys = const [],
     String? hostPublicKey,
     bool ownFolder = false,
+    HostAct act = HostAct.legacyUp,
   }) async {
     checkName(project);
     _checkKeys(keys, windows: _writer.isWindows || _paths.style == path.Style.windows);
@@ -398,6 +421,7 @@ class HostFiles {
         project: project,
         url: url,
         fingerprint: signingFingerprint(await signingKey.readAsString()),
+        act: act,
         keys: keys,
         windows: _writer.isWindows,
       );
