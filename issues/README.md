@@ -34,6 +34,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f212"></a>[F212](F212-The-Forges-CA-One-Per-Host.md) | M | [F210](README.md#f210) | One lasting CA per host, constrained to its names and network, signing its forge and homeserver, trusted per host; the lasting forge password, split off from [F202](README.md#f202). |
 | <a id="f209"></a>[F209](F209-The-VPN-Kept-Per-Host-Several-Up-At-Once.md) | M | [F208](README.md#f208) | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. |
 | <a id="f211"></a>[F211](F211-A-Server-Prepared-With-No-Project.md) | L | [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210), [F212](README.md#f212) | A server prepared by its host admin with no project, a project registered for its admin, project admins admitted by hand. |
+| <a id="f214"></a>[F214](F214-The-Setup-Files-And-The-Stop-Split-By-Act.md) | M | — | The setup files in the person's own home and the stop fed by act: root takes only the VPN key and the forge's certificate. |
+| <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | L | [F211](README.md#f211), [F214](README.md#f214) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |
 
 ### Backlog
 
@@ -89,8 +91,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
-| <a id="f214"></a>[F214](F214-The-Setup-Files-And-The-Stop-Split-By-Act.md) | M | — | The setup files in the person's own home and the stop fed by act: root takes only the VPN key and the forge's certificate. |
-| <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | L | [F211](README.md#f211), [F214](README.md#f214) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |
 | <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | L | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
 | <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | L | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
 | <a id="f218"></a>[F218](F218-The-Walks-Walked-Headless-On-The-Central-Test-Machines.md) | M | — | Each sprint walk walked headless through its panel on a leased host and a GitHub runner, the display set up by the run itself. |

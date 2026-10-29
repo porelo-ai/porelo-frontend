@@ -1,6 +1,6 @@
 # F213 — A Project Brought Onto A Prepared Host
 
-**Status:** Estimated; blocked by [F208](README.md#f208), [F211](README.md#f211) and [F214](README.md#f214).
+**Status:** Implementing; blocked by [F208](README.md#f208), [F211](README.md#f211) and [F214](README.md#f214).
 **Size:** L - a dialog of its own in the project admin's account, the access repository's checkout and its signed `host:` block, on contracts with two repositories.
 
 **What must be true.** A project admin puts their project on a host they were admitted to, renting nothing: the interface writes the host's values and the project's Matrix settings into the project's private, signed `access.yml`, runs the bring in their own account with no `sudo`, feeds its stop from their own secrets file, and the project's room is made; taking the project off is refused while anything is unpushed.
