@@ -493,6 +493,7 @@ void main() {
     );
     final (:remote, :trust) = hostAdminRemote(record, environment: {'XDG_STATE_HOME': scratch.path});
     expect(remote.knownHosts.path, '${scratch.path}/porelo-host/known_hosts.orchard');
+    expect(remote.identity, '${scratch.path}/rental');
     await trust();
     expect(remote.knownHosts.readAsStringSync(), '10.73.7.1 ${hostValues()['ssh_host_key']}\n');
   });
@@ -500,7 +501,17 @@ void main() {
   // Harm: a purge must require a separate permanent-removal decision.
   testWidgets('purge waits for a second decision after review', (tester) async {
     final remote = HelperRemote(response: '{"person":"alice","purged":true}');
-    await frame(tester, HostAdminDialog(host: PreparedHost.read(hostValues()), action: 'purge', remote: remote));
+    // Harm: a helper call before the host's key is pinned trusts whatever answers at the address.
+    bool? pinnedFirst;
+    await frame(
+      tester,
+      HostAdminDialog(
+        host: PreparedHost.read(hostValues()),
+        action: 'purge',
+        remote: remote,
+        prepareRemote: () async => pinnedFirst = remote.commands.isEmpty,
+      ),
+    );
     await tester.enterText(find.byKey(const Key('host-admin-name')), 'alice');
     await next(tester);
     await tester.tap(find.byKey(const Key('wizard-start')));
@@ -509,6 +520,7 @@ void main() {
     await tester.tap(find.text('Purge permanently'));
     await World.settle(tester);
     expect(remote.commands.single, '/usr/local/sbin/porelo-host-person purge alice');
+    expect(pinnedFirst, isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

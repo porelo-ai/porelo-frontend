@@ -227,12 +227,15 @@ Future<int> _run(List<String> arguments) async {
 // interface refuses any other key. Null where the interface's settings hold none.
 Future<String?> _preparedServerKey(String host) async {
   final environment = Platform.environment;
-  final state = environment['XDG_CONFIG_HOME'];
-  final configuration = state != null && state.isNotEmpty ? state : '${environment['HOME']}/.config';
+  final set = environment['XDG_CONFIG_HOME'];
+  final configuration = set != null && set.isNotEmpty ? set : '${environment['HOME']}/.config';
   try {
     final settings = jsonDecode(await File('$configuration/porelo/frontend.json').readAsString());
     if (settings case {'hostUps': final Map<String, dynamic> hosts}) {
-      if (hosts[host] case {'vpnHostPublicKey': final String key} when base64Decode(key).length == 32) return key;
+      if (hosts[host] case {'vpnHostPublicKey': final String key}) {
+        checkWireGuardPublicKey(key);
+        return key;
+      }
     }
     return null;
   } on FileSystemException {
