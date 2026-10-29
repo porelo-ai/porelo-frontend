@@ -148,6 +148,37 @@ void main() {
     });
   }
 
+  // Harm: a later write through a closed checkout lands unverified on the persistent default branch.
+  test('a checkout whose publication failed refuses further writes until it is opened again', () async {
+    final access = checkout();
+    await access.open();
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+    failPush = true;
+    await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
+    failPush = false;
+    final cache = '${scratch.path}/access/demo';
+    final before = await checked(['rev-parse', 'HEAD'], directory: cache);
+    await expectLater(
+      access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa),
+      throwsA(isA<WorkspaceRefused>()),
+    );
+    await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
+    expect(await checked(['status', '--porcelain'], directory: cache), isEmpty);
+    expect(await checked(['rev-parse', 'HEAD'], directory: cache), before);
+  });
+
+  // Harm: fast-forwarding to an origin commit before checking its signature keeps an untrusted commit locally.
+  test('an unsigned origin commit is refused without moving the persistent checkout', () async {
+    await checkout().open();
+    final cache = '${scratch.path}/access/demo';
+    final before = await checked(['rev-parse', 'HEAD'], directory: cache);
+    File('${source.path}/access.yml').writeAsStringSync('developers: {}\n');
+    await checked(['-c', 'commit.gpgsign=false', 'commit', '--no-gpg-sign', '-am', 'Unsigned change']);
+    await checked(['push']);
+    await expectLater(checkout().open(), throwsA(isA<WorkspaceRefused>()));
+    expect(await checked(['rev-parse', 'HEAD'], directory: cache), before);
+  });
+
   // Harm: retrying an interrupted host upload must not publish the same access update twice.
   test('an identical published access block produces a bundle without another push', () async {
     for (var attempt = 0; attempt < 2; attempt++) {

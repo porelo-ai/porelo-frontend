@@ -706,21 +706,24 @@ List<Command> projectCommands({
 
 /// Offers the root removal helper only to the host admin holding the target host's record, and not while [busy]
 /// says why that server's own setup holds it.
-Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String? busy}) => Command(
-  id: 'project.takeOffServer',
-  role: Role.hostAdmin,
-  label: 'Take this project off the server',
-  group: 'Project',
-  home: Home.projectMenu,
-  run: run ?? () {},
-  unavailable: project == null
-      ? 'no project selected'
-      : project == defaultProject
-      ? 'default is this machine’s own'
-      : !roles.holds(Role.hostAdmin) || run == null
-      ? 'the host admin takes it off from the server’s menu (Take the project off)'
-      : busy,
-);
+Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String? busy}) {
+  const fromServerMenu = 'the host admin takes it off from the server’s menu (Take the project off)';
+  return Command(
+    id: 'project.takeOffServer',
+    role: Role.hostAdmin,
+    label: 'Take this project off the server',
+    group: 'Project',
+    home: Home.projectMenu,
+    run: run ?? () {},
+    unavailable: project == null
+        ? 'no project selected'
+        : project == defaultProject
+        ? 'default is this machine’s own'
+        : !roles.holds(Role.hostAdmin)
+        ? fromServerMenu
+        : busy ?? (run == null ? fromServerMenu : null),
+  );
+}
 
 /// Repeats the verified local VPN setup for an existing host whose ping failed.
 Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailable}) => Command(

@@ -64,6 +64,7 @@ class AccessCheckout {
   /// Clones privately or fast-forwards a clean checkout; never resets unpublished work.
   Future<void> open() async {
     await close();
+    _branch = null;
     checkRepository(repository);
     await privateDirectory(Directory(root), writer: _writer);
     final directory = Directory(folder);
@@ -106,21 +107,23 @@ class AccessCheckout {
         'The access checkout must be on its default branch. Its current branch was preserved.',
       );
     }
+    await _git(['fetch', 'origin']);
     final ahead = (await _git(['rev-list', '--left-right', '--count', 'HEAD...$branch'])).out
         .trim()
         .split(RegExp(r'\s+'));
     if (ahead.length != 2 || int.tryParse(ahead[0]) != 0 || int.tryParse(ahead[1]) == null) {
       throw const WorkspaceRefused(
-        'The access checkout has unpublished commits. Publish them with your own Git before continuing.',
+        'The access checkout has commits its origin does not hold. Publish or drop them with your own Git first.',
       );
     }
-    await _git(['fetch', 'origin']);
-    await _git(['merge', '--ff-only', branch]);
     final signingPublic = readPublicSigningKey(signingKey);
     _fingerprint = HostFiles.signingFingerprint(signingPublic);
     _allowedSigners = '$folder/.git/porelo-bring-signers';
     final public = signingPublic.trim().split(RegExp(r'\s+')).take(2).join(' ');
     await File(_allowedSigners!).writeAsString('porelo namespaces="git" $public\n');
+    // The origin's commit is verified before the checkout moves to it, so an untrusted one never lands here.
+    await _verifyHead(branch);
+    await _git(['merge', '--ff-only', branch]);
     await _verifyHead();
     await _plainAccessFile();
     final work = await _writer.createPrivateTemporary(Directory(root));
@@ -142,7 +145,7 @@ class AccessCheckout {
     if (await work.exists()) await work.delete(recursive: true);
   }
 
-  Future<void> _verifyHead() async {
+  Future<void> _verifyHead([String revision = 'HEAD']) async {
     final signature = (await _git([
       '-c',
       'gpg.ssh.allowedSignersFile=$_allowedSigners',
@@ -150,7 +153,7 @@ class AccessCheckout {
       '--no-show-signature',
       '-1',
       '--format=%G?%n%GF',
-      'HEAD',
+      revision,
     ])).out.trim().split('\n');
     if (signature.length != 2 || signature[0] != 'G' || signature[1] != _fingerprint) {
       throw const WorkspaceRefused(
@@ -170,7 +173,7 @@ class AccessCheckout {
 
   /// Updates public host values and Matrix settings while preserving comments and other settings.
   Future<void> writeHost(PreparedHost host, String? caCertificate) async {
-    if (_branch == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
+    if (_branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
     checkHostMatrixCa(host, caCertificate);
     final file = await _plainAccessFile();
     final original = await file.readAsString();
@@ -315,7 +318,7 @@ class AccessCheckout {
   /// the default branch and as HEAD, so a follow finds it by either.
   Future<void> commitPushAndBundle(String bundle) async {
     final branch = _branch;
-    if (branch == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
+    if (branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
     final String published;
     try {
       await _git(['add', '--', 'access.yml']);

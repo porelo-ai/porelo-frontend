@@ -96,6 +96,11 @@ void main() {
     final held = takeProjectOffServerCommand('demo', run: () {}, busy: busy);
     expect(held.available, isFalse);
     expect(held.unavailable, busy);
+    expect(
+      takeProjectOffServerCommand('demo', busy: busy).unavailable,
+      busy,
+      reason: 'while its own server is being set up, the record is not yet held, and the setup is the reason',
+    );
   });
 
   // Harm: holding another server's record must never enable removal on the project's host.
