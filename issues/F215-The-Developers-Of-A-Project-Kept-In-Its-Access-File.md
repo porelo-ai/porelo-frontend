@@ -1,6 +1,6 @@
 # F215 — The Developers Of A Project Kept In Its Access File
 
-**Status:** Backlog; blocked by [F213](README.md#f213).
+**Status:** Implementing; blocked by [F213](README.md#f213).
 **Size:** L - a settings section editing a signed file, the forge's API for read access, and the states read from host and forge.
 
 **What must be true.** A project admin keeps the project's developers in its settings: each with an account name on the host, their login at the central forge, and one or more laptops with their public keys and VPN address; the change is signed with the admin's own git, the developer gets read access to the access repository, and each developer shows what the host and the forge say of them.

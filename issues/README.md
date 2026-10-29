@@ -36,13 +36,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
 | <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | L | [F211](README.md#f211), [F214](README.md#f214) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |
+| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | L | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
+| <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | L | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
 
 ### Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | L | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
-| <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | L | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
