@@ -11,7 +11,11 @@ Decided: the host admin's lasting CA signs the shared forge's and homeserver's c
 
 ## Plan
 
-- **The CA:** `SecretsFile._forgeCertificate` (`packages/porelo_host/lib/src/secrets_file.dart`) makes it into `hosts/<host>/forge-ca-key` and `hosts/<host>/forge-ca`, with `nameConstraints=critical,permitted;DNS:<host>.porelo.internal,permitted;IP:10.73.<n>.0/255.255.255.0`, and signs both requests the stop names (forge and homeserver) with their names and `10.73.<n>.1`.
+- **The CA:** `SecretsFile._forgeCertificate` (`packages/porelo_host/lib/src/secrets_file.dart`) makes it into `hosts/<host>/forge-ca-key` and `hosts/<host>/forge-ca`, with `nameConstraints=critical,permitted;DNS:<host>.porelo.internal,permitted;IP:10.73.<n>.0/255.255.255.0`, and signs both requests the stop names (forge and homeserver) with their names and `10.73.<n>.1`. The host's
+  `porelo-host-stop --request` prints exactly two PEM requests, the forge's then the homeserver's; only each one's key
+  is taken, the subject and every extension are set here (`subjectAltName=DNS:<name>,IP:10.73.<n>.1`,
+  `basicConstraints=critical,CA:FALSE`, `extendedKeyUsage=serverAuth`, 365 days). `forge-certificate` sends
+  `base64 -w0` of three PEM certificates joined by newlines: the forge's, the homeserver's, the CA's.
 - **The trust:** `Settings.forgeCa` becomes per host (`HostUpRecord`); `_vpnRootStep` installs `porelo-host-<host>.crt` ([F209](README.md#f209)); a developer's laptop installs it only where its SHA-256 equals the signed `ca_sha256` ([F216](README.md#f216)).
 - **The warning:** `forgeCaWarning` per host, naming the host.
 - **The lasting forge password, split off from [F202](README.md#f202):** typed once into the person's own secrets
