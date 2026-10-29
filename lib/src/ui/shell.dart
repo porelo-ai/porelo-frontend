@@ -429,6 +429,7 @@ class _ShellState extends State<Shell> {
     clearTheProject: _clearTheProject,
     putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
     takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
+    takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
       null => null,
@@ -653,6 +654,7 @@ class _ShellState extends State<Shell> {
       clearTheProject: _clearTheProject,
       putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
       takeOffServer: _takeOffServer(project.name),
+      takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
       itsForgeIsMissing: _itsForgeIsMissing(),
@@ -792,6 +794,17 @@ class _ShellState extends State<Shell> {
       settings: widget.settings,
       openTerminal: widget.sessions.openTerminal,
     );
+  }
+
+  /// Why the project's server cannot take a removal now: its own setup is preparing, running, waiting or interrupted.
+  String? _takeOffServerBusy(String? project) {
+    final host = project == null ? null : widget.settings.projectHost(project);
+    final record = host == null ? null : widget.settings.hostUp(host);
+    if (record == null) return null;
+    final run = _hostRuns.of(record.hostName);
+    return record.preparing || run != null && (run.running || run.needsYou || run.interrupted)
+        ? 'its server’s setup is under way; see its protocol'
+        : null;
   }
 
   VoidCallback? _takeOffServer(String? project) {

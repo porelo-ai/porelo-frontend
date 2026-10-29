@@ -172,8 +172,14 @@ void main() {
     expect(loadYaml(text)['transports']['matrix']['ca_certificate'], hostMatrixCa);
     expect(text, contains('# People'));
     final restored = '${scratch.path}/restored';
+    final heads = await checked(['bundle', 'list-heads', bundle]);
+    expect(heads.split('\n').map((line) => line.split(' ')).toList(), [
+      [published, 'refs/heads/main'],
+      [published, 'HEAD'],
+    ], reason: 'a follow finds the access commit by the default branch or by HEAD');
     await checked(['clone', '--', bundle, restored]);
     expect(await checked(['rev-parse', 'HEAD'], directory: restored), published);
+    expect(await checked(['rev-parse', 'main'], directory: restored), published);
     expect((await File(bundle).stat()).mode & 0x1ff, 0x180);
     final signature = await checked([
       '-c',

@@ -89,6 +89,15 @@ void main() {
     expect(takeProjectOffServerCommand('demo', run: () {}).available, isTrue);
   });
 
+  // Harm: a root removal racing the server's own setup playbook or its stop.
+  test('taking a project off waits while its server’s setup is under way', () {
+    roles = Roles.fromArguments(['--roles', 'host-admin']);
+    const busy = 'its server’s setup is under way; see its protocol';
+    final held = takeProjectOffServerCommand('demo', run: () {}, busy: busy);
+    expect(held.available, isFalse);
+    expect(held.unavailable, busy);
+  });
+
   // Harm: holding another server's record must never enable removal on the project's host.
   for (final (held, code) in [(false, 0), (true, 65), (true, 0)]) {
     testWidgets('the project menu selects its associated host record (held: $held, helper: $code)', (tester) async {

@@ -521,6 +521,7 @@ List<Command> projectCommands({
   VoidCallback? showTheDefault,
   VoidCallback? putOnAServer,
   VoidCallback? takeOffServer,
+  String? takeOffServerBusy,
   VoidCallback? startTheAgents,
 }) {
   const nothing = 'no project selected';
@@ -686,7 +687,7 @@ List<Command> projectCommands({
                 noSecretsFileHere(desk) ??
                 (putOnAServer == null ? 'project placement needs Linux and a pinned own-account SSH connection' : null),
     ),
-    takeProjectOffServerCommand(project?.name, run: takeOffServer),
+    takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
     Command(
       id: 'project.delete',
       label: 'Stop following this project',
@@ -703,8 +704,9 @@ List<Command> projectCommands({
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
 
-/// Offers the root removal helper only to the host admin holding the target host's record.
-Command takeProjectOffServerCommand(String? project, {VoidCallback? run}) => Command(
+/// Offers the root removal helper only to the host admin holding the target host's record, and not while [busy]
+/// says why that server's own setup holds it.
+Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String? busy}) => Command(
   id: 'project.takeOffServer',
   role: Role.hostAdmin,
   label: 'Take this project off the server',
@@ -717,7 +719,7 @@ Command takeProjectOffServerCommand(String? project, {VoidCallback? run}) => Com
       ? 'default is this machine’s own'
       : !roles.holds(Role.hostAdmin) || run == null
       ? 'the host admin takes it off from the server’s menu (Take the project off)'
-      : null,
+      : busy,
 );
 
 /// Repeats the verified local VPN setup for an existing host whose ping failed.
@@ -1184,6 +1186,7 @@ List<Command> commandsFor({
   VoidCallback? clearTheProject,
   VoidCallback? putOnAServer,
   VoidCallback? takeOffServer,
+  String? takeOffServerBusy,
   VoidCallback? startTheAgents,
   required VoidCallback checkTheMachine,
   VoidCallback? startThenCheck,
@@ -1376,6 +1379,7 @@ List<Command> commandsFor({
       clearTheProject: clearTheProject,
       putOnAServer: putOnAServer,
       takeOffServer: takeOffServer,
+      takeOffServerBusy: takeOffServerBusy,
       showTheMessages: showTheMessages,
       openItsForge: openItsForge,
       itsForgeIsMissing: itsForgeIsMissing,

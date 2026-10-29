@@ -310,8 +310,13 @@ class AccessCheckout {
   }
 
   /// Signs through the person's Git, verifies the signer, pushes, and only then creates the bundle.
+  ///
+  /// The persistent checkout moves to the published commit only after the push, and the bundle carries it both as
+  /// the default branch and as HEAD, so a follow finds it by either.
   Future<void> commitPushAndBundle(String bundle) async {
-    if (_branch == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
+    final branch = _branch;
+    if (branch == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
+    final String published;
     try {
       await _git(['add', '--', 'access.yml']);
       final changed = await _git(['diff', '--cached', '--quiet', '--', 'access.yml'], optional: true);
@@ -321,12 +326,14 @@ class AccessCheckout {
         throw const WorkspaceRefused('Git could not check the staged access settings.');
       }
       await _verifyHead();
-      if (changed.code == 1) await _git(['push', 'origin', 'HEAD:$_branch']);
-      await _git(['bundle', 'create', bundle, 'HEAD']);
-      await _writer.protect(File(bundle));
+      if (changed.code == 1) await _git(['push', 'origin', 'HEAD:$branch']);
+      published = (await _git(['rev-parse', '--verify', 'HEAD^{commit}'])).out.trim();
     } finally {
       await close();
     }
+    await _git(['merge', '--ff-only', published]);
+    await _git(['bundle', 'create', bundle, 'refs/heads/$branch', 'HEAD']);
+    await _writer.protect(File(bundle));
   }
 
   Future<Ran> _git(List<String> arguments, {bool optional = false, bool inCheckout = true}) async {
