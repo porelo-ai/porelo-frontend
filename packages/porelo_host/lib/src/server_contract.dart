@@ -109,10 +109,10 @@ class HostAdminRequest {
   /// Quotes every argument for the remote shell.
   String get command => ['/usr/local/sbin/porelo-host-$helper', ...arguments].map(quoteForAShell).join(' ');
 
-  /// Runs as root with the caller's pinned rental key; refusals remain verbatim.
+  /// Runs as root over the host's VPN with the caller's pinned rental key; refusals remain verbatim.
   Future<String> run(Remote remote, PreparedHost host) async {
     final lines = <String>[];
-    final result = await remote.run(host.values['address']!, 'root', command, input: input, onLine: lines.add);
+    final result = await remote.run(host.vpnAddress, 'root', command, input: input, onLine: lines.add);
     return answer(result, lines, host);
   }
 

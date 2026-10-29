@@ -119,4 +119,7 @@ class PreparedHost {
 
   /// The subnet's number.
   int get network => int.parse(values['network']!.split('.')[2]);
+
+  /// The host's own address in its VPN, where its root helpers are reached.
+  String get vpnAddress => '10.73.$network.1';
 }

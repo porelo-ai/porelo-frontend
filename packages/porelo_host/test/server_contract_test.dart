@@ -23,6 +23,7 @@ class HelperRemote extends ScriptedRemote {
   final String response;
   final int code;
   final String errors;
+  final hosts = <String>[];
   @override
   Future<RemoteResult> run(
     String host,
@@ -31,6 +32,7 @@ class HelperRemote extends ScriptedRemote {
     String? input,
     void Function(String)? onLine,
   }) async {
+    hosts.add(host);
     await super.run(host, user, command, input: input, onLine: onLine);
     if (response.isNotEmpty) onLine?.call(response);
     return RemoteResult(code, errors);
@@ -137,6 +139,8 @@ void main() {
       expect(remote.inputs.single, '$block\n');
       expect(remote.commands.single, isNot(contains(wireGuardKey)));
       expect(remote.users, ['root']);
+      // Harm: the helpers reached over the public address, where the contract names the host's VPN address.
+      expect(remote.hosts, ['10.73.7.1']);
       expect(result, contains('laptop: 10.73.7.2.'));
     });
     test('quotes the project signing key as one remote word', () async {

@@ -24,7 +24,7 @@ List<String> projectRemovalFeedCommand({
     'ConnectTimeout=10',
     '-T',
     '--',
-    'root@${host.values['address']}',
+    'root@${host.vpnAddress}',
     request.command,
   ].map(quoteForAShell).join(' ');
   final answer = quoteForAShell('$replyDirectory/answer');

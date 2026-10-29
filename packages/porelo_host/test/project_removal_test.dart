@@ -162,7 +162,7 @@ sys.exit(code)
           'ConnectTimeout=10',
           '-T',
           '--',
-          'root@203.0.113.7',
+          'root@10.73.7.1',
           '/usr/local/sbin/porelo-host-project remove orchard',
         ]);
         for (final secret in [token, 'fixture-master']) {

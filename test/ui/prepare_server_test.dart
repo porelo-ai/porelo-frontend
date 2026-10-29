@@ -444,7 +444,7 @@ void main() {
         expect(terminal, isNotNull);
         expect(find.byKey(const Key('unlock-terminal')), findsOneWidget);
         expect(find.byKey(const Key('host-admin-answer')), findsNothing);
-        expect(terminal!.command.last, contains('root@203.0.113.7'));
+        expect(terminal!.command.last, contains('root@10.73.7.1'));
         expect(terminal!.command.last, contains('porelo-host-project remove orchard'));
         terminal!.prints(code == 65 ? refusal : '{"project":"orchard","removed":true}\r\n');
         terminal!.endsWith(code);

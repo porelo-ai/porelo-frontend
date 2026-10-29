@@ -34,7 +34,7 @@ Future<void> openHostAdminDialog(
       secretsFile: secretsFile,
       identity: record.identity,
       knownHosts: remote.knownHosts.path,
-      prepareRemote: () => remote.trust(host.values['address']!, host.values['ssh_host_key']!),
+      prepareRemote: () => remote.trust(host.vpnAddress, host.values['ssh_host_key']!),
     ),
   );
 }
@@ -225,11 +225,11 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
         context,
         title: 'Take ${_name.text} off the server',
         explanation: 'Type the master password of your secrets file here. Its shared/forge-central-token entry goes to the host on standard input. If the entry is missing, nothing is sent; the host decides whether it needs the token. The host refuses a repository with no central home.',
-        machine: Machine(name: widget.host.values['address']!, socketPath: ''),
+        machine: Machine(name: widget.host.vpnAddress, socketPath: ''),
         command: command,
         open: widget.openTerminal,
         showCommand: false,
-        shownCommand: 'ssh root@${widget.host.values['address']} ${request.command}',
+        shownCommand: 'ssh root@${widget.host.vpnAddress} ${request.command}',
         onExit: (code) => exitCode = code,
         completed: 'The helper has answered. Close this terminal to read its answer.',
       );
@@ -309,7 +309,7 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
     title: _title,
     changes: Listenable.merge([_name, _admin, _key, _block]),
     reviewWords:
-        '${widget.host.values['address']}: check the name and public keys before continuing.${widget.action == 'remove' ? ' The next step opens your terminal and asks the master password of your secrets file. The host refuses a repository with no central home or with unpushed work.' : ''}',
+        '${widget.host.vpnAddress}: check the name and public keys before continuing.${widget.action == 'remove' ? ' The next step opens your terminal and asks the master password of your secrets file. The host refuses a repository with no central home or with unpushed work.' : ''}',
     steps: [
       _step(
         _project ? 'Project name' : 'Project admin account',
