@@ -66,6 +66,7 @@ taken, `git log` answers.
 | [The forge's certificate is signed on this desktop by one lasting CA, whose key never leaves the secrets file](#the-forges-certificate-is-signed-on-this-desktop) |
 | [This computer's line for its own homeserver is added once by hand](#this-computers-line-for-its-own-homeserver-is-added-once-by-hand) |
 | [A task's program may write this computer's clipboard, never read it](#a-tasks-program-may-write-this-computers-clipboard-never-read-it) |
+| [Each repository's agent is started one after another, a stopped one brought back, and leaving does not cancel](#each-repositorys-agent-is-started-one-after-another) |
 
 ## The interface can do what a console can
 
@@ -845,3 +846,11 @@ answered, since that would hand whatever was copied here to the container.
 may be the task's rather than the person's. It stays because copying out of tmux is otherwise impossible while tmux
 takes the mouse, and other terminals allow the same write. A paste into the interface's own terminals goes to the
 task it came from. What would change the answer: a task found writing the clipboard unasked.
+
+## Each repository's agent is started one after another
+
+**What holds.** *Start an agent for each repository* starts one attended task per repository that names an agent,
+one after another, each with `now: true`, and a refusal stays that row's answer without stopping the others. A
+repository whose agent already runs in an attended task is not started again; a stopped one is brought back with its
+session (`RESUME`), and the summary says it continues. Leaving the wizard does not cancel a start in flight, since
+cancelling `Start`'s stream may stop a task half made; the wizard says the start may keep running.
