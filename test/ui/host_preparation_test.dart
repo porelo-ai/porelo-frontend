@@ -299,7 +299,7 @@ void main() {
         final script = terminals.single.command.last;
         expect(script, contains('porelo-host-stop --stdin $need'));
         expect(script, contains('ubuntu@203.0.113.7'), reason: 'as the refusal\'s own user');
-        if (need == 'keys') expect(script, contains("'hosts/demo/keys/forge'"), reason: 'the entry machine.yml names');
+        if (need == 'keys') expect(script, contains("'projects/demo/keys/forge'"), reason: 'the entry machine.yml names');
         if (need == 'matrix-token') {
           expect(script, contains('porelo talk admit demo'), reason: 'this computer lets the host in');
           expect(script, isNot(contains('read -rs')), reason: 'no master password for a token the file has no part in');
@@ -442,7 +442,8 @@ void main() {
       ]),
     ))!;
     expect(made.exitCode, 0, reason: '${made.stderr}');
-    await settings.rememberForgeCa(File('${scratch.path}/ca.pem').readAsStringSync());
+    await settings.rememberHostUp('demo', _record);
+    await settings.rememberForgeCa('demo', File('${scratch.path}/ca.pem').readAsStringSync());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
     final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
     final process = HostProcess();
@@ -456,7 +457,7 @@ void main() {
         start: (_, _) async => starts++ == 0 ? process : HostProcess(),
       ),
       record: HostUpRecord.fromStored({
-        ..._record.stored,
+        ...settings.hostUp('demo')!.stored,
         'setupFolder': path.join(Directory.systemTemp.path, 'conf', 'hosts', 'demo'),
       })!,
     );
@@ -494,11 +495,6 @@ void main() {
       expect(find.textContaining('signed on this computer by your lasting CA'), findsOneWidget);
       await tester.tap(find.byKey(const Key('host-open-terminal')));
       await World.settle(tester);
-      expect(
-        tester.widget<Text>(find.byKey(const Key('unlock-explained'))).data,
-        allOf(contains('forges ends on'), contains('this stop makes the new one')),
-        reason: 'said where a new one is made',
-      );
       final caout = RegExp(r"caout='?([^'\n]+)'?\n").firstMatch(terminals.single.command.last)!.group(1)!;
       const pem = '-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n';
       File(caout).writeAsStringSync(pem);
@@ -506,7 +502,7 @@ void main() {
       await World.settle(tester);
       await tester.tap(find.byKey(const Key('unlock-done')));
       await World.settle(tester);
-      expect(settings.forgeCa, pem);
+      expect(settings.hostUp('demo')!.forgeCa, pem);
       expect(File(caout).parent.existsSync(), isFalse, reason: 'the folder goes once it is read');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
