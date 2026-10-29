@@ -181,7 +181,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
       command = fromTheFile
           ? hostStopFeedCommand(
               secretsFile: secrets ?? '',
-              serverOnly: serverOnly,
+              act: serverOnly ? HostAct.root : HostAct.legacyUp,
               project: widget.run.project,
               secretsHost: widget.run.record.host ?? widget.run.project,
               needs: needs,

@@ -17,6 +17,7 @@ void main() {
     String host = 'ubuntu@203.0.113.7',
     String? driveHost = 'porelo@203.0.113.7',
   }) => hostStopFeedCommand(
+    act: HostAct.legacyUp,
     secretsFile: '/home/person/Porelo/secrets.kdbx',
     project: 'checkout',
     needs: needs,
@@ -136,6 +137,7 @@ void main() {
   test('a project that would read as an option is let in nowhere', () {
     expect(
       () => hostStopFeedCommand(
+        act: HostAct.legacyUp,
         secretsFile: '',
         project: '--help',
         needs: const ['matrix-token'],
@@ -360,6 +362,7 @@ void main() {
       await Process.run('chmod', ['700', fakeSsh.path]);
 
       final run = hostStopFeedCommand(
+        act: HostAct.legacyUp,
         secretsFile: kdbx,
         project: 'checkout',
         needs: ['vault-new', 'wireguard'],

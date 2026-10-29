@@ -4,9 +4,11 @@ import 'package:porelo_host/porelo_host.dart';
 ///
 /// The drive's login, where the host still names it, runs first in a terminal of its own on the host, as
 /// [driveHost] (the account, as today's stop). Then the file's lines for [needs], and for [keys], the vault entries
-/// `machine.yml` names, go on a pipe into `sudo porelo-host-stop --stdin` as [host]: the master password is typed
-/// once, here, and no secret reaches an argument, the far end's terminal or this program.
+/// `machine.yml` names, go on a pipe into `porelo-host-stop --stdin` as [host], with sudo for the root and legacy
+/// acts: the master password is typed once, here, and no secret reaches an argument, the far end's terminal or
+/// this program.
 List<String> hostStopFeedCommand({
+  required HostAct act,
   required String secretsFile,
   required String project,
   required List<String> needs,
@@ -20,10 +22,16 @@ List<String> hostStopFeedCommand({
   String? caOut,
   int networkNumber = 0,
   String? secretsHost,
-  bool serverOnly = false,
 }) {
-  if (serverOnly && needs.any((need) => !const ['wireguard', 'forge-certificate'].contains(need))) {
-    throw const FormatException('The root server stop accepts only wireguard and forge-certificate.');
+  final allowed = switch (act) {
+    HostAct.root => const {'wireguard', 'forge-certificate'},
+    HostAct.ownAccount => const {'vault-new', 'vault', 'keys', 'forge-central-token', 'identities'},
+    HostAct.legacyUp => {...SecretsFile.stopNeeds, 'drive', 'matrix-token'},
+  };
+  for (final need in needs) {
+    if (!allowed.contains(need)) {
+      throw FormatException('The ${act.name} stop does not accept $need.');
+    }
   }
   final unknown = needs.where(
     (need) => need != 'drive' && need != 'matrix-token' && !SecretsFile.stopNeeds.contains(need),
@@ -51,7 +59,7 @@ List<String> hostStopFeedCommand({
     if (fed.isNotEmpty)
       SecretsFile(secretsFile, cli: cli).stopLines(
         host: secretsHost ?? project,
-        project: serverOnly ? '' : project,
+        project: act == HostAct.root ? '' : project,
         needs: fed,
         keys: fed.contains('keys') ? keys : const [],
         networkNumber: networkNumber,
@@ -64,7 +72,8 @@ List<String> hostStopFeedCommand({
   // No login shell at the far end: its profile would run with the pipe on its standard input. `-n`: a sudo that
   // asks a password fails instead of reading one from the pipe.
   final stop =
-      '/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --stdin ${[...fed, if (matrix) 'matrix-token'].join(' ')}';
+      '${act == HostAct.ownAccount ? '' : '/usr/bin/sudo -n '}'
+      '/usr/local/bin/porelo-host-stop --stdin ${[...fed, if (matrix) 'matrix-token'].join(' ')}';
   final script = [
     if (matrix) ...[
       // The folder exists before anything can leave it behind; any end of the terminal takes it away.

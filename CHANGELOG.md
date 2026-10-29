@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The host's stop is fed by act: the host admin's root stop takes only the VPN key and the forge's certificate,
+  a bring's or a join's runs in the person's own account with no `sudo`, and their setup files go into the
+  person's own home on the host, theirs alone.
+
 - The secrets file keeps a host's entries under `hosts/<host>/` and a project's under `projects/<project>/`;
   entries kept by an earlier version move there once, in the person's own terminal, and none is lost.
 

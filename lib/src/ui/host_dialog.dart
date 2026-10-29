@@ -926,7 +926,7 @@ class _HostDialogState extends State<HostDialog> {
           _tunnel = await files.prepare(
             project: _hostId,
             folder: _serverOnly ? null : _setupFolder,
-            url: _serverOnly ? '' : HostFiles.bundleUrl(_hostId),
+            url: _serverOnly ? '' : HostFiles.bundleUrl(_hostId, act: HostAct.legacyUp),
             signingKey: File(_serverOnly ? '' : _signingKey.text.trim()),
             keys: _keys,
             hostPublicKey: hostPublicKey,

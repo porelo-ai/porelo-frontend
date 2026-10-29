@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_host/porelo_host.dart';
 
 import 'package:porelo_frontend/src/app/host_stop_feed.dart';
 
@@ -14,7 +15,7 @@ void main() {
       ssh: '/usr/bin/ssh',
       sshOptions: const ['-i', '/keys/rental'],
       host: 'root@203.0.113.7',
-      serverOnly: true,
+      act: HostAct.root,
     );
     expect(command.last, contains('porelo-host-stop --stdin wireguard forge-certificate'));
     expect(command.last, contains('root@203.0.113.7'));
@@ -35,7 +36,7 @@ void main() {
           ssh: '/usr/bin/ssh',
           sshOptions: const [],
           host: 'root@203.0.113.7',
-          serverOnly: true,
+          act: HostAct.root,
         ),
         throwsFormatException,
       );

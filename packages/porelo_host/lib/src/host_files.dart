@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'secret_store.dart';
 import 'secrets_file.dart' show SecretsFile;
 import 'host_file_writer.dart';
+import 'host_act.dart';
 import 'ssh_public_key.dart';
 
 /// A vault entry and the file selected for import by the host.
@@ -217,10 +218,16 @@ class HostFiles {
     }
   }
 
-  /// The host reads this bundle where `up` uploaded it, a place only root writes.
-  static String bundleUrl(String project) {
+  /// The bundle in the act's setup directory; an own-account path is relative to the person's host home.
+  static String bundleUrl(String project, {HostAct act = HostAct.legacyUp}) {
     checkName(project);
-    return path.posix.join('/etc/porelo-host/setup', '$project.bundle');
+    return path.posix.join(act.setupPlace, '$project.bundle');
+  }
+
+  /// The access repository's bundle beside the project's, relative to the person's host home.
+  static String accessBundleUrl(String project) {
+    checkName(project);
+    return path.posix.join(HostAct.ownAccount.setupPlace, '$project-access.bundle');
   }
 
   /// Builds only the daemon's verified revision, without reading daemon-owned files.

@@ -11,9 +11,9 @@ Every person's part moves out of root: `porelo-host`'s setup directory becomes t
 
 ## Plan
 
-- **The upload** ([F197](README.md#f197)): `HostFiles` (`packages/porelo_host/lib/src/host_files.dart`, `/etc/porelo-host/setup/…`) and `HostRun.setupPlace` take the person's own setup directory for bring and join; the root path stays for nothing.
-- **The feed** ([F199](README.md#f199)): `hostStopFeedCommand` (`lib/src/app/host_stop_feed.dart`) builds `porelo-host-stop --stdin` with or without `sudo` by act, and refuses a need the act does not take (a root stop asking `keys`, an own-account stop asking `wireguard`).
-- **Red first:** the feed's test that a root stop's command for `keys` is refused and an own-account command carries no `sudo`.
+- **The upload** ([F197](README.md#f197)): `HostFiles` (`packages/porelo_host/lib/src/host_files.dart`) and `HostRun.setupPlace` take the person's own setup directory for bring and join, `.local/share/porelo-host/setup` relative to their host home, defined once by `HostAct`. `HostRun.uploadSetupFiles` exposes the upload for the coming bring/join callers, requires the access bundle beside the machine file and project bundle, installs the directory as `0700` and each file as `0600` without `sudo`, and checks SHA-256 in staging and in place. No bring/join CLI command exists yet. The root path remains for today's combined project `up` until [F213](README.md#f213) replaces it.
+- **The feed** ([F199](README.md#f199)): `hostStopFeedCommand` (`lib/src/app/host_stop_feed.dart`) requires `HostAct.root`, `ownAccount` or `legacyUp`, builds `porelo-host-stop --stdin` with or without `sudo`, and refuses a need the act does not take by name. Server preparation is root; combined project `up` retains its legacy sudo feed. Drive login and Matrix admission remain legacy handling. Own-account identities are refused until the secrets file supplies them; certificate requests stay privileged.
+- **Red first:** the feed's tests that root refuses `keys` by name, own-account commands carry no `sudo` and refuse `wireguard`; upload tests that require the person's directory and both bundles before switching their caller from the combined `up` to the new upload method. Execute the upload commands in a private test home to verify actual ownership, modes and digest failures.
 
 ## Acceptance
 
