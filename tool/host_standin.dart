@@ -107,7 +107,8 @@ Future<int> _run(List<String> arguments) async {
       prepared = PreparedHost.read({
         'address': '192.0.2.10',
         'endpoint': '192.0.2.10:51820',
-        'wireguard_public_key': base64Encode(List<int>.filled(32, 7)),
+        'wireguard_public_key':
+            await _preparedServerKey(options['--host-name']!) ?? base64Encode(List<int>.filled(32, 7)),
         'network': '10.73.$network.0/24',
         'ssh_host_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKN5JzCUxyX6M8b9iJQSNmDvv7NirfTaeG3ZL3q7N3ke',
         'ca_sha256': 'a' * 64,
@@ -220,6 +221,24 @@ Future<int> _run(List<String> arguments) async {
   await remember('done');
   if (prepared != null) stdout.writeln(Step('host', StepState.host, host: prepared).toLine());
   return Exit.done;
+}
+
+/// The server's VPN public key the interface prepared for [host], as a real host reports it back after its stop; the
+/// interface refuses any other key.
+Future<String?> _preparedServerKey(String host) async {
+  final environment = Platform.environment;
+  final configuration = environment['XDG_CONFIG_HOME'] ?? '${environment['HOME']}/.config';
+  final settings = File('$configuration/porelo/frontend.json');
+  if (!settings.existsSync()) return null;
+  try {
+    final key =
+        (jsonDecode(await settings.readAsString()) as Map<String, dynamic>)['hostUps']?[host]?['vpnHostPublicKey'];
+    return key is String && base64Decode(key).length == 32 ? key : null;
+  } on FormatException {
+    return null;
+  } on TypeError {
+    return null;
+  }
 }
 
 const _ownSteps = HostRun.upSteps;

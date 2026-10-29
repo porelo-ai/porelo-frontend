@@ -217,6 +217,7 @@ void main() {
     String name = 'orchard',
     int network = 17,
     List<String> extra = const [],
+    Map<String, String> environment = const {},
   }) => Process.start(
     hostExecutable,
     [
@@ -241,7 +242,7 @@ void main() {
       '10.73.$network.2/32',
       ...extra,
     ],
-    environment: {'PORELO_WALK': scratch.path},
+    environment: {'PORELO_WALK': scratch.path, ...environment},
     includeParentEnvironment: false,
   );
 
@@ -282,6 +283,28 @@ void main() {
     final withoutForge = await finish(await server(extra: ['--forge', 'false']));
     expect(withoutForge.code, Exit.waiting);
     expect(withoutForge.steps.last.needs, ['wireguard', 'forge-certificate']);
+  });
+
+  // Harm: the interface refuses the prepared server because the stand-in reports a VPN key other than the one prepared.
+  test('a prepared server reports the VPN key the interface prepared for it', () async {
+    final prepared = base64Encode(List<int>.filled(32, 9));
+    final configuration = Directory('${scratch.path}/config/porelo')..createSync(recursive: true);
+    File('${configuration.path}/frontend.json').writeAsStringSync(
+      jsonEncode({
+        'hostUps': {
+          'orchard': {'vpnHostPublicKey': prepared},
+        },
+      }),
+    );
+    await situation('clean');
+    final done = await finish(await server(environment: {'XDG_CONFIG_HOME': '${scratch.path}/config'}));
+    expect(done.code, Exit.done);
+    expect(done.steps.last.host!.values['wireguard_public_key'], prepared);
+    final other = await finish(
+      await server(name: 'other', network: 18, environment: {'XDG_CONFIG_HOME': '${scratch.path}/config'}),
+    );
+    expect(other.code, Exit.done);
+    expect(other.steps.last.host!.values['wireguard_public_key'], vpnKey);
   });
 
   // Harm: ignored host options rehearse a different operation than the app requested.
@@ -353,7 +376,7 @@ void main() {
     final admit = HostAdminRequest.admit('alice', block, 17);
     final added = await helper('person add alice --role project-admin', input: '$block\n');
     expect(added.code, 0, reason: added.errors);
-    expect(admit.answer(RemoteResult(added.code, added.errors), [added.output.trim()], host), contains('10.73.17.2'));
+    expect(admit.answer(RemoteResult(added.code, added.errors), [added.output.trim()], host), contains('10.73.17.3'));
     expect((await helper('person add alice --role project-admin', input: '$block\n')).output, added.output);
     final key2 =
         'ssh-ed25519 ${base64Encode([...base64Decode(sshKey.split(' ')[1]).take(19), ...List<int>.filled(32, 8)])}';
@@ -363,12 +386,12 @@ void main() {
     final vpn3 = base64Encode(List<int>.filled(32, 9));
     final second = await helper(
       'person add bob --role project-admin',
-      input: 'other $key2 $vpn2\nspare $key3 $vpn3 10.73.17.3\n',
+      input: 'other $key2 $vpn2\nspare $key3 $vpn3 10.73.17.5\n',
     );
     expect(second.code, 0, reason: second.errors);
     expect(jsonDecode(second.output)['laptops'], [
       {'laptop': 'other', 'vpn_address': '10.73.17.4'},
-      {'laptop': 'spare', 'vpn_address': '10.73.17.3'},
+      {'laptop': 'spare', 'vpn_address': '10.73.17.5'},
     ]);
     final registered = await helper("project add grove alice --signed-by '$sshKey'");
     expect(registered.code, 0, reason: registered.errors);

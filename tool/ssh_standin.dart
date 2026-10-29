@@ -383,7 +383,8 @@ Future<int> _helper(String command) async {
         if (requested.any((laptop) => occupied.any((old) => old.ssh == laptop.ssh || old.wg == laptop.wg))) {
           _refuse('a public key belongs to a recorded laptop', 65);
         }
-        final addresses = occupied.map((each) => each.address!).toSet();
+        // .2 is the host admin's own laptop, made a peer when the server was prepared.
+        final addresses = {'10.73.${host.network}.2', ...occupied.map((each) => each.address!)};
         for (final laptop in requested) {
           if (laptop.address != null && !addresses.add(laptop.address!)) {
             _refuse('a requested VPN address is outside the network or already reserved', 65);
@@ -393,7 +394,7 @@ Future<int> _helper(String command) async {
         for (final laptop in requested) {
           final address =
               laptop.address ??
-              [for (var n = 2; n <= 254; n++) '10.73.${host.network}.$n']
+              [for (var n = 3; n <= 254; n++) '10.73.${host.network}.$n']
                   .where((each) => !addresses.contains(each))
                   .firstOrNull;
           if (address == null) _refuse('the host VPN network has no free laptop address', 65);
