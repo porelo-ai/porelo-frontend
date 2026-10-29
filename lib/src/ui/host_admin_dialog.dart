@@ -156,6 +156,8 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
     _ => throw ArgumentError.value(widget.action),
   };
   bool get _project => widget.action == 'register' || widget.action == 'remove';
+  // Only these two take public keys; the others take a name alone.
+  bool get _keys => widget.action == 'register' || widget.action == 'admit';
 
   @override
   void dispose() {
@@ -309,13 +311,15 @@ class _HostAdminDialogState extends State<HostAdminDialog> {
     title: _title,
     changes: Listenable.merge([_name, _admin, _key, _block]),
     reviewWords:
-        '${widget.host.vpnAddress}: check the name and public keys before continuing.${widget.action == 'remove' ? ' The next step opens your terminal and asks the master password of your secrets file. The host refuses a repository with no central home or with unpushed work.' : ''}',
+        '${widget.host.vpnAddress}: ${_keys ? 'check the name and public keys' : 'check the name'} before continuing.${widget.action == 'remove' ? ' The next step opens your terminal and asks the master password of your secrets file. The host refuses a repository with no central home or with unpushed work.' : ''}',
     steps: [
       _step(
         _project ? 'Project name' : 'Project admin account',
         _project
             ? 'Copy the project name from its project.yml; this is a name, not a folder.'
-            : 'Ask the person for the account name they want on this server.',
+            : widget.action == 'admit'
+            ? 'Ask the person for the account name they want on this server.'
+            : 'Type the account name of the project admin to ${widget.action}.',
         _name,
         'host-admin-name',
         () => checkAdminName(_name.text),

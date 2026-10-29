@@ -865,7 +865,7 @@ void main() {
     expect(jsonDecode(steps.last.toLine()), <String, Object>{
       'step': 'give-back',
       'state': 'done',
-      'text': 'Give the project server back',
+      'text': 'Give the server back',
       'seconds': 30,
       'address': '203.0.113.7',
     });
@@ -875,7 +875,7 @@ void main() {
       'step': 'give-back',
       'state': 'done',
       'words': 'no host carries the project tag',
-      'text': 'Give the project server back',
+      'text': 'Give the server back',
       'seconds': 30,
     });
     expect(provider.released, <String>['h1'], reason: 'nothing else was given back');

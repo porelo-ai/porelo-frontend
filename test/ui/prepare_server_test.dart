@@ -476,8 +476,13 @@ void main() {
   testWidgets('purge waits for a second decision after review', (tester) async {
     final remote = HelperRemote(response: '{"person":"alice","purged":true}');
     await frame(tester, HostAdminDialog(host: PreparedHost.read(hostValues()), action: 'purge', remote: remote));
+    // Harm: words for a new account send the host admin to ask for a name instead of naming the one to purge.
+    expect(find.text('Type the account name of the project admin to purge.'), findsOneWidget);
+    expect(find.textContaining('they want on this server'), findsNothing);
     await tester.enterText(find.byKey(const Key('host-admin-name')), 'alice');
     await next(tester);
+    expect(find.textContaining('check the name before continuing.'), findsOneWidget);
+    expect(find.textContaining('public keys'), findsNothing);
     await tester.tap(find.byKey(const Key('wizard-start')));
     await World.settle(tester);
     expect(remote.commands, isEmpty);

@@ -303,7 +303,9 @@ void main() {
         final script = terminals.single.command.last;
         expect(script, contains('porelo-host-stop --stdin $need'));
         expect(script, contains('ubuntu@203.0.113.7'), reason: 'as the refusal\'s own user');
-        if (need == 'keys') expect(script, contains("'projects/demo/keys/forge'"), reason: 'the entry machine.yml names');
+        if (need == 'keys') {
+          expect(script, contains("'projects/demo/keys/forge'"), reason: 'the entry machine.yml names');
+        }
         if (need == 'matrix-token') {
           expect(script, contains('porelo talk admit demo'), reason: 'this computer lets the host in');
           expect(script, isNot(contains('read -rs')), reason: 'no master password for a token the file has no part in');

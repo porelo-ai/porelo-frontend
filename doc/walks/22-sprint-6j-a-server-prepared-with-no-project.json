@@ -93,7 +93,7 @@
       "then": "!walk-next"
     },
     {
-      "say": "2-1. On the laptop, in the interface: in the rail click Machines. Click walk6j's row and click Bring the VPN up — or, if walk6j already shows as Prepared, click its chevron (Show more), open its menu (⋮), run Take the VPN down with your sudo password, then open its menu (⋮) again and click Bring the VPN up to exercise the machine row's VPN command. Type only your sudo password into Bring the VPN up for walk6j and press Enter, verify the tunnel on the laptop, then run on the laptop, in Claude Code: ! bash ~/.porelo/handover/porelo-host/6j/6j-host-prepare.sh (porelo-host's guide doc/guides/6j-host.md, step host-prepare, says what it checks); each check prints ok: and the script ends with host-prepare passed, and click Next in this panel. Expected (not run): the terminal installs porelo-<n>, confirms a fresh WireGuard handshake, trusts walk6j's CA and writes forge.walk6j.porelo.internal and matrix.walk6j.porelo.internal into /etc/hosts, then closes; walk6j stands in Machines as Prepared; in a separate terminal on the laptop, ip -br addr show porelo-<n> shows 10.73.<n>.2/32 and ping -c 1 10.73.<n>.1 answers. The host-prepare checks pass: /etc/porelo-host/host.json, WireGuard, Forgejo, homeserver, and no project or project user created. Failure signs: any check of host-prepare printing expected: and got:, The VPN check did not confirm this server., The VPN command cannot run (snap confinement or an existing porelo-<n> collision), walk6j staying in preparation, or 10.73.<n>.1 not answering.",
+      "say": "2-1. On the laptop, in the interface: in the rail click Machines. On walk6j's row, which says In preparation, click Open the host protocol and in it click Bring the VPN up — or, if walk6j already shows as Prepared, click its chevron (Show more), open its menu (⋮), run Take the VPN down with your sudo password, then open its menu (⋮) again and click Bring the VPN up to exercise the machine row's VPN command. Type only your sudo password into Bring the VPN up for walk6j and press Enter, verify the tunnel on the laptop, then run on the laptop, in Claude Code: ! bash ~/.porelo/handover/porelo-host/6j/6j-host-prepare.sh (porelo-host's guide doc/guides/6j-host.md, step host-prepare, says what it checks); each check prints ok: and the script ends with host-prepare passed, and click Next in this panel. Expected (not run): the terminal installs porelo-<n>, confirms a fresh WireGuard handshake, trusts walk6j's CA and writes forge.walk6j.porelo.internal and matrix.walk6j.porelo.internal into /etc/hosts, then closes; walk6j stands in Machines as Prepared; in a separate terminal on the laptop, ip -br addr show porelo-<n> shows 10.73.<n>.2/32 and ping -c 1 10.73.<n>.1 answers. The host-prepare checks pass: /etc/porelo-host/host.json, WireGuard, Forgejo, homeserver, and no project or project user created. Failure signs: any check of host-prepare printing expected: and got:, The VPN check did not confirm this server., The VPN command cannot run (snap confinement or an existing porelo-<n> collision), walk6j staying in preparation, or 10.73.<n>.1 not answering.",
       "at": [
         "host-vpn-terminal",
         "machine.vpnUp",
@@ -101,7 +101,7 @@
         "host-vpn-up",
         "machines-menu walk6j",
         "machines-row walk6j",
-        "host-preparing walk6j",
+        "host.protocol walk6j", "host-preparing walk6j",
         "rail machines"
       ],
       "then": "!walk-next"

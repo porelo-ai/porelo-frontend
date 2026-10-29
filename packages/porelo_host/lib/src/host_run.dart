@@ -189,14 +189,14 @@ class HostRun {
 
   /// This command's steps, before the collection can announce its own.
   static const upSteps = [
-    PlannedStep('rent', 'Rent the project server', seconds: 900),
+    PlannedStep('rent', 'Rent the server', seconds: 900),
     PlannedStep('ssh', 'Wait for the server to accept SSH', seconds: 780),
     PlannedStep('copy', 'Copy the server setup files', seconds: 30),
     PlannedStep('ansible', 'Install the server setup tools', seconds: 120),
   ];
 
   /// Giving the server back follows the collection's teardown.
-  static const downSteps = [PlannedStep('give-back', 'Give the project server back', seconds: 30)];
+  static const downSteps = [PlannedStep('give-back', 'Give the server back', seconds: 30)];
   List<PlannedStep> _ownSteps = const [];
 
   /// Writes this command's own words on its own steps; collection words remain verbatim.
