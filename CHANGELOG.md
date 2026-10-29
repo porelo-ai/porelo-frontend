@@ -94,6 +94,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Taking a project off a prepared server opens the admin's terminal and pipes the central forge token from the
+  secrets file to the host, where needed to protect the repositories' central copies; a missing entry sends nothing.
+
 - The Linux packages require KeePassXC (`keepassxc-minimal` or `keepassxc`) and `wireguard-tools`, the programs the
   interface runs for a person's secrets file and for a server's VPN.
 
@@ -156,6 +159,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   The host walk uses invented SSH keys kept inside its walk folder.
 
 ### Added
+
+- Prepare a server under Machines without creating a project or project account. Its public connection values
+  can be copied for project admins; its menu registers and removes projects and admits, locks, or purges admins
+  using checked public keys and the rental SSH identity.
 
 - A ready rented server offers Run its setup again in its menu in Machines: `porelo-host up` runs with the arguments
   and files of its setup, as a new attempt in its protocol, a stop in it is completed from Needs you, and the server

@@ -15,6 +15,7 @@ import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/app/vault.dart';
 
 import '../features/support/world.dart';
+import '../support/host_admin.dart';
 
 void main() {
   // Harm: a new or duplicated command silently exposes server changes to ordinary work.
@@ -59,6 +60,10 @@ void main() {
     fleet.selectProject('checkout');
     await templates.keep(
       const Template(name: 'nightly', project: 'checkout', agent: 'agent', mode: Mode.unattended, prompt: 'Build'),
+    );
+    await settings.rememberHostUp(
+      'prepared',
+      HostUpRecord.fromStored({...run.record.stored, 'host': 'prepared', 'hostName': 'prepared'})!,
     );
     final commands = <Command>[
       ...commandsFor(
@@ -119,6 +124,15 @@ void main() {
         ),
       bringHostVpnUpAgainCommand(run: () {}),
       takeGivenBackVpnDownCommand(run: () {}),
+      prepareServerCommand(open: () {}),
+      ...preparedHostCommands(
+        machine: const Machine(name: 'prepared', socketPath: '', kind: 'host', hostProject: 'prepared'),
+        settings: settings,
+        hostRuns: runs,
+        open: (_) {},
+        showValues: () {},
+      ),
+      for (final name in [...hostValues().keys, 'SSH fingerprint']) copyHostValueCommand(name, () {}),
       hostPreparationCommand(project: 'demo', open: () {}),
       hostProtocolCommand(project: 'demo', open: () {}),
       copyHostProtocolCommand(project: 'demo', copy: () {}),
@@ -209,6 +223,14 @@ void main() {
       'host.retry': Role.hostAdmin,
       'host.setScalewayKey': Role.hostAdmin,
       'host.vpnUp': Role.hostAdmin,
+      'host.prepare': Role.hostAdmin,
+      'host.adminValues': Role.hostAdmin,
+      'host.registerProject': Role.hostAdmin,
+      'host.removeProject': Role.hostAdmin,
+      'host.admitAdmin': Role.hostAdmin,
+      'host.lockAdmin': Role.hostAdmin,
+      'host.purgeAdmin': Role.hostAdmin,
+      for (final name in [...hostValues().keys, 'SSH fingerprint']) 'host.copy $name': Role.hostAdmin,
     });
     expect(rolesById.keys.toSet(), <String>{
       'about.show',
@@ -239,6 +261,14 @@ void main() {
       'host.vpnAgain',
       'host.vpnCleanup',
       'host.vpnUp',
+      'host.prepare',
+      'host.adminValues',
+      'host.registerProject',
+      'host.removeProject',
+      'host.admitAdmin',
+      'host.lockAdmin',
+      'host.purgeAdmin',
+      for (final name in [...hostValues().keys, 'SSH fingerprint']) 'host.copy $name',
       'join-it',
       'join-reset',
       'list.closeDetails',

@@ -7,7 +7,7 @@ void writeHostStep(Step step, {required StringSink output, required StringSink e
   final fields = jsonDecode(step.toLine()) as Map<String, Object?>;
   fields['at'] = (now ?? DateTime.now)().toUtc().toIso8601String();
   output.writeln(jsonEncode(fields));
-  if (step.state == StepState.plan) return;
+  if (step.state == StepState.plan || step.state == StepState.host) return;
   errors.writeln(hostStepWords(step));
 }
 

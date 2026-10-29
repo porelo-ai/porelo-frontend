@@ -425,6 +425,10 @@ class HostSession extends ChangeNotifier {
   /// At the stop, what the person must give: `drive`, `vault` or `vault-new`.
   List<String> needs = const <String>[];
 
+  /// The checked public server completion record, absent for a project setup.
+  PreparedHost? preparedHost;
+  String? _hostProblem;
+
   /// Where the stopped or completed host can be reached.
   String? address;
 
@@ -468,6 +472,8 @@ class HostSession extends ChangeNotifier {
     admin = null;
     socket = null;
     fix = null;
+    preparedHost = null;
+    _hostProblem = null;
     state = HostRunState.running;
     _changed();
     _upCommand = command.first == 'up';
@@ -492,6 +498,10 @@ class HostSession extends ChangeNotifier {
         Exit.unreachable => HostRunState.unreachable,
         _ => HostRunState.refused,
       };
+      if (_hostProblem != null) {
+        state = HostRunState.refused;
+        fix = _hostProblem;
+      }
       if (state != HostRunState.done && state != HostRunState.waiting) {
         fix ??= said.isEmpty ? 'porelo-host ended with $code' : said;
       }
@@ -509,8 +519,34 @@ class HostSession extends ChangeNotifier {
   }
 
   void _line(String line) {
-    final step = Step.fromLine(line);
-    if (step == null) return;
+    final Step? parsed;
+    try {
+      parsed = Step.fromLine(line);
+    } on FormatException catch (error) {
+      _hostProblem = error.message;
+      _changed();
+      return;
+    }
+    if (parsed == null) return;
+    final step = parsed;
+    if (step.state == StepState.host) {
+      if (!_upCommand) {
+        _hostProblem = 'The host record is allowed only from up.';
+      } else if (preparedHost != null) {
+        _hostProblem = 'The host record was repeated.';
+      } else if (!steps.any((step) => step.step == 'up' && step.state == StepState.done)) {
+        _hostProblem = 'The host record must follow the completed up step.';
+      } else {
+        preparedHost = step.host;
+      }
+      _changed();
+      return;
+    }
+    if (preparedHost != null) {
+      _hostProblem = 'The host record must be the last line of up.';
+      _changed();
+      return;
+    }
     if (step.state == StepState.plan) {
       plan = List.unmodifiable(step.steps);
       _changed();

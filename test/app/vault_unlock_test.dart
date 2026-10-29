@@ -30,7 +30,7 @@ void main() {
   test('a rented server\'s vault opens from the secrets file, with the master password typed once', () {
     final line = unlockCommandFor(server, secretsFile: '/home/person/Porelo/secrets.kdbx')!;
     expect(line.first, '/usr/bin/env');
-    expect(line.last, contains("'hosts/checkout/vault-passphrase'"));
+    expect(line.last, contains("'projects/checkout/vault-passphrase'"));
     expect(line.last, contains("'/usr/bin/porelo vault unlock --passphrase-stdin'"));
   });
 

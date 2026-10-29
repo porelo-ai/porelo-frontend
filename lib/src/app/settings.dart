@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_host/porelo_host.dart' show SecretsFile;
+import 'package:porelo_host/porelo_host.dart' show SecretsFile, PreparedHost, checkHostName;
 
 import 'desk.dart';
 import 'host_vpn.dart' show isForgeCaCertificate, checkVpnInterface;
@@ -35,6 +35,9 @@ class HostUpRecord {
     this.host,
     this.vpnNetworkNumber = 0,
     this.vpnInterface = 'porelo-0',
+    this.hostName = '',
+    this.forge = true,
+    this.preparedHost,
     this.repository = '',
     required this.signingKey,
     required this.identity,
@@ -61,6 +64,23 @@ class HostUpRecord {
 
   /// The local WireGuard interface, including the legacy `porelo` name.
   final String vpnInterface;
+
+  /// The server name for preparation without a project; empty for the legacy project path.
+  final String hostName;
+
+  /// Whether this server runs its own forge.
+  final bool forge;
+
+  /// The validated completion values for project admins, absent before completion.
+  final PreparedHost? preparedHost;
+
+  /// Keeps the server's confirmed public completion values.
+  HostUpRecord withPreparedHost(PreparedHost host) => HostUpRecord.fromStored({
+    ...stored,
+    'preparedHost': host.values,
+    'vpnHostPublicKey': host.values['wireguard_public_key'],
+    'vpnEndpointAddress': host.values['address'],
+  })!;
 
   /// The provider project that owns the rented host.
   final String scalewayProject;
@@ -129,6 +149,9 @@ class HostUpRecord {
   /// Keeps recovery until a machine or give-back has been confirmed.
   HostUpRecord withPreparation(DateTime? instant) => HostUpRecord(
     scalewayProject: scalewayProject,
+    hostName: hostName,
+    forge: forge,
+    preparedHost: preparedHost,
     account: account,
     tresor: tresor,
     folder: folder,
@@ -157,6 +180,9 @@ class HostUpRecord {
   /// Keeps the same host identity when the exported file is saved or explicitly deleted.
   HostUpRecord withVpnFile(String? file) => HostUpRecord(
     scalewayProject: scalewayProject,
+    hostName: hostName,
+    forge: forge,
+    preparedHost: preparedHost,
     account: account,
     tresor: tresor,
     folder: folder,
@@ -185,6 +211,9 @@ class HostUpRecord {
   /// Keeps the confirmed public tunnel settings without changing setup or the chosen file.
   HostUpRecord withTunnel({required String hostPublicKey, required String address}) => HostUpRecord(
     scalewayProject: scalewayProject,
+    hostName: hostName,
+    forge: forge,
+    preparedHost: preparedHost,
     account: account,
     tresor: tresor,
     folder: folder,
@@ -213,6 +242,9 @@ class HostUpRecord {
   /// Replaces the kept protocol without changing the setup answers.
   HostUpRecord withProtocol(List<HostProtocolEntry> entries) => HostUpRecord(
     scalewayProject: scalewayProject,
+    hostName: hostName,
+    forge: forge,
+    preparedHost: preparedHost,
     account: account,
     tresor: tresor,
     folder: folder,
@@ -287,6 +319,25 @@ class HostUpRecord {
         return null;
       }
       if (match != null && int.parse(match[1]!) != network) return null;
+      final hostName = value['hostName'] ?? '';
+      final forge = value['forge'] ?? true;
+      if (hostName is! String || forge is! bool) return null;
+      PreparedHost? preparedHost;
+      try {
+        if (hostName.isNotEmpty) {
+          checkHostName(hostName);
+          if (hostName != host) return null;
+        }
+        if (value['preparedHost'] != null) {
+          preparedHost = PreparedHost.read(value['preparedHost']);
+          if (preparedHost.network != network ||
+              preparedHost.values['homeserver'] != 'matrix.$hostName.porelo.internal') {
+            return null;
+          }
+        }
+      } on FormatException {
+        return null;
+      }
       // Unreadable progress must not erase the answers needed to give a billed server back.
       final protocol = HostProtocolEntry.readMany(value['protocol']) ?? const <HostProtocolEntry>[];
       final preparing = value.containsKey('preparing') ? value['preparing'] : false;
@@ -351,6 +402,9 @@ class HostUpRecord {
       if (folder != null && signingKey.trim().isEmpty) return null;
       return HostUpRecord(
         scalewayProject: scalewayProject,
+        hostName: hostName,
+        forge: forge,
+        preparedHost: preparedHost,
         account: account,
         tresor: tresor,
         folder: folder is String ? folder : null,
@@ -385,6 +439,8 @@ class HostUpRecord {
     'vpnNetworkNumber': vpnNetworkNumber,
     'vpnInterface': vpnInterface,
     'scalewayProject': scalewayProject,
+    if (hostName.isNotEmpty) ...{'hostName': hostName, 'forge': forge},
+    if (preparedHost != null) 'preparedHost': preparedHost!.values,
     'account': account,
     'tresor': tresor,
     'folder': folder,
@@ -408,10 +464,21 @@ class HostUpRecord {
 
   /// The identical host identity options for up, resume and down.
   List<String> arguments(String project) => [
-    '--project',
-    project,
-    '--account',
-    account,
+    if (hostName.isEmpty) ...[
+      '--project',
+      project,
+      '--account',
+      account,
+    ] else ...[
+      '--host-name',
+      hostName,
+      '--network',
+      '$vpnNetworkNumber',
+      '--login-user',
+      'root',
+      '--forge',
+      '$forge',
+    ],
     '--public-key',
     publicKey,
     '--identity',

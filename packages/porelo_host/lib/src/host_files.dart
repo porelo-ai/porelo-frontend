@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
 import 'secret_store.dart';
 import 'secrets_file.dart' show SecretsFile;
 import 'host_file_writer.dart';
+import 'ssh_public_key.dart';
 
 /// A vault entry and the file selected for import by the host.
 class HostKeyFile {
@@ -140,25 +140,10 @@ class HostFiles {
 
   /// Matches ssh-keygen's SHA-256 fingerprint after parsing the complete supported key.
   static String signingFingerprint(String publicKey) {
-    final fields = publicKey.trim().split(RegExp(r'\s+'));
-    if (fields.length < 2) throw const HostFilesRefused('Choose an ssh-ed25519 or ssh-rsa signing public key (.pub).');
-    if (fields[0] != 'ssh-ed25519' && fields[0] != 'ssh-rsa') {
-      throw const HostFilesRefused('Only ssh-ed25519 and ssh-rsa signing public keys are supported.');
-    }
     try {
-      final blob = base64Decode(fields[1]);
-      final reader = _SshBlob(blob);
-      if (utf8.decode(reader.field()) != fields[0]) throw const FormatException();
-      if (fields[0] == 'ssh-ed25519') {
-        if (reader.field().length != 32) throw const FormatException();
-      } else {
-        reader.positiveMpint();
-        reader.positiveMpint();
-      }
-      if (!reader.atEnd) throw const FormatException();
-      return 'SHA256:${base64Encode(sha256.convert(blob).bytes).replaceAll('=', '')}';
-    } on FormatException {
-      throw const HostFilesRefused('Choose a valid ssh-ed25519 or ssh-rsa signing public key (.pub).');
+      return sshSigningFingerprint(publicKey);
+    } on FormatException catch (error) {
+      throw HostFilesRefused(error.message);
     }
   }
 
@@ -544,30 +529,5 @@ class HostFiles {
     if (type != FileSystemEntityType.notFound && type != FileSystemEntityType.directory) _conflict(directory.path);
     if (create) await directory.create(recursive: true);
     if (!create && type != FileSystemEntityType.directory) _conflict(directory.path);
-  }
-}
-
-/// OpenSSH fields carry their own lengths; no trailing byte belongs to a supported key.
-class _SshBlob {
-  _SshBlob(this.bytes);
-  final List<int> bytes;
-  int offset = 0;
-  bool get atEnd => offset == bytes.length;
-
-  List<int> field() {
-    if (bytes.length - offset < 4) throw const FormatException();
-    final size = (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
-    offset += 4;
-    if (size > bytes.length - offset) throw const FormatException();
-    final value = bytes.sublist(offset, offset + size);
-    offset += size;
-    return value;
-  }
-
-  void positiveMpint() {
-    final value = field();
-    if (value.isEmpty || value.first >= 128 || (value.first == 0 && (value.length == 1 || value[1] < 128))) {
-      throw const FormatException();
-    }
   }
 }

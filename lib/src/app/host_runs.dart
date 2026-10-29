@@ -51,7 +51,7 @@ class HostPreparation {
   final Settings? settings;
 
   /// The machine's name even before a daemon exists.
-  String get name => '$project server';
+  String get name => record.hostName.isEmpty ? '$project server' : record.hostName;
 
   /// True only once the machine was added, which needs a verified VPN unless host files were supplied manually.
   bool get ready => phase == HostPreparationPhase.reachable;
@@ -195,7 +195,12 @@ class HostRuns extends ChangeNotifier {
   Future<void> _probe(HostPreparation run) async {
     if (_disposed || _leaving || run._upActive || run.session.state == HostRunState.running) return;
     try {
-      final file = File(poreloHostProjectLock(run.project, environment: environment));
+      final file = File(
+        poreloHostProjectLock(
+          run.record.hostName.isEmpty ? run.project : HostPlan.serverLockName(run.record.hostName),
+          environment: environment,
+        ),
+      );
       await file.parent.create(recursive: true);
       final handle = await openProjectLock(file);
       var held = false;
@@ -473,6 +478,42 @@ class HostRuns extends ChangeNotifier {
 
   Future<void> _addHost(HostPreparation run) async {
     final session = run.session;
+    if (run.record.hostName.isNotEmpty) {
+      final host = session.preparedHost;
+      if (host == null) {
+        run.problem = 'host.json is missing from the completed server setup.';
+        return;
+      }
+      if (run.record.vpnHostPublicKey.isNotEmpty &&
+          run.record.vpnHostPublicKey != host.values['wireguard_public_key']) {
+        run.problem = 'host.json: wireguard_public_key differs from the server key prepared here.';
+        return;
+      }
+      if (host.values['address'] != session.address) {
+        run.problem = 'host.json: address differs from the completed server.';
+        return;
+      }
+      if (host.network != run.record.vpnNetworkNumber ||
+          host.values['homeserver'] != 'matrix.${run.record.hostName}.porelo.internal') {
+        run.problem = 'host.json: network or homeserver differs from the chosen server.';
+        return;
+      }
+      if (!session.steps.any((step) => step.step == 'up' && step.state == StepState.done) ||
+          session.steps.any((step) => step.state == StepState.refused)) {
+        run.problem = session.fix ?? 'The host did not confirm setup.';
+        return;
+      }
+      if (machines.all.any(
+        (machine) => machine.name == run.name && (machine.kind != 'host' || machine.hostProject != run.project),
+      )) {
+        run.problem = 'A different machine already uses the server name ${run.name}.';
+        return;
+      }
+      final settings = run.settings ?? machines.settings;
+      await settings.rememberHostUp(run.project, (settings.hostUp(run.project) ?? run.record).withPreparedHost(host));
+      run.phase = HostPreparationPhase.vpn;
+      return;
+    }
     final address = session.address ?? '';
     final account = session.account ?? '';
     final socket = session.socket ?? '';
@@ -514,13 +555,14 @@ class HostRuns extends ChangeNotifier {
 
   Future<void> _addMachine(HostPreparation run) {
     final session = run.session;
+    final serverOnly = run.record.hostName.isNotEmpty;
     return machines.add(
       Machine(
         name: run.name,
         kind: 'host',
-        socketPath: Platform.isWindows ? '' : _endpointFor(run.name),
-        host: '${session.account}@${session.address}',
-        remoteSocket: session.socket!,
+        socketPath: serverOnly || Platform.isWindows ? '' : _endpointFor(run.name),
+        host: '${serverOnly ? 'root' : session.account}@${session.address}',
+        remoteSocket: serverOnly ? '' : session.socket!,
         identity: run.record.identity,
         hostProject: run.project,
       ),
@@ -532,9 +574,9 @@ class HostRuns extends ChangeNotifier {
     if (_disposed || !run.awaitingVpn || !verified || run.ready) return;
     try {
       await _addMachine(run);
-      final settings = run.settings;
-      final kept = settings?.hostUp(run.project);
-      if (kept != null) await settings!.rememberHostUp(run.project, kept.withPreparation(null));
+      final settings = run.settings ?? machines.settings;
+      final kept = settings.hostUp(run.project);
+      if (kept != null) await settings.rememberHostUp(run.project, kept.withPreparation(null));
       run.phase = HostPreparationPhase.reachable;
       run.problem = null;
     } on Exception {

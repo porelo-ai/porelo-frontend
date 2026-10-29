@@ -166,6 +166,8 @@ class Machine {
   /// Linux computer. A machine over ssh uses a byte relay. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
+    'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
+      'This server is prepared without a project account or daemon. Register a project from its menu.',
     'host' when identity.isEmpty => 'The host has no identity; run porelo-host up again.',
     '' || 'host' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
     '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>

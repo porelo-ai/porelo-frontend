@@ -11,13 +11,17 @@ import 'remote.dart';
 import 'ssh.dart' show quoteForAShell;
 import 'steps.dart';
 import 'state.dart';
+import 'host_record.dart';
+import 'host_files.dart';
 
 /// What one host of one project is made from.
 class HostPlan {
   /// Constructor taking the project, the account and the files that go up.
   const HostPlan({
-    required this.project,
-    required this.account,
+    this.project = '',
+    this.account = '',
+    this.hostName,
+    this.network,
     required this.publicKey,
     this.collection,
     this.collectionSha256,
@@ -29,6 +33,50 @@ class HostPlan {
     this.bundle,
     this.forge = true,
   });
+
+  /// The name for a server prepared independently of a project.
+  final String? hostName;
+
+  /// The third octet of its private subnet, required with [hostName].
+  final int? network;
+
+  /// The rental and lock identity, shared by up and down.
+  String get name => hostName ?? project;
+
+  /// The separate lock namespace for servers prepared without a project.
+  static String serverLockName(String name) => 'host-$name';
+
+  /// Checks server-only inputs before anything is rented or released.
+  void check() {
+    if (hostName == null) return;
+    checkHostName(hostName!);
+    if (network == null) throw const FormatException('The network number is missing.');
+    checkHostNetwork(network!);
+    if (project.isNotEmpty || account.isNotEmpty || machineFile != null || bundle != null) {
+      throw const FormatException(
+        'A server prepared without a project takes no account, project, machine file or bundle.',
+      );
+    }
+    if (loginUser != 'root') throw const FormatException('A prepared server uses root with the rental key.');
+    try {
+      HostFiles.signingFingerprint(publicKey);
+    } on HostFilesRefused {
+      throw const FormatException('The rental SSH key must be a valid public key.');
+    }
+    checkWireGuardPublicKey(vpnPeerPublicKey ?? '');
+    final peer = vpnPeerAddress ?? '';
+    final match = RegExp(
+      '^10\\.73\\.$network\\.([0-9]+)(/32)?'
+      r'$',
+    ).firstMatch(peer);
+    final last = int.tryParse(match?.group(1) ?? '');
+    if (last == null || last < 2 || last > 254 || last.toString() != match!.group(1)) {
+      throw const FormatException('The VPN peer address must name this laptop in the server network, from .2 to .254.');
+    }
+    if (!const ['snapshots', 'releases'].contains(distribution)) {
+      throw const FormatException('Unknown host distribution.');
+    }
+  }
 
   /// The project's name: the host's name, and the tag it is found by.
   final String project;
@@ -69,7 +117,7 @@ class HostPlan {
   final bool forge;
 
   /// The tag the host carries.
-  String get tag => tagFor(project);
+  String get tag => hostName == null ? tagFor(project) : 'porelo-host=$hostName';
 
   /// The tag the host of [project] carries.
   static String tagFor(String project) => 'porelo-project=$project';
@@ -210,7 +258,13 @@ class HostRun {
   Future<int> _withProjectLock(HostPlan plan, Future<int> Function() run) async {
     final File file;
     try {
-      file = File(poreloHostProjectLock(plan.project, environment: environment));
+      plan.check();
+      file = File(
+        poreloHostProjectLock(
+          plan.hostName == null ? plan.project : HostPlan.serverLockName(plan.hostName!),
+          environment: environment,
+        ),
+      );
     } on FormatException catch (error) {
       _write(Step('lock', StepState.refused, fix: error.message));
       return Exit.refused;
@@ -357,7 +411,16 @@ class HostRun {
     _write(const Step('ansible', StepState.done));
 
     final played = await _play(address, plan, 'porelo.host.up');
-    if (played != Exit.done) return played;
+    if (played.code != Exit.done) return played.code;
+    if (plan.hostName != null) {
+      if (played.host == null) {
+        _write(const Step('up', StepState.refused, fix: 'host.json is missing from the up step protocol.'));
+        return Exit.refused;
+      }
+      _write(Step('up', StepState.done, address: address, admin: 'root'));
+      _write(Step('host', StepState.host, host: played.host));
+      return Exit.done;
+    }
     final lines = <String>[];
     final uid = await remote.run(address, plan.account, 'id -u', onLine: lines.add);
     if (uid.exitCode != 0) return _refused('up', uid, 'the account uid could not be read');
@@ -373,6 +436,7 @@ class HostRun {
         socket: '/run/user/${lines.single}/porelo/porelod.sock',
       ),
     );
+    if (played.host != null) _write(Step('host', StepState.host, host: played.host));
     return Exit.done;
   }
 
@@ -400,9 +464,25 @@ class HostRun {
       return Exit.done;
     }
     final address = host.address;
+    if (plan.hostName != null && address != null) {
+      if (trust != null) {
+        if (host.hostKey == null) {
+          _write(const Step('copy', StepState.refused, fix: 'The provider named no SSH host key for teardown.'));
+          return Exit.refused;
+        }
+        await trust!(address, host.hostKey!);
+      }
+      final copied = await remote.run(
+        address,
+        plan.loginUser,
+        'mkdir -p $_workdir && cat > $_workdir/inventory.yml',
+        input: _inventory(plan),
+      );
+      if (copied.exitCode != 0) return _refused('copy', copied, 'the host refused the teardown inventory');
+    }
     final played = address == null
         ? _unreachable('play', 'the provider names no address for ${host.id}')
-        : await _play(address, plan, 'porelo.host.down');
+        : (await _play(address, plan, 'porelo.host.down')).code;
     if (played != Exit.done && !giveBackAnyway) {
       _write(
         Step(
@@ -479,7 +559,7 @@ class HostRun {
     data.writeln('  ed25519_public: $public');
     return provider.create(
       HostRequest(
-        name: plan.project,
+        name: plan.name,
         tags: <String>[plan.tag, '$hostKeyTag${public.split(' ')[1]}'],
         sshPublicKey: plan.publicKey,
         userData: data.toString(),
@@ -488,9 +568,18 @@ class HostRun {
   }
 
   /// Runs [playbook] on the host and relays the callback's lines; the stop is said by its line.
-  Future<int> _play(String address, HostPlan plan, String playbook) async {
+  Future<({int code, PreparedHost? host})> _play(String address, HostPlan plan, String playbook) async {
     Step? waiting;
     Step? failed;
+    PreparedHost? host;
+    StepState? lastState;
+    String? hostProblem;
+    void refuseHost(String words) {
+      hostProblem = words;
+      failed = Step('host', StepState.refused, fix: words);
+      _write(failed!);
+    }
+
     final ran = await remote.run(
       address,
       plan.loginUser,
@@ -498,8 +587,52 @@ class HostRun {
       'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_workdir/collections '
       'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i $_workdir/inventory.yml $playbook',
       onLine: (line) {
-        final step = _relayed(line, address, plan.account, plan.loginUser);
+        if (hostProblem != null) return;
+        Step? step;
+        try {
+          step = _relayed(line, address, plan.account, plan.loginUser);
+        } on FormatException catch (error) {
+          refuseHost(error.message);
+          return;
+        }
         if (step == null) return;
+        if (step.state == StepState.host) {
+          final values = step.host!;
+          final problem = playbook != 'porelo.host.up'
+              ? 'The host record is allowed only from up.'
+              : host != null
+              ? 'The host record was repeated.'
+              : lastState != StepState.done || failed != null || waiting != null
+              ? 'The host record must follow the last successful up task.'
+              : values.values['address'] != address
+              ? 'host.json: address differs from the rental.'
+              : plan.hostName != null && values.network != plan.network
+              ? 'host.json: network differs from the chosen network.'
+              : plan.hostName != null && values.values['homeserver'] != 'matrix.${plan.hostName}.porelo.internal'
+              ? 'host.json: homeserver differs from the server name.'
+              : null;
+          if (problem != null) {
+            refuseHost(problem);
+          } else {
+            host = values;
+          }
+          return;
+        }
+        if (host != null) {
+          refuseHost('The host record must be the last line of up.');
+          return;
+        }
+        lastState = step.state;
+        if (plan.hostName != null &&
+            step.state == StepState.waiting &&
+            step.needs.any((need) => !const ['wireguard', 'forge-certificate'].contains(need))) {
+          step = Step(
+            'person',
+            StepState.refused,
+            fix:
+                'The root server stop accepts only wireguard and forge-certificate; asked for ${step.needs.join(', ')}.',
+          );
+        }
         if (step.state == StepState.waiting) waiting = step;
         if (step.state == StepState.refused) failed = step;
         _write(step);
@@ -507,10 +640,11 @@ class HostRun {
     );
     // **The stop is the line, never the exit code**: `ansible-playbook` ends with 2 there, as on
     // any failed task, and a failure would otherwise read as somebody being asked for something.
-    if (waiting != null) return Exit.waiting;
-    if (ran.exitCode == 0) return Exit.done;
-    if (failed == null) return _refused('play', ran, 'the play ended with ${ran.exitCode}');
-    return Exit.refused;
+    if (hostProblem != null) return (code: Exit.refused, host: null);
+    if (waiting != null) return (code: Exit.waiting, host: null);
+    if (ran.exitCode == 0) return (code: Exit.done, host: host);
+    if (failed == null) return (code: _refused('play', ran, 'the play ended with ${ran.exitCode}'), host: null);
+    return (code: Exit.refused, host: null);
   }
 
   /// One line of the collection's callback as a step, or null for one that is not its.
@@ -523,6 +657,7 @@ class HostRun {
     }
     if (decoded is! Map<String, Object?> || decoded['v'] != 1 || !validStepFields(decoded)) return null;
     final state = decoded['state'];
+    if (state == 'host') return Step.fromLine(line);
     if (state == 'plan') {
       final steps = PlannedStep.readMany(decoded['steps']);
       if (steps == null || steps.any((step) => _ownSteps.any((own) => own.task == step.task))) return null;
@@ -687,10 +822,15 @@ class HostRun {
     'all': <String, Object>{
       'hosts': <String, Object>{'localhost': <String, Object>{}},
       'vars': <String, Object>{
-        'porelo_host_inventory_version': 1,
-        'porelo_host_account': plan.account,
-        'porelo_host_authorized_key': plan.publicKey,
-        'porelo_host_project': plan.project,
+        'porelo_host_inventory_version': plan.hostName == null ? 1 : 2,
+        if (plan.hostName == null) ...{
+          'porelo_host_account': plan.account,
+          'porelo_host_authorized_key': plan.publicKey,
+          'porelo_host_project': plan.project,
+        } else ...{
+          'porelo_host_name': plan.hostName!,
+          'porelo_host_network': plan.network!,
+        },
         'porelo_host_distribution': plan.distribution,
         'porelo_host_vpn_peer_public_key': ?plan.vpnPeerPublicKey,
         'porelo_host_vpn_peer_address': ?plan.vpnPeerAddress,

@@ -83,7 +83,7 @@ class OpenSsh implements Remote {
     final err = process.stderr.transform(utf8.decoder).join();
     final code = await process.exitCode;
     await out;
-    return RemoteResult(code, (await err).trim());
+    return RemoteResult(code, await err);
   }
 
   @override

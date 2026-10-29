@@ -125,6 +125,19 @@ void main() {
     }
   });
 
+  // Harm: trimming the transport's stderr rewrites a host helper's refusal.
+  test('a host refusal retains its complete stderr through SSH transport', () async {
+    final ssh = OpenSsh(
+      knownHosts: File('/trust/host_keys'),
+      identity: '/keys/rental',
+      start: (_, _) =>
+          Process.start('/bin/sh', ['-c', "printf 'porelo-host-person: account is locked.\\n' >&2; exit 65"]),
+    );
+    final answer = await ssh.run('203.0.113.7', 'root', '/usr/local/sbin/porelo-host-person lock alice');
+    expect(answer.exitCode, 65);
+    expect(answer.stderr, 'porelo-host-person: account is locked.\n');
+  });
+
   // Prevents an unsupported need from advertising a sign-in outside task start.
   // Red: print the per-agent ssh command again.
   test('an unknown agent need prints no sign-in command', () {

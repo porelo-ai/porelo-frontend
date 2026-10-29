@@ -42,6 +42,7 @@ sealed class HostProtocolEntry {
               name.contains('\x00') ||
               state == null ||
               state == StepState.plan ||
+              state == StepState.host ||
               text is! String ||
               words != null && words is! String ||
               fix != null && fix is! String ||

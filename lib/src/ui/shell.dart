@@ -108,6 +108,7 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
+import 'host_admin_dialog.dart';
 import 'host_stop_dialog.dart';
 import 'host_vpn_dialog.dart';
 import 'host_tunnel_export.dart';
@@ -458,6 +459,9 @@ class _ShellState extends State<Shell> {
     stopEverything: _stopEverything,
     stopEverywhere: _stopEverywhere,
     watchAnotherMachine: _addAMachine,
+    prepareServer: () => unawaited(
+      openPrepareServerDialog(context, machines: widget.machines, settings: widget.settings, hostRuns: _hostRuns),
+    ),
     startTheDaemon: () => unawaited(_startTheDaemon()),
     stopTheDaemon: () => unawaited(_stopTheDaemon()),
     forget: _forget,
@@ -545,6 +549,21 @@ class _ShellState extends State<Shell> {
   List<Command> _hostCommands(Machine machine) {
     final run = _hostRuns.of(machine.hostProject);
     return [
+      ...preparedHostCommands(
+        machine: machine,
+        settings: widget.settings,
+        hostRuns: _hostRuns,
+        open: (action) => unawaited(
+          openHostAdminDialog(
+            context,
+            record: widget.settings.hostUp(machine.hostProject)!,
+            action: action,
+            secretsFile: widget.settings.secretsFile,
+          ),
+        ),
+        showValues: () =>
+            unawaited(showPreparedHost(context, widget.settings.hostUp(machine.hostProject)!.preparedHost!)),
+      ),
       if (run != null)
         hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineMenu),
       ...hostMachineCommands(

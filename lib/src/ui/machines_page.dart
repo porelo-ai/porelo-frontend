@@ -120,6 +120,10 @@ class MachinesPage extends StatelessWidget {
     final answering = fleet.reachability == Reachability.connected && refused == null;
     final local = Machine.local();
     final thisComputer = !machine.needsATunnel && machine.name == local.name && machine.socketPath == local.socketPath;
+    final prepared =
+        machine.kind == 'host' &&
+        machine.remoteSocket.isEmpty &&
+        machines.settings.hostUp(machine.hostProject)?.preparedHost != null;
     final preparation = machine.kind == 'host' ? hostRuns?.of(machine.hostProject) : null;
     final run = preparation != null && (preparation.running || preparation.needsYou || preparation.interrupted)
         ? preparation
@@ -146,6 +150,8 @@ class MachinesPage extends StatelessWidget {
       titleKey: ValueKey<String>('rail-machine ${machine.name}'),
       state: run != null
           ? _hostState(run)
+          : prepared
+          ? 'Prepared'
           : answering
           ? 'Connected'
           : 'Not answering',
@@ -162,7 +168,7 @@ class MachinesPage extends StatelessWidget {
         label: Text('${fleet.clearance.count}'),
         child: Tooltip(
           message:
-              '${machine.name}: ${machines.tunnels.of(machine)?.words ?? (answering ? 'Answering' : 'Not answering')}',
+              '${machine.name}: ${prepared ? 'Prepared server' : machines.tunnels.of(machine)?.words ?? (answering ? 'Answering' : 'Not answering')}',
           child: Icon(answering ? Icons.dns_outlined : Icons.cloud_off_outlined, size: Sizes.mark),
         ),
       ),

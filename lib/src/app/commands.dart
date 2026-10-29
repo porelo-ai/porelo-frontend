@@ -724,6 +724,75 @@ Command takeGivenBackVpnDownCommand({required VoidCallback run, String? unavaila
       unavailable: unavailable,
     );
 
+/// Opens server preparation from the title bar's Machines group.
+Command prepareServerCommand({VoidCallback? open}) => Command(
+  id: 'host.prepare',
+  role: Role.hostAdmin,
+  label: 'Prepare a server…',
+  group: 'Machines',
+  home: Home.appBar,
+  run: open ?? () {},
+  unavailable: open == null ? 'server preparation is unavailable here' : noSecretsFileHere(desk),
+);
+
+/// Copies one public host value in the project admins panel.
+Command copyHostValueCommand(String name, VoidCallback copy) => Command(
+  id: 'host.copy $name',
+  role: Role.hostAdmin,
+  label: 'Copy $name',
+  group: 'For the project admins',
+  home: Home.openedView,
+  run: copy,
+);
+
+/// The checked helpers and public handover values belonging to a prepared host.
+List<Command> preparedHostCommands({
+  required Machine machine,
+  required Settings settings,
+  HostRuns? hostRuns,
+  void Function(String action)? open,
+  VoidCallback? showValues,
+}) {
+  final record = settings.hostUp(machine.hostProject);
+  if (machine.kind != 'host' || record?.hostName.isNotEmpty != true) return [];
+  final reason =
+      _setupAgainUnavailable(hostRuns, machine.hostProject) ??
+      (record?.preparing == true || record?.preparedHost == null ? 'complete the server setup first' : null) ??
+      (machine.identity.isEmpty ? 'the rental SSH key was not kept' : null);
+  return [
+    Command(
+      id: 'host.adminValues',
+      role: Role.hostAdmin,
+      label: 'For the project admins…',
+      group: 'Server',
+      home: Home.machineMenu,
+      run: showValues ?? () {},
+      unavailable: reason ?? (showValues == null ? 'public host values are unavailable here' : null),
+    ),
+    for (final (action, id, label) in const [
+      ('register', 'host.registerProject', 'Register a project…'),
+      ('remove', 'host.removeProject', 'Take the project off'),
+      ('admit', 'host.admitAdmin', 'Admit a project admin…'),
+      ('lock', 'host.lockAdmin', 'Lock'),
+      ('purge', 'host.purgeAdmin', 'Purge'),
+    ])
+      Command(
+        id: id,
+        role: Role.hostAdmin,
+        label: label,
+        group: 'Server',
+        home: Home.machineMenu,
+        run: () => open?.call(action),
+        unavailable:
+            reason ??
+            (action == 'remove' && settings.secretsFile == null
+                ? 'no secrets file was kept from server preparation'
+                : null) ??
+            (open == null ? 'the host helpers are unavailable here' : null),
+      ),
+  ];
+}
+
 /// The host's lifecycle, local VPN and project room, sharing the machine's home.
 List<Command> hostMachineCommands({
   required Machine machine,
@@ -739,7 +808,9 @@ List<Command> hostMachineCommands({
     Command(
       id: 'machine.takeDown',
       role: Role.hostAdmin,
-      label: 'Take this server down',
+      label: settings.hostUp(machine.hostProject)?.hostName.isNotEmpty == true
+          ? 'Give the server back'
+          : 'Take this server down',
       group: 'Machine',
       home: Home.machineMenu,
       run: takeDown,
@@ -1116,6 +1187,7 @@ List<Command> commandsFor({
   required VoidCallback stopEverything,
   required VoidCallback stopEverywhere,
   required VoidCallback watchAnotherMachine,
+  VoidCallback? prepareServer,
   required VoidCallback startTheDaemon,
   required VoidCallback stopTheDaemon,
   required VoidCallback forget,
@@ -1145,6 +1217,7 @@ List<Command> commandsFor({
       home: Home.appBar,
       run: watchAnotherMachine,
     ),
+    prepareServerCommand(open: prepareServer),
     Command(
       id: 'appearance.light',
       label: 'Appearance: light',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_frontend/src/ui/expandable_list_row.dart';
 
 void main() {
@@ -48,6 +49,9 @@ void main() {
 
   // Harm: a command sent from the wrong row can change another machine, or bypass a refusal.
   testWidgets('primary commands act only on their own row and honor refusals', (tester) async {
+    // Going on with a server's preparation is the host admin's.
+    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
+    addTearDown(() => roles = const Roles());
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

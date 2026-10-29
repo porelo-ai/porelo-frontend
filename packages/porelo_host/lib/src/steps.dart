@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'host_record.dart';
+
 /// Where a step has got to.
-enum StepState { started, done, refused, waiting, plan }
+enum StepState { started, done, refused, waiting, plan, host }
 
 /// One line of what `up` or `down` is doing, as a program reads it.
 ///
@@ -23,7 +25,11 @@ class Step {
     this.seconds,
     this.at,
     this.steps = const [],
+    this.host,
   });
+
+  /// The checked public completion values, only on a host line.
+  final PreparedHost? host;
 
   /// The step's own words for a person, without interpreting its task name.
   final String? text;
@@ -75,6 +81,10 @@ class Step {
     if (decoded is! Map<String, Object?>) return null;
     final at = _readInstant(decoded['at']);
     if (decoded.containsKey('at') && at == null) return null;
+    if (decoded['state'] == 'host') {
+      if (decoded['v'] != 1) return null;
+      return Step('host', StepState.host, host: PreparedHost.read(decoded['host']), at: at);
+    }
     if (decoded['state'] == 'plan') {
       final steps = PlannedStep.readMany(decoded['steps']);
       if (decoded['v'] != 1 || steps == null) return null;
@@ -102,7 +112,9 @@ class Step {
   }
 
   /// The line, as it goes out.
-  String toLine() => state == StepState.plan
+  String toLine() => state == StepState.host
+      ? jsonEncode({'v': 1, 'state': 'host', 'host': host!.values, 'at': ?at?.toUtc().toIso8601String()})
+      : state == StepState.plan
       ? jsonEncode({
           'v': 1,
           'at': ?at?.toUtc().toIso8601String(),

@@ -125,6 +125,11 @@ class _HostStopDialogState extends State<HostStopDialog> {
     if (_terminalOpen || (!widget.run.waiting && widget.needs == null)) return;
     final session = widget.run.session;
     final needs = widget.needs ?? session.needs;
+    final serverOnly = widget.run.record.hostName.isNotEmpty;
+    if (serverOnly && needs.any((need) => !const ['wireguard', 'forge-certificate'].contains(need))) {
+      setState(() => _problem = 'The root server stop accepts only wireguard and forge-certificate.');
+      return;
+    }
     final secrets = widget.settings?.secretsFile;
     // The host's matrix token comes from this computer's own Porelo, by the same feed, with or without the file.
     // Without the file, only a token alone goes by the feed: what else the host asks is typed in its own terminal.
@@ -148,7 +153,7 @@ class _HostStopDialogState extends State<HostStopDialog> {
       return;
     }
     // The `--stdin` call runs as the host's own login user, whose passwordless sudo `up` relies on too.
-    final admin = session.admin ?? '';
+    final admin = serverOnly ? 'root' : session.admin ?? '';
     if (fromTheFile && !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(admin)) {
       setState(() => _problem = 'The host did not name the user its stop runs as.');
       return;
@@ -176,7 +181,9 @@ class _HostStopDialogState extends State<HostStopDialog> {
       command = fromTheFile
           ? hostStopFeedCommand(
               secretsFile: secrets ?? '',
+              serverOnly: serverOnly,
               project: widget.run.project,
+              secretsHost: widget.run.record.host ?? widget.run.project,
               needs: needs,
               keys: widget.run.record.vaultKeys,
               email: _email.text,
@@ -259,9 +266,14 @@ class _HostStopDialogState extends State<HostStopDialog> {
       // With the secrets file the host takes its secrets on standard input; without it only what is typed there.
       // Host files given by hand, in a setup from before the interface wrote them, carry the person's own VPN key,
       // which the file does not keep.
-      final byHand = widget.run.record.folder == null && widget.run.record.setupFolder == null;
+      final serverOnly = widget.run.record.hostName.isNotEmpty;
+      final byHand = !serverOnly && widget.run.record.folder == null && widget.run.record.setupFolder == null;
       // The host's matrix token comes from this computer's own Porelo, with the file or without it.
-      final answerable = file
+      final answerable = serverOnly
+          ? <String>{
+              if (file) ...['wireguard', 'forge-certificate'],
+            }
+          : file
           ? <String>{'drive', 'matrix-token', ...SecretsFile.stopNeeds}.difference({if (byHand) 'wireguard'})
           : <String>{'drive', 'vault', 'vault-new', if (!needs.any(SecretsFile.stopNeeds.contains)) 'matrix-token'};
       final unknown = needs.where((need) => !answerable.contains(need));

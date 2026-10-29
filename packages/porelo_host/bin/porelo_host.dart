@@ -4,7 +4,8 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart';
 
 const _usage = '''
-porelo-host up|down --project NAME --account NAME --public-key FILE --identity FILE
+porelo-host up|down (--host-name NAME --network N | --project NAME --account NAME) --public-key FILE --identity FILE
+            [--forge true|false]
             (--scaleway-project ID [--zone fr-par-1] [--offer EM-I220E-NVME] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
             [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
@@ -73,6 +74,9 @@ Future<int> _run(List<String> arguments) async {
     if (name == '--give-back-anyway' && verb == 'down') {
       giveBackAnyway = true;
     } else if (const <String>{
+          '--host-name',
+          '--network',
+          '--forge',
           '--project',
           '--account',
           '--public-key',
@@ -109,7 +113,30 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln('porelo-host: --collection-sha256 must contain 64 hexadecimal digits');
     return Exit.refused;
   }
-  const needed = <String>['project', 'account', 'public-key', 'identity'];
+  final serverOnly = options.containsKey('host-name');
+  final needed = <String>[
+    if (serverOnly) ...[
+      'host-name',
+      'network',
+      'vpn-peer-public-key',
+      'vpn-peer-address',
+    ] else ...[
+      'project',
+      'account',
+    ],
+    'public-key',
+    'identity',
+  ];
+  if (serverOnly &&
+      (options.containsKey('project') || options.containsKey('account') || options.containsKey('machine-file'))) {
+    return _wrong('a server takes no project or account');
+  }
+  if (serverOnly && int.tryParse(options['network'] ?? '') == null) {
+    return _wrong('--network needs an integer from 0 to 255');
+  }
+  if (options['forge'] != null && !const ['true', 'false'].contains(options['forge'])) {
+    return _wrong('--forge needs true or false');
+  }
   final missing = needed.where((n) => !options.containsKey(n)).toList();
   if (missing.isNotEmpty) return _wrong('missing ${missing.map((n) => '--$n').join(', ')}');
   final given = options.containsKey('given');
@@ -135,12 +162,15 @@ Future<int> _run(List<String> arguments) async {
     emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
   );
   final plan = HostPlan(
-    project: options['project']!,
-    account: options['account']!,
+    project: options['project'] ?? '',
+    account: options['account'] ?? '',
+    hostName: options['host-name'],
+    network: int.tryParse(options['network'] ?? ''),
+    forge: options['forge'] != 'false',
     publicKey: (await File(options['public-key']!).readAsString()).trim(),
     collection: options['collection'],
     collectionSha256: options['collection-sha256'],
-    loginUser: options['login-user'] ?? 'ubuntu',
+    loginUser: options['login-user'] ?? (serverOnly ? 'root' : 'ubuntu'),
     distribution: options['distribution'] ?? 'snapshots',
     vpnPeerPublicKey: options['vpn-peer-public-key'],
     vpnPeerAddress: options['vpn-peer-address'],

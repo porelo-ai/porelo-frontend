@@ -27,6 +27,7 @@ import 'command_to_copy.dart';
 import 'dialog_scroll.dart';
 import 'host_vpn_dialog.dart';
 import 'host_key_dialog.dart';
+import 'host_admin_dialog.dart';
 
 /// Confirms teardown and shows the host's steps using only the kept setup arguments.
 Future<void> openHostTakeDownDialog(
@@ -81,6 +82,18 @@ Future<void> openHostDialog(
   ),
 );
 
+/// Prepares a server independently of any project, keeping its public completion values.
+Future<void> openPrepareServerDialog(
+  BuildContext context, {
+  required Machines machines,
+  required Settings settings,
+  required HostRuns hostRuns,
+}) => showDialog<void>(
+  context: context,
+  barrierDismissible: false,
+  builder: (_) => HostDialog(project: '', machines: machines, settings: settings, hostRuns: hostRuns),
+);
+
 /// Opens the setup protocol after the wizard has handed off its run.
 Future<void> openHostRunDialog(
   BuildContext context, {
@@ -130,7 +143,7 @@ class HostDialog extends StatefulWidget {
     super.key,
   }) : assert(takeDownOnly || hostRuns != null);
 
-  /// The project to put on a server.
+  /// The project to put on a server, or empty to prepare a server independently.
   final String project;
 
   /// The selected project's machine, captured when the wizard opens.
@@ -200,6 +213,15 @@ class HostDialog extends StatefulWidget {
 }
 
 class _HostDialogState extends State<HostDialog> {
+  final _hostName = TextEditingController();
+  final _network = TextEditingController();
+  bool _forge = true;
+  bool get _serverOnly =>
+      widget.project.isEmpty ||
+      widget.existingRun?.record.hostName.isNotEmpty == true ||
+      widget.settings?.hostUp(widget.project)?.hostName.isNotEmpty == true;
+  String get _hostId => widget.project.isEmpty ? _hostName.text.trim() : widget.project;
+
   final _scaleway = TextEditingController();
   final _account = TextEditingController(text: 'porelo');
   final _publicKey = TextEditingController(text: _home('.ssh/id_ed25519.pub'));
@@ -267,13 +289,20 @@ class _HostDialogState extends State<HostDialog> {
   void initState() {
     super.initState();
     widget.hostRuns?.addListener(_sessionChanged);
-    _folder = widget.settings?.tresorFolder(widget.project);
+    final used = <int>{
+      for (final record in widget.settings?.hostUps.values ?? <HostUpRecord>[]) record.vpnNetworkNumber,
+    };
+    _network.text = '${List.generate(256, (n) => n).where((n) => !used.contains(n)).firstOrNull ?? ''}';
+    _folder = widget.settings?.tresorFolder(_hostId);
     if (widget.settings?.secretsFile case final file?) _secrets.text = file;
-    final kept = widget.existingRun?.record ?? widget.settings?.hostUp(widget.project);
+    final kept = widget.existingRun?.record ?? widget.settings?.hostUp(_hostId);
     // A record from host files given by hand kept no signing key: the field keeps its default or a pinned key.
     _signingKeyKept = kept != null && kept.signingKey.isNotEmpty;
     if (kept != null) {
       _scaleway.text = kept.scalewayProject;
+      _hostName.text = kept.hostName;
+      _network.text = '${kept.vpnNetworkNumber}';
+      _forge = kept.forge;
       _account.text = kept.account;
       _folder = kept.folder ?? _folder;
       if (kept.signingKey.isNotEmpty) _signingKey.text = kept.signingKey;
@@ -291,7 +320,7 @@ class _HostDialogState extends State<HostDialog> {
     if (widget.existingRun == null && !widget.takeDownOnly) {
       // After the first frame: the check's answer changes state, which initState may not.
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkPairWhenReady());
-      unawaited(_readSource());
+      if (!_serverOnly) unawaited(_readSource());
     }
     final run = widget.existingRun;
     if (run != null) {
@@ -309,7 +338,7 @@ class _HostDialogState extends State<HostDialog> {
     final backend = widget.backend ?? widget.machines.fleet.backend;
     try {
       final records = await backend.following();
-      final source = records.where((record) => record.name == widget.project).singleOrNull;
+      final source = records.where((record) => record.name == _hostId).singleOrNull;
       if (!mounted) return;
       setState(() {
         if (source != null && !_signingKeyKept) _preferPinnedKey(source.signers);
@@ -420,7 +449,7 @@ class _HostDialogState extends State<HostDialog> {
       List<int>? bundle;
       await _withFiles((files) async {
         bundle = await files.createBundle(
-          project: widget.project,
+          project: _hostId,
           url: source.url,
           commit: source.commit,
           signingKey: File(key),
@@ -666,6 +695,8 @@ class _HostDialogState extends State<HostDialog> {
 
   @override
   void dispose() {
+    _hostName.dispose();
+    _network.dispose();
     for (final field in <TextEditingController>[
       _secrets,
       _signingKey,
@@ -696,7 +727,7 @@ class _HostDialogState extends State<HostDialog> {
       _vpnDownConfirmed = true;
       _vpnProblem = null;
     }
-    if (_hostRun?.ready == true && widget.existingRun != null && !_closingAfterVpn) {
+    if (!_serverOnly && _hostRun?.ready == true && widget.existingRun != null && !_closingAfterVpn) {
       _closingAfterVpn = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).pop();
@@ -749,7 +780,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   void _expandPaths() {
-    final fields = [_publicKey, _identity, if (widget.debug) _collection, _signingKey];
+    final fields = [_publicKey, _identity, if (widget.debug) _collection, if (!_serverOnly) _signingKey];
     final expanded = [for (final field in fields) desk.expandHome(field.text.trim())];
     for (var i = 0; i < fields.length; i++) {
       fields[i].text = expanded[i];
@@ -757,22 +788,26 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   HostUpRecord _record() => HostUpRecord(
-    host: widget.project,
+    host: _hostId,
+    vpnNetworkNumber: _serverOnly ? int.parse(_network.text) : 0,
+    vpnInterface: 'porelo-${_serverOnly ? int.parse(_network.text) : 0}',
     scalewayProject: _scaleway.text.trim(),
-    account: _account.text.trim(),
+    account: _serverOnly ? 'root' : _account.text.trim(),
+    hostName: _serverOnly ? _hostId : '',
+    forge: _forge,
     tresor: '',
-    folder: _folder,
-    setupFolder: _setupFolder,
+    folder: _serverOnly ? null : _folder,
+    setupFolder: _serverOnly ? null : _setupFolder,
     repository: '',
-    signingKey: _signingKey.text.trim(),
+    signingKey: _serverOnly ? '' : _signingKey.text.trim(),
     identity: _identity.text.trim(),
     publicKey: _publicKey.text.trim(),
     collection: widget.debug ? _collection.text.trim() : '',
     collectionSha256: widget.debug ? _collectionSha256.text.trim() : '',
     vpnPeerPublicKey: _tunnel?.peerPublicKey ?? '',
-    vpnPeerAddress: _tunnel == null ? '' : '10.73.0.2/32',
+    vpnPeerAddress: _tunnel == null ? '' : '10.73.${_serverOnly ? _network.text : '0'}.2/32',
     vpnHostPublicKey: _tunnel?.hostPublicKey ?? '',
-    forgeCa: widget.settings?.hostUp(widget.project)?.forgeCa,
+    forgeCa: widget.settings?.hostUp(_hostId)?.forgeCa,
     vaultKeys: [for (final key in _keys) key.name],
   );
 
@@ -780,7 +815,7 @@ class _HostDialogState extends State<HostDialog> {
     if (!_transferred) _session?.dispose();
     final session = HostSession(
       executable: poreloHost(environment: widget.environment),
-      arguments: hostArguments(record ?? _record(), widget.project, debug: widget.debug),
+      arguments: hostArguments(record ?? _record(), _hostId, debug: widget.debug),
       start: widget.start,
     )..addListener(_sessionChanged);
     return _session = session;
@@ -799,7 +834,7 @@ class _HostDialogState extends State<HostDialog> {
 
   /// Lets go of a drive folder from an earlier setup: nothing reads it any more.
   Future<void> _forgetTheOldDrive() async {
-    await widget.settings?.rememberTresorFolder(widget.project, null);
+    await widget.settings?.rememberTresorFolder(_hostId, null);
     if (mounted) {
       setState(() {
         _folder = null;
@@ -869,7 +904,7 @@ class _HostDialogState extends State<HostDialog> {
     try {
       _expandPaths();
       if (!_upStarted) {
-        if (!await _checkBundle()) return;
+        if (!_serverOnly && !await _checkBundle()) return;
         setState(() => _preparing = true);
         // The secrets file keeps the host's key; the files `up` uploads are written in this desktop's own folder.
         final hostPublicKey = await _hostKeyFromTheSecretsFile();
@@ -883,12 +918,14 @@ class _HostDialogState extends State<HostDialog> {
           );
         }
         await _withFiles((files) async {
-          await files.publishBundle(project: widget.project, folder: _setupFolder, bytes: _bundle!, ownFolder: true);
+          if (!_serverOnly) {
+            await files.publishBundle(project: _hostId, folder: _setupFolder, bytes: _bundle!, ownFolder: true);
+          }
           _tunnel = await files.prepare(
-            project: widget.project,
-            folder: _setupFolder,
-            url: HostFiles.bundleUrl(widget.project),
-            signingKey: File(_signingKey.text.trim()),
+            project: _hostId,
+            folder: _serverOnly ? null : _setupFolder,
+            url: _serverOnly ? '' : HostFiles.bundleUrl(_hostId),
+            signingKey: File(_serverOnly ? '' : _signingKey.text.trim()),
             keys: _keys,
             hostPublicKey: hostPublicKey,
             ownFolder: true,
@@ -896,7 +933,7 @@ class _HostDialogState extends State<HostDialog> {
         });
         if (!mounted) return;
         final record = _record().withPreparation(DateTime.now().toUtc());
-        await widget.settings?.rememberHostUp(widget.project, record);
+        await widget.settings?.rememberHostUp(_hostId, record);
         if (!mounted) return;
         _newSession(record: record);
         _upStarted = true;
@@ -905,9 +942,9 @@ class _HostDialogState extends State<HostDialog> {
         final owner = widget.hostRuns;
         if (owner == null) throw StateError('Host setup needs its HostRuns owner.');
         final run = owner.start(
-          project: widget.project,
+          project: _hostId,
           session: _session!,
-          record: widget.settings?.hostUp(widget.project) ?? _record(),
+          record: widget.settings?.hostUp(_hostId) ?? _record(),
           tunnel: _tunnel,
           settings: widget.settings,
         );
@@ -939,7 +976,7 @@ class _HostDialogState extends State<HostDialog> {
   Future<void> _down() async {
     if (_running) return;
     if (_givenBack) return _takeVpnDown();
-    final kept = widget.settings?.hostUp(widget.project);
+    final kept = widget.settings?.hostUp(_hostId);
     if (widget.takeDownOnly && kept == null) return;
     setState(() => _takingDown = true);
     try {
@@ -949,12 +986,16 @@ class _HostDialogState extends State<HostDialog> {
       return;
     }
     _machineProblem = null;
-    final account = _upStarted ? _account.text.trim() : kept?.account ?? _account.text.trim();
+    final account = _serverOnly
+        ? 'root'
+        : _upStarted
+        ? _account.text.trim()
+        : kept?.account ?? _account.text.trim();
     if (!_upStarted && kept == null) {
       setState(() => _preparing = true);
       try {
         await _withFiles((files) async {
-          _tunnel = await files.prepare(project: widget.project, url: '', signingKey: File(''));
+          _tunnel = await files.prepare(project: _hostId, url: '', signingKey: File(''));
         });
       } on HostFilesRefused catch (error) {
         if (mounted) setState(() => _machineProblem = error.message);
@@ -987,11 +1028,11 @@ class _HostDialogState extends State<HostDialog> {
     try {
       Future<String?>? closing;
       if (owner != null) {
-        await owner.confirmDown(widget.project, session);
+        await owner.confirmDown(_hostId, session);
         // Started now and waited for last: neither the machines nor the VPN wait on the transport.
-        closing = owner.closeHomeserver(widget.project);
+        closing = owner.closeHomeserver(_hostId);
       } else if (kept != null) {
-        await widget.settings?.rememberHostUp(widget.project, kept.withPreparation(null));
+        await widget.settings?.rememberHostUp(_hostId, kept.withPreparation(null));
       }
       final address = session.releasedAddress;
       if (address == null || address.isEmpty) {
@@ -1011,9 +1052,9 @@ class _HostDialogState extends State<HostDialog> {
         return;
       }
       _givenBackMachine = Machine(
-        name: '${widget.project} server',
+        name: _serverOnly ? _hostId : '$_hostId server',
         kind: 'host',
-        hostProject: widget.project,
+        hostProject: _hostId,
         socketPath: '',
       );
       owner?.rememberVpnToTakeDown(_givenBackMachine!);
@@ -1178,6 +1219,9 @@ class _HostDialogState extends State<HostDialog> {
     } on FileSystemException {
       return 'Cannot read the private ssh key file.';
     }
+    if (_serverOnly && _fingerprint(_expanded(_publicKey.text.trim())) == null) {
+      return 'Choose a valid SSH public key from its .pub file; no private key belongs here.';
+    }
     return _fileProblem(_publicKey.text, 'Your public ssh key') ??
         (_pairRefusal == null ? null : 'Choose the public key that belongs to the private key.');
   }
@@ -1218,6 +1262,29 @@ class _HostDialogState extends State<HostDialog> {
     );
   }
 
+  String? _serverProblem() {
+    try {
+      checkHostName(_hostId);
+      final n = int.tryParse(_network.text);
+      if (n == null) return 'Give a network number from 0 to 255.';
+      checkHostNetwork(n);
+      if (widget.settings?.hostUps.entries.any(
+            (entry) =>
+                !(_upStarted && entry.key == _hostId) &&
+                (entry.key == _hostId ||
+                    entry.value.hostName == _hostId ||
+                    entry.value.host == _hostId ||
+                    entry.value.vpnNetworkNumber == n),
+          ) ==
+          true) {
+        return 'This laptop already knows a host with that name or network. Choose another.';
+      }
+      return null;
+    } on FormatException catch (error) {
+      return error.message;
+    }
+  }
+
   List<WizardStep> get _steps => [
     WizardStep(
       title: 'Where it is rented',
@@ -1225,78 +1292,112 @@ class _HostDialogState extends State<HostDialog> {
           'Porelo rents a server from Scaleway Elastic Metal, or finds it again. '
           'Find the project id in the Scaleway console under Project, Settings. '
           'The provider key is the one porelo-host key set scaleway kept. '
-          'The account is the OS user that will run your project on the server.',
+          'The rental key logs in as root when preparing a server.',
       panel: (_) => _panel([
         _field(_scaleway, 'Scaleway project id', 'host-scaleway-project', namesHost: true),
-        _field(_account, 'Account on the server', 'host-account', namesHost: true),
+        if (!_serverOnly) _field(_account, 'Account on the server', 'host-account', namesHost: true),
         if (_keyProblem != null) Text(_keyProblem!, key: const Key('host-scaleway-key-problem')),
         _scalewayKeyAction(),
       ]),
-      check: () => _required([_scaleway, _account], 'Give the Scaleway project id and the account on the server.'),
+      check: () =>
+          _required([
+            _scaleway,
+            if (!_serverOnly) _account,
+          ], 'Give the Scaleway project id${_serverOnly ? '' : ' and the account on the server'}.') ??
+          (_serverOnly && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]*$').hasMatch(_scaleway.text.trim())
+              ? 'Copy the project id from Scaleway Project, Settings.'
+              : null),
       beforeNext: _checkScalewayKey,
-      summary: () => ['Scaleway project id: ${_scaleway.text}', 'Account on the server: ${_account.text}'],
+      summary: () => [
+        'Scaleway project id: ${_scaleway.text}',
+        if (!_serverOnly) 'Account on the server: ${_account.text}',
+      ],
     ),
-    WizardStep(
-      title: 'The project',
-      words:
-          'The project’s verified bundle goes up to the server with the setup itself. Give the public key used to '
-          'sign its commits, and the files of the vault entries the server is to have, which your secrets file keeps.',
-      panel: (context) => _panel([
-        if (Platform.isWindows)
-          const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
-        // Read only for a host key it may still hold, which the secrets file takes over: said, and let go of here.
-        if (_folder case final folder?)
-          Row(
-            key: const Key('host-old-drive'),
-            children: [
-              Expanded(
-                child: Text(
-                  'A drive folder from an earlier setup, $folder, is read once more: a server key it still holds '
-                  'moves into your secrets file.',
-                ),
-              ),
-              TextButton(
-                key: const Key('host-old-drive-forget'),
-                onPressed: _running || _upStarted ? null : _forgetTheOldDrive,
-                child: const Text('Forget it'),
-              ),
-            ],
-          ),
-        ...[
-          _pathField(
-            _signingKey,
-            'Public key for signing commits (.pub)',
-            'host-signing-key',
-            mark: _signingKeyMark(context),
-            refusal: _signingRefusal,
-          ),
-          _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
-          TextButton(
-            onPressed: _running || _upStarted ? null : _addKey,
-            child: const Text('Choose a file for this vault entry'),
-          ),
-          for (final key in _keys)
+    if (!_serverOnly)
+      WizardStep(
+        title: 'The project',
+        words:
+            'The project’s verified bundle goes up to the server with the setup itself. Give the public key used to '
+            'sign its commits, and the files of the vault entries the server is to have, which your secrets file keeps.',
+        panel: (context) => _panel([
+          if (Platform.isWindows)
+            const Text('The server setup files and saved VPN connection can be read only by your Windows user.'),
+          // Read only for a host key it may still hold, which the secrets file takes over: said, and let go of here.
+          if (_folder case final folder?)
             Row(
+              key: const Key('host-old-drive'),
               children: [
-                Expanded(child: Text('${key.name}: ${key.basename}')),
-                IconButton(
-                  onPressed: _running || _upStarted ? null : () => setState(() => _keys.remove(key)),
-                  icon: const Icon(Icons.remove_circle_outline),
-                  tooltip: 'Remove this file',
+                Expanded(
+                  child: Text(
+                    'A drive folder from an earlier setup, $folder, is read once more: a server key it still holds '
+                    'moves into your secrets file.',
+                  ),
+                ),
+                TextButton(
+                  key: const Key('host-old-drive-forget'),
+                  onPressed: _running || _upStarted ? null : _forgetTheOldDrive,
+                  child: const Text('Forget it'),
                 ),
               ],
             ),
+          ...[
+            _pathField(
+              _signingKey,
+              'Public key for signing commits (.pub)',
+              'host-signing-key',
+              mark: _signingKeyMark(context),
+              refusal: _signingRefusal,
+            ),
+            _field(_keyName, 'Optional vault entry name', 'host-key-name', namesHost: true),
+            TextButton(
+              onPressed: _running || _upStarted ? null : _addKey,
+              child: const Text('Choose a file for this vault entry'),
+            ),
+            for (final key in _keys)
+              Row(
+                children: [
+                  Expanded(child: Text('${key.name}: ${key.basename}')),
+                  IconButton(
+                    onPressed: _running || _upStarted ? null : () => setState(() => _keys.remove(key)),
+                    icon: const Icon(Icons.remove_circle_outline),
+                    tooltip: 'Remove this file',
+                  ),
+                ],
+              ),
+          ],
+        ]),
+        check: () =>
+            _sourceProblem ??
+            _required([_signingKey], 'Give the public key used to sign commits.') ??
+            _driveFilesProblem,
+        beforeNext: _checkBundle,
+        summary: () => [
+          'Project bundle: uploaded as /etc/porelo-host/setup/$_hostId.bundle',
+          'Public signing key: ${_signingKey.text}',
+          for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}, kept in your secrets file',
         ],
-      ]),
-      check: () =>
-          _sourceProblem ?? _required([_signingKey], 'Give the public key used to sign commits.') ?? _driveFilesProblem,
-      beforeNext: _checkBundle,
-      summary: () => [
-        'Project bundle: uploaded as /etc/porelo-host/setup/${widget.project}.bundle',
-        'Public signing key: ${_signingKey.text}',
-        for (final key in _keys) 'Vault entry ${key.name}: ${key.basename}, kept in your secrets file',
-      ],
-    ),
+      ),
+    if (_serverOnly)
+      WizardStep(
+        title: 'Your server',
+        words: 'Choose a name for this server: one DNS label in lower case. The network number chooses 10.73.n.0/24; the lowest number no known host uses is proposed. Leave the forge on unless your project admins use a central forge.',
+        panel: (_) => _panel([
+          _field(_hostName, 'Server name', 'host-name', namesHost: true),
+          _field(_network, 'Network number (0–255)', 'host-network', namesHost: true),
+          SwitchListTile(
+            title: const Text('Run a forge on this server'),
+            value: _forge,
+            onChanged: _running ? null : (value) => setState(() => _forge = value),
+          ),
+        ]),
+        check: _serverProblem,
+        summary: () => [
+          'Server: $_hostId',
+          'Network: 10.73.${_network.text}.0/24',
+          'Forge: ${_forge ? 'on' : 'off'}',
+          'No project or project account is created.',
+        ],
+      ),
     WizardStep(
       title: 'Your ssh keys',
       words:
@@ -1324,7 +1425,7 @@ class _HostDialogState extends State<HostDialog> {
     WizardStep(
       title: 'Your secrets file',
       words:
-          'Your secrets file, secrets.kdbx, keeps the server’s VPN key and its vault passphrase under one master '
+          'Your secrets file, secrets.kdbx, keeps the server’s keys under one master '
           'password, which you type into this program’s terminal, without echo; it goes straight to keepassxc-cli on '
           'this computer, and this program keeps none of it. Name the file you have, or where a new one is made. '
           'KeePassXC opens it too.',
@@ -1403,7 +1504,7 @@ class _HostDialogState extends State<HostDialog> {
   String get _secretsPath => _expanded(_secrets.text.trim());
 
   /// Where the host's setup files are written on this desktop; never the drive, which has no part in the setup.
-  late final String _setupFolder = widget.setupFolder ?? path.join(desk.configuration, 'hosts', widget.project);
+  late final String _setupFolder = widget.setupFolder ?? path.join(desk.configuration, 'hosts', _hostId);
 
   String? get _drivesKey =>
       _folder == null ? null : path.join(path.normalize(_folder!), 'porelo-host', 'wireguard.key');
@@ -1456,7 +1557,7 @@ class _HostDialogState extends State<HostDialog> {
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
     final key = await open(
       file: file,
-      project: widget.project,
+      project: _hostId,
       migrateKeyFrom: drivesKey != null && File(drivesKey).existsSync() ? drivesKey : null,
       keys: keys,
     );
@@ -1532,7 +1633,7 @@ class _HostDialogState extends State<HostDialog> {
           '-c',
           script,
         ],
-        shownCommand: 'keepassxc-cli opens $file and keeps the server’s keys for ${widget.project}',
+        shownCommand: 'keepassxc-cli opens $file and keeps the server’s keys for $_hostId',
         completed: 'The secrets file is ready.',
         onExit: (code) => exit = code,
         open: widget.openTerminal,
@@ -1564,15 +1665,21 @@ class _HostDialogState extends State<HostDialog> {
       : widget.existingRun != null
       ? _runDialog(context)
       : Wizard(
-          title: 'Put the project ${widget.project} on a server',
-          reviewWords: 'A server for the project ${widget.project}. Check every answer before starting.',
+          title: _serverOnly ? 'Prepare a server' : 'Put the project $_hostId on a server',
+          reviewWords: _serverOnly
+              ? 'Check the rental, server name, network and public keys before preparing this server.'
+              : 'A server for the project $_hostId. Check every answer before starting.',
           steps: _steps,
-          action: 'Put it on a server',
+          action: _serverOnly ? 'Prepare the server' : 'Put it on a server',
           actionKey: const Key('host-up'),
           scrollController: _scroll,
           actionSteps: [
             WizardActionStep(
-              title: _takingDown ? 'Taking it off the server' : 'Putting it on a server',
+              title: _takingDown
+                  ? 'Giving the server back'
+                  : _serverOnly
+                  ? 'Preparing the server'
+                  : 'Putting it on a server',
               words:
                   'The host reports its steps below. At a stop, complete what it asks in its terminal. '
                   'Only the host can confirm that setup is done.',
@@ -1605,7 +1712,7 @@ class _HostDialogState extends State<HostDialog> {
 
   Widget _runDialog(BuildContext context) => AlertDialog(
     key: const Key('host-protocol'),
-    title: Text('${widget.project} server'),
+    title: Text('$_hostId server'),
     content: SizedBox(width: Sizes.dialogMedium, child: _progress(context)),
     actions: [
       if (_session != null) _copyProtocolButton(),
@@ -1665,7 +1772,7 @@ class _HostDialogState extends State<HostDialog> {
       canPop: !_running,
       child: AlertDialog(
         key: const Key('host-take-down'),
-        title: Text('Take the server for ${widget.project} down?'),
+        title: Text('Take the server for $_hostId down?'),
         content: SizedBox(
           width: Sizes.dialogMedium,
           child: DialogScroll(
@@ -1674,10 +1781,12 @@ class _HostDialogState extends State<HostDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'The server for project ${widget.project} is given back to Scaleway and deleted. '
-                  'Nothing is billed afterwards. '
-                  'The vault on the server and the room’s history are lost. '
-                  'The files in the tresor are kept.',
+                  _serverOnly
+                      ? 'The server $_hostId is given back to Scaleway and deleted. Its forge, projects, accounts and homeserver records are lost. This is permanent.'
+                      : 'The server for project $_hostId is given back to Scaleway and deleted. '
+                            'Nothing is billed afterwards. '
+                            'The vault on the server and the room’s history are lost. '
+                            'The files in the tresor are kept.',
                 ),
                 if (started) _progress(context),
               ],
@@ -1710,7 +1819,7 @@ class _HostDialogState extends State<HostDialog> {
             FilledButton(
               key: Key(confirmationOnly ? 'host-confirm-down' : 'host-down'),
               style: FilledButton.styleFrom(backgroundColor: colors.error, foregroundColor: colors.onError),
-              onPressed: _running || widget.takeDownOnly && widget.settings?.hostUp(widget.project) == null
+              onPressed: _running || widget.takeDownOnly && widget.settings?.hostUp(_hostId) == null
                   ? null
                   : confirmationOnly
                   ? () => Navigator.pop(context, true)
@@ -1757,7 +1866,7 @@ class _HostDialogState extends State<HostDialog> {
               ],
               if (session.state == HostRunState.running)
                 if (session.timeLeftText case final text?) Text(text),
-              if (session.state == HostRunState.busy) Text('Setup of ${widget.project} is still running from before.'),
+              if (session.state == HostRunState.busy) Text('Setup of $_hostId is still running from before.'),
               if (session.state == HostRunState.waiting && _takingDown)
                 const Text('The host has not completed teardown. Your machines have been kept.'),
               if (session.fix != null &&
@@ -1776,15 +1885,15 @@ class _HostDialogState extends State<HostDialog> {
                 Padding(
                   padding: const EdgeInsets.only(top: Space.small),
                   child: Text(
-                    !_takingDown && _hostRun?.ready == true
-                        ? 'Ready: ${widget.project} server is in your machines'
-                        : 'Done.',
+                    !_takingDown && _hostRun?.ready == true ? 'Ready: $_hostId server is in your machines' : 'Done.',
                     key: const Key('host-done'),
                   ),
                 ),
             ],
             if (!_takingDown)
               if (_hostRun?.problem case final problem?) Text(problem),
+            if (_serverOnly)
+              if (widget.settings?.hostUp(_hostId)?.preparedHost case final host?) PreparedHostPanel(host: host),
             if (_machineProblem != null) Text(_machineProblem!),
             if (_vpnProblem != null) Text(_vpnProblem!),
           ];
@@ -1836,7 +1945,7 @@ class _HostDialogState extends State<HostDialog> {
 
   Widget _copyProtocolButton() {
     final command = copyHostProtocolCommand(
-      project: widget.project,
+      project: _hostId,
       copy: () => unawaited(Clipboard.setData(ClipboardData(text: _session!.protocolText))),
     );
     if (!command.visible) return const SizedBox.shrink();
@@ -1894,6 +2003,7 @@ class _HostDialogState extends State<HostDialog> {
         StepState.refused => Icons.error_outline,
         StepState.waiting => Icons.person_outline,
         StepState.plan => Icons.list_alt_outlined,
+        StepState.host => Icons.dns_outlined,
       }, size: Sizes.mark),
       const SizedBox(width: Space.small),
       Expanded(
@@ -1913,7 +2023,7 @@ class _HostDialogState extends State<HostDialog> {
     child: Builder(
       builder: (_) {
         final command = hostPreparationCommand(
-          project: widget.project,
+          project: _hostId,
           home: Home.openedView,
           open: () => openHostStopDialog(
             context,

@@ -322,6 +322,24 @@ done
     'unset MASTER password',
   ].join('\n');
 
+  /// Writes the central forge token as one raw line, or names a missing entry and writes nothing.
+  String projectRemovalTokenLine() => [
+    ..._opened,
+    'unset token',
+    // The sentinel preserves entry line breaks so a malformed value cannot become a different token.
+    'if token="\$(kp show -s -a password "\$file" ${_word(centralForgeToken)} 2>/dev/null && printf \'.\')"; then',
+    r'''  token="${token%.}"; token="${token%$'\n'}"''',
+    'else token=; fi',
+    r'''if [ -z "$token" ]; then''',
+    '  echo "\$file has no entry $centralForgeToken; nothing was sent." >&2',
+    r'''elif [[ "$token" == *$'\n'* || "$token" == *$'\r'* ]]; then''',
+    '  echo "$centralForgeToken must hold one line; nothing was sent." >&2; exit 1',
+    'else',
+    r'''  printf '%s\n' "$token"''',
+    'fi',
+    'unset MASTER token',
+  ].join('\n');
+
   /// The script's start: no echo, `get` for an entry, and the master password asked and checked against the file.
   List<String> get _opened => [
     ..._shellStart,

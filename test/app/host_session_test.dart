@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_host/porelo_host.dart';
 
+import '../support/host_admin.dart' show hostValues;
+
 void main() {
   // Harm: a shipped build runs an environment-selected executable or work goes to the wrong host.
   test('the host command honors a stand-in only outside release builds', () {
@@ -39,6 +41,62 @@ void main() {
       ]);
 
   String kept(String name) => File('${scratch.path}/$name').readAsStringSync();
+
+  // Harm: metadata outside a confirmed up attempt must not make a host ready.
+  test('up reads the checked host protocol line after completion without adding a progress step', () async {
+    final session = HostSession(
+      executable: 'porelo-host',
+      arguments: const [],
+      start: saying([
+        const Step('up', StepState.done, address: '203.0.113.7', admin: 'root').toLine(),
+        jsonEncode({'v': 1, 'state': 'host', 'host': hostValues()}),
+      ]),
+    );
+    addTearDown(session.dispose);
+    await session.up();
+    expect(session.state, HostRunState.done);
+    expect(session.preparedHost!.values, hostValues());
+    expect(session.steps.map((step) => step.step), ['up']);
+  });
+
+  for (final scenario in ['down', 'repeated', 'early', 'later task', 'malformed']) {
+    test('the host session refuses $scenario host metadata', () async {
+      final host = jsonEncode({'v': 1, 'state': 'host', 'host': hostValues()});
+      final done = const Step('up', StepState.done, address: '203.0.113.7').toLine();
+      final malformed = hostValues()..remove('address');
+      final session = HostSession(
+        executable: 'porelo-host',
+        arguments: const [],
+        start: saying(switch (scenario) {
+          'down' => [host],
+          'repeated' => [done, host, host],
+          'early' => [host, done],
+          'later task' => [done, host, const Step('later', StepState.done).toLine()],
+          _ => [
+            done,
+            jsonEncode({'v': 1, 'state': 'host', 'host': malformed}),
+          ],
+        }),
+      );
+      addTearDown(session.dispose);
+      if (scenario == 'down') {
+        await session.down();
+      } else {
+        await session.up();
+      }
+      expect(session.state, HostRunState.refused);
+      expect(
+        session.fix,
+        contains(switch (scenario) {
+          'down' => 'only from up',
+          'repeated' => 'repeated',
+          'early' => 'completed up step',
+          'later task' => 'last line',
+          _ => 'address',
+        }),
+      );
+    });
+  }
 
   test('the steps come in as they are said, each one where it began', () async {
     final session = HostSession(

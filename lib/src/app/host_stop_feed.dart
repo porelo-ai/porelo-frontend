@@ -19,7 +19,12 @@ List<String> hostStopFeedCommand({
   String cli = SecretsFile.keepassxcCli,
   String? caOut,
   int networkNumber = 0,
+  String? secretsHost,
+  bool serverOnly = false,
 }) {
+  if (serverOnly && needs.any((need) => !const ['wireguard', 'forge-certificate'].contains(need))) {
+    throw const FormatException('The root server stop accepts only wireguard and forge-certificate.');
+  }
   final unknown = needs.where(
     (need) => need != 'drive' && need != 'matrix-token' && !SecretsFile.stopNeeds.contains(need),
   );
@@ -45,7 +50,7 @@ List<String> hostStopFeedCommand({
   final feed = [
     if (fed.isNotEmpty)
       SecretsFile(secretsFile, cli: cli).stopLines(
-        host: project,
+        host: secretsHost ?? project,
         project: project,
         needs: fed,
         keys: fed.contains('keys') ? keys : const [],
