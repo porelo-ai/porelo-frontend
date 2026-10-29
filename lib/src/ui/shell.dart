@@ -2678,6 +2678,15 @@ class _ShellState extends State<Shell> {
           icon: const Icon(Icons.add_to_queue),
           onPressed: _addAMachine,
         ),
+        // The title bar's Machines group beside watching one; held back unless the host admin's role is held.
+        for (final command in commands)
+          if (command.home == Home.appBar && command.group == 'Machines')
+            IconButton(
+              key: Key(command.id),
+              tooltip: command.available ? command.label : '${command.label} - ${command.unavailable}',
+              icon: const Icon(Icons.dns_outlined),
+              onPressed: command.available ? command.run : null,
+            ),
         PopupMenuButton<String>(
           key: const Key('options-menu'),
           tooltip: 'Options',

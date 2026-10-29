@@ -102,4 +102,18 @@ void main() {
       expect(ran, isEmpty);
     });
   }
+
+  // Harm: a host admin finds Prepare a server… only by typing its name, never by pointing.
+  for (final held in [true, false]) {
+    testWidgets('the title bar offers Prepare a server… to a host admin alone (${held ? 'held' : 'not held'})', (
+      tester,
+    ) async {
+      if (held) roles = Roles.fromArguments(const ['--roles', 'host-admin']);
+      await World.startBackend(World.work);
+      await World.startApp(tester);
+      final control = find.descendant(of: find.byType(AppBar), matching: find.byKey(const Key('host.prepare')));
+      expect(control, held ? findsOneWidget : findsNothing);
+      if (held) expect(tester.widget<IconButton>(control).tooltip, 'Prepare a server…');
+    });
+  }
 }
