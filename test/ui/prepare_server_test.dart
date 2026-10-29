@@ -98,163 +98,178 @@ void main() {
 
   // Harm: renting a server must not upload a project or create its account.
   // Linux: preparing a server needs the secrets file, which Windows does not offer (noSecretsFileHere), and this
-  // test makes a real one with /usr/bin/keepassxc-cli.
-  testWidgets('preparing a server runs up without a project and feeds only the root stop', (tester) async {
-    final commands = <List<String>>[];
-    final process = HostProcess();
-    final terminals = <FakeTerminal>[];
-    await frame(
-      tester,
-      HostDialog(
-        project: '',
-        machines: machines,
-        settings: settings,
-        hostRuns: runs,
-        debug: false,
-        secretStore: MemorySecrets(),
-        checkKey: (_, _) async => HostProcess()..end(0),
-        start: (_, arguments) async {
-          commands.add(List.of(arguments));
-          return process;
-        },
-        openTerminal: (program, arguments, {columns = 80, rows = 24}) {
-          final terminal = FakeTerminal([program, ...arguments]);
-          terminals.add(terminal);
-          return terminal;
-        },
-      ),
-    );
-    expect(find.text('Prepare a server'), findsOneWidget);
-    expect(find.byKey(const Key('host-account')), findsNothing);
-    await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'provider');
-    await next(tester);
-    expect(find.text('The project'), findsNothing);
-    expect(tester.widget<TextField>(find.byKey(const Key('host-network'))).controller!.text, '0');
-    await tester.enterText(find.byKey(const Key('host-name')), 'orchard');
-    await tester.enterText(find.byKey(const Key('host-network')), '7');
-    await next(tester);
-    await tester.enterText(find.byKey(const Key('host-identity')), '${scratch.path}/rental');
-    await tester.enterText(find.byKey(const Key('host-public-key')), '${scratch.path}/rental.pub');
-    await next(tester);
-    final secretsPath = '${scratch.path}/secrets.kdbx';
-    await tester.enterText(find.byKey(const Key('host-secrets-file')), secretsPath);
-    await World.settle(tester);
-    await tester.tap(find.byKey(const Key('host-secrets-open')));
-    await World.settle(tester);
-    for (var i = 0; i < 100 && terminals.isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+  // test makes a real one with /usr/bin/keepassxc-cli; it is skipped where that is missing, as on the build's runner.
+  testWidgets(
+    'preparing a server runs up without a project and feeds only the root stop',
+    (tester) async {
+      final commands = <List<String>>[];
+      final process = HostProcess();
+      final terminals = <FakeTerminal>[];
+      await frame(
+        tester,
+        HostDialog(
+          project: '',
+          machines: machines,
+          settings: settings,
+          hostRuns: runs,
+          debug: false,
+          secretStore: MemorySecrets(),
+          checkKey: (_, _) async => HostProcess()..end(0),
+          start: (_, arguments) async {
+            commands.add(List.of(arguments));
+            return process;
+          },
+          openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+            final terminal = FakeTerminal([program, ...arguments]);
+            terminals.add(terminal);
+            return terminal;
+          },
+        ),
+      );
+      expect(find.text('Prepare a server'), findsOneWidget);
+      expect(find.byKey(const Key('host-account')), findsNothing);
+      await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'provider');
+      await next(tester);
+      expect(find.text('The project'), findsNothing);
+      expect(tester.widget<TextField>(find.byKey(const Key('host-network'))).controller!.text, '0');
+      await tester.enterText(find.byKey(const Key('host-name')), 'orchard');
+      await tester.enterText(find.byKey(const Key('host-network')), '7');
+      await next(tester);
+      await tester.enterText(find.byKey(const Key('host-identity')), '${scratch.path}/rental');
+      await tester.enterText(find.byKey(const Key('host-public-key')), '${scratch.path}/rental.pub');
+      await next(tester);
+      final secretsPath = '${scratch.path}/secrets.kdbx';
+      await tester.enterText(find.byKey(const Key('host-secrets-file')), secretsPath);
       await World.settle(tester);
-    }
-    expect(terminals, hasLength(1), reason: 'the real secrets preparation must open its terminal');
-    final secretsTerminal = terminals.single;
-    final prepared = await tester.runAsync(() async {
-      final command = secretsTerminal.command;
-      final child = await Process.start(command.first, command.skip(1).toList());
-      final stdout = child.stdout.transform(utf8.decoder).join();
-      final stderr = child.stderr.transform(utf8.decoder).join();
-      child.stdin.write('fixture-master\nfixture-master\n');
-      await child.stdin.close();
-      return ProcessResult(child.pid, await child.exitCode, await stdout, await stderr);
-    });
-    expect(prepared!.exitCode, 0, reason: '${prepared.stderr}');
-    secretsTerminal.endsWith(0);
-    await World.settle(tester);
-    await tester.tap(find.byKey(const Key('unlock-done')));
-    await World.settle(tester);
-    // Closing the terminal precedes reading its public result and removing its temporary directory.
-    for (var i = 0; i < 100 && settings.secretsFile != secretsPath; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.tap(find.byKey(const Key('host-secrets-open')));
       await World.settle(tester);
-    }
-    expect(settings.secretsFile, secretsPath, reason: 'public-key readback must finish before setup starts');
-    final listing = await tester.runAsync(() async {
-      final child = await Process.start(SecretsFile.keepassxcCli, ['ls', '-R', secretsPath]);
-      final stdout = child.stdout.transform(utf8.decoder).join();
-      final stderr = child.stderr.transform(utf8.decoder).join();
-      child.stdin.writeln('fixture-master');
-      await child.stdin.close();
-      return ProcessResult(child.pid, await child.exitCode, await stdout, await stderr);
-    });
-    expect(listing!.exitCode, 0, reason: '${listing.stderr}');
-    expect(listing.stdout, contains('orchard/'));
-    expect(listing.stdout, contains('wireguard'));
-    expect(listing.stdout, isNot(contains('projects/')));
-    expect(listing.stdout, isNot(contains('vault-passphrase')));
-    terminals.clear();
-    await next(tester);
-    expect(find.byKey(const Key('host-signing-key')), findsNothing);
-    expect(commands, isEmpty, reason: 'renting needs the review decision');
-    await tester.tap(find.byKey(const Key('host-up')));
-    await tester.pump();
-    for (var i = 0; i < 100 && commands.isEmpty && terminals.isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      for (var i = 0; i < 100 && terminals.isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await World.settle(tester);
+      }
+      expect(terminals, hasLength(1), reason: 'the real secrets preparation must open its terminal');
+      final secretsTerminal = terminals.single;
+      final prepared = await tester.runAsync(() async {
+        final command = secretsTerminal.command;
+        final child = await Process.start(command.first, command.skip(1).toList());
+        final stdout = child.stdout.transform(utf8.decoder).join();
+        final stderr = child.stderr.transform(utf8.decoder).join();
+        child.stdin.write('fixture-master\nfixture-master\n');
+        await child.stdin.close();
+        return ProcessResult(child.pid, await child.exitCode, await stdout, await stderr);
+      });
+      expect(prepared!.exitCode, 0, reason: '${prepared.stderr}');
+      secretsTerminal.endsWith(0);
       await World.settle(tester);
-    }
-    expect(terminals, isEmpty, reason: 'setup must reuse the public key read from the completed secrets terminal');
-    expect(commands, hasLength(1));
-    expect(
-      commands.single,
-      containsAllInOrder(['up', '--host-name', 'orchard', '--network', '7', '--login-user', 'root', '--forge', 'true']),
-    );
-    for (final option in ['--project', '--account', '--authorized-key', '--machine-file', '--bundle']) {
-      expect(commands.single, isNot(contains(option)));
-    }
-    process.line(
-      const Step(
-        'person',
-        StepState.waiting,
-        needs: ['wireguard', 'forge-certificate'],
-        address: '203.0.113.7',
-        admin: 'root',
-      ),
-    );
-    process.end(75);
-    await World.settle(tester);
-    final run = runs.of('orchard')!;
-    final kept = settings.hostUp('orchard')!;
-    expect(kept.host, 'orchard');
-    expect(kept.vpnNetworkNumber, 7);
-    expect(kept.vpnInterface, 'porelo-7');
-    final restored = HostUpRecord.fromStored(kept.stored)!;
-    expect(restored.host, 'orchard');
-    expect(restored.vpnNetworkNumber, 7);
-    expect(restored.vpnInterface, 'porelo-7');
-    await tester.pumpWidget(const SizedBox.shrink());
-    await frame(
-      tester,
-      HostStopDialog(
-        run: run,
-        hostRuns: runs,
-        machines: machines,
-        settings: settings,
-        openTerminal: (program, arguments, {columns = 80, rows = 24}) {
-          final terminal = FakeTerminal([program, ...arguments]);
-          terminals.add(terminal);
-          return terminal;
-        },
-      ),
-    );
-    await tester.ensureVisible(find.byKey(const Key('host-open-terminal')));
-    await tester.tap(find.byKey(const Key('host-open-terminal')));
-    await World.settle(tester);
-    expect(terminals, hasLength(1));
-    final script = terminals.single.command.last;
-    expect(script, contains('root@203.0.113.7'));
-    expect(script, contains('hosts/orchard/wireguard'));
-    expect(script, isNot(contains('projects/orchard/')));
-    expect(script, isNot(contains('hosts/orchard/vault-passphrase')));
-    expect(script, contains('hosts/orchard/forge-ca'));
-    expect(script, contains('permitted;IP:10.73.7.0/255.255.255.0'));
-    expect(script, contains('DNS:forge.orchard.porelo.internal,IP:10.73.7.1'));
-    expect(script, contains('DNS:matrix.orchard.porelo.internal,IP:10.73.7.1'));
-    expect(script, contains('porelo-host-stop --stdin wireguard forge-certificate'));
-    for (final other in ['vault-new', 'matrix-token', 'drive-login', ' --stdin keys']) {
-      expect(script, isNot(contains(other)));
-    }
-    terminals.single.endsWith(75);
-    await World.settle(tester);
-    await tester.pumpWidget(const SizedBox.shrink());
-  }, tags: 'linux');
+      await tester.tap(find.byKey(const Key('unlock-done')));
+      await World.settle(tester);
+      // Closing the terminal precedes reading its public result and removing its temporary directory.
+      for (var i = 0; i < 100 && settings.secretsFile != secretsPath; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await World.settle(tester);
+      }
+      expect(settings.secretsFile, secretsPath, reason: 'public-key readback must finish before setup starts');
+      final listing = await tester.runAsync(() async {
+        final child = await Process.start(SecretsFile.keepassxcCli, ['ls', '-R', secretsPath]);
+        final stdout = child.stdout.transform(utf8.decoder).join();
+        final stderr = child.stderr.transform(utf8.decoder).join();
+        child.stdin.writeln('fixture-master');
+        await child.stdin.close();
+        return ProcessResult(child.pid, await child.exitCode, await stdout, await stderr);
+      });
+      expect(listing!.exitCode, 0, reason: '${listing.stderr}');
+      expect(listing.stdout, contains('orchard/'));
+      expect(listing.stdout, contains('wireguard'));
+      expect(listing.stdout, isNot(contains('projects/')));
+      expect(listing.stdout, isNot(contains('vault-passphrase')));
+      terminals.clear();
+      await next(tester);
+      expect(find.byKey(const Key('host-signing-key')), findsNothing);
+      expect(commands, isEmpty, reason: 'renting needs the review decision');
+      await tester.tap(find.byKey(const Key('host-up')));
+      await tester.pump();
+      for (var i = 0; i < 100 && commands.isEmpty && terminals.isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await World.settle(tester);
+      }
+      expect(terminals, isEmpty, reason: 'setup must reuse the public key read from the completed secrets terminal');
+      expect(commands, hasLength(1));
+      expect(
+        commands.single,
+        containsAllInOrder([
+          'up',
+          '--host-name',
+          'orchard',
+          '--network',
+          '7',
+          '--login-user',
+          'root',
+          '--forge',
+          'true',
+        ]),
+      );
+      for (final option in ['--project', '--account', '--authorized-key', '--machine-file', '--bundle']) {
+        expect(commands.single, isNot(contains(option)));
+      }
+      process.line(
+        const Step(
+          'person',
+          StepState.waiting,
+          needs: ['wireguard', 'forge-certificate'],
+          address: '203.0.113.7',
+          admin: 'root',
+        ),
+      );
+      process.end(75);
+      await World.settle(tester);
+      final run = runs.of('orchard')!;
+      final kept = settings.hostUp('orchard')!;
+      expect(kept.host, 'orchard');
+      expect(kept.vpnNetworkNumber, 7);
+      expect(kept.vpnInterface, 'porelo-7');
+      final restored = HostUpRecord.fromStored(kept.stored)!;
+      expect(restored.host, 'orchard');
+      expect(restored.vpnNetworkNumber, 7);
+      expect(restored.vpnInterface, 'porelo-7');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await frame(
+        tester,
+        HostStopDialog(
+          run: run,
+          hostRuns: runs,
+          machines: machines,
+          settings: settings,
+          openTerminal: (program, arguments, {columns = 80, rows = 24}) {
+            final terminal = FakeTerminal([program, ...arguments]);
+            terminals.add(terminal);
+            return terminal;
+          },
+        ),
+      );
+      await tester.ensureVisible(find.byKey(const Key('host-open-terminal')));
+      await tester.tap(find.byKey(const Key('host-open-terminal')));
+      await World.settle(tester);
+      expect(terminals, hasLength(1));
+      final script = terminals.single.command.last;
+      expect(script, contains('root@203.0.113.7'));
+      expect(script, contains('hosts/orchard/wireguard'));
+      expect(script, isNot(contains('projects/orchard/')));
+      expect(script, isNot(contains('hosts/orchard/vault-passphrase')));
+      expect(script, contains('hosts/orchard/forge-ca'));
+      expect(script, contains('permitted;IP:10.73.7.0/255.255.255.0'));
+      expect(script, contains('DNS:forge.orchard.porelo.internal,IP:10.73.7.1'));
+      expect(script, contains('DNS:matrix.orchard.porelo.internal,IP:10.73.7.1'));
+      expect(script, contains('porelo-host-stop --stdin wireguard forge-certificate'));
+      for (final other in ['vault-new', 'matrix-token', 'drive-login', ' --stdin keys']) {
+        expect(script, isNot(contains(other)));
+      }
+      terminals.single.endsWith(75);
+      await World.settle(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    tags: 'linux',
+    skip: !File(SecretsFile.keepassxcCli).existsSync(),
+  );
 
   // An asynchronous VPN refresh must complete cleanup for the server actually given back.
   // Linux: the VPN cleanup it checks runs only where HostRuns finds Platform.isLinux.
