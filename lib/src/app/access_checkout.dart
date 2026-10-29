@@ -7,6 +7,7 @@ import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
 import 'run_here.dart';
+import 'host_matrix_settings.dart';
 
 /// The person's private access checkout, signed and pushed through their own Git configuration.
 class AccessCheckout {
@@ -139,16 +140,17 @@ class AccessCheckout {
   }
 
   /// Updates public host values and Matrix settings while preserving comments and other settings.
-  Future<void> writeHost(PreparedHost host, String room) async {
+  Future<void> writeHost(PreparedHost host, String? caCertificate) async {
     if (_branch == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
-    if (!RegExp(r'^[!#][^\s\x00-\x1f]+:[A-Za-z0-9.-]+$').hasMatch(room)) {
-      throw const WorkspaceRefused('The Matrix room needs its full room ID or alias, including the homeserver.');
-    }
+    checkHostMatrixCa(host, caCertificate);
     final file = await _plainAccessFile();
     final original = await file.readAsString();
     final YamlEditor editor;
+    final List<String> comments;
     try {
-      if (loadYaml(original) is! YamlMap) throw const FormatException();
+      final root = loadYamlNode(original);
+      if (root is! YamlMap) throw const FormatException();
+      comments = _yamlComments(original, root);
       editor = YamlEditor(original);
       void mapping(List<String> parts) {
         final value = editor.parseAt(parts, orElse: () => wrapAsYamlNode(null)).value;
@@ -165,8 +167,20 @@ class AccessCheckout {
       }
       mapping(['transports']);
       mapping(['transports', 'matrix']);
+      final matrix = editor.parseAt(['transports', 'matrix']).value as Map;
+      for (final key in matrix.keys.toList()) {
+        if (!const {'homeserver', 'room', 'registration_token_file', 'ca_certificate'}.contains(key)) {
+          editor.remove(['transports', 'matrix', key]);
+        }
+      }
       editor.update(['transports', 'matrix', 'homeserver'], 'https://${host.values['homeserver']}:8448');
-      editor.update(['transports', 'matrix', 'room'], room);
+      editor.update(['transports', 'matrix', 'room'], hostProjectRoom(project, host));
+      editor.update([
+        'transports',
+        'matrix',
+        'registration_token_file',
+      ], '~/.config/porelo/matrix/host-registration-token');
+      _blockMatrixMappings(editor);
     } on Exception {
       throw const WorkspaceRefused(
         'access.yml must contain mappings for host and transports.matrix. Its contents were not changed.',
@@ -175,12 +189,95 @@ class AccessCheckout {
     final temporary = await _writer.createPrivateTemporary(Directory(folder));
     try {
       final prepared = File('${temporary.path}/access.yml');
-      await _writer.write(prepared, utf8.encode(editor.toString()));
+      final yaml = _keepComments(_withLiteralCertificate(editor, caCertificate!), comments);
+      await _writer.write(prepared, utf8.encode(yaml));
       await _plainAccessFile();
       await prepared.rename(file.path);
     } finally {
       await temporary.delete(recursive: true);
     }
+  }
+
+  void _blockMatrixMappings(YamlEditor editor) {
+    for (final parts in [
+      const <String>[],
+      const ['transports'],
+      const ['transports', 'matrix'],
+    ]) {
+      final node = editor.parseAt(parts) as YamlMap;
+      if (node.style != CollectionStyle.FLOW) continue;
+      editor.update(parts, wrapAsYamlNode(_plainYaml(node), collectionStyle: CollectionStyle.BLOCK));
+    }
+  }
+
+  String _keepComments(String yaml, List<String> original) {
+    final remaining = <String, int>{};
+    for (final comment in _yamlComments(yaml, loadYamlNode(yaml))) {
+      remaining.update(comment, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final missing = <String>[];
+    for (final comment in original) {
+      final count = remaining[comment] ?? 0;
+      if (count == 0) {
+        missing.add(comment);
+      } else {
+        remaining[comment] = count - 1;
+      }
+    }
+    if (missing.isEmpty) return yaml;
+    final start = YamlEditor(yaml).parseAt(['transports', 'matrix']).span.start;
+    final indent = ' ' * start.column;
+    return yaml.replaceRange(start.offset, start.offset, '${missing.join('\n$indent')}\n$indent');
+  }
+
+  List<String> _yamlComments(String yaml, YamlNode node) {
+    final scalars = <(int, int)>[];
+    void visit(YamlNode child) {
+      if (child is YamlScalar) {
+        scalars.add((child.span.start.offset, child.span.end.offset));
+      } else if (child is YamlMap) {
+        for (final entry in child.nodes.entries) {
+          visit(entry.key as YamlNode);
+          visit(entry.value);
+        }
+      } else if (child is YamlList) {
+        child.nodes.forEach(visit);
+      }
+    }
+
+    visit(node);
+    final comments = <String>[];
+    for (var at = 0; at < yaml.length; at++) {
+      if (yaml[at] != '#' || scalars.any((span) => at >= span.$1 && at < span.$2)) continue;
+      final newline = yaml.indexOf('\n', at);
+      final end = newline < 0 ? yaml.length : newline;
+      comments.add(yaml.substring(at, end).trimRight());
+      at = end;
+    }
+    return comments;
+  }
+
+  Object? _plainYaml(Object? value) => switch (value) {
+    Map() => {for (final entry in value.entries) _plainYaml(entry.key): _plainYaml(entry.value)},
+    List() => [for (final item in value) _plainYaml(item)],
+    _ => value,
+  };
+
+  String _withLiteralCertificate(YamlEditor editor, String pem) {
+    const at = ['transports', 'matrix', 'ca_certificate'];
+    // yaml_edit falls back to quoted strings for trailing newlines, so keep only the chomp adjustment here.
+    editor.update(at, wrapAsYamlNode(pem.trimRight(), scalarStyle: ScalarStyle.LITERAL));
+    final node = editor.parseAt(at) as YamlScalar;
+    var yaml = editor.toString();
+    final start = node.span.start.offset;
+    if (node.style != ScalarStyle.LITERAL || !yaml.substring(start).startsWith('|-')) {
+      throw const WorkspaceRefused('The host CA could not be kept as a literal YAML certificate.');
+    }
+    if (pem.endsWith('\n')) yaml = yaml.replaceRange(start, start + 2, '|');
+    if (loadYaml(yaml)['transports']['matrix']['ca_certificate'] != pem) {
+      throw const WorkspaceRefused('The host CA did not read back byte for byte. No access settings were changed.');
+    }
+    return yaml;
   }
 
   /// Signs through the person's Git, verifies the signer, pushes, and only then creates the bundle.

@@ -228,10 +228,20 @@ machine file; a join omits it. Each migration has a unique repository name deriv
 without a user, query, or fragment. The bring's stop receives only its allowed needs from the secrets-file
 terminal. Resuming a completed stop reruns the playbook without repeating the access push or setup upload.
 The playbook performs one sync and its last task runs `porelo talk room <project>` in the admin's account.
-The interface writes the supplied homeserver as `https://matrix.<host>.porelo.internal:8448` and suggests
-`#porelo-<project>:matrix.<host>.porelo.internal`, editable and checked, in `transports.matrix`. The project's
-Matrix peer belongs in the signed project file and is not edited here. The interface makes no separate room
-or sync call. It shows the playbook's latest public lines, including a room refusal in Porelo's own words.
+The interface writes exactly four keys in `transports.matrix`: the supplied `homeserver` as
+`https://matrix.<host>.porelo.internal:8448`, the fixed `room` alias
+`#porelo-<project>:matrix.<host>.porelo.internal`, `registration_token_file` as the literal
+`~/.config/porelo/matrix/host-registration-token`, and `ca_certificate` as a literal YAML block. The alias is
+shown for review and cannot be edited. Admission leaves the registration token in the admin's own home on
+the host; the interface writes its path and never reads the token.
+
+The CA comes from the selected host's retained public forge CA in its setup record. Before any access edit
+or upload, it must be one PEM certificate, with no chain or extra DER bytes, and its DER SHA-256 must match
+that host's `ca_sha256`. Missing or mismatched trust is refused without a network fetch. This trust applies
+only to the selected host. The written PEM must read back byte for byte, including its final newline;
+existing YAML comments are kept. Other Matrix keys, including `tls_verify` and `ca_file`, are removed.
+The project's Matrix peer belongs in the signed project file and is not edited here. The interface makes no
+separate room or sync call. It shows the playbook's latest public lines, including a room refusal in Porelo's own words.
 Completion also requires the host daemon to confirm the verified project revision, then refreshes the watched
 host's project list and keeps the project-to-host association in `frontend.json`. The checked host values
 determine that association, so a stale label on a watched connection cannot select another host for removal.

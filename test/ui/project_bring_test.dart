@@ -17,6 +17,7 @@ import 'package:yaml/yaml.dart';
 import '../features/support/world.dart';
 import '../support/host_process.dart';
 import '../support/host_admin.dart';
+import '../support/host_matrix_ca.dart';
 
 class _SignedFiles extends HostFiles {
   _SignedFiles() : super(MemorySecrets());
@@ -176,9 +177,13 @@ void main() {
   });
 
   // Harm: bringing through root or repeating publication when feeding a stop changes the wrong account.
-  for (final rejectRoom in [false, true]) {
+  for (final outcome in ['brought', 'room-refused', 'ca-missing', 'ca-mismatch']) {
+    final rejectRoom = outcome == 'room-refused';
+    final refusedCa = outcome.startsWith('ca-');
     testWidgets(
-      rejectRoom
+      refusedCa
+          ? 'the project bring refuses $outcome before editing or uploading access'
+          : rejectRoom
           ? 'a room refusal stops the bring in Porelo’s words'
           : 'the project dialog signs with own git uploads privately and resumes without sudo',
       (tester) async {
@@ -192,6 +197,8 @@ void main() {
         final target = _Following(empty: true);
         final remote = _OwnSsh(home, target, rejectRoom: rejectRoom);
         final settings = Settings(MemorySettingsStore());
+        await settings.rememberHostUp('garden', matrixHostRecord(host: 'garden'));
+        if (outcome != 'ca-missing') await settings.rememberHostUp('orchard', matrixHostRecord());
         final backend = _Following();
         final machine = Machine(
           name: 'Admitted server',
@@ -276,19 +283,28 @@ void main() {
         await World.settle(tester);
         expect(find.byKey(const Key('bring-host')), findsOneWidget);
         expect(tester.widget<DropdownButton<Machine>>(find.byKey(const Key('bring-host'))).value, machine);
-        await tester.enterText(find.byKey(const Key('bring-host-values')), jsonEncode(hostValues()));
+        await tester.enterText(
+          find.byKey(const Key('bring-host-values')),
+          jsonEncode({...matrixHostValues(), if (outcome == 'ca-mismatch') 'ca_sha256': '0' * 64}),
+        );
         await World.settle(tester);
         await tester.tap(find.byKey(const Key('wizard-next')));
         await World.settle(tester);
-        expect(
-          tester.widget<TextField>(find.byKey(const Key('bring-room'))).controller!.text,
-          '#porelo-demo:matrix.orchard.porelo.internal',
-        );
-        await tester.enterText(find.byKey(const Key('bring-room')), '#missing-homeserver');
-        await World.settle(tester);
-        expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
-        await tester.enterText(find.byKey(const Key('bring-room')), '#custom-demo:matrix.orchard.porelo.internal');
-        await World.settle(tester);
+        if (!refusedCa) {
+          expect(
+            tester
+                .widgetList<EditableText>(
+                  find.descendant(of: find.byKey(const Key('bring-room')), matching: find.byType(EditableText)),
+                )
+                .every((field) => field.readOnly),
+            isTrue,
+            reason: 'the room creator accepts only the alias derived for this project and host',
+          );
+          expect(
+            tester.widget<SelectableText>(find.byKey(const Key('bring-room'))).data,
+            '#porelo-demo:matrix.orchard.porelo.internal',
+          );
+        }
         await tester.tap(find.byKey(const Key('wizard-next')));
         await World.settle(tester);
         await tester.enterText(find.byKey(const Key('bring-secrets')), secrets.path);
@@ -301,6 +317,15 @@ void main() {
         });
         await World.settle(tester);
         final action = tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first;
+        if (refusedCa) {
+          expect(action.state(), WizardActionState.refused);
+          expect(gitCommands, isEmpty, reason: 'untrusted Matrix access must never be edited or published');
+          expect(remote.commands, isEmpty, reason: 'an untrusted CA must stop before any host upload');
+          expect(Directory('${scratch.path}/access/demo').existsSync(), isFalse);
+          expect(find.textContaining(outcome == 'ca-missing' ? 'missing' : 'ca_sha256'), findsWidgets);
+          await tester.pumpWidget(const SizedBox.shrink());
+          return;
+        }
         expect(action.state(), WizardActionState.waiting);
         final yaml = loadYaml(File('${home.path}/.local/share/porelo-host/setup/demo/machine.yml').readAsStringSync());
         expect(yaml['access']['bundle'], 'access.bundle');
@@ -311,7 +336,9 @@ void main() {
         final access = loadYaml(File('${scratch.path}/access/demo/access.yml').readAsStringSync());
         expect(access['transports']['matrix'], {
           'homeserver': 'https://matrix.orchard.porelo.internal:8448',
-          'room': '#custom-demo:matrix.orchard.porelo.internal',
+          'room': '#porelo-demo:matrix.orchard.porelo.internal',
+          'registration_token_file': '~/.config/porelo/matrix/host-registration-token',
+          'ca_certificate': hostMatrixCa,
         });
         expect(remote.users, everyElement('admin'));
         final playbook = remote.commands.singleWhere((command) => command.contains('ansible-playbook'));

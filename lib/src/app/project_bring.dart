@@ -10,6 +10,7 @@ import 'access_checkout.dart';
 import 'bring_project_file.dart';
 import 'fleet_backend.dart';
 import 'host_stop_feed.dart';
+import 'host_matrix_settings.dart';
 import 'machines.dart';
 import 'run_here.dart';
 
@@ -25,10 +26,10 @@ class ProjectBring extends ChangeNotifier {
     required this.knownHosts,
     required this.secretsFile,
     required this.signingKey,
-    required this.room,
     required this.accessRoot,
     required this.remote,
     required this.files,
+    this.forgeCa,
     this.runGit,
   });
 
@@ -56,8 +57,8 @@ class ProjectBring extends ChangeNotifier {
   /// The project's current signing public key file.
   final File signingKey;
 
-  /// The full Matrix room ID or alias kept in the private access file.
-  final String room;
+  /// The public CA retained for this host alone, checked against its advertised digest.
+  final String? forgeCa;
 
   /// The private access checkout root on this desktop.
   final String accessRoot;
@@ -112,6 +113,7 @@ class ProjectBring extends ChangeNotifier {
         throw const WorkspaceRefused('The bring needs a plain project name.');
       }
       SecretsFile.checkPath(secretsFile);
+      checkHostMatrixCa(host, forgeCa);
       final login = RegExp(r'^([A-Za-z_][A-Za-z0-9_-]*)@([A-Za-z0-9][A-Za-z0-9.:-]*)$').firstMatch(machine.host);
       if (machine.kind != 'host' ||
           login == null ||
@@ -154,7 +156,7 @@ class ProjectBring extends ChangeNotifier {
         run: runGit,
       );
       await access.open();
-      await access.writeHost(host, room);
+      await access.writeHost(host, forgeCa);
       scratch = await HostFileWriter().createPrivateTemporary(Directory.systemTemp);
       final accessBundle = path.join(scratch.path, HostFiles.accessBundleFileName);
       await access.commitPushAndBundle(accessBundle);

@@ -20,10 +20,16 @@ Decided: bringing a project is the project admin's act in their own account; `ho
   refuses only while a commit is on the host and nowhere centrally. The interface gives `remove` only the central
   token on standard input, never a central URL.
 - **The room:** the playbook's last task runs `porelo talk room <project>` in the admin's account. The interface
-  writes `transports.matrix` with the supplied homeserver at HTTPS port 8448 and suggests
-  `#porelo-<project>:matrix.<host>.porelo.internal`, editable and checked. The project file's Matrix peer is not
-  edited here. The interface makes no room call and shows the bring's latest public lines; a room refusal stops
-  the bring in Porelo's words.
+  writes exactly four `transports.matrix` keys: `homeserver` at HTTPS port 8448, `room` as the fixed
+  `#porelo-<project>:matrix.<host>.porelo.internal`, `registration_token_file` as the literal
+  `~/.config/porelo/matrix/host-registration-token`, and `ca_certificate` as one PEM certificate in a literal
+  YAML block. The alias is shown, never edited. The token stays in the admin's own account on the host; the
+  interface writes its path only. The CA comes from this host's retained forge CA, checked as one certificate
+  whose DER SHA-256 matches its public `ca_sha256`, before any access edit or upload. Missing or mismatched
+  trust is refused without a network fetch. No other Matrix key is kept, including `tls_verify` or `ca_file`.
+  YAML comments and the exact PEM bytes are preserved. The project file's Matrix peer is not edited here.
+  The interface makes no room call and shows the bring's latest public lines; a room refusal stops it in
+  Porelo's words.
 - ***Take this project off the server*** (`host-admin`): the saved project-to-host association selects the
   retained host record. The existing remove dialog runs `porelo-host-project remove <project>` as root over the
   same pinned helper SSH as registration, with only the central token as one stdin line. Exit 65 refuses
@@ -38,6 +44,9 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 
 - A project brought onto a host prepared by another person, by its admin alone, follows there in the admin's account, with its room made.
 - The public `project.yml` holds no address, key or name of a person; `access.yml` holds them, signed.
+- Matrix access has exactly the four agreed keys, the fixed alias and literal token path, and one retained
+  host CA whose DER matches `ca_sha256`. A missing or mismatched CA stops before Git or upload. The PEM reads
+  back byte for byte in block style, and comments survive removal of unsupported keys and inline mappings.
 - *Take the project off* is refused in the helper's words on exit 65, and green on a matching removal reply at
   exit zero. It does not unfollow. Another host's record must not enable removal on the project's host.
 - Seen to fail: the widget test red while the dialog still rents.
@@ -64,7 +73,11 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 - The bring reuses the own-account upload and stop feed, with both fixed bundle names, checked home paths,
   modes, and digests. It runs the bring playbook over pinned SSH with no sudo, and resumes a successful stop
   without repeating the access push or upload. Only the playbook runs sync.
-- The editable room alias is prefilled from the host values. The playbook owns creation, and the interface shows
+- The fixed room alias is derived from the project and checked host values. The host's retained public forge
+  CA is selected by its Matrix server name, never by a stale connection label or another host's trust. One
+  certificate and its DER fingerprint are checked before Git or upload. The four-key Matrix block keeps the
+  token path literal and the PEM in block style with exact readback, preserving comments through inline-map
+  conversion and removing unsupported keys. The playbook owns creation, and the interface shows
   its final public lines and any refusal, without a separate room step or call. A task with an empty callback
   message still shows its name and state.
 - A successful bring records its project-to-host association, read back after writing and preserved on reload.
@@ -74,10 +87,16 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 
 ## Verification
 
-- Root and package `dart analyze`: no issues. Changed Dart files are formatted.
-- Package tests: all 462 passed with two workers, including the real system-store tests. None was skipped.
-- The final targeted frontend run passed all 97 tests: every added or changed frontend test, settings,
-  server administration, roles, and layout. None was skipped. The 28 tests tagged `documents` passed.
+- Root and package `dart analyze`: no issues. The eight changed Dart files are formatted.
+- Package tests: all 477 passed with two workers, including the real system-store tests. None was skipped.
+  The package is unchanged; its suite passed before the final YAML review fixes. Root analysis and the
+  affected frontend tests were rerun after those fixes.
+- The final targeted frontend run passed 65 tests: the changed access unit and real-Git tests, bring widget
+  tests, removal and recovery regressions, roles, and layout. The 28 tests tagged `documents` passed.
+- The opt-in test `the written Matrix block is accepted by the installed transport settings check` was
+  skipped because `porelo-message-transport-matrix` is not on PATH. With the installed binary and
+  `PORELO_MATRIX_SETTINGS_TEST=1`, it gives the generated block to `settings` as JSON on stdin and requires
+  exactly `"refused": []`. Nothing is installed by the test.
 - All five document checks passed: `check-shared`, `check-citations`, `check-readmes`, `check-doc-site`, and
   `check-actions`. Changed files contain no personal home, account, or LAN address. The excluded walk and
   integration files, the issue index, and this issue's Status line remain unchanged.
@@ -87,10 +106,16 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 - The no-rental widget assertion was observed red against the old `HostDialog`, which still offers
   *Where it is rented*, then green against the current project dialog. The test settles after editing before
   pressing Next and keeps real asynchronous work inside `tester.runAsync`.
-- Bring widget tests cover the editable room alias, serialized Matrix block, own-account upload and stop,
+- Bring widget tests cover the fixed room alias, serialized Matrix block, missing or mismatched host trust
+  refused before Git or SSH, own-account upload and stop,
   resuming without a second access push, final playbook lines, and a room refusal in Porelo's words. The separate
   room-step assertion was observed red before that step was removed. An empty successful callback message and
   a stale watched-host label each reproduced a failure before their fixes, then passed.
+- The editable room and missing or mismatched CA widget cases went red before the fixed alias and early
+  trust check. Disabling CA validation made the missing, chain, non-certificate, extra-DER, and wrong-digest
+  tests fail; restoring it made them pass. Literal block style and final-newline readback were seen failing
+  before the serialization fix. Comments on removed keys and flow document roots reproduced the read-only
+  review findings before their fixes, then passed. The narrow reread found no remaining findings.
 - Project-to-host persistence, malformed input, and write-readback checks were observed red before their
   implementation, then green. Removal widget checks cover the correct host record and the helper's exit codes;
   replacing its refusal with generic words made the exit-65 widget test fail, then restoring the helper's words
@@ -99,9 +124,10 @@ Decided: bringing a project is the project admin's act in their own account; `ho
   retaining the ended setup's billing recovery instead of expecting rental fields in the project dialog.
 - Role, layout, and existing server-admin tests pass. No VM or live-host acceptance run was performed.
 
-## Broader frontend checks
+## Previous broader frontend checks
 
-The full frontend run finished in 5 minutes 30 seconds with 2,157 passed, 30 skipped, and 19 failed. It exposed
+The broader frontend run before the exact Matrix settings update finished in 5 minutes 30 seconds with
+2,157 passed, 30 skipped, and 19 failed. It exposed
 a command-role registry expectation missing the new removal action; the fixed
 registry passes in the final targeted run. Eighteen other checks hit environment restrictions: ten in
 `test/tool/test_report_test.dart`, two in `test/tool/contract_test.dart`, and two in

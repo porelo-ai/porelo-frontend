@@ -9,6 +9,7 @@ import 'package:porelo_host/porelo_host.dart';
 import '../app/desk.dart';
 import '../app/fleet_backend.dart';
 import '../app/machines.dart';
+import '../app/host_matrix_settings.dart';
 import '../app/project_bring.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
@@ -72,14 +73,12 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   late final _signingKey = TextEditingController(text: '${desk.home}/.ssh/id_ed25519.pub');
   late final _secretsFile = TextEditingController(text: widget.settings.secretsFile ?? '');
   final _values = TextEditingController();
-  final _room = TextEditingController();
-  late final _inputs = Listenable.merge([_signingKey, _secretsFile, _values, _room]);
+  late final _inputs = Listenable.merge([_signingKey, _secretsFile, _values]);
   Machine? _machine;
   ProjectBring? _bring;
   SecretStore? _store;
   String? _problem;
   bool _feeding = false;
-  String? _suggestedRoom;
 
   List<Machine> get _admitted => widget.machines.all
       .where(
@@ -94,7 +93,6 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   @override
   void initState() {
     super.initState();
-    _values.addListener(_suggestRoom);
     if (_admitted.length == 1) _choose(_admitted.single);
   }
 
@@ -104,22 +102,19 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     _values.text = host == null ? '' : const JsonEncoder.withIndent('  ').convert(host.values);
   }
 
-  void _suggestRoom() {
-    try {
-      final host = _host();
-      final alias = '#porelo-${widget.project}:${host.values['homeserver']}';
-      if (_room.text.isEmpty || _room.text == _suggestedRoom) _room.text = alias;
-      _suggestedRoom = alias;
-    } on FormatException {
-      return;
-    }
-  }
-
   PreparedHost _host() {
     try {
       return PreparedHost.read(jsonDecode(_values.text));
     } on FormatException {
       throw const FormatException('Paste the complete public host values from the host admin as a JSON object.');
+    }
+  }
+
+  String? get _roomAlias {
+    try {
+      return hostProjectRoom(widget.project, _host());
+    } on FormatException {
+      return null;
     }
   }
 
@@ -140,9 +135,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   void dispose() {
     _bring?.removeListener(_changed);
     _bring?.dispose();
-    _values.removeListener(_suggestRoom);
     unawaited(_store?.close());
-    for (final controller in [_signingKey, _secretsFile, _values, _room]) {
+    for (final controller in [_signingKey, _secretsFile, _values]) {
       controller.dispose();
     }
     super.dispose();
@@ -156,6 +150,7 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     setState(() => _problem = null);
     try {
       final machine = _machine!;
+      final host = _host();
       final knownHosts = poreloHostKnownHosts();
       if (widget.hostFiles == null) _store ??= SecretStore.forThisSystem();
       _bring?.removeListener(_changed);
@@ -165,11 +160,11 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         backend: widget.backend,
         targetBackend: widget.machines.of(machine).backend,
         machine: machine,
-        host: _host(),
+        host: host,
         knownHosts: knownHosts,
         secretsFile: desk.expandHome(_secretsFile.text.trim()),
         signingKey: File(desk.expandHome(_signingKey.text.trim())),
-        room: _room.text.trim(),
+        forgeCa: widget.settings.hostUp(host.values['homeserver']!.split('.')[1])?.forgeCa,
         accessRoot: widget.accessRoot ?? '${desk.data}/access',
         remote:
             widget.remote ?? OpenSsh(knownHosts: File(knownHosts), identity: machine.identity, start: widget.startSsh),
@@ -303,12 +298,13 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       ),
       WizardStep(
         title: 'The project’s room',
-        words: 'The Matrix homeserver comes from the host admin’s values. The bring makes the project room. Keep the suggested room alias or enter a full room ID or alias of your own.',
-        panel: (_) => _field(_room, 'Matrix room ID or alias', 'bring-room'),
-        check: () => RegExp(r'^[!#][^\s\x00-\x1f]+:[A-Za-z0-9.-]+$').hasMatch(_room.text.trim())
-            ? null
-            : 'Give the full Matrix room ID or alias, including its homeserver.',
-        summary: () => ['Room: ${_room.text}', 'Host and Matrix settings are signed and pushed in access.yml only.'],
+        words: 'The bring makes this project’s fixed room alias on the host admin’s Matrix server. Its CA comes from the trusted certificate kept for this host. The admission token stays in your own account on the host.',
+        panel: (_) => SelectableText(_roomAlias ?? 'Choose the host first.', key: const Key('bring-room')),
+        check: () => _check(_host),
+        summary: () => [
+          'Room: ${_roomAlias ?? 'Choose the host first.'}',
+          'Host and Matrix settings are signed and pushed in access.yml only.',
+        ],
       ),
       WizardStep(
         title: 'Your secrets file',

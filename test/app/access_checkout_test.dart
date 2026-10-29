@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/access_checkout.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
@@ -7,6 +9,7 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:yaml/yaml.dart';
 
 import '../support/host_admin.dart';
+import '../support/host_matrix_ca.dart';
 
 void main() {
   late Directory scratch;
@@ -72,27 +75,177 @@ void main() {
     );
   }
 
+  String? matrixTransport;
+  for (final folder in (Platform.environment['PATH'] ?? '').split(Platform.isWindows ? ';' : ':')) {
+    final candidate = File('$folder/porelo-message-transport-matrix');
+    if (candidate.existsSync() && (candidate.statSync().mode & 0x49) != 0) {
+      matrixTransport = candidate.absolute.path;
+      break;
+    }
+  }
+  // Harm: signed access settings can pass local checks but still be refused by the installed transport.
+  test(
+    'the written Matrix block is accepted by the installed transport settings check',
+    () async {
+      final access = await checkout();
+      await access.open();
+      await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      final written = loadYaml(await File('${access.folder}/access.yml').readAsString());
+      final ran = await runHere(matrixTransport!, ['settings'], input: jsonEncode(written['transports']['matrix']));
+      expect(ran.code, 0, reason: ran.err);
+      expect(
+        jsonDecode(ran.out)['refused'],
+        <Object?>[],
+        reason: 'the actual transport must accept the written settings',
+      );
+    },
+    skip: matrixTransport == null
+        ? 'porelo-message-transport-matrix is not on PATH; the settings contract check needs the installed transport'
+        : Platform.environment['PORELO_MATRIX_SETTINGS_TEST'] != '1'
+        ? 'set PORELO_MATRIX_SETTINGS_TEST=1 to check the written block with the installed transport'
+        : null,
+  );
+
+  // Harm: a digest alone can bless malformed DER or multiple certificates as the host's trust.
+  for (final bad in ['missing', 'chain', 'not a certificate', 'two DER certificates', 'digest mismatch']) {
+    test('invalid host CA ($bad) leaves access bytes untouched', () async {
+      final access = await checkout();
+      await access.open();
+      final file = File('${access.folder}/access.yml');
+      final before = await file.readAsBytes();
+      final der = base64Decode(hostMatrixCa.split('\n').where((line) => !line.startsWith('-----')).join());
+      final bytes = bad == 'two DER certificates' ? [...der, ...der] : [0x30, 0x03, 0x02, 0x01, 0x01];
+      final pem = switch (bad) {
+        'missing' => null,
+        'chain' => '$hostMatrixCa$hostMatrixCa',
+        'digest mismatch' => hostMatrixCa,
+        _ =>
+          '-----BEGIN CERTIFICATE-----\n${base64Encode(bytes).replaceAllMapped(RegExp('.{1,64}'), (m) => '${m[0]}\n')}-----END CERTIFICATE-----\n',
+      };
+      final values = {
+        ...matrixHostValues(),
+        'ca_sha256': bad == 'digest mismatch' ? '0' * 64 : sha256.convert(bytes).toString(),
+      };
+      commands.clear();
+      await expectLater(access.writeHost(PreparedHost.read(values), pem), throwsA(isA<WorkspaceRefused>()));
+      expect(await file.readAsBytes(), before, reason: 'refusal must precede any access edit');
+      expect(commands, isEmpty);
+    });
+  }
+
   // Harm: private machine settings enter the public repository, or leave without a trusted signature.
   test('only the private access file is edited signed pushed and bundled', () async {
     final access = await checkout();
     await access.open();
-    await access.writeHost(PreparedHost.read(hostValues()), '#demo:matrix.orchard.porelo.internal');
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
     await access.commitPushAndBundle('${scratch.path}/access.bundle');
     final contents = File('${access.folder}/access.yml').readAsStringSync();
     expect(contents, contains('# Private settings'));
     expect(contents, contains('# Keep people'));
     final yaml = loadYaml(contents);
-    expect(yaml['host'], Map.of(hostValues())..remove('homeserver'));
+    expect(yaml['host'], Map.of(matrixHostValues())..remove('homeserver'));
     expect(yaml['transports']['matrix'], {
       'homeserver': 'https://matrix.orchard.porelo.internal:8448',
-      'room': '#demo:matrix.orchard.porelo.internal',
+      'room': '#porelo-demo:matrix.orchard.porelo.internal',
+      'registration_token_file': '~/.config/porelo/matrix/host-registration-token',
+      'ca_certificate': hostMatrixCa,
     });
+    expect((yaml['transports']['matrix'].nodes['ca_certificate'] as YamlScalar).style, ScalarStyle.LITERAL);
     expect(commands.singleWhere((args) => args.first == 'commit'), contains('-S'));
     expect(commands.singleWhere((args) => args.first == 'push'), ['push', 'origin', 'HEAD:main']);
     expect(commands.expand((command) => command), isNot(contains('project.yml')));
     expect((await Directory(access.folder).stat()).mode & 0x1ff, 0x1c0);
     expect(File('${scratch.path}/access.bundle').existsSync(), isTrue);
   });
+
+  // Harm: obsolete keys make Matrix refuse a signed block; reformatting a CA can corrupt its trust.
+  for (final newline in [true, false]) {
+    test('the exact Matrix block preserves comments and PEM bytes (final newline: $newline)', () async {
+      final access = await checkout();
+      await access.open();
+      final file = File('${access.folder}/access.yml');
+      await file.writeAsString('''# Private settings
+developers: {} # Keep people
+transports:
+  # Matrix trust
+  matrix:
+    homeserver: https://old.example.org # Keep server explanation
+    room: '#old:old.example.org' # Keep room explanation
+    tls_verify: false # Keep verification rationale
+    ca_file: /old/ca.pem # Keep earlier CA rationale
+    unknown_key:
+      # Keep nested rationale
+      nested: obsolete # Keep nested value rationale
+  other: {keep: yes} # Keep other transports
+''');
+      final pem = newline ? hostMatrixCa : hostMatrixCa.trimRight();
+      await access.writeHost(PreparedHost.read(matrixHostValues()), pem);
+      final contents = await file.readAsString();
+      final matrix = loadYaml(contents)['transports']['matrix'] as YamlMap;
+      expect(matrix.keys.toSet(), {'homeserver', 'room', 'registration_token_file', 'ca_certificate'});
+      expect(matrix['ca_certificate'], pem, reason: 'the signed YAML must reproduce the exact PEM bytes');
+      expect((matrix.nodes['ca_certificate'] as YamlScalar).style, ScalarStyle.LITERAL);
+      expect(matrix['room'], '#porelo-demo:matrix.orchard.porelo.internal');
+      for (final comment in [
+        '# Private settings',
+        '# Keep people',
+        '# Matrix trust',
+        '# Keep server explanation',
+        '# Keep room explanation',
+        '# Keep other transports',
+        '# Keep verification rationale',
+        '# Keep earlier CA rationale',
+        '# Keep nested rationale',
+        '# Keep nested value rationale',
+      ]) {
+        expect(contents, contains(comment));
+      }
+      expect(loadYaml(contents)['transports']['other']['keep'], 'yes');
+    });
+  }
+
+  // Harm: an earlier flow mapping must not force the certificate back into an escaped string.
+  test('an existing flow mapping becomes a Matrix block with a literal CA', () async {
+    final access = await checkout();
+    await access.open();
+    final file = File('${access.folder}/access.yml');
+    await file.writeAsString('''transports: {matrix: {homeserver: https://old.example.org, # Keep trust explanation
+room: '#old:old.example.org', tls_verify: false}} # Keep transport note
+''');
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+    final contents = await file.readAsString();
+    final matrix = loadYaml(contents)['transports']['matrix'] as YamlMap;
+    expect(matrix['ca_certificate'], hostMatrixCa);
+    expect((matrix.nodes['ca_certificate'] as YamlScalar).style, ScalarStyle.LITERAL);
+    expect(contents, contains('# Keep transport note'));
+    expect(contents, contains('# Keep trust explanation'));
+  });
+
+  // Harm: a valid existing flow document must not block bringing a project or lose private settings.
+  for (final populated in [false, true]) {
+    test('a flow document becomes a literal Matrix block (populated: $populated)', () async {
+      final access = await checkout();
+      await access.open();
+      final file = File('${access.folder}/access.yml');
+      await file.writeAsString(
+        populated
+            ? "{developers: {}, transports: {matrix: {tls_verify: false # Keep draft rationale\n}}} # Keep root note\n"
+            : '{}\n',
+      );
+      await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      final contents = await file.readAsString();
+      final yaml = loadYaml(contents);
+      final matrix = yaml['transports']['matrix'] as YamlMap;
+      expect(matrix.keys.toSet(), {'homeserver', 'room', 'registration_token_file', 'ca_certificate'});
+      expect(matrix['ca_certificate'], hostMatrixCa);
+      expect((matrix.nodes['ca_certificate'] as YamlScalar).style, ScalarStyle.LITERAL);
+      if (populated) {
+        expect(yaml['developers'], isEmpty);
+        expect(contents, contains('# Keep draft rationale'));
+        expect(contents, contains('# Keep root note'));
+      }
+    });
+  }
 
   // Harm: overwriting a dirty checkout loses private, unpublished work.
   test('dirty access work is preserved before fetching or editing', () async {

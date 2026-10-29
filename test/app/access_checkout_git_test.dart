@@ -6,7 +6,7 @@ import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_host/porelo_host.dart';
 import 'package:yaml/yaml.dart';
 
-import '../support/host_admin.dart';
+import '../support/host_matrix_ca.dart';
 
 void main() {
   late Directory scratch;
@@ -89,12 +89,13 @@ void main() {
   test('own git publishes a verified access commit and the bundle carries exactly that commit', () async {
     final access = checkout();
     await access.open();
-    await access.writeHost(PreparedHost.read(hostValues()), '#demo:matrix.orchard.porelo.internal');
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
     final bundle = '${scratch.path}/access.bundle';
     await access.commitPushAndBundle(bundle);
     final published = await checked(['rev-parse', 'main'], directory: central);
     final text = await checked(['show', 'main:access.yml'], directory: central);
-    expect(loadYaml(text)['host']['ca_sha256'], hostValues()['ca_sha256']);
+    expect(loadYaml(text)['host']['ca_sha256'], hostMatrixCaSha256);
+    expect(loadYaml(text)['transports']['matrix']['ca_certificate'], hostMatrixCa);
     expect(text, contains('# People'));
     final restored = '${scratch.path}/restored';
     await checked(['clone', '--', bundle, restored]);
@@ -118,7 +119,7 @@ void main() {
   test('a different configured signer cannot push or produce an access bundle', () async {
     final access = checkout();
     await access.open();
-    await access.writeHost(PreparedHost.read(hostValues()), '#demo:matrix.orchard.porelo.internal');
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
     final before = await checked(['rev-parse', 'main'], directory: central);
     signer = '${scratch.path}/other';
     await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
