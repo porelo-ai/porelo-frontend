@@ -1,6 +1,6 @@
 # F208 — Roles Given At The Start Of The Interface
 
-**Status:** Estimated; blocked by nothing.
+**Status:** Implementing; blocked by nothing.
 **Size:** M - an argument, a role on every command and the menus and tiles that read it, and their tests; no contract.
 
 **What must be true.** The interface is started with the roles its person holds, `--roles user,host-admin,project-admin`, and shows only the functions of those roles; without the argument it shows normal work alone (`user`). A role shows or hides; what a person may really do stays with the operating system, ssh and the keys.

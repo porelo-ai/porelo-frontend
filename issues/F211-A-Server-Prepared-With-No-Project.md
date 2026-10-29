@@ -1,6 +1,6 @@
 # F211 — A Server Prepared With No Project
 
-**Status:** Estimated; blocked by [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210) and [F212](README.md#f212).
+**Status:** Implementing; blocked by [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210) and [F212](README.md#f212).
 **Size:** L - the host dialog cut to the host admin's act, three new functions on a prepared host, on contracts with `porelo-host`.
 
 **What must be true.** A host admin prepares a server under *Machines* with no project: rented, its VPN, its forge (on by default, off where a central forge is used), its homeserver, its CA; then registers a project for its admin, admits project admins by hand from their public keys, and gives the server back. The values a project admin needs are shown for them to write into the project's access file.
@@ -22,7 +22,7 @@ Decided: setting up a host and putting a project on it are two acts, by two peop
 ## The contract with porelo-host
 
 - **The inventory, `porelo_host_inventory_version: 2`:** `porelo_host_name` (`<host>`, one DNS label
-  `^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`), `porelo_host_network` (`<n>`, 0 to 255; the host is `10.73.<n>.1/24`),
+  of 1 to 63 lower-case letters, digits or hyphens, a letter or digit at each end), `porelo_host_network` (`<n>`, 0 to 255; the host is `10.73.<n>.1/24`),
   `porelo_host_distribution`, `porelo_host_vpn_peer_public_key`, `porelo_host_vpn_peer_address` (the host admin's
   laptop, in `10.73.<n>.0/24`, not `.1`) and `porelo_host_forge`; no account, project or authorized key.
 - **The end of `up`:** once, after its last `ok`, one line of the step protocol
@@ -36,7 +36,7 @@ Decided: setting up a host and putting a project on it are two acts, by two peop
   no), 69 (something needed is missing) or 73 (cannot write), shown in its words.
   - `porelo-host-person add <user> --role project-admin`, the key block on standard input: one laptop per line,
     `<laptop> <ssh-ed25519 AAAA…> <WireGuard public key>[ <10.73.n.m>]`, one space apart, no comment; `<laptop>`
-    matches `^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`, the WireGuard key is 44 base64 characters ending in `=`; without
+    has 1 to 32 lower-case letters, digits or hyphens, a letter or digit at each end, the WireGuard key is 44 base64 characters ending in `=`; without
     an address the host takes the lowest free from `.2`. It answers
     `{"person":…,"role":"project-admin","laptops":[{"laptop":…,"vpn_address":…}]}`.
   - `porelo-host-person lock <user>` answers `{"person":…,"locked":true}`, `purge <user>` `{"person":…,"purged":true}`.
