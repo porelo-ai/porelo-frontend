@@ -1,6 +1,6 @@
 # F216 — A Developer Joins A Project On Its Host
 
-**Status:** Estimated; blocked by [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214) and [F215](README.md#f215).
+**Status:** Backlog; blocked by [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214) and [F215](README.md#f215).
 **Size:** L - the join's steps from a signed file to a working account, the laptop's keys, and their tests.
 
 **What must be true.** A developer whom a project's signed access file lists joins it on its host with nothing handed over: the interface checks the file, brings this laptop's own VPN up with its address from the list, trusts the host's CA by its signed fingerprint, pins the host key, and runs the join in the developer's own account; *Copy my public keys for <host>* gives a project admin what the list needs.

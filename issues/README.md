@@ -41,6 +41,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | L | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
+| <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | L | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -91,8 +93,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f145"></a>[F145](F145-The-Hosts-Forge-Switched-Off-In-The-Server-Setup.md) | S | — | *Set up a forge on the server* in the server setup dialog, on by default; switched off, the host's inventory says `porelo_host_forge: false`. |
-| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | L | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
-| <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | L | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
 | <a id="f218"></a>[F218](F218-The-Walks-Walked-Headless-On-The-Central-Test-Machines.md) | M | — | Each sprint walk walked headless through its panel on a leased host and a GitHub runner, the display set up by the run itself. |
 | <a id="f93"></a>[F93](F93-Connections-Rare-Actions-Out-Of-The-Way.md) | S | — | Connections' rare actions in its ⋮. |
 | <a id="f91"></a>[F91](F91-One-Way-To-Show-Loading.md) | M | — | Every view shows the same way that it is reading. |
