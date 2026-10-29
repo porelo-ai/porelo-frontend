@@ -3,9 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
+import 'package:porelo_host/porelo_host.dart' show SecretsFile;
 
 import 'desk.dart';
-import 'host_vpn.dart' show isForgeCaCertificate;
+import 'host_vpn.dart' show isForgeCaCertificate, checkVpnInterface;
 import 'host_protocol.dart';
 import 'machines.dart';
 
@@ -21,7 +22,7 @@ bool _sameStored(Object? left, Object? right) {
   return left == right;
 }
 
-/// The non-secret inputs of one project's last host setup, kept together for teardown.
+/// The non-secret inputs of one host's last setup, kept together for teardown.
 @immutable
 class HostUpRecord {
   /// Keeps paths and public tunnel options, never key contents or login answers.
@@ -31,6 +32,9 @@ class HostUpRecord {
     required this.tresor,
     required this.folder,
     this.setupFolder,
+    this.host,
+    this.vpnNetworkNumber = 0,
+    this.vpnInterface = 'porelo-0',
     this.repository = '',
     required this.signingKey,
     required this.identity,
@@ -48,6 +52,15 @@ class HostUpRecord {
     this.startedAt,
     this.protocol = const [],
   });
+
+  /// The host name, absent in records kept before host names were stored.
+  final String? host;
+
+  /// The third octet of this host's VPN network.
+  final int vpnNetworkNumber;
+
+  /// The local WireGuard interface, including the legacy `porelo` name.
+  final String vpnInterface;
 
   /// The provider project that owns the rented host.
   final String scalewayProject;
@@ -120,6 +133,9 @@ class HostUpRecord {
     tresor: tresor,
     folder: folder,
     setupFolder: setupFolder,
+    host: host,
+    vpnNetworkNumber: vpnNetworkNumber,
+    vpnInterface: vpnInterface,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -145,6 +161,9 @@ class HostUpRecord {
     tresor: tresor,
     folder: folder,
     setupFolder: setupFolder,
+    host: host,
+    vpnNetworkNumber: vpnNetworkNumber,
+    vpnInterface: vpnInterface,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -170,6 +189,9 @@ class HostUpRecord {
     tresor: tresor,
     folder: folder,
     setupFolder: setupFolder,
+    host: host,
+    vpnNetworkNumber: vpnNetworkNumber,
+    vpnInterface: vpnInterface,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -195,6 +217,9 @@ class HostUpRecord {
     tresor: tresor,
     folder: folder,
     setupFolder: setupFolder,
+    host: host,
+    vpnNetworkNumber: vpnNetworkNumber,
+    vpnInterface: vpnInterface,
     repository: repository,
     signingKey: signingKey,
     identity: identity,
@@ -221,16 +246,10 @@ class HostUpRecord {
     return HostUpRecord.fromStored({...stored, 'forgeCa': pem})!;
   }
 
-  /// The third octet of the host's known VPN network, zero before a peer is chosen.
-  int get vpnNetworkNumber {
-    if (vpnPeerAddress.isEmpty) return 0;
-    final match = RegExp(r'^10\.73\.(\d{1,3})\.(\d{1,3})/32$').firstMatch(vpnPeerAddress);
-    final network = match == null ? null : int.tryParse(match[1]!);
-    final peer = match == null ? null : int.tryParse(match[2]!);
-    if (network == null || network > 255 || peer == null || peer > 255) {
-      throw const FormatException('The host peer must be in a 10.73.<network>.0/24 VPN network.');
-    }
-    return network;
+  /// Assigns a migrated setup to its host without changing its tunnel identity.
+  HostUpRecord forHost(String name) {
+    SecretsFile.checkHost(name);
+    return HostUpRecord.fromStored({...stored, 'host': name})!;
   }
 
   /// Reads every field or drops the entire unusable record.
@@ -247,6 +266,27 @@ class HostUpRecord {
       'vpnPeerPublicKey': final String vpnPeerPublicKey,
       'vpnPeerAddress': final String vpnPeerAddress,
     }) {
+      final host = value['host'];
+      if (value.containsKey('host') && host is! String) return null;
+      final match = RegExp(r'^10\.73\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})/32$').firstMatch(vpnPeerAddress);
+      if (vpnPeerAddress.isNotEmpty && (match == null || int.parse(match[1]!) > 255 || int.parse(match[2]!) > 255)) {
+        return null;
+      }
+      final network = value.containsKey('vpnNetworkNumber')
+          ? value['vpnNetworkNumber']
+          : match == null
+          ? 0
+          : int.parse(match[1]!);
+      final interface = value.containsKey('vpnInterface') ? value['vpnInterface'] : 'porelo';
+      if (network is! int || interface is! String) return null;
+      try {
+        if (host is String) SecretsFile.checkHost(host);
+        SecretsFile.checkNetworkNumber(network);
+        checkVpnInterface(interface, network);
+      } on Exception {
+        return null;
+      }
+      if (match != null && int.parse(match[1]!) != network) return null;
       // Unreadable progress must not erase the answers needed to give a billed server back.
       final protocol = HostProtocolEntry.readMany(value['protocol']) ?? const <HostProtocolEntry>[];
       final preparing = value.containsKey('preparing') ? value['preparing'] : false;
@@ -313,7 +353,10 @@ class HostUpRecord {
         scalewayProject: scalewayProject,
         account: account,
         tresor: tresor,
-        folder: folder as String?,
+        folder: folder is String ? folder : null,
+        host: host is String ? host : null,
+        vpnNetworkNumber: network,
+        vpnInterface: interface,
         repository: '',
         signingKey: signingKey,
         identity: identity,
@@ -324,10 +367,10 @@ class HostUpRecord {
         vpnPeerAddress: vpnPeerAddress,
         vpnHostPublicKey: vpnHostPublicKey,
         vpnEndpointAddress: vpnEndpointAddress,
-        vpnFile: vpnFile as String?,
-        forgeCa: forgeCa as String?,
-        vaultKeys: List.unmodifiable(vaultKeys.cast<String>()),
-        setupFolder: setupFolder as String?,
+        vpnFile: vpnFile is String ? vpnFile : null,
+        forgeCa: forgeCa is String ? forgeCa : null,
+        vaultKeys: List.unmodifiable(vaultKeys.whereType<String>()),
+        setupFolder: setupFolder is String ? setupFolder : null,
         preparing: preparing,
         startedAt: startedAt,
         protocol: protocol,
@@ -338,6 +381,9 @@ class HostUpRecord {
 
   /// Only the public setup choices that belong in the interface's settings.
   Map<String, Object?> get stored => {
+    if (host != null) 'host': host,
+    'vpnNetworkNumber': vpnNetworkNumber,
+    'vpnInterface': vpnInterface,
     'scalewayProject': scalewayProject,
     'account': account,
     'tresor': tresor,
@@ -580,14 +626,25 @@ class Settings extends ChangeNotifier {
     final secrets = stored['secretsFile'];
     _secretsFile = secrets is String && secrets.startsWith('/') && !secrets.contains('\x00') ? secrets : null;
     _hostUps.clear();
+    var migratedHosts = false;
     final hostUps = stored['hostUps'];
     if (hostUps is Map) {
       for (final entry in hostUps.entries) {
-        final project = entry.key;
+        final key = entry.key;
         final record = HostUpRecord.fromStored(entry.value);
-        if (project is String && project.isNotEmpty && !project.contains('\x00') && record != null) {
-          _hostUps[project] = record;
+        if (key is! String || record == null) continue;
+        final folder = record.setupFolder;
+        final host =
+            record.host ??
+            (folder != null && path.basename(path.dirname(folder)) == 'hosts' ? path.basename(folder) : key);
+        try {
+          SecretsFile.checkHost(host);
+        } on Exception {
+          continue;
         }
+        if (_hostUps.containsKey(host)) throw const FormatException('Several kept setups name the same host.');
+        _hostUps[host] = record.host == null && host != key ? record.forHost(host) : record;
+        migratedHosts |= host != key;
       }
     }
     final place = stored['place'];
@@ -625,6 +682,7 @@ class Settings extends ChangeNotifier {
     }
     final forges = stored['forges'];
     if (forges is List) _forges = List<Object?>.of(forges);
+    if (migratedHosts) await _write();
     notifyListeners();
   }
 
@@ -684,31 +742,33 @@ class Settings extends ChangeNotifier {
 
   final _hostUps = <String, HostUpRecord>{};
 
-  /// Every kept host setup, keyed by project name.
+  /// Every kept host setup, keyed by host name.
   Map<String, HostUpRecord> get hostUps => Map.unmodifiable(_hostUps);
 
-  /// The arguments used for the project's last host setup, absent when none were kept.
-  HostUpRecord? hostUp(String project) => _hostUps[project];
+  /// The arguments used for the host's last setup, absent when none were kept.
+  HostUpRecord? hostUp(String host) => _hostUps[host];
 
   /// Persists the setup before a process can rent a host that would otherwise be lost.
-  Future<void> rememberHostUp(String project, HostUpRecord record) async {
-    if (project.isEmpty || project.contains('\x00') || HostUpRecord.fromStored(record.stored) == null) {
-      throw ArgumentError('A project and a complete host setup record are required.');
+  Future<void> rememberHostUp(String host, HostUpRecord record) async {
+    host = record.host ?? host;
+    SecretsFile.checkHost(host);
+    if (host.isEmpty || host.contains('\x00') || HostUpRecord.fromStored(record.stored) == null) {
+      throw ArgumentError('A host and a complete host setup record are required.');
     }
-    final previous = _hostUps[project];
-    _hostUps[project] = record;
+    final previous = _hostUps[host];
+    _hostUps[host] = record;
     try {
       await _write();
       final saved = (await _store.read())['hostUps'];
-      final savedRecord = saved is Map ? saved[project] : null;
+      final savedRecord = saved is Map ? saved[host] : null;
       if (savedRecord is! Map || !_sameStored(savedRecord, record.stored)) {
         throw const FileSystemException('Cannot keep the host setup in the interface settings.');
       }
     } on Exception {
       if (previous == null) {
-        _hostUps.remove(project);
+        _hostUps.remove(host);
       } else {
-        _hostUps[project] = previous;
+        _hostUps[host] = previous;
       }
       rethrow;
     }

@@ -106,6 +106,7 @@ Future<bool> openHostVpnDialog(
   DateTime Function()? now,
   Future<bool> Function()? probeLink,
   Future<bool> Function()? ping,
+  Future<void> Function()? checkNetwork,
   bool requireFreshHandshake = false,
   bool? linux,
   String? Function()? confinement,
@@ -116,12 +117,34 @@ Future<bool> openHostVpnDialog(
   // The terminal's last line when its command ended: the root step's fail line, wg-quick's own words in it.
   var said = '';
   try {
+    final record = settings.hostUp(machine.hostProject);
+    final host = record?.host ?? machine.hostProject;
+    final network = record?.vpnNetworkNumber ?? 0;
+    final interface = up ? 'porelo-$network' : record?.vpnInterface ?? 'porelo-$network';
+    if (up && (linux ?? Platform.isLinux)) {
+      final inspect =
+          checkNetwork ??
+          (open == null
+              ? () => checkHostVpnNetwork(
+                  host: host,
+                  networkNumber: network,
+                  hostsByInterface: {
+                    if (record != null) record.vpnInterface: host,
+                    for (final entry in settings.hostUps.entries)
+                      if (entry.key != host) entry.value.vpnInterface: entry.key,
+                  },
+                )
+              : () async {});
+      await inspect();
+    }
     // Other platforms retain their existing preparation refusal and terminal command.
     if (linux ?? Platform.isLinux) {
-      final linkUp = await (probeLink ?? probeHostVpnLink)();
+      final linkUp = await (probeLink ?? () => probeHostVpnLink(interface: interface, host: host))();
       if (!up && !linkUp) return false;
       // Setup needs an expected peer's fresh receipt; a shared VPN address cannot prove its identity.
-      if (up && linkUp && !requireFreshHandshake && await (ping ?? pingHostVpn)()) return false;
+      if (up && linkUp && !requireFreshHandshake && await (ping ?? () => pingHostVpn(networkNumber: network))()) {
+        return false;
+      }
       // A snap's AppArmor label is inherited by the terminal and sudo, and wg-quick's own profile refuses to run under
       // it: said before sudo, instead of a root step that fails.
       final label = (confinement ?? appArmorLabel)();
@@ -133,12 +156,11 @@ Future<bool> openHostVpnDialog(
       }
     }
     if (up) {
-      final record = settings.hostUp(machine.hostProject);
       if (record == null || record.vpnHostPublicKey.isEmpty || record.vpnEndpointAddress.isEmpty) {
         throw const HostFilesRefused('This server has no confirmed VPN settings. Complete its host setup first.');
       }
       attempt = await prepareHostVpn(
-        project: machine.hostProject,
+        project: host,
         tunnel: HostTunnel(hostPublicKey: record.vpnHostPublicKey, peerPublicKey: record.vpnPeerPublicKey),
         address: record.vpnEndpointAddress,
         secretStore: secretStore,
@@ -162,16 +184,10 @@ Future<bool> openHostVpnDialog(
           ?forgeCaWarning(machine.hostProject, settings.hostUp(machine.hostProject)?.forgeCa, (now ?? DateTime.now)()),
       ].join(' '),
       machine: Machine.local(),
-      command:
-          pending?.command ??
-          [
-            ...hostVpnDownCommand,
-            machine.hostProject,
-            '${settings.hostUp(machine.hostProject)?.vpnNetworkNumber ?? 0}',
-          ],
+      command: pending?.command ?? hostVpnDownCommand(host: host, networkNumber: network, interface: interface),
       shownCommand: up
           ? 'Install the private VPN configuration, bring it up, and check the server.'
-          : 'sudo wg-quick down porelo, and the forge\'s name out of /etc/hosts',
+          : 'sudo wg-quick down $interface, and this host’s names and CA out of this computer',
       completed: up ? 'The VPN check did not confirm this server.' : 'The VPN was taken down.',
       afterClose: pending?.close,
       lastLine: (line) => said = line,
@@ -180,6 +196,12 @@ Future<bool> openHostVpnDialog(
           : (code) async {
               try {
                 verified = code == 0 && await pending.verified();
+                if (verified && record != null) {
+                  await settings.rememberHostUp(
+                    host,
+                    HostUpRecord.fromStored({...record.stored, 'host': host, 'vpnInterface': interface})!,
+                  );
+                }
                 if (!verified && said.isNotEmpty) failed?.call(said);
                 return verified;
               } finally {

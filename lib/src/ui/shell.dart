@@ -551,7 +551,7 @@ class _ShellState extends State<Shell> {
         machine: machine,
         settings: widget.settings,
         hostRuns: _hostRuns,
-        vpnLinkUp: _hostRuns.vpnLinkUp,
+        vpnLinkUp: _hostRuns.vpnLinkFor(machine.hostProject),
         takeDown: () => unawaited(_takeDown(machine)),
         saveTunnel: () => unawaited(_saveTunnel(machine)),
         bringVpnUp: () => unawaited(_bringVpnUp(machine)),

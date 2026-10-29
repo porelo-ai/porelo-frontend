@@ -9,6 +9,170 @@ import 'package:porelo_frontend/src/app/host_vpn.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 void main() {
+  // Harm: a nonzero host network exported as network zero routes traffic to another host.
+  test('a private VPN attempt uses the recorded host network', () async {
+    final runtime = Directory.systemTemp.createTempSync('vpn-runtime-');
+    addTearDown(() => runtime.deleteSync(recursive: true));
+    expect((await Process.run('/usr/bin/chmod', ['700', runtime.path])).exitCode, 0);
+    final store = _VpnSecrets();
+    final key = await HostFiles.publicKey(store.privateKey);
+    final attempt = await prepareHostVpn(
+      project: 'second',
+      tunnel: HostTunnel(hostPublicKey: key, peerPublicKey: key),
+      address: '203.0.113.8',
+      secretStore: store,
+      environment: {'XDG_RUNTIME_DIR': runtime.path},
+      checkRootTools: () async {},
+      networkNumber: 17,
+    );
+    addTearDown(attempt.close);
+    final configuration = await attempt.file.readAsString();
+    expect(configuration, contains('Address = 10.73.17.2/24'));
+    expect(configuration, contains('AllowedIPs = 10.73.17.1/32'));
+    expect(configuration, isNot(contains('10.73.0.')));
+  });
+
+  // Harm: the presence of another host's link must not authorize taking it down.
+  test('link probes distinguish the owner and keep legacy links readable', () async {
+    for (final (interface, alias, expected) in [
+      ('porelo-0', 'porelo-host-first', true),
+      ('porelo-0', 'porelo-host-second', false),
+      ('porelo', '', true),
+    ]) {
+      final commands = <List<String>>[];
+      final result = await probeHostVpnLink(
+        interface: interface,
+        host: 'first',
+        start: (executable, arguments) async {
+          commands.add([executable, ...arguments]);
+          final output = jsonEncode([
+            {'ifname': interface, if (alias.isNotEmpty) 'ifalias': alias},
+          ]);
+          return Process.start('/bin/sh', ['-c', "printf '%s' '$output'"]);
+        },
+      );
+      expect(result, expected);
+      expect(commands, [
+        ['ip', '-j', 'link', 'show', 'dev', interface],
+      ]);
+    }
+  });
+
+  // Harm: a colliding network routes work to another host before sudo can safely change anything.
+  test('an active network collision names both hosts before root is opened', () async {
+    for (final active in ['porelo-17', 'porelo']) {
+      final commands = <List<String>>[];
+      await expectLater(
+        checkHostVpnNetwork(
+          host: 'second',
+          networkNumber: 17,
+          hostsByInterface: {active: 'first'},
+          run: (executable, arguments) async {
+            commands.add([executable, ...arguments]);
+            return ProcessResult(
+              1,
+              0,
+              executable == 'wg'
+                  ? active
+                  : jsonEncode(
+                      arguments.contains('link')
+                          ? [
+                              {'ifname': active, 'ifalias': 'porelo-host-first'},
+                            ]
+                          : [
+                              {'dst': '10.73.17.0/24', 'dev': active},
+                            ],
+                    ),
+              '',
+            );
+          },
+        ),
+        throwsA(
+          isA<HostFilesRefused>().having(
+            (error) => error.message,
+            'both hosts',
+            allOf(contains('first'), contains('second')),
+          ),
+        ),
+      );
+      expect(commands.map((command) => command.first), ['wg', 'ip', 'ip']);
+    }
+  });
+
+  // Harm: a refused second host leaves a saved record that must not claim the first host's live interface.
+  test('the active link owner wins over a dormant colliding record', () async {
+    await checkHostVpnNetwork(
+      host: 'first',
+      networkNumber: 17,
+      hostsByInterface: {'porelo-17': 'second'},
+      run: (executable, arguments) async => ProcessResult(
+        1,
+        0,
+        executable == 'wg'
+            ? 'porelo-17'
+            : jsonEncode(
+                arguments.contains('link')
+                    ? [
+                        {'ifname': 'porelo-17', 'ifalias': 'porelo-host-first'},
+                      ]
+                    : [
+                        {'dst': '10.73.17.1', 'dev': 'porelo-17'},
+                      ],
+              ),
+        '',
+      ),
+    );
+  });
+
+  // Harm: malformed ownership metadata must not fall back to a saved record and authorize root.
+  test('a malformed active owner is refused instead of guessed from settings', () async {
+    await expectLater(
+      checkHostVpnNetwork(
+        host: 'first',
+        networkNumber: 17,
+        hostsByInterface: {'porelo-17': 'first'},
+        run: (executable, arguments) async => ProcessResult(
+          1,
+          0,
+          executable == 'wg'
+              ? 'porelo-17'
+              : jsonEncode(
+                  arguments.contains('link')
+                      ? [
+                          {'ifname': 'porelo-17', 'ifalias': 17},
+                        ]
+                      : [
+                          {'dst': '10.73.17.1', 'dev': 'porelo-17'},
+                        ],
+                ),
+          '',
+        ),
+      ),
+      throwsA(isA<HostFilesRefused>()),
+    );
+  });
+
+  // Harm: a failed network inspection cannot authorize changes to routes.
+  test('unreadable routes and unknown owners fail closed', () async {
+    for (final routes in ['invalid', '[{"dst":"10.73.17.1","dev":"porelo-9"}]']) {
+      await expectLater(
+        checkHostVpnNetwork(
+          host: 'second',
+          networkNumber: 17,
+          run: (executable, _) async => ProcessResult(1, 0, executable == 'wg' ? 'porelo-9' : routes, ''),
+        ),
+        throwsA(isA<HostFilesRefused>()),
+      );
+    }
+  });
+
+  // Harm: accepting shell syntax or mismatched interface numbers changes unrelated root files.
+  test('VPN commands refuse invalid host network and interface arguments', () {
+    for (final interface in ['porelo-256', 'porelo-017', 'other', 'porelo-17;id', 'porelo-0']) {
+      expect(() => hostVpnDownCommand(host: 'demo', networkNumber: 17, interface: interface), throwsFormatException);
+    }
+  });
+
   for (final scenario in [
     'missing handshake',
     'wrong key',
@@ -33,6 +197,7 @@ void main() {
           '[Interface]\nPrivateKey = invented-private-key\n[Peer]\nPublicKey = expected-key\nEndpoint = 203.0.113.7:51820\n',
         );
       final scripts = <String, String>{
+        'ip': 'exit 0\n',
         'sudo': r'''exec "$@"
 ''',
         'install': r'''printf 'install\n' >> "$VPN_CAPTURE"
@@ -48,11 +213,11 @@ void main() {
         'wg': r'''case "$*" in
   'show interfaces')
     [ "$VPN_SCENARIO" != 'wg failure' ] || exit 1
-    case "$VPN_SCENARIO" in 'other host'|'same host'|'down failure') printf 'porelo\n';; esac;;
-  'show porelo endpoints')
+    case "$VPN_SCENARIO" in 'other host'|'same host'|'down failure') printf 'porelo-0\n';; esac;;
+  'show porelo-0 endpoints')
     if [ "$VPN_SCENARIO" = 'same host' ] || [ "$VPN_SCENARIO" = 'down failure' ]; then printf 'expected-key\t203.0.113.7:51820\n';
     else printf 'another-key\t203.0.113.8:51820\n'; fi;;
-  'show porelo latest-handshakes')
+  'show porelo-0 latest-handshakes'|'show porelo-17 latest-handshakes')
     case "$VPN_SCENARIO" in
       'missing handshake') printf 'expected-key\t0\n';;
       'wrong key') printf 'wrong-key\t101\n';;
@@ -72,7 +237,7 @@ esac
         );
       }
       final capture = File('${scratch.path}/capture');
-      final command = hostVpnUpCommand(source.path, commandPath: '${scratch.path}:/usr/bin:/bin');
+      final command = hostVpnUpCommand(source.path, host: 'demo', commandPath: '${scratch.path}:/usr/bin:/bin');
       command[3] = command[3].replaceAll('/etc/', '${scratch.path}/etc/');
       final result = await Process.run(
         command.first,
@@ -124,8 +289,10 @@ esac
           '127.0.0.1 localhost\n10.73.0.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo\n10.0.0.5 mine # porelo-host\n',
         );
       final inode = (await Process.run('stat', ['-c', '%i', hosts.path])).stdout;
-      final wg = File('${scratch.path}/wg-quick')..writeAsStringSync('#!/bin/sh\n${downs ? 'exit 0' : 'exit 1'}\n');
+      final wg = File('${scratch.path}/wg-quick')
+        ..writeAsStringSync('#!/bin/sh\n[ "\$*" = "down porelo" ] || exit 3\n${downs ? 'exit 0' : 'exit 1'}\n');
       await Process.run('chmod', ['700', wg.path]);
+      await _writeTool(scratch, 'ip', 'exit 0\n');
       if (!copies) {
         // A full disk: the copy without the line is not written.
         final grep = File('${scratch.path}/grep')
@@ -133,14 +300,15 @@ esac
         await Process.run('chmod', ['700', grep.path]);
       }
       expect(
-        hostVpnDownCommand[3],
+        hostVpnDownCommand(host: 'demo', interface: 'porelo', networkNumber: 0)[3],
         startsWith('PATH=/usr/bin:/usr/sbin:/bin:/sbin\n'),
         reason: 'root\'s own PATH, none of the person\'s; the test puts its stand-ins before it',
       );
-      final script = hostVpnDownCommand[3]
+      final script = hostVpnDownCommand(host: 'demo', interface: 'porelo', networkNumber: 0)[3]
           .replaceAll('/etc/hosts', hosts.path)
+          .replaceAll('mktemp -p /tmp', 'mktemp -p ${scratch.path}')
           .replaceAll('PATH=/usr/bin:/usr/sbin:/bin:/sbin', 'PATH=${scratch.path}:/usr/bin:/bin');
-      final result = await Process.run('/bin/sh', ['-c', script, 'porelo-vpn-down', 'demo', '0']);
+      final result = await Process.run('/bin/sh', ['-c', script, 'porelo-vpn-down', 'demo', '0', 'porelo']);
       expect(result.exitCode == 0, downs && copies, reason: '${result.stderr}');
       expect(
         hosts.readAsStringSync(),
@@ -174,6 +342,7 @@ esac
         ..writeAsStringSync(
           '[Interface]\nPrivateKey = invented-private-key\n[Peer]\nPublicKey = expected-key\nEndpoint = 203.0.113.7:51820\n',
         );
+      Directory('${scratch.path}/state').createSync();
       etc = Directory('${scratch.path}/etc')..createSync();
       Directory('${etc.path}/wireguard').createSync();
       hosts = File('${etc.path}/hosts')..writeAsStringSync('127.0.0.1 localhost\n');
@@ -191,15 +360,28 @@ esac
     }) async {
       final tools = <String, String>{
         'sudo': r'exec "$@"',
-        'wg-quick': 'exit 0',
-        'ping': 'exit 0',
+        'ip': r'''case "$1" in
+  link) printf '%s\n' "$6" > "$VPN_STATE/$4";;
+  -o) [ -f "$VPN_STATE/$5" ] && printf '1: %s: alias %s\n' "$5" "$(cat "$VPN_STATE/$5")";;
+  *) exit 1;;
+esac''',
+        'wg-quick': r'''case "$1" in
+  up) touch "$VPN_STATE/$2";;
+  down) rm -f -- "$VPN_STATE/$2";;
+  *) exit 1;;
+esac''',
+        'ping': r'''[ "$5" = "10.73.$VPN_NETWORK.1" ]''',
         'date': "printf '100\\n'",
         'sleep': 'exit 0',
         if (store.isNotEmpty)
           store: '''printf '%s\\n' '$store' >> "\$VPN_CAPTURE"\n${storeTakes ? 'exit 0' : 'exit 1'}''',
         'wg': r'''case "$*" in
-  'show interfaces') ;;
-  'show porelo latest-handshakes') printf 'expected-key\t101\n';;
+  'show interfaces')
+    for file in "$VPN_STATE"/porelo-*; do
+      [ ! -f "$file" ] || printf '%s\n' "${file##*/}"
+    done;;
+  'show porelo-0 endpoints'|'show porelo-17 endpoints') printf 'expected-key\t203.0.113.7:51820\n';;
+  'show porelo-0 latest-handshakes'|'show porelo-17 latest-handshakes') printf 'expected-key\t101\n';;
   *) exit 1;;
 esac''',
       };
@@ -216,12 +398,32 @@ esac''',
       );
       command[3] = command[3]
           .replaceAll('/etc/', '${etc.path}/')
-          .replaceAll('/usr/local/share/', '${scratch.path}/usr/local/share/');
+          .replaceAll('/usr/local/share/', '${scratch.path}/usr/local/share/')
+          .replaceAll('mktemp -p /tmp', 'mktemp -p ${scratch.path}');
       if (argument != null) command[command.length - 1] = argument;
       return Process.run(
         command.first,
         command.skip(1).toList(),
-        environment: {'PATH': '${scratch.path}:/usr/bin:/bin', 'VPN_CAPTURE': capture.path},
+        environment: {
+          'PATH': '${scratch.path}:/usr/bin:/bin',
+          'VPN_CAPTURE': capture.path,
+          'VPN_STATE': '${scratch.path}/state',
+          'VPN_NETWORK': '$networkNumber',
+        },
+      );
+    }
+
+    Future<ProcessResult> down(String host, int network) async {
+      final command = hostVpnDownCommand(host: host, networkNumber: network, interface: 'porelo-$network');
+      command[3] = command[3]
+          .replaceAll('/etc/', '${etc.path}/')
+          .replaceAll('/usr/local/share/', '${scratch.path}/usr/local/share/')
+          .replaceAll('mktemp -p /tmp', 'mktemp -p ${scratch.path}')
+          .replaceAll('PATH=/usr/bin:/usr/sbin:/bin:/sbin', 'PATH=${scratch.path}:/usr/bin:/bin');
+      return Process.run(
+        '/bin/sh',
+        command.skip(2).toList(),
+        environment: {'VPN_CAPTURE': capture.path, 'VPN_STATE': '${scratch.path}/state'},
       );
     }
 
@@ -318,6 +520,11 @@ esac''',
     test('a second host installs its own trust and names without replacing the first', () async {
       final first = await up(forgeCa: ca);
       expect(first.exitCode, 0, reason: '${first.stdout}${first.stderr}');
+      expect(
+        File('${etc.path}/wireguard/porelo-0.conf').existsSync(),
+        isTrue,
+        reason: 'each host needs its own interface configuration',
+      );
       final otherCa = ca.replaceFirst('AAEC', 'AQEC');
       final second = await up(forgeCa: otherCa, host: 'second', networkNumber: 17);
       expect(second.exitCode, 0, reason: '${second.stdout}${second.stderr}');
@@ -328,11 +535,44 @@ esac''',
         otherCa,
       );
       expect(File('${etc.path}/firefox/porelo/porelo-host-second.crt').readAsStringSync(), otherCa);
+      expect(File('${etc.path}/wireguard/porelo-17.conf').existsSync(), isTrue);
       expect(hosts.readAsLinesSync(), [
         '127.0.0.1 localhost',
         '10.73.0.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo',
         '10.73.17.1 forge.second.porelo.internal matrix.second.porelo.internal # porelo-host-second',
       ]);
+    });
+
+    // Harm: a dormant colliding record must not take the active host's tunnel down.
+    test('down refuses another owner before changing its tunnel names or trust', () async {
+      expect((await up(forgeCa: ca)).exitCode, 0);
+      final result = await down('second', 0);
+      expect(result.exitCode, isNot(0));
+      expect('${result.stdout}', allOf(contains('demo'), contains('second')));
+      expect(File('${scratch.path}/state/porelo-0').readAsStringSync(), 'porelo-host-demo\n');
+      expect(hosts.readAsStringSync(), contains('forge.demo.porelo.internal'));
+      expect(inStore().readAsStringSync(), ca);
+    });
+
+    // Harm: taking one host down must not remove another host's route, names, or trust.
+    test('taking either host down leaves the other host connected and trusted', () async {
+      for (final host in ['demo', 'second']) {
+        expect((await up(forgeCa: ca)).exitCode, 0);
+        expect((await up(forgeCa: ca, host: 'second', networkNumber: 17)).exitCode, 0);
+        final result = await down(host, host == 'demo' ? 0 : 17);
+        expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+        final other = host == 'demo' ? 'second' : 'demo';
+        expect(Directory('${scratch.path}/state').listSync().map((file) => file.uri.pathSegments.last), [
+          other == 'demo' ? 'porelo-0' : 'porelo-17',
+        ], reason: 'only the other interface stays up');
+        expect(hosts.readAsStringSync(), isNot(contains('porelo-host-$host\n')));
+        expect(hosts.readAsStringSync(), contains('porelo-host-$other\n'));
+        for (final base in ['${scratch.path}/usr/local/share/ca-certificates', '${etc.path}/firefox/porelo']) {
+          expect(File('$base/porelo-host-$host.crt').existsSync(), isFalse);
+          expect(File('$base/porelo-host-$other.crt').readAsStringSync(), ca);
+        }
+        expect(File('${etc.path}/wireguard/${other == 'demo' ? 'porelo-0' : 'porelo-17'}.conf').existsSync(), isTrue);
+      }
     });
 
     test('what is not one certificate is refused, here and by root', () async {
@@ -347,7 +587,7 @@ esac''',
         '-----BEGIN CERTIFICATE-----\n====\n-----END CERTIFICATE-----\n',
       ]) {
         expect(isForgeCaCertificate(bad), isFalse, reason: bad);
-        expect(() => hostVpnUpCommand(source.path, forgeCa: bad), throwsFormatException);
+        expect(() => hostVpnUpCommand(source.path, host: 'demo', forgeCa: bad), throwsFormatException);
       }
       // Root's own check, should something else reach it: each of its parts on its own, nothing installed, no receipt.
       const begin = '-----BEGIN CERTIFICATE-----';
@@ -397,7 +637,7 @@ esac''',
       addTearDown(() => scratch.deleteSync(recursive: true));
       final tools = Directory('${scratch.path}/tools')..createSync();
       final caller = Directory('${scratch.path}/caller')..createSync();
-      final configuration = File('${scratch.path}/etc/NetworkManager/conf.d/porelo.conf');
+      final configuration = File('${scratch.path}/etc/NetworkManager/conf.d/porelo-0.conf');
       final previous = File('${scratch.path}/previous.conf');
       DateTime? previousModified;
       if (scenario.directory) configuration.parent.createSync(recursive: true);
@@ -410,19 +650,20 @@ esac''',
         configuration.setLastModifiedSync(DateTime.fromMillisecondsSinceEpoch(1000000, isUtc: true));
         previousModified = configuration.lastModifiedSync();
       }
-      final wireguard = File('${scratch.path}/etc/wireguard/porelo.conf');
+      final wireguard = File('${scratch.path}/etc/wireguard/porelo-0.conf');
       wireguard.parent.createSync(recursive: true);
       final source = File('${scratch.path}/source.conf')
         ..writeAsStringSync('[Peer]\nPublicKey = expected-key\nEndpoint = 203.0.113.7:51820\n');
       final capture = File('${scratch.path}/capture');
       final scripts = <String, String>{
+        'ip': 'exit 0\n',
         'date': "printf '100\\n'\n",
         'sleep': 'exit 0\n',
         'ping': 'exit 0\n',
         'wg': r'''case "$*" in
-  'show interfaces') printf 'porelo\n';;
-  'show porelo endpoints') printf 'expected-key\t203.0.113.7:51820\n';;
-  'show porelo latest-handshakes') printf 'expected-key\t101\n';;
+  'show interfaces') printf 'porelo-0\n';;
+  'show porelo-0 endpoints') printf 'expected-key\t203.0.113.7:51820\n';;
+  'show porelo-0 latest-handshakes'|'show porelo-17 latest-handshakes') printf 'expected-key\t101\n';;
   *) exit 1;;
 esac
 ''',
@@ -446,7 +687,7 @@ exit 1
       for (final name in ['install', 'awk', 'cmp', 'mktemp', 'chmod', 'rm']) {
         Link('${tools.path}/$name').createSync('/usr/bin/$name');
       }
-      final command = hostVpnUpCommand(source.path, commandPath: tools.path);
+      final command = hostVpnUpCommand(source.path, host: 'demo', commandPath: tools.path);
       command[3] = command[3].replaceAll('/etc/', '${scratch.path}/etc/');
       Future<void> run() async {
         final result = await Process.run(
@@ -555,10 +796,26 @@ exit 1
   });
 }
 
-const _unmanagedRule = '[keyfile]\nunmanaged-devices=interface-name:porelo\n';
+const _unmanagedRule = '[keyfile]\nunmanaged-devices=interface-name:porelo-0\n';
 
 Future<void> _writeTool(Directory directory, String name, String script) async {
   final file = File('${directory.path}/$name')..writeAsStringSync('#!/bin/sh\n$script');
   final result = await Process.run('/usr/bin/chmod', ['700', file.path]);
   expect(result.exitCode, 0, reason: 'the isolated tool must be executable');
+}
+
+class _VpnSecrets implements SecretStore {
+  final privateKey = base64Encode(List<int>.filled(32, 7));
+
+  @override
+  Future<String?> read(String name) async => name == HostFiles.keyName('second') ? privateKey : null;
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<void> remove(String name) async {}
+
+  @override
+  Future<void> write(String name, String value) async {}
 }

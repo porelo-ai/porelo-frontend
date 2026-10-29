@@ -7,6 +7,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
 import 'secret_store.dart';
+import 'secrets_file.dart' show SecretsFile;
 import 'host_file_writer.dart';
 
 /// A vault entry and the file selected for import by the host.
@@ -476,13 +477,15 @@ class HostFiles {
     );
   }
 
-  /// Reads the person's private half only for the explicitly requested export.
+  /// Exports the person's private half on the selected host network only when requested.
   Future<void> exportTunnel({
     required String project,
     required HostTunnel tunnel,
     required String address,
     required File destination,
+    int networkNumber = 0,
   }) async {
+    SecretsFile.checkNetworkNumber(networkNumber);
     if (tunnel.hostPublicKey.isEmpty || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
       throw const HostFilesRefused('The host has not supplied valid tunnel settings.');
     }
@@ -494,8 +497,8 @@ class HostFiles {
     await _writer.write(
       destination,
       utf8.encode(
-        '[Interface]\nPrivateKey = $privateKey\nAddress = 10.73.0.2/24\n\n'
-        '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = $endpoint:51820\nAllowedIPs = 10.73.0.1/32\nPersistentKeepalive = 25\n',
+        '[Interface]\nPrivateKey = $privateKey\nAddress = 10.73.$networkNumber.2/24\n\n'
+        '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = $endpoint:51820\nAllowedIPs = 10.73.$networkNumber.1/32\nPersistentKeepalive = 25\n',
       ),
     );
   }

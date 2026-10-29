@@ -57,6 +57,7 @@ void main() {
     bool requireFreshHandshake = false,
     SecretStore? secretStore,
     Future<bool> Function()? probeLink,
+    Future<void> Function()? checkNetwork,
     DateTime Function()? now,
     String? confinement,
     ValueChanged<String>? failed,
@@ -90,6 +91,7 @@ void main() {
                 settings: settings,
                 up: up,
                 probeLink: probeLink ?? () async => linkUp ?? !up,
+                checkNetwork: checkNetwork,
                 ping: () async => answers,
                 requireFreshHandshake: requireFreshHandshake,
                 secretStore: secretStore ?? _TunnelSecrets({HostFiles.keyName('demo'): private}),
@@ -178,6 +180,23 @@ void main() {
       expect(secrets.reads, 0, reason: 'an action needing no root work must not export a private key');
     }, skip: _notLinux);
   }
+
+  // Harm: a network collision must stop the flow before a terminal can execute sudo.
+  testWidgets('a colliding host network is refused before the root terminal opens', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final commands = <List<String>>[];
+    final terminal = FakeTerminal([]);
+    await open(
+      tester,
+      settings,
+      commands,
+      terminal,
+      checkNetwork: () async => throw const HostFilesRefused('The VPN for demo conflicts with the VPN for first.'),
+    );
+    expect(commands, isEmpty, reason: 'a collision cannot authorize a root command');
+    expect(find.byKey(const Key('vpn-problem')), findsOneWidget);
+  }, skip: _notLinux);
 
   // Harm: treating an unanswered existing link as connected strands recovery without running the needed root action.
   testWidgets('an existing link that does not answer can be brought up again', (tester) async {
@@ -283,7 +302,7 @@ void main() {
         await tester.tap(find.text('Close'));
       } else {
         expect(commands, [
-          [...hostVpnDownCommand, 'demo', '0'],
+          hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0'),
         ], reason: 'taking the VPN down must keep the command offered before Linux state probing');
         terminal.endsWith(0);
         await World.settle(tester);
@@ -797,9 +816,7 @@ void main() {
   testWidgets('VPN down runs only wg-quick locally without needing a saved file', (tester) async {
     final commands = <List<String>>[];
     await open(tester, Settings(MemorySettingsStore()), commands, FakeTerminal([]), up: false);
-    expect(commands, [
-      [...hostVpnDownCommand, 'demo', '0'],
-    ]);
+    expect(commands, [hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0')]);
   });
 }
 
@@ -834,6 +851,7 @@ class _RefusingTunnelFiles extends HostFiles {
     required HostTunnel tunnel,
     required String address,
     required File destination,
+    int networkNumber = 0,
   }) async => throw refusal;
 }
 
@@ -849,11 +867,18 @@ class _PendingTunnelFiles extends HostFiles {
     required HostTunnel tunnel,
     required String address,
     required File destination,
+    int networkNumber = 0,
   }) {
     final answer = Completer<void>();
     _pending = () async {
       try {
-        await super.exportTunnel(project: project, tunnel: tunnel, address: address, destination: destination);
+        await super.exportTunnel(
+          project: project,
+          tunnel: tunnel,
+          address: address,
+          destination: destination,
+          networkNumber: networkNumber,
+        );
         answer.complete();
       } catch (error, stack) {
         answer.completeError(error, stack);

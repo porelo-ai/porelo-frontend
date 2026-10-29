@@ -692,7 +692,7 @@ class _HostDialogState extends State<HostDialog> {
   void _sessionChanged() {
     if (!mounted) return;
     _keepProtocolPosition();
-    if (_givenBack && widget.hostRuns?.vpnLinkUp == false) {
+    if (_givenBack && widget.hostRuns?.vpnLinkFor(widget.project) == false) {
       _vpnDownConfirmed = true;
       _vpnProblem = null;
     }
@@ -757,6 +757,7 @@ class _HostDialogState extends State<HostDialog> {
   }
 
   HostUpRecord _record() => HostUpRecord(
+    host: widget.project,
     scalewayProject: _scaleway.text.trim(),
     account: _account.text.trim(),
     tresor: '',
@@ -1042,16 +1043,19 @@ class _HostDialogState extends State<HostDialog> {
         settings: widget.settings ?? widget.machines.settings,
         up: false,
         open: widget.openTerminal,
-        probeLink: owner?.probeVpnLink,
+        probeLink: owner == null ? null : () => owner.probeVpnLink(machine.hostProject),
         linux: widget.linux,
       );
       bool? linkUp;
       if (owner != null) {
         await owner.refreshVpns();
-        linkUp = owner.vpnLinkUp;
+        linkUp = owner.vpnLinkFor(machine.hostProject);
       } else {
         try {
-          linkUp = await probeHostVpnLink();
+          linkUp = await probeHostVpnLink(
+            interface: widget.settings?.hostUp(machine.hostProject)?.vpnInterface ?? 'porelo-0',
+            host: machine.hostProject,
+          );
         } on HostFilesRefused {
           linkUp = null;
         }

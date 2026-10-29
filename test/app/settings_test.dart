@@ -6,6 +6,67 @@ import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
+  // Harm: losing a legacy host record strands teardown, while mistyped fields can redirect root actions.
+  test('legacy setup records move once to their host and reject malformed VPN metadata', () async {
+    final legacy = <String, Object?>{
+      'scalewayProject': 'provider-project',
+      'account': 'worker',
+      'tresor': '',
+      'folder': null,
+      'setupFolder': '/config/hosts/first',
+      'signingKey': '',
+      'identity': '/keys/private',
+      'publicKey': '/keys/public.pub',
+      'collection': '',
+      'vpnPeerPublicKey': 'peer',
+      'vpnPeerAddress': '10.73.0.2/32',
+    };
+    final store = MemorySettingsStore({
+      'hostUps': {'old-project': legacy},
+    });
+    final settings = Settings(store);
+    await settings.load();
+    expect(settings.hostUp('first')?.account, 'worker');
+    expect(settings.hostUp('first')?.vpnNetworkNumber, 0);
+    expect(settings.hostUp('first')?.vpnInterface, 'porelo');
+    expect(
+      (await store.read())['hostUps'],
+      isA<Map<Object?, Object?>>().having((map) => map.keys, 'host keys', ['first']),
+    );
+    final reopened = Settings(store);
+    await reopened.load();
+    expect(reopened.hostUp('first')?.stored, settings.hostUp('first')?.stored);
+    for (final field in ['host', 'vpnNetworkNumber', 'vpnInterface']) {
+      for (final bad in <Object?>[null, true, [], {}, -1, 256, 'bad;value']) {
+        expect(HostUpRecord.fromStored({...legacy, field: bad}), isNull, reason: '$field must be checked');
+      }
+    }
+    final record = HostUpRecord.fromStored({
+      ...legacy,
+      'host': 'first',
+      'vpnNetworkNumber': 17,
+      'vpnPeerAddress': '10.73.17.2/32',
+      'vpnInterface': 'porelo-17',
+    })!;
+    await settings.rememberHostUp('project-one', record);
+    await settings.rememberHostUp('project-two', record.withVpnFile('/private/export.conf'));
+    expect(settings.hostUps.keys, ['first']);
+    expect(settings.hostUp('first')?.vpnFile, '/private/export.conf');
+    for (final copy in [
+      record.withPreparation(DateTime.utc(2020)),
+      record.withProtocol([]),
+      record.withVpnFile(null),
+      record.withTunnel(hostPublicKey: '', address: ''),
+      record.withForgeCa(null),
+    ]) {
+      expect(copy.vpnNetworkNumber, 17);
+      expect(copy.vpnInterface, 'porelo-17');
+      expect(copy.host, 'first');
+    }
+    settings.dispose();
+    reopened.dispose();
+  });
+
   // Harm: an invalid retention value can lose the record of a decision immediately or keep it indefinitely.
   test('resolved retention defaults to an hour and validates persisted minutes', () async {
     final store = MemorySettingsStore();
@@ -26,6 +87,8 @@ void main() {
   });
 
   const record = <String, Object?>{
+    'vpnNetworkNumber': 0,
+    'vpnInterface': 'porelo',
     'scalewayProject': 'provider-project',
     'account': 'worker',
     'tresor': 'drive',
@@ -119,14 +182,15 @@ void main() {
   // Harm: a certificate is constrained to the wrong network after reading the host's recorded peer.
   test('the host network number comes from its VPN peer and refuses invalid octets', () {
     for (final number in [0, 17, 255]) {
-      expect(HostUpRecord.fromStored({...record, 'vpnPeerAddress': '10.73.$number.2/32'})!.vpnNetworkNumber, number);
+      expect(
+        HostUpRecord.fromStored({...record, 'vpnPeerAddress': '10.73.$number.2/32', 'vpnNetworkNumber': number})!
+            .vpnNetworkNumber,
+        number,
+      );
     }
     expect(HostUpRecord.fromStored({...record, 'vpnPeerAddress': '', 'vpnPeerPublicKey': ''})!.vpnNetworkNumber, 0);
     for (final address in ['10.73.256.2/32', '10.73.17.256/32', '10.74.0.2/32', '10.73.0.2/24', 'invalid']) {
-      expect(
-        () => HostUpRecord.fromStored({...record, 'vpnPeerAddress': address})!.vpnNetworkNumber,
-        throwsFormatException,
-      );
+      expect(HostUpRecord.fromStored({...record, 'vpnPeerAddress': address}), isNull);
     }
   });
 
@@ -259,14 +323,14 @@ void main() {
         MemorySettingsStore({
           'hostUps': {
             'valid': record,
-            'withoutTunnel': withoutTunnel,
+            'without-tunnel': withoutTunnel,
             'broken': {...record, field: ''},
           },
         }),
       );
       await settings.load();
       expect(settings.hostUp('valid')!.stored, record, reason: 'paired tunnel options must remain usable');
-      expect(settings.hostUp('withoutTunnel')!.stored, withoutTunnel, reason: 'an absent tunnel is valid');
+      expect(settings.hostUp('without-tunnel')!.stored, withoutTunnel, reason: 'an absent tunnel is valid');
       expect(settings.hostUp('broken'), isNull, reason: 'missing $field must discard the entire record');
     }
   });
@@ -294,7 +358,7 @@ void main() {
   });
 
   // Harm: a partial or mistyped setup record tears down a different server or loses access to it.
-  test('host setup records survive reload per project and malformed records are dropped whole', () async {
+  test('host setup records survive reload per host and malformed records are dropped whole', () async {
     final store = MemorySettingsStore({
       'hostUps': {
         'demo': record,
@@ -338,7 +402,11 @@ void main() {
         }),
       );
       await broken.load();
-      expect(broken.hostUp('demo'), isNull, reason: 'missing $field must discard the entire record');
+      if (field == 'vpnNetworkNumber' || field == 'vpnInterface') {
+        expect(broken.hostUp('demo')!.stored, record, reason: 'legacy records remain readable without $field');
+      } else {
+        expect(broken.hostUp('demo'), isNull, reason: 'missing $field must discard the entire record');
+      }
     }
   });
 

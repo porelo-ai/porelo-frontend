@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Host VPNs keep separate network numbers, interfaces, names, and CA files, so several can stay up together.
+  A network already held by another host is refused before sudo, naming both hosts. Older setup records migrate
+  to host keys and retain support for taking down the original WireGuard interface.
+
 - Startup roles select which commands the interface offers. Ordinary work is always available;
   `--roles host-admin,project-admin` also shows server administration and project placement.
   Unknown roles are refused before the window opens.

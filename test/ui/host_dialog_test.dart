@@ -255,7 +255,7 @@ void main() {
         await World.settle(tester);
       } else {
         expect(commands, [
-          [...hostVpnDownCommand, 'demo', '0'],
+          hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0'),
         ], reason: 'confirmed server release must take the local tunnel down as its last step');
         expect(machines.all.contains(server), isFalse, reason: 'the provider release is confirmed before VPN cleanup');
         expect(
@@ -313,7 +313,7 @@ void main() {
                       machine: machine,
                       settings: machines.settings,
                       up: false,
-                      probeLink: runs.probeVpnLink,
+                      probeLink: () => runs.probeVpnLink('demo'),
                       open: (executable, arguments, {int columns = 80, int rows = 24}) {
                         commands.add([executable, ...arguments]);
                         return retryTerminal;
@@ -338,7 +338,7 @@ void main() {
         await World.settle(tester);
         if (linkUp) {
           expect(commands.skip(beforeRetry), [
-            [...hostVpnDownCommand, 'demo', '0'],
+            hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0'),
           ], reason: 'Needs you must retry local teardown rather than bring the VPN back up');
           expect(
             attention.openRows.where((row) => row.kind == AttentionKind.vpnCleanup),
@@ -3647,8 +3647,15 @@ class _ControlledHostFiles extends host.HostFiles {
     required host.HostTunnel tunnel,
     required String address,
     required File destination,
+    int networkNumber = 0,
   }) => work.defer(
-    () => super.exportTunnel(project: project, tunnel: tunnel, address: address, destination: destination),
+    () => super.exportTunnel(
+      project: project,
+      tunnel: tunnel,
+      address: address,
+      destination: destination,
+      networkNumber: networkNumber,
+    ),
   );
 }
 

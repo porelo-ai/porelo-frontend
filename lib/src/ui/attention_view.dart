@@ -380,7 +380,7 @@ extension on _AttentionViewState {
               children: [
                 NeedsMachine(row.machine),
                 Text(
-                  attention.hostRuns?.vpnLinkUp == true
+                  attention.hostRuns?.vpnLinkFor(machine.hostProject) == true
                       ? 'The server is given back; the VPN on this computer is still up'
                       : 'The server is given back; the VPN on this computer could not be checked',
                 ),

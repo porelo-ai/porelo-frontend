@@ -125,13 +125,13 @@ class HostRuns extends ChangeNotifier {
   HostRuns(
     this.machines, {
     String Function(String)? endpointFor,
-    Future<bool> Function()? ping,
-    Future<bool> Function()? probeLink,
+    this.ping,
+    this.probeLink,
+    this.pingHost,
+    this.probeHostLink,
     this.environment,
     this.homeserver,
-  }) : _endpointFor = endpointFor ?? Machine.endpointFor,
-       _ping = ping ?? pingHostVpn,
-       _probeLink = probeLink ?? probeHostVpnLink {
+  }) : _endpointFor = endpointFor ?? Machine.endpointFor {
     for (final entry in machines.settings.hostUps.entries) {
       if (!entry.value.preparing) continue;
       final session = sessionFor(entry.key, entry.value)..restoreProtocol(entry.value.protocol);
@@ -154,8 +154,23 @@ class HostRuns extends ChangeNotifier {
       HostSession(executable: poreloHost(), arguments: hostArguments(record, project));
 
   final String Function(String) _endpointFor;
-  final Future<bool> Function() _ping;
-  final Future<bool> Function() _probeLink;
+
+  /// Overrides all gateway probes with one stand-in.
+  final Future<bool> Function()? ping;
+
+  /// Overrides all link probes with one stand-in.
+  final Future<bool> Function()? probeLink;
+
+  /// Overrides the gateway probe for a particular host in tests.
+  final Future<bool> Function(String host)? pingHost;
+
+  /// Overrides the link probe for a particular host in tests.
+  final Future<bool> Function(String host)? probeHostLink;
+
+  final _vpnLinks = <String, bool?>{};
+
+  /// The measured presence of one host's local link, absent until checked.
+  bool? vpnLinkFor(String host) => _vpnLinks[host];
 
   /// Whether the local link exists; null until checked or when the check fails.
   bool? vpnLinkUp;
@@ -255,12 +270,21 @@ class HostRuns extends ChangeNotifier {
   void rememberVpnToTakeDown(Machine machine) {
     ++_vpnProbe;
     vpnLinkUp = null;
+    _vpnLinks[machine.hostProject] = null;
     _vpnsToTakeDown[machine.hostProject] = machine;
     _changed();
   }
 
   /// Uses the same unprivileged link probe for actions and refreshes.
-  Future<bool> probeVpnLink() => _probeLink();
+  Future<bool> probeVpnLink(String host) =>
+      probeHostLink?.call(host) ??
+      probeLink?.call() ??
+      probeHostVpnLink(interface: machines.settings.hostUp(host)?.vpnInterface ?? 'porelo-0', host: host);
+
+  Future<bool> _pingHost(String host) =>
+      pingHost?.call(host) ??
+      ping?.call() ??
+      pingHostVpn(networkNumber: machines.settings.hostUp(host)?.vpnNetworkNumber ?? 0);
 
   /// Checks existing hosts at startup and on refresh; setup itself needs a handshake.
   Future<void> refreshVpns() async {
@@ -268,31 +292,43 @@ class HostRuns extends ChangeNotifier {
     final hosts = machines.all.where((machine) => machine.kind == 'host').toList();
     // The local VPN is brought up only on Linux; elsewhere a failed ping says nothing about it.
     if (hosts.isEmpty && _vpnsToTakeDown.isEmpty || !Platform.isLinux) {
+      _vpnLinks.clear();
       vpnLinkUp = false;
       vpnUp = false;
       vpnDown.clear();
       _changed();
       return;
     }
-    bool? link;
-    var answers = false;
-    try {
-      final probes = await Future.wait([_probeLink(), hosts.isEmpty ? Future.value(false) : _ping()]);
-      link = probes[0];
-      answers = link && probes[1];
-    } on HostFilesRefused {
-      // An unreadable link must not offer a root action based on a guessed state.
-      link = null;
-    }
+    final targets = <String>{...hosts.map((machine) => machine.hostProject), ..._vpnsToTakeDown.keys};
+    final results = await Future.wait(
+      targets.map((host) async {
+        try {
+          final probes = await Future.wait([probeVpnLink(host), _pingHost(host)]);
+          return (host: host, link: probes[0], answers: probes[0] && probes[1]);
+        } on HostFilesRefused {
+          return (host: host, link: null, answers: false);
+        }
+      }),
+    );
     // A slower earlier probe must not overwrite a later answer.
     if (_disposed || generation != _vpnProbe) return;
-    vpnLinkUp = link;
-    vpnUp = answers;
-    if (link == false) _vpnsToTakeDown.clear();
+    _vpnLinks
+      ..clear()
+      ..addEntries(results.map((result) => MapEntry(result.host, result.link)));
+    vpnLinkUp = results.any((result) => result.link == null) ? null : results.any((result) => result.link == true);
+    vpnUp = results.any((result) => result.answers);
+    for (final result in results) {
+      if (result.link == false) _vpnsToTakeDown.remove(result.host);
+    }
+    final answering = results.where((result) => result.answers).map((result) => result.host).toSet();
     final present = machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toSet();
     vpnDown
       ..clear()
-      ..addAll(answers ? <String>[] : hosts.map((machine) => machine.name).where(present.contains));
+      ..addAll(
+        hosts
+            .where((machine) => !answering.contains(machine.hostProject) && present.contains(machine.name))
+            .map((machine) => machine.name),
+      );
     _changed();
   }
 

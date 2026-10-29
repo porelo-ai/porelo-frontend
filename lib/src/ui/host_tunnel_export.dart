@@ -42,7 +42,13 @@ Future<void> saveHostTunnel(
       );
     }
     await withHostFiles(
-      (files) => files.exportTunnel(project: project, tunnel: connection, address: endpoint, destination: File(path)),
+      (files) => files.exportTunnel(
+        project: record?.host ?? project,
+        tunnel: connection,
+        address: endpoint,
+        destination: File(path),
+        networkNumber: record?.vpnNetworkNumber ?? 0,
+      ),
       secretStore: secretStore,
       hostFiles: hostFiles,
     );

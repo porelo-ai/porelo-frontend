@@ -27,18 +27,131 @@ void checkVpnSaveFile(String file, {bool? windows}) {
   }
 }
 
+/// Refuses unrelated interfaces and numbers that disagree with the host network.
+void checkVpnInterface(String interface, int networkNumber) {
+  SecretsFile.checkNetworkNumber(networkNumber);
+  if (interface != 'porelo' && interface != 'porelo-$networkNumber') {
+    throw const FormatException('The VPN interface must match its host network number.');
+  }
+}
+
+/// Refuses a network already held by another active Porelo tunnel before opening root.
+Future<void> checkHostVpnNetwork({
+  required String host,
+  required int networkNumber,
+  Map<String, String> hostsByInterface = const {},
+  Future<ProcessResult> Function(String, List<String>)? run,
+}) async {
+  SecretsFile.checkHost(host);
+  SecretsFile.checkNetworkNumber(networkNumber);
+  final execute = run ?? _inspectVpn;
+  const unreadable = HostFilesRefused('The active VPN interfaces and routes could not be checked.');
+  try {
+    final interfaces = await execute('wg', ['show', 'interfaces']).timeout(const Duration(seconds: 4));
+    if (interfaces.exitCode != 0 || interfaces.stdout is! String) throw unreadable;
+    final routes = await execute('ip', [
+      '-j',
+      '-4',
+      'route',
+      'show',
+      'table',
+      'all',
+    ]).timeout(const Duration(seconds: 4));
+    if (routes.exitCode != 0 || routes.stdout is! String) throw unreadable;
+    final active = '${interfaces.stdout}'.split(RegExp(r'\s+')).where((name) => name.isNotEmpty).toSet();
+    final decoded = jsonDecode('${routes.stdout}');
+    if (decoded is! List) throw unreadable;
+    final holders = <String>{};
+    for (final name in active) {
+      if (name == 'porelo-$networkNumber' || name == 'porelo' && networkNumber == 0) holders.add(name);
+    }
+    for (final route in decoded) {
+      if (route is! Map) throw unreadable;
+      final destination = route['dst'];
+      final device = route['dev'];
+      if (destination is! String || (device != null && device is! String)) throw unreadable;
+      if (device is! String || !active.contains(device) || !(device == 'porelo' || device.startsWith('porelo-'))) {
+        continue;
+      }
+      final match = RegExp(r'^10\.73\.(\d{1,3})\.(\d{1,3})(?:/(\d{1,2}))?$').firstMatch(destination);
+      if (match == null) continue;
+      final number = int.parse(match[1]!);
+      final prefix = match[3] == null ? 32 : int.parse(match[3]!);
+      if (number > 255 || int.parse(match[2]!) > 255 || prefix > 32) throw unreadable;
+      if (prefix >= 24
+          ? number == networkNumber
+          : prefix >= 16 && (number >> (24 - prefix)) == (networkNumber >> (24 - prefix))) {
+        holders.add(device);
+      }
+    }
+    for (final interface in holders) {
+      final link = await execute('ip', ['-j', 'link', 'show', 'dev', interface]).timeout(const Duration(seconds: 4));
+      if (link.exitCode != 0) throw unreadable;
+      final owner = _vpnLinkOwner(link.stdout, interface) ?? hostsByInterface[interface];
+      if (owner == host && interface == 'porelo-$networkNumber') continue;
+      if (owner == host) {
+        throw HostFilesRefused(
+          'Take down the legacy VPN for $host ($interface) before bringing up its numbered interface.',
+        );
+      }
+      if (owner != null) SecretsFile.checkHost(owner);
+      throw HostFilesRefused(
+        'The VPN for $host cannot use 10.73.$networkNumber.0/24: '
+        'it is already held by ${owner ?? 'an unknown host ($interface)'}.',
+      );
+    }
+  } on ProcessException {
+    throw unreadable;
+  } on TimeoutException {
+    throw unreadable;
+  } on FormatException {
+    throw unreadable;
+  }
+}
+
+String? _vpnLinkOwner(Object? output, String interface) {
+  if (output is! String) throw const FormatException('Unreadable VPN link.');
+  final decoded = jsonDecode(output);
+  if (decoded case [{'ifname': final String name, 'ifalias': final Object? alias}] when name == interface) {
+    if (alias is! String || !alias.startsWith('porelo-host-')) throw const FormatException('Unknown VPN owner.');
+    final host = alias.substring('porelo-host-'.length);
+    SecretsFile.checkHost(host);
+    return host;
+  }
+  if (decoded case [{'ifname': final String name}] when name == interface) return null;
+  throw const FormatException('Unreadable VPN link.');
+}
+
+Future<ProcessResult> _inspectVpn(String executable, List<String> arguments) async {
+  final process = await Process.start(executable, arguments);
+  final output = process.stdout.transform(utf8.decoder).join();
+  final errors = process.stderr.transform(utf8.decoder).join();
+  try {
+    final code = await process.exitCode.timeout(const Duration(seconds: 4));
+    return ProcessResult(process.pid, code, await output, await errors);
+  } on TimeoutException {
+    process.kill(ProcessSignal.sigkill);
+    await process.exitCode;
+    await Future.wait([output, errors]);
+    rethrow;
+  }
+}
+
 /// Checks the active endpoint before installation and confirms a fresh handshake after a ping.
 List<String> hostVpnUpCommand(
   String file, {
   String commandPath = '/usr/bin:/usr/sbin:/bin:/sbin',
   String? forgeCa,
-  String? host,
+  required String host,
   int networkNumber = 0,
+  String? interface,
 }) {
   checkVpnFile(file);
-  if (host != null) SecretsFile.checkHost(host);
+  SecretsFile.checkHost(host);
+  final vpnInterface = interface ?? 'porelo-$networkNumber';
+  checkVpnInterface(vpnInterface, networkNumber);
+  if (vpnInterface == 'porelo') throw const FormatException('New VPN connections need a numbered interface.');
   SecretsFile.checkNetworkNumber(networkNumber);
-  if (forgeCa != null && host == null) throw const FormatException('The CA needs its host name.');
   if (forgeCa != null && !isForgeCaCertificate(forgeCa)) {
     throw const FormatException('The CA for the server\'s forge is not one certificate.');
   }
@@ -57,8 +170,9 @@ List<String> hostVpnUpCommand(
     key,
     endpoint,
     commandPath,
-    host ?? '',
+    host,
     '$networkNumber',
+    vpnInterface,
     // Without its last line break, which the root step writes back.
     forgeCa?.trimRight() ?? '',
   ];
@@ -73,12 +187,20 @@ expected=$3
 endpoint=$4
 PATH=$5
 export PATH
+host=${6:-}
+network=${7:-}
+vpn_interface=${8:-}
+case "$host" in ''|*[!a-z0-9-]*|-*|*-) fail 'The VPN needs a valid host name.';; esac
+[ "${#host}" -le 63 ] || fail 'The VPN needs a valid host name.'
+case "$network" in 0|[1-9]|[1-9][0-9]|[1-9][0-9][0-9]) ;; *) fail 'The VPN needs a valid host network number.';; esac
+[ "$network" -le 255 ] || fail 'The VPN needs a valid host network number.'
+[ "$vpn_interface" = "porelo-$network" ] || fail 'The VPN interface must match its host network number.'
 started=$(date -u +%s) || fail 'The VPN check could not read its start time.'
 interfaces=$(wg show interfaces) || fail 'The active VPN interfaces could not be checked.'
 up=no
 for interface in $interfaces; do
-  if [ "$interface" = porelo ]; then
-    peers=$(wg show porelo endpoints) || fail 'The active VPN endpoint could not be checked.'
+  if [ "$interface" = "$vpn_interface" ]; then
+    peers=$(wg show "$vpn_interface" endpoints) || fail 'The active VPN endpoint could not be checked.'
     wanted=$(printf '%s\t%s' "$expected" "$endpoint")
     [ "$peers" = "$wanted" ] || fail 'A VPN to another server is already up. Take it down before connecting to this server.'
     up=yes
@@ -88,15 +210,15 @@ done
 sleep 1 || fail 'The VPN handshake check could not start.'
 # NetworkManager must leave this link alone before WireGuard replaces it.
 nm_directory=/etc/NetworkManager/conf.d
-nm_rule='[keyfile]
-unmanaged-devices=interface-name:porelo'
-if [ -d "$nm_directory" ] && ! printf '%s\n' "$nm_rule" | cmp -s "$nm_directory/porelo.conf" -; then
-  nm_temporary=$(mktemp "$nm_directory/.porelo.conf.XXXXXX") || fail 'The NetworkManager configuration could not be staged.'
+nm_rule="[keyfile]
+unmanaged-devices=interface-name:$vpn_interface"
+if [ -d "$nm_directory" ] && ! printf '%s\n' "$nm_rule" | cmp -s "$nm_directory/$vpn_interface.conf" -; then
+  nm_temporary=$(mktemp "$nm_directory/.$vpn_interface.conf.XXXXXX") || fail 'The NetworkManager configuration could not be staged.'
   trap 'rm -f -- "$nm_temporary"' 0
   trap 'exit 1' HUP INT TERM
   printf '%s\n' "$nm_rule" > "$nm_temporary" || fail 'The NetworkManager configuration could not be written.'
   chmod 0644 "$nm_temporary" || fail 'The NetworkManager configuration could not be protected.'
-  mv -f -- "$nm_temporary" "$nm_directory/porelo.conf" || fail 'The NetworkManager configuration could not be installed.'
+  mv -f -- "$nm_temporary" "$nm_directory/$vpn_interface.conf" || fail 'The NetworkManager configuration could not be installed.'
   trap - 0 HUP INT TERM
   if nmcli=$(command -v nmcli); then
     "$nmcli" general reload conf >/dev/null 2>&1 || true
@@ -104,24 +226,19 @@ if [ -d "$nm_directory" ] && ! printf '%s\n' "$nm_rule" | cmp -s "$nm_directory/
 fi
 # A running tunnel does not handshake again within its rekey window and keeps its old configuration.
 if [ "$up" = yes ]; then
-  wg-quick down porelo >/dev/null 2>&1 || fail 'The VPN to this server could not be taken down to renew it.'
+  wg-quick down "$vpn_interface" >/dev/null 2>&1 || fail 'The VPN to this server could not be taken down to renew it.'
 fi
-install -m 600 -- "$source" /etc/wireguard/porelo.conf >/dev/null 2>&1 || fail 'The VPN configuration could not be installed.'
-said=$(wg-quick up porelo 2>&1) || fail "The VPN could not be brought up: $(printf '%s\n' "$said" | tail -n 3)"
-ping -c 3 -W 2 10.73.0.1 >/dev/null 2>&1 || fail 'The server did not answer through the VPN.'
-handshakes=$(wg show porelo latest-handshakes) || fail 'The VPN handshake could not be read.'
+install -m 600 -- "$source" "/etc/wireguard/$vpn_interface.conf" >/dev/null 2>&1 || fail 'The VPN configuration could not be installed.'
+said=$(wg-quick up "$vpn_interface" 2>&1) || fail "The VPN could not be brought up: $(printf '%s\n' "$said" | tail -n 3)"
+ip link set dev "$vpn_interface" alias "porelo-host-$host" || fail 'The VPN owner could not be recorded.'
+ping -c 3 -W 2 "10.73.$network.1" >/dev/null 2>&1 || fail 'The server did not answer through the VPN.'
+handshakes=$(wg show "$vpn_interface" latest-handshakes) || fail 'The VPN handshake could not be read.'
 handshake=$(printf '%s\n' "$handshakes" | awk -v key="$expected" '$1 == key { print $2 }')
 case "$handshake" in ''|*[!0-9]*) fail 'The server did not complete the expected VPN handshake.';; esac
 [ "$handshake" -gt "$started" ] || fail 'The server did not complete a new VPN handshake.'
 # Root reads no user-owned CA file that could change between validation and installation.
-forge_ca_pem=${8:-}
+forge_ca_pem=${9:-}
 if [ -n "$forge_ca_pem" ]; then
-  host=${6:-}
-  network=${7:-}
-  case "$host" in ''|*[!a-z0-9-]*|-*|*-) fail 'The CA needs a valid host name.';; esac
-  [ "${#host}" -le 63 ] || fail 'The CA needs a valid host name.'
-  case "$network" in ''|*[!0-9]*|????*) fail 'The CA needs a valid host network number.';; esac
-  [ "$network" -le 255 ] || fail 'The CA needs a valid host network number.'
   # In /tmp by name: a TMPDIR kept through sudo could be a folder of the person's.
   forge_ca=$(mktemp -p /tmp) || fail "The CA for the server's forge could not be staged."
   trap 'rm -f -- "$forge_ca"' 0
@@ -271,25 +388,53 @@ String? forgeCaWarning(String host, String? pem, DateTime now, {bool atTheStop =
   ].join(' ');
 }
 
-/// Takes the VPN down, and the forge's name with it from `/etc/hosts`, which only this link reaches: that one line,
-/// written into the file as it is, so its owner, mode and label stay.
-const hostVpnDownCommand = <String>[
-  '/usr/bin/sudo',
-  '/bin/sh',
-  '-c',
-  r'''PATH=/usr/bin:/usr/sbin:/bin:/sbin
-wg-quick down porelo || exit
-line="10.73.$2.1 forge.$1.porelo.internal matrix.$1.porelo.internal # porelo-host-$1"
-grep -qxF -- "$line" /etc/hosts || exit 0
-kept=$(mktemp -p /tmp) || exit
-trap 'rm -f -- "$kept"' 0
-trap 'exit 1' HUP INT TERM
-grep -vxF -- "$line" /etc/hosts > "$kept"
-# 1 where no line is left beside it; more where the copy was not written, and /etc/hosts stays as it is.
-[ "$?" -le 1 ] || exit 1
-cat -- "$kept" > /etc/hosts''',
-  'porelo-vpn-down',
-];
+/// Takes down only the selected host's interface, service names, and CA files.
+List<String> hostVpnDownCommand({required String host, required int networkNumber, required String interface}) {
+  SecretsFile.checkHost(host);
+  checkVpnInterface(interface, networkNumber);
+  return ['/usr/bin/sudo', '/bin/sh', '-c', _vpnDownStep, 'porelo-vpn-down', host, '$networkNumber', interface];
+}
+
+const _vpnDownStep = r'''PATH=/usr/bin:/usr/sbin:/bin:/sbin
+export PATH
+fail() { printf '%s\n' "$1"; exit 1; }
+host=${1:-}
+network=${2:-}
+interface=${3:-}
+case "$host" in ''|*[!a-z0-9-]*|-*|*-) fail 'The VPN needs a valid host name.';; esac
+[ "${#host}" -le 63 ] || fail 'The VPN needs a valid host name.'
+case "$network" in 0|[1-9]|[1-9][0-9]|[1-9][0-9][0-9]) ;; *) fail 'The VPN needs a valid host network number.';; esac
+[ "$network" -le 255 ] || fail 'The VPN needs a valid host network number.'
+[ "$interface" = porelo ] || [ "$interface" = "porelo-$network" ] || fail 'The VPN interface must match its host network number.'
+link=$(ip -o link show dev "$interface") || fail 'The VPN owner could not be checked.'
+owner=$(printf '%s\n' "$link" | awk '{ for (i=1; i<NF; i++) if ($i == "alias") print $(i+1) }')
+if [ -n "$owner" ]; then
+  [ "$owner" = "porelo-host-$host" ] || fail "The VPN for $host cannot be taken down: $interface belongs to ${owner#porelo-host-}."
+elif [ "$interface" != porelo ]; then
+  fail 'The numbered VPN has no known owner; it was not taken down.'
+fi
+wg-quick down "$interface" || exit
+line="10.73.$network.1 forge.$host.porelo.internal matrix.$host.porelo.internal # porelo-host-$host"
+if grep -qxF -- "$line" /etc/hosts; then
+  kept=$(mktemp -p /tmp) || exit
+  trap 'rm -f -- "$kept"' 0
+  trap 'exit 1' HUP INT TERM
+  grep -vxF -- "$line" /etc/hosts > "$kept"
+  # A failed copy must leave the original hosts file intact.
+  [ "$?" -le 1 ] || exit 1
+  cat -- "$kept" > /etc/hosts || exit
+fi
+for store in /usr/local/share/ca-certificates /etc/pki/ca-trust/source/anchors /etc/firefox/porelo; do
+  file="$store/porelo-host-$host.crt"
+  if [ -e "$file" ] || [ -L "$file" ]; then
+    rm -f -- "$file" || exit
+    case "$store" in
+      /usr/local/share/ca-certificates) update-ca-certificates >/dev/null 2>&1 || exit;;
+      /etc/pki/ca-trust/source/anchors) update-ca-trust >/dev/null 2>&1 || exit;;
+    esac
+  fi
+done
+''';
 
 /// A private configuration whose lifetime is the local terminal, including cancellation.
 class HostVpnAttempt {
@@ -390,7 +535,13 @@ Future<HostVpnAttempt> prepareHostVpn({
   );
   try {
     await withHostFiles(
-      (files) => files.exportTunnel(project: project, tunnel: tunnel, address: address, destination: file),
+      (files) => files.exportTunnel(
+        project: project,
+        tunnel: tunnel,
+        address: address,
+        destination: file,
+        networkNumber: networkNumber,
+      ),
       secretStore: secretStore,
       hostFiles: hostFiles,
     );
@@ -410,7 +561,7 @@ Future<void> checkHostVpnRootTools({
   List<String> directories = const ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
 }) async {
   const refused = HostFilesRefused(
-    'The VPN needs root-owned sudo, sh, WireGuard, ping, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, grep, head, tail, and optional nmcli in protected system directories.',
+    'The VPN needs root-owned sudo, sh, WireGuard, ip, ping, cat, install, date, sleep, awk, cmp, mktemp, chmod, mv, rm, grep, head, tail, and optional nmcli in protected system directories.',
   );
   try {
     await _checkRootTools(directories, refused);
@@ -446,6 +597,8 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
     'sh',
     'wg',
     'wg-quick',
+    'ip',
+    'cat',
     'ping',
     'install',
     'date',
@@ -489,17 +642,29 @@ Future<void> _checkRootTools(List<String> directories, HostFilesRefused refused)
 }
 
 /// Checks local link presence without opening a privileged terminal.
-Future<bool> probeHostVpnLink({Future<Process> Function(String, List<String>)? start}) async {
+Future<bool> probeHostVpnLink({
+  String interface = 'porelo',
+  String? host,
+  Future<Process> Function(String, List<String>)? start,
+}) async {
+  if (host != null) SecretsFile.checkHost(host);
+  final number = interface == 'porelo' ? 0 : int.tryParse(interface.replaceFirst('porelo-', ''));
+  if (number == null) throw const FormatException('Invalid VPN interface.');
+  checkVpnInterface(interface, number);
   const refused = HostFilesRefused(
     'The local VPN interface could not be checked. Check that ip is installed and try again.',
   );
   try {
-    final process = await (start ?? Process.start)('ip', ['link', 'show', 'dev', 'porelo']);
-    final drained = Future.wait([process.stdout.drain<void>(), process.stderr.drain<void>()]);
+    final process = await (start ?? Process.start)('ip', [if (host != null) '-j', 'link', 'show', 'dev', interface]);
+    final output = process.stdout.transform(utf8.decoder).join();
+    final drained = Future.wait([output, process.stderr.transform(utf8.decoder).join()]);
     try {
       final code = await process.exitCode.timeout(const Duration(seconds: 4));
       if (code != 0 && code != 1) throw refused;
-      return code == 0;
+      if (code != 0 || host == null) return code == 0;
+      final owner = _vpnLinkOwner(await output, interface);
+      if (owner == null && interface != 'porelo') throw refused;
+      return owner == host || owner == null;
     } on TimeoutException {
       process.kill();
       await process.exitCode;
@@ -507,15 +672,18 @@ Future<bool> probeHostVpnLink({Future<Process> Function(String, List<String>)? s
     } finally {
       await drained;
     }
+  } on FormatException {
+    throw refused;
   } on ProcessException {
     throw refused;
   }
 }
 
 /// Probes the VPN without root, bounded even when the peer is gone.
-Future<bool> pingHostVpn() async {
+Future<bool> pingHostVpn({int networkNumber = 0}) async {
+  SecretsFile.checkNetworkNumber(networkNumber);
   try {
-    final process = await Process.start('ping', ['-c', '1', '-W', '2', '-w', '3', '10.73.0.1']);
+    final process = await Process.start('ping', ['-c', '1', '-W', '2', '-w', '3', '10.73.$networkNumber.1']);
     final drained = Future.wait([process.stdout.drain<void>(), process.stderr.drain<void>()]);
     try {
       return await process.exitCode.timeout(const Duration(seconds: 4)) == 0;

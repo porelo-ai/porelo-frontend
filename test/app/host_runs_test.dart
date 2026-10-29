@@ -192,6 +192,41 @@ void main() {
     expect(machines.all.where((machine) => machine.kind == 'host').single.host, 'worker@203.0.113.7');
   });
 
+  // Harm: one host's working VPN must not enable another host's down action or clear its cleanup.
+  test('VPN refresh tracks links reachability and cleanup separately for each host', () async {
+    final links = <String, bool>{'first': true, 'second': false};
+    final probed = <String>[];
+    final probing = HostRuns(
+      machines,
+      probeHostLink: (host) async {
+        probed.add(host);
+        return links[host]!;
+      },
+      pingHost: (host) async => links[host]!,
+    );
+    addTearDown(probing.dispose);
+    for (final host in links.keys) {
+      await machines.add(Machine(name: host, kind: 'host', hostProject: host, socketPath: '/unused/$host'));
+    }
+    await probing.refreshVpns();
+    expect(probed, containsAll(links.keys));
+    expect(probing.vpnLinkFor('first'), isTrue);
+    expect(probing.vpnLinkFor('second'), isFalse);
+    expect(probing.vpnDown, {'second'});
+    for (final machine in machines.all.where((machine) => machine.kind == 'host')) {
+      probing.rememberVpnToTakeDown(machine);
+    }
+    await probing.refreshVpns();
+    expect(probing.vpnsToTakeDown.map((machine) => machine.hostProject), ['first']);
+    links['first'] = false;
+    links['second'] = true;
+    await probing.refreshVpns();
+    expect(probing.vpnLinkFor('first'), isFalse);
+    expect(probing.vpnLinkFor('second'), isTrue);
+    expect(probing.vpnDown, {'first'});
+    expect(probing.vpnsToTakeDown, isEmpty);
+  }, testOn: 'linux');
+
   // Harm: a stale VPN probe marks a working host's VPN as down, or puts a removed host back into the warning.
   test('only the latest VPN probe writes, and only for hosts still present', () async {
     final pings = <Completer<bool>>[];
