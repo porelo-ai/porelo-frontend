@@ -2678,9 +2678,10 @@ class _ShellState extends State<Shell> {
           icon: const Icon(Icons.add_to_queue),
           onPressed: _addAMachine,
         ),
-        // The title bar's Machines group beside watching one; held back unless the host admin's role is held.
+        // The rest of the title bar's Machines group beside watching one, which has its own button above; held back
+        // unless the host admin's role is held.
         for (final command in commands)
-          if (command.home == Home.appBar && command.group == 'Machines')
+          if (command.home == Home.appBar && command.group == 'Machines' && command.id != 'machines.add')
             IconButton(
               key: Key(command.id),
               tooltip: command.available ? command.label : '${command.label} - ${command.unavailable}',

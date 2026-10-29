@@ -114,6 +114,10 @@ void main() {
       final control = find.descendant(of: find.byType(AppBar), matching: find.byKey(const Key('host.prepare')));
       expect(control, held ? findsOneWidget : findsNothing);
       if (held) expect(tester.widget<IconButton>(control).tooltip, 'Prepare a server…');
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: find.byTooltip('Watch another machine…')),
+        findsOneWidget,
+      );
     });
   }
 }
