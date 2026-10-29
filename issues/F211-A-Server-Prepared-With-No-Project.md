@@ -42,7 +42,10 @@ Decided: setting up a host and putting a project on it are two acts, by two peop
   - `porelo-host-person lock <user>` answers `{"person":…,"locked":true}`, `purge <user>` `{"person":…,"purged":true}`.
   - `porelo-host-project add <project> <admin> --signed-by '<ssh-ed25519 AAAA…>'` (no comment) answers
     `{"project":…,"admin":…,"organization":…,"publisher":"porelo-publisher-<project>"}`; `remove <project>`
-    `{"project":…,"removed":true}`.
+    `{"project":…,"removed":true}`. While the project's organization holds a repository, `remove` takes the central
+    forge's token as the only line of standard input; the interface runs it in a terminal, the token piped from the
+    secrets file's `shared/forge-central-token` with the master password typed there. A repository with no central
+    home is refused, so its only copy is never deleted.
 
 ## Acceptance
 
