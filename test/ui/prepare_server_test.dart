@@ -97,6 +97,8 @@ void main() {
   });
 
   // Harm: renting a server must not upload a project or create its account.
+  // Linux: preparing a server needs the secrets file, which Windows does not offer (noSecretsFileHere), and this
+  // test makes a real one with /usr/bin/keepassxc-cli.
   testWidgets('preparing a server runs up without a project and feeds only the root stop', (tester) async {
     final commands = <List<String>>[];
     final process = HostProcess();
@@ -252,9 +254,10 @@ void main() {
     terminals.single.endsWith(75);
     await World.settle(tester);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, tags: 'linux');
 
   // An asynchronous VPN refresh must complete cleanup for the server actually given back.
+  // Linux: the VPN cleanup it checks runs only where HostRuns finds Platform.isLinux.
   testWidgets('server-only give-back observes its host VPN refresh', (tester) async {
     var linkUp = true;
     runs.dispose();
@@ -310,7 +313,7 @@ void main() {
     await World.settle(tester);
     expect(find.byKey(const Key('host-done')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, tags: 'linux');
 
   // Harm: completed server preparation must not invent a project account or daemon.
   testWidgets('a completed server retains its checked public values without a project daemon', (tester) async {
@@ -469,6 +472,8 @@ void main() {
         expect(Directory(replies).existsSync(), isFalse, reason: 'only the public reply files were temporary');
         await tester.pumpWidget(const SizedBox.shrink());
       },
+      // Linux: the removal pipes its token from the secrets file, which Windows does not offer (noSecretsFileHere).
+      tags: 'linux',
     );
   }
 
@@ -491,8 +496,10 @@ void main() {
       vpnNetworkNumber: 7,
       vpnInterface: 'porelo-7',
     );
-    final (:remote, :trust) = hostAdminRemote(record, environment: {'XDG_STATE_HOME': scratch.path});
-    expect(remote.knownHosts.path, '${scratch.path}/porelo-host/known_hosts.orchard');
+    final environment = {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path};
+    final (:remote, :trust) = hostAdminRemote(record, environment: environment);
+    expect(remote.knownHosts.path, '${poreloHostKnownHosts(environment: environment)}.orchard');
+    expect(remote.knownHosts.path, startsWith(scratch.path));
     expect(remote.identity, '${scratch.path}/rental');
     await trust();
     expect(remote.knownHosts.readAsStringSync(), '10.73.7.1 ${hostValues()['ssh_host_key']}\n');

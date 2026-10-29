@@ -283,6 +283,7 @@ void main() {
   }
 
   // Harm: teardown erases the ready host's setup protocol and recovery destination when it reuses its session.
+  // Linux: the VPN cleanup it checks runs only where HostRuns finds Platform.isLinux.
   testWidgets('ready teardown preserves the completed setup session and never restores preparation', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -389,7 +390,7 @@ void main() {
     expect(reopened.hostUp('demo')!.preparing, isFalse);
     reopened.dispose();
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, tags: 'linux');
 
   // Harm: give-back on other platforms crashes by opening an unsupported local PTY.
   testWidgets('off Linux give-back finishes without opening a terminal', (tester) async {
