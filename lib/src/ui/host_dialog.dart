@@ -237,6 +237,8 @@ class _HostDialogState extends State<HostDialog> {
   ({String file, String drive, String keys})? _hostPublicKeyFor;
   bool _openingSecrets = false;
   String? _secretsAnswer;
+  // Whether [_secretsAnswer] says the file opened, so a walk can wait for that and not for a refusal.
+  bool _secretsReady = false;
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   final _protocolScroll = ScrollController();
@@ -1474,7 +1476,7 @@ class _HostDialogState extends State<HostDialog> {
             ),
             // Without keepassxc-cli the step says it once, above; an answer from before would say it twice.
             if (_secretsAnswer case final answer? when keepassxcCliIsHere)
-              Text(answer, key: const Key('host-secrets-answer')),
+              Text(answer, key: Key(_secretsReady ? 'host-secrets-ready' : 'host-secrets-answer')),
           ],
         ),
       ]),
@@ -1520,10 +1522,16 @@ class _HostDialogState extends State<HostDialog> {
     setState(() {
       _openingSecrets = true;
       _secretsAnswer = null;
+      _secretsReady = false;
     });
     try {
       await _hostKeyFromTheSecretsFile();
-      if (mounted) setState(() => _secretsAnswer = 'Ready: the file keeps the server’s keys.');
+      if (mounted) {
+        setState(() {
+          _secretsAnswer = 'Ready: the file keeps the server’s keys.';
+          _secretsReady = true;
+        });
+      }
     } on HostFilesRefused catch (refusal) {
       if (mounted) setState(() => _secretsAnswer = refusal.message);
     } on FormatException catch (refusal) {

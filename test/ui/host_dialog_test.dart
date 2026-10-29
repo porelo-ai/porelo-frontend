@@ -2345,9 +2345,18 @@ void main() {
 
     await tapAndRun(tester, const Key('host-secrets-open'));
     expect(find.text('The secrets file was not opened, so setup did not start.'), findsOneWidget);
+    // A walk waits for the ready answer by its key; a refusal must not carry it.
+    expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
     refuse = false;
     await tapAndRun(tester, const Key('host-secrets-open'));
-    expect(find.text('Ready: the file keeps the server’s keys.'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('host-secrets-ready')),
+        matching: find.text('Ready: the file keeps the server’s keys.'),
+        matchRoot: true,
+      ),
+      findsOneWidget,
+    );
     expect(commands, isEmpty, reason: 'opening the file rents nothing');
     expect(settings.secretsFile, opened.last, reason: 'the file is remembered once it opened');
 

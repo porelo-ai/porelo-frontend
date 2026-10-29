@@ -40,7 +40,7 @@
         "unlock-done",
         "unlock-terminal"
       ],
-      "then": "host-secrets-answer"
+      "then": "host-secrets-ready"
     },
     {
       "say": "6e-5. Click Next. Expected: step 5, A test collection.",
