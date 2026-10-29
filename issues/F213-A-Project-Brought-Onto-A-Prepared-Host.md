@@ -15,6 +15,10 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 - **The access checkout:** cloned with the person's own git credentials from `access.repository` of the signed `project.yml` into `~/.local/share/porelo-frontend/access/<project>/` (`0700`); never into a log or a support bundle.
 - **The `host:` block and Matrix's settings** written into `access.yml` with `yaml_edit` (kept comments), from the values the host admin gave ([F211](README.md#f211)); committed and signed with the person's own git, pushed; the interface signs nothing itself and refuses where git's signing is not set up.
 - **The bring:** `porelo-host bring` over the admin's own ssh, both bundles uploaded into their own home ([F214](README.md#f214)), its stop in own-account mode fed from their secrets file: `vault-new` or `vault`, `keys`, `forge-central-token` while a repository is to migrate. It ends with one `sync`.
+- **The repositories, agreed with porelo-host:** the bring loads each one as a Forgejo migration from the central
+  forge, which keeps its `original_url`; `porelo-host-project remove` compares each repository with that URL and
+  refuses only while a commit is on the host and nowhere centrally. The interface gives `remove` only the central
+  token on standard input, never a central URL.
 - **The room:** through the daemon's room call of `porelo`, shown as made.
 - ***Take this project off the server***: refused in the helper's words while anything is unpushed; then unfollowed; the organization's deletion is the host admin's ([F211](README.md#f211)).
 - **Red first:** a widget test that the dialog offers no renting and runs the bring with no `sudo`, against stand-ins for `porelo-host` and git.
@@ -23,6 +27,7 @@ Decided: bringing a project is the project admin's act in their own account; `ho
 
 - A project brought onto a host prepared by another person, by its admin alone, follows there in the admin's account, with its room made.
 - The public `project.yml` holds no address, key or name of a person; `access.yml` holds them, signed.
+- *Take the project off* is refused while a repository holds an unpushed commit, and green once it is pushed.
 - Seen to fail: the widget test red while the dialog still rents.
 
 ## To be checked
