@@ -15,7 +15,7 @@ walk=$HOME/.porelo/walk23
 bundle=porelo-frontend-bundle.tar.gz
 
 step b-start.1 "this runs as $developer on a desktop"
-if [ "$#" -ne 1 ] || ! printf '%s\n' "$1" | grep -Eq '^[0-9a-f]{64}$'; then
+if [ "$#" -ne 1 ] || ! [[ $1 =~ ^[0-9a-f]{64}$ ]]; then
     refuse "give the SHA-256 of SHA256SUMS the walk shows as the one argument"
 fi
 [ "$(id -un)" = "$developer" ] || refuse "log in as $developer; this is $(id -un)"

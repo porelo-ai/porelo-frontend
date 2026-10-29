@@ -19,6 +19,7 @@ if [ ! -f "$state/complete" ]; then
     exit 0
 fi
 developer=$(cat "$state/developer")
+[[ $developer =~ ^[a-z][a-z0-9-]{0,30}$ ]] || refuse "the record names no plain account"
 # Nothing this runs from may belong to the developer, however root was reached: their processes end below.
 uid=$(id -u "$developer" 2> /dev/null || true)
 pid=$$

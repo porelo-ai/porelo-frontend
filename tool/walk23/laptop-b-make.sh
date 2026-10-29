@@ -17,10 +17,10 @@ installed() { [ "$(dpkg-query -W -f='${db:Status-Status}' porelo 2> /dev/null ||
 
 step b-make.1 "this runs as root on the laptop the developer walks"
 [ "$(id -u)" -eq 0 ] || refuse "run it with sudo"
-if [ "$#" -ne 1 ] || ! printf '%s\n' "$1" | grep -Eq '^[0-9a-f]{64}$'; then
+if [ "$#" -ne 1 ] || ! [[ $1 =~ ^[0-9a-f]{64}$ ]]; then
     refuse "give the SHA-256 of SHA256SUMS the walk shows as the one argument"
 fi
-printf '%s\n' "$developer" | grep -Eq '^[a-z][a-z0-9-]{0,30}$' || refuse "PORELO_WALK_DEVELOPER must be a plain account name"
+[[ $developer =~ ^[a-z][a-z0-9-]{0,30}$ ]] || refuse "PORELO_WALK_DEVELOPER must be a plain account name"
 for tool in sha256sum awk apt-get dpkg-deb useradd usermod passwd wg wg-quick keepassxc-cli; do
     command -v "$tool" > /dev/null || refuse "$tool is missing; install it first"
 done
@@ -43,22 +43,30 @@ if [ -f "$state/complete" ]; then
 else
     if id "$developer" > /dev/null 2>&1; then
         account=yes
+        [ "$(passwd -S "$developer" | awk '{ print $2 }')" = P ] ||
+            refuse "$developer is here without a password; give it one yourself, as the walk does not change it"
     elif [ -e "/home/$developer" ] || [ -L "/home/$developer" ]; then
         refuse "/home/$developer is there without an account; move it away first, so that the removal cannot take it"
     else
         account=no
     fi
     record=$(mktemp -d /var/lib/porelo-walk23.XXXXXX)
+    trap 'rm -rf -- "$record"' EXIT
     printf '%s\n' "$developer" > "$record/developer"
     printf '%s\n' "$account" > "$record/account-was-here"
     if [ "$account" = yes ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then sudo=yes; else sudo=no; fi
     printf '%s\n' "$sudo" > "$record/had-sudo-before"
-    if installed; then dpkg-query -W -f='${Version}\n' porelo > "$record/porelo-version"; else : > "$record/porelo-version"; fi
+    case $(dpkg-query -W -f='${db:Status-Status}' porelo 2> /dev/null || true) in
+    installed) dpkg-query -W -f='${Version}\n' porelo > "$record/porelo-version" ;;
+    '' | not-installed | config-files) : > "$record/porelo-version" ;;
+    *) refuse "porelo is half installed; repair it with sudo apt-get -f install and run this again" ;;
+    esac
     find /etc/wireguard -maxdepth 1 -name '*.conf' -printf '%f\n' > "$record/wireguard" 2> /dev/null || : > "$record/wireguard"
     cp /etc/hosts "$record/hosts"
     touch "$record/complete"
     rm -rf -- "$state"
     mv -- "$record" "$state"
+    trap - EXIT
     chmod 0700 "$state"
     before=$(cat "$state/porelo-version")
     echo "ok: recorded in $state: porelo ${before:-not installed}, account $account, sudo $sudo, the VPN configurations and /etc/hosts"
@@ -71,11 +79,9 @@ if ! id "$developer" > /dev/null 2>&1; then
 fi
 if [ "$(passwd -S "$developer" | awk '{ print $2 }')" = P ]; then
     echo "ok: $developer is here with a password"
-elif [ "$(cat "$state/account-was-here")" = no ]; then
+else
     echo "$developer has no password yet; passwd asks it now"
     passwd "$developer"
-else
-    refuse "$developer was here before the walk without a password; give it one yourself, as the walk does not change it"
 fi
 if id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
     echo "ok: $developer is in the sudo group"
