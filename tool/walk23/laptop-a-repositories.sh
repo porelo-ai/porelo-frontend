@@ -25,14 +25,16 @@ step a-repositories.2 "your token, read without echo"
 [ -t 0 ] || refuse "run it in a terminal; the token is typed, never piped"
 IFS= read -rsp "GitHub token with Administration on $organisation/$project and $organisation/$project-access: " token
 echo
-[ -n "$token" ] || refuse "no token given"
-# The token goes to curl as a header in its own configuration on standard input, never on its command line.
+# A GitHub token is letters, digits and _; anything else is refused without saying it back.
+printf '%s' "$token" | grep -Eq '^[A-Za-z0-9_]{20,255}$' || refuse "that is not a GitHub token"
+# The token goes to curl as a header in its own configuration on standard input, never on its command line; -q
+# keeps a ~/.curlrc from adding a trace that would print it.
 github() {
-    local method=$1 url=$2 body=${3:-}
-    printf 'header = "Authorization: Bearer %s"\n' "$token" |
-        curl --silent --show-error --config - --request "$method" --header 'Accept: application/vnd.github+json' \
-            --header 'X-GitHub-Api-Version: 2022-11-28' --write-out '\n%{http_code}' \
-            ${body:+--data "$body"} "$api$url"
+    local method=$1 url=$2
+    local arguments=(-q --silent --show-error --config - --request "$method" --header 'Accept: application/vnd.github+json'
+        --header 'X-GitHub-Api-Version: 2022-11-28' --write-out '\n%{http_code}')
+    [ "$#" -lt 3 ] || arguments+=(--data "$3")
+    printf 'header = "Authorization: Bearer %s"\n' "$token" | curl "${arguments[@]}" "$api$url"
 }
 echo "ok: token read"
 
