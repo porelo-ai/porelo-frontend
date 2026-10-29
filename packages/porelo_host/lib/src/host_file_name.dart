@@ -23,3 +23,16 @@ void checkHostFileName(String name) {
     );
   }
 }
+
+final _projectName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*$');
+
+/// Refuses [name] as a project's own-account setup folder unless it is ASCII letters, digits, `_`, `-` and inner
+/// single dots, starting with a letter or digit, at most 64 characters: nothing a shell, scp, YAML or Windows reads
+/// otherwise, and never a staging name, which starts with `-`.
+void checkOwnAccountProjectName(String name) {
+  if (name.length > 64 || !_projectName.hasMatch(name)) {
+    throw const HostFilesRefused(
+      'A project name is ASCII letters, digits, _ and -, with single dots inside, starting with a letter or digit.',
+    );
+  }
+}

@@ -738,7 +738,7 @@ class HostRun {
       );
     }
     if (act == HostAct.ownAccount) {
-      HostFiles.checkName(project);
+      HostFiles.checkProjectName(project);
     } else if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
       throw const FormatException('The setup files need a plain project name.');
     }

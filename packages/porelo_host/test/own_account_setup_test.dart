@@ -270,6 +270,25 @@ void main() {
     }
   });
 
+  // Harm: a project name a shell, scp or YAML reads otherwise reaches the remote setup folder.
+  for (final project in ['demo\nother', 'demo:x', 'demo.', 'demo+1']) {
+    test('the upload refuses the project name ${project.replaceAll('\n', r'\n')} before any remote call', () async {
+      await expectLater(
+        run.uploadSetupFiles(
+          act: HostAct.ownAccount,
+          address: '203.0.113.7',
+          user: 'developer',
+          project: project,
+          machineFile: machine.path,
+          bundle: bundle.path,
+          accessBundle: accessBundle.path,
+        ),
+        throwsA(isA<HostFilesRefused>()),
+      );
+      expect((remote as _HomeRemote).commands, isEmpty);
+    });
+  }
+
   // Harm: a project accepted by metadata cannot finish its upload because another validator disagrees.
   test('the upload accepts a project name accepted by the shared name check', () async {
     expect(
@@ -277,7 +296,7 @@ void main() {
         act: HostAct.ownAccount,
         address: '203.0.113.7',
         user: 'developer',
-        project: 'demo+1',
+        project: 'demo.v1_x-2',
         machineFile: machine.path,
         bundle: bundle.path,
         accessBundle: accessBundle.path,
@@ -287,7 +306,7 @@ void main() {
   });
 
   // Harm: a noncanonical account home redirects private setup data after the path is silently normalized.
-  for (final suffix in ['/', '//', '/./']) {
+  for (final suffix in ['/', '//', '/.', '/..', '/./x', '/../x']) {
     test('an unnormalized HOME ending $suffix is refused before copying', () async {
       final home = (remote as _HomeRemote).home;
       remote = _HomeRemote(home, homeValue: '${home.path}$suffix');

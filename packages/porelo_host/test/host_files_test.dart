@@ -160,50 +160,61 @@ void main() {
   });
 
   // Harm: name validators disagree about which project owns a directory or leak an unexpected exception type.
-  test('all own-account paths share traversal refusals and their exception type', () async {
-    final refusals = <String, Object?>{};
-    Object? refusal(void Function() call) {
-      try {
-        call();
-        return null;
-      } catch (error) {
-        return error;
+  for (final project in [
+    'a..b',
+    'demo\nother',
+    'demo:x',
+    'demo.',
+    '.demo',
+    'demo x',
+    'demo+1',
+    '-upload-demo',
+    'x' * 65,
+  ]) {
+    test('all own-account paths refuse the project name ${jsonEncode(project)} alike', () async {
+      final refusals = <String, Object?>{};
+      Object? refusal(void Function() call) {
+        try {
+          call();
+          return null;
+        } catch (error) {
+          return error;
+        }
       }
-    }
 
-    const project = 'a..b';
-    refusals['setup'] = refusal(() => HostAct.ownAccount.setupPlace(project: project));
-    refusals['bundle'] = refusal(() => HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: '/home/person'));
-    refusals['access'] = refusal(() => HostFiles.accessBundleUrl(project));
-    refusals['machine'] = refusal(
-      () => HostFiles.machineYaml(
-        project: project,
-        url: '/home/person/.local/share/porelo-host/setup/$project/project.bundle',
-        fingerprint: fingerprint,
-        act: HostAct.ownAccount,
-      ),
-    );
-    try {
-      await files.publishBundle(
-        project: project,
-        folder: scratch.path,
-        bytes: [1],
-        ownFolder: true,
-        act: HostAct.ownAccount,
+      refusals['setup'] = refusal(() => HostAct.ownAccount.setupPlace(project: project));
+      refusals['bundle'] = refusal(() => HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: '/home/person'));
+      refusals['access'] = refusal(() => HostFiles.accessBundleUrl(project));
+      refusals['machine'] = refusal(
+        () => HostFiles.machineYaml(
+          project: project,
+          url: '/home/person/.local/share/porelo-host/setup/$project/project.bundle',
+          fingerprint: fingerprint,
+          act: HostAct.ownAccount,
+        ),
       );
-      refusals['publish'] = null;
-    } catch (error) {
-      refusals['publish'] = error;
-    }
-    expect(refusals.keys.toSet(), {'setup', 'bundle', 'access', 'machine', 'publish'});
-    for (final entry in refusals.entries) {
-      expect(entry.value, isA<HostFilesRefused>(), reason: entry.key);
-    }
-  });
+      try {
+        await files.publishBundle(
+          project: project,
+          folder: scratch.path,
+          bytes: [1],
+          ownFolder: true,
+          act: HostAct.ownAccount,
+        );
+        refusals['publish'] = null;
+      } catch (error) {
+        refusals['publish'] = error;
+      }
+      expect(refusals.keys.toSet(), {'setup', 'bundle', 'access', 'machine', 'publish'});
+      for (final entry in refusals.entries) {
+        expect(entry.value, isA<HostFilesRefused>(), reason: entry.key);
+      }
+    });
+  }
 
   // Harm: a name accepted for metadata cannot be uploaded or published under the same project.
   test('all own-account paths accept the same safe punctuation in project names', () async {
-    const project = 'demo+1';
+    const project = 'demo.v1_x-2';
     const folder = '/home/person/.local/share/porelo-host/setup/$project';
     HostFiles.checkName(project);
     expect(HostAct.ownAccount.setupPlace(project: project), '.local/share/porelo-host/setup/$project');

@@ -17,7 +17,7 @@ enum HostAct {
   String setupPlace({String? project}) {
     if (this != ownAccount) return '/etc/porelo-host/setup';
     final name = project ?? '';
-    checkHostFileName(name);
+    checkOwnAccountProjectName(name);
     return '$_ownAccountSetupPlace/$name';
   }
 }

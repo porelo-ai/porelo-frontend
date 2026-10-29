@@ -81,6 +81,9 @@ class HostFiles {
   /// Rejects traversal and option-like names on both supported desktops.
   static void checkName(String name) => checkHostFileName(name);
 
+  /// Refuses [name] as an own-account project name, as [checkOwnAccountProjectName] says.
+  static void checkProjectName(String name) => checkOwnAccountProjectName(name);
+
   /// Derives the public half from 32 standard-base64 bytes, as WireGuard does.
   static Future<String> publicKey(String privateKey) async {
     List<int> bytes;
@@ -361,7 +364,7 @@ class HostFiles {
     bool ownFolder = false,
     HostAct act = HostAct.legacyUp,
   }) async {
-    if (act == HostAct.ownAccount) checkName(project);
+    if (act == HostAct.ownAccount) checkProjectName(project);
     final name = act == HostAct.ownAccount ? projectBundleFileName : '$project.bundle';
     final target = File(destinationPath(folder, name));
     if (ownFolder) {
