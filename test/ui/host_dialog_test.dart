@@ -151,6 +151,17 @@ void main() {
     });
   }
 
+  void secretsCliPresent() {
+    final oldProbe = keepassxcCliThere;
+    final oldHere = keepassxcCliIsHere;
+    keepassxcCliThere = () => true;
+    keepassxcCliIsHere = true;
+    addTearDown(() {
+      keepassxcCliThere = oldProbe;
+      keepassxcCliIsHere = oldHere;
+    });
+  }
+
   tearDown(() => scratch.delete(recursive: true));
 
   for (final outcome in [
@@ -2247,11 +2258,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     var there = false;
+    final oldProbe = keepassxcCliThere;
+    final oldHere = keepassxcCliIsHere;
     keepassxcCliThere = () => there;
     keepassxcCliIsHere = false;
     addTearDown(() {
-      keepassxcCliIsHere = true;
-      keepassxcCliThere = () => true;
+      keepassxcCliIsHere = oldHere;
+      keepassxcCliThere = oldProbe;
     });
     final settings = newSettings(MemorySettingsStore());
     // A file of its own that is not there yet, never the person's own in their home.
@@ -2307,7 +2320,10 @@ void main() {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    secretsCliPresent();
     final settings = newSettings(MemorySettingsStore());
+    final secrets = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted file fixture');
+    await settings.rememberSecretsFile(secrets.path);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -2335,9 +2351,166 @@ void main() {
     expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
     expect(find.text('Ready: the file keeps the server’s keys.'), findsNothing);
 
+    File(fixture('other-secrets.kdbx')).writeAsStringSync('another encrypted file fixture');
     await tapAndRun(tester, const Key('host-secrets-open'));
     expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
     expect(settings.secretsFile, fixture('other-secrets.kdbx'));
+  });
+
+  // Harm: a changed or invalid file keeps the successful answer from its previous contents.
+  for (final change in ['deleted', 'replaced', 'link', 'directory']) {
+    hostWidgets('secrets readiness is invalidated when its file is $change', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      secretsCliPresent();
+      final settings = newSettings(MemorySettingsStore());
+      final secrets = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted file fixture');
+      await settings.rememberSecretsFile(secrets.path);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HostDialog(
+              project: 'demo',
+              settings: settings,
+              machines: machines,
+              hostRuns: runs,
+              hostFiles: filesFor,
+              checkKey: _acceptedKey,
+              openSecretsFile: _secretsOpened,
+            ),
+          ),
+        ),
+      );
+      await fillSteps(tester, {
+        'host-scaleway-project': 'project',
+        'host-signing-key': fixture('signing.pub'),
+      }, stopAt: 3);
+      await tapAndRun(tester, const Key('host-secrets-open'));
+      expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+      await tester.runAsync(() async {
+        await secrets.delete();
+        switch (change) {
+          case 'replaced':
+            await secrets.writeAsString('different encrypted file contents');
+          case 'link':
+            await Link(secrets.path).create(fixture('new'));
+          case 'directory':
+            await Directory(secrets.path).create();
+        }
+      });
+      // The step is drawn again as the person touches the field; typing the same text changes nothing to draw.
+      await tester.enterText(find.byKey(const Key('host-secrets-file')), '${secrets.path}x');
+      await tester.enterText(find.byKey(const Key('host-secrets-file')), secrets.path);
+      await World.settle(tester);
+      expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+      expect(find.text('Ready: the file keeps the server’s keys.'), findsNothing);
+    });
+  }
+
+  // Harm: a cached key for one server is presented as ready for another server's secrets.
+  hostWidgets('changing the server name invalidates secrets readiness', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    secretsCliPresent();
+    final settings = newSettings(MemorySettingsStore());
+    final secrets = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted file fixture');
+    await settings.rememberSecretsFile(secrets.path);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: '',
+            debug: false,
+            settings: settings,
+            machines: machines,
+            hostRuns: runs,
+            checkKey: _acceptedKey,
+            openSecretsFile: _secretsOpened,
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('host-scaleway-project')), 'project');
+    await World.settle(tester);
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-name')), 'orchard');
+    await World.settle(tester);
+    await navigate(tester, 'wizard-next');
+    await tester.enterText(find.byKey(const Key('host-identity')), fixture('default'));
+    await tester.enterText(find.byKey(const Key('host-public-key')), fixture('default.pub'));
+    await World.settle(tester);
+    await navigate(tester, 'wizard-next');
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+    await navigate(tester, 'wizard-back');
+    await navigate(tester, 'wizard-back');
+    await tester.enterText(find.byKey(const Key('host-name')), 'meadow');
+    await World.settle(tester);
+    await navigate(tester, 'wizard-next');
+    await navigate(tester, 'wizard-next');
+    expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+  });
+
+  // Harm: readiness claims that a newly selected vault entry is already in the secrets file.
+  hostWidgets('adding or changing a vault entry invalidates secrets readiness', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    secretsCliPresent();
+    final settings = newSettings(MemorySettingsStore());
+    final secrets = File(fixture('secrets.kdbx'))..writeAsStringSync('encrypted file fixture');
+    await settings.rememberSecretsFile(secrets.path);
+    var changeWhileOpening = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HostDialog(
+            project: 'demo',
+            settings: settings,
+            machines: machines,
+            hostRuns: runs,
+            hostFiles: filesFor,
+            checkKey: _acceptedKey,
+            openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) {
+              if (changeWhileOpening) File(keys.values.single).writeAsStringSync('changed while opening');
+              return _secretsOpened(file: file, project: project);
+            },
+            pickFile: (_) async => fixture('new'),
+          ),
+        ),
+      ),
+    );
+    await fillSteps(tester, {
+      'host-scaleway-project': 'project',
+      'host-signing-key': fixture('signing.pub'),
+    }, stopAt: 3);
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+    await navigate(tester, 'wizard-back');
+    await navigate(tester, 'wizard-back');
+    await tester.enterText(find.byKey(const Key('host-key-name')), 'extra');
+    await tester.ensureVisible(find.text('Choose a file for this vault entry'));
+    await tester.tap(find.text('Choose a file for this vault entry'));
+    await World.settle(tester);
+    await navigate(tester, 'wizard-next');
+    await navigate(tester, 'wizard-next');
+    expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+    changeWhileOpening = true;
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+    changeWhileOpening = false;
+    await tapAndRun(tester, const Key('host-secrets-open'));
+    expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
+    File(fixture('new')).writeAsStringSync('different vault entry contents');
+    // Touching the field draws the step again; the same text alone changes nothing to draw.
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), '${secrets.path}x');
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), secrets.path);
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
   });
 
   // Harm: the secrets file can be made and checked only by renting a server; or the person types the master password
@@ -2346,7 +2519,10 @@ void main() {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    secretsCliPresent();
     final settings = newSettings(MemorySettingsStore());
+    File(fixture('secrets.kdbx')).writeAsStringSync('encrypted file fixture');
+    await settings.rememberSecretsFile(fixture('secrets.kdbx'));
     await settings.rememberTresorFolder('demo', scratch.path);
     final opened = <String>[];
     final commands = <List<String>>[];

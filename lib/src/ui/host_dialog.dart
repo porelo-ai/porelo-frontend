@@ -234,9 +234,9 @@ class _HostDialogState extends State<HostDialog> {
 
   /// The host key's public half, once the secrets file was opened for this file; dropped when the file changes.
   String? _hostPublicKey;
-  ({String file, String drive, String keys})? _hostPublicKeyFor;
+  ({String file, String host, String drive, String keys})? _hostPublicKeyFor;
   bool _openingSecrets = false;
-  ({String file, String text, bool ready})? _secretsAnswer;
+  String? _secretsAnswer;
   final _keys = <HostKeyFile>[];
   final _scroll = ScrollController();
   final _protocolScroll = ScrollController();
@@ -1473,8 +1473,10 @@ class _HostDialogState extends State<HostDialog> {
               ),
             ),
             // Without keepassxc-cli the step says it once, above; an answer from before would say it twice.
-            if (_secretsAnswer case final answer? when keepassxcCliIsHere && answer.file == _secretsPath)
-              Text(answer.text, key: Key(answer.ready ? 'host-secrets-ready' : 'host-secrets-answer')),
+            if (_secretsAnswer case final answer? when keepassxcCliIsHere)
+              Text(answer, key: const Key('host-secrets-answer')),
+            if (keepassxcCliIsHere && _secretsReady)
+              const Text('Ready: the file keeps the server’s keys.', key: Key('host-secrets-ready')),
           ],
         ),
       ]),
@@ -1509,13 +1511,47 @@ class _HostDialogState extends State<HostDialog> {
   String? get _drivesKey =>
       _folder == null ? null : path.join(path.normalize(_folder!), 'porelo-host', 'wireguard.key');
 
+  Map<String, String> get _hostKeyFiles => {for (final key in _keys) key.name: key.file.absolute.path};
+
+  bool get _secretsReady =>
+      !_openingSecrets &&
+      _secretsAnswer == null &&
+      _secretsProblem == null &&
+      _secretsExist &&
+      _hostPublicKey != null &&
+      _hostPublicKeyFor == _hostKeyState(file: _secretsPath, host: _hostId, drive: _drivesKey, keys: _hostKeyFiles);
+
+  ({String file, String host, String drive, String keys}) _hostKeyState({
+    required String file,
+    required String host,
+    required String? drive,
+    required Map<String, String> keys,
+  }) {
+    String state(String? file) {
+      if (file == null) return 'none';
+      final stat = File(file).statSync();
+      return '$file ${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
+          '${stat.modified.microsecondsSinceEpoch} ${stat.changed.microsecondsSinceEpoch}';
+    }
+
+    return (
+      file: state(file),
+      host: host,
+      drive: state(drive),
+      keys: keys.entries.map((each) => '${each.key}=${state(each.value)}').join('\n'),
+    );
+  }
+
   /// The secrets file opened from its own step, before anything is rented: what the person sets up once.
   Future<void> _openSecretsNow() async {
-    final file = _secretsPath;
     // Looked at again on every press: one installed since the start counts at once, and none is said above.
     keepassxcCliIsHere = keepassxcCliThere();
     if (!keepassxcCliIsHere) {
-      setState(() => _secretsAnswer = null);
+      setState(() {
+        _secretsAnswer = null;
+        _hostPublicKey = null;
+        _hostPublicKeyFor = null;
+      });
       return;
     }
     setState(() {
@@ -1524,15 +1560,10 @@ class _HostDialogState extends State<HostDialog> {
     });
     try {
       await _hostKeyFromTheSecretsFile();
-      if (mounted) {
-        setState(() {
-          _secretsAnswer = (file: file, text: 'Ready: the file keeps the server’s keys.', ready: true);
-        });
-      }
     } on HostFilesRefused catch (refusal) {
-      if (mounted) setState(() => _secretsAnswer = (file: file, text: refusal.message, ready: false));
+      if (mounted) setState(() => _secretsAnswer = refusal.message);
     } on FormatException catch (refusal) {
-      if (mounted) setState(() => _secretsAnswer = (file: file, text: refusal.message, ready: false));
+      if (mounted) setState(() => _secretsAnswer = refusal.message);
     } finally {
       if (mounted) setState(() => _openingSecrets = false);
     }
@@ -1541,35 +1572,28 @@ class _HostDialogState extends State<HostDialog> {
   /// The host key's public half from the secrets file, opened once per file and kept for the setup that follows.
   Future<String> _hostKeyFromTheSecretsFile() async {
     final file = _secretsPath;
+    final host = _hostId;
     final drivesKey = _drivesKey;
     // Kept for this file and this drive only: another drive may hold a key that has to move first.
-    final keys = <String, String>{for (final key in _keys) key.name: key.file.absolute.path};
+    final keys = _hostKeyFiles;
     // A file changed or replaced since it was opened is taken again, never the key kept for the old one: the vault
     // entries' files, the secrets file itself, and a key the drive still holds.
-    String state(String? file) {
-      if (file == null) return 'none';
-      final stat = File(file).statSync();
-      return '$file ${FileSystemEntity.typeSync(file, followLinks: false)} ${stat.size} '
-          '${stat.modified.microsecondsSinceEpoch}';
-    }
-
-    ({String file, String drive, String keys}) asked() => (
-      file: state(file),
-      drive: state(drivesKey),
-      keys: keys.entries.map((each) => '${each.key}=${state(each.value)}').join('\n'),
-    );
-    if (_hostPublicKey != null && _hostPublicKeyFor == asked()) return _hostPublicKey!;
+    ({String file, String host, String drive, String keys}) asked() =>
+        _hostKeyState(file: file, host: host, drive: drivesKey, keys: keys);
+    final requested = asked();
+    if (_hostPublicKey != null && _hostPublicKeyFor == requested) return _hostPublicKey!;
     final open = widget.openSecretsFile ?? _openTheSecretsFile;
     final key = await open(
       file: file,
-      project: _hostId,
+      project: host,
       migrateKeyFrom: drivesKey != null && File(drivesKey).existsSync() ? drivesKey : null,
       keys: keys,
     );
     HostFiles.checkPublicKey(key);
     _hostPublicKey = key;
-    // As opening left them: it writes the secrets file and moves the drive's key, which asks nothing new.
-    _hostPublicKeyFor = asked();
+    // Opening changes the database and can move the drive key, but must not validate changes to source key files.
+    final opened = asked();
+    _hostPublicKeyFor = (file: opened.file, host: host, drive: opened.drive, keys: requested.keys);
     await widget.settings?.rememberSecretsFile(file);
     return key;
   }

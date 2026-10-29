@@ -3,22 +3,40 @@ import 'package:porelo_host/porelo_host.dart';
 import 'package:porelo_frontend/src/app/host_stop_feed.dart';
 
 void main() {
-  List<String> command(HostAct act, List<String> needs, {String? host}) => hostStopFeedCommand(
-    secretsFile: '/tmp/secrets.kdbx',
-    project: 'checkout',
-    secretsHost: 'orchard',
-    needs: needs,
-    keys: const ['forge'],
-    ssh: '/usr/bin/ssh',
-    sshOptions: const [],
-    host: host ?? (act == HostAct.root ? 'root@203.0.113.7' : 'developer@203.0.113.7'),
-    act: act,
-  );
+  List<String> command(HostAct act, List<String> needs, {String? host, List<String> sshOptions = const []}) =>
+      hostStopFeedCommand(
+        secretsFile: '/tmp/secrets.kdbx',
+        project: 'checkout',
+        secretsHost: 'orchard',
+        needs: needs,
+        keys: const ['forge'],
+        ssh: '/usr/bin/ssh',
+        sshOptions: sshOptions,
+        host: host ?? (act == HostAct.root ? 'root@203.0.113.7' : 'developer@203.0.113.7'),
+        act: act,
+      );
 
   // Harm: a person's project secrets are sent to root's stop.
   test('the own-account stop refuses a root login before composing a feed', () {
     expect(() => command(HostAct.ownAccount, ['vault', 'keys'], host: 'root@203.0.113.7'), throwsFormatException);
   });
+
+  // Harm: SSH options override the checked login and send project secrets to root.
+  for (final options in [
+    ['-l', 'root'],
+    ['-lroot'],
+    ['-o', 'User=root'],
+    ['-oUser=root'],
+    ['-o', 'uSeR = root'],
+    ['-ouSeR=root'],
+    ['-o', 'USER root'],
+    ['-l', 'developer'],
+    ['-o', 'User=developer'],
+  ]) {
+    test('the own-account stop refuses login override ${options.join(' ')}', () {
+      expect(() => command(HostAct.ownAccount, ['vault'], sshOptions: options), throwsFormatException);
+    });
+  }
 
   // Harm: a rental's normal login cannot complete the server's privileged stop.
   test('the root stop permits the rental login and uses noninteractive sudo', () {

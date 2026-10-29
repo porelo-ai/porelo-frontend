@@ -781,34 +781,21 @@ class HostRun {
     Map<String, ({String path, String digest})> files, {
     required HostAct act,
   }) async {
-    final own = act == HostAct.ownAccount;
+    if (act == HostAct.ownAccount) return _uploadOwnSetupFiles(address, user, files);
     final place = setupPlace(act);
-    final staging = own ? '$place.upload' : '$_workdir/setup';
-    final sudo = own ? '' : '/usr/bin/sudo ';
-    final owner = own ? '' : '-o root -g root ';
-    String onHost(String file) => own ? '"\$HOME"/${quoteForAShell(file)}' : quoteForAShell(file);
+    final staging = '$_workdir/setup';
+    const sudo = '/usr/bin/sudo ';
+    const owner = '-o root -g root ';
+    String onHost(String file) => quoteForAShell(file);
     String digestsIn(String folder) =>
-        [for (final entry in files.entries) '${entry.value.digest}  ${own ? '' : '$folder/'}${entry.key}\n'].join();
-    String checkIn(String folder) =>
-        own ? 'cd ${onHost(folder)} && /usr/bin/sha256sum -c -' : '/usr/bin/sha256sum -c -';
+        [for (final entry in files.entries) '${entry.value.digest}  $folder/${entry.key}\n'].join();
+    String checkIn(String folder) => '/usr/bin/sha256sum -c -';
     Future<int> refusedWithoutStaging(RemoteResult result, String fix) async {
       await remote.run(address, user, '/usr/bin/rm -rf ${onHost(staging)}');
       return _refused('copy', result, fix);
     }
 
-    final made = await remote.run(
-      address,
-      user,
-      own
-          ? [
-              for (final parent in ['.local', '.local/share', '.local/share/porelo-host'])
-                'test ! -L ${onHost(parent)} && '
-                    '{ test -d ${onHost(parent)} || /usr/bin/mkdir -m 0700 ${onHost(parent)}; }',
-              'test ! -e ${onHost(place)} && test ! -L ${onHost(place)}',
-              '/usr/bin/mkdir -m 0700 ${onHost(staging)}',
-            ].join(' && ')
-          : '/usr/bin/rm -rf $staging && /usr/bin/install -d -m 0700 $staging',
-    );
+    final made = await remote.run(address, user, '/usr/bin/rm -rf $staging && /usr/bin/install -d -m 0700 $staging');
     if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
     for (final entry in files.entries) {
       final copied = await remote.copy(address, user, entry.value.path, '$staging/${entry.key}');
@@ -822,18 +809,11 @@ class HostRun {
         'the setup files did not arrive as they were sent',
       );
     }
-    if (own) {
-      // An exclusive mkdir makes only this run's setup eligible for failure cleanup.
-      final reserved = await remote.run(address, user, '/usr/bin/mkdir -m 0700 ${onHost(place)}');
-      if (reserved.exitCode != 0) {
-        return refusedWithoutStaging(reserved, 'the host refused a new setup directory');
-      }
-    }
     final placed = await remote.run(
       address,
       user,
       [
-        if (!own) '$sudo/usr/bin/install -d -m 0700 $owner${onHost(place)}',
+        '$sudo/usr/bin/install -d -m 0700 $owner${onHost(place)}',
         for (final name in files.keys)
           '$sudo/usr/bin/install -m 0600 $owner${onHost('$staging/$name')} ${onHost('$place/$name')}',
       ].join(' && '),
@@ -858,6 +838,131 @@ class HostRun {
         'copy',
         RemoteResult(checked.exitCode, [...words, checked.stderr].where((line) => line.isNotEmpty).join('\n')),
         'the setup files did not stay as they were sent; they were removed',
+      );
+    }
+    return null;
+  }
+
+  Future<int?> _uploadOwnSetupFiles(
+    String address,
+    String user,
+    Map<String, ({String path, String digest})> files,
+  ) async {
+    final place = HostAct.ownAccount.setupPlace;
+    final parts = path.posix.split(place);
+    final parents = [for (var count = 1; count < parts.length; count++) path.posix.joinAll(parts.take(count))];
+    const checkedHome = r'''setup_home=${HOME-}
+case "$setup_home" in /*) ;; *) echo 'The host home must be an absolute directory.' >&2; exit 1;; esac
+while [[ "$setup_home" != / && "$setup_home" == */ ]]; do setup_home=${setup_home%/}; done
+case "$setup_home/" in *'/../'*|*'/./'*|*$'\n'*|*$'\r'*) echo 'The host home is not a plain absolute path.' >&2; exit 1;; esac
+test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is missing or a link.' >&2; exit 1; }
+''';
+    String underHome(String name) => '"\$setup_home"/${quoteForAShell(name)}';
+    final lines = <String>[];
+    final made = await remote.run(
+      address,
+      user,
+      [
+        checkedHome,
+        for (final parent in parents)
+          'test ! -L ${underHome(parent)} && '
+              '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
+        'test ! -e ${underHome(place)} && test ! -L ${underHome(place)} || exit 1',
+        '/usr/bin/mkdir -m 0700 ${underHome('$place.upload')} || exit 1',
+        r'''printf '%s\n' "$setup_home"''',
+      ].join('\n'),
+      onLine: lines.add,
+    );
+    if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
+    if (lines.length != 1 || !path.posix.isAbsolute(lines.single) || lines.single.contains('\x00')) {
+      return _refused(
+        'copy',
+        const RemoteResult(1, 'The host did not report one absolute home.'),
+        'the host home was not checked',
+      );
+    }
+    final home = lines.single;
+    final destination = path.posix.join(home, place);
+    final staging = '$destination.upload';
+    String q(String name) => quoteForAShell(name);
+    String plainDirectory(String name) => 'test -d ${q(name)} && test ! -L ${q(name)}';
+    final safe = [
+      for (final folder in [home, ...parents.map((parent) => path.posix.join(home, parent))]) plainDirectory(folder),
+    ].join(' && ');
+    final prefix = '$checkedHome\ntest "\$setup_home" = ${q(home)} || exit 1\nsafe() { $safe; }';
+    final removeStaging =
+        'if safe && ${plainDirectory(staging)}; then\n'
+        '  /usr/bin/rm -f -- ${files.keys.map((name) => q('$staging/$name')).join(' ')} && '
+        '/usr/bin/rmdir -- ${q(staging)}\n'
+        'else echo ${q('Cannot safely clean staging at $staging.')} >&2; return 1; fi';
+    Future<int> refused(RemoteResult result, String fix) async {
+      final cleaned = await remote.run(address, user, '$prefix\nclean_staging() { $removeStaging; }\nclean_staging');
+      return _refused(
+        'copy',
+        RemoteResult(result.exitCode, [result.stderr, cleaned.stderr].where((line) => line.isNotEmpty).join('\n')),
+        fix,
+      );
+    }
+
+    for (final file in files.entries) {
+      final copied = await remote.copy(address, user, file.value.path, '$staging/${file.key}');
+      if (copied.exitCode != 0) return refused(copied, 'the setup files could not be copied');
+    }
+    final digests = [for (final file in files.entries) '${file.value.digest}  ${file.key}\n'].join();
+    lines.clear();
+    final arrived = await remote.run(
+      address,
+      user,
+      '$prefix\nsafe && ${plainDirectory(staging)} && cd -- ${q(staging)} && /usr/bin/sha256sum -c -',
+      input: digests,
+      onLine: lines.add,
+    );
+    if (arrived.exitCode != 0) {
+      return refused(
+        RemoteResult(arrived.exitCode, [...lines, arrived.stderr].where((line) => line.isNotEmpty).join('\n')),
+        'the setup files did not arrive as they were sent',
+      );
+    }
+    lines.clear();
+    final placed = await remote.run(
+      address,
+      user,
+      [
+        'set -e',
+        prefix,
+        'reserved=0',
+        'installed=()',
+        'clean_staging() { $removeStaging; }',
+        'cleanup() {',
+        '  result=\$?; trap - EXIT',
+        '  if [ "\$result" -ne 0 ] && [ "\$reserved" = 1 ]; then',
+        '    if safe && ${plainDirectory(destination)}; then',
+        '      for name in "\${installed[@]}"; do /usr/bin/rm -f -- ${q(destination)}/"\$name" || result=1; done',
+        '      /usr/bin/rmdir -- ${q(destination)} || result=1',
+        '    else echo ${q('Cannot safely clean setup at $destination.')} >&2; result=1; fi',
+        '  fi',
+        '  clean_staging || result=1',
+        '  exit "\$result"',
+        '}',
+        'trap cleanup EXIT',
+        'safe && ${plainDirectory(staging)} || exit 1',
+        '/usr/bin/mkdir -m 0700 ${q(destination)}',
+        'reserved=1',
+        'safe && ${plainDirectory(staging)} && ${plainDirectory(destination)} || exit 1',
+        for (final name in files.keys) ...[
+          'installed+=(${q(name)})',
+          '/usr/bin/install -m 0600 ${q('$staging/$name')} ${q('$destination/$name')}',
+        ],
+        'cd -- ${q(destination)} && /usr/bin/sha256sum -c -',
+      ].join('\n'),
+      input: digests,
+      onLine: lines.add,
+    );
+    if (placed.exitCode != 0) {
+      return _refused(
+        'copy',
+        RemoteResult(placed.exitCode, [...lines, placed.stderr].where((line) => line.isNotEmpty).join('\n')),
+        'the setup files could not be checked and placed',
       );
     }
     return null;

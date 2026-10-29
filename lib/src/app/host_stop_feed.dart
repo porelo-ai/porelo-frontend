@@ -63,6 +63,19 @@ List<String> hostStopFeedCommand({
   if (act == HostAct.ownAccount && host.startsWith('root@')) {
     throw const FormatException('The own-account stop needs the person\'s login, never root.');
   }
+  if (act == HostAct.ownAccount) {
+    for (var index = 0; index < sshOptions.length; index++) {
+      final option = sshOptions[index];
+      final value = option == '-o' && index + 1 < sshOptions.length
+          ? sshOptions[++index]
+          : option.startsWith('-o')
+          ? option.substring(2)
+          : '';
+      if (option.startsWith('-l') || RegExp(r'^\s*user(?:\s|=|$)', caseSensitive: false).hasMatch(value)) {
+        throw const FormatException('The own-account stop refuses SSH options that change the login.');
+      }
+    }
+  }
   // The project reaches this computer's Porelo as a word of its own, never as an option.
   if (matrix && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
     throw FormatException('The project $project is not one this computer can let a host in for.');
