@@ -237,9 +237,7 @@ void main() {
       expect(commands, isEmpty, reason: 'a provider step without exit zero cannot authorize VPN teardown');
       process.end(0);
       await World.settle(tester);
-      if (outcome == 'already down') {
-        expect(commands, isEmpty, reason: 'an absent tunnel must not open a sudo terminal');
-      } else if (probeRefused) {
+      if (probeRefused) {
         expect(commands, isEmpty, reason: 'an unreadable link cannot authorize a sudo command');
         expect(
           find.byKey(const Key('vpn-problem')),
@@ -268,7 +266,7 @@ void main() {
           await World.settle(tester);
           await tester.tap(find.byKey(const Key('unlock-cancel-yes')));
         } else {
-          linkUp = outcome != 'down';
+          linkUp = outcome != 'down' && outcome != 'already down';
           probeRefused = outcome == 'recheck refused';
           terminal.endsWith(outcome == 'terminal failed' ? 65 : 0);
           await World.settle(tester);
@@ -336,23 +334,19 @@ void main() {
         expect(action, findsOneWidget, reason: 'a forgotten server still needs an executable cleanup action');
         await tester.tap(action);
         await World.settle(tester);
-        if (linkUp) {
-          expect(commands.skip(beforeRetry), [
-            hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0'),
-          ], reason: 'Needs you must retry local teardown rather than bring the VPN back up');
-          expect(
-            attention.openRows.where((row) => row.kind == AttentionKind.vpnCleanup),
-            hasLength(1),
-            reason: 'opening the terminal cannot resolve cleanup before its effect is measured',
-          );
-          linkUp = false;
-          retryTerminal.endsWith(0);
-          await World.settle(tester);
-          await tester.tap(find.byKey(const Key('unlock-done')));
-          await World.settle(tester);
-        } else {
-          expect(commands.length, beforeRetry, reason: 'a retry with the link already gone must not ask for sudo');
-        }
+        expect(commands.skip(beforeRetry), [
+          hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0'),
+        ], reason: 'cleanup must remove persistent names and trust even when the link has already gone');
+        expect(
+          attention.openRows.where((row) => row.kind == AttentionKind.vpnCleanup),
+          hasLength(1),
+          reason: 'opening the terminal cannot resolve cleanup before its effect is measured',
+        );
+        linkUp = false;
+        retryTerminal.endsWith(0);
+        await World.settle(tester);
+        await tester.tap(find.byKey(const Key('unlock-done')));
+        await World.settle(tester);
         expect(providerCalls, 1, reason: 'retrying VPN cleanup must never give the server back a second time');
         linkUp = false;
         expect(

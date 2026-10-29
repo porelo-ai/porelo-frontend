@@ -6,6 +6,75 @@ import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
+  // Losing a billed server's record also loses its teardown and recovery actions.
+  test('project-mode host records retain uppercase dots and underscores on reload', () async {
+    for (final project in ['Upper', 'with.dot', 'under_score']) {
+      final record = HostUpRecord(
+        host: project,
+        scalewayProject: 'provider',
+        account: 'worker',
+        tresor: '',
+        folder: null,
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public.pub',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+      );
+      final store = MemorySettingsStore({
+        'hostUps': {project: record.stored},
+      });
+      final settings = Settings(store);
+      await settings.load();
+      expect(settings.hostUp(project)?.stored, record.stored);
+      await settings.rememberHostUp(project, record);
+      final reopened = Settings(store);
+      await reopened.load();
+      expect(reopened.hostUp(project)?.stored, record.stored);
+      settings.dispose();
+      reopened.dispose();
+    }
+  });
+
+  // Conflicting migrations must not prevent startup or erase either billed server record.
+  test('conflicting host folders preserve both records and the remaining settings', () async {
+    final record = HostUpRecord(
+      scalewayProject: 'provider',
+      account: 'worker',
+      tresor: '',
+      folder: null,
+      setupFolder: '/config/hosts/shared',
+      signingKey: '',
+      identity: '/keys/private',
+      publicKey: '/keys/public.pub',
+      collection: '',
+      vpnPeerPublicKey: '',
+      vpnPeerAddress: '',
+    );
+    final store = MemorySettingsStore({
+      'hostUps': {'one': record.stored, 'two': record.stored},
+      'machines': [
+        {'name': 'one server', 'kind': 'host', 'socket': '/unused', 'hostProject': 'one'},
+      ],
+      'templates': [
+        {'name': 'kept'},
+      ],
+      'forges': ['kept'],
+    });
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.load();
+    expect(settings.hostUps.keys, ['one', 'two']);
+    expect(settings.hostUp('one')?.stored, record.stored);
+    expect(settings.hostUp('two')?.stored, record.stored);
+    expect((await settings.machines()).single.hostProject, 'one');
+    expect(await settings.templates(), [
+      {'name': 'kept'},
+    ]);
+    expect((await store.read())['forges'], ['kept']);
+  });
+
   // Harm: losing a legacy host record strands teardown, while mistyped fields can redirect root actions.
   test('legacy setup records move once to their host and reject malformed VPN metadata', () async {
     final legacy = <String, Object?>{
@@ -23,10 +92,22 @@ void main() {
     };
     final store = MemorySettingsStore({
       'hostUps': {'old-project': legacy},
+      'machines': [
+        {'name': 'server', 'kind': 'host', 'socket': '/unused', 'hostProject': 'old-project'},
+        {'name': 'other', 'kind': 'host', 'socket': '/other', 'hostProject': 'untouched'},
+      ],
     });
     final settings = Settings(store);
     await settings.load();
     expect(settings.hostUp('first')?.account, 'worker');
+    final savedMachines = (await store.read())['machines'] as List;
+    expect(
+      (savedMachines.first as Map)['hostProject'],
+      'first',
+      reason: 'host actions must still find the migrated record',
+    );
+    expect((savedMachines.last as Map)['hostProject'], 'untouched');
+    expect((await settings.machines()).first.hostProject, 'first');
     expect(settings.hostUp('first')?.vpnNetworkNumber, 0);
     expect(settings.hostUp('first')?.vpnInterface, 'porelo');
     expect(
@@ -36,6 +117,7 @@ void main() {
     final reopened = Settings(store);
     await reopened.load();
     expect(reopened.hostUp('first')?.stored, settings.hostUp('first')?.stored);
+    expect((await reopened.machines()).first.hostProject, 'first');
     for (final field in ['host', 'vpnNetworkNumber', 'vpnInterface']) {
       for (final bad in <Object?>[null, true, [], {}, -1, 256, 'bad;value']) {
         expect(HostUpRecord.fromStored({...legacy, field: bad}), isNull, reason: '$field must be checked');

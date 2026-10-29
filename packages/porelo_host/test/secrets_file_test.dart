@@ -21,8 +21,8 @@ void main() {
   const publicKeyOut = '/home/person/.local/state/porelo-frontend/host-checkout.pub';
 
   // Invalid host names must never select another group or inject commands into a terminal.
-  test('refuses host names outside a DNS label before building an entry path', () {
-    for (final host in ['', 'UPPER', 'under_score', 'with.dot', '-first', 'last-', 'a/b', 'a\nb', 'a' * 64]) {
+  test('refuses unsafe host entry names before building an entry path', () {
+    for (final host in ['', '-first', 'a/b', 'a\nb', 'a;id', '..', '.hidden']) {
       for (final build in <void Function()>[
         () => SecretsFile.hostKey(host),
         () => SecretsFile.forgeCaKey(host),
@@ -34,7 +34,7 @@ void main() {
         expect(build, throwsA(isA<HostFilesRefused>()), reason: host);
       }
     }
-    for (final host in ['a', '0', 'rented-box', 'a' * 63]) {
+    for (final host in ['a', '0', 'rented-box', 'UPPER', 'under_score', 'with.dot', 'last-', 'a' * 64]) {
       expect(SecretsFile.hostKey(host), 'hosts/$host/wireguard');
     }
   });
@@ -600,6 +600,31 @@ void main() {
       'shared/forge-ca': 'hosts/checkout/forge-ca',
     };
 
+    Future<Map<String, String>> legacyCa() async {
+      final key = await openssl(['genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256']);
+      final cert = await openssl([
+        'req',
+        '-x509',
+        '-new',
+        '-key',
+        '/dev/stdin',
+        '-subj',
+        '/CN=Porelo forge CA',
+        '-days',
+        '3650',
+        '-addext',
+        'basicConstraints=critical,CA:TRUE,pathlen:0',
+        '-addext',
+        'keyUsage=critical,keyCertSign,cRLSign',
+        '-addext',
+        'nameConstraints=critical,permitted;DNS:porelo.internal,permitted;IP:10.73.0.0/255.255.255.0',
+      ], input: key);
+      return {
+        'shared/forge-ca-key': base64Encode(utf8.encode(key)),
+        'shared/forge-ca': base64Encode(utf8.encode(cert)),
+      };
+    }
+
     Future<Map<String, String>> legacyFile(String kdbx) async {
       await cliIn(kdbx, ['db-create', '-p', kdbx], 'test-master', then: 'test-master');
       for (final group in ['hosts', 'hosts/checkout', 'hosts/checkout/keys', 'hosts/other', 'shared']) {
@@ -610,12 +635,97 @@ void main() {
         'hosts/checkout/wireguard': base64Encode(List<int>.filled(32, 7)),
         'hosts/other/vault-passphrase': 'other-project-fixture',
         'shared/forge-central-token': 'central-token-fixture',
+        ...await legacyCa(),
       };
       for (final entry in values.entries) {
         await cliIn(kdbx, ['add', '-p', kdbx, entry.key], 'test-master', then: entry.value);
       }
       return values;
     }
+
+    // A migrated CA must never sign a leaf outside its permitted network.
+    test('a migrated CA signs only on its original permitted network', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final original = await legacyFile(kdbx);
+      final requests = '${await certificateRequest()}${await certificateRequest()}';
+      final caout = path.join(home.path, 'public-ca.pem');
+      final refused = await run(
+        SecretsFile(
+          kdbx,
+          cli: cli,
+        ).stopLines(host: 'checkout', project: 'checkout', needs: ['forge-certificate'], networkNumber: 7),
+        'test-master',
+        environment: {'request': requests, 'caout': caout},
+      );
+      expect(refused.exitCode, isNot(0), reason: 'the old CA cannot permit network 7');
+      expect(refused.stdout, isEmpty, reason: 'no invalid certificate reaches the host');
+      expect(refused.stderr, contains('remove the old entries so a new CA is made'));
+      expect(await File(caout).exists(), isFalse);
+      final blocks = certificates(
+        await run(
+          SecretsFile(kdbx, cli: cli).stopLines(host: 'checkout', project: 'checkout', needs: ['forge-certificate']),
+          'test-master',
+          environment: {'request': requests},
+        ),
+      );
+      expect(base64Encode(utf8.encode('${blocks.last}\n')), original['shared/forge-ca']);
+      await File(path.join(home.path, 'legacy-ca.pem')).writeAsString(blocks.last);
+      for (var i = 0; i < 2; i++) {
+        await File(path.join(home.path, 'leaf.pem')).writeAsString(blocks[i]);
+        expect(
+          await openssl(['verify', '-no-CApath', '-no-CAstore', '-CAfile', 'legacy-ca.pem', 'leaf.pem']),
+          contains('OK'),
+        );
+      }
+    }, skip: skip);
+
+    // Legacy project identifiers must retain their host key and teardown identity.
+    test('project-mode secrets accept uppercase dots and underscores', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'host.pub');
+      for (final project in ['Upper', 'with.dot', 'under_score']) {
+        final prepared = await run(
+          SecretsFile(
+            kdbx,
+            cli: cli,
+          ).prepareHost(host: project, project: project, create: !File(kdbx).existsSync(), publicKeyOut: out),
+          'm',
+          twice: !File(kdbx).existsSync(),
+        );
+        expect(prepared.exitCode, 0, reason: '${prepared.stderr}');
+        expect(await entryExists(kdbx, 'hosts/$project/wireguard', 'm'), isTrue);
+        expect(await entryExists(kdbx, 'projects/$project/vault-passphrase', 'm'), isTrue);
+      }
+    }, skip: skip);
+
+    // Server administration must not create or move secrets belonging to an unrelated project.
+    test('server-only preparation and stops leave project secrets untouched', () async {
+      final kdbx = path.join(home.path, 'secrets.kdbx');
+      final out = path.join(home.path, 'host.pub');
+      final fresh = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(host: 'checkout', project: '', create: true, publicKeyOut: out),
+        'm',
+        twice: true,
+      );
+      expect(fresh.exitCode, 0, reason: '${fresh.stderr}');
+      expect(await entryExists(kdbx, 'projects/checkout/vault-passphrase', 'm'), isFalse);
+      await File(kdbx).delete();
+      final values = await legacyFile(kdbx);
+      final prepared = await run(
+        SecretsFile(kdbx, cli: cli).prepareHost(host: 'checkout', project: '', create: false, publicKeyOut: out),
+        'test-master',
+      );
+      expect(prepared.exitCode, 0, reason: '${prepared.stderr}');
+      final stopped = await run(
+        SecretsFile(kdbx, cli: cli).stopLines(host: 'checkout', project: '', needs: ['wireguard']),
+        'test-master',
+      );
+      expect(stopped.exitCode, 0, reason: '${stopped.stderr}');
+      for (final source in moves.keys.where((name) => name.startsWith('hosts/'))) {
+        expect(await show(kdbx, source, 'test-master'), values[source]);
+        expect(await entryExists(kdbx, moves[source]!), isFalse);
+      }
+    }, skip: skip);
 
     // Moving names must preserve every value, including keys the current stop does not request.
     test('moves every legacy value once and leaves the database unchanged on a second stop', () async {

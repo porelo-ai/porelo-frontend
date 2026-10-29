@@ -111,7 +111,6 @@ void main() {
         debug: false,
         secretStore: MemorySecrets(),
         checkKey: (_, _) async => HostProcess()..end(0),
-        openSecretsFile: ({required file, required project, migrateKeyFrom, keys = const {}}) async => wireGuardKey,
         start: (_, arguments) async {
           commands.add(List.of(arguments));
           return process;
@@ -135,18 +134,61 @@ void main() {
     await tester.enterText(find.byKey(const Key('host-identity')), '${scratch.path}/rental');
     await tester.enterText(find.byKey(const Key('host-public-key')), '${scratch.path}/rental.pub');
     await next(tester);
-    await tester.enterText(find.byKey(const Key('host-secrets-file')), '${scratch.path}/secrets.kdbx');
+    final secretsPath = '${scratch.path}/secrets.kdbx';
+    await tester.enterText(find.byKey(const Key('host-secrets-file')), secretsPath);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('host-secrets-open')));
+    await World.settle(tester);
+    for (var i = 0; i < 100 && terminals.isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+    expect(terminals, hasLength(1), reason: 'the real secrets preparation must open its terminal');
+    final secretsTerminal = terminals.single;
+    final prepared = await tester.runAsync(() async {
+      final command = secretsTerminal.command;
+      final child = await Process.start(command.first, command.skip(1).toList());
+      final stdout = child.stdout.transform(utf8.decoder).join();
+      final stderr = child.stderr.transform(utf8.decoder).join();
+      child.stdin.write('fixture-master\nfixture-master\n');
+      await child.stdin.close();
+      return ProcessResult(child.pid, await child.exitCode, await stdout, await stderr);
+    });
+    expect(prepared!.exitCode, 0, reason: '${prepared.stderr}');
+    secretsTerminal.endsWith(0);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-done')));
+    await World.settle(tester);
+    // Closing the terminal precedes reading its public result and removing its temporary directory.
+    for (var i = 0; i < 100 && settings.secretsFile != secretsPath; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+    expect(settings.secretsFile, secretsPath, reason: 'public-key readback must finish before setup starts');
+    final listing = await tester.runAsync(() async {
+      final child = await Process.start(SecretsFile.keepassxcCli, ['ls', '-R', secretsPath]);
+      final stdout = child.stdout.transform(utf8.decoder).join();
+      final stderr = child.stderr.transform(utf8.decoder).join();
+      child.stdin.writeln('fixture-master');
+      await child.stdin.close();
+      return ProcessResult(child.pid, await child.exitCode, await stdout, await stderr);
+    });
+    expect(listing!.exitCode, 0, reason: '${listing.stderr}');
+    expect(listing.stdout, contains('orchard/'));
+    expect(listing.stdout, contains('wireguard'));
+    expect(listing.stdout, isNot(contains('projects/')));
+    expect(listing.stdout, isNot(contains('vault-passphrase')));
+    terminals.clear();
     await next(tester);
     expect(find.byKey(const Key('host-signing-key')), findsNothing);
     expect(commands, isEmpty, reason: 'renting needs the review decision');
     await tester.tap(find.byKey(const Key('host-up')));
     await tester.pump();
-    await tester.runAsync(() async {
-      for (var i = 0; i < 20 && commands.isEmpty; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
-    await World.settle(tester);
+    for (var i = 0; i < 100 && commands.isEmpty && terminals.isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await World.settle(tester);
+    }
+    expect(terminals, isEmpty, reason: 'setup must reuse the public key read from the completed secrets terminal');
     expect(commands, hasLength(1));
     expect(
       commands.single,
@@ -197,6 +239,8 @@ void main() {
     final script = terminals.single.command.last;
     expect(script, contains('root@203.0.113.7'));
     expect(script, contains('hosts/orchard/wireguard'));
+    expect(script, isNot(contains('projects/orchard/')));
+    expect(script, isNot(contains('hosts/orchard/vault-passphrase')));
     expect(script, contains('hosts/orchard/forge-ca'));
     expect(script, contains('permitted;IP:10.73.7.0/255.255.255.0'));
     expect(script, contains('DNS:forge.orchard.porelo.internal,IP:10.73.7.1'));
@@ -207,6 +251,64 @@ void main() {
     }
     terminals.single.endsWith(75);
     await World.settle(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // An asynchronous VPN refresh must complete cleanup for the server actually given back.
+  testWidgets('server-only give-back observes its host VPN refresh', (tester) async {
+    var linkUp = true;
+    runs.dispose();
+    runs = HostRuns(machines, probeLink: () async => linkUp, ping: () async => false);
+    final record = HostUpRecord(
+      host: 'orchard',
+      hostName: 'orchard',
+      scalewayProject: 'provider',
+      account: 'root',
+      tresor: '',
+      folder: null,
+      signingKey: '',
+      identity: '${scratch.path}/rental',
+      publicKey: '${scratch.path}/rental.pub',
+      collection: '',
+      vpnPeerPublicKey: '',
+      vpnPeerAddress: '',
+      vpnNetworkNumber: 7,
+      vpnInterface: 'porelo-7',
+    );
+    await settings.rememberHostUp('orchard', record);
+    final process = HostProcess();
+    final run = HostPreparation(
+      project: 'orchard',
+      record: record,
+      session: HostSession(executable: 'fake', arguments: record.arguments('orchard'), start: (_, _) async => process),
+    );
+    final terminal = FakeTerminal([]);
+    await frame(
+      tester,
+      HostDialog(
+        project: '',
+        existingRun: run,
+        machines: machines,
+        settings: settings,
+        hostRuns: runs,
+        takeDownOnly: true,
+        openTerminal: (_, _, {columns = 80, rows = 24}) => terminal,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('host-down')));
+    await World.settle(tester);
+    process.line(const Step('give-back', StepState.done, address: '203.0.113.7'));
+    process.end(0);
+    await World.settle(tester);
+    terminal.endsWith(65);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-done')));
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-done')), findsNothing);
+    linkUp = false;
+    await runs.refreshVpns();
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-done')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

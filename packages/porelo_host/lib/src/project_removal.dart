@@ -34,7 +34,11 @@ List<String> projectRemovalFeedCommand({
     'umask 077',
     'set -o pipefail',
     "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
-    '(\n${secretsFile.projectRemovalTokenLine()}\n) | $command > $answer 2> $refusal',
+    '/usr/bin/stty -echo 2>/dev/null || true',
+    // Local validation must finish before the destructive helper can receive tokenless input.
+    'removal_token="\$(\n${secretsFile.projectRemovalTokenLine()}\n)" || exit \$?',
+    r'''{ if [ -n "$removal_token" ]; then printf '%s\n' "$removal_token"; fi; } | '''
+        '$command > $answer 2> $refusal',
     r'result=$?',
     '/usr/bin/cat -- $answer',
     '/usr/bin/cat -- $refusal >&2',

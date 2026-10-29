@@ -22,6 +22,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Project removal validates the secrets file and optional central token before starting the remote helper.
+- Recovery actions in Machines use the desktop terminal opener for local VPN cleanup.
+- Server-only preparation keeps project secrets and this account's homeserver private; migrated CAs refuse
+  signing outside their permitted network, and forge password terminals hide input before starting SSH.
+- Stored project-mode server identities remain usable, conflicting migrations preserve their records,
+  and migrated machine references keep their host actions available.
+- VPN cleanup removes persistent names and trust after reboot, recreated hosts replace their old addresses,
+  and Firefox's managed trust policy follows the installed host certificates.
 - Each host keeps its own forge and homeserver CA, constrained to its name and VPN network. Certificate setup
   accepts exactly two verified requests and sends both service certificates followed by that host's CA.
 - A task's terminal says above its screen when the task was started, and its tile says *started HH:MM*, so what its

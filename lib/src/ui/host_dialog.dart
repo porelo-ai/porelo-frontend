@@ -723,7 +723,7 @@ class _HostDialogState extends State<HostDialog> {
   void _sessionChanged() {
     if (!mounted) return;
     _keepProtocolPosition();
-    if (_givenBack && widget.hostRuns?.vpnLinkFor(widget.project) == false) {
+    if (_givenBack && widget.hostRuns?.vpnLinkFor(_hostId) == false) {
       _vpnDownConfirmed = true;
       _vpnProblem = null;
     }
@@ -1599,7 +1599,7 @@ class _HostDialogState extends State<HostDialog> {
       final out = path.join(folder.path, '$project.pub');
       final script = SecretsFile(file).prepareHost(
         host: project,
-        project: project,
+        project: _serverOnly ? '' : widget.project,
         create: !File(file).existsSync(),
         publicKeyOut: out,
         migrateKeyFrom: migrateKeyFrom,

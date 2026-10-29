@@ -51,7 +51,7 @@ Future<void> openPreparationVpn(
   }
   // The VPN's address exists now: the host's tasks reach the room on this computer's own homeserver. Said after the
   // VPN's own outcome, which waits on neither the transport nor this dialog.
-  if (runs.homeserver case final homeserver? when verified) {
+  if (runs.homeserver case final homeserver? when verified && run.record.hostName.isEmpty) {
     final peer = settings.hostUp(run.project)?.vpnPeerAddress ?? run.record.vpnPeerAddress;
     final outcome = await homeserver.publish(peer);
     if (outcome != null && context.mounted) {
@@ -140,7 +140,6 @@ Future<bool> openHostVpnDialog(
     // Other platforms retain their existing preparation refusal and terminal command.
     if (linux ?? Platform.isLinux) {
       final linkUp = await (probeLink ?? () => probeHostVpnLink(interface: interface, host: host))();
-      if (!up && !linkUp) return false;
       // Setup needs an expected peer's fresh receipt; a shared VPN address cannot prove its identity.
       if (up && linkUp && !requireFreshHandshake && await (ping ?? () => pingHostVpn(networkNumber: network))()) {
         return false;

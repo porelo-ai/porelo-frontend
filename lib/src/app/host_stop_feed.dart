@@ -51,7 +51,7 @@ List<String> hostStopFeedCommand({
     if (fed.isNotEmpty)
       SecretsFile(secretsFile, cli: cli).stopLines(
         host: secretsHost ?? project,
-        project: project,
+        project: serverOnly ? '' : project,
         needs: fed,
         keys: fed.contains('keys') ? keys : const [],
         networkNumber: networkNumber,
@@ -151,7 +151,14 @@ List<String> hostForgePasswordFeedCommand({
   }
   final feed = SecretsFile(secretsFile, cli: cli).forgePasswordLine();
   final pipe = [ssh, ...sshOptions, '-T', '--', host, '/usr/bin/sudo -n /usr/local/bin/porelo-host-forge-password'];
-  return _inACleanBash('set -o pipefail\n{\n$feed\n} | ${pipe.map(quoteForAShell).join(' ')}');
+  return _inACleanBash(
+    [
+      '/usr/bin/stty -echo 2>/dev/null || true',
+      "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
+      'set -o pipefail',
+      '{\n$feed\n} | ${pipe.map(quoteForAShell).join(' ')}',
+    ].join('\n'),
+  );
 }
 
 // Neither the caller's startup files nor an inherited trace may run in the shell that holds the secrets.

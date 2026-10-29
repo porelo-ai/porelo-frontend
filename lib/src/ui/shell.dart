@@ -2783,6 +2783,7 @@ class _ShellState extends State<Shell> {
       hostCommands: _hostCommands,
       hostRuns: _hostRuns,
       onHostProtocol: (run) => unawaited(_openHostRun(run)),
+      openTerminal: widget.sessions.openTerminal,
       onAdd: _addAMachine,
       onDetails: (machine) {
         widget.machines.select(machine);

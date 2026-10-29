@@ -47,14 +47,8 @@ class SecretsFile {
     return 'projects/$project/vault-passphrase';
   }
 
-  /// Refuses a host name that is not a lowercase DNS label.
-  static void checkHost(String host) {
-    if (!RegExp(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$').hasMatch(host)) {
-      throw const HostFilesRefused(
-        'A host name has 1 to 63 lowercase letters, digits or hyphens, with a letter or digit at each end.',
-      );
-    }
-  }
+  /// Refuses unsafe entry identifiers while retaining legacy project names as host keys.
+  static void checkHost(String host) => _checkProject(host);
 
   /// Refuses a path a shell would read as more than one quoted word.
   static void checkPath(String value) {
@@ -177,7 +171,12 @@ done
     r'''else''',
     r'''  cakey="$(printf '%s' "$cakey64" | /usr/bin/base64 -d)"; ca="$(printf '%s' "$ca64" | /usr/bin/base64 -d)"''',
     r'''fi''',
-    r'''unset cakey64 ca64''',
+    // A migrated CA keeps its original subnet and must not sign for a newly selected one.
+    r'''constraints="$(printf '%s\n' "$ca" | /usr/bin/openssl x509 -noout -ext nameConstraints 2>/dev/null)"''',
+    r'''permitted_networks="$(printf '%s\n' "$constraints" | /usr/bin/awk '$1 == "Permitted:" { permitted=1; next } $1 == "Excluded:" { permitted=0 } permitted && $1 ~ /^IP:/ { print $1 }')"''',
+    "if [ -n \"\$permitted_networks\" ] && [[ \$'\\n'\"\$permitted_networks\"\$'\\n' != *\$'\\n'\"IP:10.73.$networkNumber.0/255.255.255.0\"\$'\\n'* ]]; then "
+        'echo "The kept CA does not permit this host network; remove the old entries so a new CA is made. Nothing was sent." >&2; exit 1; fi',
+    r'''unset cakey64 ca64 constraints permitted_networks''',
     _signRequest(networkNumber, 0, forgeName(host), 'forgecert'),
     _signRequest(networkNumber, 1, 'matrix.$host.porelo.internal', 'matrixcert'),
     r'''eforge="$(printf '%s\n%s\n%s\n' "$forgecert" "$matrixcert" "$ca" | /usr/bin/base64 -w0)"''',
@@ -214,7 +213,11 @@ done
   }) {
     checkHost(host);
     checkNetworkNumber(networkNumber);
-    _checkProject(project);
+    if (project.isNotEmpty) _checkProject(project);
+    if (project.isEmpty &&
+        (needs.any((need) => need != 'wireguard' && need != 'forge-certificate') || keys.isNotEmpty)) {
+      throw const FormatException('Project secrets require a project name.');
+    }
     if (needs.isEmpty) throw const FormatException('The host asked for nothing the secrets file gives.');
     for (final need in needs) {
       if (!stopNeeds.contains(need)) {
@@ -329,10 +332,17 @@ done
     // The sentinel preserves entry line breaks so a malformed value cannot become a different token.
     'if token="\$(kp show -s -a password "\$file" ${_word(centralForgeToken)} 2>/dev/null && printf \'.\')"; then',
     r'''  token="${token%.}"; token="${token%$'\n'}"''',
-    'else token=; fi',
-    r'''if [ -z "$token" ]; then''',
+    '  if [ -z "\$token" ]; then echo "$centralForgeToken is empty; nothing was sent." >&2; exit 1; fi',
+    'else',
+    r'''  groups="$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "$file")" || { echo "The secrets file could not be listed; nothing was sent." >&2; exit 1; }''',
+    r'''  if [[ $'\n'"$groups"$'\n' == *$'\nshared/\n'* ]]; then''',
+    r'''    entries="$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "$file" shared)" || { echo "The shared entries could not be listed; nothing was sent." >&2; exit 1; }''',
+    r"""    if [[ $'\n'"$entries"$'\n' == *$'\nforge-central-token\n'* ]]; then echo "shared/forge-central-token could not be read; nothing was sent." >&2; exit 1; fi""",
+    '  fi',
     '  echo "\$file has no entry $centralForgeToken; nothing was sent." >&2',
-    r'''elif [[ "$token" == *$'\n'* || "$token" == *$'\r'* ]]; then''',
+    '  unset MASTER; exit 0',
+    'fi',
+    r'''if [[ "$token" == *$'\n'* || "$token" == *$'\r'* ]]; then''',
     '  echo "$centralForgeToken must hold one line; nothing was sent." >&2; exit 1',
     'else',
     r'''  printf '%s\n' "$token"''',
@@ -415,24 +425,26 @@ done
   fi
   kp rm "$file" "$1" >/dev/null
 }''',
-    'move_entry ${_word('hosts/$project/vault-passphrase')} ${_word(vaultPassphrase(project))}',
-    'if kp ls "\$file" ${_word('hosts/$project/keys')} >/dev/null 2>&1; then',
-    // keepassxc-cli translates its empty-group marker, so the listing is read in one language.
-    '  entries="\$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "\$file" ${_word('hosts/$project/keys')})"',
-    r'''  printf '%s\n' "$entries" | while IFS= read -r name; do''',
-    r'''    if [ -z "$name" ] || [ "$name" = '[empty]' ]; then continue; fi''',
-    r'''    if ! [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then echo "A legacy vault entry has an invalid name; it was kept." >&2; exit 1; fi''',
-    '    move_entry ${_word('hosts/$project/keys/')}"\$name" ${_word('projects/$project/keys/')}"\$name"',
-    '  done',
-    '  unset entries',
-    'fi',
+    if (project.isNotEmpty) ...[
+      'move_entry ${_word('hosts/$project/vault-passphrase')} ${_word(vaultPassphrase(project))}',
+      'if kp ls "\$file" ${_word('hosts/$project/keys')} >/dev/null 2>&1; then',
+      // keepassxc-cli translates its empty-group marker, so the listing is read in one language.
+      '  entries="\$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "\$file" ${_word('hosts/$project/keys')})"',
+      r'''  printf '%s\n' "$entries" | while IFS= read -r name; do''',
+      r'''    if [ -z "$name" ] || [ "$name" = '[empty]' ]; then continue; fi''',
+      r'''    if ! [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then echo "A legacy vault entry has an invalid name; it was kept." >&2; exit 1; fi''',
+      '    move_entry ${_word('hosts/$project/keys/')}"\$name" ${_word('projects/$project/keys/')}"\$name"',
+      '  done',
+      '  unset entries',
+      'fi',
+    ],
     'move_entry ${_word('shared/forge-ca-key')} ${_word(forgeCaKey(host))}',
     'move_entry ${_word('shared/forge-ca')} ${_word(forgeCa(host))}',
   ];
 
   /// The script that makes the file where [create] says so, gives [host] a WireGuard key and [project] a vault
-  /// passphrase where absent, keeps the files of [keys] (vault entry name to file) base64, and writes only the
-  /// key's public half to [publicKeyOut], `0600`.
+  /// passphrase where absent (an empty project prepares only the host), keeps the files of [keys] base64, and writes
+  /// only the key's public half to [publicKeyOut], `0600`.
   ///
   /// A key in [migrateKeyFrom], the host's key from before the file, is taken into the file and that file then
   /// removed. Input checks precede migration; a legacy entry is removed only after its copy reads back unchanged.
@@ -445,7 +457,8 @@ done
     Map<String, String> keys = const {},
   }) {
     checkHost(host);
-    _checkProject(project);
+    if (project.isNotEmpty) _checkProject(project);
+    if (project.isEmpty && keys.isNotEmpty) throw const FormatException('Vault entries require a project name.');
     checkPath(publicKeyOut);
     if (migrateKeyFrom != null) checkPath(migrateKeyFrom);
     for (final entry in keys.entries) {
@@ -453,7 +466,7 @@ done
       checkPath(entry.value);
     }
     final key = _word(hostKey(host));
-    final passphrase = _word(vaultPassphrase(project));
+    final passphrase = project.isEmpty ? null : _word(vaultPassphrase(project));
     final hostGroup = _word('hosts/$host');
     final projectGroup = _word('projects/$project');
     final drive = migrateKeyFrom == null ? null : _word(migrateKeyFrom);
@@ -531,15 +544,18 @@ done
       ] else
         'kp ls "\$file" ${_word('hosts')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('hosts')} >/dev/null',
       'kp ls "\$file" $hostGroup >/dev/null 2>&1 || kp mkdir "\$file" $hostGroup >/dev/null',
-      'kp ls "\$file" ${_word('projects')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('projects')} >/dev/null',
-      'kp ls "\$file" $projectGroup >/dev/null 2>&1 || kp mkdir "\$file" $projectGroup >/dev/null',
+      if (project.isNotEmpty)
+        'kp ls "\$file" ${_word('projects')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('projects')} >/dev/null',
+      if (project.isNotEmpty)
+        'kp ls "\$file" $projectGroup >/dev/null 2>&1 || kp mkdir "\$file" $projectGroup >/dev/null',
       'if [ -n "\$private" ]; then :',
       'elif [ -n "\$old" ]; then private="\$old"; '
           '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null',
       'else private="\$(/usr/bin/wg genkey)"; '
           '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null',
       'fi',
-      'kp show "\$file" $passphrase >/dev/null 2>&1 || kp add -g -L 32 "\$file" $passphrase >/dev/null',
+      if (project.isNotEmpty)
+        'kp show "\$file" $passphrase >/dev/null 2>&1 || kp add -g -L 32 "\$file" $passphrase >/dev/null',
       if (keys.isNotEmpty)
         'kp ls "\$file" ${_word('projects/$project/keys')} >/dev/null 2>&1 || '
             'kp mkdir "\$file" ${_word('projects/$project/keys')} >/dev/null',

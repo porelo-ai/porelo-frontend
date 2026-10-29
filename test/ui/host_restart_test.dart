@@ -8,6 +8,7 @@ import 'package:flutter/material.dart' hide Step, StepState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
+import 'package:porelo_frontend/src/app/host_vpn.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
@@ -144,6 +145,8 @@ void main() {
       await machines.add(hostMachine);
       final commands = <List<String>>[];
       final process = HostProcess();
+      final cleanup = FakeTerminal([]);
+      final cleanupCommands = <List<String>>[];
       var vpnChecks = 0;
       final runs = (await tester.runAsync(
         () async => _RestoredRuns(
@@ -174,8 +177,17 @@ void main() {
           home: Scaffold(
             body: ListenableBuilder(
               listenable: runs,
-              builder: (_, _) =>
-                  MachinesPage(machines: machines, hostRuns: runs, onAdd: () {}, onDetails: (_) {}, onForget: (_) {}),
+              builder: (_, _) => MachinesPage(
+                machines: machines,
+                hostRuns: runs,
+                onAdd: () {},
+                onDetails: (_) {},
+                onForget: (_) {},
+                openTerminal: (executable, arguments, {columns = 80, rows = 24}) {
+                  cleanupCommands.add([executable, ...arguments]);
+                  return cleanup;
+                },
+              ),
             ),
           ),
         ),
@@ -218,6 +230,23 @@ void main() {
       beforeExit.dispose();
       process.end(outcome == 'unreachable' ? 69 : 0);
       await World.settle(tester);
+      final confirmed = outcome == 'confirmed' || outcome == 'missing';
+      if (confirmed && Platform.isLinux) {
+        expect(cleanupCommands, [
+          hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: _record.vpnInterface),
+        ], reason: 'an absent link still needs persistent names and trust removed');
+        expect(
+          find.byKey(const Key('host-done')),
+          findsNothing,
+          reason: 'cleanup must finish before give-back is done',
+        );
+        cleanup.endsWith(0);
+        await World.settle(tester);
+        await tester.tap(find.byKey(const Key('unlock-done')));
+        await World.settle(tester);
+      } else {
+        expect(cleanupCommands, isEmpty, reason: 'only confirmed give-back on Linux can authorize local cleanup');
+      }
       final reopened = Settings(store);
       await reopened.load();
       final afterRestart = (await tester.runAsync(
@@ -227,7 +256,6 @@ void main() {
         ),
       ))!;
       await tester.runAsync(() => Future.wait([for (final run in afterRestart.preparing) run.checked]));
-      final confirmed = outcome == 'confirmed' || outcome == 'missing';
       expect(
         vpnChecks,
         confirmed && Platform.isLinux ? greaterThan(0) : 0,
@@ -236,7 +264,7 @@ void main() {
       expect(
         find.byKey(const Key('host-done')),
         confirmed ? findsOneWidget : findsNothing,
-        reason: 'give-back completes only after provider confirmation and an absent VPN',
+        reason: 'give-back completes only after provider confirmation and local cleanup',
       );
       expect(afterRestart.preparing.map((run) => run.project), confirmed ? isEmpty : ['demo']);
       expect(runs.preparing.map((run) => run.project), confirmed ? isEmpty : ['demo']);
@@ -308,6 +336,8 @@ void main() {
     await ready.finished;
     final address = session.address;
     final protocol = List.of(session.protocol);
+    final cleanup = FakeTerminal([]);
+    final cleanupCommands = <List<String>>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -322,8 +352,10 @@ void main() {
                   hostRuns: runs,
                   start: down,
                   linux: true,
-                  openTerminal: (_, _, {columns = 80, rows = 24}) =>
-                      throw StateError('an absent VPN must never open a terminal'),
+                  openTerminal: (executable, arguments, {columns = 80, rows = 24}) {
+                    cleanupCommands.add([executable, ...arguments]);
+                    return cleanup;
+                  },
                 ),
               ),
               child: const Text('Open teardown'),
@@ -342,7 +374,15 @@ void main() {
     expect(session.address, address, reason: 'teardown must not erase the setup destination');
     expect(session.protocol, protocol, reason: 'the completed setup protocol must stay readable');
     expect(vpnChecks, greaterThan(0), reason: 'a ready host still needs its local VPN checked after give-back');
-    expect(find.byKey(const Key('host-done')), findsOneWidget, reason: 'the absent VPN completes give-back');
+    expect(cleanupCommands, [
+      hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: _record.vpnInterface),
+    ], reason: 'an absent link still needs persistent cleanup');
+    expect(find.byKey(const Key('host-done')), findsNothing);
+    cleanup.endsWith(0);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-done')));
+    await World.settle(tester);
+    expect(find.byKey(const Key('host-done')), findsOneWidget, reason: 'local cleanup completes give-back');
     expect(runs.preparing, isEmpty);
     final reopened = Settings(store);
     await reopened.load();

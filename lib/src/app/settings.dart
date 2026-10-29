@@ -694,8 +694,10 @@ class Settings extends ChangeNotifier {
     _secretsFile = secrets is String && secrets.startsWith('/') && !secrets.contains('\x00') ? secrets : null;
     _hostUps.clear();
     var migratedHosts = false;
+    final migratedHostKeys = <String, String>{};
     final hostUps = stored['hostUps'];
     if (hostUps is Map) {
+      final candidates = <({String key, String host, HostUpRecord record})>[];
       for (final entry in hostUps.entries) {
         final key = entry.key;
         final record = HostUpRecord.fromStored(entry.value);
@@ -709,9 +711,15 @@ class Settings extends ChangeNotifier {
         } on Exception {
           continue;
         }
-        if (_hostUps.containsKey(host)) throw const FormatException('Several kept setups name the same host.');
-        _hostUps[host] = record.host == null && host != key ? record.forHost(host) : record;
-        migratedHosts |= host != key;
+        candidates.add((key: key, host: host, record: record));
+      }
+      // Ambiguous folders must not prevent startup or collapse two retained server identities.
+      final unique = candidates.map((candidate) => candidate.host).toSet().length == candidates.length;
+      for (final candidate in candidates) {
+        final (:key, :host, :record) = candidate;
+        _hostUps[unique ? host : key] = unique && record.host == null && host != key ? record.forHost(host) : record;
+        migratedHosts |= unique && host != key;
+        if (unique && host != key) migratedHostKeys[key] = host;
       }
     }
     final place = stored['place'];
@@ -744,7 +752,12 @@ class Settings extends ChangeNotifier {
     if (machines is List) {
       _machines = <Map<String, Object?>>[
         for (final each in machines)
-          if (each is Map<String, Object?>) each,
+          if (each is Map<String, Object?>)
+            {
+              ...each,
+              if (migratedHostKeys.containsKey(each['hostProject']))
+                'hostProject': migratedHostKeys[each['hostProject']],
+            },
       ];
     }
     final forges = stored['forges'];

@@ -178,7 +178,49 @@ List<String> hostVpnUpCommand(
   ];
 }
 
-const _vpnRootStep = r'''
+const _firefoxPolicyStep = r"""
+sync_firefox_policy() {
+  ff_policy=/etc/firefox/policies/policies.json
+  ff_managed=/etc/firefox/porelo/managed-policy.json
+  ff_owned=no
+  if [ ! -L "$ff_policy" ] && [ ! -L "$ff_managed" ]; then
+    if [ ! -e "$ff_policy" ] || { [ -f "$ff_managed" ] && cmp -s -- "$ff_policy" "$ff_managed"; }; then
+      ff_owned=yes
+    elif [ ! -e "$ff_managed" ]; then
+      # The original generated policy had exactly one Porelo certificate and no other settings.
+      for ff_ca in "${1:-}" /etc/firefox/porelo/porelo-host-*.crt; do
+        [ -n "$ff_ca" ] || continue
+        if printf '%s\n' "{\"policies\":{\"Certificates\":{\"Install\":[\"$ff_ca\"]}}}" | cmp -s -- "$ff_policy" -; then
+          ff_owned=yes
+          break
+        fi
+      done
+    fi
+  fi
+  if [ "$ff_owned" != yes ]; then
+    printf '%s\n' "Firefox has a policy of its own in $ff_policy: maintain its Certificates.Install with the certificates in /etc/firefox/porelo."
+    return 0
+  fi
+  install -d -m 0755 /etc/firefox/policies /etc/firefox/porelo || fail "Firefox's policy folder could not be made."
+  ff_staged=$(mktemp /etc/firefox/policies/.policies.json.XXXXXX) || fail "Firefox's policy could not be staged."
+  {
+    printf '%s' '{"policies":{"Certificates":{"Install":['
+    ff_separator=
+    for ff_ca in /etc/firefox/porelo/porelo-host-*.crt; do
+      [ -f "$ff_ca" ] && [ ! -L "$ff_ca" ] || continue
+      printf '%s"%s"' "$ff_separator" "$ff_ca"
+      ff_separator=,
+    done
+    printf '%s\n' ']}}}'
+  } > "$ff_staged" && chmod 0644 "$ff_staged" && mv -f -- "$ff_staged" "$ff_policy" \
+    || { rm -f -- "$ff_staged"; fail "Firefox's policy could not be written."; }
+  install -m 0644 -- "$ff_policy" "$ff_managed" || fail "Firefox's managed policy could not be recorded."
+}
+""";
+
+const _vpnRootStep =
+    _firefoxPolicyStep +
+    r'''
 set -u
 fail() { printf '%s\n' "$1"; exit 1; }
 source=$1
@@ -190,8 +232,8 @@ export PATH
 host=${6:-}
 network=${7:-}
 vpn_interface=${8:-}
-case "$host" in ''|*[!a-z0-9-]*|-*|*-) fail 'The VPN needs a valid host name.';; esac
-[ "${#host}" -le 63 ] || fail 'The VPN needs a valid host name.'
+case "$host" in [A-Za-z0-9]*) ;; *) fail 'The VPN needs a valid host name.';; esac
+case "$host" in *[!A-Za-z0-9._-]*) fail 'The VPN needs a valid host name.';; esac
 case "$network" in 0|[1-9]|[1-9][0-9]|[1-9][0-9][0-9]) ;; *) fail 'The VPN needs a valid host network number.';; esac
 [ "$network" -le 255 ] || fail 'The VPN needs a valid host network number.'
 [ "$vpn_interface" = "porelo-$network" ] || fail 'The VPN interface must match its host network number.'
@@ -270,19 +312,19 @@ if [ -n "$forge_ca_pem" ]; then
   # Firefox, a snap here, reads /etc/firefox alone; its policy names this copy.
   firefox_ca=/etc/firefox/porelo/porelo-host-$host.crt
   cmp -s -- "$forge_ca" "$firefox_ca" || install -D -m 0644 -- "$forge_ca" "$firefox_ca" || fail "The CA for the server's forge could not be put where Firefox reads it."
-  policy=/etc/firefox/policies/policies.json
-  # A link in its place, dangling or not, is the person's: said, never replaced.
-  if [ ! -e "$policy" ] && [ ! -L "$policy" ]; then
-    install -d -m 0755 /etc/firefox/policies || fail "Firefox's policy folder could not be made."
-    staged=$(mktemp /etc/firefox/policies/.policies.json.XXXXXX) || fail "Firefox's policy could not be staged."
-    printf '%s\n' "{\"policies\":{\"Certificates\":{\"Install\":[\"$firefox_ca\"]}}}" > "$staged" \
-      && chmod 0644 "$staged" && mv -f -- "$staged" "$policy" || { rm -f -- "$staged"; fail "Firefox's policy could not be written."; }
-    printf '%s\n' 'Firefox trusts the forge once it is started again.'
-  elif ! grep -qF -- "$firefox_ca" "$policy"; then
-    printf '%s\n' "Firefox has a policy of its own in $policy: add $firefox_ca to its Certificates.Install to open the forge there."
-  fi
+  sync_firefox_policy "$firefox_ca"
+  if [ "$ff_owned" = yes ]; then printf '%s\n' 'Firefox trusts the forge once it is started again.'; fi
   hosts_line="10.73.$network.1 forge.$host.porelo.internal matrix.$host.porelo.internal # porelo-host-$host"
-  if ! grep -qxF -- "$hosts_line" /etc/hosts; then
+  current_lines=$(awk -v marker="porelo-host-$host" 'NF >= 2 && $(NF-1) == "#" && $NF == marker' /etc/hosts) \
+    || fail "The server's names could not be read."
+  if [ "$current_lines" != "$hosts_line" ]; then
+    # A host may have moved subnets; its old marker must not resolve ahead of its current address.
+    kept=$(mktemp -p /tmp) || fail "The server's old names could not be staged."
+    if ! awk -v marker="porelo-host-$host" '!(NF >= 2 && $(NF-1) == "#" && $NF == marker)' /etc/hosts > "$kept"; then
+      rm -f -- "$kept"; fail "The server's old names could not be read."
+    fi
+    cat -- "$kept" > /etc/hosts || { rm -f -- "$kept"; fail "The server's old names could not be removed."; }
+    rm -f -- "$kept"
     # On a line of its own, and into the file as it is, so its owner, mode and label stay.
     if [ -n "$(tail -c 1 /etc/hosts)" ]; then
       printf '\n' >> /etc/hosts || fail "The forge's name could not be written to /etc/hosts."
@@ -395,25 +437,35 @@ List<String> hostVpnDownCommand({required String host, required int networkNumbe
   return ['/usr/bin/sudo', '/bin/sh', '-c', _vpnDownStep, 'porelo-vpn-down', host, '$networkNumber', interface];
 }
 
-const _vpnDownStep = r'''PATH=/usr/bin:/usr/sbin:/bin:/sbin
+const _vpnDownStep =
+    r'''PATH=/usr/bin:/usr/sbin:/bin:/sbin
 export PATH
-fail() { printf '%s\n' "$1"; exit 1; }
+''' +
+    _firefoxPolicyStep +
+    r'''fail() { printf '%s\n' "$1"; exit 1; }
 host=${1:-}
 network=${2:-}
 interface=${3:-}
-case "$host" in ''|*[!a-z0-9-]*|-*|*-) fail 'The VPN needs a valid host name.';; esac
-[ "${#host}" -le 63 ] || fail 'The VPN needs a valid host name.'
+case "$host" in [A-Za-z0-9]*) ;; *) fail 'The VPN needs a valid host name.';; esac
+case "$host" in *[!A-Za-z0-9._-]*) fail 'The VPN needs a valid host name.';; esac
 case "$network" in 0|[1-9]|[1-9][0-9]|[1-9][0-9][0-9]) ;; *) fail 'The VPN needs a valid host network number.';; esac
 [ "$network" -le 255 ] || fail 'The VPN needs a valid host network number.'
 [ "$interface" = porelo ] || [ "$interface" = "porelo-$network" ] || fail 'The VPN interface must match its host network number.'
-link=$(ip -o link show dev "$interface") || fail 'The VPN owner could not be checked.'
-owner=$(printf '%s\n' "$link" | awk '{ for (i=1; i<NF; i++) if ($i == "alias") print $(i+1) }')
-if [ -n "$owner" ]; then
-  [ "$owner" = "porelo-host-$host" ] || fail "The VPN for $host cannot be taken down: $interface belongs to ${owner#porelo-host-}."
-elif [ "$interface" != porelo ]; then
-  fail 'The numbered VPN has no known owner; it was not taken down.'
+if link=$(ip -o link show dev "$interface" 2>/dev/null); then
+  owner=$(printf '%s\n' "$link" | awk '{ for (i=1; i<NF; i++) if ($i == "alias") print $(i+1) }')
+  if [ -n "$owner" ]; then
+    [ "$owner" = "porelo-host-$host" ] || fail "The VPN for $host cannot be taken down: $interface belongs to ${owner#porelo-host-}."
+  elif [ "$interface" != porelo ]; then
+    fail 'The numbered VPN has no known owner; it was not taken down.'
+  fi
+  wg-quick down "$interface" || exit
+else
+  # A missing link after reboot still leaves persistent names and trust to remove.
+  links=$(ip -o link show) || fail 'The VPN interfaces could not be checked.'
+  if printf '%s\n' "$links" | awk -v wanted="$interface" '{ name=$2; sub(/:$/, "", name); sub(/@.*/, "", name); if (name == wanted) found=1 } END { exit !found }'; then
+    fail 'The VPN owner could not be checked.'
+  fi
 fi
-wg-quick down "$interface" || exit
 line="10.73.$network.1 forge.$host.porelo.internal matrix.$host.porelo.internal # porelo-host-$host"
 if grep -qxF -- "$line" /etc/hosts; then
   kept=$(mktemp -p /tmp) || exit
@@ -434,6 +486,9 @@ for store in /usr/local/share/ca-certificates /etc/pki/ca-trust/source/anchors /
     esac
   fi
 done
+if [ -e /etc/firefox/policies/policies.json ] || [ -L /etc/firefox/policies/policies.json ]; then
+  sync_firefox_policy "/etc/firefox/porelo/porelo-host-$host.crt"
+fi
 ''';
 
 /// A private configuration whose lifetime is the local terminal, including cancellation.

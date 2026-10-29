@@ -156,7 +156,7 @@ void main() {
     });
   }
 
-  for (final up in [false, true]) {
+  for (final up in [true]) {
     // Harm: a no-op VPN action asks for a root password and can needlessly replace a working tunnel.
     testWidgets('VPN ${up ? 'up' : 'down'} already satisfied opens no sudo terminal', (tester) async {
       final settings = Settings(MemorySettingsStore());
@@ -180,6 +180,20 @@ void main() {
       expect(secrets.reads, 0, reason: 'an action needing no root work must not export a private key');
     }, skip: _notLinux);
   }
+
+  // Trust and name entries survive reboot even when the kernel link does not.
+  testWidgets('VPN down opens persistent cleanup when the link is absent', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    addTearDown(settings.dispose);
+    final commands = <List<String>>[];
+    final terminal = FakeTerminal([]);
+    await open(tester, settings, commands, terminal, up: false, linkUp: false);
+    expect(commands, [hostVpnDownCommand(host: 'demo', networkNumber: 0, interface: 'porelo-0')]);
+    terminal.endsWith(0);
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-done')));
+    await World.settle(tester);
+  }, skip: _notLinux);
 
   // Harm: a network collision must stop the flow before a terminal can execute sudo.
   testWidgets('a colliding host network is refused before the root terminal opens', (tester) async {
@@ -594,9 +608,11 @@ void main() {
 
   // Harm: a rented host's tasks that never reach the room on this laptop once its VPN is up, or the line this laptop
   // needs for the same name left unsaid.
-  for (final verified in [true, false]) {
+  for (final (verified, serverOnly) in [(true, false), (false, false), (true, true)]) {
     testWidgets(
-      'a prepared host\'s VPN, once verified, publishes this computer\'s homeserver and says it (verified $verified)',
+      serverOnly
+          ? 'server-only VPN never publishes this account homeserver'
+          : 'project preparation publishes its homeserver only after verification (verified $verified)',
       (tester) async {
         tester.view.physicalSize = const Size(1280, 800);
         tester.view.devicePixelRatio = 1;
@@ -616,13 +632,18 @@ void main() {
         final private = base64Encode(List<int>.filled(32, 7));
         final peer = await HostFiles.publicKey(private);
         final host = await HostFiles.publicKey(base64Encode(List<int>.filled(32, 9)));
-        final record = HostUpRecord.fromStored({..._record.stored, 'vpnPeerPublicKey': peer})!
-            .withTunnel(hostPublicKey: host, address: '203.0.113.8');
+        final record = HostUpRecord.fromStored({
+          ..._record.stored,
+          'vpnPeerPublicKey': peer,
+          if (serverOnly) ...{'host': 'demo', 'hostName': 'demo'},
+        })!.withTunnel(hostPublicKey: host, address: '203.0.113.8');
         final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
         addTearDown(machines.dispose);
         final runs = HostRuns(
           machines,
           endpointFor: (_) => '/tmp/prepared.sock',
+          probeLink: () async => true,
+          ping: () async => true,
           homeserver: HomeserverPublishing(
             configuration: '${scratch.path}/porelo',
             hostsFile: hosts.path,
@@ -642,17 +663,33 @@ void main() {
           record: record,
           settings: settings,
         );
-        process
-          ..line(
-            const Step(
-              'up',
-              StepState.done,
-              address: '203.0.113.7',
-              account: 'worker',
-              socket: '/run/user/1007/porelo/porelod.sock',
-            ),
-          )
-          ..end(0);
+        process.line(
+          const Step(
+            'up',
+            StepState.done,
+            address: '203.0.113.7',
+            account: 'worker',
+            socket: '/run/user/1007/porelo/porelod.sock',
+          ),
+        );
+        if (serverOnly) {
+          process.raw(
+            jsonEncode({
+              'v': 1,
+              'state': 'host',
+              'host': {
+                'address': '203.0.113.7',
+                'endpoint': '203.0.113.7:51820',
+                'wireguard_public_key': host,
+                'network': '10.73.0.0/24',
+                'ssh_host_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                'ca_sha256': 'a' * 64,
+                'homeserver': 'matrix.demo.porelo.internal',
+              },
+            }),
+          );
+        }
+        process.end(0);
         await tester.runAsync(() => run.finished);
         expect(run.awaitingVpn, isTrue);
         final terminal = FakeTerminal([]);
@@ -690,7 +727,7 @@ void main() {
         }
         expect(published, isEmpty, reason: 'nothing is published before the handshake is seen');
         terminal.endsWith(0);
-        for (var turn = 0; turn < 100 && published.isEmpty && verified; turn++) {
+        for (var turn = 0; turn < 100 && verified && (serverOnly ? !run.ready : published.isEmpty); turn++) {
           await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
           await World.settle(tester);
         }
@@ -706,8 +743,8 @@ void main() {
             await tester.tap(find.byKey(const Key('unlock-done')));
           }
         }
-        if (!verified) {
-          expect(published, isEmpty, reason: 'no address the host could reach without a handshake');
+        if (!verified || serverOnly) {
+          expect(published, isEmpty, reason: 'only a verified project setup may publish this account homeserver');
           expect(find.byKey(const Key('homeserver-published')), findsNothing);
           return;
         }

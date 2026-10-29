@@ -20,9 +20,18 @@ master = sys.stdin.readline().rstrip('\n')
 if master != 'fixture-master':
     sys.exit(1)
 if sys.argv[1] == 'ls':
+    if sys.argv[-1] == 'shared':
+        if os.environ.get('FIXTURE_LIST_FAILURE'):
+            sys.exit(74)
+        if 'FIXTURE_ENTRY' in os.environ or os.environ.get('FIXTURE_READ_FAILURE'):
+            print('forge-central-token')
+    else:
+        print('shared/')
     sys.exit(0)
 if sys.argv[1:5] != ['show', '-s', '-a', 'password'] or sys.argv[-1] != 'shared/forge-central-token':
     sys.exit(64)
+if os.environ.get('FIXTURE_READ_FAILURE'):
+    sys.exit(74)
 value = os.environ.get('FIXTURE_ENTRY')
 if value is None:
     sys.exit(1)
@@ -39,6 +48,7 @@ sys.stdout.write(value + '\n')
     List<String> command, {
     String? entry,
     Map<String, String> environment = const {},
+    String master = 'fixture-master',
   }) async {
     final process = await Process.start(
       command.first,
@@ -46,7 +56,7 @@ sys.stdout.write(value + '\n')
       environment: {'FIXTURE_ENTRY': ?entry, ...environment},
       includeParentEnvironment: false,
     );
-    process.stdin.writeln('fixture-master');
+    process.stdin.writeln(master);
     await process.stdin.close();
     final output = process.stdout.transform(utf8.decoder).join();
     final errors = process.stderr.transform(utf8.decoder).join();
@@ -165,6 +175,45 @@ sys.exit(code)
         expect(await File('${replies.path}/answer').readAsString(), result.stdout);
         expect(await File('${replies.path}/refusal').readAsString(), isEmpty);
         if (!present) expect(result.stderr, contains('has no entry shared/forge-central-token'));
+      });
+    }
+
+    // An existing but unusable token must never authorize tokenless removal.
+    for (final failure in ['empty', 'unreadable', 'listing failed']) {
+      test('refuses a central token that is $failure', () async {
+        final observation = '${scratch.path}/observation.json';
+        final result = await execute(
+          command(),
+          entry: failure == 'empty' ? '' : null,
+          environment: {
+            'FIXTURE_OBSERVATION': observation,
+            if (failure == 'unreadable') 'FIXTURE_READ_FAILURE': '1',
+            if (failure == 'listing failed') 'FIXTURE_LIST_FAILURE': '1',
+          },
+        );
+        expect(result.exitCode, isNot(0), reason: 'an unusable entry is not an absent optional token');
+        expect(result.stdout, isEmpty);
+        expect(await File(observation).exists(), isFalse, reason: 'no destructive helper is started');
+      });
+    }
+
+    // A local refusal must prevent a destructive helper from seeing valid tokenless input.
+    for (final failure in ['wrong password', 'cancelled', 'multiline token']) {
+      test('does not start removal after $failure', () async {
+        final observation = '${scratch.path}/observation.json';
+        final result = await execute(
+          command(),
+          master: failure == 'wrong password'
+              ? 'wrong\nwrong\nwrong'
+              : failure == 'cancelled'
+              ? ''
+              : 'fixture-master',
+          entry: failure == 'multiline token' ? 'first\nsecond' : null,
+          environment: {'FIXTURE_OBSERVATION': observation},
+        );
+        expect(result.exitCode, isNot(0));
+        expect(await File(observation).exists(), isFalse, reason: 'SSH must never run after local refusal');
+        expect(result.stdout, isEmpty);
       });
     }
 

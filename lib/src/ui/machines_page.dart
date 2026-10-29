@@ -7,6 +7,7 @@ import '../app/host_session.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
+import '../app/session.dart';
 import '../app/commands.dart';
 import 'command_menu.dart';
 import 'expandable_list_row.dart';
@@ -36,6 +37,7 @@ class MachinesPage extends StatelessWidget {
     this.hostCommands,
     this.hostRuns,
     this.onHostProtocol,
+    this.openTerminal,
     super.key,
   });
 
@@ -44,6 +46,9 @@ class MachinesPage extends StatelessWidget {
 
   /// Opens all steps, stderr and any stop terminal of a retained run.
   final void Function(HostPreparation run)? onHostProtocol;
+
+  /// The desktop terminal opener used by recovery actions that need local VPN cleanup.
+  final OpenTerminal? openTerminal;
 
   /// Every machine watched.
   final Machines machines;
@@ -101,6 +106,7 @@ class MachinesPage extends StatelessWidget {
                   machines: machines,
                   settings: machines.settings,
                   hostRuns: hostRuns,
+                  openTerminal: openTerminal,
                 ),
               ),
             ),

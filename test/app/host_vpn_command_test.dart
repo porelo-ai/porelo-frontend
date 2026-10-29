@@ -362,7 +362,14 @@ esac
         'sudo': r'exec "$@"',
         'ip': r'''case "$1" in
   link) printf '%s\n' "$6" > "$VPN_STATE/$4";;
-  -o) [ -f "$VPN_STATE/$5" ] && printf '1: %s: alias %s\n' "$5" "$(cat "$VPN_STATE/$5")";;
+  -o)
+    if [ "$#" = 3 ]; then
+      for file in "$VPN_STATE"/porelo-*; do
+        [ ! -f "$file" ] || printf '1: %s: alias %s\n' "${file##*/}" "$(cat "$file")"
+      done
+    else
+      [ -f "$VPN_STATE/$5" ] && printf '1: %s: alias %s\n' "$5" "$(cat "$VPN_STATE/$5")"
+    fi;;
   *) exit 1;;
 esac''',
         'wg-quick': r'''case "$1" in
@@ -436,6 +443,38 @@ esac''',
       expect(none.exitCode, 0, reason: '${none.stdout}${none.stderr}');
       expect(Directory('${etc.path}/firefox').existsSync(), isFalse);
       expect(hosts.readAsStringSync(), '127.0.0.1 localhost\n');
+    });
+
+    // Recreating a host on another network must not route its commands to the old server.
+    test('recreated host names resolve only to its current network', () async {
+      expect((await up(forgeCa: ca)).exitCode, 0);
+      hosts.writeAsStringSync(
+        '${hosts.readAsStringSync()}10.73.9.1 forge.other.porelo.internal matrix.other.porelo.internal # porelo-host-other\n',
+      );
+      hosts.writeAsStringSync(
+        '${hosts.readAsStringSync()}10.73.17.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo\n',
+      );
+      final result = await up(forgeCa: ca, networkNumber: 17);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      final entries = hosts.readAsLinesSync();
+      expect(entries.where((line) => line.endsWith('# porelo-host-demo')), [
+        '10.73.17.1 forge.demo.porelo.internal matrix.demo.porelo.internal # porelo-host-demo',
+      ]);
+      expect(
+        entries,
+        contains('10.73.9.1 forge.other.porelo.internal matrix.other.porelo.internal # porelo-host-other'),
+      );
+    });
+
+    // A reboot removes the link but must not keep a retired server's names and trusted CA.
+    test('VPN down removes names and trust after the kernel link is gone', () async {
+      expect((await up(forgeCa: ca)).exitCode, 0);
+      File('${scratch.path}/state/porelo-0').deleteSync();
+      final result = await down('demo', 0);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      expect(hosts.readAsStringSync(), '127.0.0.1 localhost\n');
+      expect(inStore().existsSync(), isFalse);
+      expect(forFirefox().existsSync(), isFalse);
     });
 
     test('put in place once, the policy naming the copy a snap reads, the name on a line of its own', () async {
