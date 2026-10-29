@@ -151,7 +151,7 @@ class MachinesPage extends StatelessWidget {
           : 'Not answering',
       primary: protocol ?? open,
       primaryKey: run == null ? null : ValueKey('host.protocol ${run.project}'),
-      onOpen: protocol == null
+      onOpen: protocol == null || !protocol.visible
           ? open.run
           : protocol.available
           ? protocol.run
@@ -192,7 +192,7 @@ class MachinesPage extends StatelessWidget {
                 tooltip: 'What can be done with ${machine.name}',
                 onSelected: (id) {
                   final command = actions.firstWhere((command) => command.id == id);
-                  if (command.available) command.run();
+                  if (command.visible && command.available) command.run();
                 },
                 itemBuilder: (_) => commandMenuEntries(actions),
               ),
@@ -236,17 +236,17 @@ class _HostPreparationRow extends StatelessWidget {
       state: _hostState(run),
       primary: primary,
       primaryKey: ValueKey('${primary.id} ${run.project}'),
-      onOpen: command.available ? command.run : null,
+      onOpen: command.visible && command.available ? command.run : null,
       details: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _HostPreparationDetails(run: run),
-          if (command.unavailable case final reason?) Text(reason),
+          if (command.visible && command.unavailable != null) Text(command.unavailable!),
           Wrap(
             spacing: Space.small,
             runSpacing: Space.tight,
             children: [
-              for (final action in [command, ...actions].where((action) => action.id != primary.id))
+              for (final action in [command, ...actions].where((action) => action.visible && action.id != primary.id))
                 Tooltip(
                   message: action.unavailable ?? action.label,
                   child: TextButton(

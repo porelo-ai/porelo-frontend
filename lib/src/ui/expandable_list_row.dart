@@ -63,7 +63,7 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
     final text = Theme.of(context).textTheme;
     final compact = WindowSize.fromContext(context) == WindowSize.compact;
     final disclosure = listDisclosureCommand(expanded: _expanded, toggle: () => setState(() => _expanded = !_expanded));
-    final primary = widget.primary;
+    final primary = widget.primary?.visible == true ? widget.primary : null;
     return Semantics(
       selected: widget.selected,
       child: Card(

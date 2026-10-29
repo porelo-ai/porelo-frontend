@@ -200,7 +200,6 @@ extension on _AttentionViewState {
         title = '${stop.project} server';
         state = stop.interrupted ? 'Interrupted' : 'Needs you';
         icon = Icons.dns_outlined;
-        open = resolved || widget.onOpenHost == null ? details : () => widget.onOpenHost!(stop.project);
         primary = stop.interrupted
             ? continueHostPreparationCommand(
                 project: stop.project,
@@ -214,6 +213,9 @@ extension on _AttentionViewState {
                 resolved: resolved,
                 open: () => widget.onOpenHost?.call(stop.project),
               ).unless(widget.onOpenHost == null ? 'host setup is unavailable here' : null);
+        open = !primary.visible || resolved || widget.onOpenHost == null
+            ? details
+            : () => widget.onOpenHost!(stop.project);
       case AttentionKind.vpn:
         final machine = row.value as Machine;
         title = '${machine.hostProject} server';
@@ -608,13 +610,15 @@ class _RowCommand extends StatelessWidget {
   final Command command;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      TextButton(onPressed: command.available ? command.run : null, child: Text(command.label)),
-      if (command.unavailable case final reason?) Text(reason, style: Theme.of(context).textTheme.bodySmall),
-    ],
-  );
+  Widget build(BuildContext context) => !command.visible
+      ? const SizedBox.shrink()
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextButton(onPressed: command.available ? command.run : null, child: Text(command.label)),
+            if (command.unavailable case final reason?) Text(reason, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        );
 }
 
 class _ResolvedRow extends StatelessWidget {

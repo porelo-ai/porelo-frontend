@@ -1203,6 +1203,7 @@ class _HostDialogState extends State<HostDialog> {
 
   Widget _scalewayKeyAction() {
     final command = setScalewayKeyCommand(run: () => unawaited(_setScalewayKey()), checking: _checkingKey);
+    if (!command.visible) return const SizedBox.shrink();
     return Tooltip(
       message: command.unavailable ?? 'Enter the secret key in a terminal on this computer.',
       child: TextButton(
@@ -1624,6 +1625,7 @@ class _HostDialogState extends State<HostDialog> {
                 ),
               ),
             );
+            if (!command.visible) return const SizedBox.shrink();
             return TextButton(
               key: const Key('host-vpn-up'),
               onPressed: command.available ? command.run : null,
@@ -1638,6 +1640,7 @@ class _HostDialogState extends State<HostDialog> {
               run: run,
               resume: () => unawaited(widget.hostRuns!.resume(run)),
             );
+            if (!command.visible) return const SizedBox.shrink();
             return Tooltip(
               message: command.unavailable ?? command.label,
               child: TextButton(
@@ -1692,6 +1695,7 @@ class _HostDialogState extends State<HostDialog> {
                   run: () => unawaited(_takeVpnDown()),
                   unavailable: _running ? 'the VPN is still being checked' : null,
                 );
+                if (!command.visible) return const SizedBox.shrink();
                 return Tooltip(
                   message: command.unavailable ?? 'Take WireGuard down on this computer.',
                   child: TextButton(onPressed: command.available ? command.run : null, child: Text(command.label)),
@@ -1831,6 +1835,7 @@ class _HostDialogState extends State<HostDialog> {
       project: widget.project,
       copy: () => unawaited(Clipboard.setData(ClipboardData(text: _session!.protocolText))),
     );
+    if (!command.visible) return const SizedBox.shrink();
     return TextButton.icon(
       key: const Key('host-copy-protocol'),
       onPressed: command.run,
@@ -1916,6 +1921,7 @@ class _HostDialogState extends State<HostDialog> {
             needs: _hostRun!.asksOnItsOwn,
           ),
         ).unless(_running || _hostRun == null ? 'the host command is still running' : null);
+        if (!command.visible) return const SizedBox.shrink();
         return FilledButton(
           key: const Key('host-complete-setup'),
           onPressed: command.available ? command.run : null,

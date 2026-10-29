@@ -33,12 +33,21 @@ import 'src/app/session.dart';
 import 'src/app/settings.dart';
 import 'src/app/shell_model.dart';
 import 'src/app/porelo_app.dart';
+import 'src/app/roles.dart';
 import 'src/ui/choice_field.dart';
 import 'src/ui/terminal_diagnosis.dart';
 import 'src/ui/theme.dart';
 import 'src/ui/walk_texts.dart';
 
+/// Starts the interface with the roles supplied for this process.
 Future<void> main(List<String> arguments) async {
+  try {
+    roles = Roles.fromArguments(arguments);
+  } on FormatException catch (error) {
+    stderr.writeln(error.message);
+    exitCode = 64;
+    return;
+  }
   WidgetsFlutterBinding.ensureInitialized();
   // What reaches the terminal widget on this system, shown and logged; no task, nothing changed.
   if (arguments.contains('--diagnose-terminal')) {

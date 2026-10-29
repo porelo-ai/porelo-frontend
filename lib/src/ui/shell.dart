@@ -2548,7 +2548,7 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) {
-    final commands = _commands();
+    final commands = _commands().where((command) => command.visible).toList();
     final shortcuts = <ShortcutActivator, Intent>{
       for (final command in commands)
         if (command.shortcut != null) command.shortcut!: _RunCommand(command.id),

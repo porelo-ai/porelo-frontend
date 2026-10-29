@@ -1,3 +1,4 @@
+import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -27,6 +28,8 @@ Future<void> _start(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  tearDown(() => roles = const Roles());
   // Harm: work starts in a different repository than the row that opened the form.
   testWidgets('a row start keeps its repository until Change chooses another', (tester) async {
     await _project(tester);

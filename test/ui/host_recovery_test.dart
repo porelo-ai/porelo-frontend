@@ -1,6 +1,8 @@
 @TestOn('linux')
 library;
 
+import 'package:porelo_frontend/src/app/roles.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -58,6 +60,8 @@ Future<void> _until(HostRuns runs, bool Function() condition) async {
 }
 
 void main() {
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  tearDown(() => roles = const Roles());
   late Directory scratch;
   late Settings settings;
   late Machines machines;

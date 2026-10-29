@@ -42,10 +42,12 @@ class _CommandMenuState extends State<CommandMenu> {
   final _button = GlobalKey<PopupMenuButtonState<String>>();
   String? _openedFor;
 
-  String? get _mine => widget.commands.any((command) => command.id == widget.highlight) ? widget.highlight : null;
+  String? get _mine =>
+      widget.commands.any((command) => command.visible && command.id == widget.highlight) ? widget.highlight : null;
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.commands.any((command) => command.visible)) return const SizedBox.shrink();
     final mine = _mine;
     if (widget.enabled && mine != null && mine != _openedFor) {
       _openedFor = mine;
@@ -70,14 +72,14 @@ class _CommandMenuState extends State<CommandMenu> {
 
 void _run(List<Command> commands, String id) {
   for (final command in commands) {
-    if (command.id == id && command.available) command.run();
+    if (command.id == id && command.visible && command.available) command.run();
   }
 }
 
 /// The entries of a command menu, so a button and a right-click offer the same list.
 List<PopupMenuEntry<String>> commandMenuEntries(List<Command> commands, {String? highlight}) =>
     <PopupMenuEntry<String>>[
-      for (final command in commands)
+      for (final command in commands.where((command) => command.visible))
         PopupMenuItem<String>(
           // The finder's destination carries a key of its own, so the way there can be followed.
           key: command.id == highlight ? const Key('highlighted') : ValueKey<String>(command.id),
@@ -95,11 +97,13 @@ List<PopupMenuEntry<String>> commandMenuEntries(List<Command> commands, {String?
 
 /// Opens a command menu where the pointer is, and runs what is chosen.
 Future<void> showCommandMenu(BuildContext context, Offset at, List<Command> commands) async {
+  final visible = commands.where((command) => command.visible).toList();
+  if (visible.isEmpty) return;
   final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
   final chosen = await showMenu<String>(
     context: context,
     position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
-    items: commandMenuEntries(commands),
+    items: commandMenuEntries(visible),
   );
   if (chosen != null) _run(commands, chosen);
 }

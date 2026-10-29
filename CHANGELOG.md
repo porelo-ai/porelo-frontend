@@ -7,6 +7,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Startup roles select which commands the interface offers. Ordinary work is always available;
+  `--roles host-admin,project-admin` also shows server administration and project placement.
+  Unknown roles are refused before the window opens.
+
 ### Fixed
 
 - Each host keeps its own forge and homeserver CA, constrained to its name and VPN network. Certificate setup

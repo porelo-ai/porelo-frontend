@@ -1,3 +1,5 @@
+import 'package:porelo_frontend/src/app/roles.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
@@ -33,6 +35,8 @@ const _record = HostUpRecord(
 );
 
 void main() {
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  tearDown(() => roles = const Roles());
   late Directory state;
   late Map<String, String> environment;
   setUp(() async {

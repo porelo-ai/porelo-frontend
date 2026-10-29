@@ -190,6 +190,7 @@ class CommandTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!command.visible) return const SizedBox.shrink();
     final starting = command.id == 'work.start';
     final scheme = Theme.of(context).colorScheme;
     Color foreground(Set<WidgetState> states) => states.contains(WidgetState.disabled)
@@ -294,7 +295,7 @@ class ProjectCommandTiles extends StatelessWidget {
           runSpacing: Space.normal,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: <Widget>[
-            for (final command in commands)
+            for (final command in commands.where((command) => command.visible))
               if (_presentation(command).group == group) ...<Widget>[
                 CommandTile(
                   key: ValueKey<String>('command-tile-${command.id}'),

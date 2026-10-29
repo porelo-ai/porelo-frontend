@@ -11,7 +11,7 @@ import 'tokens.dart';
 /// the reason rather than hidden, because "not now, because X" is an answer and silence is not.
 Future<Command?> showCommandFinder(BuildContext context, List<Command> commands) => showDialog<Command>(
   context: context,
-  builder: (context) => _CommandFinder(commands: commands),
+  builder: (context) => _CommandFinder(commands: commands.where((command) => command.visible).toList()),
 );
 
 class _CommandFinder extends StatefulWidget {
@@ -37,7 +37,7 @@ class _CommandFinderState extends State<_CommandFinder> {
   }
 
   void _choose(Command command) {
-    if (!command.available) return;
+    if (!command.visible || !command.available) return;
     Navigator.of(context).pop(command);
   }
 

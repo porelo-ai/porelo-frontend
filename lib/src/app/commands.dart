@@ -11,6 +11,7 @@ import 'fleet_model.dart';
 import 'host_runs.dart';
 import 'desk.dart';
 import 'product.dart';
+import 'roles.dart';
 import 'hand_in.dart';
 import 'machines.dart';
 import 'narrowing.dart';
@@ -126,6 +127,7 @@ class Command {
     this.unavailable,
     this.home = Home.none,
     this.checked,
+    this.role = Role.user,
   });
 
   /// Stable identifier, used to route a keystroke to this command.
@@ -136,6 +138,12 @@ class Command {
 
   /// What it belongs to, so a long list stays readable.
   final String group;
+
+  /// The startup role that offers this command.
+  final Role role;
+
+  /// Whether the current startup roles offer this command.
+  bool get visible => roles.holds(role);
 
   /// What it does.
   final VoidCallback run;
@@ -163,6 +171,7 @@ class Command {
       ? this
       : Command(
           id: id,
+          role: role,
           label: label,
           group: group,
           shortcut: shortcut,
@@ -175,6 +184,7 @@ class Command {
   /// The same command, doing [first] before it runs.
   Command after(VoidCallback first) => Command(
     id: id,
+    role: role,
     label: label,
     group: group,
     shortcut: shortcut,
@@ -662,6 +672,7 @@ List<Command> projectCommands({
     // `porelo-host` does it; this only opens the page that runs it and shows what it says.
     Command(
       id: 'project.server',
+      role: Role.projectAdmin,
       label: 'Put this project on a server…',
       group: 'Project',
       home: Home.projectMenu,
@@ -693,6 +704,7 @@ List<Command> projectCommands({
 /// Repeats the verified local VPN setup for an existing host whose ping failed.
 Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailable}) => Command(
   id: 'host.vpnAgain',
+  role: Role.hostAdmin,
   label: 'Bring the VPN up again',
   group: 'Machine',
   home: Home.attentionRow,
@@ -704,6 +716,7 @@ Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailab
 Command takeGivenBackVpnDownCommand({required VoidCallback run, String? unavailable, Home home = Home.attentionRow}) =>
     Command(
       id: 'host.vpnCleanup',
+      role: Role.hostAdmin,
       label: 'Take the VPN down',
       group: 'Machine',
       home: home,
@@ -725,6 +738,7 @@ List<Command> hostMachineCommands({
   if (machine.kind == 'host') ...[
     Command(
       id: 'machine.takeDown',
+      role: Role.hostAdmin,
       label: 'Take this server down',
       group: 'Machine',
       home: Home.machineMenu,
@@ -737,6 +751,7 @@ List<Command> hostMachineCommands({
     ),
     Command(
       id: 'machine.saveTunnel',
+      role: Role.hostAdmin,
       label: 'Save the VPN connection for another device…',
       group: 'Machine',
       home: Home.machineMenu,
@@ -750,6 +765,7 @@ List<Command> hostMachineCommands({
     if (vpnLinkUp != true)
       Command(
         id: 'machine.vpnUp',
+        role: Role.hostAdmin,
         label: 'Bring the VPN up',
         group: 'Machine',
         home: Home.machineMenu,
@@ -765,6 +781,7 @@ List<Command> hostMachineCommands({
     if (vpnLinkUp == true)
       Command(
         id: 'machine.vpnDown',
+        role: Role.hostAdmin,
         label: 'Take the VPN down',
         group: 'Machine',
         home: Home.machineMenu,
@@ -1400,6 +1417,7 @@ Command hostPreparationCommand({
   Home home = Home.attentionRow,
 }) => Command(
   id: 'host.preparation',
+  role: Role.hostAdmin,
   label: 'Complete setup on the host',
   group: '$project server',
   home: home,
@@ -1409,11 +1427,19 @@ Command hostPreparationCommand({
 
 /// Opens a preparing server's complete protocol and stop controls.
 Command hostProtocolCommand({required String project, required VoidCallback open, Home home = Home.machineRow}) =>
-    Command(id: 'host.protocol', label: 'Open the host protocol', group: '$project server', home: home, run: open);
+    Command(
+      id: 'host.protocol',
+      role: Role.hostAdmin,
+      label: 'Open the host protocol',
+      group: '$project server',
+      home: home,
+      run: open,
+    );
 
 /// Copies the public protocol without reopening setup inputs or a terminal.
 Command copyHostProtocolCommand({required String project, required VoidCallback copy}) => Command(
   id: 'host.copyProtocol',
+  role: Role.hostAdmin,
   label: 'Copy the protocol',
   group: '$project server',
   home: Home.openedView,
@@ -1424,6 +1450,7 @@ Command copyHostProtocolCommand({required String project, required VoidCallback 
 Command continueHostPreparationCommand({required String project, required VoidCallback goOn, bool resolved = false}) =>
     Command(
       id: 'host.goOn',
+      role: Role.hostAdmin,
       label: 'Go on',
       group: '$project server',
       home: Home.attentionRow,
@@ -1441,6 +1468,7 @@ String? _setupAgainUnavailable(HostRuns? hostRuns, String project) {
 /// Runs the saved setup of a ready server after its previous attempt ended.
 Command runHostSetupAgainCommand({required String project, required HostRuns hostRuns}) => Command(
   id: 'host.again',
+  role: Role.hostAdmin,
   label: 'Run its setup again',
   group: '$project server',
   home: Home.machineRow,
@@ -1459,6 +1487,7 @@ List<Command> hostRecoveryCommands({
     resume,
     Command(
       id: 'host.takeDown',
+      role: Role.hostAdmin,
       label: 'Take it down',
       group: run.name,
       home: Home.machineRow,
@@ -1475,6 +1504,7 @@ Command resumeHostPreparationCommand({
   Home home = Home.openedView,
 }) => Command(
   id: run.interrupted ? 'host.goOn' : 'host.retry',
+  role: Role.hostAdmin,
   label: run.interrupted ? 'Go on' : 'Try again',
   group: run.name,
   home: home,
@@ -1493,6 +1523,7 @@ Command resumeHostPreparationCommand({
 /// Opens the provider's hidden terminal prompt before host setup continues.
 Command setScalewayKeyCommand({required VoidCallback run, bool checking = false}) => Command(
   id: 'host.setScalewayKey',
+  role: Role.hostAdmin,
   label: 'Set Scaleway key',
   group: 'Server setup',
   home: Home.openedView,
@@ -1507,6 +1538,7 @@ Command projectWorkCommand({required VoidCallback open}) =>
 /// Repeats the local check after remote setup has completed.
 Command setupHostVpnCommand({required VoidCallback run, required bool alreadyOpen}) => Command(
   id: 'host.vpnUp',
+  role: Role.hostAdmin,
   label: 'Bring the VPN up',
   group: 'Machine',
   home: Home.machineRow,

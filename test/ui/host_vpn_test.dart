@@ -1,3 +1,5 @@
+import 'package:porelo_frontend/src/app/roles.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -39,6 +41,8 @@ const _record = HostUpRecord(
 final _notLinux = !Platform.isLinux;
 
 void main() {
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  tearDown(() => roles = const Roles());
   Future<void> open(
     WidgetTester tester,
     Settings settings,

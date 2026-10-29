@@ -2,6 +2,8 @@
 @Tags(<String>['linux'])
 library;
 
+import 'package:porelo_frontend/src/app/roles.dart';
+
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -45,6 +47,8 @@ import '../support/expand_list_rows.dart';
 Future<Process> _acceptedKey(String executable, List<String> arguments) async => _HostProcess()..end(0);
 
 void main() {
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  tearDown(() => roles = const Roles());
   late Directory scratch;
   late Machines machines;
   late HostRuns runs;

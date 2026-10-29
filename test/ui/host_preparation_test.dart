@@ -1,3 +1,5 @@
+import 'package:porelo_frontend/src/app/roles.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -37,6 +39,8 @@ const _record = HostUpRecord(
 );
 
 void main() {
+  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
+  tearDown(() => roles = const Roles());
   // Harm: an unseen setup stop leaves a rented host billing and the person cannot reach its terminal.
   testWidgets('a preparing server opens its protocol and its Needs you stop reaches the same terminal', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
