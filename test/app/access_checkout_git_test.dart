@@ -179,6 +179,30 @@ void main() {
     expect(await checked(['rev-parse', 'HEAD'], directory: cache), before);
   });
 
+  // Harm: a first clone of an untrusted tip leaves its files in the persistent checkout and blocks later opens.
+  test('a first clone whose tip is unsigned leaves no persistent checkout behind', () async {
+    File('${source.path}/access.yml').writeAsStringSync('developers: {}\n');
+    await checked(['-c', 'commit.gpgsign=false', 'commit', '--no-gpg-sign', '-am', 'Unsigned change']);
+    await checked(['push']);
+    await expectLater(checkout().open(), throwsA(isA<WorkspaceRefused>()));
+    expect(Directory('${scratch.path}/access/demo').existsSync(), isFalse);
+  });
+
+  // Harm: a tag named like the origin branch would keep the checkout and its bundle on older access settings.
+  test('a tag named like the origin branch does not shadow the published commit', () async {
+    await checkout().open();
+    await checked(['tag', 'origin/main']);
+    await checked(['push', 'origin', 'refs/tags/origin/main']);
+    File('${source.path}/access.yml').writeAsStringSync('# Keep this private\ndevelopers: {} # Everyone\n');
+    await checked(['commit', '-S', '-am', 'Newer signed access']);
+    await checked(['push']);
+    await checkout().open();
+    expect(
+      await checked(['rev-parse', 'HEAD'], directory: '${scratch.path}/access/demo'),
+      await checked(['rev-parse', 'main'], directory: central),
+    );
+  });
+
   // Harm: retrying an interrupted host upload must not publish the same access update twice.
   test('an identical published access block produces a bundle without another push', () async {
     for (var attempt = 0; attempt < 2; attempt++) {

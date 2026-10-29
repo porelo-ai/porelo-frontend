@@ -69,18 +69,33 @@ class AccessCheckout {
     await privateDirectory(Directory(root), writer: _writer);
     final directory = Directory(folder);
     final type = await FileSystemEntity.type(folder, followLinks: false);
-    if (type == FileSystemEntityType.notFound) {
+    final fresh = type == FileSystemEntityType.notFound;
+    if (fresh) {
       await privateDirectory(directory, writer: _writer);
-      try {
-        await _git(['clone', '--', repository, folder], inCheckout: false);
-      } on Exception {
-        if (await directory.exists()) await directory.delete(recursive: true);
-        rethrow;
-      }
     } else if (type != FileSystemEntityType.directory ||
         await FileSystemEntity.type('$folder/.git', followLinks: false) != FileSystemEntityType.directory) {
       throw const WorkspaceRefused('The access checkout must be a plain Git directory, without links.');
     }
+    try {
+      if (fresh) await _git(['clone', '--no-tags', '--', repository, folder], inCheckout: false);
+      await _verifyAndAdvance(directory);
+    } on Exception {
+      // A fresh clone holds nothing of the person's, so one that failed any check leaves nothing behind.
+      if (fresh && await directory.exists()) await directory.delete(recursive: true);
+      rethrow;
+    }
+    final work = await _writer.createPrivateTemporary(Directory(root));
+    try {
+      await _git(['worktree', 'add', '--detach', work.path, 'HEAD']);
+      _work = work;
+    } on Exception {
+      if (await work.exists()) await work.delete(recursive: true);
+      rethrow;
+    }
+  }
+
+  /// Checks the clean checkout, its origin and its signing, then fast-forwards it to the verified origin commit.
+  Future<void> _verifyAndAdvance(Directory directory) async {
     await _writer.protectDirectory(directory);
     if ((await _git(['status', '--porcelain'])).out.isNotEmpty) {
       throw const WorkspaceRefused(
@@ -97,17 +112,18 @@ class AccessCheckout {
         'Set up your own Git commit signing (commit.gpgsign and user.signingkey) before bringing this project.',
       );
     }
-    final branch = (await _git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])).out.trim();
-    if (!RegExp(r'^origin/[A-Za-z0-9][A-Za-z0-9._/-]*$').hasMatch(branch) || branch.contains('..')) {
+    // The full ref name, as a tag named like origin/<branch> would shadow the short one.
+    final branch = (await _git(['symbolic-ref', 'refs/remotes/origin/HEAD'])).out.trim();
+    if (!RegExp(r'^refs/remotes/origin/[A-Za-z0-9][A-Za-z0-9._/-]*$').hasMatch(branch) || branch.contains('..')) {
       throw const WorkspaceRefused('The access repository has no safe default branch.');
     }
-    _branch = branch.substring('origin/'.length);
+    _branch = branch.substring('refs/remotes/origin/'.length);
     if ((await _git(['symbolic-ref', '--short', 'HEAD'])).out.trim() != _branch) {
       throw const WorkspaceRefused(
         'The access checkout must be on its default branch. Its current branch was preserved.',
       );
     }
-    await _git(['fetch', 'origin']);
+    await _git(['fetch', '--no-tags', 'origin']);
     final ahead = (await _git(['rev-list', '--left-right', '--count', 'HEAD...$branch'])).out
         .trim()
         .split(RegExp(r'\s+'));
@@ -126,14 +142,6 @@ class AccessCheckout {
     await _git(['merge', '--ff-only', branch]);
     await _verifyHead();
     await _plainAccessFile();
-    final work = await _writer.createPrivateTemporary(Directory(root));
-    try {
-      await _git(['worktree', 'add', '--detach', work.path, 'HEAD']);
-      _work = work;
-    } on Exception {
-      if (await work.exists()) await work.delete(recursive: true);
-      rethrow;
-    }
   }
 
   /// Discards only this attempt's private worktree, leaving the persistent checkout untouched.

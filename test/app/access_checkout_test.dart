@@ -67,9 +67,9 @@ void main() {
       'config --get user.signingkey' => signing ? 'own-agent-key\n' : '',
       'status --porcelain' => dirty ? ' M access.yml\n' : '',
       'config --get remote.origin.url' => 'https://example.org/team/access.git\n',
-      'symbolic-ref --short refs/remotes/origin/HEAD' => 'origin/main\n',
+      'symbolic-ref refs/remotes/origin/HEAD' => 'refs/remotes/origin/main\n',
       'symbolic-ref --short HEAD' => 'main\n',
-      'rev-list --left-right --count HEAD...origin/main' => '0\t0\n',
+      'rev-list --left-right --count HEAD...refs/remotes/origin/main' => '0\t0\n',
       'diff --cached --quiet -- access.yml' => '',
       _ => '',
     };
