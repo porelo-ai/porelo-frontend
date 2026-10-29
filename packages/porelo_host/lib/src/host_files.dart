@@ -9,7 +9,10 @@ import 'secret_store.dart';
 import 'secrets_file.dart' show SecretsFile;
 import 'host_file_writer.dart';
 import 'host_act.dart';
+import 'host_file_name.dart';
 import 'ssh_public_key.dart';
+
+export 'host_file_name.dart' show HostFilesRefused;
 
 /// A vault entry and the file selected for import by the host.
 class HostKeyFile {
@@ -27,17 +30,6 @@ class HostKeyFile {
 
   /// The name under the host files directory.
   String get basename => (pathContext ?? path.context).basename(file.path);
-}
-
-/// A refusal safe to show without revealing file contents.
-class HostFilesRefused implements Exception {
-  /// Gives the reason without file contents.
-  const HostFilesRefused(this.message);
-
-  /// The safe explanation.
-  final String message;
-  @override
-  String toString() => message;
 }
 
 /// Public halves only; private keys never enter dialog state or arguments.
@@ -87,16 +79,7 @@ class HostFiles {
   static String keyName(String project) => 'wireguard-$project';
 
   /// Rejects traversal and option-like names on both supported desktops.
-  static void checkName(String name) {
-    if (name.isEmpty ||
-        name.startsWith('-') ||
-        name.contains('..') ||
-        name.contains('/') ||
-        name.contains(r'\') ||
-        name.contains('\x00')) {
-      throw const HostFilesRefused('A name must not be empty, start with - or contain /, \\, .. or NUL.');
-    }
-  }
+  static void checkName(String name) => checkHostFileName(name);
 
   /// Derives the public half from 32 standard-base64 bytes, as WireGuard does.
   static Future<String> publicKey(String privateKey) async {
@@ -206,11 +189,15 @@ class HostFiles {
   }) {
     checkName(project);
     _checkKeys(keys, windows: windows);
-    if (act == HostAct.ownAccount &&
-        (!path.posix.isAbsolute(url) || !url.endsWith('/${act.setupPlace(project: project)}/$projectBundleFileName'))) {
-      throw const HostFilesRefused(
-        'An own-account machine file needs its absolute project.bundle in its project setup directory.',
-      );
+    if (act == HostAct.ownAccount) {
+      final suffix = '/${act.setupPlace(project: project)}/$projectBundleFileName';
+      if (!url.endsWith(suffix) ||
+          path.posix.normalize(url) != url ||
+          !_isPlainHostHome(url.substring(0, url.length - suffix.length))) {
+        throw const HostFilesRefused(
+          'An own-account machine file needs its absolute project.bundle in its project setup directory, under a normalized home.',
+        );
+      }
     }
     return 'project:\n'
         '  name: ${_scalar(project)}\n'
@@ -238,11 +225,17 @@ class HostFiles {
   static String bundleUrl(String project, {HostAct act = HostAct.legacyUp, String? home}) {
     checkName(project);
     if (act != HostAct.ownAccount) return path.posix.join(act.setupPlace(), '$project.bundle');
-    if (home == null || !path.posix.isAbsolute(home) || RegExp(r'[\r\n\x00]').hasMatch(home)) {
+    if (home == null || !_isPlainHostHome(home)) {
       throw const HostFilesRefused('The own-account bundle URL needs the checked absolute host home.');
     }
     return path.posix.join(home, act.setupPlace(project: project), projectBundleFileName);
   }
+
+  static bool _isPlainHostHome(String home) =>
+      path.posix.isAbsolute(home) &&
+      home != '/' &&
+      path.posix.normalize(home) == home &&
+      !RegExp(r'[\r\n\x00]').hasMatch(home);
 
   /// Returns [project]'s access bundle beside its project bundle, relative to the person's host home.
   static String accessBundleUrl(String project) {
@@ -368,6 +361,7 @@ class HostFiles {
     bool ownFolder = false,
     HostAct act = HostAct.legacyUp,
   }) async {
+    if (act == HostAct.ownAccount) checkName(project);
     final name = act == HostAct.ownAccount ? projectBundleFileName : '$project.bundle';
     final target = File(destinationPath(folder, name));
     if (ownFolder) {

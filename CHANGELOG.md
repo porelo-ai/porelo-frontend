@@ -32,14 +32,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Own-account setup refuses root logins, linked home directories, existing setup files, and upload data for the
   wrong act; failed uploads preserve setup material they did not create.
 - Own-account uploads validate the home itself, copy to its absolute path, and reserve, recheck, install, and
-  verify setup in one SSH session. Every script selects Bash explicitly with inherited startup variables removed.
-  The outer login shell remains trusted as the account’s own. The home reply refuses startup output before
+  verify setup in one SSH session. Scripts run through the account's contracted Bash login shell, whose startup
+  files and environment are trusted. The home reply refuses startup output before
   reservation; ambiguous later replies remove only empty reservations and preserve populated directories.
   An absent placement directory needs no cleanup.
+- Own-account paths share one project-name check, and publishing refuses an invalid name before touching a bundle.
+  Upload staging uses a reserved leading-hyphen name, so it cannot collide with any project's setup directory.
+  Bundle homes and URLs must already be normalized absolute paths with a nonempty home prefix.
 - Own-account stops require the complete pinned SSH option sequence built by the interface, with no duplicates.
 - The secrets step shows readiness only while its opened file, server name, and vault-entry files still match and
   no key remains on the old drive. Legacy links and directories reach the migration refusal before any write.
   Late terminal answers cannot change settings or keys for edited inputs; selecting text preserves a refusal.
+  Input identity uses names and paths without probing files; a file changed during opening produces a visible refusal.
 - Project removal validates the secrets file and optional central token before starting the remote helper.
 - Recovery actions in Machines use the desktop terminal opener for local VPN cleanup.
 - Server-only preparation keeps project secrets and this account's homeserver private; migrated CAs refuse

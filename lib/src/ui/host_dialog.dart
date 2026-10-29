@@ -1532,7 +1532,12 @@ class _HostDialogState extends State<HostDialog> {
     }
   }
 
-  List<String?> get _secretsInputs => [_secretsPath, _hostId, _drivesKey, _hostKeyFilesState(_hostKeyFiles)];
+  List<String?> get _secretsInputs => [
+    _secretsPath,
+    _hostId,
+    _drivesKey,
+    for (final key in _keys) ...[key.name, key.file.absolute.path],
+  ];
 
   void _secretsInputsChanged() {
     if (_secretsAnswer case final answer? when !listEquals(answer.inputs, _secretsInputs)) {
@@ -1621,12 +1626,16 @@ class _HostDialogState extends State<HostDialog> {
         'The secrets inputs changed while the file was open; open it for the current inputs.',
       );
     }
+    final opened = asked();
+    if (opened.keys != requested.keys) {
+      throw const HostFilesRefused(
+        'The selected vault-entry files changed while the secrets file was open; open it again.',
+      );
+    }
     HostFiles.checkPublicKey(key);
     _checkDriveKeyMoved();
     _hostPublicKey = key;
-    // Opening changes the database and can move the drive key, but must not validate changes to source key files.
-    final opened = asked();
-    _hostPublicKeyFor = (file: opened.file, host: host, drive: opened.drive, keys: requested.keys);
+    _hostPublicKeyFor = opened;
     await widget.settings?.rememberSecretsFile(file);
     return key;
   }

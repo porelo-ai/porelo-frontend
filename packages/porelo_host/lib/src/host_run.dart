@@ -721,7 +721,8 @@ class HostRun {
   /// The caller then runs `ansible-playbook -c local porelo.host.bring -e porelo_project=<project>`
   /// (or `porelo.host.join`) as the same login, without sudo.
   /// Returns `null` once all files are checked in place, or the refusal exit code; invalid inputs
-  /// throw [FormatException] before any remote command runs.
+  /// throw [HostFilesRefused] for invalid own-account project names, or [FormatException] for other invalid inputs,
+  /// before any remote command runs.
   Future<int?> uploadSetupFiles({
     required HostAct act,
     required String address,
@@ -736,7 +737,9 @@ class HostRun {
         'Only an own-account upload accepts project access data; root accepts no project files.',
       );
     }
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
+    if (act == HostAct.ownAccount) {
+      HostFiles.checkName(project);
+    } else if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
       throw const FormatException('The setup files need a plain project name.');
     }
     if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(user) ||
@@ -859,20 +862,14 @@ class HostRun {
   }) async {
     // The remote login shell is Bash by porelo-host's account-creation contract.
     // Its startup files and environment belong to the account and are trusted as such.
-    Future<RemoteResult> runScript(String script, {String? input, void Function(String)? onLine}) => remote.run(
-      address,
-      user,
-      '/usr/bin/env -u BASH_ENV -u ENV -u SHELLOPTS -u BASHOPTS /bin/bash --noprofile --norc -c ${quoteForAShell(script)}',
-      input: input,
-      onLine: onLine,
-    );
+    Future<RemoteResult> runScript(String script, {String? input, void Function(String)? onLine}) =>
+        remote.run(address, user, script, input: input, onLine: onLine);
     final place = setupPlace(HostAct.ownAccount, project: project);
     final parts = path.posix.split(place);
     final parents = [for (var count = 1; count < parts.length; count++) path.posix.joinAll(parts.take(count))];
     const checkedHome = r'''setup_home=${HOME-}
 case "$setup_home" in /*) ;; *) echo 'The host home must be an absolute directory.' >&2; exit 1;; esac
-while [[ "$setup_home" != / && "$setup_home" == */ ]]; do setup_home=${setup_home%/}; done
-case "$setup_home/" in *'/../'*|*'/./'*|*$'\n'*|*$'\r'*) echo 'The host home is not a plain absolute path.' >&2; exit 1;; esac
+case "$setup_home/" in *'//'*|*'/../'*|*'/./'*|*$'\n'*|*$'\r'*) echo 'The host home is not a plain absolute path.' >&2; exit 1;; esac
 test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is missing or a link.' >&2; exit 1; }
 ''';
     String underHome(String name) => '"\$setup_home"/${quoteForAShell(name)}';
@@ -888,7 +885,8 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
     }
     final home = lines.single;
     final destination = path.posix.join(home, place);
-    final staging = '$destination.upload';
+    // A leading hyphen is refused by the shared name check, so staging cannot name a project.
+    final staging = path.posix.join(path.posix.dirname(destination), '-upload-$project');
     String q(String name) => quoteForAShell(name);
     String plainDirectory(String name) => 'test -d ${q(name)} && test ! -L ${q(name)}';
     final safe = [

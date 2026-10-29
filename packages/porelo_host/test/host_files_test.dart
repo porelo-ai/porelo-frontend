@@ -130,13 +130,127 @@ void main() {
 
   // Harm: a project name reaches a filesystem path outside the account's project setup directory.
   test('own-account setup paths refuse missing or escaping project names', () {
-    expect(() => HostAct.ownAccount.setupPlace(), throwsFormatException);
-    for (final project in ['', '.', '..', '../other', '/other', 'demo/other', 'demo\nother', 'demo\x00other']) {
-      expect(() => HostAct.ownAccount.setupPlace(project: project), throwsFormatException);
+    expect(() => HostAct.ownAccount.setupPlace(), throwsA(isA<HostFilesRefused>()));
+    for (final project in ['', '.', '..', '../other', '/other', 'demo/other', 'demo\x00other']) {
+      expect(() => HostAct.ownAccount.setupPlace(project: project), throwsA(isA<HostFilesRefused>()));
     }
     expect(HostAct.ownAccount.setupPlace(project: 'demo'), '.local/share/porelo-host/setup/demo');
     expect(HostAct.root.setupPlace(), '/etc/porelo-host/setup');
     expect(HostAct.legacyUp.setupPlace(), '/etc/porelo-host/setup');
+  });
+
+  // Harm: a traversal project overwrites a bundle in a folder selected before preparation validates the name.
+  test('own-account publication refuses an unchecked project before replacing any bundle', () async {
+    final other = await Directory('${scratch.path}/other/porelo-host').create(recursive: true);
+    final kept = await File('${other.path}/project.bundle').writeAsBytes([9, 8, 7]);
+    Object? refusal;
+    try {
+      await files.publishBundle(
+        project: '../other',
+        folder: other.parent.path,
+        bytes: [1, 2, 3],
+        ownFolder: true,
+        act: HostAct.ownAccount,
+      );
+    } catch (error) {
+      refusal = error;
+    }
+    expect(await kept.readAsBytes(), [9, 8, 7]);
+    expect(refusal, isA<HostFilesRefused>());
+  });
+
+  // Harm: name validators disagree about which project owns a directory or leak an unexpected exception type.
+  test('all own-account paths share traversal refusals and their exception type', () async {
+    final refusals = <String, Object?>{};
+    Object? refusal(void Function() call) {
+      try {
+        call();
+        return null;
+      } catch (error) {
+        return error;
+      }
+    }
+
+    const project = 'a..b';
+    refusals['setup'] = refusal(() => HostAct.ownAccount.setupPlace(project: project));
+    refusals['bundle'] = refusal(() => HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: '/home/person'));
+    refusals['access'] = refusal(() => HostFiles.accessBundleUrl(project));
+    refusals['machine'] = refusal(
+      () => HostFiles.machineYaml(
+        project: project,
+        url: '/home/person/.local/share/porelo-host/setup/$project/project.bundle',
+        fingerprint: fingerprint,
+        act: HostAct.ownAccount,
+      ),
+    );
+    try {
+      await files.publishBundle(
+        project: project,
+        folder: scratch.path,
+        bytes: [1],
+        ownFolder: true,
+        act: HostAct.ownAccount,
+      );
+      refusals['publish'] = null;
+    } catch (error) {
+      refusals['publish'] = error;
+    }
+    expect(refusals.keys.toSet(), {'setup', 'bundle', 'access', 'machine', 'publish'});
+    for (final entry in refusals.entries) {
+      expect(entry.value, isA<HostFilesRefused>(), reason: entry.key);
+    }
+  });
+
+  // Harm: a name accepted for metadata cannot be uploaded or published under the same project.
+  test('all own-account paths accept the same safe punctuation in project names', () async {
+    const project = 'demo+1';
+    const folder = '/home/person/.local/share/porelo-host/setup/$project';
+    HostFiles.checkName(project);
+    expect(HostAct.ownAccount.setupPlace(project: project), '.local/share/porelo-host/setup/$project');
+    final url = HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: '/home/person');
+    expect(url, '$folder/project.bundle');
+    expect(HostFiles.accessBundleUrl(project), '.local/share/porelo-host/setup/$project/access.bundle');
+    final yaml = loadYaml(
+      HostFiles.machineYaml(project: project, url: url, fingerprint: fingerprint, act: HostAct.ownAccount),
+    ) as YamlMap;
+    expect(yaml['project']['name'], project);
+    await files.publishBundle(
+      project: project,
+      folder: scratch.path,
+      bytes: [1, 2],
+      ownFolder: true,
+      act: HostAct.ownAccount,
+    );
+    expect(await File('${scratch.path}/porelo-host/project.bundle').readAsBytes(), [1, 2]);
+  });
+
+  // Harm: normalization silently relocates a project bundle outside its checked home or into the shared setup root.
+  for (final home in ['/', '/home/person/', '/home//person', '/home/./person', '/home/person/../../outside']) {
+    test('own-account bundle paths refuse a noncanonical home $home', () {
+      expect(() => HostFiles.bundleUrl('demo', act: HostAct.ownAccount, home: home), throwsA(isA<HostFilesRefused>()));
+      expect(
+        () => HostFiles.machineYaml(
+          project: 'demo',
+          url: '$home/.local/share/porelo-host/setup/demo/project.bundle',
+          fingerprint: fingerprint,
+          act: HostAct.ownAccount,
+        ),
+        throwsA(isA<HostFilesRefused>()),
+      );
+    });
+  }
+  test('own-account machine URLs require a nonempty normalized home prefix', () {
+    for (final url in [
+      '/.local/share/porelo-host/setup/demo/project.bundle',
+      '//.local/share/porelo-host/setup/demo/project.bundle',
+      '/home/person/../other/.local/share/porelo-host/setup/demo/project.bundle',
+      '/home/person/.local//share/porelo-host/setup/demo/project.bundle',
+    ]) {
+      expect(
+        () => HostFiles.machineYaml(project: 'demo', url: url, fingerprint: fingerprint, act: HostAct.ownAccount),
+        throwsA(isA<HostFilesRefused>()),
+      );
+    }
   });
 
   // Harm: malformed YAML changes which repository or vault entry the host trusts.

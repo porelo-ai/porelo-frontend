@@ -2862,6 +2862,11 @@ void main() {
     changeWhileOpening = true;
     await tapAndRun(tester, const Key('host-secrets-open'));
     expect(find.byKey(const Key('host-secrets-ready')), findsNothing);
+    expect(
+      find.byKey(const Key('host-secrets-answer')),
+      findsOneWidget,
+      reason: 'unchanged input paths keep the mid-open file refusal visible',
+    );
     changeWhileOpening = false;
     await tapAndRun(tester, const Key('host-secrets-open'));
     expect(find.byKey(const Key('host-secrets-ready')), findsOneWidget);
