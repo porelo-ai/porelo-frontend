@@ -406,7 +406,7 @@ class HostFiles {
     bool ownFolder = false,
     HostAct act = HostAct.legacyUp,
   }) async {
-    checkName(project);
+    act == HostAct.ownAccount ? checkProjectName(project) : checkName(project);
     _checkKeys(keys, windows: _writer.isWindows || _paths.style == path.Style.windows);
     if (hostPublicKey != null) checkPublicKey(hostPublicKey);
     String? hostPrivate;

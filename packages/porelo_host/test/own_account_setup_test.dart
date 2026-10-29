@@ -309,11 +309,14 @@ void main() {
   for (final suffix in ['/', '//', '/.', '/..', '/./x', '/../x']) {
     test('an unnormalized HOME ending $suffix is refused before copying', () async {
       final home = (remote as _HomeRemote).home;
+      // A dot segment names a folder that exists, so only the dot-segment check can refuse it.
+      final named = suffix.endsWith('/x') ? await Directory(path.normalize('${home.path}$suffix')).create() : null;
       remote = _HomeRemote(home, homeValue: '${home.path}$suffix');
       run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
       expect(await upload(), Exit.refused);
       expect(remote.commands.where((command) => command.startsWith('copy ')), isEmpty);
-      expect(await home.list().toList(), isEmpty);
+      expect(await home.list().where((entry) => entry.path != named?.path).toList(), isEmpty);
+      if (named != null) expect(await named.list().toList(), isEmpty);
     });
   }
 

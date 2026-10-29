@@ -205,7 +205,14 @@ void main() {
       } catch (error) {
         refusals['publish'] = error;
       }
-      expect(refusals.keys.toSet(), {'setup', 'bundle', 'access', 'machine', 'publish'});
+      try {
+        await files.prepare(project: project, url: '', signingKey: signing, act: HostAct.ownAccount);
+        refusals['prepare'] = null;
+      } catch (error) {
+        refusals['prepare'] = error;
+      }
+      expect(refusals.keys.toSet(), {'setup', 'bundle', 'access', 'machine', 'publish', 'prepare'});
+      expect(await store.read('wireguard-$project'), isNull);
       for (final entry in refusals.entries) {
         expect(entry.value, isA<HostFilesRefused>(), reason: entry.key);
       }
@@ -216,7 +223,8 @@ void main() {
   test('all own-account paths accept the same safe punctuation in project names', () async {
     const project = 'demo.v1_x-2';
     const folder = '/home/person/.local/share/porelo-host/setup/$project';
-    HostFiles.checkName(project);
+    HostFiles.checkProjectName(project);
+    HostFiles.checkProjectName('x' * 64);
     expect(HostAct.ownAccount.setupPlace(project: project), '.local/share/porelo-host/setup/$project');
     final url = HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: '/home/person');
     expect(url, '$folder/project.bundle');
