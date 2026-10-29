@@ -10,13 +10,9 @@
       "then": "!walk-next"
     },
     {
-      "say": "1-1. On the laptop, in the interface: open Find a command in the title bar (press Ctrl+K or click the search icon beside Watch another machine…) and click Prepare a server… in the Machines group. Expected: the wizard Prepare a server opens at Step 1 of 7 — Where it is rented, showing Scaleway project id and Set Scaleway key, with no Account on the server field. Failure signs: Prepare a server… is absent from the finder (--roles host-admin was omitted at startup) or marked unavailable (keepassxc-cli is missing).",
+      "say": "1-1. On the laptop, in the interface: click Prepare a server… in the title bar, the server icon right of Watch another machine…. Expected: the wizard Prepare a server opens at Step 1 of 7 — Where it is rented, showing Scaleway project id and Set Scaleway key, with no Account on the server field. Failure signs: no server icon in the title bar (--roles host-admin was omitted at startup), or its tooltip reads Prepare a server… with a reason after it (keepassxc-cli is missing).",
       "at": [
-        "text:Prepare a server…",
-        "host.prepare",
-        "command-list",
-        "watch-another-machine",
-        "app-title"
+        "host.prepare"
       ],
       "then": "host-scaleway-project"
     },
