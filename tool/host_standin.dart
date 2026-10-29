@@ -42,6 +42,9 @@ Future<int> _run(List<String> arguments) async {
   final verb = arguments.first;
   final options = <String, String>{};
   const valued = {
+    '--host-name',
+    '--network',
+    '--forge',
     '--project',
     '--account',
     '--public-key',
@@ -68,10 +71,50 @@ Future<int> _run(List<String> arguments) async {
       return _wrong('Unsupported or incomplete host stand-in option.');
     }
   }
-  if (const ['--project', '--account', '--public-key', '--identity'].any((key) => options[key]?.isNotEmpty != true) ||
+  final serverOnly = options.containsKey('--host-name');
+  final needed = [
+    if (serverOnly) ...[
+      '--host-name',
+      '--network',
+      '--vpn-peer-public-key',
+      '--vpn-peer-address',
+    ] else ...[
+      '--project',
+      '--account',
+    ],
+    '--public-key',
+    '--identity',
+  ];
+  if (needed.any((key) => options[key]?.isNotEmpty != true) ||
       options.containsKey('--given') == options.containsKey('--scaleway-project') ||
       (options.containsKey('--given') && !options.containsKey('--host-key'))) {
     return _wrong('Give the project, account, key paths and one host provider.');
+  }
+  PreparedHost? prepared;
+  if (serverOnly) {
+    if (options.containsKey('--project') || options.containsKey('--account')) {
+      return _wrong('A prepared server takes no project or account.');
+    }
+    final network = int.tryParse(options['--network']!);
+    if (network == null) return _wrong('--network needs an integer from 0 to 255.');
+    try {
+      checkHostName(options['--host-name']!);
+      checkHostNetwork(network);
+      prepared = PreparedHost.read({
+        'address': '192.0.2.10',
+        'endpoint': '192.0.2.10:51820',
+        'wireguard_public_key': base64Encode(List<int>.filled(32, 7)),
+        'network': '10.73.$network.0/24',
+        'ssh_host_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKN5JzCUxyX6M8b9iJQSNmDvv7NirfTaeG3ZL3q7N3ke',
+        'ca_sha256': 'a' * 64,
+        'homeserver': 'matrix.${options['--host-name']}.porelo.internal',
+      });
+    } on FormatException catch (error) {
+      return _wrong(error.message);
+    }
+  }
+  if (options.containsKey('--forge') && !const ['true', 'false'].contains(options['--forge'])) {
+    return _wrong('--forge needs true or false.');
   }
   if (options.containsKey('--collection') != options.containsKey('--collection-sha256')) {
     return _wrong('--collection needs --collection-sha256 and vice versa.');
@@ -88,6 +131,7 @@ Future<int> _run(List<String> arguments) async {
     jsonEncode({
       'situation': situation,
       'state': next,
+      if (prepared != null) 'host': prepared.values,
       if (decoded.containsKey('paceMilliseconds')) 'paceMilliseconds': pace,
     }),
   );
@@ -114,14 +158,14 @@ Future<int> _run(List<String> arguments) async {
         steps: [
           ..._ownSteps,
           PlannedStep('play', 'Prepare the server', seconds: (pace / 2000).ceil()),
-          ..._collectionSteps.skip(1),
+          if (!serverOnly) ..._collectionSteps.skip(1),
         ],
       ),
     );
     _emit(Step('play', StepState.started, text: 'Prepare the server', seconds: (pace / 2000).ceil()));
     await Future<void>.delayed(Duration(milliseconds: pace));
     _emit(const Step('play', StepState.done));
-    for (final name in ['drive', 'vault']) {
+    for (final name in serverOnly ? <String>[] : ['drive', 'vault']) {
       _emit(Step(name, StepState.started));
       _emit(Step(name, StepState.done));
     }
@@ -130,7 +174,13 @@ Future<int> _run(List<String> arguments) async {
       _emit(Step(name, StepState.started));
       _emit(Step(name, StepState.done));
     }
-    _emit(const Step('plan', StepState.plan, steps: [..._ownSteps, ..._collectionSteps]));
+    _emit(
+      Step(
+        'plan',
+        StepState.plan,
+        steps: [..._ownSteps, ..._collectionSteps.where((step) => !serverOnly || step.task == 'play')],
+      ),
+    );
     _emit(const Step('play', StepState.started));
     _emit(const Step('play', StepState.done));
     if (situation == 'stop' && state == 'new') {
@@ -138,16 +188,18 @@ Future<int> _run(List<String> arguments) async {
         Step(
           'person',
           StepState.waiting,
-          text: 'Sign in to the drive and initialize the vault',
-          needs: const ['drive', 'vault-new'],
+          text: serverOnly
+              ? 'Prepare the server VPN and certificates'
+              : 'Sign in to the drive and initialize the vault',
+          needs: serverOnly ? const ['wireguard', 'forge-certificate'] : const ['drive', 'vault-new'],
           address: '192.0.2.10',
-          account: options['--account'],
+          account: serverOnly ? 'root' : options['--account'],
         ),
       );
       await remember('waiting');
       return Exit.waiting;
     }
-    for (final name in ['drive', 'vault']) {
+    for (final name in serverOnly ? <String>[] : ['drive', 'vault']) {
       _emit(Step(name, StepState.started));
       _emit(Step(name, StepState.done));
     }
@@ -157,11 +209,12 @@ Future<int> _run(List<String> arguments) async {
       'up',
       StepState.done,
       address: '192.0.2.10',
-      account: options['--account'],
-      socket: '/run/user/1000/porelo/porelod.sock',
+      account: serverOnly ? 'root' : options['--account'],
+      socket: serverOnly ? null : '/run/user/1000/porelo/porelod.sock',
     ),
   );
   await remember('done');
+  if (prepared != null) stdout.writeln(Step('host', StepState.host, host: prepared).toLine());
   return Exit.done;
 }
 

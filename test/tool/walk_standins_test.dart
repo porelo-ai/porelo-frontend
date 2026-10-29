@@ -12,9 +12,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final root = Directory.current;
-  // Use the SDK paired with flutter_tester rather than whichever dart PATH selects.
-  final cache = File(Platform.resolvedExecutable).parent.parent.parent.parent;
-  final dart = '${cache.path}/dart-sdk/bin/dart';
+  // Both the plain Dart runner and flutter_tester use the same paired SDK.
+  final executable = File(Platform.resolvedExecutable);
+  final dart = executable.parent.path.endsWith('/bin')
+      ? executable.path
+      : '${executable.parent.parent.parent.parent.path}/dart-sdk/bin/dart';
   late Directory binaries;
   late String hostExecutable;
   late String sshExecutable;
@@ -191,6 +193,246 @@ void main() {
       expect(result.code, Exit.usage);
       expect(result.errors, isNotEmpty);
     }
+  });
+
+  const sshKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKN5JzCUxyX6M8b9iJQSNmDvv7NirfTaeG3ZL3q7N3ke';
+  final vpnKey = base64Encode(List<int>.filled(32, 7));
+
+  Future<Process> server({
+    String verb = 'up',
+    String name = 'orchard',
+    int network = 17,
+    List<String> extra = const [],
+  }) => Process.start(
+    hostExecutable,
+    [
+      verb,
+      '--host-name',
+      name,
+      '--network',
+      '$network',
+      '--forge',
+      'true',
+      '--login-user',
+      'root',
+      '--public-key',
+      'unused.pub',
+      '--identity',
+      'unused',
+      '--scaleway-project',
+      'walk',
+      '--vpn-peer-public-key',
+      vpnKey,
+      '--vpn-peer-address',
+      '10.73.$network.2/32',
+      ...extra,
+    ],
+    environment: {'PORELO_WALK': scratch.path},
+    includeParentEnvironment: false,
+  );
+
+  // Harm: invalid completion records or project stops prevent a prepared server from being used.
+  test('a prepared server stops as root then ends with seven checked public host fields', () async {
+    await situation('stop');
+    final stopped = await finish(await server());
+    expect(stopped.code, Exit.waiting);
+    expect(stopped.steps.last.account, 'root');
+    expect(stopped.steps.last.needs, ['wireguard', 'forge-certificate']);
+    expect(stopped.steps.where((step) => step.host != null), isEmpty);
+    final done = await finish(await server());
+    expect(done.code, Exit.done);
+    expect(done.steps[done.steps.length - 2].state, StepState.done);
+    final host = done.steps.last.host!;
+    expect(done.lines.last.keys, unorderedEquals(['v', 'state', 'host']));
+    expect(
+      host.values.keys,
+      unorderedEquals([
+        'address',
+        'endpoint',
+        'wireguard_public_key',
+        'network',
+        'ssh_host_key',
+        'ca_sha256',
+        'homeserver',
+      ]),
+    );
+    expect(host.values['address'], '192.0.2.10');
+    expect(host.values['endpoint'], '192.0.2.10:51820');
+    expect(host.network, 17);
+    expect(host.values['homeserver'], 'matrix.orchard.porelo.internal');
+    expect(host.fingerprint, startsWith('SHA256:'));
+    final down = await finish(await server(verb: 'down'));
+    expect(down.code, Exit.done);
+    expect(down.steps.map((step) => step.step), ['give-back', 'give-back']);
+    await situation('stop');
+    final withoutForge = await finish(await server(extra: ['--forge', 'false']));
+    expect(withoutForge.code, Exit.waiting);
+    expect(withoutForge.steps.last.needs, ['wireguard', 'forge-certificate']);
+  });
+
+  // Harm: ignored host options rehearse a different operation than the app requested.
+  test('prepared server options retain strict validation and every situation', () async {
+    for (final name in ['clean', 'slow', 'refused']) {
+      await situation(name);
+      final result = await finish(await server(name: 'second-host', network: 255));
+      expect(result.code, name == 'refused' ? Exit.refused : Exit.done);
+      if (name != 'refused') {
+        expect(result.steps.last.host!.network, 255);
+        expect(result.steps.last.host!.values['homeserver'], 'matrix.second-host.porelo.internal');
+      }
+    }
+    for (final extra in [
+      ['--unknown', 'value'],
+      ['--forge'],
+      ['--forge', 'perhaps'],
+      ['--project', 'checkout'],
+      ['--account', 'alice'],
+      ['--network', '-1'],
+      ['--network', '256'],
+      ['--network', 'text'],
+      ['--host-name', 'bad.name'],
+    ]) {
+      await situation('clean');
+      final result = await finish(await server(extra: extra));
+      expect(result.code, Exit.usage, reason: '$extra');
+      expect(result.steps, isEmpty);
+    }
+  });
+
+  Future<({int code, String output, String errors})> helper(
+    String command, {
+    String input = '',
+    bool close = true,
+  }) async {
+    final process = await Process.start(
+      sshExecutable,
+      [
+        '-i',
+        '/walk/key',
+        '-o',
+        'BatchMode=yes',
+        '-o',
+        'ConnectTimeout=10',
+        '-T',
+        '--',
+        'root@192.0.2.10',
+        '/usr/local/sbin/porelo-host-$command',
+      ],
+      environment: {'PORELO_WALK': scratch.path},
+      includeParentEnvironment: false,
+    );
+    addTearDown(() => process.kill(ProcessSignal.sigkill));
+    final output = process.stdout.transform(utf8.decoder).join();
+    final errors = process.stderr.transform(utf8.decoder).join();
+    process.stdin.write(input);
+    await process.stdin.flush();
+    if (close) await process.stdin.close();
+    final code = await process.exitCode.timeout(const Duration(seconds: 5));
+    return (code: code, output: await output, errors: await errors);
+  }
+
+  // Harm: helpers that ignore input or lose state authorize operations on the wrong people or projects.
+  test('SSH helpers admit laptops register remove lock and purge using persisted inputs', () async {
+    await situation('clean');
+    final host = (await finish(await server())).steps.last.host!;
+    final block = 'laptop $sshKey $vpnKey';
+    final admit = HostAdminRequest.admit('alice', block, 17);
+    final added = await helper('person add alice --role project-admin', input: '$block\n');
+    expect(added.code, 0, reason: added.errors);
+    expect(admit.answer(RemoteResult(added.code, added.errors), [added.output.trim()], host), contains('10.73.17.2'));
+    expect((await helper('person add alice --role project-admin', input: '$block\n')).output, added.output);
+    final key2 =
+        'ssh-ed25519 ${base64Encode([...base64Decode(sshKey.split(' ')[1]).take(19), ...List<int>.filled(32, 8)])}';
+    final vpn2 = base64Encode(List<int>.filled(32, 8));
+    final key3 =
+        'ssh-ed25519 ${base64Encode([...base64Decode(sshKey.split(' ')[1]).take(19), ...List<int>.filled(32, 9)])}';
+    final vpn3 = base64Encode(List<int>.filled(32, 9));
+    final second = await helper(
+      'person add bob --role project-admin',
+      input: 'other $key2 $vpn2\nspare $key3 $vpn3 10.73.17.3\n',
+    );
+    expect(second.code, 0, reason: second.errors);
+    expect(jsonDecode(second.output)['laptops'], [
+      {'laptop': 'other', 'vpn_address': '10.73.17.4'},
+      {'laptop': 'spare', 'vpn_address': '10.73.17.3'},
+    ]);
+    final registered = await helper("project add grove alice --signed-by '$sshKey'");
+    expect(registered.code, 0, reason: registered.errors);
+    expect(
+      HostAdminRequest.register(
+        'grove',
+        'alice',
+        sshKey,
+      ).answer(RemoteResult(registered.code, registered.errors), [registered.output.trim()], host),
+      contains('porelo-publisher-grove'),
+    );
+    final duplicateProject = await helper("project add grove bob --signed-by '$sshKey'");
+    expect(duplicateProject.code, 65);
+    expect(duplicateProject.output, isEmpty);
+    final removed = await helper('project remove grove', input: 'invented-removal-token\n', close: false);
+    expect(removed.code, 0, reason: removed.errors);
+    expect(jsonDecode(removed.output), {'project': 'grove', 'removed': true});
+    expect((await helper("project add grove-two bob --signed-by '$sshKey'")).code, 0);
+    final withoutToken = await helper('project remove grove-two');
+    expect(withoutToken.code, 0);
+    expect(jsonDecode(withoutToken.output), {'project': 'grove-two', 'removed': true});
+    for (final action in ['lock', 'lock', 'purge']) {
+      final result = await helper('person $action alice');
+      expect(result.code, 0, reason: result.errors);
+      expect(jsonDecode(result.output), {'person': 'alice', action == 'lock' ? 'locked' : 'purged': true});
+    }
+    for (final command in ['person lock alice', 'person purge alice', 'project remove grove']) {
+      final result = await helper(command, input: 'invented-removal-token\n');
+      expect(result.code, 65);
+      expect(result.output, isEmpty);
+      expect(
+        result.errors,
+        command.startsWith('person')
+            ? 'porelo-host-person: the person is unknown to the people records\n'
+            : 'porelo-host-project: unknown project grove\n',
+      );
+    }
+    for (final file in scratch.listSync(recursive: true).whereType<File>()) {
+      expect(await file.readAsString(), isNot(contains('invented-removal-token')));
+    }
+    expect(removed.output + removed.errors, isNot(contains('invented-removal-token')));
+  });
+
+  // Harm: malformed or colliding public identities silently consume another laptop's access.
+  test('SSH helper refusals leave the people and projects unchanged', () async {
+    await situation('clean');
+    await finish(await server());
+    for (final block in [
+      '',
+      'bad',
+      'laptop ssh-ed25519 AAAA $vpnKey\n',
+      'laptop $sshKey $vpnKey 10.73.18.2\n',
+      'one $sshKey $vpnKey\ntwo $sshKey $vpnKey\n',
+      'one $sshKey $vpnKey\nmalformed\n',
+    ]) {
+      final result = await helper('person add alice --role project-admin', input: block);
+      expect(result.code, 64, reason: block);
+      expect(result.output, isEmpty);
+    }
+    final added = await helper('person add alice --role project-admin', input: 'laptop $sshKey $vpnKey 10.73.17.9\n');
+    expect(added.code, 0, reason: added.errors);
+    expect(jsonDecode(added.output)['laptops'], [
+      {'laptop': 'laptop', 'vpn_address': '10.73.17.9'},
+    ]);
+    final duplicate = await helper('person add bob --role project-admin', input: 'other $sshKey $vpnKey\n');
+    expect(duplicate.code, 65);
+    expect(duplicate.output, isEmpty);
+    for (final command in [
+      'person add bob --role owner',
+      'person lock Bad',
+      "project add grove alice --signed-by 'ssh-ed25519 AAAA'",
+    ]) {
+      final result = await helper(command);
+      expect(result.code, 64, reason: command);
+      expect(result.output, isEmpty);
+    }
+    expect((await helper('person lock bob')).code, 65);
+    expect((await helper('project remove grove')).code, 65);
   });
 
   Future<ProcessResult> ssh(List<String> args, {Map<String, String> environment = const {}}) => Process.run(
