@@ -85,13 +85,19 @@ else
     esac
     find /etc/wireguard -maxdepth 1 -name '*.conf' -printf '%f\n' >"$record/wireguard" 2>/dev/null || : >"$record/wireguard"
     cp /etc/hosts "$record/hosts"
+    find /usr/local/share/ca-certificates /etc/firefox/porelo -maxdepth 1 -name 'porelo-host-*.crt' 2>/dev/null >"$record/ca" || true
+    if [ -f /etc/firefox/policies/policies.json ]; then
+        cp -p /etc/firefox/policies/policies.json "$record/firefox-policy"
+    elif [ -e /etc/firefox/policies/policies.json ] || [ -L /etc/firefox/policies/policies.json ]; then
+        refuse "/etc/firefox/policies/policies.json is not a plain file; the walk could not put it back"
+    fi
     touch "$record/complete"
     rm -rf -- "$state"
     mv -- "$record" "$state"
     trap - EXIT
     chmod 0700 "$state"
     before=$(cat "$state/porelo-version")
-    echo "ok: recorded in $state: porelo ${before:-not installed}${before:+, set aside}, account $account, sudo $sudo, the VPN configurations and /etc/hosts"
+    echo "ok: recorded in $state: porelo ${before:-not installed}${before:+, set aside}, account $account, sudo $sudo, the VPN configurations, /etc/hosts and the trusted host CAs"
 fi
 
 step b-make.4 "the account $developer, with a password, in the sudo group"

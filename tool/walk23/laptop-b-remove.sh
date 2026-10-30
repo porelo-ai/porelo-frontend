@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Walk 23, laptop B, as root, after the walk, from the operator's own login (or the developer's, if that account was
-# here before the walk and is kept): takes away what
-# the walk added, by what laptop-b-make.sh recorded. That is the interface's VPN configurations (porelo-*) and its
-# /etc/hosts lines (*.porelo.internal) added since; the developer's account with its home if the walk made it, or
-# its sudo if the walk gave it; and porelo if it was not here before, or the porelo the walk replaced, put back
+# here before the walk and is kept): takes away what the walk added, by what laptop-b-make.sh recorded. That is the
+# interface's VPN configurations (porelo-*), its /etc/hosts lines (*.porelo.internal) and the host CAs it trusted in
+# the system and in Firefox, with Firefox's policy as it was; the developer's account with its home if the walk made
+# it, or its sudo if the walk gave it; and porelo if it was not here before, or the porelo the walk replaced, put back
 # from the package laptop-b-make.sh set aside. It says what it will do, refuses loudly, and may be run again.
 # Usage, from the unpacked hand-over: sudo bash laptop-b-remove.sh
 set -euo pipefail
@@ -74,7 +74,31 @@ else
     echo "ok: those lines are gone; every other line stays"
 fi
 
-step b-remove.4 "porelo as before the walk"
+step b-remove.4 "the host CAs the walk trusted are gone, in the system and in Firefox"
+if [ ! -f "$state/ca" ]; then
+    echo "note: this record is older than the CA record; remove /usr/local/share/ca-certificates/porelo-host-*.crt and /etc/firefox/porelo yourself if the walk added them"
+else
+    removed=no
+    for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/firefox/porelo/porelo-host-*.crt; do
+        [ -e "$ca" ] || [ -L "$ca" ] || continue
+        grep -qxF -- "$ca" "$state/ca" && continue
+        echo "removing $ca"
+        rm -f -- "$ca"
+        case $ca in /usr/local/share/ca-certificates/*) removed=yes ;; esac
+    done
+    [ "$removed" = no ] || update-ca-certificates >/dev/null
+    if [ -f "$state/firefox-policy" ]; then
+        cp -p -- "$state/firefox-policy" /etc/firefox/policies/policies.json
+        rm -f -- /etc/firefox/porelo/managed-policy.json
+        echo "ok: Firefox's policy is the one from before the walk"
+    elif [ -e /etc/firefox/policies/policies.json ] || [ -L /etc/firefox/policies/policies.json ]; then
+        rm -f -- /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json
+        echo "ok: Firefox's policy, which the walk made, is gone"
+    fi
+    echo "ok: no host CA is trusted that was not trusted before"
+fi
+
+step b-remove.5 "porelo as before the walk"
 before=$(cat "$state/porelo-version")
 status=$(dpkg-query -W -f='${db:Status-Status}' porelo 2>/dev/null || true)
 case $status in
@@ -99,7 +123,7 @@ else
     echo "ok: porelo $before, as before"
 fi
 
-step b-remove.5 "the account $developer as it was before the walk"
+step b-remove.6 "the account $developer as it was before the walk"
 if [ "$was_here" = yes ] && ! id "$developer" >/dev/null 2>&1; then
     echo "ok: $developer was here before the walk and is gone now; nothing to restore"
 elif [ "$was_here" = yes ]; then

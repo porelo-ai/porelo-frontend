@@ -101,7 +101,7 @@ for repository in "${missing[@]}"; do
     echo "making $organisation/$repository, private and empty"
     answer=$(github POST "/orgs/$organisation/repos" "$(jq -cn --arg name "$repository" '{name: $name, private: true}')")
     code=${answer##*$'\n'}
-    [ "$code" = 201 ] || refuse "GitHub answered $code to making $organisation/$repository; inspect it before retrying"
+    [ "$code" = 201 ] || refuse "GitHub answered $code to making $organisation/$repository; make $organisation/$repository private on github.com yourself, give the token Contents write and Administration on it, and run this again"
     [ "$(printf '%s' "${answer%$'\n'*}" | jq -r '.private')" = true ] ||
         refuse "$organisation/$repository was not confirmed private; inspect it before retrying"
 done
