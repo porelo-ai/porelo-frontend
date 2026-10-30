@@ -250,13 +250,55 @@ class HostRegistryProgress {
   }
 }
 
+/// Confirmed host facts retained independently of the current retry request.
+class HostRegistryState {
+  /// Keeps publication and the last applied revision across discarded changes.
+  const HostRegistryState({this.publishedCard, this.lastAppliedRevision, this.cardNeedsVerification = false});
+
+  /// The last confirmed public card, absent after its deletion is published.
+  final PreparedHost? publishedCard;
+
+  /// The last registry revision confirmed by the host.
+  final String? lastAppliedRevision;
+
+  /// Whether legacy operation progress lacks the published card's actual values.
+  final bool cardNeedsVerification;
+
+  /// The durable public facts beside operation progress.
+  Map<String, Object?> get stored => {
+    'published_card': ?publishedCard?.stored,
+    'last_applied_revision': ?lastAppliedRevision,
+    if (cardNeedsVerification) 'card_needs_verification': true,
+  };
+
+  /// Checks saved facts before they influence publication or delivery.
+  factory HostRegistryState.read(Object? value) {
+    if (value is! Map) throw const FormatException('Invalid confirmed host registry state.');
+    final revision = value['last_applied_revision'];
+    final needsVerification = value['card_needs_verification'] ?? false;
+    if (needsVerification is! bool || needsVerification && value['published_card'] != null) {
+      throw const FormatException('Invalid host card verification state.');
+    }
+    if (revision != null && revision is! String) throw const FormatException('Invalid applied registry revision.');
+    return HostRegistryState(
+      publishedCard: value['published_card'] == null ? null : PreparedHost.read(value['published_card']),
+      lastAppliedRevision: revision == null ? null : checkedRegistryRevision(revision as String),
+      cardNeedsVerification: needsVerification,
+    );
+  }
+}
+
 /// Delivers an exact signed revision over the host's owned, pinned SSH tunnel.
 ///
 /// Upload must verify intake before returning. Sync rejects any state that is not
 /// a descendant of the applied revision. Status reports the registry revision,
 /// never a project's access revision. No central-forge credential reaches it.
 abstract interface class HostRegistryTransport {
-  /// Uploads and checks the exact signed registry bundle through pinned SSH.
+  /// Uploads the bundle to `setup/registry.bundle` in the admitted admin's account.
+  ///
+  /// Intake runs root's `porelo-host-person registry`; verification uses
+  /// `porelo registry verify --repository <bundle> --host --pinned [--since] --json`.
+  /// Only descendants of the last applied revision may reach sync.
   Future<void> upload(String host, String revision);
 
   /// Applies a descendant and reports the host’s confirmed membership results.

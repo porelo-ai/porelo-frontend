@@ -83,6 +83,8 @@ class ScriptedRemote implements Remote {
 
 class _Preparation implements ServerPreparation {
   int calls = 0;
+  Map<String, Object>? receivedInventory;
+  HostPreparationSettings? receivedSettings;
   Map<String, Object?>? result;
   Exception? refused;
   @override
@@ -91,13 +93,20 @@ class _Preparation implements ServerPreparation {
     required String name,
     required String address,
     required List<String> adminSigners,
+    required String adminLogin,
+    required String adminKey,
+    Map<String, Object> inventory = const {},
+    HostPreparationSettings settings = const HostPreparationSettings(),
   }) async {
     calls++;
+    receivedInventory = inventory;
+    receivedSettings = settings;
     if (refused != null) throw refused!;
     expect(name, 'orchard');
     expect(address, '203.0.113.7');
     expect(adminSigners, [sshKey]);
-    return PreparedHost.read(result ?? hostValues());
+    expect((adminLogin, adminKey), ('alice', sshKey));
+    return PreparedHost.read(result ?? hostValues(), hostName: name, localServices: settings.localServices);
   }
 }
 
@@ -121,8 +130,56 @@ void main() {
     hostKeys: () async => ('fixture-host-private', sshKey),
     environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
   );
-  const plan = HostPlan(hostName: 'orchard', loginUser: 'root', publicKey: sshKey, adminSigners: [sshKey]);
+  const plan = HostPlan(
+    adminLogin: 'alice',
+    hostName: 'orchard',
+    loginUser: 'root',
+    publicKey: sshKey,
+    adminSigners: [sshKey],
+  );
   const recovery = HostPlan(project: 'demo', account: 'worker', publicKey: '', recoveryOnly: true);
+
+  // Harm: missing runner limits exhaust a small host, and wrong forwards misdirect its services.
+  test('preparation receives version two inventory and chosen local forwards', () async {
+    final setup = _Preparation();
+    const choices = HostPreparationSettings(
+      forgeRunnerCapacity: 1,
+      forgeJobCpus: 1,
+      forgeJobMemory: '768m',
+      forgeWebPort: 3100,
+      forgeGitPort: 3101,
+      matrixPort: 8548,
+    );
+    expect(
+      await runner(preparation: setup).up(
+        const HostPlan(
+          hostName: 'orchard',
+          loginUser: 'root',
+          publicKey: sshKey,
+          adminSigners: [sshKey],
+          adminLogin: 'alice',
+          preparationSettings: choices,
+        ),
+      ),
+      Exit.done,
+    );
+    expect(setup.receivedInventory, containsPair('porelo_host_inventory_version', 2));
+    expect(setup.receivedInventory, containsPair('forge_runner_capacity', 1));
+    expect(setup.receivedInventory, containsPair('forge_job_cpus', 1));
+    expect(setup.receivedInventory, containsPair('forge_job_memory', '768m'));
+    expect(setup.receivedSettings!.localServices, choices.localServices);
+    expect(steps.last.host!.services, choices.localServices);
+    expect(setup.receivedInventory!.keys.toSet(), {
+      'porelo_host_inventory_version',
+      'porelo_host_name',
+      'porelo_host_network',
+      'porelo_host_distribution',
+      'porelo_host_forge',
+      'forge_runner_capacity',
+      'forge_job_cpus',
+      'forge_job_memory',
+    });
+  });
 
   // Harm: an unavailable or unsigned setup must not rent or run an obsolete playbook.
   test('missing served setup contract refuses before rent', () async {
@@ -139,6 +196,16 @@ void main() {
     expect(provider.created, 0);
     expect(remote.commands, isEmpty);
   });
+  // Harm: preparation cannot pin the verified host admin if it receives no proven login.
+  test('missing host admin login refuses before rent', () async {
+    expect(
+      await runner(preparation: _Preparation())
+          .up(const HostPlan(hostName: 'orchard', loginUser: 'root', publicKey: sshKey, adminSigners: [sshKey])),
+      Exit.refused,
+    );
+    expect(provider.created, 0);
+  });
+
   // Harm: setup again must reuse the same rental rather than create another billed machine.
   test('a checked SSH setup completes and reuses its existing rental', () async {
     final setup = _Preparation();
@@ -159,6 +226,7 @@ void main() {
           loginUser: 'root',
           publicKey: sshKey,
           adminSigners: [sshKey],
+          adminLogin: 'alice',
           existingRentalTag: 'porelo-project=demo',
         ),
       ),

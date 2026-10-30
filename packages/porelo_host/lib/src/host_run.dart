@@ -23,6 +23,8 @@ class HostPlan {
     this.project = '',
     this.account = '',
     this.hostName,
+    this.adminLogin,
+    this.preparationSettings = const HostPreparationSettings(),
     this.recoveryOnly = false,
     this.existingRentalTag,
     this.adminSigners = const [],
@@ -38,6 +40,12 @@ class HostPlan {
 
   /// The name for a server prepared independently of a project.
   final String? hostName;
+
+  /// Core's proven login whose card key is pinned after preparation.
+  final String? adminLogin;
+
+  /// The runner limits and local forwarding choices supplied to preparation.
+  final HostPreparationSettings preparationSettings;
 
   /// The existing provider tag; a missing match must never create a second rental.
   final String? existingRentalTag;
@@ -67,6 +75,9 @@ class HostPlan {
     }
     if (loginUser != 'root') throw const FormatException('A prepared server uses root with the rental key.');
     if (forSetup) {
+      preparationSettings.check();
+      if (adminLogin == null) throw const FormatException('The verified host admin login is required.');
+      checkAdminName(adminLogin!);
       try {
         HostFiles.signingFingerprint(publicKey);
       } on HostFilesRefused {
@@ -325,6 +336,10 @@ class HostRun {
         name: plan.hostName!,
         address: host.address!,
         adminSigners: List.unmodifiable(plan.adminSigners),
+        adminLogin: plan.adminLogin!,
+        adminKey: plan.publicKey,
+        inventory: Map.unmodifiable(_inventoryVariables(plan)),
+        settings: plan.preparationSettings,
       );
       if (result.name != plan.hostName || result.address != host.address || result.sshHostKey != host.hostKey) {
         throw const FormatException('The setup completion differs from the pinned rental.');
@@ -1049,18 +1064,22 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
   String _inventory(HostPlan plan) => const JsonEncoder.withIndent('  ').convert(<String, Object>{
     'all': <String, Object>{
       'hosts': <String, Object>{'localhost': <String, Object>{}},
-      'vars': <String, Object>{
-        'porelo_host_inventory_version': plan.hostName == null ? 1 : 2,
-        if (plan.hostName == null) ...{
-          'porelo_host_account': plan.account,
-          'porelo_host_authorized_key': plan.publicKey,
-          'porelo_host_project': plan.project,
-        } else ...{
-          'porelo_host_name': plan.hostName!,
-        },
-        'porelo_host_distribution': plan.distribution,
-        'porelo_host_forge': plan.forge,
-      },
+      'vars': _inventoryVariables(plan),
     },
   });
+
+  Map<String, Object> _inventoryVariables(HostPlan plan) => {
+    'porelo_host_inventory_version': plan.hostName == null ? 1 : 2,
+    if (plan.hostName == null) ...{
+      'porelo_host_account': plan.account,
+      'porelo_host_authorized_key': plan.publicKey,
+      'porelo_host_project': plan.project,
+    } else ...{
+      'porelo_host_name': plan.hostName!,
+      'porelo_host_network': 0,
+      ...plan.preparationSettings.roleSettings,
+    },
+    'porelo_host_distribution': plan.distribution,
+    'porelo_host_forge': plan.forge,
+  };
 }

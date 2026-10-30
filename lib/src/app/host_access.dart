@@ -95,6 +95,12 @@ class HostAccess {
   /// Refuses a stale callback before it can change or rent a host.
   void requireAdmin([String? host]) => _authorize(host);
 
+  /// Shows the verified card key's bootstrap instruction for a separate terminal.
+  String bootstrapCommand() {
+    _authorize();
+    return hostRootBootstrapCommand(_person(identity()!.login)!.key);
+  }
+
   void _authorize([String? host]) {
     if (unavailable(host) case final reason?) throw RegistryRefusal(reason, whoMay: whoMay);
   }
@@ -141,7 +147,7 @@ class HostAccess {
     final progress = settings.hostRegistry(host);
     if (settings.hostReturned(host)) return progress?.change.action != 'delete-card' || progress?.complete != true;
     if (progress != null && !progress.complete) return true;
-    final applied = _statuses[host]?.revision ?? progress?.lastAppliedRevision;
+    final applied = _statuses[host]?.revision ?? settings.hostRegistryState(host).lastAppliedRevision;
     if (progress?.complete == true &&
         applied == progress?.confirmedRevision &&
         registry.accepted?.revision == progress?.revision) {
@@ -155,6 +161,12 @@ class HostAccess {
 
   Future<void> _publishReady(String host, PreparedHost card) async {
     _authorize(host);
+    if (settings.hostReturned(host)) throw const RegistryRefusal('The server was given back.');
+    if (settings.hostRegistryState(host).cardNeedsVerification) {
+      throw const RegistryRefusal(
+        'The saved registry record lacks verified host card values. Verify the published card before replacing it.',
+      );
+    }
     final existing = settings.hostRegistry(host);
     if (existing?.change.action == 'host-card') {
       final same = jsonEncode(existing!.change.card?.stored) == jsonEncode(card.stored);
@@ -165,6 +177,7 @@ class HostAccess {
       }
       if (same) return;
     }
+    if (jsonEncode(settings.hostRegistryState(host).publishedCard?.stored) == jsonEncode(card.stored)) return;
     await _begin(host, 'host-card', card: card);
   }
 
@@ -231,7 +244,8 @@ class HostAccess {
       await _deleteReturned(host);
     } else if (settings.hostUp(host)?.preparedHost case final card?
         when (settings.hostRegistry(host) == null || settings.hostRegistry(host)!.complete) &&
-            jsonEncode(settings.hostRegistry(host)?.publishedCard?.stored) != jsonEncode(card.stored)) {
+            !settings.hostRegistryState(host).cardNeedsVerification &&
+            jsonEncode(settings.hostRegistryState(host).publishedCard?.stored) != jsonEncode(card.stored)) {
       await _publishReady(host, card);
     } else if (settings.hostRegistry(host) case final progress? when !progress.complete) {
       if (!const ['host-card', 'delete-card'].contains(progress.change.action)) _authorizeExisting(host);
@@ -434,18 +448,7 @@ class HostAccess {
 
   Future<void> _keep(HostRegistryProgress progress) {
     _checkNotReturned(progress.change);
-    return settings.rememberHostRegistry(
-      HostRegistryProgress.read({
-        ...progress.stored,
-        'published_card': progress.change.action == 'delete-card'
-            ? null
-            : (progress.change.action == 'host-card' && progress.published
-                  ? progress.change.card?.stored
-                  : settings.hostRegistry(progress.change.host)?.publishedCard?.stored),
-        'last_applied_revision':
-            ?(progress.lastAppliedRevision ?? settings.hostRegistry(progress.change.host)?.lastAppliedRevision),
-      }),
-    );
+    return settings.rememberHostRegistry(progress);
   }
 
   Future<void> _exclusive(String host, Future<void> Function() work) async {

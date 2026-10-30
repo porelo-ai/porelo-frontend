@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_host/porelo_host.dart' show HostCardSsh, SecretsFile, PreparedHost, HostPlan, checkHostName;
+import 'package:porelo_host/porelo_host.dart'
+    show HostCardSsh, SecretsFile, PreparedHost, HostPlan, HostPreparationSettings, checkHostName;
 
 import 'desk.dart';
 import 'host_protocol.dart';
@@ -35,6 +36,7 @@ class HostUpRecord {
     this.account = '',
     this.publicKey = '',
     this.forge = true,
+    this.preparationSettings = const HostPreparationSettings(),
     this.preparedHost,
     this.rentalTag,
     this.setupFolder,
@@ -74,6 +76,9 @@ class HostUpRecord {
   /// Whether setup includes a host forge.
   final bool forge;
 
+  /// The checked runner limits and local forward ends retained for setup retry.
+  final HostPreparationSettings preparationSettings;
+
   /// The checked SSH completion, absent until confirmed.
   final PreparedHost? preparedHost;
 
@@ -112,6 +117,12 @@ class HostUpRecord {
     return _copy(preparedHost: value);
   }
 
+  /// Retains validated preparation choices without losing rental recovery.
+  HostUpRecord withPreparationSettings(HostPreparationSettings value) {
+    value.check();
+    return HostUpRecord.fromStored({...stored, 'preparationSettings': value.stored})!;
+  }
+
   /// Assigns a legacy project record to its migrated host settings key.
   HostUpRecord forHost(String name, {required String rentalProject}) {
     SecretsFile.checkHost(name);
@@ -135,6 +146,7 @@ class HostUpRecord {
     rentalTag: rentalTag ?? this.rentalTag,
     publicKey: publicKey,
     forge: forge,
+    preparationSettings: preparationSettings,
     preparedHost: preparedHost ?? this.preparedHost,
     setupFolder: setupFolder,
     collection: collection,
@@ -218,7 +230,9 @@ class HostUpRecord {
       return null;
     }
     PreparedHost? prepared;
+    HostPreparationSettings choices;
     try {
+      choices = HostPreparationSettings.read(value['preparationSettings'] ?? <String, Object?>{});
       if (value['preparedHost'] != null) {
         prepared = PreparedHost.read(value['preparedHost']);
         if (prepared.name != name) return null;
@@ -233,6 +247,7 @@ class HostUpRecord {
       publicKey: publicKey,
       rentalTag: tag as String?,
       forge: forge,
+      preparationSettings: choices,
       preparedHost: prepared,
       setupFolder: setupFolder,
       collection: collection,
@@ -257,6 +272,7 @@ class HostUpRecord {
       'oneClick': true,
       'publicKey': publicKey,
       'forge': forge,
+      'preparationSettings': preparationSettings.stored,
       if (preparedHost != null) 'preparedHost': preparedHost!.values,
       if (collection.isNotEmpty) 'collection': collection,
       if (collectionSha256.isNotEmpty) 'collectionSha256': collectionSha256,
@@ -267,6 +283,7 @@ class HostUpRecord {
   /// Builds setup arguments only for signed-state records.
   List<String> arguments(String project) {
     if (legacy) throw StateError('This rental needs setup again through signed state.');
+    preparationSettings.check();
     return [
       '--host-name',
       hostName,
@@ -276,6 +293,7 @@ class HostUpRecord {
       scalewayProject,
       '--forge',
       '$forge',
+      ...preparationSettings.arguments,
       if (rentalTag != null) ...['--rental-tag', rentalTag!],
     ];
   }
@@ -520,6 +538,21 @@ class Settings extends ChangeNotifier {
       }
     }
     _hostRegistry.clear();
+    _hostRegistryState.clear();
+    final registryState = stored['hostRegistryState'];
+    if (registryState != null) {
+      if (registryState is! Map) throw const FormatException('Invalid confirmed host registry state.');
+      for (final entry in registryState.entries) {
+        if (entry.key is! String) throw const FormatException('Invalid registry host.');
+        final host = entry.key as String;
+        checkHostName(host);
+        final state = HostRegistryState.read(entry.value);
+        if (state.publishedCard != null && state.publishedCard!.name != host) {
+          throw const FormatException('Confirmed card names another host.');
+        }
+        _hostRegistryState[host] = state;
+      }
+    }
     final registryWork = stored['hostRegistry'];
     if (registryWork != null) {
       if (registryWork is! Map) throw const FormatException('Invalid pending host registry work.');
@@ -527,6 +560,13 @@ class Settings extends ChangeNotifier {
         final progress = HostRegistryProgress.read(entry.value);
         if (entry.key != progress.change.host) throw const FormatException('Pending registry work names another host.');
         _hostRegistry[progress.change.host] = progress;
+        _hostRegistryState.putIfAbsent(
+          progress.change.host,
+          () => HostRegistryState(
+            publishedCard: progress.publishedCard,
+            lastAppliedRevision: progress.lastAppliedRevision,
+          ),
+        );
       }
     }
     _hostUps.clear();
@@ -567,6 +607,21 @@ class Settings extends ChangeNotifier {
         _hostUps[target] = saved;
         migratedHosts |= target != key;
         if (target != key) migratedHostKeys[key] = target;
+      }
+    }
+    // A retained replacement completion cannot prove the contents of an older published card.
+    for (final entry in _hostRegistry.entries) {
+      final raw = registryWork is Map ? registryWork[entry.key] : null;
+      final progress = entry.value;
+      if (registryState is! Map &&
+          raw is Map &&
+          !raw.containsKey('published_card') &&
+          !const ['host-card', 'delete-card'].contains(progress.change.action) &&
+          !_returnedHosts.contains(entry.key)) {
+        _hostRegistryState[entry.key] = HostRegistryState(
+          lastAppliedRevision: progress.lastAppliedRevision,
+          cardNeedsVerification: true,
+        );
       }
     }
     _projectHosts.clear();
@@ -696,9 +751,21 @@ class Settings extends ChangeNotifier {
   }
 
   final _hostRegistry = <String, HostRegistryProgress>{};
+  final _hostRegistryState = <String, HostRegistryState>{};
+
+  /// Confirmed host facts, independent of the operation currently being retried.
+  HostRegistryState hostRegistryState(String host) => _hostRegistryState[host] ?? const HostRegistryState();
 
   /// Durable publication and delivery progress, including confirmed give-back.
-  HostRegistryProgress? hostRegistry(String host) => _hostRegistry[host];
+  HostRegistryProgress? hostRegistry(String host) {
+    final progress = _hostRegistry[host];
+    if (progress == null) return null;
+    return HostRegistryProgress.read({
+      ...progress.stored,
+      'published_card': hostRegistryState(host).publishedCard?.stored,
+      'last_applied_revision': hostRegistryState(host).lastAppliedRevision,
+    });
+  }
 
   /// Discards only an unfiled request whose selected card is no longer usable.
   Future<void> forgetUnfiledHostRegistry(String host) async {
@@ -724,11 +791,13 @@ class Settings extends ChangeNotifier {
     }
     _returnedHosts.remove(host);
     _hostRegistry.remove(host);
+    final previousState = _hostRegistryState.remove(host);
     try {
       await _write();
     } on Object {
       _returnedHosts.add(host);
       _hostRegistry[host] = previous!;
+      if (previousState != null) _hostRegistryState[host] = previousState;
       rethrow;
     }
     notifyListeners();
@@ -739,10 +808,27 @@ class Settings extends ChangeNotifier {
     final checked = HostRegistryProgress.read(progress.stored);
     final host = checked.change.host;
     final previous = _hostRegistry[host];
+    final previousState = _hostRegistryState[host];
     _hostRegistry[host] = checked;
+    _hostRegistryState[host] = HostRegistryState(
+      publishedCard: checked.change.action == 'delete-card' && checked.complete
+          ? null
+          : (checked.change.action == 'host-card' && checked.published
+                ? checked.change.card
+                : checked.publishedCard ?? previousState?.publishedCard),
+      lastAppliedRevision: checked.lastAppliedRevision ?? previousState?.lastAppliedRevision,
+      cardNeedsVerification:
+          !const ['host-card', 'delete-card'].contains(checked.change.action) &&
+          previousState?.cardNeedsVerification == true,
+    );
     try {
       await _write();
     } on Object {
+      if (previousState == null) {
+        _hostRegistryState.remove(host);
+      } else {
+        _hostRegistryState[host] = previousState;
+      }
       if (previous == null) {
         _hostRegistry.remove(host);
       } else {
@@ -1059,7 +1145,13 @@ class Settings extends ChangeNotifier {
     'tresorFolders': _tresorFolders,
     'secretsFile': _secretsFile,
     'returnedHosts': _returnedHosts.toList(),
-    'hostRegistry': {for (final entry in _hostRegistry.entries) entry.key: entry.value.stored},
+    'hostRegistry': {
+      for (final entry in _hostRegistry.entries)
+        entry.key: Map<String, Object?>.of(entry.value.stored)
+          ..remove('published_card')
+          ..remove('last_applied_revision'),
+    },
+    'hostRegistryState': {for (final entry in _hostRegistryState.entries) entry.key: entry.value.stored},
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
     'projectHosts': Map<String, String>.of(_projectHosts),
   };

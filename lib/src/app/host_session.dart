@@ -522,7 +522,10 @@ class HostSession extends ChangeNotifier {
   void _line(String line) {
     final Step? parsed;
     try {
-      parsed = Step.fromLine(line);
+      final nameIndex = arguments.indexOf('--host-name');
+      final hostName = nameIndex >= 0 && nameIndex + 1 < arguments.length ? arguments[nameIndex + 1] : null;
+      final choices = HostPreparationSettings.fromArguments(arguments);
+      parsed = Step.fromLine(line, hostName: hostName, localServices: choices.localServices);
     } on FormatException catch (error) {
       _hostProblem = error.message;
       _changed();
@@ -530,6 +533,11 @@ class HostSession extends ChangeNotifier {
     }
     if (parsed == null) return;
     final step = parsed;
+    if (_upCommand && arguments.contains('--host-name') && step.state == StepState.waiting) {
+      _hostProblem = 'The host requested a retired root setup stop.';
+      _changed();
+      return;
+    }
     if (step.state == StepState.host) {
       if (!_upCommand) {
         _hostProblem = 'The host record is allowed only from up.';

@@ -42,6 +42,51 @@ void main() {
 
   String kept(String name) => File('${scratch.path}/$name').readAsStringSync();
 
+  // Harm: a successful host-only completion is discarded instead of published.
+  test('up completes host metadata from its preparation name and default local forwards', () async {
+    final raw = hostValues()
+      ..remove('name')
+      ..remove('ssh_port');
+    (raw['services'] as Map).remove('matrix');
+    final session = HostSession(
+      executable: 'porelo-host',
+      arguments: const ['--host-name', 'orchard'],
+      start: saying([
+        const Step('up', StepState.done, address: '203.0.113.7', admin: 'root').toLine(),
+        jsonEncode({'v': 1, 'state': 'host', 'host': raw}),
+      ]),
+    );
+    addTearDown(session.dispose);
+    await session.up();
+    expect(session.state, HostRunState.done);
+    expect(session.preparedHost!.name, 'orchard');
+    expect(session.preparedHost!.services, PreparedHost.defaultLocalServices);
+  });
+
+  // Harm: root preparation requests a retired secret stop or resumes an obsolete provisioning path.
+  for (final need in ['wireguard', 'forge-certificate', 'drive', 'vault', 'vault-new', '']) {
+    test('root preparation refuses the ${need.isEmpty ? 'empty' : need} stop', () async {
+      final session = HostSession(
+        executable: 'porelo-host',
+        arguments: const ['--host-name', 'orchard'],
+        start: saying([
+          Step(
+            'person',
+            StepState.waiting,
+            needs: [if (need.isNotEmpty) need],
+            admin: 'root',
+            address: '203.0.113.7',
+          ).toLine(),
+        ], code: 75),
+      );
+      addTearDown(session.dispose);
+      await session.up();
+      expect(session.state, HostRunState.refused);
+      expect(session.needs, isEmpty);
+      expect(session.preparedHost, isNull);
+    });
+  }
+
   // Harm: metadata outside a confirmed up attempt must not make a host ready.
   test('up reads the checked host protocol line after completion without adding a progress step', () async {
     final session = HostSession(

@@ -18,17 +18,10 @@ bool isIpv4Address(String value) {
       parts.every((part) => RegExp(r'^(0|[1-9][0-9]{0,2})$').hasMatch(part) && int.parse(part) <= 255);
 }
 
-bool _publicIpv4(String value) {
+bool _usableIpv4(String value) {
   if (!isIpv4Address(value)) return false;
   final parts = value.split('.').map(int.parse).toList();
-  return parts[0] > 0 &&
-      parts[0] < 224 &&
-      parts[0] != 10 &&
-      parts[0] != 127 &&
-      !(parts[0] == 169 && parts[1] == 254) &&
-      !(parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) &&
-      !(parts[0] == 192 && parts[1] == 168) &&
-      !(parts[0] == 100 && parts[1] >= 64 && parts[1] <= 127);
+  return value != '0.0.0.0' && parts[0] != 127 && !(parts[0] >= 224 && parts[0] <= 239);
 }
 
 /// Refuses a public key with a comment, a wrong type, or a malformed SSH blob.
@@ -52,23 +45,34 @@ String checkedEd25519(String value) {
 class PreparedHost {
   PreparedHost._(this.name, this.address, this.sshPort, this.sshHostKey, this.services);
 
-  /// Reads the agreed host card fields; trust and signature checks belong to Core.
-  factory PreparedHost.read(Object? json) {
+  /// Reads a saved card, or completes Machines' result using preparation choices.
+  ///
+  /// [hostName] supplies the name missing from host.json. [localServices] supplies
+  /// the person's forward ends, independently of the host's service ports.
+  factory PreparedHost.read(Object? json, {String? hostName, Map<String, Map<String, int>>? localServices}) {
     if (json is! Map<String, Object?>) throw const FormatException('The host completion needs an object.');
-    final name = json['name'];
+    final name = json['name'] ?? hostName;
     final address = json['address'];
-    final port = json['ssh_port'];
+    final port = hostName == null ? json['ssh_port'] : 22;
     final key = json['ssh_host_key'];
-    final services = json['services'];
+    final remoteServices = json['services'];
     if (name is! String) throw const FormatException('The host completion needs its name.');
     checkHostName(name);
-    if (address is! String || !_publicIpv4(address)) {
-      throw const FormatException('The host completion needs a public IPv4 address.');
+    if (hostName != null && name != hostName) throw const FormatException('The completion names another server.');
+    if (address is! String || !_usableIpv4(address)) {
+      throw const FormatException('The host completion needs a usable IPv4 address.');
     }
     if (port is! int || port < 1 || port > 65535 || key is! String) {
       throw const FormatException('The host completion needs valid ssh_port and ssh_host_key.');
     }
     checkedEd25519(key);
+    if (hostName != null) {
+      final forge = remoteServices is Map ? remoteServices['forge'] : null;
+      if (forge is! Map || [forge['web_port'], forge['git_port']].any((p) => p is! int || p < 1 || p > 65535)) {
+        throw const FormatException('The host completion needs valid forge service ports.');
+      }
+    }
+    final services = hostName == null ? remoteServices : localServices ?? defaultLocalServices;
     if (services is! Map<String, Object?>) {
       throw const FormatException('The host completion needs services with port numbers.');
     }
@@ -96,7 +100,7 @@ class PreparedHost {
   /// The server's DNS label.
   final String name;
 
-  /// The server's public SSH address.
+  /// The server's SSH address, including private rental networks.
   final String address;
 
   /// The SSH port in the signed host card.
@@ -107,6 +111,12 @@ class PreparedHost {
 
   /// The fixed local service ports, grouped as in the signed host card.
   final Map<String, Map<String, int>> services;
+
+  /// The person's default local ends of the SSH forwards.
+  static const defaultLocalServices = {
+    'forge': {'web_port': 3000, 'git_port': 3001},
+    'matrix': {'port': 8448},
+  };
 
   /// The public completion shape supplied to Core for signing.
   Map<String, Object> get values => {

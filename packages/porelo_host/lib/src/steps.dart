@@ -71,7 +71,7 @@ class Step {
   final String? words;
 
   /// A line as [toLine] wrote it, or null for one that is not a step's.
-  static Step? fromLine(String line) {
+  static Step? fromLine(String line, {String? hostName, Map<String, Map<String, int>>? localServices}) {
     final Object? decoded;
     try {
       decoded = jsonDecode(line);
@@ -83,7 +83,12 @@ class Step {
     if (decoded.containsKey('at') && at == null) return null;
     if (decoded['state'] == 'host') {
       if (decoded['v'] != 1) return null;
-      return Step('host', StepState.host, host: PreparedHost.read(decoded['host']), at: at);
+      return Step(
+        'host',
+        StepState.host,
+        host: PreparedHost.read(decoded['host'], hostName: hostName, localServices: localServices),
+        at: at,
+      );
     }
     if (decoded['state'] == 'plan') {
       final steps = PlannedStep.readMany(decoded['steps']);

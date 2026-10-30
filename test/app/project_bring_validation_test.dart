@@ -88,7 +88,13 @@ void main() {
     );
     expect(
       await setup.up(
-        const HostPlan(hostName: 'orchard', loginUser: 'root', publicKey: personKey, adminSigners: [personKey]),
+        const HostPlan(
+          adminLogin: 'alice',
+          hostName: 'orchard',
+          loginUser: 'root',
+          publicKey: personKey,
+          adminSigners: [personKey],
+        ),
       ),
       Exit.done,
     );
@@ -127,6 +133,10 @@ class _Setup implements ServerPreparation {
     required String name,
     required String address,
     required List<String> adminSigners,
+    required String adminLogin,
+    required String adminKey,
+    Map<String, Object> inventory = const {},
+    HostPreparationSettings settings = const HostPreparationSettings(),
   }) async {
     expect(adminSigners, service.state.adminSigners);
     expect((name, address), (service.state.host.name, service.state.host.address));

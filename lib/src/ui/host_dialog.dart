@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:porelo_host/porelo_host.dart' show PreparedHost;
+import 'package:porelo_host/porelo_host.dart' show PreparedHost, HostPreparationSettings;
 
 import '../app/fleet_backend.dart';
 import '../app/host_runs.dart';
@@ -14,6 +14,7 @@ import '../app/settings.dart';
 import '../app/signed_host_actions.dart';
 import 'project_bring_dialog.dart';
 import 'tokens.dart';
+import 'host_preparation_settings.dart';
 
 /// Opens confirmed give-back of the existing rental.
 Future<void> openHostTakeDownDialog(
@@ -127,12 +128,14 @@ class _HostDialogState extends State<HostDialog> {
   bool _busy = false;
   bool _givenBack = false;
   String? _problem;
+  HostPreparationSettings _choices = const HostPreparationSettings();
   Settings get _settings => widget.settings ?? widget.machines.settings;
   HostUpRecord? get _record => _settings.hostUp(widget.project);
 
   @override
   void initState() {
     super.initState();
+    _choices = _record?.preparationSettings ?? widget.existingRun?.record.preparationSettings ?? _choices;
     _givenBack = _settings.hostReturned(widget.project);
     _problem = pendingHostRegistryGiveBack(
       host: widget.project,
@@ -195,6 +198,7 @@ class _HostDialogState extends State<HostDialog> {
   Widget build(BuildContext context) {
     final record = _record ?? widget.existingRun?.record;
     final legacy = record?.legacy == true;
+    final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     return AlertDialog(
       title: Text(widget.takeDownOnly ? 'Give the server back' : widget.existingRun?.name ?? 'Prepare a server'),
       content: SizedBox(
@@ -213,6 +217,27 @@ class _HostDialogState extends State<HostDialog> {
                 ),
               if (!widget.takeDownOnly && widget.existingRun == null)
                 const Text('Verified SSH-only server preparation is not available yet.'),
+              if (!widget.takeDownOnly && widget.existingRun == null && record?.preparedHost == null && !legacy) ...[
+                HostPreparationSettingsForm(
+                  value: _choices,
+                  onChanged: (value) async {
+                    setState(() => _choices = value);
+                    if (_record case final saved?) {
+                      try {
+                        await _settings.rememberHostUp(widget.project, saved.withPreparationSettings(value));
+                      } on Exception {
+                        if (mounted) setState(() => _problem = 'The preparation settings could not be saved.');
+                      }
+                    }
+                  },
+                ),
+                if (access != null && access.unavailable() == null) ...[
+                  const Text(
+                    'Before setup, run this in a separate terminal on the server. It replaces root’s authorized keys with your host admin card key.',
+                  ),
+                  SelectableText(access.bootstrapCommand()),
+                ],
+              ],
               if (_problem != null) Text(_problem!),
               if (_problem != null && !_givenBack && !legacy && widget.takeDownOnly)
                 const Text(
@@ -223,7 +248,7 @@ class _HostDialogState extends State<HostDialog> {
                   PreparedHostPanel(
                     host: host,
                     published:
-                        jsonEncode(_settings.hostRegistry(widget.project)?.publishedCard?.stored) ==
+                        jsonEncode(_settings.hostRegistryState(widget.project).publishedCard?.stored) ==
                         jsonEncode(host.stored),
                   ),
               if (_givenBack) const Text('The provider confirmed give-back.'),

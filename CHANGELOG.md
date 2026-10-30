@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host administration retains confirmed card and applied-revision state when replacing stale changes,
+  preserves returned-host deletion during publication retries, and migrates older delivery records.
+  Preparation reads SSH-only host results on private networks, carries optional forge job limits and
+  local forward choices, shows root bootstrap instructions for a separate terminal, and refuses root stops.
+
 - Host administration recovers unpublished ready cards, changed selections and lost intake staging,
   delivers verified newer registry state without rolling back host access, and refuses unassigned hosts,
   purged memberships and refused-card unlocks. Confirmed returns retain visible deletion recovery,
