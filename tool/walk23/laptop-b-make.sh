@@ -48,6 +48,7 @@ echo "ok: $(wc -l <"$here/SHA256SUMS") files, package $deb"
 step b-make.3 "what is here before the walk is recorded once"
 if [ -f "$state/complete" ]; then
     [ "$(cat "$state/developer")" = "$developer" ] || refuse "the record is for $(cat "$state/developer"), not $developer"
+    [ -f "$state/ca-sha256" ] || refuse "the record holds no record of the trusted host CAs; run laptop-b-remove.sh first"
     [ ! -s "$state/porelo-version" ] || porelo_at "$state/porelo-before.deb" "$(cat "$state/porelo-version")" ||
         refuse "the record names porelo $(cat "$state/porelo-version") but holds no good copy of it; run laptop-b-remove.sh first"
     echo "ok: recorded already in $state, kept"
@@ -85,18 +86,20 @@ else
     esac
     find /etc/wireguard -maxdepth 1 -name '*.conf' -printf '%f\n' >"$record/wireguard" 2>/dev/null || : >"$record/wireguard"
     cp /etc/hosts "$record/hosts"
-    # The trust the walk may add: the system's and Firefox's host CAs, by content, and Firefox's two policy files.
-    for place in /usr/local/share/ca-certificates /etc/firefox /etc/firefox/porelo /etc/firefox/policies \
-        /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
+    # The trust the walk may add: the host CAs in the system and Firefox, by content, and Firefox's two policies.
+    for place in /usr/local/share/ca-certificates /etc/pki/ca-trust/source/anchors /etc/firefox /etc/firefox/porelo \
+        /etc/firefox/policies /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
         [ ! -L "$place" ] || refuse "$place is a symbolic link; the walk could not put it back"
     done
-    for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/firefox/porelo/porelo-host-*.crt; do
-        [ -f "$ca" ] && [ ! -L "$ca" ] || continue
+    for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/pki/ca-trust/source/anchors/porelo-host-*.crt \
+        /etc/firefox/porelo/porelo-host-*.crt; do
+        [ -e "$ca" ] || continue
+        [ -f "$ca" ] || refuse "$ca is not a plain file; the walk could not put it back"
         sha256sum -- "$ca"
-    done >"$record/ca"
+    done >"$record/ca-sha256"
     for policy in /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
         if [ -f "$policy" ]; then
-            cp -- "$policy" "$record/$(basename -- "$policy")"
+            cp -p -- "$policy" "$record/firefox-$(basename -- "$policy")"
         elif [ -e "$policy" ]; then
             refuse "$policy is not a plain file; the walk could not put it back"
         fi
