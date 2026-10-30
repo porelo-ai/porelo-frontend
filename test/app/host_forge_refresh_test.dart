@@ -56,6 +56,29 @@ void main() {
     expect(backend.calls, isEmpty);
   });
 
+  // Harm: a failed or overlapping sync changes which project's listing or repository is used.
+  test('sync captures its own target without replacing the open backup listing', () async {
+    final backend = _Backend();
+    final backups = Backups()
+      ..project = 'open'
+      ..repository = 'original';
+    addTearDown(backups.dispose);
+    await backups.syncFor(backend, 'refused', repository: 'other', joinedHost: true);
+    expect(backups.project, 'open');
+    expect(backups.repository, 'original');
+    var nested = false;
+    backups.addListener(() {
+      if (!nested && backups.busy) {
+        nested = true;
+        backups.syncFor(backend, 'second', repository: 'two', joinedHost: false);
+      }
+    });
+    await backups.syncFor(backend, 'first', repository: 'one', joinedHost: false);
+    expect(backend.calls, unorderedEquals(['sync first one', 'sync second two']));
+    expect(backups.project, 'open');
+    expect(backups.repository, 'original');
+  });
+
   // Harm: blocking joined transfers inadvertently breaks an existing non-host refresh.
   test('ordinary project refresh retains its upstream behavior', () async {
     final backend = _Backend();
@@ -63,8 +86,8 @@ void main() {
     final backups = Backups();
     addTearDown(check.dispose);
     addTearDown(backups.dispose);
-    await check.checkNow(backend, 'example', ['api']);
-    await backups.syncFor(backend, 'example', repository: 'api');
+    await check.checkNow(backend, 'example', ['api'], joinedHost: false);
+    await backups.syncFor(backend, 'example', repository: 'api', joinedHost: false);
     expect(backend.calls, ['refresh example', 'sync example api', 'sync example api']);
   });
 }

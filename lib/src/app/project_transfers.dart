@@ -37,19 +37,26 @@ class TransferSelection {
   final bool canPush;
 }
 
-/// Core's noninteractive vault boundary, pending its served delivery contract.
-abstract interface class CentralCredentialSource {
-  /// Uses the current person's token once without storing it in app state.
+/// A terminal executor that keeps the local secrets-file token outside Dart.
+abstract interface class CentralTransferSource {
+  /// Runs the captured action and reports when an owned terminal may submit it.
   ///
-  /// A locked vault or missing token throws [CentralCredentialUnavailable] before
-  /// [use] is called. Implementations must not include credentials in exceptions.
-  Future<T> withCredential<T>(TransferSelection selection, Future<T> Function(String token) use);
+  /// Public output has already been redacted in the terminal shell.
+  Future<TransferResult> run(
+    TransferSelection selection,
+    ProjectTransfer direction, {
+    required void Function() onSubmitted,
+    void Function(String line)? onLine,
+  });
 }
 
-/// A public refusal from Core, containing no credential or process diagnostics.
-class CentralCredentialUnavailable implements Exception {
-  /// Identifies a locked vault or absent credential without a secret input form.
-  const CentralCredentialUnavailable();
+/// A terminal result with an explicit local refusal when no host command ran.
+class TransferResult extends RemoteResult {
+  /// Keeps the host exit and words, or a confirmed pre-submission refusal.
+  const TransferResult(super.exitCode, super.stderr, {this.notSubmitted = false});
+
+  /// Whether the local terminal confirmed that it sent nothing to the host.
+  final bool notSubmitted;
 }
 
 /// Whether a host confirmed a transfer, refused it, or lost its answer.
@@ -81,30 +88,29 @@ class TransferAnswer {
 
 /// Explicit central transfers, with no timer, reconnect hook, or automatic retry.
 class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
-  /// Accepts Core's credential delivery and a pinned transport seam for tests.
-  ProjectTransfers({
-    required this.credentials,
-    Remote Function(Machine)? remoteFor,
-    this.answerWithin = const Duration(minutes: 6),
-  }) : _remoteFor = remoteFor ?? _sharedHost;
+  /// Accepts a terminal executor, with no token-bearing callback in the interface.
+  ProjectTransfers({required this.source, this.answerWithin = const Duration(minutes: 6)});
 
-  /// The noninteractive credential boundary; never the platform token store.
-  final CentralCredentialSource credentials;
+  /// The terminal-only transfer boundary.
+  final CentralTransferSource source;
 
-  /// The bound on credential delivery and the one submitted command together.
+  /// The bound on local preparation and the one submitted command together.
   final Duration answerWithin;
-  final Remote Function(Machine) _remoteFor;
   final Set<String> _busy = {};
   final Set<String> _uncertain = {};
   final Set<String> _submitted = {};
   final Map<String, int> _generations = {};
 
-  static Remote _sharedHost(Machine machine) => OpenSsh.sharedHost(card: machine.hostCard!, config: machine.sshConfig);
-
   String _key(TransferSelection selection) => '${selection.machine.host}/${selection.project}';
 
   /// Explains why an action cannot start, without consulting a selected UI role.
   String? unavailable(TransferSelection selection) {
+    if (selection.forge.trim().isEmpty) return 'Choose a central forge.';
+    try {
+      projectTransferCommand(ProjectTransfer.push, selection.project, selection.repositories);
+    } on FormatException catch (refusal) {
+      return refusal.message;
+    }
     if (!selection.canPush) return 'Your verified admission does not allow this transfer.';
     if (selection.machine.hostCard == null || selection.machine.hostCard!.login != selection.person) {
       return 'Join this host as the current person before transferring.';
@@ -144,95 +150,66 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     void Function(String words)? onProgress,
   }) async {
     if (unavailable(selection) case final reason?) return TransferAnswer(TransferState.unavailable, reason);
-    final command = projectTransferCommand(direction, selection.project, selection.repositories);
     final key = _key(selection);
-    _busy.add(key);
-    _generations[key] = (_generations[key] ?? 0) + 1;
-    notifyListeners();
-    TransferAnswer answer;
     var active = true;
     var submitted = false;
+    final lines = <String>[];
+    _busy.add(key);
+    _generations[key] = (_generations[key] ?? 0) + 1;
     try {
-      answer = await credentials
-          .withCredential(selection, (token) async {
-            if (!active || submitted) throw const CentralCredentialUnavailable();
-            if (token.isEmpty || token.contains(RegExp(r'[\x00-\x20\x7f]'))) {
-              throw const CentralCredentialUnavailable();
-            }
-            final lines = <String>[];
-            try {
-              final remote = _remoteFor(selection.machine);
-              submitted = true;
-              _submitted.add(key);
-              final result = await remote.run(
-                selection.machine.host,
-                '',
-                command,
-                input: '$token\n',
-                onLine: (line) {
-                  final words = line.replaceAll(token, '[redacted]');
-                  lines.add(words);
-                  if (active) onProgress?.call(words);
-                },
-              );
-              final state = result.exitCode == 255 || result.exitCode < 0
-                  ? TransferState.unconfirmed
-                  : result.exitCode == 0
-                  ? TransferState.completed
-                  : TransferState.refused;
-              return TransferAnswer(
-                state,
-                [
-                  ...lines,
-                  if (result.stderr.isNotEmpty) result.stderr,
-                  if (state == TransferState.unconfirmed)
-                    'The host result is unconfirmed. Read its state before trying again.',
-                ].join('\n').replaceAll(token, '[redacted]'),
-              );
-            } on Exception {
-              return const TransferAnswer(
-                TransferState.unconfirmed,
-                'The host result is unconfirmed. Read its state before trying again.',
-              );
-            } finally {
-              _submitted.remove(key);
-              notifyListeners();
-            }
-          })
-          .timeout(answerWithin);
-    } on TimeoutException {
-      answer = TransferAnswer(
-        submitted ? TransferState.unconfirmed : TransferState.unavailable,
-        submitted
-            ? 'The host result is unconfirmed. Read its state before trying again.'
-            : 'Core credential delivery timed out.',
-      );
-    } on CentralCredentialUnavailable {
-      answer = submitted
-          ? const TransferAnswer(
-              TransferState.unconfirmed,
-              'The host result is unconfirmed. Read its state before trying again.',
-            )
-          : const TransferAnswer(
-              TransferState.unavailable,
-              'Unlock your vault and make your central forge token available through Core.',
-            );
-    } on Exception {
-      answer = submitted
-          ? const TransferAnswer(
-              TransferState.unconfirmed,
-              'The host result is unconfirmed. Read its state before trying again.',
-            )
-          : const TransferAnswer(TransferState.unavailable, 'Core could not deliver your central forge credential.');
-    } finally {
-      active = false;
-    }
-    try {
+      notifyListeners();
+      TransferAnswer answer;
+      try {
+        final result =
+            await Future<TransferResult>.sync(
+                  () => source.run(
+                    selection,
+                    direction,
+                    onSubmitted: () {
+                      if (!active || submitted) throw const RemoteNotStarted();
+                      submitted = true;
+                      _submitted.add(key);
+                      notifyListeners();
+                    },
+                    onLine: (line) {
+                      lines.add(line);
+                      if (active) onProgress?.call(line);
+                    },
+                  ),
+                )
+                .whenComplete(() {
+                  if (submitted) _submitted.remove(key);
+                  notifyListeners();
+                })
+                .timeout(answerWithin);
+        final state = !submitted || result.notSubmitted
+            ? TransferState.unavailable
+            : result.exitCode >= 128 || result.exitCode < 0
+            ? TransferState.unconfirmed
+            : result.exitCode == 0
+            ? TransferState.completed
+            : TransferState.refused;
+        answer = TransferAnswer(
+          state,
+          [
+            ...lines,
+            if (result.stderr.isNotEmpty) result.stderr,
+            if (state == TransferState.unconfirmed) _unconfirmed,
+          ].join('\n'),
+        );
+      } catch (_) {
+        answer = TransferAnswer(
+          submitted ? TransferState.unconfirmed : TransferState.unavailable,
+          submitted ? _unconfirmed : 'The local terminal could not prepare the central transfer.',
+        );
+      } finally {
+        active = false;
+      }
       if (answer.state == TransferState.unconfirmed) _uncertain.add(key);
       if (answer.state == TransferState.completed) {
         try {
           await refresh();
-        } on Exception {
+        } catch (_) {
           return TransferAnswer(
             answer.state,
             '${answer.words}\nThe transfer completed, but observed state could not be refreshed.',
@@ -241,8 +218,11 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
       }
       return answer;
     } finally {
+      active = false;
       _busy.remove(key);
       notifyListeners();
     }
   }
+
+  static const _unconfirmed = 'The host result is unconfirmed. Read its state before trying again.';
 }

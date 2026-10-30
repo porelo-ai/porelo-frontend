@@ -1,4 +1,5 @@
 import 'package:porelo_frontend/src/app/roles.dart';
+import 'package:porelo_host/porelo_host.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -28,12 +29,17 @@ Future<void> _start(WidgetTester tester) async {
   await World.tapInView(tester, 'start-go');
 }
 
-class _UnavailableVault implements CentralCredentialSource {
+class _UnavailableTerminal implements CentralTransferSource {
   int reads = 0;
   @override
-  Future<T> withCredential<T>(TransferSelection selection, Future<T> Function(String) use) async {
+  Future<TransferResult> run(
+    TransferSelection selection,
+    ProjectTransfer direction, {
+    required void Function() onSubmitted,
+    void Function(String)? onLine,
+  }) async {
     reads++;
-    throw const CentralCredentialUnavailable();
+    throw const RemoteNotStarted();
   }
 }
 
@@ -49,15 +55,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final vault = _UnavailableVault();
-      var hostStarts = 0;
-      final transfers = ProjectTransfers(
-        credentials: vault,
-        remoteFor: (_) {
-          hostStarts++;
-          throw StateError('No host command may start');
-        },
-      );
+      final vault = _UnavailableTerminal();
+      final transfers = ProjectTransfers(source: vault);
       addTearDown(transfers.dispose);
       final chosen = selection(allowed: admitted);
       Future<TransferAnswer>? pending;
@@ -90,7 +89,6 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         expect((await pending!).state, TransferState.unavailable);
       }
-      expect(hostStarts, 0);
       expect(vault.reads, admitted ? 1 : 0);
     });
   }

@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
+import 'quiet_after_dispose.dart';
+
 import 'forge.dart';
 import 'forge_connection.dart';
 
@@ -118,7 +122,7 @@ class CentralResponseLost implements Exception {
 }
 
 /// Captured central-forge actions with no background polling or write replay.
-class CentralReviews {
+class CentralReviews extends ChangeNotifier with QuietAfterDispose {
   /// Captures the person, forge and repository before an action starts.
   CentralReviews({
     required this.source,
@@ -171,10 +175,10 @@ class CentralReviews {
     } on CentralResponseLost {
       rethrow;
     } on ForgeRefused {
-      throw const ForgeRefused('The central forge refused this request.');
-    } on Exception {
+      rethrow;
+    } catch (_) {
       if (submitted) throw const CentralResponseLost();
-      throw const ForgeRefused('Your central forge vault credential is unavailable.');
+      throw const ForgeRefused('The central forge could not be reached or authenticated.');
     } finally {
       active = false;
     }
@@ -215,26 +219,32 @@ class CentralReviews {
     await readObservedState();
     requireSettled();
     _uncertain = false;
+    notifyListeners();
   }
 
   Future<T> _write<T>(Future<T> Function(CentralForgeReviews client) use) async {
     if (unavailable case final reason?) throw ForgeRefused(reason);
     _writing = true;
     _generation++;
+    notifyListeners();
     try {
       return await _ask((client) async {
         _pendingWrites++;
+        notifyListeners();
         try {
           return await use(client);
         } finally {
           _pendingWrites--;
+          notifyListeners();
         }
       });
     } on CentralResponseLost {
       _uncertain = true;
+      notifyListeners();
       rethrow;
     } finally {
       _writing = false;
+      notifyListeners();
     }
   }
 }

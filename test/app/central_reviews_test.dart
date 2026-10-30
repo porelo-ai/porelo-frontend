@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/central_reviews.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/forge_connection.dart';
 
@@ -24,6 +25,7 @@ class _Reviews implements CentralForgeReviews {
   final reviewed = <int, List<CentralReview>>{};
   final calls = <String>[];
   bool lost = false;
+  Object? failure;
   Completer<void>? wait;
   @override
   Future<CentralPullRequest> create(
@@ -44,6 +46,7 @@ class _Reviews implements CentralForgeReviews {
       state: 'open',
     );
     requests.add(request);
+    if (failure case final error?) throw error;
     if (lost) throw const CentralResponseLost();
     return request;
   }
@@ -78,6 +81,7 @@ class _Reviews implements CentralForgeReviews {
       state: decision.name,
     );
     reviewed.putIfAbsent(number, () => []).add(review);
+    if (failure case final error?) throw error;
     if (lost) throw const CentralResponseLost();
     return review;
   }
@@ -90,6 +94,7 @@ void main() {
     source = _Source();
     actions = CentralReviews(source: source, forge: _forge, person: 'alice', repository: 'org/api');
   });
+  tearDown(() => actions.dispose());
   Future<CentralPullRequest> create() => actions.create(title: 'A change', body: 'Details', head: 'work', base: 'main');
 
   // Harm: viewing a project can make a central request without the person's intent.
@@ -165,6 +170,22 @@ void main() {
     expect(actions.unavailable, isNull);
   });
 
+  // Harm: a decoder Error after a successful write allows duplicate requests or reviews.
+  test('errors after create and review remain sanitized and block replay', () async {
+    for (final review in [false, true]) {
+      if (review) {
+        source = _Source();
+        actions = CentralReviews(source: source, forge: _forge, person: 'alice', repository: 'org/api');
+        await create();
+      }
+      source.client.failure = StateError('private decoder diagnostic');
+      final pending = review ? actions.submit(1, CentralReviewDecision.approve, '') : create();
+      await expectLater(pending, throwsA(isA<CentralResponseLost>()));
+      await expectLater(create(), throwsA(isA<ForgeRefused>()));
+      expect(review ? source.client.reviewed[1]!.length : source.client.requests.length, 1);
+    }
+  });
+
   // Harm: reconciliation permits replay while the timed out forge write can still complete.
   testWidgets('a timed out central write stays pending until its original request settles', (tester) async {
     actions = CentralReviews(
@@ -193,6 +214,50 @@ void main() {
       expect((await actions.list()).items.length, 1);
     });
     expect(actions.unavailable, isNull);
+  });
+
+  // Harm: a command captured before a write can open another write flow while it is blocked.
+  test('captured central write commands check current availability at dispatch', () async {
+    var creates = 0;
+    var submits = 0;
+    final commands = centralReviewCommands(
+      project: 'example',
+      list: () {},
+      create: () {
+        creates++;
+      },
+      submit: () {
+        submits++;
+      },
+      actions: actions,
+    );
+    source.client.wait = Completer<void>();
+    final pending = create();
+    commands.singleWhere((c) => c.id == 'centralPullRequest.create').run();
+    commands.singleWhere((c) => c.id == 'centralPullRequest.review').run();
+    expect([creates, submits], [0, 0]);
+    source.client.wait!.complete();
+    await pending;
+  });
+
+  // Harm: a menu keeps stale write availability after settlement or reconciliation.
+  test('central write transitions notify menus including late settlement', () async {
+    final availability = <String?>[];
+    actions.addListener(() => availability.add(actions.unavailable));
+    source.client.wait = Completer<void>();
+    final pending = create();
+    expect(availability, isNotEmpty);
+    expect(availability.last, isNotNull);
+    source.client.wait!.complete();
+    await pending;
+    expect(availability.last, isNull);
+    source.client.lost = true;
+    await expectLater(create(), throwsA(isA<CentralResponseLost>()));
+    expect(availability.last, contains('unconfirmed'));
+    await actions.reconcile(() async {
+      await actions.list();
+    });
+    expect(availability.last, isNull);
   });
 
   // Harm: double clicking starts concurrent writes.

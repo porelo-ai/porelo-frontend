@@ -1,0 +1,180 @@
+// Linux: runs Bash terminal scripts with executable stand-ins for keepassxc-cli and ssh.
+@Tags(['linux'])
+library;
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:porelo_host/porelo_host.dart';
+import 'package:test/test.dart';
+
+void main() {
+  for (final code in [0, 65, 255]) {
+    // Harm: the actual terminal feed sends the wrong token protocol or leaks an echoed token.
+    test('terminal push and pull keep credentials off argv output and files for exit $code', () async {
+      final fixture = await _Fixture.create();
+      final before = {
+        for (final entity in await fixture.folder.list().toList()) entity.path: await File(entity.path).readAsBytes(),
+      };
+      for (final direction in ProjectTransfer.values) {
+        final result = await fixture.run(code: code, mode: 'echo', direction: direction);
+        expect(result.exitCode, code, reason: '${result.stdout} ${result.stderr}');
+        final text = '${result.stdout}${result.stderr}';
+        final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
+        expect(text.contains(value), isFalse, reason: 'the terminal must redact raw token echoes');
+        expect(text.contains(base64.encode(utf8.encode(value))), isFalse, reason: 'the encoded line is also secret');
+        expect(text, contains('host answer'));
+        expect(text, contains(projectTransferSubmitted));
+      }
+      final after = {
+        for (final entity in await fixture.folder.list().toList()) entity.path: await File(entity.path).readAsBytes(),
+      };
+      expect(after, before, reason: 'the command must create or change no local token files');
+    });
+  }
+
+  for (final mode in ['locked', 'missing', 'empty', 'multiline', 'read-error']) {
+    // Harm: local credential refusal still starts a host command, or discloses entry content.
+    test('a $mode local entry refuses before host submission', () async {
+      final fixture = await _Fixture.create();
+      final result = await fixture.run(mode: mode);
+      expect(result.exitCode, isNot(0));
+      expect('${result.stdout}', isNot(contains(projectTransferSubmitted)));
+      expect('${result.stderr}', isNotEmpty);
+      final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
+      expect('${result.stdout}${result.stderr}', isNot(contains(value)));
+    });
+  }
+
+  // Harm: the interface reads the wrong token entry or sends the wrong stdin protocol.
+  test('the terminal reads the root token and feeds the agreed encoded line', () async {
+    final folder = await Directory.systemTemp.createTemp('central-transfer-');
+    addTearDown(() => folder.delete(recursive: true));
+    final file = File('${folder.path}/secrets.kdbx');
+    await file.writeAsString('test fixture placeholder');
+    final cli = File('${folder.path}/keepass');
+    await cli.writeAsString(r'''#!/bin/bash
+IFS= read -r master
+case "$1" in
+  ls) if [[ " $* " == *' -f '* ]]; then printf 'forge-central-token\n'; fi ;;
+  show)
+    [ "${@: -1}" = 'forge-central-token' ] || exit 1
+    printf '\146\151\170\164\165\162\145\n'
+    ;;
+  *) exit 1 ;;
+esac
+''');
+    final chmod = await Process.run('/bin/chmod', ['700', cli.path]);
+    expect(chmod.exitCode, 0);
+    final scripts = SecretsFile(file.path, cli: cli.path).projectTransferScripts();
+    final child = await Process.start('/bin/bash', [
+      '--noprofile',
+      '--norc',
+      '-c',
+      '${scripts.check}\n${scripts.feed}',
+    ]);
+    final out = child.stdout.transform(utf8.decoder).join();
+    final err = child.stderr.transform(utf8.decoder).join();
+    child.stdin.writeln('fixture master');
+    await child.stdin.close();
+    final code = await child.exitCode;
+    final diagnostic = await err;
+    expect(code, 0, reason: 'the root entry must be used: $diagnostic');
+    final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
+    expect(await out, 'forge-central-token ${base64.encode(utf8.encode(value))}\n');
+  });
+}
+
+const _publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
+HostCardSsh _card() => HostCardSsh(
+  name: 'alpha',
+  address: 'alpha.example.org',
+  sshPort: 22,
+  hostKey: _publicKey,
+  login: 'alice',
+  publicKey: _publicKey,
+  uid: 1001,
+  returnSocket: '/run/porelo-host/people/alice/messenger.sock',
+  webPort: 18080,
+  gitPort: 18081,
+  matrixPort: 18082,
+);
+
+class _Fixture {
+  _Fixture(this.folder);
+  final Directory folder;
+  String get file => '${folder.path}/secrets.kdbx';
+  String get cli => '${folder.path}/keepass';
+  String get ssh => '${folder.path}/ssh';
+  static Future<_Fixture> create() async {
+    final fixture = _Fixture(await Directory.systemTemp.createTemp('transfer-feed-'));
+    addTearDown(() => fixture.folder.delete(recursive: true));
+    await File(fixture.file).writeAsString('encrypted file placeholder');
+    await File(fixture.cli).writeAsString(r'''#!/usr/bin/python3
+import os, sys
+master = sys.stdin.readline()
+mode = os.environ.get('TRANSFER_MODE', '')
+if mode == 'locked': sys.exit(1)
+if sys.argv[1] == 'ls':
+    if '-f' in sys.argv and mode != 'missing': print('forge-central-token')
+    sys.exit(0)
+if sys.argv[1] != 'show' or sys.argv[-1] != 'forge-central-token' or mode == 'read-error': sys.exit(1)
+value = bytes([102,105,120,116,117,114,101]).decode()
+if mode == 'multiline': value += '\nsecond'
+if mode == 'empty': value = ''
+print(value)
+''');
+    await File(fixture.ssh).writeAsString(r'''#!/usr/bin/python3
+import base64, os, sys
+value = bytes([102,105,120,116,117,114,101])
+encoded = base64.b64encode(value)
+if any(value in x.encode() or encoded in x.encode() for x in sys.argv + list(os.environ.values())): sys.exit(90)
+if sys.argv[1:9] != ['-F', '/config/porelo/ssh/alpha.conf', '-o', 'ControlMaster=no', '-o', 'ProxyCommand=false', '-o', 'ConnectTimeout=10']: sys.exit(91)
+if sys.argv[9:12] != ['-T', '--', 'alpha']: sys.exit(92)
+data = sys.stdin.buffer.read()
+if data != b'forge-central-token ' + encoded + b'\n':
+    print('invalid token protocol', file=sys.stderr)
+    sys.exit(93)
+if os.environ.get('TRANSFER_MODE') == 'echo':
+    sys.stdout.buffer.write(value[:3]); sys.stdout.buffer.flush()
+    sys.stdout.buffer.write(value[3:] + b'\r\n')
+    sys.stderr.buffer.write(data)
+print('host answer')
+sys.exit(int(os.environ.get('TRANSFER_CODE', '0')))
+''');
+    final chmod = await Process.run('/bin/chmod', ['700', fixture.cli, fixture.ssh]);
+    expect(chmod.exitCode, 0);
+    return fixture;
+  }
+
+  Future<ProcessResult> run({String mode = '', int code = 0, ProjectTransfer direction = ProjectTransfer.push}) async {
+    final command = projectTransferFeedCommand(
+      direction: direction,
+      project: 'example',
+      repositories: ['api'],
+      card: _card(),
+      config: '/config/porelo/ssh/alpha.conf',
+      secretsFile: SecretsFile(file, cli: cli),
+      ssh: ssh,
+      environment: {'XDG_CONFIG_HOME': '/config'},
+    );
+    final child = await Process.start(
+      command.first,
+      command.skip(1).toList(),
+      environment: {
+        'TRANSFER_MODE': mode,
+        'TRANSFER_CODE': '$code',
+        'MASTER': 'inherited',
+        'transfer_token': 'inherited',
+        'transfer_encoded': 'inherited',
+        'transfer_line': 'inherited',
+      },
+    );
+    final output = child.stdout.transform(utf8.decoder).join();
+    final errors = child.stderr.transform(utf8.decoder).join();
+    child.stdin.writeln('fixture master');
+    await child.stdin.close();
+    return ProcessResult(child.pid, await child.exitCode, await output, await errors);
+  }
+}

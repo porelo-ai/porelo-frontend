@@ -27,7 +27,7 @@ class ProjectCheck extends ChangeNotifier {
     FleetBackend backend,
     String project,
     List<String> repositories, {
-    bool joinedHost = false,
+    required bool joinedHost,
     HostForgeRefresh? hostForge,
   }) async {
     if (_checking != null) return;

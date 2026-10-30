@@ -9,6 +9,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Explicit central transfers read the local secrets file only in the terminal and send the agreed
+  encoded stdin line. Local refusals remain retryable, while lost results and Dart errors block
+  replay until reconciliation. Early SSH pipe closure preserves host refusals, CRLF echoes are
+  redacted, and joined-host refreshes require an explicit target kind. Central review commands
+  recheck availability and notify menus when writes settle.
+
 - Host-card tunnels reject aliases to the local signing agent and unsafe stored config paths, keep
   ownership and port reservations separate across hosts and trials, and complete shutdown after
   socket races or failed starts. Scoped IPv6 addresses retain their literal zone, and reached hosts

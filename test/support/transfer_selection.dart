@@ -8,6 +8,8 @@ TransferSelection selection({
   bool allowed = true,
   List<String> repositories = const ['api'],
   String person = 'alice',
+  String forge = 'example.org',
+  String project = 'example',
 }) => TransferSelection(
   machine: Machine.fromHostCard(
     HostCardSsh(
@@ -26,8 +28,8 @@ TransferSelection selection({
     socketPath: '/run/person/daemon.sock',
   ),
   person: person,
-  forge: 'example.org',
-  project: 'example',
+  forge: forge,
+  project: project,
   canPush: allowed,
   repositories: repositories,
 );

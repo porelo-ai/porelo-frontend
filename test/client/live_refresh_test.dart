@@ -47,7 +47,7 @@ void main() {
     final listed = (await backend.projects()).singleWhere((each) => each.name == project);
 
     final names = <String>[for (final each in listed.repositoryStates) each.name];
-    await check.checkNow(backend, project, names);
+    await check.checkNow(backend, project, names, joinedHost: false);
 
     // The harm: a repository the machine refused, or a call the contract no longer answers, reported
     // as checked. One line for the follow, then one per repository, none of them a refusal.

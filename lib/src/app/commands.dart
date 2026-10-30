@@ -25,6 +25,7 @@ import 'start_work.dart';
 import 'templates.dart';
 import 'vault.dart';
 import 'project_transfers.dart';
+import 'central_reviews.dart';
 import 'widening.dart';
 
 /// Where an action lives on screen, so the finder can go there and show it.
@@ -1828,7 +1829,7 @@ List<Command> centralReviewCommands({
   VoidCallback? read,
   VoidCallback? reviews,
   VoidCallback? submit,
-  String? writeUnavailable,
+  required CentralReviews actions,
 }) => [
   Command(
     id: 'project.centralPullRequests',
@@ -1842,8 +1843,10 @@ List<Command> centralReviewCommands({
     label: 'Create a central pull request…',
     group: project,
     home: Home.projectMenu,
-    unavailable: writeUnavailable,
-    run: create,
+    unavailable: actions.unavailable,
+    run: () {
+      if (actions.unavailable == null) create();
+    },
   ),
   Command(
     id: 'centralPullRequest.read',
@@ -1866,7 +1869,9 @@ List<Command> centralReviewCommands({
     label: 'Review on the central forge…',
     group: project,
     home: Home.openedView,
-    unavailable: writeUnavailable ?? (submit == null ? 'Choose a central pull request.' : null),
-    run: submit ?? () {},
+    unavailable: actions.unavailable ?? (submit == null ? 'Choose a central pull request.' : null),
+    run: () {
+      if (actions.unavailable == null) submit?.call();
+    },
   ),
 ];

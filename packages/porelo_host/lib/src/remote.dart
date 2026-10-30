@@ -17,6 +17,12 @@ class RemoteResult {
   final String stderr;
 }
 
+/// A local refusal before an SSH process exists, safe to retry.
+class RemoteNotStarted implements Exception {
+  /// Omits launch diagnostics, which can contain private input.
+  const RemoteNotStarted();
+}
+
 /// Commands run on a host, and files copied to it.
 ///
 /// **A seam**, so the order of `up` is proven without a machine.
@@ -117,7 +123,7 @@ class OpenSsh implements Remote {
     }
     Process? process;
     String public(String text) {
-      for (final value in (input ?? '').split('\n').where((value) => value.isNotEmpty)) {
+      for (final value in const LineSplitter().convert(input ?? '').where((value) => value.isNotEmpty)) {
         text = text.replaceAll(value, '[redacted]');
       }
       return text;
@@ -132,20 +138,27 @@ class OpenSsh implements Remote {
           .forEach((line) => onLine?.call(public(line)));
       final err = child.stderr.transform(const Utf8Decoder(allowMalformed: true)).join();
       final work = (() async {
-        if (input != null) child.stdin.write(input);
-        await child.stdin.close();
-        final code = await child.exitCode;
-        await out;
-        return RemoteResult(code, public(await err));
+        final writing = (() async {
+          try {
+            if (input != null) child.stdin.write(input);
+            await child.stdin.close();
+          } on SocketException {
+            // An early host refusal may close its input without draining it.
+          }
+        })();
+        final results = await Future.wait<Object?>([out, err, child.exitCode, writing], eagerError: true);
+        return RemoteResult(results[2]! as int, public(results[1]! as String));
       })();
       return await (deadline == null ? work : work.timeout(deadline!));
     } on TimeoutException {
-      process?.kill(ProcessSignal.sigkill);
-      if (process != null) await process.exitCode;
+      if (process == null) throw const RemoteNotStarted();
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
       return const RemoteResult(255, 'The host command timed out; its result is unconfirmed.');
-    } on Exception {
-      process?.kill(ProcessSignal.sigkill);
-      if (process != null) await process.exitCode;
+    } catch (_) {
+      if (process == null) throw const RemoteNotStarted();
+      process.kill(ProcessSignal.sigkill);
+      await process.exitCode;
       // A process exception can include remote output or input; never publish it with a credential.
       if (input == null) rethrow;
       return const RemoteResult(255, 'The host connection was lost; its result is unconfirmed.');

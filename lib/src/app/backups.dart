@@ -77,12 +77,10 @@ class Backups extends ChangeNotifier {
     FleetBackend backend,
     String name, {
     String? repository,
-    bool joinedHost = false,
+    required bool joinedHost,
     HostForgeRefresh? hostForge,
   }) async {
-    project = name;
-    this.repository = repository;
-    return sync(backend, joinedHost: joinedHost, hostForge: hostForge);
+    return _sync(backend, name, repository, joinedHost: joinedHost, hostForge: hostForge);
   }
 
   /// Asks the upstream how far behind this project is, now.
@@ -90,13 +88,22 @@ class Backups extends ChangeNotifier {
   /// **Its own call and not a refresh of the listing**: a listing that reached the network would
   /// make every redraw cost what a listing must not. It writes the same record the daemon's timer
   /// writes, so a triggered fetch and a timed one cannot disagree.
-  Future<String> sync(FleetBackend backend, {bool joinedHost = false, HostForgeRefresh? hostForge}) async {
+  Future<String> sync(FleetBackend backend, {required bool joinedHost, HostForgeRefresh? hostForge}) =>
+      _sync(backend, project, repository, joinedHost: joinedHost, hostForge: hostForge);
+
+  Future<String> _sync(
+    FleetBackend backend,
+    String name,
+    String? selectedRepository, {
+    required bool joinedHost,
+    HostForgeRefresh? hostForge,
+  }) async {
     var said = '';
     await _asking(() async {
       if (joinedHost && hostForge == null) throw const FeatureNotSupported('Host forge refresh');
       final answer = joinedHost
-          ? await hostForge!.sync(project, repository: repository)
-          : await backend.syncUpstream(project, repository: repository);
+          ? await hostForge!.sync(name, repository: selectedRepository)
+          : await backend.syncUpstream(name, repository: selectedRepository);
       said = wordsFor(answer);
     });
     return problem ?? said;

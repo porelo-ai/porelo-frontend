@@ -198,17 +198,74 @@ void main() {
     }, tags: 'linux'); // Linux: /bin/sh is the stand-in SSH command.
   }
 
+  // Harm: a host refusal is lost when its stdin reader closes early.
+  test('a broken stdin pipe preserves the host exit and refusal words', () async {
+    final child = _EarlyRefusal();
+    final ssh = OpenSsh(knownHosts: File('/trust/keys'), identity: '/keys/person', start: (_, _) async => child);
+    final answer = await ssh.run('alpha', '', 'porelo-host-push example', input: 'fixture\n');
+    expect(answer.exitCode, 65, reason: 'an early host refusal is confirmed');
+    expect(answer.stderr, 'main is not approved\n');
+    expect(child.killed, isFalse);
+  });
+
+  // Harm: CRLF or CR input echoes reveal the credential after line decoding.
+  test('all input line endings redact decoded stdout and stderr', () async {
+    final value = String.fromCharCodes([102, 105, 120, 116, 117, 114, 101]);
+    for (final ending in ['\r\n', '\r', '\n']) {
+      final output = <String>[];
+      final ssh = OpenSsh(
+        knownHosts: File('/trust/keys'),
+        identity: '/keys/person',
+        start: (_, _) => Process.start('/bin/sh', ['-c', 'cat; cat /dev/null >&2']),
+      );
+      final answer = await ssh.run('alpha', '', 'true', input: '$value$ending', onLine: output.add);
+      expect(answer.exitCode, 0);
+      expect(output.any((line) => line.contains(value)), isFalse, reason: 'decoded echoes must be public');
+    }
+  }, tags: 'linux'); // Linux: /bin/sh echoes the input bytes.
+
+  // Harm: a progress callback Error leaks the owned SSH process after submission.
+  test('a callback error kills the owned child and sanitizes diagnostics', () async {
+    final child = _WaitingProcess();
+    final ssh = OpenSsh(knownHosts: File('/trust/keys'), identity: '/keys/person', start: (_, _) async => child);
+    final pending = ssh.run(
+      'alpha',
+      '',
+      'true',
+      input: 'fixture\n',
+      onLine: (_) => throw StateError('private diagnostic'),
+    );
+    final checked = expectLater(pending, completion(isA<RemoteResult>().having((r) => r.exitCode, 'exit', 255)));
+    child._out.add([111, 107, 10]);
+    child._out.close();
+    child._err.close();
+    child._exit.complete(0);
+    await checked;
+    expect(child.killed, isTrue);
+  });
+
   // Harm: process launch diagnostics can expose a credential and a hung write can be replayed.
-  test('credential-bearing launch errors are public uncertainty without exception text', () async {
+  test('credential-bearing launch errors are sanitized pre-submission refusals', () async {
     final vault = _SyntheticVault();
     final ssh = OpenSsh(
       knownHosts: File('/trust/keys'),
       identity: '/keys/person',
       start: (_, _) async => throw ProcessException('ssh', [], vault.value),
     );
-    final answer = await vault.deliver((value) => ssh.run('alpha', '', 'porelo-host-push example', input: '$value\n'));
-    expect(answer.exitCode, 255);
-    expect(answer.stderr.contains(vault.value), isFalse);
+    await expectLater(
+      vault.deliver((value) => ssh.run('alpha', '', 'porelo-host-push example', input: '$value\n')),
+      throwsA(isA<RemoteNotStarted>()),
+    );
+  });
+
+  // Harm: a timeout before process creation incorrectly blocks a safe retry.
+  test('a launch timeout is a sanitized pre-submission refusal', () async {
+    final ssh = OpenSsh(
+      knownHosts: File('/trust/keys'),
+      identity: '/keys/person',
+      start: (_, _) async => throw TimeoutException('private launch diagnostic'),
+    );
+    await expectLater(ssh.run('alpha', '', 'true', input: 'fixture\n'), throwsA(isA<RemoteNotStarted>()));
   });
 
   // Harm: a hung owned process keeps a transfer running indefinitely.
@@ -329,7 +386,35 @@ class _WaitingProcess implements Process {
     killed = true;
     _out.close();
     _err.close();
-    _exit.complete(137);
+    if (!_exit.isCompleted) _exit.complete(137);
+    return true;
+  }
+}
+
+class _BrokenInput implements IOSink {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
+  void write(Object? object) {}
+  @override
+  Future<void> close() async => throw const SocketException('Broken pipe');
+}
+
+class _EarlyRefusal implements Process {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  bool killed = false;
+  @override
+  IOSink get stdin => _BrokenInput();
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+  @override
+  Stream<List<int>> get stderr => Stream.value('main is not approved\n'.codeUnits);
+  @override
+  Future<int> get exitCode async => 65;
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    killed = true;
     return true;
   }
 }
