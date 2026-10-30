@@ -256,6 +256,24 @@ Completion also requires the host daemon to confirm the verified project revisio
 connection. An already watched connection to that account is refreshed. The checked host values determine
 the project-to-host association kept in `frontend.json`.
 
+*Project settings: Developers…* is the project admin's entry to the same private access checkout. The verified
+project revision supplies its repository; the existing central forge token store supplies GitHub API access.
+Each developer has a host account, an optional forge login, and one or more laptops. A laptop takes a YAML block
+containing only `ssh_public_key` and `wireguard_public_key`; the SSH comment is discarded. Address proposals read
+`host.network`, skip the host's first usable address and every listed laptop, and refuse a full network.
+Removing the last laptop requires removing its developer. Access edits preserve comments and use the same
+configured Git signing, signature verification, and push as a bring.
+
+After publication, the admin's pinned own-account SSH connection runs `sudo -n porelo-host-person sync <project>`.
+Its single JSON answer must identify the project and exact access commit before it confirms application. The
+panel shows the last sync's added, dropped, unchanged, and laptop lists, with no inferred live lock state.
+GitHub gets one read-only collaborator request for an added login; removal cancels a pending invitation and
+removes direct collaborator access. API refusals name Administration: Read and write on the access repository
+without displaying the API's diagnostic body. The forge's invitation and effective permission answers determine
+whether a login is invited, can read, or has no read access. Inherited team access can still appear as can read.
+A forge without this API offers a repository link explaining the manual read grant and revocation.
+Partial failures keep publication visible and allow retrying unconfirmed steps during the settings session.
+
 *Take this project off the server* is the host admin's act. Its project-menu action uses that association to
 find the retained host record, then opens the existing root helper dialog with the project fixed for review.
 The helper runs over the same pinned admin SSH as registration. It receives only the central token, one line

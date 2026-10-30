@@ -197,6 +197,7 @@ void main() {
       'project.sync',
       'project.messages',
       'project.forge',
+      'project.developers',
       'project.default',
       'project.backups',
       'project.clear',

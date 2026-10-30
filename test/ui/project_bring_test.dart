@@ -311,6 +311,7 @@ void main() {
               'symbolic-ref refs/remotes/origin/HEAD' => 'refs/remotes/origin/main\n',
               'symbolic-ref --short HEAD' => 'main\n',
               'rev-list --left-right --count HEAD...refs/remotes/origin/main' => '0\t0\n',
+              'rev-parse --verify HEAD^{commit}' => '${'b' * 40}\n',
               _ => args.contains('log') ? 'G\n${HostFiles.signingFingerprint(signing.readAsStringSync())}\n' : '',
             },
           );

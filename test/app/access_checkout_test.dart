@@ -21,6 +21,7 @@ void main() {
   late bool signing;
   late bool dirty;
   late bool pushFails;
+  late bool bundleFails;
   late Map<String, String> heads;
   late Map<String, String> staged;
 
@@ -30,6 +31,7 @@ void main() {
     signing = true;
     dirty = false;
     pushFails = false;
+    bundleFails = false;
     heads = {};
     staged = {};
   });
@@ -71,6 +73,7 @@ void main() {
       'symbolic-ref --short HEAD' => 'main\n',
       'rev-list --left-right --count HEAD...refs/remotes/origin/main' => '0\t0\n',
       'diff --cached --quiet -- access.yml' => '',
+      'rev-parse --verify HEAD^{commit}' => '${'b' * 40}\n',
       _ => '',
     };
     if (args.contains('log')) {
@@ -81,6 +84,7 @@ void main() {
       );
     }
     if (args.contains('push') && pushFails) return (code: 1, out: '', err: 'private credential fixture');
+    if (args.first == 'bundle' && bundleFails) return (code: 1, out: '', err: 'local bundle failure');
     if (args.contains('bundle')) await File(args[2]).writeAsString('bundle fixture');
     return (code: args.first == 'diff' && staged[inDirectory] != heads[inDirectory] ? 1 : 0, out: out, err: '');
   }
@@ -299,6 +303,26 @@ room: '#old:old.example.org', tls_verify: false}} # Keep transport note
       throwsA(isA<WorkspaceRefused>().having((e) => e.words, 'safe refusal', isNot(contains('fixture')))),
     );
     expect(commands.any((args) => args.contains('bundle')), isFalse);
+  });
+
+  // Harm: a published access change loses external application after a local bundle failure.
+  test('publication is reported before a local bundle failure', () async {
+    final access = await checkout();
+    await access.open();
+    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+    bundleFails = true;
+    String? published;
+    await expectLater(
+      access.commitPushAndBundle(
+        '${scratch.path}/access.bundle',
+        onPublished: (revision) {
+          expect(commands.any((args) => args.first == 'push'), isTrue);
+          published = revision;
+        },
+      ),
+      throwsA(isA<WorkspaceRefused>()),
+    );
+    expect(published, 'b' * 40, reason: 'external application must survive a failure after the push');
   });
 
   // Harm: an unsigned access update fails verification only after it leaves this computer.

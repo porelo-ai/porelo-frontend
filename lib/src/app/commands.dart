@@ -517,6 +517,7 @@ List<Command> projectCommands({
   VoidCallback? clearTheProject,
   VoidCallback? showTheMessages,
   VoidCallback? openItsForge,
+  VoidCallback? openDevelopers,
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
   VoidCallback? putOnAServer,
@@ -598,6 +599,21 @@ List<Command> projectCommands({
           : project.project.messages == null
           ? '${project.name} has no conversation: none of its peers is reached through a transport of its own'
           : null,
+    ),
+    Command(
+      id: 'project.developers',
+      role: Role.projectAdmin,
+      label: 'Project settings: Developers…',
+      group: 'Project',
+      home: Home.projectMenu,
+      run: openDevelopers ?? () {},
+      unavailable:
+          noFile ??
+          (isDefault
+              ? 'default has no private access file'
+              : openDevelopers == null
+              ? 'not offered here'
+              : null),
     ),
     // The tools for after a project is set up, kept out of the way of setting it up: its keys at
     // the forge, the machines it trusts, changes waiting at this machine, and stopping work here.
@@ -1188,6 +1204,7 @@ List<Command> commandsFor({
   required VoidCallback removeWhatWasBuilt,
   VoidCallback? clearTheProject,
   VoidCallback? putOnAServer,
+  VoidCallback? openDevelopers,
   VoidCallback? takeOffServer,
   String? takeOffServerBusy,
   VoidCallback? startTheAgents,
@@ -1381,6 +1398,7 @@ List<Command> commandsFor({
       removeWhatWasBuilt: removeWhatWasBuilt,
       clearTheProject: clearTheProject,
       putOnAServer: putOnAServer,
+      openDevelopers: openDevelopers,
       takeOffServer: takeOffServer,
       takeOffServerBusy: takeOffServerBusy,
       showTheMessages: showTheMessages,

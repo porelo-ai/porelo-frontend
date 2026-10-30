@@ -4,6 +4,23 @@ import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart';
 
+import 'access_developers.dart' show checkForgeLogin;
+
+/// Read access to the private access repository, reported by its forge.
+abstract interface class ForgeCollaborators {
+  /// Refuses a token or account without Administration on the access repository.
+  Future<void> checkAdministration(String repository);
+
+  /// Invites [login] with read permission, returning the forge's confirmed state.
+  Future<String> grantRead(String repository, String login);
+
+  /// Revokes direct access and any pending invitation for [login].
+  Future<void> revokeRead(String repository, String login);
+
+  /// Reads pending invitations and effective repository permissions.
+  Future<Map<String, String>> readAccess(String repository, Iterable<String> logins);
+}
+
 /// A repository a person can reach on a forge, as the forge lists it for their login.
 class ForgeRepository {
   /// `owner/name`, as the forge names it.
@@ -119,7 +136,7 @@ abstract interface class Forge {
 ///
 /// **The token is sent to GitHub and nowhere else**: in a header, over https, never in a URL, a
 /// command line or a log.
-class GitHub implements Forge {
+class GitHub implements Forge, ForgeCollaborators {
   /// Constructor taking the token and, for a test or GitHub Enterprise, the API's address; a request
   /// over the network that is not answered within [answerWithin] is said as GitHub refusing it.
   GitHub(this._token, {Uri? api, ForgeHttp? http, Duration answerWithin = const Duration(seconds: 30)})
@@ -213,6 +230,134 @@ class GitHub implements Forge {
       for (final each in listed.whereType<Map<String, dynamic>>())
         if (each['key'] is String) ForgeSigningKey(title: '${each['title'] ?? ''}', key: each['key'] as String),
     ];
+  }
+
+  void _checkCollaborator(String repository, [String? login]) {
+    if (!isFullName(repository)) throw const ForgeRefused('Give the access repository as owner/name.');
+    if (login != null) checkForgeLogin(login);
+  }
+
+  Future<ForgeReply> _collaboratorCall(
+    String method,
+    String repository,
+    String suffix, {
+    String? body,
+    bool allow404 = false,
+  }) async {
+    try {
+      final parts = suffix.split('?');
+      return await _send(
+        method,
+        _at(
+          '/repos/$repository${suffix.isEmpty ? '' : '/${parts.first}'}',
+          queryParameters: parts.length == 2 ? Uri.splitQueryString(parts[1]) : null,
+        ),
+        body: body,
+        allow404: allow404,
+      );
+    } on ForgeRefused catch (refused) {
+      if (refused.status == 401 || refused.status == 403 || refused.status == 404) {
+        throw ForgeRefused(
+          'GitHub refused access management. The central token needs Administration: Read and write on the access repository $repository. Check its selected repositories and your admin access.',
+          status: refused.status,
+        );
+      }
+      // GitHub may echo submitted values; no API diagnostics enter developer settings.
+      throw ForgeRefused(
+        'GitHub refused access management${refused.status == null ? '' : ' (HTTP ${refused.status})'}. Check the access repository and developer login.',
+        status: refused.status,
+      );
+    }
+  }
+
+  @override
+  Future<void> checkAdministration(String repository) async {
+    _checkCollaborator(repository);
+    final reply = await _collaboratorCall('GET', repository, '');
+    final permissions = _mapOf(reply)['permissions'];
+    if (permissions is! Map || permissions['admin'] != true) {
+      throw ForgeRefused(
+        'The central token needs Administration: Read and write on the access repository $repository, and your account must administer it.',
+      );
+    }
+  }
+
+  Future<Map<String, int>> _invitations(String repository) async {
+    final invitations = <String, int>{};
+    var page = 1;
+    while (true) {
+      final reply = await _collaboratorCall('GET', repository, 'invitations?per_page=100&page=$page');
+      final listed = _listOf(reply);
+      for (final item in listed) {
+        if (item is! Map ||
+            item['id'] is! int ||
+            (item['id'] as int) <= 0 ||
+            item['invitee'] is! Map ||
+            item['invitee']['login'] is! String) {
+          throw const ForgeRefused('GitHub returned a malformed repository invitation.');
+        }
+        final login = item['invitee']['login'] as String;
+        checkForgeLogin(login);
+        if (invitations.containsKey(login.toLowerCase())) {
+          throw const ForgeRefused('GitHub repeated a repository invitation page.');
+        }
+        invitations[login.toLowerCase()] = item['id'] as int;
+      }
+      if (listed.length < 100) return invitations;
+      page++;
+    }
+  }
+
+  @override
+  Future<String> grantRead(String repository, String login) async {
+    _checkCollaborator(repository, login);
+    final reply = await _collaboratorCall(
+      'PUT',
+      repository,
+      'collaborators/$login',
+      body: jsonEncode({'permission': 'pull'}),
+    );
+    return switch (reply.status) {
+      201 => 'invited',
+      204 => 'can read',
+      _ => throw const ForgeRefused('GitHub did not confirm read access or an invitation.'),
+    };
+  }
+
+  @override
+  Future<void> revokeRead(String repository, String login) async {
+    _checkCollaborator(repository, login);
+    final pending = await _invitations(repository);
+    final invitation = pending[login.toLowerCase()];
+    if (invitation != null) await _collaboratorCall('DELETE', repository, 'invitations/$invitation');
+    await _collaboratorCall('DELETE', repository, 'collaborators/$login');
+  }
+
+  @override
+  Future<Map<String, String>> readAccess(String repository, Iterable<String> logins) async {
+    _checkCollaborator(repository);
+    final pending = await _invitations(repository);
+    final states = <String, String>{};
+    for (final login in logins.toSet()) {
+      _checkCollaborator(repository, login);
+      if (pending.containsKey(login.toLowerCase())) {
+        states[login] = 'invited';
+        continue;
+      }
+      final reply = await _collaboratorCall('GET', repository, 'collaborators/$login/permission', allow404: true);
+      if (reply.status == 404) {
+        states[login] = 'no read access';
+        continue;
+      }
+      final permission = _mapOf(reply)['permission'];
+      if (permission is! String) throw const ForgeRefused('GitHub did not report repository permission.');
+      states[login] = switch (permission) {
+        'read' || 'triage' || 'write' || 'maintain' || 'admin' => 'can read',
+        'none' => 'no read access',
+        _ => 'unknown permission',
+      };
+    }
+    return states;
   }
 
   /// Whether [fullName] is `owner/name` and nothing else: it becomes a folder here and a path on

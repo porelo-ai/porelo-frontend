@@ -9,6 +9,7 @@ import 'package:yaml_edit/yaml_edit.dart';
 import 'run_here.dart';
 import 'host_matrix_settings.dart';
 import 'read_public_signing_key.dart';
+import 'yaml_comments.dart';
 
 /// The person's private access checkout, signed and pushed through their own Git configuration.
 class AccessCheckout {
@@ -179,6 +180,34 @@ class AccessCheckout {
     return file;
   }
 
+  /// Reads the verified attempt's private access file.
+  Future<String> read() async => (await _plainAccessFile()).readAsString();
+
+  /// Reads the checked commit whose access settings the host must confirm.
+  Future<String> revision() async {
+    final revision = (await _git(['rev-parse', '--verify', 'HEAD^{commit}'])).out.trim();
+    if (!RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(revision)) {
+      throw const WorkspaceRefused('Git did not report a valid access commit.');
+    }
+    return revision;
+  }
+
+  /// Applies a checked edit atomically inside the verified private worktree.
+  Future<void> edit(String Function(String source) change) async {
+    if (_branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
+    final file = await _plainAccessFile();
+    final written = change(await file.readAsString());
+    final temporary = await _writer.createPrivateTemporary(Directory(folder));
+    try {
+      final prepared = File('${temporary.path}/access.yml');
+      await _writer.write(prepared, utf8.encode(written));
+      await _plainAccessFile();
+      await prepared.rename(file.path);
+    } finally {
+      await temporary.delete(recursive: true);
+    }
+  }
+
   /// Updates public host values and Matrix settings while preserving comments and other settings.
   Future<void> writeHost(PreparedHost host, String? caCertificate) async {
     if (_branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
@@ -190,7 +219,7 @@ class AccessCheckout {
     try {
       final root = loadYamlNode(original);
       if (root is! YamlMap) throw const FormatException();
-      comments = _yamlComments(original, root);
+      comments = yamlComments(original, root);
       editor = YamlEditor(original);
       void mapping(List<String> parts) {
         final value = editor.parseAt(parts, orElse: () => wrapAsYamlNode(null)).value;
@@ -252,7 +281,7 @@ class AccessCheckout {
 
   String _keepComments(String yaml, List<String> original) {
     final remaining = <String, int>{};
-    for (final comment in _yamlComments(yaml, loadYamlNode(yaml))) {
+    for (final comment in yamlComments(yaml, loadYamlNode(yaml))) {
       remaining.update(comment, (count) => count + 1, ifAbsent: () => 1);
     }
     final missing = <String>[];
@@ -268,33 +297,6 @@ class AccessCheckout {
     final start = YamlEditor(yaml).parseAt(['transports', 'matrix']).span.start;
     final indent = ' ' * start.column;
     return yaml.replaceRange(start.offset, start.offset, '${missing.join('\n$indent')}\n$indent');
-  }
-
-  List<String> _yamlComments(String yaml, YamlNode node) {
-    final scalars = <(int, int)>[];
-    void visit(YamlNode child) {
-      if (child is YamlScalar) {
-        scalars.add((child.span.start.offset, child.span.end.offset));
-      } else if (child is YamlMap) {
-        for (final entry in child.nodes.entries) {
-          visit(entry.key as YamlNode);
-          visit(entry.value);
-        }
-      } else if (child is YamlList) {
-        child.nodes.forEach(visit);
-      }
-    }
-
-    visit(node);
-    final comments = <String>[];
-    for (var at = 0; at < yaml.length; at++) {
-      if (yaml[at] != '#' || scalars.any((span) => at >= span.$1 && at < span.$2)) continue;
-      final newline = yaml.indexOf('\n', at);
-      final end = newline < 0 ? yaml.length : newline;
-      comments.add(yaml.substring(at, end).trimRight());
-      at = end;
-    }
-    return comments;
   }
 
   Object? _plainYaml(Object? value) => switch (value) {
@@ -324,7 +326,12 @@ class AccessCheckout {
   ///
   /// The persistent checkout moves to the published commit only after the push, and the bundle carries it both as
   /// the default branch and as HEAD, so a follow finds it by either.
-  Future<void> commitPushAndBundle(String bundle) async {
+  /// [onPublished] records publication before local worktree or bundle cleanup can fail.
+  Future<void> commitPushAndBundle(
+    String bundle, {
+    String message = 'Set project host and Matrix access',
+    void Function(String revision)? onPublished,
+  }) async {
     final branch = _branch;
     if (branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
     final String published;
@@ -332,13 +339,14 @@ class AccessCheckout {
       await _git(['add', '--', 'access.yml']);
       final changed = await _git(['diff', '--cached', '--quiet', '--', 'access.yml'], optional: true);
       if (changed.code == 1) {
-        await _git(['commit', '-S', '-m', 'Set project host and Matrix access', '--', 'access.yml']);
+        await _git(['commit', '-S', '-m', message, '--', 'access.yml']);
       } else if (changed.code != 0) {
         throw const WorkspaceRefused('Git could not check the staged access settings.');
       }
       await _verifyHead();
+      published = await revision();
       if (changed.code == 1) await _git(['push', 'origin', 'HEAD:$branch']);
-      published = (await _git(['rev-parse', '--verify', 'HEAD^{commit}'])).out.trim();
+      onPublished?.call(published);
     } finally {
       await close();
     }

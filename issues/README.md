@@ -27,6 +27,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f211"></a>[F211](F211-A-Server-Prepared-With-No-Project.md) | — | [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210), [F212](README.md#f212) | A server prepared by its host admin with no project, a project registered for its admin, project admins admitted by hand. |
 | <a id="f214"></a>[F214](F214-The-Setup-Files-And-The-Stop-Split-By-Act.md) | — | — | The setup files in the person's own home and the stop fed by act: root takes only the VPN key and the forge's certificate. |
 | <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | — | [F211](README.md#f211), [F214](README.md#f214) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |
+| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | — | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
 
 ### Implementing
 
@@ -36,7 +37,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
-| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | L | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
 | <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | L | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
 
 ### Backlog

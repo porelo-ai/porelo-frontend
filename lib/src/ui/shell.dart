@@ -95,6 +95,7 @@ import 'grant_view.dart';
 import 'messages_view.dart';
 import 'repositories_view.dart';
 import 'project_forge_view.dart';
+import 'project_developers_dialog.dart';
 import 'default_view.dart';
 import 'forges_page.dart';
 import 'peers_view.dart';
@@ -428,6 +429,7 @@ class _ShellState extends State<Shell> {
     removeWhatWasBuilt: _removeWhatWasBuilt,
     clearTheProject: _clearTheProject,
     putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
+    openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
     takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
@@ -653,6 +655,7 @@ class _ShellState extends State<Shell> {
       removeWhatWasBuilt: _removeWhatWasBuilt,
       clearTheProject: _clearTheProject,
       putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
+      openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
       takeOffServer: _takeOffServer(project.name),
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
@@ -678,6 +681,7 @@ class _ShellState extends State<Shell> {
     'notifications.mute',
     'project.clear',
     'project.server',
+    'project.developers',
     'project.takeOffServer',
     'project.delete',
   ];
@@ -906,6 +910,12 @@ class _ShellState extends State<Shell> {
     },
     onStartWork: onStartWork,
   );
+
+  Future<void> _openDevelopers() async {
+    final project = _fleet.selectedProject;
+    if (project == null) return;
+    await showProjectDevelopers(context, project: project.name, backend: _fleet.backend, forges: _forges);
+  }
 
   /// Why the selected project's forge cannot be opened from here, or null where it can.
   String? _itsForgeIsMissing() {

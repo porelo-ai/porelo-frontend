@@ -162,6 +162,7 @@ void main() {
       access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa),
       throwsA(isA<WorkspaceRefused>()),
     );
+    await expectLater(access.edit((source) => '$source# changed\n'), throwsA(isA<WorkspaceRefused>()));
     await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
     expect(await checked(['status', '--porcelain'], directory: cache), isEmpty);
     expect(await checked(['rev-parse', 'HEAD'], directory: cache), before);

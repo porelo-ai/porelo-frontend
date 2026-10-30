@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Project admins can maintain developers and their public laptop keys in project settings. Changes preserve
+  access-file comments, use the person's configured Git signing and credentials, and apply through the admin's
+  host sync. GitHub access uses read-only collaborator invitations and revocation; host and forge answers stay
+  separate, with partial failures available to retry.
+
 - Project admins can bring a followed project onto a prepared server through their own pinned SSH account,
   without renting or sudo. Private access settings preserve YAML comments, use the person's configured Git
   signing and credentials, and are pushed before both bundles are uploaded. Migration URLs are checked before

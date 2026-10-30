@@ -359,6 +359,11 @@ class ProjectCommandTiles extends StatelessWidget {
       icon: Icons.key_outlined,
       description: 'Manage its machines and keys at the forge.',
     ),
+    'project.developers' => (
+      group: 'Where it lives',
+      icon: Icons.people_outline,
+      description: 'Manage developers and their laptop access to this project.',
+    ),
     'project.default' => (
       group: 'Where it lives',
       icon: Icons.source_outlined,
