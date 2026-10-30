@@ -17,7 +17,7 @@ refuse() {
 }
 trap 'printf "\n%s failed\n" "${current:-the start}" >&2' ERR
 checkout=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
-out=${PORELO_WALK23_HANDOVER:-$HOME/.porelo/handover/porelo-frontend/walk23}
+out=$(realpath -m -- "${PORELO_WALK23_HANDOVER:-$HOME/.porelo/handover/porelo-frontend/walk23}")
 
 step hand-over.1 "the package and the checkout"
 [ "$#" -eq 1 ] || refuse "give the porelo package as the one argument"
@@ -25,13 +25,20 @@ deb=$(realpath -- "$1")
 [[ $(basename -- "$deb") =~ ^porelo_[^/]+_amd64\.deb$ ]] || refuse "$1 is not a porelo_*_amd64.deb"
 [ "$(dpkg-deb -f "$deb" Package)" = porelo ] || refuse "$1 is not the porelo package"
 cd "$checkout"
-[ -z "$(git status --porcelain --untracked-files=no)" ] || refuse "the checkout has changes; commit them first"
+[ -z "$(git status --porcelain)" ] || refuse "the checkout has changes or untracked files; commit or remove them first"
+case "$out/" in
+/ | "$(realpath -m -- "$HOME")/" | "$checkout"/*) refuse "$out is /, your home or inside this checkout; give another PORELO_WALK23_HANDOVER" ;;
+esac
+case "$checkout/" in
+"$out"/*) refuse "$out holds this checkout; give another PORELO_WALK23_HANDOVER" ;;
+esac
 commit=$(git rev-parse --short HEAD)
 echo "ok: porelo $(dpkg-deb -f "$deb" Version), interface from $commit"
 
 step hand-over.2 "the interface's Linux bundle"
-flutter build linux --debug
 bundle=build/linux/x64/debug/bundle
+rm -rf -- "$bundle"
+flutter build linux --debug
 [ -x "$bundle/porelo_frontend" ] || refuse "the build left no $bundle/porelo_frontend"
 echo "ok: built"
 

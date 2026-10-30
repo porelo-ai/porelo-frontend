@@ -26,7 +26,7 @@ step b-start.1 "this runs as $developer on a desktop"
 if [ "$#" -ne 1 ] || ! [[ $1 =~ ^[0-9a-f]{64}$ ]]; then
     refuse "give the SHA-256 of SHA256SUMS the walk shows as the one argument"
 fi
-[ -z "$roles" ] || [[ $roles =~ ^[a-z-]+(,[a-z-]+)*$ ]] || refuse "PORELO_WALK_ROLES must be a comma-separated list of roles"
+[ -z "$roles" ] || [[ $roles =~ ^[abcdefghijklmnopqrstuvwxyz]+(-[abcdefghijklmnopqrstuvwxyz]+)*(,[abcdefghijklmnopqrstuvwxyz]+(-[abcdefghijklmnopqrstuvwxyz]+)*)*$ ]] || refuse "PORELO_WALK_ROLES must be a comma-separated list of roles"
 [ "$(id -un)" = "$developer" ] || refuse "log in as $developer; this is $(id -un)"
 [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] || refuse "no desktop here; run it in a terminal on $developer's desktop"
 for tool in sha256sum awk tar pgrep porelo wg keepassxc-cli; do

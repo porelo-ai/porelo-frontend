@@ -19,7 +19,8 @@ if [ "${1:-}" = --visible ]; then
 fi
 roles=host-admin
 if [ "${1:-}" = --roles ]; then
-    if ! printf '%s\n' "${2:-}" | LC_ALL=C grep -Eq '^[a-z-]+(,[a-z-]+)*$'; then
+    # Whole role words only, joined by commas: no second line, no leading hyphen to pass as an option.
+    if ! [[ ${2:-} =~ ^[abcdefghijklmnopqrstuvwxyz]+(-[abcdefghijklmnopqrstuvwxyz]+)*(,[abcdefghijklmnopqrstuvwxyz]+(-[abcdefghijklmnopqrstuvwxyz]+)*)*$ ]]; then
         echo 'start-host-walk: --roles takes a comma-separated list such as host-admin,project-admin' >&2
         exit 64
     fi
