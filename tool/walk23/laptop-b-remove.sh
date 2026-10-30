@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Walk 23, laptop B, as root, after the walk, from the operator's own login, not the developer's: takes away what
+# Walk 23, laptop B, as root, after the walk, from the operator's own login (or the developer's, if that account was
+# here before the walk and is kept): takes away what
 # the walk added, by what laptop-b-make.sh recorded. That is the interface's VPN configurations (porelo-*) and its
 # /etc/hosts lines (*.porelo.internal) added since; the developer's account with its home if the walk made it, or
 # its sudo if the walk gave it; and porelo if it was not here before, or the porelo the walk replaced, put back
@@ -26,10 +27,13 @@ if [ ! -f "$state/complete" ]; then
 fi
 developer=$(cat "$state/developer")
 [[ $developer =~ ^[a-z][a-z0-9-]{0,30}$ ]] || refuse "the record names no plain account"
-# Nothing this runs from may belong to the developer, however root was reached: their processes end below.
+made=no
+[ "$(cat "$state/account-was-here")" = yes ] || made=yes
+# An account the walk made loses its processes below, so nothing this runs from may belong to it, however root was
+# reached. An account that was here before is kept with its processes, and may run this itself.
 uid=$(id -u "$developer" 2>/dev/null || true)
 pid=$$
-while [ -n "$uid" ] && [ "$pid" -gt 1 ]; do
+while [ "$made" = yes ] && [ -n "$uid" ] && [ "$pid" -gt 1 ]; do
     awk -v uid="$uid" '/^Uid:/ { for (i = 2; i <= 5; i++) if ($i == uid) found = 1 } END { exit !found }' "/proc/$pid/status" &&
         refuse "this runs inside $developer's login; log out of $developer and run it from your own"
     pid=$(awk '/^PPid:/ { print $2 }' "/proc/$pid/status")
