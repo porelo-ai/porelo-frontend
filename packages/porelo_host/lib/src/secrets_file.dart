@@ -185,7 +185,8 @@ done
   /// Both scripts run in one terminal shell; no secret is returned to Dart.
   ({String check, String feed}) projectTransferScripts() => (
     check: [
-      ..._opened,
+      // The transfer owns terminal echo and signal cleanup through SSH completion.
+      ..._opened.skip(_shellStart.length),
       _listEntries,
       ..._requireEntries([centralTransferToken]),
       ..._readStopEntry(centralTransferToken, 'transfer_token'),

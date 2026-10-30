@@ -98,15 +98,19 @@ class Backups extends ChangeNotifier {
     required bool joinedHost,
     HostForgeRefresh? hostForge,
   }) async {
-    var said = '';
-    await _asking(() async {
+    try {
       if (joinedHost && hostForge == null) throw const FeatureNotSupported('Host forge refresh');
       final answer = joinedHost
           ? await hostForge!.sync(name, repository: selectedRepository)
           : await backend.syncUpstream(name, repository: selectedRepository);
-      said = wordsFor(answer);
-    });
-    return problem ?? said;
+      return wordsFor(answer);
+    } on VarlinkException catch (refusal) {
+      return 'Refused: ${refusal.simpleName}.';
+    } on VarlinkDisconnected catch (ex) {
+      return 'Lost contact with the machine: ${ex.message}';
+    } on FeatureNotSupported catch (ex) {
+      return '$ex';
+    }
   }
 
   /// Asks what restoring from one would take, restoring nothing.

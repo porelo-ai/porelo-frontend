@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/backups.dart';
@@ -48,7 +50,7 @@ void main() {
     expect(words, isNotEmpty, reason: 'a project-menu refusal must reach the caller even without a backup view');
     expect(backend.calls, isEmpty);
     expect(check.saidAbout('example'), isNotEmpty);
-    expect(backups.problem, isNotNull);
+    expect(backups.problem, isNull);
     final local = _HostForge();
     await check.checkNow(backend, 'example', ['api'], joinedHost: true, hostForge: local);
     await backups.syncFor(backend, 'example', repository: 'api', joinedHost: true, hostForge: local);
@@ -66,17 +68,32 @@ void main() {
     await backups.syncFor(backend, 'refused', repository: 'other', joinedHost: true);
     expect(backups.project, 'open');
     expect(backups.repository, 'original');
-    var nested = false;
-    backups.addListener(() {
-      if (!nested && backups.busy) {
-        nested = true;
-        backups.syncFor(backend, 'second', repository: 'two', joinedHost: false);
-      }
-    });
-    await backups.syncFor(backend, 'first', repository: 'one', joinedHost: false);
+    await Future.wait([
+      backups.syncFor(backend, 'first', repository: 'one', joinedHost: false),
+      backups.syncFor(backend, 'second', repository: 'two', joinedHost: false),
+    ]);
     expect(backend.calls, unorderedEquals(['sync first one', 'sync second two']));
     expect(backups.project, 'open');
     expect(backups.repository, 'original');
+  });
+
+  // Harm: one project's sync clears another project's refusal or corrupts the open listing.
+  test('overlapping sync results and listing failures remain independent', () async {
+    final backend = _Backend();
+    final backups = Backups()
+      ..project = 'open'
+      ..repository = 'original'
+      ..problem = 'listing refusal';
+    addTearDown(backups.dispose);
+    final slow = _WaitingHost();
+    final pending = backups.syncFor(backend, 'first', joinedHost: true, hostForge: slow);
+    final refusal = await backups.syncFor(backend, 'second', joinedHost: true);
+    expect(refusal, contains('Host forge refresh'));
+    expect(backups.problem, 'listing refusal');
+    slow.answer.complete(Synced.from({'outcome': 'MEASURED', 'measured': true, 'behind': 2}));
+    expect(await pending, contains('2 commits'));
+    expect(backups.problem, 'listing refusal');
+    expect(backups.busy, isFalse);
   });
 
   // Harm: blocking joined transfers inadvertently breaks an existing non-host refresh.
@@ -90,4 +107,10 @@ void main() {
     await backups.syncFor(backend, 'example', repository: 'api', joinedHost: false);
     expect(backend.calls, ['refresh example', 'sync example api', 'sync example api']);
   });
+}
+
+class _WaitingHost extends _HostForge {
+  final answer = Completer<Synced>();
+  @override
+  Future<Synced> sync(String project, {String? repository}) => answer.future;
 }

@@ -9,6 +9,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Central transfers keep terminal echo disabled through SSH, forward only marked public output,
+  and record submission only when SSH is about to start. Cancellation and failed local checks
+  remain retryable; terminal cleanup has a bound. Transfers explicitly enforce pinned,
+  noninteractive SSH. Stored central review commands retain current refusals, disposed review
+  controllers cannot act, programming errors in reads propagate, and overlapping backup syncs
+  preserve each result without changing the open listing's state.
+
 - Explicit central transfers read the local secrets file only in the terminal and send the agreed
   encoded stdin line. Local refusals remain retryable, while lost results and Dart errors block
   replay until reconciliation. Early SSH pipe closure preserves host refusals, CRLF echoes are

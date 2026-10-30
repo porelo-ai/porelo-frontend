@@ -12,9 +12,11 @@ class _Source implements CentralForgeSource {
   final client = _Reviews();
   final accounts = <(ForgeEntry, String)>[];
   bool denied = false;
+  Object? failure;
   @override
   Future<T> withReviews<T>(ForgeEntry forge, String person, Future<T> Function(CentralForgeReviews) use) async {
     accounts.add((forge, person));
+    if (failure case final error?) throw error;
     if (denied) throw const ForgeRefused('permission denied');
     return use(client);
   }
@@ -54,6 +56,7 @@ class _Reviews implements CentralForgeReviews {
   @override
   Future<CentralPage<CentralPullRequest>> list(String repository, {String? page}) async {
     calls.add('list $repository ${page ?? "first"}');
+    if (failure case final error?) throw error;
     return page == null
         ? CentralPage(requests.take(1).toList(), next: requests.length > 1 ? 'more' : null)
         : CentralPage(requests.skip(1).toList());
@@ -233,11 +236,83 @@ void main() {
     );
     source.client.wait = Completer<void>();
     final pending = create();
-    commands.singleWhere((c) => c.id == 'centralPullRequest.create').run();
-    commands.singleWhere((c) => c.id == 'centralPullRequest.review').run();
+    expect(commands.singleWhere((c) => c.id == 'centralPullRequest.create').run, throwsA(isA<ForgeRefused>()));
+    expect(commands.singleWhere((c) => c.id == 'centralPullRequest.review').run, throwsA(isA<ForgeRefused>()));
     expect([creates, submits], [0, 0]);
     source.client.wait!.complete();
     await pending;
+  });
+
+  // Harm: a stored command misrepresents a running or uncertain write as available.
+  test('stored commands expose the current refusal instead of silently ignoring dispatch', () async {
+    final commands = centralReviewCommands(
+      project: 'example',
+      list: () {},
+      create: () {},
+      submit: () {},
+      actions: actions,
+    );
+    final writes = commands.where((c) => c.id == 'centralPullRequest.create' || c.id == 'centralPullRequest.review');
+    source.client.wait = Completer<void>();
+    final pending = create();
+    expect(writes.every((c) => c.unavailable == actions.unavailable), isTrue);
+    for (final command in writes) {
+      expect(command.run, throwsA(isA<ForgeRefused>()));
+    }
+    source.client.wait!.complete();
+    await pending;
+    source.client.lost = true;
+    await expectLater(create(), throwsA(isA<CentralResponseLost>()));
+    expect(writes.every((c) => c.unavailable == actions.unavailable), isTrue);
+  });
+
+  // Harm: a previous project can still send writes or reads after its controller is disposed.
+  test('disposed reviews refuse stored commands and direct actions before authentication', () async {
+    var opens = 0;
+    final commands = centralReviewCommands(
+      project: 'example',
+      list: () {
+        opens++;
+      },
+      create: () {
+        opens++;
+      },
+      read: () {
+        opens++;
+      },
+      reviews: () {
+        opens++;
+      },
+      submit: () {
+        opens++;
+      },
+      actions: actions,
+    );
+    actions.dispose();
+    for (final command in commands) {
+      expect(command.unavailable, isNotNull);
+      expect(command.run, throwsA(isA<ForgeRefused>()));
+    }
+    await expectLater(create(), throwsA(isA<ForgeRefused>()));
+    await expectLater(actions.list(), throwsA(isA<ForgeRefused>()));
+    expect(opens, 0);
+    expect(source.accounts, isEmpty);
+    actions = CentralReviews(source: source, forge: _forge, person: 'alice', repository: 'org/api');
+  });
+
+  // Harm: programming errors in authentication and reads are disguised as permission refusals.
+  test('pre-submission errors propagate without becoming authentication refusals', () async {
+    final failure = StateError('decoder failure');
+    source.failure = failure;
+    await expectLater(create(), throwsA(same(failure)));
+    expect(actions.unavailable, isNull);
+  });
+
+  // Harm: a decoding Error on a read hides a programming defect as lost authentication.
+  test('read errors propagate without becoming authentication refusals', () async {
+    final failure = StateError('decoder failure');
+    source.client.failure = failure;
+    await expectLater(actions.list(), throwsA(same(failure)));
   });
 
   // Harm: a menu keeps stale write availability after settlement or reconciliation.

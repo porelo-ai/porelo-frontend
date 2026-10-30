@@ -26,6 +26,7 @@ import 'templates.dart';
 import 'vault.dart';
 import 'project_transfers.dart';
 import 'central_reviews.dart';
+import 'forge.dart';
 import 'widening.dart';
 
 /// Where an action lives on screen, so the finder can go there and show it.
@@ -126,11 +127,14 @@ class Command {
     required this.group,
     required this.run,
     this.shortcut,
-    this.unavailable,
+    String? unavailable,
+    this.unavailableNow,
     this.home = Home.none,
     this.checked,
     this.role = Role.user,
-  });
+    // The public named argument remains compatible with existing const commands.
+    // ignore: prefer_initializing_formals
+  }) : _unavailable = unavailable;
 
   /// Stable identifier, used to route a keystroke to this command.
   final String id;
@@ -157,7 +161,11 @@ class Command {
   ///
   /// An unavailable command is still listed. Hiding it would make the finder answer "there is
   /// no such action" when the truth is "not yet, and here is what is missing".
-  final String? unavailable;
+  String? get unavailable => unavailableNow?.call() ?? _unavailable;
+  final String? _unavailable;
+
+  /// Rechecks an action whose controller can change after this command is built.
+  final String? Function()? unavailableNow;
 
   /// Where it lives on screen.
   final Home home;
@@ -178,6 +186,7 @@ class Command {
           group: group,
           shortcut: shortcut,
           unavailable: reason,
+          unavailableNow: unavailableNow,
           home: home,
           checked: checked,
           run: run,
@@ -190,7 +199,8 @@ class Command {
     label: label,
     group: group,
     shortcut: shortcut,
-    unavailable: unavailable,
+    unavailable: _unavailable,
+    unavailableNow: unavailableNow,
     home: home,
     checked: checked,
     run: () {
@@ -1830,48 +1840,56 @@ List<Command> centralReviewCommands({
   VoidCallback? reviews,
   VoidCallback? submit,
   required CentralReviews actions,
-}) => [
-  Command(
-    id: 'project.centralPullRequests',
-    label: 'Read central pull requests…',
-    group: project,
-    home: Home.projectMenu,
-    run: list,
-  ),
-  Command(
-    id: 'centralPullRequest.create',
-    label: 'Create a central pull request…',
-    group: project,
-    home: Home.projectMenu,
-    unavailable: actions.unavailable,
-    run: () {
-      if (actions.unavailable == null) create();
-    },
-  ),
-  Command(
-    id: 'centralPullRequest.read',
-    label: 'Read the pull request',
-    group: project,
-    home: Home.openedView,
-    unavailable: read == null ? 'Choose a central pull request.' : null,
-    run: read ?? () {},
-  ),
-  Command(
-    id: 'centralPullRequest.reviews',
-    label: 'Read its central reviews',
-    group: project,
-    home: Home.openedView,
-    unavailable: reviews == null ? 'Choose a central pull request.' : null,
-    run: reviews ?? () {},
-  ),
-  Command(
-    id: 'centralPullRequest.review',
-    label: 'Review on the central forge…',
-    group: project,
-    home: Home.openedView,
-    unavailable: actions.unavailable ?? (submit == null ? 'Choose a central pull request.' : null),
-    run: () {
-      if (actions.unavailable == null) submit?.call();
-    },
-  ),
-];
+}) {
+  void run(VoidCallback? action, {bool write = false}) {
+    final reason = write ? actions.unavailable : actions.closedReason;
+    if (reason != null) throw ForgeRefused(reason);
+    if (action == null) throw const ForgeRefused('Choose a central pull request.');
+    action();
+  }
+
+  return [
+    Command(
+      id: 'project.centralPullRequests',
+      label: 'Read central pull requests…',
+      group: project,
+      home: Home.projectMenu,
+      unavailableNow: () => actions.closedReason,
+      run: () => run(list),
+    ),
+    Command(
+      id: 'centralPullRequest.create',
+      label: 'Create a central pull request…',
+      group: project,
+      home: Home.projectMenu,
+      unavailableNow: () => actions.unavailable,
+      run: () => run(create, write: true),
+    ),
+    Command(
+      id: 'centralPullRequest.read',
+      label: 'Read the pull request',
+      group: project,
+      home: Home.openedView,
+      unavailableNow: () => actions.closedReason,
+      unavailable: read == null ? 'Choose a central pull request.' : null,
+      run: () => run(read),
+    ),
+    Command(
+      id: 'centralPullRequest.reviews',
+      label: 'Read its central reviews',
+      group: project,
+      home: Home.openedView,
+      unavailableNow: () => actions.closedReason,
+      unavailable: reviews == null ? 'Choose a central pull request.' : null,
+      run: () => run(reviews),
+    ),
+    Command(
+      id: 'centralPullRequest.review',
+      label: 'Review on the central forge…',
+      group: project,
+      home: Home.openedView,
+      unavailableNow: () => actions.unavailable ?? (submit == null ? 'Choose a central pull request.' : null),
+      run: () => run(submit, write: true),
+    ),
+  ];
+}

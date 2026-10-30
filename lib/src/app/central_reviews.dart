@@ -149,25 +149,43 @@ class CentralReviews extends ChangeNotifier with QuietAfterDispose {
 
   /// The bound on one explicit forge action, including authentication.
   final Duration answerWithin;
+  bool _disposed = false;
   bool _writing = false;
   bool _uncertain = false;
   int _pendingWrites = 0;
   int _generation = 0;
 
   /// Why another write must wait, or null when it can be explicitly started.
-  String? get unavailable => _writing || _pendingWrites > 0
+  String? get unavailable => _disposed
+      ? 'This project is no longer open.'
+      : _writing || _pendingWrites > 0
       ? 'A central forge change is still running.'
       : _uncertain
       ? 'Read the central forge state before retrying an unconfirmed change.'
       : null;
 
-  Future<T> _ask<T>(Future<T> Function(CentralForgeReviews client) use) async {
+  /// Why an action cannot use this controller after its project has closed.
+  String? get closedReason => _disposed ? 'This project is no longer open.' : null;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void _requireOpen() {
+    if (closedReason case final reason?) throw ForgeRefused(reason);
+  }
+
+  Future<T> _ask<T>(Future<T> Function(CentralForgeReviews client) use, {bool writing = false}) async {
+    _requireOpen();
     var submitted = false;
     var active = true;
     try {
       return await source
           .withReviews(forge, person, (client) {
             if (!active || submitted) throw const CentralResponseLost();
+            _requireOpen();
             submitted = true;
             return use(client);
           })
@@ -176,7 +194,10 @@ class CentralReviews extends ChangeNotifier with QuietAfterDispose {
       rethrow;
     } on ForgeRefused {
       rethrow;
-    } catch (_) {
+    } on Error {
+      if (writing && submitted) throw const CentralResponseLost();
+      rethrow;
+    } on Exception {
       if (submitted) throw const CentralResponseLost();
       throw const ForgeRefused('The central forge could not be reached or authenticated.');
     } finally {
@@ -210,6 +231,7 @@ class CentralReviews extends ChangeNotifier with QuietAfterDispose {
   Future<void> reconcile(Future<void> Function() readObservedState) async {
     final generation = _generation;
     void requireSettled() {
+      _requireOpen();
       if (_writing || _pendingWrites > 0 || generation != _generation) {
         throw const ForgeRefused('The central forge operation must settle before its result can be reconciled.');
       }
@@ -237,7 +259,7 @@ class CentralReviews extends ChangeNotifier with QuietAfterDispose {
           _pendingWrites--;
           notifyListeners();
         }
-      });
+      }, writing: true);
     } on CentralResponseLost {
       _uncertain = true;
       notifyListeners();

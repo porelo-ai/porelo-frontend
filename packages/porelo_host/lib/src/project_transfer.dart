@@ -19,6 +19,9 @@ const projectTransferSubmitted = '__PORELO_CENTRAL_TRANSFER_SUBMITTED__';
 /// The local terminal's confirmation that credential checks sent nothing.
 const projectTransferNotSubmitted = '__PORELO_CENTRAL_TRANSFER_NOT_SUBMITTED__';
 
+/// The prefix attached only to public, shell-redacted host output.
+const projectTransferOutput = '__PORELO_CENTRAL_TRANSFER_OUTPUT__';
+
 /// Builds the terminal-only token feed through the already owned host connection.
 List<String> projectTransferFeedCommand({
   required ProjectTransfer direction,
@@ -38,6 +41,7 @@ List<String> projectTransferFeedCommand({
     ssh,
     '-F',
     config,
+    for (final entry in pinnedHostSshPolicy('$config.known_hosts').entries) ...['-o', '${entry.key}=${entry.value}'],
     '-o',
     'ControlMaster=no',
     '-o',
@@ -54,23 +58,31 @@ List<String> projectTransferFeedCommand({
     'set -euo pipefail',
     'umask 077',
     'unset MASTER transfer_token transfer_encoded transfer_line',
-    'if transfer_line="\$(\n${scripts.check}\n${scripts.feed}\n)"; then :; else',
-    "  printf '%s\\n' '$projectTransferNotSubmitted'; exit 1",
-    'fi',
-    r'transfer_encoded="${transfer_line#* }"',
-    r'''transfer_token="$(printf '%s' "$transfer_encoded" | /usr/bin/base64 -d)"''',
-    'unset transfer_line',
+    'transfer_submitted=no',
+    r'transfer_tty="$(/usr/bin/stty -g 2>/dev/null || true)"',
+    "finish_transfer() { local code=\$?; trap - EXIT INT TERM HUP; "
+        "if [ \"\$transfer_submitted\" = no ]; then printf '\\n%s\\n' '$projectTransferNotSubmitted'; fi; "
+        r'if [ -n "$transfer_tty" ]; then /usr/bin/stty "$transfer_tty" 2>/dev/null || true; fi; exit "$code"; }',
+    "trap finish_transfer EXIT",
+    "trap 'exit 130' INT",
+    "trap 'exit 143' TERM",
+    "trap 'exit 129' HUP",
+    'if [ -t 0 ]; then /usr/bin/stty -echo; fi',
+    // A conditional check would suppress errexit inside credential validation.
+    '{\n${scripts.check}\n} >/dev/null',
     'if [ ! -x ${quoteForAShell(ssh)} ]; then echo "The local SSH command is unavailable; nothing was sent." >&2; '
-        "printf '%s\\n' '$projectTransferNotSubmitted'; exit 1; fi",
+        "exit 1; fi",
     r'''redact() {
   local line
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line//"$transfer_token"/[redacted]}"
     line="${line//"$transfer_encoded"/[redacted]}"
-    printf '%s\n' "$line"
+    printf '%s%s\n' '@PUBLIC_OUTPUT@' "$line"
   done
-}''',
-    "printf '%s\\n' '$projectTransferSubmitted'",
+}'''
+        .replaceAll('@PUBLIC_OUTPUT@', projectTransferOutput),
+    "printf '\\n%s\\n' '$projectTransferSubmitted'",
+    'transfer_submitted=yes',
     'set +e',
     '{ ${scripts.feed}; } | $command 2>&1 | redact',
     r'codes=("${PIPESTATUS[@]}")',

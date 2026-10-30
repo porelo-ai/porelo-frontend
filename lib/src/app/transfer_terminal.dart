@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'pty.dart';
+
 import 'package:porelo_host/porelo_host.dart';
 
 import 'project_transfers.dart';
@@ -53,29 +55,49 @@ class TransferTerminal implements CentralTransferSource {
     );
     final channel = openTerminal(command.first, command.skip(1).toList());
     var submitted = false;
-    var localRefusal = false;
+    var active = true;
+    StreamSubscription<String>? subscription;
     try {
-      // Once the terminal exists, a lost output stream cannot prove SSH never started.
-      onSubmitted();
-      final output = channel.output
+      final output = Completer<void>();
+      subscription = channel.output
           .transform(const Utf8Decoder(allowMalformed: true))
           .transform(const LineSplitter())
-          .forEach((line) {
-            if (!submitted && line == projectTransferNotSubmitted) {
-              localRefusal = true;
-            } else if (!submitted && line == projectTransferSubmitted) {
-              submitted = true;
-              localRefusal = false;
-            } else {
-              onLine?.call(line);
-            }
-          });
-      final result = await Future.wait<Object?>([output, channel.ended], eagerError: true).timeout(deadline);
-      if (!submitted && !localRefusal) throw StateError('The terminal result is unconfirmed.');
-      return TransferResult(result[1]! as int, '', notSubmitted: localRefusal);
+          .listen(
+            (line) {
+              if (!active || output.isCompleted) return;
+              try {
+                if (!submitted && line == projectTransferSubmitted) {
+                  submitted = true;
+                  onSubmitted();
+                } else if (line.startsWith(projectTransferOutput)) {
+                  onLine?.call(line.substring(projectTransferOutput.length));
+                }
+              } catch (error, stack) {
+                output.completeError(error, stack);
+              }
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!output.isCompleted) output.completeError(error, stack);
+            },
+            onDone: () {
+              if (!output.isCompleted) output.complete();
+            },
+          );
+      final result = await Future.wait<Object?>([output.future, channel.ended], eagerError: true).timeout(deadline);
+      return TransferResult(
+        result[1]! as int,
+        submitted ? '' : 'The local transfer did not start; nothing was sent.',
+        notSubmitted: !submitted,
+      );
     } finally {
-      await channel.close();
-      await channel.ended;
+      active = false;
+      await Future.wait<void>([if (subscription != null) subscription.cancel(), _close(channel)])
+          .timeout(const Duration(seconds: 2));
     }
+  }
+
+  Future<void> _close(SessionChannel channel) async {
+    await channel.close();
+    await channel.ended;
   }
 }

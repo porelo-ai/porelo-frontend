@@ -25,7 +25,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | M | Core credential and host-forge adapters; live central forge reviews | Explicit central transfers and reviews behind adapter seams; live wiring and VM verification pending. |
+| <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | M | Core credential and host-forge adapters; live central forge reviews | Central transfer and review security repairs verified by targeted tests; live wiring and VM verification pending. |
 | <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | [F269](README.md#f269), [F270](README.md#f270); porelo-host: registry intake | A server's card filed and deleted; project admins admitted, locked and removed from the registry. |
 | <a id="f278"></a>[F278](F278-The-Machines-Projects-And-Forges-Pages.md) | L | — | The Machines, Projects and Forges pages as agreed on draft 2: lists of rows with ⋮, a page per item, filters, the default project. |
 | <a id="f276"></a>[F276](F276-The-VPN-The-CA-And-Per-Machine-Keys-Taken-Out.md) | L | [F270](README.md#f270), [F271](README.md#f271), [F272](README.md#f272), [F273](README.md#f273) | The VPN, the CA, the stops, per-machine keys and the project signing key taken out. |
