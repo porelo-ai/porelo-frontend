@@ -72,6 +72,7 @@ void main() {
   }
 
   // Harm: an unrelated preflight refusal must not make the unsafe-name guards pass without reaching source validation.
+  // Linux only: bringing a project onto a host is not offered on Windows, and its preflight takes POSIX paths.
   test('a valid project with complete inputs reaches the signed source boundary', () async {
     final scratch = Directory.systemTemp.createTempSync('bring-valid-preflight-');
     addTearDown(() => scratch.deleteSync(recursive: true));
@@ -101,5 +102,5 @@ void main() {
     await bring.bring();
     expect(files.requests, 1);
     expect(bring.problem, 'source boundary reached');
-  });
+  }, tags: 'linux');
 }
