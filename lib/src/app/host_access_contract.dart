@@ -118,6 +118,9 @@ abstract interface class HostRegistryWriter {
 
   /// Publishes the existing signed revision without creating another commit.
   Future<void> publish(String revision);
+
+  /// Checks verified registry ancestry; an unknown or forked commit returns false.
+  Future<bool> descendsFrom(String revision, String ancestor);
 }
 
 /// The public result of registry sync or status from the pinned host.
@@ -157,6 +160,8 @@ class HostRegistryProgress {
     this.confirmedRevision,
     this.lastAppliedRevision,
     this.words,
+    this.deliveryRevision,
+    this.publishedCard,
   });
 
   /// The original immutable public request.
@@ -180,8 +185,14 @@ class HostRegistryProgress {
   /// The host’s result, absent before confirmation.
   final String? words;
 
+  /// The verified descendant used for delivery when newer changes supersede this one.
+  final String? deliveryRevision;
+
+  /// The last public host card whose publication was confirmed, absent after deletion.
+  final PreparedHost? publishedCard;
+
   /// Whether every required step was confirmed.
-  bool get complete => revision != null && revision == confirmedRevision;
+  bool get complete => revision != null && (deliveryRevision ?? revision) == confirmedRevision;
 
   /// The public retry record kept in Settings.
   Map<String, Object?> get stored => {
@@ -192,6 +203,8 @@ class HostRegistryProgress {
     'confirmed_revision': ?confirmedRevision,
     'last_applied_revision': ?lastAppliedRevision,
     'words': ?words,
+    'delivery_revision': ?deliveryRevision,
+    'published_card': ?publishedCard?.stored,
   };
 
   /// Refuses malformed progress rather than forgetting unfinished work.
@@ -211,11 +224,15 @@ class HostRegistryProgress {
     final words = value['words'];
     final change = HostRegistryChange.read(value['change']);
     final publicationOnly = const ['host-card', 'delete-card'].contains(change.action);
+    final delivery = revision('delivery_revision');
+    final publishedCard = value['published_card'] == null ? null : PreparedHost.read(value['published_card']);
     if (published is! bool ||
         uploaded is! bool ||
         published && intended == null ||
         uploaded && !published ||
-        confirmed != null && (confirmed != intended || !published || !publicationOnly && !uploaded) ||
+        delivery != null && (intended == null || !published || publicationOnly) ||
+        confirmed != null && (confirmed != (delivery ?? intended) || !published || !publicationOnly && !uploaded) ||
+        publishedCard != null && (!publishedCard.sshOnly || publishedCard.values['name'] != change.host) ||
         words != null && words is! String) {
       throw const FormatException('Invalid host registry progress ordering.');
     }
@@ -227,6 +244,8 @@ class HostRegistryProgress {
       confirmedRevision: confirmed,
       lastAppliedRevision: revision('last_applied_revision'),
       words: words as String?,
+      deliveryRevision: delivery,
+      publishedCard: publishedCard ?? (change.action == 'host-card' && published ? change.card : null),
     );
   }
 }

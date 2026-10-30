@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host administration recovers unpublished ready cards, changed selections and lost intake staging,
+  delivers verified newer registry state without rolling back host access, and refuses unassigned hosts,
+  purged memberships and refused-card unlocks. Confirmed returns retain visible deletion recovery,
+  disable stale admin actions and permit name reuse after deletion; publication status tracks the host card.
 - Host-card tunnels reject aliases to the local signing agent and unsafe stored config paths, keep
   ownership and port reservations separate across hosts and trials, and complete shutdown after
   socket races or failed starts. Scoped IPv6 addresses retain their literal zone, and reached hosts

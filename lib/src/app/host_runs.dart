@@ -477,6 +477,10 @@ class HostRuns extends ChangeNotifier {
         return;
       }
       if (run.problem != null) return;
+      if (run.record.hostName.isNotEmpty) {
+        if (hostAccess == null) throw const RegistryRefusal('The verified host admins are unavailable.');
+        await hostAccess!.beginPreparation(run.record.hostName);
+      }
       final settings = run.settings;
       if (settings != null && !run.ready) {
         final kept = newPreparation ? run.record : settings.hostUp(run.project) ?? run.record;
@@ -659,8 +663,8 @@ class HostRuns extends ChangeNotifier {
   }
 
   /// Removes recovery only after the provider confirmed give-back and the command succeeded.
-  Future<void> confirmDown(String project, HostSession session) async {
-    if (!hostGivenBack(session)) return;
+  Future<String?> confirmDown(String project, HostSession session) async {
+    if (!hostGivenBack(session)) return null;
     final pending = _runs[project];
     await pending?.saved;
     final registryProblem = await confirmHostRegistryGiveBack(
@@ -681,6 +685,7 @@ class HostRuns extends ChangeNotifier {
       run.problem = registryProblem;
     }
     _changed();
+    return registryProblem;
   }
 
   void _listen(HostPreparation run) {

@@ -830,6 +830,7 @@ List<Command> preparedHostCommands({
   final record = settings.hostUp(machine.hostProject);
   if (machine.kind != 'host' || record?.hostName.isNotEmpty != true) return [];
   final reason =
+      (settings.hostReturned(machine.hostProject) ? 'The server was given back.' : null) ??
       (hostRuns?.hostAccess == null
           ? 'The verified host admins are unavailable.'
           : hostRuns!.hostAccess!.unavailable(machine.hostProject)) ??
@@ -853,7 +854,10 @@ List<Command> preparedHostCommands({
         group: 'Server',
         home: Home.machineMenu,
         role: Role.hostAdmin,
-        unavailable: reason ?? (bringRegistry == null ? 'registry delivery is unavailable here' : null),
+        unavailable: settings.hostReturned(machine.hostProject)
+            ? hostRuns?.hostAccess?.unavailable(machine.hostProject) ??
+                  (bringRegistry == null ? 'registry delivery is unavailable here' : null)
+            : reason ?? (bringRegistry == null ? 'registry delivery is unavailable here' : null),
         run: () {
           final access = hostRuns?.hostAccess;
           if (access == null) throw const RegistryRefusal('The verified host admins are unavailable.');
@@ -876,6 +880,7 @@ List<Command> preparedHostCommands({
         run: () {
           final access = hostRuns?.hostAccess;
           final reason =
+              (settings.hostReturned(machine.hostProject) ? 'The server was given back.' : null) ??
               access?.unavailable(machine.hostProject) ??
               (access == null ? 'The verified host admins are unavailable.' : null);
           if (reason != null) throw RegistryRefusal(reason);

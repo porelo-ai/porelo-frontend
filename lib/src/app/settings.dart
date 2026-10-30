@@ -907,11 +907,17 @@ class Settings extends ChangeNotifier {
   /// Keeps provider success before any registry cleanup or dialog can complete.
   Future<void> rememberHostReturned(String host) async {
     checkHostName(host);
-    if (!_returnedHosts.add(host)) return;
+    final added = _returnedHosts.add(host);
+    final previous = _hostUps[host];
+    if (!added && previous?.preparedHost == null) return;
+    if (previous != null) {
+      _hostUps[host] = HostUpRecord.fromStored({...previous.stored, 'preparedHost': null})!;
+    }
     try {
       await _write();
     } on Object {
-      _returnedHosts.remove(host);
+      if (added) _returnedHosts.remove(host);
+      if (previous != null) _hostUps[host] = previous;
       rethrow;
     }
     notifyListeners();
@@ -921,6 +927,40 @@ class Settings extends ChangeNotifier {
 
   /// Durable publication and delivery progress, including confirmed give-back.
   HostRegistryProgress? hostRegistry(String host) => _hostRegistry[host];
+
+  /// Discards only an unfiled request whose selected card is no longer usable.
+  Future<void> forgetUnfiledHostRegistry(String host) async {
+    final previous = _hostRegistry[host];
+    if (previous == null) return;
+    if (previous.revision != null) throw StateError('A signed host change must be retained.');
+    _hostRegistry.remove(host);
+    try {
+      await _write();
+    } on Object {
+      _hostRegistry[host] = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  /// Starts a new lifecycle only after the returned host's card deletion completed.
+  Future<void> reuseReturnedHost(String host) async {
+    if (!_returnedHosts.contains(host)) return;
+    final previous = _hostRegistry[host];
+    if (previous?.change.action != 'delete-card' || previous?.complete != true) {
+      throw StateError('Publish the returned host card deletion before preparing this name again.');
+    }
+    _returnedHosts.remove(host);
+    _hostRegistry.remove(host);
+    try {
+      await _write();
+    } on Object {
+      _returnedHosts.add(host);
+      _hostRegistry[host] = previous!;
+      rethrow;
+    }
+    notifyListeners();
+  }
 
   /// Persists progress before its next external side effect.
   Future<void> rememberHostRegistry(HostRegistryProgress progress) async {

@@ -193,6 +193,43 @@ void main() {
     expect(fixture.changes.map((change) => change.action), ['host-card', 'delete-card']);
   });
 
+  // Harm: name reuse rents a server before pending registry deletion is resolved.
+  test('reusing a returned host waits for deletion then starts a fresh lifecycle', () async {
+    final fixture = RegistryFixture();
+    final access = await fixture.access(settings);
+    addTearDown(fixture.registry.dispose);
+    final owner = HostRuns(machines, hostAccess: access);
+    addTearDown(owner.dispose);
+    final record = HostUpRecord.fromStored({..._record.stored, 'host': 'orchard', 'hostName': 'orchard'})!;
+    await settings.rememberHostUp('orchard', record);
+    await settings.rememberHostReturned('orchard');
+    var starts = 0;
+    HostSession session() => HostSession(
+      executable: 'fake',
+      arguments: const [],
+      start: (_, _) async {
+        starts++;
+        return HostProcess()
+          ..line(_done)
+          ..line(Step('host', StepState.host, host: PreparedHost.read(sshCompletion())))
+          ..end(0);
+      },
+    );
+    final blockedSession = session();
+    final blocked = owner.start(project: 'orchard', record: record, session: blockedSession, settings: settings);
+    await blocked.finished;
+    expect(starts, 0, reason: 'pending deletion must be resolved before renting');
+    await owner.resume(blocked);
+    expect(starts, 0, reason: 'resuming a refused setup must also wait for deletion');
+    await access.bringToHost('orchard');
+    final fresh = owner.start(project: 'orchard', record: record, session: session(), settings: settings);
+    await fresh.finished;
+    expect(starts, 1);
+    expect(fresh.problem, isNull);
+    expect(settings.hostReturned('orchard'), isFalse);
+    expect(fixture.changes.map((change) => change.action), ['delete-card', 'host-card']);
+  });
+
   // Harm: an unchecked terminal exit zero must not make a host available for work.
   test('host completion without a verified VPN leaves the machine in preparation', () async {
     final process = HostProcess();

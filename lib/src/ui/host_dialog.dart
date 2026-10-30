@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -325,6 +326,13 @@ class _HostDialogState extends State<HostDialog> {
       _collectionSha256.text = kept.collectionSha256;
     }
     _givenBack = widget.settings?.hostReturned(_hostId) == true;
+    if (widget.settings case final settings?) {
+      _machineProblem = pendingHostRegistryGiveBack(
+        host: _hostId,
+        settings: settings,
+        access: widget.hostAccess ?? widget.hostRuns?.hostAccess,
+      );
+    }
     _signingKeyShown = _expanded(_signingKey.text);
     _signingKey.addListener(_signingKeyChanged);
     _identityShown = _expanded(_identity.text);
@@ -1049,7 +1057,7 @@ class _HostDialogState extends State<HostDialog> {
     try {
       Future<String?>? closing;
       if (owner != null) {
-        await owner.confirmDown(_hostId, session);
+        _machineProblem = await owner.confirmDown(_hostId, session);
         // Started now and waited for last: neither the machines nor the VPN wait on the transport.
         closing = owner.closeHomeserver(_hostId);
       } else if (kept != null) {
@@ -1059,7 +1067,10 @@ class _HostDialogState extends State<HostDialog> {
           settings: widget.settings!,
           access: widget.hostAccess,
         );
-        await widget.settings?.rememberHostUp(_hostId, kept.withPreparation(null));
+        await widget.settings?.rememberHostUp(
+          _hostId,
+          (widget.settings?.hostUp(_hostId) ?? kept).withPreparation(null),
+        );
       }
       final address = session.releasedAddress;
       if (address == null || address.isEmpty) {
@@ -1897,6 +1908,7 @@ class _HostDialogState extends State<HostDialog> {
                             'The files in the tresor are kept.',
                 ),
                 if (started) _progress(context),
+                if (!started && _machineProblem != null) Text(_machineProblem!),
               ],
             ),
           ),
@@ -2002,7 +2014,12 @@ class _HostDialogState extends State<HostDialog> {
               if (_hostRun?.problem case final problem?) Text(problem),
             if (_serverOnly)
               if (widget.settings?.hostUp(_hostId)?.preparedHost case final host?)
-                PreparedHostPanel(host: host, published: widget.settings?.hostRegistry(_hostId)?.published == true),
+                PreparedHostPanel(
+                  host: host,
+                  published:
+                      jsonEncode(widget.settings?.hostRegistry(_hostId)?.publishedCard?.stored) ==
+                      jsonEncode(host.stored),
+                ),
             if (_machineProblem != null) Text(_machineProblem!),
             if (_vpnProblem != null) Text(_vpnProblem!),
           ];

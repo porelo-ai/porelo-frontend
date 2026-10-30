@@ -27,14 +27,23 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   bool admin = true;
   bool refusedPerson = false;
   bool applyMembership = true;
+  bool listedHost = true;
+  List<String> assignedAdmins = ['alice'];
+  String selectedFingerprint = personFingerprint;
+  bool requireStaged = false;
+  final staged = <String>{};
+  final parents = <String, String>{};
   final signedChanges = <String, HostRegistryChange>{};
   String applied = registryBefore;
   String registryRevision = registryBefore;
   String answerHost = 'orchard';
   String? syncRevision;
   String? fail;
+  RegistryRefusal? publicationRefusal;
   Future<void>? holdStatus;
   Future<void>? holdUpload;
+  Future<void>? holdFile;
+  Completer<void>? fileStarted;
   Completer<void>? uploadStarted;
   Completer<void>? statusStarted;
   final calls = <String>[];
@@ -82,16 +91,14 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
         login: 'bob',
         name: 'Bob',
         key: hostKey,
-        fingerprint: personFingerprint,
+        fingerprint: selectedFingerprint,
         state: refusedPerson ? 'refused' : 'trusted',
         why: refusedPerson ? 'Untrusted key' : '',
       ),
     ],
     owners: const [],
     hostAdmins: [if (admin) const RegistryOwner(login: 'alice', fingerprint: adminFingerprint)],
-    hosts: const [
-      RegistryHost(host: 'orchard', admins: ['alice']),
-    ],
+    hosts: [if (listedHost) RegistryHost(host: 'orchard', admins: assignedAdmins)],
   );
 
   @override
@@ -101,11 +108,14 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   Future<String> fileHost(HostRegistryChange change) async {
     calls.add('file');
     if (fail == 'file') throw Exception('filing refused');
+    if (fileStarted?.isCompleted == false) fileStarted!.complete();
+    await holdFile;
     if (!filedById.containsKey(change.id)) {
       changes.add(change);
       final revision = (changes.length + 1).toRadixString(16) * 40;
       filedById[change.id] = revision;
       signedChanges[revision] = change;
+      parents[revision] = registryRevision;
     }
     return filedById[change.id]!;
   }
@@ -113,21 +123,26 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   @override
   Future<void> publish(String revision) async {
     calls.add('publish $revision');
+    if (publicationRefusal case final refusal?) throw refusal;
     if (fail == 'publish') throw Exception('publication refused');
+    registryRevision = revision;
   }
 
   @override
   Future<void> upload(String host, String revision) async {
     calls.add('upload $host $revision');
     if (fail == 'upload') throw Exception('registry intake refused');
-    uploadStarted?.complete();
+    if (uploadStarted?.isCompleted == false) uploadStarted!.complete();
     await holdUpload;
+    staged.add(revision);
   }
 
   @override
   Future<HostRegistryStatus> sync(String host, String revision) async {
     calls.add('sync $host $revision');
     if (fail == 'sync') throw Exception('sync refused');
+    if (requireStaged && !staged.remove(revision)) throw Exception('staged registry missing');
+    if (!descendsFrom(revision, applied)) throw Exception('older or forked registry refused');
     applied = syncRevision ?? revision;
     final change = signedChanges[revision];
     if (applyMembership && applied == revision && change?.person != null) {
@@ -142,12 +157,20 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
     return answer();
   }
 
+  bool descendsFrom(String revision, String ancestor) {
+    final seen = <String>{};
+    for (String? cursor = revision; cursor != null && seen.add(cursor); cursor = parents[cursor]) {
+      if (cursor == ancestor) return true;
+    }
+    return false;
+  }
+
   HostRegistryStatus answer() =>
       HostRegistryStatus(host: answerHost, revision: applied, people: Map.of(people), words: 'Host result.');
   @override
   Future<HostRegistryStatus> status(String host) async {
     calls.add('status $host');
-    statusStarted?.complete();
+    if (statusStarted?.isCompleted == false) statusStarted!.complete();
     await holdStatus;
     return answer();
   }
@@ -160,4 +183,7 @@ class WriterFixture implements HostRegistryWriter {
   Future<String> file(HostRegistryChange change) => fixture.fileHost(change);
   @override
   Future<void> publish(String revision) => fixture.publish(revision);
+
+  @override
+  Future<bool> descendsFrom(String revision, String ancestor) async => fixture.descendsFrom(revision, ancestor);
 }

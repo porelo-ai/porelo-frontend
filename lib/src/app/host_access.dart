@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:porelo_frontend/client.dart';
@@ -98,6 +99,34 @@ class HostAccess {
     if (unavailable(host) case final reason?) throw RegistryRefusal(reason, whoMay: whoMay);
   }
 
+  void _authorizeExisting(String host) {
+    checkHostName(host);
+    _authorize(host);
+    if (!registry.hosts.any((item) => item.host == host && item.admins.isNotEmpty)) {
+      throw const RegistryRefusal('Choose a host with an assigned admin in the registry.');
+    }
+    if (settings.hostReturned(host)) throw const RegistryRefusal('The server was given back.');
+  }
+
+  void _authorizeChange(HostRegistryChange change) {
+    if (const ['host-card', 'delete-card'].contains(change.action)) {
+      _authorize(change.host);
+    } else {
+      _authorizeExisting(change.host);
+    }
+  }
+
+  /// Rechecks setup authorization and resolves a completed return before renting again.
+  Future<void> beginPreparation(String host) => _exclusive(host, () async {
+    _authorize(host);
+    if (!settings.hostReturned(host)) return;
+    if (settings.hostRegistry(host)?.change.action != 'delete-card' || settings.hostRegistry(host)?.complete != true) {
+      throw const RegistryRefusal('Publish the returned host card deletion before preparing this name again.');
+    }
+    await settings.reuseReturnedHost(host);
+    _statuses.remove(host);
+  });
+
   /// The exact intended revision waiting for this host, if any.
   String? pendingRevision(String host) {
     final progress = settings.hostRegistry(host);
@@ -110,25 +139,34 @@ class HostAccess {
   /// Whether Git is ahead of what this host has confirmed.
   bool notOnHostYet(String host) {
     final progress = settings.hostRegistry(host);
+    if (settings.hostReturned(host)) return progress?.change.action != 'delete-card' || progress?.complete != true;
     if (progress != null && !progress.complete) return true;
     final applied = _statuses[host]?.revision ?? progress?.lastAppliedRevision;
+    if (progress?.complete == true &&
+        applied == progress?.confirmedRevision &&
+        registry.accepted?.revision == progress?.revision) {
+      return false;
+    }
     return registry.accepted?.revision != null && applied != registry.accepted!.revision;
   }
 
   /// Files the checked SSH completion once; a retry never runs setup again.
-  Future<void> publishReady(String host, PreparedHost card) => _exclusive(host, () async {
+  Future<void> publishReady(String host, PreparedHost card) => _exclusive(host, () => _publishReady(host, card));
+
+  Future<void> _publishReady(String host, PreparedHost card) async {
     _authorize(host);
     final existing = settings.hostRegistry(host);
     if (existing?.change.action == 'host-card') {
-      if (existing!.change.card?.fingerprint != card.fingerprint ||
-          existing.change.card?.stored.toString() != card.stored.toString()) {
-        throw const FormatException('The completed host card changed during publication.');
+      final same = jsonEncode(existing!.change.card?.stored) == jsonEncode(card.stored);
+      if (!existing.complete) {
+        if (!same) throw const FormatException('The completed host card changed during publication.');
+        await _resume(host);
+        return;
       }
-      await _resume(host);
-      return;
+      if (same) return;
     }
     await _begin(host, 'host-card', card: card);
-  });
+  }
 
   /// Deletes a card only after the provider's checked give-back confirmation.
   Future<void> confirmGivenBack(String host, HostSession session) async {
@@ -147,8 +185,7 @@ class HostAccess {
     required String project,
     required String accessRepository,
   }) => _exclusive(host, () async {
-    _authorize(host);
-    if (!registry.hosts.any((item) => item.host == host)) throw const RegistryRefusal('Choose a host in the registry.');
+    _authorizeExisting(host);
     final card = _person(person);
     if (card == null) throw const RegistryRefusal('Choose a person whose card Core trusts.');
     await _begin(
@@ -168,13 +205,19 @@ class HostAccess {
     required String action,
     bool confirmed = false,
   }) => _exclusive(host, () async {
-    _authorize(host);
+    _authorizeExisting(host);
     if (!const ['lock', 'unlock', 'purge'].contains(action)) {
       throw const FormatException('Unknown host membership action.');
     }
     final status = await transport.status(host);
     _checkStatus(host, status);
-    if (!status.people.containsKey(person)) throw const RegistryRefusal('Choose a person on this host.');
+    _authorizeExisting(host);
+    if (!const ['active', 'locked'].contains(status.people[person])) {
+      throw const RegistryRefusal('Choose an active or locked person on this host.');
+    }
+    if (action == 'unlock' && _person(person) == null) {
+      throw const RegistryRefusal('Choose a person whose card Core trusts.');
+    }
     if (action == 'purge' && (!confirmed || status.people[person] != 'locked')) {
       throw const RegistryRefusal('Lock first. Deleting the account is a separate permanent decision.');
     }
@@ -186,9 +229,17 @@ class HostAccess {
     _authorize(host);
     if (settings.hostReturned(host)) {
       await _deleteReturned(host);
+    } else if (settings.hostUp(host)?.preparedHost case final card?
+        when (settings.hostRegistry(host) == null || settings.hostRegistry(host)!.complete) &&
+            jsonEncode(settings.hostRegistry(host)?.publishedCard?.stored) != jsonEncode(card.stored)) {
+      await _publishReady(host, card);
     } else if (settings.hostRegistry(host) case final progress? when !progress.complete) {
+      if (!const ['host-card', 'delete-card'].contains(progress.change.action)) _authorizeExisting(host);
       await _resume(host);
     } else {
+      _authorizeExisting(host);
+      await registry.refresh();
+      _authorizeExisting(host);
       final revision = checkedRegistryRevision(registry.accepted!.revision!);
       final change = _change(host, 'deliver');
       await _keep(HostRegistryProgress(change: change, revision: revision, published: true));
@@ -198,8 +249,10 @@ class HostAccess {
 
   /// Reads the host's applied registry after reconnecting, without changing it.
   Future<void> refreshStatus(String host) async {
+    _authorizeExisting(host);
     final status = await transport.status(host);
     _checkStatus(host, status);
+    _authorizeExisting(host);
     _statuses[host] = status;
   }
 
@@ -234,7 +287,10 @@ class HostAccess {
     PreparedHost? card,
   }) async {
     if (settings.hostRegistry(host) case final pending? when !pending.complete) {
-      throw const RegistryRefusal('Bring the pending registry change to the host before another change.');
+      if (!_staleSelection(pending)) {
+        throw const RegistryRefusal('Bring the pending registry change to the host before another change.');
+      }
+      await settings.forgetUnfiledHostRegistry(host);
     }
     await _keep(
       HostRegistryProgress(
@@ -255,11 +311,11 @@ class HostAccess {
   Future<void> _resume(String host) async {
     var progress = settings.hostRegistry(host)!;
     if (progress.complete) return;
-    _authorize(host);
+    _authorizeChange(progress.change);
     _checkNotReturned(progress.change);
     if (progress.revision == null) {
-      if (progress.change.action == 'admit' &&
-          _person(progress.change.person!)?.fingerprint != progress.change.fingerprint) {
+      if (_staleSelection(progress)) {
+        await settings.forgetUnfiledHostRegistry(host);
         throw const RegistryRefusal('The selected card changed. Refresh the admission.');
       }
       final revision = checkedRegistryRevision(await writer.file(progress.change));
@@ -268,10 +324,12 @@ class HostAccess {
     }
     final revision = progress.revision!;
     if (!progress.published) {
-      _authorize(host);
+      _authorizeChange(progress.change);
       await writer.publish(revision);
       progress = HostRegistryProgress(change: progress.change, revision: revision, published: true);
       await _keep(progress);
+      await registry.refresh();
+      _authorizeChange(progress.change);
     }
     if (const ['host-card', 'delete-card'].contains(progress.change.action)) {
       await _keep(
@@ -279,22 +337,46 @@ class HostAccess {
       );
       return;
     }
-    _authorize(host);
-    if (!progress.uploaded) {
-      await transport.upload(host, revision);
-      progress = HostRegistryProgress(change: progress.change, revision: revision, published: true, uploaded: true);
-      await _keep(progress);
+    _authorizeExisting(host);
+    await registry.refresh();
+    _authorizeExisting(host);
+    var target = progress.deliveryRevision ?? revision;
+    final current = checkedRegistryRevision(registry.accepted!.revision!);
+    if (current != target) {
+      if (await writer.descendsFrom(current, target)) {
+        target = current;
+      } else if (!await writer.descendsFrom(target, current)) {
+        throw const RegistryRefusal('The current registry does not descend from the pending change.');
+      }
     }
-    _authorize(host);
+    _authorizeExisting(host);
     var answer = await transport.status(host);
     _checkStatus(host, answer);
-    if (answer.revision != revision) {
-      _authorize(host);
+    _authorizeExisting(host);
+    if (answer.revision != target && await writer.descendsFrom(answer.revision, target)) target = answer.revision;
+    if (answer.revision != target) {
+      if (!await writer.descendsFrom(target, answer.revision)) {
+        throw const RegistryRefusal('The registry does not descend from the host state. Refresh it before delivery.');
+      }
+      _authorizeExisting(host);
       _checkNotReturned(progress.change);
-      answer = await transport.sync(host, revision);
+      // Intake can disappear across host restarts, so a saved upload receipt is insufficient.
+      await transport.upload(host, target);
+      await _keep(
+        HostRegistryProgress(
+          change: progress.change,
+          revision: revision,
+          published: true,
+          uploaded: true,
+          deliveryRevision: target == revision ? null : target,
+        ),
+      );
+      _authorizeExisting(host);
+      _checkNotReturned(progress.change);
+      answer = await transport.sync(host, target);
     }
     _checkStatus(host, answer);
-    if (answer.revision != revision) {
+    if (answer.revision != target) {
       throw const FormatException('The host did not confirm the intended registry revision.');
     }
     final person = progress.change.person;
@@ -304,7 +386,7 @@ class HostAccess {
       'purge' => 'purged',
       _ => null,
     };
-    if (expected != null && answer.people[person] != expected) {
+    if (target == revision && expected != null && answer.people[person] != expected) {
       throw const FormatException('The host did not confirm the selected membership change.');
     }
     await _keep(
@@ -313,13 +395,20 @@ class HostAccess {
         revision: revision,
         published: true,
         uploaded: true,
-        confirmedRevision: revision,
-        lastAppliedRevision: revision,
+        confirmedRevision: target,
+        deliveryRevision: target == revision ? null : target,
+        lastAppliedRevision: target,
         words: answer.words,
       ),
     );
     _statuses[host] = answer;
   }
+
+  bool _staleSelection(HostRegistryProgress progress) =>
+      progress.revision == null &&
+      (progress.change.action == 'admit' &&
+              _person(progress.change.person!)?.fingerprint != progress.change.fingerprint ||
+          progress.change.action == 'unlock' && _person(progress.change.person!) == null);
 
   void _checkStatus(String host, HostRegistryStatus answer) {
     if (answer.host != host) throw const FormatException('The registry answer names another host.');
@@ -348,6 +437,11 @@ class HostAccess {
     return settings.rememberHostRegistry(
       HostRegistryProgress.read({
         ...progress.stored,
+        'published_card': progress.change.action == 'delete-card'
+            ? null
+            : (progress.change.action == 'host-card' && progress.published
+                  ? progress.change.card?.stored
+                  : settings.hostRegistry(progress.change.host)?.publishedCard?.stored),
         'last_applied_revision':
             ?(progress.lastAppliedRevision ?? settings.hostRegistry(progress.change.host)?.lastAppliedRevision),
       }),
@@ -379,10 +473,30 @@ Future<String?> confirmHostRegistryGiveBack({
   if (record?.hostName.isNotEmpty != true) return null;
   await settings.rememberHostReturned(host);
   try {
-    if (access == null) return 'The server was given back; its registry card still needs deletion.';
+    if (access == null) return _registryDeletionProblem();
     await access.confirmGivenBack(host, session);
     return null;
+  } on RegistryRefusal catch (refused) {
+    return _registryDeletionProblem(refused);
   } on Exception {
-    return 'The server was given back; its registry card still needs deletion. Retry publication without giving it back again.';
+    return _registryDeletionProblem();
   }
+}
+
+/// Reconstructs pending deletion recovery from provider success after a restart.
+String? pendingHostRegistryGiveBack({required String host, required Settings settings, HostAccess? access}) {
+  if (!settings.hostReturned(host)) return null;
+  final progress = settings.hostRegistry(host);
+  if (progress?.change.action == 'delete-card' && progress?.complete == true) return null;
+  final reason = access?.unavailable(host);
+  return _registryDeletionProblem(reason == null ? null : RegistryRefusal(reason, whoMay: access!.whoMay));
+}
+
+String _registryDeletionProblem([RegistryRefusal? refused]) {
+  final contacts = (refused?.whoMay ?? <RegistryContact>[])
+      .map((person) => '${person.name} (${person.login})${person.email == null ? '' : ', ${person.email}'}')
+      .join('; ');
+  return 'The server was given back; its registry card still needs deletion. '
+      '${refused?.words ?? 'Retry publication without giving it back again.'}'
+      '${contacts.isEmpty ? '' : ' Ask $contacts.'}';
 }
