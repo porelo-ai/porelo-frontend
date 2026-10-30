@@ -4935,3 +4935,285 @@ class Cleared {
     refused: map['refused'] == true,
   );
 }
+
+/// What Core accepted from the organisation's registry checkout, beside the one commit it refused.
+///
+/// **Every field name of Core's answer is read here and nowhere else.** `people` (`login`, `name`,
+/// `email`, `key`, `fingerprint`, `state`, `why`), `owners` (`login`, `fingerprint`, `backup`) and `hosts`
+/// (`host`, `admins`, `projects` with `name`, `admin`, `access_repository`) are the answer Core agreed;
+/// `revision`, `refused_commit` (`commit`, `path`, `why`), `owners_signer` and `admins` as a list of logins
+/// are assumed until Core serves them.
+///
+/// Read strictly: an answer missing a list, a revision or any field a decision rests on throws a
+/// [FormatException], so an incomplete answer never reads as an empty registry. Unknown fields are ignored.
+class RegistryRead {
+  /// Constructor taking every field.
+  const RegistryRead({
+    required this.revision,
+    required this.people,
+    required this.owners,
+    required this.hosts,
+    this.ownersSigner,
+    this.warnings = const <String>[],
+    this.refusedCommit,
+  });
+
+  /// The commit whose state this answer describes: the last one Core accepted.
+  final String revision;
+
+  /// Every person card, refused ones included so their reason can be shown.
+  final List<RegistryCard> people;
+
+  /// The registry's owners as `owners.yml` names them, backup keys included.
+  final List<RegistryOwner> owners;
+
+  /// The login of the registry owner who signed `owners.yml`, or null when Core did not say.
+  final String? ownersSigner;
+
+  /// Every host with its admins and the projects admitted there.
+  final List<RegistryHost> hosts;
+
+  /// Core's own sentences about the checkout, shown verbatim.
+  final List<String> warnings;
+
+  /// The first commit after [revision] that Core refused, or null when it accepted everything fetched.
+  final RegistryRefusedCommit? refusedCommit;
+
+  /// Reads Core's answer, refusing an incomplete one.
+  factory RegistryRead.from(Map<String, dynamic> map) {
+    final signer = map['owners_signer'];
+    final refused = map['refused_commit'];
+    return RegistryRead(
+      revision: _registryRevision(map['revision'], 'revision'),
+      people: _registryList(map, 'people', RegistryCard.from),
+      owners: _registryList(map, 'owners', RegistryOwner.from),
+      hosts: _registryList(map, 'hosts', RegistryHost.from),
+      ownersSigner: signer == null ? null : _registryLogin(signer, 'owners_signer'),
+      warnings: [
+        if (map['warnings'] case final List<dynamic> warnings)
+          for (final each in warnings) _registryText(each, 'warnings'),
+      ],
+      refusedCommit: switch (refused) {
+        null => null,
+        final Map<String, dynamic> commit => RegistryRefusedCommit.from(commit),
+        _ => throw const FormatException('The registry answer has an unreadable refused_commit.'),
+      },
+    );
+  }
+}
+
+/// One person card as Core judged it.
+class RegistryCard {
+  /// Constructor taking every field.
+  const RegistryCard({
+    required this.login,
+    required this.name,
+    required this.key,
+    required this.fingerprint,
+    required this.state,
+    this.email,
+    this.why = '',
+  });
+
+  /// The person's login on the central forge.
+  final String login;
+
+  /// The display name on the card.
+  final String name;
+
+  /// The optional address on the card, absent when the card has none.
+  final String? email;
+
+  /// The card's public `ssh-ed25519` key, without a comment.
+  final String key;
+
+  /// The key's fingerprint as `ssh-keygen` prints it.
+  final String fingerprint;
+
+  /// `trusted`, `first-seen` or `refused`. Not an enum: a value added later is rendered, never offered.
+  final String state;
+
+  /// Why Core refused the card, verbatim; empty for a card it did not refuse.
+  final String why;
+
+  /// Whether Core trusts the card, the only state that may be picked for a change.
+  bool get trusted => state == 'trusted';
+
+  /// Whether Core refused the card.
+  bool get refused => state == 'refused';
+
+  /// The card's address when it is safe to hand to a mail program, without headers or other URI parts.
+  String? get contactEmail => switch (email) {
+    final String address when RegExp(r'^[^\s@?&#:/<>"]+@[^\s@?&#:/<>"]+\.[^\s@?&#:/<>"]+$').hasMatch(address) =>
+      address,
+    _ => null,
+  };
+
+  /// Reads one card, refusing one without the fields a decision rests on.
+  factory RegistryCard.from(Map<String, dynamic> map) {
+    final state = _registryText(map['state'], 'people.state');
+    final why = map['why'] == null ? '' : _registryText(map['why'], 'people.why', allowEmpty: true);
+    if (state == 'refused' && why.isEmpty) {
+      throw const FormatException('A refused card in the registry answer has no why.');
+    }
+    final email = map['email'];
+    final key = _registryText(map['key'], 'people.key');
+    if (!RegExp(r'^ssh-ed25519 AAAA[A-Za-z0-9+/]+={0,2}$').hasMatch(key)) {
+      throw const FormatException('A card in the registry answer has no plain ssh-ed25519 key.');
+    }
+    return RegistryCard(
+      login: _registryLogin(map['login'], 'people.login'),
+      name: _registryText(map['name'], 'people.name'),
+      email: email == null || email == '' ? null : _registryText(email, 'people.email'),
+      key: key,
+      fingerprint: _registryFingerprint(map['fingerprint'], 'people.fingerprint'),
+      state: state,
+      why: why,
+    );
+  }
+}
+
+/// One entry of `owners.yml`'s registry owners.
+class RegistryOwner {
+  /// Constructor taking every field.
+  const RegistryOwner({required this.login, required this.fingerprint, this.backup = false});
+
+  /// The owner's login on the central forge.
+  final String login;
+
+  /// The fingerprint of the key `owners.yml` names for them.
+  final String fingerprint;
+
+  /// Whether this entry is an offline backup key rather than the owner's working key.
+  final bool backup;
+
+  /// Reads one owner, refusing one without login or fingerprint.
+  factory RegistryOwner.from(Map<String, dynamic> map) => RegistryOwner(
+    login: _registryLogin(map['login'], 'owners.login'),
+    fingerprint: _registryFingerprint(map['fingerprint'], 'owners.fingerprint'),
+    backup: map['backup'] == true,
+  );
+}
+
+/// One host in the registry, with its admins and the projects admitted there.
+class RegistryHost {
+  /// Constructor taking every field.
+  const RegistryHost({required this.host, required this.admins, this.projects = const <RegistryProject>[]});
+
+  /// The host's name.
+  final String host;
+
+  /// The logins of the host admins `owners.yml` names for it.
+  final List<String> admins;
+
+  /// The projects admitted on the host.
+  final List<RegistryProject> projects;
+
+  /// Reads one host, refusing one without a name or an admin list.
+  factory RegistryHost.from(Map<String, dynamic> map) {
+    final admins = map['admins'];
+    if (admins is! List<dynamic>) throw const FormatException('A host in the registry answer has no admins.');
+    return RegistryHost(
+      host: _registryLogin(map['host'], 'hosts.host'),
+      admins: [for (final each in admins) _registryLogin(each, 'hosts.admins')],
+      projects: _registryList(map, 'projects', RegistryProject.from),
+    );
+  }
+}
+
+/// One project admitted on a host, with the project admin who was admitted for it.
+class RegistryProject {
+  /// Constructor taking every field.
+  const RegistryProject({required this.name, required this.admin, required this.accessRepository});
+
+  /// The project's name.
+  final String name;
+
+  /// The login of the admitted project admin.
+  final String admin;
+
+  /// The address of the project's access repository.
+  final String accessRepository;
+
+  /// Reads one project, refusing one without name, admin or access repository.
+  factory RegistryProject.from(Map<String, dynamic> map) => RegistryProject(
+    name: _registryText(map['name'], 'projects.name'),
+    admin: _registryLogin(map['admin'], 'projects.admin'),
+    accessRepository: _registryText(map['access_repository'], 'projects.access_repository'),
+  );
+}
+
+/// The commit Core refused, with the path that broke its rule and why.
+class RegistryRefusedCommit {
+  /// Constructor taking every field.
+  const RegistryRefusedCommit({required this.commit, required this.path, required this.why});
+
+  /// The refused commit.
+  final String commit;
+
+  /// The path the commit changed against its signer rule.
+  final String path;
+
+  /// Core's sentence, verbatim.
+  final String why;
+
+  /// Reads one, refusing one without commit, path or reason.
+  factory RegistryRefusedCommit.from(Map<String, dynamic> map) => RegistryRefusedCommit(
+    commit: _registryRevision(map['commit'], 'refused_commit.commit'),
+    path: _registryText(map['path'], 'refused_commit.path'),
+    why: _registryText(map['why'], 'refused_commit.why'),
+  );
+}
+
+/// What Core answered for one registry write: the signed commit it made in the checkout.
+class RegistryFiled {
+  /// Constructor taking the commit.
+  const RegistryFiled({required this.revision});
+
+  /// The signed commit, not yet published.
+  final String revision;
+
+  /// Reads one, refusing one without a commit.
+  factory RegistryFiled.from(Map<String, dynamic> map) =>
+      RegistryFiled(revision: _registryRevision(map['revision'], 'revision'));
+}
+
+List<T> _registryList<T>(Map<String, dynamic> map, String key, T Function(Map<String, dynamic>) read) {
+  final list = map[key];
+  if (list is! List<dynamic>) throw FormatException('The registry answer has no $key list.');
+  return [
+    for (final each in list)
+      if (each is Map<String, dynamic>)
+        read(each)
+      else
+        throw FormatException('The registry answer has an unreadable $key entry.'),
+  ];
+}
+
+String _registryText(Object? value, String field, {bool allowEmpty = false}) {
+  if (value is! String || (!allowEmpty && value.trim().isEmpty) || RegExp(r'[\x00-\x1f\x7f]').hasMatch(value)) {
+    throw FormatException('The registry answer has no readable $field.');
+  }
+  return value;
+}
+
+String _registryLogin(Object? value, String field) {
+  if (value is! String || !RegExp(r'^[a-z0-9][a-z0-9._-]{0,63}$').hasMatch(value)) {
+    throw FormatException('The registry answer has no readable $field.');
+  }
+  return value;
+}
+
+String _registryFingerprint(Object? value, String field) {
+  if (value is! String || !RegExp(r'^SHA256:[A-Za-z0-9+/]{43}$').hasMatch(value)) {
+    throw FormatException('The registry answer has no readable $field.');
+  }
+  return value;
+}
+
+String _registryRevision(Object? value, String field) {
+  if (value is! String || !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(value)) {
+    throw FormatException('The registry answer has no readable $field.');
+  }
+  return value;
+}

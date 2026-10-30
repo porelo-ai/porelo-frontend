@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The organisation's registry repository is kept as one credential-free address and fetched into a private
+  checkout with the person's own Git access, never prompting. Core's registry read of it is the one source
+  for persons, hosts, admins and projects; a refused fetch, an incomplete answer or a refused commit keeps
+  the last accepted state and says why, and a refused card can never be picked for a change.
 - Project admins can bring from a machine with no local host record using their copied host keys and
   assigned VPN address. The bring fetches the CA through pinned own-account SSH over the VPN, refuses
   a fingerprint mismatch before installing trust or recording the host, and shares VPN setup with joins.

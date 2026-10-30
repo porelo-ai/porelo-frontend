@@ -292,6 +292,30 @@ class PoreloClient {
     return keys is List ? keys.whereType<Map<String, dynamic>>().map(SshKey.from).toList() : const <SshKey>[];
   }
 
+  // --------------------------------------------------------------------- the registry
+
+  /// Core's verdict on the registry checkout at [checkout], a folder on this daemon's own machine.
+  ///
+  /// Throws a [FormatException] when the answer is incomplete, never an empty registry. The method's name
+  /// and its parameter are assumed until Core serves them.
+  Future<RegistryRead> registryRead(String checkout) async =>
+      RegistryRead.from(await _call('RegistryRead', <String, dynamic>{'checkout': checkout}));
+
+  /// Has Core write and sign one registry change in [checkout] with the person's key, by plain Git.
+  ///
+  /// [kind] is `card`, `host-card` or `host-access`; [host] names the host a host change is for and
+  /// [person] the login an access change names. Nothing is pushed: publishing is the caller's. The
+  /// method's name and its parameters are assumed until Core serves them.
+  Future<RegistryFiled> registryFile(String checkout, {required String kind, String? host, String? person}) async =>
+      RegistryFiled.from(
+        await _call('RegistryFile', <String, dynamic>{
+          'checkout': checkout,
+          'kind': kind,
+          'host': ?host,
+          'person': ?person,
+        }),
+      );
+
   // --------------------------------------------------------------------- running tasks
 
   /// Starts a task, streaming the build as it happens.

@@ -38,6 +38,10 @@ None.
 
 Only the change: tests against a fake Core and a local bare repository. No VM run.
 
+## Deferred
+
+- The address choice, the start-up fetch and *Refresh* wired to the Forges page's Registry section and the lists of [F278](README.md#f278) when the two are merged; until then `Registry` is built and tested on its own.
+
 ## Estimate
 
 `F269 size=M est=60 basis=median M 61 (24 records)`
