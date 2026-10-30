@@ -12,6 +12,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Project admins can bring from a machine with no local host record using their copied host keys and
   assigned VPN address. The bring fetches the CA through pinned own-account SSH over the VPN, refuses
   a fingerprint mismatch before installing trust or recording the host, and shares VPN setup with joins.
+  Bring and join share the lasting forge password terminal: after checking the VPN and CA, the person's
+  pinned SSH connection feeds the password only on standard input to the host's own-account helper,
+  before the bring publishes access or uploads setup. A refused password step stops the bring.
 
 - Project admins can maintain developers and their public laptop keys in project settings. Changes preserve
   access-file comments, use the person's configured Git signing and credentials, and apply through the admin's
@@ -24,8 +27,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   secret store, and a confirmed join retains the access commit for the next verification.
 
 - Project admins can bring a followed project onto a prepared server through their own pinned SSH account,
-  without renting or sudo. Private access settings preserve YAML comments, use the person's configured Git
-  signing and credentials, and are pushed before both bundles are uploaded. Migration URLs are checked before
+  without renting or host-admin setup. Private access settings preserve YAML comments, use the person's configured
+  Git signing and credentials, and are pushed before both bundles are uploaded. Migration URLs are checked before
   upload. Matrix access uses the fixed room alias, the host-local admission token path, and this host's retained
   CA checked against its fingerprint, with no other Matrix keys. The bring makes the room and shows its final
   output. Public host values, an own account, and an identity file suffice without a watched machine; the

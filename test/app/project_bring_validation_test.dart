@@ -69,6 +69,7 @@ void main() {
           accessRoot: '${scratch.path}/access',
           remote: remote,
           files: files,
+          setForgePassword: (_, _) async => true,
           connectVpn: () => connectOwnHostVpn(
             host: host,
             account: 'admin',
@@ -134,6 +135,7 @@ void main() {
         accessRoot: '${scratch.path}/access',
         remote: HelperRemote(),
         files: files,
+        setForgePassword: (_, _) async => true,
         forgeCa: hostMatrixCa,
       );
       addTearDown(bring.dispose);
@@ -168,6 +170,7 @@ void main() {
       accessRoot: '${scratch.path}/access',
       remote: HelperRemote(),
       files: files,
+      setForgePassword: (_, _) async => true,
       forgeCa: hostMatrixCa,
     );
     addTearDown(bring.dispose);

@@ -15,7 +15,7 @@ import 'machines.dart';
 import 'run_here.dart';
 import 'read_public_signing_key.dart';
 
-/// A bring in the project admin's own account, with no rental or privileged command.
+/// A bring in the project admin's own account, without rental or host-admin setup.
 class ProjectBring extends ChangeNotifier {
   /// Reuses the setup upload and accepts only SSH and Git replacements for tests.
   ProjectBring({
@@ -30,6 +30,7 @@ class ProjectBring extends ChangeNotifier {
     required this.accessRoot,
     required this.remote,
     required this.files,
+    required this.setForgePassword,
     this.forgeCa,
     this.connectVpn,
     this.runGit,
@@ -74,6 +75,9 @@ class ProjectBring extends ChangeNotifier {
 
   /// The signed project bundle builder.
   final HostFiles files;
+
+  /// The terminal-only lasting password feed, required before publication and upload.
+  final Future<bool> Function(Machine machine, String knownHosts) setForgePassword;
 
   /// The person's Git process boundary, replaced only by stand-ins in tests.
   final RunHere? runGit;
@@ -173,6 +177,9 @@ class ProjectBring extends ChangeNotifier {
       );
       _expectedCommit = followed.commit;
       final contract = BringProjectFile.read(source.projectYaml);
+      if (!await setForgePassword(machine, knownHosts)) {
+        throw const WorkspaceRefused('The lasting forge password was not set. The bring did not start.');
+      }
       keys = contract.keys;
       access = AccessCheckout(
         root: accessRoot,

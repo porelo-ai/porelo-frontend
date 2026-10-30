@@ -2,9 +2,12 @@
 @Tags(['linux'])
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -24,17 +27,75 @@ import '../support/host_admin.dart';
 import '../support/host_matrix_ca.dart';
 
 class _SignedFiles extends HostFiles {
-  _SignedFiles() : super(MemorySecrets());
+  _SignedFiles({this.prepared}) : super(MemorySecrets());
+  final VoidCallback? prepared;
   @override
   Future<({List<int> bytes, String projectYaml})> createProjectSetup({
     required String project,
     required String url,
     required String commit,
     required File signingKey,
-  }) async => (
-    bytes: utf8.encode(commit),
-    projectYaml: 'name: demo\naccess: {repository: https://example.org/team/access.git}\nrepositories:\n  api: {upstream: https://example.org/team/api.git}\ncredentials: {search: brave-search}\n',
+  }) async {
+    prepared?.call();
+    return (
+      bytes: utf8.encode(commit),
+      projectYaml: 'name: demo\naccess: {repository: https://example.org/team/access.git}\nrepositories:\n  api: {upstream: https://example.org/team/api.git}\ncredentials: {search: brave-search}\n',
+    );
+  }
+}
+
+// Harm: the bring must feed only the person's pinned helper, without exposing the password.
+Future<void> _checkForgePasswordFeed(List<String> command, Directory scratch, File trust, String identity) async {
+  final random = Random.secure();
+  final password = base64Encode(List.generate(24, (_) => random.nextInt(256)));
+  final received = File('${scratch.path}/forge-ssh-arguments');
+  final ssh = File('${scratch.path}/forge-ssh');
+  final cli = File('${scratch.path}/forge-secrets');
+  await ssh.writeAsString('#!/bin/sh\nprintf \'%s\\n\' "\$@" > "${received.path}"\nexec /usr/bin/sha256sum\n');
+  await cli.writeAsString(r'''#!/bin/sh
+IFS= read -r master || exit 1
+[ "$master" = fixture-master ] || exit 1
+case "$1" in
+  ls) exit 0;;
+  show)
+    for last do :; done
+    [ "$last" = shared/forge-password ] || exit 1
+    printf '%s\n' "$PORELO_TEST_FORGE_PASSWORD";;
+  *) exit 1;;
+esac
+''');
+  expect((await Process.run('/usr/bin/chmod', ['700', ssh.path, cli.path])).exitCode, 0);
+  expect(command.any((argument) => argument.contains(password)), isFalse, reason: 'no password in arguments');
+  final runnable = [...command];
+  runnable[runnable.length - 1] = runnable.last
+      .replaceAll('/usr/bin/ssh', quoteForAShell(ssh.path))
+      .replaceAll(SecretsFile.keepassxcCli, quoteForAShell(cli.path));
+  final process = await Process.start(
+    runnable.first,
+    runnable.skip(1).toList(),
+    environment: {'PORELO_TEST_FORGE_PASSWORD': password},
   );
+  final output = process.stdout.transform(utf8.decoder).join();
+  final errors = process.stderr.transform(utf8.decoder).join();
+  process.stdin.write('fixture-master\n');
+  await process.stdin.close();
+  final code = await process.exitCode;
+  final out = await output;
+  final err = await errors;
+  expect(code, 0);
+  expect(out.contains(password) || err.contains(password), isFalse, reason: 'no password in output');
+  expect(
+    out.trim(),
+    '${sha256.convert(utf8.encode('$password\n'))}  -',
+    reason: 'the helper gets exactly the password on stdin',
+  );
+  expect(await received.readAsLines(), [
+    ...pinnedHostSshOptions(trust.path, identity),
+    '-T',
+    '--',
+    'admin@10.73.7.1',
+    '/usr/bin/sudo -n /usr/local/sbin/porelo-host-forge-password',
+  ], reason: 'the own-account pinned helper takes no argument');
 }
 
 class _Following extends FakeBackend {
@@ -233,6 +294,7 @@ void main() {
     'setup-exists',
     'vpn-new',
     'vpn-ca-mismatch',
+    'forge-password-refused',
   ]) {
     final rejectRoom = outcome == 'room-refused';
     final newVpn = outcome.startsWith('vpn-');
@@ -240,6 +302,8 @@ void main() {
     testWidgets(
       refusedCa
           ? 'the project bring refuses $outcome before editing or uploading access'
+          : outcome == 'forge-password-refused'
+          ? 'a refused lasting forge password stops the bring before publication or upload'
           : outcome == 'setup-exists'
           ? 'an interrupted bring retry preserves existing setup and publishes access once'
           : rejectRoom
@@ -304,6 +368,7 @@ void main() {
         final heads = <String, String>{};
         final staged = <String, String>{};
         final terminals = <FakeTerminal>[];
+        var sourceReady = Completer<void>();
         Future<Ran> git(
           String program,
           List<String> args, {
@@ -365,7 +430,7 @@ void main() {
                 targetBackend: target,
                 environment: state,
                 runGit: git,
-                hostFiles: _SignedFiles(),
+                hostFiles: _SignedFiles(prepared: () => sourceReady.complete()),
                 store: store,
                 restoreIdentity: (host) async {
                   expect(host, 'orchard');
@@ -457,11 +522,49 @@ void main() {
         await tester.tap(find.byKey(const Key('wizard-next')));
         await World.settle(tester);
         final start = tester.widget<FilledButton>(find.byKey(const Key('wizard-start'))).onPressed!;
-        await tester.runAsync(() async {
-          await Function.apply(start, const []);
-        });
-        await World.settle(tester);
+        Future<void> startBring({bool retry = false}) async {
+          final gitBeforePassword = gitCommands.length;
+          late Future<void> starting;
+          await tester.runAsync(() async {
+            sourceReady = Completer<void>();
+            starting = retry
+                ? tester.widget<Wizard>(find.byType(Wizard)).actionSteps.single.run()
+                : Function.apply(start, const []) as Future<void>;
+            await Future.any([starting, sourceReady.future]);
+          });
+          await World.settle(tester);
+          if (!refusedCa) {
+            expect(terminals, hasLength(1), reason: 'the bring must set the person’s lasting forge password');
+            expect(find.text('Your lasting forge password'), findsOneWidget);
+            expect(gitCommands.length, gitBeforePassword, reason: 'publication waits for the password step');
+            expect(remote.commands.where((command) => command.contains('ansible-playbook')), isEmpty);
+            expect(
+              settings.hostUp('orchard')!.forgeCa,
+              hostMatrixCa,
+              reason: 'CA verification precedes the password terminal',
+            );
+            final terminal = terminals.removeLast();
+            await tester.runAsync(() => _checkForgePasswordFeed(terminal.command, scratch, trust, machine.identity));
+            terminal.endsWith(outcome == 'forge-password-refused' ? 9 : 0);
+            await World.settle(tester);
+            await tester.tap(find.byKey(const Key('unlock-done')));
+            await World.settle(tester);
+          }
+          await tester.runAsync(() => starting);
+          await World.settle(tester);
+        }
+
+        await startBring();
         final action = tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first;
+        if (outcome == 'forge-password-refused') {
+          expect(action.state(), WizardActionState.refused);
+          expect(find.textContaining('The lasting forge password was not set'), findsWidgets);
+          expect(gitCommands, isEmpty);
+          expect(remote.commands, isEmpty);
+          expect(settings.projectHost('demo'), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          return;
+        }
         if (outcome == 'setup-exists') {
           for (var attempt = 0; attempt < 2; attempt++) {
             expect(tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first.state(), WizardActionState.refused);
@@ -474,10 +577,7 @@ void main() {
               reason: 'an interrupted bring retry must not republish identical access bytes',
             );
             if (attempt == 0) {
-              await tester.runAsync(() async {
-                await Function.apply(start, const []);
-              });
-              await World.settle(tester);
+              await startBring(retry: true);
             }
           }
           await tester.pumpWidget(const SizedBox.shrink());

@@ -8,7 +8,6 @@ import 'package:porelo_host/porelo_host.dart';
 import '../app/access_join.dart';
 import '../app/desk.dart';
 import '../app/fleet_backend.dart';
-import '../app/host_stop_feed.dart';
 import '../app/join_keys.dart';
 import '../app/machines.dart';
 import '../app/own_host_vpn.dart';
@@ -18,6 +17,7 @@ import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import 'tokens.dart';
+import 'host_forge_password.dart';
 import 'own_host_vpn.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
@@ -155,7 +155,15 @@ class _ProjectJoinDialogState extends State<ProjectJoinDialog> {
         remoteFor: widget.remoteFor,
         restoreIdentity: widget.restoreIdentity,
         activateVpn: widget.activateVpn ?? _vpn,
-        setForgePassword: widget.setForgePassword ?? _forgePassword,
+        setForgePassword:
+            widget.setForgePassword ??
+            (machine, knownHosts) => openHostForgePassword(
+              context,
+              machine: machine,
+              knownHosts: knownHosts,
+              secretsFile: desk.expandHome(_secrets.text.trim()),
+              openTerminal: widget.openTerminal,
+            ),
       )..addListener(_changed);
       setState(() {});
       await _join!.join();
@@ -217,28 +225,6 @@ class _ProjectJoinDialogState extends State<ProjectJoinDialog> {
     } finally {
       if (mounted) setState(() => _feeding = false);
     }
-  }
-
-  Future<bool> _forgePassword(Machine machine, String knownHosts) async {
-    if (!mounted) return false;
-    int? code;
-    await runInATerminal(
-      context,
-      title: 'Your lasting forge password',
-      explanation: 'Type your secrets file’s master password here. If it has no lasting forge password yet, choose it in this terminal. It goes directly to your own forge login on the host.',
-      machine: machine,
-      open: widget.openTerminal,
-      command: hostForgePasswordFeedCommand(
-        secretsFile: desk.expandHome(_secrets.text.trim()),
-        ssh: '/usr/bin/ssh',
-        sshOptions: pinnedHostSshOptions(knownHosts, machine.identity),
-        host: machine.host,
-      ),
-      showCommand: false,
-      shownCommand: 'Set your own forge login’s password from your encrypted secrets file.',
-      onExit: (value) => code = value,
-    );
-    return code == 0;
   }
 
   Future<void> _confirmed() async {

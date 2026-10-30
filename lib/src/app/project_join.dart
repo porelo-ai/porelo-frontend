@@ -237,6 +237,7 @@ class ProjectJoin extends ChangeNotifier {
         accessRoot: root,
         remote: remote,
         files: files,
+        setForgePassword: setForgePassword,
         joining: true,
       )..addListener(_notify);
       _joinedRecord = jsonEncode({

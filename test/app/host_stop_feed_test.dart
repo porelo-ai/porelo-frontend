@@ -331,7 +331,7 @@ void main() {
         '-T',
         '--',
         'person@203.0.113.7',
-        '/usr/bin/sudo -n /usr/local/bin/porelo-host-forge-password',
+        '/usr/bin/sudo -n /usr/local/sbin/porelo-host-forge-password',
       ], reason: 'no login name or password is a remote command argument');
       final again = await run(command, 'm\n');
       expect(again.exitCode, 0, reason: '${again.stderr}');

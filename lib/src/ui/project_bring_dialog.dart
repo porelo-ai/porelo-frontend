@@ -19,6 +19,7 @@ import '../app/session.dart';
 import '../app/settings.dart';
 import '../app/read_public_signing_key.dart';
 import 'tokens.dart';
+import 'host_forge_password.dart';
 import 'own_host_vpn.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
@@ -234,6 +235,13 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         accessRoot: widget.accessRoot ?? '${desk.data}/access',
         remote: remote,
         files: widget.hostFiles ?? HostFiles(_store!),
+        setForgePassword: (machine, knownHosts) => openHostForgePassword(
+          context,
+          machine: machine,
+          knownHosts: knownHosts,
+          secretsFile: desk.expandHome(_secretsFile.text.trim()),
+          openTerminal: widget.openTerminal,
+        ),
         runGit: widget.runGit,
       )..addListener(_changed);
       setState(() {});
@@ -363,7 +371,7 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         summary: () => [
           'Your account: ${_account.text}',
           _record == null ? 'Use this machine’s copied host keys.' : 'SSH identity: ${_identity.text}',
-          'Your pinned SSH host key and own identity; no sudo.',
+          'Your pinned SSH host key and own identity.',
         ],
       ),
       WizardStep(
@@ -392,7 +400,7 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       ),
       WizardStep(
         title: 'Your secrets file',
-        words: 'Choose your existing encrypted secrets file. Its master password is typed only in the stop’s terminal. Git uses your own configured credentials and commit signing.',
+        words: 'Choose your existing encrypted secrets file. Its master password and your lasting forge password are typed only in the terminal. Set your own forge login’s password before the bring; Git uses your own configured credentials and commit signing.',
         panel: (_) => _field(_secretsFile, 'Secrets file path', 'bring-secrets'),
         check: () => _check(() {
           final file = desk.expandHome(_secretsFile.text.trim());
@@ -405,7 +413,7 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     actionSteps: [
       WizardActionStep(
         title: 'Bring the project',
-        words: 'Sign and push the private access settings, then upload both bundles and run the bring in your own account.',
+        words: 'Set your lasting forge password after connecting and checking the CA, then sign and push the private access settings, upload both bundles, and run the bring in your own account.',
         panel: (_) => Column(
           mainAxisSize: MainAxisSize.min,
           spacing: Space.small,

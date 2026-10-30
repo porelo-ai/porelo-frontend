@@ -194,7 +194,7 @@ List<String> hostForgePasswordFeedCommand({
     throw const FormatException('The forge password needs the person\'s own host login and address.');
   }
   final feed = SecretsFile(secretsFile, cli: cli).forgePasswordLine();
-  final pipe = [ssh, ...sshOptions, '-T', '--', host, '/usr/bin/sudo -n /usr/local/bin/porelo-host-forge-password'];
+  final pipe = [ssh, ...sshOptions, '-T', '--', host, '/usr/bin/sudo -n /usr/local/sbin/porelo-host-forge-password'];
   return _inACleanBash(
     [
       '/usr/bin/stty -echo 2>/dev/null || true',
