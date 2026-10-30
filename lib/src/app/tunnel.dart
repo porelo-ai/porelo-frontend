@@ -553,6 +553,7 @@ class Tunnels extends ChangeNotifier {
   final Map<String, HostCardSsh> _cards = {};
   final Map<String, Machine> _cardOwners = {};
   final Map<Machine, Future<bool>> _raising = {};
+  final Map<Machine, Future<void>> _dropping = {};
   final Map<Machine, int> _trials = {};
   final Map<Machine, Completer<void>> _trialsDone = {};
   final Set<Machine> _retained = {};
@@ -581,6 +582,13 @@ class Tunnels extends ChangeNotifier {
             .where((machine) => machine.hostCard != null)
             .map((machine) => MapEntry(machine.hostCard!.name, machine.hostCard!)),
       );
+    _cardOwners
+      ..clear()
+      ..addEntries(
+        machines
+            .where((machine) => machine.hostCard != null)
+            .map((machine) => MapEntry(machine.hostCard!.name, machine)),
+      );
   }
 
   /// Reserves every imported card's ports before any asynchronous publication.
@@ -593,6 +601,10 @@ class Tunnels extends ChangeNotifier {
       candidates[card.name] = card;
     }
     _cards.addAll(candidates);
+    for (final machine in machines) {
+      final card = machine.hostCard;
+      if (card != null) _cardOwners.putIfAbsent(card.name, () => machine);
+    }
   }
 
   final Future<Process> Function(List<String> command)? _launch;
@@ -624,24 +636,44 @@ class Tunnels extends ChangeNotifier {
     if (machine.hostCard == null) throw ArgumentError('A shared trial needs a host card.');
     final key = _key(machine);
     _trials.update(key, (count) => count + 1, ifAbsent: () => 1);
-    return HostTunnelTrial._(_raiseShared(machine), () async {
-      final count = _trials[key];
-      if (count == null) return;
-      if (count > 1) {
-        _trials[key] = count - 1;
-        return;
-      }
-      _trials.remove(key);
+    final ready = _raiseShared(machine);
+    return HostTunnelTrial._(ready, () async {
       try {
-        if (!_retained.contains(key)) await _dropFor(machine);
+        await ready;
       } finally {
-        _trialsDone.remove(key)?.complete();
+        await _releaseTrial(machine);
       }
     });
   }
 
+  Future<void> _releaseTrial(Machine machine) async {
+    final key = _key(machine);
+    final count = _trials[key];
+    if (count == null) return;
+    if (count > 1) {
+      _trials[key] = count - 1;
+      return;
+    }
+    _trials.remove(key);
+    final done = _trialsDone.remove(key);
+    try {
+      if (!_retained.contains(key)) await _dropFor(machine);
+    } finally {
+      done?.complete();
+    }
+  }
+
   Future<bool> _raiseShared(Machine machine) {
     if (_closing) return Future<bool>.value(false);
+    final dropping = _dropping[_key(machine)];
+    if (dropping != null) {
+      return dropping.then((_) {
+        if (machine.hostCard != null && !_retained.contains(_key(machine)) && !_trials.containsKey(_key(machine))) {
+          return false;
+        }
+        return _raiseShared(machine);
+      });
+    }
     try {
       final card = machine.hostCard;
       if (card != null && _cardOwners[card.name] != null && _cardOwners[card.name] != machine) {
@@ -925,24 +957,37 @@ class Tunnels extends ChangeNotifier {
   Future<void> dropFor(Machine machine) async {
     final key = _key(machine);
     _retained.remove(key);
-    if (_trials.containsKey(key)) await _trialsDone.putIfAbsent(key, Completer<void>.new).future;
+    while (_trials.containsKey(key)) {
+      await _trialsDone.putIfAbsent(key, Completer<void>.new).future;
+    }
+    if (_retained.contains(key)) return;
     await _dropFor(machine);
   }
 
-  Future<void> _dropFor(Machine machine) async {
+  Future<void> _dropFor(Machine machine) => _dropping.putIfAbsent(
+    _key(machine),
+    () => _finishDrop(machine).whenComplete(() {
+      _dropping.remove(_key(machine));
+    }),
+  );
+
+  Future<void> _finishDrop(Machine machine) async {
     final pending = _raising[_key(machine)];
     try {
       if (pending != null) await pending;
     } finally {
       final tunnel = _mine.remove(_key(machine));
-      final card = machine.hostCard;
-      if (card != null && _cardOwners[card.name] == machine) {
-        _cardOwners.remove(card.name);
-        if (_cards[card.name] == card) _cards.remove(card.name);
-      }
-      if (tunnel != null) {
-        await tunnel.drop();
-        notifyListeners();
+      try {
+        if (tunnel != null) {
+          await tunnel.drop();
+          notifyListeners();
+        }
+      } finally {
+        final card = machine.hostCard;
+        if (card != null && _cardOwners[card.name] == machine) {
+          _cardOwners.remove(card.name);
+          if (_cards[card.name] == card) _cards.remove(card.name);
+        }
       }
     }
   }
@@ -972,6 +1017,7 @@ class Tunnels extends ChangeNotifier {
       await attempt(tunnel.drop);
     }
     await settling;
+    await attempt(() => Future.wait(_dropping.values.toList()));
     for (final tunnel in _mine.values.toList()) {
       await attempt(tunnel.drop);
     }

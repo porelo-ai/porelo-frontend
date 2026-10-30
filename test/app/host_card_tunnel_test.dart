@@ -32,6 +32,9 @@ void main() {
   late List<List<String>> runs;
   late List<_Process> processes;
   late Tunnels tunnels;
+  late _Process Function() nextProcess;
+  Future<ProcessResult> Function()? checkControl;
+  late int keyChecks;
 
   setUp(() {
     folder = Directory.systemTemp.createTempSync('h-');
@@ -57,19 +60,26 @@ void main() {
     launches = [];
     runs = [];
     processes = [];
+    nextProcess = _Process.new;
+    checkControl = null;
+    keyChecks = 0;
     tunnels = Tunnels(
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       start: (command) async {
         launches.add(command);
-        final process = _Process();
+        final process = nextProcess();
         processes.add(process);
         return process;
       },
       run: (command) async {
         runs.add(command);
+        if (checkControl != null) return checkControl!();
         return ProcessResult(0, 0, '', '');
       },
-      keyAvailable: (_) async => true,
+      keyAvailable: (_) async {
+        keyChecks++;
+        return true;
+      },
       portsAvailable: (_) async {},
       unlocker: unlock,
       messengerSocket: '${folder.path}/m',
@@ -165,6 +175,123 @@ void main() {
     expect(processes.single.killed, isTrue);
     expect(tunnels.manages(host), isFalse);
   });
+
+  // Prevents a candidate probe from closing a master promoted to a watched connection.
+  test('releasing a pending trial preserves a concurrent watched connection', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final trial = tunnels.holdForTrial(host);
+    await entered.future;
+    final releasing = trial.release();
+    final watching = tunnels.raiseFor(host);
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await watching, isTrue);
+    await releasing;
+    expect(processes.single.killed, isFalse, reason: 'the new watcher still needs the shared master');
+    expect(tunnels.manages(host), isTrue);
+  });
+
+  // Prevents finishing an old teardown from deleting a new connection's endpoints or cancelling its unlock.
+  for (final probe in [false, true]) {
+    test('a new ${probe ? 'trial' : 'watcher'} waits for a releasing master to stop', () async {
+      final old = _SlowProcess();
+      nextProcess = () => processes.isEmpty ? old : _Process();
+      final trial = tunnels.holdForTrial(host);
+      expect(await trial.ready, isTrue);
+      final releasing = trial.release();
+      await old.stopping.future;
+      final dropping = tunnels.dropFor(host);
+      final candidate = probe ? tunnels.holdForTrial(host) : null;
+      final joining = candidate?.ready ?? tunnels.raiseFor(host);
+      addTearDown(() async {
+        old.end('');
+        await releasing;
+        await dropping;
+        await joining;
+        await candidate?.release();
+      });
+      await Future<void>.delayed(Duration.zero);
+      final beforeStop = launches.length;
+      final checksBeforeStop = keyChecks;
+      old.end('');
+      await releasing;
+      await dropping;
+      expect(await joining, isTrue);
+      expect(checksBeforeStop, 1, reason: 'new key and unlock work must wait for the old teardown');
+      expect(beforeStop, 1, reason: 'a new master must wait until the old teardown finishes');
+      expect(launches, hasLength(2));
+      expect(processes.last.killed, isFalse, reason: 'the finishing drop must leave the new master alive');
+      if (candidate != null) await candidate.release();
+    });
+  }
+
+  // Prevents a forgotten watcher from starting an unowned master after its requested drop.
+  test('dropping a queued watcher cancels its reconnect after trial teardown', () async {
+    final old = _SlowProcess();
+    nextProcess = () => processes.isEmpty ? old : _Process();
+    final trial = tunnels.holdForTrial(host);
+    expect(await trial.ready, isTrue);
+    final releasing = trial.release();
+    addTearDown(() async {
+      old.end('');
+      await releasing;
+    });
+    await old.stopping.future;
+    final watching = tunnels.raiseFor(host);
+    final dropping = tunnels.dropFor(host);
+    old.end('');
+    await releasing;
+    await dropping;
+    expect(await watching, isFalse, reason: 'the later drop canceled this watcher before it could start');
+    expect(launches, hasLength(1));
+    expect(tunnels.manages(host), isFalse);
+  });
+
+  // Prevents an old host teardown from deleting another endpoint's new shared control socket.
+  test('another endpoint cannot claim a card while its old master is stopping', () async {
+    final old = _SlowProcess();
+    nextProcess = () => processes.isEmpty ? old : _Process();
+    final trial = tunnels.holdForTrial(host);
+    expect(await trial.ready, isTrue);
+    final releasing = trial.release();
+    addTearDown(() async {
+      old.end('');
+      await releasing;
+    });
+    await old.stopping.future;
+    final other = host.withSocketPath('${folder.path}/second');
+    expect(await tunnels.raiseFor(other), isFalse, reason: 'the old master still owns the host control socket');
+    expect(launches, hasLength(1));
+    old.end('');
+    await releasing;
+    expect(await tunnels.raiseFor(other), isTrue);
+    expect(launches, hasLength(2));
+  });
+
+  // Prevents an unused imported card from permanently blocking another host's fixed service ports.
+  for (final replace in [false, true]) {
+    test('dropping a ${replace ? 'replaced' : 'registered'} card before its first raise frees its ports', () async {
+      if (replace) {
+        tunnels.replaceCards([host]);
+      } else {
+        tunnels.registerCards([host]);
+      }
+      final beta = Machine.fromHostCard(
+        HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+        socketPath: '${folder.path}/b',
+      );
+      expect(() => tunnels.registerCards([beta]), throwsA(isA<HostFilesRefused>()));
+      await tunnels.dropFor(host.withSocketPath('${folder.path}/other'));
+      expect(() => tunnels.registerCards([beta]), throwsA(isA<HostFilesRefused>()));
+      await tunnels.dropFor(host);
+      expect(() => tunnels.registerCards([beta]), returnsNormally);
+      expect(launches, isEmpty, reason: 'reservation cleanup must not start SSH');
+    });
+  }
 
   // Prevents a candidate probe from closing a master promoted to a watched connection.
   test('watching a candidate promotes its master beyond the probe lifetime', () async {
