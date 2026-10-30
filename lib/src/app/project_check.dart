@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import 'backups.dart';
 import 'fleet_backend.dart';
+import 'host_forge_refresh.dart';
 
 /// Checking a followed project now, rather than at the machine's next round: its repository fetched
 /// again, and each of its repositories' upstream asked how far ahead it is.
@@ -22,7 +23,13 @@ class ProjectCheck extends ChangeNotifier {
 
   /// Fetches [project] now and asks each of [repositories]' upstream, or the project's own when it
   /// names none, then says what came back. One check at a time.
-  Future<void> checkNow(FleetBackend backend, String project, List<String> repositories) async {
+  Future<void> checkNow(
+    FleetBackend backend,
+    String project,
+    List<String> repositories, {
+    bool joinedHost = false,
+    HostForgeRefresh? hostForge,
+  }) async {
     if (_checking != null) return;
     _checking = project;
     _about = project;
@@ -30,12 +37,15 @@ class ProjectCheck extends ChangeNotifier {
     notifyListeners();
     final said = <String>[];
     try {
-      final records = await backend.refreshProjects(project: project);
+      if (joinedHost && hostForge == null) throw const FeatureNotSupported('Host forge refresh');
+      final records = joinedHost ? await hostForge!.refresh(project) : await backend.refreshProjects(project: project);
       final followed = records.where((each) => each.name == project).firstOrNull;
       said.add(followed?.words ?? 'The machine fetched nothing for $project.');
       for (final repository in repositories.isEmpty ? const <String?>[null] : repositories) {
         try {
-          final answer = await backend.syncUpstream(project, repository: repository);
+          final answer = joinedHost
+              ? await hostForge!.sync(project, repository: repository)
+              : await backend.syncUpstream(project, repository: repository);
           said.add('${repository ?? project}: ${Backups.wordsFor(answer)}');
         } on VarlinkException catch (refusal) {
           said.add('${repository ?? project}: refused: ${refusal.simpleName}.');

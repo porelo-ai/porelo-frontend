@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_backend.dart';
+import 'host_forge_refresh.dart';
 
 /// What has been backed up of a project's mirror, and the removing of one.
 ///
@@ -72,10 +73,16 @@ class Backups extends ChangeNotifier {
   }
 
   /// Asks the upstream about one project by name, without the listing being open.
-  Future<String> syncFor(FleetBackend backend, String name, {String? repository}) async {
+  Future<String> syncFor(
+    FleetBackend backend,
+    String name, {
+    String? repository,
+    bool joinedHost = false,
+    HostForgeRefresh? hostForge,
+  }) async {
     project = name;
     this.repository = repository;
-    return sync(backend);
+    return sync(backend, joinedHost: joinedHost, hostForge: hostForge);
   }
 
   /// Asks the upstream how far behind this project is, now.
@@ -83,13 +90,16 @@ class Backups extends ChangeNotifier {
   /// **Its own call and not a refresh of the listing**: a listing that reached the network would
   /// make every redraw cost what a listing must not. It writes the same record the daemon's timer
   /// writes, so a triggered fetch and a timed one cannot disagree.
-  Future<String> sync(FleetBackend backend) async {
+  Future<String> sync(FleetBackend backend, {bool joinedHost = false, HostForgeRefresh? hostForge}) async {
     var said = '';
     await _asking(() async {
-      final answer = await backend.syncUpstream(project, repository: repository);
+      if (joinedHost && hostForge == null) throw const FeatureNotSupported('Host forge refresh');
+      final answer = joinedHost
+          ? await hostForge!.sync(project, repository: repository)
+          : await backend.syncUpstream(project, repository: repository);
       said = wordsFor(answer);
     });
-    return said;
+    return problem ?? said;
   }
 
   /// Asks what restoring from one would take, restoring nothing.

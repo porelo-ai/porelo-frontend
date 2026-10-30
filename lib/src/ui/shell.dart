@@ -981,7 +981,12 @@ class _ShellState extends State<Shell> {
       for (final each in project.project.repositoryStates)
         if (!each.own || project.project.repositoryStates.length == 1) each.name,
     ];
-    await _check.checkNow(_fleet.backend, project.name, repositories);
+    await _check.checkNow(
+      _fleet.backend,
+      project.name,
+      repositories,
+      joinedHost: widget.machines.current.hostCard != null,
+    );
     await _fleet.refresh(quietly: true);
   }
 
@@ -991,7 +996,12 @@ class _ShellState extends State<Shell> {
   Future<void> _syncTheUpstream({String? repository}) async {
     final project = _fleet.selectedProject;
     if (project == null) return;
-    final said = await widget.backups.syncFor(_fleet.backend, project.name, repository: repository);
+    final said = await widget.backups.syncFor(
+      _fleet.backend,
+      project.name,
+      repository: repository,
+      joinedHost: widget.machines.current.hostCard != null,
+    );
     // Refreshed first: a refresh announces itself, and the answer should be said last.
     await _fleet.refresh();
     if (said.isNotEmpty) _fleet.say(said);
