@@ -1,6 +1,6 @@
 # F238 — A Server With No Project Is Not Silent
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** XS - a host prepared with no project left out of *Needs you*'s silent machines, and its row saying "no project yet".
 
 **What must be true.** A server prepared with no project, which by design has no project account and no daemon, is not raised under *Needs you* as *Not answering*. Its row in *Machines* says "No project yet", with *Register a project* in its menu as today.

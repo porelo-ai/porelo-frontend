@@ -1,6 +1,6 @@
 # F240 — The Walk Hand-Over Carries Porelo-Host
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** S - the VMs' walk hand-over ships `porelo-host` and the start script points the interface at it; a local command that cannot start says only that.
 
 **What must be true.** A walk's VMs get `porelo-host`, built from the same commit as their interface bundle, in the hand-over with its digest in `SHA256SUMS`. `laptop-b-start.sh` starts the interface with `PORELO_HOST_STANDIN` naming it, so *Connect a forge* and every other call of `porelo-host` work on the VMs as on the Laptop. When a command run in a terminal on this computer cannot start, the dialog names the missing program and nothing about a container.

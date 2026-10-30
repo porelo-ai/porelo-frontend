@@ -1,6 +1,6 @@
 # F241 — A Project Followed From A Connected Forge
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** M - *Follow a project* chooses from the connected forges' repositories, reads name and signers from the project file, and gives the daemon the forge's kept token without typing it again.
 
 **What must be true.** *Follow a project* offers the forges connected on this computer. After one is chosen, a searchable list shows the repositories its token reaches, those holding a `project.yml` first. The project name and the signers come from the chosen repository's `project.yml`, and the signing key to pin is chosen from those signers. The machine's follow uses the forge's kept token: it reaches the machine's vault as `git.token.<forge host>` from the system secret store, with no second typing and no typed address. Typing an address stays, for a repository on no connected forge.

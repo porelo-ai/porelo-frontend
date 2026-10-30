@@ -67,15 +67,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | M | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
-| <a id="f234"></a>[F234](F234-No-Back-Once-The-Server-Is-Being-Prepared.md) | S | — | No *Back* in *Prepare a server…* once *Prepare the server* has started. |
-| <a id="f235"></a>[F235](F235-Leaving-The-Server-Wizard-While-Machines-Shows-It.md) | XS | — | *Finish* usable in *Prepare a server…* once the server is being prepared, closing at once to *Machines*; *Leave* the same. |
-| <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | S | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
-| <a id="f237"></a>[F237](F237-A-Kept-CA-For-Another-Network-Said-Before-Renting.md) | S | — | A kept CA for another network said in the wizard before renting, with a way on; the stop's refusal said once, not as code 64. |
-| <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | XS | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
-| <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | S | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
-| <a id="f241"></a>[F241](F241-A-Project-Followed-From-A-Connected-Forge.md) | M | — | *Follow a project* from a connected forge: its repositories searchable, name and signers from `project.yml`, the kept token piped into the machine's vault. |
-| <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | S | — | A *Choose…* button and the known default beside every path field of the wizards: bring, join, Developers and *Prepare a server…*. |
 | <a id="f244"></a>[F244](F244-A-Bring-Reads-A-Private-Repository-With-The-Follows-Credential.md) | S | — | The bring's bundle clone reads a private repository with the vault entry the follow uses, through Core's credential helper. |
 | <a id="f245"></a>[F245](F245-The-Forge-Password-Kept-Only-Once-The-Forge-Took-It.md) | S | — | The lasting forge password checked for the forge's length, kept only after the forge set it, a refusal said in the forge's words. |
 | <a id="f246"></a>[F246](F246-The-Host-Collection-Where-Every-Account-Finds-It.md) | S | — | `up` installs the host collection read-only where every account finds it, so own-account bring and join run the version `up` ran. |
@@ -98,6 +89,15 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
+| <a id="f234"></a>[F234](F234-No-Back-Once-The-Server-Is-Being-Prepared.md) | — | — | No *Back* in *Prepare a server…* once *Prepare the server* has started. |
+| <a id="f235"></a>[F235](F235-Leaving-The-Server-Wizard-While-Machines-Shows-It.md) | — | — | *Finish* usable in *Prepare a server…* once the server is being prepared, closing at once to *Machines*; *Leave* the same. |
+| <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | — | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
+| <a id="f237"></a>[F237](F237-A-Kept-CA-For-Another-Network-Said-Before-Renting.md) | — | — | A kept CA for another network said in the wizard before renting, with a way on; the stop's refusal said once, not as code 64. |
+| <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | — | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
+| <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | — | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
+| <a id="f241"></a>[F241](F241-A-Project-Followed-From-A-Connected-Forge.md) | — | — | *Follow a project* from a connected forge: its repositories searchable, name and signers from `project.yml`, the kept token piped into the machine's vault. |
+| <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | — | — | A *Choose…* button and the known default beside every path field of the wizards: bring, join, Developers and *Prepare a server…*. |
 | <a id="f267"></a>[F267](F267-A-Project-Taken-Off-From-Its-Own-Menu.md) | — | — | The project's own *Take this project off the server* for the host admin too. |
 | <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered in the wizards: followed projects, admitted admins, the pinned signer, a laptop line from the copied keys with the next free address. |
 | <a id="f243"></a>[F243](F243-One-Sudo-Prompt-To-Connect-And-Trust-A-Host.md) | — | — | One sudo prompt to connect a host's VPN, fetch its CA, check it against `ca_sha256` and trust it, or change nothing. |

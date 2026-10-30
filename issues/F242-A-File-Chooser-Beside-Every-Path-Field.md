@@ -1,6 +1,6 @@
 # F242 — A File Chooser Beside Every Path Field
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** S - one path field with a *Choose…* button and its default, shared by every wizard that asks for a file on this computer.
 
 **What must be true.** Every wizard field that names a file on this computer has a *Choose…* button beside it that opens a file chooser in the field's folder. The field keeps typing as a way, and holds the known default where there is one. A chosen file is checked as a typed one is.

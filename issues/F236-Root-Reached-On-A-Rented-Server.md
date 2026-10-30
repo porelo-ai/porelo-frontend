@@ -1,6 +1,6 @@
 # F236 — Root Reached On A Rented Server
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** S - root's login allowed in the rental's cloud-config, and the "login as" answer refused at once with words that name it.
 
 **What must be true.** A server prepared with no project (`up --host-name … --login-user root`) on Scaleway's Ubuntu takes the person's key for root, so *Wait for the server to accept SSH* ends as soon as sshd answers. Where a server still refuses root with "Please login as the user …", `up` stops at once on that answer and says which user the image offers, instead of waiting out its twenty minutes.

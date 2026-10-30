@@ -1,6 +1,6 @@
 # F233 — The Server Type And Zone Chosen When Renting
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** M - a choice in the wizard's first step, the stock read before renting, and the zone kept with the host for every later call.
 
 **What must be true.** *Prepare a server…* offers a choice of server types, preconfigured, with the default selected; another zone or another server type can be chosen. Before *Prepare the server* the wizard shows whether the chosen type is in stock in the chosen zone. The zone the server was rented in is kept with the host, and every later call for that host (find, the state poll, down and give back) asks that zone, never the default.

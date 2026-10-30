@@ -1,6 +1,6 @@
 # F237 — A Kept CA For Another Network Said Before Renting
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** S - the kept CA read in the wizard's secrets-file step, with a way on, and the stop's refusal said once in its own words.
 
 **What must be true.** *Prepare a server…* finds a kept CA for the chosen host name (`hosts/<host>/forge-ca-key` and `forge-ca` in the secrets file) that does not cover the chosen network, before *Prepare the server*. It says so and offers a way on: another host name, or replacing the old CA entries after a confirmation that names them. When a stop still meets such a CA, the person sees that one cause, with no second line about a missing `wireguard` and no "a wrong call" (code 64).

@@ -1,6 +1,6 @@
 # F234 — No Back Once The Server Is Being Prepared
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): wizard changes wait until he has gone through the whole flow again.
 **Size:** S - the wizard frame's Back, switched off for an action that cannot be taken back.
 
 **What must be true.** In *Prepare a server…*, once *Prepare the server* has started, *Back* is no longer active: the step that rents and prepares the server cannot be left backwards to change what it was started with.
