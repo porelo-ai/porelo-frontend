@@ -1,6 +1,6 @@
 # F255 — A Laptop Refusal Shown In The Dialog
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** XS - *Keep laptop and add another* shows its refusal inside the dialog, as *Next* does.
 
 **What must be true.** When *Keep laptop and add another* refuses the pasted keys or the address, the refusal stands in the dialog, in the same place and style as a refusal of *Next*, and stays until the fields change. No refusal of the developer dialog goes to a SnackBar behind the modal.

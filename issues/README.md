@@ -73,34 +73,23 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | S | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
 | <a id="f237"></a>[F237](F237-A-Kept-CA-For-Another-Network-Said-Before-Renting.md) | S | — | A kept CA for another network said in the wizard before renting, with a way on; the stop's refusal said once, not as code 64. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | XS | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
-| <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | M | — | Known values offered in the wizards: followed projects, admitted admins, the pinned signer, a laptop line from the copied keys with the next free address. |
 | <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | S | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
 | <a id="f241"></a>[F241](F241-A-Project-Followed-From-A-Connected-Forge.md) | M | — | *Follow a project* from a connected forge: its repositories searchable, name and signers from `project.yml`, the kept token piped into the machine's vault. |
 | <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | S | — | A *Choose…* button and the known default beside every path field of the wizards: bring, join, Developers and *Prepare a server…*. |
-| <a id="f243"></a>[F243](F243-One-Sudo-Prompt-To-Connect-And-Trust-A-Host.md) | M | — | One sudo prompt to connect a host's VPN, fetch its CA, check it against `ca_sha256` and trust it, or change nothing. |
 | <a id="f244"></a>[F244](F244-A-Bring-Reads-A-Private-Repository-With-The-Follows-Credential.md) | S | — | The bring's bundle clone reads a private repository with the vault entry the follow uses, through Core's credential helper. |
 | <a id="f245"></a>[F245](F245-The-Forge-Password-Kept-Only-Once-The-Forge-Took-It.md) | S | — | The lasting forge password checked for the forge's length, kept only after the forge set it, a refusal said in the forge's words. |
 | <a id="f246"></a>[F246](F246-The-Host-Collection-Where-Every-Account-Finds-It.md) | S | — | `up` installs the host collection read-only where every account finds it, so own-account bring and join run the version `up` ran. |
-| <a id="f247"></a>[F247](F247-The-Bring-And-Join-Log-Copied-At-One-Click.md) | XS | — | A *Copy* button beside the bring's and the join's last lines. |
 | <a id="f248"></a>[F248](F248-A-Bring-Replaces-Its-Own-Earlier-Upload.md) | S | — | A new bring or join try replaces the setup folder its own earlier try left; a foreign one is still refused. |
-| <a id="f249"></a>[F249](F249-The-Restored-Identity-Filled-On-A-Recorded-Host.md) | XS | — | The restored identity filled in on a recorded host; a public key file refused in the identity field. |
 | <a id="f250"></a>[F250](F250-Pasted-Host-Values-Taken-As-Meant.md) | XS | — | Pasted host values with extra blanks inside a key taken as meant; a refusal names the wrong field. |
 | <a id="f251"></a>[F251](F251-Firefox-Reads-The-Policy-The-VPN-Wrote.md) | XS | — | The VPN leaves `/etc/firefox` and its policy readable, so Firefox trusts the server's CA without a hand import. |
 | <a id="f252"></a>[F252](F252-A-Published-Access-Change-Reaches-The-Host.md) | S | — | A published developer access change is uploaded to the host before its sync. |
 | <a id="f253"></a>[F253](F253-The-Hosts-Sync-Answer-Read-As-Written.md) | XS | — | The host's sync answer read with `unchanged` as the boolean the host writes. |
 | <a id="f254"></a>[F254](F254-A-Laptop-Address-The-Host-Does-Not-Use.md) | S | — | The proposed laptop VPN address skips every address the host's tunnel uses. |
-| <a id="f255"></a>[F255](F255-A-Laptop-Refusal-Shown-In-The-Dialog.md) | XS | — | *Keep laptop and add another* shows its refusal in the dialog, not behind it. |
-| <a id="f256"></a>[F256](F256-Another-Machine-Of-The-Same-Developer-Added-By-Choice.md) | S | [F255](README.md#f255) | The Developers dialog's *Machines* step lists the added machines and offers *Add another machine of this developer* or *Next*. |
 | <a id="f257"></a>[F257](F257-Follow-It-Never-Ends-Without-An-Answer.md) | S | — | *Follow it* ends in a followed project or a refusal in words; a public repository needs no credential. |
-| <a id="f258"></a>[F258](F258-The-Joins-Secrets-File-Prepared-By-The-Dialog.md) | M | — | The join makes or opens the developer's secrets file itself, its master password typed once. |
 | <a id="f259"></a>[F259](F259-A-Grant-To-Someone-Who-Already-Reads.md) | XS | — | A developer who already reads the access repository is not granted again. |
 | <a id="f260"></a>[F260](F260-The-Join-Log-Without-Ansibles-Noise.md) | XS | — | The join's log without Ansible's localhost warnings and the "no provider" note. |
-| <a id="f261"></a>[F261](F261-A-Project-Taken-Off-From-Its-Own-Menu.md) | S | — | The project's own *Take this project off the server* for the host admin too; needed secrets entries checked first. |
-| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | XS | — | *Lock* and *Purge* named by what they do, their dialogs saying the difference. |
-| <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | XS | — | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
+| <a id="f261"></a>[F261](F261-The-Take-Off-Checks-Its-Secrets-Entries-First.md) | XS | — | The take-off checks its secrets entries before anything runs on the host, naming a missing one. |
 | <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
-| <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | M | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
-| <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | M | — | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | — | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
@@ -109,6 +98,18 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f267"></a>[F267](F267-A-Project-Taken-Off-From-Its-Own-Menu.md) | — | — | The project's own *Take this project off the server* for the host admin too. |
+| <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered in the wizards: followed projects, admitted admins, the pinned signer, a laptop line from the copied keys with the next free address. |
+| <a id="f243"></a>[F243](F243-One-Sudo-Prompt-To-Connect-And-Trust-A-Host.md) | — | — | One sudo prompt to connect a host's VPN, fetch its CA, check it against `ca_sha256` and trust it, or change nothing. |
+| <a id="f247"></a>[F247](F247-The-Bring-And-Join-Log-Copied-At-One-Click.md) | — | — | A *Copy* button beside the bring's and the join's last lines. |
+| <a id="f249"></a>[F249](F249-The-Restored-Identity-Filled-On-A-Recorded-Host.md) | — | — | The restored identity filled in on a recorded host; a public key file refused in the identity field. |
+| <a id="f255"></a>[F255](F255-A-Laptop-Refusal-Shown-In-The-Dialog.md) | — | — | *Keep laptop and add another* shows its refusal in the dialog, not behind it. |
+| <a id="f256"></a>[F256](F256-Another-Machine-Of-The-Same-Developer-Added-By-Choice.md) | — | [F255](README.md#f255) | The Developers dialog's *Machines* step lists the added machines and offers *Add another machine of this developer* or *Next*. |
+| <a id="f258"></a>[F258](F258-The-Joins-Secrets-File-Prepared-By-The-Dialog.md) | — | — | The join makes or opens the developer's secrets file itself, its master password typed once. |
+| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | — | — | *Lock* and *Purge* named by what they do, their dialogs saying the difference. |
+| <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | — | — | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
+| <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | — | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
+| <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | — | — | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
 | <a id="f207"></a>[F207](F207-A-Tasks-Branch-At-The-Forge-Named-By-The-Projects-Scheme.md) | — | — | A task's branch at the forge from the project's scheme, shown, named at the start and approved to by default. |
 | <a id="f206"></a>[F206](F206-The-Host-Walk-Shows-Todays-Setup.md) | — | — | The guided walk of putting a project on a server with the secrets file, no drive, and the stop fed from the file. |
 | <a id="f205"></a>[F205](F205-The-Hosts-Setup-Commands-Run-By-Their-Paths.md) | — | — | Every command `porelo-host` runs on the host over ssh, and through `sudo` above all, named by its absolute path. |

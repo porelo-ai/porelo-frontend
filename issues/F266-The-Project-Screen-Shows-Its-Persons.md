@@ -1,6 +1,6 @@
 # F266 — The Project Screen Shows Its Persons
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** M - a design, then its screen: a project shows the server it is on and its persons with their roles and state, and its actions are chosen from there.
 
 **What must be true.** A project's screen shows the server it is on, its project admin and its developers, each with their state (admitted, pending sync, locked), and offers the project's actions from those rows: change or remove a developer, take the project off its server. The design is filed and agreed before it is built.

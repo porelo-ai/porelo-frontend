@@ -1,6 +1,6 @@
 # F249 — The Restored Identity Filled On A Recorded Host
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** XS - the bring's and join's identity field filled with the identity this machine restored for the host, and a public key file refused there.
 
 **What must be true.** On a host this machine has recorded, the bring's and the join's *Your SSH identity file* holds the identity restored for that host (`/run/user/<uid>/porelo-join-<host>/identity`) without being typed. A `.pub` file, or any file that is a public key, is refused in that field before anything connects: "This is a public key; the identity is its private half."

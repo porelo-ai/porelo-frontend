@@ -1,6 +1,6 @@
 # F243 — One Sudo Prompt To Connect And Trust A Host
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** M - the own VPN and the host's CA set up by one privileged run that checks the CA itself, so the person types sudo once.
 
 **What must be true.** A bring or a join on a machine with no record of the host asks for the sudo password once. One privileged run brings this machine's VPN to the host up and fetches the host's CA through it. It checks the CA's SHA-256 against `ca_sha256` from the pasted host values itself and installs the CA only on a match. On a mismatch it takes the VPN down again and changes nothing, saying both fingerprints.

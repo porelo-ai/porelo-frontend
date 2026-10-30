@@ -1,6 +1,6 @@
 # F258 — The Join's Secrets File Prepared By The Dialog
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** M - the join makes or opens the developer's secrets file itself, with the master password typed once in a terminal, instead of commands the person runs.
 
 **What must be true.** In the join, the step that needs the developer's secrets file makes it when it does not exist and adds the entries the join needs, asking the master password once, typed into a terminal on the developer's own machine (never into a form of the interface). An existing file is opened with the same one prompt and only the missing entries are added; an existing entry is never overwritten. No value is shown, logged or put on a command line.

@@ -1,6 +1,6 @@
 # F256 — Another Machine Of The Same Developer Added By Choice
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** S - the Developers dialog's machine step names what a person adds (a machine's VPN and SSH keys), lists the machines already added, and offers adding another or going on as one clear choice.
 
 **What must be true.** In *Add developer* and *Change developer*, the step that takes a developer's keys is called *Machines*, not *Laptops*: an entry is one machine's VPN peer and SSH key, whatever the machine is. After a machine's keys and address are taken, the step lists the machines added so far, each with its address and a *Remove this machine* action, and offers two buttons of equal weight: *Add another machine of this developer* and *Next*. No label says "keep". The words in the dialog and its refusals say "machine" throughout. A refusal stands in the dialog ([F255](README.md#f255) is built with this).

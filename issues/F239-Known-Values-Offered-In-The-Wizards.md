@@ -1,6 +1,6 @@
 # F239 — Known Values Offered In The Wizards
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** M - the host admin's wizards and the project wizards offer what this computer already knows in a list, the likely one chosen, with free entry only for a new value.
 
 **What must be true.** Where the interface already knows the possible values of a field, the wizard offers them in a dropdown, with the likely one preselected. Free entry stays only where a value is new: an account name the person chooses, or a project this computer does not follow. A value taken from a list is checked as a typed one is.

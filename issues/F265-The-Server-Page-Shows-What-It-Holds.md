@@ -1,6 +1,6 @@
 # F265 — The Server Page Shows What It Holds
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** M - a design, then its screen: a server shows its own state, its projects and its persons with their state; actions on them are chosen from those lists.
 
 **What must be true.** A server's page shows the server's own state as the host admin reaches it (ssh as root), never "not answering" because no Porelo daemon answers. It lists the projects on it and the persons on it, each person with their state (active, locked). A person's actions (lock out, admit again, delete the account) and a project's (take it off) are chosen from those rows, not typed into free-text dialogs. The design is filed and agreed before it is built.

@@ -1,6 +1,6 @@
 # F247 — The Bring And Join Log Copied At One Click
 
-**Status:** Accepted.
+**Status:** Idea. Held as an Idea (operator, 2026-10-30, after walk 23): GUI changes wait until he has gone through the whole flow again.
 **Size:** XS - a *Copy* button beside the bring's and the join's last lines, as the terminal panels have.
 
 **What must be true.** The last lines a bring or a join shows in its last step have a *Copy* button that puts all of them on the clipboard, as the terminal panels do. The lines stay selectable.
