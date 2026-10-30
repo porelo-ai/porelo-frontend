@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/login_forward.dart';
 import 'package:porelo_frontend/src/app/session.dart';
@@ -41,6 +42,89 @@ void main() {
     expect(command[command.indexOf('-F') + 1], endsWith('/porelo/ssh/orchard.conf'));
   });
 
+  // Harm: an address that misses the config's Host stanza must never use default trust.
+  test('an address outside the host alias still uses only the card pin', () async {
+    final scratch = await Directory.systemTemp.createTemp('card-pin-');
+    addTearDown(() => scratch.delete(recursive: true));
+    final directory = await Directory('${scratch.path}/literal%h').create();
+    final previous = desk;
+    desk = LinuxDesk({'XDG_CONFIG_HOME': directory.path});
+    addTearDown(() => desk = previous);
+    final config = File('${directory.path}/porelo/ssh/orchard.conf');
+    await config.parent.create(recursive: true);
+    await config.writeAsString(
+      'Host orchard\n  StrictHostKeyChecking yes\n'
+      '  UserKnownHostsFile "${config.path.replaceAll('%', '%%')}.known_hosts"\n'
+      '  GlobalKnownHostsFile none\n  BatchMode yes\n  ForwardAgent no\n',
+    );
+    const machine = Machine(
+      name: 'one click',
+      kind: 'host',
+      hostProject: 'orchard',
+      host: 'worker@192.0.2.7',
+      socketPath: '',
+      remoteSocket: '/run/user/1007/porelo',
+    );
+    final command = onTheMachine(machine, ['true'], terminal: false)!;
+    final result = await Process.run(command.first, ['-G', ...command.skip(1)]);
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+    final effective = result.stdout.toString().split('\n');
+    for (final setting in [
+      'stricthostkeychecking true',
+      'userknownhostsfile ${config.path}.known_hosts',
+      'globalknownhostsfile none',
+      'batchmode yes',
+      'forwardagent no',
+      'controlmaster false',
+    ]) {
+      expect(effective, contains(setting), reason: 'the card pin must apply when the alias does not match');
+    }
+    expect(command, containsAll(['KnownHostsCommand=none', 'ControlPath=none']));
+  });
+
+  // Harm: a refused legacy account or missing config must not open a relay or crash startup.
+  test('Windows relay refuses unreachable host entries before building SSH options', () {
+    for (final machine in [
+      const Machine(
+        name: 'missing config',
+        kind: 'host',
+        host: 'worker@192.0.2.7',
+        socketPath: '',
+        remoteSocket: '/run/user/1007/porelo',
+      ),
+      const Machine(
+        name: 'legacy',
+        kind: 'host',
+        hostProject: 'orchard',
+        legacyHost: true,
+        host: 'worker@192.0.2.7',
+        socketPath: '',
+        remoteSocket: '/run/user/1007/porelo',
+      ),
+      host,
+    ]) {
+      expect(machine.relayOn(windows: true, environment: const {}), isNull);
+    }
+  });
+
+  // Harm: consulting the runner's Linux environment selects another person's Windows config.
+  test('Windows relay uses its supplied platform and environment for host config', () {
+    const machine = Machine(
+      name: 'one click',
+      kind: 'host',
+      hostProject: 'orchard',
+      host: 'worker@orchard',
+      socketPath: '',
+      remoteSocket: '/run/user/1007/porelo',
+    );
+    final command = machine
+        .relayOn(windows: true, environment: const {'APPDATA': r'D:\Profile\Config', 'SystemRoot': r'D:\Windows'})!
+        .command;
+    expect(command.first, r'D:\Windows\System32\OpenSSH\ssh.exe');
+    expect(command[command.indexOf('-F') + 1], r'D:\Profile\Config\porelo\ssh\orchard.conf');
+    expect(command, contains(r'UserKnownHostsFile="D:\Profile\Config\porelo\ssh\orchard.conf.known_hosts"'));
+  });
+
   // Prevents every access path from trusting a key outside the pin or using the wrong identity.
   // Red: remove the pinned prefix from each of these builders in turn, or append a trust option.
   test('all host ssh commands begin with the pinned policy without later trust options', () {
@@ -57,7 +141,6 @@ void main() {
       'command': onTheMachine(host, <String>['porelo', 'vault', 'login', 'pi'], terminal: true)!,
       'batch command': onTheMachine(host, <String>['porelo', 'agents'], terminal: false)!,
       'written command': onTheMachineAsWritten(host, 'porelo agents')!,
-      'Windows relay': host.relayOn(windows: true, environment: const <String, String>{})!.command,
       'start daemon': Tunnels.startCommandFor(host),
       'stop daemon': Tunnels.stopCommandFor(host),
       'uid': Tunnels.loginUidCommandFor(host),
@@ -69,7 +152,6 @@ void main() {
       'command',
       'batch command',
       'written command',
-      'Windows relay',
       'start daemon',
       'stop daemon',
       'uid',

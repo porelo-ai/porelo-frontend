@@ -22,8 +22,14 @@ Future<void> openHostStopDialog(
   List<String>? needs,
 }) => showDialog<void>(
   context: context,
-  builder: (_) =>
-      HostStopDialog(run: run, hostRuns: hostRuns, machines: machines, openTerminal: openTerminal, needs: needs),
+  builder: (_) => HostStopDialog(
+    run: run,
+    hostRuns: hostRuns,
+    machines: machines,
+    settings: settings,
+    openTerminal: openTerminal,
+    needs: needs,
+  ),
 );
 
 /// The host's public stop with provider input kept in its own terminal.
@@ -33,6 +39,7 @@ class HostStopDialog extends StatefulWidget {
     required this.run,
     required this.hostRuns,
     required this.machines,
+    this.settings,
     this.openTerminal,
     this.needs,
     super.key,
@@ -46,6 +53,9 @@ class HostStopDialog extends StatefulWidget {
 
   /// The selected accounts.
   final Machines machines;
+
+  /// The recovery settings checked before opening a provider terminal.
+  final Settings? settings;
 
   /// The terminal boundary.
   final OpenTerminal? openTerminal;
@@ -96,14 +106,16 @@ class _HostStopDialogState extends State<HostStopDialog> {
           machine.kind != 'host' ||
           machine.identity.isNotEmpty ||
           machine.legacyHost ||
-          widget.machines.settings.hostUp(machine.hostProject)?.legacy == true) {
+          !machine.needsATunnel ||
+          machine.whyNotReachableHere != null ||
+          (widget.settings ?? widget.machines.settings).hostUp(machine.hostProject)?.legacy == true) {
         throw const FormatException('The provider terminal needs a verified host account connection.');
       }
       command = hostStopFeedCommand(
         act: run.act,
         project: run.project,
         needs: needs,
-        ssh: '/usr/bin/ssh',
+        ssh: openSsh('ssh'),
         sshOptions: machine.loginSshOptions,
         host: machine.host,
         email: _email,

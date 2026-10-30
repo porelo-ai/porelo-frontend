@@ -6,13 +6,20 @@ import 'package:test/test.dart';
 import 'support/pinned_ssh.dart';
 
 void main() {
-  // Harm: the card-specific SSH policy must apply to teardown instead of an unrelated IP stanza.
-  test('card teardown uses the written config alias for ssh and scp', () async {
+  // Harm: teardown must not trust ambient keys or run against another account and billed host.
+  test('card teardown pins the provider key and keeps the requested endpoint for ssh and scp', () async {
     final commands = <List<String>>[];
+    final directory = await Directory.systemTemp.createTemp('card-teardown-');
+    addTearDown(() => directory.delete(recursive: true));
+    final config = File('${directory.path}/orchard.conf');
+    await config.writeAsString(
+      'Host orchard\n  HostName 198.51.100.9\n  User worker\n  Port 2222\n'
+      '  IdentityFile /public/person.pub\n',
+    );
     final remote = OpenSsh(
       knownHosts: File('/state/known_hosts'),
       identity: '',
-      config: '/config/porelo/ssh/orchard.conf',
+      config: config.path,
       configHost: 'orchard',
       start: (program, arguments) {
         commands.add([program, ...arguments]);
@@ -26,10 +33,39 @@ void main() {
     await remote.run('192.0.2.7', 'root', 'true');
     await remote.copy('192.0.2.7', 'root', '/public/file', '/destination');
     for (final command in commands) {
-      expect(command, containsAllInOrder(['-F', '/config/porelo/ssh/orchard.conf']));
+      for (final option in [
+        'StrictHostKeyChecking=yes',
+        'UserKnownHostsFile="/state/known_hosts"',
+        'GlobalKnownHostsFile=none',
+        'KnownHostsCommand=none',
+        'BatchMode=yes',
+        'ForwardAgent=no',
+        'ControlMaster=no',
+        'ControlPath=none',
+      ]) {
+        expect(command, contains(option), reason: 'teardown must use the provider pin despite the card config');
+      }
+      expect(command, containsAllInOrder(['-F', config.path]));
       expect(command, isNot(contains('')));
       expect(command, isNot(contains('-i')));
-      expect(command.join(' '), isNot(contains('root@192.0.2.7')));
+      expect(
+        command,
+        containsAllInOrder(['-o', 'HostName=192.0.2.7', '-o', 'User=root']),
+        reason: 'config identity selection cannot replace the provider address or teardown login',
+      );
+    }
+    for (final command in commands) {
+      final options = command.first == 'ssh'
+          ? command.sublist(1, command.length - 2)
+          : command.sublist(1, command.indexOf('-q'));
+      final effective = await Process.run('ssh', ['-G', ...options, 'orchard']);
+      expect(effective.exitCode, 0, reason: '${effective.stderr}');
+      final values = effective.stdout.toString().split('\n');
+      expect(
+        values,
+        containsAll(['hostname 192.0.2.7', 'user root', 'port 22', 'identityfile /public/person.pub']),
+        reason: 'both transports must reach the provider endpoint with the selected identity',
+      );
     }
     expect(commands.first, contains('orchard'));
     expect(commands.last.last, 'orchard:/destination');

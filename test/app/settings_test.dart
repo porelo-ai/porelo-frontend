@@ -87,6 +87,44 @@ void main() {
     expect(record.giveBackArguments('orchard'), containsAllInOrder(['--rental-tag', 'porelo-project=demo']));
   });
 
+  // Harm: a previously populated host field must not change which billed rental is released.
+  test('a legacy record already naming its host keeps the project tag on rekey', () async {
+    final store = MemorySettingsStore({
+      'hostUps': {
+        'demo': {'scalewayProject': 'provider', 'account': 'worker', 'host': 'orchard'},
+      },
+    });
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.load();
+    expect(settings.hostUp('orchard')!.rentalTagFor('orchard'), 'porelo-project=demo');
+    await settings.rememberHostUp('orchard', settings.hostUp('orchard')!);
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    expect(reopened.hostUp('orchard')!.rentalTagFor('orchard'), 'porelo-project=demo');
+  });
+
+  // Harm: generating an invalid rental tag silently drops the only recovery record on restart.
+  test('a malformed legacy project key preserves recovery and other settings on restart', () async {
+    final store = MemorySettingsStore({
+      'hostUps': {
+        'bad/key': {'scalewayProject': 'provider', 'setupFolder': '/config/hosts/orchard'},
+      },
+      'tresorFolders': {'demo': '/kept'},
+    });
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.load();
+    expect(settings.hostUps.keys, ['bad/key'], reason: 'an unsafe tag must not be manufactured by migration');
+    await settings.rememberTresorFolder('demo', '/kept');
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    expect(reopened.hostUp('bad/key')?.scalewayProject, 'provider');
+    expect(reopened.tresorFolder('demo'), '/kept');
+  });
+
   // Harm: a retained rental with no private key must not look like a usable new host.
   test('an empty-identity legacy machine explains recovery after migration', () async {
     final settings = Settings(

@@ -59,7 +59,7 @@ class OpenSsh implements Remote {
   /// The verified host-card configuration, when supplied.
   final String? config;
 
-  /// The verified host alias whose configuration selects the account and endpoint.
+  /// The verified alias selecting public identity settings, never the destination or account.
   final String? configHost;
 
   /// The private key that logs in.
@@ -71,16 +71,15 @@ class OpenSsh implements Remote {
     await knownHosts.writeAsString('$host $hostKey\n');
   }
 
-  List<String> _options() => <String>[
-    if (config case final file?) ...[
-      '-F',
-      file,
-      '-o',
-      'BatchMode=yes',
-      '-o',
-      'ForwardAgent=no',
-    ] else
-      ...pinnedHostSshOptions(knownHosts.path, identity),
+  List<String> _options(String host, String user) => <String>[
+    ...pinnedHostSshOptions(knownHosts.path, identity),
+    if (config case final file?) ...['-F', file],
+    '-o',
+    'HostName=$host',
+    '-o',
+    'User=$user',
+    '-o',
+    'Port=22',
     '-o',
     'ConnectTimeout=10',
   ];
@@ -93,7 +92,7 @@ class OpenSsh implements Remote {
     String? input,
     void Function(String line)? onLine,
   }) async {
-    final process = await _start('ssh', <String>[..._options(), configHost ?? '$user@$host', command]);
+    final process = await _start('ssh', <String>[..._options(host, user), configHost ?? '$user@$host', command]);
     if (input != null) process.stdin.write(input);
     await process.stdin.close();
     final out = process.stdout
@@ -108,7 +107,12 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
-    final done = await _runProcess('scp', <String>[..._options(), '-q', from, '${configHost ?? '$user@$host'}:$to']);
+    final done = await _runProcess('scp', <String>[
+      ..._options(host, user),
+      '-q',
+      from,
+      '${configHost ?? '$user@$host'}:$to',
+    ]);
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }
 }

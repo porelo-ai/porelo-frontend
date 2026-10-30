@@ -112,7 +112,9 @@ class HostUpRecord {
   /// Assigns a legacy project record to its migrated host settings key.
   HostUpRecord forHost(String name, {required String rentalProject}) {
     SecretsFile.checkHost(name);
-    return _copy(host: name, rentalTag: rentalTagFor(rentalProject));
+    final tag = rentalTagFor(rentalProject);
+    HostPlan.lockNameForTag(tag);
+    return _copy(host: name, rentalTag: tag);
   }
 
   HostUpRecord _copy({
@@ -502,11 +504,19 @@ class Settings extends ChangeNotifier {
       final unique = candidates.map((candidate) => candidate.host).toSet().length == candidates.length;
       for (final candidate in candidates) {
         final (:key, :host, :record) = candidate;
-        _hostUps[unique ? host : key] = unique && record.host == null && host != key
-            ? record.forHost(host, rentalProject: key)
-            : record;
-        migratedHosts |= unique && host != key;
-        if (unique && host != key) migratedHostKeys[key] = host;
+        var target = unique ? host : key;
+        var saved = record;
+        if (unique && host != key) {
+          try {
+            saved = record.forHost(host, rentalProject: key);
+          } on FormatException {
+            // An invalid old key must not create a tag that loses recovery on restart.
+            target = key;
+          }
+        }
+        _hostUps[target] = saved;
+        migratedHosts |= target != key;
+        if (target != key) migratedHostKeys[key] = target;
       }
     }
     _projectHosts.clear();

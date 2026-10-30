@@ -136,27 +136,6 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln('Verified SSH-only preparation requires the served Core and host setup contracts.');
     return Exit.refused;
   }
-  final HostProvider provider;
-  if (given) {
-    provider = GivenMachine(address: options['given']!, hostKey: options['host-key']!);
-  } else {
-    final (key, failed) = await _scalewayKey();
-    if (key == null) return failed!;
-    provider = scalewayFor(options, scalewayOverHttps(key));
-  }
-
-  final ssh = OpenSsh(
-    knownHosts: File(poreloHostKnownHosts()),
-    identity: '',
-    config: serverOnly && !legacyRental ? poreloHostSshConfig(options['host-name']!) : null,
-    configHost: serverOnly && !legacyRental ? options['host-name']! : null,
-  );
-  final run = HostRun(
-    provider: provider,
-    remote: ssh,
-    trust: ssh.trust,
-    emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
-  );
   final plan = HostPlan(
     project: options['project'] ?? '',
     account: options['account'] ?? '',
@@ -171,6 +150,39 @@ Future<int> _run(List<String> arguments) async {
     distribution: options['distribution'] ?? 'snapshots',
     machineFile: options['machine-file'],
     bundle: options['bundle'],
+  );
+  final String? config;
+  try {
+    plan.check(forSetup: false);
+    config = serverOnly && !legacyRental && !giveBackAnyway ? poreloHostSshConfig(plan.hostName!) : null;
+  } on FormatException catch (error) {
+    writeHostStep(
+      Step('give-back', StepState.refused, fix: error.message),
+      output: stdout,
+      errors: stderr,
+    );
+    return Exit.refused;
+  }
+  final HostProvider provider;
+  if (given) {
+    provider = GivenMachine(address: options['given']!, hostKey: options['host-key']!);
+  } else {
+    final (key, failed) = await _scalewayKey();
+    if (key == null) return failed!;
+    provider = scalewayFor(options, scalewayOverHttps(key));
+  }
+
+  final ssh = OpenSsh(
+    knownHosts: File(poreloHostKnownHosts()),
+    identity: '',
+    config: config,
+    configHost: config == null ? null : plan.hostName,
+  );
+  final run = HostRun(
+    provider: provider,
+    remote: ssh,
+    trust: ssh.trust,
+    emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
   );
   return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
 }

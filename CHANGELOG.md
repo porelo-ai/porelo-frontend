@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host account commands enforce the card pin even outside its SSH alias. Teardown keeps the provider's
+  pinned endpoint and requested login; forced give-back works without local SSH configuration.
+- Provider terminals refuse unreachable accounts and use the desktop's OpenSSH. Rental migration keeps
+  original provider tags for already-named hosts and preserves malformed legacy recovery records.
+
 - Legacy rental migration keeps the original provider tag and recovery explanation. One-click SSH uses
   the host configuration without an empty identity, and failed teardown offers a loss-confirmed give-back.
 - Supported provider sign-ins retain their terminal flow. Following can resolve verified project-admin

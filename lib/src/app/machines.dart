@@ -199,12 +199,13 @@ class Machine {
     if (!windows) return null;
     if (kind == 'wsl') return (kind: 'wsl', command: Wsl.relayTo(distribution));
     if ((kind.isNotEmpty && kind != 'host') || !needsATunnel) return null;
+    if (kind == 'host' && whyNotReachableOn(windows: windows) != null) return null;
     if (host.startsWith('-') || !_plainRemoteSocket) return null;
     return (
       kind: 'ssh',
       command: <String>[
         windowsOpenSsh('ssh', environment),
-        ...loginSshOptions,
+        ...loginSshOptionsOn(environment: environment, windows: windows),
         '-T',
         if (kind != 'host') ...<String>['-o', 'BatchMode=yes'],
         '-o',
@@ -227,10 +228,17 @@ class Machine {
   };
 
   /// SSH options shared by all access to this account.
-  List<String> get loginSshOptions {
+  List<String> get loginSshOptions => loginSshOptionsOn(environment: desk.environment, windows: desk.isWindows);
+
+  /// Builds account options using the supplied desktop's config and pinned host key.
+  List<String> loginSshOptionsOn({required Map<String, String> environment, required bool windows}) {
     if (kind != 'host') return const [];
-    if (identity.isNotEmpty) return pinnedHostSshOptions(poreloHostKnownHosts(), identity);
-    return ['-F', poreloHostSshConfig(hostProject, environment: desk.environment, windows: desk.isWindows)];
+    if (identity.isNotEmpty) {
+      return pinnedHostSshOptions(poreloHostKnownHosts(environment: environment, windows: windows), identity);
+    }
+    final config = poreloHostSshConfig(hostProject, environment: environment, windows: windows);
+    final knownHosts = '$config.known_hosts'.replaceAll('%', '%%');
+    return [...pinnedHostSshOptions(knownHosts, ''), '-F', config];
   }
 
   /// Whether this interface raises the way in to it.
