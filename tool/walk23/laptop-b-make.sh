@@ -21,6 +21,8 @@ here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 developer=${PORELO_WALK_DEVELOPER:-walkdev}
 state=/var/lib/porelo-walk23
 installed() { [ "$(dpkg-query -W -f='${db:Status-Status}' porelo 2>/dev/null || true)" = installed ]; }
+# Whether the package file given is porelo at the version given.
+porelo_at() { [ "$(dpkg-deb -f "$1" Package 2>/dev/null)" = porelo ] && [ "$(dpkg-deb -f "$1" Version 2>/dev/null)" = "$2" ]; }
 
 step b-make.1 "this runs as root on the laptop the developer walks"
 [ "$(id -u)" -eq 0 ] || refuse "run it with sudo"
@@ -46,8 +48,8 @@ echo "ok: $(wc -l <"$here/SHA256SUMS") files, package $deb"
 step b-make.3 "what is here before the walk is recorded once"
 if [ -f "$state/complete" ]; then
     [ "$(cat "$state/developer")" = "$developer" ] || refuse "the record is for $(cat "$state/developer"), not $developer"
-    [ ! -s "$state/porelo-version" ] || [ -f "$state/porelo-before.deb" ] ||
-        refuse "the record names porelo $(cat "$state/porelo-version") but holds no copy of it; run laptop-b-remove.sh first"
+    [ ! -s "$state/porelo-version" ] || porelo_at "$state/porelo-before.deb" "$(cat "$state/porelo-version")" ||
+        refuse "the record names porelo $(cat "$state/porelo-version") but holds no good copy of it; run laptop-b-remove.sh first"
     echo "ok: recorded already in $state, kept"
 else
     if id "$developer" >/dev/null 2>&1; then
@@ -75,6 +77,8 @@ else
         mapfile -t aside < <(find "$record" -maxdepth 1 -name 'porelo_*.deb' -printf '%f\n')
         [ "${#aside[@]}" -eq 1 ] || refuse "dpkg-repack did not leave exactly one porelo package"
         mv -- "$record/${aside[0]}" "$record/porelo-before.deb"
+        porelo_at "$record/porelo-before.deb" "$(cat "$record/porelo-version")" ||
+            refuse "the package dpkg-repack left is not porelo $(cat "$record/porelo-version")"
         ;;
     '' | not-installed | config-files) : >"$record/porelo-version" ;;
     *) refuse "porelo is half installed; repair it with sudo apt-get -f install and run this again" ;;

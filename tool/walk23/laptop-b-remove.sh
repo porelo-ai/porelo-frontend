@@ -100,13 +100,14 @@ elif [ -z "$before" ]; then
     echo "porelo was not here before the walk; apt asks before it removes it and anything that needs it"
     apt-get remove porelo
     echo "ok: porelo removed"
+elif [ "$(dpkg-deb -f "$state/porelo-before.deb" Package 2>/dev/null)" != porelo ] ||
+    [ "$(dpkg-deb -f "$state/porelo-before.deb" Version 2>/dev/null)" != "$before" ]; then
+    echo "note: porelo stays at ${now:-not installed}; the record holds no good copy of porelo $before. Install it again from where it came if you want it back."
 else
-    [ -f "$state/porelo-before.deb" ] || refuse "the record holds no copy of porelo $before; install it again from where it came"
-    [ "$(dpkg-deb -f "$state/porelo-before.deb" Version)" = "$before" ] ||
-        refuse "the package set aside is not porelo $before; install it again from where it came"
-    echo "putting porelo $before back in place of $now"
+    echo "putting porelo $before back in place of ${now:-nothing}"
     apt-get install -y --allow-downgrades "$state/porelo-before.deb"
-    [ "$(dpkg-query -W -f='${Version}' porelo)" = "$before" ] || refuse "porelo $before did not install"
+    [ "$(dpkg-query -W -f='${db:Status-Status} ${Version}' porelo 2>/dev/null || true)" = "installed $before" ] ||
+        refuse "porelo $before did not install; the copy stays in $state/porelo-before.deb"
     echo "ok: porelo $before, as before"
 fi
 
