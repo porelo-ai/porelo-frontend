@@ -113,7 +113,7 @@ class Step {
 
   /// The line, as it goes out.
   String toLine() => state == StepState.host
-      ? jsonEncode({'v': 1, 'state': 'host', 'host': host!.values, 'at': ?at?.toUtc().toIso8601String()})
+      ? jsonEncode({'v': 1, 'state': 'host', 'host': host!.stored, 'at': ?at?.toUtc().toIso8601String()})
       : state == StepState.plan
       ? jsonEncode({
           'v': 1,

@@ -31,6 +31,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Host administration has registry-backed app operations for trusted-person admission, host-scoped locking,
+  readmission and separately confirmed account deletion. Checked SSH completion cards and confirmed provider
+  returns retain publication recovery independently; registry delivery resumes the same signed revision and
+  requires the intended host, revision and membership result before confirming it. Signing and host intake
+  remain injectable until their implementations are available.
 - The organisation's registry repository is kept as one credential-free address and fetched into a private
   checkout with the person's own Git access, never prompting. Core's registry read of it is the one source
   for persons, hosts, admins and projects; a refused fetch, an incomplete answer or a refused commit keeps

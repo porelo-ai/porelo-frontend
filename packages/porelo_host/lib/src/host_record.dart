@@ -11,6 +11,11 @@ void checkHostName(String name) {
   }
 }
 
+/// Checks the server's subnet number before it reaches an inventory.
+void checkHostNetwork(int network) {
+  if (network < 0 || network > 255) throw const FormatException('The network number needs an integer from 0 to 255.');
+}
+
 /// Whether a value is a canonical dotted-decimal IPv4 address.
 bool isIpv4Address(String value) {
   final parts = value.split('.');
@@ -48,75 +53,134 @@ String checkedEd25519(String value) {
   return value;
 }
 
-/// The checked SSH completion of a server, before Core signs its host card.
-class PreparedHost {
-  PreparedHost._(this.name, this.address, this.sshPort, this.sshHostKey, this.services);
+/// Refuses a WireGuard key that is not 32 bytes in canonical base64.
+void checkWireGuardPublicKey(String value) {
+  if (!RegExp(r'^[A-Za-z0-9+/]{43}=$').hasMatch(value)) {
+    throw const FormatException('Give a WireGuard public key as 44 base64 characters ending in =.');
+  }
+  try {
+    final bytes = base64Decode(value);
+    if (bytes.length != 32 || base64Encode(bytes) != value) throw const FormatException();
+  } on FormatException {
+    throw const FormatException('Give a valid WireGuard public key.');
+  }
+}
 
-  /// Reads the agreed host card fields; trust and signature checks belong to Core.
+/// The checked public values a prepared server gives its project admins.
+class PreparedHost {
+  PreparedHost._(this.values);
+
+  /// Reads all seven fields, naming the missing or malformed field in a refusal.
   factory PreparedHost.read(Object? json) {
-    if (json is! Map<String, Object?>) throw const FormatException('The host completion needs an object.');
+    if (json is! Map<String, Object?>) throw const FormatException('host.json needs an object.');
+    if (json.containsKey('services') || json.containsKey('ssh_port')) return PreparedHost._ssh(json);
+    final values = <String, String>{};
+    const forms = {
+      'address': 'a public IPv4 address',
+      'endpoint': 'the address followed by :51820',
+      'wireguard_public_key': '32 bytes as 44 base64 characters ending in =',
+      'network': '10.73.<0 through 255>.0/24',
+      'ssh_host_key': 'one line, ssh-ed25519 and its base64, with no comment',
+      'ca_sha256': '64 lowercase hexadecimal characters',
+      'homeserver': 'matrix.<host name>.porelo.internal',
+    };
+    for (final name in forms.keys) {
+      FormatException refusal() => FormatException('host.json: $name must be ${forms[name]}.');
+      final raw = json[name];
+      if (raw is! String || raw.isEmpty) throw refusal();
+      final value = name == 'ssh_host_key' || name == 'wireguard_public_key'
+          ? raw.replaceAll(RegExp(r'^[ \t]+|[ \t]+$'), '').replaceAll(RegExp(r'[ \t]+'), ' ')
+          : raw;
+      values[name] = value;
+      var valid = true;
+      try {
+        valid = switch (name) {
+          'address' => _publicIpv4(value),
+          'endpoint' => value == '${values['address']}:51820',
+          'network' =>
+            RegExp(r'^10\.73\.(0|[1-9][0-9]{0,2})\.0/24$').hasMatch(value) && int.parse(value.split('.')[2]) <= 255,
+          'ca_sha256' => RegExp(r'^[0-9a-f]{64}$').hasMatch(value),
+          'homeserver' => RegExp(r'^matrix\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.porelo\.internal$').hasMatch(value),
+          _ => true,
+        };
+        if (name == 'wireguard_public_key') checkWireGuardPublicKey(value);
+        if (name == 'ssh_host_key') {
+          checkedEd25519(value);
+        }
+      } on FormatException {
+        valid = false;
+      }
+      if (!valid) throw refusal();
+    }
+    return PreparedHost._(Map.unmodifiable(values));
+  }
+
+  /// Validated public values, safe to persist or copy individually.
+  final Map<String, String> values;
+
+  factory PreparedHost._ssh(Map<String, Object?> json) {
     final name = json['name'];
     final address = json['address'];
     final port = json['ssh_port'];
-    final key = json['ssh_host_key'];
+    final key = json['host_key'];
     final services = json['services'];
-    if (name is! String) throw const FormatException('The host completion needs its name.');
+    final forge = services is Map ? services['forge'] : null;
+    final matrix = services is Map ? services['matrix'] : null;
+    if (name is! String ||
+        address is! String ||
+        !_publicIpv4(address) ||
+        key is! String ||
+        forge is! Map ||
+        matrix is! Map) {
+      throw const FormatException('host.json needs name, public address, host_key and services.');
+    }
     checkHostName(name);
-    if (address is! String || !_publicIpv4(address)) {
-      throw const FormatException('The host completion needs a public IPv4 address.');
-    }
-    if (port is! int || port < 1 || port > 65535 || key is! String) {
-      throw const FormatException('The host completion needs valid ssh_port and ssh_host_key.');
-    }
     checkedEd25519(key);
-    if (services is! Map<String, Object?>) {
-      throw const FormatException('The host completion needs services with port numbers.');
+    int checkedPort(Object? value) {
+      if (value is! int || value < 1 || value > 65535) {
+        throw const FormatException('host.json needs valid integer ports.');
+      }
+      return value;
     }
-    final forge = services['forge'];
-    final matrix = services['matrix'];
-    if (forge is! Map<String, Object?> || matrix is! Map<String, Object?>) {
-      throw const FormatException('The host completion needs forge and matrix service ports.');
-    }
-    final ports = [forge['web_port'], forge['git_port'], matrix['port']];
-    if (ports.any((p) => p is! int || p < 1 || p > 65535) || ports.toSet().length != ports.length) {
-      throw const FormatException('The host completion needs three distinct valid service ports.');
-    }
+
+    final ports = [checkedPort(forge['web_port']), checkedPort(forge['git_port']), checkedPort(matrix['port'])];
+    if (ports.toSet().length != ports.length) throw const FormatException('host.json service ports must be distinct.');
     return PreparedHost._(
-      name,
-      address,
-      port,
-      key,
       Map.unmodifiable({
-        'forge': Map<String, int>.unmodifiable({'web_port': ports[0] as int, 'git_port': ports[1] as int}),
-        'matrix': Map<String, int>.unmodifiable({'port': ports[2] as int}),
+        'name': name,
+        'address': address,
+        'ssh_port': '${checkedPort(port)}',
+        'ssh_host_key': key,
+        'web_port': '${ports[0]}',
+        'git_port': '${ports[1]}',
+        'matrix_port': '${ports[2]}',
       }),
     );
   }
 
-  /// The server's DNS label.
-  final String name;
+  /// The public completion record for persistence.
+  Map<String, Object?> get stored => sshOnly
+      ? {
+          'name': values['name'],
+          'address': values['address'],
+          'ssh_port': int.parse(values['ssh_port']!),
+          'host_key': values['ssh_host_key'],
+          'services': {
+            'forge': {'web_port': int.parse(values['web_port']!), 'git_port': int.parse(values['git_port']!)},
+            'matrix': {'port': int.parse(values['matrix_port']!)},
+          },
+        }
+      : values;
 
-  /// The server's public SSH address.
-  final String address;
+  /// Whether this completion names SSH services.
+  bool get sshOnly => values.containsKey('ssh_port');
 
-  /// The SSH port in the signed host card.
-  final int sshPort;
+  /// OpenSSH's SHA256 fingerprint computed from the complete SSH public blob.
+  String get fingerprint => sshSigningFingerprint(values['ssh_host_key']!);
 
-  /// The server's pinned SSH public key.
-  final String sshHostKey;
+  /// The subnet's number.
+  int get network => int.parse(values['network']!.split('.')[2]);
 
-  /// The fixed local service ports, grouped as in the signed host card.
-  final Map<String, Map<String, int>> services;
-
-  /// The public completion shape supplied to Core for signing.
-  Map<String, Object> get values => {
-    'name': name,
-    'address': address,
-    'ssh_port': sshPort,
-    'ssh_host_key': sshHostKey,
-    'services': services,
-  };
-
-  /// The SSH key fingerprint, including the complete public blob.
-  String get fingerprint => sshSigningFingerprint(sshHostKey);
+  /// The host's own address in its VPN, where its root helpers are reached.
+  String get vpnAddress => '10.73.$network.1';
 }

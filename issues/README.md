@@ -26,7 +26,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | M | [F270](README.md#f270); porelo-host: person-started push and pull | The central push and pull started by a person, their token through the tunnel. |
-| <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | [F269](README.md#f269), [F270](README.md#f270); porelo-host: registry intake | A server's card filed and deleted; project admins admitted, locked and removed from the registry. |
+| <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | Core: signed host payloads; porelo-host: registry intake | App operations and retry guards built against fake contracts; live signing, intake and page wiring remain. |
 | <a id="f278"></a>[F278](F278-The-Machines-Projects-And-Forges-Pages.md) | L | — | The Machines, Projects and Forges pages as agreed on draft 2: lists of rows with ⋮, a page per item, filters, the default project. |
 | <a id="f276"></a>[F276](F276-The-VPN-The-CA-And-Per-Machine-Keys-Taken-Out.md) | L | [F270](README.md#f270), [F271](README.md#f271), [F272](README.md#f272), [F273](README.md#f273) | Removal and legacy rental recovery built behind typed adapters; served integration and VM rehearsal pending. |
 | <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: `host unlock` | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |

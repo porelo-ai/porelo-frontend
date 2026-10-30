@@ -14,7 +14,6 @@ import 'state.dart';
 import 'host_record.dart';
 import 'host_files.dart';
 import 'host_act.dart';
-import 'server_contract.dart';
 
 /// What one host of one project is made from.
 class HostPlan {
@@ -23,14 +22,14 @@ class HostPlan {
     this.project = '',
     this.account = '',
     this.hostName,
-    this.recoveryOnly = false,
-    this.existingRentalTag,
-    this.adminSigners = const [],
+    this.network,
     required this.publicKey,
     this.collection,
     this.collectionSha256,
     this.loginUser = 'ubuntu',
     this.distribution = 'snapshots',
+    this.vpnPeerPublicKey,
+    this.vpnPeerAddress,
     this.machineFile,
     this.bundle,
     this.forge = true,
@@ -39,14 +38,8 @@ class HostPlan {
   /// The name for a server prepared independently of a project.
   final String? hostName;
 
-  /// The existing provider tag; a missing match must never create a second rental.
-  final String? existingRentalTag;
-
-  /// Whether only a legacy rental's explicit give-back may run.
-  final bool recoveryOnly;
-
-  /// Core's verified host-admin public signers.
-  final List<String> adminSigners;
+  /// The third octet of its private subnet, required with [hostName].
+  final int? network;
 
   /// The rental and lock identity, shared by up and down.
   String get name => hostName ?? project;
@@ -55,23 +48,31 @@ class HostPlan {
   static String serverLockName(String name) => 'host-$name';
 
   /// Checks server-only inputs before anything is rented or released.
-  void check({bool forSetup = true}) {
-    lockNameForTag(tag);
+  void check() {
     if (hostName == null) return;
     checkHostName(hostName!);
-    if (recoveryOnly) return;
+    if (network == null) throw const FormatException('The network number is missing.');
+    checkHostNetwork(network!);
     if (project.isNotEmpty || account.isNotEmpty || machineFile != null || bundle != null) {
       throw const FormatException(
         'A server prepared without a project takes no account, project, machine file or bundle.',
       );
     }
     if (loginUser != 'root') throw const FormatException('A prepared server uses root with the rental key.');
-    if (forSetup) {
-      try {
-        HostFiles.signingFingerprint(publicKey);
-      } on HostFilesRefused {
-        throw const FormatException('The person identity must be a valid public key.');
-      }
+    try {
+      HostFiles.signingFingerprint(publicKey);
+    } on HostFilesRefused {
+      throw const FormatException('The rental SSH key must be a valid public key.');
+    }
+    checkWireGuardPublicKey(vpnPeerPublicKey ?? '');
+    final peer = vpnPeerAddress ?? '';
+    final match = RegExp(
+      '^10\\.73\\.$network\\.([0-9]+)(/32)?'
+      r'$',
+    ).firstMatch(peer);
+    final last = int.tryParse(match?.group(1) ?? '');
+    if (last == null || last < 2 || last > 254 || last.toString() != match!.group(1)) {
+      throw const FormatException('The VPN peer address must name this laptop in the server network, from .2 to .254.');
     }
     if (!const ['snapshots', 'releases'].contains(distribution)) {
       throw const FormatException('Unknown host distribution.');
@@ -100,6 +101,12 @@ class HostPlan {
   /// Porelo carries `vault status`, which the host's plays ask; 0.5.0 has none.
   final String distribution;
 
+  /// The person's WireGuard peer: a public key, never a secret.
+  final String? vpnPeerPublicKey;
+
+  /// The person's WireGuard peer's address.
+  final String? vpnPeerAddress;
+
   /// This desktop's `machine.yml`, uploaded into the setup's place on the host; null where the drive still carries it.
   final String? machineFile;
 
@@ -111,20 +118,10 @@ class HostPlan {
   final bool forge;
 
   /// The tag the host carries.
-  String get tag => existingRentalTag ?? (hostName == null ? tagFor(project) : serverTagFor(hostName!));
+  String get tag => hostName == null ? tagFor(project) : 'porelo-host=$hostName';
 
   /// The tag the host of [project] carries.
   static String tagFor(String project) => 'porelo-project=$project';
-
-  /// The provider tag of a server prepared independently of a project.
-  static String serverTagFor(String host) => 'porelo-host=$host';
-
-  /// Derives the lock from the original rental tag, including after setup again.
-  static String lockNameForTag(String tag) {
-    final match = RegExp(r'^porelo-(host|project)=([A-Za-z0-9][A-Za-z0-9._-]*)$').firstMatch(tag);
-    if (match == null) throw const FormatException('The rental tag is invalid.');
-    return match[1] == 'host' ? serverLockName(match[2]!) : match[2]!;
-  }
 }
 
 /// The tag a rented host's public ssh host key is kept in, after the key's type `ssh-ed25519`.
@@ -158,6 +155,11 @@ Future<(String, String)> sshKeygenEd25519() async {
 const _workdir = '/var/tmp/porelo-host';
 
 const _collections = '/usr/share/ansible/collections';
+const _collectionTree = '$_collections/ansible_collections/porelo/host';
+
+/// Ansible's locale on the host, whatever this computer's ssh sends along: it refuses one that is
+/// not UTF-8, and a person's own (`de_CH.UTF-8`, say) need not exist on a fresh host.
+const _locale = 'export LC_ALL=C.UTF-8 LANG=C.UTF-8 && ';
 
 /// `up` and `down`, in their order.
 ///
@@ -178,11 +180,7 @@ class HostRun {
     this.collectionRelease = hostCollection,
     this.resolvedExecutable,
     this.environment,
-    this.preparation,
   });
-
-  /// The typed replacement setup protocol; absent until its dependency is available.
-  final ServerPreparation? preparation;
 
   /// Who rents the host.
   final HostProvider provider;
@@ -261,11 +259,16 @@ class HostRun {
   /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
   Future<int> up(HostPlan plan) => _withProjectLock(plan, () => _up(plan));
 
-  Future<int> _withProjectLock(HostPlan plan, Future<int> Function() run, {bool forSetup = true}) async {
+  Future<int> _withProjectLock(HostPlan plan, Future<int> Function() run) async {
     final File file;
     try {
-      plan.check(forSetup: forSetup);
-      file = File(poreloHostProjectLock(HostPlan.lockNameForTag(plan.tag), environment: environment));
+      plan.check();
+      file = File(
+        poreloHostProjectLock(
+          plan.hostName == null ? plan.project : HostPlan.serverLockName(plan.hostName!),
+          environment: environment,
+        ),
+      );
     } on FormatException catch (error) {
       _write(Step('lock', StepState.refused, fix: error.message));
       return Exit.refused;
@@ -300,44 +303,160 @@ class HostRun {
   }
 
   Future<int> _up(HostPlan plan) async {
-    final setup = preparation;
-    if (plan.recoveryOnly || setup == null || plan.hostName == null || plan.adminSigners.isEmpty) {
+    if ((plan.collection == null) != (plan.collectionSha256 == null)) {
+      _write(const Step('collection', StepState.refused, fix: '--collection needs --collection-sha256 and vice versa'));
+      return Exit.refused;
+    }
+    final expected = (plan.collectionSha256 ?? collectionRelease.sha256).toLowerCase();
+    if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(expected)) {
       _write(
-        const Step(
-          'up',
+        const Step('collection', StepState.refused, fix: '--collection-sha256 must contain 64 hexadecimal digits'),
+      );
+      return Exit.refused;
+    }
+    final collection =
+        plan.collection ??
+        path.join(File(resolvedExecutable ?? Platform.resolvedExecutable).parent.path, collectionRelease.fileName);
+    try {
+      final actual = (await sha256.bind(File(collection).openRead()).single).toString();
+      if (actual != expected) {
+        _write(
+          Step(
+            'collection',
+            StepState.refused,
+            fix: 'Collection $collection: expected SHA-256 $expected; got $actual.',
+          ),
+        );
+        return Exit.refused;
+      }
+    } on FileSystemException catch (error) {
+      _write(
+        Step(
+          'collection',
           StepState.refused,
-          fix: 'Verified SSH-only server preparation is not available. The existing rental was kept.',
+          fix: 'Cannot read collection $collection: ${error.osError?.message ?? error.message}.',
         ),
       );
       return Exit.refused;
     }
+    // The setup's files are read before anything is rented: a missing one costs no server.
+    final Map<String, ({String path, String digest})>? setupFiles;
     try {
-      for (final signer in plan.adminSigners) {
-        checkedEd25519(signer);
-      }
-      if (!plan.adminSigners.contains(plan.publicKey)) {
-        throw const FormatException('The current person is not a verified host-admin signer.');
-      }
-      final host = await _rented(plan);
-      if (host == null) return Exit.unreachable;
-      final result = await setup.prepare(
-        remote: remote,
-        name: plan.hostName!,
-        address: host.address!,
-        adminSigners: List.unmodifiable(plan.adminSigners),
-      );
-      if (result.name != plan.hostName || result.address != host.address || result.sshHostKey != host.hostKey) {
-        throw const FormatException('The setup completion differs from the pinned rental.');
-      }
-      _write(Step('up', StepState.done, address: result.address, admin: 'root'));
-      _write(Step('host', StepState.host, host: result));
-      return Exit.done;
-    } on Exception {
-      _write(
-        const Step('up', StepState.refused, fix: 'Server preparation could not be confirmed; the rental was kept.'),
-      );
+      setupFiles = _setupFiles(plan);
+    } on FormatException catch (error) {
+      _write(Step('copy', StepState.refused, fix: error.message));
       return Exit.refused;
     }
+    _ownSteps = upSteps;
+    _write(Step('plan', StepState.plan, steps: _ownSteps));
+    final RentedHost? host;
+    try {
+      host = await _rented(plan);
+    } on ProviderFailed catch (e) {
+      // The provider's own sentence, as a refused step and 65: the person fixes it, not the code.
+      _write(Step('rent', StepState.refused, fix: e.message));
+      return Exit.refused;
+    }
+    if (host == null) return Exit.unreachable;
+    final address = host.address!;
+
+    _write(const Step('copy', StepState.started));
+    final inventory = _inventory(plan);
+    final copied = await remote.run(
+      address,
+      plan.loginUser,
+      'mkdir -p $_workdir && cat > $_workdir/inventory.yml',
+      input: inventory,
+    );
+    if (copied.exitCode != 0) return _refused('copy', copied, 'the host refused the inventory');
+    final tarball = await remote.copy(address, plan.loginUser, collection, '$_workdir/collection.tar.gz');
+    if (tarball.exitCode != 0) return _refused('copy', tarball, 'the collection could not be copied');
+    final digestWords = <String>[];
+    final checked = await remote.run(
+      address,
+      plan.loginUser,
+      'sha256sum -c - || { sha256sum $_workdir/collection.tar.gz; exit 65; }',
+      input: '$expected  $_workdir/collection.tar.gz\n',
+      onLine: digestWords.add,
+    );
+    if (checked.exitCode != 0) {
+      return _refused(
+        'copy',
+        RemoteResult(
+          checked.exitCode,
+          ['Expected SHA-256: $expected.', ...digestWords, checked.stderr].where((line) => line.isNotEmpty).join('\n'),
+        ),
+        'the host refused the collection digest',
+      );
+    }
+    if (setupFiles != null) {
+      final uploaded = await _uploadSetupFiles(
+        address,
+        plan.loginUser,
+        setupFiles,
+        act: HostAct.legacyUp,
+        project: plan.project,
+      );
+      if (uploaded != null) return uploaded;
+    }
+    _write(const Step('copy', StepState.done));
+
+    _write(const Step('ansible', StepState.started));
+    final installed = await remote.run(
+      address,
+      plan.loginUser,
+      // cloud-init first, which may still hold apt's lock on a fresh host; its "degraded" (2) is no
+      // reason to stop here. A fresh image has no package lists yet.
+      '${_locale}if command -v cloud-init >/dev/null; then cloud-init status --wait >/dev/null; [ \$? -le 2 ] || exit 1; fi && '
+      'sudo DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null && '
+      'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null && '
+      '{ test ! -L /usr/share/ansible && { '
+      'if test -e /usr/share/ansible; then '
+      'test -d /usr/share/ansible && test "\$(sudo /usr/bin/stat -c %u -- /usr/share/ansible)" = 0; '
+      'else sudo /usr/bin/install -d -o root -g root -m 0755 /usr/share/ansible; fi; '
+      '} || { echo "The collection directory /usr/share/ansible must be a plain root-owned directory." >&2; exit 65; }; '
+      'sudo /usr/bin/chown root:root /usr/share/ansible && sudo /usr/bin/chmod 0755 /usr/share/ansible; } && '
+      'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ansible-galaxy collection install --force '
+      '-p $_collections $_workdir/collection.tar.gz >/dev/null && '
+      'sudo /usr/bin/chown root:root $_collections $_collections/ansible_collections $_collections/ansible_collections/porelo && '
+      'sudo /usr/bin/chmod 0755 $_collections $_collections/ansible_collections $_collections/ansible_collections/porelo && '
+      'sudo /usr/bin/chown -R root:root $_collectionTree && '
+      'sudo /usr/bin/find $_collectionTree -type d -exec /usr/bin/chmod 0755 {} + && '
+      'sudo /usr/bin/find $_collectionTree -type f -exec /usr/bin/chmod 0644 {} +',
+    );
+    if (installed.exitCode != 0) {
+      return _refused('ansible', installed, 'ansible-core or the collection did not install');
+    }
+    _write(const Step('ansible', StepState.done));
+
+    final played = await _play(address, plan, 'porelo.host.up');
+    if (played.code != Exit.done) return played.code;
+    if (plan.hostName != null) {
+      if (played.host == null) {
+        _write(const Step('up', StepState.refused, fix: 'host.json is missing from the up step protocol.'));
+        return Exit.refused;
+      }
+      _write(Step('up', StepState.done, address: address, admin: 'root'));
+      _write(Step('host', StepState.host, host: played.host));
+      return Exit.done;
+    }
+    final lines = <String>[];
+    final uid = await remote.run(address, plan.account, 'id -u', onLine: lines.add);
+    if (uid.exitCode != 0) return _refused('up', uid, 'the account uid could not be read');
+    if (lines.length != 1 || !RegExp(r'^[0-9]+$').hasMatch(lines.single)) {
+      return _refused('up', uid, 'id -u must return one uid containing only digits');
+    }
+    _write(
+      Step(
+        'up',
+        StepState.done,
+        address: address,
+        account: plan.account,
+        socket: '/run/user/${lines.single}/porelo/porelod.sock',
+      ),
+    );
+    if (played.host != null) _write(Step('host', StepState.host, host: played.host));
+    return Exit.done;
   }
 
   /// Takes [plan]'s host down: the down play, then the host given back. Nothing happens when none is rented.
@@ -353,7 +472,7 @@ class HostRun {
       _write(Step('give-back', StepState.refused, fix: e.message));
       return Exit.refused;
     }
-  }, forSetup: false);
+  });
 
   Future<int> _down(HostPlan plan, bool giveBackAnyway) async {
     _ownSteps = downSteps;
@@ -361,27 +480,6 @@ class HostRun {
     final host = await provider.find(plan.tag);
     if (host == null) {
       _write(const Step('give-back', StepState.done, words: 'no host carries the project tag'));
-      return Exit.done;
-    }
-    if (plan.recoveryOnly || giveBackAnyway) {
-      if (!giveBackAnyway) {
-        _write(
-          const Step(
-            'give-back',
-            StepState.refused,
-            fix: 'This legacy rental cannot run its old teardown. Confirm give-back without a backup.',
-          ),
-        );
-        return Exit.refused;
-      }
-      await provider.release(host.id);
-      _write(
-        const Step(
-          'give-back',
-          StepState.done,
-          words: 'Given back without a backup or teardown after explicit loss confirmation.',
-        ),
-      );
       return Exit.done;
     }
     final address = host.address;
@@ -432,11 +530,7 @@ class HostRun {
 
   Future<RentedHost?> _rented(HostPlan plan) async {
     _write(const Step('rent', StepState.started));
-    final found = await provider.find(plan.tag);
-    if (found == null && plan.existingRentalTag != null) {
-      throw const FormatException('The existing rental was not found. No second server was rented.');
-    }
-    var host = found ?? await _create(plan);
+    var host = await provider.find(plan.tag) ?? await _create(plan);
     final until = DateTime.now().add(readyWithin);
     while (!host.ready || host.address == null || host.hostKey == null) {
       if (DateTime.now().isAfter(until)) {
@@ -531,8 +625,14 @@ class HostRun {
               ? 'The host record must follow the last successful up task.'
               : values.values['address'] != address
               ? 'host.json: address differs from the rental.'
-              : plan.hostName != null && values.name != plan.hostName
-              ? 'The completion names another server.'
+              : values.sshOnly && values.values['name'] != plan.hostName
+              ? 'host.json: name differs from the chosen server.'
+              : !values.sshOnly && plan.hostName != null && values.network != plan.network
+              ? 'host.json: network differs from the chosen network.'
+              : !values.sshOnly &&
+                    plan.hostName != null &&
+                    values.values['homeserver'] != 'matrix.${plan.hostName}.porelo.internal'
+              ? 'host.json: homeserver differs from the server name.'
               : null;
           if (problem != null) {
             refuseHost(problem);
@@ -546,8 +646,15 @@ class HostRun {
           return;
         }
         lastState = step.state;
-        if (step.state == StepState.waiting) {
-          step = const Step('person', StepState.refused, fix: 'The host requested a retired setup stop.');
+        if (plan.hostName != null &&
+            step.state == StepState.waiting &&
+            step.needs.any((need) => !const ['wireguard', 'forge-certificate'].contains(need))) {
+          step = Step(
+            'person',
+            StepState.refused,
+            fix:
+                'The root server stop accepts only wireguard and forge-certificate; asked for ${step.needs.join(', ')}.',
+          );
         }
         if (step.state == StepState.waiting) waiting = step;
         if (step.state == StepState.refused) failed = step;
@@ -1057,8 +1164,11 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
           'porelo_host_project': plan.project,
         } else ...{
           'porelo_host_name': plan.hostName!,
+          'porelo_host_network': plan.network!,
         },
         'porelo_host_distribution': plan.distribution,
+        'porelo_host_vpn_peer_public_key': ?plan.vpnPeerPublicKey,
+        'porelo_host_vpn_peer_address': ?plan.vpnPeerAddress,
         'porelo_host_forge': plan.forge,
       },
     },

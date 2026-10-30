@@ -4958,6 +4958,7 @@ class RegistryRead {
     required this.owners,
     required this.hosts,
     this.ownersSigner,
+    this.hostAdmins = const <RegistryOwner>[],
     this.warnings = const <String>[],
     this.refusedCommit,
   });
@@ -4973,6 +4974,9 @@ class RegistryRead {
 
   /// The login of the registry owner who signed `owners.yml`, or null when Core did not say.
   final String? ownersSigner;
+
+  /// The host admins accepted from `owners.yml`, separate from registry owners.
+  final List<RegistryOwner> hostAdmins;
 
   /// Every host with its admins and the projects admitted there.
   final List<RegistryHost> hosts;
@@ -4995,6 +4999,7 @@ class RegistryRead {
       owners: _registryList(map, 'owners', RegistryOwner.from),
       hosts: _registryList(map, 'hosts', RegistryHost.from),
       ownersSigner: signer == null ? null : _registryLogin(signer, 'owners_signer'),
+      hostAdmins: map['host_admins'] == null ? const [] : _registryList(map, 'host_admins', RegistryOwner.from),
       warnings: [
         if (map['warnings'] case final List<dynamic> warnings)
           for (final each in warnings) _registryText(each, 'warnings'),
