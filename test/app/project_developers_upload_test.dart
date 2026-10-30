@@ -155,7 +155,7 @@ void main() {
     final running = access.change('demo', bob, remove: false);
     await fixture.uploadStarted!.future;
     final other = await fixture.access(settings);
-    await expectLater(other.retry(), throwsFormatException);
+    await expectLater(other.retry(), throwsA(isA<RegistryRefusal>()));
     release.complete();
     await running;
     expect(fixture.calls.where((call) => call == 'file').length, 1);

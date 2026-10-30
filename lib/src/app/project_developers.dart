@@ -20,7 +20,7 @@ abstract interface class ProjectPersonActions implements ProjectPeople {
   List<RegistryCard> get candidates;
 
   /// Changes the selected person's project lock without changing their host account.
-  Future<void> lock(String login, {required bool locked});
+  Future<void> lock(String login, {required bool locked, AccessDeveloper? selected});
 
   /// Retries the durable signed revision without another edit.
   Future<void> retry();
@@ -70,9 +70,8 @@ class ProjectDevelopers extends ChangeNotifier {
 
   /// Removes only the person selected from the accepted project list.
   Future<void> remove(String login) => _doing(() async {
-    access = await people.read(project);
     final person = access?.developers[login];
-    if (person == null) throw const FormatException('The person is not in the accepted project list.');
+    if (person == null) throw const RegistryRefusal('The person is not in the accepted project list.');
     await people.change(project, person, remove: true);
     access = await people.read(project);
   });
@@ -84,7 +83,9 @@ class ProjectDevelopers extends ChangeNotifier {
   Future<void> lock(String login, {required bool locked}) => _doing(() async {
     final actions = scoped;
     if (actions == null) throw const RegistryRefusal('Project locking is unavailable.');
-    await actions.lock(login, locked: locked);
+    final person = access?.developers[login];
+    if (person == null) throw const RegistryRefusal('Choose a person in this project.');
+    await actions.lock(login, locked: locked, selected: person);
     access = await people.read(project);
   });
 
@@ -104,7 +105,7 @@ class ProjectDevelopers extends ChangeNotifier {
     try {
       await action();
     } on RegistryRefusal catch (refused) {
-      problem = refused.words;
+      problem = refused.toString();
     } on Exception {
       problem = 'The person change could not be confirmed. Refresh the verified project state.';
     } finally {

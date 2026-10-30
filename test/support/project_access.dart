@@ -28,6 +28,7 @@ class ProjectRegistryFixture extends RegistryFixture {
   String accessRepository = accessAddress;
   @override
   Future<RegistryRead> read(String checkout) async {
+    if (fail == 'read') throw const FormatException('registry read refused');
     final base = await super.read(checkout);
     return RegistryRead(
       revision: base.revision,
@@ -49,6 +50,10 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   final registrySource = ProjectRegistryFixture();
   late final registry = Registry(checkout: registrySource, core: registrySource);
   bool signing = true;
+  String verifiedRevision = projectRevision;
+  Exception? readFailure;
+  void Function()? onRead;
+  bool failRememberMachine = false;
   bool selfRevokes = false;
   bool deliveryAuthorized = true;
   PreparedHost host = PreparedHost.read(sshCompletion());
@@ -66,6 +71,7 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   Future<void>? holdUpload;
   Completer<void>? uploadStarted;
   FutureOr<void> Function()? onConnect;
+  final savedMachines = <Machine>[];
   final calls = <String>[];
   final filed = <String, String>{};
   final changes = <String, ProjectAccessChange>{};
@@ -88,25 +94,39 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
 
   Future<ProjectAccess> access(Settings settings) async {
     await registry.refresh();
-    return ProjectAccess(project: 'demo', registry: registry, settings: settings, core: this, transport: this);
+    return ProjectAccess(
+      project: 'demo',
+      registry: registry,
+      settings: settings,
+      core: this,
+      transport: this,
+      rememberMachine: (machine) async {
+        if (failRememberMachine) throw const FormatException('machine persistence failed');
+        savedMachines.add(machine);
+      },
+    );
   }
 
   @override
-  Future<ProjectAccessView> read(String project) async => ProjectAccessView(
-    project: verifiedProject,
-    host: host,
-    projectRevision: projectRevision,
-    accessRevision: currentAccess,
-    projectYaml: source,
-    actor: const HostAdminIdentity('alice', adminFingerprint),
-    admittedFingerprint: adminFingerprint,
-    canAdmin: authorized,
-    signingAvailable: signing,
-    adminSigners: authorized ? [hostKey] : [],
-    access: AccessDevelopers(members.values),
-    eligible: {if (eligible) 'bob': ProjectPersonVerdict(personFingerprint, replacedLostKey: replacement)},
-    whoMay: const [RegistryContact(login: 'alice', name: 'Alice', email: 'alice@example.org')],
-  );
+  Future<ProjectAccessView> read(String project) async {
+    onRead?.call();
+    if (readFailure case final failure?) throw failure;
+    return ProjectAccessView(
+      project: verifiedProject,
+      host: host,
+      projectRevision: verifiedRevision,
+      accessRevision: currentAccess,
+      projectYaml: source,
+      actor: const HostAdminIdentity('alice', adminFingerprint),
+      admittedFingerprint: adminFingerprint,
+      canAdmin: authorized,
+      signingAvailable: signing,
+      adminSigners: authorized ? [hostKey] : [],
+      access: AccessDevelopers(members.values),
+      eligible: {if (eligible) 'bob': ProjectPersonVerdict(personFingerprint, replacedLostKey: replacement)},
+      whoMay: const [RegistryContact(login: 'alice', name: 'Alice', email: 'alice@example.org')],
+    );
+  }
 
   @override
   Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision) async {

@@ -5,6 +5,7 @@ import '../app/machines.dart';
 import '../app/project_bring.dart';
 import '../app/project_access.dart';
 import '../app/settings.dart';
+import '../app/registry.dart';
 import '../app/signed_host_actions.dart';
 import 'tokens.dart';
 
@@ -62,6 +63,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     _reading = true;
     try {
       await widget.access!.read(widget.project);
+    } on RegistryRefusal catch (refused) {
+      _admissionProblem = refused.toString();
     } on Exception {
       _admissionProblem = 'The verified project admission could not be read.';
     } finally {
@@ -87,7 +90,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           spacing: Space.small,
           children: [
-            if (widget.access?.admission case final words?) Text(words),
+            if (_admissionProblem == null)
+              if (widget.access?.admission case final words?) Text(words),
             Text(
               _action.problem ??
                   _admissionProblem ??

@@ -99,7 +99,12 @@ class RegistryRefusal implements Exception {
   final List<RegistryContact> whoMay;
 
   @override
-  String toString() => words;
+  String toString() {
+    final contacts = whoMay
+        .map((person) => '${person.name} (${person.login})${person.email == null ? '' : ', ${person.email}'}')
+        .join('; ');
+    return '$words${contacts.isEmpty ? '' : ' Ask $contacts.'}';
+  }
 }
 
 /// The organisation's registry as Core last accepted it, shared by every list of persons, hosts and projects.

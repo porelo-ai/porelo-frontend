@@ -40,10 +40,14 @@ class VerifiedHostProject {
         !admitted ||
         adminSigners.isEmpty ||
         !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(revision)) {
-      throw const FormatException('Verified admission and project-admin signers are required.');
+      throw const RegistryRefusal('Verified admission and project-admin signers are required.');
     }
-    for (final signer in adminSigners) {
-      checkedEd25519(signer);
+    try {
+      for (final signer in adminSigners) {
+        checkedEd25519(signer);
+      }
+    } on FormatException {
+      throw const RegistryRefusal('Verified admission and project-admin signers are required.');
     }
   }
 }
@@ -63,11 +67,6 @@ abstract interface class SignedHostActions {
 
   /// Joins with the verified admin signers and returns the host's confirmed revision.
   Future<String> join(VerifiedHostProject state, Machine machine);
-}
-
-class _Refused implements Exception {
-  const _Refused(this.words);
-  final String words;
 }
 
 /// An explicit project operation, confirmed before its machine association is saved.
@@ -115,17 +114,13 @@ class SignedHostAction extends ChangeNotifier {
     try {
       final service = actions;
       if (service == null) {
-        throw const _Refused('Verified registry joining is not available yet.');
+        throw const RegistryRefusal('Verified registry joining is not available yet.');
       }
       final state = await service.verify(project, registering: registering);
-      try {
-        state.check(project);
-      } on FormatException {
-        throw const _Refused('Verified admission and project-admin signers are required.');
-      }
+      state.check(project);
       final machine = await service.connect(state);
       if (machine.kind != 'host' || machine.hostProject != state.host.name || machine.identity.isNotEmpty) {
-        throw const _Refused('The shared SSH tunnel did not confirm this host and person identity.');
+        throw const RegistryRefusal('The shared SSH tunnel did not confirm this host and person identity.');
       }
       if (registering) {
         final latest = await service.verify(project, registering: true);
@@ -134,20 +129,18 @@ class SignedHostAction extends ChangeNotifier {
             latest.revision != state.revision ||
             jsonEncode(latest.host.stored) != jsonEncode(state.host.stored) ||
             !listEquals(latest.adminSigners, state.adminSigners)) {
-          throw const _Refused('The verified project admission changed. Try again.');
+          throw const RegistryRefusal('The verified project admission changed. Try again.');
         }
       }
       final observed = registering ? await service.register(state, machine) : await service.join(state, machine);
       if (observed != state.revision) {
-        throw const _Refused('The host did not confirm the intended verified project revision.');
+        throw const RegistryRefusal('The host did not confirm the intended verified project revision.');
       }
       await machines.add(machine);
       await settings.rememberProjectHost(project, state.host.name);
       completed = true;
     } on RegistryRefusal catch (error) {
-      problem = error.words;
-    } on _Refused catch (error) {
-      problem = error.words;
+      problem = error.toString();
     } on Exception {
       problem = 'The host operation could not be confirmed. The saved rental and project state were kept.';
     } finally {

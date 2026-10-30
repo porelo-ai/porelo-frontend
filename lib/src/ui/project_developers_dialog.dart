@@ -48,6 +48,8 @@ class _ProjectDevelopersDialogState extends State<ProjectDevelopersDialog> {
     super.initState();
     if (widget.access case final access?) {
       _developers = ProjectDevelopers(project: widget.project, people: access)..addListener(_changed);
+      access.registry.addListener(_changed);
+      access.settings.addListener(_changed);
       unawaited(_developers!.load());
     }
   }
@@ -58,6 +60,8 @@ class _ProjectDevelopersDialogState extends State<ProjectDevelopersDialog> {
 
   @override
   void dispose() {
+    widget.access?.registry.removeListener(_changed);
+    widget.access?.settings.removeListener(_changed);
     _developers?.removeListener(_changed);
     _developers?.dispose();
     super.dispose();
@@ -68,7 +72,9 @@ class _ProjectDevelopersDialogState extends State<ProjectDevelopersDialog> {
     final developers = _developers;
     final access = widget.access;
     final cards =
-        access?.candidates.where((card) => developers?.access?.developers.containsKey(card.login) != true).toList() ??
+        (developers?.access == null || developers?.problem != null ? null : access?.candidates)
+            ?.where((card) => developers?.access?.developers.containsKey(card.login) != true)
+            .toList() ??
         [];
     final candidate = cards.where((card) => card.login == _candidate).firstOrNull;
     final people = developers?.access?.developers.values.toList() ?? <AccessDeveloper>[];

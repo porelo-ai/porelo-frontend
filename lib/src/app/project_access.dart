@@ -22,6 +22,7 @@ class ProjectAccess implements ProjectPersonActions {
     required this.settings,
     required this.core,
     required this.transport,
+    required this.rememberMachine,
   });
 
   /// The selected project, captured before any callback runs.
@@ -38,6 +39,9 @@ class ProjectAccess implements ProjectPersonActions {
 
   /// The pinned own-account host delivery boundary.
   final ProjectAccessTransport transport;
+
+  /// The idempotent Machine recording operation shared by registration and Retry.
+  final Future<void> Function(Machine machine) rememberMachine;
 
   /// The latest verified project, retained for availability and contact words.
   ProjectAccessView? current;
@@ -69,20 +73,49 @@ class ProjectAccess implements ProjectPersonActions {
   /// The visible admission belonging to the selected verified project.
   @override
   String? get admission =>
-      current != null && _reason(current!) == null ? 'Admitted on host ${current!.host.name}' : null;
+      _registryReady && current != null && _reason(current!) == null ? 'Admitted on host ${current!.host.name}' : null;
 
   /// The registry cards Core permits for this project's access scope.
   @override
   List<RegistryCard> get candidates => [
-    for (final card in registry.people)
-      if (_eligible(current, card.login, card.fingerprint)) card,
+    if (_registryReady && current != null && _reason(current!) == null)
+      for (final card in registry.people)
+        if (_eligible(current, card.login, card.fingerprint)) card,
   ];
 
-  String _withContacts(String reason, ProjectAccessView view) {
-    final contacts = view.whoMay
-        .map((person) => '${person.name} (${person.login})${person.email == null ? '' : ', ${person.email}'}')
-        .join('; ');
-    return '$reason${contacts.isEmpty ? '' : ' Ask $contacts.'}';
+  String _withContacts(String reason, ProjectAccessView view) =>
+      RegistryRefusal(reason, whoMay: _contacts(view)).toString();
+
+  List<RegistryContact> _contacts(ProjectAccessView view) {
+    if (view.project != project || !view.signingAvailable || settings.hostReturned(view.host.name)) return [];
+    final host = registry.hosts.where((host) => host.host == view.host.name).firstOrNull;
+    final admission = host?.projects
+        .where((entry) => entry.name == project && entry.admin == view.actor.login)
+        .firstOrNull;
+    final actor = registry.selectable.where((card) => card.login == view.actor.login).firstOrNull;
+    final hostIssue =
+        admission == null ||
+        admission.accessRepository != view.source.access ||
+        actor?.fingerprint != view.actor.fingerprint ||
+        view.admittedFingerprint != view.actor.fingerprint;
+    final logins = hostIssue
+        ? host?.admins ?? <String>[]
+        : [
+            for (final person in view.whoMay)
+              if (host?.projects.any(
+                    (entry) =>
+                        entry.name == project &&
+                        entry.admin == person.login &&
+                        entry.accessRepository == view.source.access,
+                  ) ==
+                  true)
+                person.login,
+          ];
+    return [
+      for (final login in {...logins})
+        for (final card in registry.selectable.where((card) => card.login == login))
+          RegistryContact(login: login, name: card.name, email: card.contactEmail),
+    ];
   }
 
   String? _reason(ProjectAccessView view, {bool delivery = false}) {
@@ -120,20 +153,25 @@ class ProjectAccess implements ProjectPersonActions {
   }
 
   Future<ProjectAccessView> _read() async {
+    current = null;
     checkAdminName(project);
+    if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     final view = await core.read(project);
+    if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
+    if (view.project != project) throw const RegistryRefusal('The verified state names another project.');
     current = view;
     return view;
   }
 
   Future<ProjectAccessView> _authorize([ProjectAccessChange? change, String? deliveryRevision]) async {
+    current = null;
     final view = deliveryRevision == null ? await _read() : await core.delivery(change!, deliveryRevision);
     current = view;
     if (registry.accepted == null || registry.problem != null || registry.busy) {
       throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     }
     if (_reason(view, delivery: deliveryRevision != null) case final reason?) {
-      throw RegistryRefusal(_withContacts(reason, view), whoMay: view.whoMay);
+      throw RegistryRefusal(reason, whoMay: _contacts(view));
     }
     if (change != null) {
       if (change.project != project ||
@@ -153,14 +191,18 @@ class ProjectAccess implements ProjectPersonActions {
           'Another access change was published. Resolve the pending revision before continuing.',
         );
       }
-      if (change.action == 'add' && !_eligible(view, change.person!.login, change.person!.fingerprint)) {
+      if ((change.action == 'add' || change.action == 'unlock') &&
+          !_eligible(view, change.person!.login, change.person!.fingerprint)) {
         throw const RegistryRefusal('Core does not permit this person and key in this project.');
       }
     }
     return view;
   }
 
+  bool get _registryReady => registry.accepted != null && registry.problem == null && !registry.busy;
+
   bool _eligible(ProjectAccessView? view, String login, String fingerprint) {
+    if (!_registryReady || view?.project != project) return false;
     final verdict = view?.eligible[login];
     final card = registry.people.where((card) => card.login == login).firstOrNull;
     return verdict?.fingerprint == fingerprint &&
@@ -184,60 +226,99 @@ class ProjectAccess implements ProjectPersonActions {
   }
 
   /// Registers only the selected admitted project with its verified revisions.
-  Future<void> register() async {
+  Future<void> register({VerifiedHostProject? expected}) async {
     if (pending && settings.projectAccess(project)?.change.action == 'register') {
-      await retry();
+      await settings.withProjectChange(project, () async {
+        final view = await _authorize();
+        if (expected != null) _checkRegistration(expected, view);
+        await _resume();
+      });
     } else {
-      await _begin('register', null);
+      await _begin('register', null, expected: expected);
+    }
+  }
+
+  void _checkRegistration(VerifiedHostProject expected, ProjectAccessView view) {
+    if (expected.project != project ||
+        view.project != project ||
+        expected.revision != view.projectRevision ||
+        jsonEncode(expected.host.stored) != jsonEncode(view.host.stored) ||
+        jsonEncode(expected.adminSigners) != jsonEncode(view.adminSigners)) {
+      throw const RegistryRefusal('The verified project admission changed.');
     }
   }
 
   @override
-  Future<void> lock(String login, {required bool locked}) async {
-    final view = await _read();
-    final person = view.access.developers[login];
+  Future<void> lock(String login, {required bool locked, AccessDeveloper? selected}) async {
+    final person = selected ?? current?.access.developers[login];
     if (person == null) throw const RegistryRefusal('Choose a person in this project.');
     await _begin(locked ? 'lock' : 'unlock', person);
   }
 
-  Future<void> _begin(String action, AccessDeveloper? person) => settings.withProjectChange(project, () async {
-    if (pending) throw const RegistryRefusal('Retry the pending project change before making another.');
-    final view = await _authorize();
-    if (action == 'add') {
-      if (person!.role != 'developer' || person.locked || !_eligible(view, person.login, person.fingerprint)) {
-        throw const RegistryRefusal('Core does not permit this person and key in this project.');
-      }
-      if (view.access.developers.containsKey(person.login)) {
-        throw const RegistryRefusal('This person is already in the project.');
-      }
-    } else if (person != null) {
-      final accepted = view.access.developers[person.login];
-      if (accepted == null ||
-          accepted.fingerprint != person.fingerprint ||
-          accepted.role != person.role ||
-          accepted.locked != person.locked) {
-        throw const RegistryRefusal('Refresh the selected project person before changing access.');
-      }
-    }
-    final random = Random.secure();
-    final change = ProjectAccessChange.read(
-      ProjectAccessChange(
-        id: List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join(),
-        project: project,
-        host: view.host.name,
-        hostCard: view.host,
-        repository: view.source.access,
-        projectRevision: view.projectRevision,
-        baseRevision: view.accessRevision,
-        actor: view.actor.login,
-        actorFingerprint: view.actor.fingerprint,
-        action: action,
-        person: person,
-      ).stored,
-    );
-    await settings.rememberProjectAccess(ProjectAccessProgress(change: change));
-    await _resume();
-  });
+  Future<void> _begin(String action, AccessDeveloper? person, {VerifiedHostProject? expected}) =>
+      settings.withProjectChange(project, () async {
+        if (pending && settings.projectAccess(project)?.revision == null) {
+          try {
+            await _authorize(settings.projectAccess(project)!.change);
+          } on RegistryRefusal {
+            await settings.forgetUnfiledProjectAccess(project);
+          }
+        }
+        if (pending) throw const RegistryRefusal('Retry the pending project change before making another.');
+        final view = await _authorize();
+        if (expected != null) _checkRegistration(expected, view);
+        final confirmed = settings.projectRegistration(project);
+        if (action == 'register' && confirmed != null) {
+          if (confirmed.change.projectRevision == view.projectRevision &&
+              jsonEncode(confirmed.change.hostCard.stored) == jsonEncode(view.host.stored) &&
+              confirmed.change.repository == view.source.access) {
+            final machine = await transport.connect(view);
+            await _authorize(confirmed.change, confirmed.revision);
+            await _recordRegistration(machine, confirmed.change);
+            return;
+          }
+        }
+        if (action == 'add') {
+          if (person!.role != 'developer' || person.locked || !_eligible(view, person.login, person.fingerprint)) {
+            throw const RegistryRefusal('Core does not permit this person and key in this project.');
+          }
+          if (view.access.developers.containsKey(person.login)) {
+            throw const RegistryRefusal('This person is already in the project.');
+          }
+        } else if (person != null) {
+          final accepted = view.access.developers[person.login];
+          if (accepted == null ||
+              accepted.fingerprint != person.fingerprint ||
+              accepted.role != person.role ||
+              accepted.locked != person.locked) {
+            throw const RegistryRefusal('Refresh the selected project person before changing access.');
+          }
+        }
+        if (action == 'unlock' && !_eligible(view, person!.login, person.fingerprint)) {
+          throw const RegistryRefusal('Core does not permit this person and key in this project.');
+        }
+        if ((action == 'lock' || action == 'unlock') && person!.locked == (action == 'lock')) {
+          throw const RegistryRefusal('Refresh the selected project person before changing access.');
+        }
+        final random = Random.secure();
+        final change = ProjectAccessChange.read(
+          ProjectAccessChange(
+            id: List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join(),
+            project: project,
+            host: view.host.name,
+            hostCard: view.host,
+            repository: view.source.access,
+            projectRevision: view.projectRevision,
+            baseRevision: view.accessRevision,
+            actor: view.actor.login,
+            actorFingerprint: view.actor.fingerprint,
+            action: action,
+            person: person,
+          ).stored,
+        );
+        await settings.rememberProjectAccess(ProjectAccessProgress(change: change));
+        await _resume();
+      });
 
   /// Resumes the original request after a restart without signing another change.
   @override
@@ -247,6 +328,14 @@ class ProjectAccess implements ProjectPersonActions {
     var progress = settings.projectAccess(project);
     if (progress == null || progress.confirmed) return;
     final change = progress.change;
+    if (progress.revision == null) {
+      try {
+        await _authorize(change);
+      } on RegistryRefusal {
+        await settings.forgetUnfiledProjectAccess(project);
+        rethrow;
+      }
+    }
     final revision = await resumeSignedPublication(
       revision: progress.revision,
       published: progress.published,
@@ -290,9 +379,18 @@ class ProjectAccess implements ProjectPersonActions {
         change.action == 'remove' && answer.people.containsKey(person)) {
       throw const RegistryRefusal('The host did not confirm this project membership change.');
     }
+    if (change.action == 'register') await _recordRegistration(machine, change);
     await settings.rememberProjectAccess(
       ProjectAccessProgress(change: change, revision: revision, published: true, uploaded: true, confirmed: true),
     );
+  }
+
+  Future<void> _recordRegistration(Machine machine, ProjectAccessChange change) async {
+    if (machine.kind != 'host' || machine.hostProject != change.host || machine.identity.isNotEmpty) {
+      throw const RegistryRefusal('The shared tunnel did not confirm this host and person identity.');
+    }
+    await rememberMachine(machine);
+    await settings.rememberProjectHost(project, change.host);
   }
 }
 
@@ -320,9 +418,7 @@ class RegistryProjectRegistration implements SignedHostActions {
   @override
   Future<Machine> connect(VerifiedHostProject state) async {
     final view = await access.verify();
-    if (view.host.name != state.host.name || view.projectRevision != state.revision) {
-      throw const RegistryRefusal('The verified project admission changed.');
-    }
+    access._checkRegistration(state, view);
     return access.transport.connect(view);
   }
 
@@ -335,8 +431,9 @@ class RegistryProjectRegistration implements SignedHostActions {
         machine.hostProject != view.host.name) {
       throw const RegistryRefusal('The verified project admission changed.');
     }
-    await access.register();
-    return access.settings.projectAccess(access.project)!.change.projectRevision;
+    access._checkRegistration(state, view);
+    await access.register(expected: state);
+    return state.revision;
   }
 
   @override

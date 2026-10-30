@@ -92,6 +92,19 @@ void main() {
     expect(settings.projectHost('demo'), 'orchard');
   });
 
+  // Harm: Retry in the person dialog must finish local registration without another commit.
+  test('direct registration retry records the host and avoids duplicate registration', () async {
+    final fixture = ProjectAccessFixture()..fail = 'upload';
+    addTearDown(fixture.registry.dispose);
+    final access = await fixture.access(settings);
+    await expectLater(access.register(), throwsFormatException);
+    fixture.fail = null;
+    await access.retry();
+    expect(settings.projectHost('demo'), 'orchard');
+    await access.register();
+    expect(fixture.filed.length, 1);
+  });
+
   // Harm: a wrong or refused host revision cannot become saved access to a project.
   for (final fails in [false, true]) {
     test('${fails ? 'refused registration' : 'a different revision'} keeps the project association absent', () async {

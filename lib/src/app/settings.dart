@@ -11,6 +11,7 @@ import 'host_access_contract.dart';
 import 'project_access_contract.dart';
 import 'machines.dart';
 import 'registry_checkout.dart';
+import 'registry.dart' show RegistryRefusal;
 import 'run_here.dart' show WorkspaceRefused;
 
 bool _sameStored(Object? left, Object? right) {
@@ -540,6 +541,23 @@ class Settings extends ChangeNotifier {
         _projectAccess[progress.change.project] = progress;
       }
     }
+    _projectRegistrations.clear();
+    final registrations = stored['projectRegistrations'];
+    if (registrations != null) {
+      if (registrations is! Map) throw const FormatException('Invalid confirmed project registrations.');
+      for (final entry in registrations.entries) {
+        final progress = ProjectAccessProgress.read(entry.value);
+        if (entry.key != progress.change.project || !progress.confirmed || progress.change.action != 'register') {
+          throw const FormatException('Invalid confirmed project registration.');
+        }
+        _projectRegistrations[progress.change.project] = progress;
+      }
+    }
+    for (final progress in _projectAccess.values) {
+      if (progress.confirmed && progress.change.action == 'register') {
+        _projectRegistrations.putIfAbsent(progress.change.project, () => progress);
+      }
+    }
     _hostUps.clear();
     var migratedHosts = false;
     final migratedHostKeys = <String, String>{};
@@ -766,6 +784,25 @@ class Settings extends ChangeNotifier {
 
   final _projectAccess = <String, ProjectAccessProgress>{};
   final _projectChangesRunning = <String>{};
+  final _projectRegistrations = <String, ProjectAccessProgress>{};
+
+  /// The last confirmed registration, independent of subsequent person changes.
+  ProjectAccessProgress? projectRegistration(String project) => _projectRegistrations[project];
+
+  /// Discards only unsigned work, retaining every signed request for exact retry.
+  Future<void> forgetUnfiledProjectAccess(String project) async {
+    final previous = _projectAccess[project];
+    if (previous == null) return;
+    if (previous.revision != null) throw StateError('A signed project change must be retained.');
+    _projectAccess.remove(project);
+    try {
+      await _write();
+    } on Object {
+      _projectAccess[project] = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
 
   /// The project's durable signed-change delivery receipts.
   ProjectAccessProgress? projectAccess(String project) => _projectAccess[project];
@@ -776,12 +813,14 @@ class Settings extends ChangeNotifier {
   /// Serializes project mutations across dialogs sharing this settings owner.
   Future<void> withProjectChange(String project, Future<void> Function() work) async {
     if (!_projectChangesRunning.add(project)) {
-      throw const FormatException('A change for this project is still running.');
+      throw const RegistryRefusal('A change for this project is still running.');
     }
+    notifyListeners();
     try {
       await work();
     } finally {
       _projectChangesRunning.remove(project);
+      notifyListeners();
     }
   }
 
@@ -790,10 +829,20 @@ class Settings extends ChangeNotifier {
     final checked = ProjectAccessProgress.read(progress.stored);
     final project = checked.change.project;
     final previous = _projectAccess[project];
+    final registration = checked.confirmed && checked.change.action == 'register';
+    final previousRegistration = _projectRegistrations[project];
     _projectAccess[project] = checked;
+    if (registration) _projectRegistrations[project] = checked;
     try {
       await _write();
     } catch (_) {
+      if (registration) {
+        if (previousRegistration == null) {
+          _projectRegistrations.remove(project);
+        } else {
+          _projectRegistrations[project] = previousRegistration;
+        }
+      }
       if (previous == null) {
         _projectAccess.remove(project);
       } else {
@@ -1111,6 +1160,7 @@ class Settings extends ChangeNotifier {
     'secretsFile': _secretsFile,
     'returnedHosts': _returnedHosts.toList(),
     'projectAccess': {for (final entry in _projectAccess.entries) entry.key: entry.value.stored},
+    'projectRegistrations': {for (final entry in _projectRegistrations.entries) entry.key: entry.value.stored},
     'hostRegistry': {for (final entry in _hostRegistry.entries) entry.key: entry.value.stored},
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
     'projectHosts': Map<String, String>.of(_projectHosts),

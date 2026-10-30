@@ -415,11 +415,11 @@ class _ShellState extends State<Shell> {
     openEgress: _openEgress,
     removeWhatWasBuilt: _removeWhatWasBuilt,
     clearTheProject: _clearTheProject,
-    registryAccessUnavailable: widget.projectAccess == null
+    registryAccessUnavailable: widget.projectAccess?.call(_fleet.selectedProject?.name ?? '') == null
         ? 'Verified registry project access is not available yet.'
         : null,
-    putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
-    openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
+    putOnAServer: desk.isWindows ? null : _registerCallback(_fleet.selectedProject),
+    openDevelopers: desk.isWindows ? null : _developersCallback(_fleet.selectedProject),
     joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
@@ -577,11 +577,11 @@ class _ShellState extends State<Shell> {
       checkWorkCanStart: _checkWorkCanStart,
       removeWhatWasBuilt: _removeWhatWasBuilt,
       clearTheProject: _clearTheProject,
-      registryAccessUnavailable: widget.projectAccess == null
+      registryAccessUnavailable: widget.projectAccess?.call(project.name) == null
           ? 'Verified registry project access is not available yet.'
           : null,
-      putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
-      openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
+      putOnAServer: desk.isWindows ? null : _registerCallback(project),
+      openDevelopers: desk.isWindows ? null : _developersCallback(project),
       joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
@@ -712,10 +712,16 @@ class _ShellState extends State<Shell> {
           openTerminal: widget.sessions.openTerminal,
         );
 
-  /// Brings the selected project onto a prepared host in the person's own account.
-  Future<void> _putOnAServer() async {
-    final project = _fleet.selectedProject;
-    if (project == null) return;
+  VoidCallback? _registerCallback(ProjectOnScreen? project) =>
+      project == null ? null : () => unawaited(_putOnAServer(project));
+
+  VoidCallback? _developersCallback(ProjectOnScreen? project) =>
+      project == null ? null : () => unawaited(_openDevelopers(project));
+
+  Future<void> _putOnAServer(ProjectOnScreen project) async {
+    if (project.name == defaultProject || !project.canBeActedOn || widget.projectAccess?.call(project.name) == null) {
+      return;
+    }
     await openHostDialog(
       context,
       access: widget.projectAccess?.call(project.name),
@@ -832,9 +838,10 @@ class _ShellState extends State<Shell> {
     onStartWork: onStartWork,
   );
 
-  Future<void> _openDevelopers() async {
-    final project = _fleet.selectedProject;
-    if (project == null) return;
+  Future<void> _openDevelopers(ProjectOnScreen project) async {
+    if (project.name == defaultProject || !project.canBeActedOn || widget.projectAccess?.call(project.name) == null) {
+      return;
+    }
     await showProjectDevelopers(
       context,
       project: project.name,

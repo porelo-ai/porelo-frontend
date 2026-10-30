@@ -696,13 +696,15 @@ List<Command> projectCommands({
       group: 'Project',
       home: Home.projectMenu,
       run: putOnAServer ?? () {},
-      unavailable: project == null
-          ? nothing
-          : project.name == defaultProject
-          ? 'default is this machine\'s own: it goes on no server'
-          : registryAccessUnavailable ??
-                _setupAgainUnavailable(hostRuns, project.name) ??
-                (putOnAServer == null ? 'project placement needs Linux and a pinned own-account SSH connection' : null),
+      unavailable:
+          noFile ??
+          (project!.name == defaultProject
+              ? 'default is this machine\'s own: it goes on no server'
+              : registryAccessUnavailable ??
+                    _setupAgainUnavailable(hostRuns, project.name) ??
+                    (putOnAServer == null
+                        ? 'project placement needs Linux and a pinned own-account SSH connection'
+                        : null)),
     ),
     takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
     Command(
@@ -1736,7 +1738,9 @@ Command putAwayQuestionCommand({required VoidCallback run, String? unavailable})
 /// The selected project's person actions, with current availability and stale callbacks guarded.
 List<Command> projectPersonCommands({required ProjectDevelopers developers, String? person, VoidCallback? add}) {
   final actions = developers.scoped;
-  final unavailable = developers.busy
+  final unavailable = developers.access == null || developers.problem != null
+      ? 'Refresh the verified project person list.'
+      : developers.busy
       ? 'A person change is still running.'
       : actions == null
       ? 'Verified project person changes are unavailable.'
@@ -1750,6 +1754,23 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
           : selecting && selected == null
           ? 'Choose a person in this project.'
           : null);
+  bool sameSelection() {
+    final live = developers.access?.developers[person];
+    return live != null &&
+        selected != null &&
+        live.locked == selected.locked &&
+        live.role == selected.role &&
+        live.fingerprint == selected.fingerprint;
+  }
+
+  bool canRun({bool selecting = false, bool delivery = false}) =>
+      !developers.busy &&
+      developers.scoped != null &&
+      developers.scoped!.unavailable(delivery: delivery) == null &&
+      (delivery
+          ? developers.scoped!.pending
+          : !developers.scoped!.pending && developers.access != null && developers.problem == null) &&
+      (!selecting || sameSelection());
   return [
     Command(
       id: 'project.addDeveloper',
@@ -1758,7 +1779,9 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
       home: Home.projectMenu,
       role: Role.projectAdmin,
       unavailable: reason() ?? (add == null ? 'Choose a registry person.' : null),
-      run: add ?? () {},
+      run: () {
+        if (canRun()) add?.call();
+      },
     ),
     Command(
       id: 'project.removePerson',
@@ -1768,7 +1791,7 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
       role: Role.projectAdmin,
       unavailable: reason(selecting: true),
       run: () {
-        if (person != null) unawaited(developers.remove(person));
+        if (person != null && canRun(selecting: true)) unawaited(developers.remove(person));
       },
     ),
     Command(
@@ -1779,7 +1802,10 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
       role: Role.projectAdmin,
       unavailable: reason(selecting: true),
       run: () {
-        if (person != null) unawaited(developers.lock(person, locked: selected?.locked != true));
+        if (person != null && canRun(selecting: true)) {
+          final live = developers.access!.developers[person]!;
+          unawaited(developers.lock(person, locked: !live.locked));
+        }
       },
     ),
     Command(
@@ -1791,7 +1817,9 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
       unavailable: developers.busy
           ? 'A person change is still running.'
           : actions?.unavailable(delivery: true) ?? (!pending ? 'No project change is pending.' : null),
-      run: () => unawaited(developers.retry()),
+      run: () {
+        if (canRun(delivery: true)) unawaited(developers.retry());
+      },
     ),
   ];
 }
