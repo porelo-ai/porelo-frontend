@@ -24,6 +24,32 @@ RegistryPageItem _item(
 );
 
 void main() {
+  // Harm: a refusal must not direct access requests to people with authority over a different operation.
+  for (final operation in [RegistryOperation.createRegistry, RegistryOperation.push]) {
+    test('missing operation authority never substitutes scope administrators for ${operation.name}', () async {
+      final source = FakeRegistryPageSource(RegistryPageSnapshot(items: [_item(_target, allowed: {})]));
+      final registry = RegistryPages(
+        source: source,
+        features: RegistryPageFeatures(operations: {operation}),
+      );
+      addTearDown(registry.dispose);
+      await registry.refresh();
+
+      await expectLater(
+        registry.change((target: _target, operation: operation, person: null)),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'the refusal must not identify a scope administrator as an operation authority',
+            allOf(isNot(contains(_person.name)), isNot(contains(_person.email!))),
+          ),
+        ),
+      );
+      expect(source.published, isEmpty, reason: 'missing authority never permits a change');
+      expect(source.applications, isEmpty);
+    });
+  }
+
   // Harm: refreshing a list must not publish or apply an access change.
   test('refreshing a registry reads without publishing or applying', () async {
     final source = FakeRegistryPageSource(

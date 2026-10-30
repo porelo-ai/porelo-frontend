@@ -41,6 +41,65 @@ Future<void> _join(WidgetTester tester, String name) async {
 }
 
 void main() {
+  // Harm: registry actions must reach the verified admission without changing another daemon's project.
+  for (final scope in ['unwatched machine', 'unwatched project', 'unfollowed project']) {
+    testWidgets('the finder reaches registry actions on an $scope', (tester) async {
+      await World.startBackend(World.work);
+      final watched = scope == 'unfollowed project';
+      final project = scope == 'unwatched machine' ? null : 'admitted';
+      final operation = project == null ? RegistryOperation.bringState : RegistryOperation.join;
+      final machine = watched ? Machine.local() : const Machine(name: 'unwatched', socketPath: '/unwatched');
+      final target = (registry: 'registry', host: machine.name, project: project);
+      final source = FakeRegistryPageSource(
+        RegistryPageSnapshot(
+          items: [
+            RegistryPageItem(
+              target: target,
+              machine: machine,
+              role: 'developer',
+              state: 'admitted',
+              revision: 'r1',
+              allowed: {operation},
+            ),
+          ],
+        ),
+      );
+      final registry = RegistryPages(
+        source: source,
+        features: RegistryPageFeatures(operations: {operation}),
+      );
+      addTearDown(registry.dispose);
+      await World.startApp(tester, registryPages: registry);
+      World.fleet.selectProject('checkout');
+      if (project == null) {
+        World.shell.openMachine(machine, target: target);
+      } else {
+        World.shell.openProject(machine, project, target: target);
+      }
+      await World.settle(tester);
+      final previousMachine = World.machines.current;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await World.settle(tester);
+      final label = project == null ? 'Bring the state to the host' : 'Join';
+      await tester.enterText(find.byKey(const Key('command-query')), label);
+      await World.settle(tester);
+      final command = find.widgetWithText(ListTile, label);
+      expect(command, findsOneWidget, reason: 'the finder must offer the verified item operation');
+      expect(tester.widget<ListTile>(command).enabled, isTrue, reason: 'registry actions need no local following');
+      await tester.tap(command);
+      await World.settle(tester);
+      expect(source.published, isEmpty, reason: 'the finder reveals the operation before it is invoked');
+      await World.tapInView(tester, 'highlighted');
+      expect(source.published, [(target: target, operation: operation, person: null)]);
+      expect(source.applications, [(target: target, revision: 'revision-2')]);
+      expect(World.shell.itemRegistryTarget, target, reason: 'the finder must retain the verified admission');
+      expect(World.machines.current, previousMachine);
+      expect(World.fleet.selectedProject?.name, 'checkout');
+    });
+  }
+
   // Harm: a shortcut on an unwatched project must not review another machine's project.
   testWidgets('an unwatched project blocks shortcuts and finder commands for the old selection', (tester) async {
     await World.startBackend(World.work);

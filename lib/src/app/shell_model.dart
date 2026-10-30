@@ -234,6 +234,13 @@ class ShellModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reveals [command] on the open item while retaining its full registry scope.
+  void showOnItem(String command) {
+    _opened = const NothingOpened();
+    _highlight = command;
+    notifyListeners();
+  }
+
   /// Stops marking where a command lives.
   void shown() {
     if (_highlight == null) return;

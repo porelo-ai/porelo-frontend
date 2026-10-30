@@ -303,7 +303,7 @@ class RegistryPages extends ChangeNotifier {
     if (current == null) return 'No verified access state is available for this item.';
     if (!current.allowed.contains(operation)) {
       final authority = current.authorities[operation];
-      final who = (authority?.people ?? current.administrators)
+      final who = (authority?.people ?? <RegistryPerson>[])
           .map((person) => '${person.name} (${person.login}; ${person.contactEmail ?? 'no email supplied'})')
           .join(', ');
       final role =
@@ -319,9 +319,12 @@ class RegistryPages extends ChangeNotifier {
             RegistryOperation.projectUnlock ||
             RegistryOperation.removePerson => 'a project admin',
             RegistryOperation.createRegistry => 'a registry owner',
-            _ => 'a person authorized by the verified access state',
+            _ => null,
           };
-      return 'Only $role may do this${who.isEmpty ? '; no administrator card was supplied' : ': $who'}.';
+      if (role == null) {
+        return 'The verified access state has not supplied the responsible role or contacts for this operation.';
+      }
+      return 'Only $role may do this${who.isEmpty ? '; no verified contacts for this operation were supplied' : ': $who'}.';
     }
     if (current.refusals[operation] case final refusal?) return refusal;
     if (person != null && !people.any((card) => card.login == person)) return 'Choose a verified person card.';

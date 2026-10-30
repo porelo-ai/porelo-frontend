@@ -393,7 +393,11 @@ class _ShellState extends State<Shell> {
   }
 
   List<Command> _commands() => [
-    for (final command in _unscopedCommands())
+    for (final command in [
+      ..._unscopedCommands(),
+      if (widget.shell.itemRegistryTarget case final target?)
+        if (_registry.item(target) case final item?) ..._registryPageCommands(item),
+    ])
       if (command.id != 'project.developers') _commandForItem(command).unless(_itemScopeProblem(command)),
   ];
 
@@ -429,6 +433,7 @@ class _ShellState extends State<Shell> {
     if (scoped && target != null && _registry.item(target) == null) {
       return 'This verified admission is no longer available. Return to its list.';
     }
+    if (command.id.startsWith('registry.')) return null;
     if (scoped &&
         {Section.machine, Section.project}.contains(widget.shell.section) &&
         widget.shell.itemMachine != null &&
@@ -2697,6 +2702,10 @@ class _ShellState extends State<Shell> {
   Future<void> _openFinder() async {
     final chosen = await showCommandFinder(context, _commands());
     if (chosen == null || !mounted) return;
+    if (chosen.id.startsWith('registry.')) {
+      widget.shell.showOnItem(chosen.id);
+      return;
+    }
     // Something with no single place on screen runs at once; everything else is shown where it
     // lives, so the next time it is found there.
     if (chosen.home == Home.none || chosen.home == Home.appBar || chosen.home == Home.openedView) {
@@ -3301,17 +3310,24 @@ class _ShellState extends State<Shell> {
                   }.contains(command.id)) &&
               (item == null || !{'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id)),
         ),
-      if (project.name != defaultProject)
-        if (item != null)
-          ...registryItemCommands(context, _registry, item, [
+      if (project.name != defaultProject && item != null) ..._registryPageCommands(item),
+    ];
+  }
+
+  List<Command> _registryPageCommands(RegistryPageItem item) => registryItemCommands(
+    context,
+    _registry,
+    item,
+    item.target.project == null
+        ? [RegistryOperation.bringState]
+        : [
             RegistryOperation.register,
             RegistryOperation.join,
             RegistryOperation.push,
             RegistryOperation.pull,
             RegistryOperation.backupKey,
-          ]),
-    ];
-  }
+          ],
+  );
 
   Widget _machineBody(Machine selected, FleetModel fleet, String? highlight) {
     final machine = widget.shell.itemMachine ?? selected;
