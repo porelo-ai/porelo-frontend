@@ -97,9 +97,9 @@ void main() {
     expect(script, contains('/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --stdin wireguard'));
   });
 
-  // Harm: a new secret-file capability silently crosses an existing act boundary.
-  for (final act in HostAct.values) {
-    test('${act.name} refuses unimplemented identities at its act boundary', () {
+  // Harm: the identities admission left for a person cross into root's or the legacy stop.
+  for (final act in HostAct.values.where((act) => act != HostAct.ownAccount)) {
+    test('${act.name} refuses identities at its act boundary', () {
       expect(
         () => command(act, [act == HostAct.root ? 'wireguard' : 'vault', 'identities']),
         throwsA(
@@ -140,4 +140,18 @@ void main() {
       );
     });
   }
+
+  // Harm: a join or bring waiting for the identities admission left stops with no way on.
+  test('the own-account stop names identities and feeds no line for it', () {
+    final script = command(HostAct.ownAccount, ['identities']).last;
+    expect(script, isNot(contains('keepassxc-cli')), reason: 'the identities wait on the host, not in the file');
+    expect(script, contains('{\n:\n} | '), reason: 'an empty pipe, which the stop reads as no lines');
+    expect(script, endsWith("'/usr/local/bin/porelo-host-stop --stdin identities'"));
+  });
+
+  test('the own-account stop feeds the file\'s lines and names identities beside them', () {
+    final script = command(HostAct.ownAccount, ['vault', 'identities']).last;
+    expect(script, contains("'projects/checkout/vault-passphrase'"));
+    expect(script, endsWith("'/usr/local/bin/porelo-host-stop --stdin vault identities'"));
+  });
 }

@@ -611,6 +611,8 @@ void main() {
         expect(action.state(), WizardActionState.waiting);
         final yaml = loadYaml(File('${home.path}/.local/share/porelo-host/setup/demo/machine.yml').readAsStringSync());
         expect(yaml['access']['bundle'], 'access.bundle');
+        // porelo project verify takes the key itself; a fingerprint it refuses.
+        expect(yaml['project']['signed_by'], (hostValues()['ssh_host_key']! as String).split(' ').take(2).join(' '));
         expect(yaml['forge']['repositories'], [
           {'name': 'api', 'url': 'https://example.org/team/api.git'},
         ]);

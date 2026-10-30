@@ -5,7 +5,7 @@ import 'package:yaml/yaml.dart';
 String machine(List<String>? repositories) => HostFiles.machineYaml(
   project: 'orchard',
   url: '/home/person/.local/share/porelo-host/setup/orchard/project.bundle',
-  fingerprint: 'SHA256:fixture',
+  signedBy: 'SHA256:fixture',
   act: HostAct.ownAccount,
   forgeRepositories: repositories,
 );

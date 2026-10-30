@@ -26,7 +26,8 @@ List<String> hostStopFeedCommand({
 }) {
   final allowed = switch (act) {
     HostAct.root => const {'wireguard', 'forge-certificate'},
-    HostAct.ownAccount => const {'vault-new', 'vault', 'keys', 'forge-central-token'},
+    // identities gives no line: the host's stop reads the tokens admission left in the person's own folder.
+    HostAct.ownAccount => const {'vault-new', 'vault', 'keys', 'forge-central-token', 'identities'},
     HostAct.legacyUp => const {
       'vault',
       'vault-new',
@@ -44,7 +45,8 @@ List<String> hostStopFeedCommand({
     }
   }
   final unknown = needs.where(
-    (need) => need != 'drive' && need != 'matrix-token' && !SecretsFile.stopNeeds.contains(need),
+    (need) =>
+        need != 'drive' && need != 'matrix-token' && need != 'identities' && !SecretsFile.stopNeeds.contains(need),
   );
   if (unknown.isNotEmpty) {
     throw FormatException('The host asked for ${unknown.join(', ')}, which the secrets file does not give.');
@@ -52,7 +54,10 @@ List<String> hostStopFeedCommand({
   final fed = needs.where(SecretsFile.stopNeeds.contains).toList();
   // The host's registration token for this computer's homeserver comes from this computer's own Porelo, not the file.
   final matrix = needs.contains('matrix-token');
-  if (fed.isEmpty && !matrix) throw const FormatException('The host asks for nothing the secrets file gives.');
+  final identities = needs.contains('identities');
+  if (fed.isEmpty && !matrix && !identities) {
+    throw const FormatException('The host asks for nothing the secrets file gives.');
+  }
   // Where the lasting CA's certificate is written, public, once the forge's request is signed.
   if (caOut != null) SecretsFile.checkPath(caOut);
   // The program that receives every secret on its standard input is taken by its path, never by PATH.
@@ -108,7 +113,7 @@ List<String> hostStopFeedCommand({
   // asks a password fails instead of reading one from the pipe.
   final stop =
       '${act == HostAct.ownAccount ? '' : '/usr/bin/sudo -n '}'
-      '/usr/local/bin/porelo-host-stop --stdin ${[...fed, if (matrix) 'matrix-token'].join(' ')}';
+      '/usr/local/bin/porelo-host-stop --stdin ${[...fed, if (identities) 'identities', if (matrix) 'matrix-token'].join(' ')}';
   final script = [
     if (matrix) ...[
       // The folder exists before anything can leave it behind; any end of the terminal takes it away.
@@ -148,7 +153,8 @@ List<String> hostStopFeedCommand({
           '|| { echo "The host gave no certificate request for its forge; nothing was sent." >&2; exit 1; }',
     if (caOut != null && fed.contains('forge-certificate')) 'caout=${quoteForAShell(caOut)}',
     '/usr/bin/stty -echo 2>/dev/null || true',
-    '{\n$feed\n} | ${sshLine(['-T', '--', host, stop])}',
+    // A stop that takes no line still reads a pipe: an empty one.
+    '{\n${feed.isEmpty ? ':' : feed}\n} | ${sshLine(['-T', '--', host, stop])}',
   ].join('\n');
   return _inACleanBash(script);
 }

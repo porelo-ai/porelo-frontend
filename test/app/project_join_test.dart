@@ -513,6 +513,11 @@ void main() {
     final machine = loadYaml(await File('$setup/machine.yml').readAsString()) as Map;
     expect(machine.containsKey('forge'), isFalse);
     expect(machine['access'], {'bundle': 'access.bundle'});
+    // porelo project verify takes the key itself; a fingerprint it refuses.
+    expect(
+      (machine['project'] as Map)['signed_by'],
+      (hostValues()['ssh_host_key']! as String).split(' ').take(2).join(' '),
+    );
     expect(File('$setup/project.bundle').existsSync(), isTrue);
     expect(File('$setup/access.bundle').existsSync(), isTrue);
     expect(jsonDecode(await File('${scratch.path}/joins/demo/joined.json').readAsString())['access_commit'], 'b' * 40);

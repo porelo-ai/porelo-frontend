@@ -199,7 +199,7 @@ class ProjectJoin extends ChangeNotifier {
           HostFiles.machineYaml(
             project: project,
             url: HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: homes.single),
-            fingerprint: fingerprint,
+            signedBy: public,
             act: HostAct.ownAccount,
             keys: [for (final key in contract.keys) HostKeyFile(key, File(key))],
           ),

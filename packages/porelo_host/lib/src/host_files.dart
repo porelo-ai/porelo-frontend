@@ -216,10 +216,12 @@ class HostFiles {
   /// Writes the machine contract with escaped, double-quoted YAML scalars only.
   ///
   /// For [HostAct.ownAccount], [url] names the absolute project bundle and `access.bundle` is relative to this file.
+  /// [signedBy] is what the host's follow pins: for [HostAct.ownAccount] the comment-free public key line, which
+  /// `porelo project verify` takes; a fingerprint it refuses.
   static String machineYaml({
     required String project,
     required String url,
-    required String fingerprint,
+    required String signedBy,
     HostAct act = HostAct.legacyUp,
     List<HostKeyFile> keys = const [],
     List<String>? forgeRepositories,
@@ -244,7 +246,7 @@ class HostFiles {
     return 'project:\n'
         '  name: ${_scalar(project)}\n'
         '  url: ${_scalar(url)}\n'
-        '  signed_by: ${_scalar(fingerprint)}\n'
+        '  signed_by: ${_scalar(signedBy)}\n'
         '${act == HostAct.ownAccount ? 'access: { bundle: ${_scalar(accessBundleFileName)} }\n' : ''}'
         '${repositories == null ? '' : 'forge:\n  repositories:\n${repositories.map((repository) => '    - { name: ${_scalar(repository.name)}, url: ${_scalar(repository.url)} }\n').join()}'}'
         '${keys.isEmpty ? 'keys: []\n' : 'keys:\n'}'
@@ -468,7 +470,7 @@ class HostFiles {
       final yaml = machineYaml(
         project: project,
         url: url,
-        fingerprint: signingFingerprint(await signingKey.readAsString()),
+        signedBy: signingFingerprint(await signingKey.readAsString()),
         act: act,
         keys: keys,
         windows: _writer.isWindows,

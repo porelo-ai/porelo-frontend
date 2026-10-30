@@ -61,7 +61,7 @@ void main() {
       HostFiles.machineYaml(
         project: 'demo',
         url: '$folder/project.bundle',
-        fingerprint: fingerprint,
+        signedBy: fingerprint,
         act: HostAct.ownAccount,
       ),
     ) as YamlMap;
@@ -76,12 +76,8 @@ void main() {
   test('own-account metadata refuses a relative project bundle and a missing home', () {
     expect(() => HostFiles.bundleUrl('demo', act: HostAct.ownAccount), throwsA(isA<HostFilesRefused>()));
     expect(
-      () => HostFiles.machineYaml(
-        project: 'demo',
-        url: 'project.bundle',
-        fingerprint: fingerprint,
-        act: HostAct.ownAccount,
-      ),
+      () =>
+          HostFiles.machineYaml(project: 'demo', url: 'project.bundle', signedBy: fingerprint, act: HostAct.ownAccount),
       throwsA(isA<HostFilesRefused>()),
     );
   });
@@ -122,7 +118,7 @@ void main() {
       '/home/person/.local/share/porelo-host/setup/demo/other.bundle',
     ]) {
       expect(
-        () => HostFiles.machineYaml(project: 'demo', url: url, fingerprint: fingerprint, act: HostAct.ownAccount),
+        () => HostFiles.machineYaml(project: 'demo', url: url, signedBy: fingerprint, act: HostAct.ownAccount),
         throwsA(isA<HostFilesRefused>()),
       );
     }
@@ -189,7 +185,7 @@ void main() {
         () => HostFiles.machineYaml(
           project: project,
           url: '/home/person/.local/share/porelo-host/setup/$project/project.bundle',
-          fingerprint: fingerprint,
+          signedBy: fingerprint,
           act: HostAct.ownAccount,
         ),
       );
@@ -230,7 +226,7 @@ void main() {
     expect(url, '$folder/project.bundle');
     expect(HostFiles.accessBundleUrl(project), '.local/share/porelo-host/setup/$project/access.bundle');
     final yaml = loadYaml(
-      HostFiles.machineYaml(project: project, url: url, fingerprint: fingerprint, act: HostAct.ownAccount),
+      HostFiles.machineYaml(project: project, url: url, signedBy: fingerprint, act: HostAct.ownAccount),
     ) as YamlMap;
     expect(yaml['project']['name'], project);
     await files.publishBundle(
@@ -251,7 +247,7 @@ void main() {
         () => HostFiles.machineYaml(
           project: 'demo',
           url: '$home/.local/share/porelo-host/setup/demo/project.bundle',
-          fingerprint: fingerprint,
+          signedBy: fingerprint,
           act: HostAct.ownAccount,
         ),
         throwsA(isA<HostFilesRefused>()),
@@ -266,7 +262,7 @@ void main() {
       '/home/person/.local//share/porelo-host/setup/demo/project.bundle',
     ]) {
       expect(
-        () => HostFiles.machineYaml(project: 'demo', url: url, fingerprint: fingerprint, act: HostAct.ownAccount),
+        () => HostFiles.machineYaml(project: 'demo', url: url, signedBy: fingerprint, act: HostAct.ownAccount),
         throwsA(isA<HostFilesRefused>()),
       );
     }
@@ -279,14 +275,14 @@ void main() {
       HostFiles.machineYaml(
         project: 'demo',
         url: 'git:"remote":\nnext',
-        fingerprint: fingerprint,
+        signedBy: fingerprint,
         keys: [HostKeyFile('entry:"name"\nnext', File('/input/key.pem'))],
       ),
       'project:\n  name: "demo"\n  url: "git:\\"remote\\":\\u000anext"\n'
       '  signed_by: "$fingerprint"\nkeys:\n'
       '  - { name: "entry:\\"name\\"\\u000anext", path: "keys/key.pem" }\n',
     );
-    expect(HostFiles.machineYaml(project: 'demo', url: 'url', fingerprint: fingerprint), endsWith('keys: []\n'));
+    expect(HostFiles.machineYaml(project: 'demo', url: 'url', signedBy: fingerprint), endsWith('keys: []\n'));
   });
 
   // Harm: YAML line folding can change repository URLs or entry names before the host reads them.
@@ -296,7 +292,7 @@ void main() {
     final yaml = HostFiles.machineYaml(
       project: 'demo',
       url: value,
-      fingerprint: fingerprint,
+      signedBy: fingerprint,
       keys: [HostKeyFile(value, File('/input/key'))],
     );
     final decoded = loadYaml(yaml) as YamlMap;
@@ -314,7 +310,7 @@ void main() {
         () => HostFiles.machineYaml(
           project: 'demo',
           url: 'url',
-          fingerprint: fingerprint,
+          signedBy: fingerprint,
           keys: [HostKeyFile(name, File('/input/key'))],
         ),
         throwsA(isA<HostFilesRefused>()),
@@ -325,7 +321,7 @@ void main() {
         () => HostFiles.machineYaml(
           project: 'demo',
           url: 'url',
-          fingerprint: fingerprint,
+          signedBy: fingerprint,
           keys: [HostKeyFile('entry', File(path))],
         ),
         throwsA(isA<HostFilesRefused>()),
@@ -335,7 +331,7 @@ void main() {
       () => HostFiles.machineYaml(
         project: 'demo',
         url: 'url',
-        fingerprint: fingerprint,
+        signedBy: fingerprint,
         keys: [HostKeyFile('one', File('/a/key')), HostKeyFile('two', File('/b/key'))],
       ),
       throwsA(isA<HostFilesRefused>()),
@@ -612,11 +608,7 @@ void main() {
 
   test('symlink destinations and keys directory are refused', () async {
     final root = await Directory(path.join(scratch.path, 'porelo-host')).create();
-    final expected = HostFiles.machineYaml(
-      project: 'demo',
-      url: 'https://example.org/demo.git',
-      fingerprint: fingerprint,
-    );
+    final expected = HostFiles.machineYaml(project: 'demo', url: 'https://example.org/demo.git', signedBy: fingerprint);
     final outside = await File(path.join(scratch.path, 'outside')).writeAsString(expected);
     final link = await Link(path.join(root.path, 'machine.yml')).create(outside.path);
     await expectLater(prepare(), throwsA(isA<HostFilesRefused>()));

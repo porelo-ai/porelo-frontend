@@ -159,7 +159,8 @@ class ProjectBring extends ChangeNotifier {
         }
         await ssh.trust(address, host.values['ssh_host_key']!);
       }
-      final fingerprint = HostFiles.signingFingerprint(readPublicSigningKey(signingKey));
+      final signer = readPublicSigningKey(signingKey).trim().split(RegExp(r'\s+')).take(2).join(' ');
+      final fingerprint = HostFiles.signingFingerprint(signer);
       final followed = (await backend.following()).where((entry) => entry.name == project).firstOrNull;
       if (followed == null || followed.commit.isEmpty || followed.unverified) {
         throw const WorkspaceRefused('This project needs a verified followed commit before it can be brought.');
@@ -201,7 +202,7 @@ class ProjectBring extends ChangeNotifier {
       final yaml = HostFiles.machineYaml(
         project: project,
         url: HostFiles.bundleUrl(project, act: HostAct.ownAccount, home: homes.single),
-        fingerprint: fingerprint,
+        signedBy: signer,
         act: HostAct.ownAccount,
         forgeRepositories: contract.repositories,
         keys: [for (final key in keys) HostKeyFile(key, File(key))],

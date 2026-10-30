@@ -411,7 +411,7 @@ Future<void> main(List<String> arguments) async {
     final windows = path.Context(style: path.Style.windows);
     final key = HostKeyFile('entry', _NoUriFile(r'C:\input\a:b'), pathContext: windows);
     expect(
-      () => HostFiles.machineYaml(project: 'demo', url: 'url', fingerprint: 'fp', windows: true, keys: [key]),
+      () => HostFiles.machineYaml(project: 'demo', url: 'url', signedBy: 'fp', windows: true, keys: [key]),
       throwsA(isA<HostFilesRefused>()),
     );
     expect(HostKeyFile('entry', _NoUriFile(r'C:\input\key.pem'), pathContext: windows).basename, 'key.pem');
@@ -446,7 +446,7 @@ Future<void> main(List<String> arguments) async {
         () => HostFiles.machineYaml(
           project: 'demo',
           url: 'url',
-          fingerprint: 'fp',
+          signedBy: 'fp',
           windows: true,
           keys: [HostKeyFile('entry', File('/input/$name'))],
         ),
@@ -458,7 +458,7 @@ Future<void> main(List<String> arguments) async {
       () => HostFiles.machineYaml(
         project: 'demo',
         url: 'url',
-        fingerprint: 'fp',
+        signedBy: 'fp',
         windows: true,
         keys: [HostKeyFile('first', File('/a/Key')), HostKeyFile('second', File('/b/key'))],
       ),
@@ -468,7 +468,7 @@ Future<void> main(List<String> arguments) async {
       HostFiles.machineYaml(
         project: 'demo',
         url: 'url',
-        fingerprint: 'fp',
+        signedBy: 'fp',
         windows: true,
         keys: [HostKeyFile('entry', File('/input/COM10.key'))],
       ),
@@ -481,7 +481,7 @@ Future<void> main(List<String> arguments) async {
   test('all C0 DEL and C1 controls are Unicode escapes and parse back exactly', () {
     final codes = [...List.generate(32, (i) => i), ...List.generate(33, (i) => i + 127)];
     final value = String.fromCharCodes(codes);
-    final yaml = HostFiles.machineYaml(project: 'demo', url: value, fingerprint: 'fp');
+    final yaml = HostFiles.machineYaml(project: 'demo', url: value, signedBy: 'fp');
     for (final code in codes) {
       expect(yaml, contains('\\u${code.toRadixString(16).padLeft(4, '0')}'), reason: 'control $code');
     }
