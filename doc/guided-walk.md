@@ -51,91 +51,9 @@ account or address: it says "the test machine" and `<Konto>`, which the agent wa
   After starting Claude Code again, `/mcp` shows `guided-walk` as connected. The plugin's README
   says which scope fits whom, and how to ask for a walk.
 
-## The sprint walks
+## Host joining
 
-The operator's tests of this repository are walks, started from this checkout with `flutter run`, so the interface
-can be corrected during the walk and the change seen live. Each walk's first step says what must run before it and
-the one command that starts it; a step a person does outside the interface says where: in Claude as `! <command>`,
-or in a separate terminal where it asks anything.
-
-- `18-sprint-6d-the-secrets-file-and-the-agents.json`: the secrets file made once, and each repository's agent at
-  one click; nothing is rented.
-- `19-sprints-6e-to-6i-a-rented-server.json`: a rented server set up from the secrets file, its files uploaded, no
-  drive, its forge's certificate, and this computer's homeserver published for it; it starts `porelo-host` built
-  from this checkout (`PORELO_HOST_STANDIN`), so the walk and the command are of one tree.
-- `20-sprint-6g-your-own-drive-on-a-machine.json`: a person's own Tresorit drive in a work user's account.
-
-## The host flow on this computer
-
-The host walk uses two mock daemons and compiled stand-ins; it rents nothing. The override is
-read only in development builds. Run these commands from the repository root, keeping the walk
-folder short so Unix socket paths stay under 100 bytes:
-
-```bash
-walk=/tmp/porelo-walk
-mkdir -p "$walk/bin" "$walk/keys"
-ssh-keygen -q -t ed25519 -N '' -C walk-invented -f /tmp/porelo-walk/keys/walk_ed25519
-tool/walk_project.sh "$walk"
-dart compile exe tool/host_standin.dart -o "$walk/porelo-host"
-dart compile exe tool/ssh_standin.dart -o "$walk/bin/ssh"
-printf '%s\n' '{"situation":"stop","state":"new"}' > "$walk/host-standin.json"
-cp doc/walks/17-the-host-flow.json "$walk/walk.json"
-```
-
-In two separate terminals, start the first machine and the fresh host. The host situation has only
-`checkout` and nothing run yet. Both take the signed local project bundle prepared above; its
-commit is checked before the mock advertises it as verified. These deadlines also stop a daemon left at the end of a walk:
-
-```bash
-timeout 20m dart tool/mock_daemon.dart work /tmp/porelo-walk/first.sock \
-  checkout /tmp/porelo-walk/project.bundle "$(cat /tmp/porelo-walk/project-commit)"
-timeout 20m dart tool/mock_daemon.dart host /tmp/porelo-walk/host.sock \
-  checkout /tmp/porelo-walk/project.bundle "$(cat /tmp/porelo-walk/project-commit)"
-```
-
-Then start the interface from a third terminal with its settings isolated from everyday machines.
-The host dialog still uses the system secret store for its generated WireGuard key. Use invented
-answers only in the terminal opened at the stop; no real host keys, provider credentials or collection
-are needed. The host's setup mounts no drive, so no folder is chosen. Use the invented
-`/tmp/porelo-walk/keys/walk_ed25519` and `.pub` files for the SSH keys, the `.pub` file for signing,
-and `/tmp/porelo-walk/porelo-host` as the test collection, with the digest from
-`sha256sum /tmp/porelo-walk/porelo-host`. This collection step appears only in debug builds.
-The dialog writes the host files and `porelo-host/checkout.bundle` into its own configuration folder,
-`hosts/checkout`, which `up` uploads.
-
-```bash
-PATH="$walk/bin:$PATH" \
-PORELO_HOST_STANDIN="$walk/porelo-host" \
-PORELO_WALK_HOST_SOCKET="$walk/host.sock" \
-PORELO_WALK="$walk" \
-PORELO_SOCKET="$walk/first.sock" \
-XDG_CONFIG_HOME="$walk/config" \
-XDG_RUNTIME_DIR="$walk" \
-flutter run -d linux
-```
-
-`host-standin.json` is required and is read on every run. Its `situation` is `clean`, `stop`,
-`refused`, `slow` or `down`; `state` is written by the stand-in. A `stop` names the host address
-and account. Enter an invented Tresorit e-mail in the dialog, then click *Open a terminal on the
-host*. The SSH stand-in accepts only the terminal commands that host setup builds. It asks
-`Password:` without echo, then `Enter your one-time password:` with echo, followed by the new
-vault's two passphrase prompts without echo. It discards every answer without writing a file or
-logging it. After each command it says what completed and what comes next.
-
-Click *Done* to put the terminal away. The dialog runs the same `up` again without answers; in
-the stand-in a second `up` goes on, while a real host's play checks whether the login and vault
-steps were completed. An unsupported need is shown verbatim with no terminal offered.
-
-`slow` takes 60 seconds by default; `paceMilliseconds` overrides that delay for tests. The `down`
-situation accepts `down`, and the dialog's down action also works after any other situation.
-Reset to `{"situation":"stop","state":"new"}` to walk the stop again. The SSH stand-in also supports
-config lookup and the Unix socket forward; every other terminal or remote command is refused.
-
-**Working on the plugin beside this repository:** a `pubspec_overrides.yaml` here, which git ignores,
-points the dependency at the local folder:
-
-```yaml
-dependency_overrides:
-  guided_walk:
-    path: ../flutter-guided-walk
-```
+Server setup and project joining use verified registry state and one SSH tunnel per host.
+A saved rental made before one-click joining remains available for give-back or setup again.
+Its old credentials and trust installers cannot be resumed. The replacement guided walk waits
+for the served Core, host setup and forge contracts; fake-driven tests do not establish interoperability.

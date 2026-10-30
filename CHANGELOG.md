@@ -7,22 +7,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
+### Removed
 
-- Host-card tunnels reject aliases to the local signing agent and unsafe stored config paths, keep
-  ownership and port reservations separate across hosts and trials, and complete shutdown after
-  socket races or failed starts. Scoped IPv6 addresses retain their literal zone, and reached hosts
-  keep daemon failures separate from key availability.
+- Retired VPN and local trust installers, host-secret stops, copied laptop keys, project-key setup inputs,
+  and the associated walks. Old rentals remain visible for confirmed give-back or setup again without
+  reusing obsolete credentials. Signed-state setup and joining require the served replacement adapters.
+
 
 ### Added
-
-- The organisation's registry repository is kept as one credential-free address and fetched into a private
-  checkout with the person's own Git access, never prompting. Core's registry read of it is the one source
-  for persons, hosts, admins and projects; a refused fetch, an incomplete answer or a refused commit keeps
-  the last accepted state and says why, and a refused card can never be picked for a change.
-- Verified host cards can publish pinned public-only SSH configurations and share one supervised
-  connection for fixed forge, Git-over-HTTP, Matrix and daemon forwards. Port conflicts are refused,
-  agent forwarding is disabled, and host transport state is separate from daemon and vault readiness.
 
 - Project admins can bring from a machine with no local host record using their copied host keys and
   assigned VPN address. The bring fetches the CA through pinned own-account SSH over the VPN, refuses
@@ -68,11 +60,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Unknown roles are refused before the window opens.
 
 ### Fixed
-
-- Registry changes refuse missing selections and unpublished checkout work, publish only Core's filed
-  commit, and retain publication failures. Registry reads apply Core's latest verified state beside a
-  refused commit, preserve first-commit and malformed-card refusals, and name owners for hosts without
-  admins. Git disables credential prompts and incomplete initial checkouts can be retried.
 
 - Project joins supply an explicit local Ansible inventory and disable its localhost warning while retaining
   real warnings and failures in the join log.

@@ -1,10 +1,12 @@
+// Linux only: real Git verification uses ssh-keygen and private bundle publication invokes chmod.
+@Tags(['linux'])
+library;
+
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
-
-import 'host_files_test.dart' show MemorySecrets;
 
 const _gitEnvironment = {'GIT_TERMINAL_PROMPT': '0', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'};
 
@@ -58,14 +60,16 @@ void main() {
     await _run('git', ['config', 'user.name', 'Fixture'], source);
     signer = await key('signer');
     other = await key('other');
-    files = HostFiles(MemorySecrets(), gitEnvironment: _gitEnvironment);
+    files = HostFiles(gitEnvironment: _gitEnvironment);
   });
   tearDown(() => scratch.delete(recursive: true));
 
-  Future<List<int>> bundle(String commit, File signingKey) =>
-      files.createBundle(project: 'demo', url: source.path, commit: commit, signingKey: signingKey);
-
-  Future<String> fingerprint(File key) async => HostFiles.signingFingerprint(await key.readAsString());
+  Future<List<int>> bundle(String commit, File signingKey) async => files.createBundle(
+    project: 'demo',
+    url: source.path,
+    commit: commit,
+    adminSigners: [await signingKey.readAsString()],
+  );
 
   test('the key that signed the commit puts it on the drive', () async {
     final signed = await commit('signed', signedWith: signer);
@@ -73,7 +77,7 @@ void main() {
   });
 
   // Harm: the host refuses machine.yml only after a server is rented and set up for about 20 minutes.
-  test('a key that did not sign the commit is refused, naming both fingerprints', () async {
+  test('a signer outside the verified admin set cannot produce a bundle', () async {
     final signed = await commit('signed', signedWith: signer);
     await expectLater(
       bundle(signed, other),
@@ -81,7 +85,7 @@ void main() {
         isA<HostFilesRefused>().having(
           (refusal) => refusal.message,
           'message',
-          allOf(contains('signed by ${await fingerprint(signer)}'), contains('not by ${await fingerprint(other)}')),
+          contains('outside the verified project-admin signer set'),
         ),
       ),
     );

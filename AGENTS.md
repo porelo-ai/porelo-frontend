@@ -643,8 +643,7 @@ several machines over their varlink socket. Its issues carry the prefix `F`; its
 ### Building and publishing
 
 - **Packages are `.deb` and `.rpm` from `tool/package.sh` with nfpm**, `type: tree`, dependencies
-  derived from the ELF files and never written into the template, but for the programs the interface runs by path
-  (`keepassxc-cli`, `wg`), which `tool/package.sh` adds per format; `recommends: porelo`, `amd64` only;
+  derived from the ELF files and never written into the template; `recommends: porelo`, `amd64` only;
   `test/packaging_test.dart` asserts the template with comments stripped.
 - **The job that packages the bundle runs on `ubuntu-22.04`**, because the bundle links the system
   GTK, so the build machine is the oldest one the package installs on; every other Linux job runs on

@@ -3,13 +3,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
-import 'package:yaml/yaml.dart';
-import 'package:yaml_edit/yaml_edit.dart';
 
 import 'run_here.dart';
-import 'host_matrix_settings.dart';
 import 'read_public_signing_key.dart';
-import 'yaml_comments.dart';
 
 /// The person's private access checkout, signed and pushed through their own Git configuration.
 class AccessCheckout {
@@ -19,6 +15,7 @@ class AccessCheckout {
     required this.project,
     required this.repository,
     required this.signingKey,
+    required this.adminSigners,
     RunHere? run,
     HostFileWriter? writer,
   }) : _run = run ?? runHere,
@@ -35,6 +32,9 @@ class AccessCheckout {
 
   /// The public key that must verify access commits before they leave this computer.
   final File signingKey;
+
+  /// Core's verified project-admin public signer set.
+  final List<String> adminSigners;
   final RunHere _run;
   final HostFileWriter _writer;
   String? _branch;
@@ -136,8 +136,10 @@ class AccessCheckout {
     final signingPublic = readPublicSigningKey(signingKey);
     _fingerprint = HostFiles.signingFingerprint(signingPublic);
     _allowedSigners = '$folder/.git/porelo-bring-signers';
-    final public = signingPublic.trim().split(RegExp(r'\s+')).take(2).join(' ');
-    await File(_allowedSigners!).writeAsString('porelo namespaces="git" $public\n');
+    if (adminSigners.isEmpty || !adminSigners.map(HostFiles.signingFingerprint).contains(_fingerprint)) {
+      throw const WorkspaceRefused('The person is not a verified project-admin signer.');
+    }
+    await File(_allowedSigners!).writeAsString(adminSigners.map((key) => 'porelo namespaces="git" $key\n').join());
     // The origin's commit is verified before the checkout moves to it, so an untrusted one never lands here.
     await _verifyHead(branch);
     await _git(['merge', '--ff-only', branch]);
@@ -164,9 +166,11 @@ class AccessCheckout {
       '--format=%G?%n%GF',
       revision,
     ])).out.trim().split('\n');
-    if (signature.length != 2 || signature[0] != 'G' || signature[1] != _fingerprint) {
+    if (signature.length != 2 ||
+        signature[0] != 'G' ||
+        !adminSigners.map(HostFiles.signingFingerprint).contains(signature[1])) {
       throw const WorkspaceRefused(
-        'The access commit must be signed by the chosen project signing key. Nothing was pushed.',
+        'The access commit must be signed by the verified project-admin signer set. Nothing was pushed.',
       );
     }
   }
@@ -208,120 +212,6 @@ class AccessCheckout {
     }
   }
 
-  /// Updates public host values and Matrix settings while preserving comments and other settings.
-  Future<void> writeHost(PreparedHost host, String? caCertificate) async {
-    if (_branch == null || _work == null) throw const WorkspaceRefused('Open and verify the access checkout first.');
-    checkHostMatrixCa(host, caCertificate);
-    final file = await _plainAccessFile();
-    final original = await file.readAsString();
-    final YamlEditor editor;
-    final List<String> comments;
-    try {
-      final root = loadYamlNode(original);
-      if (root is! YamlMap) throw const FormatException();
-      comments = yamlComments(original, root);
-      editor = YamlEditor(original);
-      void mapping(List<String> parts) {
-        final value = editor.parseAt(parts, orElse: () => wrapAsYamlNode(null)).value;
-        if (value == null) {
-          editor.update(parts, <String, Object?>{});
-        } else if (value is! Map) {
-          throw const FormatException();
-        }
-      }
-
-      mapping(['host']);
-      for (final entry in host.values.entries.where((entry) => entry.key != 'homeserver')) {
-        editor.update(['host', entry.key], entry.value);
-      }
-      mapping(['transports']);
-      mapping(['transports', 'matrix']);
-      final matrix = editor.parseAt(['transports', 'matrix']).value as Map;
-      for (final key in matrix.keys.toList()) {
-        if (!const {'homeserver', 'room', 'registration_token_file', 'ca_certificate'}.contains(key)) {
-          editor.remove(['transports', 'matrix', key]);
-        }
-      }
-      editor.update(['transports', 'matrix', 'homeserver'], 'https://${host.values['homeserver']}:8448');
-      editor.update(['transports', 'matrix', 'room'], hostProjectRoom(project, host));
-      editor.update([
-        'transports',
-        'matrix',
-        'registration_token_file',
-      ], '~/.config/porelo/matrix/host-registration-token');
-      _blockMatrixMappings(editor);
-    } on Exception {
-      throw const WorkspaceRefused(
-        'access.yml must contain mappings for host and transports.matrix. Its contents were not changed.',
-      );
-    }
-    final temporary = await _writer.createPrivateTemporary(Directory(folder));
-    try {
-      final prepared = File('${temporary.path}/access.yml');
-      final yaml = _keepComments(_withLiteralCertificate(editor, caCertificate!), comments);
-      await _writer.write(prepared, utf8.encode(yaml));
-      await _plainAccessFile();
-      await prepared.rename(file.path);
-    } finally {
-      await temporary.delete(recursive: true);
-    }
-  }
-
-  void _blockMatrixMappings(YamlEditor editor) {
-    for (final parts in [
-      const <String>[],
-      const ['transports'],
-      const ['transports', 'matrix'],
-    ]) {
-      final node = editor.parseAt(parts) as YamlMap;
-      if (node.style != CollectionStyle.FLOW) continue;
-      editor.update(parts, wrapAsYamlNode(_plainYaml(node), collectionStyle: CollectionStyle.BLOCK));
-    }
-  }
-
-  String _keepComments(String yaml, List<String> original) {
-    final remaining = <String, int>{};
-    for (final comment in yamlComments(yaml, loadYamlNode(yaml))) {
-      remaining.update(comment, (count) => count + 1, ifAbsent: () => 1);
-    }
-    final missing = <String>[];
-    for (final comment in original) {
-      final count = remaining[comment] ?? 0;
-      if (count == 0) {
-        missing.add(comment);
-      } else {
-        remaining[comment] = count - 1;
-      }
-    }
-    if (missing.isEmpty) return yaml;
-    final start = YamlEditor(yaml).parseAt(['transports', 'matrix']).span.start;
-    final indent = ' ' * start.column;
-    return yaml.replaceRange(start.offset, start.offset, '${missing.join('\n$indent')}\n$indent');
-  }
-
-  Object? _plainYaml(Object? value) => switch (value) {
-    Map() => {for (final entry in value.entries) _plainYaml(entry.key): _plainYaml(entry.value)},
-    List() => [for (final item in value) _plainYaml(item)],
-    _ => value,
-  };
-
-  String _withLiteralCertificate(YamlEditor editor, String pem) {
-    const at = ['transports', 'matrix', 'ca_certificate'];
-    // yaml_edit falls back to quoted strings for trailing newlines, so keep only the chomp adjustment here.
-    editor.update(at, wrapAsYamlNode(pem.trimRight(), scalarStyle: ScalarStyle.LITERAL));
-    final node = editor.parseAt(at) as YamlScalar;
-    var yaml = editor.toString();
-    final start = node.span.start.offset;
-    if (node.style != ScalarStyle.LITERAL || !yaml.substring(start).startsWith('|-')) {
-      throw const WorkspaceRefused('The host CA could not be kept as a literal YAML certificate.');
-    }
-    if (pem.endsWith('\n')) yaml = yaml.replaceRange(start, start + 2, '|');
-    if (loadYaml(yaml)['transports']['matrix']['ca_certificate'] != pem) {
-      throw const WorkspaceRefused('The host CA did not read back byte for byte. No access settings were changed.');
-    }
-    return yaml;
-  }
-
   /// Signs through the person's Git, verifies the signer, pushes, and only then creates the bundle.
   ///
   /// The persistent checkout moves to the published commit only after the push, and the bundle carries it both as
@@ -329,7 +219,7 @@ class AccessCheckout {
   /// [onPublished] records publication before local worktree or bundle cleanup can fail.
   Future<void> commitPushAndBundle(
     String bundle, {
-    String message = 'Set project host and Matrix access',
+    String message = 'Update verified project access',
     void Function(String revision)? onPublished,
   }) async {
     final branch = _branch;

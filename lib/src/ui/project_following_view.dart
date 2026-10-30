@@ -171,31 +171,7 @@ class ProjectFollowingPanel extends StatelessWidget {
                       value: following.url,
                       onChanged: (typed) => following.answerWith(() => following.url = typed),
                     ),
-                    ChoiceField<Checking>(
-                      id: 'follow-checking',
-                      label: 'How its commits are checked',
-                      value: following.checking,
-                      onChanged: (chosen) => following.answerWith(() => following.checking = chosen),
-                      choices: const <Choice<Checking>>[
-                        Choice(Checking.pinned, 'Only commits signed with this key', id: 'follow-pinned'),
-                        Choice(
-                          Checking.unverified,
-                          'Unverified',
-                          id: 'follow-unverified',
-                          means:
-                              'Anybody who can push to the repository decides what this '
-                              'machine runs. Shown as unverified wherever the project is.',
-                        ),
-                      ],
-                    ),
-                    if (following.checking == Checking.pinned)
-                      _Field(
-                        id: 'follow-key',
-                        // Its fingerprint works too — the string a refused signature shows.
-                        label: 'The public key, or its fingerprint (SHA256:…)',
-                        value: following.key,
-                        onChanged: (typed) => following.answerWith(() => following.key = typed),
-                      ),
+                    const Text('Project commits require the verified project-admin signers supplied by Core.'),
                   ],
                 ],
               ),

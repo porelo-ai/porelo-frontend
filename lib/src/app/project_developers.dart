@@ -1,404 +1,55 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
-import 'package:porelo_host/porelo_host.dart';
 
-import 'access_checkout.dart';
 import 'access_developers.dart';
-import 'forge.dart';
-import 'run_here.dart';
 
-/// Runs the admin sync through the account's pinned SSH connection.
-class DeveloperHostSync {
-  /// Uses the project admin's own account and transport, never a root login.
-  DeveloperHostSync({required this.remote, required this.account});
+/// Core's person-list boundary; central-forge access is a prerequisite.
+abstract interface class ProjectPeople {
+  /// Reads accepted persons for this project.
+  Future<AccessDevelopers> read(String project);
 
-  /// The pinned SSH transport.
-  final Remote remote;
-
-  /// The project admin’s own host account.
-  final String account;
-
-  /// Uploads [bundle] when supplied, then requests one validated sync answer.
-  Future<DeveloperSyncAnswer> call(String project, AccessDevelopers access, {String? bundle}) async {
-    checkAdminName(account);
-    HostFiles.checkProjectName(project);
-    if (account == 'root') throw const FormatException('Use your own project admin account.');
-    if (remote case final OpenSsh ssh) await ssh.trust(access.hostAddress, access.sshHostKey);
-    if (bundle != null) {
-      String? refusal;
-      final runner = HostRun(
-        provider: GivenMachine(address: access.hostAddress, hostKey: access.sshHostKey),
-        remote: remote,
-        emit: (step) {
-          if (step.state == StepState.refused) refusal = [step.fix, step.words].whereType<String>().join(': ');
-        },
-      );
-      final code = await runner.uploadAccessBundle(
-        address: access.hostAddress,
-        user: account,
-        project: project,
-        bundle: bundle,
-      );
-      if (code != null) {
-        throw HostAdminRefused('The access bundle upload failed. ${refusal ?? 'The host refused the upload.'}');
-      }
-    }
-    final lines = <String>[];
-    final result = await remote.run(
-      access.hostAddress,
-      account,
-      inTheLoginShell('/usr/bin/sudo -n /usr/local/sbin/porelo-host-person sync ${quoteForAShell(project)}'),
-      onLine: lines.add,
-    );
-    if (result.exitCode != 0) throw HostAdminRefused(result.stderr);
-    if (lines.length != 1) throw const FormatException('The admin sync must answer with one JSON line.');
-    return DeveloperSyncAnswer.read(lines.single, project);
-  }
+  /// Publishes and applies the selected person's access through verified signed state.
+  Future<void> change(String project, AccessDeveloper person, {required bool remove});
 }
 
-/// The host's last successful sync, with no inferred lock or admission states.
-class DeveloperSyncAnswer {
-  DeveloperSyncAnswer._(
-    this.commit,
-    this.accessCommit,
-    this.added,
-    this.dropped,
-    this.unchanged,
-    this.laptopsAdded,
-    this.laptopsDropped,
-  );
-
-  /// The project revision reported by the host.
-  final String commit;
-
-  /// The access revision reported by the host.
-  final String accessCommit;
-
-  /// The accounts admitted by this sync.
-  final List<String> added;
-
-  /// The accounts dropped by this sync.
-  final List<String> dropped;
-
-  /// Whether neither the project nor its access changed at this sync.
-  final bool unchanged;
-
-  /// The laptop identifiers added by this sync.
-  final List<String> laptopsAdded;
-
-  /// The laptop identifiers dropped by this sync.
-  final List<String> laptopsDropped;
-
-  /// Validates the sync identity, both revisions, and every reported account and laptop.
-  factory DeveloperSyncAnswer.read(String line, String project) {
-    try {
-      final value = jsonDecode(line);
-      if (value is! Map || value['project'] != project) throw const FormatException();
-      String revision(String field) {
-        final revision = value[field];
-        if (revision is! String || !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(revision)) {
-          throw const FormatException();
-        }
-        return revision;
-      }
-
-      List<String> names(String field, {bool laptop = false}) {
-        final items = value[field];
-        if (items is! List || items.any((v) => v is! String)) throw const FormatException();
-        for (final item in items.cast<String>()) {
-          final parts = item.split('/');
-          checkAdminName(parts.first);
-          if (laptop
-              ? parts.length != 2 || !RegExp(r'^[a-z0-9][a-z0-9-]{0,31}$').hasMatch(parts[1])
-              : parts.length != 1) {
-            throw const FormatException();
-          }
-        }
-        if (items.toSet().length != items.length) throw const FormatException();
-        return List.unmodifiable(items.cast<String>());
-      }
-
-      final added = names('added'), dropped = names('dropped');
-      final laptopsAdded = names('laptops_added', laptop: true);
-      final laptopsDropped = names('laptops_dropped', laptop: true);
-      final unchanged = value['unchanged'];
-      if (unchanged is! bool ||
-          (unchanged && [added, dropped, laptopsAdded, laptopsDropped].any((items) => items.isNotEmpty)) ||
-          {...added, ...dropped}.length != added.length + dropped.length) {
-        throw const FormatException();
-      }
-      return DeveloperSyncAnswer._(
-        revision('commit'),
-        revision('access_commit'),
-        added,
-        dropped,
-        unchanged,
-        laptopsAdded,
-        laptopsDropped,
-      );
-    } on Exception {
-      throw const FormatException('The host returned a malformed sync answer or answered for another project.');
-    }
-  }
-
-  /// Reports only what this sync said about [account].
-  String state(String account) => added.contains(account)
-      ? 'admitted by last sync'
-      : dropped.contains(account)
-      ? 'dropped by last sync'
-      : unchanged
-      ? 'unchanged at last sync'
-      : 'not reported by last sync';
-}
-
-/// Edits signed developer access, then applies it at the host and central forge.
+/// Edits persons without computer keys, address allocation or central collaborator changes.
 class ProjectDevelopers extends ChangeNotifier {
-  /// Reuses the private checkout, central forge, and admin sync boundary.
-  ProjectDevelopers({required this.access, required this.forge, required this.repository, required this.sync});
+  /// Uses the verified registry boundary supplied by Core.
+  ProjectDevelopers({required this.project, required this.people});
 
-  /// The private, signed access checkout.
-  final AccessCheckout access;
+  /// The selected project.
+  final String project;
 
-  /// The central forge reached with the existing token store.
-  final Forge? forge;
+  /// The verified person and publication boundary.
+  final ProjectPeople people;
 
-  /// The access repository’s owner/name at the central forge.
-  final String repository;
+  /// The last accepted list, retained on failure.
+  AccessDevelopers? access;
 
-  /// The project admin’s sync boundary.
-  final Future<DeveloperSyncAnswer> Function(String project, AccessDevelopers access, {String? bundle}) sync;
-
-  /// The last verified and published developer list.
-  AccessDevelopers? listed;
-
-  /// The last confirmed host sync answer in this settings session.
-  DeveloperSyncAnswer? lastSync;
-
-  /// The last read-access answers from the forge.
-  final Map<String, String> forgeStates = {};
-
-  /// The accounts removed during this session and their former forge logins.
-  final Map<String, String?> removed = {};
-
-  /// The latest refusal, with publication distinguished from external application.
-  String? problem;
-
-  /// Whether an access operation is still running.
+  /// Whether a request is pending.
   bool busy = false;
+
+  /// A public refusal with no dependency diagnostics.
+  String? problem;
   bool _disposed = false;
-  Future<void> Function()? _pendingForge;
-  bool _pendingSync = false;
-  String? _accessCommit;
-  Directory? _pendingBundle;
-  bool _bundleReady = false;
 
-  /// Whether a published change still needs an external confirmation.
-  bool get needsRetry => _pendingSync || _pendingForge != null;
-
-  /// Whether this forge implements collaborator management.
-  bool get managesReadAccess => forge is ForgeCollaborators;
-
-  /// Reads the verified checkout and current forge answers without changing host admission.
+  /// Refreshes the accepted list without replacing it on failure.
   Future<void> load() => _doing(() async {
-    if (needsRetry) throw const FormatException('Retry the published access change before refreshing its signed list.');
-    await access.open();
-    try {
-      listed = parseAccessDevelopers(await access.read());
-      _accessCommit = await access.revision();
-    } finally {
-      await access.close();
-    }
-    await _readForge();
+    access = await people.read(project);
   });
 
-  Future<void> _readForge() async {
-    if (forge case final ForgeCollaborators collaborators) {
-      final states = await collaborators.readAccess(repository, [
-        for (final developer in listed!.developers.values)
-          if (developer.forgeLogin != null) developer.forgeLogin!,
-        ...removed.values.whereType<String>(),
-      ]);
-      for (final entry in states.entries) {
-        if ((entry.value == 'can read' || entry.value == 'invited') &&
-            forgeStates[entry.key] == 'already has read access') {
-          continue;
-        }
-        forgeStates[entry.key] = entry.value;
-      }
-    }
-  }
-
-  /// Publishes exactly one new developer with one or more checked laptops.
-  Future<void> add(String account, String login, String keyBlock, String address) =>
-      addDeveloper(AccessDeveloper(account, login.isEmpty ? null : login, [parseLaptopPublicKeys(keyBlock, address)]));
-
-  /// Publishes the reviewed developer and requests read access once.
-  Future<void> addDeveloper(AccessDeveloper developer) => _change(
-    (current) {
-      if (current.developers.containsKey(developer.account)) {
-        throw const FormatException('This developer is already listed.');
-      }
-      final addresses = <String>{};
-      for (final laptop in developer.laptops) {
-        current.checkAddress(laptop.vpnAddress);
-        if (!addresses.add(laptop.vpnAddress)) throw const FormatException('A laptop VPN address is repeated.');
-      }
-      return developer;
-    },
-    account: developer.account,
-    grant: developer.forgeLogin,
-  );
-
-  /// Removes a developer from the signed list and revokes their forge access.
-  Future<void> remove(String account) => _change(
-    (current) {
-      if (!current.developers.containsKey(account)) throw const FormatException('This developer is no longer listed.');
-      return null;
-    },
-    account: account,
-    revoke: true,
-  );
-
-  /// Removes one laptop while retaining at least one for the developer.
-  Future<void> removeLaptop(String account, String address) => _change((current) {
-    final developer = current.developers[account];
-    if (developer == null || !developer.laptops.any((laptop) => laptop.vpnAddress == address)) {
-      throw const FormatException('This laptop is no longer listed.');
-    }
-    return AccessDeveloper(
-      account,
-      developer.forgeLogin,
-      developer.laptops.where((laptop) => laptop.vpnAddress != address).toList(),
-    );
-  }, account: account);
-
-  Future<void> _change(
-    AccessDeveloper? Function(AccessDevelopers current) change, {
-    required String account,
-    String? grant,
-    bool revoke = false,
-  }) => _doing(() async {
-    if (needsRetry) throw const FormatException('Retry the published access change before editing another developer.');
-    checkAdminName(account);
-    final collaborators = forge is ForgeCollaborators ? forge as ForgeCollaborators : null;
-    await access.open();
-    Directory? temporary;
-    try {
-      final original = await access.read();
-      final current = parseAccessDevelopers(original);
-      final developer = change(current);
-      final oldLogin = revoke ? current.developers[account]?.forgeLogin : null;
-      if (oldLogin != null &&
-          current.developers.values.any(
-            (d) => d.account != account && d.forgeLogin?.toLowerCase() == oldLogin.toLowerCase(),
-          )) {
-        throw const FormatException(
-          'Another listed developer uses this forge login. Resolve the shared login before revoking access.',
-        );
-      }
-      if (collaborators != null && (grant != null || oldLogin != null)) {
-        await collaborators.checkAdministration(repository);
-      }
-      final written = writeAccessDeveloper(original, account, developer);
-      final next = parseAccessDevelopers(written);
-      await access.edit((source) {
-        if (source != original) {
-          throw const WorkspaceRefused('The access file changed during review. Open it again before publishing.');
-        }
-        return written;
-      });
-      temporary = await HostFileWriter().createPrivateTemporary(Directory.systemTemp);
-      await access.commitPushAndBundle(
-        '${temporary.path}/access.bundle',
-        message: 'Update project developers',
-        onPublished: (revision) {
-          listed = next;
-          _accessCommit = revision;
-          _pendingBundle = temporary;
-          _bundleReady = false;
-          if (developer == null) removed[account] = oldLogin;
-          _pendingSync = true;
-          if (collaborators != null && grant != null) {
-            _pendingForge = () async {
-              forgeStates[grant] = await collaborators.grantRead(repository, grant);
-            };
-          } else if (collaborators != null && oldLogin != null) {
-            _pendingForge = () async {
-              await collaborators.revokeRead(repository, oldLogin);
-              forgeStates[oldLogin] = 'direct access revoked';
-            };
-          }
-        },
-      );
-      _bundleReady = true;
-    } finally {
-      try {
-        await access.close();
-      } finally {
-        if (temporary != null && temporary != _pendingBundle) await temporary.delete(recursive: true);
-      }
-    }
-    await _apply();
+  /// Adds a verified person selected from the registry.
+  Future<void> addDeveloper(AccessDeveloper person) => _doing(() async {
+    await people.change(project, person, remove: false);
+    access = await people.read(project);
   });
 
-  /// Retries only the unconfirmed external steps, without another commit or invitation.
-  Future<void> retry() => _doing(_apply);
-
-  /// Requests the admin's sync and records its answer.
-  Future<void> syncHost() => _doing(() async {
-    _pendingSync = true;
-    await _apply();
+  /// Removes only the person selected from the accepted project list.
+  Future<void> remove(String login) => _doing(() async {
+    final person = access?.developers[login];
+    if (person == null) throw const FormatException('The person is not in the accepted project list.');
+    await people.change(project, person, remove: true);
+    access = await people.read(project);
   });
-
-  Future<void> _apply() async {
-    final failures = <String>[];
-    if (_pendingSync) {
-      try {
-        var temporary = _pendingBundle;
-        if (temporary != null && !await temporary.exists()) {
-          temporary = await HostFileWriter().createPrivateTemporary(Directory.systemTemp);
-          _pendingBundle = temporary;
-          _bundleReady = false;
-        }
-        final bundle = temporary == null ? null : '${temporary.path}/access.bundle';
-        if (bundle != null && (!_bundleReady || !await File(bundle).exists())) {
-          await access.bundlePublished(bundle, _accessCommit!);
-          _bundleReady = true;
-        }
-        final answer = await sync(access.project, listed!, bundle: bundle);
-        if (answer.accessCommit != _accessCommit) throw const FormatException('The host synced another access commit.');
-        lastSync = answer;
-        _pendingSync = false;
-        _discardBundle();
-      } on WorkspaceRefused catch (refused) {
-        failures.add(refused.words);
-      } on HostAdminRefused catch (refused) {
-        failures.add(refused.words);
-      } on Exception {
-        failures.add(
-          'The host sync did not confirm the published access change. Check your project admin account and pinned connection.',
-        );
-      }
-    }
-    final applyForge = _pendingForge;
-    if (applyForge != null) {
-      try {
-        await applyForge();
-        _pendingForge = null;
-      } on ForgeRefused catch (refused) {
-        failures.add(refused.words);
-      }
-    }
-    try {
-      await _readForge();
-    } on ForgeRefused catch (refused) {
-      failures.add(refused.words);
-    }
-    if (failures.isNotEmpty) problem = 'The signed access file was published. ${failures.join('\n')}';
-  }
-
   Future<void> _doing(Future<void> Function() action) async {
     if (busy) return;
     busy = true;
@@ -406,20 +57,10 @@ class ProjectDevelopers extends ChangeNotifier {
     _notify();
     try {
       await action();
-    } on WorkspaceRefused catch (refused) {
-      problem = refused.words;
-    } on ForgeRefused catch (refused) {
-      problem = refused.words;
-    } on FormatException catch (refused) {
-      problem = refused.message;
     } on Exception {
-      problem = 'Developer access could not be updated. No private diagnostic was recorded.';
+      problem = 'The person change could not be confirmed. Refresh the verified project state.';
     } finally {
-      if (needsRetry && problem != null && !problem!.startsWith('The signed access file was published.')) {
-        problem = 'The signed access file was published. $problem';
-      }
       busy = false;
-      if (_disposed) _discardBundle();
       _notify();
     }
   }
@@ -428,20 +69,9 @@ class ProjectDevelopers extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  void _discardBundle() {
-    try {
-      _pendingBundle?.deleteSync(recursive: true);
-    } on PathNotFoundException {
-      // The temporary bundle may already have been removed.
-    }
-    _pendingBundle = null;
-    _bundleReady = false;
-  }
-
   @override
   void dispose() {
     _disposed = true;
-    if (!busy) _discardBundle();
     super.dispose();
   }
 }

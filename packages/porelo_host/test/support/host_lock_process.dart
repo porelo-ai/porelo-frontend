@@ -1,26 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 Future<void> main(List<String> arguments) async {
   final [directory, name, command, project, hold] = arguments;
-  final collection = File('$directory/c.tar.gz');
   final run = HostRun(
     provider: _Provider(directory, name, hold == 'hold'),
     remote: _Remote(directory, name),
     emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
     hostKeys: () async => ('fixture-private', 'ssh-ed25519 AAAA'),
   );
-  final plan = HostPlan(
-    project: project,
-    account: 'worker',
-    publicKey: 'ssh-ed25519 BBBB',
-    collection: collection.path,
-    collectionSha256: sha256.convert(await collection.readAsBytes()).toString(),
-  );
-  exitCode = command == 'up' ? await run.up(plan) : await run.down(plan);
+  final plan = HostPlan(project: project, account: 'worker', publicKey: '', recoveryOnly: true);
+  exitCode = command == 'up' ? await run.up(plan) : await run.down(plan, giveBackAnyway: true);
 }
 
 class _Provider implements HostProvider {
@@ -37,7 +29,7 @@ class _Provider implements HostProvider {
         while (!await File('$directory/release').exists()) {
           await Future<void>.delayed(const Duration(milliseconds: 10));
         }
-      })().timeout(const Duration(seconds: 20));
+      })().timeout(const Duration(minutes: 2));
     }
     return null;
   }

@@ -112,39 +112,6 @@ class _ProjectForgeDialogState extends State<ProjectForgeDialog> {
                 const SizedBox(height: Space.small),
                 _section(
                   context,
-                  buttonKey: const Key('binding-survey'),
-                  button: 'Machines whose messages it trusts',
-                  explain:
-                      'Every machine whose messages the project trusts (machine-signers). Remove one '
-                      'that is gone or should no longer sign messages for the project.',
-                  onPressed: binding.busy ? null : () => unawaited(binding.survey()),
-                ),
-                if (binding.signers case final signers?) ...<Widget>[
-                  Text('Machines whose messages it trusts', style: text.titleSmall),
-                  if (signers.isEmpty) const Text('None.', key: Key('binding-no-signers')),
-                  for (final each in signers)
-                    Row(
-                      key: ValueKey<String>('signer ${each.line.split(' ').first}'),
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            each.name == null
-                                ? each.line.split(' ').first
-                                : '${each.name} (${each.line.split(' ').first})',
-                          ),
-                        ),
-                        TextButton(
-                          key: ValueKey<String>('remove-signer ${each.line.split(' ').first}'),
-                          onPressed: binding.busy || key == null
-                              ? null
-                              : () => unawaited(binding.removeSigner(each.line, key)),
-                          child: const Text('Remove, signed'),
-                        ),
-                      ],
-                    ),
-                ],
-                _section(
-                  context,
                   buttonKey: const Key('binding-changes'),
                   button: 'Changes to the project waiting at $machine',
                   explain:

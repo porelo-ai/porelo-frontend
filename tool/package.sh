@@ -192,15 +192,12 @@ config="$out/nfpm.yaml"
     echo "$depends" | tr ',' '\n' | sed 's/^ *//; s/ *$//' | while read -r one; do
         [ -n "$one" ] && printf '  - %s\n' "\"$one\""
     done
-    # The programs the interface runs by path, which no ELF names: the secrets file's and the VPN's.
-    printf '  - "%s"\n' "keepassxc-minimal | keepassxc" "wireguard-tools"
     echo "overrides:"
     echo "  rpm:"
     echo "    depends:"
     echo "$requires" | while read -r one; do
         [ -n "$one" ] && printf '      - %s\n' "\"$one\""
     done
-    printf '      - "%s"\n' "keepassxc" "wireguard-tools"
 } >"$config"
 
 say "Packaging"

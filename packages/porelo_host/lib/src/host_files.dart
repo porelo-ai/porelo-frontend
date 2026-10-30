@@ -2,11 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cryptography/cryptography.dart';
 import 'package:path/path.dart' as path;
 
-import 'secret_store.dart';
-import 'secrets_file.dart' show SecretsFile;
 import 'host_file_writer.dart';
 import 'host_act.dart';
 import 'host_file_name.dart';
@@ -14,44 +11,10 @@ import 'ssh_public_key.dart';
 
 export 'host_file_name.dart' show HostFilesRefused;
 
-/// A vault entry and the file selected for import by the host.
-class HostKeyFile {
-  /// Names an entry without displaying its value.
-  const HostKeyFile(this.name, this.file, {this.pathContext});
-
-  /// Path syntax for selected files; defaults to the running platform.
-  final path.Context? pathContext;
-
-  /// The vault entry name.
-  final String name;
-
-  /// The file chosen for import.
-  final File file;
-
-  /// The name under the host files directory.
-  String get basename => (pathContext ?? path.context).basename(file.path);
-}
-
-/// Public halves only; private keys never enter dialog state or arguments.
-class HostTunnel {
-  /// Names the public halves of the two ends.
-  const HostTunnel({required this.hostPublicKey, required this.peerPublicKey});
-
-  /// The host public half used by the local tunnel.
-  final String hostPublicKey;
-
-  /// The person public half used by the host.
-  final String peerPublicKey;
-
-  /// Public options kept identical for up, resume and down.
-  List<String> get arguments => ['--vpn-peer-public-key', peerPublicKey, '--vpn-peer-address', '10.73.0.2/32'];
-}
-
-/// Prepares the host's Tresorit files and the person's key in the system store.
+/// Builds and publishes bundles checked against verified project-admin signers.
 class HostFiles {
-  /// Uses the system store, or a stand-in in a test.
-  HostFiles(
-    this.store, {
+  /// Uses an owner-only writer and the selected Git environment.
+  HostFiles({
     HostFileWriter? writer,
     path.Context? pathContext,
     this.gitEnvironment = const {'GIT_TERMINAL_PROMPT': '0'},
@@ -72,58 +35,11 @@ class HostFiles {
 
   final HostFileWriter _writer;
 
-  /// The person private key lives here until an explicit export.
-  final SecretStore store;
-
-  /// The project-specific store entry.
-  static String keyName(String project) => 'wireguard-$project';
-
   /// Rejects traversal and option-like names on both supported desktops.
   static void checkName(String name) => checkHostFileName(name);
 
-  /// Refuses [name] as an own-account project name, as [checkOwnAccountProjectName] says.
+  /// Refuses unsafe own-account project names.
   static void checkProjectName(String name) => checkOwnAccountProjectName(name);
-
-  /// Derives the public half from 32 standard-base64 bytes, as WireGuard does.
-  static Future<String> publicKey(String privateKey) async {
-    List<int> bytes;
-    try {
-      bytes = base64Decode(privateKey);
-    } on FormatException {
-      throw const HostFilesRefused('The stored WireGuard key is not valid.');
-    }
-    if (bytes.length != 32 || base64Encode(bytes) != privateKey) {
-      throw const HostFilesRefused('The stored WireGuard key is not valid.');
-    }
-    final pair = await X25519().newKeyPairFromSeed(bytes);
-    try {
-      return base64Encode((await pair.extractPublicKey()).bytes);
-    } finally {
-      pair.destroy();
-    }
-  }
-
-  /// Refuses anything but a WireGuard public key: 32 bytes in standard base64.
-  static void checkPublicKey(String key) {
-    List<int> bytes;
-    try {
-      bytes = base64Decode(key);
-    } on FormatException {
-      throw const HostFilesRefused('The host key the secrets file gave is not a WireGuard public key.');
-    }
-    if (bytes.length != 32 || base64Encode(bytes) != key) {
-      throw const HostFilesRefused('The host key the secrets file gave is not a WireGuard public key.');
-    }
-  }
-
-  static Future<String> _privateKey() async {
-    final pair = await X25519().newKeyPair();
-    try {
-      return base64Encode(await pair.extractPrivateKeyBytes());
-    } finally {
-      pair.destroy();
-    }
-  }
 
   /// Matches ssh-keygen's SHA-256 fingerprint after parsing the complete supported key.
   static String signingFingerprint(String publicKey) {
@@ -132,22 +48,6 @@ class HostFiles {
     } on FormatException catch (error) {
       throw HostFilesRefused(error.message);
     }
-  }
-
-  static String _scalar(String value) {
-    final quoted = StringBuffer('"');
-    for (final code in value.runes) {
-      if (code < 32 || (code >= 127 && code <= 159) || code == 0x2028 || code == 0x2029) {
-        quoted.write('\\u${code.toRadixString(16).padLeft(4, '0')}');
-      } else if (code == 34) {
-        quoted.write(r'\"');
-      } else if (code == 92) {
-        quoted.write(r'\\');
-      } else {
-        quoted.writeCharCode(code);
-      }
-    }
-    return '$quoted"';
   }
 
   /// Refuses Windows devices, alternate streams and ambiguous trailing characters.
@@ -162,14 +62,6 @@ class HostFiles {
       throw const HostFilesRefused(
         'A key file name must not name a Windows device or stream, or end with a dot or space.',
       );
-    }
-  }
-
-  Future<T> _storeCall<T>(Future<T> Function() call) async {
-    try {
-      return await call();
-    } on Exception {
-      throw const SecretStoreFailed('The system secret store could not keep or read the WireGuard key.');
     }
   }
 
@@ -213,59 +105,6 @@ class HostFiles {
     return repositories;
   }
 
-  /// Writes the machine contract with escaped, double-quoted YAML scalars only.
-  ///
-  /// For [HostAct.ownAccount], [url] names the absolute project bundle and `access.bundle` is relative to this file.
-  /// [signedBy] is what the host's follow pins: for [HostAct.ownAccount] the comment-free public key line, which
-  /// `porelo project verify` takes; a fingerprint it refuses.
-  static String machineYaml({
-    required String project,
-    required String url,
-    required String signedBy,
-    HostAct act = HostAct.legacyUp,
-    List<HostKeyFile> keys = const [],
-    List<String>? forgeRepositories,
-    bool? windows,
-  }) {
-    checkName(project);
-    _checkKeys(keys, windows: windows);
-    final repositories = forgeRepositories == null ? null : migrationRepositories(forgeRepositories);
-    if (repositories != null && act != HostAct.ownAccount) {
-      throw const HostFilesRefused('forge.repositories belongs only to an own-account bring.');
-    }
-    if (act == HostAct.ownAccount) {
-      final suffix = '/${act.setupPlace(project: project)}/$projectBundleFileName';
-      if (!url.endsWith(suffix) ||
-          path.posix.normalize(url) != url ||
-          !_isPlainHostHome(url.substring(0, url.length - suffix.length))) {
-        throw const HostFilesRefused(
-          'An own-account machine file needs its absolute project.bundle in its project setup directory, under a normalized home.',
-        );
-      }
-    }
-    return 'project:\n'
-        '  name: ${_scalar(project)}\n'
-        '  url: ${_scalar(url)}\n'
-        '  signed_by: ${_scalar(signedBy)}\n'
-        '${act == HostAct.ownAccount ? 'access: { bundle: ${_scalar(accessBundleFileName)} }\n' : ''}'
-        '${repositories == null ? '' : 'forge:\n  repositories:\n${repositories.map((repository) => '    - { name: ${_scalar(repository.name)}, url: ${_scalar(repository.url)} }\n').join()}'}'
-        '${keys.isEmpty ? 'keys: []\n' : 'keys:\n'}'
-        '${keys.map((key) => '  - { name: ${_scalar(key.name)}, path: ${_scalar(path.posix.join('keys', key.basename))} }\n').join()}';
-  }
-
-  static void _checkKeys(List<HostKeyFile> keys, {bool? windows}) {
-    final names = <String>{};
-    final files = <String>{};
-    for (final key in keys) {
-      checkName(key.name);
-      checkBasename(key.basename, windows: windows);
-      if (!names.add(key.name) ||
-          !files.add((windows ?? Platform.isWindows) ? key.basename.toLowerCase() : key.basename)) {
-        throw const HostFilesRefused('Each vault entry and file base name must be unique.');
-      }
-    }
-  }
-
   /// Returns [project]'s absolute bundle URL for [act], using the checked host [home] for an own-account act.
   static String bundleUrl(String project, {HostAct act = HostAct.legacyUp, String? home}) {
     checkName(project);
@@ -293,15 +132,15 @@ class HostFiles {
     required String project,
     required String url,
     required String commit,
-    required File signingKey,
-  }) async => (await createProjectSetup(project: project, url: url, commit: commit, signingKey: signingKey)).bytes;
+    required List<String> adminSigners,
+  }) async => (await createProjectSetup(project: project, url: url, commit: commit, adminSigners: adminSigners)).bytes;
 
   /// Reads the signed project file and builds its bundle from the same verified revision.
   Future<({List<int> bytes, String projectYaml})> createProjectSetup({
     required String project,
     required String url,
     required String commit,
-    required File signingKey,
+    required List<String> adminSigners,
   }) async {
     checkBasename('$project.bundle', windows: _writer.isWindows);
     if (!RegExp(r'^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$').hasMatch(commit)) {
@@ -310,7 +149,8 @@ class HostFiles {
     if (url.trim().isEmpty || url.startsWith('-') || url.contains('\x00')) {
       throw const HostFilesRefused('The drive: the followed repository address cannot be read by this computer.');
     }
-    final chosen = signingFingerprint(await signingKey.readAsString());
+    if (adminSigners.isEmpty) throw const HostFilesRefused('Verified project-admin signers are required.');
+    final chosen = adminSigners.map(signingFingerprint).toSet();
     final scratch = await _writer.createPrivateTemporary(Directory.systemTemp);
     try {
       final repository = path.join(scratch.path, 'repository');
@@ -324,7 +164,7 @@ class HostFiles {
       ], timeout: const Duration(minutes: 10));
       final cloned = Directory(repository);
       await _bundleGit(cloned, ['cat-file', '-e', '$commit^{commit}']);
-      await _checkSigner(scratch, cloned, commit, signingKey: await signingKey.readAsString(), chosen: chosen);
+      await _checkSigner(scratch, cloned, commit, adminSigners: adminSigners, chosen: chosen);
       await _bundleGit(cloned, ['update-ref', '--no-deref', 'HEAD', commit]);
       await _bundleGit(cloned, ['branch', '-f', 'main', commit]);
       await _bundleGit(cloned, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
@@ -344,12 +184,11 @@ class HostFiles {
     Directory scratch,
     Directory cloned,
     String commit, {
-    required String signingKey,
-    required String chosen,
+    required List<String> adminSigners,
+    required Set<String> chosen,
   }) async {
-    final fields = signingKey.trim().split(RegExp(r'\s+'));
     final allowed = File(path.join(scratch.path, 'allowed_signers'));
-    await allowed.writeAsString('porelo namespaces="git" ${fields[0]} ${fields[1]}\n');
+    await allowed.writeAsString(adminSigners.map((key) => 'porelo namespaces="git" $key\n').join());
     final answer = (await _bundleGit(cloned, [
       '-c',
       'gpg.ssh.allowedSignersFile=${allowed.path}',
@@ -360,7 +199,7 @@ class HostFiles {
     ])).split('\n');
     final status = answer.first.trim();
     final signer = answer.length > 1 ? answer[1].trim() : '';
-    if (status == 'G' && signer == chosen) return;
+    if (status == 'G' && chosen.contains(signer)) return;
     if (status == 'N') {
       throw const HostFilesRefused('The drive: the verified commit is not signed, so the host would refuse it.');
     }
@@ -370,8 +209,7 @@ class HostFiles {
       );
     }
     throw HostFilesRefused(
-      'The drive: the verified commit is signed by $signer, not by $chosen, the chosen public key for signing '
-      'commits. Choose the key that signed it. No server was rented.',
+      'The verified commit is signed by $signer, outside the verified project-admin signer set. No server was rented.',
     );
   }
 
@@ -442,137 +280,6 @@ class HostFiles {
     } finally {
       await staging.delete(recursive: true);
     }
-  }
-
-  /// Reuses existing keys. Without a folder the host files are supplied manually.
-  ///
-  /// With [hostPublicKey], the public half of the host's key the person's secrets file keeps, no host key is made
-  /// or written to the drive: the private half never leaves that file. With [ownFolder], [folder] is this desktop's
-  /// own, as for [publishBundle], and a machine file of an earlier attempt there is replaced. [act] selects its contract.
-  Future<HostTunnel> prepare({
-    required String project,
-    String? folder,
-    required String url,
-    required File signingKey,
-    List<HostKeyFile> keys = const [],
-    String? hostPublicKey,
-    bool ownFolder = false,
-    HostAct act = HostAct.legacyUp,
-  }) async {
-    act == HostAct.ownAccount ? checkProjectName(project) : checkName(project);
-    _checkKeys(keys, windows: _writer.isWindows || _paths.style == path.Style.windows);
-    if (hostPublicKey != null) checkPublicKey(hostPublicKey);
-    String? hostPrivate;
-    if (folder != null) {
-      if (url.trim().isEmpty || _paths.extension(signingKey.path) != '.pub') {
-        throw const HostFilesRefused('Give the repository URL and signing public key (.pub).');
-      }
-      final yaml = machineYaml(
-        project: project,
-        url: url,
-        signedBy: signingFingerprint(await signingKey.readAsString()),
-        act: act,
-        keys: keys,
-        windows: _writer.isWindows,
-      );
-      final root = Directory(_paths.join(_paths.normalize(folder), 'porelo-host'));
-      if (ownFolder) {
-        await _own(folder);
-      } else {
-        await _directory(Directory(folder), create: false);
-        await _directory(root);
-      }
-      final hostFile = File(destinationPath(folder, 'wireguard.key'));
-      final onTheDrive = await FileSystemEntity.type(hostFile.path, followLinks: false);
-      // The secrets file keeps the key now; a copy left on the drive is a key in the clear, said and never ignored.
-      if (hostPublicKey != null && onTheDrive != FileSystemEntityType.notFound) {
-        throw HostFilesRefused(
-          '${hostFile.path} still holds a host key while your secrets file keeps it. Open the secrets file again from '
-          'its step, which moves it, or remove it.',
-        );
-      }
-      final existing = hostPublicKey != null ? FileSystemEntityType.notFound : onTheDrive;
-      if (existing != FileSystemEntityType.notFound) {
-        if (existing != FileSystemEntityType.file) _conflict(hostFile.path);
-        hostPrivate = (await hostFile.readAsString()).trim();
-        try {
-          await publicKey(hostPrivate);
-        } on HostFilesRefused {
-          _conflict(hostFile.path);
-        }
-      }
-      if (hostPublicKey == null) hostPrivate ??= await _privateKey();
-      // With the secrets file the entries' files stay there: machine.yml names them, the stop's lines carry them.
-      final copied = hostPublicKey == null ? keys : const <HostKeyFile>[];
-      if (copied.isNotEmpty) await _directory(Directory(_paths.join(root.path, 'keys')));
-      final contents = <String, List<int>>{
-        destinationPath(folder, 'machine.yml'): utf8.encode(yaml),
-        if (hostPrivate != null) hostFile.path: utf8.encode('$hostPrivate\n'),
-        for (final key in copied) destinationPath(folder, key.basename, key: true): await key.file.readAsBytes(),
-      };
-      // In this desktop's own folder a machine file of an earlier attempt is this desktop's own, and replaced once
-      // every other file has passed its check.
-      final machineFile = File(destinationPath(folder, 'machine.yml'));
-      var earlier = false;
-      if (ownFolder && await FileSystemEntity.type(machineFile.path, followLinks: false) == FileSystemEntityType.file) {
-        final kept = await machineFile.readAsBytes();
-        final wanted = utf8.encode(yaml);
-        earlier = kept.length != wanted.length || Iterable<int>.generate(kept.length).any((i) => kept[i] != wanted[i]);
-      }
-      for (final entry in contents.entries) {
-        if (earlier && entry.key == machineFile.path) continue;
-        await _writer.check(File(entry.key), entry.value);
-      }
-      if (earlier) await machineFile.delete();
-      for (final entry in contents.entries) {
-        await _writer.write(File(entry.key), entry.value);
-      }
-    }
-    final name = keyName(project);
-    var peerPrivate = await _storeCall(() => store.read(name));
-    if (peerPrivate == null) {
-      peerPrivate = await _privateKey();
-      await _storeCall(() => store.write(name, peerPrivate!));
-      if (await _storeCall(() => store.read(name)) != peerPrivate) {
-        throw const HostFilesRefused('The secret store did not keep the WireGuard key.');
-      }
-    }
-    return HostTunnel(
-      hostPublicKey: hostPublicKey ?? (hostPrivate == null ? '' : await publicKey(hostPrivate)),
-      peerPublicKey: await publicKey(peerPrivate),
-    );
-  }
-
-  /// Exports the person's private half on the selected host network only when requested.
-  Future<void> exportTunnel({
-    required String project,
-    required HostTunnel tunnel,
-    required String address,
-    required File destination,
-    int networkNumber = 0,
-    String? peerAddress,
-  }) async {
-    SecretsFile.checkNetworkNumber(networkNumber);
-    final laptopAddress = peerAddress ?? '10.73.$networkNumber.2';
-    final match = RegExp('^10\\.73\\.$networkNumber\\.([1-9][0-9]{0,2})\$').firstMatch(laptopAddress);
-    if (match == null || int.parse(match[1]!) < 2 || int.parse(match[1]!) > 254) {
-      throw const HostFilesRefused('The laptop VPN address must be inside this host’s network, after its own address.');
-    }
-    if (tunnel.hostPublicKey.isEmpty || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
-      throw const HostFilesRefused('The host has not supplied valid tunnel settings.');
-    }
-    final privateKey = await _storeCall(() => store.read(keyName(project)));
-    if (privateKey == null || await publicKey(privateKey) != tunnel.peerPublicKey) {
-      throw const HostFilesRefused('The secret store does not hold this tunnel key.');
-    }
-    final endpoint = address.contains(':') ? '[$address]' : address;
-    await _writer.write(
-      destination,
-      utf8.encode(
-        '[Interface]\nPrivateKey = $privateKey\nAddress = $laptopAddress/24\n\n'
-        '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = $endpoint:51820\nAllowedIPs = 10.73.$networkNumber.1/32\nPersistentKeepalive = 25\n',
-      ),
-    );
   }
 
   static Never _conflict(String path) => throw HostFilesRefused(

@@ -33,7 +33,6 @@ import './step/the_rail_is_shown.dart';
 import './step/i_open_the_machines.dart';
 import './step/i_pick_in_the_finder.dart';
 import './step/the_menu_that_holds_is_open_with_it_marked.dart';
-import './step/the_title_bar_offers.dart';
 import './step/the_title_is.dart';
 import './step/i_go_to_the_place.dart';
 import './step/the_tunnel_drops.dart';
@@ -122,13 +121,6 @@ void main() {
       await iOpenTheCommandFinder(tester);
       await iPickInTheFinder(tester, 'Check whether this machine can run anything');
       await theMenuThatHoldsIsOpenWithItMarked(tester, 'Check whether this machine can run anything');
-    });
-    testWidgets('''the title bar holds only what belongs to no machine''', (tester) async {
-      await bddSetUp(tester);
-      await theTitleBarOffers(
-        tester,
-        'Find a command (Ctrl+K), Watch another machine…, Copy my public keys for a host…, Options, About Porelo',
-      );
     });
     testWidgets('''the title says where you are''', (tester) async {
       await bddSetUp(tester);

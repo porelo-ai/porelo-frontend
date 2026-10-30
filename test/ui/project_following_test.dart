@@ -9,6 +9,7 @@ import 'package:porelo_frontend/src/app/project_following.dart';
 import 'package:porelo_frontend/src/ui/project_following_view.dart';
 
 import '../features/support/world.dart';
+import '../support/host_admin.dart' show personKey;
 
 class _Core extends FakeBackend {
   _Core() : super([]);
@@ -50,7 +51,7 @@ void main() {
       ..startOn(core)
       ..name = 'demo'
       ..url = 'https://example.org/demo.git'
-      ..checking = Checking.unverified;
+      ..adminSigners = [personKey];
   });
   tearDown(() => following.dispose());
 

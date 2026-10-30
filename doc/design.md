@@ -210,108 +210,27 @@ is; a second consumer of the client code is what would change that.
 
 ## Projects on prepared hosts
 
-*Copy my public keys for a host…* creates this laptop's SSH and WireGuard keys once per host in the system
-secret store and copies only their public halves, without an SSH comment. *Join this project on its host…*
-uses the followed project's signed bundle and clones its private access repository through the developer's own
-Git credentials. Local `porelo project verify --json` must confirm the project and access revision before any
-laptop setup step. A missing Porelo stops the join with an installation instruction. The join reads its own
-small view of the verified developer list and matches both of this laptop's public keys; an absent or dropped
-laptop is refused without repair controls.
+Host and project actions consume Core's verified person, host and admission state. A project follows only
+with the verified project-admin signer set. Register and join run through the shared SSH host connection
+and keep a project-to-host association only after the host confirms the intended revision. No wizard asks
+for host values, project signing keys, laptop keys or host secrets.
 
-The join reads `transports.matrix.ca_certificate` from `access.yml` at the access commit Porelo verified.
-Its DER SHA-256 must equal `host.ca_sha256`; a mismatch shows both fingerprints before persistent join state,
-an exported SSH identity, or VPN or CA root installation. Verification uses disposable private files, and the
-access bundle carries both `HEAD` and its default branch at the verified commit. A different clone tip is refused.
-The VPN uses this laptop's listed address on the host's existing numbered network and installs
-only that host's checked CA. Every SSH call waits for the VPN and uses its host address, because the admitted
-key is restricted to the laptop's listed VPN address. The host-specific `known_hosts` pins that address. SSH restores
-its private identity into the user's protected runtime directory, with the system secret store as its lasting
-source. The person's lasting forge password is fed in a terminal directly from their encrypted secrets file
-to their own-login password helper before the first playbook start.
+`SignedHostActions` and `ServerPreparation` isolate the pending served contracts. Their default absence is
+reported before registration or setup can proceed. Their tests use fakes; the final adapters and a real
+interoperability check are still required. SSH forwarding and unlock integration belong to the shared host
+transport. Provider sign-ins and the local vault keep their own terminal paths.
 
-The own-account upload supplies a machine file with no forge migration section and both verified bundles.
-The host runs `ansible-playbook -c local porelo.host.join -e porelo_project=<project>`; Ansible belongs on the
-host. Its secrets stop and resume reuse the own-account runner. Completion requires the host daemon's verified
-project revision, then retains the access commit privately for `--access-since` on another join against the same
-repository and adds the developer's account to watched machines so its agents can be started there.
-A laptop without a rental record keeps a VPN-only host record; existing host setup recovery fields are preserved.
-The join command names a missing KeePassXC reader or secrets-file selection before its wizard can open.
+A saved rental made before one-click joining stays visible for give-back or setup again. Its provider
+project and original rental tag remain readable; retired trust and credential metadata is ignored. An old
+machine is never connected with its saved private-key path. Failed or unconfirmed give-back retains the
+rental. Explicitly confirmed legacy give-back does not run obsolete backup or teardown credentials and
+clears recovery only after the provider confirms removal. Setup again receives that existing rental,
+without discarding its recovery record while the replacement flow runs.
 
-*Put this project on a server…* takes the public JSON copied from *For the project admins…*, the project admin's
-own account name on that host, and their SSH identity file. A watched machine is not required. Renting belongs
-to *Prepare a server…*. Before any access edit or push, the public values, VPN address, identity path, project
-and credential names, and host CA are checked. The supplied SSH host key is pinned at that VPN address in a
-file for this host alone under porelo-host's state. Both SSH and the stop use that file, with no shared trust,
-root login, or sudo. A signing-key selection reads only its public prefix before reading the public key body.
-
-The daemon's verified project revision supplies `access.repository` and every central repository URL. The access
-checkout lives under `~/.local/share/porelo-frontend/access/<project>/`, mode `0700`, outside operation records.
-An existing checkout must be clean, have no unpublished commits, and use its default branch. Host settings and
-`transports.matrix` are edited with preserved comments. Git must already have commit signing configured; its own
-credential setup performs the clone and push, and its own signing setup signs the commit. The chosen project
-public key verifies the access commit before it is pushed, independently of Git's signature-display settings.
-Each attempt edits and signs in a private detached worktree. A failed initial clone removes its own incomplete
-directory; a signing, verification, or push failure discards only that attempt, preserving the clean persistent
-checkout for retry. Identical already published access bytes need no additional commit or push. No public
-`project.yml` is edited.
-
-The own-account upload installs `machine.yml`, `project.bundle`, and `access.bundle` under the person's host
-home, with directory mode `0700` and file mode `0600`. A bring adds the checked Forgejo migration list to the
-machine file; a join omits it. Each migration has a unique repository name derived from a central HTTPS URL
-without a user, query, or fragment. The bring's stop receives only its allowed needs from the secrets-file
-terminal. Its entries must already exist: the stop names anything missing. Host entries use the prepared
-host's name, while vault and credential entries use the project name. Resuming a completed stop reruns the
-playbook without repeating the access push or setup upload. An interrupted bring can be retried without
-republishing identical access settings. An existing setup folder remains untouched and its host refusal is
-shown verbatim; the interface does not replace it.
-The playbook performs one sync and its last task runs `porelo talk room <project>` in the admin's account.
-The interface writes exactly four keys in `transports.matrix`: the supplied `homeserver` as
-`https://matrix.<host>.porelo.internal:8448`, the fixed `room` alias
-`#porelo-<project>:matrix.<host>.porelo.internal`, `registration_token_file` as the literal
-`~/.config/porelo/matrix/host-registration-token`, and `ca_certificate` as a literal YAML block. The alias is
-shown for review and cannot be edited. Admission leaves the registration token in the admin's own home on
-the host; the interface writes its path and never reads the token.
-
-The CA comes from the selected host's retained public forge CA in its setup record. Before any access edit
-or upload, it must be one PEM certificate, with no chain or extra DER bytes, and its DER SHA-256 must match
-that host's `ca_sha256`. Missing or mismatched trust is refused without a network fetch. This trust applies
-only to the selected host. The written PEM must read back byte for byte, including its final newline;
-existing YAML comments are kept. Other Matrix keys, including `tls_verify` and `ca_file`, are removed.
-The project's Matrix peer belongs in the signed project file and is not edited here. The interface makes no
-separate room or sync call. It shows the playbook's latest public lines, including a room refusal in Porelo's own words.
-Completion also requires the host daemon to confirm the verified project revision over the same pinned SSH
-connection. An already watched connection to that account is refreshed. The checked host values determine
-the project-to-host association kept in `frontend.json`.
-
-*Project settings: Developers…* is the project admin's entry to the same private access checkout. The verified
-project revision supplies its repository; the existing central forge token store supplies GitHub API access.
-Each developer has a host account, an optional forge login, and one or more laptops. A laptop takes a YAML block
-containing only `ssh_public_key` and `wireguard_public_key`; the SSH comment is discarded. Address proposals read
-`host.network`, skip the host's first usable address and every listed laptop, and refuse a full network.
-Removing the last laptop requires removing its developer. Access edits preserve comments and use the same
-configured Git signing, signature verification, and push as a bring.
-
-After publication, the admin's pinned own-account SSH connection runs `sudo -n porelo-host-person sync <project>`.
-Its single JSON answer must identify the project and exact access commit before it confirms application. The
-panel shows the last sync's added, dropped, unchanged, and laptop lists, with no inferred live lock state.
-GitHub gets one read-only collaborator request for an added login; removal cancels a pending invitation and
-removes direct collaborator access. API refusals name Administration: Read and write on the access repository
-without displaying the API's diagnostic body. The forge's invitation and effective permission answers determine
-whether a login is invited, can read, or has no read access. Inherited team access can still appear as can read.
-A forge without this API offers a repository link explaining the manual read grant and revocation.
-Partial failures keep publication visible and allow retrying unconfirmed steps during the settings session.
-
-*Take this project off the server* is the host admin's act. Its project-menu action uses that association to
-find the retained host record, then opens the existing root helper dialog with the project fixed for review.
-The helper runs over the same pinned admin SSH as registration. It receives only the central token, one line
-on standard input; it receives no central URL. A refusal is shown verbatim, and only exit zero with a matching
-`project` and `removed: true` is accepted. The reply may also list `locked` accounts. The helper checks before
-changing anything and does not unfollow. A confirmed removal clears a local association to that same host;
-a refusal preserves it. Local secrets-file failures are shown without inventing a remote reply or exposing
-a temporary reply path. Password prompts remain visible while public refusals are captured; their capture
-finishes before the dialog reads the reply. The separate *Stop following this project* action remains the unfollow.
-The project-menu action is available only with the host-admin role and that host's record on this desktop.
-Otherwise its reason directs the host admin to the server's menu, *Take the project off*.
+The private access checkout and bundle utilities still verify signatures before advancing a checkout or
+publishing. The accepted project-admin signer set replaces a selected project key. Publication failures
+preserve the clean persistent checkout and never produce an unpublished access bundle. The interface no
+longer generates a machine file containing its own signing or trust schema; the served contract owns it.
 
 ## Windows
 

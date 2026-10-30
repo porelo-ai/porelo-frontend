@@ -1,3 +1,7 @@
+// Linux only: persisted setup protocol uses the private settings writer, which invokes chmod.
+@Tags(['linux'])
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -13,18 +17,7 @@ import 'package:porelo_host/porelo_host.dart';
 import '../features/support/world.dart';
 import '../support/host_process.dart';
 
-const _record = HostUpRecord(
-  scalewayProject: 'provider',
-  account: 'worker',
-  tresor: 'drive',
-  folder: null,
-  signingKey: '',
-  identity: '/keys/private',
-  publicKey: '/keys/public',
-  collection: '',
-  vpnPeerPublicKey: '',
-  vpnPeerAddress: '',
-);
+const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
 
 void main() {
   late Directory scratch;
@@ -73,10 +66,7 @@ void main() {
     process.words('Public setup diagnostic');
     await delivered.future;
     await Future.wait([run.saved, settings.setWorkUser('another'), settings.setRefreshSeconds(15)]);
-    await settings.rememberHostUp(
-      'demo',
-      settings.hostUp('demo')!.withVpnFile('/kept.conf').withTunnel(hostPublicKey: '', address: ''),
-    );
+    await settings.rememberHostUp('demo', settings.hostUp('demo')!.withProtocol(session.keptProtocol));
     final before = List<String>.of(session.protocol);
     expect(before, hasLength(3), reason: 'the reference includes both completed steps and an unmatched diagnostic');
     final reopened = Settings(store);
@@ -178,17 +168,7 @@ void main() {
     await confirmed.down();
     await restored.confirmDown('demo', confirmed);
     await reopened.load();
-    expect(
-      reopened.hostUp('demo')!.protocol,
-      isEmpty,
-      reason: 'confirmed give-back must erase the destroyed server protocol from disk',
-    );
-    expect(reopened.hostUp('demo')!.preparing, isFalse, reason: 'a destroyed server must not offer recovery');
-    expect(
-      reopened.hostUp('demo')!.arguments('demo'),
-      _record.arguments('demo'),
-      reason: 'teardown retains only the public setup answers',
-    );
+    expect(reopened.hostUp('demo'), isNull, reason: 'confirmed give-back removes recovery and protocol together');
   });
 
   // Harm: copying unrecognized wire fields to disk could retain a credential or once-shown password.
@@ -276,7 +256,7 @@ void main() {
 
   // Harm: dropping teardown answers over unreadable progress strands a server that is still billed.
   test('an unreadable protocol preserves the stored teardown record with empty progress', () async {
-    final teardown = _record.withPreparation(DateTime.utc(2000)).withVpnFile('/kept/vpn.conf');
+    final teardown = _record.withPreparation(DateTime.utc(2000));
     for (final invalid in <Object?>[
       null,
       false,

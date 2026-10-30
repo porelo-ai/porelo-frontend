@@ -73,12 +73,6 @@ class Tile {
 
 /// The kinds of attention row, including notices that are not work.
 enum AttentionKind {
-  /// An existing host's local VPN ping failed.
-  vpn,
-
-  /// A given-back server still needs its local tunnel taken down.
-  vpnCleanup,
-
   /// A project server stopped for a person during preparation.
   host,
 
@@ -212,14 +206,6 @@ class Attention extends ChangeNotifier {
       'message ${machine.name}/${message.task}/${message.handle}';
 
   Iterable<AttentionRow> _rows() sync* {
-    for (final machine in _hostRuns?.vpnsToTakeDown ?? <Machine>[]) {
-      yield AttentionRow(AttentionKind.vpnCleanup, 'vpn-cleanup ${machine.hostProject}', machine.name, machine);
-    }
-    for (final machine in _machines.all) {
-      if (_hostRuns?.vpnDown.contains(machine.name) == true) {
-        yield AttentionRow(AttentionKind.vpn, 'vpn ${machine.name}', machine.name, machine);
-      }
-    }
     for (final run in _hostRuns?.needingYou ?? <HostPreparation>[]) {
       yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
     }
@@ -309,10 +295,6 @@ class Attention extends ChangeNotifier {
       // Losing contact is not resolution; retain the last facts until this machine answers again.
       final resolved =
           row.kind == AttentionKind.operation ||
-          row.kind == AttentionKind.vpn && _hostRuns?.vpnDown.contains(row.machine) == false ||
-          row.kind == AttentionKind.vpnCleanup &&
-              _hostRuns?.vpnsToTakeDown.any((machine) => machine.hostProject == (row.value as Machine).hostProject) ==
-                  false ||
           row.kind == AttentionKind.host && _hostResolved(row.value as HostStop) ||
           (row.kind != AttentionKind.host &&
               machine != null &&
@@ -325,10 +307,7 @@ class Attention extends ChangeNotifier {
       (id, row) =>
           open.containsKey(id) ||
           _resolved.containsKey(id) ||
-          row.kind != AttentionKind.operation &&
-              row.kind != AttentionKind.host &&
-              row.kind != AttentionKind.vpnCleanup &&
-              machineNamed(row.machine) == null,
+          row.kind != AttentionKind.operation && row.kind != AttentionKind.host && machineNamed(row.machine) == null,
     );
     _lastRows.addAll(open);
     for (final id in open.keys) {
@@ -338,7 +317,6 @@ class Attention extends ChangeNotifier {
       (_, each) =>
           each.row.kind != AttentionKind.operation &&
           each.row.kind != AttentionKind.host &&
-          each.row.kind != AttentionKind.vpnCleanup &&
           machineNamed(each.row.machine) == null,
     );
     _prune();

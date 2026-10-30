@@ -98,7 +98,7 @@ class MachinesPage extends StatelessWidget {
             open: onHostProtocol == null ? null : () => onHostProtocol!(run),
             actions: hostRecoveryCommands(
               run: run,
-              goOn: () => unawaited(hostRuns!.resume(run)),
+              goOn: () => unawaited(run.legacy ? hostRuns!.again(run.project) : hostRuns!.resume(run)),
               takeDown: () => unawaited(
                 openHostTakeDownDialog(
                   context,
@@ -241,7 +241,11 @@ class _HostPreparationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final command = _hostProtocol(run, open);
-    final primary = run.interrupted ? actions.firstWhere((action) => action.id == 'host.goOn') : command;
+    final primary = run.legacy
+        ? actions.first
+        : run.interrupted
+        ? actions.firstWhere((action) => action.id == 'host.goOn')
+        : command;
     return ExpandableListRow(
       leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
       title: run.name,
@@ -309,13 +313,7 @@ class _HostPreparationDetailsState extends State<_HostPreparationDetails> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          run.ready
-              ? 'Setting up again'
-              : run.awaitingVpn
-              ? 'Setting up the VPN'
-              : 'In preparation',
-        ),
+        Text(run.ready ? 'Setting up again' : 'In preparation'),
         if (session.state == HostRunState.busy) Text('Setup of ${run.project} is still running from before.'),
         if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
         if (session.stepText.isNotEmpty) Text(session.stepText),

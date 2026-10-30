@@ -1,5 +1,4 @@
 import 'connections.dart';
-import 'host_stop_feed.dart';
 import 'machines.dart';
 
 /// The line that opens [machine]'s vault in a terminal, or null where nothing here can reach it.
@@ -11,20 +10,9 @@ import 'machines.dart';
 /// different vault from the one that machine uses — so it is not offered at all. A refused passphrase is asked
 /// again in that terminal, three attempts at most.
 ///
-/// A rented server's vault passphrase was made by its setup and kept in the person's secrets file: with
-/// [secretsFile] set, the terminal asks that file's master password once and pipes the passphrase from it, so
-/// nobody copies it by hand ([hostUnlockFeedCommand]).
-List<String>? unlockCommandFor(Machine machine, {String? secretsFile}) {
-  if (secretsFile != null && machine.kind == 'host' && machine.hostProject.isNotEmpty && machine.needsATunnel) {
-    return hostUnlockFeedCommand(
-      secretsFile: secretsFile,
-      project: machine.hostProject,
-      // The program that gets the passphrase on its standard input, by its path: the feed runs on Linux only.
-      ssh: '/usr/bin/ssh',
-      sshOptions: machine.loginSshOptions,
-      host: machine.host,
-    );
-  }
+/// A host vault is opened by Core through the shared SSH tunnel.
+List<String>? unlockCommandFor(Machine machine) {
+  if (machine.kind == 'host') return null;
   return onTheMachine(machine, const <String>['sh', '-c', _unlockAskingAgain], terminal: true);
 }
 

@@ -25,7 +25,7 @@ void main() {
   late Directory where;
 
   setUp(() {
-    where = Directory.systemTemp.createTempSync('tn-');
+    where = Directory.systemTemp.createTempSync('t-');
     addTearDown(() {
       if (where.existsSync()) where.deleteSync(recursive: true);
     });
@@ -37,63 +37,6 @@ void main() {
     host: 'user@build',
     remoteSocket: '/run/user/1001/porelo/porelod.sock',
   );
-
-  // Prevents one host's service URL from silently reaching another host.
-  test('cards sharing a service port name both hosts before publishing or launching the second', () async {
-    final commands = <List<String>>[];
-    final tunnels = Tunnels(
-      configEnvironment: {'XDG_CONFIG_HOME': where.path},
-      keyAvailable: (_) async => true,
-      portsAvailable: (_) async {},
-      run: (_) async => ProcessResult(0, 1, '', ''),
-      start: (command) async {
-        commands.add(command);
-        final process = _ControlledProcess();
-        process.end('Connection closed');
-        return process;
-      },
-    );
-    addTearDown(tunnels.dispose);
-    addTearDown(tunnels.dropEverything);
-    Machine card(String name) => Machine.fromStored(<String, Object?>{
-      'name': name,
-      'kind': 'host',
-      'host': name,
-      'identity': '${where.path}/$name.pub',
-      'socket': '${where.path}/$name.sock',
-      'remoteSocket': '/run/user/1001/porelo/porelod.sock',
-      'sshConfig': '${where.path}/porelo/ssh/$name.conf',
-      'hostCard': <String, Object?>{
-        'name': name,
-        'address': '$name.example.org',
-        'ssh_port': 22,
-        'host_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-        'login': 'alice',
-        'public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-        'uid': 1001,
-        'return_socket': '/run/porelo-host/people/alice/messenger.sock',
-        'services': <String, Object?>{
-          'forge': <String, Object?>{'web_port': 18080, 'git_port': 18081},
-          'matrix': <String, Object?>{'port': 18082},
-        },
-      },
-    });
-    await tunnels.raiseFor(card('alpha'));
-    final before = commands.length;
-    expect(before, 1, reason: 'the first nonconflicting host really launched');
-    expect(File('${where.path}/porelo/ssh/alpha.conf').existsSync(), isTrue);
-
-    final beta = card('beta');
-    expect(await tunnels.raiseFor(beta), isFalse);
-    expect(tunnels.of(beta)!.problem, allOf(contains('alpha'), contains('beta'), contains('18080')));
-
-    expect(commands, hasLength(before), reason: 'the conflicting host must never launch');
-    expect(
-      File('${where.path}/porelo/ssh/beta.conf').existsSync(),
-      isFalse,
-      reason: 'the conflicting config must not be published',
-    );
-  });
 
   /// A stand-in for `ssh` that binds the socket and stays up, as a working forward does.
   Future<Process> Function(List<String>) bindsAndStays(String socket) =>
@@ -921,9 +864,6 @@ class _ControlledProcess extends Fake implements Process {
 
   @override
   Stream<List<int>> get stderr => _errors.stream;
-
-  @override
-  Stream<List<int>> get stdout => const Stream.empty();
 
   @override
   Future<int> get exitCode => _exit.future;

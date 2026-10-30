@@ -1,4 +1,7 @@
-import 'dart:async';
+// Linux only: private file publication invokes chmod and inspects POSIX file modes.
+@Tags(['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -6,16 +9,11 @@ import 'dart:isolate';
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
-
-const _signing = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f fixture';
 
 void main() {
   late Directory scratch;
-  late File signing;
   setUp(() async {
     scratch = await Directory.systemTemp.createTemp('host-security-');
-    signing = await File(path.join(scratch.path, 'signing.pub')).writeAsString(_signing);
   });
   tearDown(() => scratch.delete(recursive: true));
   Future<List<String>> temporaries() async => [
@@ -23,7 +21,7 @@ void main() {
       if (e is Directory && e.uri.pathSegments.any((p) => p.startsWith('.porelo-writing-'))) e.path,
   ];
 
-  // Harm: a file created readable before chmod exposes a WireGuard key to an already open descriptor.
+  // Harm: a file created readable before chmod exposes a credential file to an already open descriptor.
   test('a private file is created at 0600 before any permission command', () async {
     final script = File(path.join(scratch.path, 'creation.dart'));
     await script.writeAsString(r'''
@@ -54,7 +52,7 @@ Future<void> main(List<String> arguments) async {
   // Harm: another user can keep a descriptor to a secret or observe partial destination bytes.
   // Red: create the destination directly instead of staging in a checked 0700 directory.
   test('secret destinations appear only complete and private', () async {
-    for (final name in ['wireguard.key', 'copied-key', 'wg-quick.conf']) {
+    for (final name in ['credential.data', 'copied-key', 'export.data']) {
       final destination = File(path.join(scratch.path, name));
       final writer = HostFileWriter(
         writeBytes: (file, handle, bytes) async {
@@ -79,7 +77,7 @@ Future<void> main(List<String> arguments) async {
   // Harm: a failed write leaves a partial secret published or an abandoned private file.
   // Red: omit finally cleanup or write directly to the destination.
   test('partial write failures leave neither destination nor staging directory', () async {
-    final destination = File(path.join(scratch.path, 'wireguard.key'));
+    final destination = File(path.join(scratch.path, 'credential.data'));
     final writer = HostFileWriter(
       writeBytes: (_, handle, bytes) async {
         await handle.writeFrom(bytes, 0, 1);
@@ -96,7 +94,7 @@ Future<void> main(List<String> arguments) async {
   test('a destination swapped for a symlink during writing is kept and refused', () async {
     final bytes = [1, 2, 3];
     final outside = await File(path.join(scratch.path, 'outside')).writeAsBytes(bytes);
-    final destination = File(path.join(scratch.path, 'wireguard.key'));
+    final destination = File(path.join(scratch.path, 'credential.data'));
     final writer = _ObservedPublisher(
       writeBytes: (_, handle, bytes) async {
         if (await destination.exists()) await destination.delete();
@@ -115,7 +113,7 @@ Future<void> main(List<String> arguments) async {
   // Red: omit protect(file) in the existing-identical branch of write().
   test('write makes an identical existing 0644 file private without changing its bytes', () async {
     final bytes = utf8.encode('fixture secret bytes');
-    final file = await File(path.join(scratch.path, 'wireguard.key')).writeAsBytes(bytes);
+    final file = await File(path.join(scratch.path, 'credential.data')).writeAsBytes(bytes);
     final changed = await Process.run('chmod', ['644', '--', file.path]);
     expect(changed.exitCode, 0);
     expect((await file.stat()).mode & 0x1ff, 0x1a4, reason: 'start with a deliberately readable file');
@@ -125,75 +123,10 @@ Future<void> main(List<String> arguments) async {
     expect(await temporaries(), isEmpty);
   }, skip: Platform.isLinux ? false : 'Linux mode checks require Linux.');
 
-  // Harm: repeated setup accepts a host key or copied credential synced back as world-readable.
-  // Red: omit protect(file) in the existing-identical branch used by prepare().
-  test('prepare restores 0600 on identical host and copied keys synced as 0644', () async {
-    final credential = await File(path.join(scratch.path, 'credential')).writeAsString('fixture credential bytes');
-    final files = HostFiles(_Secrets());
-    Future<HostTunnel> prepare() => files.prepare(
-      project: 'demo',
-      folder: scratch.path,
-      url: 'url',
-      signingKey: signing,
-      keys: [HostKeyFile('credential', credential)],
-    );
-    final first = await prepare();
-    final destinations = [
-      File(path.join(scratch.path, 'porelo-host', 'wireguard.key')),
-      File(path.join(scratch.path, 'porelo-host', 'keys', 'credential')),
-    ];
-    final originalBytes = <List<int>>[];
-    for (final file in destinations) {
-      originalBytes.add(await file.readAsBytes());
-      final changed = await Process.run('chmod', ['644', '--', file.path]);
-      expect(changed.exitCode, 0);
-      expect((await file.stat()).mode & 0x1ff, 0x1a4);
-    }
-    final repeated = await prepare();
-    for (var i = 0; i < destinations.length; i++) {
-      expect((await destinations[i].stat()).mode & 0x1ff, 0x180, reason: destinations[i].path);
-      expect(await destinations[i].readAsBytes(), originalBytes[i]);
-    }
-    expect(repeated.hostPublicKey, first.hostPublicKey);
-    expect(repeated.peerPublicKey, first.peerPublicKey);
-    expect(await temporaries(), isEmpty);
-  }, skip: Platform.isLinux ? false : 'Linux mode checks require Linux.');
-
-  // Harm: bypassing the private writer publishes a copied credential with broad permissions.
-  // Red: write keys/ entries directly in prepare instead of calling the injected writer.
-  test('prepare copies a credential through the private writer at 0600', () async {
-    final bytes = utf8.encode('fixture credential bytes');
-    final source = await File(path.join(scratch.path, 'credential')).writeAsBytes(bytes);
-    final keyDirectory = path.join(scratch.path, 'porelo-host', 'keys');
-    final observed = <List<int>>[];
-    final writer = HostFileWriter(
-      writeBytes: (file, handle, contents) async {
-        if (file.parent.parent.path == keyDirectory) {
-          expect((await file.parent.stat()).mode & 0x1ff, 0x1c0);
-          expect((await file.stat()).mode & 0x1ff, 0x180, reason: 'the credential first reaches a 0600 staged file');
-          observed.add(List.of(contents));
-        }
-        await handle.writeFrom(contents);
-      },
-    );
-    await HostFiles(_Secrets(), writer: writer).prepare(
-      project: 'demo',
-      folder: scratch.path,
-      url: 'url',
-      signingKey: signing,
-      keys: [HostKeyFile('credential', source)],
-    );
-    expect(observed, [bytes], reason: 'the selected credential must actually pass through the writer');
-    final copied = File(path.join(keyDirectory, 'credential'));
-    expect(await copied.readAsBytes(), bytes);
-    expect((await copied.stat()).mode & 0x1ff, 0x180);
-    expect(await temporaries(), isEmpty);
-  }, skip: Platform.isLinux ? false : 'Linux mode checks require Linux.');
-
   // Harm: a writer wins the check-to-rename race and its file is silently overwritten.
   // Red: publish with ordinary File.rename instead of atomic no-replace rename.
   test('a destination appearing immediately before rename is never replaced', () async {
-    final destination = File(path.join(scratch.path, 'wireguard.key'));
+    final destination = File(path.join(scratch.path, 'credential.data'));
     await expectLater(_ArrivingFile().write(destination, [1, 2, 3]), throwsA(isA<HostFilesRefused>()));
     expect(await destination.readAsString(), 'keep');
     expect(await temporaries(), isEmpty);
@@ -204,7 +137,7 @@ Future<void> main(List<String> arguments) async {
   for (final code in [0, 1]) {
     test('chmod exit $code ${code == 0 ? 'without' : 'despite'} a private mode refuses before writing', () async {
       var wrote = false;
-      final destination = File(path.join(scratch.path, 'wireguard.key'));
+      final destination = File(path.join(scratch.path, 'credential.data'));
       final writer = HostFileWriter(
         operatingSystem: 'linux',
         run: (program, args) async {
@@ -230,7 +163,7 @@ Future<void> main(List<String> arguments) async {
   // Harm: an unexpectedly accessible temporary directory exposes a file before chmod.
   // Red: omit the measured 0700 directory check.
   test('a nonprivate staging directory is refused and removed', () async {
-    final destination = File(path.join(scratch.path, 'wireguard.key'));
+    final destination = File(path.join(scratch.path, 'credential.data'));
     await expectLater(_PublicTemporary().write(destination, [1]), throwsA(isA<HostFilesRefused>()));
     expect(await destination.exists(), isFalse);
     expect(await temporaries(), isEmpty);
@@ -242,7 +175,7 @@ Future<void> main(List<String> arguments) async {
     final calls = <(String, List<String>)>[];
     var directoryProtected = false;
     var wrote = false;
-    final destination = File(path.join(scratch.path, 'wireguard.key'));
+    final destination = File(path.join(scratch.path, 'credential.data'));
     final writer = HostFileWriter(
       operatingSystem: 'windows',
       run: (program, args) async {
@@ -281,7 +214,7 @@ Future<void> main(List<String> arguments) async {
   for (final failure in ['whoami', 'invalid SID', 'directory ACL', 'file ACL']) {
     test('Windows $failure failure refuses without publishing or leaking tool output', () async {
       var aclCalls = 0;
-      final destination = File(path.join(scratch.path, 'wireguard.key'));
+      final destination = File(path.join(scratch.path, 'credential.data'));
       final writer = HostFileWriter(
         operatingSystem: 'windows',
         run: (program, _) async {
@@ -309,24 +242,6 @@ Future<void> main(List<String> arguments) async {
       expect(await destination.exists(), isFalse);
       expect(await temporaries(), isEmpty);
     });
-  }
-
-  // Harm: selecting a linked folder redirects credentials to an unintended tree.
-  // Red: follow links for either the selected folder or its porelo-host child.
-  for (final child in [false, true]) {
-    test('${child ? 'porelo-host child' : 'chosen folder'} symlink is named and refused', () async {
-      final real = await Directory(path.join(scratch.path, 'real')).create();
-      final chosen = child
-          ? await Directory(path.join(scratch.path, 'chosen')).create()
-          : Directory(path.join(scratch.path, 'chosen'));
-      final linked = child ? path.join(chosen.path, 'porelo-host') : chosen.path;
-      await Link(linked).create(real.path);
-      await expectLater(
-        HostFiles(_Secrets()).prepare(project: 'demo', folder: chosen.path, url: 'url', signingKey: signing),
-        throwsA(isA<HostFilesRefused>().having((e) => e.message, 'path', contains(linked))),
-      );
-      expect(await real.list().toList(), isEmpty);
-    }, skip: Platform.isWindows ? 'Creating symlinks needs Windows privileges.' : false);
   }
 
   // Harm: a malformed SSH blob makes a meaningless fingerprint look like trusted signing identity.
@@ -406,176 +321,27 @@ Future<void> main(List<String> arguments) async {
     );
   });
 
-  // Harm: URI conversion crashes the dialog before an unsafe selected name can be refused.
-  test('Windows stream names are refused without converting the selected file to a URI', () {
-    final windows = path.Context(style: path.Style.windows);
-    final key = HostKeyFile('entry', _NoUriFile(r'C:\input\a:b'), pathContext: windows);
-    expect(
-      () => HostFiles.machineYaml(project: 'demo', url: 'url', signedBy: 'fp', windows: true, keys: [key]),
-      throwsA(isA<HostFilesRefused>()),
-    );
-    expect(HostKeyFile('entry', _NoUriFile(r'C:\input\key.pem'), pathContext: windows).basename, 'key.pem');
-  });
-
   // Harm: inconsistent Windows destinations can miss a conflict or name a different file.
   test('Windows host destinations use backslashes for every joined segment', () {
-    final files = HostFiles(_Secrets(), pathContext: path.Context(style: path.Style.windows));
+    final files = HostFiles(pathContext: path.Context(style: path.Style.windows));
     for (final folder in [r'C:\host-files-x', 'C:/host-files-x/']) {
       expect(files.destinationPath(folder, 'machine.yml'), r'C:\host-files-x\porelo-host\machine.yml');
-      expect(files.destinationPath(folder, 'wireguard.key'), r'C:\host-files-x\porelo-host\wireguard.key');
+      expect(files.destinationPath(folder, 'credential.data'), r'C:\host-files-x\porelo-host\credential.data');
       expect(files.destinationPath(folder, 'vault-input', key: true), r'C:\host-files-x\porelo-host\keys\vault-input');
     }
     expect(() => files.destinationPath(r'C:\host-files-x', 'a:b', key: true), throwsA(isA<HostFilesRefused>()));
   });
 
-  // Harm: Windows resolves a key filename as a device/stream or merges two destinations.
-  // Red: omit Windows basename rules or compare duplicate filenames case-sensitively.
-  test('Windows names refuse streams devices trailing characters and folded duplicates', () {
-    for (final name in [
-      'a:b',
-      'CON',
-      'con.txt',
-      'PrN.pem',
-      'aux',
-      'NUL.key',
-      for (var n = 1; n <= 9; n++) ...['CoM$n.txt', 'lpt$n'],
-      'tail.',
-      'tail ',
-    ]) {
-      expect(
-        () => HostFiles.machineYaml(
-          project: 'demo',
-          url: 'url',
-          signedBy: 'fp',
-          windows: true,
-          keys: [HostKeyFile('entry', File('/input/$name'))],
-        ),
-        throwsA(isA<HostFilesRefused>()),
-        reason: name,
-      );
-    }
-    expect(
-      () => HostFiles.machineYaml(
-        project: 'demo',
-        url: 'url',
-        signedBy: 'fp',
-        windows: true,
-        keys: [HostKeyFile('first', File('/a/Key')), HostKeyFile('second', File('/b/key'))],
-      ),
-      throwsA(isA<HostFilesRefused>()),
-    );
-    expect(
-      HostFiles.machineYaml(
-        project: 'demo',
-        url: 'url',
-        signedBy: 'fp',
-        windows: true,
-        keys: [HostKeyFile('entry', File('/input/COM10.key'))],
-      ),
-      contains('COM10.key'),
-    );
-  });
-
-  // Harm: unescaped control bytes produce an unreadable machine contract.
-  // Red: keep JSON's short escapes or let DEL/C1 controls pass through raw.
-  test('all C0 DEL and C1 controls are Unicode escapes and parse back exactly', () {
-    final codes = [...List.generate(32, (i) => i), ...List.generate(33, (i) => i + 127)];
-    final value = String.fromCharCodes(codes);
-    final yaml = HostFiles.machineYaml(project: 'demo', url: value, signedBy: 'fp');
-    for (final code in codes) {
-      expect(yaml, contains('\\u${code.toRadixString(16).padLeft(4, '0')}'), reason: 'control $code');
-    }
-    expect(((loadYaml(yaml) as YamlMap)['project'] as YamlMap)['url'], value);
-  });
-
   // Harm: an equal-length comparison can silently accept and replace different private data.
   // Red: compare file lengths alone instead of every byte.
-  test('same-length conflicts in machine key and export remain unchanged', () async {
-    for (final name in ['machine.yml', 'wireguard.key', 'wg-quick.conf']) {
+  test('same-length conflicts leave private files unchanged', () async {
+    for (final name in ['machine.yml', 'credential.data', 'export.data']) {
       final file = await File(path.join(scratch.path, name)).writeAsString('keep');
       await expectLater(
         HostFileWriter().write(file, utf8.encode('lost')),
         throwsA(isA<HostFilesRefused>().having((e) => e.message, 'path', contains(file.path))),
       );
       expect(await file.readAsString(), 'keep');
-    }
-  });
-
-  // Harm: raw store exceptions can disclose values or leave setup/export without a refusal.
-  // Red: return the store's SocketException instead of a sanitized refusal.
-  for (final operation in ['read', 'write', 'export']) {
-    test('store SocketException during $operation becomes a safe refusal', () async {
-      final store = _Secrets();
-      final files = HostFiles(store);
-      HostTunnel? tunnel;
-      if (operation == 'export') {
-        tunnel = await files.prepare(project: 'demo', folder: scratch.path, url: 'url', signingKey: signing);
-      }
-      store.fail = operation == 'export' ? 'read' : operation;
-      final action = operation == 'export'
-          ? files.exportTunnel(
-              project: 'demo',
-              tunnel: tunnel!,
-              address: 'host',
-              destination: File(path.join(scratch.path, 'out.conf')),
-            )
-          : files.prepare(project: 'demo', url: '', signingKey: File(''));
-      await expectLater(
-        action,
-        throwsA(isA<SecretStoreFailed>().having((e) => e.message, 'safe refusal', isNot(contains('private-value')))),
-      );
-    });
-  }
-
-  // Harm: setup starts with a private key that the store did not actually retain.
-  // Red: omit or weaken the read-back equality check.
-  for (final altered in [false, true]) {
-    test('a ${altered ? 'different read-back' : 'dropped write'} prevents setup', () async {
-      final store = _Secrets()
-        ..drop = !altered
-        ..alter = altered;
-      await expectLater(
-        HostFiles(store).prepare(project: 'demo', url: '', signingKey: File('')),
-        throwsA(isA<HostFilesRefused>()),
-      );
-    });
-  }
-
-  // Harm: logging on reuse/export discloses private material after initial preparation was safe.
-  // Red: emit a private key with print, stdout.write or stderr.writeln in reuse/export.
-  test('stdout stderr and print during reuse and export contain neither private half', () async {
-    final store = _Secrets();
-    final files = HostFiles(store);
-    final tunnel = await files.prepare(project: 'demo', folder: scratch.path, url: 'url', signingKey: signing);
-    final host = (await File(path.join(scratch.path, 'porelo-host', 'wireguard.key')).readAsString()).trim();
-    final person = store.values.values.single;
-    final out = _Output();
-    final err = _Output();
-    final printed = <String>[];
-    await runZoned(
-      () => IOOverrides.runZoned(
-        () async {
-          print('print control');
-          stdout.write('stdout control');
-          stderr.writeln('stderr control');
-          await files.prepare(project: 'demo', folder: scratch.path, url: 'url', signingKey: signing);
-          await files.exportTunnel(
-            project: 'demo',
-            tunnel: tunnel,
-            address: 'host',
-            destination: File(path.join(scratch.path, 'asked.conf')),
-          );
-        },
-        stdout: () => out,
-        stderr: () => err,
-      ),
-      zoneSpecification: ZoneSpecification(print: (_, _, _, value) => printed.add(value)),
-    );
-    expect(printed, ['print control']);
-    expect(out.text.toString(), 'stdout control');
-    expect(err.text.toString(), 'stderr control\n');
-    for (final secret in [host, person]) {
-      expect('${printed.join()}${out.text}${err.text}', isNot(contains(secret)));
     }
   });
 }
@@ -597,41 +363,6 @@ class _PublicTemporary extends HostFileWriter {
   }
 }
 
-class _Secrets implements SecretStore {
-  final values = <String, String>{};
-  String? fail;
-  bool drop = false;
-  bool alter = false;
-  @override
-  Future<String?> read(String name) async {
-    if (fail == 'read') throw const SocketException('private-value');
-    return values[name];
-  }
-
-  @override
-  Future<void> write(String name, String value) async {
-    if (fail == 'write') throw const SocketException('private-value');
-    if (!drop) values[name] = alter ? base64Encode(List.filled(32, 7)) : value;
-  }
-
-  @override
-  Future<void> remove(String name) async => values.remove(name);
-  @override
-  Future<void> close() async {}
-}
-
-class _Output implements Stdout {
-  final text = StringBuffer();
-  @override
-  void write(Object? value) => text.write(value);
-  @override
-  void writeln([Object? value = '']) => text.writeln(value);
-  @override
-  void add(List<int> bytes) => text.write(utf8.decode(bytes));
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 class _ObservedPublisher extends HostFileWriter {
   _ObservedPublisher({super.writeBytes});
   int publications = 0;
@@ -643,12 +374,3 @@ class _ObservedPublisher extends HostFileWriter {
 }
 
 // Models Windows File.uri rejecting an alternate-stream path, independently of the test host.
-class _NoUriFile implements File {
-  _NoUriFile(this.path);
-  @override
-  final String path;
-  @override
-  Uri get uri => throw ArgumentError('Illegal character in path');
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}

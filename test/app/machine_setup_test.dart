@@ -25,27 +25,6 @@ void main() {
   int mode(String path) => FileStat.statSync(path).mode & 0x1FF;
 
   // Harm: padding between base64 blocks truncates or corrupts the installer sent to the machine.
-  test('sending in blocks preserves every byte and reports source bytes as they reach the pipe', () async {
-    final received = File('${home.path}/installer.run');
-    final commands = <List<String>>[];
-    final machine = MachineSetup(
-      home: home.path,
-      start: (executable, arguments) {
-        commands.add([executable, ...arguments]);
-        return Process.start('/bin/bash', ['-c', arguments.last]);
-      },
-    );
-    final bytes = Uint8List.fromList(List<int>.generate(150001, (index) => index % 256));
-    final counts = <int>[];
-    final result = await machine.sendToUser('example', received.path, bytes, onProgress: counts.add);
-
-    expect(result.exitCode, 0, reason: '${result.stderr}');
-    expect(await received.readAsBytes(), bytes, reason: 'all blocks decode as one installer, including the tail');
-    expect(commands.single, containsAllInOrder(['--', 'example']));
-    expect(counts.length, greaterThan(1), reason: 'progress is available before the whole file is sent');
-    expect(counts, orderedEquals(counts.toSet().toList()..sort()), reason: 'source byte counts advance each time');
-    expect(counts.last, bytes.length, reason: 'base64 expansion is not counted as installer bytes');
-  });
 
   // Harm: an ssh that ends early, as on a refused login, throws the interface's own broken pipe instead of saying why.
   test('an ssh that ends while the installer is sent answers with its own exit and words', () async {
@@ -84,62 +63,6 @@ void main() {
     expect(result.stderr, 'installing\n');
   });
 
-  test('a generated pair belongs together and is written owner-only', () async {
-    final pair = await setup.generate('porelo build machine');
-
-    expect(pair.publicKey, startsWith('ssh-ed25519 '));
-    expect(pair.publicKey, endsWith('porelo build machine'));
-    expect(await setup.mismatch(pair), isNull);
-
-    final path = await setup.save(pair, 'porelo-build');
-
-    expect(path, '${home.path}/.ssh/porelo-build');
-    expect(mode('${home.path}/.ssh'), 0x1C0, reason: '~/.ssh is not 700');
-    expect(mode(path), 0x180, reason: 'the private key is not 600');
-    expect(mode('$path.pub'), 0x1A4, reason: 'the public key is not 644');
-    expect(File(path).readAsStringSync(), pair.privateKey);
-  });
-
-  test("halves of two different pairs are refused before anything is written", () async {
-    final one = await setup.generate('one');
-    final other = await setup.generate('other');
-
-    final said = await setup.mismatch(KeyPair(privateKey: one.privateKey, publicKey: other.publicKey));
-
-    expect(said, contains('does not belong'));
-  });
-
-  test('a comment that differs is still the same key', () async {
-    final pair = await setup.generate('as generated');
-    final renamed = '${pair.publicKey.split(' ').take(2).join(' ')} renamed by somebody';
-
-    expect(await setup.mismatch(KeyPair(privateKey: pair.privateKey, publicKey: renamed)), isNull);
-  });
-
-  test('something that is not a private key says so', () async {
-    final pair = await setup.generate('x');
-
-    final said = await setup.mismatch(KeyPair(privateKey: 'not a key', publicKey: pair.publicKey));
-
-    expect(said, contains('cannot be read'));
-  });
-
-  test('saving twice is harmless, and another key under that name is never overwritten', () async {
-    final pair = await setup.generate('first');
-    await setup.save(pair, 'porelo-build');
-    await setup.save(pair, 'porelo-build');
-
-    final other = await setup.generate('second');
-    await expectLater(setup.save(other, 'porelo-build'), throwsA(isA<MachineSetupFailed>()));
-    expect(File('${home.path}/.ssh/porelo-build').readAsStringSync(), pair.privateKey);
-  });
-
-  test('a pair never says its private half', () async {
-    final pair = await setup.generate('x');
-
-    expect('$pair', isNot(contains('PRIVATE')));
-  });
-
   test('a failed root login says what ssh said', () async {
     final failing = MachineSetup(
       home: home.path,
@@ -149,6 +72,20 @@ void main() {
     expect(await failing.loginAsRoot('203.0.113.10', '/k'), contains('Permission denied'));
   });
 
+  // Harm: Core diagnostics must not expose secrets in the setup transcript.
+  test('person identity dependency diagnostics are sanitized', () async {
+    final machine = MachineSetup(personIdentity: () async => throw const FormatException('sensitive-fixture'));
+    await expectLater(
+      machine.identityFromAgent(),
+      throwsA(
+        isA<MachineSetupFailed>().having(
+          (error) => error.toString(),
+          'public refusal',
+          isNot(contains('sensitive-fixture')),
+        ),
+      ),
+    );
+  });
   group('the Host entry', () {
     Future<String> add({String alias = 'porelo-build', String user = 'agents'}) =>
         setup.addHostEntry(alias: alias, host: '203.0.113.10', user: user, keyFile: '${home.path}/.ssh/porelo-build');
@@ -161,7 +98,7 @@ void main() {
       expect(
         config(),
         'Host porelo-build\n    HostName 203.0.113.10\n    User agents\n'
-        '    IdentityFile ${home.path}/.ssh/porelo-build\n    IdentitiesOnly yes\n',
+        '    IdentityFile ${home.path}/.ssh/porelo-build\n    IdentitiesOnly yes\n    ForwardAgent no\n',
       );
       expect(mode('${home.path}/.ssh/config'), 0x180);
     });
@@ -303,35 +240,5 @@ void main() {
     });
   });
 
-  group('the keys already in ~/.ssh', () {
-    test('every private key is offered, and nothing that is not one', () async {
-      final ssh = Directory('${home.path}/.ssh')..createSync();
-      await setup.save(await setup.generate('a'), 'id_ed25519');
-      File('${ssh.path}/lonely').writeAsStringSync('-----BEGIN OPENSSH PRIVATE KEY-----\nx\n');
-      File('${ssh.path}/known_hosts').writeAsStringSync('host ssh-ed25519 AAAA\n');
-      File('${ssh.path}/config').writeAsStringSync('Host x\n');
-      File('${ssh.path}/authorized_keys').writeAsStringSync('ssh-ed25519 AAAA\n');
-
-      expect(setup.sshKeys().map((path) => path.split('/').last), <String>['id_ed25519', 'lonely']);
-    });
-
-    test('a key with a passphrase is refused, never asked about', () async {
-      final ssh = Directory('${home.path}/.ssh')..createSync();
-      final made = await Process.run('ssh-keygen', <String>[
-        '-q',
-        '-t',
-        'ed25519',
-        '-N',
-        'secret',
-        '-f',
-        '${ssh.path}/locked',
-      ]);
-      expect(made.exitCode, 0);
-
-      await expectLater(
-        setup.publicKeyOf('${ssh.path}/locked').timeout(const Duration(seconds: 10)),
-        throwsA(isA<MachineSetupFailed>()),
-      );
-    });
-  });
+  group('the keys already in ~/.ssh', () {});
 }

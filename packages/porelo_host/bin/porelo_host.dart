@@ -4,11 +4,11 @@ import 'dart:io';
 import 'package:porelo_host/porelo_host.dart';
 
 const _usage = '''
-porelo-host up|down (--host-name NAME --network N | --project NAME --account NAME) --public-key FILE --identity FILE
+porelo-host up|down (--host-name NAME | --project NAME --account NAME)
             [--forge true|false]
             (--scaleway-project ID [--zone fr-par-1] [--offer EM-I220E-NVME] | --given ADDRESS --host-key "TYPE BASE64")
             [--login-user NAME] [--distribution snapshots|releases]
-            [--vpn-peer-public-key KEY --vpn-peer-address ADDRESS]
+            [--legacy-rental] [--rental-tag TAG]
             [--give-back-anyway]
             [--collection FILE --collection-sha256 HEX]
 porelo-host find --project NAME --scaleway-project ID [--zone fr-par-1]
@@ -18,10 +18,9 @@ porelo-host key check scaleway
 porelo-host --version
 porelo-host --collection-info
 
-  up      rents the project's host, or finds it again by its tag, and runs the playbook there; it
-          stops with 75 for the person; run up again after completing the stop on the host
-  down    runs the down play, then gives the host back; a host whose down play did not finish is
-          kept, since a failed copy may have left the only copy there, and down says so
+  up      refuses until the verified Core and SSH-only preparation adapters are served
+  down    gives back the tagged rental after its down play; a failed play keeps the host
+          legacy rentals require explicit loss confirmation and run no retired teardown
   find    names the server rented for the project now, as one JSON line with its id, address and
           whether it is ready, or exits 69 when none is; it changes nothing
   key     checks and keeps Scaleway's secret key or keeps a forge token, or forgets it;
@@ -44,9 +43,9 @@ Future<void> main(List<String> arguments) async {
     await stdout.flush();
     await stderr.flush();
     exit(code);
-  } catch (e) {
+  } catch (_) {
     // Whatever was not foreseen still ends in one plain line, never a stack trace.
-    stderr.writeln('porelo-host: $e');
+    stderr.writeln('porelo-host: the operation could not be confirmed');
     exit(70);
   }
 }
@@ -69,18 +68,20 @@ Future<int> _run(List<String> arguments) async {
   final verb = arguments.first;
   final options = <String, String>{};
   var giveBackAnyway = false;
+  var legacyRental = false;
   for (var i = 1; i < arguments.length; i++) {
     final name = arguments[i];
-    if (name == '--give-back-anyway' && verb == 'down') {
+    if (name == '--legacy-rental' && verb == 'down') {
+      legacyRental = true;
+    } else if (name == '--give-back-anyway' && verb == 'down') {
       giveBackAnyway = true;
     } else if (const <String>{
           '--host-name',
-          '--network',
+          '--rental-tag',
           '--forge',
           '--project',
           '--account',
           '--public-key',
-          '--identity',
           '--collection',
           '--collection-sha256',
           '--scaleway-project',
@@ -90,15 +91,13 @@ Future<int> _run(List<String> arguments) async {
           '--host-key',
           '--login-user',
           '--distribution',
-          '--vpn-peer-public-key',
-          '--vpn-peer-address',
           '--machine-file',
           '--bundle',
         }.contains(name) &&
         i + 1 < arguments.length) {
       options[name.substring(2)] = arguments[++i];
     } else {
-      return _wrong('$name is not an option');
+      return _wrong('unknown or incomplete option');
     }
   }
   if (options.containsKey('machine-file') != options.containsKey('bundle')) {
@@ -115,24 +114,12 @@ Future<int> _run(List<String> arguments) async {
   }
   final serverOnly = options.containsKey('host-name');
   final needed = <String>[
-    if (serverOnly) ...[
-      'host-name',
-      'network',
-      'vpn-peer-public-key',
-      'vpn-peer-address',
-    ] else ...[
-      'project',
-      'account',
-    ],
-    'public-key',
-    'identity',
+    if (serverOnly) 'host-name' else ...['project', 'account'],
+    if (!legacyRental && verb == 'up') 'public-key',
   ];
   if (serverOnly &&
       (options.containsKey('project') || options.containsKey('account') || options.containsKey('machine-file'))) {
     return _wrong('a server takes no project or account');
-  }
-  if (serverOnly && int.tryParse(options['network'] ?? '') == null) {
-    return _wrong('--network needs an integer from 0 to 255');
   }
   if (options['forge'] != null && !const ['true', 'false'].contains(options['forge'])) {
     return _wrong('--forge needs true or false');
@@ -145,6 +132,10 @@ Future<int> _run(List<String> arguments) async {
   if (options['offer'] case final String offer when given || !RegExp(r'^[A-Z0-9][A-Z0-9-]*$').hasMatch(offer)) {
     return _wrong('--offer takes an Elastic Metal offer name such as EM-I220E-NVME, with --scaleway-project');
   }
+  if (verb == 'up') {
+    stderr.writeln('Verified SSH-only preparation requires the served Core and host setup contracts.');
+    return Exit.refused;
+  }
   final HostProvider provider;
   if (given) {
     provider = GivenMachine(address: options['given']!, hostKey: options['host-key']!);
@@ -154,7 +145,7 @@ Future<int> _run(List<String> arguments) async {
     provider = scalewayFor(options, scalewayOverHttps(key));
   }
 
-  final ssh = OpenSsh(knownHosts: File(poreloHostKnownHosts()), identity: options['identity']!);
+  final ssh = OpenSsh(knownHosts: File(poreloHostKnownHosts()), identity: '');
   final run = HostRun(
     provider: provider,
     remote: ssh,
@@ -165,15 +156,14 @@ Future<int> _run(List<String> arguments) async {
     project: options['project'] ?? '',
     account: options['account'] ?? '',
     hostName: options['host-name'],
-    network: int.tryParse(options['network'] ?? ''),
+    recoveryOnly: legacyRental,
+    existingRentalTag: options['rental-tag'],
     forge: options['forge'] != 'false',
-    publicKey: (await File(options['public-key']!).readAsString()).trim(),
+    publicKey: '',
     collection: options['collection'],
     collectionSha256: options['collection-sha256'],
     loginUser: options['login-user'] ?? (serverOnly ? 'root' : 'ubuntu'),
     distribution: options['distribution'] ?? 'snapshots',
-    vpnPeerPublicKey: options['vpn-peer-public-key'],
-    vpnPeerAddress: options['vpn-peer-address'],
     machineFile: options['machine-file'],
     bundle: options['bundle'],
   );
@@ -229,8 +219,8 @@ Future<(String?, int?)> _scalewayKey() async {
   final String? key;
   try {
     key = await store.read(providerKeyName('scaleway'));
-  } on SecretStoreFailed catch (e) {
-    stderr.writeln('porelo-host: $e');
+  } on SecretStoreFailed {
+    stderr.writeln('porelo-host: the operation could not be confirmed');
     return (null, Exit.refused);
   } finally {
     await store.close();

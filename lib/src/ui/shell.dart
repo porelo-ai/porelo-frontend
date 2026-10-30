@@ -8,7 +8,6 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/desk.dart';
 import '../app/homeserver_forwards.dart';
-import '../app/homeserver_publishing.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -112,8 +111,6 @@ import 'dialog_scroll.dart';
 import 'host_dialog.dart';
 import 'host_admin_dialog.dart';
 import 'host_stop_dialog.dart';
-import 'host_vpn_dialog.dart';
-import 'host_tunnel_export.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -275,10 +272,7 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    _hostRuns = HostRuns(widget.machines, homeserver: Platform.isLinux ? HomeserverPublishing() : null);
-    _hostRuns.addListener(_hostSetupChanged);
-    widget.machines.addListener(_vpnMachinesChanged);
-    _vpnMachinesChanged();
+    _hostRuns = HostRuns(widget.machines);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
@@ -299,17 +293,6 @@ class _ShellState extends State<Shell> {
   }
 
   Timer? _refreshing;
-  String _vpnMachines = '';
-
-  void _vpnMachinesChanged() {
-    final hosts = widget.machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toList()
-      ..sort();
-    final key = hosts.join('\x00');
-    if (key == _vpnMachines) return;
-    _vpnMachines = key;
-    unawaited(_hostRuns.refreshVpns());
-  }
-
   int _refreshingEvery = -1;
 
   /// Asks every machine again on its own, as often as the settings say; never when set to zero.
@@ -325,7 +308,6 @@ class _ShellState extends State<Shell> {
 
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
-    await _hostRuns.refreshVpns();
     for (final machine in widget.machines.all) {
       final fleet = widget.machines.of(machine);
       if (fleet.reachability != Reachability.connected) continue;
@@ -432,7 +414,6 @@ class _ShellState extends State<Shell> {
     putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
     openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
     joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
-    copyMyHostKeys: desk.isWindows ? null : () => unawaited(openCopyJoinKeysDialog(context)),
     takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
@@ -576,60 +557,9 @@ class _ShellState extends State<Shell> {
         machine: machine,
         settings: widget.settings,
         hostRuns: _hostRuns,
-        vpnLinkUp: _hostRuns.vpnLinkFor(machine.hostProject),
         takeDown: () => unawaited(_takeDown(machine)),
-        saveTunnel: () => unawaited(_saveTunnel(machine)),
-        bringVpnUp: () => unawaited(_bringVpnUp(machine)),
-        takeVpnDown: () => unawaited(_changeVpn(machine, up: false)),
       ),
     ];
-  }
-
-  Future<void> _saveTunnel(Machine machine) async {
-    final run = _hostRuns.of(machine.hostProject);
-    await saveHostTunnel(
-      context,
-      project: machine.hostProject,
-      tunnel: run?.tunnel,
-      address: run?.session.address ?? '',
-      settings: widget.settings,
-    );
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _bringVpnUp(Machine machine) => _changeVpn(machine, up: true);
-
-  Future<void> _changeVpn(Machine machine, {required bool up}) async {
-    if (!up) _hostRuns.vpnCleanupFinished(machine.hostProject, completed: false);
-    await openHostVpnDialog(
-      context,
-      machine: machine,
-      settings: widget.settings,
-      up: up,
-      open: widget.sessions.openTerminal,
-      onExit: up ? null : (code) => _hostRuns.vpnCleanupFinished(machine.hostProject, completed: code == 0),
-    );
-    await _hostRuns.refreshVpns();
-  }
-
-  void _hostSetupChanged() {
-    for (final run in _hostRuns.preparing) {
-      if (!run.awaitingVpn || run.vpnOffered) continue;
-      run.vpnOffered = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          unawaited(
-            openPreparationVpn(
-              context,
-              run: run,
-              runs: _hostRuns,
-              settings: widget.settings,
-              open: widget.sessions.openTerminal,
-            ),
-          );
-        }
-      });
-    }
   }
 
   Future<void> _takeDown(Machine machine) async {
@@ -1242,10 +1172,9 @@ class _ShellState extends State<Shell> {
 
   Future<void> _unlockMachine(Machine machine) async {
     final fleet = widget.machines.of(machine);
-    final secrets = widget.settings.secretsFile;
     final List<String>? command;
     try {
-      command = unlockCommandFor(machine, secretsFile: secrets);
+      command = unlockCommandFor(machine);
     } on FormatException catch (error) {
       _fleet.say(error.message);
       return;
@@ -1254,24 +1183,7 @@ class _ShellState extends State<Shell> {
       return;
     }
     if (command == null) return;
-    final fromTheFile = secrets != null && command.first == '/usr/bin/env';
-    // Said before a real terminal asks a master password that nothing could take.
-    if (fromTheFile && widget.sessions.openTerminal == null) {
-      if (keepassxcCliMissing() case final missing?) {
-        _fleet.say(missing);
-        return;
-      }
-    }
-    await unlockInATerminal(
-      context,
-      machine: machine,
-      command: command,
-      open: widget.sessions.openTerminal,
-      explanation: fromTheFile
-          ? 'Type the master password of $secrets, once. The vault passphrase comes from it and goes straight '
-                'to ${machine.name}, never through this program, and nothing here keeps it.'
-          : null,
-    );
+    await unlockInATerminal(context, machine: machine, command: command, open: widget.sessions.openTerminal);
     if (!mounted) return;
     await widget.vault.lookAt(fleet.backend, machine.name);
     await fleet.refresh(quietly: true);
@@ -1620,9 +1532,7 @@ class _ShellState extends State<Shell> {
       if (yes != true || !mounted) return;
     }
     var removeEntry = false;
-    var removeKey = false;
     if (written != null) {
-      final keyShared = setup.keyUsedElsewhere(written.keyFile, machine.host);
       final yes = await showDialog<bool>(
         context: context,
         builder: (context) => StatefulBuilder(
@@ -1645,18 +1555,6 @@ class _ShellState extends State<Shell> {
                       title: Text('Also remove Host ${machine.host} from ~/.ssh/config'),
                       subtitle: const Text('The entry setting it up wrote; the file as it was is kept.'),
                     ),
-                    CheckboxListTile(
-                      key: const Key('forget-key'),
-                      contentPadding: EdgeInsets.zero,
-                      value: removeKey,
-                      onChanged: keyShared ? null : (value) => setState(() => removeKey = value ?? false),
-                      title: Text('Also delete its key, ${written.keyFile}'),
-                      subtitle: Text(
-                        keyShared
-                            ? 'Another entry in ~/.ssh/config uses it, so it stays.'
-                            : 'Nothing here can reach the machine as that user afterwards.',
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1678,13 +1576,12 @@ class _ShellState extends State<Shell> {
     // page of the machine that is gone.
     widget.shell.goTo(Section.machines);
     await widget.machines.forget(machine);
-    if (written == null || (!removeEntry && !removeKey)) return;
+    if (written == null || !removeEntry) return;
     widget.operations.run(
       title: 'Forget ${machine.name}',
       machine: machine.name,
       output: () async* {
         if (removeEntry) yield await setup.removeHostEntry(machine.host);
-        if (removeKey) yield await setup.removeKey(written.keyFile);
       }(),
     );
   }
@@ -3043,8 +2940,6 @@ class _ShellState extends State<Shell> {
           final run = _hostRuns.of(project);
           if (run != null) unawaited(_openHostRun(run));
         },
-        onBringVpnUp: (machine) => unawaited(_bringVpnUp(machine)),
-        onTakeVpnDown: (machine) => unawaited(_changeVpn(machine, up: false)),
         unlockFor: _unlockFor,
         onStopFollowing: (machine, project) =>
             unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
@@ -3193,17 +3088,13 @@ class _ShellState extends State<Shell> {
                           command: command,
                           icon: switch (command.id) {
                             'host.protocol' => Icons.receipt_long_outlined,
-                            'machine.vpnUp' => Icons.vpn_key_outlined,
-                            'machine.vpnDown' => Icons.link_off_outlined,
                             'machine.saveTunnel' => Icons.download_outlined,
                             'machine.takeDown' => Icons.delete_outline,
                             _ => Icons.tune_outlined,
                           },
                           description: switch (command.id) {
                             'host.protocol' => 'Read the protocol from setting up this server.',
-                            'machine.vpnUp' => 'Bring WireGuard up on this computer and check that the server answers.',
                             'machine.saveTunnel' => 'Save a private connection file for another device.',
-                            'machine.vpnDown' => 'Take WireGuard down in a terminal on this computer.',
                             'machine.takeDown' =>
                               'End the project tasks and room, copy its files back and give the server back.',
                             _ => command.label,
@@ -3494,7 +3385,6 @@ class _ShellState extends State<Shell> {
     _attention.dispose();
     _workView.dispose();
     _hostRuns.dispose();
-    widget.machines.removeListener(_vpnMachinesChanged);
     _homeservers.dispose();
     _openedFocus.dispose();
     _frameFocus.dispose();

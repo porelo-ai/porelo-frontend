@@ -13,8 +13,7 @@ Future<void> aNewMachineWhoseRootLogsIn(WidgetTester tester) async {
   await World.settle(tester);
   await World.chooseWords(tester, 'A new machine');
   await tap('wizard-next');
-  await tap('generate-key');
-  await tap('keep-key');
+  await tap('use-person-identity');
   await tap('setup-next');
   await tester.enterText(find.byKey(const Key('new-host')), '203.0.113.10');
   await World.settle(tester);

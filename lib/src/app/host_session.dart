@@ -288,7 +288,7 @@ class HostSession extends ChangeNotifier {
     }
   }
 
-  /// A line of this interface's own in the current attempt, such as the VPN root step's fail line.
+  /// A line of this interface's own in the current attempt, such as a local persistence refusal.
   void note(String line) {
     if (_attempts.isEmpty) _attempts.add(HostAttemptRecord._(_now().toUtc()));
     _attempts.last._entries.add(HostProtocolLine(line));
@@ -454,7 +454,8 @@ class HostSession extends ChangeNotifier {
   Future<void> up() => _run(<String>['up', ...arguments]);
 
   /// Takes the host down.
-  Future<void> down() => _run(<String>['down', ...arguments]);
+  Future<void> down({bool giveBackAnyway = false}) =>
+      _run(<String>['down', ...arguments, if (giveBackAnyway) '--give-back-anyway']);
 
   Future<void> _run(List<String> command) async {
     if (state == HostRunState.running) return;

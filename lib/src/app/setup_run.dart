@@ -74,7 +74,7 @@ class SetupRun extends ChangeNotifier {
     this.countKeyslots,
     this.download,
     this.installerPin = TresoritInstaller.caSha256,
-  }) : keyFile = addingAUser ? (setup.existingKeys().firstOrNull ?? setup.sshKeys().firstOrNull ?? '') : '';
+  });
 
   /// Picks a run up again from what [toStored] kept, or null when it is not one.
   static SetupRun? fromStored(
@@ -104,7 +104,7 @@ class SetupRun extends ChangeNotifier {
       ..prepared = stored['prepared'] == true;
     final kept = text('kept');
     // A kept key that is no longer there is no key: that step is asked again.
-    if (kept.isNotEmpty && File(kept).existsSync()) {
+    if (stored['personIdentity'] == true && kept.isNotEmpty && File(kept).existsSync()) {
       run
         ..kept = kept
         ..keyFile = kept;
@@ -114,8 +114,6 @@ class SetupRun extends ChangeNotifier {
       ..driveSignedInAs = text('driveSignedInAs').isEmpty ? null : text('driveSignedInAs')
       ..driveSynced = text('driveSynced').isEmpty ? null : text('driveSynced')
       ..tresor = text('tresor');
-    final userKey = text('userKeyFile');
-    if (userKey.isNotEmpty && File(userKey).existsSync()) run.userKeyFile = userKey;
     final chosen = stored['chosen'];
     if (chosen is List) run.chosen.addAll(chosen.whereType<String>().where(MachineSetup.isPackageName));
     final step = SetupStep.values.where((each) => each.name == text('step')).firstOrNull;
@@ -156,20 +154,14 @@ class SetupRun extends ChangeNotifier {
   /// The step the person is on.
   SetupStep step = SetupStep.key;
 
-  /// The pasted or generated key, before it is kept.
-  String privateKey = '';
-
   /// Its public half, shown and put on the machine.
   String publicKey = '';
 
   /// The key file root logs in with, when adding a user.
-  String keyFile;
+  String keyFile = '';
 
   /// Where the admin key was kept, once it was.
   String? kept;
-
-  /// The work user's own key, chosen from `~/.ssh`, or null to have one made for it.
-  String? userKeyFile;
 
   /// Its public half, once it is known.
   String userPublicKey = '';
@@ -260,12 +252,6 @@ class SetupRun extends ChangeNotifier {
   /// Whether an action is running: the steps wait for it.
   bool get busy => doing != null;
 
-  /// The admin key's file name under `~/.ssh`: root's, for setting up, never the daily one.
-  String get keyName => 'porelo-${Machine.slug(name)}-admin';
-
-  /// The work user's own key's file name: the only key its `Host` entry and the interface use.
-  String get userKeyName => 'porelo-${Machine.slug(name)}-${Machine.slug(workUser)}';
-
   /// The `Host` entry the machine is reached through.
   String get alias => 'porelo-${Machine.slug(name)}';
 
@@ -326,7 +312,7 @@ class SetupRun extends ChangeNotifier {
     'host': host,
     'prepared': prepared,
     'chosen': chosen.toList()..sort(),
-    'userKeyFile': userKeyFile ?? '',
+    'personIdentity': kept != null,
     'driveInstalled': driveInstalled,
     'driveSignedInAs': driveSignedInAs ?? '',
     'driveSynced': driveSynced ?? '',
@@ -338,29 +324,13 @@ class SetupRun extends ChangeNotifier {
   /// Forgets the run: it was finished, or the person discarded it.
   Future<void> forget() async => remember?.call(null);
 
-  /// Makes a new key pair for root's login, named after the machine.
-  Future<void> generate() => _doing('Generating a key pair…', () async {
-    final pair = await setup.generate('porelo $name');
-    privateKey = pair.privateKey;
-    publicKey = pair.publicKey;
-    return null;
-  });
-
-  /// Keeps the pasted or made key, once its two halves are seen to belong together.
-  Future<void> keep() => _doing('Checking the two halves belong together…', () async {
-    final pair = KeyPair(privateKey: privateKey, publicKey: publicKey.trim());
-    final wrong = await setup.mismatch(pair);
-    if (wrong != null) throw MachineSetupFailed(wrong);
-    kept = await setup.save(pair, keyName);
-    return 'Kept as $kept.';
-  });
-
-  /// Uses a key that is already on this computer, read from [keyFile].
-  Future<void> useKey() => _doing('Reading the key…', () async {
-    final file = keyFile.trim();
-    publicKey = await setup.publicKeyOf(file);
-    kept = file;
-    return 'Root logs in with $file, and $workUser will too.';
+  /// Uses the person's verified public identity through the local SSH agent.
+  Future<void> useIdentity() => _doing('Checking your person identity…', () async {
+    final identity = await setup.identityFromAgent();
+    publicKey = identity.publicKey;
+    kept = identity.publicFile;
+    keyFile = identity.publicFile;
+    return 'Your person identity is selected through the SSH agent.';
   });
 
   /// Logs in as root, asking [confirm] about a host key seen for the first time.
@@ -425,28 +395,12 @@ class SetupRun extends ChangeNotifier {
     return MachineSetup.whatTheScriptSaid(0);
   });
 
-  /// Chooses a key already in `~/.ssh` for the work user instead of having one made.
-  void useUserKey(String? file) {
-    userKeyFile = file;
-    userPublicKey = '';
-    changed();
-  }
-
-  /// Sets the machine up for the work user, with a key of its own, and connects to its Porelo.
+  /// Reaches the work account using the person's existing agent identity.
   Future<void> reach() => _doing('Setting it up for $workUser and connecting…', () async {
     log.clear();
-    // The work user's own key: chosen, or made once and found again on a second run.
-    var userKey = userKeyFile;
-    if (userKey == null) {
-      final made = '${setup.sshDirectory}/$userKeyName';
-      if (!File(made).existsSync()) {
-        await setup.save(await setup.generate('porelo $name $workUser'), userKeyName);
-        _logged('Made a key of its own for $workUser: $made.');
-      }
-      userKey = made;
-      userKeyFile = made;
-    }
-    userPublicKey = await setup.publicKeyOf(userKey);
+    final identity = await setup.identityFromAgent();
+    final userKey = identity.publicFile;
+    userPublicKey = identity.publicKey;
     final allowed = await setup.asRoot(loggedInTo!, kept!, MachineSetup.authorize(workUser, userPublicKey));
     if (allowed.exitCode != 0) {
       throw MachineSetupFailed('The key could not be allowed for $workUser: ${both(allowed)}');

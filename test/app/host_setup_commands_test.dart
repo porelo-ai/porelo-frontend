@@ -12,19 +12,9 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
+import '../support/host_admin.dart';
 
-const _record = HostUpRecord(
-  scalewayProject: 'provider',
-  account: 'worker',
-  tresor: 'drive',
-  identity: '/keys/private',
-  publicKey: '/keys/public',
-  folder: null,
-  collection: '',
-  signingKey: '',
-  vpnPeerPublicKey: '',
-  vpnPeerAddress: '',
-);
+const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
 const _done = Step(
   'up',
   StepState.done,
@@ -39,14 +29,11 @@ void main() {
     test('conflicting commands wait for a ready server setup that is $state', () async {
       final settings = Settings(MemorySettingsStore());
       final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-      final runs = HostRuns(machines, endpointFor: (_) => '/tmp/prepared.sock');
+      final runs = HostRuns(machines);
       final notifications = Notifications(RecordingNotifier(), settings);
-      final originalCli = keepassxcCliIsHere;
       final originalDesk = desk;
-      keepassxcCliIsHere = true;
       desk = Desk.of('linux', const {});
       addTearDown(() {
-        keepassxcCliIsHere = originalCli;
         desk = originalDesk;
         notifications.dispose();
         runs.dispose();
@@ -72,6 +59,7 @@ void main() {
       );
       first
         ..line(_done)
+        ..line(Step('host', StepState.host, host: PreparedHost.read({...hostValues(), 'name': 'demo'})))
         ..end(0);
       await run.finished;
       final machine = machines.all.singleWhere((machine) => machine.hostProject == 'demo');
@@ -139,6 +127,7 @@ void main() {
       final finishing = state == 'running' ? again : runs.resume(run);
       (state == 'running' ? process : resumed)
         ..line(_done)
+        ..line(Step('host', StepState.host, host: PreparedHost.read({...hostValues(), 'name': 'demo'})))
         ..end(0);
       await finishing;
       for (final command in conflicting()) {

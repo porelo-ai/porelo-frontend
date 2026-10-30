@@ -1,768 +1,289 @@
-@TestOn('linux')
+// Linux only: the replacement lock guard runs a Dart child using POSIX file locks and chmod.
+@Tags(['linux'])
 library;
 
-import 'package:porelo_frontend/src/app/roles.dart';
-
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart' hide Step, StepState;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
 import 'package:porelo_frontend/src/app/host_session.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
-import 'package:porelo_frontend/src/ui/attention_view.dart';
-import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
-import 'package:porelo_frontend/src/ui/leaving.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
+import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_frontend/src/ui/machines_page.dart';
-import 'package:porelo_host/porelo_host.dart';
+import 'package:porelo_host/porelo_host.dart' as host;
 
-import '../features/support/world.dart';
+import '../features/support/world.dart' show FakeBackend, World;
 import '../support/host_process.dart';
+import '../support/host_rental.dart';
+import '../support/host_admin.dart';
 
-const _record = HostUpRecord(
-  scalewayProject: 'provider',
-  account: 'worker',
-  tresor: 'drive',
-  identity: '/keys/private',
-  publicKey: '/keys/public',
-  folder: null,
-  collection: '',
-  signingKey: '',
-  vpnPeerPublicKey: '',
-  vpnPeerAddress: '',
-);
-
-// The fixture must use the SDK paired with the engine rather than dart from PATH.
-final _cache = File(Platform.resolvedExecutable).parent.parent.parent.parent;
-final _dart = '${_cache.path}/dart-sdk/bin/dart';
-
-Future<Process> _child(String phase, String lock) =>
-    Process.start(_dart, ['test/support/locked_host.dart', phase, lock]);
-
-Future<void> _until(HostRuns runs, bool Function() condition) async {
-  if (condition()) return;
-  final done = Completer<void>();
-  void changed() {
-    if (condition() && !done.isCompleted) done.complete();
+class _Tunnels extends Tunnels {
+  final requested = <Machine>[];
+  @override
+  Future<bool> raiseFor(Machine machine) async {
+    requested.add(machine);
+    return true;
   }
-
-  runs.addListener(changed);
-  try {
-    await done.future.timeout(const Duration(seconds: 5));
-  } finally {
-    runs.removeListener(changed);
-  }
-}
-
-void main() {
-  setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
-  tearDown(() => roles = const Roles());
-  late Directory scratch;
-  late Settings settings;
-  late Machines machines;
-  final owners = <HostRuns>[];
-  final children = <Process>[];
-  late Map<String, String> environment;
-  String getLock() => poreloHostProjectLock('demo', environment: environment);
-
-  setUp(() async {
-    scratch = await Directory.systemTemp.createTemp('host-recovery-');
-    environment = {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path};
-    settings = Settings(MemorySettingsStore());
-    machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-  });
-  tearDown(() async {
-    for (final owner in owners) {
-      owner.dispose();
-    }
-    owners.clear();
-    for (final child in children) {
-      child.kill();
-      await child.exitCode.timeout(const Duration(seconds: 5));
-    }
-    children.clear();
-    machines.dispose();
-    settings.dispose();
-    await scratch.delete(recursive: true);
-  });
-
-  Future<_RestoredRuns> restored(StartHostCommand start, {_ProbeGate? gate}) async {
-    await settings.rememberHostUp('demo', _record.withPreparation(DateTime.utc(2000)));
-    final runs = _RestoredRuns(machines, environment, start, gate);
-    owners.add(runs);
-    return runs;
-  }
-
-  final setupRecord = HostUpRecord.fromStored({
-    ..._record.stored,
-    'setupFolder': '/setup/demo',
-    'collection': '/setup/collection',
-    'collectionSha256': List.filled(64, 'a').join(),
-    'vpnPeerPublicKey': 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
-    'vpnPeerAddress': '10.73.0.2/32',
-    'vpnHostPublicKey': 'CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=',
-  })!;
-  const completed = Step(
-    'up',
-    StepState.done,
-    address: '203.0.113.7',
-    account: 'worker',
-    socket: '/run/user/1007/porelo/porelod.sock',
-  );
-
-  Future<HostPreparation> ready(HostRuns runs, StartHostCommand start) async {
-    final initial = HostProcess();
-    var first = true;
-    final run = runs.start(
-      project: 'demo',
-      record: setupRecord,
-      session: HostSession(
-        executable: 'stand-in',
-        arguments: hostArguments(setupRecord, 'demo'),
-        start: (executable, arguments) async {
-          if (!first) return start(executable, arguments);
-          first = false;
-          return initial;
-        },
-      ),
-    );
-    initial
-      ..line(completed)
-      ..end(0);
-    await run.finished;
-    await runs.vpnChecked(run, verified: true);
-    expect(run.ready, isTrue, reason: 'the original setup must finish before it can be run again');
-    return run;
-  }
-
-  Future<void> showMachines(WidgetTester tester, HostRuns runs) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ListenableBuilder(
-            listenable: runs,
-            builder: (_, _) =>
-                MachinesPage(machines: machines, hostRuns: runs, onAdd: () {}, onDetails: (_) {}, onForget: (_) {}),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('machines-row demo server')),
-        matching: find.byTooltip('Show more'),
-      ),
-    );
-    await World.settle(tester);
-  }
-
-  Future<void> openAgain(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('machines-menu demo server')));
-    await World.settle(tester);
-    expect(find.text('Run its setup again'), findsOneWidget, reason: 'the ready server must offer its setup');
-  }
-
-  // Harm: invisible setup invites a conflicting teardown, while an unseen stop leaves a rented server waiting.
-  testWidgets('a ready server row follows setup again through progress, a stop and completion', (tester) async {
-    final process = HostProcess();
-    final resumed = HostProcess();
-    var starts = 0;
-    final runs = HostRuns(machines, environment: environment);
-    owners.add(runs);
-    final run = await ready(runs, (_, _) async => starts++ == 0 ? process : resumed);
-    final machine = machines.all.singleWhere((machine) => machine.hostProject == 'demo');
-    final fleet = machines.of(machine);
-    HostPreparation? opened;
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ListenableBuilder(
-            listenable: runs,
-            builder: (_, _) => MachinesPage(
-              machines: machines,
-              hostRuns: runs,
-              onAdd: () {},
-              onDetails: (_) {},
-              onForget: (_) {},
-              onHostProtocol: (run) => opened = run,
-              hostCommands: (machine) =>
-                  hostMachineCommands(machine: machine, settings: settings, hostRuns: runs, takeDown: () {}),
-            ),
-          ),
-        ),
-      ),
-    );
-    final row = find.byKey(const ValueKey('machines-row demo server'));
-    await tester.tap(find.descendant(of: row, matching: find.byTooltip('Show more')));
-    await World.settle(tester);
-    await openAgain(tester);
-    await tester.tap(find.text('Run its setup again'));
-    process.line(const Step('play', StepState.started, text: 'Configure the server', seconds: 120));
-    await World.settle(tester);
-    expect(find.descendant(of: row, matching: find.text('Setting up again')), findsWidgets);
-    expect(find.descendant(of: row, matching: find.text('Configure the server')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.textContaining('left in this step')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('host.protocol demo')));
-    expect(opened, same(run), reason: 'the primary action must open this attempt\'s protocol');
-    await openAgain(tester);
-    final takeDown = tester.widget<PopupMenuItem<String>>(find.byKey(const ValueKey('machine.takeDown')));
-    expect(takeDown.enabled, isFalse, reason: 'teardown must not overlap the server setup');
-    expect(find.textContaining('its setup is running again; see its protocol'), findsWidgets);
-    await tester.tapAt(const Offset(1, 1));
-    process
-      ..line(const Step('person', StepState.waiting, needs: ['drive'], text: 'Sign in to the drive'))
-      ..end(75);
-    await World.settle(tester);
-    await run.finished;
-    expect(find.descendant(of: row, matching: find.text('Needs you')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('Sign in to the drive')), findsOneWidget);
-    final finishing = runs.resume(run);
-    await World.settle(tester);
-    resumed
-      ..line(completed)
-      ..end(0);
-    await World.settle(tester);
-    await finishing;
-    expect(find.descendant(of: row, matching: find.text('Connected')), findsOneWidget);
-    expect(find.descendant(of: row, matching: find.text('Setting up again')), findsNothing);
-    expect(machines.of(machine), same(fleet), reason: 'setup must keep access to the watched machine');
-    await openAgain(tester);
-    for (final id in ['machine.takeDown', 'machine.forget', 'host.again']) {
-      expect(
-        tester.widget<PopupMenuItem<String>>(find.byKey(ValueKey(id))).enabled,
-        isTrue,
-        reason: 'the command must return after setup completes',
-      );
-    }
-    expect(run.session.steps.last.step, 'up', reason: 'the protocol must retain the completed setup');
-    expect(run.session.steps.last.state, StepState.done);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  for (final reopened in [false, true]) {
-    // Harm: rerunning setup with changed arguments can upload files to or modify the wrong server.
-    testWidgets('a ${reopened ? 'reopened' : 'retained'} ready server runs its recorded setup as one new attempt', (
-      tester,
-    ) async {
-      final commands = <List<String>>[];
-      final process = HostProcess();
-      Future<Process> start(String executable, List<String> arguments) async {
-        commands.add(List.of(arguments));
-        return process;
-      }
-
-      HostRuns runs = _RestoredRuns(machines, environment, start, null);
-      owners.add(runs);
-      await ready(runs, start);
-      if (reopened) {
-        runs = _RestoredRuns(machines, environment, start, null);
-        owners.add(runs);
-      }
-      await showMachines(tester, runs);
-      await openAgain(tester);
-      await tester.tap(find.text('Run its setup again'));
-      await World.settle(tester);
-      expect(commands, [
-        ['up', ...hostArguments(setupRecord, 'demo')],
-      ], reason: 'one click must reuse every recorded option, including the setup files uploaded by up');
-      final run = runs.of('demo')!;
-      expect(run.session.attempts, hasLength(2), reason: 'the original protocol must survive the new attempt');
-      process
-        ..line(completed)
-        ..end(0);
-      await World.settle(tester);
-      await run.finished;
-      expect(run.ready, isTrue, reason: 'rerunning must not send a ready server back to the VPN setup step');
-      expect(run.session.attempts.every((attempt) => attempt.endedAt != null), isTrue);
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
-  }
-
-  // Harm: a stop in a ready server's setup waits unseen, preventing its required secrets from being supplied.
-  testWidgets('a ready server setup stop reaches Needs you and resumes through the kept run', (tester) async {
-    final process = HostProcess();
-    final next = HostProcess();
-    var starts = 0;
-    final runs = HostRuns(machines, environment: environment);
-    owners.add(runs);
-    final run = await ready(runs, (_, _) async => starts++ == 0 ? process : next);
-    final attention = Attention(machines)..hostRuns = runs;
-    await showMachines(tester, runs);
-    await openAgain(tester);
-    await tester.tap(find.text('Run its setup again'));
-    process
-      ..line(const Step('person', StepState.waiting, needs: ['drive'], text: 'Sign in to the drive'))
-      ..end(75);
-    await World.settle(tester);
-    await run.finished;
-    final row = attention.openRows.singleWhere((row) => row.kind == AttentionKind.host);
-    expect(row.machine, 'demo server');
-    expect((row.value as HostStop).needs, ['drive']);
-    expect((row.value as HostStop).text, 'Sign in to the drive');
-    final resumed = runs.resume(run);
-    await World.settle(tester);
-    expect(starts, 2, reason: 'completing the stop must resume up even though the server remains ready');
-    next
-      ..line(completed)
-      ..end(0);
-    await World.settle(tester);
-    await resumed;
-    expect(attention.openRows.where((row) => row.kind == AttentionKind.host), isEmpty);
-    expect(run.session.attempts, hasLength(3));
-    expect(attention.recentlyResolved.where((row) => row.row.kind == AttentionKind.host), hasLength(1));
-    // Its timer for the resolved row ends with it, before the test checks that none is left.
-    attention.dispose();
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: marking a ready server as preparing removes its machine row and disrupts access to its running work.
-  testWidgets('a ready server stays in Machines throughout another setup', (tester) async {
-    final process = HostProcess();
-    final runs = HostRuns(machines, environment: environment);
-    owners.add(runs);
-    final run = await ready(runs, (_, _) async => process);
-    final preparations = <bool>[];
-    settings.addListener(() => preparations.add(settings.hostUp('demo')!.preparing));
-    await showMachines(tester, runs);
-    await openAgain(tester);
-    await tester.tap(find.text('Run its setup again'));
-    await World.settle(tester);
-    expect(run.running, isTrue, reason: 'the assertions must observe an active setup');
-    expect(run.ready, isTrue);
-    expect(machinesPageRows(machines, runs).machines.where((machine) => machine.hostProject == 'demo'), hasLength(1));
-    expect(find.byKey(const ValueKey('machines-row demo server')), findsOneWidget);
-    expect(find.byKey(const ValueKey('host-preparing demo')), findsNothing);
-    expect(settings.hostUp('demo')!.preparing, isFalse);
-    process
-      ..line(completed)
-      ..end(0);
-    await World.settle(tester);
-    await run.finished;
-    expect(preparations, isNotEmpty, reason: 'the protocol must still be persisted during the rerun');
-    expect(preparations, everyElement(isFalse), reason: 'no settings write may mark the ready server as preparing');
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  for (final waiting in [false, true]) {
-    // Harm: a second setup can modify the same server while an attempt runs or waits for its secrets.
-    testWidgets('another setup cannot start while the ready server ${waiting ? 'waits' : 'runs'}', (tester) async {
-      var starts = 0;
-      final process = HostProcess();
-      final runs = HostRuns(machines, environment: environment);
-      owners.add(runs);
-      final run = await ready(runs, (_, _) async {
-        starts++;
-        return process;
-      });
-      await showMachines(tester, runs);
-      await openAgain(tester);
-      await tester.tap(find.text('Run its setup again'));
-      await World.settle(tester);
-      if (waiting) {
-        process
-          ..line(const Step('person', StepState.waiting, needs: ['drive']))
-          ..end(75);
-        await World.settle(tester);
-        await run.finished;
-      }
-      await openAgain(tester);
-      final item = tester.widget<PopupMenuItem<String>>(
-        find.ancestor(of: find.text('Run its setup again'), matching: find.byType(PopupMenuItem<String>)),
-      );
-      expect(item.enabled, isFalse, reason: 'setup must serialize all attempts of the project');
-      expect(
-        find.descendant(of: find.byWidget(item), matching: find.textContaining('Unavailable: ')),
-        findsOneWidget,
-        reason: 'the unavailable action must say why',
-      );
-      await tester.tap(find.text('Run its setup again'), warnIfMissed: false);
-      unawaited(runs.again('demo'));
-      await World.settle(tester);
-      expect(starts, 1, reason: 'neither the unavailable action nor a direct call may start another host command');
-      if (!waiting) {
-        process.end(65);
-        await World.settle(tester);
-        await run.finished;
-      }
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
-  }
-
-  // Harm: a forgotten interrupted preparation keeps billing without a reachable way to resume it.
-  testWidgets('Needs you resumes the interrupted server from its own row', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final commands = <List<String>>[];
-    final process = HostProcess();
-    final runs = (await tester.runAsync(
-      () => restored((_, args) async {
-        commands.add(List.of(args));
-        return process;
-      }),
-    ))!;
-    await tester.runAsync(() => runs.of('demo')!.checked);
-    final attention = Attention(machines)..hostRuns = runs;
-    addTearDown(attention.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: AttentionView(
-            attention: attention,
-            onDecide: (_, _, {required allow}) {},
-            onReview: (_) {},
-            actionsFor: (_) => [],
-          ),
-        ),
-      ),
-    );
-    expect(
-      attention.openRows.where((row) => row.kind == AttentionKind.host),
-      hasLength(1),
-      reason: 'the rented server must be reachable from Needs you',
-    );
-    final row = find.byKey(
-      ValueKey('attention-row ${attention.openRows.firstWhere((row) => row.kind == AttentionKind.host).id}'),
-    );
-    final goOn = find.descendant(of: row, matching: find.text('Go on'));
-    expect(goOn, findsOneWidget, reason: 'recovery must act directly on the interrupted server');
-    await tester.tap(goOn);
-    await World.settle(tester);
-    expect(commands, [
-      ['up', ...hostArguments(_record, 'demo')],
-    ], reason: 'Go on must reuse the kept server identity');
-    expect(
-      attention.openRows.where((row) => row.kind == AttentionKind.host),
-      isEmpty,
-      reason: 'resuming resolves the interrupted recovery row',
-    );
-    expect(
-      attention.recentlyResolved.where((row) => row.row.kind == AttentionKind.host),
-      hasLength(1),
-      reason: 'the resolved row must retain the billed server identity',
-    );
-    process.line(const Step('person', StepState.waiting, needs: ['drive']));
-    process.end(75);
-    await World.settle(tester);
-    await runs.of('demo')!.finished;
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  for (final phase in ['rent', 'play']) {
-    // Harm: Leave can orphan a renting command or terminate setup already modifying the server.
-    testWidgets('Leave ${phase == 'rent' ? 'during' : 'after'} rent respects the up process lifetime', (tester) async {
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final runs = HostRuns(machines, environment: environment);
-      owners.add(runs);
-      late Process child;
-      var exited = false;
-      final run = (await tester.runAsync(
-        () async => runs.start(
-          project: 'demo',
-          record: _record,
-          session: HostSession(
-            executable: 'stand-in',
-            arguments: const [],
-            start: (_, _) async {
-              child = await _child(phase, getLock());
-              children.add(child);
-              unawaited(child.exitCode.then((_) => exited = true));
-              return child;
-            },
-          ),
-        ),
-      ))!;
-      await tester.runAsync(() => _until(runs, () => run.session.steps.any((step) => step.step == phase)));
-      late Future<bool> closing;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () {
-                  closing = confirmQuit(
-                    context,
-                    running: [],
-                    waiting: 0,
-                    preparing: ['demo'],
-                    continuingSetup: phase == 'play' ? ['demo'] : [],
-                    onLeave: runs.leave,
-                  );
-                },
-                child: const Text('Close'),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('Close'));
-      await World.settle(tester);
-      await tester.tap(find.text('Leave'));
-      await tester.runAsync(() async {
-        await child.exitCode.timeout(const Duration(seconds: 3), onTimeout: () => -1);
-      });
-      await World.settle(tester);
-      expect(exited, phase == 'rent', reason: 'only an up before its rent completion may be terminated');
-      expect(await closing, isTrue, reason: 'Leave stays allowed in either setup phase');
-      if (phase == 'play') child.kill();
-      await tester.runAsync(() => run.finished);
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
-  }
-
-  // Harm: closing after an ignored termination request leaves setup renting unseen in the background.
-  testWidgets('Leave keeps the window open when a renting process does not exit', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final runs = HostRuns(machines, environment: environment);
-    owners.add(runs);
-    final process = _UnstoppableProcess();
-    final run = runs.start(
-      project: 'demo',
-      record: _record,
-      session: HostSession(executable: 'stand-in', arguments: const [], start: (_, _) async => process),
-    );
-    await World.settle(tester);
-    late Future<bool> closing;
-    var closed = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () {
-                closing = confirmQuit(context, running: [], waiting: 0, preparing: ['demo'], onLeave: runs.leave);
-                unawaited(closing.then((_) => closed = true));
-              },
-              child: const Text('Close'),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Close'));
-    await World.settle(tester);
-    await tester.tap(find.text('Leave'));
-    await tester.pump();
-    await tester.binding.handlePopRoute();
-    await World.settle(tester);
-    expect(closed, isFalse, reason: 'dismissal must not abandon the exit check after Leave was chosen');
-    await tester.pump(const Duration(seconds: 3));
-    await World.settle(tester);
-    expect(closed, isFalse, reason: 'an unconfirmed exit must keep the interface open');
-    expect(find.byType(AlertDialog), findsOneWidget, reason: 'the failed termination needs an answer in its own place');
-    expect(
-      tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Leave')).onPressed,
-      isNotNull,
-      reason: 'a failed exit must allow another explicit attempt',
-    );
-    process.end(65);
-    await World.settle(tester);
-    await run.finished;
-    await tester.tap(find.text('Cancel'));
-    await World.settle(tester);
-    expect(await closing, isFalse, reason: 'Cancel must leave recovery available');
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: misreading another process as interrupted can start a second setup while the first modifies the server.
-  testWidgets('startup finds another process and polls without starting up or asking for a host stop', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    late Process holder;
-    await tester.runAsync(() async {
-      holder = await _child('hold', getLock());
-      children.add(holder);
-      expect(
-        await holder.stdout.transform(utf8.decoder).transform(const LineSplitter()).first,
-        'locked',
-        reason: 'the other process must confirm its real exclusive lock before restoration',
-      );
-    });
-    var starts = 0;
-    final runs = (await tester.runAsync(
-      () => restored((_, _) async {
-        starts++;
-        return HostProcess()..end(65);
-      }),
-    ))!;
-    await tester.runAsync(() => runs.of('demo')!.checked);
-    final run = runs.of('demo')!;
-    final attention = Attention(machines)..hostRuns = runs;
-    addTearDown(attention.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ListenableBuilder(
-            listenable: runs,
-            builder: (_, _) =>
-                MachinesPage(machines: machines, hostRuns: runs, onAdd: () {}, onDetails: (_) {}, onForget: (_) {}),
-          ),
-        ),
-      ),
-    );
-    expect(run.running, isTrue, reason: 'the lock belongs to a setup still running in another process');
-    expect(run.interrupted, isFalse, reason: 'a held lock must not offer interrupted recovery');
-    expect(run.waiting, isFalse, reason: 'a lock refusal must never ask for a host login stop');
-    expect(
-      attention.openRows.where((row) => row.kind == AttentionKind.host),
-      isEmpty,
-      reason: 'running setup needs no person to resume it',
-    );
-    expect(find.byType(HostStopDialog), findsNothing, reason: 'restoration must never open a host stop');
-    // Harm: a greyed button's reason under the buttons reads as an instruction; it is said on hovering it alone.
-    await tester.tap(find.byTooltip('Show more').first);
-    await World.settle(tester);
-    expect(find.textContaining('Take it down: '), findsNothing, reason: 'no line under the buttons says why');
-    expect(
-      find.byTooltip('the host command is still running'),
-      findsWidgets,
-      reason: 'the reason is the greyed button\'s tooltip',
-    );
-    await tester.runAsync(() => runs.resume(run));
-    expect(starts, 0, reason: 'neither the startup probe nor Go on may start up while another process owns the lock');
-    await tester.runAsync(() async {
-      await holder.stdin.close();
-      await holder.exitCode;
-    });
-    await tester.runAsync(() => _until(runs, () => run.interrupted));
-    await World.settle(tester);
-    expect(run.interrupted, isTrue, reason: 'the next free-lock poll restores interrupted recovery');
-    expect(run.running, isFalse, reason: 'a released lock no longer indicates a running setup');
-    expect(starts, 0, reason: 'polling never resumes setup on its own');
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  // Harm: a probe overlapping Process.start can refuse the only resume or release the new setup lock.
-  test('a concurrent probe and Go on start exactly one up after closing the probe file', () async {
-    final gate = _ProbeGate();
-    var starts = 0;
-    final runs = await restored((_, _) async {
-      starts++;
-      expect(gate.closed, isTrue, reason: 'the only probe descriptor must close before Process.start');
-      final child = await _child('rent', getLock());
-      children.add(child);
-      return child;
-    }, gate: gate);
-    await gate.locked.future.timeout(const Duration(seconds: 5));
-    final run = runs.of('demo')!;
-    final first = runs.resume(run);
-    final second = runs.resume(run);
-    await Future<void>.delayed(Duration.zero);
-    expect(starts, 0, reason: 'Go on must wait while the existing probe owns its descriptor');
-    gate.release.complete();
-    await _until(runs, () => run.session.steps.isNotEmpty);
-    expect(starts, 1, reason: 'simultaneous clicks must share a single up attempt');
-    expect(
-      run.session.steps.any((step) => step.step == 'lock' && step.state == StepState.refused),
-      isFalse,
-      reason: 'the probe must not cause the up it precedes to refuse its lock',
-    );
-    expect(
-      run.session.steps.any((step) => step.step == 'rent' && step.state == StepState.started),
-      isTrue,
-      reason: 'the only up must actually acquire the lock and begin setup',
-    );
-    children.single.kill();
-    await Future.wait([first, second]);
-    expect(gate.opens, 1, reason: 'one startup probe must open exactly one descriptor');
-    expect(gate.closes, 1, reason: 'the same descriptor must close exactly once');
-  });
-
-  // Harm: contention found by Go on can be mistaken for a login stop and leave running setup unmanaged.
-  test('Go on lock refusal is polled as running from before', () async {
-    final process = HostProcess();
-    var starts = 0;
-    final runs = await restored((_, _) async {
-      starts++;
-      return process;
-    });
-    await runs.of('demo')!.checked;
-    final holder = await _child('hold', getLock());
-    children.add(holder);
-    expect(
-      await holder.stdout.transform(utf8.decoder).transform(const LineSplitter()).first,
-      'locked',
-      reason: 'another process takes the lock after the free startup check',
-    );
-    final run = runs.of('demo')!;
-    final resume = runs.resume(run);
-    process.line(const Step('lock', StepState.refused));
-    process.end(75);
-    await resume;
-    expect(run.running, isTrue, reason: 'lock contention means setup continues elsewhere');
-    expect(run.interrupted || run.waiting, isFalse, reason: 'no recovery or host stop is offered for a running setup');
-    expect(starts, 1, reason: 'lock contention must not restart the command on its own');
-    await holder.stdin.close();
-    await holder.exitCode;
-    await _until(runs, () => run.interrupted);
-    expect(run.running, isFalse, reason: 'polling must observe that the other command has exited');
-    expect(starts, 1, reason: 'a released lock must never resume setup automatically');
-  });
 }
 
 class _RestoredRuns extends HostRuns {
-  _RestoredRuns(super.machines, Map<String, String> environment, this.startCommand, this.gate)
-    : super(environment: environment);
-  final StartHostCommand startCommand;
-  final _ProbeGate? gate;
+  _RestoredRuns(super.machines, {super.setupAgain, super.environment});
+  final commands = <List<String>>[];
   @override
-  HostSession sessionFor(String project, HostUpRecord record) =>
-      HostSession(executable: 'stand-in', arguments: hostArguments(record, project), start: startCommand);
-  @override
-  Future<RandomAccessFile> openProjectLock(File file) async {
-    final handle = await super.openProjectLock(file);
-    final delay = gate;
-    if (delay == null) return handle;
-    delay.opens++;
-    return _DelayedLock(handle, delay);
-  }
+  HostSession sessionFor(String project, HostUpRecord record) => HostSession(
+    executable: 'fake',
+    arguments: record.giveBackArguments(project),
+    start: (_, arguments) async {
+      commands.add(arguments);
+      final process = HostProcess();
+      process.end(65);
+      return process;
+    },
+  );
 }
 
-class _ProbeGate {
-  final locked = Completer<void>();
-  final release = Completer<void>();
-  bool closed = false;
-  int opens = 0;
-  int closes = 0;
+Future<({Settings settings, Machines machines, HostRuns runs, _Tunnels tunnels})> _restore({
+  Future<HostUpRecord> Function(String, HostUpRecord)? setupAgain,
+}) async {
+  final settings = Settings(
+    MemorySettingsStore({
+      'hostUps': {'demo': legacyRental()},
+      'machines': [
+        const Machine(
+          name: 'demo server',
+          kind: 'host',
+          hostProject: 'demo',
+          host: 'worker@203.0.113.7',
+          remoteSocket: '/run/user/1007/porelo/porelod.sock',
+          socketPath: '/unused',
+          identity: '/keys/old-private',
+        ).stored,
+      ],
+    }),
+  );
+
+  await settings.load();
+  final tunnels = _Tunnels();
+  final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
+
+  await machines.load();
+  final runs = _RestoredRuns(
+    machines,
+    setupAgain: setupAgain,
+    environment: {'XDG_STATE_HOME': Directory.systemTemp.path},
+  );
+
+  await runs.of('demo')!.checked.timeout(const Duration(seconds: 5));
+
+  return (settings: settings, machines: machines, runs: runs, tunnels: tunnels);
 }
 
-class _DelayedLock extends Fake implements RandomAccessFile {
-  _DelayedLock(this.handle, this.gate);
-  final RandomAccessFile handle;
-  final _ProbeGate gate;
-  @override
-  Future<RandomAccessFile> lock([FileLock mode = FileLock.exclusive, int start = 0, int end = -1]) async {
-    await handle.lock(mode, start, end);
-    gate.locked.complete();
-    await gate.release.future;
-    return this;
+void main() {
+  setUp(() {
+    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
+  });
+  tearDown(() {
+    roles = const Roles();
+  });
+  void dispose(({Settings settings, Machines machines, HostRuns runs, _Tunnels tunnels}) state) {
+    state.runs.dispose();
+    state.machines.dispose();
+    state.settings.dispose();
+    state.tunnels.dispose();
   }
 
-  @override
-  Future<void> close() async {
-    await handle.close();
-    gate.closed = true;
-    gate.closes++;
-  }
-}
+  // Harm: give-back in another process must not release a server during replacement setup.
+  test('replacement setup holds the original rental lock against a competing process', () async {
+    final scratch = await Directory.systemTemp.createTemp('replacement-lock-');
+    addTearDown(() => scratch.delete(recursive: true));
+    int? competingExit;
+    final state = await _restore(
+      setupAgain: (_, existing) async {
+        final sdk = Platform.environment['FLUTTER_ROOT']!;
+        final child = await Process.run(
+          '$sdk/bin/cache/dart-sdk/bin/dart',
+          [
+            '--packages=${Directory.current.path}/.dart_tool/package_config.json',
+            'packages/porelo_host/test/support/host_lock_process.dart',
+            scratch.path,
+            'contender',
+            'down',
+            'demo',
+            'go',
+          ],
+          environment: {'XDG_STATE_HOME': Directory.systemTemp.path},
+        );
+        competingExit = child.exitCode;
+        return existing;
+      },
+    );
+    addTearDown(() => dispose(state));
+    await state.runs.again('demo');
+    expect(
+      competingExit,
+      host.Exit.waiting,
+      reason: 'the provider must remain locked for the whole replacement callback',
+    );
+    expect(await File('${scratch.path}/contender-find').exists(), isFalse);
+    expect(state.settings.hostUp('demo')!.legacy, isTrue);
+  });
 
-class _UnstoppableProcess extends HostProcess {
-  @override
-  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => false;
+  // Harm: restarting must not resume obsolete setup or connect with its old credentials.
+  testWidgets('an old rental stays listed without resuming its old command', (tester) async {
+    final state = (await tester.runAsync(_restore))!;
+    addTearDown(() => dispose(state));
+    await tester.runAsync(() => state.runs.resume(state.runs.of('demo')!));
+
+    expect(
+      state.tunnels.requested.where((m) => m.kind == 'host'),
+      isEmpty,
+      reason: 'restoring the machine must not open its obsolete credentials',
+    );
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MachinesPage(
+            machines: state.machines,
+            hostRuns: state.runs,
+            onAdd: () {},
+            onDetails: (_) {},
+            onForget: (_) {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('demo server'), findsWidgets, reason: 'the paid server must remain visible');
+    final run = state.runs.of('demo')!;
+    expect(hostRecoveryCommands(run: run, goOn: () {}, takeDown: () {}).map((c) => c.id), [
+      'host.again',
+      'host.takeDown',
+    ]);
+    expect(state.settings.hostUp('demo'), isNotNull);
+    expect((state.runs as _RestoredRuns).commands, isEmpty, reason: 'Go on must never invoke legacy up');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Harm: failed or interrupted give-back must not lose the only record of a billed server.
+  for (final confirmed in [false, true]) {
+    testWidgets('${confirmed ? 'confirmed' : 'refused'} give-back ${confirmed ? 'clears' : 'keeps'} the rental', (
+      tester,
+    ) async {
+      final state = (await tester.runAsync(_restore))!;
+      addTearDown(() => dispose(state));
+      final before = state.settings.hostUp('demo')!.stored;
+      final process = HostProcess();
+      final commands = <List<String>>[];
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HostDialog(
+            project: 'demo',
+            machines: state.machines,
+            settings: state.settings,
+            hostRuns: state.runs,
+            takeDownOnly: true,
+            start: (_, arguments) async {
+              commands.add(arguments);
+              return process;
+            },
+          ),
+        ),
+      );
+      expect(commands, isEmpty, reason: 'opening give-back cannot delete a rental');
+      await tester.tap(find.byKey(const Key('host-confirm-down')));
+      await World.settle(tester);
+      process.line(host.Step('give-back', confirmed ? host.StepState.done : host.StepState.refused));
+      process.end(confirmed ? 0 : 65);
+      await World.settle(tester);
+      expect(commands.single, containsAllInOrder(['down', '--project', 'demo']));
+      expect(commands.single, contains('--legacy-rental'));
+      expect(commands.single, contains('--give-back-anyway'));
+      expect(commands.single, isNot(contains('--identity')));
+      if (confirmed) {
+        expect(state.settings.hostUp('demo'), isNull);
+        expect(state.machines.all.where((m) => m.hostProject == 'demo'), isEmpty);
+      } else {
+        expect(state.settings.hostUp('demo')!.stored, before);
+        expect(state.machines.all.where((m) => m.hostProject == 'demo'), hasLength(1));
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  // Harm: setup again must target the existing rental and retain recovery until completion.
+  test('setup again passes the existing rental without replacing recovery while pending', () async {
+    final done = Completer<void>();
+    HostUpRecord? passed;
+    final entered = Completer<void>();
+    final state = await _restore(
+      setupAgain: (project, record) async {
+        expect(project, 'demo');
+        passed = record;
+        entered.complete();
+        await done.future;
+        return HostUpRecord(
+          scalewayProject: 'provider',
+          host: 'demo',
+          hostName: 'orchard',
+          rentalTag: record.rentalTagFor(project),
+          publicKey: '/keys/person.pub',
+          preparedHost: host.PreparedHost.read(hostValues()),
+        );
+      },
+    );
+    addTearDown(() => dispose(state));
+    final before = state.settings.hostUp('demo')!.stored;
+    final attempt = state.runs.again('demo');
+    await entered.future;
+    expect(passed?.scalewayProject, 'provider');
+    expect(state.settings.hostUp('demo')!.stored, before);
+    done.complete();
+    await attempt;
+    expect(state.settings.hostUp('demo')!.legacy, isFalse);
+    expect(state.settings.hostUp('demo')!.rentalTag, 'porelo-project=demo');
+  });
+
+  // Harm: a failed replacement must not erase the existing rental or switch to another provider tag.
+  test('a refused replacement retains the original rental identity', () async {
+    final state = await _restore(
+      setupAgain: (_, _) async => HostUpRecord(
+        scalewayProject: 'provider',
+        host: 'demo',
+        hostName: 'orchard',
+        publicKey: '/keys/person.pub',
+        rentalTag: 'porelo-host=another',
+        preparedHost: host.PreparedHost.read(hostValues()),
+      ),
+    );
+    addTearDown(() => dispose(state));
+    final before = state.settings.hostUp('demo')!.stored;
+    await state.runs.again('demo');
+    expect(state.settings.hostUp('demo')!.stored, before);
+    expect(state.runs.of('demo')!.legacy, isTrue);
+  });
+
+  // Harm: an unconfirmed command exit must not be interpreted as provider deletion.
+  test('exit zero without the provider give-back line retains recovery', () async {
+    final state = await _restore();
+    addTearDown(() => dispose(state));
+    final process = HostProcess();
+    final session = HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process);
+    addTearDown(session.dispose);
+    final pending = session.down();
+    process.end(0);
+    await pending;
+    await state.runs.confirmDown('demo', session);
+    expect(state.settings.hostUp('demo'), isNotNull);
+  });
 }

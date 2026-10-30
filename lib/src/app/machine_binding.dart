@@ -67,31 +67,10 @@ String? onGitHub(String upstream) {
 /// The key part of a public key, `ssh-ed25519 AAAA…`, without its comment: how two are compared.
 String keyPart(String publicKey) => publicKey.trim().split(RegExp(r'\s+')).take(2).join(' ');
 
-/// [text], an `machine-signers` file, without [line] and the comment naming [machine] above it; null
-/// where it does not hold the line.
-///
-/// Matched by its key, `<type> <key>`, not the whole line: a person may have added options to it.
-String? withoutSigner(String text, String line, String machine) {
-  final words = line.trim().split(RegExp(r'\s+'));
-  if (words.length < 2) return null;
-  final key = words.sublist(words.length - 2).join(' ');
-  bool isIt(String each) {
-    final w = each.trim().split(RegExp(r'\s+'));
-    return w.length >= 2 && w.sublist(w.length - 2).join(' ') == key;
-  }
-
-  final lines = text.split('\n');
-  if (!lines.any(isIt)) return null;
-  return <String>[
-    for (var i = 0; i < lines.length; i++)
-      if (!isIt(lines[i]) && !(lines[i].trim() == '# $machine' && i + 1 < lines.length && isIt(lines[i + 1]))) lines[i],
-  ].join('\n');
-}
-
 /// Binding one machine to a project, and removing it again.
 ///
 /// The machine follows over https with the person's token in its vault, pinned to their signing
-/// key. Its message key is added to machine-signers in a commit signed on this computer.
+/// key through the local SSH agent.
 class MachineBinding extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the forge, the project's clone here, and the machine.
   MachineBinding(this.forge, this.workspace, this._machine, {required this.machineName, required this.login});
@@ -289,25 +268,10 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
         await _sayWhereItIsAProjectItself(there, shape.name);
       }
     }
-    final signer = await _machine.messageKey();
-    final lines = (await workspace.readFile('machine-signers') ?? '').split('\n');
-    if (lines.any((each) => each.trim() == signer.line.trim())) {
-      _say('$machineName is in machine-signers already.');
-    } else {
-      final kept = lines.where((each) => each.isNotEmpty).toList();
-      await workspace.writeFile('machine-signers', '${<String>[...kept, '# $machineName', signer.line].join('\n')}\n');
-      await workspace.commitAndPush(
-        'Let $machineName sign messages in ${shape.name}',
-        person,
-        login: login,
-        files: const <String>['machine-signers'],
-      );
-      _say('$machineName’s message key is in machine-signers, committed signed and pushed.');
-    }
     bound = shape.name;
   }
 
-  /// Stops following and removes its machine-signers line, leaving forge access alone.
+  /// Stops following while retaining the person identity and forge access.
   Future<void> remove(SigningKey person) => _doing(() async {
     final shape = ProjectShape.of(await workspace.read() ?? '');
     final forgotten = await _machine.unfollow(shape.name, force: true);
@@ -318,60 +282,8 @@ class MachineBinding extends ChangeNotifier with QuietAfterDispose {
     for (final key in forgotten.keys) {
       _say(key.title);
     }
-    final signer = forgotten.signer;
-    final text = await workspace.readFile('machine-signers');
-    final kept = signer == null || text == null ? null : withoutSigner(text, signer.line, machineName);
-    if (kept != null) {
-      await workspace.writeFile('machine-signers', kept);
-      await workspace.commitAndPush(
-        'Take $machineName out of ${shape.name}',
-        person,
-        login: login,
-        files: const <String>['machine-signers'],
-      );
-      _say('$machineName’s line is out of machine-signers, committed signed and pushed.');
-    }
     _say('$machineName no longer follows ${shape.name}.');
     bound = null;
-  });
-
-  /// Every line of the project's `machine-signers`, with the comment naming it where there is one.
-  List<({String? name, String line})>? signers;
-
-  /// Reads machine-signers without contacting the machine, so a lost machine can be removed.
-  Future<void> survey() => _doing(() async {
-    final lines = (await workspace.readFile('machine-signers') ?? '').split('\n');
-    signers = <({String? name, String line})>[
-      for (var i = 0; i < lines.length; i++)
-        if (lines[i].trim().isNotEmpty && !lines[i].trim().startsWith('#'))
-          (
-            name: i > 0 && lines[i - 1].trim().startsWith('#') ? lines[i - 1].trim().substring(1).trim() : null,
-            line: lines[i].trim(),
-          ),
-    ];
-  });
-
-  /// Takes [line] out of `machine-signers`, with the comment naming it, as a commit signed with [person].
-  Future<void> removeSigner(String line, SigningKey person) => _doing(() async {
-    final lines = (await workspace.readFile('machine-signers') ?? '').split('\n');
-    final kept = <String>[
-      for (var i = 0; i < lines.length; i++)
-        if (lines[i].trim() != line &&
-            !(lines[i].trim().startsWith('#') && i + 1 < lines.length && lines[i + 1].trim() == line))
-          lines[i],
-    ];
-    await workspace.writeFile('machine-signers', kept.join('\n'));
-    await workspace.commitAndPush(
-      'Take a signer out of machine-signers',
-      person,
-      login: login,
-      files: const <String>['machine-signers'],
-    );
-    signers = <({String? name, String line})>[
-      for (final each in signers ?? const <({String? name, String line})>[])
-        if (each.line != line) each,
-    ];
-    _say('Took ${line.split(' ').first} out of machine-signers, committed signed and pushed.');
   });
 
   /// Configuration changes waiting at the machine's gate for the project's own repository, or null

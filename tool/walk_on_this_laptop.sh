@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Walks one sprint walk as the operator does: the real interface on a hidden display, the real keepassxc-cli, this
 # computer's Porelo and the test machine, with a home, settings and secrets file of this run's own. Usage:
-#   tool/walk_on_this_laptop.sh <walk number>, as 18 for doc/walks/18-*.json and integration_test/walk_18_test.dart
+#   tool/walk_on_this_laptop.sh <walk number>, for a retained walk in doc/walks and its matching integration test
 set -eu
 set -o pipefail
 
@@ -11,6 +11,11 @@ if [ "$#" -ne 1 ] || ! printf '%s\n' "$1" | LC_ALL=C grep -Eq '^[0-9]+$'; then
     exit 64
 fi
 number=$1
+case "$number" in 17 | 18 | 19 | 20 | 21 | 22 | 23)
+    echo 'This walk was retired with one-click joining.' >&2
+    exit 1
+    ;;
+esac
 walk_file=$(find doc/walks -maxdepth 1 -name "$number-*.json" | head -n 1)
 test_file=integration_test/walk_${number}_test.dart
 if [ ! -f "$walk_file" ] || [ ! -f "$test_file" ]; then
@@ -27,7 +32,7 @@ done
     echo "walk-$number: keepassxc-cli is missing: sudo apt install keepassxc-minimal" >&2
     exit 1
 }
-key=${PORELO_WALK_KEY:-$HOME/.claude/.ssh/claude_key}
+key=${PORELO_WALK_KEY:-}
 local_socket=${PORELO_WALK_SOCKET:-/run/user/$(id -u)/porelo/porelod.sock}
 [ -S "$local_socket" ] || {
     echo "walk-$number: this computer's Porelo does not serve $local_socket" >&2
@@ -90,10 +95,6 @@ export XDG_CONFIG_HOME="$walk/config" XDG_RUNTIME_DIR="$walk/run"
 export XDG_DATA_HOME="$walk/home/.local/share" XDG_STATE_HOME="$walk/home/.local/state"
 export XDG_CACHE_HOME="$walk/home/.cache"
 export PORELO_WALK="$walk" test_file PORELO_HOST_STANDIN="$walk/bin/porelo-host"
-export PORELO_WALK_PROJECT=${PORELO_WALK_PROJECT:-sprint5}
-export PORELO_WALK_KEY="$key" PORELO_WALK_WORK_USER=${PORELO_WALK_WORK_USER:-walkdrive}
-export PORELO_WALK_SCALEWAY_PROJECT=${PORELO_WALK_SCALEWAY_PROJECT:-5075079b-230c-41ea-8e71-1627ff0c8f08}
-export PORELO_WALK_SIGNING_KEY=${PORELO_WALK_SIGNING_KEY:-/home/michi/.porelo/handover/porelo-host-scaleway-test/wg/signer.pub}
 export GDK_BACKEND=x11 FLUTTER_SUPPRESS_ANALYTICS=true DART_SUPPRESS_ANALYTICS=true
 unset WAYLAND_DISPLAY GNOME_KEYRING_CONTROL GNOME_KEYRING_PID
 

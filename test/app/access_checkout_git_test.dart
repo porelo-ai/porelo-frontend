@@ -10,8 +10,6 @@ import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_host/porelo_host.dart';
 import 'package:yaml/yaml.dart';
 
-import '../support/host_matrix_ca.dart';
-
 void main() {
   late Directory scratch;
   late Directory source;
@@ -108,6 +106,7 @@ void main() {
     project: 'demo',
     repository: 'https://example.org/team/access.git',
     signingKey: File('${scratch.path}/signer.pub'),
+    adminSigners: [File('${scratch.path}/signer.pub').readAsStringSync()],
     run: git,
   );
 
@@ -131,7 +130,7 @@ void main() {
       await access.open();
       final cache = '${scratch.path}/access/demo';
       final before = await checked(['rev-parse', 'HEAD'], directory: cache);
-      await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      await access.edit((source) => source.contains('# Changed access') ? source : '$source\n# Changed access\n');
       failCommit = failure == 'commit';
       failPush = failure == 'push';
       if (failure == 'signer') signer = '${scratch.path}/other';
@@ -142,7 +141,7 @@ void main() {
       signer = '${scratch.path}/signer';
       final retry = checkout();
       await retry.open();
-      await retry.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      await retry.edit((source) => '$source\n# Retried access\n');
       await retry.commitPushAndBundle('${scratch.path}/retry.bundle');
       expect(File('${scratch.path}/retry.bundle').existsSync(), isTrue);
     });
@@ -152,16 +151,13 @@ void main() {
   test('a checkout whose publication failed refuses further writes until it is opened again', () async {
     final access = checkout();
     await access.open();
-    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+    await access.edit((source) => source.contains('# Changed access') ? source : '$source\n# Changed access\n');
     failPush = true;
     await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
     failPush = false;
     final cache = '${scratch.path}/access/demo';
     final before = await checked(['rev-parse', 'HEAD'], directory: cache);
-    await expectLater(
-      access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa),
-      throwsA(isA<WorkspaceRefused>()),
-    );
+    await expectLater(access.edit((source) => '$source\n# Changed access\n'), throwsA(isA<WorkspaceRefused>()));
     await expectLater(access.edit((source) => '$source# changed\n'), throwsA(isA<WorkspaceRefused>()));
     await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));
     expect(await checked(['status', '--porcelain'], directory: cache), isEmpty);
@@ -209,7 +205,7 @@ void main() {
     for (var attempt = 0; attempt < 2; attempt++) {
       final access = checkout();
       await access.open();
-      await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+      await access.edit((source) => source.contains('# Changed access') ? source : '$source\n# Changed access\n');
       await access.commitPushAndBundle('${scratch.path}/access-$attempt.bundle');
     }
     expect(accessPushes, 1);
@@ -219,13 +215,13 @@ void main() {
   test('own git publishes a verified access commit and the bundle carries exactly that commit', () async {
     final access = checkout();
     await access.open();
-    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+    await access.edit((source) => source.contains('# Changed access') ? source : '$source\n# Changed access\n');
     final bundle = '${scratch.path}/access.bundle';
     await access.commitPushAndBundle(bundle);
     final published = await checked(['rev-parse', 'main'], directory: central);
     final text = await checked(['show', 'main:access.yml'], directory: central);
-    expect(loadYaml(text)['host']['ca_sha256'], hostMatrixCaSha256);
-    expect(loadYaml(text)['transports']['matrix']['ca_certificate'], hostMatrixCa);
+    expect(text, contains('# Changed access'));
+    expect(loadYaml(text)['developers'], isEmpty);
     expect(text, contains('# People'));
     final restored = '${scratch.path}/restored';
     final heads = await checked(['bundle', 'list-heads', bundle]);
@@ -255,7 +251,7 @@ void main() {
   test('a different configured signer cannot push or produce an access bundle', () async {
     final access = checkout();
     await access.open();
-    await access.writeHost(PreparedHost.read(matrixHostValues()), hostMatrixCa);
+    await access.edit((source) => source.contains('# Changed access') ? source : '$source\n# Changed access\n');
     final before = await checked(['rev-parse', 'main'], directory: central);
     signer = '${scratch.path}/other';
     await expectLater(access.commitPushAndBundle('${scratch.path}/access.bundle'), throwsA(isA<WorkspaceRefused>()));

@@ -1,5 +1,7 @@
 # The Feature line is the report row: one short sentence, 70 characters at most,
 # saying what this file tests. It is the group name in every surface CI renders.
+# Linux only: setup reaches the real private SSH config writer, which invokes chmod.
+@linux
 Feature: Adding a machine through a wizard that starts from what you have
 
     Background:
@@ -124,42 +126,18 @@ Feature: Adding a machine through a wizard that starts from what you have
     # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
     # Windows the wizard offers a WSL distribution.
     @linux
-    Scenario: a new machine starts with a key, kept owner-only, and its public half to copy
-        When I say it is called {'the build machine'}
-        And I choose {'A new machine'}
-        And I go on
-        Then the wizard cannot go to the next step yet
-        When I generate a key pair
-        And I keep the key
-        Then the key was kept owner-only as {'porelo-the-build-machine-admin'}
-        And it says {'Give this admin key to the provider when the server is created'}
-        And the public key is shown to copy
-
-    Scenario: pasted halves of two different pairs are refused and nothing is kept
-        When I say it is called {'the build machine'}
-        And I choose {'A new machine'}
-        And I go on
-        And I paste the halves of two different key pairs
-        Then what a walk writes down does not hold {'PRIVATE KEY'}
-        And the {'new-private-key'} is blanked in a walk's picture
-        When I keep the key
-        Then it says {'The public key does not belong to that private key.'}
-        And no key was kept
-        And the wizard cannot go to the next step yet
-
     Scenario: root logs in with that key once its host key is trusted
         Given the host key of {'root@203.0.113.10'} is not known yet
         When I say it is called {'the build machine'}
         And I choose {'A new machine'}
         And I go on
-        And I generate a key pair
-        And I keep the key
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I try logging in as root
         Then I am shown the host key {'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789'}
         When I trust the host key
-        Then root logged in to {'203.0.113.10'} with {'porelo-the-build-machine-admin'}
+        Then root logged in to {'203.0.113.10'} with {'person.pub'}
         And it says {'Logged in as root on 203.0.113.10'}
         When I go to the next step
         Then it says {"Porelo's setup script runs as root"}
@@ -169,8 +147,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         When I say it is called {'the build machine'}
         And I choose {'A new machine'}
         And I go on
-        And I generate a key pair
-        And I keep the key
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I try logging in as root
@@ -182,8 +159,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         When I say it is called {'the build machine'}
         And I choose {'A new machine'}
         And I go on
-        And I generate a key pair
-        And I keep the key
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I try logging in as root
@@ -232,7 +208,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         And I go to the next step
         And I set it up and connect
         Then the key was allowed for {'agent'}
-        And ssh config reaches {'porelo-the-build-machine'} as {'agent'} with {'porelo-the-build-machine-agent'}
+        And ssh config reaches {'porelo-the-build-machine'} as {'agent'} with {'person.pub'}
         And Porelo was started as the work user
         And it says {'Reached Porelo'}
         And it says {'Ready to watch.'}
@@ -343,8 +319,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         Then the wizard cannot go on yet
         When I say the user that runs work is {'builder'}
         And I go on
-        And I generate a key pair
-        And I keep the key
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I try logging in as root
@@ -358,14 +333,13 @@ Feature: Adding a machine through a wizard that starts from what you have
     # Windows the wizard offers a WSL distribution.
     @linux
     Scenario: another user is added to a machine prepared before, and watched as a machine of its own
-        Given a key the machine already knows is kept as {'porelo-the-build-machine'}
         When I cancel the dialog
         And I choose the command {'Add another user that runs work…'}
         Then the wizard offers no kind to choose
         When I say it is called {'the build machine as other'}
         And I say the user that runs work is {'other'}
         And I go on
-        And I use the key the machine already knows
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I try logging in as root
@@ -376,7 +350,7 @@ Feature: Adding a machine through a wizard that starts from what you have
         Then the setup script ran for {'other'}
         When I go to the next step
         And I set it up and connect
-        Then ssh config reaches {'porelo-the-build-machine-as-other'} as {'other'} with {'porelo-the-build-machine-as-other-other'}
+        Then ssh config reaches {'porelo-the-build-machine-as-other'} as {'other'} with {'person.pub'}
         When I watch the new machine
         Then the forward was raised through {'porelo-the-build-machine-as-other'} to {'/run/user/1001/porelo/porelod.sock'}
 
@@ -384,26 +358,15 @@ Feature: Adding a machine through a wizard that starts from what you have
         When I say it is called {'the build machine'}
         And I choose {'A new machine'}
         And I go on
-        And I generate a key pair
-        And I keep the key
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I go back
         And I go back
         And I go on
-        Then the public key is shown to copy
         When I go to the next step
         Then the new machine is at {'203.0.113.10'}
 
-    Scenario: the public key can be copied from its field
-        When I say it is called {'the build machine'}
-        And I choose {'A new machine'}
-        And I go on
-        And I generate a key pair
-        And I copy the public key
-        Then what was copied starts with {'ssh-ed25519 '}
-
-    # Canceled, or the window closed: nothing is asked twice, and nothing is done twice.
     Scenario: a setup that was not finished is offered to be continued where it stopped
         Given a new machine whose root logs in
         When I cancel the dialog
@@ -439,35 +402,19 @@ Feature: Adding a machine through a wizard that starts from what you have
     # Linux only: preparing a machine over ssh with keys in ~/.ssh is the Linux build's way; on
     # Windows the wizard offers a WSL distribution.
     @linux
-    Scenario: a key already in ~/.ssh can be chosen by name and used as it is
-        Given a key the machine already knows is kept as {'id_ed25519'}
-        When I cancel the dialog
-        And I open the machine dialog
-        And I say it is called {'the build machine'}
-        And I choose {'A new machine'}
-        And I go on
-        And I choose the existing key {'id_ed25519'}
-        Then the public key is shown to copy
-        When I go to the next step
-        And I say the new machine is at {'203.0.113.10'}
-        And I try logging in as root
-        Then root logged in to {'203.0.113.10'} with {'id_ed25519'}
-
-    # A rented server's address given to a new machine: the old key is known, and it is not this one.
     Scenario: a host whose key changed is warned about, and the old key is replaced only when asked
         Given the host key of {'root@203.0.113.10'} changed since it was last seen
         When I say it is called {'the build machine'}
         And I choose {'A new machine'}
         And I go on
-        And I generate a key pair
-        And I keep the key
+        And I use my person identity
         And I go to the next step
         And I say the new machine is at {'203.0.113.10'}
         And I try logging in as root
         Then I am warned that the key is not the one known for that address
         When I trust the host key
         Then the host key of {'203.0.113.10'} was written
-        And root logged in to {'203.0.113.10'} with {'porelo-the-build-machine-admin'}
+        And root logged in to {'203.0.113.10'} with {'person.pub'}
 
     # What is shown before running is shown once, in its box; below "Run it as root" is only what running printed.
     Scenario: nothing is shown below the run until it was run

@@ -1,3 +1,4 @@
+// Linux only: the local-vault stand-in uses sh and chmod.
 @Tags(<String>['linux'])
 library;
 
@@ -8,8 +9,7 @@ import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/vault_unlock.dart';
 
-/// Which line opens or makes a machine's vault: a rented server's from the secrets file, any other's typed, and asked
-/// again after a refused passphrase.
+/// Local vault terminals remain available while host unlock belongs to Core.
 void main() {
   const server = Machine(
     name: 'checkout server',
@@ -26,21 +26,10 @@ void main() {
     remoteSocket: '/run/user/1000/porelo/porelo.sock',
   );
 
-  // Harm: the person copying a passphrase this interface made and kept in the file, by hand.
-  test('a rented server\'s vault opens from the secrets file, with the master password typed once', () {
-    final line = unlockCommandFor(server, secretsFile: '/home/person/Porelo/secrets.kdbx')!;
-    expect(line.first, '/usr/bin/env');
-    expect(line.last, contains("'projects/checkout/vault-passphrase'"));
-    expect(line.last, contains("'/usr/bin/porelo vault unlock --passphrase-stdin'"));
-  });
-
-  test('without a secrets file, or for another machine, the passphrase is typed at the machine as before', () {
-    expect(unlockCommandFor(server)!.last, contains('porelo vault unlock'));
-    expect(unlockCommandFor(server)!.last, isNot(contains('--passphrase-stdin')));
-    expect(
-      unlockCommandFor(other, secretsFile: '/home/person/Porelo/secrets.kdbx')!.last,
-      isNot(contains('--passphrase-stdin')),
-    );
+  // Harm: a host vault must not enroll or reuse a legacy passphrase slot.
+  test('host vault unlock is delegated to Core while other vaults keep their terminal', () {
+    expect(unlockCommandFor(server), isNull);
+    expect(unlockCommandFor(other)!.last, contains('porelo vault unlock'));
   });
 
   // Harm: a server's vault made with a passphrase the file never learns, which its setup then cannot open.

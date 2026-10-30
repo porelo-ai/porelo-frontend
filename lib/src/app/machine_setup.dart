@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:porelo_host/porelo_host.dart' show checkedEd25519;
+
 import 'machines.dart';
 import 'connections.dart';
 
@@ -10,31 +12,23 @@ import 'settings.dart';
 
 import 'package:porelo_frontend/src/app/desk.dart';
 
-/// An ssh key pair as text: what a person pastes, or what the wizard generates.
-///
-/// **The private half is a secret and this never says it**: [toString] names the public key only.
-class KeyPair {
-  /// Constructor taking both halves.
-  const KeyPair({required this.privateKey, required this.publicKey});
+/// The current person's public identity selected by Core for their local SSH agent.
+class PersonAgentIdentity {
+  /// Holds a public key and its public identity file; no private key is imported.
+  const PersonAgentIdentity({required this.publicKey, required this.publicFile});
 
-  /// The private key, in OpenSSH's format.
-  final String privateKey;
-
-  /// The public key, one line: type, key, comment.
+  /// The person's public Ed25519 key.
   final String publicKey;
 
-  @override
-  String toString() => 'KeyPair($publicKey)';
+  /// The public identity reference used to select the key in the agent.
+  final String publicFile;
 }
 
-/// The steps of preparing a new machine that happen on this computer and over ssh as root: the key,
-/// and whether that key logs in.
-///
-/// **Everything that could hold the private key is owner-only before it is written**, and nothing
-/// here puts it in a command line, a log or an error.
+/// Prepares a machine over SSH with the current person’s identity selected through their agent.
 class MachineSetup {
   /// Constructor, optionally with what runs or starts a program, whose home `~/.ssh` is in, and the desk.
   MachineSetup({
+    this.personIdentity,
     RunWith? run,
     String? home,
     Desk? on,
@@ -43,6 +37,34 @@ class MachineSetup {
        _start = start ?? Process.start,
        _desk = on ?? desk,
        _home = home ?? (on ?? desk).home;
+
+  /// The verified person identity boundary, absent until Core supplies it.
+  final Future<PersonAgentIdentity> Function()? personIdentity;
+
+  /// Reads the current identity without generating or importing private keys.
+  Future<PersonAgentIdentity> identityFromAgent() async {
+    final PersonAgentIdentity? identity;
+    try {
+      identity = await personIdentity?.call();
+    } on Exception {
+      throw const MachineSetupFailed(
+        'The verified person identity could not be read. Unlock your key and refresh Core identity.',
+      );
+    }
+    if (identity == null ||
+        !identity.publicFile.startsWith('/') ||
+        RegExp(r'[\r\n\x00]').hasMatch(identity.publicFile)) {
+      throw const MachineSetupFailed(
+        'The verified person identity is not available. Unlock your key and refresh Core identity.',
+      );
+    }
+    try {
+      checkedEd25519(identity.publicKey);
+    } on FormatException {
+      throw const MachineSetupFailed('Core did not supply a valid public identity.');
+    }
+    return identity;
+  }
 
   final RunWith _run;
   final Future<Process> Function(String executable, List<String> arguments) _start;
@@ -147,7 +169,7 @@ printf 'The script shown has the SHA-256 %s.\\n' "\$(sha256sum "\$f" | cut -d' '
   /// Whether [name] can be a package name, so nothing else reaches a root command line.
   static bool isPackageName(String name) => RegExp(r'^[a-z0-9][a-z0-9+.-]*$').hasMatch(name);
 
-  /// Lets [publicKey] — **that user's own key, never the admin's** — log in as [user], once and
+  /// Lets the current person’s [publicKey] log in as [user], once and
   /// owner-only, and lets [user] log in with a key and nothing else: its password stays locked, and
   /// sshd is told so for that user alone. The rule ends with `Match all`, so it cannot reach into
   /// the rest of sshd's configuration, and sshd checks it before it is loaded: a rule it refuses is
@@ -198,7 +220,11 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     '-o',
     'IdentitiesOnly=yes',
     '-o',
+    'ForwardAgent=no',
+    '-o',
     'BatchMode=yes',
+    '-o',
+    'ForwardAgent=no',
     '-o',
     'ConnectTimeout=10',
     'root@$host',
@@ -220,7 +246,11 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-o',
       'IdentitiesOnly=yes',
       '-o',
+      'ForwardAgent=no',
+      '-o',
       'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
       '-o',
       'ConnectTimeout=10',
       'root@$host',
@@ -252,6 +282,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     '-o',
     'BatchMode=yes',
     '-o',
+    'ForwardAgent=no',
+    '-o',
     'ConnectTimeout=10',
     '--',
     alias,
@@ -264,6 +296,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-n',
       '-o',
       'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
       '-o',
       'ConnectTimeout=10',
       '--',
@@ -279,6 +313,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     final process = await _start(openSsh('ssh', on: _desk), <String>[
       '-o',
       'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
       '-o',
       'ConnectTimeout=10',
       '--',
@@ -321,7 +357,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
         '    HostName $host\n'
         '    User $user\n'
         '    IdentityFile $keyFile\n'
-        '    IdentitiesOnly yes\n';
+        '    IdentitiesOnly yes\n'
+        '    ForwardAgent no\n';
     final directory = Directory(sshDirectory);
     if (!directory.existsSync()) {
       directory.createSync(recursive: true);
@@ -356,7 +393,7 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     if (!config.existsSync()) return null;
     final written = RegExp(
       '^Host ${RegExp.escape(alias)}\n    HostName \\S+\n    User \\S+\n'
-      '    IdentityFile (\\S+)\n    IdentitiesOnly yes\n',
+      '    IdentityFile (\\S+)\n    IdentitiesOnly yes\n(?:    ForwardAgent no\n)?',
       multiLine: true,
     ).firstMatch(config.readAsStringSync());
     return written == null ? null : (entry: written.group(0)!, keyFile: written.group(1)!);
@@ -387,99 +424,8 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     return 'Removed Host $alias from ~/.ssh/config; the file as it was is kept as ${kept.split('/').last}.';
   }
 
-  /// Deletes [keyFile] and its public half — only inside `~/.ssh`, where this interface keeps them.
-  Future<String> removeKey(String keyFile) async {
-    if (!keyFile.startsWith('$sshDirectory/')) {
-      return '$keyFile is not in ~/.ssh, so it was left where it is.';
-    }
-    for (final file in <File>[File(keyFile), File('$keyFile.pub')]) {
-      if (file.existsSync()) file.deleteSync();
-    }
-    return 'Deleted $keyFile and its public half.';
-  }
-
-  /// Where the keys go.
+  /// The directory containing the person's SSH configuration.
   String get sshDirectory => '$_home/.ssh';
-
-  /// Generates an ed25519 pair with no passphrase — the interface never asks for one — named [comment].
-  Future<KeyPair> generate(String comment) => _inAPrivateDirectory((directory) async {
-    final file = '${directory.path}/key';
-    final made = await _run(<String>[
-      openSsh('ssh-keygen', on: _desk),
-      '-q',
-      '-t',
-      'ed25519',
-      '-N',
-      '',
-      '-C',
-      comment,
-      '-f',
-      file,
-    ]);
-    if (made.exitCode != 0) {
-      throw MachineSetupFailed('ssh-keygen could not make a key: ${'${made.stderr}'.trim()}');
-    }
-    return KeyPair(privateKey: File(file).readAsStringSync(), publicKey: File('$file.pub').readAsStringSync().trim());
-  });
-
-  /// Why [pair]'s halves do not belong together, or null when they do.
-  ///
-  /// Asked of `ssh-keygen` rather than parsed here: it reads the private key and derives the public
-  /// one, which is the only comparison that proves the two are a pair.
-  Future<String?> mismatch(KeyPair pair) => _inAPrivateDirectory((directory) async {
-    // Owner-only before it holds anything: ssh-keygen refuses a private key others could read.
-    final file = File('${directory.path}/key')..createSync();
-    await _keepPrivate(file.path);
-    file.writeAsStringSync(_ending(pair.privateKey));
-    final derived = await _run(<String>[openSsh('ssh-keygen', on: _desk), '-y', '-P', '', '-f', file.path]);
-    if (derived.exitCode != 0) {
-      return 'That private key cannot be read. It needs to be an OpenSSH private key with no '
-          'passphrase.';
-    }
-    if (_keyOf('${derived.stdout}') != _keyOf(pair.publicKey)) {
-      return 'The public key does not belong to that private key.';
-    }
-    return null;
-  });
-
-  /// Writes [pair] to `~/.ssh/<name>` and `<name>.pub`, owner-only, and answers the private key's path.
-  ///
-  /// **A file already there is never overwritten** unless it holds the same key, so running the
-  /// wizard again is harmless and a person's other key is never lost to a name clash.
-  Future<String> save(KeyPair pair, String name) async {
-    final directory = Directory(sshDirectory);
-    if (!directory.existsSync()) {
-      directory.createSync(recursive: true);
-      await _keepPrivate(directory.path, directory: true);
-    }
-    final private = File('${directory.path}/$name');
-    final public = File('${private.path}.pub');
-    for (final (file, content) in <(File, String)>[(private, pair.privateKey), (public, pair.publicKey)]) {
-      if (file.existsSync() && file.readAsStringSync().trim() != content.trim()) {
-        throw MachineSetupFailed('${file.path} already holds another key, so nothing was written.');
-      }
-    }
-    if (!private.existsSync()) {
-      private.createSync();
-      await _keepPrivate(private.path);
-      private.writeAsStringSync(_ending(pair.privateKey), flush: true);
-    }
-    if (!public.existsSync()) {
-      public.writeAsStringSync('${pair.publicKey.trim()}\n', flush: true);
-      if (!_desk.isWindows) await _run(<String>['chmod', '644', public.path]);
-    }
-    return private.path;
-  }
-
-  /// The keys a wizard kept here before, newest name first: `~/.ssh/porelo-*` without `.pub`.
-  List<String> existingKeys() {
-    final directory = Directory(sshDirectory);
-    if (!directory.existsSync()) return const <String>[];
-    return <String>[
-      for (final file in directory.listSync().whereType<File>())
-        if (file.uri.pathSegments.last.startsWith('porelo-') && !file.path.endsWith('.pub')) file.path,
-    ]..sort();
-  }
 
   /// Runs [command] — the machine's own, as Porelo named it — with [value] on its standard input, and
   /// answers null when it worked or what it said when it did not.
@@ -493,44 +439,6 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     return said.isEmpty ? 'It ended with exit code ${result.exitCode}.' : said;
   }
 
-  /// Every private key in `~/.ssh`, by path: a file beside its `.pub`, or one that begins as a
-  /// private key does. **Only the first line of a file is read**, and nothing of it is shown.
-  List<String> sshKeys() {
-    final directory = Directory(sshDirectory);
-    if (!directory.existsSync()) return const <String>[];
-    bool looksPrivate(File file) {
-      RandomAccessFile? handle;
-      try {
-        handle = file.openSync();
-        return String.fromCharCodes(handle.readSync(64)).contains('PRIVATE KEY');
-      } on FileSystemException {
-        return false;
-      } finally {
-        handle?.closeSync();
-      }
-    }
-
-    return <String>[
-      for (final file in directory.listSync().whereType<File>())
-        if (!file.path.endsWith('.pub') && (File('${file.path}.pub').existsSync() || looksPrivate(file))) file.path,
-    ]..sort();
-  }
-
-  /// The public half of the private key at [keyFile], as `ssh-keygen` derives it.
-  ///
-  /// `-P ''` so a key with a passphrase is refused rather than asked about: nothing here takes a
-  /// passphrase, and a prompt on a terminal nobody watches would hang the wizard.
-  Future<String> publicKeyOf(String keyFile) async {
-    final derived = await _run(<String>[openSsh('ssh-keygen', on: _desk), '-y', '-P', '', '-f', keyFile]);
-    if (derived.exitCode != 0) {
-      throw MachineSetupFailed(
-        '$keyFile cannot be read as a private key with no passphrase: '
-        '${'${derived.stderr}'.trim()}',
-      );
-    }
-    return '${derived.stdout}'.trim();
-  }
-
   /// Why logging in as root on [host] with the key at [keyFile] failed, or null when it worked.
   Future<String?> loginAsRoot(String host, String keyFile) async {
     final login = await _run(<String>[
@@ -540,7 +448,11 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
       '-o',
       'IdentitiesOnly=yes',
       '-o',
+      'ForwardAgent=no',
+      '-o',
       'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
       '-o',
       'ConnectTimeout=10',
       'root@$host',
@@ -550,22 +462,6 @@ systemctl reload ssh 2>/dev/null || systemctl reload sshd
     final said = '${login.stderr}'.trim();
     return said.isEmpty ? 'ssh ended with ${login.exitCode} and said nothing.' : said;
   }
-
-  /// Runs [body] with a directory only this user can enter, removed afterwards whatever happened.
-  Future<T> _inAPrivateDirectory<T>(Future<T> Function(Directory directory) body) async {
-    final directory = Directory.systemTemp.createTempSync('porelo-key-');
-    try {
-      await _keepPrivate(directory.path, directory: true);
-      return await body(directory);
-    } finally {
-      directory.deleteSync(recursive: true);
-    }
-  }
-
-  static String _ending(String text) => text.endsWith('\n') ? text : '$text\n';
-
-  /// The type and the key of a public key line, without its comment.
-  static String _keyOf(String line) => line.trim().split(RegExp(r'\s+')).take(2).join(' ');
 }
 
 /// A step of preparing a machine failed, in words that say which.

@@ -39,8 +39,6 @@ class AttentionView extends StatefulWidget {
     this.onSelect,
     this.onOpenOperation,
     this.onOpenHost,
-    this.onBringVpnUp,
-    this.onTakeVpnDown,
     super.key,
   });
 
@@ -70,12 +68,6 @@ class AttentionView extends StatefulWidget {
 
   /// Opens the retained host stop and its terminal before a daemon exists.
   final void Function(String project)? onOpenHost;
-
-  /// Opens the same local root check used by the machine menu.
-  final void Function(Machine machine)? onBringVpnUp;
-
-  /// Takes down the local tunnel left by a given-back server.
-  final void Function(Machine machine)? onTakeVpnDown;
 
   /// Opens what a failed operation printed, which is what puts it away.
   final void Function(Operation operation)? onOpenOperation;
@@ -216,24 +208,6 @@ extension on _AttentionViewState {
         open = !primary.visible || resolved || widget.onOpenHost == null
             ? details
             : () => widget.onOpenHost!(stop.project);
-      case AttentionKind.vpn:
-        final machine = row.value as Machine;
-        title = '${machine.hostProject} server';
-        state = 'VPN down';
-        icon = Icons.link_off;
-        primary = bringHostVpnUpAgainCommand(
-          run: () => widget.onBringVpnUp?.call(machine),
-          unavailable: reason ?? (widget.onBringVpnUp == null ? 'VPN setup is unavailable here' : null),
-        );
-      case AttentionKind.vpnCleanup:
-        final machine = row.value as Machine;
-        title = '${machine.hostProject} server';
-        state = 'Given back, VPN still up';
-        icon = Icons.link_off;
-        primary = takeGivenBackVpnDownCommand(
-          run: () => widget.onTakeVpnDown?.call(machine),
-          unavailable: reason ?? (widget.onTakeVpnDown == null ? 'VPN cleanup is unavailable here' : null),
-        );
       case AttentionKind.silent:
         final each = row.value as ({Machine machine, String words});
         state = 'Not answering';
@@ -361,58 +335,6 @@ extension on _AttentionViewState {
     final attention = widget.attention;
     final reason = resolved ? 'this row is resolved' : null;
     switch (row.kind) {
-      case AttentionKind.vpnCleanup:
-        final machine = row.value as Machine;
-        final command = takeGivenBackVpnDownCommand(
-          run: () => widget.onTakeVpnDown?.call(machine),
-          unavailable: resolved
-              ? 'this row is resolved'
-              : widget.onTakeVpnDown == null
-              ? 'VPN cleanup is unavailable here'
-              : null,
-        );
-        return Card(
-          key: ValueKey('vpn-cleanup ${machine.hostProject}'),
-          child: Padding(
-            padding: const EdgeInsets.all(Space.normal),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                NeedsMachine(row.machine),
-                Text(
-                  attention.hostRuns?.vpnLinkFor(machine.hostProject) == true
-                      ? 'The server is given back; the VPN on this computer is still up'
-                      : 'The server is given back; the VPN on this computer could not be checked',
-                ),
-                _RowCommand(command),
-              ],
-            ),
-          ),
-        );
-      case AttentionKind.vpn:
-        final machine = row.value as Machine;
-        final command = bringHostVpnUpAgainCommand(
-          run: () => widget.onBringVpnUp?.call(machine),
-          unavailable: resolved
-              ? 'this row is resolved'
-              : widget.onBringVpnUp == null
-              ? 'VPN setup is unavailable here'
-              : null,
-        );
-        return Card(
-          key: ValueKey('vpn-needs ${machine.hostProject}'),
-          child: Padding(
-            padding: const EdgeInsets.all(Space.normal),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                NeedsMachine(row.machine),
-                Text('The VPN to ${machine.hostProject} server is down'),
-                if (includePrimary) _RowCommand(command),
-              ],
-            ),
-          ),
-        );
       case AttentionKind.host:
         final stop = row.value as HostStop;
         final runs = attention.hostRuns;

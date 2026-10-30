@@ -57,16 +57,13 @@ taken, `git log` answers.
 | [The person's ssh key is registered once by hand in Scaleway's console; the API key only reads keys](#the-persons-ssh-key-is-registered-once-by-hand-in-scaleways-console) |
 | [The host key is made by `porelo-host`, handed to cloud-init and kept in the server's tag, never scanned](#the-host-key-is-made-by-porelo-host-and-kept-in-the-servers-tag) |
 | [A server without the project's tag is never given back; `down` finds the host by the tag alone](#a-server-without-the-projects-tag-is-never-given-back) |
-| [A host's secrets are kept once in the person's `secrets.kdbx` and reach its stop on a pipe, only the master password typed](#a-hosts-secrets-are-kept-once-in-the-persons-secretskdbx) |
 | [No Scaleway secret is on GitHub: the Build tests against recorded answers, with one real rent per release](#no-scaleway-secret-is-on-github) |
 | [The interface calls the `porelo-host` its own package ships by path, never by `PATH`](#the-interface-calls-the-porelo-host-its-own-package-ships-by-path) |
-| [The host's files reach it over its own ssh, and the person's WireGuard key stays in the secret store](#the-hosts-files-reach-it-over-its-own-ssh-and-the-persons-wireguard-key-stays-in-the-secret-store) |
 | [An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned](#an-agent-on-a-host-is-signed-in-at-task-start-and-every-ssh-trusts-only-the-key-porelo-host-pinned) |
 | [Tresorit's installer runs only when signed under a pinned CA, checked on the machine](#tresorits-installer-runs-only-when-signed-under-a-pinned-ca-checked-on-the-machine) |
-| [The forge's certificate is signed on this desktop by one lasting CA, whose key never leaves the secrets file](#the-forges-certificate-is-signed-on-this-desktop) |
-| [This computer's line for its own homeserver is added once by hand](#this-computers-line-for-its-own-homeserver-is-added-once-by-hand) |
 | [A task's program may write this computer's clipboard, never read it](#a-tasks-program-may-write-this-computers-clipboard-never-read-it) |
 | [Each repository's agent is started one after another, a stopped one brought back, and leaving does not cancel](#each-repositorys-agent-is-started-one-after-another) |
+| [Host joining uses verified signed state and SSH](#host-joining-uses-verified-signed-state-and-ssh) |
 
 ## The interface can do what a console can
 
@@ -180,8 +177,7 @@ the daemon comes up in `app.slice/porelod.service`.
 A project is a repository a machine follows. Its `project.yml` lives in the project's own
 repository, and a machine gets the file only by following the repository; what is wrong with it
 comes back as the machine's named reasons, never as rules worked out here. How a followed
-repository's commits are checked — a pinned key or unverified — is chosen in the dialog and never
-defaulted. Removing a project is *Stop following*.
+repository's commits are checked against the verified project-admin signers; missing signers refuse following. Removing a project is *Stop following*.
 
 ## A project's settings are changed only in its repository
 
@@ -192,7 +188,7 @@ a project may reach is shown, with where each host comes from, and said to be ch
 
 What stays in the window is what is no setting of the project: letting running work reach a host it
 was refused, for that run or that work; the brake on a project's messages to a peer; and binding a
-machine, which gives it deploy keys at the forge and its line in `machine-signers`.
+machine through the daemon's signed project state.
 
 **What it costs:** a project is made and changed in YAML, in an editor of the person's own.
 Accepted, because a second way to write the file would be a second source of truth.
@@ -491,9 +487,8 @@ itself.
 ## Clearing a machine or a project is one action, and the forge's part is the interface's
 
 *Clear this machine…* and *Clear this project from the machine…* list what the machine's dry run
-says will go, then clear it with one press. The machine removes what Porelo put there; the interface
-removes the machine's line from each project's `machine-signers` in one signed commit. It never
-contacts the forge's deploy-key API. If the daemon names a legacy key in its unfollow or clear
+says will go, then clear it with one press. The machine removes what Porelo put there. The interface never
+contacts the forge's deploy-key API or edits signing policy while clearing. If the daemon names a legacy key in its unfollow or clear
 answer, the interface shows its name and the daemon's words verbatim, leaving its removal to the
 person. The person's token stays in this computer's system secret store and in each machine's
 vault until explicitly forgotten. One report says, thing by thing, what was removed and what was
@@ -728,21 +723,6 @@ a server that offers another key is refused before any login.
 carries a `porelo-project=` tag and refuses any server without one, so a server in the same
 Scaleway project that `porelo-host` did not rent can never be deleted by it.
 
-## A host's secrets are kept once in the person's `secrets.kdbx`
-
-**What holds.** A host's vault passphrase, its WireGuard key, its vault entries' files, the forge's CA and the
-central forge's token are entries of the person's own KeePass file, chosen at first use and kept here by its path
-only. The interface never holds one: at the host's stop it opens a terminal on this desktop, where the master
-password is typed once into the packaged `keepassxc-cli` (a dependency of the Linux packages, called by its path),
-and the entries the stop names go through one pipe to `ssh <admin>@<host> sudo -n porelo-host-stop --stdin NEED...`,
-one line `<need> [<name>] <base64>` each, never into a file, an argument, the environment or a log here or on the
-host. A secret the file lacks is said by its entry's name before anything is sent, and the stop prompts for none.
-The drive has no part in it.
-
-**What it costs:** the file is the one place these secrets are kept; a person who loses it or its master password
-sets the host's vault up again. Windows and macOS have no packaged `keepassxc-cli`, so a server is not set up from
-there yet.
-
 ## No Scaleway secret is on GitHub
 
 GitHub holds no Scaleway API key: the Build runs the Scaleway adapter against recorded answers and
@@ -758,32 +738,16 @@ the Build.
 The Linux packages install `porelo-host` at `/usr/lib/porelo-frontend/porelo-host`, and the Windows
 ZIP and MSIX place `porelo-host.exe` beside the interface, compiled from the same commit with the
 package's version baked in; the packaging refuses a binary that reports another version. The
-release's collection tarball is packaged beside `porelo-host`, and `up` uses it by default; the
-dialog has no collection field in release builds. The interface starts `porelo-host` by that path,
+release's collection tarball is packaged beside `porelo-host` for the setup adapter. The interface starts `porelo-host` by that path,
 never by `PATH`, so neither an older copy on the machine nor a binary placed earlier on `PATH` can
 stand in for the one built with the interface.
-
-## The host's files reach it over its own ssh, and the person's WireGuard key stays in the secret store
-
-The interface writes the followed project's git bundle (`porelo-host/<project>.bundle`) and the host's
-machine file into its own configuration folder, `hosts/<project>`, without replacing differing files or
-following links, and `porelo-host up` uploads both into `/etc/porelo-host/setup/` on the host, root's
-alone, each checked there by its SHA-256. The host's own WireGuard key, its vault passphrase and
-its vault entries' files are kept in the person's `secrets.kdbx` and reach the host only on standard
-input at its stop; the drive holds none of them. The person's
-private WireGuard key stays in the system secret store; during setup, it reaches root via a temporary
-`0600` file in the user's runtime directory that is removed immediately after the VPN terminal exits.
-Setup checks ping and WireGuard handshake before marking the host ready, and only one `porelo` VPN
-interface is active at a time. The key is written out to a file only when the person explicitly
-exports it for another device. That gives the host its key without a secret on a command line or in a
-log, while the person's own key never travels.
 
 ## An agent on a host is signed in at task start, and every ssh trusts only the key `porelo-host` pinned
 
 `porelo-host up` installs agents and starts no task; when it finishes, the host is added as a
 machine and an agent is signed in there when starting a task needs it, through the existing
-machine sign-in and its reply forward. Every ssh to a host uses the setup identity and trusts only
-the host key `porelo-host` pinned, refusing to scan or trust another key on screen: one sign-in
+machine sign-in and its reply forward. Every SSH connection uses the person's identity and trusts only
+the accepted host key, refusing to scan or trust another key on screen: one sign-in
 path for every machine, and no on-screen trust of a key nobody checked.
 
 ## Tresorit's installer runs only when signed under a pinned CA, checked on the machine
@@ -814,28 +778,6 @@ both byte-identical. Tresorit publishes no fingerprint that could be read instea
 this one expires at the end of 2029, which stops the drive step, naming the pinned fingerprint, until the pin is read
 again in the same way.
 
-## The forge's certificate is signed on this desktop
-
-**What holds.** A host makes its forge's key and hands only its certificate request to the stop; the stop's terminal
-on this desktop signs it with one lasting CA whose key is kept in `secrets.kdbx` (`shared/forge-ca-key`, made once
-there: EC P-256, ten years, `CA:TRUE,pathlen:0`, named constraints to `porelo.internal` and `10.73.0.0/24`), setting
-every extension itself and copying none from the request. The CA key passes from `keepassxc-cli` to `openssl` on a
-pipe only. This computer trusts the CA through the VPN's root step: the system store, a copy under `/etc/firefox`
-named in a `policies.json` written only where there is none, and the forge's line in `/etc/hosts`, taken out again
-when the VPN goes down. From 90 days before the CA ends, the VPN's start and the signing stop say when it ends and
-how a new one is made.
-
-**What it costs:** the snap Firefox reads only `/etc/firefox`, so the copy lies there; a Flatpak Firefox reads no
-policy under `/etc` and is not reached, and a `policies.json` of the person's own is left alone and said. Fedora's
-store (`/etc/pki/ca-trust/source/anchors/`) is written as documented but has not been seen to work.
-
-## This computer's line for its own homeserver is added once by hand
-
-While a host's VPN is up, the interface publishes this account's homeserver on the laptop's VPN address under
-`matrix.porelo.internal` and closes it again when the host is given back. The laptop's own line, `127.0.0.1
-matrix.porelo.internal`, is shown with the command that adds it, to be run once by hand; the interface never writes
-`/etc/hosts` for it, so no root step runs on every VPN start for a line that changes once.
-
 ## A task's program may write this computer's clipboard, never read it
 
 **What holds.** In a task's terminal, what the program copies itself (OSC 52, as tmux's copy mode sends it with
@@ -854,3 +796,15 @@ one after another, each with `now: true`, and a refusal stays that row's answer 
 repository whose agent already runs in an attended task is not started again; a stopped one is brought back with its
 session (`RESUME`), and the summary says it continues. Leaving the wizard does not cancel a start in flight, since
 cancelling `Start`'s stream may stop a task half made; the wizard says the start may keep running.
+
+## Host joining uses verified signed state and SSH
+
+Host and project actions use the current person's agent identity and Core's accepted host and project-admin
+signers. Retired VPN, local trust, host-secret and laptop-key setup paths are removed. The typed replacement
+boundaries fail before an operation starts when their served implementation is unavailable; fakes do not
+establish interoperability.
+
+Legacy rental recovery keeps the validated provider project and original rental identity. An old key is
+never used to resume setup or connect. Give-back requires explicit confirmation and a successful provider
+result before recovery is removed. Existing system trust and network artifacts are not automatically deleted:
+removal needs an ownership check so unrelated configuration is preserved.

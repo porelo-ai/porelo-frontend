@@ -4,15 +4,6 @@ import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
 
 import 'fleet_backend.dart';
 
-/// How a followed repository's commits are to be checked. Chosen, never assumed.
-enum Checking {
-  /// Against a public key pinned for this project.
-  pinned,
-
-  /// Not at all: whoever can push to the repository decides what this machine runs.
-  unverified,
-}
-
 /// Following a project's repository, which is the only way a project comes to a machine.
 ///
 /// **Nothing about the project is described here.** Its `project.yml` is written where its owner
@@ -25,12 +16,8 @@ class ProjectFollowing extends ChangeNotifier {
   /// Where its repository is: a URL, or a directory on that machine.
   String url = '';
 
-  /// How its commits are checked, or null until somebody chooses.
-  Checking? checking;
-
-  /// The public key commits must be signed with, or its `SHA256:` fingerprint — the one a refusal
-  /// names — when [checking] is [Checking.pinned].
-  String key = '';
+  /// The accepted project-admin public signer set supplied by Core.
+  List<String> adminSigners = const [];
 
   /// What the machine answered, or null before it was asked.
   Followed? answer;
@@ -52,8 +39,7 @@ class ProjectFollowing extends ChangeNotifier {
     if (!identical(backend, _backend)) {
       name = '';
       url = '';
-      checking = null;
-      key = '';
+      adminSigners = const [];
     }
     _backend = backend;
     answer = null;
@@ -64,7 +50,9 @@ class ProjectFollowing extends ChangeNotifier {
 
   /// Takes a change to what was typed or chosen. Any answer was about the old values.
   void answerWith(void Function() change) {
+    final before = (name, url);
     change();
+    if (before != (name, url)) adminSigners = const [];
     answer = null;
     check = null;
     problem = null;
@@ -73,10 +61,7 @@ class ProjectFollowing extends ChangeNotifier {
   }
 
   /// Whether everything a follow needs is there, with the checking chosen rather than defaulted.
-  bool get ready =>
-      name.trim().isNotEmpty &&
-      url.trim().isNotEmpty &&
-      (checking == Checking.unverified || (checking == Checking.pinned && key.trim().isNotEmpty));
+  bool get ready => name.trim().isNotEmpty && url.trim().isNotEmpty && adminSigners.isNotEmpty;
 
   /// Whether the project is now in force on the machine.
   bool get taken => answer?.inForce ?? false;
@@ -115,8 +100,7 @@ class ProjectFollowing extends ChangeNotifier {
       answer = await backend.follow(
         name.trim(),
         url.trim(),
-        signedBy: checking == Checking.pinned ? key.trim() : null,
-        unverified: checking == Checking.unverified ? true : null,
+        signers: List.unmodifiable(adminSigners),
         acceptRewrite: acceptRewrite ? true : null,
       );
       problem = answer!.outcome.trim().isEmpty

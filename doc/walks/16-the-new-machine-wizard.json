@@ -17,10 +17,9 @@
       ]
     },
     {
-      "say": "„1. The admin key“: „Generate a key pair“, dann „Keep it as ~/.ssh/porelo-neu-admin“. Den öffentlichen Schlüssel beim Anbieter hinterlegen, wenn der Server angelegt wird (oder in root's authorized_keys der VM). „Next step“.",
+      "say": "1. Your person identity: unlock your person key in its key manager and choose Use my identity. Core supplies its public identity reference. Missing Core identity must stop before SSH or provisioning; continue only with a served verified identity adapter. No key pair is generated or pasted.",
       "at": [
-        "keep-key",
-        "generate-key"
+        "use-person-identity"
       ],
       "then": "setup-next"
     },
@@ -85,7 +84,7 @@
       "then": "!watch-new"
     },
     {
-      "say": "Ein zweiter Benutzer auf derselben Maschine: „Watch another machine…“, Name neu-2, Administrator: Ja, „Another user on a machine already prepared“, Benutzer work2, „Next“, als Schlüssel ~/.ssh/porelo-neu-admin, dann die Schritte wie eben, ohne Paketwahl. Bestanden in Schritt 4: dieselbe Zeile, dass sie Nachrichten tragen kann, für work2.",
+      "say": "For another user on the same prepared machine, open Watch another machine, choose Another user on a machine already prepared, and name the work user. Reuse your person identity through the local agent, then follow the remaining steps without choosing packages.",
       "at": [
         "machine-new-user",
         "machine-kind-choice",

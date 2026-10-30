@@ -67,9 +67,6 @@ Feature: Moving around the frame by keyboard and by pointer
         And I pick {'Check whether this machine can run anything'} in the finder
         Then the menu that holds {'Check whether this machine can run anything'} is open with it marked
 
-    Scenario: the title bar holds only what belongs to no machine
-        Then the title bar offers {'Find a command (Ctrl+K), Watch another machine…, Copy my public keys for a host…, Options, About Porelo'}
-
     Scenario: the title says where you are
         Then the title is {'this machine'}
         When I select the project {'checkout'}

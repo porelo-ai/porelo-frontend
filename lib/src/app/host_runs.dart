@@ -5,21 +5,16 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
-import 'homeserver_publishing.dart';
 import 'host_session.dart';
-import 'host_vpn.dart';
 import 'machines.dart';
 import 'settings.dart';
 
-/// The host command and local VPN must both finish before the machine is ready.
+/// The confirmed stages of signed-state server setup.
 enum HostPreparationPhase {
   /// The host command is running, stopped, or refused.
   preparing,
 
-  /// Remote setup completed and the local VPN is awaiting verification.
-  vpn,
-
-  /// The machine was added: after a fresh VPN handshake, or with no VPN when host files were supplied manually.
+  /// The server supplied its checked SSH completion record.
   reachable,
 }
 
@@ -30,9 +25,9 @@ class HostPreparation {
     required this.project,
     required this.session,
     required this.record,
-    this.tunnel,
     this.settings,
     this.interrupted = false,
+    this.replacementUnavailable = 'signed-state server setup is not available yet',
   });
 
   /// Project identity, never a path.
@@ -44,29 +39,23 @@ class HostPreparation {
   /// The original nonsecret setup answers.
   final HostUpRecord record;
 
-  /// Public halves of the tunnel prepared before the command started.
-  final HostTunnel? tunnel;
-
   /// Persists public completion settings independently of the setup dialog's lifetime.
   final Settings? settings;
 
   /// The machine's name even before a daemon exists.
   String get name => record.hostName.isEmpty ? '$project server' : record.hostName;
 
-  /// True only once the machine was added, which needs a verified VPN unless host files were supplied manually.
+  /// Whether the server completion was checked and kept.
   bool get ready => phase == HostPreparationPhase.reachable;
 
-  /// Host setup has supplied a validated destination and now needs the local VPN.
-  bool get awaitingVpn => phase == HostPreparationPhase.vpn;
-
-  /// The phase confirmed by completed host and VPN checks.
+  /// The phase confirmed by the server completion.
   HostPreparationPhase phase = HostPreparationPhase.preparing;
 
-  /// Prevents concurrent local terminals for the same setup.
-  bool vpnOpen = false;
+  /// Why the replacement setup cannot be started, if it is unavailable.
+  final String? replacementUnavailable;
 
-  /// Automatic bring-up is offered once; a refusal keeps an explicit retry.
-  bool vpnOffered = false;
+  /// Whether only recovery is allowed for this rental.
+  bool get legacy => record.legacy;
 
   /// Whether the interface closed before setup could finish.
   bool interrupted;
@@ -104,36 +93,19 @@ class HostPreparation {
   /// Whether the command has stopped for the person.
   bool get waiting => session.state == HostRunState.waiting;
 
-  /// What `up`'s refusal asks of the person on a call of its own before `up` runs again, as porelo-host names it
-  /// in the refusal's first word (`forge-central-token:`, `keys:`, `matrix-token:`); null for any other ending.
-  List<String>? get asksOnItsOwn {
-    if (running || waiting) return null;
-    final fix = session.fix ?? '';
-    for (final need in const ['forge-central-token', 'keys', 'matrix-token']) {
-      if (fix.startsWith('$need:')) return [need];
-    }
-    return null;
-  }
+  /// Whether a supported provider sign-in still needs a person.
+  bool get needsYou => !legacy && waiting;
 
-  /// Whether the setup needs the person before it can go on: a stop, or a refusal that asks on its own call.
-  bool get needsYou => waiting || asksOnItsOwn != null;
+  /// A removed stop is never offered as a terminal action.
+  List<String>? get asksOnItsOwn => null;
 }
 
 /// Owns host setup just as Operations owns other long actions; views only observe it.
 class HostRuns extends ChangeNotifier {
   /// Adds successful runs through the ordinary Machines path.
-  HostRuns(
-    this.machines, {
-    String Function(String)? endpointFor,
-    this.ping,
-    this.probeLink,
-    this.pingHost,
-    this.probeHostLink,
-    this.environment,
-    this.homeserver,
-  }) : _endpointFor = endpointFor ?? Machine.endpointFor {
+  HostRuns(this.machines, {this.environment, this.setupAgain}) {
     for (final entry in machines.settings.hostUps.entries) {
-      if (!entry.value.preparing) continue;
+      if (!entry.value.preparing && !entry.value.legacy) continue;
       final session = sessionFor(entry.key, entry.value)..restoreProtocol(entry.value.protocol);
       final run = HostPreparation(
         project: entry.key,
@@ -141,6 +113,7 @@ class HostRuns extends ChangeNotifier {
         record: entry.value,
         settings: machines.settings,
         interrupted: false,
+        replacementUnavailable: setupAgain == null ? 'signed-state server setup is not available yet' : null,
       );
       _runs[entry.key] = run;
       _listen(run);
@@ -150,33 +123,14 @@ class HostRuns extends ChangeNotifier {
   }
 
   /// Builds an idle command from the saved identity without starting a process.
-  HostSession sessionFor(String project, HostUpRecord record) =>
-      HostSession(executable: poreloHost(), arguments: hostArguments(record, project));
+  HostSession sessionFor(String project, HostUpRecord record) => HostSession(
+    executable: poreloHost(),
+    arguments: record.legacy ? record.giveBackArguments(project) : hostArguments(record, project),
+  );
 
-  final String Function(String) _endpointFor;
-
-  /// Overrides all gateway probes with one stand-in.
-  final Future<bool> Function()? ping;
-
-  /// Overrides all link probes with one stand-in.
-  final Future<bool> Function()? probeLink;
-
-  /// Overrides the gateway probe for a particular host in tests.
-  final Future<bool> Function(String host)? pingHost;
-
-  /// Overrides the link probe for a particular host in tests.
-  final Future<bool> Function(String host)? probeHostLink;
-
-  final _vpnLinks = <String, bool?>{};
-
-  /// The measured presence of one host's local link, absent until checked.
-  bool? vpnLinkFor(String host) => _vpnLinks[host];
-
-  /// Whether the local link exists; null until checked or when the check fails.
-  bool? vpnLinkUp;
-
-  /// Whether the last check found both the local link and an answering VPN address.
-  bool vpnUp = false;
+  /// Re-enters signed-state setup for the same rental while its rental lock is held.
+  /// The adapter prepares the existing rental directly and must not reacquire that lock.
+  final Future<HostUpRecord> Function(String project, HostUpRecord existingRental)? setupAgain;
 
   /// State directory overrides shared with an explicitly configured host command.
   final Map<String, String>? environment;
@@ -195,31 +149,34 @@ class HostRuns extends ChangeNotifier {
   Future<void> _probe(HostPreparation run) async {
     if (_disposed || _leaving || run._upActive || run.session.state == HostRunState.running) return;
     try {
-      final file = File(
-        poreloHostProjectLock(
-          run.record.hostName.isEmpty ? run.project : HostPlan.serverLockName(run.record.hostName),
-          environment: environment,
-        ),
-      );
-      await file.parent.create(recursive: true);
-      final handle = await openProjectLock(file);
-      var held = false;
-      try {
-        try {
-          await handle.lock(FileLock.exclusive);
-        } on FileSystemException catch (error) {
-          // Only contention proves another command is running; other failures need a refusal.
-          if (![11, 13, 32, 33].contains(error.osError?.errorCode)) rethrow;
-          held = true;
-        }
-      } finally {
-        // Closing any descriptor can release this process's fcntl lock, so close before any action.
-        await handle.close();
+      final file = File(_lockPath(run.project, run.record));
+      if (_replacementLocks.contains(file.path)) {
+        run.session.state = HostRunState.busy;
+        _poll(run);
+        return;
       }
+      final held = await _serializeLock(file.path, () async {
+        await file.parent.create(recursive: true);
+        final handle = await openProjectLock(file);
+        var held = false;
+        try {
+          try {
+            await handle.lock(FileLock.exclusive);
+          } on FileSystemException catch (error) {
+            // Only contention proves another command is running; other failures need a refusal.
+            if (![11, 13, 32, 33].contains(error.osError?.errorCode)) rethrow;
+            held = true;
+          }
+        } finally {
+          // Closing any descriptor can release this process's fcntl lock, so close before any action.
+          await handle.close();
+        }
+        return held;
+      });
       if (_disposed || _leaving || run.givenBack) return;
       run.session.state = held ? HostRunState.busy : HostRunState.idle;
       run.interrupted = !held;
-      run.problem = null;
+      run.problem = run.legacy ? HostUpRecord.legacyExplanation : null;
       run._lockFailed = false;
       if (held) {
         _poll(run);
@@ -263,97 +220,6 @@ class HostRuns extends ChangeNotifier {
     }
   }
 
-  /// Existing hosts whose last unprivileged VPN probe failed.
-  final Set<String> vpnDown = {};
-
-  final Map<String, Machine> _vpnsToTakeDown = {};
-  final Set<String> _vpnCleanupsFinished = {};
-
-  /// Given-back servers whose local cleanup and absent tunnel have not both been confirmed.
-  List<Machine> get vpnsToTakeDown => List.unmodifiable(_vpnsToTakeDown.values);
-
-  /// Keeps cleanup reachable after the server has left Machines.
-  void rememberVpnToTakeDown(Machine machine) {
-    ++_vpnProbe;
-    vpnLinkUp = null;
-    _vpnLinks[machine.hostProject] = null;
-    _vpnsToTakeDown[machine.hostProject] = machine;
-    _vpnCleanupsFinished.remove(machine.hostProject);
-    _changed();
-  }
-
-  /// Records whether the root cleanup command completed, separately from link absence.
-  void vpnCleanupFinished(String host, {required bool completed}) {
-    ++_vpnProbe;
-    if (completed) {
-      _vpnCleanupsFinished.add(host);
-    } else {
-      _vpnCleanupsFinished.remove(host);
-    }
-  }
-
-  /// Whether the root cleanup succeeded and the host's local tunnel is confirmed absent.
-  bool vpnCleanupConfirmed(String host) => _vpnCleanupsFinished.contains(host) && _vpnLinks[host] == false;
-
-  /// Uses the same unprivileged link probe for actions and refreshes.
-  Future<bool> probeVpnLink(String host) =>
-      probeHostLink?.call(host) ??
-      probeLink?.call() ??
-      probeHostVpnLink(interface: machines.settings.hostUp(host)?.vpnInterface ?? 'porelo-0', host: host);
-
-  Future<bool> _pingHost(String host) =>
-      pingHost?.call(host) ??
-      ping?.call() ??
-      pingHostVpn(networkNumber: machines.settings.hostUp(host)?.vpnNetworkNumber ?? 0);
-
-  /// Checks existing hosts at startup and on refresh; setup itself needs a handshake.
-  Future<void> refreshVpns() async {
-    final generation = ++_vpnProbe;
-    final hosts = machines.all.where((machine) => machine.kind == 'host').toList();
-    // The local VPN is brought up only on Linux; elsewhere a failed ping says nothing about it.
-    if (hosts.isEmpty && _vpnsToTakeDown.isEmpty || !Platform.isLinux) {
-      _vpnLinks.clear();
-      vpnLinkUp = false;
-      vpnUp = false;
-      vpnDown.clear();
-      _changed();
-      return;
-    }
-    final targets = <String>{...hosts.map((machine) => machine.hostProject), ..._vpnsToTakeDown.keys};
-    final results = await Future.wait(
-      targets.map((host) async {
-        try {
-          final probes = await Future.wait([probeVpnLink(host), _pingHost(host)]);
-          return (host: host, link: probes[0], answers: probes[0] && probes[1]);
-        } on HostFilesRefused {
-          return (host: host, link: null, answers: false);
-        }
-      }),
-    );
-    // A slower earlier probe must not overwrite a later answer.
-    if (_disposed || generation != _vpnProbe) return;
-    _vpnLinks
-      ..clear()
-      ..addEntries(results.map((result) => MapEntry(result.host, result.link)));
-    vpnLinkUp = results.any((result) => result.link == null) ? null : results.any((result) => result.link == true);
-    vpnUp = results.any((result) => result.answers);
-    for (final result in results) {
-      if (result.link == false && _vpnCleanupsFinished.contains(result.host)) _vpnsToTakeDown.remove(result.host);
-    }
-    final answering = results.where((result) => result.answers).map((result) => result.host).toSet();
-    final present = machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toSet();
-    vpnDown
-      ..clear()
-      ..addAll(
-        hosts
-            .where((machine) => !answering.contains(machine.hostProject) && present.contains(machine.name))
-            .map((machine) => machine.name),
-      );
-    _changed();
-  }
-
-  int _vpnProbe = 0;
-
   /// The fleet which receives a host after a successful up.
   final Machines machines;
   final Map<String, HostPreparation> _runs = {};
@@ -367,17 +233,23 @@ class HostRuns extends ChangeNotifier {
 
   /// Stops and interruptions needing a person, including setup run again on a ready server.
   List<HostPreparation> get needingYou =>
-      _runs.values.where((run) => !run.givenBack && (run.needsYou || run.interrupted)).toList();
+      _runs.values.where((run) => !run.givenBack && !run.legacy && (run.needsYou || run.interrupted)).toList();
 
   /// Why a ready server cannot start another setup attempt now.
   String? againUnavailable(String project) {
     if (_disposed || _leaving) return 'the interface is closing';
+    final record = machines.settings.hostUp(project);
+    if (_settingUpAgain.contains(project)) return 'server setup is already running';
+    if (record?.legacy == true) {
+      if (_runs[project]?.lockProblem case final problem?) return problem;
+      if (_runs[project]?.running == true) return 'the host command is still running';
+      return setupAgain == null ? 'signed-state server setup is not available yet' : null;
+    }
     final run = _runs[project];
     if (run?.lockProblem case final problem?) return problem;
     if (run?.running == true) return 'the host command is still running';
     if (run != null && (run.needsYou || run.interrupted)) return 'setup waits for you under Needs you';
     if (run != null && (!run.ready || run.givenBack)) return 'the server is not ready';
-    final record = machines.settings.hostUp(project);
     if (record == null) return 'the setup arguments were not kept';
     if (record.preparing || !machines.all.any((machine) => machine.kind == 'host' && machine.hostProject == project)) {
       return 'the server is not ready';
@@ -385,9 +257,40 @@ class HostRuns extends ChangeNotifier {
     return null;
   }
 
-  /// Runs a ready server's kept setup as a new attempt without taking it out of Machines.
+  final _settingUpAgain = <String>{};
+  static final _replacementLocks = <String>{};
+  static final _localLockOwners = <String, Future<void>>{};
+
+  static Future<T> _serializeLock<T>(String path, Future<T> Function() action) async {
+    final previous = _localLockOwners[path];
+    final released = Completer<void>();
+    _localLockOwners[path] = released.future;
+    try {
+      await previous;
+      return await action();
+    } finally {
+      released.complete();
+      if (identical(_localLockOwners[path], released.future)) _localLockOwners.remove(path);
+    }
+  }
+
+  String _lockPath(String project, HostUpRecord record) =>
+      poreloHostProjectLock(HostPlan.lockNameForTag(record.rentalTagFor(project)), environment: environment);
+
+  /// Re-enters the verified setup flow for this same rental.
   Future<void> again(String project) {
     if (againUnavailable(project) != null) return _runs[project]?.finished ?? Future.value();
+    final existing = machines.settings.hostUp(project)!;
+    if (existing.legacy) {
+      _settingUpAgain.add(project);
+      _runs[project]?._upActive = true;
+      _changed();
+      return _replaceLegacy(project, existing).whenComplete(() {
+        _settingUpAgain.remove(project);
+        _runs[project]?._upActive = false;
+        _changed();
+      });
+    }
     var run = _runs[project];
     if (run == null) {
       final record = machines.settings.hostUp(project)!;
@@ -403,10 +306,62 @@ class HostRuns extends ChangeNotifier {
     return run.finished = _up(run);
   }
 
-  /// Keeps retry availability in sync when a local terminal opens or closes.
-  void vpnTerminalChanged(HostPreparation run, {required bool open}) {
-    run.vpnOpen = open;
-    _changed();
+  Future<void> _replaceLegacy(String project, HostUpRecord existing) async {
+    final file = File(_lockPath(project, existing));
+    if (!_replacementLocks.add(file.path)) return;
+    try {
+      await _serializeLock(file.path, () async {
+        RandomAccessFile? handle;
+        try {
+          await file.parent.create(recursive: true);
+          handle = await openProjectLock(file);
+          await handle.lock(FileLock.exclusive);
+          final completed = await setupAgain!(project, existing);
+          if (_disposed) return;
+          if (completed.legacy ||
+              completed.preparing ||
+              completed.preparedHost == null ||
+              completed.scalewayProject != existing.scalewayProject ||
+              completed.rentalTag != existing.rentalTagFor(project) ||
+              completed.host != project ||
+              HostUpRecord.fromStored(completed.stored) == null) {
+            throw const FormatException('Replacement setup did not confirm the same rental.');
+          }
+          await machines.settings.rememberHostUp(project, completed);
+          final previous = _runs[project];
+          final run = HostPreparation(
+            project: project,
+            session: sessionFor(project, completed),
+            record: completed,
+            settings: machines.settings,
+          )..phase = HostPreparationPhase.reachable;
+          previous?._poll?.cancel();
+          if (previous?._listener case final listener?) previous!.session.removeListener(listener);
+          previous?.session.dispose();
+          _runs[project] = run;
+          _listen(run);
+          for (final old in machines.all.where((m) => m.kind == 'host' && m.hostProject == project).toList()) {
+            await machines.forget(old);
+          }
+          await machines.add(
+            Machine(
+              name: run.name,
+              socketPath: '',
+              kind: 'host',
+              host: completed.preparedHost!.address,
+              hostProject: project,
+            ),
+          );
+        } finally {
+          await handle?.close();
+        }
+      });
+    } on Exception {
+      _runs[project]?.problem =
+          '${HostUpRecord.legacyExplanation} Setup again could not be confirmed. Its recovery data was kept.';
+    } finally {
+      _replacementLocks.remove(file.path);
+    }
   }
 
   /// Takes ownership before starting, so no command depends on the setup view's lifetime.
@@ -414,11 +369,11 @@ class HostRuns extends ChangeNotifier {
     required String project,
     required HostSession session,
     required HostUpRecord record,
-    HostTunnel? tunnel,
     Settings? settings,
   }) {
+    if (record.legacy) throw StateError('Legacy credentials cannot start setup.');
     final previous = _runs[project];
-    if (_leaving || previous != null && (previous.running || previous.waiting || previous.awaitingVpn)) {
+    if (_leaving || previous != null && (previous.running || previous.waiting)) {
       throw StateError('This project already has a host run.');
     }
     previous?._poll?.cancel();
@@ -428,7 +383,6 @@ class HostRuns extends ChangeNotifier {
       project: project,
       session: session,
       record: record.withPreparation(record.startedAt ?? DateTime.now().toUtc()),
-      tunnel: tunnel,
       settings: settings ?? machines.settings,
     );
     _runs[project] = run;
@@ -442,9 +396,9 @@ class HostRuns extends ChangeNotifier {
   Future<void> resume(HostPreparation run) {
     if (_disposed ||
         _leaving ||
+        run.legacy ||
         run.ready && !run.needsYou && !run.interrupted ||
         run.givenBack ||
-        run.awaitingVpn ||
         run._upActive ||
         run.session.state == HostRunState.running ||
         run._lockFailed) {
@@ -492,130 +446,30 @@ class HostRuns extends ChangeNotifier {
   }
 
   Future<void> _addHost(HostPreparation run) async {
-    final session = run.session;
-    if (run.record.hostName.isNotEmpty) {
-      final host = session.preparedHost;
-      if (host == null) {
-        run.problem = 'host.json is missing from the completed server setup.';
-        return;
-      }
-      if (run.record.vpnHostPublicKey.isNotEmpty &&
-          run.record.vpnHostPublicKey != host.values['wireguard_public_key']) {
-        run.problem = 'host.json: wireguard_public_key differs from the server key prepared here.';
-        return;
-      }
-      if (host.values['address'] != session.address) {
-        run.problem = 'host.json: address differs from the completed server.';
-        return;
-      }
-      if (host.network != run.record.vpnNetworkNumber ||
-          host.values['homeserver'] != 'matrix.${run.record.hostName}.porelo.internal') {
-        run.problem = 'host.json: network or homeserver differs from the chosen server.';
-        return;
-      }
-      if (!session.steps.any((step) => step.step == 'up' && step.state == StepState.done) ||
-          session.steps.any((step) => step.state == StepState.refused)) {
-        run.problem = session.fix ?? 'The host did not confirm setup.';
-        return;
-      }
-      if (machines.all.any(
-        (machine) => machine.name == run.name && (machine.kind != 'host' || machine.hostProject != run.project),
-      )) {
-        run.problem = 'A different machine already uses the server name ${run.name}.';
-        return;
-      }
-      final settings = run.settings ?? machines.settings;
-      await settings.rememberHostUp(run.project, (settings.hostUp(run.project) ?? run.record).withPreparedHost(host));
-      run.phase = HostPreparationPhase.vpn;
+    final host = run.session.preparedHost;
+    if (host == null ||
+        host.values['address'] != run.session.address ||
+        host.values['name'] != run.record.hostName ||
+        !run.session.steps.any((step) => step.step == 'up' && step.state == StepState.done) ||
+        run.session.steps.any((step) => step.state == StepState.refused)) {
+      run.problem = 'The server did not confirm its SSH completion record.';
       return;
     }
-    final address = session.address ?? '';
-    final account = session.account ?? '';
-    final socket = session.socket ?? '';
-    if (session.steps.any((step) => step.state == StepState.refused)) {
-      run.problem = session.fix ?? 'The host refused setup.';
-      return;
-    }
-    if (!session.steps.any((step) => step.step == 'up' && step.state == StepState.done) ||
-        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address) ||
-        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(account) ||
-        !RegExp(r'^/run/user/[0-9]+/porelo/porelod\.sock$').hasMatch(socket)) {
-      run.problem = 'The completed host did not name a valid address, account and daemon socket.';
-      return;
-    }
-    if (machines.all.any((machine) => machine.name == run.name && machine.kind != 'host')) {
-      run.problem = 'A machine named ${run.name} already exists and is not a host.';
-      return;
-    }
-    final settings = run.settings;
-    if (settings != null) {
-      final kept = settings.hostUp(run.project) ?? run.record;
-      final tunnel = kept.withTunnel(
-        hostPublicKey: run.tunnel?.hostPublicKey ?? kept.vpnHostPublicKey,
-        address: address,
-      );
-      // Recovery stays until the machine is added, which waits for the VPN.
-      await settings.rememberHostUp(run.project, tunnel);
-      // Host files supplied by hand leave no host key, and the VPN step refuses to run without one.
-      if (tunnel.vpnHostPublicKey.isEmpty) {
-        await _addMachine(run);
-        await settings.rememberHostUp(run.project, tunnel.withPreparation(null));
-        run.phase = HostPreparationPhase.reachable;
-        run.problem = 'The VPN was not set up because the host files were supplied manually.';
-        return;
-      }
-    }
-    run.phase = HostPreparationPhase.vpn;
-  }
-
-  Future<void> _addMachine(HostPreparation run) {
-    final session = run.session;
-    final serverOnly = run.record.hostName.isNotEmpty;
-    return machines.add(
+    final settings = run.settings ?? machines.settings;
+    await settings.rememberHostUp(
+      run.project,
+      (settings.hostUp(run.project) ?? run.record).withPreparedHost(host).withPreparation(null),
+    );
+    await machines.add(
       Machine(
         name: run.name,
         kind: 'host',
-        socketPath: serverOnly || Platform.isWindows ? '' : _endpointFor(run.name),
-        host: '${serverOnly ? 'root' : session.account}@${session.address}',
-        remoteSocket: serverOnly ? '' : session.socket!,
-        identity: run.record.identity,
+        socketPath: '',
+        host: '${host.values['address']}',
         hostProject: run.project,
       ),
     );
-  }
-
-  /// Promotes only a terminal whose root check confirmed the expected fresh handshake.
-  Future<void> vpnChecked(HostPreparation run, {required bool verified}) async {
-    if (_disposed || !run.awaitingVpn || !verified || run.ready) return;
-    try {
-      await _addMachine(run);
-      final settings = run.settings ?? machines.settings;
-      final kept = settings.hostUp(run.project);
-      if (kept != null) await settings.rememberHostUp(run.project, kept.withPreparation(null));
-      run.phase = HostPreparationPhase.reachable;
-      run.problem = null;
-    } on Exception {
-      run.problem = 'The VPN answered, but this server could not be kept in Machines. Your setup has been kept.';
-    }
-    _changed();
-  }
-
-  /// This account's homeserver, published for a host's tasks once its VPN is up and closed at its give-back;
-  /// null where nothing here publishes it.
-  final HomeserverPublishing? homeserver;
-
-  /// Closes this computer's homeserver published for [project]'s host, once that host was given back: its tasks
-  /// are gone, so nothing may reach the homeserver on that address any more. Answers why it is still published
-  /// where closing failed, and null otherwise; run after [confirmDown], which waits on nothing of it.
-  Future<String?> closeHomeserver(String project) async {
-    final kept = machines.settings.hostUp(project);
-    final closed = kept == null ? null : await homeserver?.unpublish(kept.vpnPeerAddress);
-    if (closed == null || !closed.published) return null;
-    if (_runs[project] case final run?) {
-      run.problem = closed.words;
-      _changed();
-    }
-    return closed.words;
+    run.phase = HostPreparationPhase.reachable;
   }
 
   /// Removes recovery only after the provider confirmed give-back and the command succeeded.
@@ -625,7 +479,7 @@ class HostRuns extends ChangeNotifier {
     await pending?.saved;
     final kept = machines.settings.hostUp(project);
     if (kept != null) {
-      await machines.settings.rememberHostUp(project, kept.withPreparation(null).withProtocol(const []));
+      await machines.settings.forgetHostUp(project);
     }
     final run = _runs[project];
     if (run != null) {

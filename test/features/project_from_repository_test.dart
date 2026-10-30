@@ -59,7 +59,6 @@ import './step/i_forget_the_token_here.dart';
 import './step/i_bind_the_machine_to.dart';
 import './step/no_deploy_key_calls_were_made.dart';
 import './step/the_machine_followed_pinned_to_the_persons_key.dart';
-import './step/machinesigners_holds_the_machines_line_committed_signed_with.dart';
 import './step/the_machine_never_saw_the_forges_token.dart';
 import './step/the_next_follow_is_refused_as.dart';
 import './step/the_forge_holds_no_key_at.dart';
@@ -70,17 +69,10 @@ import './step/the_machine_trusts_for_and_nothing_else.dart';
 import './step/i_close_the_binding_and_the_repositories.dart';
 import './step/the_machine_was_cleared_after_a_dry_run.dart';
 import './step/the_forge_holds_no_key_of_the_machine_at_or.dart';
-import './step/machinesigners_no_longer_holds_the_machines_line.dart';
 import './step/is_a_project_of_its_own.dart';
-import './step/i_bind_it_again.dart';
 import './step/i_remove_the_machine.dart';
 import './step/the_machine_pins_when_it_follows.dart';
 import './step/the_project_is_the_one_shown.dart';
-import './step/the_forge_holds_the_key_at_of_somebody_else.dart';
-import './step/machinesigners_names_as.dart';
-import './step/i_look_at_every_porelo_key_and_signer_of.dart';
-import './step/i_remove_the_signer.dart';
-import './step/machinesigners_no_longer_names_committed_signed.dart';
 import './step/the_machines_gate_holds_the_change_saying.dart';
 import './step/i_look_at_the_changes_waiting_at_the_machine.dart';
 import './step/merging_the_change_is_not_offered_yet.dart';
@@ -338,7 +330,6 @@ void main() {
       await noDeployKeyCallsWereMade(tester);
       await theMachineFollowedPinnedToThePersonsKey(tester, 'api');
       await itSays(tester, 'accepts changes to the project signed with your key');
-      await machinesignersHoldsTheMachinesLineCommittedSignedWith(tester, 'SHA256:person');
       await theMachineNeverSawTheForgesToken(tester);
     });
     testWidgets('''a follow the machine refuses ends the binding and says why''', (tester) async {
@@ -425,7 +416,6 @@ void main() {
       await theMachineWasClearedAfterADryRun(tester, 'everything');
       await theForgeHoldsNoKeyOfTheMachineAtOr(tester, 'acme/api', 'acme/backend');
       await noDeployKeyCallsWereMade(tester);
-      await machinesignersNoLongerHoldsTheMachinesLine(tester);
     });
     testWidgets('''a work repository that is a project of its own is said so at the binding''', (tester) async {
       await bddSetUp(tester);
@@ -443,23 +433,6 @@ void main() {
       await iBindTheMachineTo(tester, 'acme/api');
       await itSays(tester, 'acme/backend holds a project.yml of its own');
     });
-    testWidgets('''binding twice adds the signer only once''', (tester) async {
-      await bddSetUp(tester);
-      await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
-      await holdsTheProjectWithTheWorkRepositoryAt(
-        tester,
-        'acme/api',
-        'api',
-        'backend',
-        'git@github.com:acme/backend.git',
-      );
-      await iChooseTheCommand(tester, 'A project from a repository you have');
-      await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
-      await iBindTheMachineTo(tester, 'acme/api');
-      await iBindItAgain(tester);
-      await noDeployKeyCallsWereMade(tester);
-      await itSays(tester, 'is in machine-signers already');
-    });
     testWidgets('''removing a machine removes its signer without deploy keys''', (tester) async {
       await bddSetUp(tester);
       await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
@@ -475,7 +448,6 @@ void main() {
       await iBindTheMachineTo(tester, 'acme/api');
       await iRemoveTheMachine(tester);
       await theForgeHoldsNoKeyOfTheMachineAtOr(tester, 'acme/api', 'acme/backend');
-      await machinesignersNoLongerHoldsTheMachinesLine(tester);
       await itSays(tester, 'no longer follows api');
       await noDeployKeyCallsWereMade(tester);
     });
@@ -511,27 +483,6 @@ void main() {
       await itSays(tester, 'Start work in api');
       await itSays(tester, 'accepts changes to the project signed with your key');
       await theProjectIsTheOneShown(tester, 'api');
-    });
-    testWidgets('''a signer no machine claims is listed and removed from here''', (tester) async {
-      await bddSetUp(tester);
-      await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
-      await holdsTheProjectWithTheWorkRepositoryAt(
-        tester,
-        'acme/api',
-        'api',
-        'backend',
-        'git@github.com:acme/backend.git',
-      );
-      await theForgeHoldsTheKeyAtFromAMachineThatIsGone(tester, 'porelo old-box api/api', 'acme/api');
-      await theForgeHoldsTheKeyAtOfSomebodyElse(tester, 'ci deploy', 'acme/api');
-      await machinesignersNamesAs(tester, 'old-box', 'porelo@old-box ssh-ed25519 AAAAold');
-      await iChooseTheCommand(tester, 'A project from a repository you have');
-      await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
-      await iLookAtEveryPoreloKeyAndSignerOf(tester, 'acme/api');
-      await itSays(tester, 'old-box (porelo@old-box)');
-      await itDoesNotSay(tester, 'ci deploy');
-      await iRemoveTheSigner(tester, 'porelo@old-box');
-      await machinesignersNoLongerNamesCommittedSigned(tester, 'porelo@old-box');
     });
     testWidgets(
       '''a configuration change waiting at a machine's gate is reviewed, merged signed here, and cleared there''',

@@ -203,7 +203,6 @@ Feature: A project from a repository a person already has on a forge
         Then no deploy key calls were made
         And the machine followed {'api'} pinned to the person's key
         And it says {'accepts changes to the project signed with your key'}
-        And machine-signers holds the machine's line, committed signed with {'SHA256:person'}
         And the machine never saw the forge's token
     # Walk 10: a repository whose commits were not signed by the pinned key read as followed, and the
     # next call found no project. A refused first follow leaves nothing on the machine, and says why.
@@ -260,7 +259,6 @@ Feature: A project from a repository a person already has on a forge
         Then the machine was cleared {'everything'}, after a dry run
         And the forge holds no key of the machine at {'acme/api'} or {'acme/backend'}
         And no deploy key calls were made
-        And machine-signers no longer holds the machine's line
 
     # Walk 8: a work repository still held a project.yml of its own from an earlier test, and nothing said so.
     Scenario: a work repository that is a project of its own is said so at the binding
@@ -271,16 +269,6 @@ Feature: A project from a repository a person already has on a forge
         And I connect the forge with the token {'ghp_accepted'}
         And I bind the machine to {'acme/api'}
         Then it says {'acme/backend holds a project.yml of its own'}
-    Scenario: binding twice adds the signer only once
-        Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
-        And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
-        When I choose the command {'A project from a repository you have'}
-        And I connect the forge with the token {'ghp_accepted'}
-        And I bind the machine to {'acme/api'}
-        And I bind it again
-        Then no deploy key calls were made
-        And it says {'is in machine-signers already'}
-    # Stopping following removes the signer without changing forge access.
     Scenario: removing a machine removes its signer without deploy keys
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
@@ -289,7 +277,6 @@ Feature: A project from a repository a person already has on a forge
         And I bind the machine to {'acme/api'}
         And I remove the machine
         Then the forge holds no key of the machine at {'acme/api'} or {'acme/backend'}
-        And machine-signers no longer holds the machine's line
         And it says {'no longer follows api'}
         And no deploy key calls were made
     # The trust anchor is compared, never taken on trust: a different pin is said, loudly.
@@ -314,21 +301,6 @@ Feature: A project from a repository a person already has on a forge
         And the project {'api'} is the one shown
 
     # A machine that is gone can still be removed from trusted message signers.
-    Scenario: a signer no machine claims is listed and removed from here
-        Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
-        And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}
-        And the forge holds the key {'porelo old-box api/api'} at {'acme/api'} from a machine that is gone
-        And the forge holds the key {'ci deploy'} at {'acme/api'} of somebody else
-        And machine-signers names {'old-box'} as {'porelo@old-box ssh-ed25519 AAAAold'}
-        When I choose the command {'A project from a repository you have'}
-        And I connect the forge with the token {'ghp_accepted'}
-        And I look at every Porelo key and signer of {'acme/api'}
-        Then it says {'old-box (porelo@old-box)'}
-        And it does not say {'ci deploy'}
-        When I remove the signer {'porelo@old-box'}
-        Then machine-signers no longer names {'porelo@old-box'}, committed signed
-
-    # The machine only reads the project's repository: its change is merged here, signed, and it is told.
     Scenario: a configuration change waiting at a machine's gate is reviewed, merged signed here, and cleared there
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         And {'acme/api'} holds the project {'api'} with the work repository {'backend'} at {'git@github.com:acme/backend.git'}

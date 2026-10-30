@@ -1,4 +1,4 @@
-import 'package:porelo_host/porelo_host.dart' show HostCardSsh, pinnedHostSshOptions, poreloHostKnownHosts;
+import 'package:porelo_host/porelo_host.dart' show pinnedHostSshOptions, poreloHostKnownHosts;
 
 import 'connection_trial.dart';
 import 'connections.dart';
@@ -13,7 +13,6 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_backend.dart';
 import 'fleet_model.dart';
 import 'host_keys.dart';
-import 'join_keys.dart';
 import 'machine_setup.dart';
 import 'tunnel.dart';
 import 'wsl.dart';
@@ -53,8 +52,6 @@ class Machine {
     this.distribution = '',
     this.identity = '',
     this.hostProject = '',
-    this.hostCard,
-    this.sshConfig = '',
     this.unknownFields = const <String, Object?>{},
   });
 
@@ -68,8 +65,6 @@ class Machine {
     distribution: distribution,
     identity: identity,
     hostProject: hostProject,
-    hostCard: hostCard,
-    sshConfig: sshConfig,
     unknownFields: unknownFields,
   );
 
@@ -121,8 +116,6 @@ class Machine {
     distribution: _text(stored['distribution']),
     identity: _text(stored['identity']),
     hostProject: _text(stored['hostProject']),
-    hostCard: stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null,
-    sshConfig: _text(stored['sshConfig']),
     unknownFields: <String, Object?>{
       for (final entry in stored.entries)
         if (!_knownFields.contains(entry.key)) entry.key: entry.value,
@@ -130,16 +123,7 @@ class Machine {
   );
 
   static const Set<String> _knownFields = <String>{
-    'name',
-    'socket',
-    'host',
-    'remoteSocket',
-    'kind',
-    'distribution',
-    'identity',
-    'hostProject',
-    'hostCard',
-    'sshConfig', //
+    'name', 'socket', 'host', 'remoteSocket', 'kind', 'distribution', 'identity', 'hostProject', //
   };
 
   static String _text(Object? value) => value is String ? value : '';
@@ -170,23 +154,6 @@ class Machine {
   /// The project whose kept host setup rented this machine, empty for older entries.
   final String hostProject;
 
-  /// The verified public card and admitted account transport values, when imported.
-  final HostCardSsh? hostCard;
-
-  /// The public OpenSSH configuration shared with Core and plugins.
-  final String sshConfig;
-
-  /// Makes a watched host from Core's verified values without a private identity.
-  factory Machine.fromHostCard(HostCardSsh card, {required String socketPath, String? sshConfig}) => Machine(
-    name: card.name,
-    kind: 'host',
-    host: card.name,
-    socketPath: socketPath,
-    remoteSocket: card.daemonSocket,
-    hostCard: card,
-    sshConfig: sshConfig ?? card.configPath(windows: desk.isWindows),
-  );
-
   /// What an entry held beyond the fields this build knows, kept so that saving loses nothing.
   final Map<String, Object?> unknownFields;
 
@@ -199,15 +166,9 @@ class Machine {
   /// Linux computer. A machine over ssh uses a byte relay. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
-    'host'
-        when hostCard != null &&
-            (sshConfig.isEmpty || host != hostCard!.name || remoteSocket != hostCard!.daemonSocket) =>
-      'The imported host needs its matching public SSH configuration and daemon endpoint.',
-    'host' when hostCard != null =>
-      windows ? 'Host card tunnels require OpenSSH Unix socket and master support on this platform.' : null,
+    'host' when identity.isNotEmpty => HostUpRecord.legacyExplanation,
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
       'This server is prepared without a project account or daemon. Register a project from its menu.',
-    'host' when identity.isEmpty => 'The host has no identity; run porelo-host up again.',
     '' || 'host' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
     '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>
       "The remote socket must be a plain path: letters, digits, '.', '_', '-' and '/'.",
@@ -259,16 +220,8 @@ class Machine {
   };
 
   /// SSH options shared by all access to this account.
-  List<String> get loginSshOptions => hostCard != null
-      ? <String>['-F', sshConfig, '-o', 'ControlMaster=no', '-o', 'ProxyCommand=false']
-      : kind == 'host'
-      ? pinnedHostSshOptions(
-          JoinKeys.isRuntimeIdentity(identity, hostProject)
-              ? '${poreloHostKnownHosts()}.$hostProject'
-              : poreloHostKnownHosts(),
-          identity,
-        )
-      : const <String>[];
+  List<String> get loginSshOptions =>
+      kind == 'host' ? pinnedHostSshOptions(poreloHostKnownHosts(), identity) : const <String>[];
 
   /// Whether this interface raises the way in to it.
   ///
@@ -298,9 +251,7 @@ class Machine {
     if (remoteSocket.isNotEmpty) 'remoteSocket': remoteSocket,
     if (kind.isNotEmpty) 'kind': kind,
     if (distribution.isNotEmpty) 'distribution': distribution,
-    if (identity.isNotEmpty && hostCard == null) 'identity': identity,
-    if (hostCard != null) 'hostCard': hostCard!.stored,
-    if (sshConfig.isNotEmpty) 'sshConfig': sshConfig,
+    if (identity.isNotEmpty) 'identity': identity,
     if (hostProject.isNotEmpty) 'hostProject': hostProject,
     ...unknownFields,
   };
@@ -348,13 +299,10 @@ class Machine {
       other.distribution == distribution &&
       other.identity == identity &&
       other.hostProject == hostProject &&
-      other.hostCard == hostCard &&
-      other.sshConfig == sshConfig &&
       mapEquals(other.unknownFields, unknownFields);
 
   @override
-  int get hashCode =>
-      Object.hash(name, socketPath, host, remoteSocket, kind, distribution, identity, hostProject, hostCard, sshConfig);
+  int get hashCode => Object.hash(name, socketPath, host, remoteSocket, kind, distribution, identity, hostProject);
 }
 
 /// Every machine this interface is watching, and which one it is acting on.
@@ -388,10 +336,7 @@ class Machines extends ChangeNotifier {
        setup = setup ?? MachineSetup(),
        _answers = answers ?? _answersAt,
        tunnels = tunnels ?? Tunnels() {
-    final local = Machine.local();
-    _machines.add(local);
-    _selected = local.name;
-    _open(local);
+    _adopt(<Machine>[Machine.local()]);
   }
 
   final Settings _settings;
@@ -441,13 +386,6 @@ class Machines extends ChangeNotifier {
   final List<Machine> _machines = <Machine>[];
   String? _selected;
   bool _disposed = false;
-  Future<void> _changing = Future.value();
-
-  Future<void> _change(Future<void> Function() work) {
-    final next = _changing.then((_) => work());
-    _changing = next.then<void>((_) {}, onError: (Object error, StackTrace stack) {});
-    return next;
-  }
 
   /// Whether something accepts a connection at [socket] within a second.
   static Future<bool> _answersAt(String socket) async {
@@ -544,23 +482,15 @@ class Machines extends ChangeNotifier {
   }
 
   /// How many machines are not answering.
-  int get unreachable => _watching.values
-      .where(
-        (fleet) =>
-            fleet.reachability == Reachability.unreachable &&
-            (fleet.hostReachability == null || fleet.hostReachability == HostReachability.notReached),
-      )
-      .length;
+  int get unreachable => _watching.values.where((fleet) => fleet.reachability == Reachability.unreachable).length;
 
   /// Reads the machines an earlier run stored and opens all of them.
   ///
   /// Nothing stored leaves the one this started with, which is the local daemon or whatever
   /// `PORELO_SOCKET` names. The machine to look for is added after either, when it answers.
-  Future<void> load() => _change(_load);
-
-  Future<void> _load() async {
+  Future<void> load() async {
     final stored = await _settings.machines();
-    if (stored.isNotEmpty) await _adopt(stored);
+    if (stored.isNotEmpty) _adopt(stored);
     final extra = _lookFor;
     if (extra != null &&
         !_machines.any((each) => each.socketPath == extra.socketPath || each.name == extra.name) &&
@@ -574,17 +504,11 @@ class Machines extends ChangeNotifier {
   }
 
   /// Replaces the set of machines being watched, closing what watched the old ones.
-  Future<void> _adopt(List<Machine> machines) async {
-    tunnels.checkCards(machines);
+  void _adopt(List<Machine> machines) {
     for (final fleet in _watching.values) {
       fleet.dispose();
     }
     _watching.clear();
-    for (final machine in _machines) {
-      await tunnels.dropFor(machine);
-    }
-    tunnels.replaceCards(machines);
-    _nodes.clear();
     _machines
       ..clear()
       ..addAll(machines);
@@ -595,26 +519,20 @@ class Machines extends ChangeNotifier {
   }
 
   /// Adds a machine or replaces a same-name host. The selection stays where it is.
-  Future<void> add(Machine machine) => _change(() => _add(machine));
-
-  Future<void> _add(Machine machine) async {
+  Future<void> add(Machine machine) async {
     final at = _machines.indexWhere((each) => each.name == machine.name);
     if (at >= 0) {
       final old = _machines[at];
       if (old.kind != 'host' || machine.kind != 'host') return;
-      final replacing = [..._machines]..[at] = machine;
-      tunnels.checkCards(replacing);
       _watching.remove(old.name)?.dispose();
       await tunnels.dropFor(old);
       _nodes.remove(old.name);
       _machines[at] = machine;
-      tunnels.replaceCards(_machines);
       _open(machine);
       await _remember();
       _notify();
       return;
     }
-    tunnels.registerCards([machine]);
     _machines.add(machine);
     _open(machine);
     await _remember();
@@ -625,12 +543,10 @@ class Machines extends ChangeNotifier {
   ///
   /// Forgetting the one being acted on moves to another rather than leaving nothing selected: a
   /// frame with no machine behind it has nothing to say and no way to say why.
-  Future<void> forget(Machine machine) => _change(() => _forget(machine));
-
-  Future<void> _forget(Machine machine) async {
+  Future<void> forget(Machine machine) async {
     if (_machines.length == 1) {
       if (machine.kind != 'host') return;
-      await _add(Machine.local());
+      await add(Machine.local());
     }
     _machines.remove(machine);
     _watching.remove(machine.name)?.dispose();
@@ -650,28 +566,7 @@ class Machines extends ChangeNotifier {
   final Set<String> _raisingAgain = <String>{};
 
   void _open(Machine machine) {
-    final fleet = FleetModel(
-      _reach(machine),
-      prepareConnection: machine.hostCard == null
-          ? null
-          : () async {
-              if (await tunnels.raiseFor(machine)) return null;
-              return machine.whyNotReachableHere ?? tunnels.of(machine)?.problem ?? 'The host could not be reached.';
-            },
-      hostConnection: machine.hostCard == null
-          ? null
-          : () => switch (tunnels.of(machine)?.state) {
-              TunnelState.up =>
-                tunnels.of(machine)?.vaultState == HostUnlockState.waitingForKey
-                    ? HostReachability.waitingForKey
-                    : HostReachability.reached,
-              TunnelState.waitingForKey => HostReachability.waitingForKey,
-              _ => HostReachability.notReached,
-            },
-      hostRefusal: machine.hostCard == null
-          ? null
-          : () => tunnels.of(machine)?.problem ?? tunnels.of(machine)?.vaultProblem,
-    );
+    final fleet = FleetModel(_reach(machine));
     // Not simply `_notify`: a managed machine that stops answering is a forward that dropped, and
     // nobody should have to ask for it to come back.
     fleet.addListener(() {
@@ -689,7 +584,11 @@ class Machines extends ChangeNotifier {
   /// A machine somebody else forwarded goes straight to connecting: [Tunnels.raiseFor] answers
   /// true for it without starting anything.
   Future<void> _openAndConnect(Machine machine, FleetModel fleet) async {
-    if (machine.hostCard == null) await tunnels.raiseFor(machine);
+    if (machine.kind == 'host' &&
+        (machine.identity.isNotEmpty || settings.hostUp(machine.hostProject)?.legacy == true)) {
+      return;
+    }
+    await tunnels.raiseFor(machine);
     await fleet.connect();
     _notify();
     await _askWhichNode(machine, fleet);
@@ -733,6 +632,10 @@ class Machines extends ChangeNotifier {
   /// this interface raised, and only for a machine that is not answering — a working connection
   /// is never disturbed to check on the thing underneath it.
   Future<void> raiseAgainIfNeeded(Machine machine) async {
+    if (machine.kind == 'host' &&
+        (machine.identity.isNotEmpty || settings.hostUp(machine.hostProject)?.legacy == true)) {
+      return;
+    }
     if (!tunnels.manages(machine)) return;
     final fleet = _watching[machine.name];
     if (fleet == null || fleet.reachability == Reachability.connected) return;

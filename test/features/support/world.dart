@@ -3483,6 +3483,15 @@ class FakeHostKeys implements HostKeys {
 class FakeMachineSetup extends MachineSetup {
   FakeMachineSetup(this.home) : super(home: home.path, run: _atOnce);
 
+  @override
+  Future<PersonAgentIdentity> identityFromAgent() async {
+    const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    final file = File('${home.path}/.ssh/person.pub');
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(key);
+    return PersonAgentIdentity(publicKey: key, publicFile: file.path);
+  }
+
   /// The real programs, run synchronously: a widget test's clock never lets an asynchronous process
   /// come back, and a synchronous one needs no clock at all.
   static Future<ProcessResult> _atOnce(List<String> command, {String? input}) async =>

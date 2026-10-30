@@ -90,21 +90,6 @@ void main() {
     expect(template.contains('\nrequires:'), isFalse);
   });
 
-  // Harm: the secrets file cannot be made or opened, and the VPN not brought up, on an installed desktop.
-  test('the programs the interface runs by path are required in both formats', () {
-    final script = File('tool/package.sh').readAsStringSync();
-    final deb = RegExp(
-      r'^\s*echo "depends:"$(.*?)^\s*echo "overrides:"$',
-      multiLine: true,
-      dotAll: true,
-    ).firstMatch(script)!.group(1)!;
-    final rpm = script.substring(script.indexOf('echo "    depends:"'));
-    expect(deb, contains('keepassxc-minimal | keepassxc'), reason: 'Ubuntu 22.04 has no keepassxc-minimal');
-    expect(deb, contains('wireguard-tools'));
-    expect(rpm, contains('"keepassxc"'));
-    expect(rpm, contains('wireguard-tools'));
-  });
-
   test('the backend is recommended, never required', () {
     // An interface pointed at a remote daemon over a forwarded socket is useful with no local
     // backend at all, so a hard dependency would put one on a laptop that never needed it.

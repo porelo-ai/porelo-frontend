@@ -215,22 +215,9 @@ class ProjectWorkspace {
     return (await _git(<String>['diff', '--', 'project.yml'])).out;
   }
 
-  /// The keys in the person's ssh agent they can sign with, each with its fingerprint: **the one git
-  /// signs their commits with first**, and **never a key this interface made to log into a machine**
-  /// (`~/.ssh/porelo-<machine>`), which a desktop keyring loads into the agent all the same.
+  /// The person's available public agent identities, with Git's selected identity first.
   Future<List<SigningKey>> signingKeys() async {
-    final all = await _agentKeys();
-    final machines = _machineKeys();
-    final own = <SigningKey>[
-      for (final each in all)
-        if (!machines.contains(each.keyPart)) each,
-    ];
-    if (own.isEmpty) {
-      throw const WorkspaceRefused(
-        'Your ssh agent holds only the keys this computer made to log into '
-        'machines. Add your own key with ssh-add, and it can sign.',
-      );
-    }
+    final own = await _agentKeys();
     final git = await _gitSigningKey();
     return <SigningKey>[
       for (final each in own)
@@ -238,17 +225,6 @@ class ProjectWorkspace {
       for (final each in own)
         if (each.keyPart != git) each,
     ];
-  }
-
-  /// The key parts of the keys this interface made for machines.
-  Set<String> _machineKeys() {
-    final directory = Directory(sshDirectory);
-    if (!directory.existsSync()) return const <String>{};
-    return <String>{
-      for (final file in directory.listSync().whereType<File>())
-        if (file.uri.pathSegments.last.startsWith('porelo-') && file.path.endsWith('.pub'))
-          file.readAsStringSync().trim().split(RegExp(r'\s+')).take(2).join(' '),
-    };
   }
 
   /// The key part of the key git signs with, from `user.signingkey`: written as the key itself

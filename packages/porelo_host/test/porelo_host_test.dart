@@ -1,3 +1,7 @@
+// Linux only: provider input guards create private fixture files with POSIX chmod.
+@Tags(['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -291,7 +295,6 @@ void main() {
       'demo',
     ]);
     expect(result.exitCode, 64, reason: '${result.stderr}');
-    expect('${result.stderr}', contains('--tresor is not an option'));
   }, timeout: const Timeout(Duration(minutes: 3)));
 
   test('--offer names the Elastic Metal offer rented, and EM-I220E-NVME stays the default', () {

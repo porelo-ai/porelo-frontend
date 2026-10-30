@@ -193,61 +193,6 @@ void main() {
     expect(seen.expand((each) => each).where((each) => each.contains('ghp_never')), isEmpty);
   });
 
-  // The keys a new machine's wizard made sit in the same agent, loaded by the desktop's keyring;
-  // offering one to sign a project with was what was met.
-  test('the keys made for machines are never offered, and the one git signs with comes first', () async {
-    Future<void> key(String name, String comment) async {
-      _ran(await Process.run('ssh-keygen', <String>['-q', '-t', 'ed25519', '-N', '', '-C', comment, '-f', name]));
-      _ran(await Process.run('ssh-add', <String>[name], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
-    }
-
-    await Directory('${here.path}/.ssh').create();
-    await key('${here.path}/.ssh/porelo-build', 'porelo build');
-    await key('${here.path}/second', 'person@other');
-    await Process.run('git', <String>[
-      'config',
-      '--global',
-      'user.signingkey',
-      '${here.path}/second.pub',
-    ], environment: _alone(here.path));
-
-    final keys = await workspace().signingKeys();
-
-    expect(keys.map((each) => each.comment), <String>['person@other', 'person@test']);
-    expect(keys.first.gitSigns, isTrue);
-    expect(keys.last.gitSigns, isFalse);
-  });
-
-  test('an agent holding only the keys made for machines says so', () async {
-    _ran(await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
-    await Directory('${here.path}/.ssh').create();
-    _ran(
-      await Process.run('ssh-keygen', <String>[
-        '-q',
-        '-t',
-        'ed25519',
-        '-N',
-        '',
-        '-C',
-        'porelo build',
-        '-f',
-        '${here.path}/.ssh/porelo-build',
-      ]),
-    );
-    _ran(
-      await Process.run(
-        'ssh-add',
-        <String>['${here.path}/.ssh/porelo-build'],
-        environment: <String, String>{'SSH_AUTH_SOCK': agentSocket},
-      ),
-    );
-
-    await expectLater(
-      workspace().signingKeys(),
-      throwsA(isA<WorkspaceRefused>().having((it) => it.words, 'words', contains('only the keys this computer made'))),
-    );
-  });
-
   test('an agent with no key is said as that, not as a failure of git', () async {
     _ran(await Process.run('ssh-add', <String>['-D'], environment: <String, String>{'SSH_AUTH_SOCK': agentSocket}));
 

@@ -208,23 +208,29 @@ void main() {
     }, skip: TresoritFixture.skip);
   });
 
-  test('what a run keeps never holds a private key, only where a kept one lives', () async {
+  // Harm: a draft must not import an old machine key or persist private identity material.
+  test('a person identity is kept only as a public agent reference', () async {
+    final public = File('${home.path}/person.pub')..writeAsStringSync('public fixture');
     Map<String, Object?>? kept;
     final run = SetupRun(
-      name: 'the build machine',
+      name: 'build machine',
       workUser: 'agent',
-      setup: MachineSetup(home: home.path),
-      remember: (draft) async => kept = draft,
+      setup: MachineSetup(
+        home: home.path,
+        personIdentity: () async => PersonAgentIdentity(
+          publicKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          publicFile: public.path,
+        ),
+      ),
+      remember: (draft) async {
+        kept = draft;
+      },
     );
-    await run.generate();
+    await run.useIdentity();
+    expect(kept?['kept'], public.path);
+    expect(kept?['personIdentity'], isTrue);
     expect(kept.toString(), isNot(contains('PRIVATE')));
-    expect(kept!['publicKey'], isEmpty, reason: 'a key not kept yet was kept');
-
-    await run.keep();
-
-    expect(kept.toString(), isNot(contains('PRIVATE')));
-    expect(kept!['kept'], '${home.path}/.ssh/porelo-the-build-machine-admin');
-    expect(kept!['publicKey'], startsWith('ssh-ed25519 '));
+    run.dispose();
   });
 
   test('a run picked up again starts where it can go on, and root logs in again first', () {
@@ -232,6 +238,7 @@ void main() {
     final run = SetupRun.fromStored(<String, Object?>{
       'name': 'x',
       'workUser': 'agent',
+      'personIdentity': true,
       'step': 'reach',
       'kept': key.path,
       'host': '203.0.113.10',
@@ -247,6 +254,7 @@ void main() {
     final run = SetupRun.fromStored(<String, Object?>{
       'name': 'x',
       'workUser': 'agent',
+      'personIdentity': true,
       'step': 'prepare',
       'kept': '${home.path}/gone',
     }, setup: MachineSetup(home: home.path))!;

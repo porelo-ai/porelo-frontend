@@ -15,7 +15,6 @@ import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/app/vault.dart';
 
 import '../features/support/world.dart';
-import '../support/host_admin.dart';
 
 void main() {
   // Harm: a new or duplicated command silently exposes server changes to ordinary work.
@@ -33,18 +32,7 @@ void main() {
     final run = HostPreparation(
       project: 'demo',
       session: HostSession(executable: 'unused', arguments: const []),
-      record: const HostUpRecord(
-        scalewayProject: 'provider',
-        account: 'worker',
-        tresor: 'drive',
-        identity: '/keys/private',
-        publicKey: '/keys/public',
-        folder: null,
-        collection: '',
-        signingKey: '',
-        vpnPeerPublicKey: '',
-        vpnPeerAddress: '',
-      ),
+      record: const HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub'),
     );
     addTearDown(() {
       fleet.dispose();
@@ -114,16 +102,7 @@ void main() {
         askTheWorkUser: () {},
         addAUser: () {},
       ),
-      for (final linkUp in [true, false, null])
-        ...hostMachineCommands(
-          machine: machine,
-          settings: settings,
-          hostRuns: runs,
-          takeDown: () {},
-          vpnLinkUp: linkUp,
-        ),
-      bringHostVpnUpAgainCommand(run: () {}),
-      takeGivenBackVpnDownCommand(run: () {}),
+      ...hostMachineCommands(machine: machine, settings: settings, hostRuns: runs, takeDown: () {}),
       prepareServerCommand(open: () {}),
       ...preparedHostCommands(
         machine: const Machine(name: 'prepared', socketPath: '', kind: 'host', hostProject: 'prepared'),
@@ -132,7 +111,6 @@ void main() {
         open: (_) {},
         showValues: () {},
       ),
-      for (final name in [...hostValues().keys, 'SSH fingerprint']) copyHostValueCommand(name, () {}),
       hostPreparationCommand(project: 'demo', open: () {}),
       hostProtocolCommand(project: 'demo', open: () {}),
       copyHostProtocolCommand(project: 'demo', copy: () {}),
@@ -141,7 +119,6 @@ void main() {
       ...hostRecoveryCommands(run: run, goOn: () {}, takeDown: () {}),
       resumeHostPreparationCommand(run: run, resume: () {}),
       setScalewayKeyCommand(run: () {}),
-      setupHostVpnCommand(run: () {}, alreadyOpen: false),
       projectWorkCommand(open: () {}),
       leaveWorkCommand(() {}),
       restartRunCommand(task: null, open: () {}),
@@ -211,11 +188,6 @@ void main() {
       'project.developers': Role.projectAdmin,
       'project.takeOffServer': Role.hostAdmin,
       'machine.takeDown': Role.hostAdmin,
-      'machine.saveTunnel': Role.hostAdmin,
-      'machine.vpnUp': Role.hostAdmin,
-      'machine.vpnDown': Role.hostAdmin,
-      'host.vpnAgain': Role.hostAdmin,
-      'host.vpnCleanup': Role.hostAdmin,
       'host.preparation': Role.hostAdmin,
       'host.protocol': Role.hostAdmin,
       'host.copyProtocol': Role.hostAdmin,
@@ -224,15 +196,7 @@ void main() {
       'host.takeDown': Role.hostAdmin,
       'host.retry': Role.hostAdmin,
       'host.setScalewayKey': Role.hostAdmin,
-      'host.vpnUp': Role.hostAdmin,
       'host.prepare': Role.hostAdmin,
-      'host.adminValues': Role.hostAdmin,
-      'host.registerProject': Role.hostAdmin,
-      'host.removeProject': Role.hostAdmin,
-      'host.admitAdmin': Role.hostAdmin,
-      'host.lockAdmin': Role.hostAdmin,
-      'host.purgeAdmin': Role.hostAdmin,
-      for (final name in [...hostValues().keys, 'SSH fingerprint']) 'host.copy $name': Role.hostAdmin,
     });
     expect(rolesById.keys.toSet(), <String>{
       'about.show',
@@ -254,24 +218,13 @@ void main() {
       'gate.open',
       'host.again',
       'host.copyProtocol',
-      'host.copyMyKeys',
       'host.goOn',
       'host.preparation',
       'host.protocol',
       'host.retry',
       'host.setScalewayKey',
       'host.takeDown',
-      'host.vpnAgain',
-      'host.vpnCleanup',
-      'host.vpnUp',
       'host.prepare',
-      'host.adminValues',
-      'host.registerProject',
-      'host.removeProject',
-      'host.admitAdmin',
-      'host.lockAdmin',
-      'host.purgeAdmin',
-      for (final name in [...hostValues().keys, 'SSH fingerprint']) 'host.copy $name',
       'join-it',
       'join-reset',
       'list.closeDetails',
@@ -287,12 +240,9 @@ void main() {
       'machine.panic',
       'machine.providers',
       'machine.retry/demo server',
-      'machine.saveTunnel',
       'machine.start',
       'machine.stop',
       'machine.takeDown',
-      'machine.vpnDown',
-      'machine.vpnUp',
       'machines.add',
       'member-remove person',
       'message.read',

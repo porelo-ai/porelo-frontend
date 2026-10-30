@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:guided_walk/guided_walk.dart';
-import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart' hide Terminal;
 
 import '../app/machine_setup.dart';
@@ -32,8 +30,6 @@ class NewMachineSteps extends StatefulWidget {
 }
 
 class _NewMachineStepsState extends State<NewMachineSteps> {
-  late final _private = TextEditingController(text: widget.run.privateKey);
-  late final _public = TextEditingController(text: widget.run.publicKey);
   late final _host = TextEditingController(text: widget.run.host);
   int _grown = 0;
 
@@ -44,17 +40,11 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
   late final _tresor = TextEditingController(text: widget.run.tresor);
   final _selection = TerminalController();
 
-  /// The private keys in `~/.ssh`, read once when the steps are drawn.
-  late final List<String> _keys = widget.run.setup.sshKeys();
-
   SetupRun get run => widget.run;
 
   @override
   void initState() {
     super.initState();
-    // Typing redraws: whether a key can be kept depends on both fields being filled.
-    _private.addListener(() => setState(() => run.privateKey = _private.text));
-    _public.addListener(() => setState(() => run.publicKey = _public.text));
     _host.addListener(() {
       if (run.host == _host.text) return;
       run.host = _host.text;
@@ -66,8 +56,6 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
   /// Keeps the fields in step with the run, and scrolls when something new was printed.
   void _follow() {
     if (!mounted) return;
-    if (_private.text != run.privateKey) _private.text = run.privateKey;
-    if (_public.text != run.publicKey) _public.text = run.publicKey;
     final grown = run.output.length + run.log.length + (run.said == null ? 0 : 1);
     if (grown != _grown) {
       _grown = grown;
@@ -132,8 +120,6 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
     _tresor.dispose();
     _selection.dispose();
     run.removeListener(_follow);
-    _private.dispose();
-    _public.dispose();
     _host.dispose();
     super.dispose();
   }
@@ -200,131 +186,17 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
 
   Widget _title(BuildContext context, String words) => Text(words, style: Theme.of(context).textTheme.labelLarge);
 
-  List<Widget> _knownKeyStep(BuildContext context) => <Widget>[
-    _title(context, '1. The admin key root logs in with'),
-    const SizedBox(height: Space.small),
-    Text(
-      'The key the machine already knows for root — for one this wizard prepared, '
-      '~/.ssh/porelo-<its name>-admin. It is used only to set ${run.workUser} up; '
-      '${run.workUser} gets a key of its own.',
-    ),
-    const SizedBox(height: Space.normal),
-    _keyPicker(context, use: 'use-key'),
-  ];
-
-  /// The keys in `~/.ssh` to choose from, by name, and the button that uses the chosen one.
-  Widget _keyPicker(BuildContext context, {required String use}) {
-    if (_keys.isEmpty) {
-      return const Text('There is no key in ~/.ssh yet.', key: Key('no-existing-key'));
-    }
-    final chosen = _keys.contains(run.keyFile) ? run.keyFile : null;
-    return Wrap(
-      spacing: Space.small,
-      runSpacing: Space.small,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: <Widget>[
-        DropdownButton<String>(
-          key: const Key('existing-key'),
-          value: chosen,
-          hint: const Text('Choose a key'),
-          onChanged: run.kept != null || run.busy ? null : (file) => setState(() => run.keyFile = file ?? ''),
-          items: <DropdownMenuItem<String>>[
-            for (final file in _keys) DropdownMenuItem<String>(value: file, child: Text(file.split('/').last)),
-          ],
-        ),
-        if (run.kept == null)
-          FilledButton.tonal(
-            key: Key(use),
-            onPressed: run.busy || chosen == null ? null : run.useKey,
-            child: const Text('Use this key'),
-          ),
-      ],
-    );
-  }
+  List<Widget> _knownKeyStep(BuildContext context) => _keyStep(context);
 
   List<Widget> _keyStep(BuildContext context) => <Widget>[
-    _title(context, '1. The admin key'),
+    _title(context, '1. Your person identity'),
     const SizedBox(height: Space.small),
-    const Text(
-      "Root's key, for setting the machine up — by this wizard now, and by a person later. The "
-      'interface never uses it to reach the machine day to day: each user that runs work gets a '
-      'key of its own. Generate one, paste one, or use one already in ~/.ssh; none may have a '
-      'passphrase, since this interface never asks for one.',
+    const Text('Use the identity selected by Core through your local SSH agent. Unlock it in your key manager.'),
+    FilledButton.tonal(
+      key: const Key('use-person-identity'),
+      onPressed: run.busy ? null : run.useIdentity,
+      child: const Text('Use my identity'),
     ),
-    const SizedBox(height: Space.normal),
-    // A private key: blanked, and left out of what a walk writes down. A field of several
-    // lines cannot be obscured.
-    WalkSecret(
-      child: TextField(
-        key: const Key('new-private-key'),
-        controller: _private,
-        enabled: run.kept == null,
-        maxLines: 3,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-        decoration: const InputDecoration(
-          labelText: 'Private key',
-          hintText: '-----BEGIN OPENSSH PRIVATE KEY-----',
-          border: OutlineInputBorder(),
-        ),
-      ),
-    ),
-    const SizedBox(height: Space.normal),
-    TextField(
-      key: const Key('new-public-key'),
-      controller: _public,
-      enabled: run.kept == null,
-      maxLines: 2,
-      style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-      decoration: InputDecoration(
-        labelText: 'Public key',
-        hintText: 'ssh-ed25519 AAAA…',
-        border: const OutlineInputBorder(),
-        suffixIcon: IconButton(
-          key: const Key('copy-public-key'),
-          icon: const Icon(Icons.copy_outlined, size: Sizes.rowIcon),
-          tooltip: 'Copy the public key',
-          onPressed: _public.text.trim().isEmpty
-              ? null
-              : () => Clipboard.setData(ClipboardData(text: _public.text.trim())),
-        ),
-      ),
-    ),
-    const SizedBox(height: Space.normal),
-    if (run.kept == null)
-      Wrap(
-        spacing: Space.small,
-        children: <Widget>[
-          OutlinedButton.icon(
-            key: const Key('generate-key'),
-            onPressed: run.busy ? null : run.generate,
-            icon: const Icon(Icons.key_outlined, size: Sizes.rowIcon),
-            label: const Text('Generate a key pair'),
-          ),
-          FilledButton.tonal(
-            key: const Key('keep-key'),
-            onPressed: run.busy || _private.text.trim().isEmpty || _public.text.trim().isEmpty ? null : run.keep,
-            child: Text('Keep it as ~/.ssh/${run.keyName}'),
-          ),
-        ],
-      ),
-    if (run.kept == null) ...<Widget>[
-      const SizedBox(height: Space.normal),
-      Text('Or use a key you already have', style: Theme.of(context).textTheme.labelMedium),
-      const SizedBox(height: Space.tight),
-      _keyPicker(context, use: 'use-existing-key'),
-    ] else ...<Widget>[
-      const Text(
-        'Give this admin key to the provider when the server is created — for Hetzner, under '
-        "SSH keys. A key added afterwards cannot reach a machine that only knows root's.",
-        key: Key('give-the-public-key'),
-      ),
-      const SizedBox(height: Space.small),
-      SelectableText(
-        _public.text.trim(),
-        key: const Key('public-key-to-copy'),
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-      ),
-    ],
   ];
 
   List<Widget> _whereStep(BuildContext context) => <Widget>[
@@ -455,34 +327,7 @@ class _NewMachineStepsState extends State<NewMachineSteps> {
   List<Widget> _reachStep(BuildContext context) => <Widget>[
     _title(context, '4. Reaching it as ${run.workUser}'),
     const SizedBox(height: Space.small),
-    Text(
-      '${run.workUser} gets a key of its own, and logs in with it and nothing else: its password '
-      'stays locked, and ssh is told so for ${run.workUser} alone (as root, below). Then Host '
-      "${run.alias} goes into ~/.ssh/config with that key — as ${run.workUser}, never root — "
-      "Porelo starts in ${run.workUser}'s own session, porelo setup registers its hooks there, "
-      'porelo doctor is asked, and it connects the way watching it will.',
-    ),
-    const SizedBox(height: Space.normal),
-    Text('The key ${run.workUser} logs in with', style: Theme.of(context).textTheme.labelMedium),
-    const SizedBox(height: Space.tight),
-    DropdownButton<String?>(
-      key: const Key('user-key'),
-      isExpanded: true,
-      value: run.userKeyFile,
-      onChanged: run.busy || run.ready != null ? null : run.useUserKey,
-      items: <DropdownMenuItem<String?>>[
-        DropdownMenuItem<String?>(
-          value: null,
-          child: Text('A new one: ~/.ssh/${run.userKeyName}', overflow: TextOverflow.ellipsis),
-        ),
-        for (final file in <String>{..._keys, ?run.userKeyFile})
-          if (file != run.kept)
-            DropdownMenuItem<String?>(
-              value: file,
-              child: Text(file.split('/').last, overflow: TextOverflow.ellipsis),
-            ),
-      ],
-    ),
+    Text('Your person identity reaches ${run.workUser} through your local SSH agent.'),
     const SizedBox(height: Space.normal),
     Terminal(
       text: MachineSetup.authorize(

@@ -59,15 +59,6 @@ class _ClearingDialog extends StatelessWidget {
                           : '· ${_kind(item.kind)} ${item.what}',
                       key: ValueKey<String>('clearing-would ${item.what}'),
                     ),
-                  if (preview.signer.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: Space.small),
-                    Text(
-                      'And at ${clearing.forges.forge?.name ?? 'the forge'}, with your sign-in:',
-                      style: text.titleSmall,
-                    ),
-                    if (preview.signer.isNotEmpty)
-                      Text('· ${clearing.machineName}’s line in machine-signers, in one signed commit'),
-                  ],
                   for (final key in preview.keys) Text(key.title),
                   const SizedBox(height: Space.small),
                   Text(

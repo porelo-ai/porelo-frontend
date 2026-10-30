@@ -1,182 +1,154 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/project_bring.dart';
-import 'package:porelo_frontend/src/app/own_host_vpn.dart';
-import 'package:porelo_frontend/src/app/join_keys.dart';
-import 'package:porelo_frontend/src/app/settings.dart';
-import 'package:porelo_frontend/src/app/machines.dart';
-import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_host/porelo_host.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
+import 'package:porelo_frontend/src/app/project_bring.dart';
+import 'package:porelo_frontend/src/app/project_join.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/signed_host_actions.dart';
 
-import '../support/host_admin.dart';
-import '../support/host_matrix_ca.dart';
-import '../features/support/world.dart';
-
-class _Following extends FakeBackend {
-  _Following(this.project) : super(const []);
-  final String project;
-  @override
-  Future<List<Followed>> following() async => [
-    Followed(name: project, url: 'https://example.org/project.git', commit: 'a' * 40),
-  ];
-}
-
-class _Source extends HostFiles {
-  _Source() : super(MemorySecrets());
-  var requests = 0;
-  @override
-  Future<({List<int> bytes, String projectYaml})> createProjectSetup({
-    required String project,
-    required String url,
-    required String commit,
-    required File signingKey,
-  }) async {
-    requests++;
-    throw const WorkspaceRefused('source boundary reached');
-  }
-}
+import '../features/support/world.dart' show FakeBackend;
+import '../support/signed_host.dart';
+import '../support/host_admin.dart' show personKey;
 
 void main() {
-  // Harm: a new machine must not publish access or bring before it verifies this host's fetched CA.
-  for (final wrongCa in [true, false]) {
-    test(
-      wrongCa
-          ? 'a fetched CA mismatch shows both fingerprints and prevents the bring'
-          : 'a new bring connects the supplied laptop address and pasted host before constructing its source',
-      () async {
-        final scratch = Directory.systemTemp.createTempSync('bring-vpn-');
-        addTearDown(() => scratch.deleteSync(recursive: true));
-        final signing = File('${scratch.path}/signer.pub')..writeAsStringSync(hostValues()['ssh_host_key']! as String);
-        final identity = File('${scratch.path}/identity')..writeAsStringSync('identity fixture');
-        final host = PreparedHost.read({...matrixHostValues(), if (wrongCa) 'ca_sha256': '0' * 64});
-        final settings = Settings(MemorySettingsStore());
-        addTearDown(settings.dispose);
-        final files = _Source();
-        final activations = <({PreparedHost host, JoinPublicKeys keys, String address, String? ca})>[];
-        final keys = (ssh: host.values['ssh_host_key']!, wireguard: wireGuardKey);
-        final remote = HelperRemote(response: hostMatrixCa.trimRight());
-        final knownHosts = '${scratch.path}/known_hosts.orchard';
-        final bring = ProjectBring(
-          project: 'demo',
-          backend: _Following('demo'),
-          machine: Machine(name: 'own account', socketPath: '', host: 'admin@10.73.7.1', identity: identity.path),
-          host: host,
-          knownHosts: knownHosts,
-          secretsFile: '${scratch.path}/secrets.kdbx',
-          signingKey: signing,
-          accessRoot: '${scratch.path}/access',
-          remote: remote,
-          files: files,
-          setForgePassword: (_, _) async => true,
-          connectVpn: () => connectOwnHostVpn(
-            host: host,
-            account: 'admin',
-            keys: keys,
-            address: '10.73.7.10',
-            settings: settings,
-            activate: (host, keys, address, ca) async {
-              activations.add((host: host, keys: keys, address: address, ca: ca));
-              expect(settings.hostUp('orchard'), isNull, reason: 'recording must follow verified trust');
-              expect(files.requests, 0, reason: 'bringing must follow VPN and CA verification');
-              return true;
-            },
-            fetchCa: () => fetchOwnHostCa(host: host, account: 'admin', knownHosts: knownHosts, remote: remote),
-          ),
-        );
-        addTearDown(bring.dispose);
-        await bring.bring();
-        if (wrongCa) {
-          expect(bring.problem, contains('Expected SHA-256: ${'0' * 64}'));
-          expect(bring.problem, contains('Received SHA-256: $hostMatrixCaSha256'));
-          expect(activations.map((entry) => entry.ca), [null], reason: 'an unverified CA must never reach trust');
-          expect(settings.hostUp('orchard'), isNull);
-          expect(files.requests, 0);
-          expect(Directory('${scratch.path}/access').existsSync(), isFalse);
-        } else {
-          expect(activations, [
-            (host: host, keys: keys, address: '10.73.7.10', ca: null),
-            (host: host, keys: keys, address: '10.73.7.10', ca: hostMatrixCa),
-          ]);
-          expect(files.requests, 1);
-          expect(settings.hostUp('orchard')!.vpnPeerAddress, '10.73.7.10/32');
-          expect(settings.hostUp('orchard')!.forgeCa, hostMatrixCa);
-        }
-        expect(remote.commands, ['/usr/bin/cat /etc/porelo-host/forge/ca.pem']);
-        expect(File(knownHosts).readAsStringSync(), '10.73.7.1 ${host.values['ssh_host_key']}\n');
-      },
-      tags: 'linux',
-    );
-  }
+  late Settings settings;
+  late Machines machines;
+  late SignedHostFake service;
+  setUp(() {
+    settings = Settings(MemorySettingsStore());
+    machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    service = SignedHostFake();
+  });
+  tearDown(() {
+    machines.dispose();
+    settings.dispose();
+  });
 
-  // Harm: unsafe project identifiers must stop before source construction, private Git, or host operations.
-  for (final name in ['a..b', 'trailing.', 'a' * 65]) {
-    test('invalid project $name is refused before constructing or publishing its setup', () async {
-      final scratch = Directory.systemTemp.createTempSync('bring-preflight-');
-      addTearDown(() => scratch.deleteSync(recursive: true));
-      final public = File('${scratch.path}/signer.pub')..writeAsStringSync(hostValues()['ssh_host_key']! as String);
-      File('${scratch.path}/identity').writeAsStringSync('identity fixture');
-      final files = _Source();
-      final bring = ProjectBring(
-        project: name,
-        backend: _Following(name),
-        targetBackend: _Following(name),
-        machine: Machine(
-          name: 'own account',
-          socketPath: '',
-          kind: 'host',
-          host: 'admin@10.73.7.1',
-          identity: '${scratch.path}/identity',
-        ),
-        host: PreparedHost.read(matrixHostValues()),
-        knownHosts: '${scratch.path}/known_hosts.orchard',
-        secretsFile: '${scratch.path}/secrets.kdbx',
-        signingKey: public,
-        accessRoot: '${scratch.path}/access',
-        remote: HelperRemote(),
-        files: files,
-        setForgePassword: (_, _) async => true,
-        forgeCa: hostMatrixCa,
+  // Harm: an absent signer or refused admission must never cause a host mutation.
+  for (final admitted in [false, true]) {
+    test('${admitted ? 'missing signers' : 'refused admission'} prevents connection and registration', () async {
+      service.state = VerifiedHostProject(
+        project: 'demo',
+        host: service.state.host,
+        revision: service.state.revision,
+        adminSigners: admitted ? [] : service.state.adminSigners,
+        admitted: admitted,
       );
-      addTearDown(bring.dispose);
-      await bring.bring();
-      expect(files.requests, 0);
-      expect(Directory('${scratch.path}/access').existsSync(), isFalse);
+      final action = ProjectBring(project: 'demo', machines: machines, settings: settings, actions: service);
+      addTearDown(action.dispose);
+      await action.bring();
+      expect(service.calls, ['verify demo register']);
+      expect(action.brought, isFalse);
+      expect(settings.projectHost('demo'), isNull);
     });
   }
 
-  // Harm: an unrelated preflight refusal must not make the unsafe-name guards pass without reaching source validation.
-  // Linux only: bringing a project onto a host is not offered on Windows, and its preflight takes POSIX paths.
-  test('a valid project with complete inputs reaches the signed source boundary', () async {
-    final scratch = Directory.systemTemp.createTempSync('bring-valid-preflight-');
-    addTearDown(() => scratch.deleteSync(recursive: true));
-    final public = File('${scratch.path}/signer.pub')..writeAsStringSync(hostValues()['ssh_host_key']! as String);
-    File('${scratch.path}/identity').writeAsStringSync('identity fixture');
-    final files = _Source();
-    final bring = ProjectBring(
-      project: 'demo',
-      backend: _Following('demo'),
-      targetBackend: _Following('demo'),
-      machine: Machine(
-        name: 'own account',
-        socketPath: '',
-        host: 'admin@10.73.7.1',
-        identity: '${scratch.path}/identity',
-      ),
-      host: PreparedHost.read(matrixHostValues()),
-      knownHosts: '${scratch.path}/known_hosts.orchard',
-      secretsFile: '${scratch.path}/secrets.kdbx',
-      signingKey: public,
-      accessRoot: '${scratch.path}/access',
-      remote: HelperRemote(),
-      files: files,
-      setForgePassword: (_, _) async => true,
-      forgeCa: hostMatrixCa,
+  // Harm: a wrong or refused host revision cannot become saved access to a project.
+  for (final fails in [false, true]) {
+    test('${fails ? 'refused registration' : 'a different revision'} keeps the project association absent', () async {
+      if (fails) {
+        service.refused = const FormatException('The signed state was refused.');
+      } else {
+        service.observed = 'b' * 40;
+      }
+      final action = ProjectBring(project: 'demo', machines: machines, settings: settings, actions: service);
+      addTearDown(action.dispose);
+      await action.bring();
+      expect(action.brought, isFalse);
+      expect(settings.projectHost('demo'), isNull);
+      expect(machines.all.where((m) => m.kind == 'host'), isEmpty);
+    });
+  }
+
+  // Harm: a dependency exception can contain a credential and must not become interface text.
+  test('dependency diagnostics are not copied into registration errors', () async {
+    service.refused = const FormatException('sensitive-fixture');
+    final action = ProjectBring(project: 'demo', machines: machines, settings: settings, actions: service);
+    addTearDown(action.dispose);
+    await action.bring();
+    expect(action.problem, isNot(contains('sensitive-fixture')));
+    expect(settings.projectHost('demo'), isNull);
+  });
+
+  // Harm: the removal must retain one verified SSH path for both registering and joining.
+  test('setup registration and joining use the accepted host and admin signer set through SSH', () async {
+    final scratch = await Directory.systemTemp.createTemp('verified-round-trip-');
+    addTearDown(() => scratch.delete(recursive: true));
+    final steps = <Step>[];
+    final ssh = _Ssh();
+    final setup = HostRun(
+      provider: GivenMachine(address: service.state.host.address, hostKey: service.state.host.sshHostKey),
+      remote: ssh,
+      emit: steps.add,
+      preparation: _Setup(service),
+      hostKeys: () async => ('fixture-host-private', personKey),
+      environment: {'XDG_STATE_HOME': scratch.path},
     );
+    expect(
+      await setup.up(
+        const HostPlan(hostName: 'orchard', loginUser: 'root', publicKey: personKey, adminSigners: [personKey]),
+      ),
+      Exit.done,
+    );
+    expect(ssh.commands, ['true']);
+    expect(steps.singleWhere((step) => step.state == StepState.host).host?.values, service.state.host.values);
+    final bring = ProjectBring(project: 'demo', machines: machines, settings: settings, actions: service);
+    final join = ProjectJoin(project: 'demo', machines: machines, settings: settings, actions: service);
     addTearDown(bring.dispose);
+    addTearDown(join.dispose);
     await bring.bring();
-    expect(files.requests, 1);
-    expect(bring.problem, 'source boundary reached');
-  }, tags: 'linux');
+    await join.join();
+    expect(bring.brought && join.joined, isTrue);
+    expect(settings.projectHost('demo'), 'orchard');
+    expect(service.calls, [
+      'verify demo register',
+      'ssh orchard',
+      'register demo',
+      'verify demo join',
+      'ssh orchard',
+      'join demo',
+    ]);
+    expect(
+      machines.all.where((m) => m.kind == 'host').single.identity,
+      isEmpty,
+      reason: 'the connection uses the person agent rather than a private key file',
+    );
+  }, tags: ['linux']); // HostRun protects the lifecycle directory with chmod.
+}
+
+class _Setup implements ServerPreparation {
+  _Setup(this.service);
+  final SignedHostFake service;
+  @override
+  Future<PreparedHost> prepare({
+    required Remote remote,
+    required String name,
+    required String address,
+    required List<String> adminSigners,
+  }) async {
+    expect(adminSigners, service.state.adminSigners);
+    expect((name, address), (service.state.host.name, service.state.host.address));
+    return service.state.host;
+  }
+}
+
+class _Ssh implements Remote {
+  final commands = <String>[];
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String)? onLine,
+  }) async {
+    commands.add(command);
+    return const RemoteResult(0, '');
+  }
+
+  @override
+  Future<RemoteResult> copy(String host, String user, String from, String to) =>
+      throw StateError('The replacement contract must not upload an old installer.');
 }

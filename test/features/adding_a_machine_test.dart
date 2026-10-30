@@ -1,6 +1,7 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@Tags(['linux'])
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,20 +35,13 @@ import './step/the_trial_says.dart';
 import './step/i_do_not_trust_the_host_key.dart';
 import './step/no_host_key_was_written.dart';
 import './step/no_host_key_was_asked_about.dart';
-import './step/the_wizard_cannot_go_to_the_next_step_yet.dart';
-import './step/i_generate_a_key_pair.dart';
-import './step/i_keep_the_key.dart';
-import './step/the_key_was_kept_owneronly_as.dart';
-import './step/the_public_key_is_shown_to_copy.dart';
-import './step/i_paste_the_halves_of_two_different_key_pairs.dart';
-import './step/what_a_walk_writes_down_does_not_hold.dart';
-import './step/the_is_blanked_in_a_walks_picture.dart';
-import './step/no_key_was_kept.dart';
+import './step/i_use_my_person_identity.dart';
 import './step/i_go_to_the_next_step.dart';
 import './step/i_say_the_new_machine_is_at.dart';
 import './step/i_try_logging_in_as_root.dart';
 import './step/root_logged_in_to_with.dart';
 import './step/logging_in_as_root_will_fail_with.dart';
+import './step/the_wizard_cannot_go_to_the_next_step_yet.dart';
 import './step/root_never_logged_in.dart';
 import './step/a_new_machine_whose_root_logs_in.dart';
 import './step/i_see_what_it_can_install.dart';
@@ -87,15 +81,11 @@ import './step/the_setup_script_ran_with.dart';
 import './step/the_machines_package_source_offers_nothing_yet.dart';
 import './step/the_user_that_runs_work_is_offered_as.dart';
 import './step/i_say_the_user_that_runs_work_is.dart';
-import './step/a_key_the_machine_already_knows_is_kept_as.dart';
 import './step/i_cancel_the_dialog.dart';
 import './step/i_choose_the_command.dart';
 import './step/the_wizard_offers_no_kind_to_choose.dart';
-import './step/i_use_the_key_the_machine_already_knows.dart';
 import './step/nothing_asks_what_it_can_install.dart';
 import './step/the_new_machine_is_at.dart';
-import './step/i_copy_the_public_key.dart';
-import './step/what_was_copied_starts_with.dart';
 import './step/i_continue_the_unfinished_setup.dart';
 import './step/i_discard_the_unfinished_setup.dart';
 import './step/no_unfinished_setup_is_offered.dart';
@@ -104,7 +94,6 @@ import './step/i_start_asking_what_it_can_install.dart';
 import './step/it_shows_the_first_line_the_machine_printed.dart';
 import './step/only_cancel_is_offered.dart';
 import './step/the_machine_answers.dart';
-import './step/i_choose_the_existing_key.dart';
 import './step/the_host_key_of_changed_since_it_was_last_seen.dart';
 import './step/i_am_warned_that_the_key_is_not_the_one_known_for_that_address.dart';
 import './step/nothing_is_shown_below_the_run_yet.dart';
@@ -249,57 +238,30 @@ void main() {
       await iWatchIt(tester);
       await noHostKeyWasAskedAbout(tester);
     });
-    testWidgets('''a new machine starts with a key, kept owner-only, and its public half to copy''', (tester) async {
-      await bddSetUp(tester);
-      await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'A new machine');
-      await iGoOn(tester);
-      await theWizardCannotGoToTheNextStepYet(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
-      await theKeyWasKeptOwneronlyAs(tester, 'porelo-the-build-machine-admin');
-      await itSays(tester, 'Give this admin key to the provider when the server is created');
-      await thePublicKeyIsShownToCopy(tester);
-    }, tags: ['linux']);
-    testWidgets('''pasted halves of two different pairs are refused and nothing is kept''', (tester) async {
-      await bddSetUp(tester);
-      await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'A new machine');
-      await iGoOn(tester);
-      await iPasteTheHalvesOfTwoDifferentKeyPairs(tester);
-      await whatAWalkWritesDownDoesNotHold(tester, 'PRIVATE KEY');
-      await theIsBlankedInAWalksPicture(tester, 'new-private-key');
-      await iKeepTheKey(tester);
-      await itSays(tester, 'The public key does not belong to that private key.');
-      await noKeyWasKept(tester);
-      await theWizardCannotGoToTheNextStepYet(tester);
-    });
     testWidgets('''root logs in with that key once its host key is trusted''', (tester) async {
       await bddSetUp(tester);
       await theHostKeyOfIsNotKnownYet(tester, 'root@203.0.113.10');
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'A new machine');
       await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
       await iAmShownTheHostKey(tester, 'SHA256:uNiQuEfInGeRpRiNtOfThEbUiLdMaChInE0123456789');
       await iTrustTheHostKey(tester);
-      await rootLoggedInToWith(tester, '203.0.113.10', 'porelo-the-build-machine-admin');
+      await rootLoggedInToWith(tester, '203.0.113.10', 'person.pub');
       await itSays(tester, 'Logged in as root on 203.0.113.10');
       await iGoToTheNextStep(tester);
       await itSays(tester, "Porelo's setup script runs as root");
-    });
+    }, tags: ['linux']);
     testWidgets('''a root login that fails says what ssh said, and the wizard does not go on''', (tester) async {
       await bddSetUp(tester);
       await loggingInAsRootWillFailWith(tester, 'root@203.0.113.10: Permission denied (publickey).');
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'A new machine');
       await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
@@ -312,8 +274,7 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'A new machine');
       await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
@@ -361,7 +322,7 @@ void main() {
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
       await theKeyWasAllowedFor(tester, 'agent');
-      await sshConfigReachesAsWith(tester, 'porelo-the-build-machine', 'agent', 'porelo-the-build-machine-agent');
+      await sshConfigReachesAsWith(tester, 'porelo-the-build-machine', 'agent', 'person.pub');
       await poreloWasStartedAsTheWorkUser(tester);
       await itSays(tester, 'Reached Porelo');
       await itSays(tester, 'Ready to watch.');
@@ -480,8 +441,7 @@ void main() {
       await theWizardCannotGoOnYet(tester);
       await iSayTheUserThatRunsWorkIs(tester, 'builder');
       await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
@@ -494,14 +454,13 @@ void main() {
       tester,
     ) async {
       await bddSetUp(tester);
-      await aKeyTheMachineAlreadyKnowsIsKeptAs(tester, 'porelo-the-build-machine');
       await iCancelTheDialog(tester);
       await iChooseTheCommand(tester, 'Add another user that runs work…');
       await theWizardOffersNoKindToChoose(tester);
       await iSayItIsCalled(tester, 'the build machine as other');
       await iSayTheUserThatRunsWorkIs(tester, 'other');
       await iGoOn(tester);
-      await iUseTheKeyTheMachineAlreadyKnows(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
@@ -512,12 +471,7 @@ void main() {
       await theSetupScriptRanFor(tester, 'other');
       await iGoToTheNextStep(tester);
       await iSetItUpAndConnect(tester);
-      await sshConfigReachesAsWith(
-        tester,
-        'porelo-the-build-machine-as-other',
-        'other',
-        'porelo-the-build-machine-as-other-other',
-      );
+      await sshConfigReachesAsWith(tester, 'porelo-the-build-machine-as-other', 'other', 'person.pub');
       await iWatchTheNewMachine(tester);
       await theForwardWasRaisedThroughTo(
         tester,
@@ -530,25 +484,14 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'A new machine');
       await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iGoBack(tester);
       await iGoBack(tester);
       await iGoOn(tester);
-      await thePublicKeyIsShownToCopy(tester);
       await iGoToTheNextStep(tester);
       await theNewMachineIsAt(tester, '203.0.113.10');
-    });
-    testWidgets('''the public key can be copied from its field''', (tester) async {
-      await bddSetUp(tester);
-      await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'A new machine');
-      await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iCopyThePublicKey(tester);
-      await whatWasCopiedStartsWith(tester, 'ssh-ed25519 ');
     });
     testWidgets('''a setup that was not finished is offered to be continued where it stopped''', (tester) async {
       await bddSetUp(tester);
@@ -583,21 +526,6 @@ void main() {
       await theMachineAnswers(tester);
       await itOffersThePackage(tester, 'porelo-agent-claude');
     });
-    testWidgets('''a key already in ~/.ssh can be chosen by name and used as it is''', (tester) async {
-      await bddSetUp(tester);
-      await aKeyTheMachineAlreadyKnowsIsKeptAs(tester, 'id_ed25519');
-      await iCancelTheDialog(tester);
-      await iOpenTheMachineDialog(tester);
-      await iSayItIsCalled(tester, 'the build machine');
-      await iChoose(tester, 'A new machine');
-      await iGoOn(tester);
-      await iChooseTheExistingKey(tester, 'id_ed25519');
-      await thePublicKeyIsShownToCopy(tester);
-      await iGoToTheNextStep(tester);
-      await iSayTheNewMachineIsAt(tester, '203.0.113.10');
-      await iTryLoggingInAsRoot(tester);
-      await rootLoggedInToWith(tester, '203.0.113.10', 'id_ed25519');
-    }, tags: ['linux']);
     testWidgets('''a host whose key changed is warned about, and the old key is replaced only when asked''', (
       tester,
     ) async {
@@ -606,16 +534,15 @@ void main() {
       await iSayItIsCalled(tester, 'the build machine');
       await iChoose(tester, 'A new machine');
       await iGoOn(tester);
-      await iGenerateAKeyPair(tester);
-      await iKeepTheKey(tester);
+      await iUseMyPersonIdentity(tester);
       await iGoToTheNextStep(tester);
       await iSayTheNewMachineIsAt(tester, '203.0.113.10');
       await iTryLoggingInAsRoot(tester);
       await iAmWarnedThatTheKeyIsNotTheOneKnownForThatAddress(tester);
       await iTrustTheHostKey(tester);
       await theHostKeyOfWasWritten(tester, '203.0.113.10');
-      await rootLoggedInToWith(tester, '203.0.113.10', 'porelo-the-build-machine-admin');
-    });
+      await rootLoggedInToWith(tester, '203.0.113.10', 'person.pub');
+    }, tags: ['linux']);
     testWidgets('''nothing is shown below the run until it was run''', (tester) async {
       await bddSetUp(tester);
       await aNewMachineWhoseRootLogsIn(tester);
