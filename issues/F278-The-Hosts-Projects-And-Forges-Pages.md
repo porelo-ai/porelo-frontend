@@ -19,6 +19,7 @@ Folded in: [F262](README.md#f262), [F263](README.md#f263), [F265](README.md#f265
 - No tiles anywhere: every page is lists of rows, each row with a ⋮ menu holding its operations; a click on a row opens the item's own page, not a side panel (operator, draft 2, 2026-10-30).
 - An item's page shows its own information with one ⋮ on top, then collapsible lists styled like the main list: a machine's *Projects* and *Persons*, a project's *Persons* and *Machines*, a forge's *Registry* and *Repositories* (operator, draft 2, 2026-10-30).
 - Every list has a filter field in its header, filtering the rows below it: the top lists *Machines*, *Projects* and *Forges* and each collapsible list on an item's page (operator, 2026-10-30).
+- The default project *Without a project*, for starting something by hand outside a real project, always exists on this computer and on every machine, so it always shows: in the *Projects* list as one row per machine and in each machine's *Projects* list, its ⋮ holding *Open* and *Start work*. It is never taken off a machine or locked, so its ⋮ offers neither (operator, 2026-10-30).
 - Further remarks follow as the operator goes through the pages.
 
 ## Estimate
