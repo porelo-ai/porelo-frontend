@@ -22,7 +22,7 @@ bool _sameStored(Object? left, Object? right) {
   return left == right;
 }
 
-/// The non-secret inputs of one host's last setup, kept together for teardown.
+/// One host's public VPN state and optional setup recovery inputs.
 @immutable
 class HostUpRecord {
   /// Keeps paths and public tunnel options, never key contents or login answers.
@@ -54,10 +54,14 @@ class HostUpRecord {
     this.preparing = false,
     this.startedAt,
     this.protocol = const [],
+    this.vpnOnly = false,
   });
 
   /// The host name, absent in records kept before host names were stored.
   final String? host;
+
+  /// Whether this is a joined host's VPN record without rental or setup identity metadata.
+  final bool vpnOnly;
 
   /// The third octet of this host's VPN network.
   final int vpnNetworkNumber;
@@ -148,6 +152,7 @@ class HostUpRecord {
 
   /// Keeps recovery until a machine or give-back has been confirmed.
   HostUpRecord withPreparation(DateTime? instant) => HostUpRecord(
+    vpnOnly: vpnOnly,
     scalewayProject: scalewayProject,
     hostName: hostName,
     forge: forge,
@@ -179,6 +184,7 @@ class HostUpRecord {
 
   /// Keeps the same host identity when the exported file is saved or explicitly deleted.
   HostUpRecord withVpnFile(String? file) => HostUpRecord(
+    vpnOnly: vpnOnly,
     scalewayProject: scalewayProject,
     hostName: hostName,
     forge: forge,
@@ -210,6 +216,7 @@ class HostUpRecord {
 
   /// Keeps the confirmed public tunnel settings without changing setup or the chosen file.
   HostUpRecord withTunnel({required String hostPublicKey, required String address}) => HostUpRecord(
+    vpnOnly: vpnOnly,
     scalewayProject: scalewayProject,
     hostName: hostName,
     forge: forge,
@@ -241,6 +248,7 @@ class HostUpRecord {
 
   /// Replaces the kept protocol without changing the setup answers.
   HostUpRecord withProtocol(List<HostProtocolEntry> entries) => HostUpRecord(
+    vpnOnly: vpnOnly,
     scalewayProject: scalewayProject,
     hostName: hostName,
     forge: forge,
@@ -299,6 +307,8 @@ class HostUpRecord {
       'vpnPeerAddress': final String vpnPeerAddress,
     }) {
       final host = value['host'];
+      final vpnOnly = value['vpnOnly'] ?? false;
+      if (vpnOnly is! bool) return null;
       if (value.containsKey('host') && host is! String) return null;
       final match = RegExp(r'^10\.73\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})/32$').firstMatch(vpnPeerAddress);
       if (vpnPeerAddress.isNotEmpty && (match == null || int.parse(match[1]!) > 255 || int.parse(match[2]!) > 255)) {
@@ -378,7 +388,8 @@ class HostUpRecord {
       }
       if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
       final required = [scalewayProject, account, identity, publicKey];
-      if (required.any((field) => field.trim().isEmpty)) return null;
+      if (!vpnOnly && required.any((field) => field.trim().isEmpty)) return null;
+      if (vpnOnly && (host is! String || !Settings.isUserName(account) || account == 'root')) return null;
       final collectionSha256 = switch (value) {
         {'collectionSha256': final Object? digest} => digest,
         _ => '',
@@ -401,6 +412,7 @@ class HostUpRecord {
       if (vpnPeerPublicKey.isEmpty != vpnPeerAddress.isEmpty) return null;
       if (folder != null && signingKey.trim().isEmpty) return null;
       return HostUpRecord(
+        vpnOnly: vpnOnly,
         scalewayProject: scalewayProject,
         hostName: hostName,
         forge: forge,
@@ -435,6 +447,7 @@ class HostUpRecord {
 
   /// Only the public setup choices that belong in the interface's settings.
   Map<String, Object?> get stored => {
+    if (vpnOnly) 'vpnOnly': true,
     if (host != null) 'host': host,
     'vpnNetworkNumber': vpnNetworkNumber,
     'vpnInterface': vpnInterface,
@@ -886,6 +899,49 @@ class Settings extends ChangeNotifier {
 
   /// The arguments used for the host's last setup, absent when none were kept.
   HostUpRecord? hostUp(String host) => _hostUps[host];
+
+  /// Keeps a confirmed developer VPN without requiring a prior rental on this laptop.
+  Future<void> rememberJoinedHostVpn({
+    required PreparedHost host,
+    required String account,
+    required String peerPublicKey,
+    required String peerAddress,
+    required String ca,
+  }) async {
+    final name = host.values['homeserver']!.split('.')[1];
+    final old = hostUp(name);
+    final record = HostUpRecord(
+      vpnOnly: true,
+      scalewayProject: '',
+      account: account,
+      tresor: '',
+      folder: null,
+      host: name,
+      vpnNetworkNumber: host.network,
+      vpnInterface: 'porelo-${host.network}',
+      signingKey: '',
+      identity: '',
+      publicKey: '',
+      collection: '',
+      vpnPeerPublicKey: peerPublicKey,
+      vpnPeerAddress: '$peerAddress/32',
+      vpnHostPublicKey: host.values['wireguard_public_key']!,
+      vpnEndpointAddress: host.values['address']!,
+      forgeCa: ca,
+    );
+    final checked = HostUpRecord.fromStored({
+      ...(old ?? record).stored,
+      'vpnNetworkNumber': host.network,
+      'vpnInterface': 'porelo-${host.network}',
+      'vpnPeerPublicKey': peerPublicKey,
+      'vpnPeerAddress': '$peerAddress/32',
+      'vpnHostPublicKey': host.values['wireguard_public_key'],
+      'vpnEndpointAddress': host.values['address'],
+      'forgeCa': ca,
+    });
+    if (checked == null) throw ArgumentError('The joined host VPN settings are invalid.');
+    await rememberHostUp(name, checked);
+  }
 
   /// Persists the setup before a process can rent a host that would otherwise be lost.
   Future<void> rememberHostUp(String host, HostUpRecord record) async {

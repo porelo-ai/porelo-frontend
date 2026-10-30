@@ -889,6 +889,7 @@ class _RefusingTunnelFiles extends HostFiles {
     required String address,
     required File destination,
     int networkNumber = 0,
+    String? peerAddress,
   }) async => throw refusal;
 }
 
@@ -905,6 +906,7 @@ class _PendingTunnelFiles extends HostFiles {
     required String address,
     required File destination,
     int networkNumber = 0,
+    String? peerAddress,
   }) {
     final answer = Completer<void>();
     _pending = () async {
@@ -915,6 +917,7 @@ class _PendingTunnelFiles extends HostFiles {
           address: address,
           destination: destination,
           networkNumber: networkNumber,
+          peerAddress: peerAddress,
         );
         answer.complete();
       } catch (error, stack) {

@@ -125,7 +125,10 @@ void main() {
     });
     testWidgets('''the title bar holds only what belongs to no machine''', (tester) async {
       await bddSetUp(tester);
-      await theTitleBarOffers(tester, 'Find a command (Ctrl+K), Watch another machine…, Options, About Porelo');
+      await theTitleBarOffers(
+        tester,
+        'Find a command (Ctrl+K), Watch another machine…, Copy my public keys for a host…, Options, About Porelo',
+      );
     });
     testWidgets('''the title says where you are''', (tester) async {
       await bddSetUp(tester);

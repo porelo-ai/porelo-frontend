@@ -32,6 +32,7 @@ class ProjectBring extends ChangeNotifier {
     required this.files,
     this.forgeCa,
     this.runGit,
+    this.joining = false,
   });
 
   /// The followed project's name.
@@ -73,6 +74,11 @@ class ProjectBring extends ChangeNotifier {
   /// The person's Git process boundary, replaced only by stand-ins in tests.
   final RunHere? runGit;
 
+  /// Whether the uploaded setup is run with the developer's join playbook.
+  final bool joining;
+
+  String get _action => joining ? 'join' : 'bring';
+
   /// Whether the bring is still running, including its own-account stop.
   bool busy = false;
 
@@ -100,6 +106,15 @@ class ProjectBring extends ChangeNotifier {
 
   /// The terminal command carrying secrets directly from the file into the own-account stop.
   List<String>? get stopCommand => _stopCommand;
+
+  /// Runs an already verified and uploaded join through the same own-account stop.
+  Future<void> joinUploaded({required String commit, required List<String> credentialKeys}) async {
+    if (!joining || busy || brought) return;
+    _expectedCommit = commit;
+    keys = List.unmodifiable(credentialKeys);
+    _canResume = true;
+    await resume();
+  }
 
   /// Verifies both repositories, publishes access settings, uploads privately, and runs exactly one bring.
   Future<void> bring() async {
@@ -230,7 +245,7 @@ class ProjectBring extends ChangeNotifier {
       login[1],
       login[0],
       inTheLoginShell(
-        'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local porelo.host.bring -e porelo_project=${quoteForAShell(project)}',
+        'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local porelo.host.$_action -e porelo_project=${quoteForAShell(project)}',
       ),
       onLine: _onPlaybookLine,
     );
@@ -243,7 +258,7 @@ class ProjectBring extends ChangeNotifier {
         _playbookFailure ??
             (result.stderr.trim().isNotEmpty
                 ? result.stderr.trimRight()
-                : 'The bring did not complete. Check the host in your own account.'),
+                : 'The $_action did not complete. Check the host in your own account.'),
       );
     }
     final followed = targetBackend != null ? await targetBackend!.following() : await _followingOnHost();
@@ -285,7 +300,7 @@ class ProjectBring extends ChangeNotifier {
     } on WorkspaceRefused catch (refusal) {
       problem = refusal.words;
     } on Exception {
-      problem = 'The bring could not resume over the pinned own-account connection.';
+      problem = 'The $_action could not resume over the pinned own-account connection.';
     } finally {
       busy = false;
       _notify();
@@ -318,7 +333,7 @@ class ProjectBring extends ChangeNotifier {
     }
     if (event['state'] == 'failed' || event['state'] == 'refused') {
       final words = [event['msg'], event['words'], event['fix']].whereType<String>().where((line) => line.isNotEmpty);
-      _playbookFailure = words.isEmpty ? 'The bring task failed.' : words.join('\n');
+      _playbookFailure = words.isEmpty ? 'The $_action task failed.' : words.join('\n');
     }
     _notify();
     if (event['state'] != 'waiting') return;
@@ -341,7 +356,7 @@ class ProjectBring extends ChangeNotifier {
       needs = List.unmodifiable(waiting.cast<String>());
       _stopCommand = command;
     } on FormatException {
-      problem = 'The own-account bring requested a malformed or unsupported stop need.';
+      problem = 'The own-account $_action requested a malformed or unsupported stop need.';
       _stopCommand = null;
     }
     _notify();

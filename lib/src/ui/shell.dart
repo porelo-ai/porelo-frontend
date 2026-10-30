@@ -51,6 +51,7 @@ import '../app/session.dart';
 import '../app/unattended_run.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
+import 'project_join_dialog.dart';
 import '../app/shell_model.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -430,6 +431,8 @@ class _ShellState extends State<Shell> {
     clearTheProject: _clearTheProject,
     putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
     openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
+    joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
+    copyMyHostKeys: desk.isWindows ? null : () => unawaited(openCopyJoinKeysDialog(context)),
     takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
@@ -643,6 +646,7 @@ class _ShellState extends State<Shell> {
   List<Command> _projectMenu(ProjectOnScreen project, {Machine? on}) => <Command>[
     for (final command in projectCommands(
       project: project,
+      settings: widget.settings,
       fleet: on == null ? _fleet : widget.machines.of(on),
       hostRuns: _hostRuns,
       notifications: widget.notifications,
@@ -656,6 +660,7 @@ class _ShellState extends State<Shell> {
       clearTheProject: _clearTheProject,
       putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
       openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
+      joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
       takeOffServer: _takeOffServer(project.name),
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
@@ -794,6 +799,19 @@ class _ShellState extends State<Shell> {
       context,
       backend: _fleet.backend,
       project: project.name,
+      machines: widget.machines,
+      settings: widget.settings,
+      openTerminal: widget.sessions.openTerminal,
+    );
+  }
+
+  Future<void> _joinOnItsHost() async {
+    final project = _fleet.selectedProject;
+    if (project == null) return;
+    await openProjectJoinDialog(
+      context,
+      project: project.name,
+      backend: _fleet.backend,
       machines: widget.machines,
       settings: widget.settings,
       openTerminal: widget.sessions.openTerminal,

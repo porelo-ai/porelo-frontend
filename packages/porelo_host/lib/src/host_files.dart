@@ -548,8 +548,14 @@ class HostFiles {
     required String address,
     required File destination,
     int networkNumber = 0,
+    String? peerAddress,
   }) async {
     SecretsFile.checkNetworkNumber(networkNumber);
+    final laptopAddress = peerAddress ?? '10.73.$networkNumber.2';
+    final match = RegExp('^10\\.73\\.$networkNumber\\.([1-9][0-9]{0,2})\$').firstMatch(laptopAddress);
+    if (match == null || int.parse(match[1]!) < 2 || int.parse(match[1]!) > 254) {
+      throw const HostFilesRefused('The laptop VPN address must be inside this host’s network, after its own address.');
+    }
     if (tunnel.hostPublicKey.isEmpty || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
       throw const HostFilesRefused('The host has not supplied valid tunnel settings.');
     }
@@ -561,7 +567,7 @@ class HostFiles {
     await _writer.write(
       destination,
       utf8.encode(
-        '[Interface]\nPrivateKey = $privateKey\nAddress = 10.73.$networkNumber.2/24\n\n'
+        '[Interface]\nPrivateKey = $privateKey\nAddress = $laptopAddress/24\n\n'
         '[Peer]\nPublicKey = ${tunnel.hostPublicKey}\nEndpoint = $endpoint:51820\nAllowedIPs = 10.73.$networkNumber.1/32\nPersistentKeepalive = 25\n',
       ),
     );

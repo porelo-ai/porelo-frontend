@@ -562,6 +562,7 @@ Future<HostVpnAttempt> prepareHostVpn({
   Future<void> Function()? checkRootTools,
   String? forgeCa,
   int networkNumber = 0,
+  String? peerAddress,
 }) async {
   SecretsFile.checkHost(project);
   SecretsFile.checkNetworkNumber(networkNumber);
@@ -596,6 +597,7 @@ Future<HostVpnAttempt> prepareHostVpn({
         address: address,
         destination: file,
         networkNumber: networkNumber,
+        peerAddress: peerAddress,
       ),
       secretStore: secretStore,
       hostFiles: hostFiles,

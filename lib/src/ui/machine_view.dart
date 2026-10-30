@@ -374,6 +374,11 @@ class ProjectCommandTiles extends StatelessWidget {
       icon: Icons.dns_outlined,
       description: 'Bring this project onto a prepared server in your own account.',
     ),
+    'project.joinHost' => (
+      group: 'Where it lives',
+      icon: Icons.login_outlined,
+      description: 'Join its host with this laptop’s signed developer access.',
+    ),
     'project.follow' => (
       group: 'Where it lives',
       icon: Icons.add_link_outlined,

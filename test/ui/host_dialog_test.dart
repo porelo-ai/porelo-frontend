@@ -4235,6 +4235,7 @@ class _ControlledHostFiles extends host.HostFiles {
     required String address,
     required File destination,
     int networkNumber = 0,
+    String? peerAddress,
   }) => work.defer(
     () => super.exportTunnel(
       project: project,
@@ -4242,6 +4243,7 @@ class _ControlledHostFiles extends host.HostFiles {
       address: address,
       destination: destination,
       networkNumber: networkNumber,
+      peerAddress: peerAddress,
     ),
   );
 }

@@ -13,6 +13,7 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_backend.dart';
 import 'fleet_model.dart';
 import 'host_keys.dart';
+import 'join_keys.dart';
 import 'machine_setup.dart';
 import 'tunnel.dart';
 import 'wsl.dart';
@@ -220,8 +221,14 @@ class Machine {
   };
 
   /// SSH options shared by all access to this account.
-  List<String> get loginSshOptions =>
-      kind == 'host' ? pinnedHostSshOptions(poreloHostKnownHosts(), identity) : const <String>[];
+  List<String> get loginSshOptions => kind == 'host'
+      ? pinnedHostSshOptions(
+          JoinKeys.isRuntimeIdentity(identity, hostProject)
+              ? '${poreloHostKnownHosts()}.$hostProject'
+              : poreloHostKnownHosts(),
+          identity,
+        )
+      : const <String>[];
 
   /// Whether this interface raises the way in to it.
   ///

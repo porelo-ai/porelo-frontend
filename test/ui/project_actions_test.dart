@@ -182,6 +182,41 @@ void main() {
     );
   });
 
+  // Harm: joining without the terminal's secret-file reader fails only after privileged laptop setup.
+  testWidgets('joining is unavailable without keepassxc-cli and explains installation', (tester) async {
+    final previous = keepassxcCliThere;
+    addTearDown(() {
+      keepassxcCliThere = previous;
+      keepassxcCliIsHere = true;
+    });
+    keepassxcCliThere = () => false;
+    keepassxcCliIsHere = false;
+    await _project(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    final command = menu.commands.singleWhere((command) => command.id == 'project.joinHost');
+    expect(command.available, isFalse);
+    expect(command.unavailable, contains('keepassxc'));
+    await World.tapInView(tester, 'command-tile-project.joinHost');
+    expect(find.byKey(const Key('join-signing-key')), findsNothing);
+  });
+
+  // Harm: a developer's new laptop has no secrets file chosen yet; refusing the join for it leaves no way in,
+  // since the join's own wizard is where the secrets file is chosen.
+  testWidgets('joining is available with KeePassXC before a secrets file is chosen', (tester) async {
+    final previous = keepassxcCliThere;
+    addTearDown(() {
+      keepassxcCliThere = previous;
+      keepassxcCliIsHere = true;
+    });
+    keepassxcCliThere = () => true;
+    keepassxcCliIsHere = true;
+    await _project(tester);
+    expect(World.settings.secretsFile, isNull);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    final command = menu.commands.singleWhere((command) => command.id == 'project.joinHost');
+    expect(command.available, isTrue, reason: command.unavailable);
+  });
+
   testWidgets('every project menu command has exactly one tile and every tile a menu item', (tester) async {
     await _project(tester);
     final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
@@ -202,6 +237,7 @@ void main() {
       'project.backups',
       'project.clear',
       'project.server',
+      'project.joinHost',
       'project.takeOffServer',
       'project.delete',
       'project.follow',

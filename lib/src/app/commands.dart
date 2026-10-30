@@ -505,6 +505,7 @@ String? whyNotStart(Task task) {
 List<Command> projectCommands({
   required ProjectOnScreen? project,
   required FleetModel fleet,
+  Settings? settings,
   HostRuns? hostRuns,
   required Notifications notifications,
   required VoidCallback openTheGate,
@@ -521,6 +522,7 @@ List<Command> projectCommands({
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
   VoidCallback? putOnAServer,
+  VoidCallback? joinOnItsHost,
   VoidCallback? takeOffServer,
   String? takeOffServerBusy,
   VoidCallback? startTheAgents,
@@ -705,6 +707,19 @@ List<Command> projectCommands({
     ),
     takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
     Command(
+      id: 'project.joinHost',
+      label: 'Join this project on its host…',
+      group: 'Project',
+      home: Home.projectMenu,
+      run: joinOnItsHost ?? () {},
+      unavailable:
+          noFile ??
+          (isDefault ? 'default belongs to this machine' : null) ??
+          noSecretsFileHere(desk) ??
+          keepassxcCliMissing() ??
+          (joinOnItsHost == null ? 'joining needs Linux and your own host keys' : null),
+    ),
+    Command(
       id: 'project.delete',
       label: 'Stop following this project',
       group: 'Project',
@@ -783,6 +798,16 @@ Command copyHostValueCommand(String name, VoidCallback copy) => Command(
   group: 'For the project admins',
   home: Home.openedView,
   run: copy,
+);
+
+/// Copies only this laptop's public keys after choosing the host they belong to.
+Command copyJoinKeysCommand({VoidCallback? open}) => Command(
+  id: 'host.copyMyKeys',
+  label: 'Copy my public keys for a host…',
+  group: 'Machines',
+  home: Home.appBar,
+  run: open ?? () {},
+  unavailable: open == null ? 'host keys need the system secret store on Linux' : null,
 );
 
 /// The checked helpers and public handover values belonging to a prepared host.
@@ -1205,6 +1230,8 @@ List<Command> commandsFor({
   VoidCallback? clearTheProject,
   VoidCallback? putOnAServer,
   VoidCallback? openDevelopers,
+  VoidCallback? joinOnItsHost,
+  VoidCallback? copyMyHostKeys,
   VoidCallback? takeOffServer,
   String? takeOffServerBusy,
   VoidCallback? startTheAgents,
@@ -1261,6 +1288,7 @@ List<Command> commandsFor({
       run: watchAnotherMachine,
     ),
     prepareServerCommand(open: prepareServer),
+    copyJoinKeysCommand(open: copyMyHostKeys),
     Command(
       id: 'appearance.light',
       label: 'Appearance: light',
@@ -1386,6 +1414,7 @@ List<Command> commandsFor({
     ),
     ...projectCommands(
       project: selectedProject,
+      settings: settings,
       fleet: fleet,
       hostRuns: hostRuns,
       notifications: notifications,
@@ -1399,6 +1428,7 @@ List<Command> commandsFor({
       clearTheProject: clearTheProject,
       putOnAServer: putOnAServer,
       openDevelopers: openDevelopers,
+      joinOnItsHost: joinOnItsHost,
       takeOffServer: takeOffServer,
       takeOffServerBusy: takeOffServerBusy,
       showTheMessages: showTheMessages,

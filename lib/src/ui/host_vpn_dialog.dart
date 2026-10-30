@@ -169,6 +169,7 @@ Future<bool> openHostVpnDialog(
         checkRootTools: open == null ? null : () async {},
         forgeCa: record.forgeCa,
         networkNumber: record.vpnNetworkNumber,
+        peerAddress: record.vpnPeerAddress.isEmpty ? null : record.vpnPeerAddress.split('/').first,
       );
     }
     if (!context.mounted) return false;

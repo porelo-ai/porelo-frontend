@@ -14,6 +14,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   host sync. GitHub access uses read-only collaborator invitations and revocation; host and forge answers stay
   separate, with partial failures available to retry.
 
+- Developers can copy this laptop's host-specific public keys and join a project from its verified signed access
+  file. The join uses its listed VPN address, checks the access file's CA SHA-256 before local setup, pins the host's
+  SSH key, and uploads both bundles for an own-account join and secrets stop. Private keys stay in the system
+  secret store, and a confirmed join retains the access commit for the next verification.
+
 - Project admins can bring a followed project onto a prepared server through their own pinned SSH account,
   without renting or sudo. Private access settings preserve YAML comments, use the person's configured Git
   signing and credentials, and are pushed before both bundles are uploaded. Migration URLs are checked before

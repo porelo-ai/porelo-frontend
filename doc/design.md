@@ -210,6 +210,33 @@ is; a second consumer of the client code is what would change that.
 
 ## Projects on prepared hosts
 
+*Copy my public keys for a host…* creates this laptop's SSH and WireGuard keys once per host in the system
+secret store and copies only their public halves, without an SSH comment. *Join this project on its host…*
+uses the followed project's signed bundle and clones its private access repository through the developer's own
+Git credentials. Local `porelo project verify --json` must confirm the project and access revision before any
+laptop setup step. A missing Porelo stops the join with an installation instruction. The join reads its own
+small view of the verified developer list and matches both of this laptop's public keys; an absent or dropped
+laptop is refused without repair controls.
+
+The join reads `transports.matrix.ca_certificate` from `access.yml` at the access commit Porelo verified.
+Its DER SHA-256 must equal `host.ca_sha256`; a mismatch shows both fingerprints before persistent join state,
+an exported SSH identity, or VPN or CA root installation. Verification uses disposable private files, and the
+access bundle carries both `HEAD` and its default branch at the verified commit. A different clone tip is refused.
+The VPN uses this laptop's listed address on the host's existing numbered network and installs
+only that host's checked CA. Every SSH call waits for the VPN and uses its host address, because the admitted
+key is restricted to the laptop's listed VPN address. The host-specific `known_hosts` pins that address. SSH restores
+its private identity into the user's protected runtime directory, with the system secret store as its lasting
+source. The person's lasting forge password is fed in a terminal directly from their encrypted secrets file
+to their own-login password helper before the first playbook start.
+
+The own-account upload supplies a machine file with no forge migration section and both verified bundles.
+The host runs `ansible-playbook -c local porelo.host.join -e porelo_project=<project>`; Ansible belongs on the
+host. Its secrets stop and resume reuse the own-account runner. Completion requires the host daemon's verified
+project revision, then retains the access commit privately for `--access-since` on another join against the same
+repository and adds the developer's account to watched machines so its agents can be started there.
+A laptop without a rental record keeps a VPN-only host record; existing host setup recovery fields are preserved.
+The join command names a missing KeePassXC reader or secrets-file selection before its wizard can open.
+
 *Put this project on a server…* takes the public JSON copied from *For the project admins…*, the project admin's
 own account name on that host, and their SSH identity file. A watched machine is not required. Renting belongs
 to *Prepare a server…*. Before any access edit or push, the public values, VPN address, identity path, project
