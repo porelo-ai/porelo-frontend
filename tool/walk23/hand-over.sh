@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Walk 23, laptop A, by the agent: builds the hand-over for laptop B from this checkout's committed HEAD. That is
-# the interface's Linux bundle, the porelo package given, laptop B's three scripts and SHA256SUMS over them, in
-# ~/.porelo/handover/porelo-frontend/walk23, with SHA256SUMS.sha256 beside it naming the digest the walk shows. The
-# folder is fixed, so the replacement deletes nothing but an earlier hand-over. It refuses a checkout with changes, so the bundle is what a commit holds, and replaces
-# an earlier hand-over.
+# Walk 23, the Laptop, by the agent: builds the hand-over for VM A and VM B from this checkout's committed HEAD. That
+# is the interface's Linux bundle, the porelo package given, the VMs' three laptop-b scripts, VM A's laptop-a-seed.sh
+# and SHA256SUMS over them, in ~/.porelo/handover/porelo-frontend/walk23, with SHA256SUMS.sha256 beside it naming the
+# digest the walk shows. The folder is fixed, so the replacement deletes nothing but an earlier hand-over. It refuses
+# a checkout with changes, so the bundle is what a commit holds.
 # Usage: bash tool/walk23/hand-over.sh <porelo_*_amd64.deb>
 set -euo pipefail
 current=
@@ -44,8 +44,8 @@ staging=$(mktemp -d "$(dirname -- "$out")/walk23.XXXXXX")
 trap 'rm -rf -- "$staging"' EXIT
 tar -czf "$staging/porelo-frontend-bundle.tar.gz" -C "$bundle" .
 cp -- "$deb" "$staging/"
-cp -- tool/walk23/laptop-b-make.sh tool/walk23/laptop-b-start.sh tool/walk23/laptop-b-remove.sh "$staging/"
-(cd "$staging" && sha256sum -- porelo-frontend-bundle.tar.gz "$(basename -- "$deb")" laptop-b-*.sh >SHA256SUMS)
+cp -- tool/walk23/laptop-b-make.sh tool/walk23/laptop-b-start.sh tool/walk23/laptop-b-remove.sh tool/walk23/laptop-a-seed.sh "$staging/"
+(cd "$staging" && sha256sum -- porelo-frontend-bundle.tar.gz "$(basename -- "$deb")" laptop-b-*.sh laptop-a-seed.sh >SHA256SUMS)
 sha256sum <"$staging/SHA256SUMS" | cut -d' ' -f1 >"$staging/SHA256SUMS.sha256"
 printf '%s\n' "$commit" >"$staging/COMMIT"
 chmod -R go-w "$staging"
