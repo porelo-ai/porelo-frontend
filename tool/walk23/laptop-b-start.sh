@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Walk 23, laptop B, as the developer: unpacks the interface handed over beside this script into ~/.porelo/walk23,
 # after checking SHA256SUMS against the digest the walk shows and every file against SHA256SUMS, and starts it with
-# no roles beyond the ordinary person's, visibly on this desktop, which the operator walks. It refuses loudly and may
-# be run again: an unpacked bundle of the same digest is kept, any other replaced, never while it runs.
+# no roles beyond the ordinary person's, or with PORELO_WALK_ROLES (project-admin for walkadmin's laptop C), visibly
+# on this desktop, which the operator walks. It refuses loudly and may be run again: an unpacked bundle of the same
+# digest is kept, any other replaced, never while it runs.
 # Usage, logged in as the developer, from the unpacked hand-over: bash laptop-b-start.sh <SHA-256 of SHA256SUMS>
 set -euo pipefail
 current=
@@ -17,6 +18,7 @@ refuse() {
 trap 'printf "\n%s failed\n" "${current:-the start}" >&2' ERR
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 developer=${PORELO_WALK_DEVELOPER:-walkdev}
+roles=${PORELO_WALK_ROLES:-}
 walk=$HOME/.porelo/walk23
 bundle=porelo-frontend-bundle.tar.gz
 
@@ -24,6 +26,7 @@ step b-start.1 "this runs as $developer on a desktop"
 if [ "$#" -ne 1 ] || ! [[ $1 =~ ^[0-9a-f]{64}$ ]]; then
     refuse "give the SHA-256 of SHA256SUMS the walk shows as the one argument"
 fi
+[ -z "$roles" ] || [[ $roles =~ ^[a-z-]+(,[a-z-]+)*$ ]] || refuse "PORELO_WALK_ROLES must be a comma-separated list of roles"
 [ "$(id -un)" = "$developer" ] || refuse "log in as $developer; this is $(id -un)"
 [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ] || refuse "no desktop here; run it in a terminal on $developer's desktop"
 for tool in sha256sum awk tar pgrep porelo wg keepassxc-cli; do
@@ -55,6 +58,9 @@ else
     echo "ok: unpacked"
 fi
 
-step b-start.4 "the interface starts as an ordinary person's"
+step b-start.4 "the interface starts with the roles ${roles:-of an ordinary person}"
 echo "starting it; close its window to end this script"
+if [ -n "$roles" ]; then
+    exec "$walk/bundle/porelo_frontend" --roles "$roles"
+fi
 exec "$walk/bundle/porelo_frontend"
