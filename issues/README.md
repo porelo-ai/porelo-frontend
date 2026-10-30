@@ -83,6 +83,8 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f246"></a>[F246](F246-The-Host-Collection-Where-Every-Account-Finds-It.md) | S | — | `up` installs the host collection read-only where every account finds it, so own-account bring and join run the version `up` ran. |
 | <a id="f247"></a>[F247](F247-The-Bring-And-Join-Log-Copied-At-One-Click.md) | XS | — | A *Copy* button beside the bring's and the join's last lines. |
 | <a id="f248"></a>[F248](F248-A-Bring-Replaces-Its-Own-Earlier-Upload.md) | S | — | A new bring or join try replaces the setup folder its own earlier try left; a foreign one is still refused. |
+| <a id="f249"></a>[F249](F249-The-Restored-Identity-Filled-On-A-Recorded-Host.md) | XS | — | The restored identity filled in on a recorded host; a public key file refused in the identity field. |
+| <a id="f250"></a>[F250](F250-Pasted-Host-Values-Taken-As-Meant.md) | XS | — | Pasted host values with extra blanks inside a key taken as meant; a refusal names the wrong field. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | — | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
