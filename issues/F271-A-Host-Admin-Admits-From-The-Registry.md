@@ -1,6 +1,6 @@
 # F271 — A Host Admin Admits From The Registry
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - about a day across preparation hooks, registry mutations, host delivery and admin actions, reusing the shared registry and SSH work.
 
 **What must be true.** Only a host admin named in the registry's `owners.yml` is offered *Prepare a server…* and *Admit*; anyone else sees who may, with their email where their card names one. When *Prepare a server…* has a ready server, the interface files `hosts/<host>/card` (name, address, SSH port, SSH host key, services with the forge's web and Git ports and the homeserver's port), signed by the host admin. The give-back deletes it, only after the give-back was confirmed ([F264](README.md#f264)'s order). *Admit* is a pick from the registry's persons; it commits `hosts/<host>/access.yml` (each project with its admin, that admin's key fingerprint and its access repository's address, since the host anchors on its pinned host admin alone), brings the registry to the host through the tunnel, and asks for the sync. Lock, let back in and delete an account are chosen from the host's person list, with [F262](README.md#f262)'s words. A host whose synced commit is behind the registry shows "not on the host yet" with *Bring it to the host*.

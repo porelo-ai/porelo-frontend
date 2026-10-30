@@ -1,6 +1,6 @@
 # F274 — Push And Pull With The Central Forge Started By A Person
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - adds project actions, vault-to-SSH delivery and central pull requests and reviews across app, client and host package boundaries.
 
 **What must be true.** A person admitted to push sees *Push the approved main…* and *Take the central state…* on the project. Each runs porelo-host's push or pull on the host with the person's own token on standard input through the tunnel, read from their vault without asking, never written on the host, never on a command line. The answer is shown in the host's words. Pull requests and reviews on the central forge are read and made with the person's own token, started by that person, without webhooks.
