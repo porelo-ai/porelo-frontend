@@ -7,8 +7,14 @@
 # Usage, from the unpacked hand-over: sudo bash laptop-b-remove.sh
 set -euo pipefail
 current=
-step() { current=$1; printf '\n== %s: %s\n' "$1" "$2"; }
-refuse() { printf '%s refused: %s\n' "${current:-laptop-b-remove}" "$*" >&2; exit 1; }
+step() {
+    current=$1
+    printf '\n== %s: %s\n' "$1" "$2"
+}
+refuse() {
+    printf '%s refused: %s\n' "${current:-laptop-b-remove}" "$*" >&2
+    exit 1
+}
 trap 'printf "\n%s failed\n" "${current:-the start}" >&2' ERR
 state=/var/lib/porelo-walk23
 
@@ -21,7 +27,7 @@ fi
 developer=$(cat "$state/developer")
 [[ $developer =~ ^[a-z][a-z0-9-]{0,30}$ ]] || refuse "the record names no plain account"
 # Nothing this runs from may belong to the developer, however root was reached: their processes end below.
-uid=$(id -u "$developer" 2> /dev/null || true)
+uid=$(id -u "$developer" 2>/dev/null || true)
 pid=$$
 while [ -n "$uid" ] && [ "$pid" -gt 1 ]; do
     awk -v uid="$uid" '/^Uid:/ { for (i = 2; i <= 5; i++) if ($i == uid) found = 1 } END { exit !found }' "/proc/$pid/status" &&
@@ -36,7 +42,7 @@ for conf in /etc/wireguard/porelo-*.conf; do
     name=$(basename -- "$conf")
     grep -qxF -- "$name" "$state/wireguard" && continue
     echo "taking down and removing ${name%.conf}"
-    wg-quick down "${name%.conf}" 2> /dev/null || true
+    wg-quick down "${name%.conf}" 2>/dev/null || true
     rm -f -- "$conf"
 done
 echo "ok: no porelo VPN configuration is left that was not here before"
@@ -48,7 +54,7 @@ if [ -z "$added" ]; then
 else
     printf 'removing these lines:\n%s\n' "$added"
     kept=$(mktemp /etc/hosts.walk23.XXXXXX)
-    grep -vxF -f <(printf '%s\n' "$added") /etc/hosts > "$kept" || true
+    grep -vxF -f <(printf '%s\n' "$added") /etc/hosts >"$kept" || true
     chmod --reference=/etc/hosts "$kept"
     chown --reference=/etc/hosts "$kept"
     mv -- "$kept" /etc/hosts
@@ -56,7 +62,7 @@ else
 fi
 
 step b-remove.4 "the account $developer as it was before the walk"
-if [ "$(cat "$state/account-was-here")" = yes ] && ! id "$developer" > /dev/null 2>&1; then
+if [ "$(cat "$state/account-was-here")" = yes ] && ! id "$developer" >/dev/null 2>&1; then
     echo "ok: $developer was here before the walk and is gone now; nothing to restore"
 elif [ "$(cat "$state/account-was-here")" = yes ]; then
     if [ "$(cat "$state/had-sudo-before")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
@@ -64,12 +70,15 @@ elif [ "$(cat "$state/account-was-here")" = yes ]; then
         gpasswd -d "$developer" sudo
     fi
     echo "ok: $developer was here before the walk; kept"
-elif id "$developer" > /dev/null 2>&1; then
+elif id "$developer" >/dev/null 2>&1; then
     echo "ending $developer's processes and removing the account with its home"
     pkill -KILL -U "$developer" || true
     pkill -KILL -u "$developer" || true
-    left() { pgrep -U "$developer" > /dev/null || pgrep -u "$developer" > /dev/null; }
-    for _ in $(seq 20); do left || break; sleep 0.5; done
+    left() { pgrep -U "$developer" >/dev/null || pgrep -u "$developer" >/dev/null; }
+    for _ in $(seq 20); do
+        left || break
+        sleep 0.5
+    done
     left && refuse "$developer's processes do not end; log it out and run this again"
     userdel --remove "$developer"
     echo "ok: $developer removed"
@@ -79,7 +88,7 @@ fi
 
 step b-remove.5 "porelo as before the walk"
 before=$(cat "$state/porelo-version")
-status=$(dpkg-query -W -f='${db:Status-Status}' porelo 2> /dev/null || true)
+status=$(dpkg-query -W -f='${db:Status-Status}' porelo 2>/dev/null || true)
 case $status in
 installed) now=$(dpkg-query -W -f='${Version}' porelo) ;;
 '' | not-installed | config-files) now= ;;

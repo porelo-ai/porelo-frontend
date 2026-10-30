@@ -7,15 +7,21 @@
 # Usage: bash laptop-a-repositories.sh
 set -euo pipefail
 current=
-step() { current=$1; printf '\n== %s: %s\n' "$1" "$2"; }
-refuse() { printf '%s refused: %s\n' "${current:-laptop-a-repositories}" "$*" >&2; exit 1; }
+step() {
+    current=$1
+    printf '\n== %s: %s\n' "$1" "$2"
+}
+refuse() {
+    printf '%s refused: %s\n' "${current:-laptop-a-repositories}" "$*" >&2
+    exit 1
+}
 trap 'printf "\n%s failed\n" "${current:-the start}" >&2' ERR
 organisation=${PORELO_GUIDE_ORGANISATION:-porelo-ai}
 project=${PORELO_GUIDE_PROJECT:-walk6-demo}
 api=https://api.github.com
 
 step a-repositories.1 "the tools and names"
-for tool in curl jq; do command -v "$tool" > /dev/null || refuse "$tool is missing; install it with: sudo apt install $tool"; done
+for tool in curl jq; do command -v "$tool" >/dev/null || refuse "$tool is missing; install it with: sudo apt install $tool"; done
 for name in "$organisation" "$project"; do
     printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || refuse "$name is not a plain GitHub name"
 done
