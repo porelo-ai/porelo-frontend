@@ -173,6 +173,38 @@ void main() {
     expect(pty.signalledOnClose, isFalse);
   });
 
+  // Harm: a transfer child ignores hangup, retaining credentials and preventing output from ending.
+  test('transfer termination kills a child ignoring hangup and drains its output', () async {
+    final pty = Pty.start('/usr/bin/python3', [
+      '-c',
+      'import os, signal; signal.signal(signal.SIGHUP, signal.SIG_IGN); '
+          "print(os.getpid(), flush=True); signal.alarm(5); signal.pause()",
+    ], echo: false);
+    final pid = Completer<int>();
+    final output = StringBuffer();
+    var ended = false;
+    final printed = pty.output.transform(utf8.decoder).join().then((text) {
+      output.write(text);
+    });
+    // A second subscription observes readiness without canceling the drain.
+    final ready = pty.output.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+      if (!pid.isCompleted) pid.complete(int.parse(line));
+    });
+    unawaited(pty.ended.then((_) => ended = true));
+    final child = await pid.future.timeout(const Duration(seconds: 5));
+    addTearDown(() async {
+      if (!ended) Process.killPid(child, ProcessSignal.sigkill);
+      await pty.ended;
+      await ready.cancel();
+      await pty.close();
+    });
+
+    await pty.terminate();
+    await printed.timeout(const Duration(seconds: 5));
+    expect(await pty.ended, 137);
+    expect(output.toString().trim(), '$child');
+  });
+
   test('closing a session that is still running does signal it', () async {
     final pty = Pty.start('sh', <String>['-c', 'sleep 30']);
     // Long enough to be running, short enough not to slow the suite down.

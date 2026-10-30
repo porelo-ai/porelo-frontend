@@ -140,17 +140,26 @@ void main() {
     expect(transfers.unavailable(selection()), isNull);
   });
 
-  // Harm: a late local preparation starts a transfer after the person has received a timeout.
-  testWidgets('a preparation deadline prevents late submission and permits retry', (tester) async {
+  // Harm: a queued submission arrives after the controller deadline and permits a duplicate transfer.
+  testWidgets('a deadline before the submitted notification blocks retry until the source settles', (tester) async {
     transfers.dispose();
     transfers = ProjectTransfers(source: terminal, answerWithin: const Duration(seconds: 1));
     terminal.prepare = Completer<void>();
     final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
     await tester.pump(const Duration(seconds: 1));
-    expect((await pending).state, TransferState.unavailable);
+    expect((await pending).state, TransferState.unconfirmed);
+    expect(transfers.unavailable(selection()), isNotNull);
+    await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
+    terminal.work = Completer<void>();
     terminal.prepare!.complete();
     await tester.pump();
-    expect(terminal.commands, isEmpty);
+    expect(terminal.commands, hasLength(1));
+    expect(transfers.unavailable(selection()), isNotNull);
+    await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
+    terminal.work!.complete();
+    await tester.pump();
+    expect(transfers.unavailable(selection()), isNotNull);
+    await transfers.reconcile(selection(), () async {});
     expect(transfers.unavailable(selection()), isNull);
   });
 

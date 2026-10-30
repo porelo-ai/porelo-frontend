@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
@@ -9,7 +10,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../support/transfer_selection.dart';
 
-class _Channel extends SessionChannel {
+class _Channel extends DrainingSessionChannel {
   final outputController = StreamController<List<int>>();
   final exit = Completer<int>();
   bool closed = false;
@@ -21,7 +22,11 @@ class _Channel extends SessionChannel {
   Future<void> close() async {
     closed = true;
     if (!exit.isCompleted) exit.complete(129);
+    unawaited(outputController.close());
   }
+
+  @override
+  Future<void> terminate() => close();
 
   @override
   void send(String input) => throw UnimplementedError();
@@ -36,7 +41,7 @@ void main() {
       var submitted = false;
       final runner = TransferTerminal(
         secretsFile: file,
-        openTerminal: (_, _, {columns = 80, rows = 24}) => throw StateError('local launch failure'),
+        openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => throw StateError('local launch failure'),
       );
       await expectLater(
         runner.run(
@@ -58,7 +63,7 @@ void main() {
     final commands = <List<String>>[];
     final runner = TransferTerminal(
       secretsFile: '/data/secrets.kdbx',
-      openTerminal: (exe, args, {columns = 80, rows = 24}) {
+      openTerminal: (exe, args, {columns = 80, rows = 24, echo = true}) {
         commands.add([exe, ...args]);
         return child;
       },
@@ -89,7 +94,7 @@ void main() {
     final child = _Channel();
     final runner = TransferTerminal(
       secretsFile: '/data/secrets.kdbx',
-      openTerminal: (_, _, {columns = 80, rows = 24}) => child,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
     );
     final transfers = ProjectTransfers(source: runner);
     addTearDown(transfers.dispose);
@@ -108,7 +113,7 @@ void main() {
     final child = _Channel();
     final runner = TransferTerminal(
       secretsFile: '/data/secrets.kdbx',
-      openTerminal: (_, _, {columns = 80, rows = 24}) => child,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
     );
     final lines = <String>[];
     final pending = runner.run(selection(), ProjectTransfer.push, onSubmitted: () {}, onLine: lines.add);
@@ -132,7 +137,7 @@ void main() {
       final child = _Channel();
       final runner = TransferTerminal(
         secretsFile: '/data/secrets.kdbx',
-        openTerminal: (_, _, {columns = 80, rows = 24}) => child,
+        openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
       );
       final transfers = ProjectTransfers(source: runner);
       addTearDown(transfers.dispose);
@@ -144,61 +149,72 @@ void main() {
     }
   });
 
-  // Harm: an unresponsive child leaves the terminal future and project busy forever.
-  testWidgets('terminal cleanup has a bound when the child never reports exit', (tester) async {
+  // Harm: a deadline discards a queued submission and permits the host write twice.
+  test('deadline drains submission until both the child and output end', () async {
     final child = _HungChannel();
     final runner = TransferTerminal(
       secretsFile: '/data/secrets.kdbx',
-      deadline: const Duration(seconds: 1),
-      openTerminal: (_, _, {columns = 80, rows = 24}) => child,
+      deadline: Duration.zero,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
     );
-    var done = false;
-    final pending = runner
-        .run(selection(), ProjectTransfer.push, onSubmitted: () {})
-        .then<void>(
-          (_) {
-            done = true;
-          },
-          onError: (Object _) {
-            done = true;
-          },
-        );
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(seconds: 10));
-    expect(done, isTrue);
-    await pending;
-    unawaited(child.outputController.close());
-  });
-
-  // Harm: a hung child leaves submission stuck after the controller deadline.
-  testWidgets('bounded terminal cleanup permits reconciliation after a lost submitted result', (tester) async {
-    final child = _HungChannel();
-    final runner = TransferTerminal(
-      secretsFile: '/data/secrets.kdbx',
-      deadline: const Duration(seconds: 1),
-      openTerminal: (_, _, {columns = 80, rows = 24}) => child,
-    );
-    final transfers = ProjectTransfers(source: runner, answerWithin: const Duration(seconds: 2));
+    final transfers = ProjectTransfers(source: runner);
     addTearDown(transfers.dispose);
-    final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
-    child.outputController.add(utf8.encode('$projectTransferSubmitted\n'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(seconds: 1));
+    var done = false;
+    final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {}).then((answer) {
+      done = true;
+      return answer;
+    });
+    await child.closing.future;
+    expect(child.closed, isTrue, reason: 'stop the child before draining its output');
+    child.outputController.add(utf8.encode(projectTransferSubmitted.substring(0, 10)));
+    child.exit.complete(129);
+    await Future<void>.delayed(Duration.zero);
+    expect(done, isFalse, reason: 'an exit code does not mean buffered output has drained');
+    child.outputController.add(utf8.encode('${projectTransferSubmitted.substring(10)}\n'));
+    await child.outputController.close();
     expect((await pending).state, TransferState.unconfirmed);
-    await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
-    await tester.pump(const Duration(seconds: 2));
+    expect(transfers.unavailable(selection()), isNotNull, reason: 'a submitted write must never become retryable');
     await transfers.reconcile(selection(), () async {});
     expect(transfers.unavailable(selection()), isNull);
-    unawaited(child.outputController.close());
   });
+
+  // Harm: typing before the terminal script starts echoes a password into the interface.
+  test(
+    'a transfer PTY suppresses input before the child can disable echo',
+    () async {
+      final raw = StringBuffer();
+      final lines = <String>[];
+      final runner = TransferTerminal(
+        secretsFile: '/data/secrets.kdbx',
+        openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) {
+          final child = Pty.start('/bin/sh', [
+            '-c',
+            "IFS= read -r early; stty -echo; printf '%s\\n' '${projectTransferOutput}accepted'",
+          ], echo: echo);
+          child.output.transform(utf8.decoder).listen(raw.write);
+          child.send('synthetic early input\n');
+          return child;
+        },
+      );
+      final answer = await runner.run(selection(), ProjectTransfer.push, onSubmitted: () {}, onLine: lines.add);
+      expect(answer.exitCode, 0);
+      expect(lines, ['accepted']);
+      expect(
+        raw.toString().contains('synthetic early input'),
+        isFalse,
+        reason: 'kernel echo must be off before the child reads any input',
+      );
+    },
+    tags: ['linux'],
+    skip: !Platform.isLinux,
+  ); // Linux: real PTY, shell and stty.
 
   // Harm: a rendering Error leaves the owned terminal and SSH process running.
   test('a progress Error closes its owned terminal', () async {
     final child = _Channel();
     final runner = TransferTerminal(
       secretsFile: '/data/secrets.kdbx',
-      openTerminal: (_, _, {columns = 80, rows = 24}) => child,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
     );
     final pending = runner.run(
       selection(),
@@ -216,8 +232,10 @@ void main() {
 }
 
 class _HungChannel extends _Channel {
+  final closing = Completer<void>();
   @override
   Future<void> close() async {
     closed = true;
+    if (!closing.isCompleted) closing.complete();
   }
 }

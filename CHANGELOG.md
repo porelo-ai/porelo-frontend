@@ -9,9 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Central transfers keep terminal echo disabled through SSH, forward only marked public output,
-  and record submission only when SSH is about to start. Cancellation and failed local checks
-  remain retryable; terminal cleanup has a bound. Transfers explicitly enforce pinned,
+- Central transfers disable terminal echo before spawning the child and through SSH, forward only
+  marked public output, and record submission only when SSH is about to start. Cancellation and
+  failed local checks remain retryable once the source ends; deadlines kill the owned child and
+  drain buffered output before release. Pending sources block replay and reconciliation, including
+  before a late submission notification. Transfers explicitly enforce pinned,
   noninteractive SSH. Stored central review commands retain current refusals, disposed review
   controllers cannot act, programming errors in reads propagate, and overlapping backup syncs
   preserve each result without changing the open listing's state.

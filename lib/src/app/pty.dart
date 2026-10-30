@@ -30,6 +30,14 @@ abstract class SessionChannel {
   Future<void> close();
 }
 
+/// A terminal that can stop its owned child without discarding buffered output.
+///
+/// Transfer owners cancel through [terminate]; ordinary [close] may discard output.
+abstract class DrainingSessionChannel implements SessionChannel {
+  /// Stops the owned child while preserving output until the channel ends.
+  Future<void> terminate();
+}
+
 /// A pseudoterminal, opened and driven with `dart:ffi` against libc.
 ///
 /// **Written here rather than taken from a plugin, and the reason is the package.** A native
@@ -54,7 +62,7 @@ abstract class SessionChannel {
 ///   the child a session leader, and a session leader that opens a terminal without `O_NOCTTY`
 ///   takes it as its controlling terminal. That is what makes `Ctrl-C` reach the far end instead
 ///   of this window, and what lets `SIGWINCH` arrive at all.
-class Pty implements SessionChannel {
+class Pty implements DrainingSessionChannel {
   Pty._(this._master, this._pid, this._output, this._ended) {
     unawaited(_ended.then((_) => _reaped = true).catchError((Object _) => _reaped = true));
   }
@@ -64,11 +72,13 @@ class Pty implements SessionChannel {
   /// [environment] is added to this process's own, and `TERM` is set unless it is given: a far
   /// end that is told nothing about the terminal assumes the dumbest one there is, and then
   /// nothing has color and the cursor never moves.
+  /// Input [echo] is configured before the child starts, including when disabled.
   factory Pty.start(
     String executable,
     List<String> arguments, {
     int columns = 80,
     int rows = 24,
+    bool echo = true,
     Map<String, String> environment = const <String, String>{},
   }) {
     final libc = DynamicLibrary.process();
@@ -93,6 +103,7 @@ class Pty implements SessionChannel {
 
     // Set before the child starts, so nothing ever renders at a size it then has to correct.
     _setSize(c, master, columns, rows);
+    if (!echo) _disableEcho(c, master);
 
     final environed = <String, String>{...Platform.environment, 'TERM': 'xterm-256color', ...environment};
     // Found here, before anything runs: under the shell a missing command would be its exit 127,
@@ -249,6 +260,20 @@ class Pty implements SessionChannel {
     c.close(_master);
   }
 
+  @override
+  Future<void> terminate() async {
+    if (_shut) return;
+    _shut = true;
+    final c = _Libc(DynamicLibrary.process());
+    if (!_reaped) {
+      c.kill(-_pid, _sigkill);
+      signalledOnClose = true;
+    }
+    // Closing the master first would discard output queued just before termination.
+    await _ended;
+    c.close(_master);
+  }
+
   /// Reads the far end on an isolate of its own.
   ///
   /// **A blocking `read` is the right shape here and needs somewhere to block.** `dart:io` cannot
@@ -346,6 +371,25 @@ class Pty implements SessionChannel {
     c.free(size.cast());
   }
 
+  static void _disableEcho(_Libc c, int master) {
+    // Linux TCGETS/TCSETS use kernel termios, whose fourth flag word holds ECHO and ECHONL.
+    final attributes = c.malloc(64).cast<Uint32>();
+    try {
+      if (c.ioctl(master, _tcgets, attributes.cast()) != 0) {
+        throw const PtyRefused('the terminal input echo could not be read');
+      }
+      attributes[3] &= ~(_echo | _echoNl);
+      if (c.ioctl(master, _tcsets, attributes.cast()) != 0) {
+        throw const PtyRefused('the terminal input echo could not be disabled');
+      }
+    } catch (_) {
+      c.close(master);
+      rethrow;
+    } finally {
+      c.free(attributes.cast());
+    }
+  }
+
   static Pointer<Uint8> _cString(_Libc c, String value) {
     final bytes = utf8.encode(value);
     final buffer = c.malloc(bytes.length + 1).cast<Uint8>();
@@ -406,6 +450,11 @@ const int _oNoctty = 0x100;
 const int _spawnSetsid = 0x80;
 const int _tiocswinsz = 0x5414;
 const int _sighup = 1;
+const int _sigkill = 9;
+const int _tcgets = 0x5401;
+const int _tcsets = 0x5402;
+const int _echo = 0x8;
+const int _echoNl = 0x40;
 const int _pathMax = 4096;
 const int _readChunk = 8192;
 

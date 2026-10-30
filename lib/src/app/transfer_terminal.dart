@@ -6,7 +6,17 @@ import 'pty.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import 'project_transfers.dart';
-import 'session.dart';
+
+/// Opens a transfer terminal with its input echo policy applied before spawning.
+///
+/// The visible terminal cancels through [DrainingSessionChannel.terminate].
+typedef OpenTransferTerminal = DrainingSessionChannel Function(
+  String executable,
+  List<String> arguments, {
+  int columns,
+  int rows,
+  bool echo,
+});
 
 /// Runs a transfer in the visible terminal using this instance's local secrets file.
 class TransferTerminal implements CentralTransferSource {
@@ -23,7 +33,7 @@ class TransferTerminal implements CentralTransferSource {
   final String? secretsFile;
 
   /// The owner-provided opener, which also presents the terminal for hidden input.
-  final OpenTerminal openTerminal;
+  final OpenTransferTerminal openTerminal;
 
   /// The platform config location, injectable without reading a machine's setup.
   final Map<String, String>? environment;
@@ -53,9 +63,10 @@ class TransferTerminal implements CentralTransferSource {
       secretsFile: SecretsFile(file, cli: cli),
       environment: environment,
     );
-    final channel = openTerminal(command.first, command.skip(1).toList());
+    final channel = openTerminal(command.first, command.skip(1).toList(), echo: false);
     var submitted = false;
-    var active = true;
+    var callbackFailed = false;
+    final drained = Completer<void>();
     StreamSubscription<String>? subscription;
     try {
       final output = Completer<void>();
@@ -64,22 +75,23 @@ class TransferTerminal implements CentralTransferSource {
           .transform(const LineSplitter())
           .listen(
             (line) {
-              if (!active || output.isCompleted) return;
               try {
                 if (!submitted && line == projectTransferSubmitted) {
                   submitted = true;
                   onSubmitted();
-                } else if (line.startsWith(projectTransferOutput)) {
+                } else if (!callbackFailed && line.startsWith(projectTransferOutput)) {
                   onLine?.call(line.substring(projectTransferOutput.length));
                 }
               } catch (error, stack) {
-                output.completeError(error, stack);
+                callbackFailed = true;
+                if (!output.isCompleted) output.completeError(error, stack);
               }
             },
             onError: (Object error, StackTrace stack) {
               if (!output.isCompleted) output.completeError(error, stack);
             },
             onDone: () {
+              drained.complete();
               if (!output.isCompleted) output.complete();
             },
           );
@@ -90,14 +102,13 @@ class TransferTerminal implements CentralTransferSource {
         notSubmitted: !submitted,
       );
     } finally {
-      active = false;
-      await Future.wait<void>([if (subscription != null) subscription.cancel(), _close(channel)])
-          .timeout(const Duration(seconds: 2));
+      try {
+        await channel.terminate();
+      } finally {
+        // An exit code can arrive before the last buffered submission marker.
+        await Future.wait<Object?>([drained.future, channel.ended]);
+        await subscription?.cancel();
+      }
     }
-  }
-
-  Future<void> _close(SessionChannel channel) async {
-    await channel.close();
-    await channel.ended;
   }
 }

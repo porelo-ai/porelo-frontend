@@ -98,7 +98,7 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
   final Duration answerWithin;
   final Set<String> _busy = {};
   final Set<String> _uncertain = {};
-  final Set<String> _submitted = {};
+  final Set<String> _pending = {};
   final Map<String, int> _generations = {};
 
   String _key(TransferSelection selection) => '${selection.machine.host}/${selection.project}';
@@ -116,7 +116,7 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
       return 'Join this host as the current person before transferring.';
     }
     if (selection.machine.whyNotReachableHere case final reason?) return reason;
-    if (_busy.contains(_key(selection)) || _submitted.contains(_key(selection))) {
+    if (_busy.contains(_key(selection)) || _pending.contains(_key(selection))) {
       return 'A transfer is still running for this project.';
     }
     if (_uncertain.contains(_key(selection))) {
@@ -130,7 +130,7 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     final key = _key(selection);
     final generation = _generations[key];
     void requireSettled() {
-      if (_busy.contains(key) || _submitted.contains(key) || generation != _generations[key]) {
+      if (_busy.contains(key) || _pending.contains(key) || generation != _generations[key]) {
         throw StateError('The host operation must settle before its result can be reconciled.');
       }
     }
@@ -155,6 +155,7 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
     var submitted = false;
     final lines = <String>[];
     _busy.add(key);
+    _pending.add(key);
     _generations[key] = (_generations[key] ?? 0) + 1;
     try {
       notifyListeners();
@@ -166,9 +167,9 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
                     selection,
                     direction,
                     onSubmitted: () {
-                      if (!active || submitted) throw const RemoteNotStarted();
+                      if (submitted) throw const RemoteNotStarted();
                       submitted = true;
-                      _submitted.add(key);
+                      if (!active) _uncertain.add(key);
                       notifyListeners();
                     },
                     onLine: (line) {
@@ -178,7 +179,8 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
                   ),
                 )
                 .whenComplete(() {
-                  if (submitted) _submitted.remove(key);
+                  _pending.remove(key);
+                  if (!submitted) _uncertain.remove(key);
                   notifyListeners();
                 })
                 .timeout(answerWithin);
@@ -199,8 +201,10 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
         );
       } catch (_) {
         answer = TransferAnswer(
-          submitted ? TransferState.unconfirmed : TransferState.unavailable,
-          submitted ? _unconfirmed : 'The local terminal could not prepare the central transfer.',
+          submitted || _pending.contains(key) ? TransferState.unconfirmed : TransferState.unavailable,
+          submitted || _pending.contains(key)
+              ? _unconfirmed
+              : 'The local terminal could not prepare the central transfer.',
         );
       } finally {
         active = false;

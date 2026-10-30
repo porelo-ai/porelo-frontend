@@ -65,6 +65,16 @@ void main() {
     expect(result.stdout, contains('\n$projectTransferNotSubmitted\n'));
   });
 
+  // Harm: an encoding failure records submission and starts SSH with no usable token.
+  test('a failed token encoder never submits or starts SSH', () async {
+    final fixture = await _Fixture.create();
+    final result = await fixture.run(secrets: _FailedEncoding(fixture.file, fixture.cli));
+    expect(result.exitCode, isNot(0));
+    expect(result.stdout, isNot(contains(projectTransferSubmitted)));
+    expect(result.stdout, contains(projectTransferNotSubmitted));
+    expect(result.stdout, isNot(contains('ssh started')));
+  });
+
   for (final action in ['phases', 'EOF', 'INT', 'TERM', 'HUP']) {
     // Harm: PTY echo discloses pasted input during unlock or SSH; signals leave echo disabled or submit early.
     test('the real PTY protects input and restores echo for $action', () async {
@@ -178,6 +188,7 @@ print(value)
 ''');
     await File(fixture.ssh).writeAsString(r'''#!/usr/bin/python3
 import base64, os, sys
+print('ssh started', flush=True)
 value = bytes([102,105,120,116,117,114,101])
 encoded = base64.b64encode(value)
 if any(value in x.encode() or encoded in x.encode() for x in sys.argv + list(os.environ.values())): sys.exit(90)
@@ -249,6 +260,16 @@ class _FailedCheck extends SecretsFile {
   @override
   ({String check, String feed}) projectTransferScripts() =>
       (check: "false\ntransfer_encoded=ignored", feed: "printf '%s %s\\n' forge-central-token \"\$transfer_encoded\"");
+}
+
+class _FailedEncoding extends SecretsFile {
+  _FailedEncoding(super.file, String cli) : super(cli: cli);
+
+  @override
+  ({String check, String feed}) projectTransferScripts() {
+    final scripts = super.projectTransferScripts();
+    return (check: scripts.check.replaceAll('/usr/bin/base64 -w0', '/bin/false'), feed: scripts.feed);
+  }
 }
 
 const _ptyHarness = r'''import os, sys, json, pty, subprocess, termios, fcntl, signal, select, time

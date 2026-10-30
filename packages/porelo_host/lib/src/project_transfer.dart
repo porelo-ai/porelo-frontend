@@ -83,6 +83,7 @@ List<String> projectTransferFeedCommand({
         .replaceAll('@PUBLIC_OUTPUT@', projectTransferOutput),
     "printf '\\n%s\\n' '$projectTransferSubmitted'",
     'transfer_submitted=yes',
+    'shopt -s lastpipe',
     'set +e',
     '{ ${scripts.feed}; } | $command 2>&1 | redact',
     r'codes=("${PIPESTATUS[@]}")',
