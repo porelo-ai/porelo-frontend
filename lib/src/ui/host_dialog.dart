@@ -121,7 +121,7 @@ class _HostDialogState extends State<HostDialog> {
   Settings get _settings => widget.settings ?? widget.machines.settings;
   HostUpRecord? get _record => _settings.hostUp(widget.project);
 
-  Future<void> _giveBack() async {
+  Future<void> _giveBack({bool anyway = false}) async {
     if (_busy || _givenBack || _record == null) return;
     if (widget.hostRuns?.of(widget.project)?.running == true) return;
     final record = _record!;
@@ -137,7 +137,7 @@ class _HostDialogState extends State<HostDialog> {
       _down = session;
     });
     try {
-      await session.down(giveBackAnyway: record.legacy);
+      await session.down(giveBackAnyway: record.legacy || anyway);
       if (!hostGivenBack(session)) {
         throw StateError('Give-back was not confirmed.');
       }
@@ -188,6 +188,10 @@ class _HostDialogState extends State<HostDialog> {
               if (!widget.takeDownOnly && widget.existingRun == null)
                 const Text('Verified SSH-only server preparation is not available yet.'),
               if (_problem != null) Text(_problem!),
+              if (_problem != null && !legacy && widget.takeDownOnly)
+                const Text(
+                  'Giving back without a backup deletes everything still on the server. Confirm only when its contents are no longer needed.',
+                ),
               if (_givenBack) const Text('The provider confirmed give-back.'),
               if (widget.existingRun case final run?)
                 ListenableBuilder(listenable: run.session, builder: (_, _) => SelectableText(run.session.protocolText)),
@@ -204,8 +208,14 @@ class _HostDialogState extends State<HostDialog> {
             key: const Key('host-confirm-down'),
             onPressed: _busy || record == null || widget.hostRuns?.of(widget.project)?.running == true
                 ? null
-                : _giveBack,
+                : () => _giveBack(),
             child: const Text('Give the server back'),
+          ),
+        if (widget.takeDownOnly && !_givenBack && !legacy && _problem != null)
+          OutlinedButton(
+            key: const Key('host-force-down'),
+            onPressed: _busy ? null : () => _giveBack(anyway: true),
+            child: const Text('Give back without a backup'),
           ),
         if (!widget.takeDownOnly && legacy)
           FilledButton(

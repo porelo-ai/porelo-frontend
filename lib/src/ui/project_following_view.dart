@@ -10,9 +10,7 @@ import 'dialog_scroll.dart';
 
 /// Follows a project's repository — the only way a project comes to a machine.
 ///
-/// **How its commits are checked is chosen, never defaulted.** Pinning a key means only commits
-/// signed with it are taken; following unverified means whoever can push to the repository decides
-/// what this machine runs, and that is said beside the choice rather than after it.
+/// Project commits require the project admins' verified public keys from Core.
 ///
 /// **A rewritten history is a second decision, never a retry.** A properly signed commit that does
 /// not descend from the one in force is either its owner rebasing or somebody re-serving an older
@@ -172,6 +170,14 @@ class ProjectFollowingPanel extends StatelessWidget {
                       onChanged: (typed) => following.answerWith(() => following.url = typed),
                     ),
                     const Text('Project commits require the verified project-admin signers supplied by Core.'),
+                    if (following.signersUnavailable case final words?) ...[
+                      Text(words),
+                      OutlinedButton(
+                        key: const Key('follow-verify-signers'),
+                        onPressed: following.canVerifySigners ? () => unawaited(following.verifySigners()) : null,
+                        child: const Text('Verify project-admin signers'),
+                      ),
+                    ],
                   ],
                 ],
               ),

@@ -26,9 +26,17 @@ class HostPreparation {
     required this.session,
     required this.record,
     this.settings,
+    this.act = HostAct.root,
+    this.providerMachine,
     this.interrupted = false,
     this.replacementUnavailable = 'signed-state server setup is not available yet',
   });
+
+  /// The account whose supported provider steps this run may open.
+  final HostAct act;
+
+  /// The verified account connection used only for supported provider sign-ins.
+  final Machine? providerMachine;
 
   /// Project identity, never a path.
   final String project;

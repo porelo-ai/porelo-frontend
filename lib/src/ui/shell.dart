@@ -109,7 +109,6 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
-import 'host_admin_dialog.dart';
 import 'host_stop_dialog.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
@@ -414,7 +413,6 @@ class _ShellState extends State<Shell> {
     putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
     openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
     joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
-    takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
@@ -531,26 +529,7 @@ class _ShellState extends State<Shell> {
 
   List<Command> _hostCommands(Machine machine) {
     final run = _hostRuns.of(machine.hostProject);
-    final record = widget.settings.hostUp(machine.hostProject);
     return [
-      ...preparedHostCommands(
-        machine: machine,
-        settings: widget.settings,
-        hostRuns: _hostRuns,
-        open: (action) => unawaited(
-          openHostAdminDialog(
-            context,
-            record: record!,
-            action: action,
-            secretsFile: widget.settings.secretsFile,
-            openTerminal: widget.sessions.openTerminal,
-            environment: desk.environment,
-            onRemoved: (project) => widget.settings.forgetProjectHost(project, host: record.hostName),
-          ),
-        ),
-        showValues: () =>
-            unawaited(showPreparedHost(context, widget.settings.hostUp(machine.hostProject)!.preparedHost!)),
-      ),
       if (run != null)
         hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineMenu),
       ...hostMachineCommands(
@@ -593,7 +572,6 @@ class _ShellState extends State<Shell> {
       putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
       openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
       joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
-      takeOffServer: _takeOffServer(project.name),
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
@@ -759,25 +737,6 @@ class _ShellState extends State<Shell> {
     return record.preparing || run != null && (run.running || run.needsYou || run.interrupted)
         ? 'its server’s setup is under way; see its protocol'
         : null;
-  }
-
-  VoidCallback? _takeOffServer(String? project) {
-    if (project == null) return null;
-    final host = widget.settings.projectHost(project);
-    final record = host == null ? null : widget.settings.hostUp(host);
-    if (record?.preparedHost == null) return null;
-    return () => unawaited(
-      openHostAdminDialog(
-        context,
-        record: record!,
-        action: 'remove',
-        project: project,
-        environment: desk.environment,
-        secretsFile: widget.settings.secretsFile,
-        openTerminal: widget.sessions.openTerminal,
-        onRemoved: (removed) => widget.settings.forgetProjectHost(removed, host: record.hostName),
-      ),
-    );
   }
 
   /// Clears the machine and removes its trusted message signer from followed projects.
@@ -3088,13 +3047,11 @@ class _ShellState extends State<Shell> {
                           command: command,
                           icon: switch (command.id) {
                             'host.protocol' => Icons.receipt_long_outlined,
-                            'machine.saveTunnel' => Icons.download_outlined,
                             'machine.takeDown' => Icons.delete_outline,
                             _ => Icons.tune_outlined,
                           },
                           description: switch (command.id) {
                             'host.protocol' => 'Read the protocol from setting up this server.',
-                            'machine.saveTunnel' => 'Save a private connection file for another device.',
                             'machine.takeDown' =>
                               'End the project tasks and room, copy its files back and give the server back.',
                             _ => command.label,

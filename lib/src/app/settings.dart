@@ -110,9 +110,9 @@ class HostUpRecord {
   }
 
   /// Assigns a legacy project record to its migrated host settings key.
-  HostUpRecord forHost(String name) {
+  HostUpRecord forHost(String name, {required String rentalProject}) {
     SecretsFile.checkHost(name);
-    return _copy(host: name);
+    return _copy(host: name, rentalTag: rentalTagFor(rentalProject));
   }
 
   HostUpRecord _copy({
@@ -121,12 +121,13 @@ class HostUpRecord {
     List<HostProtocolEntry>? protocol,
     PreparedHost? preparedHost,
     String? host,
+    String? rentalTag,
   }) => HostUpRecord(
     scalewayProject: scalewayProject,
     host: host ?? this.host,
     hostName: hostName,
     account: account,
-    rentalTag: rentalTag,
+    rentalTag: rentalTag ?? this.rentalTag,
     publicKey: publicKey,
     forge: forge,
     preparedHost: preparedHost ?? this.preparedHost,
@@ -501,7 +502,9 @@ class Settings extends ChangeNotifier {
       final unique = candidates.map((candidate) => candidate.host).toSet().length == candidates.length;
       for (final candidate in candidates) {
         final (:key, :host, :record) = candidate;
-        _hostUps[unique ? host : key] = unique && record.host == null && host != key ? record.forHost(host) : record;
+        _hostUps[unique ? host : key] = unique && record.host == null && host != key
+            ? record.forHost(host, rentalProject: key)
+            : record;
         migratedHosts |= unique && host != key;
         if (unique && host != key) migratedHostKeys[key] = host;
       }
@@ -743,7 +746,8 @@ class Settings extends ChangeNotifier {
     final machines = <Machine>[];
     for (final each in stored) {
       if (each is! Map<String, Object?>) continue;
-      final machine = Machine.fromStored(each);
+      final project = each['hostProject'];
+      final machine = Machine.fromStored(each, legacyHost: project is String && hostUp(project)?.legacy == true);
       if (machine.name.isEmpty || (machine.socketPath.isEmpty && machine.kind.isEmpty)) continue;
       if (machines.any((kept) => kept.name == machine.name)) continue;
       machines.add(machine);

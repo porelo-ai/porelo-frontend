@@ -729,10 +729,9 @@ List<Command> projectCommands({
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
 
-/// Offers the root removal helper only to the host admin holding the target host's record, and not while [busy]
-/// says why that server's own setup holds it.
+/// Offers registry removal when its adapter is available and setup is idle.
 Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String? busy}) {
-  const fromServerMenu = 'the host admin takes it off from the server’s menu (Take the project off)';
+  const fromServerMenu = 'a host admin removes the project from the registry host access list';
   return Command(
     id: 'project.takeOffServer',
     role: Role.hostAdmin,
@@ -746,7 +745,10 @@ Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String?
         ? 'default is this machine’s own'
         : !roles.holds(Role.hostAdmin)
         ? fromServerMenu
-        : busy ?? (run == null ? fromServerMenu : null),
+        : busy ??
+              (run == null
+                  ? 'Taking a project off its server requires registry removal, which is not available yet.'
+                  : null),
   );
 }
 
@@ -760,19 +762,6 @@ Command prepareServerCommand({VoidCallback? open}) => Command(
   run: open ?? () {},
   unavailable: open == null ? 'server preparation is unavailable here' : null,
 );
-
-/// The checked helpers and public handover values belonging to a prepared host.
-List<Command> preparedHostCommands({
-  required Machine machine,
-  required Settings settings,
-  HostRuns? hostRuns,
-  void Function(String action)? open,
-  VoidCallback? showValues,
-}) {
-  final record = settings.hostUp(machine.hostProject);
-  if (machine.kind != 'host' || record?.hostName.isNotEmpty != true) return [];
-  return [];
-}
 
 /// The host's confirmed rental lifecycle.
 List<Command> hostMachineCommands({

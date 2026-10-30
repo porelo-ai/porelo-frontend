@@ -67,6 +67,108 @@ void main() {
     );
   }
 
+  // Harm: an old rewritten-history answer must not authorize accepting a different repository.
+  test('a late follow answer cannot offer rewrite acceptance for edited input', () async {
+    final answer = Completer<Followed>();
+    core.followAnswer = () => answer.future;
+    final draft = ProjectFollowing(resolveAdminSigners: (_, _) async => [personKey])
+      ..startOn(core)
+      ..name = 'demo'
+      ..url = 'https://example.org/demo.git';
+    addTearDown(draft.dispose);
+    await draft.verifySigners();
+    final attempt = draft.follow();
+    await pumpEventQueue();
+    expect(core.follows, isEmpty);
+    draft.answerWith(() => draft.url = 'https://example.org/other.git');
+    answer.complete(const Followed(name: 'demo', outcome: 'REWRITTEN'));
+    await attempt;
+    await draft.verifySigners();
+    expect(draft.ready, isTrue);
+    expect(draft.rewritten, isFalse, reason: 'the old URL cannot authorize a rewrite on the new URL');
+    expect(draft.answer, isNull);
+  });
+
+  // Harm: edits during a credential check must never send an unverified follow for another URL.
+  testWidgets('editing while credentials are checked cancels the pending follow', (tester) async {
+    final checked = Completer<CredentialChecked>();
+    core.checkAnswer = () => checked.future;
+    await open(tester);
+    await tester.tap(find.byKey(const Key('follow-it')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('follow-url')), 'https://example.org/other.git');
+    checked.complete(const CredentialChecked(outcome: 'NOT_NEEDED'));
+    await World.settle(tester);
+    expect(core.follows, isEmpty, reason: 'the old signer set cannot authorize the new repository');
+  });
+
+  // Harm: verified following must resume after edits and must reject missing or stale signers.
+  testWidgets('Core verifies the edited project and its keys reach the follow', (tester) async {
+    following.dispose();
+    final requested = <(String, String)>[];
+    following = ProjectFollowing(
+      resolveAdminSigners: (name, url) async {
+        requested.add((name, url));
+        return [personKey];
+      },
+    )..startOn(core);
+    await open(tester);
+    await tester.enterText(find.byKey(const Key('follow-name')), 'other');
+    await tester.enterText(find.byKey(const Key('follow-url')), 'https://example.org/other.git');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('follow-verify-signers')));
+    await World.settle(tester);
+    expect(requested, [('other', 'https://example.org/other.git')]);
+    await tester.tap(find.byKey(const Key('follow-it')));
+    await World.settle(tester);
+    expect(core.follows.single.signers, [personKey]);
+    expect(core.follows.single.signedBy, isNull);
+    expect(core.follows.single.unverified, isFalse);
+  });
+
+  for (final keys in [
+    <String>[],
+    ['invalid'],
+  ]) {
+    test('Core missing or malformed signers leave following disabled: $keys', () async {
+      final draft = ProjectFollowing(resolveAdminSigners: (_, _) async => keys)
+        ..startOn(core)
+        ..name = 'demo'
+        ..url = 'https://example.org/demo.git';
+      addTearDown(draft.dispose);
+      await draft.verifySigners();
+      await draft.follow();
+      expect(draft.ready, isFalse);
+      expect(draft.problem, isNotNull);
+      expect(core.follows, isEmpty);
+    });
+  }
+
+  test('a late Core signer answer cannot authorize edited input', () async {
+    final keys = Completer<List<String>>();
+    final draft = ProjectFollowing(resolveAdminSigners: (_, _) => keys.future)
+      ..startOn(core)
+      ..name = 'demo'
+      ..url = 'https://example.org/demo.git';
+    addTearDown(draft.dispose);
+    final verifying = draft.verifySigners();
+    draft.answerWith(() => draft.url = 'https://example.org/other.git');
+    keys.complete([personKey]);
+    await verifying;
+    expect(draft.ready, isFalse);
+    await draft.follow();
+    expect(core.follows, isEmpty);
+  });
+
+  // Harm: editing a project must offer verified signer resolution instead of stranding following.
+  testWidgets('editing the repository offers Core signer verification before following', (tester) async {
+    await open(tester);
+    await tester.enterText(find.byKey(const Key('follow-url')), 'https://example.org/other.git');
+    await World.settle(tester);
+    expect(core.follows, isEmpty);
+    expect(find.byKey(const Key('follow-verify-signers')), findsOneWidget);
+  });
+
   // Harm: a malformed Core answer silently leaves a follow neither confirmed nor refused.
   testWidgets('an empty credential-check answer ends in the existing refusal place', (tester) async {
     core.nextCheck = const CredentialChecked(outcome: '');

@@ -43,6 +43,8 @@ class OpenSsh implements Remote {
   OpenSsh({
     required this.knownHosts,
     required this.identity,
+    this.config,
+    this.configHost,
     Future<Process> Function(String, List<String>)? start,
     Future<ProcessResult> Function(String, List<String>)? run,
   }) : _start = start ?? ((executable, arguments) => Process.start(executable, arguments)),
@@ -54,6 +56,12 @@ class OpenSsh implements Remote {
   /// The `known_hosts` this package writes the provider's key into.
   final File knownHosts;
 
+  /// The verified host-card configuration, when supplied.
+  final String? config;
+
+  /// The verified host alias whose configuration selects the account and endpoint.
+  final String? configHost;
+
   /// The private key that logs in.
   final String identity;
 
@@ -63,7 +71,19 @@ class OpenSsh implements Remote {
     await knownHosts.writeAsString('$host $hostKey\n');
   }
 
-  List<String> _options() => <String>[...pinnedHostSshOptions(knownHosts.path, identity), '-o', 'ConnectTimeout=10'];
+  List<String> _options() => <String>[
+    if (config case final file?) ...[
+      '-F',
+      file,
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
+    ] else
+      ...pinnedHostSshOptions(knownHosts.path, identity),
+    '-o',
+    'ConnectTimeout=10',
+  ];
 
   @override
   Future<RemoteResult> run(
@@ -73,7 +93,7 @@ class OpenSsh implements Remote {
     String? input,
     void Function(String line)? onLine,
   }) async {
-    final process = await _start('ssh', <String>[..._options(), '$user@$host', command]);
+    final process = await _start('ssh', <String>[..._options(), configHost ?? '$user@$host', command]);
     if (input != null) process.stdin.write(input);
     await process.stdin.close();
     final out = process.stdout
@@ -88,7 +108,7 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
-    final done = await _runProcess('scp', <String>[..._options(), '-q', from, '$user@$host:$to']);
+    final done = await _runProcess('scp', <String>[..._options(), '-q', from, '${configHost ?? '$user@$host'}:$to']);
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }
 }

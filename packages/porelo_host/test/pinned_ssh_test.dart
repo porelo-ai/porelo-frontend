@@ -6,6 +6,80 @@ import 'package:test/test.dart';
 import 'support/pinned_ssh.dart';
 
 void main() {
+  // Harm: the card-specific SSH policy must apply to teardown instead of an unrelated IP stanza.
+  test('card teardown uses the written config alias for ssh and scp', () async {
+    final commands = <List<String>>[];
+    final remote = OpenSsh(
+      knownHosts: File('/state/known_hosts'),
+      identity: '',
+      config: '/config/porelo/ssh/orchard.conf',
+      configHost: 'orchard',
+      start: (program, arguments) {
+        commands.add([program, ...arguments]);
+        return Process.start(Platform.resolvedExecutable, ['--version']);
+      },
+      run: (program, arguments) async {
+        commands.add([program, ...arguments]);
+        return ProcessResult(0, 0, '', '');
+      },
+    );
+    await remote.run('192.0.2.7', 'root', 'true');
+    await remote.copy('192.0.2.7', 'root', '/public/file', '/destination');
+    for (final command in commands) {
+      expect(command, containsAllInOrder(['-F', '/config/porelo/ssh/orchard.conf']));
+      expect(command, isNot(contains('')));
+      expect(command, isNot(contains('-i')));
+      expect(command.join(' '), isNot(contains('root@192.0.2.7')));
+    }
+    expect(commands.first, contains('orchard'));
+    expect(commands.last.last, 'orchard:/destination');
+  });
+
+  // Harm: wrong host config paths connect to a different host or bypass its selected agent identity.
+  test('host configs use the platform config directory and reject unsafe names', () {
+    expect(
+      poreloHostSshConfig('orchard', environment: {'XDG_CONFIG_HOME': '/config'}, windows: false),
+      '/config/porelo/ssh/orchard.conf',
+    );
+    expect(
+      poreloHostSshConfig(
+        'orchard',
+        environment: {'XDG_CONFIG_HOME': 'relative', 'HOME': '/home/person'},
+        windows: false,
+      ),
+      '/home/person/.config/porelo/ssh/orchard.conf',
+    );
+    expect(
+      poreloHostSshConfig('orchard', environment: {'APPDATA': r'C:\Users\person\AppData\Roaming'}, windows: true),
+      r'C:\Users\person\AppData\Roaming\porelo\ssh\orchard.conf',
+    );
+    for (final host in ['../other', '-option', 'Uppercase', 'a/b']) {
+      expect(() => poreloHostSshConfig(host, environment: {'XDG_CONFIG_HOME': '/config'}), throwsFormatException);
+    }
+  });
+
+  // Harm: teardown with an empty identity cannot authenticate to release a billed host.
+  test('agent authentication never receives an empty identity override', () async {
+    final commands = <List<String>>[];
+    final remote = OpenSsh(
+      knownHosts: File('/state/known_hosts'),
+      identity: '',
+      run: (program, arguments) async {
+        commands.add([program, ...arguments]);
+        return ProcessResult(0, 0, '', '');
+      },
+    );
+    await remote.copy('192.0.2.7', 'root', '/public/file', '/destination');
+    expect(commands.single, isNot(contains('')));
+    expect(commands.single, isNot(contains('-i')));
+    expect(
+      commands.single,
+      isNot(contains('IdentitiesOnly=yes')),
+      reason: 'agent keys remain available when no identity is selected',
+    );
+    expect(commands.single, contains('StrictHostKeyChecking=yes'));
+  });
+
   // Harm: a compromised host uses a forwarded agent or reaches the person's display.
   test('the pinned policy disables agent and display forwarding from SSH config', () async {
     final directory = await Directory.systemTemp.createTemp('ssh-forwarding-');

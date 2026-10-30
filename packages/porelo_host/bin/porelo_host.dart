@@ -145,7 +145,12 @@ Future<int> _run(List<String> arguments) async {
     provider = scalewayFor(options, scalewayOverHttps(key));
   }
 
-  final ssh = OpenSsh(knownHosts: File(poreloHostKnownHosts()), identity: '');
+  final ssh = OpenSsh(
+    knownHosts: File(poreloHostKnownHosts()),
+    identity: '',
+    config: serverOnly && !legacyRental ? poreloHostSshConfig(options['host-name']!) : null,
+    configHost: serverOnly && !legacyRental ? options['host-name']! : null,
+  );
   final run = HostRun(
     provider: provider,
     remote: ssh,

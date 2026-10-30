@@ -1,4 +1,9 @@
 import 'package:porelo_frontend/src/app/roles.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_host/porelo_host.dart';
+
+import '../support/host_admin.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
@@ -27,6 +32,26 @@ Future<void> _start(WidgetTester tester) async {
 void main() {
   setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
   tearDown(() => roles = const Roles());
+  // Harm: take-off must not dispatch an unrelated host-person dialog or lose its association.
+  testWidgets('registered project take-off waits for registry removal', (tester) async {
+    await _project(tester);
+    await World.settings.rememberHostUp(
+      'orchard',
+      HostUpRecord(
+        scalewayProject: 'provider',
+        publicKey: personKey,
+        hostName: 'orchard',
+        preparedHost: PreparedHost.read(hostValues()),
+      ),
+    );
+    await World.settings.rememberProjectHost('checkout', 'orchard');
+    await World.settle(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    final command = menu.commands.singleWhere((each) => each.id == 'project.takeOffServer');
+    expect(command.available, isFalse, reason: 'registry removal has no adapter yet');
+    expect(World.settings.projectHost('checkout'), 'orchard');
+  });
+
   // Harm: work starts in a different repository than the row that opened the form.
   testWidgets('a row start keeps its repository until Change chooses another', (tester) async {
     await _project(tester);

@@ -98,6 +98,55 @@ void main() {
     state.tunnels.dispose();
   }
 
+  // Harm: a failed signed-state teardown must leave a deliberate route to stop provider billing.
+  testWidgets('signed-state give-back offers an explicit loss-confirmed retry', (tester) async {
+    final settings = Settings(MemorySettingsStore());
+    await settings.rememberHostUp(
+      'orchard',
+      const HostUpRecord(scalewayProject: 'provider', publicKey: personKey, hostName: 'orchard'),
+    );
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: _Tunnels());
+    addTearDown(machines.dispose);
+    addTearDown(settings.dispose);
+    final commands = <List<String>>[];
+    final processes = <HostProcess>[];
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: 'orchard',
+          machines: machines,
+          settings: settings,
+          takeDownOnly: true,
+          start: (_, arguments) async {
+            commands.add(arguments);
+            final process = HostProcess();
+            processes.add(process);
+            return process;
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('host-confirm-down')));
+    await World.settle(tester);
+    processes.single.line(const host.Step('give-back', host.StepState.refused));
+    processes.single.end(65);
+    await World.settle(tester);
+    expect(settings.hostUp('orchard'), isNotNull);
+    expect(find.byKey(const Key('host-force-down')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('host-force-down')));
+    await World.settle(tester);
+    expect(commands.last, contains('--give-back-anyway'));
+    expect(commands.last, isNot(contains('--legacy-rental')));
+    processes.last.line(const host.Step('give-back', host.StepState.done));
+    processes.last.end(0);
+    await World.settle(tester);
+    expect(settings.hostUp('orchard'), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   // Harm: give-back in another process must not release a server during replacement setup.
   test('replacement setup holds the original rental lock against a competing process', () async {
     final scratch = await Directory.systemTemp.createTemp('replacement-lock-');

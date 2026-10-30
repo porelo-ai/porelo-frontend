@@ -104,13 +104,6 @@ void main() {
       ),
       ...hostMachineCommands(machine: machine, settings: settings, hostRuns: runs, takeDown: () {}),
       prepareServerCommand(open: () {}),
-      ...preparedHostCommands(
-        machine: const Machine(name: 'prepared', socketPath: '', kind: 'host', hostProject: 'prepared'),
-        settings: settings,
-        hostRuns: runs,
-        open: (_) {},
-        showValues: () {},
-      ),
       hostPreparationCommand(project: 'demo', open: () {}),
       hostProtocolCommand(project: 'demo', open: () {}),
       copyHostProtocolCommand(project: 'demo', copy: () {}),

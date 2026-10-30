@@ -24,6 +24,23 @@ void main() {
     identity: '/keys/host identity',
   );
 
+  // Harm: an empty identity disables agent authentication for every one-click host command.
+  test('a one-click host uses its written config and never an empty identity', () {
+    const machine = Machine(
+      name: 'one click',
+      kind: 'host',
+      hostProject: 'orchard',
+      host: 'worker@orchard',
+      socketPath: '/unused',
+      remoteSocket: '/run/user/1007/porelo',
+    );
+    final command = onTheMachine(machine, ['porelo', 'agents'], terminal: false)!;
+    expect(command, isNot(contains('')), reason: 'OpenSSH must never receive an empty identity path');
+    expect(command, isNot(contains('-i')));
+    expect(command, contains('-F'));
+    expect(command[command.indexOf('-F') + 1], endsWith('/porelo/ssh/orchard.conf'));
+  });
+
   // Prevents every access path from trusting a key outside the pin or using the wrong identity.
   // Red: remove the pinned prefix from each of these builders in turn, or append a trust option.
   test('all host ssh commands begin with the pinned policy without later trust options', () {

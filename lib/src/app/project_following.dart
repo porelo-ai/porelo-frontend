@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
+import 'package:porelo_host/porelo_host.dart' show quoteForAShell, checkedEd25519;
 
 import 'fleet_backend.dart';
+
+/// Reads Core's verified project-admin public keys for this exact project and repository.
+typedef ResolveProjectAdminSigners = Future<List<String>> Function(String name, String url);
 
 /// Following a project's repository, which is the only way a project comes to a machine.
 ///
@@ -10,6 +13,14 @@ import 'fleet_backend.dart';
 /// commits, and what is wrong with it comes back from the follow as the named reasons — the machine
 /// checks what it is handed, when it is handed it.
 class ProjectFollowing extends ChangeNotifier {
+  /// Uses the served Core signer adapter when available.
+  ProjectFollowing({this.resolveAdminSigners});
+
+  /// The boundary to Core's verified signer state; it accepts no private material.
+  final ResolveProjectAdminSigners? resolveAdminSigners;
+  int _signerRequest = 0;
+  bool _disposed = false;
+
   /// The project's name, which must be the one its `project.yml` gives itself.
   String name = '';
 
@@ -37,6 +48,7 @@ class ProjectFollowing extends ChangeNotifier {
   /// or left, since setting up its connection is a detour away from here and back.
   void startOn(FleetBackend backend) {
     if (!identical(backend, _backend)) {
+      _signerRequest++;
       name = '';
       url = '';
       adminSigners = const [];
@@ -52,7 +64,10 @@ class ProjectFollowing extends ChangeNotifier {
   void answerWith(void Function() change) {
     final before = (name, url);
     change();
-    if (before != (name, url)) adminSigners = const [];
+    if (before != (name, url)) {
+      _signerRequest++;
+      adminSigners = const [];
+    }
     answer = null;
     check = null;
     problem = null;
@@ -62,6 +77,48 @@ class ProjectFollowing extends ChangeNotifier {
 
   /// Whether everything a follow needs is there, with the checking chosen rather than defaulted.
   bool get ready => name.trim().isNotEmpty && url.trim().isNotEmpty && adminSigners.isNotEmpty;
+
+  /// Whether the selected project can ask Core for its verified signers.
+  bool get canVerifySigners => resolveAdminSigners != null && name.trim().isNotEmpty && url.trim().isNotEmpty && !busy;
+
+  /// The missing dependency that prevents following without verified signers.
+  String? get signersUnavailable => adminSigners.isNotEmpty
+      ? null
+      : resolveAdminSigners == null
+      ? 'Core project-admin signer verification is not available yet.'
+      : 'Verify the project-admin signers before following.';
+
+  /// Resolves signers for the current inputs and ignores answers to superseded inputs.
+  Future<void> verifySigners() async {
+    if (!canVerifySigners) return;
+    final request = ++_signerRequest;
+    final selected = (name.trim(), url.trim());
+    busy = true;
+    problem = null;
+    adminSigners = const [];
+    notifyListeners();
+    try {
+      final signers = await resolveAdminSigners!(selected.$1, selected.$2);
+      if (!_current(request, selected)) return;
+      if (signers.isEmpty) {
+        throw const FormatException('Missing verified project-admin signers.');
+      }
+      for (final signer in signers) {
+        checkedEd25519(signer);
+      }
+      adminSigners = List.unmodifiable(signers);
+    } catch (_) {
+      if (_current(request, selected)) {
+        problem = 'Project-admin signer verification was not confirmed. Nothing was followed.';
+      }
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  bool _current(int request, (String, String) selected) =>
+      !_disposed && request == _signerRequest && selected == (name.trim(), url.trim());
 
   /// Whether the project is now in force on the machine.
   bool get taken => answer?.inForce ?? false;
@@ -79,6 +136,9 @@ class ProjectFollowing extends ChangeNotifier {
   Future<void> follow({bool acceptRewrite = false}) async {
     final backend = _backend;
     if (backend == null || !ready || busy) return;
+    final request = _signerRequest;
+    final selected = (name.trim(), url.trim());
+    final signers = List<String>.unmodifiable(adminSigners);
     busy = true;
     check = null;
     problem = 'Following the project…';
@@ -87,6 +147,11 @@ class ProjectFollowing extends ChangeNotifier {
       if (!acceptRewrite) {
         answer = null;
         check = await _checked(backend);
+        if (!_current(request, selected)) {
+          check = null;
+          problem = null;
+          return;
+        }
         if (check != null && check!.outcome.trim().isEmpty) {
           check = null;
           problem = 'The machine returned no credential-check outcome; nothing was followed. Try again.';
@@ -97,27 +162,33 @@ class ProjectFollowing extends ChangeNotifier {
           return;
         }
       }
-      answer = await backend.follow(
-        name.trim(),
-        url.trim(),
-        signers: List.unmodifiable(adminSigners),
+      final followed = await backend.follow(
+        selected.$1,
+        selected.$2,
+        signers: signers,
         acceptRewrite: acceptRewrite ? true : null,
       );
+      if (!_current(request, selected)) return;
+      answer = followed;
       problem = answer!.outcome.trim().isEmpty
           ? 'The machine returned no follow outcome; following is not confirmed. Try again.'
           : null;
     } on VarlinkException catch (refusal) {
+      if (!_current(request, selected)) return;
       final said = refusal.parameters['message'];
       problem = said is String && said.isNotEmpty ? said : 'Refused: ${refusal.simpleName}.';
     } on VarlinkDisconnected catch (ex) {
+      if (!_current(request, selected)) return;
       problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
+      if (!_current(request, selected)) return;
       problem = '$ex';
     } catch (_) {
+      if (!_current(request, selected)) return;
       problem = 'The project could not be followed; following is not confirmed. Try again.';
     } finally {
       busy = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -197,9 +268,17 @@ class ProjectFollowing extends ChangeNotifier {
 
   /// Puts it away.
   void letItBe() {
+    _signerRequest++;
     _backend = null;
     answer = null;
     problem = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _signerRequest++;
+    super.dispose();
   }
 }

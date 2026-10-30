@@ -2,9 +2,30 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
+import 'host_record.dart' show checkHostName;
+
 /// The host keys pinned by `porelo-host`, shared by its command and the interface.
 String poreloHostKnownHosts({Map<String, String>? environment, bool? windows}) =>
     '${_stateDirectory(environment, windows)}${windows ?? Platform.isWindows ? r'\' : '/'}known_hosts';
+
+/// The SSH configuration published from one verified host card.
+String poreloHostSshConfig(String host, {Map<String, String>? environment, bool? windows}) {
+  checkHostName(host);
+  final env = environment ?? Platform.environment;
+  final onWindows = windows ?? Platform.isWindows;
+  final paths = onWindows ? path.windows : path.posix;
+  final base = onWindows ? env['APPDATA'] : env['XDG_CONFIG_HOME'];
+  final home = env['HOME'];
+  final directory = base != null && paths.isAbsolute(base)
+      ? base
+      : !onWindows && home != null && paths.isAbsolute(home)
+      ? paths.join(home, '.config')
+      : throw const FormatException('The host SSH configuration needs an absolute configuration directory.');
+  if (RegExp(r'[\x00\r\n]').hasMatch(directory)) {
+    throw const FormatException('The host SSH configuration directory is invalid.');
+  }
+  return paths.join(directory, 'porelo', 'ssh', '$host.conf');
+}
 
 /// The persistent lock file for one project, shared by its up and down commands.
 String poreloHostProjectLock(String project, {Map<String, String>? environment, bool? windows}) {

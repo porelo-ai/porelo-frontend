@@ -363,7 +363,7 @@ class HostRun {
       _write(const Step('give-back', StepState.done, words: 'no host carries the project tag'));
       return Exit.done;
     }
-    if (plan.recoveryOnly) {
+    if (plan.recoveryOnly || giveBackAnyway) {
       if (!giveBackAnyway) {
         _write(
           const Step(
@@ -375,7 +375,13 @@ class HostRun {
         return Exit.refused;
       }
       await provider.release(host.id);
-      _write(const Step('give-back', StepState.done));
+      _write(
+        const Step(
+          'give-back',
+          StepState.done,
+          words: 'Given back without a backup or teardown after explicit loss confirmation.',
+        ),
+      );
       return Exit.done;
     }
     final address = host.address;

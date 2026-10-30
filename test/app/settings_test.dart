@@ -62,6 +62,50 @@ void main() {
     }
   });
 
+  // Harm: a renamed settings key must not release the wrong rental and lose a billed server.
+  test('a migrated project rental keeps its provider tag through restart', () async {
+    final store = MemorySettingsStore({
+      'hostUps': {
+        'demo': {'scalewayProject': 'provider', 'account': 'worker', 'setupFolder': '/config/hosts/orchard'},
+      },
+      'machines': [
+        {'name': 'old server', 'kind': 'host', 'hostProject': 'demo', 'socket': ''},
+      ],
+    });
+    final settings = Settings(store);
+    addTearDown(settings.dispose);
+    await settings.load();
+    final reopened = Settings(store);
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    final record = reopened.hostUp('orchard')!;
+    expect(
+      record.rentalTagFor('orchard'),
+      'porelo-project=demo',
+      reason: 'the provider still bills the original project tag',
+    );
+    expect(record.giveBackArguments('orchard'), containsAllInOrder(['--rental-tag', 'porelo-project=demo']));
+  });
+
+  // Harm: a retained rental with no private key must not look like a usable new host.
+  test('an empty-identity legacy machine explains recovery after migration', () async {
+    final settings = Settings(
+      MemorySettingsStore({
+        'hostUps': {
+          'demo': {'scalewayProject': 'provider', 'setupFolder': '/config/hosts/orchard'},
+        },
+        'machines': [
+          {'name': 'old server', 'kind': 'host', 'hostProject': 'demo', 'socket': ''},
+        ],
+      }),
+    );
+    addTearDown(settings.dispose);
+    await settings.load();
+    final machine = (await settings.machines()).single;
+    expect(machine.hostProject, 'orchard');
+    expect(machine.whyNotReachableHere, HostUpRecord.legacyExplanation);
+  });
+
   // Harm: ambiguous migration must not collapse two independently billed rentals.
   test('conflicting legacy folders preserve both rental records on restart', () async {
     final record = {'scalewayProject': 'provider', 'setupFolder': '/config/hosts/shared'};

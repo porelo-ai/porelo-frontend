@@ -1,4 +1,4 @@
-import 'package:porelo_host/porelo_host.dart' show pinnedHostSshOptions, poreloHostKnownHosts;
+import 'package:porelo_host/porelo_host.dart' show pinnedHostSshOptions, poreloHostKnownHosts, poreloHostSshConfig;
 
 import 'connection_trial.dart';
 import 'connections.dart';
@@ -52,6 +52,7 @@ class Machine {
     this.distribution = '',
     this.identity = '',
     this.hostProject = '',
+    this.legacyHost = false,
     this.unknownFields = const <String, Object?>{},
   });
 
@@ -65,6 +66,7 @@ class Machine {
     distribution: distribution,
     identity: identity,
     hostProject: hostProject,
+    legacyHost: legacyHost,
     unknownFields: unknownFields,
   );
 
@@ -107,7 +109,7 @@ class Machine {
   /// read by `porelo-intellij`, and written by later versions of this program: dropping what is not
   /// understood here would lose a machine somebody set up elsewhere, the next time this list is
   /// saved.
-  factory Machine.fromStored(Map<String, Object?> stored) => Machine(
+  factory Machine.fromStored(Map<String, Object?> stored, {bool legacyHost = false}) => Machine(
     name: _text(stored['name']),
     socketPath: _text(stored['socket']),
     host: _text(stored['host']),
@@ -116,6 +118,7 @@ class Machine {
     distribution: _text(stored['distribution']),
     identity: _text(stored['identity']),
     hostProject: _text(stored['hostProject']),
+    legacyHost: legacyHost,
     unknownFields: <String, Object?>{
       for (final entry in stored.entries)
         if (!_knownFields.contains(entry.key)) entry.key: entry.value,
@@ -142,17 +145,20 @@ class Machine {
 
   /// Which way in this is, when it is neither a socket nor a machine behind ssh: `wsl` for a WSL
   /// distribution, reached from Windows through `wsl.exe -d <distribution> -- porelo daemon connect`.
-  /// A managed server has kind `host` and uses the key pinned by host setup.
+  /// A managed server has kind `host` and uses its verified host-card SSH configuration.
   final String kind;
 
   /// The WSL distribution, for a machine of the kind `wsl`.
   final String distribution;
 
-  /// The private key path given to host setup; no key value is stored.
+  /// The legacy private key path retained only to recognize obsolete host entries.
   final String identity;
 
   /// The project whose kept host setup rented this machine, empty for older entries.
   final String hostProject;
+
+  /// Whether its retained rental requires recovery before any connection.
+  final bool legacyHost;
 
   /// What an entry held beyond the fields this build knows, kept so that saving loses nothing.
   final Map<String, Object?> unknownFields;
@@ -166,9 +172,10 @@ class Machine {
   /// Linux computer. A machine over ssh uses a byte relay. An entry of
   /// a kind this version does not know is left exactly as it is. Each is said, never tried as a path.
   String? whyNotReachableOn({required bool windows}) => switch (kind) {
-    'host' when identity.isNotEmpty => HostUpRecord.legacyExplanation,
+    'host' when legacyHost || identity.isNotEmpty => HostUpRecord.legacyExplanation,
     'host' when remoteSocket.isEmpty && socketPath.isEmpty =>
       'This server is prepared without a project account or daemon. Register a project from its menu.',
+    'host' when hostProject.isEmpty => 'This host has no verified SSH configuration.',
     '' || 'host' when needsATunnel && host.startsWith('-') => 'An ssh host must not start with a dash.',
     '' || 'host' when windows && needsATunnel && !_plainRemoteSocket =>
       "The remote socket must be a plain path: letters, digits, '.', '_', '-' and '/'.",
@@ -220,8 +227,11 @@ class Machine {
   };
 
   /// SSH options shared by all access to this account.
-  List<String> get loginSshOptions =>
-      kind == 'host' ? pinnedHostSshOptions(poreloHostKnownHosts(), identity) : const <String>[];
+  List<String> get loginSshOptions {
+    if (kind != 'host') return const [];
+    if (identity.isNotEmpty) return pinnedHostSshOptions(poreloHostKnownHosts(), identity);
+    return ['-F', poreloHostSshConfig(hostProject, environment: desk.environment, windows: desk.isWindows)];
+  }
 
   /// Whether this interface raises the way in to it.
   ///
@@ -240,7 +250,7 @@ class Machine {
 
   /// How it is stored between runs.
   ///
-  /// A host stores its private key path; other SSH machines use the person's SSH configuration.
+  /// Only legacy hosts retain a private identity path; one-click hosts use their written configuration.
   ///
   /// A WSL entry carries no `socket`: the plugin, which reads this file too, drops an entry
   /// without one, rather than opening a Linux path on Windows.
@@ -299,6 +309,7 @@ class Machine {
       other.distribution == distribution &&
       other.identity == identity &&
       other.hostProject == hostProject &&
+      other.legacyHost == legacyHost &&
       mapEquals(other.unknownFields, unknownFields);
 
   @override

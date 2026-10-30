@@ -7,6 +7,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Legacy rental migration keeps the original provider tag and recovery explanation. One-click SSH uses
+  the host configuration without an empty identity, and failed teardown offers a loss-confirmed give-back.
+- Supported provider sign-ins retain their terminal flow. Following can resolve verified project-admin
+  signers after edits and discards stale answers; project take-off explains its pending registry support.
+
 ### Removed
 
 - Retired VPN and local trust installers, host-secret stops, copied laptop keys, project-key setup inputs,

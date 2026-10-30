@@ -186,6 +186,16 @@ void main() {
     expect(await provider.find(recovery.tag), isNull);
     expect(remote.commands, isEmpty);
   });
+  // Harm: explicit loss confirmation must stop billing even when SSH teardown cannot run.
+  test('loss-confirmed signed-state give-back releases without SSH teardown', () async {
+    provider.rented = const RentedHost(id: 'h1', address: '192.0.2.7', hostKey: sshKey, ready: true);
+    remote.playExit = 65;
+    expect(await runner().down(plan, giveBackAnyway: true), Exit.done);
+    expect(provider.released, ['h1']);
+    expect(remote.commands, isEmpty);
+    expect(steps.any((step) => step.state == StepState.refused), isFalse);
+  });
+
   // Harm: a failed backup must not delete the only remaining copy of server data.
   test('failed down play retains the billed host', () async {
     provider.rented = const RentedHost(id: 'h1', address: '203.0.113.7', hostKey: sshKey, ready: true);
