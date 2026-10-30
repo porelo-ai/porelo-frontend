@@ -25,6 +25,56 @@ Map<String, Object?> cardValues() => {
 };
 
 void main() {
+  // Prevents forwarding the signing agent through aliases before its socket exists.
+  test('refuses a missing agent endpoint through a symlinked parent', () async {
+    final root = await Directory.systemTemp.createTemp('a-');
+    addTearDown(() => root.delete(recursive: true));
+    final target = await Directory('${root.path}/target').create();
+    await Link('${root.path}/alias').create(target.path);
+    expect(
+      () => HostCardSsh.checkMessengerSocket('${root.path}/alias/agent', agentSocket: '${target.path}/agent'),
+      throwsA(isA<HostFilesRefused>()),
+    );
+  });
+
+  // Prevents a hard link from exposing the signing agent to the host.
+  test('refuses hard links to the agent socket', () async {
+    final root = await Directory.systemTemp.createTemp('a-');
+    addTearDown(() => root.delete(recursive: true));
+    final agent = await ServerSocket.bind(InternetAddress('${root.path}/agent', type: InternetAddressType.unix), 0);
+    addTearDown(agent.close);
+    final linked = await Process.run('ln', ['--', '${root.path}/agent', '${root.path}/alias']);
+    expect(linked.exitCode, 0, reason: '${linked.stderr}');
+    expect(
+      () => HostCardSsh.checkMessengerSocket('${root.path}/alias', agentSocket: '${root.path}/agent'),
+      throwsA(isA<HostFilesRefused>()),
+    );
+  });
+
+  // Prevents stored settings from restricting an unrelated directory or hiding the master from Core.
+  test('refuses publication outside the platform host config directory', () async {
+    final root = await Directory.systemTemp.createTemp('p-');
+    addTearDown(() => root.delete(recursive: true));
+    final before = root.statSync().mode;
+    final card = HostCardSsh.fromStored(cardValues());
+    await expectLater(card.publish('${root.path}/alpha.conf'), throwsA(isA<HostFilesRefused>()));
+    expect(root.statSync().mode, before);
+    expect(root.listSync(), isEmpty);
+  });
+
+  // Prevents scoped addresses from becoming SSH percent-token expansions.
+  test('escapes IPv6 zone identifiers in the published SSH hostname', () async {
+    final root = await Directory.systemTemp.createTemp('');
+    addTearDown(() => root.delete(recursive: true));
+    final card = HostCardSsh.fromStored({...cardValues(), 'address': 'fe80::1%1'});
+    final environment = {'XDG_CONFIG_HOME': root.path};
+    final config = card.configPath(environment: environment);
+    await card.publish(config, environment: environment);
+    final parsed = await Process.run('ssh', ['-F', config, '-G', card.name], environment: {'SSH_AUTH_SOCK': ''});
+    expect(parsed.exitCode, 0, reason: '${parsed.stderr}');
+    expect('${parsed.stdout}', contains('hostname fe80::1%'));
+  });
+
   // Prevents untrusted card values from injecting SSH directives, selecting identities or escaping paths.
   for (final change in <String, Object?>{
     'name': 'Alpha',
@@ -107,9 +157,10 @@ void main() {
     final root = await Directory.systemTemp.createTemp('c-');
     addTearDown(() => root.delete(recursive: true));
     final folder = await Directory('${root.path}/a b').create();
-    final config = '${folder.path}/alpha.conf';
+    final environment = {'XDG_CONFIG_HOME': folder.path};
+    final config = '${folder.path}/porelo/ssh/alpha.conf';
     final card = HostCardSsh.fromStored(cardValues());
-    await card.publish(config);
+    await card.publish(config, environment: environment);
     final parsed = await Process.run('ssh', ['-F', config, '-G', card.name], environment: {'SSH_AUTH_SOCK': ''});
     expect(parsed.exitCode, 0, reason: '${parsed.stderr}');
     expect('${parsed.stdout}', contains('hostname alpha.example.org\n'));
@@ -123,15 +174,16 @@ void main() {
   test('changed host keys leave every published file unchanged', () async {
     final folder = await Directory.systemTemp.createTemp('p-');
     addTearDown(() => folder.delete(recursive: true));
-    final config = '${folder.path}/alpha.conf';
+    final environment = {'XDG_CONFIG_HOME': folder.path};
+    final config = '${folder.path}/porelo/ssh/alpha.conf';
     final card = HostCardSsh.fromStored(cardValues());
-    await card.publish(config);
+    await card.publish(config, environment: environment);
     final before = File('$config.known_hosts').readAsStringSync();
     final changed = HostCardSsh.fromStored({
       ...cardValues(),
       'host_key': publicKey.replaceFirst('AAAAIAAA', 'AAAAIBAA'),
     });
-    await expectLater(changed.publish(config), throwsA(isA<HostFilesRefused>()));
+    await expectLater(changed.publish(config, environment: environment), throwsA(isA<HostFilesRefused>()));
     expect(File('$config.known_hosts').readAsStringSync(), before);
   });
 
@@ -154,7 +206,11 @@ void main() {
     final target = await Directory('${root.path}/target').create();
     await Link('${root.path}/alias').create(target.path);
     final card = HostCardSsh.fromStored(cardValues());
-    await expectLater(card.publish('${root.path}/alias/new/alpha.conf'), throwsA(isA<HostFilesRefused>()));
+    final environment = {'XDG_CONFIG_HOME': '${root.path}/alias'};
+    await expectLater(
+      card.publish(card.configPath(environment: environment), environment: environment),
+      throwsA(isA<HostFilesRefused>()),
+    );
     expect(target.listSync(), isEmpty);
   });
 

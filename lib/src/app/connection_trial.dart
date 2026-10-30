@@ -43,9 +43,11 @@ Future<Trial> tryAMachine(
       ? machine.withSocketPath(Machine.endpointFor('${machine.name} trial'))
       : machine;
   Tunnel? tunnel;
+  HostTunnelTrial? shared;
   try {
     if (machine.hostCard != null) {
-      if (!await tunnels.raiseFor(machine)) {
+      shared = tunnels.holdForTrial(machine);
+      if (!await shared.ready) {
         return Trial(reached: false, words: tunnels.of(machine)?.problem ?? 'The host could not be reached.');
       }
     } else if (machine.needsATunnel && machine.relay == null) {
@@ -111,6 +113,7 @@ Future<Trial> tryAMachine(
     return Trial(reached: false, words: 'It answers, but serves nothing this build understands: ${ex.message}');
   } finally {
     await tunnel?.drop();
+    await shared?.release();
   }
 }
 
@@ -134,9 +137,11 @@ Future<int?> countKeyslots(
       ? machine.withSocketPath(Machine.endpointFor('${machine.name} vault'))
       : machine;
   Tunnel? tunnel;
+  HostTunnelTrial? shared;
   try {
     if (machine.hostCard != null) {
-      if (!await tunnels.raiseFor(machine)) return null;
+      shared = tunnels.holdForTrial(machine);
+      if (!await shared.ready) return null;
     } else if (machine.needsATunnel && machine.relay == null) {
       tunnel = await tunnels.trial(target);
       if (tunnel.state != TunnelState.up) return null;
@@ -148,5 +153,6 @@ Future<int?> countKeyslots(
     return null;
   } finally {
     await tunnel?.drop();
+    await shared?.release();
   }
 }

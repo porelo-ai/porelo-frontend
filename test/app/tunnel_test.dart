@@ -42,6 +42,7 @@ void main() {
   test('cards sharing a service port name both hosts before publishing or launching the second', () async {
     final commands = <List<String>>[];
     final tunnels = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': where.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
       run: (_) async => ProcessResult(0, 1, '', ''),
@@ -61,7 +62,7 @@ void main() {
       'identity': '${where.path}/$name.pub',
       'socket': '${where.path}/$name.sock',
       'remoteSocket': '/run/user/1001/porelo/porelod.sock',
-      'sshConfig': '${where.path}/$name.conf',
+      'sshConfig': '${where.path}/porelo/ssh/$name.conf',
       'hostCard': <String, Object?>{
         'name': name,
         'address': '$name.example.org',
@@ -80,20 +81,15 @@ void main() {
     await tunnels.raiseFor(card('alpha'));
     final before = commands.length;
     expect(before, 1, reason: 'the first nonconflicting host really launched');
-    expect(File('${where.path}/alpha.conf').existsSync(), isTrue);
+    expect(File('${where.path}/porelo/ssh/alpha.conf').existsSync(), isTrue);
 
-    await expectLater(
-      () => tunnels.raiseFor(card('beta')),
-      throwsA(
-        predicate<Object>(
-          (error) => '$error'.contains('alpha') && '$error'.contains('beta') && '$error'.contains('18080'),
-        ),
-      ),
-    );
+    final beta = card('beta');
+    expect(await tunnels.raiseFor(beta), isFalse);
+    expect(tunnels.of(beta)!.problem, allOf(contains('alpha'), contains('beta'), contains('18080')));
 
     expect(commands, hasLength(before), reason: 'the conflicting host must never launch');
     expect(
-      File('${where.path}/beta.conf').existsSync(),
+      File('${where.path}/porelo/ssh/beta.conf').existsSync(),
       isFalse,
       reason: 'the conflicting config must not be published',
     );

@@ -44,12 +44,17 @@ void main() {
       gitPort: 18081,
       matrixPort: 18082,
     );
-    host = Machine.fromHostCard(card, socketPath: '${folder.path}/d', sshConfig: '${folder.path}/alpha.conf');
+    host = Machine.fromHostCard(
+      card,
+      socketPath: '${folder.path}/d',
+      sshConfig: '${folder.path}/porelo/ssh/alpha.conf',
+    );
     unlock = _Unlock();
     launches = [];
     runs = [];
     processes = [];
     tunnels = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       start: (command) async {
         launches.add(command);
         final process = _Process();
@@ -73,6 +78,295 @@ void main() {
   });
 
   // Prevents SSH from using personal trust, another identity or externally bound services.
+  test('a card never reuses or drops a same-name non-card tunnel', () async {
+    final other = Machine(name: host.name, socketPath: '${folder.path}/other', host: 'alice@other', remoteSocket: '/d');
+    final server = await ServerSocket.bind(InternetAddress(other.socketPath, type: InternetAddressType.unix), 0);
+    addTearDown(server.close);
+    server.listen((socket) => socket.destroy());
+    // A serving legacy endpoint is refused; its managed entry still must not satisfy a card raise.
+    await tunnels.raiseFor(other);
+    expect(await tunnels.raiseFor(host), isTrue);
+    expect(launches, hasLength(1));
+    expect(launches.single, contains(host.sshConfig));
+    await tunnels.dropFor(other);
+    expect(processes.single.killed, isFalse);
+  });
+
+  // Prevents reporting a second daemon endpoint as up on a master that never forwarded it.
+  test('a second endpoint for one card is refused without dropping the first master', () async {
+    await tunnels.raiseFor(host);
+    final other = host.withSocketPath('${folder.path}/second');
+    expect(await tunnels.raiseFor(other), isFalse);
+    await tunnels.dropFor(other);
+    expect(processes.single.killed, isFalse);
+    expect(await tunnels.raiseFor(host), isTrue);
+    expect(launches, hasLength(1));
+  });
+
+  // Prevents path validation from escaping as an unhandled future and leaving the host raising.
+  test('an invalid local endpoint returns a refusal and never launches', () async {
+    final bad = host.withSocketPath('relative');
+    expect(await tunnels.raiseFor(bad), isFalse);
+    expect(tunnels.of(bad)!.state, TunnelState.down);
+    expect(tunnels.of(bad)!.problem, isNotEmpty);
+    expect(launches, isEmpty);
+  });
+
+  // Prevents conflicting imported ports from throwing through connection callers.
+  test('a conflicting card returns a refusal naming both hosts before publication', () async {
+    tunnels.registerCards([host]);
+    final other = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+      sshConfig: '${folder.path}/beta.conf',
+    );
+    expect(await tunnels.raiseFor(other), isFalse);
+    expect(tunnels.of(other)!.problem, allOf(contains('alpha'), contains('beta'), contains('18080')));
+    expect(File(other.sshConfig).existsSync(), isFalse);
+    expect(launches, isEmpty);
+  });
+
+  // Prevents unwatched card probes from leaving processes and fixed port reservations alive.
+  for (final keyslots in [false, true]) {
+    test('an unwatched card ${keyslots ? 'keyslot count' : 'trial'} releases its tunnel', () async {
+      if (keyslots) {
+        expect(await countKeyslots(host, reach: (_) => _StoppedBackend(), tunnels: tunnels), isNull);
+      } else {
+        await tryAMachine(host, reach: (_) => _StoppedBackend(), tunnels: tunnels);
+      }
+      expect(processes.single.killed, isTrue);
+      expect(tunnels.manages(host), isFalse);
+      tunnels.registerCards([
+        Machine.fromHostCard(
+          HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+          socketPath: '${folder.path}/b',
+        ),
+      ]);
+    });
+  }
+
+  // Prevents replacing a watched host from retaining its old process or rejecting its own reserved ports.
+  test('overlapping candidate probes retain their shared master until both finish', () async {
+    final first = _PausedBackend();
+    final second = _PausedBackend();
+    final trial = tryAMachine(host, reach: (_) => first, tunnels: tunnels);
+    await first.entered.future;
+    final count = countKeyslots(host, reach: (_) => second, tunnels: tunnels);
+    await second.entered.future;
+    first.finish.complete();
+    await trial;
+    expect(processes.single.killed, isFalse);
+    second.finish.complete();
+    await count;
+    expect(processes.single.killed, isTrue);
+    expect(tunnels.manages(host), isFalse);
+  });
+
+  // Prevents a candidate probe from closing a master promoted to a watched connection.
+  test('watching a candidate promotes its master beyond the probe lifetime', () async {
+    final backend = _PausedBackend();
+    final trial = tryAMachine(host, reach: (_) => backend, tunnels: tunnels);
+    await backend.entered.future;
+    expect(await tunnels.raiseFor(host), isTrue);
+    backend.finish.complete();
+    await trial;
+    expect(processes.single.killed, isFalse);
+    expect(tunnels.manages(host), isTrue);
+  });
+
+  // Prevents concurrent imports from invalidating a replacement after its old watcher was closed.
+  test('replacing a watched card waits for its active probe before releasing old ownership', () async {
+    final machines = Machines(Settings(MemorySettingsStore()), tunnels: tunnels, reach: (_) => _StoppedBackend());
+    addTearDown(machines.dispose);
+    await machines.add(host);
+    await machines.of(host).untilAsked();
+    final backend = _PausedBackend();
+    final trial = tryAMachine(host, reach: (_) => backend, tunnels: tunnels);
+    await backend.entered.future;
+    final changed = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+      socketPath: '${folder.path}/changed',
+      sshConfig: host.sshConfig,
+    );
+    var replaced = false;
+    final replacing = machines.add(changed).then((_) {
+      replaced = true;
+    });
+    addTearDown(() async {
+      if (!backend.finish.isCompleted) backend.finish.complete();
+      await trial;
+      await replacing;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(replaced, isFalse);
+    backend.finish.complete();
+    await trial;
+    await replacing;
+    await machines.of(changed).untilAsked();
+    expect(processes.first.killed, isTrue);
+    expect(tunnels.of(changed)!.state, TunnelState.up);
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+    );
+    expect(() => tunnels.registerCards([beta]), throwsA(isA<HostFilesRefused>()));
+  });
+
+  test('a replacement reserves its new ports before a concurrent import can claim them', () async {
+    final master = _SlowProcess();
+    final owned = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+      keyAvailable: (_) async => true,
+      portsAvailable: (_) async {},
+      start: (_) async => master,
+      run: (_) async => ProcessResult(0, 0, '', ''),
+      unlocker: unlock,
+    );
+    final machines = Machines(Settings(MemorySettingsStore()), tunnels: owned, reach: (_) => _StoppedBackend());
+    addTearDown(() async {
+      master.end('');
+      machines.dispose();
+      await owned.dropEverything();
+      owned.dispose();
+    });
+    await machines.add(host);
+    await machines.of(host).untilAsked();
+    final services = {
+      'forge': {'web_port': 19080, 'git_port': 19081},
+      'matrix': {'port': 19082},
+    };
+    final changed = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'services': services}),
+      socketPath: '${folder.path}/changed',
+      sshConfig: host.sshConfig,
+    );
+    final replacing = machines.add(changed);
+    await master.stopping.future;
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta', 'services': services}),
+      socketPath: '${folder.path}/beta',
+    );
+    final adding = machines.add(beta);
+    final refused = expectLater(adding, throwsA(isA<HostFilesRefused>()));
+    master.end('');
+    await replacing;
+    await refused;
+    expect(machines.all, contains(changed));
+    expect(machines.all, isNot(contains(beta)));
+    expect(machines.of(changed), isNotNull);
+  });
+
+  test('replacing a card drops its old master and accepts its changed admitted uid', () async {
+    final machines = Machines(Settings(MemorySettingsStore()), tunnels: tunnels, reach: (_) => _StoppedBackend());
+    addTearDown(machines.dispose);
+    await machines.add(host);
+    await machines.of(host).untilAsked();
+    final old = processes.single;
+    final changed = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+      socketPath: '${folder.path}/new',
+      sshConfig: host.sshConfig,
+    );
+    await machines.add(changed);
+    expect(old.killed, isTrue);
+    expect(machines.all, contains(changed));
+  });
+
+  // Prevents an ignored same-name import from reserving ports against later valid imports.
+  test('an ignored replacement does not reserve its card ports', () async {
+    final machines = Machines(Settings(MemorySettingsStore()), tunnels: tunnels, reach: (_) => _StoppedBackend());
+    addTearDown(machines.dispose);
+    await machines.add(Machine(name: host.name, socketPath: '${folder.path}/local'));
+    await machines.add(host);
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+    );
+    expect(() => tunnels.registerCards([beta]), returnsNormally);
+  });
+
+  // Prevents loading a new watched list from orphaning masters and stale imported port reservations.
+  test('loading another list stops old tunnels and releases old cards', () async {
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, tunnels: tunnels, reach: (_) => _StoppedBackend());
+    addTearDown(machines.dispose);
+    await machines.add(host);
+    await machines.of(host).untilAsked();
+    await settings.rememberMachines([Machine(name: 'replacement', socketPath: '${folder.path}/replacement')]);
+    await machines.load();
+    expect(processes.single.killed, isTrue);
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+    );
+    expect(() => tunnels.registerCards([beta]), returnsNormally);
+  });
+
+  // Prevents a signing wait on an SSH-reached host from being counted as a host outage.
+  test('a reached host waiting for Core signing is excluded from unreachable hosts', () async {
+    unlock.result = const HostUnlockResult(HostUnlockState.waitingForKey);
+    final settings = Settings(MemorySettingsStore());
+    await settings.rememberMachines([host]);
+    final machines = Machines(settings, tunnels: tunnels, reach: (_) => _StoppedBackend());
+    addTearDown(machines.dispose);
+    await machines.load();
+    await machines.of(host).untilAsked();
+    await Future<void>.delayed(Duration.zero);
+    expect(machines.all, [host]);
+    expect(machines.of(host).reachability, Reachability.unreachable);
+    expect(machines.of(host).hostReachability, HostReachability.waitingForKey);
+    expect(machines.unreachable, 0);
+  });
+
+  // Prevents an in-flight raise failure from abandoning later owned processes during shutdown.
+  test('shutdown cleans every master after an in-flight raise rejects', () async {
+    final entered = Completer<void>();
+    final check = Completer<ProcessResult>();
+    final process = _Process();
+    final owned = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+      start: (_) async => process,
+      run: (_) {
+        entered.complete();
+        return check.future;
+      },
+      keyAvailable: (_) async => true,
+      portsAvailable: (_) async {},
+      unlocker: unlock,
+    );
+    addTearDown(owned.dispose);
+    final raising = owned.raiseFor(host);
+    final observed = expectLater(raising, throwsStateError);
+    await entered.future;
+    final dropping = owned.dropEverything();
+    final cleanup = expectLater(dropping, throwsStateError);
+    await Future<void>.delayed(Duration.zero);
+    check.completeError(StateError('control check failed'));
+    await observed;
+    await cleanup;
+    expect(process.killed, isTrue);
+    expect(owned.manages(host), isFalse);
+  });
+
+  // Prevents an SSH unlink race from interrupting shutdown before all masters are stopped.
+  test('shutdown tolerates a disappearing owned socket', () async {
+    await tunnels.raiseFor(host);
+    final endpoint = host.socketPath;
+    var checked = false;
+    await IOOverrides.runZoned(
+      tunnels.dropEverything,
+      fseGetTypeSync: (path, followLinks) {
+        if (path == endpoint && !checked) {
+          checked = true;
+          return FileSystemEntityType.unixDomainSock;
+        }
+        return FileSystemEntityType.notFound;
+      },
+    );
+    expect(processes.single.killed, isTrue);
+    expect(tunnels.manages(host), isFalse);
+  });
+
   test('publishes a pinned public identity and launches all fixed forwards on one owned master', () async {
     expect(await tunnels.raiseFor(host), isTrue);
     final config = File(host.sshConfig).readAsStringSync();
@@ -182,6 +476,7 @@ void main() {
   // Prevents reporting denied admission as a locked local key.
   test('an unavailable local key waits without launching or unlocking', () async {
     final waiting = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => false,
       portsAvailable: (_) async {},
       unlocker: unlock,
@@ -198,6 +493,7 @@ void main() {
   // Prevents connecting or unlocking against a changed host key.
   test('a pin mismatch fails before unlock without exposing process diagnostics', () async {
     final refused = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
       unlocker: unlock,
@@ -249,6 +545,7 @@ void main() {
     final process = _Process();
     final tunnel = Tunnel(
       host,
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
       unlocker: unlock,
@@ -273,6 +570,7 @@ void main() {
     final core = _Process();
     final master = _Process();
     final coreUnlock = CoreHostUnlocker(
+      environment: {'XDG_CONFIG_HOME': folder.path},
       start: (_) async {
         asked.complete();
         return core;
@@ -280,6 +578,7 @@ void main() {
     );
     final tunnel = Tunnel(
       host,
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
       unlocker: coreUnlock,
@@ -330,10 +629,27 @@ void main() {
   });
 
   // Prevents a timed-out Core child from remaining alive or exposing its output.
+  test('Core refuses an off-platform config before launching unlock', () async {
+    final commands = <List<String>>[];
+    final core = CoreHostUnlocker(
+      environment: {'XDG_CONFIG_HOME': folder.path},
+      start: (command) async {
+        commands.add(command);
+        final process = _Process();
+        process.end('');
+        return process;
+      },
+    );
+    final result = await core.unlock('alpha', '${folder.path}/alpha.conf');
+    expect(commands, isEmpty);
+    expect(result.state, HostUnlockState.refused);
+  });
+
   test('Core unlock uses the agreed command and terminates its child on deadline', () async {
     final process = _Process();
     final commands = <List<String>>[];
     final core = CoreHostUnlocker(
+      environment: {'XDG_CONFIG_HOME': folder.path},
       deadline: const Duration(milliseconds: 20),
       start: (command) async {
         commands.add(command);
@@ -394,6 +710,7 @@ void main() {
     Process? child;
     final control = host.hostCard!.controlSocket(host.sshConfig);
     final owned = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
       unlocker: unlock,
@@ -479,5 +796,26 @@ class _StoppedBackend extends Fake implements FleetBackend {
   Future<ServiceInfo> open() async {
     opened++;
     throw const VarlinkDisconnected('The daemon is stopped.');
+  }
+}
+
+class _PausedBackend extends _StoppedBackend {
+  final entered = Completer<void>();
+  final finish = Completer<void>();
+  @override
+  Future<ServiceInfo> open() async {
+    entered.complete();
+    await finish.future;
+    return super.open();
+  }
+}
+
+class _SlowProcess extends _Process {
+  final stopping = Completer<void>();
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    killed = true;
+    if (!stopping.isCompleted) stopping.complete();
+    return true;
   }
 }

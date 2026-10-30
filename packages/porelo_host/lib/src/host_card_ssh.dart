@@ -208,6 +208,10 @@ class HostCardSsh {
 
   /// The platform's public host config path used by the interface and plugins.
   String configPath({Map<String, String>? environment, bool windows = false}) {
+    return _configPath(name, environment: environment, windows: windows);
+  }
+
+  static String _configPath(String host, {Map<String, String>? environment, bool windows = false}) {
     final env = environment ?? Platform.environment;
     final paths = windows ? path.windows : path.posix;
     final root = windows
@@ -216,11 +220,20 @@ class HostCardSsh {
     if (root == null || !paths.isAbsolute(root)) {
       throw const HostFilesRefused('An absolute platform config directory is required.');
     }
-    return paths.join(root, 'porelo', 'ssh', '$name.conf');
+    return paths.join(root, 'porelo', 'ssh', '$host.conf');
+  }
+
+  /// Refuses stored paths outside the platform location shared with Core.
+  static void checkConfigPath(String host, String config, {Map<String, String>? environment, bool windows = false}) {
+    _path(config);
+    if (config != _configPath(host, environment: environment, windows: windows)) {
+      throw const HostFilesRefused('The SSH config must use the platform host config directory.');
+    }
   }
 
   /// Publishes private public-only files, refusing changed pins or identity files.
-  Future<void> publish(String config, {HostFileWriter? writer}) async {
+  Future<void> publish(String config, {HostFileWriter? writer, Map<String, String>? environment}) async {
+    checkConfigPath(name, config, environment: environment, windows: Platform.isWindows);
     final files = writer ?? HostFileWriter();
     final folder = File(config).absolute.parent;
     _path(config);
@@ -249,7 +262,7 @@ class HostCardSsh {
       identity: '$publicKey\n',
       config:
           'Host $name\n'
-          '  HostName $address\n  Port $sshPort\n  User $login\n'
+          '  HostName ${address.replaceAll('%', '%%')}\n  Port $sshPort\n  User $login\n'
           '${pinnedHostSshPolicy(known.replaceAll('%', '%%')).entries.map((entry) => '  ${entry.key} ${entry.value}\n').join()}'
           '  IdentityFile ${_quote(identity)}\n'
           '  StreamLocalBindMask 0177\n'
@@ -268,7 +281,7 @@ class HostCardSsh {
   /// Refuses paths whose SSH expansion could select another file or endpoint.
   static void checkLocalSocket(String value) {
     _path(value);
-    if (value.contains(':') || utf8.encode(value).length > 100) {
+    if (value.contains(':') || utf8.encode(value).length > 107) {
       throw const HostFilesRefused('A local socket must be a short absolute path without a colon.');
     }
   }
@@ -280,13 +293,30 @@ class HostCardSsh {
     if (agent == null || agent.isEmpty) return;
     String resolved(String endpoint) {
       try {
-        return File(endpoint).resolveSymbolicLinksSync();
+        if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
+          return File(endpoint).resolveSymbolicLinksSync();
+        }
+        final parent = path.dirname(endpoint);
+        if (parent == endpoint) throw const HostFilesRefused('Cannot verify the messenger endpoint.');
+        return path.join(resolved(parent), path.basename(endpoint));
       } on FileSystemException {
-        return path.normalize(File(endpoint).absolute.path);
+        throw const HostFilesRefused('Cannot verify the messenger endpoint against the local SSH agent.');
       }
     }
 
-    if (resolved(value) == resolved(agent)) {
+    final messenger = resolved(File(value).absolute.path);
+    final signing = resolved(File(agent).absolute.path);
+    var same = messenger == signing;
+    try {
+      if (!same &&
+          FileSystemEntity.typeSync(messenger) != FileSystemEntityType.notFound &&
+          FileSystemEntity.typeSync(signing) != FileSystemEntityType.notFound) {
+        same = FileSystemEntity.identicalSync(messenger, signing);
+      }
+    } on FileSystemException {
+      throw const HostFilesRefused('Cannot verify the messenger endpoint against the local SSH agent.');
+    }
+    if (same) {
       throw const HostFilesRefused('The SSH agent socket cannot be used as the messenger return endpoint.');
     }
   }

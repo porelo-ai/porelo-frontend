@@ -388,7 +388,10 @@ class Machines extends ChangeNotifier {
        setup = setup ?? MachineSetup(),
        _answers = answers ?? _answersAt,
        tunnels = tunnels ?? Tunnels() {
-    _adopt(<Machine>[Machine.local()]);
+    final local = Machine.local();
+    _machines.add(local);
+    _selected = local.name;
+    _open(local);
   }
 
   final Settings _settings;
@@ -438,6 +441,13 @@ class Machines extends ChangeNotifier {
   final List<Machine> _machines = <Machine>[];
   String? _selected;
   bool _disposed = false;
+  Future<void> _changing = Future.value();
+
+  Future<void> _change(Future<void> Function() work) {
+    final next = _changing.then((_) => work());
+    _changing = next.then<void>((_) {}, onError: (Object error, StackTrace stack) {});
+    return next;
+  }
 
   /// Whether something accepts a connection at [socket] within a second.
   static Future<bool> _answersAt(String socket) async {
@@ -534,15 +544,23 @@ class Machines extends ChangeNotifier {
   }
 
   /// How many machines are not answering.
-  int get unreachable => _watching.values.where((fleet) => fleet.reachability == Reachability.unreachable).length;
+  int get unreachable => _watching.values
+      .where(
+        (fleet) =>
+            fleet.reachability == Reachability.unreachable &&
+            (fleet.hostReachability == null || fleet.hostReachability == HostReachability.notReached),
+      )
+      .length;
 
   /// Reads the machines an earlier run stored and opens all of them.
   ///
   /// Nothing stored leaves the one this started with, which is the local daemon or whatever
   /// `PORELO_SOCKET` names. The machine to look for is added after either, when it answers.
-  Future<void> load() async {
+  Future<void> load() => _change(_load);
+
+  Future<void> _load() async {
     final stored = await _settings.machines();
-    if (stored.isNotEmpty) _adopt(stored);
+    if (stored.isNotEmpty) await _adopt(stored);
     final extra = _lookFor;
     if (extra != null &&
         !_machines.any((each) => each.socketPath == extra.socketPath || each.name == extra.name) &&
@@ -556,12 +574,17 @@ class Machines extends ChangeNotifier {
   }
 
   /// Replaces the set of machines being watched, closing what watched the old ones.
-  void _adopt(List<Machine> machines) {
-    tunnels.registerCards(machines);
+  Future<void> _adopt(List<Machine> machines) async {
+    tunnels.checkCards(machines);
     for (final fleet in _watching.values) {
       fleet.dispose();
     }
     _watching.clear();
+    for (final machine in _machines) {
+      await tunnels.dropFor(machine);
+    }
+    tunnels.replaceCards(machines);
+    _nodes.clear();
     _machines
       ..clear()
       ..addAll(machines);
@@ -572,21 +595,26 @@ class Machines extends ChangeNotifier {
   }
 
   /// Adds a machine or replaces a same-name host. The selection stays where it is.
-  Future<void> add(Machine machine) async {
-    tunnels.registerCards([machine]);
+  Future<void> add(Machine machine) => _change(() => _add(machine));
+
+  Future<void> _add(Machine machine) async {
     final at = _machines.indexWhere((each) => each.name == machine.name);
     if (at >= 0) {
       final old = _machines[at];
       if (old.kind != 'host' || machine.kind != 'host') return;
+      final replacing = [..._machines]..[at] = machine;
+      tunnels.checkCards(replacing);
       _watching.remove(old.name)?.dispose();
       await tunnels.dropFor(old);
       _nodes.remove(old.name);
       _machines[at] = machine;
+      tunnels.replaceCards(_machines);
       _open(machine);
       await _remember();
       _notify();
       return;
     }
+    tunnels.registerCards([machine]);
     _machines.add(machine);
     _open(machine);
     await _remember();
@@ -597,10 +625,12 @@ class Machines extends ChangeNotifier {
   ///
   /// Forgetting the one being acted on moves to another rather than leaving nothing selected: a
   /// frame with no machine behind it has nothing to say and no way to say why.
-  Future<void> forget(Machine machine) async {
+  Future<void> forget(Machine machine) => _change(() => _forget(machine));
+
+  Future<void> _forget(Machine machine) async {
     if (_machines.length == 1) {
       if (machine.kind != 'host') return;
-      await add(Machine.local());
+      await _add(Machine.local());
     }
     _machines.remove(machine);
     _watching.remove(machine.name)?.dispose();
@@ -631,7 +661,10 @@ class Machines extends ChangeNotifier {
       hostConnection: machine.hostCard == null
           ? null
           : () => switch (tunnels.of(machine)?.state) {
-              TunnelState.up => HostReachability.reached,
+              TunnelState.up =>
+                tunnels.of(machine)?.vaultState == HostUnlockState.waitingForKey
+                    ? HostReachability.waitingForKey
+                    : HostReachability.reached,
               TunnelState.waitingForKey => HostReachability.waitingForKey,
               _ => HostReachability.notReached,
             },

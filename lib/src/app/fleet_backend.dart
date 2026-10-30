@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFilesRefused;
 
 import 'owned_process.dart';
 
@@ -44,11 +45,17 @@ abstract interface class HostUnlocker {
 /// Invokes the agreed Core command without parsing its output.
 class CoreHostUnlocker implements HostUnlocker {
   /// Accepts a process boundary for tests and installations of Core.
-  CoreHostUnlocker({Future<Process> Function(List<String>)? start, this.deadline = const Duration(seconds: 30)})
-    : _start = start ?? _startCore;
+  CoreHostUnlocker({
+    Future<Process> Function(List<String>)? start,
+    this.deadline = const Duration(seconds: 30),
+    this.environment,
+  }) : _start = start ?? _startCore;
 
   /// The bound on Core signing and delivery before its owned child is terminated.
   final Duration deadline;
+
+  /// The platform config environment shared with host publication.
+  final Map<String, String>? environment;
   final Future<Process> Function(List<String>) _start;
   final Map<String, Process> _children = {};
   final Map<String, Future<HostUnlockResult>> _pending = {};
@@ -58,15 +65,16 @@ class CoreHostUnlocker implements HostUnlocker {
   @override
   Future<HostUnlockResult> unlock(String host, String config) => _pending.putIfAbsent(
     host,
-    () => _unlock(host).whenComplete(() {
+    () => _unlock(host, config).whenComplete(() {
       _pending.remove(host);
     }),
   );
 
-  Future<HostUnlockResult> _unlock(String host) async {
+  Future<HostUnlockResult> _unlock(String host, String config) async {
     final generation = _generations[host] ?? 0;
     Process? process;
     try {
+      HostCardSsh.checkConfigPath(host, config, environment: environment, windows: Platform.isWindows);
       process = await _start(['porelo', 'host', 'unlock', host]);
       unawaited(process.stdout.drain<void>());
       unawaited(process.stderr.drain<void>());
@@ -84,6 +92,8 @@ class CoreHostUnlocker implements HostUnlocker {
       return const HostUnlockResult(HostUnlockState.refused, 'Core host unlock timed out.');
     } on ProcessException {
       return const HostUnlockResult(HostUnlockState.unsupported, 'Core host unlock is unavailable on this computer.');
+    } on HostFilesRefused catch (refused) {
+      return HostUnlockResult(HostUnlockState.refused, refused.message);
     } finally {
       if (identical(_children[host], process)) _children.remove(host);
     }

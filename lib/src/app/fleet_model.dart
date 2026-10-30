@@ -312,7 +312,11 @@ class FleetModel extends ChangeNotifier {
       authorizations.watch(backend);
     } on VarlinkDisconnected catch (ex) {
       _reachability = Reachability.unreachable;
-      _say('Cannot reach ${backend.label}: ${ex.message}');
+      _say(
+        hostReachability == HostReachability.reached || hostReachability == HostReachability.waitingForKey
+            ? '$hostState: ${backend.label}. Daemon unavailable: ${ex.message}'
+            : 'Cannot reach ${backend.label}: ${ex.message}',
+      );
       _tryAgainLater();
     } on StateError catch (ex) {
       _reachability = Reachability.incompatible;
