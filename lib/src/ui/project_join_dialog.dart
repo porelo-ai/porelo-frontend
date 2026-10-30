@@ -8,16 +8,17 @@ import 'package:porelo_host/porelo_host.dart';
 import '../app/access_join.dart';
 import '../app/desk.dart';
 import '../app/fleet_backend.dart';
-import '../app/host_vpn.dart';
 import '../app/host_stop_feed.dart';
 import '../app/join_keys.dart';
 import '../app/machines.dart';
+import '../app/own_host_vpn.dart';
 import '../app/project_join.dart';
 import '../app/read_public_signing_key.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import 'tokens.dart';
+import 'own_host_vpn.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
 
@@ -167,51 +168,26 @@ class _ProjectJoinDialogState extends State<ProjectJoinDialog> {
   }
 
   Future<bool> _vpn(AccessJoin access, JoinPublicKeys keys, String address, String ca) async {
-    await checkHostVpnNetwork(
-      host: access.hostName,
-      networkNumber: access.host.network,
-      hostsByInterface: {for (final entry in widget.settings.hostUps.entries) entry.value.vpnInterface: entry.key},
-    );
-    final attempt = await prepareHostVpn(
-      project: access.hostName,
-      tunnel: HostTunnel(hostPublicKey: access.host.values['wireguard_public_key']!, peerPublicKey: keys.wireguard),
-      address: access.host.values['address']!,
-      peerAddress: address,
-      networkNumber: access.host.network,
-      forgeCa: ca,
-      secretStore: _store,
-      environment: widget.environment,
-    );
-    var verified = false;
-    try {
-      if (!mounted) return false;
-      await runInATerminal(
+    await connectOwnHostVpn(
+      host: access.host,
+      account: access.laptop(keys).account,
+      keys: keys,
+      address: address,
+      ca: ca,
+      settings: widget.settings,
+      activate: (host, keys, address, ca) => openOwnHostVpn(
         context,
-        title: 'Connect this laptop to ${access.hostName}',
-        explanation: 'Porelo verified your signed access. The host CA in that access file matches its SHA-256. Type your sudo password here to install this host’s VPN and CA on this computer.',
-        machine: Machine.local(),
-        command: attempt.command,
-        open: widget.openTerminal,
-        shownCommand: 'Connect with your listed laptop address and trust the verified host CA.',
-        finish: (code) async {
-          verified = code == 0 && await attempt.verified();
-          return verified;
-        },
-        afterClose: attempt.close,
-      );
-      if (verified) {
-        await widget.settings.rememberJoinedHostVpn(
-          host: access.host,
-          account: access.laptop(keys).account,
-          peerPublicKey: keys.wireguard,
-          peerAddress: address,
-          ca: ca,
-        );
-      }
-      return verified;
-    } finally {
-      await attempt.close();
-    }
+        host: host,
+        keys: keys,
+        address: address,
+        ca: ca,
+        settings: widget.settings,
+        store: _store!,
+        environment: widget.environment,
+        openTerminal: widget.openTerminal,
+      ),
+    );
+    return true;
   }
 
   Future<void> _feed() async {

@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/project_bring.dart';
+import 'package:porelo_frontend/src/app/own_host_vpn.dart';
+import 'package:porelo_frontend/src/app/join_keys.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_host/porelo_host.dart';
@@ -36,6 +39,75 @@ class _Source extends HostFiles {
 }
 
 void main() {
+  // Harm: a new machine must not publish access or bring before it verifies this host's fetched CA.
+  for (final wrongCa in [true, false]) {
+    test(
+      wrongCa
+          ? 'a fetched CA mismatch shows both fingerprints and prevents the bring'
+          : 'a new bring connects the supplied laptop address and pasted host before constructing its source',
+      () async {
+        final scratch = Directory.systemTemp.createTempSync('bring-vpn-');
+        addTearDown(() => scratch.deleteSync(recursive: true));
+        final signing = File('${scratch.path}/signer.pub')..writeAsStringSync(hostValues()['ssh_host_key']! as String);
+        final identity = File('${scratch.path}/identity')..writeAsStringSync('identity fixture');
+        final host = PreparedHost.read({...matrixHostValues(), if (wrongCa) 'ca_sha256': '0' * 64});
+        final settings = Settings(MemorySettingsStore());
+        addTearDown(settings.dispose);
+        final files = _Source();
+        final activations = <({PreparedHost host, JoinPublicKeys keys, String address, String? ca})>[];
+        final keys = (ssh: host.values['ssh_host_key']!, wireguard: wireGuardKey);
+        final remote = HelperRemote(response: hostMatrixCa.trimRight());
+        final knownHosts = '${scratch.path}/known_hosts.orchard';
+        final bring = ProjectBring(
+          project: 'demo',
+          backend: _Following('demo'),
+          machine: Machine(name: 'own account', socketPath: '', host: 'admin@10.73.7.1', identity: identity.path),
+          host: host,
+          knownHosts: knownHosts,
+          secretsFile: '${scratch.path}/secrets.kdbx',
+          signingKey: signing,
+          accessRoot: '${scratch.path}/access',
+          remote: remote,
+          files: files,
+          connectVpn: () => connectOwnHostVpn(
+            host: host,
+            account: 'admin',
+            keys: keys,
+            address: '10.73.7.10',
+            settings: settings,
+            activate: (host, keys, address, ca) async {
+              activations.add((host: host, keys: keys, address: address, ca: ca));
+              expect(settings.hostUp('orchard'), isNull, reason: 'recording must follow verified trust');
+              expect(files.requests, 0, reason: 'bringing must follow VPN and CA verification');
+              return true;
+            },
+            fetchCa: () => fetchOwnHostCa(host: host, account: 'admin', knownHosts: knownHosts, remote: remote),
+          ),
+        );
+        addTearDown(bring.dispose);
+        await bring.bring();
+        if (wrongCa) {
+          expect(bring.problem, contains('Expected SHA-256: ${'0' * 64}'));
+          expect(bring.problem, contains('Received SHA-256: $hostMatrixCaSha256'));
+          expect(activations.map((entry) => entry.ca), [null], reason: 'an unverified CA must never reach trust');
+          expect(settings.hostUp('orchard'), isNull);
+          expect(files.requests, 0);
+          expect(Directory('${scratch.path}/access').existsSync(), isFalse);
+        } else {
+          expect(activations, [
+            (host: host, keys: keys, address: '10.73.7.10', ca: null),
+            (host: host, keys: keys, address: '10.73.7.10', ca: hostMatrixCa),
+          ]);
+          expect(files.requests, 1);
+          expect(settings.hostUp('orchard')!.vpnPeerAddress, '10.73.7.10/32');
+          expect(settings.hostUp('orchard')!.forgeCa, hostMatrixCa);
+        }
+        expect(remote.commands, ['/usr/bin/cat /etc/porelo-host/forge/ca.pem']);
+        expect(File(knownHosts).readAsStringSync(), '10.73.7.1 ${host.values['ssh_host_key']}\n');
+      },
+    );
+  }
+
   // Harm: unsafe project identifiers must stop before source construction, private Git, or host operations.
   for (final name in ['a..b', 'trailing.', 'a' * 65]) {
     test('invalid project $name is refused before constructing or publishing its setup', () async {

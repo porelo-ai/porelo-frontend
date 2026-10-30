@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/join_keys.dart';
 import 'package:porelo_frontend/src/ui/host_dialog.dart';
 import 'package:porelo_frontend/src/ui/wizard.dart';
 import 'package:porelo_frontend/src/app/project_workspace.dart';
@@ -73,6 +74,14 @@ class _OwnSsh implements Remote {
     final destination = args[args.length - 2];
     expect(destination, 'admin@10.73.7.1');
     final command = args.last;
+    if (command == '/usr/bin/cat /etc/porelo-host/forge/ca.pem') {
+      commands.add(command);
+      users.add('admin');
+      final process = HostProcess();
+      const LineSplitter().convert(hostMatrixCa).forEach(process.raw);
+      process.end(0);
+      return process;
+    }
     if (command.contains('ansible-playbook')) {
       final process = HostProcess();
       run('10.73.7.1', 'admin', command, onLine: process.raw).then((result) {
@@ -216,9 +225,18 @@ void main() {
   });
 
   // Harm: bringing through root or repeating publication when feeding a stop changes the wrong account.
-  for (final outcome in ['brought', 'room-refused', 'ca-missing', 'ca-mismatch', 'setup-exists']) {
+  for (final outcome in [
+    'brought',
+    'room-refused',
+    'ca-missing',
+    'ca-mismatch',
+    'setup-exists',
+    'vpn-new',
+    'vpn-ca-mismatch',
+  ]) {
     final rejectRoom = outcome == 'room-refused';
-    final refusedCa = outcome.startsWith('ca-');
+    final newVpn = outcome.startsWith('vpn-');
+    final refusedCa = outcome.startsWith('ca-') || outcome == 'vpn-ca-mismatch';
     testWidgets(
       refusedCa
           ? 'the project bring refuses $outcome before editing or uploading access'
@@ -226,6 +244,8 @@ void main() {
           ? 'an interrupted bring retry preserves existing setup and publishes access once'
           : rejectRoom
           ? 'a room refusal stops the bring in Porelo’s words'
+          : newVpn
+          ? 'a first bring connects this machine and records the verified host before publishing'
           : 'the project dialog signs with own git uploads privately and resumes without sudo',
       (tester) async {
         tester.view.physicalSize = const Size(1280, 800);
@@ -244,7 +264,22 @@ void main() {
         final remote = _OwnSsh(home, target, rejectRoom: rejectRoom);
         final settings = Settings(MemorySettingsStore());
         await settings.rememberHostUp('garden', matrixHostRecord(host: 'garden'));
-        if (outcome != 'ca-missing') await settings.rememberHostUp('orchard', matrixHostRecord());
+        if (!newVpn) {
+          await settings.rememberHostUp(
+            'orchard',
+            outcome == 'ca-missing'
+                ? HostUpRecord.fromStored({...matrixHostRecord().stored, 'forgeCa': null})!
+                : matrixHostRecord(),
+          );
+        }
+        final store = MemorySecrets();
+        JoinPublicKeys? publicKeys;
+        if (newVpn) {
+          await store.write('porelo-host/ssh-orchard', base64Encode(List.filled(32, 3)));
+          await store.write(HostFiles.keyName('orchard'), base64Encode(List.filled(32, 4)));
+          publicKeys = await tester.runAsync(() => JoinKeys(store).publicKeys('orchard'));
+        }
+        final vpnCas = <String?>[];
         final backend = _Following();
         final machine = Machine(
           name: 'Admitted server',
@@ -331,6 +366,20 @@ void main() {
                 environment: state,
                 runGit: git,
                 hostFiles: _SignedFiles(),
+                store: store,
+                restoreIdentity: (host) async {
+                  expect(host, 'orchard');
+                  return machine.identity;
+                },
+                activateVpn: (host, keys, address, ca) async {
+                  expect(host.values, {...matrixHostValues(), if (outcome == 'vpn-ca-mismatch') 'ca_sha256': '0' * 64});
+                  expect(keys, publicKeys);
+                  expect(address, '10.73.7.10');
+                  expect(settings.hostUp('orchard'), isNull);
+                  expect(gitCommands, isEmpty);
+                  vpnCas.add(ca);
+                  return true;
+                },
                 accessRoot: '${scratch.path}/access',
                 openTerminal: (program, arguments, {columns = 80, rows = 24}) {
                   final terminal = FakeTerminal([program, ...arguments]);
@@ -361,12 +410,29 @@ void main() {
           reason: 'a project admin can bring without a preexisting watched machine',
         );
         await tester.enterText(find.byKey(const Key('bring-account')), 'admin');
-        await tester.enterText(find.byKey(const Key('bring-identity')), machine.identity);
         await tester.enterText(
           find.byKey(const Key('bring-host-values')),
-          jsonEncode({...matrixHostValues(), if (outcome == 'ca-mismatch') 'ca_sha256': '0' * 64}),
+          jsonEncode({
+            ...matrixHostValues(),
+            if (outcome == 'ca-mismatch' || outcome == 'vpn-ca-mismatch') 'ca_sha256': '0' * 64,
+          }),
         );
         await World.settle(tester);
+        if (!newVpn) await tester.enterText(find.byKey(const Key('bring-identity')), machine.identity);
+        await World.settle(tester);
+        await tester.tap(find.byKey(const Key('wizard-next')));
+        await World.settle(tester);
+        if (newVpn) {
+          expect(settings.hostUp('orchard'), isNull);
+          expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+          for (final invalid in ['10.73.7.1', '10.73.7.2', '10.73.8.10', '10.73.7.255']) {
+            await tester.enterText(find.byKey(const Key('bring-vpn-address')), invalid);
+            await World.settle(tester);
+            expect(tester.widget<FilledButton>(find.byKey(const Key('wizard-next'))).onPressed, isNull);
+          }
+          await tester.enterText(find.byKey(const Key('bring-vpn-address')), '10.73.7.10');
+          await World.settle(tester);
+        }
         await tester.tap(find.byKey(const Key('wizard-next')));
         await World.settle(tester);
         if (!refusedCa) {
@@ -420,11 +486,27 @@ void main() {
         if (refusedCa) {
           expect(action.state(), WizardActionState.refused);
           expect(gitCommands, isEmpty, reason: 'untrusted Matrix access must never be edited or published');
-          expect(remote.commands, isEmpty, reason: 'an untrusted CA must stop before any host upload');
+          expect(
+            remote.commands,
+            newVpn ? ['/usr/bin/cat /etc/porelo-host/forge/ca.pem'] : isEmpty,
+            reason: 'an untrusted CA must stop before any host upload',
+          );
           expect(Directory('${scratch.path}/access/demo').existsSync(), isFalse);
-          expect(find.textContaining(outcome == 'ca-missing' ? 'missing' : 'ca_sha256'), findsWidgets);
+          if (newVpn) {
+            expect(vpnCas, [null], reason: 'a mismatched CA must never reach the trust terminal');
+            expect(find.textContaining('Expected SHA-256: ${'0' * 64}'), findsWidgets);
+            expect(find.textContaining('Received SHA-256: $hostMatrixCaSha256'), findsWidgets);
+            expect(settings.hostUp('orchard'), isNull);
+          } else {
+            expect(find.textContaining(outcome == 'ca-missing' ? 'missing' : 'ca_sha256'), findsWidgets);
+          }
           await tester.pumpWidget(const SizedBox.shrink());
           return;
+        }
+        expect(vpnCas, newVpn ? [null, hostMatrixCa] : isEmpty);
+        if (newVpn) {
+          expect(settings.hostUp('orchard')!.vpnPeerAddress, '10.73.7.10/32');
+          expect(settings.hostUp('orchard')!.forgeCa, hostMatrixCa);
         }
         expect(action.state(), WizardActionState.waiting);
         final yaml = loadYaml(File('${home.path}/.local/share/porelo-host/setup/demo/machine.yml').readAsStringSync());

@@ -11,12 +11,15 @@ import '../app/desk.dart';
 import '../app/fleet_backend.dart';
 import '../app/machines.dart';
 import '../app/host_matrix_settings.dart';
+import '../app/join_keys.dart';
+import '../app/own_host_vpn.dart';
 import '../app/project_bring.dart';
 import '../app/run_here.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import '../app/read_public_signing_key.dart';
 import 'tokens.dart';
+import 'own_host_vpn.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
 
@@ -37,6 +40,9 @@ class ProjectBringDialog extends StatefulWidget {
     this.environment,
     this.runScp,
     this.targetBackend,
+    this.store,
+    this.restoreIdentity,
+    this.activateVpn,
     super.key,
   });
 
@@ -79,6 +85,15 @@ class ProjectBringDialog extends StatefulWidget {
   /// Replaces the post-bring daemon check in widget tests.
   final FleetBackend? targetBackend;
 
+  /// The laptop keys' system store; replaced only in tests.
+  final SecretStore? store;
+
+  /// Restores the copied keys' own runtime identity; replaced only in tests.
+  final Future<String> Function(String)? restoreIdentity;
+
+  /// The shared VPN terminal boundary; replaced only in tests.
+  final ActivateOwnHostVpn? activateVpn;
+
   @override
   State<ProjectBringDialog> createState() => _ProjectBringDialogState();
 }
@@ -89,7 +104,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   final _values = TextEditingController();
   final _account = TextEditingController();
   late final _identity = TextEditingController(text: '${desk.home}/.ssh/id_ed25519');
-  late final _inputs = Listenable.merge([_signingKey, _secretsFile, _values, _account, _identity]);
+  final _vpnAddress = TextEditingController();
+  late final _inputs = Listenable.merge([_signingKey, _secretsFile, _values, _account, _identity, _vpnAddress]);
   ProjectBring? _bring;
   SecretStore? _store;
   String? _problem;
@@ -100,6 +116,14 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       return PreparedHost.read(jsonDecode(_values.text));
     } on FormatException {
       throw const FormatException('Paste the complete public host values from the host admin as a JSON object.');
+    }
+  }
+
+  HostUpRecord? get _record {
+    try {
+      return widget.settings.hostUp(_host().values['homeserver']!.split('.')[1]);
+    } on FormatException {
+      return null;
     }
   }
 
@@ -128,8 +152,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   void dispose() {
     _bring?.removeListener(_changed);
     _bring?.dispose();
-    unawaited(_store?.close());
-    for (final controller in [_signingKey, _secretsFile, _values, _account, _identity]) {
+    if (widget.store == null) unawaited(_store?.close());
+    for (final controller in [_signingKey, _secretsFile, _values, _account, _identity, _vpnAddress]) {
       controller.dispose();
     }
     super.dispose();
@@ -144,13 +168,21 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     try {
       final host = _host();
       checkAdminName(_account.text.trim());
-      final identity = desk.expandHome(_identity.text.trim());
+      final hostName = host.values['homeserver']!.split('.')[1];
+      final needsVpn = _record == null;
+      if (_account.text.trim() == 'root') throw const FormatException('Use your admitted own account for this host.');
+      if (needsVpn) checkBringVpnAddress(_vpnAddress.text.trim(), host.network);
+      if (needsVpn || widget.hostFiles == null) _store ??= widget.store ?? SecretStore.forThisSystem();
+      final keys = needsVpn ? JoinKeys(_store!) : null;
+      final identity = needsVpn
+          ? await (widget.restoreIdentity?.call(hostName) ?? keys!.identity(hostName, environment: widget.environment))
+          : desk.expandHome(_identity.text.trim());
       if (_account.text.trim() == 'root' ||
           !path.isAbsolute(identity) ||
           FileSystemEntity.typeSync(identity, followLinks: false) != FileSystemEntityType.file) {
         throw const FormatException('Choose your own host account and a plain SSH identity file.');
       }
-      final hostName = host.values['homeserver']!.split('.')[1];
+      if (needsVpn) _identity.text = identity;
       final machine = Machine(
         name: '${_account.text.trim()}@${host.vpnAddress}',
         socketPath: '',
@@ -160,7 +192,9 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         hostProject: hostName,
       );
       final knownHosts = '${poreloHostKnownHosts(environment: widget.environment)}.$hostName';
-      if (widget.hostFiles == null) _store ??= SecretStore.forThisSystem();
+      final remote =
+          widget.remote ??
+          OpenSsh(knownHosts: File(knownHosts), identity: machine.identity, start: widget.startSsh, run: widget.runScp);
       _bring?.removeListener(_changed);
       _bring?.dispose();
       _bring = ProjectBring(
@@ -172,16 +206,33 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
         knownHosts: knownHosts,
         secretsFile: desk.expandHome(_secretsFile.text.trim()),
         signingKey: File(desk.expandHome(_signingKey.text.trim())),
-        forgeCa: widget.settings.hostUp(host.values['homeserver']!.split('.')[1])?.forgeCa,
+        forgeCa: _record?.forgeCa,
+        connectVpn: needsVpn
+            ? () async => connectOwnHostVpn(
+                host: host,
+                account: _account.text.trim(),
+                keys: await keys!.publicKeys(hostName),
+                address: _vpnAddress.text.trim(),
+                settings: widget.settings,
+                activate:
+                    widget.activateVpn ??
+                    (host, keys, address, ca) => openOwnHostVpn(
+                      context,
+                      host: host,
+                      keys: keys,
+                      address: address,
+                      ca: ca,
+                      settings: widget.settings,
+                      store: _store!,
+                      environment: widget.environment,
+                      openTerminal: widget.openTerminal,
+                    ),
+                fetchCa: () =>
+                    fetchOwnHostCa(host: host, account: _account.text.trim(), knownHosts: knownHosts, remote: remote),
+              )
+            : null,
         accessRoot: widget.accessRoot ?? '${desk.data}/access',
-        remote:
-            widget.remote ??
-            OpenSsh(
-              knownHosts: File(knownHosts),
-              identity: machine.identity,
-              start: widget.startSsh,
-              run: widget.runScp,
-            ),
+        remote: remote,
         files: widget.hostFiles ?? HostFiles(_store!),
         runGit: widget.runGit,
       )..addListener(_changed);
@@ -190,6 +241,8 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       await _confirmedBring();
     } on FormatException catch (error) {
       if (mounted) setState(() => _problem = error.message);
+    } on WorkspaceRefused catch (error) {
+      if (mounted) setState(() => _problem = error.words);
     } on Exception {
       if (mounted) setState(() => _problem = 'The bring could not start. Check the public host values and file paths.');
     }
@@ -283,30 +336,48 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       ),
       WizardStep(
         title: 'The server',
-        words: 'Paste the JSON the host admin copies from For the project admins. Give your admitted account name and your own SSH identity file. The connection uses the host’s VPN address and supplied SSH host key.',
+        words: 'Paste the JSON the host admin copies from For the project admins. Give your admitted account name. A new connection uses the keys Copy my public keys for a host… made on this machine; an existing connection uses your own SSH identity file.',
         panel: (_) => Column(
           mainAxisSize: MainAxisSize.min,
           spacing: Space.small,
           children: [
             _field(_account, 'Your admitted account name on the host', 'bring-account'),
-            _field(_identity, 'Your SSH identity file', 'bring-identity'),
+            if (_record != null) _field(_identity, 'Your SSH identity file', 'bring-identity'),
             _field(_values, 'Public host values (JSON)', 'bring-host-values', maxLines: null),
           ],
         ),
         check: () => _check(() {
           _host();
           checkAdminName(_account.text.trim());
-          final identity = desk.expandHome(_identity.text.trim());
-          if (_account.text.trim() == 'root' ||
-              !path.isAbsolute(identity) ||
-              FileSystemEntity.typeSync(identity, followLinks: false) != FileSystemEntityType.file) {
-            throw const FormatException('Choose your own host account and a plain SSH identity file.');
+          if (_account.text.trim() == 'root') {
+            throw const FormatException('Use your admitted own account for this host.');
+          }
+          if (_record != null) {
+            final identity = desk.expandHome(_identity.text.trim());
+            if (!path.isAbsolute(identity) ||
+                FileSystemEntity.typeSync(identity, followLinks: false) != FileSystemEntityType.file) {
+              throw const FormatException('Choose your own host account and a plain SSH identity file.');
+            }
           }
         }),
         summary: () => [
           'Your account: ${_account.text}',
-          'SSH identity: ${_identity.text}',
+          _record == null ? 'Use this machine’s copied host keys.' : 'SSH identity: ${_identity.text}',
           'Your pinned SSH host key and own identity; no sudo.',
+        ],
+      ),
+      WizardStep(
+        title: 'This machine’s VPN',
+        words: 'For a new host, enter the VPN address assigned to this machine, such as 10.73.<network>.<peer>. It must differ from the host’s .1 and the host admin’s .2. Copy this machine’s public keys for the host and have them admitted first. After you start, connect in the sudo terminal, then trust the CA only after its fingerprint matches.',
+        panel: (_) => _record == null
+            ? _field(_vpnAddress, 'This machine’s address on the host VPN', 'bring-vpn-address')
+            : const Text('This host is already recorded. Keep its VPN up to bring the project.'),
+        check: () => _check(() {
+          final host = _host();
+          if (_record == null) checkBringVpnAddress(_vpnAddress.text.trim(), host.network);
+        }),
+        summary: () => [
+          _record == null ? 'This machine’s VPN address: ${_vpnAddress.text}' : 'Use the recorded host’s VPN and CA.',
         ],
       ),
       WizardStep(

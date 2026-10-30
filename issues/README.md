@@ -38,6 +38,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
+| <a id="f232"></a>[F232](F232-The-Project-Admins-Own-VPN-For-A-Bring.md) | S | [F213](README.md#f213), [F216](README.md#f216) | The bring on a project admin's own machine brings its VPN to the host up from the pasted values, its address and its copied keys, and trusts the host's CA by `ca_sha256` before it brings. |
 
 ### Backlog
 

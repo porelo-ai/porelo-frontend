@@ -12,6 +12,7 @@ import 'bring_project_file.dart';
 import 'fleet_backend.dart';
 import 'join_keys.dart';
 import 'machines.dart';
+import 'own_host_vpn.dart';
 import 'project_bring.dart';
 import 'read_public_signing_key.dart';
 import 'run_here.dart';
@@ -161,7 +162,7 @@ class ProjectJoin extends ChangeNotifier {
       }
       final knownHosts = '${poreloHostKnownHosts(environment: environment)}.${checked.hostName}';
       final remote = _remote(knownHosts, laptop.identity);
-      await _trust(knownHosts, checked.host.vpnAddress, checked.host.values['ssh_host_key']!);
+      await pinOwnHostKey(knownHosts, checked.host);
       final uids = <String>[];
       final uidResult = await remote.run(checked.host.vpnAddress, laptop.account, '/usr/bin/id -u', onLine: uids.add);
       final uid = uids.length == 1 && RegExp(r'^[1-9][0-9]*$').hasMatch(uids.single) ? int.tryParse(uids.single) : null;
@@ -378,27 +379,6 @@ class ProjectJoin extends ChangeNotifier {
 
   Remote _remote(String knownHosts, String identity) =>
       remoteFor?.call(knownHosts, identity) ?? OpenSsh(knownHosts: File(knownHosts), identity: identity);
-
-  Future<void> _trust(String file, String address, String key) async {
-    final destination = File(file);
-    await privateDirectory(destination.parent);
-    final type = await FileSystemEntity.type(file, followLinks: false);
-    if (type != FileSystemEntityType.file && type != FileSystemEntityType.notFound) {
-      throw const WorkspaceRefused('The host’s known_hosts must be a plain file, without links.');
-    }
-    final staging = await HostFileWriter().createPrivateTemporary(destination.parent);
-    try {
-      final prepared = File(path.join(staging.path, 'known_hosts'));
-      final contents = '$address ${key.split(' ').take(2).join(' ')}\n';
-      await HostFileWriter().write(prepared, utf8.encode(contents));
-      await prepared.rename(file);
-      if (await destination.readAsString() != contents) {
-        throw const WorkspaceRefused('The host’s pinned SSH key was not kept.');
-      }
-    } finally {
-      await staging.delete(recursive: true);
-    }
-  }
 
   Future<Ran> _git(List<String> args, [String? directory]) async {
     try {

@@ -31,6 +31,7 @@ class ProjectBring extends ChangeNotifier {
     required this.remote,
     required this.files,
     this.forgeCa,
+    this.connectVpn,
     this.runGit,
     this.joining = false,
   });
@@ -61,6 +62,9 @@ class ProjectBring extends ChangeNotifier {
 
   /// The public CA retained for this host alone, checked against its advertised digest.
   final String? forgeCa;
+
+  /// Connects and checks this laptop's host only when it has no retained CA.
+  final Future<String> Function()? connectVpn;
 
   /// The private access checkout root on this desktop.
   final String accessRoot;
@@ -127,7 +131,6 @@ class ProjectBring extends ChangeNotifier {
     try {
       HostFiles.checkProjectName(project);
       SecretsFile.checkPath(secretsFile);
-      checkHostMatrixCa(host, forgeCa);
       final login = RegExp(r'^([A-Za-z_][A-Za-z0-9_-]*)@([A-Za-z0-9][A-Za-z0-9.:-]*)$').firstMatch(machine.host);
       if (login == null || login[1] == 'root' || !path.isAbsolute(machine.identity) || !path.isAbsolute(knownHosts)) {
         throw const WorkspaceRefused(
@@ -142,6 +145,8 @@ class ProjectBring extends ChangeNotifier {
       if (FileSystemEntity.typeSync(machine.identity, followLinks: false) != FileSystemEntityType.file) {
         throw const WorkspaceRefused('Choose your own plain SSH identity file for the host account.');
       }
+      final ca = forgeCa ?? await connectVpn?.call();
+      checkHostMatrixCa(host, ca);
       if (remote case final OpenSsh ssh) {
         if (ssh.knownHosts.path != knownHosts ||
             ssh.identity != machine.identity ||
@@ -177,7 +182,7 @@ class ProjectBring extends ChangeNotifier {
         run: runGit,
       );
       await access.open();
-      await access.writeHost(host, forgeCa);
+      await access.writeHost(host, ca);
       scratch = await HostFileWriter().createPrivateTemporary(Directory.systemTemp);
       final accessBundle = path.join(scratch.path, HostFiles.accessBundleFileName);
       await access.commitPushAndBundle(accessBundle);

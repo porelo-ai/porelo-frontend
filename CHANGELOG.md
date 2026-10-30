@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Project admins can bring from a machine with no local host record using their copied host keys and
+  assigned VPN address. The bring fetches the CA through pinned own-account SSH over the VPN, refuses
+  a fingerprint mismatch before installing trust or recording the host, and shares VPN setup with joins.
+
 - Project admins can maintain developers and their public laptop keys in project settings. Changes preserve
   access-file comments, use the person's configured Git signing and credentials, and apply through the admin's
   host sync. GitHub access uses read-only collaborator invitations and revocation; host and forge answers stay
