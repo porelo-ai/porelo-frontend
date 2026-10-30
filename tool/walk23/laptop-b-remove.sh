@@ -27,8 +27,12 @@ if [ ! -f "$state/complete" ]; then
 fi
 developer=$(cat "$state/developer")
 [[ $developer =~ ^[a-z][a-z0-9-]{0,30}$ ]] || refuse "the record names no plain account"
-made=no
-[ "$(cat "$state/account-was-here")" = yes ] || made=yes
+was_here=$(cat "$state/account-was-here")
+case $was_here in
+yes) made=no ;;
+no) made=yes ;;
+*) refuse "the record does not say whether $developer was here before the walk" ;;
+esac
 # An account the walk made loses its processes below, so nothing this runs from may belong to it, however root was
 # reached. An account that was here before is kept with its processes, and may run this itself.
 uid=$(id -u "$developer" 2>/dev/null || true)
@@ -65,32 +69,7 @@ else
     echo "ok: those lines are gone; every other line stays"
 fi
 
-step b-remove.4 "the account $developer as it was before the walk"
-if [ "$(cat "$state/account-was-here")" = yes ] && ! id "$developer" >/dev/null 2>&1; then
-    echo "ok: $developer was here before the walk and is gone now; nothing to restore"
-elif [ "$(cat "$state/account-was-here")" = yes ]; then
-    if [ "$(cat "$state/had-sudo-before")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
-        echo "taking $developer out of the sudo group, as before the walk"
-        gpasswd -d "$developer" sudo
-    fi
-    echo "ok: $developer was here before the walk; kept"
-elif id "$developer" >/dev/null 2>&1; then
-    echo "ending $developer's processes and removing the account with its home"
-    pkill -KILL -U "$developer" || true
-    pkill -KILL -u "$developer" || true
-    left() { pgrep -U "$developer" >/dev/null || pgrep -u "$developer" >/dev/null; }
-    for _ in $(seq 20); do
-        left || break
-        sleep 0.5
-    done
-    left && refuse "$developer's processes do not end; log it out and run this again"
-    userdel --remove "$developer"
-    echo "ok: $developer removed"
-else
-    echo "ok: $developer is gone already"
-fi
-
-step b-remove.5 "porelo as before the walk"
+step b-remove.4 "porelo as before the walk"
 before=$(cat "$state/porelo-version")
 status=$(dpkg-query -W -f='${db:Status-Status}' porelo 2>/dev/null || true)
 case $status in
@@ -113,6 +92,31 @@ else
     [ "$(dpkg-query -W -f='${db:Status-Status} ${Version}' porelo 2>/dev/null || true)" = "installed $before" ] ||
         refuse "porelo $before did not install; the copy stays in $state/porelo-before.deb"
     echo "ok: porelo $before, as before"
+fi
+
+step b-remove.5 "the account $developer as it was before the walk"
+if [ "$was_here" = yes ] && ! id "$developer" >/dev/null 2>&1; then
+    echo "ok: $developer was here before the walk and is gone now; nothing to restore"
+elif [ "$was_here" = yes ]; then
+    if [ "$(cat "$state/had-sudo-before")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
+        echo "taking $developer out of the sudo group, as before the walk"
+        gpasswd -d "$developer" sudo
+    fi
+    echo "ok: $developer was here before the walk; kept"
+elif id "$developer" >/dev/null 2>&1; then
+    echo "ending $developer's processes and removing the account with its home"
+    pkill -KILL -U "$developer" || true
+    pkill -KILL -u "$developer" || true
+    left() { pgrep -U "$developer" >/dev/null || pgrep -u "$developer" >/dev/null; }
+    for _ in $(seq 20); do
+        left || break
+        sleep 0.5
+    done
+    left && refuse "$developer's processes do not end; log it out and run this again"
+    userdel --remove "$developer"
+    echo "ok: $developer removed"
+else
+    echo "ok: $developer is gone already"
 fi
 
 rm -rf -- "$state"
