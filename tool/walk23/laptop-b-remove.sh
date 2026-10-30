@@ -56,7 +56,9 @@ else
 fi
 
 step b-remove.4 "the account $developer as it was before the walk"
-if [ "$(cat "$state/account-was-here")" = yes ]; then
+if [ "$(cat "$state/account-was-here")" = yes ] && ! id "$developer" > /dev/null 2>&1; then
+    echo "ok: $developer was here before the walk and is gone now; nothing to restore"
+elif [ "$(cat "$state/account-was-here")" = yes ]; then
     if [ "$(cat "$state/had-sudo-before")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
         echo "taking $developer out of the sudo group, as before the walk"
         gpasswd -d "$developer" sudo
