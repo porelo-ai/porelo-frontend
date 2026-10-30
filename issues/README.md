@@ -67,6 +67,18 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
+| <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
+| <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: vault share | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |
+| <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | [F269](README.md#f269), [F270](README.md#f270); porelo-host: registry intake | A server's card filed and deleted; project admins admitted, locked and removed from the registry. |
+| <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | *Register the project* at one click; developers added and removed by a pick from the registry. |
+| <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | S | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
+| <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | S | [F270](README.md#f270); porelo-host: person-started push and pull | The central push and pull started by a person, their token through the tunnel. |
+| <a id="f275"></a>[F275](F275-The-Sign-In-Says-Its-Flow.md) | XS | porelo: `login.flow` in the agent API | The sign-in terminal says whether to paste a code or confirm on the device page. |
+| <a id="f276"></a>[F276](F276-The-VPN-The-CA-And-Per-Machine-Keys-Taken-Out.md) | M | [F270](README.md#f270), [F271](README.md#f271), [F272](README.md#f272), [F273](README.md#f273) | The VPN, the CA, the stops, per-machine keys and the project signing key taken out. |
+| <a id="f277"></a>[F277](F277-Commits-Signed-With-The-Persons-Key.md) | S | porelo: signers with `cert-authority` and `valid-before` | Commits signed with the person's key through the agent, verified by the signers Core names. |
+| <a id="f278"></a>[F278](F278-The-Hosts-Projects-And-Forges-Pages.md) | M | the operator's talk on the layout | Placeholder: the Hosts, Projects and Forges pages as agreed in the talk. |
+| <a id="f279"></a>[F279](F279-The-Walk-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One walk of the one-click flow from first start to first work. |
 | <a id="f244"></a>[F244](F244-A-Bring-Reads-A-Private-Repository-With-The-Follows-Credential.md) | S | — | The bring's bundle clone reads a private repository with the vault entry the follow uses, through Core's credential helper. |
 | <a id="f245"></a>[F245](F245-The-Forge-Password-Kept-Only-Once-The-Forge-Took-It.md) | S | — | The lasting forge password checked for the forge's length, kept only after the forge set it, a refusal said in the forge's words. |
 | <a id="f246"></a>[F246](F246-The-Host-Collection-Where-Every-Account-Finds-It.md) | S | — | `up` installs the host collection read-only where every account finds it, so own-account bring and join run the version `up` ran. |
@@ -75,7 +87,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f251"></a>[F251](F251-Firefox-Reads-The-Policy-The-VPN-Wrote.md) | XS | — | The VPN leaves `/etc/firefox` and its policy readable, so Firefox trusts the server's CA without a hand import. |
 | <a id="f252"></a>[F252](F252-A-Published-Access-Change-Reaches-The-Host.md) | S | — | A published developer access change is uploaded to the host before its sync. |
 | <a id="f253"></a>[F253](F253-The-Hosts-Sync-Answer-Read-As-Written.md) | XS | — | The host's sync answer read with `unchanged` as the boolean the host writes. |
-| <a id="f254"></a>[F254](F254-A-Laptop-Address-The-Host-Does-Not-Use.md) | S | — | The proposed laptop VPN address skips every address the host's tunnel uses. |
 | <a id="f257"></a>[F257](F257-Follow-It-Never-Ends-Without-An-Answer.md) | S | — | *Follow it* ends in a followed project or a refusal in words; a public repository needs no credential. |
 | <a id="f259"></a>[F259](F259-A-Grant-To-Someone-Who-Already-Reads.md) | XS | — | A developer who already reads the access repository is not granted again. |
 | <a id="f260"></a>[F260](F260-The-Join-Log-Without-Ansibles-Noise.md) | XS | — | The join's log without Ansible's localhost warnings and the "no provider" note. |
@@ -93,19 +104,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f234"></a>[F234](F234-No-Back-Once-The-Server-Is-Being-Prepared.md) | — | — | No *Back* in *Prepare a server…* once *Prepare the server* has started. |
 | <a id="f235"></a>[F235](F235-Leaving-The-Server-Wizard-While-Machines-Shows-It.md) | — | — | *Finish* usable in *Prepare a server…* once the server is being prepared, closing at once to *Machines*; *Leave* the same. |
 | <a id="f236"></a>[F236](F236-Root-Reached-On-A-Rented-Server.md) | — | — | Root allowed in the rental's cloud-config; a "Please login as" answer refused at once, naming the user. |
-| <a id="f237"></a>[F237](F237-A-Kept-CA-For-Another-Network-Said-Before-Renting.md) | — | — | A kept CA for another network said in the wizard before renting, with a way on; the stop's refusal said once, not as code 64. |
 | <a id="f238"></a>[F238](F238-A-Server-With-No-Project-Is-Not-Silent.md) | — | — | A server prepared with no project not raised as *Not answering*; its row says "No project yet". |
 | <a id="f240"></a>[F240](F240-The-Walk-Hand-Over-Carries-Porelo-Host.md) | — | — | The walk hand-over ships `porelo-host` and the start script points the interface at it; a missing local program said without the container sentence. |
 | <a id="f241"></a>[F241](F241-A-Project-Followed-From-A-Connected-Forge.md) | — | — | *Follow a project* from a connected forge: its repositories searchable, name and signers from `project.yml`, the kept token piped into the machine's vault. |
 | <a id="f242"></a>[F242](F242-A-File-Chooser-Beside-Every-Path-Field.md) | — | — | A *Choose…* button and the known default beside every path field of the wizards: bring, join, Developers and *Prepare a server…*. |
 | <a id="f267"></a>[F267](F267-A-Project-Taken-Off-From-Its-Own-Menu.md) | — | — | The project's own *Take this project off the server* for the host admin too. |
 | <a id="f239"></a>[F239](F239-Known-Values-Offered-In-The-Wizards.md) | — | — | Known values offered in the wizards: followed projects, admitted admins, the pinned signer, a laptop line from the copied keys with the next free address. |
-| <a id="f243"></a>[F243](F243-One-Sudo-Prompt-To-Connect-And-Trust-A-Host.md) | — | — | One sudo prompt to connect a host's VPN, fetch its CA, check it against `ca_sha256` and trust it, or change nothing. |
 | <a id="f247"></a>[F247](F247-The-Bring-And-Join-Log-Copied-At-One-Click.md) | — | — | A *Copy* button beside the bring's and the join's last lines. |
-| <a id="f249"></a>[F249](F249-The-Restored-Identity-Filled-On-A-Recorded-Host.md) | — | — | The restored identity filled in on a recorded host; a public key file refused in the identity field. |
-| <a id="f255"></a>[F255](F255-A-Laptop-Refusal-Shown-In-The-Dialog.md) | — | — | *Keep laptop and add another* shows its refusal in the dialog, not behind it. |
-| <a id="f256"></a>[F256](F256-Another-Machine-Of-The-Same-Developer-Added-By-Choice.md) | — | [F255](README.md#f255) | The Developers dialog's *Machines* step lists the added machines and offers *Add another machine of this developer* or *Next*. |
-| <a id="f258"></a>[F258](F258-The-Joins-Secrets-File-Prepared-By-The-Dialog.md) | — | — | The join makes or opens the developer's secrets file itself, its master password typed once. |
 | <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | — | — | *Lock* and *Purge* named by what they do, their dialogs saying the difference. |
 | <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | — | — | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
 | <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | — | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
@@ -244,6 +249,13 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | Why |
 |---|---|---|
+| <a id="f258"></a>F258 | The Join's Secrets File Prepared By The Dialog | Replaced by one-click joining from signed state (operator, 2026-10-30): No secrets file is prepared for a join with one-click joining: the join is one click, the vault unlocks by the person's key. |
+| <a id="f256"></a>F256 | Another Machine Of The Same Developer Added By Choice | Replaced by one-click joining from signed state (operator, 2026-10-30): Laptops go with one-click joining: a person reaches the host with their one key from any machine. |
+| <a id="f255"></a>F255 | A Laptop Refusal Shown In The Dialog | Replaced by one-click joining from signed state (operator, 2026-10-30): Laptops and their addresses go with one-click joining; developers are added by a pick from the registry. |
+| <a id="f254"></a>F254 | A Laptop Address The Host Does Not Use | Replaced by one-click joining from signed state (operator, 2026-10-30): No VPN addresses with one-click joining. |
+| <a id="f249"></a>F249 | The Restored Identity Filled On A Recorded Host | Replaced by one-click joining from signed state (operator, 2026-10-30): No identity file is chosen with one-click joining: the person's one key is served by their agent. |
+| <a id="f243"></a>F243 | One Sudo Prompt To Connect And Trust A Host | Replaced by one-click joining from signed state (operator, 2026-10-30): No VPN and no CA with one-click joining: there is no sudo prompt to connect a host. |
+| <a id="f237"></a>F237 | A Kept CA For Another Network Said Before Renting | Replaced by one-click joining from signed state (operator, 2026-10-30): The CA goes with one-click joining; nothing is kept for another network. |
 | <a id="f220"></a>F220 | A Message In Needs You Checks Again Whether It Still Holds | The recheck exists: a machine that does not answer is asked again every 2 s (`FleetModel`'s retry), and the VPN rows by the periodic refresh; no row was seen staying after its cause was gone. |
 | <a id="f139"></a>F139 | OneDrive As The Project's Drive | The host has no drive any more; a user's own drive is [F201](README.md#f201), where OneDrive may come later as an idea of its own. |
 | <a id="f150"></a>F150 | The Person's Tunnel Brought Up From The Interface | Merged into [F157](README.md#f157), which brings the VPN up and down from the interface. |
