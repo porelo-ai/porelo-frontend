@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Existing-server preparation runs the checked collection over pinned, agent-only SSH as root,
+  retains callback refusal words, and saves the dialog's public settings for retry and card publication.
+
 - Host administration retains confirmed card and applied-revision state when replacing stale changes,
   preserves returned-host deletion during publication retries, and migrates older delivery records.
   Preparation reads SSH-only host results on private networks, carries optional forge job limits and

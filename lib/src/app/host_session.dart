@@ -8,10 +8,10 @@ import 'package:porelo_host/porelo_host.dart';
 import 'settings.dart';
 import 'host_protocol.dart';
 
-/// Uses the carried collection in release builds, with explicit overrides only for debug tests.
-List<String> hostArguments(HostUpRecord record, String project, {bool debug = kDebugMode}) => [
+/// Uses the chosen, digest-checked collection when supplied.
+List<String> hostArguments(HostUpRecord record, String project) => [
   ...record.arguments(project),
-  if (debug && record.collection.isNotEmpty && record.collectionSha256.isNotEmpty) ...[
+  if (record.collection.isNotEmpty && record.collectionSha256.isNotEmpty) ...[
     '--collection',
     record.collection,
     '--collection-sha256',

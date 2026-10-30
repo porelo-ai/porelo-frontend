@@ -15,6 +15,7 @@ import '../app/signed_host_actions.dart';
 import 'project_bring_dialog.dart';
 import 'tokens.dart';
 import 'host_preparation_settings.dart';
+import 'pick_a_file.dart';
 
 /// Opens confirmed give-back of the existing rental.
 Future<void> openHostTakeDownDialog(
@@ -93,6 +94,7 @@ class HostDialog extends StatefulWidget {
     this.existingRun,
     this.start,
     this.takeDownOnly = false,
+    this.pickFile = pickWithTheDesktop,
     super.key,
   });
 
@@ -119,12 +121,21 @@ class HostDialog extends StatefulWidget {
 
   /// Whether the dialog confirms give-back.
   final bool takeDownOnly;
+
+  /// The desktop collection picker, replaceable in widget tests.
+  final PickAFile pickFile;
   @override
   State<HostDialog> createState() => _HostDialogState();
 }
 
 class _HostDialogState extends State<HostDialog> {
   HostSession? _down;
+  final _name = TextEditingController();
+  final _address = TextEditingController();
+  final _hostKey = TextEditingController();
+  final _digest = TextEditingController();
+  String? _collection;
+  HostPreparation? _started;
   bool _busy = false;
   bool _givenBack = false;
   String? _problem;
@@ -142,6 +153,51 @@ class _HostDialogState extends State<HostDialog> {
       settings: _settings,
       access: widget.hostAccess ?? widget.hostRuns?.hostAccess,
     );
+  }
+
+  Future<void> _prepare() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      final name = _name.text.trim();
+      final record = HostUpRecord.fromStored(
+        HostUpRecord(
+          hostName: name,
+          host: name,
+          givenAddress: _address.text.trim(),
+          givenHostKey: _hostKey.text.trim(),
+          preparationSettings: _choices,
+          collection: _collection ?? '',
+          collectionSha256: _digest.text.trim(),
+        ).stored,
+      );
+      if (record == null ||
+          record.givenAddress.isEmpty ||
+          record.collection.isEmpty ||
+          record.collectionSha256.isEmpty) {
+        throw const FormatException(
+          'Choose a host name, usable IPv4 address, SSH host key, collection and its published SHA-256.',
+        );
+      }
+      final runs = widget.hostRuns;
+      if (runs == null) throw StateError('The host preparation owner is unavailable.');
+      final session = HostSession(
+        executable: poreloHost(),
+        arguments: hostArguments(record, name),
+        start: widget.start,
+      );
+      _started = runs.start(project: name, record: record, session: session);
+      setState(() {});
+      await _started!.finished;
+      if (mounted) setState(() => _problem = _started!.problem);
+    } on Exception catch (error) {
+      if (mounted) setState(() => _problem = error is FormatException ? error.message : error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _giveBack({bool anyway = false}) async {
@@ -191,16 +247,20 @@ class _HostDialogState extends State<HostDialog> {
   @override
   void dispose() {
     _down?.dispose();
+    for (final field in [_name, _address, _hostKey, _digest]) {
+      field.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final record = _record ?? widget.existingRun?.record;
+    final run = widget.existingRun ?? _started;
+    final record = _record ?? (run == null ? null : _settings.hostUp(run.project)) ?? run?.record;
     final legacy = record?.legacy == true;
     final access = widget.hostAccess ?? widget.hostRuns?.hostAccess;
     return AlertDialog(
-      title: Text(widget.takeDownOnly ? 'Give the server back' : widget.existingRun?.name ?? 'Prepare a server'),
+      title: Text(widget.takeDownOnly ? 'Give the server back' : run?.name ?? 'Prepare a server'),
       content: SizedBox(
         width: Sizes.dialog,
         child: SingleChildScrollView(
@@ -215,9 +275,39 @@ class _HostDialogState extends State<HostDialog> {
                       ? 'Giving this rental back deletes what it holds without running its old backup or teardown. Confirm this only when its contents are no longer needed.'
                       : 'Give this server back only after its data is safe. The provider must confirm its removal.',
                 ),
-              if (!widget.takeDownOnly && widget.existingRun == null)
-                const Text('Verified SSH-only server preparation is not available yet.'),
-              if (!widget.takeDownOnly && widget.existingRun == null && record?.preparedHost == null && !legacy) ...[
+              if (!widget.takeDownOnly && run == null) ...[
+                if (access == null)
+                  const Text('Verified host-admin identity and registry state are unavailable.')
+                else if (access.unavailable() case final reason? when reason != _problem)
+                  Text(reason),
+                for (final field in [
+                  (_name, 'Host name', 'One lower-case server name, such as orchard.'),
+                  (_address, 'Server address', 'The IPv4 address of the existing server.'),
+                  (_hostKey, 'SSH host key', 'The server’s ssh-ed25519 public key, checked separately.'),
+                ])
+                  TextField(
+                    controller: field.$1,
+                    decoration: InputDecoration(labelText: field.$2, helperText: field.$3),
+                  ),
+                OutlinedButton(
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          final selected = await widget.pickFile(title: 'Choose collection');
+                          if (selected != null && mounted) setState(() => _collection = selected);
+                        },
+                  child: const Text('Choose collection'),
+                ),
+                if (_collection != null) Text(_collection!),
+                TextField(
+                  controller: _digest,
+                  decoration: const InputDecoration(
+                    labelText: 'Collection SHA-256',
+                    helperText: 'The digest published with the chosen collection.',
+                  ),
+                ),
+              ],
+              if (!widget.takeDownOnly && run == null && record?.preparedHost == null && !legacy) ...[
                 HostPreparationSettingsForm(
                   value: _choices,
                   onChanged: (value) async {
@@ -248,11 +338,11 @@ class _HostDialogState extends State<HostDialog> {
                   PreparedHostPanel(
                     host: host,
                     published:
-                        jsonEncode(_settings.hostRegistryState(widget.project).publishedCard?.stored) ==
+                        jsonEncode(_settings.hostRegistryState(run?.project ?? widget.project).publishedCard?.stored) ==
                         jsonEncode(host.stored),
                   ),
               if (_givenBack) const Text('The provider confirmed give-back.'),
-              if (widget.existingRun case final run?)
+              if (run != null)
                 ListenableBuilder(listenable: run.session, builder: (_, _) => SelectableText(run.session.protocolText)),
               if (_down case final session?)
                 ListenableBuilder(listenable: session, builder: (_, _) => SelectableText(session.protocolText)),
@@ -262,6 +352,19 @@ class _HostDialogState extends State<HostDialog> {
       ),
       actions: [
         TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Close')),
+        if (!widget.takeDownOnly && run == null)
+          FilledButton(
+            onPressed: _busy || access == null || access.unavailable() != null ? null : _prepare,
+            child: const Text('Prepare the host'),
+          ),
+        if (!widget.takeDownOnly && run != null && !run.ready && !run.running && !run.legacy)
+          FilledButton(
+            onPressed: () async {
+              await widget.hostRuns?.resume(run);
+              if (mounted) setState(() => _problem = run.problem);
+            },
+            child: const Text('Prepare the host again'),
+          ),
         if (widget.takeDownOnly && !_givenBack)
           FilledButton(
             key: const Key('host-confirm-down'),

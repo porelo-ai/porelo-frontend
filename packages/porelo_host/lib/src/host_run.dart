@@ -270,7 +270,8 @@ class HostRun {
   final Map<String, String>? environment;
 
   /// Brings [plan]'s host up; run again after the person has completed the stop on the host.
-  Future<int> up(HostPlan plan) => _withProjectLock(plan, () => _up(plan));
+  Future<int> up(HostPlan plan) =>
+      _withProjectLock(plan, () => _up(plan), forSetup: preparation != null || provider is! GivenMachine);
 
   Future<int> _withProjectLock(HostPlan plan, Future<int> Function() run, {bool forSetup = true}) async {
     final File file;
@@ -312,6 +313,9 @@ class HostRun {
 
   Future<int> _up(HostPlan plan) async {
     final setup = preparation;
+    if (setup == null && provider is GivenMachine && !plan.recoveryOnly && plan.hostName != null) {
+      return _upGiven(plan);
+    }
     if (plan.recoveryOnly || setup == null || plan.hostName == null || plan.adminSigners.isEmpty) {
       _write(
         const Step(
@@ -352,6 +356,104 @@ class HostRun {
         const Step('up', StepState.refused, fix: 'Server preparation could not be confirmed; the rental was kept.'),
       );
       return Exit.refused;
+    }
+  }
+
+  Future<int> _upGiven(HostPlan plan) async {
+    Directory? checkedCollection;
+    _ownSteps = upSteps;
+    _write(Step('plan', StepState.plan, steps: _ownSteps));
+    try {
+      plan.preparationSettings.check();
+      final given = provider as GivenMachine;
+      // Validate the endpoint before it reaches SSH, not only after setup has changed it.
+      PreparedHost.read({
+        'name': plan.hostName,
+        'address': given.address,
+        'ssh_port': 22,
+        'ssh_host_key': given.hostKey,
+        'services': plan.preparationSettings.localServices,
+      });
+      final source =
+          plan.collection ??
+          path.join(File(resolvedExecutable ?? Platform.resolvedExecutable).parent.path, collectionRelease.fileName);
+      final expected = plan.collectionSha256 ?? (plan.collection == null ? collectionRelease.sha256 : '');
+      if (!RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(expected)) {
+        throw const FormatException('The collection needs its expected SHA-256.');
+      }
+      if (FileSystemEntity.typeSync(source, followLinks: false) != FileSystemEntityType.file) {
+        throw const FormatException('The collection must be a regular file.');
+      }
+      final bytes = await File(source).readAsBytes();
+      if (sha256.convert(bytes).toString() != expected.toLowerCase()) {
+        throw const FormatException('The collection is not a regular file with the expected SHA-256.');
+      }
+      checkedCollection = await Directory.systemTemp.createTemp('porelo-collection-');
+      final checkedSource = File(path.join(checkedCollection.path, 'collection.tar.gz'));
+      await checkedSource.writeAsBytes(bytes);
+      final host = await _rented(plan);
+      if (host == null) return Exit.unreachable;
+      final address = host.address!;
+      _write(const Step('copy', StepState.started));
+      var result = await remote.run(
+        address,
+        'root',
+        'work=$_workdir\n'
+            r'''set -e
+refuse_path() {
+  printf 'Expected %s at %s; got: ' "$2" "$1" >&2
+  stat -c '%F owner=%u mode=%a links=%h' -- "$1" >&2
+  exit 1
+}
+if test ! -e "$work" && test ! -L "$work"; then
+  mkdir -m 0700 "$work"
+fi
+test -d "$work" && test ! -L "$work" &&
+  test "$(stat -c '%u:%a' "$work")" = '0:700' ||
+  refuse_path "$work" 'a plain root-owned directory with mode 0700'
+for file in "$work/collection.tar.gz" "$work/inventory.yml"; do
+  test ! -L "$file" || refuse_path "$file" 'a plain root-owned single-link file'
+  if test -e "$file"; then
+    test -f "$file" && test "$(stat -c '%u:%h' "$file")" = '0:1' ||
+      refuse_path "$file" 'a plain root-owned single-link file'
+  fi
+done''',
+      );
+      if (result.exitCode != 0) return _refused('copy', result, 'The host refused the preparation folder.');
+      result = await remote.copy(address, 'root', checkedSource.path, '$_workdir/collection.tar.gz');
+      if (result.exitCode != 0) return _refused('copy', result, 'The collection could not be copied.');
+      result = await remote.run(address, 'root', 'cat > $_workdir/inventory.yml', input: _inventory(plan));
+      if (result.exitCode != 0) return _refused('copy', result, 'The inventory could not be copied.');
+      _write(const Step('copy', StepState.done));
+      _write(const Step('ansible', StepState.started));
+      result = await remote.run(
+        address,
+        'root',
+        "set -e; if command -v cloud-init >/dev/null; then cloud-init status --wait >/dev/null || [ \$? -le 2 ]; fi\n"
+            'DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null\n'
+            'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null\n'
+            'install -d -o root -g root -m 0755 /usr/share/ansible\n'
+            'env LC_ALL=C.UTF-8 LANG=C.UTF-8 ansible-galaxy collection install --force -p $_collections $_workdir/collection.tar.gz >/dev/null',
+      );
+      if (result.exitCode != 0) return _refused('ansible', result, 'Ansible or the collection did not install.');
+      _write(const Step('ansible', StepState.done));
+      final played = await _play(address, plan, 'porelo.host.up');
+      if (played.code != Exit.done) return played.code;
+      final completed = played.host;
+      if (completed == null || completed.sshHostKey != host.hostKey) {
+        throw const FormatException('The host did not confirm completion with its pinned SSH key.');
+      }
+      _write(Step('up', StepState.done, address: address, admin: 'root'));
+      _write(Step('host', StepState.host, host: completed));
+      return Exit.done;
+    } on FormatException catch (error) {
+      _write(Step('up', StepState.refused, fix: error.message));
+      return Exit.refused;
+    } on Exception {
+      _write(const Step('up', StepState.refused, fix: 'Preparation could not be confirmed; the host was kept.'));
+      return Exit.refused;
+    } finally {
+      await checkedCollection?.delete(recursive: true);
     }
   }
 
@@ -524,13 +626,13 @@ class HostRun {
       address,
       plan.loginUser,
       // Through `env`, not `sudo -E`: Ubuntu 26.04's sudo (sudo-rs) ignores -E and says so.
-      'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_collections '
+      '${plan.loginUser == 'root' ? '' : 'sudo '}env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_collections '
       'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i $_workdir/inventory.yml $playbook',
       onLine: (line) {
-        if (hostProblem != null) return;
+        if (hostProblem != null || failed != null || waiting != null) return;
         Step? step;
         try {
-          step = _relayed(line, address, plan.account, plan.loginUser);
+          step = _relayed(line, address, plan.account, plan.loginUser, plan: plan);
         } on FormatException catch (error) {
           refuseHost(error.message);
           return;
@@ -562,7 +664,13 @@ class HostRun {
         }
         lastState = step.state;
         if (step.state == StepState.waiting) {
-          step = const Step('person', StepState.refused, fix: 'The host requested a retired setup stop.');
+          step = Step(
+            step.step,
+            StepState.refused,
+            text: step.text,
+            words: step.words,
+            fix: step.words ?? 'The host requested a retired setup stop.',
+          );
         }
         if (step.state == StepState.waiting) waiting = step;
         if (step.state == StepState.refused) failed = step;
@@ -573,13 +681,14 @@ class HostRun {
     // any failed task, and a failure would otherwise read as somebody being asked for something.
     if (hostProblem != null) return (code: Exit.refused, host: null);
     if (waiting != null) return (code: Exit.waiting, host: null);
+    if (failed != null) return (code: Exit.refused, host: null);
     if (ran.exitCode == 0) return (code: Exit.done, host: host);
     if (failed == null) return (code: _refused('play', ran, 'the play ended with ${ran.exitCode}'), host: null);
     return (code: Exit.refused, host: null);
   }
 
   /// One line of the collection's callback as a step, or null for one that is not its.
-  Step? _relayed(String line, String address, String account, String admin) {
+  Step? _relayed(String line, String address, String account, String admin, {HostPlan? plan}) {
     final Object? decoded;
     try {
       decoded = jsonDecode(line);
@@ -588,7 +697,9 @@ class HostRun {
     }
     if (decoded is! Map<String, Object?> || decoded['v'] != 1 || !validStepFields(decoded)) return null;
     final state = decoded['state'];
-    if (state == 'host') return Step.fromLine(line);
+    if (state == 'host') {
+      return Step.fromLine(line, hostName: plan?.hostName, localServices: plan?.preparationSettings.localServices);
+    }
     if (state == 'plan') {
       final steps = PlannedStep.readMany(decoded['steps']);
       if (steps == null || steps.any((step) => _ownSteps.any((own) => own.task == step.task))) return null;

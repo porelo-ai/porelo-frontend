@@ -43,6 +43,7 @@ class OpenSsh implements Remote {
   OpenSsh({
     required this.knownHosts,
     required this.identity,
+    this.agentOnly = false,
     this.config,
     this.configHost,
     Future<Process> Function(String, List<String>)? start,
@@ -55,6 +56,9 @@ class OpenSsh implements Remote {
 
   /// The `known_hosts` this package writes the provider's key into.
   final File knownHosts;
+
+  /// Whether only keys served by the local agent may authenticate preparation.
+  final bool agentOnly;
 
   /// The verified host-card configuration, when supplied.
   final String? config;
@@ -73,7 +77,17 @@ class OpenSsh implements Remote {
 
   List<String> _options(String host, String user) => <String>[
     ...pinnedHostSshOptions(knownHosts.path, identity),
-    if (config case final file?) ...['-F', file],
+    if (agentOnly) ...[
+      '-F',
+      '/dev/null',
+      '-o',
+      'IdentityFile=none',
+      '-o',
+      'PreferredAuthentications=publickey',
+    ] else if (config case final file?) ...[
+      '-F',
+      file,
+    ],
     '-o',
     'HostName=$host',
     '-o',
@@ -107,6 +121,16 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
+    if (agentOnly) {
+      final process = await _start('ssh', [..._options(host, user), '$user@$host', 'cat > ${quoteForAShell(to)}']);
+      final out = process.stdout.drain<void>();
+      final err = process.stderr.transform(utf8.decoder).join();
+      await process.stdin.addStream(File(from).openRead());
+      await process.stdin.close();
+      final code = await process.exitCode;
+      await out;
+      return RemoteResult(code, await err);
+    }
     final done = await _runProcess('scp', <String>[
       ..._options(host, user),
       '-q',

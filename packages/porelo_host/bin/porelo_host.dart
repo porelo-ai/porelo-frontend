@@ -18,7 +18,7 @@ porelo-host key check scaleway
 porelo-host --version
 porelo-host --collection-info
 
-  up      refuses until the verified Core and SSH-only preparation adapters are served
+  up      prepares an existing --given host as root using the local SSH agent; renting remains refused
   down    gives back the tagged rental after its down play; a failed play keeps the host
           legacy rentals require explicit loss confirmation and run no retired teardown
   find    names the server rented for the project now, as one JSON line with its id, address and
@@ -39,7 +39,7 @@ Exit: 0 done, 64 usage, 65 refused, 69 unreachable, 70 an unforeseen fault, 75 w
 // the program open for its idle time otherwise.
 Future<void> main(List<String> arguments) async {
   try {
-    final code = await _run(arguments);
+    final code = await runHostCommand(arguments);
     await stdout.flush();
     await stderr.flush();
     exit(code);
@@ -53,13 +53,22 @@ Future<void> main(List<String> arguments) async {
 /// The version this command was built as, given by `dart compile exe -Dporelo_host.version=…`.
 const _version = String.fromEnvironment('porelo_host.version', defaultValue: 'unreleased');
 
-Future<int> _run(List<String> arguments) async {
+/// Runs a host command with replaceable SSH and output for contract tests.
+Future<int> runHostCommand(
+  List<String> arguments, {
+  Remote? remote,
+  StringSink? output,
+  StringSink? errors,
+  Map<String, String>? environment,
+}) async {
+  final out = output ?? stdout;
+  final err = errors ?? stderr;
   if (arguments.length == 1 && arguments.first == '--collection-info') {
-    stdout.writeln('${hostCollection.version} ${hostCollection.sha256} ${hostCollection.fileName}');
+    out.writeln('${hostCollection.version} ${hostCollection.sha256} ${hostCollection.fileName}');
     return Exit.done;
   }
   if (arguments.length == 1 && arguments.first == '--version') {
-    stdout.writeln(_version);
+    out.writeln(_version);
     return Exit.done;
   }
   if (arguments.isNotEmpty && arguments.first == 'key') return runKeyCommand(arguments.sublist(1));
@@ -107,21 +116,21 @@ Future<int> _run(List<String> arguments) async {
     }
   }
   if (options.containsKey('machine-file') != options.containsKey('bundle')) {
-    stderr.writeln('porelo-host: --machine-file needs --bundle and vice versa');
+    err.writeln('porelo-host: --machine-file needs --bundle and vice versa');
     return Exit.refused;
   }
   if (options.containsKey('collection') != options.containsKey('collection-sha256')) {
-    stderr.writeln('porelo-host: --collection needs --collection-sha256 and vice versa');
+    err.writeln('porelo-host: --collection needs --collection-sha256 and vice versa');
     return Exit.refused;
   }
   if (options['collection-sha256'] case final String digest when !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(digest)) {
-    stderr.writeln('porelo-host: --collection-sha256 must contain 64 hexadecimal digits');
+    err.writeln('porelo-host: --collection-sha256 must contain 64 hexadecimal digits');
     return Exit.refused;
   }
   final serverOnly = options.containsKey('host-name');
   final needed = <String>[
     if (serverOnly) 'host-name' else ...['project', 'account'],
-    if (!legacyRental && verb == 'up') 'public-key',
+    if (!legacyRental && verb == 'up' && !options.containsKey('given')) 'public-key',
   ];
   if (serverOnly &&
       (options.containsKey('project') || options.containsKey('account') || options.containsKey('machine-file'))) {
@@ -138,8 +147,21 @@ Future<int> _run(List<String> arguments) async {
   if (options['offer'] case final String offer when given || !RegExp(r'^[A-Z0-9][A-Z0-9-]*$').hasMatch(offer)) {
     return _wrong('--offer takes an Elastic Metal offer name such as EM-I220E-NVME, with --scaleway-project');
   }
-  if (verb == 'up') {
-    stderr.writeln('Verified SSH-only preparation requires the served Core and host setup contracts.');
+  if (verb == 'up' && (!given || !serverOnly)) {
+    err.writeln('Verified SSH-only preparation requires the served Core and host setup contracts.');
+    return Exit.refused;
+  }
+  final HostPreparationSettings choices;
+  try {
+    choices = HostPreparationSettings.fromArguments([
+      for (final entry in options.entries) ...['--${entry.key}', entry.value],
+    ]);
+  } on FormatException catch (error) {
+    writeHostStep(
+      Step('up', StepState.refused, fix: error.message),
+      output: out,
+      errors: err,
+    );
     return Exit.refused;
   }
   final plan = HostPlan(
@@ -149,7 +171,8 @@ Future<int> _run(List<String> arguments) async {
     recoveryOnly: legacyRental,
     existingRentalTag: options['rental-tag'],
     forge: options['forge'] != 'false',
-    publicKey: '',
+    publicKey: options['public-key'] ?? '',
+    preparationSettings: choices,
     collection: options['collection'],
     collectionSha256: options['collection-sha256'],
     loginUser: options['login-user'] ?? (serverOnly ? 'root' : 'ubuntu'),
@@ -160,12 +183,15 @@ Future<int> _run(List<String> arguments) async {
   final String? config;
   try {
     plan.check(forSetup: false);
-    config = serverOnly && !legacyRental && !giveBackAnyway ? poreloHostSshConfig(plan.hostName!) : null;
+    if (verb == 'up') plan.preparationSettings.check();
+    config = verb == 'down' && serverOnly && !legacyRental && !giveBackAnyway
+        ? poreloHostSshConfig(plan.hostName!)
+        : null;
   } on FormatException catch (error) {
     writeHostStep(
       Step('give-back', StepState.refused, fix: error.message),
-      output: stdout,
-      errors: stderr,
+      output: out,
+      errors: err,
     );
     return Exit.refused;
   }
@@ -181,14 +207,16 @@ Future<int> _run(List<String> arguments) async {
   final ssh = OpenSsh(
     knownHosts: File(poreloHostKnownHosts()),
     identity: '',
+    agentOnly: verb == 'up',
     config: config,
     configHost: config == null ? null : plan.hostName,
   );
   final run = HostRun(
     provider: provider,
-    remote: ssh,
-    trust: ssh.trust,
-    emit: (step) => writeHostStep(step, output: stdout, errors: stderr),
+    remote: remote ?? ssh,
+    trust: remote == null ? ssh.trust : null,
+    environment: environment,
+    emit: (step) => writeHostStep(step, output: out, errors: err),
   );
   return verb == 'up' ? run.up(plan) : run.down(plan, giveBackAnyway: giveBackAnyway);
 }

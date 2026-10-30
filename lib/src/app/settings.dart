@@ -30,7 +30,9 @@ bool _sameStored(Object? left, Object? right) {
 class HostUpRecord {
   /// Keeps public setup references; legacy records can only recover the rental.
   const HostUpRecord({
-    required this.scalewayProject,
+    this.scalewayProject = '',
+    this.givenAddress = '',
+    this.givenHostKey = '',
     this.host,
     this.hostName = '',
     this.account = '',
@@ -53,6 +55,12 @@ class HostUpRecord {
 
   /// The provider project that owns the billed server.
   final String scalewayProject;
+
+  /// The existing server's address, empty for provider rentals.
+  final String givenAddress;
+
+  /// The existing server's independently supplied SSH host key.
+  final String givenHostKey;
 
   /// The settings key, including migrated project-mode rentals.
   final String? host;
@@ -140,6 +148,8 @@ class HostUpRecord {
     String? rentalTag,
   }) => HostUpRecord(
     scalewayProject: scalewayProject,
+    givenAddress: givenAddress,
+    givenHostKey: givenHostKey,
     host: host ?? this.host,
     hostName: hostName,
     account: account,
@@ -164,7 +174,12 @@ class HostUpRecord {
   static HostUpRecord? fromStored(Object? value) {
     if (value is! Map) return null;
     final provider = value['scalewayProject'];
-    if (provider is! String || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(provider)) return null;
+    final givenAddress = value['givenAddress'] ?? '';
+    final givenHostKey = value['givenHostKey'] ?? '';
+    if (givenAddress is! String || givenHostKey is! String || provider is! String) return null;
+    final given = givenAddress.isNotEmpty;
+    if (given ? provider.isNotEmpty : !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(provider)) return null;
+    if (!given && givenHostKey.isNotEmpty) return null;
     final tag = value['rentalTag'];
     if (tag != null) {
       if (tag is! String) return null;
@@ -200,6 +215,7 @@ class HostUpRecord {
     final start = value['startedAt'];
     final instant = start is String ? DateTime.tryParse(start) : null;
     final startedAt = instant?.isUtc == true ? instant : null;
+    if (legacy && given) return null;
     if (legacy) {
       return HostUpRecord(
         scalewayProject: provider,
@@ -219,7 +235,7 @@ class HostUpRecord {
     final digest = value['collectionSha256'] ?? '';
     if (name.isEmpty ||
         publicKey is! String ||
-        publicKey.isEmpty ||
+        !given && publicKey.isEmpty ||
         RegExp(r'[\x00\r\n]').hasMatch(publicKey) ||
         forge is! bool ||
         collection is! String ||
@@ -233,6 +249,15 @@ class HostUpRecord {
     HostPreparationSettings choices;
     try {
       choices = HostPreparationSettings.read(value['preparationSettings'] ?? <String, Object?>{});
+      if (given) {
+        PreparedHost.read({
+          'name': name,
+          'address': givenAddress,
+          'ssh_port': 22,
+          'ssh_host_key': givenHostKey,
+          'services': choices.localServices,
+        });
+      }
       if (value['preparedHost'] != null) {
         prepared = PreparedHost.read(value['preparedHost']);
         if (prepared.name != name) return null;
@@ -242,6 +267,8 @@ class HostUpRecord {
     }
     return HostUpRecord(
       scalewayProject: provider,
+      givenAddress: givenAddress,
+      givenHostKey: givenHostKey,
       host: host as String?,
       hostName: name,
       publicKey: publicKey,
@@ -261,6 +288,7 @@ class HostUpRecord {
   /// The minimum recovery data or the new flow's public setup state.
   Map<String, Object?> get stored => {
     'scalewayProject': scalewayProject,
+    if (givenAddress.isNotEmpty) ...{'givenAddress': givenAddress, 'givenHostKey': givenHostKey},
     if (host != null) 'host': host,
     if (hostName.isNotEmpty) 'hostName': hostName,
     if (account.isNotEmpty) 'account': account,
@@ -289,8 +317,15 @@ class HostUpRecord {
       hostName,
       '--public-key',
       publicKey,
-      '--scaleway-project',
-      scalewayProject,
+      if (givenAddress.isNotEmpty) ...[
+        '--given',
+        givenAddress,
+        '--host-key',
+        givenHostKey,
+      ] else ...[
+        '--scaleway-project',
+        scalewayProject,
+      ],
       '--forge',
       '$forge',
       ...preparationSettings.arguments,
@@ -301,8 +336,15 @@ class HostUpRecord {
   /// Identifies give-back without opening an obsolete SSH connection.
   List<String> giveBackArguments(String project) => [
     if (hostName.isEmpty) ...['--project', project, '--account', account] else ...['--host-name', hostName],
-    '--scaleway-project',
-    scalewayProject,
+    if (givenAddress.isNotEmpty) ...[
+      '--given',
+      givenAddress,
+      '--host-key',
+      givenHostKey,
+    ] else ...[
+      '--scaleway-project',
+      scalewayProject,
+    ],
     if (legacy) '--legacy-rental',
     if (rentalTag != null) ...['--rental-tag', rentalTag!],
   ];

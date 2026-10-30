@@ -6,6 +6,48 @@ import 'package:test/test.dart';
 import 'support/pinned_ssh.dart';
 
 void main() {
+  // Harm: preparation could use a disk key, forward the agent, or corrupt the collection in transit.
+  test('given preparation uses the pinned agent-only SSH policy and streams binary bytes', () async {
+    final directory = await Directory.systemTemp.createTemp('agent-ssh-');
+    addTearDown(() => directory.delete(recursive: true));
+    final source = File('${directory.path}/collection.tar.gz');
+    final received = File('${directory.path}/received');
+    await source.writeAsBytes([0, 128, 255, 10]);
+    final receiver = File('${directory.path}/receive.dart');
+    await receiver.writeAsString(
+      "import 'dart:io'; Future<void> main(List<String> args) async {"
+      "final bytes = await stdin.expand((chunk) => chunk).toList();"
+      "await File(args.single).writeAsBytes(bytes); }",
+    );
+    final commands = <List<String>>[];
+    final remote = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      start: (program, args) {
+        commands.add([program, ...args]);
+        return Process.start(Platform.resolvedExecutable, [receiver.path, received.path]);
+      },
+    );
+    await remote.run('192.0.2.7', 'root', 'true');
+    expect((await remote.copy('192.0.2.7', 'root', source.path, '/var/tmp/porelo-host/collection.tar.gz')).exitCode, 0);
+    expect(await received.readAsBytes(), await source.readAsBytes());
+    expect(commands.map((c) => c.last), ['true', 'cat > /var/tmp/porelo-host/collection.tar.gz']);
+    for (final command in commands) {
+      expect(command.first, 'ssh');
+      expect(
+        command,
+        containsAllInOrder(['-F', '/dev/null', '-o', 'IdentityFile=none', '-o', 'PreferredAuthentications=publickey']),
+      );
+      expect(
+        command,
+        containsAll(['BatchMode=yes', 'ForwardAgent=no', 'StrictHostKeyChecking=yes', 'GlobalKnownHostsFile=none']),
+      );
+      expect(command, isNot(contains('-i')));
+      expect(command, contains('root@192.0.2.7'));
+    }
+  });
+
   // Harm: teardown must not trust ambient keys or run against another account and billed host.
   test('card teardown pins the provider key and keeps the requested endpoint for ssh and scp', () async {
     final commands = <List<String>>[];
