@@ -85,12 +85,22 @@ else
     esac
     find /etc/wireguard -maxdepth 1 -name '*.conf' -printf '%f\n' >"$record/wireguard" 2>/dev/null || : >"$record/wireguard"
     cp /etc/hosts "$record/hosts"
-    find /usr/local/share/ca-certificates /etc/firefox/porelo -maxdepth 1 -name 'porelo-host-*.crt' 2>/dev/null >"$record/ca" || true
-    if [ -f /etc/firefox/policies/policies.json ]; then
-        cp -p /etc/firefox/policies/policies.json "$record/firefox-policy"
-    elif [ -e /etc/firefox/policies/policies.json ] || [ -L /etc/firefox/policies/policies.json ]; then
-        refuse "/etc/firefox/policies/policies.json is not a plain file; the walk could not put it back"
-    fi
+    # The trust the walk may add: the system's and Firefox's host CAs, by content, and Firefox's two policy files.
+    for place in /usr/local/share/ca-certificates /etc/firefox /etc/firefox/porelo /etc/firefox/policies \
+        /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
+        [ ! -L "$place" ] || refuse "$place is a symbolic link; the walk could not put it back"
+    done
+    for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/firefox/porelo/porelo-host-*.crt; do
+        [ -f "$ca" ] && [ ! -L "$ca" ] || continue
+        sha256sum -- "$ca"
+    done >"$record/ca"
+    for policy in /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
+        if [ -f "$policy" ]; then
+            cp -- "$policy" "$record/$(basename -- "$policy")"
+        elif [ -e "$policy" ]; then
+            refuse "$policy is not a plain file; the walk could not put it back"
+        fi
+    done
     touch "$record/complete"
     rm -rf -- "$state"
     mv -- "$record" "$state"

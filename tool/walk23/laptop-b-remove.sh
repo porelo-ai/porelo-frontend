@@ -75,28 +75,32 @@ else
 fi
 
 step b-remove.4 "the host CAs the walk trusted are gone, in the system and in Firefox"
-if [ ! -f "$state/ca" ]; then
-    echo "note: this record is older than the CA record; remove /usr/local/share/ca-certificates/porelo-host-*.crt and /etc/firefox/porelo yourself if the walk added them"
-else
-    removed=no
-    for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/firefox/porelo/porelo-host-*.crt; do
-        [ -e "$ca" ] || [ -L "$ca" ] || continue
-        grep -qxF -- "$ca" "$state/ca" && continue
-        echo "removing $ca"
-        rm -f -- "$ca"
-        case $ca in /usr/local/share/ca-certificates/*) removed=yes ;; esac
-    done
-    [ "$removed" = no ] || update-ca-certificates >/dev/null
-    if [ -f "$state/firefox-policy" ]; then
-        cp -p -- "$state/firefox-policy" /etc/firefox/policies/policies.json
-        rm -f -- /etc/firefox/porelo/managed-policy.json
-        echo "ok: Firefox's policy is the one from before the walk"
-    elif [ -e /etc/firefox/policies/policies.json ] || [ -L /etc/firefox/policies/policies.json ]; then
-        rm -f -- /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json
-        echo "ok: Firefox's policy, which the walk made, is gone"
+[ -f "$state/ca" ] || refuse "the record is older than the walk's CA record; remove the walk's host CAs by hand"
+for place in /usr/local/share/ca-certificates /etc/firefox /etc/firefox/porelo /etc/firefox/policies \
+    /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
+    [ ! -L "$place" ] || refuse "$place is a symbolic link now; put it right by hand and run this again"
+done
+# A CA stays only with the very content it had before the walk; any other is the walk's.
+for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/firefox/porelo/porelo-host-*.crt; do
+    [ -e "$ca" ] || [ -L "$ca" ] || continue
+    [ ! -L "$ca" ] && sha256sum -- "$ca" | grep -qxF -f - "$state/ca" && continue
+    echo "removing $ca"
+    rm -f -- "$ca"
+done
+update-ca-certificates >/dev/null
+for policy in /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
+    kept=$state/$(basename -- "$policy")
+    if [ -f "$kept" ]; then
+        install -d -m 0755 -- "$(dirname -- "$policy")"
+        staged=$(mktemp "$(dirname -- "$policy")/.walk23.XXXXXX")
+        cp -- "$kept" "$staged"
+        chmod 0644 "$staged"
+        mv -f -- "$staged" "$policy"
+    else
+        rm -f -- "$policy"
     fi
-    echo "ok: no host CA is trusted that was not trusted before"
-fi
+done
+echo "ok: only the host CAs and Firefox policy from before the walk are left"
 
 step b-remove.5 "porelo as before the walk"
 before=$(cat "$state/porelo-version")
