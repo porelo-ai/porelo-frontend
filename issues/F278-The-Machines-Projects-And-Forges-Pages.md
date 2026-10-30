@@ -1,6 +1,6 @@
 # F278 — The Machines, Projects And Forges Pages
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** L - several days to replace three lists and their item pages, wire registry actions and permissions, and remove tiles without losing commands.
 
 **What must be true.** The *Machines*, *Projects* and *Forges* pages are laid out as the operator agreed on draft 2 (`~/.porelo/handover/porelo-frontend/layout-pj83-v2/layout-pj83-v2.html`, 2026-10-30), as listed under *Decided in the talk*: lists of rows with a ⋮ menu, a page per item with collapsible, filtered lists, no tiles. Each row shows the person's role and the state from the registry, the host's synced state and the tunnel; actions come from the person lists, not from forms with typed names; an action the person may not do names who may, with their email where their card names one.
