@@ -59,7 +59,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
 | <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
-| <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: vault share | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |
+| <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: `host unlock` | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |
 | <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | [F269](README.md#f269), [F270](README.md#f270); porelo-host: registry intake | A server's card filed and deleted; project admins admitted, locked and removed from the registry. |
 | <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | *Register the project* at one click; developers added and removed by a pick from the registry. |
 | <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | S | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
