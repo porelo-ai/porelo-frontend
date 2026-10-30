@@ -3,7 +3,7 @@
 # the GitHub organisation, walk6-demo for the project and walk6-demo-access for its access file. The operator's
 # token, with Administration on exactly these two, is read without echo and reaches curl only through its standard
 # input, never a command line, a file or a log. It says what it will do, refuses loudly and may be run again: a
-# repository that is there and private is kept.
+# repository that is there and private is kept. All preflight reads finish before the first mutation.
 # Optionally grants the developer read access to the project repository alone; Developers manages the access file.
 # Usage: bash laptop-a-repositories.sh (PORELO_GUIDE_DEVELOPER_LOGIN supplies the optional GitHub login)
 set +x
@@ -58,36 +58,55 @@ github() {
 }
 echo "ok: token read"
 
+step a-repositories.preflight "check both repositories and the developer before changing GitHub"
+missing=()
+project_present=no
 for repository in "$project" "$project-access"; do
-    step "a-repositories.$repository" "$organisation/$repository is there and private"
     answer=$(github GET "/repos/$organisation/$repository")
     code=${answer##*$'\n'}
-    if [ "$code" = 404 ]; then
-        echo "making $organisation/$repository, private and empty"
-        answer=$(github POST "/orgs/$organisation/repos" "$(jq -cn --arg name "$repository" '{name: $name, private: true}')")
-        code=${answer##*$'\n'}
-        [ "$code" = 201 ] || refuse "GitHub answered $code to making it; make $organisation/$repository private on github.com, give the token Administration on it, and run this again"
-    elif [ "$code" != 200 ]; then
-        refuse "GitHub answered $code; check the token's access to $organisation/$repository"
-    fi
-    private=$(printf '%s' "${answer%$'\n'*}" | jq -r '.private')
-    [ "$private" = true ] || refuse "$organisation/$repository is public; the walk needs it private"
-    echo "ok: $organisation/$repository, private"
+    case $code in
+    404) missing+=("$repository") ;;
+    200)
+        [ "$(printf '%s' "${answer%$'\n'*}" | jq -r '.private')" = true ] ||
+            refuse "$organisation/$repository is public; nothing was changed"
+        [ "$repository" != "$project" ] || project_present=yes
+        ;;
+    *) refuse "GitHub answered $code checking $organisation/$repository; nothing was changed" ;;
+    esac
 done
-
 if [ -n "$developer_login" ]; then
-    step a-repositories.developer "grant $developer_login read access to $organisation/$project only"
-    answer=$(github GET "/repos/$organisation/$project/collaborators/$developer_login/permission")
+    answer=$(github GET "/users/$developer_login")
     code=${answer##*$'\n'}
-    if [ "$code" = 200 ]; then
-        permission=$(printf '%s' "${answer%$'\n'*}" | jq -r '.permission')
-        case $permission in
-        read | none) ;;
-        *) refuse 'the login has more than read access already; choose the developer test account without changing that access' ;;
-        esac
-    elif [ "$code" != 404 ]; then
-        refuse "GitHub answered $code when checking the developer's existing permission"
+    [ "$code" = 200 ] || refuse "GitHub answered $code checking the developer; nothing was changed"
+    printf '%s' "${answer%$'\n'*}" | jq -e --arg login "$developer_login" \
+        '.type == "User" and (.login | ascii_downcase) == ($login | ascii_downcase)' >/dev/null ||
+        refuse 'GitHub did not confirm the developer account; nothing was changed'
+    if [ "$project_present" = yes ]; then
+        answer=$(github GET "/repos/$organisation/$project/collaborators/$developer_login/permission")
+        code=${answer##*$'\n'}
+        if [ "$code" = 200 ]; then
+            permission=$(printf '%s' "${answer%$'\n'*}" | jq -r '.permission')
+            case $permission in
+            read | none) ;;
+            *) refuse 'the login has more than read access already; nothing was changed' ;;
+            esac
+        elif [ "$code" != 404 ]; then
+            refuse "GitHub answered $code checking the existing developer permission; nothing was changed"
+        fi
     fi
+fi
+
+step a-repositories.apply "create only missing private repositories, then grant project read access"
+for repository in "${missing[@]}"; do
+    echo "making $organisation/$repository, private and empty"
+    answer=$(github POST "/orgs/$organisation/repos" "$(jq -cn --arg name "$repository" '{name: $name, private: true}')")
+    code=${answer##*$'\n'}
+    [ "$code" = 201 ] || refuse "GitHub answered $code to making $organisation/$repository; inspect it before retrying"
+    [ "$(printf '%s' "${answer%$'\n'*}" | jq -r '.private')" = true ] ||
+        refuse "$organisation/$repository was not confirmed private; inspect it before retrying"
+done
+if [ -n "$developer_login" ]; then
+    echo "granting $developer_login read access to $organisation/$project only"
     answer=$(github PUT "/repos/$organisation/$project/collaborators/$developer_login" '{"permission":"pull"}')
     code=${answer##*$'\n'}
     case $code in
