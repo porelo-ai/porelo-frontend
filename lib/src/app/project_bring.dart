@@ -255,11 +255,13 @@ class ProjectBring extends ChangeNotifier {
     _playbookFailure = null;
     final login = machine.host.split('@');
     await _checkCollection(login[1], login[0]);
+    final localhostWarning = joining ? 'ANSIBLE_LOCALHOST_WARNING=False ' : '';
+    final inventory = joining ? '-i localhost, ' : '';
     final result = await remote.run(
       login[1],
       login[0],
       inTheLoginShell(
-        'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local porelo.host.$_action -e porelo_project=${quoteForAShell(project)}',
+        'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ${localhostWarning}ansible-playbook -c local ${inventory}porelo.host.$_action -e porelo_project=${quoteForAShell(project)}',
       ),
       onLine: _onPlaybookLine,
     );

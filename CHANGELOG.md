@@ -54,6 +54,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Project joins supply an explicit local Ansible inventory and disable its localhost warning while retaining
+  real warnings and failures in the join log.
 - Servers rented without a project can be given back using their existing ownership tag. A refused
   give-back preserves the local VPN and reports the continuing rental; unfinished VPN cleanup stays pending.
 - VPN setup makes Firefox's policy folders readable under a private umask, repairs existing restricted

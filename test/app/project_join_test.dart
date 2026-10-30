@@ -61,6 +61,7 @@ class JoinRemote implements Remote {
   String ca = hostMatrixCa;
   bool wait = false;
   int playbookCode = 0;
+  String? playbookStderr;
   int copies = 0;
   List<String> collectionRoots = ['/usr/share/ansible/collections/ansible_collections'];
   @override
@@ -98,7 +99,10 @@ class JoinRemote implements Remote {
       if (wait) {
         onLine?.call('{"v":1,"state":"waiting","needs":["vault-new","keys","forge-central-token"]}');
       }
-      return RemoteResult(wait ? 2 : playbookCode, playbookCode == 0 ? '' : 'The host refuses this account.');
+      return RemoteResult(
+        wait ? 2 : playbookCode,
+        playbookStderr ?? (playbookCode == 0 ? '' : 'The host refuses this account.'),
+      );
     }
     final process = await Process.start(
       '/bin/bash',
@@ -521,6 +525,24 @@ void main() {
     );
   }
 
+  // Harm: a join must target only the local host without silencing real Ansible warnings.
+  test('the join supplies a local inventory and disables only the localhost warning', () async {
+    const warning = '[WARNING]: Collection example.tools does not support this version of Ansible';
+    remote.playbookStderr = warning;
+    await join.join();
+    expect(join.joined, isTrue, reason: join.accountRun?.problem ?? join.problem);
+    final playbook = remote.commands.singleWhere((command) => command.contains('ansible-playbook'));
+    expect(
+      playbook,
+      allOf(
+        contains('ANSIBLE_LOCALHOST_WARNING=False '),
+        contains('ansible-playbook -c local -i localhost, porelo.host.join '),
+      ),
+      reason: 'The join must use an explicit localhost inventory and suppress only its implicit-localhost warning.',
+    );
+    expect(join.accountRun!.lastLines, contains(warning), reason: 'Real warnings must still reach the join log.');
+  });
+
   test('a listed laptop uploads an own-account join without forge migration and retains its access commit', () async {
     await join.join();
     expect(join.problem, isNull);
@@ -535,7 +557,7 @@ void main() {
     expect(remote.users.toSet(), {'dev'});
     expect(
       remote.commands.where((command) => command.contains('ansible-playbook')).single,
-      contains('ansible-playbook -c local porelo.host.join -e porelo_project=demo'),
+      contains('ansible-playbook -c local -i localhost, porelo.host.join -e porelo_project=demo'),
     );
     expect(
       remote.commands.where((command) => command.contains('ansible-playbook')).single,
