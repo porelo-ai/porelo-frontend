@@ -93,8 +93,8 @@ else
     done
     for ca in /usr/local/share/ca-certificates/porelo-host-*.crt /etc/pki/ca-trust/source/anchors/porelo-host-*.crt \
         /etc/firefox/porelo/porelo-host-*.crt; do
-        [ -e "$ca" ] || continue
-        [ -f "$ca" ] || refuse "$ca is not a plain file; the walk could not put it back"
+        [ -e "$ca" ] || [ -L "$ca" ] || continue
+        [ -f "$ca" ] && [ ! -L "$ca" ] || refuse "$ca is not a plain file; the walk could not put it back"
         sha256sum -- "$ca"
     done >"$record/ca-sha256"
     for policy in /etc/firefox/policies/policies.json /etc/firefox/porelo/managed-policy.json; do
