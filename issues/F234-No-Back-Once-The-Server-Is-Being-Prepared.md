@@ -20,4 +20,4 @@ Operator's finding in walk 23, step 2-7 (2026-10-30): "Back must not be active a
 - After *Prepare the server*, *Back* cannot be clicked on Step 7 of 7.
 - In the other wizards *Back* behaves as before.
 
-Built together with [F233](README.md#f233) and [F235](README.md#f235), which change the same wizard.
+Built together with [F233](README.md#f233); one estimate and one VM test for the three, written there.

@@ -23,4 +23,11 @@ The zone matters after renting: `porelo-host` lists, reads and gives back server
 
 - In the wizard, the default type and zone are selected; choosing another type or zone and preparing the server rents exactly that type in that zone.
 - A type out of stock in the chosen zone is shown as such before *Prepare the server*, and nothing is rented.
-- For a host rented outside `fr-par-1`, down and give back reach that server and give it back.
+- For a host recorded outside `fr-par-1`, up, down and give back pass that zone to `porelo-host` (shown by the red-first tests, not by a rental).
+
+Built together with [F234](README.md#f234) and [F235](README.md#f235).
+
+## Estimate and test, shared by F233, F234 and F235
+
+- Built as one piece of work with one review cycle and one VM test: `F233+F234+F235 size=M est=70 basis=medians M 61 (24 records) + S 15 (11) + XS 10 (8) = 86 as the ceiling, less about 16 that one shared build, one review and one VM test save`.
+- The VM test covers exactly the new dialog part and nothing else: the server type and zone chosen, with stock shown before *Prepare the server*; *Back* blocked and *Finish* closing to *Machines* on Step 7 of 7. It runs on the test VM with a stand-in `porelo-host` named by `PORELO_HOST_STANDIN`: a script that answers the stock read and a rental without asking Scaleway, so nothing is rented and no Scaleway key is on the VM. No full run of every function, no new walk.
