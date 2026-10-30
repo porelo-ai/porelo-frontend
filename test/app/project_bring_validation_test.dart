@@ -106,6 +106,7 @@ void main() {
         expect(remote.commands, ['/usr/bin/cat /etc/porelo-host/forge/ca.pem']);
         expect(File(knownHosts).readAsStringSync(), '10.73.7.1 ${host.values['ssh_host_key']}\n');
       },
+      tags: 'linux',
     );
   }
 
