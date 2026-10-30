@@ -19,6 +19,15 @@ class _People implements ProjectPeople {
 }
 
 void main() {
+  // Harm: a refused Core read must never permit an unverified grant.
+  test('a refused person read prevents a signed change', () async {
+    final people = _People()..fail = true;
+    final action = ProjectDevelopers(project: 'demo', people: people);
+    addTearDown(action.dispose);
+    await action.load();
+    await action.addDeveloper(people.person);
+    expect(people.changes, isEmpty, reason: 'a refused person must cause no publication, upload or sync');
+  });
   // Harm: stale or arbitrary names must not remove somebody outside the accepted project list.
   test('removal targets only the selected accepted person and project', () async {
     final people = _People();

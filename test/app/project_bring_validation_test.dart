@@ -11,6 +11,9 @@ import 'package:porelo_frontend/src/app/signed_host_actions.dart';
 import '../features/support/world.dart' show FakeBackend;
 import '../support/signed_host.dart';
 import '../support/host_admin.dart' show personKey;
+import '../support/project_access.dart';
+
+import 'package:porelo_frontend/src/app/project_access.dart';
 
 void main() {
   late Settings settings;
@@ -44,6 +47,50 @@ void main() {
       expect(settings.projectHost('demo'), isNull);
     });
   }
+
+  // Harm: a retained Register callback must not bypass revoked host admission.
+  test('a stale registry register callback cannot publish or upload', () async {
+    final fixture = ProjectAccessFixture();
+    addTearDown(fixture.registry.dispose);
+    final access = await fixture.access(settings);
+    final action = ProjectBring(
+      project: 'demo',
+      machines: machines,
+      settings: settings,
+      actions: RegistryProjectRegistration(access),
+    );
+    addTearDown(action.dispose);
+    final retained = action.bring;
+    fixture.registrySource.admitted = false;
+    await fixture.registry.refresh();
+    await retained();
+    expect(fixture.calls, isEmpty);
+    expect(action.brought, isFalse);
+    expect(action.problem, isNotNull);
+    expect(settings.projectHost('demo'), isNull);
+  });
+
+  // Harm: delivery recovery must not create another access change or accept a wrong project.
+  test('registry registration retries its published revision and saves only confirmed association', () async {
+    final fixture = ProjectAccessFixture()..fail = 'upload';
+    addTearDown(fixture.registry.dispose);
+    final access = await fixture.access(settings);
+    final action = ProjectBring(
+      project: 'demo',
+      machines: machines,
+      settings: settings,
+      actions: RegistryProjectRegistration(access),
+    );
+    addTearDown(action.dispose);
+    await action.bring();
+    expect(action.brought, isFalse);
+    expect(settings.projectHost('demo'), isNull);
+    fixture.fail = null;
+    await action.bring();
+    expect(action.brought, isTrue);
+    expect(fixture.filed.length, 1);
+    expect(settings.projectHost('demo'), 'orchard');
+  });
 
   // Harm: a wrong or refused host revision cannot become saved access to a project.
   for (final fails in [false, true]) {
@@ -111,6 +158,7 @@ void main() {
     expect(service.calls, [
       'verify demo register',
       'ssh orchard',
+      'verify demo register',
       'register demo',
       'verify demo join',
       'ssh orchard',

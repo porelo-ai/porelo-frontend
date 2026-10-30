@@ -9,6 +9,7 @@ import 'host_runs.dart' show hostGivenBack;
 import 'host_session.dart';
 import 'registry.dart';
 import 'settings.dart';
+import 'signed_publication.dart';
 
 /// The current identity proven by Core, never a typed account name.
 class HostAdminIdentity {
@@ -332,16 +333,20 @@ class HostAccess {
         await settings.forgetUnfiledHostRegistry(host);
         throw const RegistryRefusal('The selected card changed. Refresh the admission.');
       }
-      final revision = checkedRegistryRevision(await writer.file(progress.change));
-      progress = HostRegistryProgress(change: progress.change, revision: revision);
-      await _keep(progress);
     }
-    final revision = progress.revision!;
-    if (!progress.published) {
-      _authorizeChange(progress.change);
-      await writer.publish(revision);
-      progress = HostRegistryProgress(change: progress.change, revision: revision, published: true);
-      await _keep(progress);
+    final wasPublished = progress.published;
+    final revision = await resumeSignedPublication(
+      revision: progress.revision,
+      published: progress.published,
+      authorize: () async => _authorizeChange(progress.change),
+      file: () => writer.file(progress.change),
+      publish: writer.publish,
+      keep: (revision, published) async {
+        progress = HostRegistryProgress(change: progress.change, revision: revision, published: published);
+        await _keep(progress);
+      },
+    );
+    if (!wasPublished) {
       await registry.refresh();
       _authorizeChange(progress.change);
     }

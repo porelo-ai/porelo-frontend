@@ -12,6 +12,7 @@ import '../app/machines.dart';
 import '../app/session.dart';
 import '../app/settings.dart';
 import '../app/signed_host_actions.dart';
+import '../app/project_access.dart';
 import 'project_bring_dialog.dart';
 import 'tokens.dart';
 import 'host_preparation_settings.dart';
@@ -51,10 +52,17 @@ Future<void> openHostDialog(
   required FleetBackend backend,
   OpenTerminal? openTerminal,
   SignedHostActions? actions,
+  ProjectAccess? access,
 }) => showDialog<void>(
   context: context,
-  builder: (_) =>
-      ProjectBringDialog(project: project, machines: machines, settings: settings, backend: backend, actions: actions),
+  builder: (_) => ProjectBringDialog(
+    project: project,
+    machines: machines,
+    settings: settings,
+    backend: backend,
+    actions: actions,
+    access: access,
+  ),
 );
 
 /// Opens the replacement setup entry point without legacy credential inputs.

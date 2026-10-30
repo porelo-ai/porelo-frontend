@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/fleet_backend.dart';
 import '../app/machines.dart';
 import '../app/project_bring.dart';
+import '../app/project_access.dart';
 import '../app/settings.dart';
 import '../app/signed_host_actions.dart';
 import 'tokens.dart';
@@ -16,6 +17,7 @@ class ProjectBringDialog extends StatefulWidget {
     required this.backend,
     required this.settings,
     this.actions,
+    this.access,
     super.key,
   });
 
@@ -33,6 +35,9 @@ class ProjectBringDialog extends StatefulWidget {
 
   /// Core and host operations; absent dependencies are explained.
   final SignedHostActions? actions;
+
+  /// The registry admission and durable project access delivery service.
+  final ProjectAccess? access;
   @override
   State<ProjectBringDialog> createState() => _ProjectBringDialogState();
 }
@@ -42,8 +47,28 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
     project: widget.project,
     machines: widget.machines,
     settings: widget.settings,
-    actions: widget.actions,
+    actions: widget.access == null ? widget.actions : RegistryProjectRegistration(widget.access!),
   );
+  String? _admissionProblem;
+  bool _reading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.access != null) _readAdmission();
+  }
+
+  Future<void> _readAdmission() async {
+    _reading = true;
+    try {
+      await widget.access!.read(widget.project);
+    } on Exception {
+      _admissionProblem = 'The verified project admission could not be read.';
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+  }
+
   @override
   void dispose() {
     _action.dispose();
@@ -57,19 +82,34 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
       title: Text('Register ${widget.project}'),
       content: SizedBox(
         width: Sizes.dialogSmall,
-        child: Text(
-          _action.problem ??
-              (_action.completed
-                  ? 'The host confirmed registration.'
-                  : widget.actions == null
-                  ? 'Verified registry registration is not available yet.'
-                  : 'Register this admitted project using your identity.'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: Space.small,
+          children: [
+            if (widget.access?.admission case final words?) Text(words),
+            Text(
+              _action.problem ??
+                  _admissionProblem ??
+                  widget.access?.unavailable() ??
+                  (_action.completed
+                      ? 'The host confirmed registration.'
+                      : widget.actions == null && widget.access == null
+                      ? 'Verified registry registration is not available yet.'
+                      : 'Register this admitted project using your identity.'),
+            ),
+          ],
         ),
       ),
       actions: [
         TextButton(onPressed: _action.busy ? null : () => Navigator.pop(context), child: const Text('Close')),
-        if (!_action.completed && widget.actions != null)
-          FilledButton(onPressed: _action.busy ? null : _action.bring, child: const Text('Register the project')),
+        if (!_action.completed && (widget.actions != null || widget.access != null))
+          FilledButton(
+            onPressed: _action.busy || _reading || _admissionProblem != null || widget.access?.unavailable() != null
+                ? null
+                : _action.bring,
+            child: const Text('Register the project'),
+          ),
       ],
     ),
   );

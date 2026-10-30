@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import 'machines.dart';
 import 'settings.dart';
+import 'registry.dart';
 
 /// Core's accepted project state, tied to one host and one signed revision.
 @immutable
@@ -124,6 +127,16 @@ class SignedHostAction extends ChangeNotifier {
       if (machine.kind != 'host' || machine.hostProject != state.host.name || machine.identity.isNotEmpty) {
         throw const _Refused('The shared SSH tunnel did not confirm this host and person identity.');
       }
+      if (registering) {
+        final latest = await service.verify(project, registering: true);
+        latest.check(project);
+        if (latest.host.name != state.host.name ||
+            latest.revision != state.revision ||
+            jsonEncode(latest.host.stored) != jsonEncode(state.host.stored) ||
+            !listEquals(latest.adminSigners, state.adminSigners)) {
+          throw const _Refused('The verified project admission changed. Try again.');
+        }
+      }
       final observed = registering ? await service.register(state, machine) : await service.join(state, machine);
       if (observed != state.revision) {
         throw const _Refused('The host did not confirm the intended verified project revision.');
@@ -131,6 +144,8 @@ class SignedHostAction extends ChangeNotifier {
       await machines.add(machine);
       await settings.rememberProjectHost(project, state.host.name);
       completed = true;
+    } on RegistryRefusal catch (error) {
+      problem = error.words;
     } on _Refused catch (error) {
       problem = error.words;
     } on Exception {

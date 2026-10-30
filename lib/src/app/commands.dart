@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:porelo_host/porelo_host.dart' show ProjectTransfer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
@@ -9,6 +8,7 @@ import 'fleet_model.dart';
 import 'host_runs.dart';
 import 'host_access.dart';
 import 'registry.dart';
+import 'project_developers.dart';
 import 'desk.dart';
 import 'product.dart';
 import 'roles.dart';
@@ -18,16 +18,12 @@ import 'narrowing.dart';
 import 'notifications.dart';
 import 'operations.dart';
 import 'session.dart';
-import 'registry_pages.dart';
 import 'settings.dart';
 import 'shell_model.dart';
 import 'start_agents.dart';
 import 'start_work.dart';
 import 'templates.dart';
 import 'vault.dart';
-import 'project_transfers.dart';
-import 'central_reviews.dart';
-import 'forge.dart';
 import 'widening.dart';
 
 /// Where an action lives on screen, so the finder can go there and show it.
@@ -128,14 +124,11 @@ class Command {
     required this.group,
     required this.run,
     this.shortcut,
-    String? unavailable,
-    this.unavailableNow,
+    this.unavailable,
     this.home = Home.none,
     this.checked,
     this.role = Role.user,
-    // The public named argument remains compatible with existing const commands.
-    // ignore: prefer_initializing_formals
-  }) : _unavailable = unavailable;
+  });
 
   /// Stable identifier, used to route a keystroke to this command.
   final String id;
@@ -162,11 +155,7 @@ class Command {
   ///
   /// An unavailable command is still listed. Hiding it would make the finder answer "there is
   /// no such action" when the truth is "not yet, and here is what is missing".
-  String? get unavailable => unavailableNow?.call() ?? _unavailable;
-  final String? _unavailable;
-
-  /// Rechecks an action whose controller can change after this command is built.
-  final String? Function()? unavailableNow;
+  final String? unavailable;
 
   /// Where it lives on screen.
   final Home home;
@@ -187,7 +176,6 @@ class Command {
           group: group,
           shortcut: shortcut,
           unavailable: reason,
-          unavailableNow: unavailableNow,
           home: home,
           checked: checked,
           run: run,
@@ -200,8 +188,7 @@ class Command {
     label: label,
     group: group,
     shortcut: shortcut,
-    unavailable: _unavailable,
-    unavailableNow: unavailableNow,
+    unavailable: unavailable,
     home: home,
     checked: checked,
     run: () {
@@ -534,6 +521,7 @@ List<Command> projectCommands({
   VoidCallback? openDevelopers,
   String? itsForgeIsMissing,
   VoidCallback? showTheDefault,
+  String? registryAccessUnavailable,
   VoidCallback? putOnAServer,
   VoidCallback? joinOnItsHost,
   VoidCallback? takeOffServer,
@@ -626,9 +614,7 @@ List<Command> projectCommands({
           noFile ??
           (isDefault
               ? 'default has no private access file'
-              : openDevelopers == null
-              ? 'not offered here'
-              : null),
+              : registryAccessUnavailable ?? (openDevelopers == null ? 'not offered here' : null)),
     ),
     // The tools for after a project is set up, kept out of the way of setting it up: its keys at
     // the forge, the machines it trusts, changes waiting at this machine, and stopping work here.
@@ -650,7 +636,7 @@ List<Command> projectCommands({
       id: 'project.default',
       label: 'Repositories worked on without a project',
       group: 'Project',
-      home: project?.name == defaultProject ? Home.openedView : Home.projectMenu,
+      home: Home.projectMenu,
       run: showTheDefault ?? () {},
       unavailable: project == null
           ? nothing
@@ -706,7 +692,7 @@ List<Command> projectCommands({
     Command(
       id: 'project.server',
       role: Role.projectAdmin,
-      label: 'Put this project on a server…',
+      label: 'Register the project',
       group: 'Project',
       home: Home.projectMenu,
       run: putOnAServer ?? () {},
@@ -714,7 +700,8 @@ List<Command> projectCommands({
           ? nothing
           : project.name == defaultProject
           ? 'default is this machine\'s own: it goes on no server'
-          : _setupAgainUnavailable(hostRuns, project.name) ??
+          : registryAccessUnavailable ??
+                _setupAgainUnavailable(hostRuns, project.name) ??
                 (putOnAServer == null ? 'project placement needs Linux and a pinned own-account SSH connection' : null),
     ),
     takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
@@ -768,13 +755,13 @@ Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String?
   );
 }
 
-/// Opens server preparation from the Machines page.
+/// Opens server preparation from the title bar's Machines group.
 Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Command(
   id: 'host.prepare',
   role: Role.hostAdmin,
   label: 'Prepare a server…',
   group: 'Machines',
-  home: Home.machineRow,
+  home: Home.appBar,
   run: () {
     final reason = access?.unavailable() ?? (access == null ? 'The verified host admins are unavailable.' : null);
     if (reason != null) throw RegistryRefusal(reason);
@@ -1184,6 +1171,7 @@ List<Command> commandsFor({
   required VoidCallback openEgress,
   required VoidCallback removeWhatWasBuilt,
   VoidCallback? clearTheProject,
+  String? registryAccessUnavailable,
   VoidCallback? putOnAServer,
   VoidCallback? openDevelopers,
   VoidCallback? joinOnItsHost,
@@ -1380,6 +1368,7 @@ List<Command> commandsFor({
       checkWorkCanStart: checkWorkCanStart,
       removeWhatWasBuilt: removeWhatWasBuilt,
       clearTheProject: clearTheProject,
+      registryAccessUnavailable: registryAccessUnavailable,
       putOnAServer: putOnAServer,
       openDevelopers: openDevelopers,
       joinOnItsHost: joinOnItsHost,
@@ -1744,125 +1733,65 @@ Command putAwayQuestionCommand({required VoidCallback run, String? unavailable})
   unavailable: unavailable,
 );
 
-/// Creates a page operation from the supplied adapter and its exact access scope.
-Command? registryPageCommand({
-  required RegistryPages registry,
-  required RegistryTarget target,
-  required RegistryOperation operation,
-  required VoidCallback run,
-  String? person,
-}) => registry.item(target)?.offers(operation) != true
-    ? null
-    : Command(
-        id: 'registry.${operation.name}',
-        label: registryOperationLabel(operation),
-        group: target.project == null ? 'Machines' : 'Projects',
-        home: target.project == null ? Home.machineMenu : Home.projectMenu,
-        run: run,
-        unavailable: registry.unavailable(target, operation, person: person),
-      );
-
-/// Names registry actions once for page menus, confirmations, and the finder.
-String registryOperationLabel(RegistryOperation operation) => switch (operation) {
-  RegistryOperation.refresh => 'Refresh',
-  RegistryOperation.fileCard => 'File my card',
-  RegistryOperation.selectRegistry => 'Choose another registry…',
-  RegistryOperation.createRegistry => 'Create the registry…',
-  RegistryOperation.admit => 'Admit a project admin…',
-  RegistryOperation.register => 'Register the project',
-  RegistryOperation.addPerson => 'Add a developer…',
-  RegistryOperation.join => 'Join',
-  RegistryOperation.projectLock => 'Lock in this project…',
-  RegistryOperation.projectUnlock || RegistryOperation.hostUnlock => 'Let back in',
-  RegistryOperation.removePerson => 'Remove from the project…',
-  RegistryOperation.hostLock => 'Lock out of this server…',
-  RegistryOperation.deleteAccount => 'Delete their account from this server…',
-  RegistryOperation.takeOffHost => 'Take this project off the server…',
-  RegistryOperation.bringState => 'Bring the state to the host',
-  RegistryOperation.push => 'Push the approved main to the central forge…',
-  RegistryOperation.pull => 'Take the central state…',
-  RegistryOperation.backupKey => 'Make a backup key…',
-  RegistryOperation.replaceLostKey => 'Replace a lost key…',
-};
-
-/// Project-menu actions for verified push admission, independent of startup roles.
-List<Command> projectTransferCommands({
-  required ProjectTransfers transfers,
-  required TransferSelection selection,
-  required void Function(ProjectTransfer direction) start,
-}) => [
-  for (final direction in ProjectTransfer.values)
-    Command(
-      id: direction == ProjectTransfer.push ? 'project.pushApprovedMain' : 'project.takeCentralState',
-      label: direction == ProjectTransfer.push ? 'Push the approved main…' : 'Take the central state…',
-      group: selection.project,
-      home: Home.projectMenu,
-      unavailable: transfers.unavailable(selection),
-      run: () {
-        if (transfers.unavailable(selection) == null) start(direction);
-      },
-    ),
-];
-
-/// Explicit central forge actions for the project menu and selected request.
-List<Command> centralReviewCommands({
-  required String project,
-  required VoidCallback list,
-  required VoidCallback create,
-  VoidCallback? read,
-  VoidCallback? reviews,
-  VoidCallback? submit,
-  required CentralReviews actions,
-}) {
-  void run(VoidCallback? action, {bool write = false}) {
-    final reason = write ? actions.unavailable : actions.closedReason;
-    if (reason != null) throw ForgeRefused(reason);
-    if (action == null) throw const ForgeRefused('Choose a central pull request.');
-    action();
-  }
-
+/// The selected project's person actions, with current availability and stale callbacks guarded.
+List<Command> projectPersonCommands({required ProjectDevelopers developers, String? person, VoidCallback? add}) {
+  final actions = developers.scoped;
+  final unavailable = developers.busy
+      ? 'A person change is still running.'
+      : actions == null
+      ? 'Verified project person changes are unavailable.'
+      : actions.unavailable();
+  final pending = actions?.pending == true;
+  final selected = developers.access?.developers[person];
+  String? reason({bool selecting = false}) =>
+      unavailable ??
+      (pending
+          ? 'Retry the pending project change first.'
+          : selecting && selected == null
+          ? 'Choose a person in this project.'
+          : null);
   return [
     Command(
-      id: 'project.centralPullRequests',
-      label: 'Read central pull requests…',
-      group: project,
+      id: 'project.addDeveloper',
+      label: 'Add a developer',
+      group: 'Project',
       home: Home.projectMenu,
-      unavailableNow: () => actions.closedReason,
-      run: () => run(list),
+      role: Role.projectAdmin,
+      unavailable: reason() ?? (add == null ? 'Choose a registry person.' : null),
+      run: add ?? () {},
     ),
     Command(
-      id: 'centralPullRequest.create',
-      label: 'Create a central pull request…',
-      group: project,
+      id: 'project.removePerson',
+      label: 'Remove from the project',
+      group: 'Project',
       home: Home.projectMenu,
-      unavailableNow: () => actions.unavailable,
-      run: () => run(create, write: true),
+      role: Role.projectAdmin,
+      unavailable: reason(selecting: true),
+      run: () {
+        if (person != null) unawaited(developers.remove(person));
+      },
     ),
     Command(
-      id: 'centralPullRequest.read',
-      label: 'Read the pull request',
-      group: project,
-      home: Home.openedView,
-      unavailableNow: () => actions.closedReason,
-      unavailable: read == null ? 'Choose a central pull request.' : null,
-      run: () => run(read),
+      id: 'project.lockPerson',
+      label: selected?.locked == true ? 'Let back in' : 'Lock in this project',
+      group: 'Project',
+      home: Home.projectMenu,
+      role: Role.projectAdmin,
+      unavailable: reason(selecting: true),
+      run: () {
+        if (person != null) unawaited(developers.lock(person, locked: selected?.locked != true));
+      },
     ),
     Command(
-      id: 'centralPullRequest.reviews',
-      label: 'Read its central reviews',
-      group: project,
-      home: Home.openedView,
-      unavailableNow: () => actions.closedReason,
-      unavailable: reviews == null ? 'Choose a central pull request.' : null,
-      run: () => run(reviews),
-    ),
-    Command(
-      id: 'centralPullRequest.review',
-      label: 'Review on the central forge…',
-      group: project,
-      home: Home.openedView,
-      unavailableNow: () => actions.unavailable ?? (submit == null ? 'Choose a central pull request.' : null),
-      run: () => run(submit, write: true),
+      id: 'project.retryAccess',
+      label: 'Retry project delivery',
+      group: 'Project',
+      home: Home.projectMenu,
+      role: Role.projectAdmin,
+      unavailable: developers.busy
+          ? 'A person change is still running.'
+          : actions?.unavailable(delivery: true) ?? (!pending ? 'No project change is pending.' : null),
+      run: () => unawaited(developers.retry()),
     ),
   ];
 }

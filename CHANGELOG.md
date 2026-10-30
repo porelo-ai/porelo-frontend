@@ -67,6 +67,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Project registration and person management use verified registry admission, project-scoped card eligibility,
+  and active admin signers. Signed access changes retain durable publication and delivery receipts across
+  restarts; add, remove, lock and let-back-in require exact host revision and membership confirmation.
+  The registry picker and project commands use injectable Core and host adapters until their contracts are served.
 - Host administration has registry-backed app operations for trusted-person admission, host-scoped locking,
   readmission and separately confirmed account deletion. Checked SSH completion cards and confirmed provider
   returns retain publication recovery independently; registry delivery resumes the same signed revision and
