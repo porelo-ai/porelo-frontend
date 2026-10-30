@@ -3,7 +3,7 @@
 **Status:** Accepted.
 **Size:** S - the access and registry commits signed with the person's key through the agent, and verification by the signers Core names.
 
-**What must be true.** Every commit the interface makes (access file, registry) is signed with the person's key through the SSH agent (`gpg.format ssh`, namespace `git`), never with a key file the interface holds. Verification uses the allowed-signers Core answers for the project (admins' keys, the backup key, task keys as `cert-authority`, old keys with `valid-before`), not a list the interface builds.
+**What must be true.** Every commit the interface makes (access file, registry) is signed with the person's key through the SSH agent (`gpg.format ssh`, namespace `git`), never with a key file the interface holds. Verification uses the allowed-signers Core answers for the project (admins' keys, the backup key, admitted persons' keys as `cert-authority` limited to tasks' namespaces and principals, so the task keys they certified are accepted, old keys with `valid-before`), not a list the interface builds.
 
 ## Why
 

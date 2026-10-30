@@ -3,7 +3,7 @@
 **Status:** Accepted.
 **Size:** S - the gathered push and the pull from the central forge started on purpose from the project, with the person's own token sent through the tunnel.
 
-**What must be true.** A person admitted to push sees *Push the approved main…* and *Take the central state…* on the project. Each runs porelo-host's push or pull on the host with the person's own token on standard input through the tunnel, read from their vault without asking, never written on the host, never on a command line. The answer is shown in the host's words.
+**What must be true.** A person admitted to push sees *Push the approved main…* and *Take the central state…* on the project. Each runs porelo-host's push or pull on the host with the person's own token on standard input through the tunnel, read from their vault without asking, never written on the host, never on a command line. The answer is shown in the host's words. Pull requests and reviews on the central forge are read and made with the person's own token, started by that person, without webhooks.
 
 ## Why
 
