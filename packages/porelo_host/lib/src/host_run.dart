@@ -502,14 +502,14 @@ done''',
       return Exit.done;
     }
     final address = host.address;
-    if (plan.hostName != null && address != null) {
-      if (trust != null) {
-        if (host.hostKey == null) {
-          _write(const Step('copy', StepState.refused, fix: 'The provider named no SSH host key for teardown.'));
-          return Exit.refused;
-        }
-        await trust!(address, host.hostKey!);
+    if (address != null && trust != null) {
+      if (host.hostKey == null) {
+        _write(const Step('copy', StepState.refused, fix: 'The provider named no SSH host key for teardown.'));
+        return Exit.refused;
       }
+      await trust!(address, host.hostKey!);
+    }
+    if (plan.hostName != null && address != null) {
       final copied = await remote.run(
         address,
         plan.loginUser,
@@ -573,7 +573,10 @@ done''',
     // A host key that is not the provider's is never asked again: that is the one answer waiting
     // cannot change, and the refusal comes at once.
     final sshUntil = DateTime.now().add(sshWithin);
-    while (reached.exitCode != 0 && !_keyRefused(reached) && DateTime.now().isBefore(sshUntil)) {
+    while (provider is! GivenMachine &&
+        reached.exitCode != 0 &&
+        !_keyRefused(reached) &&
+        DateTime.now().isBefore(sshUntil)) {
       await Future<void>.delayed(sshEvery);
       reached = await remote.run(host.address!, plan.loginUser, 'true');
     }
@@ -695,8 +698,14 @@ done''',
     } on FormatException {
       return null;
     }
-    if (decoded is! Map<String, Object?> || decoded['v'] != 1 || !validStepFields(decoded)) return null;
+    if (decoded is! Map<String, Object?>) return null;
     final state = decoded['state'];
+    if (decoded['v'] != 1 || !validStepFields(decoded)) {
+      if (state == 'failed' || state == 'waiting') {
+        return const Step('play', StepState.refused, fix: 'The host reported a setup stop with malformed fields.');
+      }
+      return null;
+    }
     if (state == 'host') {
       return Step.fromLine(line, hostName: plan?.hostName, localServices: plan?.preparationSettings.localServices);
     }

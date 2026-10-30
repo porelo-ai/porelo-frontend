@@ -11,6 +11,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Existing-server preparation runs the checked collection over pinned, agent-only SSH as root,
   retains callback refusal words, and saves the dialog's public settings for retry and card publication.
+  Teardown excludes disk identities, checks given-host pins, and isolates concurrent pins. Malformed
+  stops refuse completion, given-host login refusals stop immediately, duplicate names preserve recovery,
+  and copy and command errors retain their cause.
 
 - Host administration retains confirmed card and applied-revision state when replacing stale changes,
   preserves returned-host deletion during publication retries, and migrates older delivery records.

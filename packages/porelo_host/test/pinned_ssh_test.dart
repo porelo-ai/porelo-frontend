@@ -48,6 +48,23 @@ void main() {
     }
   });
 
+  // Harm: an early SSH refusal must retain its cause instead of escaping as a broken pipe.
+  test('copy returns the remote refusal when SSH closes input early', () async {
+    final directory = await Directory.systemTemp.createTemp('copy-refusal-');
+    addTearDown(() => directory.delete(recursive: true));
+    final source = File('${directory.path}/collection');
+    await source.writeAsBytes([0, 128, 255, 10]);
+    final remote = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      start: (_, _) async => _RefusedCopyProcess(),
+    );
+    final result = await remote.copy('192.0.2.7', 'root', source.path, '/destination');
+    expect(result.exitCode, 65);
+    expect(result.stderr, 'Remote copy refused.\n');
+  });
+
   // Harm: teardown must not trust ambient keys or run against another account and billed host.
   test('card teardown pins the provider key and keeps the requested endpoint for ssh and scp', () async {
     final commands = <List<String>>[];
@@ -304,4 +321,26 @@ void main() {
     expect(errors.toString(), isNot(contains('ssh')));
     expect(Step.fromLine(output.toString().trim())!.needs, <String>['agent-login:pi']);
   });
+}
+
+class _RefusedCopyProcess implements Process {
+  @override
+  final IOSink stdin = _BrokenInput();
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+  @override
+  Stream<List<int>> get stderr => Stream.value('Remote copy refused.\n'.codeUnits);
+  @override
+  Future<int> get exitCode async => 65;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BrokenInput implements IOSink {
+  @override
+  Future<void> addStream(Stream<List<int>> stream) async => throw const SocketException('Broken pipe');
+  @override
+  Future<void> close() async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

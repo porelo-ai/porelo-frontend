@@ -136,6 +136,24 @@ void main() {
       });
     }
   }
+  // Harm: malformed stop fields must never turn failed setup into a ready host.
+  for (final state in ['failed', 'waiting']) {
+    for (final field in ['msg', 'needs', 'seconds', 'task']) {
+      for (final afterHost in [false, true]) {
+        test('malformed $state $field after host=$afterHost stops preparation', () async {
+          remote.lines = [
+            if (afterHost) ...remote.lines,
+            jsonEncode({'v': 1, 'state': state, field: null}),
+            if (!afterHost) ...remote.lines,
+          ];
+          expect(await up(), Exit.refused);
+          final steps = LineSplitter.split(output.toString()).map(Step.fromLine).whereType<Step>();
+          expect(steps.where((s) => s.state == StepState.host), isEmpty);
+          expect(steps.last.fix, isNotEmpty);
+        });
+      }
+    }
+  }
   // Harm: changed or incomplete host records must not redirect a signed card.
   for (final mode in ['missing', 'wrong-key', 'wrong-address', 'repeated', 'trailing', 'failed-process']) {
     test('a $mode completion never records a ready host', () async {

@@ -142,6 +142,85 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  // Harm: a reused name must not erase rental recovery or crash an active setup dialog.
+  for (final collision in ['saved', 'active', 'waiting']) {
+    testWidgets('preparation preserves the $collision host with the same name', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+      final fixture = RegistryFixture();
+      final runs = HostRuns(machines, hostAccess: await fixture.access(settings));
+      addTearDown(() {
+        runs.dispose();
+        machines.dispose();
+        settings.dispose();
+        fixture.registry.dispose();
+      });
+      final process = HostProcess();
+      HostPreparation? previous;
+      if (collision == 'saved') {
+        await settings.rememberHostUp('orchard', signedSetup);
+      } else {
+        previous = runs.start(
+          project: 'orchard',
+          record: signedSetup,
+          session: HostSession(executable: 'fake', arguments: const [], start: (_, _) async => process),
+        );
+        await tester.pump();
+        if (collision == 'waiting') {
+          process.line(const host.Step('person', host.StepState.waiting, needs: ['matrix']));
+          process.end(75);
+          await previous.finished;
+        }
+      }
+      final kept = settings.hostUp('orchard')?.stored;
+      var starts = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HostDialog(
+            project: '',
+            machines: machines,
+            hostRuns: runs,
+            pickFile: ({initialDirectory, title}) async => '/collections/host.tar.gz',
+            start: (_, _) async {
+              starts++;
+              return HostProcess()..end(65);
+            },
+          ),
+        ),
+      );
+      for (final field in {
+        'Host name': 'orchard',
+        'Server address': '203.0.113.7',
+        'SSH host key': hostKey,
+        'Collection SHA-256': 'a' * 64,
+      }.entries) {
+        final finder = find.widgetWithText(TextField, field.key);
+        await tester.ensureVisible(finder);
+        await World.settle(tester);
+        await tester.enterText(finder, field.value);
+      }
+      await tester.ensureVisible(find.text('Choose collection'));
+      await World.settle(tester);
+      await tester.tap(find.text('Choose collection'));
+      await World.settle(tester);
+      await tester.tap(find.text('Prepare the host'));
+      await World.settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(starts, 0);
+      expect(settings.hostUp('orchard')?.stored, kept);
+      if (previous != null) expect(runs.of('orchard'), same(previous));
+      expect(find.textContaining('already'), findsWidgets);
+      if (collision == 'active') {
+        process.end(65);
+        await previous!.finished;
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   // Harm: a retained callback after revocation must never start root preparation.
   testWidgets('Prepare the host rechecks admin permission before starting SSH', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);

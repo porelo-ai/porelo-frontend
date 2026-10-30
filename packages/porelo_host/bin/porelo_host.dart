@@ -60,9 +60,11 @@ Future<int> runHostCommand(
   StringSink? output,
   StringSink? errors,
   Map<String, String>? environment,
+  Future<Process> Function(String, List<String>)? startSsh,
 }) async {
   final out = output ?? stdout;
   final err = errors ?? stderr;
+  int wrong(String why) => _wrong(why, errors: err);
   if (arguments.length == 1 && arguments.first == '--collection-info') {
     out.writeln('${hostCollection.version} ${hostCollection.sha256} ${hostCollection.fileName}');
     return Exit.done;
@@ -71,9 +73,11 @@ Future<int> runHostCommand(
     out.writeln(_version);
     return Exit.done;
   }
-  if (arguments.isNotEmpty && arguments.first == 'key') return runKeyCommand(arguments.sublist(1));
-  if (arguments.isNotEmpty && arguments.first == 'find') return _find(arguments.sublist(1));
-  if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return _wrong('up or down first');
+  if (arguments.isNotEmpty && arguments.first == 'key') {
+    return runKeyCommand(arguments.sublist(1), output: out, errors: err);
+  }
+  if (arguments.isNotEmpty && arguments.first == 'find') return _find(arguments.sublist(1), output: out, errors: err);
+  if (arguments.isEmpty || !<String>{'up', 'down'}.contains(arguments.first)) return wrong('up or down first');
   final verb = arguments.first;
   final options = <String, String>{};
   var giveBackAnyway = false;
@@ -112,7 +116,7 @@ Future<int> runHostCommand(
         i + 1 < arguments.length) {
       options[name.substring(2)] = arguments[++i];
     } else {
-      return _wrong('unknown or incomplete option');
+      return wrong('unknown or incomplete option');
     }
   }
   if (options.containsKey('machine-file') != options.containsKey('bundle')) {
@@ -134,18 +138,18 @@ Future<int> runHostCommand(
   ];
   if (serverOnly &&
       (options.containsKey('project') || options.containsKey('account') || options.containsKey('machine-file'))) {
-    return _wrong('a server takes no project or account');
+    return wrong('a server takes no project or account');
   }
   if (options['forge'] != null && !const ['true', 'false'].contains(options['forge'])) {
-    return _wrong('--forge needs true or false');
+    return wrong('--forge needs true or false');
   }
   final missing = needed.where((n) => !options.containsKey(n)).toList();
-  if (missing.isNotEmpty) return _wrong('missing ${missing.map((n) => '--$n').join(', ')}');
+  if (missing.isNotEmpty) return wrong('missing ${missing.map((n) => '--$n').join(', ')}');
   final given = options.containsKey('given');
-  if (given == options.containsKey('scaleway-project')) return _wrong('either --scaleway-project or --given');
-  if (given && !options.containsKey('host-key')) return _wrong('--given needs --host-key');
+  if (given == options.containsKey('scaleway-project')) return wrong('either --scaleway-project or --given');
+  if (given && !options.containsKey('host-key')) return wrong('--given needs --host-key');
   if (options['offer'] case final String offer when given || !RegExp(r'^[A-Z0-9][A-Z0-9-]*$').hasMatch(offer)) {
-    return _wrong('--offer takes an Elastic Metal offer name such as EM-I220E-NVME, with --scaleway-project');
+    return wrong('--offer takes an Elastic Metal offer name such as EM-I220E-NVME, with --scaleway-project');
   }
   if (verb == 'up' && (!given || !serverOnly)) {
     err.writeln('Verified SSH-only preparation requires the served Core and host setup contracts.');
@@ -180,16 +184,23 @@ Future<int> runHostCommand(
     machineFile: options['machine-file'],
     bundle: options['bundle'],
   );
-  final String? config;
+  final String knownHosts;
   try {
     plan.check(forSetup: false);
     if (verb == 'up') plan.preparationSettings.check();
-    config = verb == 'down' && serverOnly && !legacyRental && !giveBackAnyway
-        ? poreloHostSshConfig(plan.hostName!)
-        : null;
+    if (given) {
+      PreparedHost.read({
+        'name': plan.hostName ?? 'given',
+        'address': options['given'],
+        'ssh_port': 22,
+        'ssh_host_key': options['host-key'],
+        'services': choices.localServices,
+      });
+    }
+    knownHosts = '${poreloHostProjectLock(HostPlan.lockNameForTag(plan.tag), environment: environment)}.known_hosts';
   } on FormatException catch (error) {
     writeHostStep(
-      Step('give-back', StepState.refused, fix: error.message),
+      Step(verb == 'up' ? 'up' : 'give-back', StepState.refused, fix: error.message),
       output: out,
       errors: err,
     );
@@ -199,18 +210,12 @@ Future<int> runHostCommand(
   if (given) {
     provider = GivenMachine(address: options['given']!, hostKey: options['host-key']!);
   } else {
-    final (key, failed) = await _scalewayKey();
+    final (key, failed) = await _scalewayKey(errors: err);
     if (key == null) return failed!;
     provider = scalewayFor(options, scalewayOverHttps(key));
   }
 
-  final ssh = OpenSsh(
-    knownHosts: File(poreloHostKnownHosts()),
-    identity: '',
-    agentOnly: verb == 'up',
-    config: config,
-    configHost: config == null ? null : plan.hostName,
-  );
+  final ssh = OpenSsh(knownHosts: File(knownHosts), identity: '', agentOnly: true, start: startSsh);
   final run = HostRun(
     provider: provider,
     remote: remote ?? ssh,
@@ -222,22 +227,24 @@ Future<int> runHostCommand(
 }
 
 /// `find`: the server rented for `--project` now, asked of the provider alone.
-Future<int> _find(List<String> arguments) async {
+Future<int> _find(List<String> arguments, {required StringSink output, required StringSink errors}) async {
+  final err = errors;
+  int wrong(String why) => _wrong(why, errors: err);
   final options = <String, String>{};
   for (var i = 0; i < arguments.length; i++) {
     final name = arguments[i];
     if (!const <String>{'--project', '--scaleway-project', '--zone'}.contains(name) || i + 1 >= arguments.length) {
-      return _wrong('$name is not an option of find');
+      return wrong('$name is not an option of find');
     }
     final value = arguments[++i];
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(value)) return _wrong('$name takes a name, not "$value"');
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(value)) return wrong('$name takes a name, not "$value"');
     options[name.substring(2)] = value;
   }
   final missing = const <String>['project', 'scaleway-project'].where((n) => !options.containsKey(n)).toList();
-  if (missing.isNotEmpty) return _wrong('missing ${missing.map((n) => '--$n').join(', ')}');
-  final (key, failed) = await _scalewayKey();
+  if (missing.isNotEmpty) return wrong('missing ${missing.map((n) => '--$n').join(', ')}');
+  final (key, failed) = await _scalewayKey(errors: err);
   if (key == null) return failed!;
-  return findRented(scalewayFor(options, scalewayOverHttps(key)), options['project']!, out: stdout, err: stderr);
+  return findRented(scalewayFor(options, scalewayOverHttps(key)), options['project']!, out: output, err: err);
 }
 
 /// Prints the server [provider] lists for [project] as one JSON line to [out] and returns 0, or says to [err] that
@@ -265,18 +272,21 @@ Future<int> findRented(
 }
 
 /// Scaleway's secret key from the secret store, or null and the code to end with.
-Future<(String?, int?)> _scalewayKey() async {
+Future<(String?, int?)> _scalewayKey({required StringSink errors}) async {
+  final err = errors;
   final store = SecretStore.forThisSystem();
   final String? key;
   try {
     key = await store.read(providerKeyName('scaleway'));
   } on SecretStoreFailed {
-    stderr.writeln('porelo-host: the operation could not be confirmed');
+    err.writeln('porelo-host: the operation could not be confirmed');
     return (null, Exit.refused);
   } finally {
     await store.close();
   }
-  if (key == null) return (null, _wrong('no key for scaleway is kept: run `porelo-host key set scaleway` first'));
+  if (key == null) {
+    return (null, _wrong('no key for scaleway is kept: run `porelo-host key set scaleway` first', errors: err));
+  }
   return (key, null);
 }
 
@@ -408,7 +418,7 @@ Future<int> runKeyCommand(
   }
 }
 
-int _wrong(String why) {
-  stderr.writeln('porelo-host: $why\n\n$_usage');
+int _wrong(String why, {StringSink? errors}) {
+  (errors ?? stderr).writeln('porelo-host: $why\n\n$_usage');
   return Exit.usage;
 }

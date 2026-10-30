@@ -184,6 +184,12 @@ class _HostDialogState extends State<HostDialog> {
       }
       final runs = widget.hostRuns;
       if (runs == null) throw StateError('The host preparation owner is unavailable.');
+      final existing = runs.of(name);
+      if (_settings.hostUp(name) != null || existing != null && (existing.running || existing.waiting)) {
+        throw const FormatException(
+          'This host name already has saved preparation or an active run. Open it to continue.',
+        );
+      }
       final session = HostSession(
         executable: poreloHost(),
         arguments: hostArguments(record, name),
@@ -193,6 +199,8 @@ class _HostDialogState extends State<HostDialog> {
       setState(() {});
       await _started!.finished;
       if (mounted) setState(() => _problem = _started!.problem);
+    } on StateError catch (error) {
+      if (mounted) setState(() => _problem = error.message.toString());
     } on Exception catch (error) {
       if (mounted) setState(() => _problem = error is FormatException ? error.message : error.toString());
     } finally {

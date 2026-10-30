@@ -57,7 +57,7 @@ class OpenSsh implements Remote {
   /// The `known_hosts` this package writes the provider's key into.
   final File knownHosts;
 
-  /// Whether only keys served by the local agent may authenticate preparation.
+  /// Whether only keys served by the local agent may authenticate the host command.
   final bool agentOnly;
 
   /// The verified host-card configuration, when supplied.
@@ -125,11 +125,22 @@ class OpenSsh implements Remote {
       final process = await _start('ssh', [..._options(host, user), '$user@$host', 'cat > ${quoteForAShell(to)}']);
       final out = process.stdout.drain<void>();
       final err = process.stderr.transform(utf8.decoder).join();
-      await process.stdin.addStream(File(from).openRead());
-      await process.stdin.close();
+      SocketException? inputFailure;
+      try {
+        await process.stdin.addStream(File(from).openRead());
+      } on SocketException catch (error) {
+        inputFailure = error;
+      }
+      try {
+        await process.stdin.close();
+      } on SocketException catch (error) {
+        inputFailure ??= error;
+      }
       final code = await process.exitCode;
       await out;
-      return RemoteResult(code, await err);
+      final words = await err;
+      if (code == 0 && inputFailure != null) throw inputFailure;
+      return RemoteResult(code, words);
     }
     final done = await _runProcess('scp', <String>[
       ..._options(host, user),

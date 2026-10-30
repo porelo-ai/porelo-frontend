@@ -139,6 +139,28 @@ void main() {
   );
   const recovery = HostPlan(project: 'demo', account: 'worker', publicKey: '', recoveryOnly: true);
 
+  // Harm: retrying a refused existing root login can lock out the administrator.
+  // Rental retries still allow cloud-init to finish installing its key.
+  for (final given in [true, false]) {
+    test('SSH retries only for rentals given=$given', () async {
+      final transport = _LoginRefusal();
+      final setup = _Preparation();
+      final run = HostRun(
+        provider: given ? GivenMachine(address: '203.0.113.7', hostKey: sshKey) : provider,
+        remote: transport,
+        preparation: setup,
+        hostKeys: () async => ('fixture-host-private', sshKey),
+        sshEvery: Duration.zero,
+        emit: steps.add,
+        environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      );
+      expect(await run.up(plan), given ? Exit.unreachable : Exit.done);
+      expect(transport.logins, given ? 1 : 2);
+      expect(setup.calls, given ? 0 : 1);
+      if (given) expect(steps.last.words, 'Permission denied (publickey).');
+    });
+  }
+
   // Harm: missing runner limits exhaust a small host, and wrong forwards misdirect its services.
   test('preparation receives version two inventory and chosen local forwards', () async {
     final setup = _Preparation();
@@ -306,4 +328,20 @@ class _WrongKey extends ScriptedRemote {
     String? input,
     void Function(String)? onLine,
   }) async => const RemoteResult(255, 'Host key verification failed');
+}
+
+class _LoginRefusal extends ScriptedRemote {
+  _LoginRefusal() : super([]);
+  int logins = 0;
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String)? onLine,
+  }) async {
+    if (command == 'true' && ++logins == 1) return const RemoteResult(255, 'Permission denied (publickey).');
+    return super.run(host, user, command, input: input, onLine: onLine);
+  }
 }
