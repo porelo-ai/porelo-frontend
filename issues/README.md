@@ -25,6 +25,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | *Register the project* at one click; developers added and removed by a pick from the registry. |
 | <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | M | [F270](README.md#f270); porelo-host: person-started push and pull | The central push and pull started by a person, their token through the tunnel. |
 | <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | Core: signed host payloads; porelo-host: registry intake | App operations and retry guards built against fake contracts; live signing, intake and page wiring remain. |
 | <a id="f278"></a>[F278](F278-The-Machines-Projects-And-Forges-Pages.md) | L | — | The Machines, Projects and Forges pages as agreed on draft 2: lists of rows with ⋮, a page per item, filters, the default project. |
@@ -41,7 +42,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
 | <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
-| <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | *Register the project* at one click; developers added and removed by a pick from the registry. |
 | <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | M | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
 | <a id="f275"></a>[F275](F275-The-Sign-In-Says-Its-Flow.md) | S | porelo: `login.flow` in the agent API | The sign-in terminal says whether to paste a code or confirm on the device page. |
 | <a id="f277"></a>[F277](F277-Commits-Signed-With-The-Persons-Key.md) | M | porelo: signers with `cert-authority` and `valid-before` | Commits signed with the person's key through the agent, verified by the signers Core names. |
