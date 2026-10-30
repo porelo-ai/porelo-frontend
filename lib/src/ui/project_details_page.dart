@@ -61,7 +61,7 @@ class ProjectDetailsPage extends StatelessWidget {
   final Widget? details;
 
   /// The saved jobs available on this project.
-  final List<Widget> jobs;
+  final List<FilteredRow> jobs;
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +120,14 @@ class ProjectDetailsPage extends StatelessWidget {
             ),
           ],
         ),
-        ...jobs,
+        if (jobs.isNotEmpty)
+          FilteredListSection(
+            title: 'Saved jobs',
+            storageId: 'project-jobs ${machine.name}/${project.name}',
+            collapsible: true,
+            reveal: highlight?.startsWith('template.start/${project.name}/') == true ? highlight : null,
+            rows: jobs,
+          ),
       ],
     );
   }

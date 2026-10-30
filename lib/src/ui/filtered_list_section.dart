@@ -15,6 +15,7 @@ class FilteredListSection extends StatefulWidget {
     this.collapsible = false,
     this.initiallyOpen = true,
     this.actions = const [],
+    this.reveal,
     super.key,
   });
 
@@ -36,6 +37,9 @@ class FilteredListSection extends StatefulWidget {
   /// The operations shown beside this list header.
   final List<Widget> actions;
 
+  /// The finder destination that requires this section to open and clear its filter.
+  final String? reveal;
+
   @override
   State<FilteredListSection> createState() => _FilteredListSectionState();
 }
@@ -50,6 +54,19 @@ class _FilteredListSectionState extends State<FilteredListSection> {
     final kept = PageStorage.maybeOf(context)?.readState(context, identifier: widget.storageId);
     _filter = TextEditingController(text: kept is (String, bool) ? kept.$1 : '');
     _open = kept is (String, bool) ? kept.$2 : widget.initiallyOpen;
+    if (widget.reveal != null) _reveal();
+  }
+
+  @override
+  void didUpdateWidget(FilteredListSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.reveal != null && widget.reveal != oldWidget.reveal) _reveal();
+  }
+
+  void _reveal() {
+    _open = true;
+    _filter.clear();
+    _keep();
   }
 
   void _keep() =>

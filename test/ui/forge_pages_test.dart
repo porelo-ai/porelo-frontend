@@ -36,6 +36,93 @@ const _repository = ForgeRepository(
 );
 
 void main() {
+  // Harm: a removed menu entry strands a repository in default with no way to stop working on it.
+  testWidgets('the repository menu removes work without a project and preserves other repositories', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.inDefault = [
+      const DefaultRepository(
+        name: 'api',
+        upstream: 'https://forge.example.org/acme/api.git',
+        checkout: '',
+        claimedBy: '',
+      ),
+      const DefaultRepository(
+        name: 'other',
+        upstream: 'https://forge.example.org/acme/other.git',
+        checkout: '',
+        claimedBy: '',
+      ),
+    ];
+    World.backend.theProjectsItHas.add(
+      Project.from({
+        'name': defaultProject,
+        'repositories': [
+          {'name': 'api', 'upstream': 'https://forge.example.org/acme/api.git'},
+          {'name': 'other', 'upstream': 'https://forge.example.org/acme/other.git'},
+        ],
+      }),
+    );
+    await World.startApp(tester);
+    await World.forgeTokens.write('forge.example.org', World.forge.accepts);
+    World.forge.repositoriesHere.add(_repository);
+    await World.forges.add(name: 'Central', address: 'forge.example.org');
+    World.shell.goTo(Section.forge);
+    await World.settle(tester);
+    await World.tapInView(tester, 'forge-repository-menu acme/api');
+    await World.tapInView(tester, 'repository.defaultRemove');
+    expect(World.backend.inDefault.map((repository) => repository.name), ['other']);
+  });
+
+  // Harm: hiding trusted-machine tools prevents removal of obsolete message-signing access.
+  testWidgets('the repository menu opens its trusted-machine tools', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await World.forgeTokens.write('forge.example.org', World.forge.accepts);
+    World.forge.repositoriesHere.add(_repository);
+    await World.forges.add(name: 'Central', address: 'forge.example.org');
+    World.shell.goTo(Section.forge);
+    await World.settle(tester);
+    await World.tapInView(tester, 'forge-repository-menu acme/api');
+    await World.tapInView(tester, 'repository.tools');
+    expect(find.byKey(const Key('project-forge-dialog')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // Harm: renaming a forge must not replace its SSH authentication or create a second connection.
+  testWidgets('renaming an identity forge preserves its connection without opening a token terminal', (tester) async {
+    tester.view
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final terminals = <List<String>>[];
+    final forge = _IdentityForge();
+    final forges = ForgeConnection(
+      MemoryForgeTokens(),
+      identityAccess: (_) async => forge,
+      openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
+        terminals.add([executable, ...arguments]);
+        return FakeTerminal([]);
+      },
+    );
+    addTearDown(forges.dispose);
+    final entry = await forges.addIdentity(name: 'Central', address: 'forge.example.org');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ForgePage(forges: forges, usedBy: (_) => [], usedOn: (_) => []),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    await World.tapInView(tester, 'forges-menu Central');
+    await World.tapInView(tester, 'forge.rename');
+    await tester.enterText(find.byKey(const Key('forge-name')), 'Work');
+    await World.tapInView(tester, 'forge-connect');
+    expect(forges.entries.map((each) => (each.id, each.name, each.authentication)), [(entry!.id, 'Work', 'ssh')]);
+    expect(forges.connected, isTrue);
+    expect(terminals, isEmpty);
+  });
+
   late OpenLink previousOpenLink;
   setUp(() => previousOpenLink = openLink);
   tearDown(() => openLink = previousOpenLink);

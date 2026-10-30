@@ -1802,20 +1802,22 @@ Command putAwayQuestionCommand({required VoidCallback run, String? unavailable})
 );
 
 /// Creates a page operation from the supplied adapter and its exact access scope.
-Command registryPageCommand({
+Command? registryPageCommand({
   required RegistryPages registry,
   required RegistryTarget target,
   required RegistryOperation operation,
   required VoidCallback run,
   String? person,
-}) => Command(
-  id: 'registry.${operation.name}',
-  label: registryOperationLabel(operation),
-  group: target.project == null ? 'Machines' : 'Projects',
-  home: target.project == null ? Home.machineMenu : Home.projectMenu,
-  run: run,
-  unavailable: registry.unavailable(target, operation, person: person),
-);
+}) => registry.item(target)?.offers(operation) != true
+    ? null
+    : Command(
+        id: 'registry.${operation.name}',
+        label: registryOperationLabel(operation),
+        group: target.project == null ? 'Machines' : 'Projects',
+        home: target.project == null ? Home.machineMenu : Home.projectMenu,
+        run: run,
+        unavailable: registry.unavailable(target, operation, person: person),
+      );
 
 /// Names registry actions once for page menus, confirmations, and the finder.
 String registryOperationLabel(RegistryOperation operation) => switch (operation) {

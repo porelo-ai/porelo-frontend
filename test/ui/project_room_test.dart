@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/projects_page.dart';
@@ -39,6 +41,78 @@ Future<void> _join(WidgetTester tester, String name) async {
 }
 
 void main() {
+  // Harm: a shortcut on an unwatched project must not review another machine's project.
+  testWidgets('an unwatched project blocks shortcuts and finder commands for the old selection', (tester) async {
+    await World.startBackend(World.work);
+    const remote = Machine(name: 'unwatched', socketPath: '/unwatched');
+    const target = (registry: 'registry', host: 'unwatched', project: 'checkout');
+    final registry = RegistryPages(
+      source: FakeRegistryPageSource(
+        const RegistryPageSnapshot(
+          items: [
+            RegistryPageItem(target: target, machine: remote, role: 'developer', state: 'admitted', revision: 'r1'),
+          ],
+        ),
+      ),
+    );
+    addTearDown(registry.dispose);
+    await World.startApp(tester, registryPages: registry);
+    World.fleet.selectProject('checkout');
+    World.shell.goTo(Section.projects);
+    await World.settle(tester);
+    await World.tapInView(tester, 'project registry/unwatched/checkout');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await World.settle(tester);
+    expect(World.backend.gateAskedIn, isEmpty, reason: 'the previous project must receive no review request');
+    expect(World.shell.opened, isA<NothingOpened>());
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await World.settle(tester);
+    await tester.enterText(find.byKey(const Key('command-query')), 'Review what is waiting');
+    await World.settle(tester);
+    expect(
+      tester.widget<ListTile>(find.widgetWithText(ListTile, 'Review what is waiting at the gate')).enabled,
+      isFalse,
+    );
+  });
+
+  // Harm: a row's access tools must use its own forge and machine, independent of current selection.
+  testWidgets('a followed row opens its own forge tools with no selected project', (tester) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas = [
+      Project.from({
+        'name': 'checkout',
+        'file': '/srv/checkout/project.yml',
+        'following': {'url': 'git@forge.example.org:acme/api.git'},
+      }),
+    ];
+    await World.startApp(tester);
+    await World.forgeTokens.write('forge.example.org', World.forge.accepts);
+    World.forge.repositoriesHere.add(
+      const ForgeRepository(
+        fullName: 'acme/api',
+        sshUrl: 'git@forge.example.org:acme/api.git',
+        httpsUrl: 'https://forge.example.org/acme/api.git',
+        defaultBranch: 'main',
+        admin: true,
+        push: true,
+        private: true,
+      ),
+    );
+    await World.forges.add(name: 'Central', address: 'forge.example.org');
+    World.fleet.selectProject(null);
+    World.shell.goTo(Section.projects);
+    await World.settle(tester);
+    await World.tapInView(tester, 'projects-menu ${World.machines.current.name}/checkout');
+    expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('project.forge'))).enabled, isTrue);
+    await World.tapInView(tester, 'project.forge');
+    expect(find.byKey(const Key('project-forge-dialog')), findsOneWidget);
+    expect(World.fleet.selectedProject?.name, 'checkout');
+  });
+
   // Harm: withdrawing one registry admission must not expose another registry's person actions.
   testWidgets('a withdrawn open admission does not fall back to a surviving registry', (tester) async {
     await World.startBackend(World.work);
@@ -168,7 +242,8 @@ void main() {
             RegistryPageItem(
               target: target(machine),
               machine: machine,
-              role: machine == second ? 'project admin' : 'developer',
+              role: 'project admin',
+              roleOperations: const {RegistryOperation.projectLock},
               state: 'registered',
               revision: 'revision-1',
               allowed: machine == second ? {RegistryOperation.projectLock} : {},

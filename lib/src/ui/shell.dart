@@ -394,27 +394,53 @@ class _ShellState extends State<Shell> {
 
   List<Command> _commands() => [
     for (final command in _unscopedCommands())
-      if (command.id != 'project.developers') command.unless(_itemScopeProblem(command)),
+      if (command.id != 'project.developers') _commandForItem(command).unless(_itemScopeProblem(command)),
   ];
+
+  Command _commandForItem(Command command) {
+    if (command.id != 'project.default' ||
+        widget.shell.section != Section.project ||
+        widget.shell.itemProject != defaultProject ||
+        widget.shell.itemMachine != widget.machines.current) {
+      return command;
+    }
+    final project = projectsOnMachine(
+      widget.machines,
+      widget.machines.current,
+    ).singleWhere((project) => project.name == defaultProject);
+    return _pageProjectCommands(
+      widget.machines.current,
+      project,
+    ).singleWhere((command) => command.id == 'project.default');
+  }
 
   String? _itemScopeProblem(Command command) {
     final target = widget.shell.itemRegistryTarget;
-    final scoped = {
-      Home.machineTitle,
-      Home.machineMenu,
-      Home.projectMenu,
-      Home.repositoryRow,
-      Home.startTile,
-      Home.templateTile,
-    }.contains(command.home);
+    final scoped =
+        {
+          Home.machineTitle,
+          Home.machineMenu,
+          Home.projectMenu,
+          Home.repositoryRow,
+          Home.startTile,
+          Home.templateTile,
+        }.contains(command.home) ||
+        command.id == 'project.default';
     if (scoped && target != null && _registry.item(target) == null) {
       return 'This verified admission is no longer available. Return to its list.';
     }
     if (scoped &&
-        widget.shell.section == Section.machine &&
+        {Section.machine, Section.project}.contains(widget.shell.section) &&
         widget.shell.itemMachine != null &&
         widget.shell.itemMachine != widget.machines.current) {
       return 'Open this machine again before running its commands.';
+    }
+    if (scoped &&
+        widget.shell.section == Section.project &&
+        widget.shell.itemProject != null &&
+        widget.shell.itemProject != _fleet.selectedProject?.name &&
+        !(widget.shell.itemProject == defaultProject && _fleet.selectedProject == null)) {
+      return 'Open this project again before running its commands.';
     }
     if (target != null && {'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id)) {
       return 'Use the operation on the verified item page.';
@@ -613,13 +639,10 @@ class _ShellState extends State<Shell> {
         showValues: () =>
             unawaited(showPreparedHost(context, widget.settings.hostUp(machine.hostProject)!.preparedHost!)),
       ).where(
-        (command) => !{
-          'host.admitAdmin',
-          'host.lockAdmin',
-          'host.purgeAdmin',
-          'host.registerProject',
-          'host.removeProject',
-        }.contains(command.id),
+        (command) =>
+            !{'host.admitAdmin', 'host.lockAdmin', 'host.purgeAdmin'}.contains(command.id) &&
+            (!{'host.registerProject', 'host.removeProject'}.contains(command.id) ||
+                !_registry.items.any((item) => item.machine == machine)),
       ),
       if (run != null)
         hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineMenu),
@@ -718,7 +741,7 @@ class _ShellState extends State<Shell> {
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
-      itsForgeIsMissing: _itsForgeIsMissing(),
+      itsForgeIsMissing: _itsForgeIsMissing(project),
       showTheDefault: () => unawaited(_showTheDefault()),
       startTheAgents: () => unawaited(_startTheAgents(project.name)),
     ))
@@ -970,8 +993,8 @@ class _ShellState extends State<Shell> {
   }
 
   /// Why the selected project's forge cannot be opened from here, or null where it can.
-  String? _itsForgeIsMissing() {
-    final url = _fleet.selectedProject?.project.following?.url ?? '';
+  String? _itsForgeIsMissing([ProjectOnScreen? project]) {
+    final url = (project ?? _fleet.selectedProject)?.project.following?.url ?? '';
     if (url.isEmpty) return 'it is not followed from a repository';
     if (fullNameOf(url) == null) return 'its repository is not on a forge';
     if (_forges.holding(url) == null) {
@@ -3258,19 +3281,25 @@ class _ShellState extends State<Shell> {
     );
     return [
       openWork,
-      if (project.name != defaultProject)
-        projectWorkCommand(
-          open: () {
-            _workView
-              ..machine = machine.name
-              ..project = project.name == defaultProject ? '' : project.name;
-            widget.shell.goTo(Section.work);
-          },
-        ),
-      if (watched && project.name != defaultProject)
+      projectWorkCommand(
+        open: () {
+          _workView
+            ..machine = machine.name
+            ..project = project.name == defaultProject ? '' : project.name;
+          widget.shell.goTo(Section.work);
+        },
+      ),
+      if (watched)
         ..._projectMenu(project, on: machine).where(
           (command) =>
-              item == null || !{'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id),
+              (project.name != defaultProject ||
+                  !{
+                    'project.server',
+                    'project.joinHost',
+                    'project.takeOffServer',
+                    'project.clear',
+                  }.contains(command.id)) &&
+              (item == null || !{'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id)),
         ),
       if (project.name != defaultProject)
         if (item != null)
@@ -3358,16 +3387,20 @@ class _ShellState extends State<Shell> {
         ),
         jobs: [
           for (final job in widget.templates.forProject(project.name))
-            TemplateRow(
-              job: job,
-              highlighted: highlight == 'template.start/${job.project}/${job.name}',
-              unavailable: watched && job.startable
-                  ? notAnswering(widget.machines.of(machine))
-                  : 'This job cannot start here.',
-              onPressed: () {
-                _openPageProject(machine, project.name);
-                unawaited(_startFromTemplate(job));
-              },
+            (
+              words: '${job.name} ${job.agent} ${job.mode.name}',
+              child: TemplateRow(
+                job: job,
+                highlighted: highlight == 'template.start/${job.project}/${job.name}',
+                onShown: widget.shell.shown,
+                unavailable: watched && job.startable
+                    ? notAnswering(widget.machines.of(machine))
+                    : 'This job cannot start here.',
+                onPressed: () {
+                  _openPageProject(machine, project.name);
+                  unawaited(_startFromTemplate(job));
+                },
+              ),
             ),
         ],
       );

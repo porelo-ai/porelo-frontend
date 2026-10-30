@@ -1,16 +1,156 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:porelo_frontend/src/app/templates.dart';
+import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/roles.dart';
+import 'package:porelo_frontend/src/ui/host_admin_dialog.dart';
+import 'package:porelo_host/porelo_host.dart' show PreparedHost;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/ui/projects_page.dart';
 import 'package:porelo_frontend/src/ui/machine_details_page.dart';
+import 'package:porelo_frontend/src/ui/machines_page.dart';
+import 'package:porelo_frontend/src/ui/start_work_view.dart';
 import 'package:porelo_frontend/src/app/registry_pages.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import '../features/support/world.dart';
 
 void main() {
+  // Harm: a saved job hidden by its section must remain reachable for deliberate execution through the finder.
+  testWidgets('finding a saved job reveals its filtered collapsed section and opens the row command', (tester) async {
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    await World.templates.keep(
+      const Template(name: 'Check API', project: 'checkout', agent: 'claude', mode: Mode.agent, prompt: ''),
+    );
+    final machine = World.machines.current;
+    World.fleet.selectProject('checkout');
+    World.shell.openProject(machine, 'checkout');
+    await World.settle(tester);
+    final identity = 'project-jobs ${machine.name}/checkout';
+    await tester.enterText(find.byKey(ValueKey('$identity-filter')), 'no match');
+    await World.settle(tester);
+    await World.tapInView(tester, '$identity-fold');
+    World.shell.show('template.start/checkout/Check API', section: Section.project);
+    await World.settle(tester);
+    expect(find.byKey(const Key('highlighted')), findsOneWidget);
+    expect(find.byKey(const Key('job checkout/Check API')), findsOneWidget);
+    expect(World.shell.highlight, isNull, reason: 'the row reports when its command has been shown');
+    expect(tester.widget<PopupMenuItem<String>>(find.byKey(const Key('highlighted'))).enabled, isTrue);
+    expect(World.fleet.selectedProject?.name, 'checkout');
+    await tester.ensureVisible(find.byKey(const Key('highlighted')));
+    await tester.tap(find.byKey(const Key('highlighted')));
+    await World.settle(tester);
+    expect(World.starting.project?.name, 'checkout');
+    expect(find.byType(StartWorkDialog), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // Harm: an unreported default project must still allow deliberate removal of its repositories.
+  testWidgets('the default item page and finder retain repository management before the daemon lists default', (
+    tester,
+  ) async {
+    await World.startBackend(World.work);
+    World.backend.theProjectsItHas.removeWhere((project) => project.name == defaultProject);
+    World.backend.inDefault = [
+      const DefaultRepository(
+        name: 'api',
+        upstream: 'https://forge.example.org/acme/api.git',
+        checkout: '',
+        claimedBy: '',
+      ),
+    ];
+    await World.startApp(tester);
+    final machine = World.machines.current;
+    World.shell.goTo(Section.projects);
+    await World.settle(tester);
+    await World.tapInView(tester, 'project ${machine.name}/default');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await World.settle(tester);
+    await tester.enterText(find.byKey(const Key('command-query')), 'Repositories worked on without a project');
+    await World.settle(tester);
+    final command = find.widgetWithText(ListTile, 'Repositories worked on without a project');
+    expect(tester.widget<ListTile>(command).enabled, isTrue);
+    await tester.tap(command);
+    await World.settle(tester);
+    await World.tapInView(tester, 'default-remove api');
+    expect(World.backend.inDefault, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // Harm: removing placement commands can strand projects on a retained prepared server.
+  testWidgets('a prepared server without registry state retains project registration and removal', (tester) async {
+    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
+    addTearDown(() => roles = const Roles());
+    await World.startBackend(World.work);
+    await World.startApp(tester);
+    const machine = Machine(
+      name: 'elsewhere',
+      socketPath: '/unused',
+      kind: 'host',
+      hostProject: 'demo',
+      identity: '/keys/private',
+    );
+    await World.settings.rememberHostUp(
+      'demo',
+      HostUpRecord(
+        scalewayProject: 'provider',
+        account: 'worker',
+        tresor: 'drive',
+        folder: null,
+        host: 'demo',
+        hostName: 'demo',
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+        preparedHost: PreparedHost.read({
+          'address': '203.0.113.7',
+          'endpoint': '203.0.113.7:51820',
+          'wireguard_public_key': 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+          'network': '10.73.0.0/24',
+          'ssh_host_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
+          'ca_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          'homeserver': 'matrix.demo.porelo.internal',
+        }),
+      ),
+    );
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    final page = tester.widget<MachinesPage>(find.byType(MachinesPage));
+    unawaited(
+      showDialog<void>(
+        context: tester.element(find.byType(MachinesPage)),
+        builder: (_) => AlertDialog(
+          content: CommandMenu(
+            key: const Key('prepared-server-menu'),
+            commands: page.hostCommands!(machine),
+            tooltip: 'Prepared server operations',
+          ),
+        ),
+      ),
+    );
+    await World.settle(tester);
+    await World.tapInView(tester, 'prepared-server-menu');
+    expect(find.byKey(const Key('host.registerProject')), findsOneWidget);
+    expect(find.byKey(const Key('host.removeProject')), findsOneWidget);
+    expect(find.byKey(const Key('host.admitAdmin')), findsNothing);
+    await World.tapInView(tester, 'host.registerProject');
+    expect(tester.widget<HostAdminDialog>(find.byType(HostAdminDialog)).action, 'register');
+    expect(World.terminals, isEmpty, reason: 'opening registration must not mutate the server');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   // Harm: a machine page must never stop a different machine after current selection changes.
   testWidgets('a machine page refuses commands while a different machine is current', (tester) async {
     await World.startBackend(World.work);

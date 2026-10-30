@@ -141,6 +141,7 @@ Widget projectListRow({
   final identity = projectRowIdentity(machine, project.name, admission);
   final watched = machines.all.contains(machine);
   final connected = watched && machines.of(machine).reachability == Reachability.connected;
+  final tunnel = watched ? machines.tunnels.of(machine) : null;
 
   final menu = isDefault ? commands.where((command) => command.id == 'work.start').toList() : commands;
   return ItemListRow(
@@ -157,6 +158,8 @@ Widget projectListRow({
         registryStateWords(registry!, admission),
       ],
       if (!connected) 'Not connected; last known state',
+      if (tunnel != null) tunnel.words else if (machine.needsATunnel) 'Tunnel not reached' else 'No SSH tunnel needed',
+      ?tunnel?.problem,
       if (project.project.pending > 0) '${project.project.pending} waiting for review',
       if (!isDefault && !project.project.prepared) 'Environment not prepared',
       if (project.project.environmentIsStale) 'Environment older than its project file',

@@ -118,6 +118,9 @@ class RegistryMember {
   final String state;
 }
 
+/// The role and verified contacts responsible for a particular operation.
+typedef RegistryAuthority = ({String role, List<RegistryPerson> people});
+
 /// One verified machine or project admission, independent of local following.
 @immutable
 class RegistryPageItem {
@@ -131,6 +134,8 @@ class RegistryPageItem {
     this.members = const [],
     this.administrators = const [],
     this.allowed = const {},
+    this.roleOperations = const {},
+    this.authorities = const {},
     this.refusals = const {},
   });
 
@@ -157,6 +162,15 @@ class RegistryPageItem {
 
   /// The operations permitted by the verified access projection.
   final Set<RegistryOperation> allowed;
+
+  /// The additional operations this person's role can hold, even when unavailable in this scope.
+  final Set<RegistryOperation> roleOperations;
+
+  /// The responsible role and contacts per operation, supplied by verified access.
+  final Map<RegistryOperation, RegistryAuthority> authorities;
+
+  /// Whether the operation belongs in this person's menu, independent of current availability.
+  bool offers(RegistryOperation operation) => allowed.contains(operation) || roleOperations.contains(operation);
 
   /// The current operational refusals supplied by the adapter.
   final Map<RegistryOperation, String> refusals;
@@ -288,8 +302,26 @@ class RegistryPages extends ChangeNotifier {
     final current = item(target);
     if (current == null) return 'No verified access state is available for this item.';
     if (!current.allowed.contains(operation)) {
-      final who = current.administrators.map((person) => person.name).join(', ');
-      return 'Only ${target.project == null ? 'a host admin' : 'a project admin'} may do this${who.isEmpty ? '; no administrator card was supplied' : ': $who'}.';
+      final authority = current.authorities[operation];
+      final who = (authority?.people ?? current.administrators)
+          .map((person) => '${person.name} (${person.login}; ${person.contactEmail ?? 'no email supplied'})')
+          .join(', ');
+      final role =
+          authority?.role ??
+          switch (operation) {
+            RegistryOperation.admit ||
+            RegistryOperation.hostLock ||
+            RegistryOperation.hostUnlock ||
+            RegistryOperation.deleteAccount => 'a host admin',
+            RegistryOperation.register ||
+            RegistryOperation.addPerson ||
+            RegistryOperation.projectLock ||
+            RegistryOperation.projectUnlock ||
+            RegistryOperation.removePerson => 'a project admin',
+            RegistryOperation.createRegistry => 'a registry owner',
+            _ => 'a person authorized by the verified access state',
+          };
+      return 'Only $role may do this${who.isEmpty ? '; no administrator card was supplied' : ': $who'}.';
     }
     if (current.refusals[operation] case final refusal?) return refusal;
     if (person != null && !people.any((card) => card.login == person)) return 'Choose a verified person card.';

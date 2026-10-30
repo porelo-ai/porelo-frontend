@@ -7,46 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
-
-- Host administration recovers unpublished ready cards, changed selections and lost intake staging,
-  delivers verified newer registry state without rolling back host access, and refuses unassigned hosts,
-  purged memberships and refused-card unlocks. Confirmed returns retain visible deletion recovery,
-  disable stale admin actions and permit name reuse after deletion; publication status tracks the host card.
-- Host-card tunnels reject aliases to the local signing agent and unsafe stored config paths, keep
-  ownership and port reservations separate across hosts and trials, and complete shutdown after
-  socket races or failed starts. Scoped IPv6 addresses retain their literal zone, and reached hosts
-  keep daemon failures separate from key availability.
-- Host account commands enforce the card pin even outside its SSH alias. Teardown keeps the provider's
-  pinned endpoint and requested login; forced give-back works without local SSH configuration.
-- Provider terminals refuse unreachable accounts and use the desktop's OpenSSH. Rental migration keeps
-  original provider tags for already-named hosts and preserves malformed legacy recovery records.
-
-- Legacy rental migration keeps the original provider tag and recovery explanation. One-click SSH uses
-  the host configuration without an empty identity, and failed teardown offers a loss-confirmed give-back.
-- Supported provider sign-ins retain their terminal flow. Following can resolve verified project-admin
-  signers after edits and discards stale answers; project take-off explains its pending registry support.
-
-### Removed
-
-- Retired VPN and local trust installers, host-secret stops, copied laptop keys, project-key setup inputs,
-  and the associated walks. Old rentals remain visible for confirmed give-back or setup again without
-  reusing obsolete credentials. Signed-state setup and joining require the served replacement adapters.
-
 ### Added
-
-- Host administration has registry-backed app operations for trusted-person admission, host-scoped locking,
-  readmission and separately confirmed account deletion. Checked SSH completion cards and confirmed provider
-  returns retain publication recovery independently; registry delivery resumes the same signed revision and
-  requires the intended host, revision and membership result before confirming it. Signing and host intake
-  remain injectable until their implementations are available.
-- The organisation's registry repository is kept as one credential-free address and fetched into a private
-  checkout with the person's own Git access, never prompting. Core's registry read of it is the one source
-  for persons, hosts, admins and projects; a refused fetch, an incomplete answer or a refused commit keeps
-  the last accepted state and says why, and a refused card can never be picked for a change.
-- Verified host cards can publish pinned public-only SSH configurations and share one supervised
-  connection for fixed forge, Git-over-HTTP, Matrix and daemon forwards. Port conflicts are refused,
-  agent forwarding is disabled, and host transport state is separate from daemon and vault readiness.
 
 - Project admins can bring from a machine with no local host record using their copied host keys and
   assigned VPN address. The bring fetches the CA through pinned own-account SSH over the VPN, refuses
@@ -93,10 +54,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Registry changes refuse missing selections and unpublished checkout work, publish only Core's filed
-  commit, and retain publication failures. Registry reads apply Core's latest verified state beside a
-  refused commit, preserve first-commit and malformed-card refusals, and name owners for hosts without
-  admins. Git disables credential prompts and incomplete initial checkouts can be retried.
+- Project shortcuts and finder commands refuse stale item selections. Default project pages retain
+  repository management, and prepared machines without registry state retain project placement commands.
+  Forge repository menus retain repository removal and trusted-machine tools; renaming keeps the chosen
+  authentication method.
+- Registry menus hide operations outside the person's role and name the responsible contacts with their
+  supplied email. Saved jobs have a collapsible filter and working finder menus; project rows show tunnel state.
 
 - Project joins supply an explicit local Ansible inventory and disable its localhost warning while retaining
   real warnings and failures in the join log.

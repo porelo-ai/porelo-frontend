@@ -147,6 +147,14 @@ Widget forgeMenu(
       ),
     ] else ...[
       Command(
+        id: 'forge.rename',
+        label: 'Rename this forge…',
+        group: 'Forges',
+        home: Home.forgeRow,
+        unavailable: forges.busy ? 'Still checking access.' : null,
+        run: () => unawaited(showForgeForm(context, forges, editing: entry)),
+      ),
+      Command(
         id: 'forge.useToken',
         label: 'Use a token instead…',
         group: 'Forges',
@@ -460,6 +468,24 @@ class _ForgePageState extends State<ForgePage> {
               home: Home.forgeRow,
               run: () => unawaited(_act(context, forges, repository, 'default-start')),
             ),
+          if (widget.machine != null && widget.inDefault?.call(name) == true)
+            Command(
+              id: 'repository.defaultRemove',
+              label: 'Stop working on it without a project',
+              group: 'Forges',
+              home: Home.forgeRow,
+              run: () => unawaited(_act(context, forges, repository, 'default-remove')),
+            ),
+          Command(
+            id: 'repository.tools',
+            label: 'Machines whose messages it trusts…',
+            group: 'Forges',
+            home: Home.forgeRow,
+            unavailable: widget.machine != null && forges.workspace(repository) != null
+                ? null
+                : 'This needs a connected machine and a working repository adapter.',
+            run: () => unawaited(_act(context, forges, repository, 'tools')),
+          ),
         ],
       ),
     );

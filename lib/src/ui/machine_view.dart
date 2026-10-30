@@ -169,6 +169,7 @@ class TemplateRow extends StatelessWidget {
     required this.onPressed,
     this.unavailable,
     this.highlighted = false,
+    this.onShown,
     super.key,
   });
 
@@ -184,27 +185,29 @@ class TemplateRow extends StatelessWidget {
   /// Whether the finder went here.
   final bool highlighted;
 
+  /// Reports that the finder destination's row menu has opened.
+  final VoidCallback? onShown;
+
   @override
-  Widget build(BuildContext context) => Highlight(
-    active: highlighted,
-    child: ListTile(
-      key: ValueKey<String>('job ${job.project}/${job.name}'),
-      title: Text(job.name),
-      subtitle: unavailable == null ? Text('Saved job in ${job.project}') : Text(unavailable!),
-      leading: const Icon(Icons.replay),
-      trailing: CommandMenu(
-        commands: [
-          Command(
-            id: 'template.start/${job.project}/${job.name}',
-            label: 'Run ${job.name}',
-            group: 'Saved jobs',
-            home: Home.templateTile,
-            unavailable: unavailable,
-            run: onPressed,
-          ),
-        ],
-        tooltip: 'Saved job ${job.name}',
-      ),
+  Widget build(BuildContext context) => ListTile(
+    key: ValueKey<String>('job ${job.project}/${job.name}'),
+    title: Text(job.name),
+    subtitle: unavailable == null ? Text('Saved job in ${job.project}') : Text(unavailable!),
+    leading: const Icon(Icons.replay),
+    trailing: CommandMenu(
+      highlight: highlighted ? 'template.start/${job.project}/${job.name}' : null,
+      onShown: onShown,
+      commands: [
+        Command(
+          id: 'template.start/${job.project}/${job.name}',
+          label: 'Run ${job.name}',
+          group: 'Saved jobs',
+          home: Home.templateTile,
+          unavailable: unavailable,
+          run: onPressed,
+        ),
+      ],
+      tooltip: 'Saved job ${job.name}',
     ),
   );
 }

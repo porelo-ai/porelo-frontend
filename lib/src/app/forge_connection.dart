@@ -366,6 +366,14 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     return made;
   }
 
+  /// Renames an entry while retaining its authentication and confirmed access.
+  Future<void> rename(ForgeEntry entry, String name) => _asking(() async {
+    final renamed = entry.named(name.trim().isEmpty ? entry.name : name.trim());
+    entries = [for (final each in entries) each.id == entry.id ? renamed : each];
+    await _keep();
+    if (current?.id == entry.id) current = renamed;
+  });
+
   /// Renames an entry and reloads the token kept by the terminal command.
   Future<void> edit(ForgeEntry entry, {String? name}) => _asking(() async {
     final changed = entry.named(name == null || name.trim().isEmpty ? entry.name : name.trim());

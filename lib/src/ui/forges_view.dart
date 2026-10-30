@@ -258,6 +258,11 @@ class _ForgeFormState extends State<ForgeForm> {
       return;
     }
     if (!widget.useToken) {
+      if (editing != null) {
+        await forges.rename(editing, _name.text);
+        if (forges.problem == null && mounted) widget.onDone('${_name.text.trim()} is kept.');
+        return;
+      }
       try {
         final entry = await forges.addIdentity(name: _name.text, address: address);
         if (entry != null && mounted) {
@@ -342,6 +347,8 @@ class _ForgeFormState extends State<ForgeForm> {
             Text(
               widget.useToken
                   ? tokenRightsWords('GitHub')
+                  : editing != null
+                  ? 'Keeps the existing access method and changes the name.'
                   : 'Uses your SSH identity. Unlock your key in its own application.',
               style: text.bodySmall,
             ),

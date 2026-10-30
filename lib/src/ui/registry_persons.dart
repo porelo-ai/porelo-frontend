@@ -21,7 +21,7 @@ List<Command> registryItemCommands(
 }) => [
   for (final operation in operations)
     if (registry.features.supports(operation))
-      registryPageCommand(
+      ?registryPageCommand(
         registry: registry,
         target: item.target,
         operation: operation,
@@ -185,7 +185,12 @@ class RegistryPersons extends StatelessWidget {
         ),
         if (current == null) const Text('Verified access state has not been supplied.'),
         if (current != null)
-          for (final admin in current.administrators) AdministratorContact(person: admin),
+          for (final admin in {
+            for (final admin in current.administrators) admin.login: admin,
+            for (final authority in current.authorities.values)
+              for (final admin in authority.people) admin.login: admin,
+          }.values)
+            AdministratorContact(person: admin),
         if (registry.problem case final problem?) Text(problem),
       ],
     );
