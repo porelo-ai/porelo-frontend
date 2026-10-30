@@ -21,6 +21,7 @@ Fields covered (`lib/src/ui/host_admin_dialog.dart` unless named):
 - *Lock* and *Purge a project admin*: the account from the admins this computer admitted on that host.
 - *Take a project off the server*: the project from those this computer registered on that host.
 - *Bring* (`project_bring_dialog.dart`), *Join* (`project_join_dialog.dart`) and *Developers* (`project_developers_dialog.dart`): *Project signing public key file* is offered from the followed project's pinned signing key, written to a file here, instead of a path typed by hand.
+- *Developers* (`project_developers_dialog.dart`): the signing key file, the project admin account and the SSH identity are remembered per project once a change was published, and filled the next time (operator, walk 23 step 10-10: asked again each time).
 - The admitted admins, registered projects and given addresses are kept with this computer's record of the host when its *Admit* or *Register* is confirmed by the server, and dropped at *Purge* and *Take off*. The host stays the authority. Reading them from the host itself comes with the read-only query contract planned with Agent Machines; until then a value this computer did not record is typed.
 - **Red first:** widget tests that *Register a project* preselects the followed project, its pinned signer and the last admitted admin; and that *Admit* assembles the line from a pasted YAML block with the next free address.
 

@@ -90,6 +90,17 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f253"></a>[F253](F253-The-Hosts-Sync-Answer-Read-As-Written.md) | XS | — | The host's sync answer read with `unchanged` as the boolean the host writes. |
 | <a id="f254"></a>[F254](F254-A-Laptop-Address-The-Host-Does-Not-Use.md) | S | — | The proposed laptop VPN address skips every address the host's tunnel uses. |
 | <a id="f255"></a>[F255](F255-A-Laptop-Refusal-Shown-In-The-Dialog.md) | XS | — | *Keep laptop and add another* shows its refusal in the dialog, not behind it. |
+| <a id="f256"></a>[F256](F256-Another-Machine-Of-The-Same-Developer-Added-By-Choice.md) | S | [F255](README.md#f255) | The Developers dialog's *Machines* step lists the added machines and offers *Add another machine of this developer* or *Next*. |
+| <a id="f257"></a>[F257](F257-Follow-It-Never-Ends-Without-An-Answer.md) | S | — | *Follow it* ends in a followed project or a refusal in words; a public repository needs no credential. |
+| <a id="f258"></a>[F258](F258-The-Joins-Secrets-File-Prepared-By-The-Dialog.md) | M | — | The join makes or opens the developer's secrets file itself, its master password typed once. |
+| <a id="f259"></a>[F259](F259-A-Grant-To-Someone-Who-Already-Reads.md) | XS | — | A developer who already reads the access repository is not granted again. |
+| <a id="f260"></a>[F260](F260-The-Join-Log-Without-Ansibles-Noise.md) | XS | — | The join's log without Ansible's localhost warnings and the "no provider" note. |
+| <a id="f261"></a>[F261](F261-A-Project-Taken-Off-From-Its-Own-Menu.md) | S | — | The project's own *Take this project off the server* for the host admin too; needed secrets entries checked first. |
+| <a id="f262"></a>[F262](F262-Lock-And-Purge-Say-What-They-Do.md) | XS | — | *Lock* and *Purge* named by what they do, their dialogs saying the difference. |
+| <a id="f263"></a>[F263](F263-The-Give-Back-Confirmation-Says-What-Is-Lost.md) | XS | — | *Take the server down?* shows the name and what is lost, no public values, a steady layout. |
+| <a id="f264"></a>[F264](F264-A-Server-With-No-Project-Given-Back.md) | S | — | A server rented with no project given back; the VPN taken down only after the give-back was confirmed. |
+| <a id="f265"></a>[F265](F265-The-Server-Page-Shows-What-It-Holds.md) | M | [F266](README.md#f266) | A server's page shows its own state, its projects and its persons with their state; actions chosen from the rows. |
+| <a id="f266"></a>[F266](F266-The-Project-Screen-Shows-Its-Persons.md) | M | — | A project's screen shows its server and its persons with their state; actions chosen from the rows. |
 | <a id="f123"></a>[F123](F123-Where-A-Machine-And-A-Project-Stand-In-Their-Organisations-Tree.md) | — | — | Where a machine and a project stand in their organisation's tree, and which settings bind them. |
 | <a id="f143"></a>[F143](F143-The-Agent-The-Machine-Found-Is-The-Default.md) | — | — | The agent the machine chooses started when none is picked, its source shown, the picker marking who is signed in, and an import offered. |
 | <a id="f166"></a>[F166](F166-A-Host-Rented-Through-OpenTofu.md) | M | — | `porelo-host up` and `down` renting and giving back through the OpenTofu module, its secrets only in `tofu`'s environment; `--given` kept. |
