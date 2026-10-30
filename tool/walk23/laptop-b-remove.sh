@@ -33,6 +33,11 @@ yes) made=no ;;
 no) made=yes ;;
 *) refuse "the record does not say whether $developer was here before the walk" ;;
 esac
+had_sudo=$(cat "$state/had-sudo-before")
+case $had_sudo in
+yes | no) ;;
+*) refuse "the record does not say whether $developer had sudo before the walk" ;;
+esac
 # An account the walk made loses its processes below, so nothing this runs from may belong to it, however root was
 # reached. An account that was here before is kept with its processes, and may run this itself.
 uid=$(id -u "$developer" 2>/dev/null || true)
@@ -98,7 +103,7 @@ step b-remove.5 "the account $developer as it was before the walk"
 if [ "$was_here" = yes ] && ! id "$developer" >/dev/null 2>&1; then
     echo "ok: $developer was here before the walk and is gone now; nothing to restore"
 elif [ "$was_here" = yes ]; then
-    if [ "$(cat "$state/had-sudo-before")" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
+    if [ "$had_sudo" = no ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then
         echo "taking $developer out of the sudo group, as before the walk"
         gpasswd -d "$developer" sudo
     fi
