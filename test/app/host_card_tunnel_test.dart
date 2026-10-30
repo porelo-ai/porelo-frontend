@@ -176,8 +176,294 @@ void main() {
     expect(tunnels.manages(host), isFalse);
   });
 
+  // Prevents an automatic retry from orphaning a trial-only master and its ports.
+  test('a retry queued after trial release cannot keep the trial master alive', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final trial = tunnels.holdForTrial(host);
+    await entered.future;
+    final releasing = trial.release();
+    final retrying = tunnels.raiseAgainIfItDropped(host);
+    checkControl = null;
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await trial.ready, isTrue);
+    await releasing;
+    await retrying;
+    expect(processes.single.killed, isTrue, reason: 'retry is not a new consumer of an unwatched card');
+    expect(tunnels.manages(host), isFalse);
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+    );
+    expect(() => tunnels.registerCards([beta]), returnsNormally);
+  });
+
+  // Prevents retry from promoting a dropped probe into a permanent watcher.
+  test('a retry of a dropped trial does not retain or restart its master', () async {
+    final trial = tunnels.holdForTrial(host);
+    expect(await trial.ready, isTrue);
+    processes.single.end('Connection closed');
+    await Future<void>.delayed(Duration.zero);
+    await tunnels.raiseAgainIfItDropped(host);
+    await trial.release();
+    expect(launches, hasLength(1), reason: 'only a watcher may reconnect automatically');
+    expect(tunnels.manages(host), isFalse);
+  });
+
+  // Prevents replacement from proceeding while the old trial master still owns its sockets.
+  test('a waiting drop finishes old teardown before a later queued trial starts', () async {
+    final old = _SlowProcess();
+    nextProcess = () => processes.isEmpty ? old : _Process();
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final first = tunnels.holdForTrial(host);
+    await entered.future;
+    var dropped = false;
+    final dropping = tunnels.dropFor(host).then((_) => dropped = true);
+    final releasing = first.release();
+    final second = tunnels.holdForTrial(host);
+    addTearDown(() async {
+      old.end('');
+      await releasing;
+      await second.release();
+      await dropping;
+    });
+    checkControl = null;
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await first.ready, isTrue);
+    await Future<void>.delayed(Duration.zero);
+    expect(old.killed, isTrue, reason: 'a later trial cannot postpone the old master drop');
+    expect(dropped, isFalse, reason: 'the drop must await the old process exit');
+    expect(launches, hasLength(1), reason: 'the later trial waits for old teardown');
+    old.end('');
+    await dropping;
+    await releasing;
+    expect(await second.ready, isTrue);
+    expect(launches, hasLength(2));
+    expect(processes.last.killed, isFalse);
+    await second.release();
+  });
+
+  // Prevents list replacement from stealing ports between registration and opening a card.
+  test('replacement keeps a registered owner before its first raise', () async {
+    await Future<void>.sync(() => tunnels.registerCards([host]));
+    await Future<void>.sync(() => tunnels.replaceCards([]));
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+    );
+    expect(
+      () => tunnels.registerCards([beta]),
+      throwsA(isA<HostFilesRefused>()),
+      reason: 'registration owns the ports until its explicit drop',
+    );
+    await tunnels.dropFor(host);
+    expect(() => tunnels.registerCards([beta]), returnsNormally);
+    expect(launches, isEmpty);
+  });
+
+  // Prevents a queued replacement from omitting a newly listed card's fixed ports.
+  test('a queued replacement reads the current card list when its step starts', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final raising = tunnels.raiseFor(host);
+    await entered.future;
+    final listed = <Machine>[host];
+    final replacing = Future<void>.sync(() => tunnels.replaceCards(listed));
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({
+        ...host.hostCard!.stored,
+        'name': 'beta',
+        'services': {
+          'forge': {'web_port': 19080, 'git_port': 19081},
+          'matrix': {'port': 19082},
+        },
+      }),
+      socketPath: '${folder.path}/b',
+    );
+    listed.add(beta);
+    checkControl = null;
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await raising, isTrue);
+    await replacing;
+    final gamma = Machine.fromHostCard(
+      HostCardSsh.fromStored({...beta.hostCard!.stored, 'name': 'gamma'}),
+      socketPath: '${folder.path}/g',
+    );
+    expect(() => tunnels.registerCards([gamma]), throwsA(isA<HostFilesRefused>()));
+    expect(launches, hasLength(1), reason: 'reserving a listed card must not start its SSH master');
+  });
+
+  // Prevents a late-listed host's preceding teardown from erasing its new reservation.
+  test('a queued replacement waits for teardown on a host added to its input later', () async {
+    final oldBeta = _SlowProcess();
+    nextProcess = () => processes.isEmpty ? _Process() : oldBeta;
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final raising = tunnels.raiseFor(host);
+    await entered.future;
+    final listed = <Machine>[host];
+    var replaced = false;
+    final replacing = Future<void>.sync(() => tunnels.replaceCards(listed)).then((_) => replaced = true);
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({
+        ...host.hostCard!.stored,
+        'name': 'beta',
+        'services': {
+          'forge': {'web_port': 19080, 'git_port': 19081},
+          'matrix': {'port': 19082},
+        },
+      }),
+      socketPath: '${folder.path}/b',
+      sshConfig: '${folder.path}/porelo/ssh/beta.conf',
+    );
+    checkControl = null;
+    expect(await tunnels.raiseFor(beta), isTrue);
+    final dropping = tunnels.dropFor(beta);
+    addTearDown(() async {
+      oldBeta.end('');
+      await dropping;
+      await replacing;
+    });
+    await oldBeta.stopping.future;
+    listed.add(beta);
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await raising, isTrue);
+    await Future<void>.delayed(Duration.zero);
+    expect(replaced, isFalse, reason: 'replacement must acquire the late-listed host queue before reserving it');
+    oldBeta.end('');
+    await dropping;
+    await replacing;
+    final gamma = Machine.fromHostCard(
+      HostCardSsh.fromStored({...beta.hostCard!.stored, 'name': 'gamma'}),
+      socketPath: '${folder.path}/g',
+    );
+    expect(() => tunnels.registerCards([gamma]), throwsA(isA<HostFilesRefused>()));
+    expect(launches, hasLength(2), reason: 'replacement reserves beta without raising it again');
+  });
+
+  // Prevents cancellation before a first raise from leaking an imported port reservation.
+  test('dropping a canceled queued first raise releases its registered card', () async {
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({
+        ...host.hostCard!.stored,
+        'name': 'beta',
+        'services': {
+          'forge': {'web_port': 19080, 'git_port': 19081},
+          'matrix': {'port': 19082},
+        },
+      }),
+      socketPath: '${folder.path}/b',
+      sshConfig: '${folder.path}/porelo/ssh/beta.conf',
+    );
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    await Future<void>.sync(() => tunnels.registerCards([host]));
+    final raisingBeta = tunnels.raiseFor(beta);
+    await entered.future;
+    final barrier = Future<void>.sync(() => tunnels.registerCards([host, beta]));
+    final raising = tunnels.raiseFor(host);
+    final dropping = tunnels.dropFor(host);
+    checkControl = null;
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await raisingBeta, isTrue);
+    await barrier;
+    expect(await raising, isFalse);
+    await dropping;
+    final gamma = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'gamma'}),
+      socketPath: '${folder.path}/g',
+    );
+    expect(() => tunnels.registerCards([gamma]), returnsNormally);
+    expect(launches, hasLength(1), reason: 'the canceled first raise must never launch');
+    expect(processes.single.killed, isFalse, reason: 'the unrelated master must survive');
+  });
+
+  // Prevents a delayed replacement from restoring cards whose watchers were removed.
+  for (final replace in [false, true]) {
+    test('a concurrent ${replace ? 'replacement' : 'removal'} cannot restore a stale card', () async {
+      final old = _SlowProcess();
+      nextProcess = () => processes.isEmpty ? old : _Process();
+      final machines = Machines(Settings(MemorySettingsStore()), tunnels: tunnels, reach: (_) => _StoppedBackend());
+      addTearDown(machines.dispose);
+      final beta = Machine.fromHostCard(
+        HostCardSsh.fromStored({
+          ...host.hostCard!.stored,
+          'name': 'beta',
+          'services': {
+            'forge': {'web_port': 19080, 'git_port': 19081},
+            'matrix': {'port': 19082},
+          },
+        }),
+        socketPath: '${folder.path}/b',
+        sshConfig: '${folder.path}/porelo/ssh/beta.conf',
+      );
+      await machines.add(host);
+      await machines.of(host).untilAsked();
+      await machines.add(beta);
+      await machines.of(beta).untilAsked();
+      final changed = Machine.fromHostCard(
+        HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+        socketPath: '${folder.path}/changed',
+        sshConfig: host.sshConfig,
+      );
+      final changedBeta = Machine.fromHostCard(
+        HostCardSsh.fromStored({
+          ...beta.hostCard!.stored,
+          'services': {
+            'forge': {'web_port': 20080, 'git_port': 20081},
+            'matrix': {'port': 20082},
+          },
+        }),
+        socketPath: '${folder.path}/changed-b',
+        sshConfig: beta.sshConfig,
+      );
+      final replacing = machines.add(changed);
+      addTearDown(() async {
+        old.end('');
+        await replacing;
+      });
+      await old.stopping.future;
+      final changingBeta = replace ? machines.add(changedBeta) : machines.forget(beta);
+      await Future<void>.delayed(Duration.zero);
+      expect(machines.all, contains(beta), reason: 'list edits wait for the preceding replacement');
+      old.end('');
+      await replacing;
+      await changingBeta;
+      await tunnels.dropFor(beta);
+      expect(machines.all, isNot(contains(beta)));
+      expect(machines.all, contains(changed));
+      if (replace) expect(machines.all, contains(changedBeta));
+      final gamma = Machine.fromHostCard(
+        HostCardSsh.fromStored({...beta.hostCard!.stored, 'name': 'gamma'}),
+        socketPath: '${folder.path}/g',
+      );
+      expect(() => tunnels.registerCards([gamma]), returnsNormally, reason: 'the old beta ports must stay free');
+    });
+  }
+
   // Prevents a candidate probe from closing a master promoted to a watched connection.
-  test('releasing a pending trial preserves a concurrent watched connection', () async {
+  test('a watcher queued after trial release raises its own retained connection', () async {
     final entered = Completer<void>();
     final checked = Completer<ProcessResult>();
     checkControl = () {
@@ -188,10 +474,13 @@ void main() {
     await entered.future;
     final releasing = trial.release();
     final watching = tunnels.raiseFor(host);
+    checkControl = null;
     checked.complete(ProcessResult(0, 0, '', ''));
     expect(await watching, isTrue);
     await releasing;
-    expect(processes.single.killed, isFalse, reason: 'the new watcher still needs the shared master');
+    expect(processes, hasLength(2));
+    expect(processes.first.killed, isTrue, reason: 'release sees no watcher at the start of its step');
+    expect(processes.last.killed, isFalse, reason: 'the new watcher still needs its master');
     expect(tunnels.manages(host), isTrue);
   });
 
@@ -436,7 +725,7 @@ void main() {
   }
 
   // Prevents a canceled handoff between probes from orphaning the old master.
-  test('canceling a queued trial releases the master left for it by an earlier probe', () async {
+  test('canceling a queued trial leaves its preceding master stopped', () async {
     final alphaEntered = Completer<void>();
     final betaEntered = Completer<void>();
     final alphaCheck = Completer<ProcessResult>();
@@ -476,7 +765,7 @@ void main() {
     alphaCheck.complete(ProcessResult(0, 0, '', ''));
     expect(await first.ready, isTrue);
     await releasingFirst;
-    expect(processes.first.killed, isFalse, reason: 'the queued trial still needs this master');
+    expect(processes.first.killed, isTrue, reason: 'release must finish before later queued consumers run');
     final releasingSecond = second.release();
     betaCheck.complete(ProcessResult(0, 0, '', ''));
     expect(await watchingBeta, isTrue);

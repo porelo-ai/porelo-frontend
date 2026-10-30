@@ -9,6 +9,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Host-card retries leave trial-only masters unretained, waiting drops finish old-master teardown
+  before later probes start, and card registration keeps its fixed ports until explicit drop.
+  Queued replacements read the current machine list when they run.
+
 - Shared host-card trial cleanup preserves concurrent watchers, waits for teardown before reconnecting,
   and releases unused imported cards' service port reservations.
 

@@ -584,42 +584,32 @@ class Tunnels extends ChangeNotifier {
   /// Replaces reservations after the previous watched tunnels have been dropped.
   ///
   /// Completes synchronously when the affected queues are idle; otherwise waits
-  /// for their preceding work. Active probes keep their reservations.
+  /// for their preceding work, then reads [machines]. Registered owners keep
+  /// their reservations until an explicit drop, including before their first raise.
+  /// Hosts added while waiting also wait for their preceding queue steps.
   FutureOr<void> replaceCards(Iterable<Machine> machines) {
-    final replacing = machines.toList();
-    checkCards(replacing);
-    final affected = {..._serial.keys, ...replacing.map(_queueKey)};
-    return _serial.run<void>(affected, () {
-      final owners = {..._cardOwners};
-      final cards = {..._cards};
-      for (final name in affected.whereType<String>()) {
-        final owner = owners[name];
-        if (owner != null && (_mine.containsKey(owner) || _retained.contains(owner) || _trials.containsKey(owner))) {
-          continue;
-        }
-        owners.remove(name);
-        cards.remove(name);
-      }
+    final affected = {..._serial.keys, ...machines.map(_queueKey)};
+    final replaced = _serial.run<bool>(affected, () {
+      final replacing = machines.toList();
+      if (!affected.containsAll(replacing.map(_queueKey))) return false;
+      checkCards(replacing);
       for (final machine in replacing) {
         final card = machine.hostCard;
         if (card == null) continue;
-        if (owners[card.name] != null && owners[card.name] != machine) {
+        if (_cardOwners[card.name] != null && _cardOwners[card.name] != machine) {
           throw HostFilesRefused('Host ${card.name} already has a different managed endpoint.');
         }
-        card.checkAgainst(cards.values);
-        cards[card.name] = card;
-        owners[card.name] = machine;
       }
-      for (final name in affected.whereType<String>()) {
-        if (cards[name] case final card?) {
-          _cards[name] = card;
-          _cardOwners[name] = owners[name]!;
-        } else {
-          _cards.remove(name);
-          _cardOwners.remove(name);
-        }
-      }
+      _registerCards(replacing);
+      return true;
     });
+    // Release this step before acquiring new queues to avoid cyclic waits.
+    if (replaced is Future<bool>) {
+      return replaced.then<void>((done) {
+        if (!done) return replaceCards(machines);
+      });
+    }
+    if (!replaced) return replaceCards(machines);
   }
 
   /// Reserves every imported card's ports before any asynchronous publication.
@@ -708,7 +698,6 @@ class Tunnels extends ChangeNotifier {
             await _releaseTrial(machine);
           } else if (!_trials.containsKey(_key(machine)) &&
               !_retained.contains(_key(machine)) &&
-              !_hasQueuedConsumer(machine) &&
               _mine.containsKey(_key(machine))) {
             await _finishDrop(machine);
           }
@@ -728,14 +717,11 @@ class Tunnels extends ChangeNotifier {
     _trials.remove(key);
     final done = _trialsDone.remove(key);
     try {
-      if (!_retained.contains(key) && !_hasQueuedConsumer(machine)) await _finishDrop(machine);
+      if (!_retained.contains(key)) await _finishDrop(machine);
     } finally {
       done?.complete();
     }
   }
-
-  bool _hasQueuedConsumer(Machine machine) =>
-      _requests.any((request) => request.machine == machine && !request.started && !request.canceled);
 
   Future<bool> _raiseShared(Machine machine, _TunnelRequest request) async {
     if (_closing) return false;
@@ -807,12 +793,12 @@ class Tunnels extends ChangeNotifier {
           final tunnel = _mine[_key(machine)];
           if (_closing ||
               request.canceled ||
+              (machine.hostCard != null && !_retained.contains(_key(machine))) ||
               tunnel == null ||
               (tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) {
             return;
           }
           request.started = true;
-          if (machine.hostCard != null) _retained.add(_key(machine));
           await _raiseShared(machine, request);
         } finally {
           _requests.remove(request);

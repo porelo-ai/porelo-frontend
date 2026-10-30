@@ -635,12 +635,11 @@ class Machines extends ChangeNotifier {
     if (at >= 0) {
       final old = _machines[at];
       if (old.kind != 'host' || machine.kind != 'host') return;
-      final replacing = [..._machines]..[at] = machine;
-      tunnels.checkCards(replacing);
+      tunnels.checkCards([..._machines]..[at] = machine);
       _watching.remove(old.name)?.dispose();
       await tunnels.dropFor(old);
       try {
-        await tunnels.replaceCards(replacing);
+        await tunnels.replaceCards(_machines.map((each) => each == old ? machine : each));
       } on Object {
         _open(old);
         rethrow;
