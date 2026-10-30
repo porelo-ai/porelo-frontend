@@ -402,6 +402,7 @@ class _ShellState extends State<Shell> {
 
   RegistryPageItem? get _openRegistryItem {
     final shell = widget.shell;
+    if (shell.anythingOpen || _fleet.refusal != null || _consoleIsHere) return null;
     if (shell.section != Section.machine && shell.section != Section.project) return null;
     final machine = shell.itemMachine;
     if (machine == null) return null;
@@ -409,7 +410,11 @@ class _ShellState extends State<Shell> {
     if (shell.section == Section.project && (project == null || project == defaultProject)) return null;
     if (shell.itemRegistryTarget case final target?) {
       final item = _registry.item(target);
-      return item?.machine == machine && item?.target.project == project ? item : null;
+      return item?.machine.name == machine.name &&
+              item?.machine.socketPath == machine.socketPath &&
+              item?.target.project == project
+          ? item
+          : null;
     }
     return project == null ? _registry.host(machine) : _registry.project(machine, project);
   }
@@ -2720,11 +2725,12 @@ class _ShellState extends State<Shell> {
       if (registryItem == null) return;
       final target = registryItem.target;
       if (target.project case final project?) {
-        widget.shell.openProject(registryItem.machine, project, target: target);
+        _openPageProject(registryItem.machine, project, admission: registryItem);
       } else {
-        widget.shell.openMachine(registryItem.machine, target: target);
+        _openPageMachine(registryItem.machine, admission: registryItem);
       }
-      chosen.run();
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted && _openRegistryItem?.target == target) chosen.run();
       return;
     }
     // Something with no single place on screen runs at once; everything else is shown where it
@@ -3276,11 +3282,13 @@ class _ShellState extends State<Shell> {
 
   /// Running work on every project, or the selected project with its work under its header.
   void _openPageMachine(Machine machine, {RegistryPageItem? admission}) {
+    machine = _pageMachine(machine);
     if (widget.machines.all.contains(machine)) widget.machines.select(machine);
     widget.shell.openMachine(machine, target: admission?.target);
   }
 
   void _openPageProject(Machine machine, String project, {RegistryPageItem? admission}) {
+    machine = _pageMachine(machine);
     if (widget.machines.all.contains(machine)) {
       widget.machines.select(machine);
       widget.machines.of(machine).selectProject(project);
@@ -3288,8 +3296,19 @@ class _ShellState extends State<Shell> {
     widget.shell.openProject(machine, project, target: admission?.target);
   }
 
-  List<Command> _pageProjectCommands(Machine machine, ProjectOnScreen project, {RegistryPageItem? admission}) {
-    final item = admission ?? _registry.project(machine, project.name);
+  Machine _pageMachine(Machine machine) =>
+      widget.machines.all
+          .where((watched) => watched.name == machine.name && watched.socketPath == machine.socketPath)
+          .firstOrNull ??
+      machine;
+
+  List<Command> _pageProjectCommands(
+    Machine machine,
+    ProjectOnScreen project, {
+    RegistryPageItem? admission,
+    bool registryActions = true,
+  }) {
+    final item = registryActions ? admission ?? _registry.project(machine, project.name) : null;
     final watched = widget.machines.all.contains(machine);
     final answering = watched && widget.machines.of(machine).reachability == Reachability.connected;
     final openWork = Command(
@@ -3353,7 +3372,7 @@ class _ShellState extends State<Shell> {
   Widget _machineBody(Machine selected, FleetModel fleet, String? highlight) {
     final machine = widget.shell.itemMachine ?? selected;
     final watched = widget.machines.all.contains(machine);
-    final admission = widget.shell.itemRegistryTarget == null ? null : _registry.item(widget.shell.itemRegistryTarget!);
+    final admission = _openRegistryItem;
     if (widget.shell.itemRegistryTarget != null && admission == null) {
       return ListView(
         padding: const EdgeInsets.all(Space.normal),
@@ -3377,7 +3396,12 @@ class _ShellState extends State<Shell> {
       registry: _registry,
     ).where((project) => project.name == projectName).firstOrNull;
     if (widget.shell.section == Section.project && project != null) {
-      final commands = _pageProjectCommands(machine, project, admission: admission);
+      final commands = _pageProjectCommands(
+        machine,
+        project,
+        admission: admission,
+        registryActions: widget.shell.itemMachine != null,
+      );
       return ProjectDetailsPage(
         key: ValueKey('project ${projectRowIdentity(machine, project.name, admission)}'),
         machine: machine,

@@ -65,7 +65,7 @@ class ProjectDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final item = admission ?? registry.project(machine, project.name);
+    final item = admission;
     final isDefault = project.name == defaultProject;
     return ListView(
       key: ValueKey('project-details ${machine.name}/${project.name}'),

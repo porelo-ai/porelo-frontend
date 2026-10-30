@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/forge.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
+import 'package:porelo_frontend/src/app/session.dart';
+import 'package:porelo_frontend/src/ui/command_menu.dart';
 import 'package:porelo_frontend/src/ui/projects_page.dart';
 import 'package:porelo_frontend/src/ui/project_details_page.dart';
 import 'package:porelo_frontend/src/ui/registry_persons.dart';
@@ -50,6 +53,239 @@ Future<void> _findCommand(WidgetTester tester, String label) async {
 }
 
 void main() {
+  // Harm: commands from a hidden admission can mutate access while another target is on screen.
+  for (final project in [null, 'checkout']) {
+    for (final cover in ['Gate', 'Backups', 'Egress', 'Vault', 'Operations', 'Detail', 'refusal', 'session']) {
+      testWidgets('covered ${project ?? 'machine'} hides registry commands behind $cover', (tester) async {
+        await World.startBackend(World.work);
+        final machine = Machine.local();
+        final operation = project == null ? RegistryOperation.bringState : RegistryOperation.push;
+        final target = (registry: 'registry', host: machine.name, project: project);
+        final source = FakeRegistryPageSource(
+          RegistryPageSnapshot(
+            items: [
+              RegistryPageItem(
+                target: target,
+                machine: machine,
+                role: 'admin',
+                state: 'registered',
+                revision: 'r1',
+                allowed: {operation},
+              ),
+            ],
+          ),
+        );
+        final registry = RegistryPages(
+          source: source,
+          features: RegistryPageFeatures(operations: {operation}),
+        );
+        addTearDown(registry.dispose);
+        await World.startApp(tester, registryPages: registry);
+        World.fleet.selectProject('checkout');
+        if (project == null) {
+          World.shell.openMachine(machine, target: target);
+        } else {
+          World.shell.openProject(machine, project, target: target);
+        }
+        await World.settle(tester);
+        final label = registryOperationLabel(operation);
+        await _findCommand(tester, label);
+        expect(find.widgetWithText(ListTile, label), findsOneWidget, reason: 'the visible item supplies the control');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await World.settle(tester);
+        switch (cover) {
+          case 'Gate':
+            World.shell.openGate();
+          case 'Backups':
+            World.shell.openBackups();
+          case 'Egress':
+            World.shell.openEgress();
+          case 'Vault':
+            World.shell.openVault();
+          case 'Operations':
+            World.shell.openOperations();
+          case 'Detail':
+            World.fleet.selectTask(World.work.first.name);
+            World.shell.openDetail();
+          case 'refusal':
+            World.backend.nextRemove = Removed.from({'outcome': 'HOLDS_WORK', 'removed': false, 'work': 'commits'});
+            await World.fleet.removeWork(World.work.first.name);
+          case 'session':
+            World.sessions.openOn(
+              World.work.first.name,
+              machine,
+              at: ConsolePlace(
+                section: project == null ? Section.machine : Section.project,
+                machine: machine.name,
+                project: project,
+              ),
+            );
+        }
+        await World.settle(tester);
+        expect(
+          find.byKey(
+            ValueKey(project == null ? 'machine-details ${machine.name}' : 'project-details ${machine.name}/$project'),
+          ),
+          findsNothing,
+          reason: 'the tested view must actually cover the item',
+        );
+        if (cover == 'session') {
+          await tester.tap(find.byTooltip('Find a command (Ctrl+K)'));
+          await World.settle(tester);
+          await tester.enterText(find.byKey(const Key('command-query')), label);
+          await World.settle(tester);
+        } else {
+          await _findCommand(tester, label);
+        }
+        expect(
+          find.widgetWithText(ListTile, label),
+          findsNothing,
+          reason: 'a covered item cannot lend its registry commands',
+        );
+        expect(source.published, isEmpty);
+      });
+    }
+  }
+
+  // Harm: entering a section must not authorize registry changes through the background selection.
+  for (final section in [Section.machine, Section.project]) {
+    for (final navigation in ['show', 'goTo']) {
+      testWidgets('$navigation $section without an item has no page registry actions', (tester) async {
+        await World.startBackend(World.work);
+        final machine = Machine.local();
+        final source = FakeRegistryPageSource(
+          RegistryPageSnapshot(
+            items: [
+              for (final project in [null, 'checkout'])
+                RegistryPageItem(
+                  target: (registry: 'registry', host: machine.name, project: project),
+                  machine: machine,
+                  role: 'admin',
+                  state: 'registered',
+                  revision: 'r1',
+                  allowed: {
+                    RegistryOperation.push,
+                    RegistryOperation.bringState,
+                    RegistryOperation.admit,
+                    RegistryOperation.addPerson,
+                  },
+                ),
+            ],
+          ),
+        );
+        final registry = RegistryPages(
+          source: source,
+          features: const RegistryPageFeatures(
+            operations: {
+              RegistryOperation.push,
+              RegistryOperation.bringState,
+              RegistryOperation.admit,
+              RegistryOperation.addPerson,
+            },
+          ),
+        );
+        addTearDown(registry.dispose);
+        await World.startApp(tester, registryPages: registry);
+        World.fleet.selectProject('checkout');
+        if (navigation == 'show') {
+          World.shell.show('unused', section: section);
+        } else {
+          World.shell.goTo(section);
+        }
+        await World.settle(tester);
+        final menu = tester.widget<CommandMenu>(
+          find.byKey(Key(section == Section.machine ? 'machine-menu' : 'project-menu')),
+        );
+        expect(
+          menu.commands.where((command) => command.id.startsWith('registry.')),
+          isEmpty,
+          reason: 'a section without an item has no registry authority',
+        );
+        expect(
+          tester.widget<RegistryPersons>(find.byType(RegistryPersons)).item,
+          isNull,
+          reason: 'background persons must not supply page actions',
+        );
+        expect(source.published, isEmpty);
+      });
+    }
+  }
+
+  // Harm: finder navigation must select the daemon behind the visible item and retain its SSH configuration.
+  for (final project in [null, 'checkout']) {
+    for (final explicit in [false, true]) {
+      testWidgets('finder preserves watched ${project ?? 'machine'} identity with explicit target $explicit', (
+        tester,
+      ) async {
+        await World.startBackend(World.work);
+        const watched = Machine(
+          name: 'elsewhere',
+          socketPath: '/unused',
+          host: 'person@example.org',
+          remoteSocket: '/run/user/1000/porelo',
+        );
+        const projected = Machine(name: 'elsewhere', socketPath: '/unused');
+        final target = (registry: 'registry', host: watched.name, project: project);
+        final operation = project == null ? RegistryOperation.bringState : RegistryOperation.push;
+        final source = _PageCheckingRegistrySource(
+          RegistryPageSnapshot(
+            items: [
+              RegistryPageItem(
+                target: target,
+                machine: projected,
+                role: 'admin',
+                state: 'registered',
+                revision: 'r1',
+                allowed: {operation},
+              ),
+            ],
+          ),
+        );
+        final registry = RegistryPages(
+          source: source,
+          features: RegistryPageFeatures(operations: {operation}),
+        );
+        addTearDown(registry.dispose);
+        await World.startApp(tester, registryPages: registry);
+        World.elsewhere.theProjectsItHas = [_project('!second:localhost')];
+        await World.machines.add(watched);
+        await World.settle(tester);
+        final local = World.machines.all.first;
+        World.machines.select(local);
+        World.fleet.selectProject('checkout');
+        if (project == null) {
+          World.shell.openMachine(explicit ? watched : projected, target: explicit ? target : null);
+        } else {
+          World.shell.openProject(explicit ? watched : projected, project, target: explicit ? target : null);
+        }
+        await World.settle(tester);
+        final page = ValueKey(
+          project == null ? 'machine-details ${watched.name}' : 'project-details ${watched.name}/$project',
+        );
+        source.pageInFront = () =>
+            find.byKey(page).evaluate().isNotEmpty &&
+            World.machines.current == watched &&
+            (project == null || World.fleet.selectedProject?.name == project);
+        final label = registryOperationLabel(operation);
+        await _findCommand(tester, label);
+        expect(
+          find.widgetWithText(ListTile, label),
+          findsOneWidget,
+          reason: 'registry identity uses name and socket, not SSH metadata',
+        );
+        await tester.tap(find.widgetWithText(ListTile, label));
+        await World.settle(tester);
+        expect(source.published, [(target: target, operation: operation, person: null)]);
+        expect(source.visibleAtPublication, [
+          true,
+        ], reason: 'the selected item page must be rendered before publication');
+        expect(World.shell.itemMachine, watched, reason: 'navigation retains the watched SSH configuration');
+        expect(World.machines.current, watched);
+        if (project != null) expect(World.fleet.selectedProject?.name, project);
+      });
+    }
+  }
+
   // Harm: a verified page opened without an admission must not lose its own operations to daemon selection.
   for (final scope in ['unwatched machine', 'unwatched project', 'unfollowed project']) {
     testWidgets('identity-only $scope offers its own verified finder operation', (tester) async {
@@ -182,6 +418,60 @@ void main() {
     expect(source.published, isEmpty, reason: 'refused and absent operations must publish nothing');
   });
 
+  // Harm: a refusal or terminal arriving while the finder is open must not permit a hidden mutation.
+  for (final cover in ['refusal', 'session']) {
+    testWidgets('a captured finder command sends nothing while a $cover covers its destination', (tester) async {
+      await World.startBackend(World.work);
+      final machine = Machine.local();
+      final target = (registry: 'registry', host: machine.name, project: 'checkout');
+      final source = FakeRegistryPageSource(
+        RegistryPageSnapshot(
+          items: [
+            RegistryPageItem(
+              target: target,
+              machine: machine,
+              role: 'admin',
+              state: 'registered',
+              revision: 'r1',
+              allowed: {RegistryOperation.push},
+            ),
+          ],
+        ),
+      );
+      final registry = RegistryPages(
+        source: source,
+        features: const RegistryPageFeatures(operations: {RegistryOperation.push}),
+      );
+      addTearDown(registry.dispose);
+      await World.startApp(tester, registryPages: registry);
+      World.fleet.selectProject('checkout');
+      World.shell.openProject(machine, 'checkout', target: target);
+      await World.settle(tester);
+      final label = registryOperationLabel(RegistryOperation.push);
+      await _findCommand(tester, label);
+      if (cover == 'refusal') {
+        World.backend.nextRemove = Removed.from({'outcome': 'HOLDS_WORK', 'removed': false, 'work': 'commits'});
+        await World.fleet.removeWork(World.work.first.name);
+      } else {
+        World.sessions.openOn(
+          World.work.first.name,
+          machine,
+          at: ConsolePlace(section: Section.project, machine: machine.name, project: 'checkout'),
+        );
+      }
+      await World.settle(tester);
+      await tester.tap(find.widgetWithText(ListTile, label));
+      await World.settle(tester);
+      expect(
+        find.byKey(Key('project-details ${machine.name}/checkout')),
+        findsNothing,
+        reason: 'the refusal or terminal remains in front',
+      );
+      expect(source.published, isEmpty, reason: 'a captured command cannot run behind the covering view');
+      expect(source.applications, isEmpty);
+    });
+  }
+
   // Harm: a captured finder action must not strand or mutate a different item after navigation changes.
   for (final destination in ['another section', 'another item', 'an opened view']) {
     testWidgets('finder runs on its captured registry page after $destination', (tester) async {
@@ -212,6 +502,7 @@ void main() {
       final previousMachine = World.machines.current;
       World.shell.openProject(machine, 'admitted', target: target);
       await World.settle(tester);
+      source.pageInFront = () => find.byKey(const Key('project-details unwatched/admitted')).evaluate().isNotEmpty;
       await _findCommand(tester, 'Join');
       switch (destination) {
         case 'another section':
@@ -228,6 +519,7 @@ void main() {
         (target: target, operation: RegistryOperation.join, person: null),
       ], reason: 'choosing runs once, after opening the captured item');
       expect(source.applications, [(target: target, revision: 'revision-2')]);
+      expect(source.visibleAtPublication, [true], reason: 'the captured page must be rendered before the action runs');
       expect(source.pagesAtPublication, [
         (section: Section.project, machine: machine, project: 'admitted', target: target, opened: false),
       ], reason: 'the action must run on its own item page, with the previous view closed');
@@ -290,7 +582,11 @@ void main() {
       expect(source.applications, [(target: target, revision: 'revision-2')]);
       expect(World.shell.itemRegistryTarget, target, reason: 'the finder must retain the verified admission');
       expect(World.machines.current, previousMachine);
-      expect(World.fleet.selectedProject?.name, 'checkout');
+      expect(
+        World.fleet.selectedProject?.name,
+        watched ? isNull : 'checkout',
+        reason: 'a watched admission selects its project instead of retaining a different background project',
+      );
     });
   }
 
@@ -536,6 +832,7 @@ void main() {
                   : ProjectDetailsPage(
                       machine: opened!,
                       project: World.machines.of(opened!).projects.singleWhere((project) => project.name == 'checkout'),
+                      admission: registry.project(opened!, 'checkout'),
                       registry: registry,
                       commands: const [],
                       onBack: () => setState(() => opened = null),
@@ -634,11 +931,15 @@ void main() {
 class _PageCheckingRegistrySource extends FakeRegistryPageSource {
   _PageCheckingRegistrySource(super.snapshot);
 
+  bool Function()? pageInFront;
+  final visibleAtPublication = <bool>[];
+
   final pagesAtPublication =
       <({Section section, Machine? machine, String? project, RegistryTarget? target, bool opened})>[];
 
   @override
   Future<String> publish(RegistryPageChange change) {
+    if (pageInFront case final check?) visibleAtPublication.add(check());
     pagesAtPublication.add((
       section: World.shell.section,
       machine: World.shell.itemMachine,

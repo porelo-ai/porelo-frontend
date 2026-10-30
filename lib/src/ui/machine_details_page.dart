@@ -71,7 +71,7 @@ class MachineDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final item = admission ?? registry.host(machine);
+    final item = admission;
     return ListView(
       key: ValueKey('machine-details ${machine.name}'),
       padding: const EdgeInsets.all(Space.normal),

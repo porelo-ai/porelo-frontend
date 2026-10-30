@@ -54,6 +54,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Covered item pages and section-only navigation no longer supply registry actions. Finder choices
+  open and select the captured item through its row navigation, preserve watched SSH settings, and
+  wait for its page before acting. Registry identity compares machine name and socket path.
 - Registry refusals use only contacts verified for the operation. The finder exposes registry actions
   on unwatched machines and unfollowed projects, including pages opened without an explicit admission.
   Choosing a registry action opens its captured item's page and runs it there with its own permissions.
