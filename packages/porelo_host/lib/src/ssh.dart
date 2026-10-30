@@ -1,24 +1,21 @@
+/// The trust and forwarding policy shared by host configs and direct SSH calls.
+Map<String, String> pinnedHostSshPolicy(String knownHosts) => {
+  'StrictHostKeyChecking': 'yes',
+  'UserKnownHostsFile': '"$knownHosts"',
+  'GlobalKnownHostsFile': 'none',
+  'KnownHostsCommand': 'none',
+  'VerifyHostKeyDNS': 'no',
+  'UpdateHostKeys': 'no',
+  'BatchMode': 'yes',
+  'ForwardAgent': 'no',
+  'ForwardX11': 'no',
+  'IdentitiesOnly': 'yes',
+};
+
 /// The pinned trust policy, placed before every other ssh option so config cannot add trusted keys.
 List<String> pinnedHostSshOptions(String knownHosts, String identity) => <String>[
-  '-o',
-  'StrictHostKeyChecking=yes',
-  '-o',
-  'UserKnownHostsFile="$knownHosts"',
-  '-o',
-  'GlobalKnownHostsFile=none',
-  '-o',
-  'KnownHostsCommand=none',
-  '-o',
-  'VerifyHostKeyDNS=no',
-  '-o',
-  'UpdateHostKeys=no',
-  '-o',
-  'BatchMode=yes',
-  '-o',
-  'ForwardAgent=no',
-  '-o',
-  'ForwardX11=no',
-  if (identity.isNotEmpty) ...['-o', 'IdentitiesOnly=yes'],
+  for (final entry in pinnedHostSshPolicy(knownHosts).entries)
+    if (identity.isNotEmpty || entry.key != 'IdentitiesOnly') ...['-o', '${entry.key}=${entry.value}'],
   '-o',
   'ControlMaster=no',
   '-o',

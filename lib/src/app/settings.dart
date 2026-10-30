@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_host/porelo_host.dart' show SecretsFile, PreparedHost, HostPlan, checkHostName;
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, SecretsFile, PreparedHost, HostPlan, checkHostName;
 
 import 'desk.dart';
 import 'host_protocol.dart';
 import 'machines.dart';
+import 'registry_checkout.dart';
+import 'run_here.dart' show WorkspaceRefused;
 
 bool _sameStored(Object? left, Object? right) {
   if (left is Map && right is Map) {
@@ -426,6 +428,23 @@ class Settings extends ChangeNotifier {
     await _write();
   }
 
+  /// The organisation's registry repository, a credential-free `git@` or `https` address, or null before
+  /// it was chosen. Only the address is kept: Git reaches it with the person's own access.
+  String? get registryRepository => _registryRepository;
+  String? _registryRepository;
+
+  /// Keeps [repository] as the registry's address, or forgets it when null.
+  ///
+  /// Throws a `WorkspaceRefused` without repeating the input when it carries a user name, password or
+  /// token, so a pasted secret is never kept.
+  Future<void> setRegistryRepository(String? repository) async {
+    final trimmed = repository?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) RegistryCheckout.checkRepository(trimmed);
+    _registryRepository = trimmed == null || trimmed.isEmpty ? null : trimmed;
+    notifyListeners();
+    await _write();
+  }
+
   /// Sets the user new machines run work as, and keeps it for the next run.
   Future<void> setWorkUser(String name) async {
     if (!isUserName(name)) return;
@@ -444,6 +463,16 @@ class Settings extends ChangeNotifier {
     if (retention is int && retention >= 0) _keepResolvedMinutes = retention;
     final user = stored['workUser'];
     if (user is String && isUserName(user)) _workUser = user;
+    final registry = stored['registryRepository'];
+    _registryRepository = null;
+    if (registry is String) {
+      try {
+        RegistryCheckout.checkRepository(registry);
+        _registryRepository = registry;
+      } on WorkspaceRefused {
+        // An address written by hand with credentials in it is not taken; the person chooses it again.
+      }
+    }
     _messagePeople.clear();
     final people = stored['messagePeople'];
     if (people is Map) {
@@ -831,6 +860,13 @@ class Settings extends ChangeNotifier {
 
   /// Remembers which machines to open next time.
   Future<void> rememberMachines(List<Machine> machines) async {
+    final cards = <HostCardSsh>[];
+    for (final machine in machines) {
+      final card = machine.hostCard;
+      if (card == null) continue;
+      card.checkAgainst(cards);
+      cards.add(card);
+    }
     _machines = <Map<String, Object?>>[for (final machine in machines) machine.stored];
     await _write();
   }
@@ -903,6 +939,7 @@ class Settings extends ChangeNotifier {
     'refreshSeconds': _refreshSeconds,
     'keepResolvedMinutes': _keepResolvedMinutes,
     'workUser': _workUser,
+    'registryRepository': _registryRepository,
     'messagePeople': {for (final entry in _messagePeople.entries) entry.key: Map<String, String>.of(entry.value)},
     'setupDraft': _setupDraft,
     'appearance': _appearance.name,

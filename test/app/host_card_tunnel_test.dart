@@ -9,14 +9,18 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/connection_trial.dart';
+import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/fleet_model.dart';
 import 'package:porelo_frontend/src/app/homeserver_forwards.dart';
 import 'package:porelo_frontend/src/app/login_forward.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/session.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_host/porelo_host.dart';
+
+import '../features/support/world.dart' show FakeTerminal;
 
 const publicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
@@ -410,6 +414,64 @@ void main() {
     expect(host.stored, isNot(contains('identity')));
     expect(host.hostCard!.forgeUrl, 'http://alpha.localhost:18080/');
     expect(host.hostCard!.matrixUrl, 'http://alpha.localhost:18082/');
+  });
+
+  // Prevents account commands from bypassing the pin or disabling the host's shared master.
+  test('card account logins retain the effective pin and shared control socket', () async {
+    await host.hostCard!.publish(host.sshConfig, environment: {'XDG_CONFIG_HOME': folder.path});
+    final session = Session(
+      task: 'task',
+      machine: host,
+      open: (exe, args, {columns = 80, rows = 24}) => FakeTerminal([exe, ...args]),
+    );
+    addTearDown(session.dispose);
+    final commands = <String, List<String>>{
+      'terminal': session.command,
+      'forward': loginForwardCommand(host, 42017),
+      'command': onTheMachine(host, ['true'], terminal: false)!,
+      'interactive command': onTheMachine(host, ['true'], terminal: true)!,
+      'written command': onTheMachineAsWritten(host, 'true')!,
+      'start daemon': Tunnels.startCommandFor(host),
+      'stop daemon': Tunnels.stopCommandFor(host),
+      'uid': Tunnels.loginUidCommandFor(host),
+    };
+    for (final entry in commands.entries) {
+      final result = await Process.run(entry.value.first, ['-G', ...entry.value.skip(1)]);
+      expect(result.exitCode, 0, reason: '${entry.key}: ${result.stderr}');
+      expect(
+        result.stdout.toString().split('\n'),
+        containsAll([
+          'hostname alpha.example.org',
+          'port 2222',
+          'user alice',
+          'stricthostkeychecking true',
+          'userknownhostsfile ${host.sshConfig}.known_hosts',
+          'globalknownhostsfile none',
+          'batchmode yes',
+          'forwardagent no',
+          'identitiesonly yes',
+          'identityfile ${host.sshConfig}.pub',
+          'controlmaster false',
+          'controlpath ${host.hostCard!.controlSocket(host.sshConfig)}',
+        ]),
+        reason: '${entry.key} must reuse the pinned card transport',
+      );
+      expect(entry.value, isNot(contains('-i')), reason: entry.key);
+    }
+  });
+
+  // Prevents importing a card from bypassing recovery of an obsolete billed host.
+  test('a legacy rental refuses its card transport before any launch', () async {
+    final legacy = Machine.fromStored(host.stored, legacyHost: true).withSocketPath(host.socketPath);
+    expect(legacy.legacyHost, isTrue);
+    expect(legacy.hostCard!.stored, host.hostCard!.stored);
+    expect(legacy.sshConfig, host.sshConfig);
+    expect(legacy.whyNotReachableOn(windows: false), isNotNull);
+    expect(legacy.whyNotReachableOn(windows: true), isNotNull);
+    expect(await tunnels.raiseFor(legacy), isFalse);
+    expect(launches, isEmpty);
+    expect(File(host.sshConfig).existsSync(), isFalse);
+    expect(legacy, isNot(host), reason: 'recovery state changes whether an otherwise identical machine can connect');
   });
 
   // Prevents concurrent project joins from launching duplicate masters or repeating unlock.

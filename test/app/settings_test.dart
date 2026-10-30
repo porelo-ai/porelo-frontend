@@ -1,7 +1,49 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 
 void main() {
+  // Harm: a registry address with a token in it is kept in the settings file, or the address is lost.
+  test('the registry address survives a restart and one with credentials is never kept', () async {
+    final store = MemorySettingsStore();
+    final settings = Settings(store);
+    await settings.setRegistryRepository(' git@example.org:team/registry.git ');
+
+    final again = Settings(store);
+    await again.load();
+    expect(again.registryRepository, 'git@example.org:team/registry.git');
+
+    final refusal = await again
+        .setRegistryRepository('https://bob:s3cret@example.org/team/registry.git')
+        .then<Object?>((_) => null, onError: (Object e) => e);
+    expect(refusal, isA<WorkspaceRefused>());
+    expect('$refusal', isNot(contains('s3cret')));
+    expect((await store.read())['registryRepository'], 'git@example.org:team/registry.git');
+
+    final handWritten = Settings(MemorySettingsStore({'registryRepository': 'https://t0ken@example.org/r.git'}));
+    await handWritten.load();
+    expect(handWritten.registryRepository, isNull);
+  });
+
+  // Harm: dropping a project-mode rental loses the only way to recover a billed server.
+  test('project-mode host records retain uppercase dots and underscores on reload', () async {
+    for (final project in ['Upper', 'with.dot', 'under_score']) {
+      final record = HostUpRecord(host: project, scalewayProject: 'provider', account: 'worker', legacy: true);
+      final store = MemorySettingsStore({
+        'hostUps': {project: record.stored},
+      });
+      final settings = Settings(store);
+      addTearDown(settings.dispose);
+      await settings.load();
+      expect(settings.hostUp(project)?.stored, record.stored);
+      await settings.rememberHostUp(project, record);
+      final reopened = Settings(store);
+      addTearDown(reopened.dispose);
+      await reopened.load();
+      expect(reopened.hostUp(project)?.stored, record.stored);
+    }
+  });
+
   // Harm: resuming obsolete setup can reuse retired credentials on a billed host.
   test('an old rental survives restart but cannot supply setup arguments', () async {
     final legacy = <String, Object?>{
@@ -149,6 +191,13 @@ void main() {
     final record = {'scalewayProject': 'provider', 'setupFolder': '/config/hosts/shared'};
     final store = MemorySettingsStore({
       'hostUps': {'one': record, 'two': record},
+      'machines': [
+        {'name': 'one server', 'kind': 'host', 'socket': '/unused', 'hostProject': 'one'},
+      ],
+      'templates': [
+        {'name': 'kept'},
+      ],
+      'forges': ['kept'],
     });
     final settings = Settings(store);
     addTearDown(settings.dispose);
@@ -159,6 +208,11 @@ void main() {
     addTearDown(reopened.dispose);
     await reopened.load();
     expect(reopened.hostUps.keys, ['one', 'two']);
+    expect((await reopened.machines()).single.hostProject, 'one');
+    expect(await reopened.templates(), [
+      {'name': 'kept'},
+    ]);
+    expect((await store.read())['forges'], ['kept']);
   });
 
   test('tresor folders are kept separately and invalid stored fields are ignored', () async {
