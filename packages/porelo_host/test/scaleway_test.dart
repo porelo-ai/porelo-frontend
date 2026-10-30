@@ -185,13 +185,26 @@ void main() {
     expect(api.requests.single.$2, contains('tags=porelo-project%3Ddemo'));
   });
 
-  test('a server without a project tag is never given back', () async {
+  test('a server without either ownership tag is never given back', () async {
     final api = RecordedApi(<String, ApiAnswer>{
       'GET $zone/servers/srv-x': ApiAnswer(200, server(id: 'srv-x', tags: const <String>['someone-else'])),
       'DELETE $zone/servers/srv-x': const ApiAnswer(200, null),
     });
     await expectLater(adapter(api).release('srv-x'), throwsA(isA<ProviderFailed>()));
     expect(api.requests.where((r) => r.$1 == 'DELETE'), isEmpty, reason: 'nothing of somebody else\'s is deleted');
+  });
+
+  // Harm: refusing a server rented without a project leaves it billing indefinitely.
+  test('a server carrying only its host ownership tag is given back', () async {
+    final api = RecordedApi(<String, ApiAnswer>{
+      'GET $zone/servers/srv-1': ApiAnswer(200, server(tags: const ['porelo-host=walk9server'])),
+      'DELETE $zone/servers/srv-1': const ApiAnswer(204, null),
+    });
+    await adapter(api).release('srv-1');
+    expect(api.requests, [
+      ('GET', '$zone/servers/srv-1', null),
+      ('DELETE', '$zone/servers/srv-1', null),
+    ], reason: 'the existing host ownership tag authorizes deletion without adding tags');
   });
 
   test('a tagged server is given back', () async {

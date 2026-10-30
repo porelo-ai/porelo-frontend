@@ -25,6 +25,31 @@ Operator's walk 23 on VM A (2026-10-30): *about:policies* said "The Enterprise P
 
 Only the change: the tests above and `host_vpn`'s own tests. The VM check is the one *about:policies* look on VM A, after removing the hand-imported CA. No full walk.
 
+- The generated shell runs without root in a temporary folder with its system paths redirected there.
+  Under `umask 077`, both a missing Firefox parent and an existing `0700` parent fail before the fix
+  with mode `0700` instead of `0755`; the fixed step leaves all three folders `0755` and its files `0644`.
+- The shell rejects linked folders before copying the CA and names a folder whose permissions cannot
+  be repaired. Ownership is checked against the effective account, which is root in the sudo step and
+  the test account in the scratch execution.
+- Existing matching CA copies with mode `0600` become `0644`; linked CA copies are refused by path
+  without changing the target's contents or permissions. The policy includes only owned regular CA
+  files, excluding links and directories.
+- Take-down returns zero with unmanaged or linked policies and a linked Firefox parent, preserving
+  the policy and directory permissions without creating the CA folder.
+- Foreign ownership cannot be created by the unprivileged scratch execution: changing a folder's
+  owner to root fails. Linked-folder and linked-CA cases exercise refusal without privileged fixtures.
+- The seven added regressions fail against the original step or deliberate mutations; the mutations
+  are restored before the passing run. The changed code is read against `dart-add-unit-test` and
+  `dart-run-static-analysis`, both version `2026.910.3`.
+- Targeted checks pass: `host_vpn_command_test.dart` (54), `host_vpn_probe_test.dart` (5),
+  `host_vpn_save_path_test.dart` (7), and `host_vpn_test.dart` (36). None are skipped.
+  `dart analyze` reports no issues; plain `dart format` completes on changed Dart files.
+
+## To be checked
+
+- On VM A, remove the hand-imported CA, repeat VPN setup, and confirm root ownership and active
+  *about:policies* with the server's CA. This privileged browser check has not run in this worktree.
+
 ## Estimate
 
 `F251 size=XS est=10 basis=median XS 10 (F151 F198 F201 F202 F222 F225 F227, 8 records)`

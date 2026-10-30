@@ -180,8 +180,10 @@ class ScalewayElasticMetal implements HostProvider {
   Future<void> release(String id) async {
     final server = await _ok('GET', '$_servers/$id', 'read $id') as Map<String, Object?>;
     final tags = (server['tags'] as List).cast<String>();
-    if (!tags.any((t) => t.startsWith('porelo-project='))) {
-      throw ProviderFailed('$id carries no porelo-project tag, so it is not this package\'s to give back');
+    if (!tags.any((t) => t.startsWith('porelo-project=') || t.startsWith('porelo-host='))) {
+      throw ProviderFailed(
+        '$id carries no porelo-project or porelo-host tag, so it is not this package\'s to give back',
+      );
     }
     // A successful deletion has no JSON body to validate.
     await _request('DELETE', '$_servers/$id', 'give back $id');

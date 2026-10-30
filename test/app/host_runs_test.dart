@@ -217,9 +217,16 @@ void main() {
       probing.rememberVpnToTakeDown(machine);
     }
     await probing.refreshVpns();
+    expect(probing.vpnsToTakeDown.map((machine) => machine.hostProject), [
+      'first',
+      'second',
+    ], reason: 'an absent link alone cannot confirm persistent names and trust were removed');
+    probing.vpnCleanupFinished('second', completed: true);
+    await probing.refreshVpns();
     expect(probing.vpnsToTakeDown.map((machine) => machine.hostProject), ['first']);
     links['first'] = false;
     links['second'] = true;
+    probing.vpnCleanupFinished('first', completed: true);
     await probing.refreshVpns();
     expect(probing.vpnLinkFor('first'), isFalse);
     expect(probing.vpnLinkFor('second'), isTrue);

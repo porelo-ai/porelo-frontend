@@ -14,10 +14,25 @@ Walk 23, step 12-15 (2026-10-30): the give-back was refused with "server c4bd76b
 - `release` accepts either tag prefix; both tags are the package's own.
 - The take-down's order: give back, then VPN down, each step's result read, not assumed.
 - **Red first:** a fake Scaleway with a `porelo-host=walk9server` server: release deletes it; with no tag it refuses. A take-down whose give-back is refused runs no VPN step.
+- The existing provider-first order remains. `host_dialog.dart` shows the continuing rental with the
+  refusal; `host_runs.dart` retains cleanup until the root command succeeds and the link is absent.
+  Both the take-down dialog and the shell's existing cleanup action report the command result.
 
 ## Test
 
 Only the change: the tests above. No rental: the fake Scaleway is the test.
+
+- The host-only ownership test fails before the release fix with `srv-1 carries no porelo-project tag`.
+- The refused give-back test opens no VPN terminal and requires the continuing-rental sentence.
+- Failure and cancellation after link removal must keep cleanup pending through a fleet refresh;
+  the regression fails before the fix because `host-done` is found. A successful retry clears it.
+- Targeted checks pass: `scaleway_test.dart` (15), `host_dialog_test.dart` (133),
+  `host_restart_test.dart` (10), `host_runs_test.dart` (27), and `application_shell_test.dart` (15).
+  None are skipped. `dart analyze` reports no issues; plain `dart format` completes on changed Dart files.
+
+## Deferred
+
+- Exercise pending cleanup through `Shell._changeVpn` instead of a hand-written closure.
 
 ## Estimate
 

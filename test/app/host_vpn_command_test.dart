@@ -1,3 +1,4 @@
+// The generated root steps run in scratch folders using shell tools and chmod.
 @Tags(<String>['linux'])
 library;
 
@@ -306,6 +307,7 @@ esac
       );
       final script = hostVpnDownCommand(host: 'demo', interface: 'porelo', networkNumber: 0)[3]
           .replaceAll('/etc/hosts', hosts.path)
+          .replaceAll('/etc/firefox', '${scratch.path}/firefox')
           .replaceAll('mktemp -p /tmp', 'mktemp -p ${scratch.path}')
           .replaceAll('PATH=/usr/bin:/usr/sbin:/bin:/sbin', 'PATH=${scratch.path}:/usr/bin:/bin');
       final result = await Process.run('/bin/sh', ['-c', script, 'porelo-vpn-down', 'demo', '0', 'porelo']);
@@ -357,6 +359,8 @@ esac
       String store = 'update-ca-certificates',
       bool storeTakes = true,
       String? argument,
+      bool privateUmask = false,
+      String? unreadableFolder,
     }) async {
       final tools = <String, String>{
         'sudo': r'exec "$@"',
@@ -380,6 +384,10 @@ esac''',
         'ping': r'''[ "$5" = "10.73.$VPN_NETWORK.1" ]''',
         'date': "printf '100\\n'",
         'sleep': 'exit 0',
+        'install': r'''for argument do
+  [ "$argument" != "${VPN_UNREADABLE_FOLDER:-}" ] || exit 1
+done
+exec /usr/bin/install "$@"''',
         if (store.isNotEmpty)
           store: '''printf '%s\\n' '$store' >> "\$VPN_CAPTURE"\n${storeTakes ? 'exit 0' : 'exit 1'}''',
         'wg': r'''case "$*" in
@@ -407,6 +415,7 @@ esac''',
           .replaceAll('/etc/', '${etc.path}/')
           .replaceAll('/usr/local/share/', '${scratch.path}/usr/local/share/')
           .replaceAll('mktemp -p /tmp', 'mktemp -p ${scratch.path}');
+      if (privateUmask) command[3] = 'umask 077\n${command[3]}';
       if (argument != null) command[command.length - 1] = argument;
       return Process.run(
         command.first,
@@ -416,6 +425,7 @@ esac''',
           'VPN_CAPTURE': capture.path,
           'VPN_STATE': '${scratch.path}/state',
           'VPN_NETWORK': '$networkNumber',
+          'VPN_UNREADABLE_FOLDER': ?unreadableFolder,
         },
       );
     }
@@ -437,6 +447,148 @@ esac''',
     File inStore() => File('${scratch.path}/usr/local/share/ca-certificates/porelo-host-demo.crt');
     File forFirefox() => File('${etc.path}/firefox/porelo/porelo-host-demo.crt');
     File policy() => File('${etc.path}/firefox/policies/policies.json');
+
+    // Harm: a matching but unreadable CA leaves Firefox without the forge's trust.
+    test('Firefox repairs mode 0600 on an existing CA with the same bytes', () async {
+      forFirefox().parent.createSync(recursive: true);
+      forFirefox().writeAsStringSync(ca);
+      expect((await Process.run('/usr/bin/chmod', ['0600', forFirefox().path])).exitCode, 0);
+      expect(forFirefox().statSync().mode & 0x1ff, 0x180);
+      final result = await up(forgeCa: ca);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      expect(forFirefox().readAsStringSync(), ca);
+      expect(forFirefox().statSync().mode & 0x1ff, 0x1a4);
+      expect(FileSystemEntity.isLinkSync(forFirefox().path), isFalse);
+    });
+
+    for (final matching in [false, true]) {
+      // Harm: following a CA link lets the root step overwrite or chmod an unrelated file.
+      test('Firefox refuses a linked CA with matching bytes $matching without changing its target', () async {
+        final target = File('${scratch.path}/outside.crt')..writeAsStringSync(matching ? ca : 'unrelated\n');
+        expect((await Process.run('/usr/bin/chmod', ['0600', target.path])).exitCode, 0);
+        forFirefox().parent.createSync(recursive: true);
+        Link(forFirefox().path).createSync(target.path);
+        final result = await up(forgeCa: ca);
+        expect(result.exitCode, isNot(0));
+        expect('${result.stdout}', contains(forFirefox().path), reason: 'the refusal must name the unsafe CA');
+        expect(FileSystemEntity.isLinkSync(forFirefox().path), isTrue);
+        expect(target.readAsStringSync(), matching ? ca : 'unrelated\n');
+        expect(target.statSync().mode & 0x1ff, 0x180, reason: 'the link target must never be chmodded');
+        expect(File('${source.path}.checked').existsSync(), isFalse);
+      });
+    }
+
+    // Harm: an unsafe CA belonging to another host must not become browser trust.
+    test('Firefox policy installs only owned regular CA files and excludes links and directories', () async {
+      forFirefox().parent.createSync(recursive: true);
+      final other = File('${forFirefox().parent.path}/porelo-host-other.crt')..writeAsStringSync(ca);
+      final target = File('${scratch.path}/outside.crt')..writeAsStringSync(ca);
+      Link('${forFirefox().parent.path}/porelo-host-linked.crt').createSync(target.path);
+      Directory('${forFirefox().parent.path}/porelo-host-folder.crt').createSync();
+      final result = await up(forgeCa: ca);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      final decoded = jsonDecode(policy().readAsStringSync()) as Map<String, dynamic>;
+      expect(decoded['policies']['Certificates']['Install'], [forFirefox().path, other.path]);
+      expect(target.readAsStringSync(), ca);
+    });
+
+    for (final linkedPolicy in [false, true]) {
+      // Harm: VPN removal must preserve an unmanaged policy and its directory permissions.
+      test(
+        'VPN down preserves an unmanaged policy with link $linkedPolicy without preparing Firefox folders',
+        () async {
+          expect((await up()).exitCode, 0);
+          policy().parent.createSync(recursive: true);
+          final target = File('${scratch.path}/outside-policy.json')
+            ..writeAsStringSync('{"policies":{"DisableTelemetry":true}}\n');
+          if (linkedPolicy) {
+            Link(policy().path).createSync(target.path);
+          } else {
+            policy().writeAsStringSync(target.readAsStringSync());
+          }
+          expect((await Process.run('/usr/bin/chmod', ['0600', policy().path])).exitCode, 0);
+          expect(
+            (await Process.run('/usr/bin/chmod', ['0700', policy().parent.path, policy().parent.parent.path])).exitCode,
+            0,
+          );
+          final result = await down('demo', 0);
+          expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+          expect(policy().readAsStringSync(), '{"policies":{"DisableTelemetry":true}}\n');
+          expect(policy().statSync().mode & 0x1ff, 0x180);
+          expect(FileSystemEntity.isLinkSync(policy().path), linkedPolicy);
+          expect(policy().parent.statSync().mode & 0x1ff, 0x1c0);
+          expect(policy().parent.parent.statSync().mode & 0x1ff, 0x1c0);
+          expect(forFirefox().parent.existsSync(), isFalse, reason: 'take-down must not create the CA folder');
+          expect(File('${scratch.path}/state/porelo-0').existsSync(), isFalse);
+        },
+      );
+    }
+
+    // Harm: Firefox folder validation must not block VPN removal for an unmanaged policy.
+    test('VPN down leaves a linked Firefox folder and its unmanaged policy untouched', () async {
+      expect((await up()).exitCode, 0);
+      final target = Directory('${scratch.path}/outside-firefox')..createSync();
+      final policies = Directory('${target.path}/policies')..createSync();
+      final unmanaged = File('${policies.path}/policies.json')
+        ..writeAsStringSync('{"policies":{"DisableTelemetry":true}}\n');
+      expect((await Process.run('/usr/bin/chmod', ['0700', target.path, policies.path])).exitCode, 0);
+      Link('${etc.path}/firefox').createSync(target.path);
+      final result = await down('demo', 0);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      expect(FileSystemEntity.isLinkSync('${etc.path}/firefox'), isTrue);
+      expect(target.statSync().mode & 0x1ff, 0x1c0);
+      expect(policies.statSync().mode & 0x1ff, 0x1c0);
+      expect(unmanaged.readAsStringSync(), '{"policies":{"DisableTelemetry":true}}\n');
+      expect(Directory('${target.path}/porelo').existsSync(), isFalse);
+      expect(File('${scratch.path}/state/porelo-0').existsSync(), isFalse);
+    });
+
+    for (final existing in [false, true]) {
+      // Harm: an unreadable Firefox parent silently disables the CA policy for every unprivileged browser.
+      test('Firefox folders are readable under a private umask with existing parent $existing', () async {
+        final firefox = Directory('${etc.path}/firefox');
+        if (existing) {
+          firefox.createSync();
+          expect((await Process.run('/usr/bin/chmod', ['0700', firefox.path])).exitCode, 0);
+          expect(firefox.statSync().mode & 0x1ff, 0x1c0);
+        }
+        final result = await up(forgeCa: ca, privateUmask: true);
+        expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+        for (final folder in [firefox, Directory('${firefox.path}/policies'), Directory('${firefox.path}/porelo')]) {
+          expect(folder.statSync().mode & 0x1ff, 0x1ed, reason: '${folder.path} must be traversable by Firefox');
+        }
+        for (final file in [policy(), File('${firefox.path}/porelo/managed-policy.json'), forFirefox()]) {
+          expect(file.statSync().mode & 0x1ff, 0x1a4, reason: '${file.path} must be readable by Firefox');
+        }
+        final decoded = jsonDecode(policy().readAsStringSync()) as Map<String, dynamic>;
+        expect(decoded['policies']['Certificates']['Install'], [forFirefox().path]);
+        expect(forFirefox().readAsStringSync(), ca);
+      });
+    }
+
+    for (final folder in ['firefox', 'firefox/policies', 'firefox/porelo']) {
+      // Harm: following a directory link lets the root step write outside its managed Firefox folders.
+      test('Firefox refuses a linked $folder folder before copying its CA', () async {
+        final target = Directory('${scratch.path}/elsewhere')..createSync();
+        final link = Link('${etc.path}/$folder');
+        link.parent.createSync(recursive: true);
+        link.createSync(target.path);
+        final result = await up(forgeCa: ca);
+        expect(result.exitCode, isNot(0));
+        expect('${result.stdout}', contains(link.path), reason: 'the refusal must name the unsafe folder');
+        expect(target.listSync(), isEmpty, reason: 'no CA or policy may be written through the link');
+        expect(File('${source.path}.checked').existsSync(), isFalse);
+      });
+    }
+
+    // Harm: a permission repair failure must not leave a success receipt for unusable browser trust.
+    test('Firefox names a folder whose permissions could not be repaired', () async {
+      final folder = '${etc.path}/firefox';
+      final result = await up(forgeCa: ca, unreadableFolder: folder);
+      expect(result.exitCode, isNot(0));
+      expect('${result.stdout}', contains(folder));
+      expect(File('${source.path}.checked').existsSync(), isFalse);
+    });
 
     test('nothing of it without a CA a stop gave', () async {
       final none = await up();

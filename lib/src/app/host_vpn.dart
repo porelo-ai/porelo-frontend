@@ -179,6 +179,16 @@ List<String> hostVpnUpCommand(
 }
 
 const _firefoxPolicyStep = r"""
+prepare_firefox_folders() {
+  for ff_directory in /etc/firefox /etc/firefox/policies /etc/firefox/porelo; do
+    if [ -e "$ff_directory" ] || [ -L "$ff_directory" ]; then
+      # This step runs as root; -O refuses folders another account owns before install can change them.
+      [ ! -L "$ff_directory" ] && [ -d "$ff_directory" ] && [ -O "$ff_directory" ] \
+        || fail "Firefox's folder is linked or not owned by root: $ff_directory"
+    fi
+    install -d -m 0755 -- "$ff_directory" || fail "Firefox's folder could not be made readable: $ff_directory"
+  done
+}
 sync_firefox_policy() {
   ff_policy=/etc/firefox/policies/policies.json
   ff_managed=/etc/firefox/porelo/managed-policy.json
@@ -201,13 +211,12 @@ sync_firefox_policy() {
     printf '%s\n' "Firefox has a policy of its own in $ff_policy: maintain its Certificates.Install with the certificates in /etc/firefox/porelo."
     return 0
   fi
-  install -d -m 0755 /etc/firefox/policies /etc/firefox/porelo || fail "Firefox's policy folder could not be made."
   ff_staged=$(mktemp /etc/firefox/policies/.policies.json.XXXXXX) || fail "Firefox's policy could not be staged."
   {
     printf '%s' '{"policies":{"Certificates":{"Install":['
     ff_separator=
     for ff_ca in /etc/firefox/porelo/porelo-host-*.crt; do
-      [ -f "$ff_ca" ] && [ ! -L "$ff_ca" ] || continue
+      [ -f "$ff_ca" ] && [ ! -L "$ff_ca" ] && [ -O "$ff_ca" ] || continue
       printf '%s"%s"' "$ff_separator" "$ff_ca"
       ff_separator=,
     done
@@ -310,8 +319,14 @@ if [ -n "$forge_ca_pem" ]; then
     "$store_update" >/dev/null 2>&1 || { rm -f -- "$store"; fail "The system store did not take the CA for the server's forge."; }
   fi
   # Firefox, a snap here, reads /etc/firefox alone; its policy names this copy.
+  prepare_firefox_folders
   firefox_ca=/etc/firefox/porelo/porelo-host-$host.crt
-  cmp -s -- "$forge_ca" "$firefox_ca" || install -D -m 0644 -- "$forge_ca" "$firefox_ca" || fail "The CA for the server's forge could not be put where Firefox reads it."
+  if [ -e "$firefox_ca" ] || [ -L "$firefox_ca" ]; then
+    [ ! -L "$firefox_ca" ] && [ -f "$firefox_ca" ] && [ -O "$firefox_ca" ] \
+      || fail "Firefox's CA is linked, not a regular file or not owned by root: $firefox_ca"
+  fi
+  cmp -s -- "$forge_ca" "$firefox_ca" || install -m 0644 -- "$forge_ca" "$firefox_ca" || fail "The CA for the server's forge could not be put where Firefox reads it."
+  chmod 0644 -- "$firefox_ca" || fail "The CA for the server's forge could not be made readable by Firefox."
   sync_firefox_policy "$firefox_ca"
   if [ "$ff_owned" = yes ]; then printf '%s\n' 'Firefox trusts the forge once it is started again.'; fi
   hosts_line="10.73.$network.1 forge.$host.porelo.internal matrix.$host.porelo.internal # porelo-host-$host"

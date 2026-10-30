@@ -94,6 +94,8 @@ Future<void> showHomeserverPublished(BuildContext context, PublishOutcome outcom
     );
 
 /// Changes the local VPN only when needed, returning true only for a fresh handshake receipt.
+///
+/// [onExit] reports the root command's exit status, so teardown can distinguish cancellation from cleanup.
 Future<bool> openHostVpnDialog(
   BuildContext context, {
   required Machine machine,
@@ -111,6 +113,7 @@ Future<bool> openHostVpnDialog(
   bool? linux,
   String? Function()? confinement,
   ValueChanged<String>? failed,
+  ValueChanged<int>? onExit,
 }) async {
   HostVpnAttempt? attempt;
   var verified = false;
@@ -191,6 +194,7 @@ Future<bool> openHostVpnDialog(
       completed: up ? 'The VPN check did not confirm this server.' : 'The VPN was taken down.',
       afterClose: pending?.close,
       lastLine: (line) => said = line,
+      onExit: onExit,
       finish: pending == null
           ? null
           : (code) async {

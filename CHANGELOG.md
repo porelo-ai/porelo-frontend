@@ -54,6 +54,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Servers rented without a project can be given back using their existing ownership tag. A refused
+  give-back preserves the local VPN and reports the continuing rental; unfinished VPN cleanup stays pending.
+- VPN setup makes Firefox's policy folders readable under a private umask, repairs existing restricted
+  folders, and refuses linked folders or folders another account owns before copying the CA. Existing
+  CA copies must be regular files owned by root and readable by Firefox; only owned regular CA files
+  enter the policy. VPN take-down preserves unmanaged policies without preparing Firefox folders.
+
 - Own-account setup keeps each project's `machine.yml`, `project.bundle`, and `access.bundle` in its own
   `~/.local/share/porelo-host/setup/<project>/` directory. Its machine file names `access.bundle` relatively
   and the project bundle by its absolute path; root and combined setup retain their existing layout.

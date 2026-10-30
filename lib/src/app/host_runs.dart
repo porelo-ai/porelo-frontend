@@ -267,8 +267,9 @@ class HostRuns extends ChangeNotifier {
   final Set<String> vpnDown = {};
 
   final Map<String, Machine> _vpnsToTakeDown = {};
+  final Set<String> _vpnCleanupsFinished = {};
 
-  /// Given-back servers whose local tunnel has not yet been confirmed absent.
+  /// Given-back servers whose local cleanup and absent tunnel have not both been confirmed.
   List<Machine> get vpnsToTakeDown => List.unmodifiable(_vpnsToTakeDown.values);
 
   /// Keeps cleanup reachable after the server has left Machines.
@@ -277,8 +278,22 @@ class HostRuns extends ChangeNotifier {
     vpnLinkUp = null;
     _vpnLinks[machine.hostProject] = null;
     _vpnsToTakeDown[machine.hostProject] = machine;
+    _vpnCleanupsFinished.remove(machine.hostProject);
     _changed();
   }
+
+  /// Records whether the root cleanup command completed, separately from link absence.
+  void vpnCleanupFinished(String host, {required bool completed}) {
+    ++_vpnProbe;
+    if (completed) {
+      _vpnCleanupsFinished.add(host);
+    } else {
+      _vpnCleanupsFinished.remove(host);
+    }
+  }
+
+  /// Whether the root cleanup succeeded and the host's local tunnel is confirmed absent.
+  bool vpnCleanupConfirmed(String host) => _vpnCleanupsFinished.contains(host) && _vpnLinks[host] == false;
 
   /// Uses the same unprivileged link probe for actions and refreshes.
   Future<bool> probeVpnLink(String host) =>
@@ -323,7 +338,7 @@ class HostRuns extends ChangeNotifier {
     vpnLinkUp = results.any((result) => result.link == null) ? null : results.any((result) => result.link == true);
     vpnUp = results.any((result) => result.answers);
     for (final result in results) {
-      if (result.link == false) _vpnsToTakeDown.remove(result.host);
+      if (result.link == false && _vpnCleanupsFinished.contains(result.host)) _vpnsToTakeDown.remove(result.host);
     }
     final answering = results.where((result) => result.answers).map((result) => result.host).toSet();
     final present = machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toSet();

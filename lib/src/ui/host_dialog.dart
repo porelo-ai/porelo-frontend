@@ -733,7 +733,7 @@ class _HostDialogState extends State<HostDialog> {
   void _sessionChanged() {
     if (!mounted) return;
     _keepProtocolPosition();
-    if (_givenBack && widget.hostRuns?.vpnLinkFor(_hostId) == false) {
+    if (_givenBack && widget.hostRuns?.vpnCleanupConfirmed(_hostId) == true) {
       _vpnDownConfirmed = true;
       _vpnProblem = null;
     }
@@ -1020,13 +1020,22 @@ class _HostDialogState extends State<HostDialog> {
     } on Exception {
       session.state = HostRunState.refused;
       if (mounted) {
-        setState(() => _machineProblem = 'The host command could not complete. Your machines have been kept.');
+        setState(
+          () => _machineProblem =
+              'The server is still rented and costing; the VPN has been kept up: '
+              'the host command could not complete.',
+        );
       }
       return;
     }
-    if (session.state != HostRunState.done) return;
     if (!hostGivenBack(session)) {
-      if (mounted) setState(() => _machineProblem = 'The server give-back was not confirmed. Recovery has been kept.');
+      if (mounted) {
+        setState(
+          () => _machineProblem =
+              'The server is still rented and costing; the VPN has been kept up: '
+              '${session.fix ?? (session.said.isNotEmpty ? session.said : 'the give-back was not confirmed.')}',
+        );
+      }
       return;
     }
     final owner = widget.hostRuns;
@@ -1083,6 +1092,8 @@ class _HostDialogState extends State<HostDialog> {
     if (machine == null) return;
     setState(() => _finishingDown = true);
     final owner = widget.hostRuns;
+    var cleanedUp = false;
+    owner?.vpnCleanupFinished(machine.hostProject, completed: false);
     try {
       await openHostVpnDialog(
         context,
@@ -1092,24 +1103,30 @@ class _HostDialogState extends State<HostDialog> {
         open: widget.openTerminal,
         probeLink: owner == null ? null : () => owner.probeVpnLink(machine.hostProject),
         linux: widget.linux,
+        onExit: (code) {
+          cleanedUp = code == 0;
+          owner?.vpnCleanupFinished(machine.hostProject, completed: cleanedUp);
+        },
       );
       bool? linkUp;
-      if (owner != null) {
+      if (owner != null && cleanedUp) {
         await owner.refreshVpns();
         linkUp = owner.vpnLinkFor(machine.hostProject);
       } else {
         try {
-          linkUp = await probeHostVpnLink(
-            interface: widget.settings?.hostUp(machine.hostProject)?.vpnInterface ?? 'porelo-0',
-            host: machine.hostProject,
-          );
+          linkUp = await (owner != null
+              ? owner.probeVpnLink(machine.hostProject)
+              : probeHostVpnLink(
+                  interface: widget.settings?.hostUp(machine.hostProject)?.vpnInterface ?? 'porelo-0',
+                  host: machine.hostProject,
+                ));
         } on HostFilesRefused {
           linkUp = null;
         }
       }
       if (mounted) {
         setState(() {
-          _vpnDownConfirmed = linkUp == false;
+          _vpnDownConfirmed = cleanedUp && linkUp == false;
           _vpnProblem = linkUp == false
               ? null
               : linkUp == true

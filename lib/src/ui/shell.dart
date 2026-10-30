@@ -600,12 +600,14 @@ class _ShellState extends State<Shell> {
   Future<void> _bringVpnUp(Machine machine) => _changeVpn(machine, up: true);
 
   Future<void> _changeVpn(Machine machine, {required bool up}) async {
+    if (!up) _hostRuns.vpnCleanupFinished(machine.hostProject, completed: false);
     await openHostVpnDialog(
       context,
       machine: machine,
       settings: widget.settings,
       up: up,
       open: widget.sessions.openTerminal,
+      onExit: up ? null : (code) => _hostRuns.vpnCleanupFinished(machine.hostProject, completed: code == 0),
     );
     await _hostRuns.refreshVpns();
   }

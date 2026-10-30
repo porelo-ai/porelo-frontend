@@ -1,4 +1,4 @@
-// Private-file protection uses Linux libc without starting a permission process.
+// Private-file protection uses Linux libc; fixture keys and scripts need chmod and Bash.
 @Tags(<String>['linux'])
 library;
 
@@ -164,12 +164,69 @@ void main() {
 
   tearDown(() => scratch.delete(recursive: true));
 
+  // Harm: a refused release must keep access to the billing server and expose its refusal.
+  hostWidgets('a refused give-back keeps the VPN and names the continuing rental', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await machines.settings.rememberHostUp(
+      'demo',
+      const HostUpRecord(
+        scalewayProject: 'provider',
+        account: 'root',
+        tresor: '',
+        folder: null,
+        signingKey: '',
+        identity: '/keys/private',
+        publicKey: '/keys/public.pub',
+        collection: '',
+        vpnPeerPublicKey: '',
+        vpnPeerAddress: '',
+        host: 'demo',
+        hostName: 'demo',
+        vpnNetworkNumber: 17,
+        vpnInterface: 'porelo-17',
+      ),
+    );
+    final process = _HostProcess();
+    final commands = <List<String>>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HostDialog(
+          project: 'demo',
+          machines: machines,
+          settings: machines.settings,
+          hostRuns: runs,
+          takeDownOnly: true,
+          start: (_, _) async => process,
+          openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) {
+            commands.add([executable, ...arguments]);
+            return FakeTerminal([]);
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('host-down')));
+    await World.settle(tester);
+    expect(commands, isEmpty, reason: 'the provider must answer before any local VPN step');
+    process.line(const host.Step('give-back', host.StepState.refused, fix: 'permission denied'));
+    process.end(65);
+    await World.settle(tester);
+    expect(commands, isEmpty, reason: 'a refusal cannot authorize local VPN cleanup');
+    expect(find.byKey(const Key('host-done')), findsNothing);
+    expect(find.textContaining('still rented and costing'), findsOneWidget);
+    expect(find.textContaining('permission denied'), findsWidgets);
+    expect(machines.settings.hostUp('demo'), isNotNull, reason: 'recovery must survive a refused release');
+  });
+
   for (final outcome in [
     'down',
     'cancelled',
     'already down',
     'still up',
     'terminal failed',
+    'terminal failed after link down',
+    'cancelled with link down',
     'probe refused',
     'recheck refused',
   ]) {
@@ -272,20 +329,25 @@ void main() {
           findsNothing,
           reason: 'provider release alone cannot complete teardown while the VPN is up',
         );
-        if (outcome == 'cancelled') {
+        if (outcome.startsWith('cancelled')) {
+          if (outcome == 'cancelled with link down') linkUp = false;
           await tester.tap(find.byKey(const Key('unlock-cancel')));
           await World.settle(tester);
           await tester.tap(find.byKey(const Key('unlock-cancel-yes')));
         } else {
-          linkUp = outcome != 'down' && outcome != 'already down';
+          linkUp = outcome != 'down' && outcome != 'already down' && outcome != 'terminal failed after link down';
           probeRefused = outcome == 'recheck refused';
-          terminal.endsWith(outcome == 'terminal failed' ? 65 : 0);
+          terminal.endsWith(outcome.startsWith('terminal failed') ? 65 : 0);
           await World.settle(tester);
           await tester.tap(find.byKey(const Key('unlock-done')));
         }
         await World.settle(tester);
       }
       final completed = outcome == 'down' || outcome == 'already down';
+      if (outcome == 'terminal failed after link down' || outcome == 'cancelled with link down') {
+        await runs.refreshVpns();
+        await World.settle(tester);
+      }
       expect(
         find.byKey(const Key('host-done')),
         completed ? findsOneWidget : findsNothing,
@@ -317,11 +379,13 @@ void main() {
                   actionsFor: (_) => [],
                   onTakeVpnDown: (machine) async {
                     expect(machine.hostProject, 'demo', reason: 'cleanup must name the server that was given back');
+                    runs.vpnCleanupFinished(machine.hostProject, completed: false);
                     await openHostVpnDialog(
                       context,
                       machine: machine,
                       settings: machines.settings,
                       up: false,
+                      onExit: (code) => runs.vpnCleanupFinished(machine.hostProject, completed: code == 0),
                       probeLink: () => runs.probeVpnLink('demo'),
                       open: (executable, arguments, {int columns = 80, int rows = 24}) {
                         commands.add([executable, ...arguments]);
