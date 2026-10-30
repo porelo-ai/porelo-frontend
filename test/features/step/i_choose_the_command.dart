@@ -11,7 +11,7 @@ Future<void> iChooseTheCommand(WidgetTester tester, String command) async {
   await iOpenTheCommandFinder(tester);
   // Typing first is how a finder is used, and it keeps the wanted entry on screen whatever the
   // list grows to.
-  await tester.enterText(find.byType(TextField), command);
+  await tester.enterText(find.byKey(const Key('command-query')), command);
   await World.settle(tester);
   await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.widgetWithText(ListTile, command)));
   await World.settle(tester);

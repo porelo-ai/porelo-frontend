@@ -6,7 +6,6 @@ import 'package:porelo_frontend/src/app/roles.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/command_finder.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
-import 'package:porelo_frontend/src/ui/machine_view.dart';
 
 import '../features/support/world.dart';
 
@@ -43,7 +42,7 @@ void main() {
   });
 
   for (final role in ['user', 'host-admin', 'project-admin', 'access-admin']) {
-    testWidgets('menus, tiles and the finder show only held roles ($role)', (tester) async {
+    testWidgets('menus and the finder show only held roles ($role)', (tester) async {
       roles = Roles.fromArguments(['--roles', role]);
       tester.view
         ..physicalSize = const Size(1280, 800)
@@ -66,17 +65,12 @@ void main() {
                     child: const Text('Context menu'),
                   ),
                   TextButton(onPressed: () => showCommandFinder(context, commands), child: const Text('Finder')),
-                  for (final command in commands)
-                    CommandTile(command: command, icon: Icons.play_circle_outline, description: command.label),
                 ],
               ),
             ),
           ),
         ),
       );
-      for (final command in commands) {
-        expect(find.text(command.label), roles.holds(command.role) ? findsOneWidget : findsNothing);
-      }
       await tester.tap(find.byTooltip('Commands'));
       await World.settle(tester);
       for (final command in commands) {
@@ -105,15 +99,17 @@ void main() {
 
   // Harm: a host admin finds Prepare a server… only by typing its name, never by pointing.
   for (final held in [true, false]) {
-    testWidgets('the title bar offers Prepare a server… to a host admin alone (${held ? 'held' : 'not held'})', (
+    testWidgets('the Machines page offers Prepare a server… to a host admin alone (${held ? 'held' : 'not held'})', (
       tester,
     ) async {
       if (held) roles = Roles.fromArguments(const ['--roles', 'host-admin']);
       await World.startBackend(World.work);
       await World.startApp(tester);
-      final control = find.descendant(of: find.byType(AppBar), matching: find.byKey(const Key('host.prepare')));
+      World.shell.goTo(Section.machines);
+      await World.settle(tester);
+      final control = find.byKey(const Key('host.prepare'));
       expect(control, held ? findsOneWidget : findsNothing);
-      if (held) expect(tester.widget<IconButton>(control).tooltip, 'Prepare a server…');
+      if (held) expect(tester.widget<OutlinedButton>(control).onPressed, isNotNull);
       expect(
         find.descendant(of: find.byType(AppBar), matching: find.byTooltip('Watch another machine…')),
         findsOneWidget,

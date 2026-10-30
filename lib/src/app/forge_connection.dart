@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:porelo_host/porelo_host.dart' show forgeAddress;
 
 import 'session.dart';
+import 'registry_pages.dart';
 
 import 'desk.dart';
 import 'forge.dart';
@@ -30,7 +31,60 @@ class ForgeEntry {
   final String address;
 
   /// Constructor taking every field.
-  const ForgeEntry({required this.id, required this.kind, required this.name, required this.address});
+  const ForgeEntry({
+    required this.id,
+    required this.kind,
+    required this.name,
+    required this.address,
+    this.authentication = 'ssh',
+    this.hostMachine,
+    this.tunnelAddress,
+    this.gitAddress,
+  });
+
+  /// The explicit access choice, defaulting to the person's SSH identity.
+  final String authentication;
+
+  /// The machine owning a forge reached through an already established tunnel.
+  final String? hostMachine;
+
+  /// The transport-confirmed browser address; never the remote machine's address.
+  final Uri? tunnelAddress;
+
+  /// The transport-confirmed HTTP Git endpoint, using its separate forwarded port.
+  final Uri? gitAddress;
+
+  /// Whether this is a host forge supplied by its tunnel adapter.
+  bool get isHost => hostMachine != null;
+
+  /// The only address a host forge may open in a browser.
+  Uri? get browserAddress {
+    if (!isHost) {
+      try {
+        return Uri.https(forgeAddress(address), '/');
+      } on FormatException {
+        return null;
+      }
+    }
+    return _localAddress(tunnelAddress);
+  }
+
+  /// The confirmed loopback endpoint used for HTTP Git.
+  Uri? get gitEndpoint => _localAddress(gitAddress);
+
+  static Uri? _localAddress(Uri? uri) {
+    if (uri == null ||
+        uri.scheme != 'http' ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        !(uri.host == '127.0.0.1' || uri.host.endsWith('.localhost')) ||
+        !uri.hasPort ||
+        uri.port <= 0) {
+      return null;
+    }
+    return uri;
+  }
 
   /// What kind of forge, in words.
   String get kindWords => switch (kind) {
@@ -39,7 +93,13 @@ class ForgeEntry {
   };
 
   /// Kept as it is stored.
-  Map<String, Object?> toJson() => <String, Object?>{'id': id, 'kind': kind, 'name': name, 'address': address};
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'kind': kind,
+    'name': name,
+    'address': address,
+    'authentication': authentication,
+  };
 
   /// Read back from what was stored, or null where it is not one.
   static ForgeEntry? fromJson(Object? stored) {
@@ -47,11 +107,33 @@ class ForgeEntry {
     final id = stored['id'], kind = stored['kind'], name = stored['name'], address = stored['address'];
     if (id is! String || kind is! String || name is! String || address is! String) return null;
     if (id.isEmpty || address.isEmpty) return null;
-    return ForgeEntry(id: id, kind: kind, name: name.isEmpty ? address : name, address: address);
+    final authentication = stored['authentication'];
+    if (authentication != null && authentication != 'ssh' && authentication != 'token') return null;
+    try {
+      forgeAddress(address);
+    } on FormatException {
+      return null;
+    }
+    return ForgeEntry(
+      id: id,
+      kind: kind,
+      name: name.isEmpty ? address : name,
+      address: address,
+      authentication: authentication == 'token' ? 'token' : 'ssh',
+    );
   }
 
   /// The same entry with another name.
-  ForgeEntry named(String name) => ForgeEntry(id: id, kind: kind, name: name, address: address);
+  ForgeEntry named(String name) => ForgeEntry(
+    id: id,
+    kind: kind,
+    name: name,
+    address: address,
+    authentication: authentication,
+    hostMachine: hostMachine,
+    tunnelAddress: tunnelAddress,
+    gitAddress: gitAddress,
+  );
 }
 
 /// Where the list of forges is kept: this computer's settings. Injectable, so a test keeps it in memory.
@@ -91,6 +173,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
     this._tokens, {
     ForgeEntries? entries,
     ForgeFor? forgeFor,
+    this.identityAccess,
     WorkspaceFor? workspaceFor,
     this.openTerminal,
   }) : _entries = entries ?? MemoryForgeEntries(),
@@ -101,6 +184,9 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Opens a terminal, with a stand-in in widget tests.
   final OpenTerminal? openTerminal;
 
+  /// The central or tunnel forge identity adapter, absent until its protocol is supplied.
+  final Future<Forge> Function(ForgeEntry entry)? identityAccess;
+
   final ForgeTokens _tokens;
   final ForgeEntries _entries;
 
@@ -109,6 +195,61 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
 
   /// Every forge set up here, in the order they were added; empty before [load].
   List<ForgeEntry> entries = <ForgeEntry>[];
+
+  /// Tunnel-confirmed host forges, kept out of the stored central-forge configuration.
+  List<ForgeEntry> hostEntries = [];
+
+  /// Verified registry projections supplied by the registry adapter, scoped to a forge.
+  List<({String forgeId, String name, int? persons, int? machines, RegistryTarget target})> registryRows = [];
+
+  /// The central and host forges shown by the pages.
+  List<ForgeEntry> get allEntries => [...entries, ...hostEntries];
+
+  /// Replaces host forge endpoints after the transport has observed its forwards.
+  void setHostEntries(List<ForgeEntry> entries) {
+    hostEntries = List.unmodifiable(entries.where((entry) => entry.isHost));
+    final selected = current;
+    if (selected != null && selected.isHost) {
+      final updated = hostEntries.where((entry) => entry.id == selected.id).firstOrNull;
+      if (updated == null ||
+          updated.browserAddress != selected.browserAddress ||
+          updated.gitAddress != selected.gitAddress) {
+        _accessGeneration++;
+        _forge = null;
+        _token = null;
+        account = null;
+        current =
+            updated ??
+            ForgeEntry(
+              id: selected.id,
+              kind: selected.kind,
+              name: selected.name,
+              address: selected.address,
+              hostMachine: selected.hostMachine,
+            );
+        problem = 'The host forge tunnel changed or disconnected. Check access after it is reached again.';
+      } else {
+        current = updated;
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Adds a forge using the person's identity, without prompting for a token.
+  Future<ForgeEntry?> addIdentity({required String name, required String address}) async {
+    final where = forgeAddress(address);
+    var id = where;
+    for (var n = 2; entries.any((entry) => entry.id == id); n++) {
+      id = '$where#$n';
+    }
+    final entry = ForgeEntry(id: id, kind: 'github', name: name.trim().isEmpty ? where : name.trim(), address: where);
+    await _asking(() async {
+      entries = [...entries, entry];
+      await _keep();
+      await _open(entry);
+    });
+    return entry;
+  }
 
   /// The forge whose repositories are shown, or null while none is chosen.
   ForgeEntry? current;
@@ -128,6 +269,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   }
 
   Forge? _forge;
+  int _accessGeneration = 0;
 
   /// Who the kept token logs in as, or null while none is kept or it was not accepted.
   ForgeAccount? account;
@@ -175,7 +317,13 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
       final before = await _tokens.read(_keptBefore);
       if (before != null && before.isNotEmpty) {
         entries = <ForgeEntry>[
-          const ForgeEntry(id: _keptBefore, kind: 'github', name: 'GitHub', address: 'github.com'),
+          const ForgeEntry(
+            id: _keptBefore,
+            kind: 'github',
+            name: 'GitHub',
+            address: 'github.com',
+            authentication: 'token',
+          ),
         ];
         await _keep();
       }
@@ -203,7 +351,13 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
       for (var n = 2; entries.any((each) => each.id == id); n++) {
         id = '$where#$n';
       }
-      final entry = ForgeEntry(id: id, kind: kind, name: name.trim().isEmpty ? where : name.trim(), address: where);
+      final entry = ForgeEntry(
+        id: id,
+        kind: kind,
+        name: name.trim().isEmpty ? where : name.trim(),
+        address: where,
+        authentication: 'token',
+      );
       entries = <ForgeEntry>[...entries, entry];
       await _keep();
       made = entry;
@@ -214,7 +368,14 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
 
   /// Renames an entry and reloads the token kept by the terminal command.
   Future<void> edit(ForgeEntry entry, {String? name}) => _asking(() async {
-    final renamed = name == null || name.trim().isEmpty ? entry : entry.named(name.trim());
+    final changed = entry.named(name == null || name.trim().isEmpty ? entry.name : name.trim());
+    final renamed = ForgeEntry(
+      id: changed.id,
+      kind: changed.kind,
+      name: changed.name,
+      address: changed.address,
+      authentication: 'token',
+    );
     entries = <ForgeEntry>[for (final each in entries) each.id == entry.id ? renamed : each];
     await _keep();
     await _open(renamed);
@@ -229,7 +390,7 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   /// Removes [entry] here: its token out of the keychain. **Nothing at the forge is touched**: the
   /// token stays valid there until the person revokes it; machine vaults keep their own entries.
   Future<void> remove(ForgeEntry entry) => _asking(() async {
-    await _tokens.delete(entry.address);
+    if (entry.authentication == 'token') await _tokens.delete(entry.address);
     entries = <ForgeEntry>[
       for (final each in entries)
         if (each.id != entry.id) each,
@@ -269,11 +430,46 @@ class ForgeConnection extends ChangeNotifier with QuietAfterDispose {
   }
 
   Future<void> _open(ForgeEntry entry) async {
+    final generation = ++_accessGeneration;
+    if (entry.isHost &&
+        !hostEntries.any(
+          (current) =>
+              current.id == entry.id &&
+              current.browserAddress == entry.browserAddress &&
+              current.gitAddress == entry.gitAddress,
+        )) {
+      throw const ForgeRefused('The host forge tunnel is no longer reached.');
+    }
+    if (entry.authentication == 'ssh' || entry.isHost) {
+      if (current?.id != entry.id) {
+        _close();
+        current = entry;
+      }
+      final access = identityAccess;
+      if (access == null) {
+        problem = 'SSH identity access is not available yet. Your key remains the default; use a token only if you choose it.';
+        return;
+      }
+      if (entry.isHost && entry.browserAddress == null) {
+        throw const ForgeRefused('The host forge has no confirmed tunnel address.');
+      }
+      final forge = await access(entry);
+      final login = await forge.whoAmI();
+      final found = await forge.repositories();
+      if (generation != _accessGeneration) return;
+      _close();
+      current = entry;
+      _forge = forge;
+      account = login;
+      repositories = found;
+      unawaited(_askWhichAreProjects(forge, found));
+      return;
+    }
     final token = await _tokens.read(entry.address);
     if (token == null || token.isEmpty) {
       _close();
       current = entry;
-      problem = 'No token is kept for ${entry.name} on this computer any more. Give it one again.';
+      problem = 'No token is kept for ${entry.name} on this computer any more. Use a token only if you choose it.';
       return;
     }
     final forge = _forgeFor(token, entry.address);
@@ -372,4 +568,16 @@ String? fullNameOf(String url) {
   final match = RegExp(r'^(?:[^@/:]+@[^:/]+:|[a-z+]+://(?:[^@/]+@)?[^/]+/)([^/]+/[^/]+?)(?:\.git)?/?$')
       .firstMatch(url.trim());
   return match?.group(1);
+}
+
+/// Whether a repository URL belongs to this exact central or tunnel forge.
+bool forgeHoldsUrl(ForgeEntry entry, String url) {
+  if (!entry.isHost) return hostOf(url) == entry.address;
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.userInfo.isNotEmpty) return false;
+  final endpoints = [entry.browserAddress, entry.gitEndpoint];
+  return endpoints.any(
+    (endpoint) =>
+        endpoint != null && uri.scheme == endpoint.scheme && uri.host == endpoint.host && uri.port == endpoint.port,
+  );
 }

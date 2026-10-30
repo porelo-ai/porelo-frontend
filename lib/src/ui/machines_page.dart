@@ -13,6 +13,9 @@ import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'host_dialog.dart';
 import 'tokens.dart';
+import 'filtered_list_section.dart';
+import 'projects_page.dart';
+import '../app/registry_pages.dart';
 
 /// Lists preparations and machines once for both the page and its navigation count.
 ({List<HostPreparation> preparations, List<Machine> machines}) machinesPageRows(Machines machines, HostRuns? hostRuns) {
@@ -24,11 +27,9 @@ import 'tokens.dart';
   );
 }
 
-/// Every machine watched, as a list: where work runs, set up rarely (walk 9). One row
-/// per machine says how it stands; its details are a page of their own, and its projects and work
-/// are under *Projects* and *Work*, never here.
+/// Machines and verified admissions, with navigation and operations on every row.
 class MachinesPage extends StatelessWidget {
-  /// Constructor taking the machines and what choosing does.
+  /// Creates the Machines list and its setup entry points.
   const MachinesPage({
     required this.machines,
     required this.onAdd,
@@ -38,179 +39,166 @@ class MachinesPage extends StatelessWidget {
     this.hostRuns,
     this.onHostProtocol,
     this.openTerminal,
+    this.registry,
+    this.onAdmission,
+    this.prepareServer,
     super.key,
   });
 
-  /// Hosts being prepared before they become machines.
-  final HostRuns? hostRuns;
-
-  /// Opens all steps, stderr and any stop terminal of a retained run.
-  final void Function(HostPreparation run)? onHostProtocol;
-
-  /// The desktop terminal opener used by recovery actions that need local VPN cleanup.
-  final OpenTerminal? openTerminal;
-
-  /// Every machine watched.
+  /// The watched machines and their daemon state.
   final Machines machines;
 
-  /// Adds a machine: this computer, or one reached over ssh.
+  /// Opens the machine setup entry point.
   final VoidCallback onAdd;
 
-  /// Opens a machine's details.
+  /// Opens the selected machine page.
   final void Function(Machine machine) onDetails;
 
-  /// Takes a machine off the list, after asking; never the last one.
+  /// Previews forgetting this specific machine.
   final void Function(Machine machine) onForget;
 
-  /// The host's commands, including their reasons when unavailable.
+  /// Creates the commands for this host.
   final List<Command> Function(Machine machine)? hostCommands;
+
+  /// The retained server preparation runs.
+  final HostRuns? hostRuns;
+
+  /// Opens a retained setup protocol.
+  final void Function(HostPreparation run)? onHostProtocol;
+
+  /// The injected terminal boundary for machine operations.
+  final OpenTerminal? openTerminal;
+
+  /// The verified registry decisions and separate host confirmations.
+  final RegistryPages? registry;
+
+  /// Opens the exact host admission, including its registry identity.
+  final void Function(RegistryPageItem item)? onAdmission;
+
+  /// The server preparation command and its refusal.
+  final Command? prepareServer;
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final rows = machinesPageRows(machines, hostRuns);
     return ListView(
-      // The key the tree carried: what lists the machines, wherever a step looks for them.
       key: const Key('machine-tree'),
       padding: const EdgeInsets.all(Space.normal),
-      children: <Widget>[
-        Wrap(
-          spacing: Space.normal,
-          runSpacing: Space.small,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: <Widget>[
-            Text('Machines', style: text.headlineSmall),
+      children: [
+        if (registry?.problem case final problem?) Text(problem),
+        FilteredListSection(
+          title: 'Machines',
+          storageId: 'machines',
+          actions: [
             FilledButton.icon(
               key: const Key('machines-add'),
               onPressed: onAdd,
-              icon: const Icon(Icons.add, size: Sizes.rowIcon),
+              icon: const Icon(Icons.add),
               label: const Text('Add a machine'),
             ),
+            if (prepareServer case final command?)
+              if (command.visible)
+                Tooltip(
+                  message: command.unavailable ?? command.label,
+                  child: OutlinedButton(
+                    key: const Key('host.prepare'),
+                    onPressed: command.available ? command.run : null,
+                    child: Text(command.label),
+                  ),
+                ),
           ],
-        ),
-        const SizedBox(height: Space.tight),
-        Text('Where work runs. Its projects are under Projects, and its work under Work.', style: text.bodySmall),
-        const SizedBox(height: Space.normal),
-        for (final run in rows.preparations)
-          _HostPreparationRow(
-            key: ValueKey('host-preparing ${run.project}'),
-            run: run,
-            open: onHostProtocol == null ? null : () => onHostProtocol!(run),
-            actions: hostRecoveryCommands(
-              run: run,
-              goOn: () => unawaited(run.legacy ? hostRuns!.again(run.project) : hostRuns!.resume(run)),
-              takeDown: () => unawaited(
-                openHostTakeDownDialog(
-                  context,
-                  project: run.project,
-                  machines: machines,
-                  settings: machines.settings,
-                  hostRuns: hostRuns,
-                  openTerminal: openTerminal,
+          rows: [
+            for (final run in rows.preparations)
+              (
+                words: '${run.name} ${_hostState(run)}',
+                child: _HostPreparationRow(
+                  key: ValueKey('host-preparing ${run.project}'),
+                  run: run,
+                  open: onHostProtocol == null ? null : () => onHostProtocol!(run),
+                  actions: hostRecoveryCommands(
+                    run: run,
+                    goOn: () => unawaited(hostRuns!.resume(run)),
+                    takeDown: () => unawaited(
+                      openHostTakeDownDialog(
+                        context,
+                        project: run.project,
+                        machines: machines,
+                        settings: machines.settings,
+                        hostRuns: hostRuns,
+                        openTerminal: openTerminal,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        for (final machine in rows.machines) _row(context, machine),
+            for (final row in scopedMachineRows(machines, registry))
+              if (!rows.preparations.any((run) => run.name == row.machine.name))
+                (
+                  words:
+                      '${row.machine.name} ${row.machine.where} ${row.admission?.role ?? ''} ${row.admission?.target.registry ?? ''}',
+                  child: _row(context, row.machine, admission: row.admission),
+                ),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _row(BuildContext context, Machine machine) {
-    final theme = Theme.of(context);
-    final text = theme.textTheme;
-    final fleet = machines.of(machine);
-    final info = fleet.info;
-    final running = fleet.tasks.where((task) => task.running).length;
-    final refused = machines.tunnels.of(machine)?.problem;
-    final answering = fleet.reachability == Reachability.connected && refused == null;
+  Widget _row(BuildContext context, Machine machine, {RegistryPageItem? admission}) {
+    final watched = machines.all.contains(machine);
+    final fleet = watched ? machines.of(machine) : null;
+    final tunnel = watched ? machines.tunnels.of(machine) : null;
+    admission ??= registry?.host(machine);
+    final item = admission;
+    void open() {
+      if (item != null && onAdmission != null) {
+        onAdmission!(item);
+      } else {
+        onDetails(machine);
+      }
+    }
+
+    final identity = item == null ? machine.name : '${item.target.registry}/${item.target.host}';
     final local = Machine.local();
-    final thisComputer = !machine.needsATunnel && machine.name == local.name && machine.socketPath == local.socketPath;
-    final prepared =
-        machine.kind == 'host' &&
-        machine.remoteSocket.isEmpty &&
-        machines.settings.hostUp(machine.hostProject)?.preparedHost != null;
-    final preparation = machine.kind == 'host' ? hostRuns?.of(machine.hostProject) : null;
-    final run = preparation != null && (preparation.running || preparation.needsYou || preparation.interrupted)
-        ? preparation
-        : null;
+    final thisComputer = machine.name == local.name && machine.socketPath == local.socketPath;
     final actions = <Command>[
+      listOpenCommand(label: 'Open the machine', home: Home.machineRow, open: open),
       ...?hostCommands?.call(machine),
-      if (hostRuns != null && machine.kind == 'host' && machines.settings.hostUp(machine.hostProject) != null)
+      if (watched &&
+          hostRuns != null &&
+          machine.kind == 'host' &&
+          machines.settings.hostUp(machine.hostProject) != null)
         runHostSetupAgainCommand(project: machine.hostProject, hostRuns: hostRuns!),
-      forgetMachineCommand(
-        forget: () => onForget(machine),
-        canForget: machines.all.length > 1,
-        machine: machine,
-        hostRuns: hostRuns,
-      ).unless(thisComputer ? 'this computer is always listed' : null),
+      if (watched)
+        forgetMachineCommand(
+          forget: () => onForget(machine),
+          canForget: machines.all.length > 1,
+          machine: machine,
+          hostRuns: hostRuns,
+        ).unless(thisComputer ? 'this computer is always listed' : null),
     ];
-    final open = listOpenCommand(label: 'Open machine', home: Home.machineRow, open: () => onDetails(machine));
-    final protocol = run == null
-        ? null
-        : _hostProtocol(run, onHostProtocol == null ? null : () => onHostProtocol!(run));
-    return ExpandableListRow(
-      key: ValueKey<String>('machines-row ${machine.name}'),
-      bodyKey: ValueKey<String>('tree-machine ${machine.name}'),
-      title: machine.name,
-      titleKey: ValueKey<String>('rail-machine ${machine.name}'),
-      state: run != null
-          ? _hostState(run)
-          : prepared
-          ? 'Prepared'
-          : answering
-          ? 'Connected'
-          : 'Not answering',
-      primary: protocol ?? open,
-      primaryKey: run == null ? null : ValueKey('host.protocol ${run.project}'),
-      onOpen: protocol == null || !protocol.visible
-          ? open.run
-          : protocol.available
-          ? protocol.run
-          : null,
-      leading: Badge(
-        key: ValueKey<String>('waiting-count ${machine.name}'),
-        isLabelVisible: fleet.clearance.count > 0,
-        label: Text('${fleet.clearance.count}'),
-        child: Tooltip(
-          message:
-              '${machine.name}: ${prepared ? 'Prepared server' : machines.tunnels.of(machine)?.words ?? (answering ? 'Answering' : 'Not answering')}',
-          child: Icon(answering ? Icons.dns_outlined : Icons.cloud_off_outlined, size: Sizes.mark),
-        ),
-      ),
-      details: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (run != null) _HostPreparationDetails(run: run),
-          Text(
-            <String>[
-              machine.where,
-              if (info != null) '${info.product} ${info.version}',
-              if (answering) running == 1 ? '1 running' : '$running running' else 'not answering',
-            ].join('  ·  '),
-            style: text.bodySmall,
-          ),
-          if (refused != null)
-            Text(
-              refused,
-              key: ValueKey<String>('machine-refused ${machine.name}'),
-              style: text.bodySmall?.copyWith(color: theme.colorScheme.error),
-            ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              PopupMenuButton<String>(
-                key: ValueKey<String>('machines-menu ${machine.name}'),
-                tooltip: 'What can be done with ${machine.name}',
-                onSelected: (id) {
-                  final command = actions.firstWhere((command) => command.id == id);
-                  if (command.visible && command.available) command.run();
-                },
-                itemBuilder: (_) => commandMenuEntries(actions),
-              ),
-            ],
-          ),
-        ],
+    return ItemListRow(
+      key: ValueKey('machines-row $identity'),
+      bodyKey: ValueKey('tree-machine $identity'),
+      titleKey: ValueKey('rail-machine ${machine.name}'),
+      title: thisComputer ? 'This computer' : machine.name,
+      subtitle: [
+        machine.where,
+        if (admission != null) ...[admission.role, admission.state, registryStateWords(registry!, admission)],
+        if (tunnel != null)
+          tunnel.words
+        else if (fleet?.reachability == Reachability.connected)
+          'Connected'
+        else
+          'Not connected; state unknown',
+        ?tunnel?.problem,
+      ].join(' · '),
+      leading: const Icon(Icons.dns_outlined),
+      onOpen: open,
+      menu: CommandMenu(
+        key: ValueKey('machines-menu $identity'),
+        commands: actions,
+        tooltip: 'What can be done with ${machine.name}',
       ),
     );
   }
@@ -241,91 +229,12 @@ class _HostPreparationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final command = _hostProtocol(run, open);
-    final primary = run.legacy
-        ? actions.first
-        : run.interrupted
-        ? actions.firstWhere((action) => action.id == 'host.goOn')
-        : command;
-    return ExpandableListRow(
+    return ItemListRow(
       leading: Icon(run.needsYou ? Icons.person_outline : Icons.dns_outlined),
       title: run.name,
-      state: _hostState(run),
-      primary: primary,
-      primaryKey: ValueKey('${primary.id} ${run.project}'),
-      onOpen: command.visible && command.available ? command.run : null,
-      details: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _HostPreparationDetails(run: run),
-          if (command.visible && command.unavailable != null) Text(command.unavailable!),
-          Wrap(
-            spacing: Space.small,
-            runSpacing: Space.tight,
-            children: [
-              for (final action in [command, ...actions].where((action) => action.visible && action.id != primary.id))
-                Tooltip(
-                  message: action.unavailable ?? action.label,
-                  child: TextButton(
-                    key: ValueKey('${action.id} ${run.project}'),
-                    onPressed: action.available ? action.run : null,
-                    child: Text(action.label),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HostPreparationDetails extends StatefulWidget {
-  const _HostPreparationDetails({required this.run});
-  final HostPreparation run;
-
-  @override
-  State<_HostPreparationDetails> createState() => _HostPreparationDetailsState();
-}
-
-class _HostPreparationDetailsState extends State<_HostPreparationDetails> {
-  Timer? _ticker;
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  String _about(int seconds) => seconds < 60 ? 'about $seconds s' : 'about ${(seconds / 60).ceil()} min';
-
-  @override
-  Widget build(BuildContext context) {
-    final run = widget.run;
-    final session = run.session;
-    if (run.running) {
-      _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
-      });
-    } else {
-      _ticker?.cancel();
-      _ticker = null;
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(run.ready ? 'Setting up again' : 'In preparation'),
-        if (session.state == HostRunState.busy) Text('Setup of ${run.project} is still running from before.'),
-        if (run.interrupted) const Text('Interrupted when the interface closed; the server is still rented'),
-        if (session.stepText.isNotEmpty) Text(session.stepText),
-        if (run.running) ...[
-          if (session.timeLeftText case final text?) Text(text),
-          if (session.stepOverrun case final text?)
-            Text(text)
-          else if (session.stepSecondsLeft case final seconds?)
-            Text('${_about(seconds)} left in this step'),
-        ],
-        if (run.problem ?? session.fix case final fix?) Text(fix),
-      ],
+      subtitle: '${_hostState(run)} · ${run.problem ?? run.session.fix ?? run.session.stepText}',
+      onOpen: command.available ? command.run : null,
+      menu: CommandMenu(commands: [command, ...actions], tooltip: 'Setup of ${run.name}'),
     );
   }
 }

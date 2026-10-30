@@ -156,3 +156,59 @@ class _ExpandableListRowState extends State<ExpandableListRow> {
     );
   }
 }
+
+/// A navigation row with its menu always in reach and no expanding card.
+class ItemListRow extends StatelessWidget {
+  /// Creates a row whose body opens the item and whose trailing menu holds operations.
+  const ItemListRow({
+    required this.title,
+    required this.subtitle,
+    required this.leading,
+    required this.onOpen,
+    required this.menu,
+    this.bodyKey,
+    this.titleKey,
+    this.selected = false,
+    super.key,
+  });
+
+  /// The title shown in the header.
+  final String title;
+
+  /// The source states and public information on this row.
+  final String subtitle;
+
+  /// The outlined mark for this item.
+  final Widget leading;
+
+  /// Opens this exact item.
+  final VoidCallback? onOpen;
+
+  /// The operations always reachable beside the row.
+  final Widget menu;
+
+  /// The navigation target used by pointer automation.
+  final Key? bodyKey;
+
+  /// The title target used by pointer automation.
+  final Key? titleKey;
+
+  /// Whether this exact item is selected.
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      ListTile(
+        key: bodyKey,
+        selected: selected,
+        leading: leading,
+        title: Text(title, key: titleKey, overflow: TextOverflow.ellipsis),
+        subtitle: Text(subtitle),
+        trailing: menu,
+        onTap: onOpen,
+      ),
+      const Divider(height: Sizes.divider),
+    ],
+  );
+}

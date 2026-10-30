@@ -812,6 +812,7 @@ class TaskTile extends StatelessWidget {
     required this.onReview,
     this.onPutAway,
     this.resolved = false,
+    this.listRow = false,
     this.selected = false,
     this.onSelect,
     this.onOpen,
@@ -823,6 +824,9 @@ class TaskTile extends StatelessWidget {
 
   /// Whether this snapshot has been resolved and its actions must remain disabled.
   final bool resolved;
+
+  /// Whether work fills a list row instead of a fixed-width tile.
+  final bool listRow;
 
   /// Shows what its agent writes on the whole right side. Without it, the tile has no console.
   final void Function(Tile tile)? onEnlargeConsole;
@@ -877,12 +881,13 @@ class TaskTile extends StatelessWidget {
     final folded = folds && !folding.open.contains(id);
 
     final card = SizedBox(
-      width: Sizes.tile,
+      width: listRow ? double.infinity : Sizes.tile,
       child: GestureDetector(
         onSecondaryTapDown: resolved || actions.isEmpty
             ? null
             : (details) => showCommandMenu(context, details.globalPosition, actions),
-        child: Card(
+        child: _WorkSurface(
+          listRow: listRow,
           key: ValueKey<String>('tile ${tile.machine.name} ${task?.name ?? first?.task ?? ''}'),
           // A stopped piece of work is greyed as a whole, not only by its mark (walk 8).
           color: urgent
@@ -895,7 +900,7 @@ class TaskTile extends StatelessWidget {
                 )
               : null,
           child: InkWell(
-            onTap: onSelect,
+            onTap: listRow ? onOpen ?? onSelect : onSelect,
             child: Padding(
               padding: const EdgeInsets.all(Space.normal),
               child: Column(
@@ -1263,4 +1268,26 @@ class _BuildLine extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WorkSurface extends StatelessWidget {
+  const _WorkSurface({required this.listRow, required this.child, this.color, this.shape, super.key});
+  final bool listRow;
+  final Widget child;
+  final Color? color;
+  final ShapeBorder? shape;
+
+  @override
+  Widget build(BuildContext context) => listRow
+      ? Material(
+          color: color,
+          shape: shape,
+          child: Column(
+            children: [
+              child,
+              const Divider(height: Sizes.divider),
+            ],
+          ),
+        )
+      : Card(color: color, shape: shape, child: child);
 }

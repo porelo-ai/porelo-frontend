@@ -208,7 +208,14 @@ Future<String?> removeForge(BuildContext context, ForgeConnection forges, ForgeE
 /// Setting a forge up or changing it, with the token entered only at the helper's terminal prompt.
 class ForgeForm extends StatefulWidget {
   /// Constructor taking the forges and, to change one, the entry.
-  const ForgeForm({required this.forges, required this.onDone, this.editing, this.cancels = true, super.key});
+  const ForgeForm({
+    required this.forges,
+    required this.onDone,
+    this.editing,
+    this.cancels = true,
+    this.useToken = false,
+    super.key,
+  });
 
   /// The forges set up here, and the one being looked at.
   final ForgeConnection forges;
@@ -221,6 +228,9 @@ class ForgeForm extends StatefulWidget {
 
   /// Whether it offers *Cancel*: not where it is the only thing shown, with nothing to go back to.
   final bool cancels;
+
+  /// Whether this form was opened by the explicit token alternative.
+  final bool useToken;
 
   @override
   State<ForgeForm> createState() => _ForgeFormState();
@@ -245,6 +255,21 @@ class _ForgeFormState extends State<ForgeForm> {
       address = forgeAddress(editing?.address ?? _address.text);
     } on FormatException catch (error) {
       setState(() => _problem = error.message);
+      return;
+    }
+    if (!widget.useToken) {
+      try {
+        final entry = await forges.addIdentity(name: _name.text, address: address);
+        if (entry != null && mounted) {
+          widget.onDone(
+            forges.connected
+                ? '${entry.name} is reached using your SSH identity.'
+                : '${entry.name} is configured for SSH identity; access has not been confirmed.',
+          );
+        }
+      } on FormatException catch (error) {
+        if (mounted) setState(() => _problem = error.message);
+      }
       return;
     }
     int? exit;
@@ -314,19 +339,25 @@ class _ForgeFormState extends State<ForgeForm> {
                 onChanged: (_) => setState(() {}),
               ),
             const SizedBox(height: Space.tight),
-            Text(tokenRightsWords('GitHub'), style: text.bodySmall),
-            if (_problem != null) Text(_problem!, key: const Key('forge-form-problem')),
-            TextButton(
-              key: const Key('forge-token-page'),
-              onPressed: () {
-                try {
-                  unawaited(openLink(tokenPage(forgeAddress(address))));
-                } on FormatException catch (error) {
-                  setState(() => _problem = error.message);
-                }
-              },
-              child: Text('Make a token at $address'),
+            Text(
+              widget.useToken
+                  ? tokenRightsWords('GitHub')
+                  : 'Uses your SSH identity. Unlock your key in its own application.',
+              style: text.bodySmall,
             ),
+            if (_problem != null) Text(_problem!, key: const Key('forge-form-problem')),
+            if (widget.useToken)
+              TextButton(
+                key: const Key('forge-token-page'),
+                onPressed: () {
+                  try {
+                    unawaited(openLink(tokenPage(forgeAddress(address))));
+                  } on FormatException catch (error) {
+                    setState(() => _problem = error.message);
+                  }
+                },
+                child: Text('Make a token at $address'),
+              ),
             Wrap(
               spacing: Space.tight,
               children: <Widget>[

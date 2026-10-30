@@ -8,7 +8,7 @@ import 'i_open_the_command_finder.dart';
 /// Usage: I read the log {'agent.log'}
 Future<void> iReadTheLog(WidgetTester tester, String log) async {
   await iOpenTheCommandFinder(tester);
-  await tester.enterText(find.byType(TextField), 'Read one of its logs');
+  await tester.enterText(find.byKey(const Key('command-query')), 'Read one of its logs');
   await World.settle(tester);
   await tester.tap(inTheFinder('Read one of its logs'));
   await World.settle(tester);

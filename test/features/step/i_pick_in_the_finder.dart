@@ -7,7 +7,7 @@ import '../support/world.dart';
 ///
 /// Picked and not followed, so what the finder did by itself can be looked at.
 Future<void> iPickInTheFinder(WidgetTester tester, String command) async {
-  await tester.enterText(find.byType(TextField), command);
+  await tester.enterText(find.byKey(const Key('command-query')), command);
   await World.settle(tester);
   await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.widgetWithText(ListTile, command)));
   await World.settle(tester);

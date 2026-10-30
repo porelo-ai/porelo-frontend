@@ -25,18 +25,15 @@ Finder tileFor(String work) {
   if (here.evaluate().isNotEmpty) return here;
   return find.byElementPredicate(
     (element) =>
-        element.widget is Card &&
-        '${element.widget.key}'.contains("'tile ") &&
-        '${element.widget.key}'.endsWith(" $work'>]") &&
-        open(element),
+        '${element.widget.key}'.contains("'tile ") && '${element.widget.key}'.endsWith(" $work'>]") && open(element),
   );
 }
 
 /// The entry of one project under the machine being looked at.
-Finder cardFor(String project) => find.byKey(ValueKey<String>('project $project'));
+Finder cardFor(String project) => find.byKey(ValueKey<String>('project ${World.machines.current.name}/$project'));
 
-/// The rail entry of one machine, by the badge every entry carries.
-Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('waiting-count $machine'));
+/// The navigation row of one machine.
+Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('tree-machine $machine'));
 
 /// Brings [target] on screen and taps it.
 ///

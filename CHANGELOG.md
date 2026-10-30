@@ -214,6 +214,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Machines, Projects, Forges, repository lists, saved jobs, and work use rows with visible menus. Item pages
+  have independent collapsible filters, retain registry/host/project identity, and show confirmed host state
+  separately from pending registry changes. Each machine always has Without a project. Central forges default
+  to SSH identity, and choosing a token explicitly opens its terminal boundary.
+
 - Taking a project off a prepared server opens the admin's terminal and pipes the central forge token from the
   secrets file to the host to protect the repositories' central copies; a missing entry refuses before SSH starts.
 

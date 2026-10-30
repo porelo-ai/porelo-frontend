@@ -5,7 +5,7 @@ import '../support/world.dart';
 
 /// Usage: the command {'Open the selected work'} is offered as unavailable
 Future<void> theCommandIsOfferedAsUnavailable(WidgetTester tester, String command) async {
-  await tester.enterText(find.byType(TextField), command);
+  await tester.enterText(find.byKey(const Key('command-query')), command);
   await World.settle(tester);
 
   final tile = tester.widget<ListTile>(

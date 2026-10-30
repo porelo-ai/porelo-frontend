@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import 'machines.dart';
+import 'registry_pages.dart';
+
 /// A place in the product, reached from the rail.
 ///
 /// Daily work first - what runs, and what needs a person - and setting up apart from it: machines
@@ -155,6 +158,33 @@ class LogOpened extends Opened {
 /// Separate from the backend's state on purpose. Losing contact with a daemon must not move
 /// anybody, and opening something must not ask the daemon anything.
 class ShellModel extends ChangeNotifier {
+  /// The explicitly opened item, including machines not followed locally.
+  Machine? itemMachine;
+
+  /// The explicitly opened project, including admissions not followed locally.
+  String? itemProject;
+
+  /// The registry identity retained with an explicitly opened admission.
+  RegistryTarget? itemRegistryTarget;
+
+  /// Opens a machine without substituting the current local selection.
+  void openMachine(Machine machine, {RegistryTarget? target}) {
+    itemMachine = machine;
+    itemProject = null;
+    itemRegistryTarget = target;
+    _goTo(Section.machine);
+    notifyListeners();
+  }
+
+  /// Opens a project using the full machine/project identity.
+  void openProject(Machine machine, String project, {RegistryTarget? target}) {
+    itemMachine = machine;
+    itemProject = project;
+    itemRegistryTarget = target;
+    _goTo(Section.project);
+    notifyListeners();
+  }
+
   Section _section = Section.work;
   Opened _opened = const NothingOpened();
   String? _highlight;
@@ -176,6 +206,15 @@ class ShellModel extends ChangeNotifier {
 
   /// Goes to a section, closing whatever was open over the one before.
   void goTo(Section section) {
+    final hadItem = itemMachine != null || itemProject != null || itemRegistryTarget != null;
+    itemMachine = null;
+    itemProject = null;
+    itemRegistryTarget = null;
+    _goTo(section);
+    if (hadItem) notifyListeners();
+  }
+
+  void _goTo(Section section) {
     if (_section == section && !anythingOpen && _highlight == null) return;
     _section = section;
     _opened = const NothingOpened();
@@ -186,6 +225,9 @@ class ShellModel extends ChangeNotifier {
   /// Shows where [command] lives - [section], which the command's home says - with nothing open over
   /// it.
   void show(String command, {Section section = Section.machine}) {
+    itemMachine = null;
+    itemProject = null;
+    itemRegistryTarget = null;
     _section = section;
     _opened = const NothingOpened();
     _highlight = command;

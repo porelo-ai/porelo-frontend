@@ -8,7 +8,7 @@ import 'i_open_the_command_finder.dart';
 /// Usage: I stop the selected work
 Future<void> iStopTheSelectedWork(WidgetTester tester) async {
   await iOpenTheCommandFinder(tester);
-  await tester.enterText(find.byType(TextField), 'Stop it, keeping its workspace');
+  await tester.enterText(find.byKey(const Key('command-query')), 'Stop it, keeping its workspace');
   await World.settle(tester);
   await tester.tap(inTheFinder('Stop it, keeping its workspace'));
   await World.settle(tester);

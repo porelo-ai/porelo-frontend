@@ -1,15 +1,12 @@
 import 'package:porelo_frontend/src/app/roles.dart';
-import 'package:porelo_frontend/src/app/settings.dart';
-import 'package:porelo_host/porelo_host.dart';
-
-import '../support/host_admin.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
+import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
-import 'package:porelo_frontend/src/ui/machine_view.dart';
 
 import '../features/step/the_project_has_the_repositories.dart';
 import '../features/support/world.dart';
@@ -32,24 +29,23 @@ Future<void> _start(WidgetTester tester) async {
 void main() {
   setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
   tearDown(() => roles = const Roles());
-  // Harm: take-off must not dispatch an unrelated host-person dialog or lose its association.
-  testWidgets('registered project take-off waits for registry removal', (tester) async {
+  // Harm: a changed current machine must not redirect a repository action from the displayed page.
+  testWidgets('repository commands reselect the displayed project in the full shell', (tester) async {
     await _project(tester);
-    await World.settings.rememberHostUp(
-      'orchard',
-      HostUpRecord(
-        scalewayProject: 'provider',
-        publicKey: personKey,
-        hostName: 'orchard',
-        preparedHost: PreparedHost.read(hostValues()),
-      ),
-    );
-    await World.settings.rememberProjectHost('checkout', 'orchard');
+    final first = World.machines.current;
+    const second = Machine(name: 'elsewhere', socketPath: '/unused');
+    World.elsewhere.theProjectsItHas = List.of(World.backend.theProjectsItHas);
+    await World.machines.add(second);
+    World.shell.goTo(Section.projects);
     await World.settle(tester);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    final command = menu.commands.singleWhere((each) => each.id == 'project.takeOffServer');
-    expect(command.available, isFalse, reason: 'registry removal has no adapter yet');
-    expect(World.settings.projectHost('checkout'), 'orchard');
+    await World.tapInView(tester, 'project ${first.name}/checkout');
+    World.machines.select(second);
+    await World.settle(tester);
+    await World.fromARepositorysMenu(tester, 'billing-api', 'start-in');
+    expect(World.machines.current, first, reason: 'the repository operation must reselect its displayed machine');
+    await _start(tester);
+    expect(World.backend.starts.map((start) => start.repository), ['billing-api']);
+    expect(World.elsewhere.starts, isEmpty);
   });
 
   // Harm: work starts in a different repository than the row that opened the form.
@@ -74,7 +70,7 @@ void main() {
   // Harm: the visible row action starts different work than its menu action.
   testWidgets('the row button and menu start work in the same repository', (tester) async {
     await _project(tester);
-    await World.tapInView(tester, 'start-here-billing-api');
+    await World.tapInView(tester, 'repository-billing-api');
     expect(find.byKey(const Key('start-repository-change')), findsOneWidget);
     await _start(tester);
     expect(World.backend.starts.single.repository, 'billing-api');
@@ -87,11 +83,12 @@ void main() {
   });
 
   // Harm: a project-wide start silently inherits the last repository row's choice.
-  testWidgets('the project start tile asks which repository to use', (tester) async {
+  testWidgets('the project start menu asks which repository to use', (tester) async {
     await _project(tester);
     await World.fromARepositorysMenu(tester, 'billing-api', 'start-in');
     await World.tapInView(tester, 'start-not-now');
-    await World.tapInView(tester, 'start-work');
+    await World.tapInView(tester, 'project-menu');
+    await World.tapInView(tester, 'work.start');
     expect(find.byKey(const Key('start-repository')), findsOneWidget);
     expect(find.byKey(const Key('start-repository-change')), findsNothing);
     await _start(tester);
@@ -125,89 +122,138 @@ void main() {
     ];
     await World.fleet.refresh(quietly: true);
     await World.settle(tester);
-    final button = find.byKey(const Key('start-here-payments-api'));
-    final tooltip = tester.widget<Tooltip>(find.ancestor(of: button, matching: find.byType(Tooltip)).first);
-    expect(tooltip.message, 'checkout is not a project this machine follows');
-    expect(tester.widget<TextButton>(button).onPressed, isNull);
-    await World.tapInView(tester, 'start-here-payments-api');
+    final row = find.byKey(const Key('repository-payments-api'));
+    expect(tester.widget<ListTile>(row).onTap, isNull);
+    await World.tapInView(tester, 'repository-payments-api');
     expect(find.byKey(const Key('start-go')), findsNothing);
     expect(World.backend.starts, isEmpty);
     await tester.tap(find.byKey(const Key('repository-menu payments-api')));
     await World.settle(tester);
-    final item = tester.widget<PopupMenuItem<VoidCallback>>(find.byKey(const Key('start-in-payments-api')));
+    final item = tester.widget<PopupMenuItem<String>>(find.byKey(const Key('start-in-payments-api')));
     expect(item.enabled, isFalse);
-    expect(
-      find.descendant(of: find.byKey(const Key('start-in-payments-api')), matching: find.byTooltip(tooltip.message!)),
-      findsOneWidget,
-    );
+    expect(find.textContaining('checkout is not a project this machine follows'), findsOneWidget);
   });
 
   // Harm: a tile dispatches an action other than the command shown on it.
-  testWidgets('a project tile runs its own command', (tester) async {
+  testWidgets('a project menu runs its own command', (tester) async {
     await _project(tester);
     expect(World.notifications.mutedFor('checkout'), isFalse);
-    await World.tapInView(tester, 'command-tile-notifications.mute');
+    await World.tapInView(tester, 'project-menu');
+    await World.tapInView(tester, 'notifications.mute');
     expect(World.notifications.mutedFor('checkout'), isTrue);
     expect(World.backend.starts, isEmpty);
   });
 
   // Harm: a tile runs an action when the command says it must not run.
-  testWidgets('an unavailable tile shows its reason and does not run', (tester) async {
+  testWidgets('an unavailable menu action shows its reason and does not run', (tester) async {
     await _project(tester);
     final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
     final command = menu.commands.singleWhere((each) => each.id == 'project.default');
     expect(command.available, isFalse);
-    final tile = find.byKey(const Key('command-tile-project.default'));
-    expect(find.descendant(of: tile, matching: find.byTooltip(command.unavailable!)), findsOneWidget);
-    await World.tapInView(tester, 'command-tile-project.default');
+    await World.tapInView(tester, 'project-menu');
+    expect(find.textContaining(command.unavailable!), findsOneWidget);
+    await World.tapInView(tester, 'project.default');
     expect(find.byKey(const Key('default-dialog')), findsNothing);
     expect(World.backend.starts, isEmpty);
   });
 
   // Harm: a server put up from where its keys cannot be kept, refused only after the wizard was filled.
+  testWidgets('putting a project on a server is unavailable on Windows, saying why', (tester) async {
+    final previous = desk;
+    addTearDown(() {
+      desk = previous;
+    });
+    await _project(tester);
+    desk = Desk.of('windows', const {'USERPROFILE': r'C:\Users\person', 'SystemRoot': r'C:\Windows'});
+    World.fleet.selectProject('checkout');
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    World.shell.goTo(Section.project);
+    await World.settle(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    expect(
+      menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
+      contains('opens only on Linux so far'),
+    );
+  });
 
-  testWidgets('every project menu command has exactly one tile and every tile a menu item', (tester) async {
+  // Harm: a server set up where its secrets file cannot be opened, found only after the master password was typed.
+  testWidgets('putting a project on a server is unavailable without keepassxc-cli, saying how to install it', (
+    tester,
+  ) async {
+    addTearDown(() {
+      keepassxcCliIsHere = true;
+    });
+    keepassxcCliIsHere = false;
+    await _project(tester);
+    World.fleet.selectProject('checkout');
+    World.shell.goTo(Section.machines);
+    await World.settle(tester);
+    World.shell.goTo(Section.project);
+    await World.settle(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    expect(
+      menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
+      contains('sudo apt install keepassxc-minimal'),
+    );
+  });
+
+  // Harm: joining without the terminal's secret-file reader fails only after privileged laptop setup.
+  testWidgets('joining is unavailable without keepassxc-cli and explains installation', (tester) async {
+    final previous = keepassxcCliThere;
+    addTearDown(() {
+      keepassxcCliThere = previous;
+      keepassxcCliIsHere = true;
+    });
+    keepassxcCliThere = () => false;
+    keepassxcCliIsHere = false;
     await _project(tester);
     final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    final ids = menu.commands.map((each) => each.id).toSet();
-    expect(ids, <String>{
-      'work.start',
-      'project.startAgents',
-      'gate.open',
-      'egress.open',
-      'notifications.mute',
-      'work.check',
-      'project.prepare',
-      'project.sync',
-      'project.messages',
-      'project.forge',
-      'project.developers',
-      'project.default',
-      'project.backups',
-      'project.clear',
-      'project.server',
-      'project.joinHost',
-      'project.takeOffServer',
-      'project.delete',
-      'project.follow',
-    });
-    final tiles = find.byWidgetPredicate(
-      (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('command-tile-'),
-    );
-    expect(
-      tester
-          .widgetList<Widget>(tiles)
-          .map((widget) => (widget.key! as ValueKey<String>).value.substring('command-tile-'.length)),
-      unorderedEquals(ids),
-    );
-    for (final id in ids) {
-      expect(find.byKey(ValueKey<String>('command-tile-$id')), findsOneWidget);
-      final tile = tester.widget<CommandTile>(find.byKey(ValueKey<String>('command-tile-$id')));
-      expect(tile.command, same(menu.commands.singleWhere((command) => command.id == id)));
-    }
+    final command = menu.commands.singleWhere((command) => command.id == 'project.joinHost');
+    expect(command.available, isFalse);
+    expect(command.unavailable, contains('keepassxc'));
     await World.tapInView(tester, 'project-menu');
-    for (final id in ids) {
-      expect(find.byKey(ValueKey<String>(id)), findsOneWidget);
-    }
+    await World.tapInView(tester, 'project.joinHost');
+    expect(find.byKey(const Key('join-signing-key')), findsNothing);
+  });
+
+  // Harm: a developer's new laptop has no secrets file chosen yet; refusing the join for it leaves no way in,
+  // since the join's own wizard is where the secrets file is chosen.
+  testWidgets('joining is available with KeePassXC before a secrets file is chosen', (tester) async {
+    final previous = keepassxcCliThere;
+    addTearDown(() {
+      keepassxcCliThere = previous;
+      keepassxcCliIsHere = true;
+    });
+    keepassxcCliThere = () => true;
+    keepassxcCliIsHere = true;
+    await _project(tester);
+    expect(World.settings.secretsFile, isNull);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    final command = menu.commands.singleWhere((command) => command.id == 'project.joinHost');
+    expect(command.available, isTrue, reason: command.unavailable);
+  });
+
+  // Harm: replacing tiles must not strand commands that open review or repository tools.
+  testWidgets('the project menu preserves work review and repository tools once each', (tester) async {
+    await _project(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    final ids = menu.commands.map((command) => command.id).toList();
+    expect(
+      ids.toSet(),
+      containsAll([
+        'work.start',
+        'project.startAgents',
+        'gate.open',
+        'project.messages',
+        'egress.open',
+        'project.prepare',
+        'project.sync',
+        'project.backups',
+        'project.delete',
+      ]),
+    );
+    expect(ids.length, ids.toSet().length, reason: 'each operation has one unambiguous menu destination');
+    expect(ids, isNot(contains('project.developers')), reason: 'person actions belong to verified-card lists');
   });
 }

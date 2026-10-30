@@ -1,3 +1,5 @@
+import 'package:porelo_frontend/src/app/registry_pages.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -2921,7 +2923,7 @@ class World {
   ///
   /// At a desktop size, because that is what this is: the default 800x600 test surface is a
   /// narrow window, and every scenario would have been judging the fallback layout by accident.
-  static Future<void> startApp(WidgetTester tester) async {
+  static Future<void> startApp(WidgetTester tester, {RegistryPages? registryPages}) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
     // pixels, so a default ratio quietly turns a desktop window into a narrow one and every
     // scenario judges the fallback layout without saying so.
@@ -3076,6 +3078,7 @@ class World {
         following: following,
         connections: connections,
         forges: forges,
+        registryPages: registryPages,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
         backups: backups,
         narrowing: narrowing,

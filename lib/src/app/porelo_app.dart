@@ -32,6 +32,7 @@ import 'project_deletion.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'shell_model.dart';
+import 'registry_pages.dart';
 
 /// The application: one window, one frame, one backend at a time.
 class PoreloApp extends StatelessWidget {
@@ -59,6 +60,7 @@ class PoreloApp extends StatelessWidget {
     required this.following,
     required this.connections,
     this.forges,
+    this.registryPages,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -69,6 +71,9 @@ class PoreloApp extends StatelessWidget {
 
   /// A guided walk beside the window, in a development build started with one; else null.
   final WalkSession? walk;
+
+  /// The optional verified registry adapter used by item pages.
+  final RegistryPages? registryPages;
 
   /// Every machine being watched.
   final Machines machines;
@@ -211,6 +216,7 @@ class PoreloApp extends StatelessWidget {
           following: following,
           connections: connections,
           forges: forges,
+          registryPages: registryPages,
           pickAFile: pickAFile,
           backups: backups,
           narrowing: narrowing,

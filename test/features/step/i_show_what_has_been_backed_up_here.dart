@@ -8,7 +8,7 @@ import 'i_open_the_command_finder.dart';
 /// Usage: I show what has been backed up here
 Future<void> iShowWhatHasBeenBackedUpHere(WidgetTester tester) async {
   await iOpenTheCommandFinder(tester);
-  await tester.enterText(find.byType(TextField), 'Show what has been backed up here');
+  await tester.enterText(find.byKey(const Key('command-query')), 'Show what has been backed up here');
   await World.settle(tester);
   await tester.tap(inTheFinder('Show what has been backed up here'));
   await World.settle(tester);

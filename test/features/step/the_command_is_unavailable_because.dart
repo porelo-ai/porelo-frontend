@@ -9,7 +9,7 @@ import '../support/world.dart';
 /// away, and a scenario that only asked whether it was offered would pass on the wrong one —
 /// which is exactly what a mutation of the running check proved here.
 Future<void> theCommandIsUnavailableBecause(WidgetTester tester, String command, String because) async {
-  await tester.enterText(find.byType(TextField), command);
+  await tester.enterText(find.byKey(const Key('command-query')), command);
   await World.settle(tester);
 
   final tile = tester.widget<ListTile>(

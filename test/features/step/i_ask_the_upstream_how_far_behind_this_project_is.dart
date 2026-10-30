@@ -8,7 +8,7 @@ import 'i_open_the_command_finder.dart';
 /// Usage: I ask the upstream how far behind this project is
 Future<void> iAskTheUpstreamHowFarBehindThisProjectIs(WidgetTester tester) async {
   await iOpenTheCommandFinder(tester);
-  await tester.enterText(find.byType(TextField), 'Ask the upstream how far behind this project is');
+  await tester.enterText(find.byKey(const Key('command-query')), 'Ask the upstream how far behind this project is');
   await World.settle(tester);
   await tester.tap(inTheFinder('Ask the upstream how far behind this project is'));
   await World.settle(tester);

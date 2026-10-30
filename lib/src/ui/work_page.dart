@@ -392,9 +392,8 @@ class _WorkPageState extends State<WorkPage> {
                   _open = <String>{..._open};
                   if (!_open.remove(tile)) _open.add(tile);
                 }),
-                child: Wrap(
-                  spacing: Space.normal,
-                  runSpacing: Space.normal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     for (final tile in groups[group]!)
                       KeyedSubtree(key: _where.putIfAbsent(_placeOf(tile), GlobalKey.new), child: widget.tile(tile)),

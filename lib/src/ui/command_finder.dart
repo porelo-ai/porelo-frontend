@@ -80,6 +80,7 @@ class _CommandFinderState extends State<_CommandFinder> {
               Padding(
                 padding: const EdgeInsets.all(Space.normal),
                 child: TextField(
+                  key: const Key('command-query'),
                   controller: _query,
                   autofocus: true,
                   decoration: const InputDecoration(

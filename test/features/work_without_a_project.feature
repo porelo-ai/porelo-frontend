@@ -83,9 +83,8 @@ Feature: Work on a repository without writing a project first
         When I start forwarding it to its origin
         Then the forwarding asks {'Forward it to its origin'}
 
-    # Walk 10: Default left Projects; its work is under Work, and a repository is put
-    # into it from its card on the forge's page.
-    Scenario: work without a project is not listed among the projects
+    # Each machine owns a permanent default, even before its daemon supplies a list.
+    Scenario: work without a project is listed on its machine
         When I go to the place {'projects'}
-        Then it does not say {'Default'}
+        Then it says {'Without a project'}
         And the projects page lists {'checkout'} on {'this machine'}

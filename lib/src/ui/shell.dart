@@ -8,6 +8,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/desk.dart';
 import '../app/homeserver_forwards.dart';
+import '../app/homeserver_publishing.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/forge.dart';
@@ -71,6 +72,10 @@ import 'project_following_view.dart';
 import 'unlock_terminal.dart';
 import 'project_deletion_view.dart';
 import 'projects_page.dart';
+import 'machine_details_page.dart';
+import 'project_details_page.dart';
+import 'registry_persons.dart';
+import '../app/registry_pages.dart';
 import 'session_view.dart';
 import 'shell_rail.dart';
 import 'vault_actions.dart';
@@ -109,7 +114,10 @@ import 'work_page.dart';
 import 'wsl_machine.dart';
 import 'dialog_scroll.dart';
 import 'host_dialog.dart';
+import 'host_admin_dialog.dart';
 import 'host_stop_dialog.dart';
+import 'host_vpn_dialog.dart';
+import 'host_tunnel_export.dart';
 
 /// The one window: a rail saying where you are, and that place beside it.
 ///
@@ -142,6 +150,7 @@ class Shell extends StatefulWidget {
     required this.following,
     required this.connections,
     this.forges,
+    this.registryPages,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -153,6 +162,9 @@ class Shell extends StatefulWidget {
   /// The guided walk, in a development build started with one: shown again from the top bar once
   /// it was put away.
   final WalkSession? walk;
+
+  /// Verified registry decisions and separately confirmed host state.
+  final RegistryPages? registryPages;
 
   /// Every machine being watched, and which one is being acted on.
   final Machines machines;
@@ -271,7 +283,12 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    _hostRuns = HostRuns(widget.machines);
+    _registry.addListener(_homeserversChanged);
+    unawaited(_registry.refresh());
+    _hostRuns = HostRuns(widget.machines, homeserver: Platform.isLinux ? HomeserverPublishing() : null);
+    _hostRuns.addListener(_hostSetupChanged);
+    widget.machines.addListener(_vpnMachinesChanged);
+    _vpnMachinesChanged();
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
@@ -291,7 +308,20 @@ class _ShellState extends State<Shell> {
     _keepRefreshing();
   }
 
+  late final RegistryPages _registry = widget.registryPages ?? RegistryPages();
+
   Timer? _refreshing;
+  String _vpnMachines = '';
+
+  void _vpnMachinesChanged() {
+    final hosts = widget.machines.all.where((machine) => machine.kind == 'host').map((machine) => machine.name).toList()
+      ..sort();
+    final key = hosts.join('\x00');
+    if (key == _vpnMachines) return;
+    _vpnMachines = key;
+    unawaited(_hostRuns.refreshVpns());
+  }
+
   int _refreshingEvery = -1;
 
   /// Asks every machine again on its own, as often as the settings say; never when set to zero.
@@ -307,6 +337,8 @@ class _ShellState extends State<Shell> {
 
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
+    await _hostRuns.refreshVpns();
+    await _registry.refresh();
     for (final machine in widget.machines.all) {
       final fleet = widget.machines.of(machine);
       if (fleet.reachability != Reachability.connected) continue;
@@ -360,7 +392,37 @@ class _ShellState extends State<Shell> {
     });
   }
 
-  List<Command> _commands() => commandsFor(
+  List<Command> _commands() => [
+    for (final command in _unscopedCommands())
+      if (command.id != 'project.developers') command.unless(_itemScopeProblem(command)),
+  ];
+
+  String? _itemScopeProblem(Command command) {
+    final target = widget.shell.itemRegistryTarget;
+    final scoped = {
+      Home.machineTitle,
+      Home.machineMenu,
+      Home.projectMenu,
+      Home.repositoryRow,
+      Home.startTile,
+      Home.templateTile,
+    }.contains(command.home);
+    if (scoped && target != null && _registry.item(target) == null) {
+      return 'This verified admission is no longer available. Return to its list.';
+    }
+    if (scoped &&
+        widget.shell.section == Section.machine &&
+        widget.shell.itemMachine != null &&
+        widget.shell.itemMachine != widget.machines.current) {
+      return 'Open this machine again before running its commands.';
+    }
+    if (target != null && {'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id)) {
+      return 'Use the operation on the verified item page.';
+    }
+    return null;
+  }
+
+  List<Command> _unscopedCommands() => commandsFor(
     viewActions: _viewActions(),
     fleet: _fleet,
     machine: widget.machines.current,
@@ -413,6 +475,8 @@ class _ShellState extends State<Shell> {
     putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
     openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
     joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
+    copyMyHostKeys: desk.isWindows ? null : () => unawaited(openCopyJoinKeysDialog(context)),
+    takeOffServer: _takeOffServer(_fleet.selectedProject?.name),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
@@ -529,16 +593,94 @@ class _ShellState extends State<Shell> {
 
   List<Command> _hostCommands(Machine machine) {
     final run = _hostRuns.of(machine.hostProject);
+    final record = widget.settings.hostUp(machine.hostProject);
     return [
+      ...preparedHostCommands(
+        machine: machine,
+        settings: widget.settings,
+        hostRuns: _hostRuns,
+        open: (action) => unawaited(
+          openHostAdminDialog(
+            context,
+            record: record!,
+            action: action,
+            secretsFile: widget.settings.secretsFile,
+            openTerminal: widget.sessions.openTerminal,
+            environment: desk.environment,
+            onRemoved: (project) => widget.settings.forgetProjectHost(project, host: record.hostName),
+          ),
+        ),
+        showValues: () =>
+            unawaited(showPreparedHost(context, widget.settings.hostUp(machine.hostProject)!.preparedHost!)),
+      ).where(
+        (command) => !{
+          'host.admitAdmin',
+          'host.lockAdmin',
+          'host.purgeAdmin',
+          'host.registerProject',
+          'host.removeProject',
+        }.contains(command.id),
+      ),
       if (run != null)
         hostProtocolCommand(project: run.project, open: () => unawaited(_openHostRun(run)), home: Home.machineMenu),
       ...hostMachineCommands(
         machine: machine,
         settings: widget.settings,
         hostRuns: _hostRuns,
+        vpnLinkUp: _hostRuns.vpnLinkFor(machine.hostProject),
         takeDown: () => unawaited(_takeDown(machine)),
+        saveTunnel: () => unawaited(_saveTunnel(machine)),
+        bringVpnUp: () => unawaited(_bringVpnUp(machine)),
+        takeVpnDown: () => unawaited(_changeVpn(machine, up: false)),
       ),
     ];
+  }
+
+  Future<void> _saveTunnel(Machine machine) async {
+    final run = _hostRuns.of(machine.hostProject);
+    await saveHostTunnel(
+      context,
+      project: machine.hostProject,
+      tunnel: run?.tunnel,
+      address: run?.session.address ?? '',
+      settings: widget.settings,
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _bringVpnUp(Machine machine) => _changeVpn(machine, up: true);
+
+  Future<void> _changeVpn(Machine machine, {required bool up}) async {
+    if (!up) _hostRuns.vpnCleanupFinished(machine.hostProject, completed: false);
+    await openHostVpnDialog(
+      context,
+      machine: machine,
+      settings: widget.settings,
+      up: up,
+      open: widget.sessions.openTerminal,
+      onExit: up ? null : (code) => _hostRuns.vpnCleanupFinished(machine.hostProject, completed: code == 0),
+    );
+    await _hostRuns.refreshVpns();
+  }
+
+  void _hostSetupChanged() {
+    for (final run in _hostRuns.preparing) {
+      if (!run.awaitingVpn || run.vpnOffered) continue;
+      run.vpnOffered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(
+            openPreparationVpn(
+              context,
+              run: run,
+              runs: _hostRuns,
+              settings: widget.settings,
+              open: widget.sessions.openTerminal,
+            ),
+          );
+        }
+      });
+    }
   }
 
   Future<void> _takeDown(Machine machine) async {
@@ -572,6 +714,7 @@ class _ShellState extends State<Shell> {
       putOnAServer: desk.isWindows ? null : () => unawaited(_putOnAServer()),
       openDevelopers: desk.isWindows ? null : () => unawaited(_openDevelopers()),
       joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
+      takeOffServer: _takeOffServer(project.name),
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
@@ -581,30 +724,11 @@ class _ShellState extends State<Shell> {
     ))
       // Run on the project's own machine, with it chosen there: a row on Projects can be another
       // machine's than the one acted on.
-      command.after(() {
-        if (on != null) widget.machines.select(on);
-        _fleet.selectProject(project.name);
-      }),
-  ];
-
-  /// What concerns a project as a whole, on its row's menu and its page's (walk 9):
-  /// starting work, what waits at its gate, being told about it, clearing it, letting it go.
-  static const List<String> _projectAsAWhole = <String>[
-    'work.start',
-    'project.startAgents',
-    'gate.open',
-    'notifications.mute',
-    'project.clear',
-    'project.server',
-    'project.developers',
-    'project.takeOffServer',
-    'project.delete',
-  ];
-
-  /// The project's menu: what concerns it as a whole.
-  List<Command> _projectRowMenu(ProjectOnScreen project, {Machine? on}) => <Command>[
-    for (final command in _projectMenu(project, on: on))
-      if (_projectAsAWhole.contains(command.id)) command,
+      if (command.id != 'project.developers')
+        command.after(() {
+          if (on != null) widget.machines.select(on);
+          _fleet.selectProject(project.name);
+        }),
   ];
 
   /// A tile's actions, judged on the tile's own machine and run with its work selected there.
@@ -737,6 +861,25 @@ class _ShellState extends State<Shell> {
     return record.preparing || run != null && (run.running || run.needsYou || run.interrupted)
         ? 'its server’s setup is under way; see its protocol'
         : null;
+  }
+
+  VoidCallback? _takeOffServer(String? project) {
+    if (project == null) return null;
+    final host = widget.settings.projectHost(project);
+    final record = host == null ? null : widget.settings.hostUp(host);
+    if (record?.preparedHost == null) return null;
+    return () => unawaited(
+      openHostAdminDialog(
+        context,
+        record: record!,
+        action: 'remove',
+        project: project,
+        environment: desk.environment,
+        secretsFile: widget.settings.secretsFile,
+        openTerminal: widget.sessions.openTerminal,
+        onRemoved: (removed) => widget.settings.forgetProjectHost(removed, host: record.hostName),
+      ),
+    );
   }
 
   /// Clears the machine and removes its trusted message signer from followed projects.
@@ -1131,9 +1274,10 @@ class _ShellState extends State<Shell> {
 
   Future<void> _unlockMachine(Machine machine) async {
     final fleet = widget.machines.of(machine);
+    final secrets = widget.settings.secretsFile;
     final List<String>? command;
     try {
-      command = unlockCommandFor(machine);
+      command = unlockCommandFor(machine, secretsFile: secrets);
     } on FormatException catch (error) {
       _fleet.say(error.message);
       return;
@@ -1142,7 +1286,24 @@ class _ShellState extends State<Shell> {
       return;
     }
     if (command == null) return;
-    await unlockInATerminal(context, machine: machine, command: command, open: widget.sessions.openTerminal);
+    final fromTheFile = secrets != null && command.first == '/usr/bin/env';
+    // Said before a real terminal asks a master password that nothing could take.
+    if (fromTheFile && widget.sessions.openTerminal == null) {
+      if (keepassxcCliMissing() case final missing?) {
+        _fleet.say(missing);
+        return;
+      }
+    }
+    await unlockInATerminal(
+      context,
+      machine: machine,
+      command: command,
+      open: widget.sessions.openTerminal,
+      explanation: fromTheFile
+          ? 'Type the master password of $secrets, once. The vault passphrase comes from it and goes straight '
+                'to ${machine.name}, never through this program, and nothing here keeps it.'
+          : null,
+    );
     if (!mounted) return;
     await widget.vault.lookAt(fleet.backend, machine.name);
     await fleet.refresh(quietly: true);
@@ -1206,32 +1367,104 @@ class _ShellState extends State<Shell> {
 
   /// Every forge set up here, as a page beside Machines and Projects.
   Widget _forgesPage() =>
-      _opened() ?? ForgesPage(forges: _forges, usedBy: _usedBy, onOpen: (entry) => unawaited(_openTheForge(entry)));
+      _opened() ??
+      ForgesPage(
+        forges: _forges,
+        usedBy: _usedBy,
+        onMachine: (name) {
+          final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
+          if (machine != null) _openPageMachine(machine);
+        },
+        onOpen: (entry) => unawaited(_openTheForge(entry)),
+      );
 
   /// One forge's repositories, as a page.
-  Widget _forgePage() =>
-      _opened() ??
-      ListenableBuilder(
-        listenable: Listenable.merge(<Listenable>[
-          for (final machine in widget.machines.all) widget.machines.of(machine),
-        ]),
-        builder: (context, _) => ForgePage(
-          forges: _forges,
-          usedBy: _usedBy,
-          usedOn: _machinesWorkingOn,
-          inDefault: (fullName) => _fleet.projects
-              .where((each) => each.name == defaultProject)
-              .any(
-                (each) =>
-                    each.project.repositoryStates.any((repository) => fullNameOf(repository.upstream) == fullName),
-              ),
-          onDefaultChanged: () => unawaited(_fleet.refresh(quietly: true)),
-          machine: _fleet.reachability == Reachability.connected ? _fleet.backend : null,
-          terminalMachine: widget.machines.current,
-          machineName: widget.machines.current.name,
-          onStartWork: _startWorkIn,
-        ),
-      );
+  Widget _forgePage() {
+    final machineAtOpen = widget.machines.current;
+    return _opened() ??
+        ListenableBuilder(
+          listenable: Listenable.merge(<Listenable>[
+            for (final machine in widget.machines.all) widget.machines.of(machine),
+          ]),
+          builder: (context, _) => ForgePage(
+            registry: _registry,
+            onBack: () => widget.shell.goTo(Section.forges),
+            onMachine: (name) {
+              final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;
+              if (machine != null) _openPageMachine(machine);
+            },
+            forges: _forges,
+            usedBy: _usedBy,
+            usedOn: _machinesWorkingOn,
+            inDefault: (fullName) => _fleet.projects
+                .where((each) => each.name == defaultProject)
+                .any(
+                  (each) =>
+                      each.project.repositoryStates.any((repository) => fullNameOf(repository.upstream) == fullName),
+                ),
+            onDefaultChanged: () => unawaited(_fleet.refresh(quietly: true)),
+            machine: _fleet.reachability == Reachability.connected ? _fleet.backend : null,
+            terminalMachine: widget.machines.current,
+            machineName: widget.machines.current.name,
+            onOpenProject: (entry, fullName) => unawaited(_openFollowedRepository(entry, fullName)),
+            usedOnAt: _machinesWorkingOnAt,
+            onStartWork: (project) {
+              widget.machines.select(machineAtOpen);
+              return project == defaultProject ? _startInDefault() : _startWorkIn(project);
+            },
+          ),
+        );
+  }
+
+  Future<void> _openFollowedRepository(ForgeEntry entry, String fullName) async {
+    final matches = <RegistryProjectRow>[
+      for (final machine in registryMachines(widget.machines, _registry))
+        for (final row in scopedProjectRows(widget.machines, machine, registry: _registry))
+          if ((forgeHoldsUrl(entry, row.project.project.following?.url ?? '') &&
+                  fullNameOf(row.project.project.following?.url ?? '') == fullName) ||
+              row.project.project.repositoryStates.any(
+                (repository) =>
+                    forgeHoldsUrl(entry, repository.upstream) && fullNameOf(repository.upstream) == fullName,
+              ))
+            row,
+    ];
+    if (matches.isEmpty) return;
+    final chosen = matches.length == 1
+        ? matches.single
+        : await showDialog<RegistryProjectRow>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('Open the project on which machine?'),
+              children: [
+                for (final row in matches)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, row),
+                    child: Text(
+                      '${row.project.label} on ${row.machine.name}${row.admission == null ? '' : ' · ${row.admission!.target.registry}'}',
+                    ),
+                  ),
+              ],
+            ),
+          );
+    if (chosen != null && mounted) _openPageProject(chosen.machine, chosen.project.name, admission: chosen.admission);
+  }
+
+  List<String> _machinesWorkingOnAt(ForgeEntry entry, String fullName) => [
+    for (final machine in widget.machines.all)
+      if (widget.machines
+          .of(machine)
+          .projects
+          .any(
+            (project) =>
+                (forgeHoldsUrl(entry, project.project.following?.url ?? '') &&
+                    fullNameOf(project.project.following?.url ?? '') == fullName) ||
+                project.project.repositoryStates.any(
+                  (repository) =>
+                      forgeHoldsUrl(entry, repository.upstream) && fullNameOf(repository.upstream) == fullName,
+                ),
+          ))
+        machine.name,
+  ];
 
   /// The watched machines on which the repository called [fullName] is worked on, or holds the
   /// settings of a project: by name, nothing else (walk 10).
@@ -1491,7 +1724,9 @@ class _ShellState extends State<Shell> {
       if (yes != true || !mounted) return;
     }
     var removeEntry = false;
+    var removeKey = false;
     if (written != null) {
+      final keyShared = setup.keyUsedElsewhere(written.keyFile, machine.host);
       final yes = await showDialog<bool>(
         context: context,
         builder: (context) => StatefulBuilder(
@@ -1514,6 +1749,18 @@ class _ShellState extends State<Shell> {
                       title: Text('Also remove Host ${machine.host} from ~/.ssh/config'),
                       subtitle: const Text('The entry setting it up wrote; the file as it was is kept.'),
                     ),
+                    CheckboxListTile(
+                      key: const Key('forget-key'),
+                      contentPadding: EdgeInsets.zero,
+                      value: removeKey,
+                      onChanged: keyShared ? null : (value) => setState(() => removeKey = value ?? false),
+                      title: Text('Also delete its key, ${written.keyFile}'),
+                      subtitle: Text(
+                        keyShared
+                            ? 'Another entry in ~/.ssh/config uses it, so it stays.'
+                            : 'Nothing here can reach the machine as that user afterwards.',
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1535,12 +1782,13 @@ class _ShellState extends State<Shell> {
     // page of the machine that is gone.
     widget.shell.goTo(Section.machines);
     await widget.machines.forget(machine);
-    if (written == null || !removeEntry) return;
+    if (written == null || (!removeEntry && !removeKey)) return;
     widget.operations.run(
       title: 'Forget ${machine.name}',
       machine: machine.name,
       output: () async* {
         if (removeEntry) yield await setup.removeHostEntry(machine.host);
+        if (removeKey) yield await setup.removeKey(written.keyFile);
       }(),
     );
   }
@@ -2554,8 +2802,9 @@ class _ShellState extends State<Shell> {
     final machine = widget.machines.current;
     final project = _fleet.selectedProject;
     final title = switch (widget.shell.section) {
-      Section.machine => machine.name,
-      Section.project => '${machine.name} › ${project?.label ?? ''}',
+      Section.machine => (widget.shell.itemMachine ?? machine).name,
+      Section.project =>
+        '${(widget.shell.itemMachine ?? machine).name} › ${widget.shell.itemProject ?? project?.label ?? ''}',
       final section => section.label,
     };
     return AppBar(
@@ -2666,15 +2915,16 @@ class _ShellState extends State<Shell> {
         ].fold(0, (sum, each) => sum + each),
         work: _workView.shownTiles([for (final machine in widget.machines.all) ..._attention.tilesOn(machine)]).length,
         needing: _attention.openRows.length,
-        machines: rows.preparations.length + rows.machines.length,
-        // Each project once, as the Projects page lists them (walk 10: Default on two
-        // machines counted twice).
-        // Default is not among them: it left Projects (walk 10).
-        projects: <String>{
-          for (final machine in widget.machines.all)
-            for (final project in widget.machines.of(machine).projects)
-              if (project.name != defaultProject) project.name,
-        }.length,
+        machines:
+            rows.preparations.length +
+            scopedMachineRows(
+              widget.machines,
+              _registry,
+            ).where((row) => !rows.preparations.any((run) => run.name == row.machine.name)).length,
+        projects: registryMachines(widget.machines, _registry).fold<int>(
+          0,
+          (count, machine) => count + scopedProjectRows(widget.machines, machine, registry: _registry).length,
+        ),
         forges: _forges.entries.length,
         width: width,
         onGo: (section) {
@@ -2701,13 +2951,15 @@ class _ShellState extends State<Shell> {
     builder: (context, _) => MachinesPage(
       machines: widget.machines,
       hostCommands: _hostCommands,
+      registry: _registry,
+      onAdmission: (item) => _openPageMachine(item.machine, admission: item),
+      prepareServer: _commands().where((command) => command.id == 'host.prepare').firstOrNull,
       hostRuns: _hostRuns,
       onHostProtocol: (run) => unawaited(_openHostRun(run)),
       openTerminal: widget.sessions.openTerminal,
       onAdd: _addAMachine,
       onDetails: (machine) {
-        widget.machines.select(machine);
-        widget.shell.goTo(Section.machine);
+        _openPageMachine(machine);
       },
       onForget: (machine) {
         widget.machines.select(machine);
@@ -2727,15 +2979,17 @@ class _ShellState extends State<Shell> {
         ]),
         builder: (context, _) => ProjectsPage(
           machines: widget.machines,
+          registry: _registry,
+          onAdmission: (item) => _openPageProject(item.machine, item.target.project!, admission: item),
+          menuForAdmission: (machine, project, admission) =>
+              _pageProjectCommands(machine, project, admission: admission),
           muted: widget.notifications.muted,
           highlight: widget.shell.highlight,
           onShown: widget.shell.shown,
           onProject: (machine, project) {
-            widget.machines.select(machine);
-            widget.machines.of(machine).selectProject(project);
-            widget.shell.goTo(Section.project);
+            _openPageProject(machine, project);
           },
-          menuFor: (machine, project) => _projectRowMenu(project, on: machine),
+          menuFor: _pageProjectCommands,
           onFromARepository: _fleet.reachability == Reachability.connected ? _fromARepository : null,
           onFollow: _fleet.reachability == Reachability.connected ? () => unawaited(_followARepository()) : null,
         ),
@@ -2768,6 +3022,7 @@ class _ShellState extends State<Shell> {
             onAddAMachine: _addAMachine,
             onSetUpAProject: _fleet.reachability == Reachability.connected ? _fromARepository : null,
             tile: (tile) => TaskTile(
+              listRow: true,
               tile: tile,
               actions: tile.task == null ? const <Command>[] : _tileActions(tile),
               onEnlargeConsole: _enlargeConsole,
@@ -2899,6 +3154,8 @@ class _ShellState extends State<Shell> {
           final run = _hostRuns.of(project);
           if (run != null) unawaited(_openHostRun(run));
         },
+        onBringVpnUp: (machine) => unawaited(_bringVpnUp(machine)),
+        onTakeVpnDown: (machine) => unawaited(_changeVpn(machine, up: false)),
         unlockFor: _unlockFor,
         onStopFollowing: (machine, project) =>
             unawaited(_previewProjectRemoval(widget.machines.of(machine), project.name)),
@@ -2943,15 +3200,6 @@ class _ShellState extends State<Shell> {
   Widget _machineArea() {
     final machine = widget.machines.current;
     final fleet = _fleet;
-    // A project's page whose project went - deleted, cleared, no longer followed - goes back to the
-    // list of projects rather than standing empty (walk 9).
-    if (widget.shell.section == Section.project && fleet.selectedProject == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.shell.section == Section.project && _fleet.selectedProject == null) {
-          widget.shell.goTo(Section.projects);
-        }
-      });
-    }
     final highlight = widget.shell.highlight;
     // A refusal takes the place of whatever was open: it is the most important thing on the
     // screen until somebody has decided about it.
@@ -2960,31 +3208,6 @@ class _ShellState extends State<Shell> {
     _keepTheVaultButtonTrue(machine, fleet);
     return Column(
       children: <Widget>[
-        // A project's page is the project's alone: its machine is in the title bar, never a bar of its
-        // own above it (walk 9).
-        if (widget.shell.section != Section.project)
-          MachineTitle(
-            machine: machine,
-            fleet: fleet,
-            tunnel: widget.machines.tunnels.of(machine),
-            kind: machineKind(widget.machines, machine),
-            onStop: _stopEverything,
-            vault: VaultButtons(
-              vault: widget.vault,
-              onLock: fleet.reachability == Reachability.connected
-                  ? () => unawaited(_actOnTheVault(widget.vault.lockDoes))
-                  : null,
-              onOpenWithThePassphrase: fleet.reachability == Reachability.connected && _canUnlockHere
-                  ? () => unawaited(_unlockHere())
-                  : null,
-              onMakeIt: fleet.reachability == Reachability.connected && _canMakeHere
-                  ? () => unawaited(_makeTheVault())
-                  : null,
-            ),
-            menu: _machineMenu(),
-            highlight: highlight,
-            onShown: widget.shell.shown,
-          ),
         Expanded(child: opened ?? _machineBody(machine, fleet, highlight)),
         StatusLine(
           fleet: fleet,
@@ -2999,171 +3222,192 @@ class _ShellState extends State<Shell> {
   }
 
   /// Running work on every project, or the selected project with its work under its header.
-  Widget _machineBody(Machine machine, FleetModel fleet, String? highlight) {
-    final projects = fleet.projects;
-    // A project's page shows its project; a machine's page the machine alone, whatever project is
-    // chosen on it, so the choice is kept for when Projects opens one again.
-    final narrowed = widget.shell.section == Section.project ? fleet.selectedProject : null;
-    final jobs = narrowed == null ? const <Template>[] : widget.templates.forProject(narrowed.name);
-    final hostCommandsHere = narrowed == null ? _hostCommands(machine) : const <Command>[];
-    // Built once for the page: its menu and its tiles share the command objects.
-    final projectCommandsHere = narrowed == null
-        ? null
-        : <Command>[
-            ..._commands().where((command) => command.id == 'work.start' || command.id == 'project.follow'),
-            ..._projectMenu(narrowed),
-          ];
-    final itsWork = CommandTile(
-      key: const Key('its-work'),
-      command: projectWorkCommand(
-        open: () {
-          _workView
-            ..machine = machine.name
-            ..project = narrowed == null ? null : (narrowed.name == defaultProject ? '' : narrowed.name);
-          widget.shell.goTo(Section.work);
-        },
-      ),
-      icon: Icons.play_circle_outline,
-      description: narrowed == null
-          ? 'Show the work belonging to this machine.'
-          : 'Show the work belonging to this project.',
+  void _openPageMachine(Machine machine, {RegistryPageItem? admission}) {
+    if (widget.machines.all.contains(machine)) widget.machines.select(machine);
+    widget.shell.openMachine(machine, target: admission?.target);
+  }
+
+  void _openPageProject(Machine machine, String project, {RegistryPageItem? admission}) {
+    if (widget.machines.all.contains(machine)) {
+      widget.machines.select(machine);
+      widget.machines.of(machine).selectProject(project);
+    }
+    widget.shell.openProject(machine, project, target: admission?.target);
+  }
+
+  List<Command> _pageProjectCommands(Machine machine, ProjectOnScreen project, {RegistryPageItem? admission}) {
+    final item = admission ?? _registry.project(machine, project.name);
+    final watched = widget.machines.all.contains(machine);
+    final answering = watched && widget.machines.of(machine).reachability == Reachability.connected;
+    final openWork = Command(
+      id: 'work.start',
+      label: 'Start work',
+      group: 'Projects',
+      home: Home.projectMenu,
+      unavailable: !answering
+          ? 'This machine is not connected.'
+          : project.name == defaultProject
+          ? null
+          : project.canBeActedOn
+          ? StartWork.whyNot(project.project)
+          : 'This project is not followed on this machine.',
+      run: () {
+        _openPageProject(machine, project.name, admission: item);
+        unawaited(project.name == defaultProject ? _startInDefault() : _startWork());
+      },
     );
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: SingleChildScrollView(
-            key: const Key('machine-area'),
-            padding: const EdgeInsets.all(Space.normal),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                if (narrowed == null)
-                  Wrap(
-                    spacing: Space.normal,
-                    runSpacing: Space.normal,
-                    children: <Widget>[
-                      for (final command in hostCommandsHere)
-                        CommandTile(
-                          command: command,
-                          icon: switch (command.id) {
-                            'host.protocol' => Icons.receipt_long_outlined,
-                            'machine.takeDown' => Icons.delete_outline,
-                            _ => Icons.tune_outlined,
-                          },
-                          description: switch (command.id) {
-                            'host.protocol' => 'Read the protocol from setting up this server.',
-                            'machine.takeDown' =>
-                              'End the project tasks and room, copy its files back and give the server back.',
-                            _ => command.label,
-                          },
-                          danger: command.id == 'machine.takeDown',
-                        ),
-                      itsWork,
-                    ],
-                  ),
-                // Scrolls with the work: a project with many repositories is taller than any window,
-                // and a fixed header that grows pushes the work out of sight. The title bar still
-                // names the project.
-                if (narrowed != null)
-                  ProjectHeader(
-                    project: narrowed,
-                    muted: widget.notifications.muted.contains(narrowed.name),
-                    menu: projectCommandsHere!,
-                    highlight: highlight == 'work.start' ? null : highlight,
-                    onShown: widget.shell.shown,
-                    onSync: (repository) => unawaited(_syncTheUpstream(repository: repository)),
-                    onCheck: narrowed.project.following == null ? null : () => unawaited(_checkNow(narrowed)),
-                    checking: _check.isChecking(narrowed.name),
-                    checked: _check.saidAbout(narrowed.name),
-                    onBackups: (repository) => unawaited(_showTheBackups(repository: repository)),
-                    onOpens: (repository) => _checkWorkCanStart(repository: repository),
-                    onReach: (repository) => unawaited(_openEgress(repository: repository)),
-                    onStart: (repository) => unawaited(_startWork(repository: repository)),
-                    homeserver: _homeserverWords(machine, narrowed.name),
-                    startUnavailable: StartWork.whyNot(narrowed.project) ?? notAnswering(fleet),
-                  ),
-                // A project is one, wherever it lies: where it is on several machines, which one this
-                // page shows is chosen here (walk 9).
-                if (narrowed != null)
-                  Builder(
-                    builder: (context) {
-                      final on = <Machine>[
-                        for (final each in widget.machines.all)
-                          if (widget.machines.of(each).projects.any((project) => project.name == narrowed.name)) each,
-                      ];
-                      if (on.length < 2) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: Space.small),
-                        child: Wrap(
-                          spacing: Space.small,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: <Widget>[
-                            Text('On', style: Theme.of(context).textTheme.labelMedium),
-                            for (final each in on)
-                              ChoiceChip(
-                                key: ValueKey<String>('project-on ${each.name}'),
-                                label: Text(each.name),
-                                selected: each == machine,
-                                onSelected: (_) {
-                                  widget.machines.select(each);
-                                  widget.machines.of(each).selectProject(narrowed.name);
-                                },
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                // A fresh machine's first step, said where a person looks rather than only marked
-                // in the header: nothing an agent signs in with can be kept until it is there.
-                if (narrowed == null)
-                  ListenableBuilder(
-                    listenable: widget.vault,
-                    builder: (context, _) => widget.vault.missing && fleet.reachability == Reachability.connected
-                        ? _NextStep(
-                            key: const Key('next-step-vault'),
-                            title: 'Next: make the vault on ${machine.name}',
-                            says:
-                                'It keeps what your agent signs in with and the keys ${machine.name} '
-                                'pushes with, behind a passphrase only you know. Nothing can be kept there '
-                                'until it is made.',
-                            act: _canMakeHere ? 'Make it, in a terminal' : null,
-                            onAct: () => unawaited(_makeTheVault()),
-                            otherwise: machine.kind == 'host'
-                                ? "${machine.name}'s vault is made by its setup, from your secrets file: complete "
-                                      'its setup where Needs you asks for it.'
-                                : "Run 'porelo setup' in a terminal on ${machine.name}, which makes it.",
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                if (projects.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Space.small),
-                    child: Text(_noProjects(fleet), key: const Key('no-projects')),
-                  ),
-                const SizedBox(height: Space.small),
-                if (narrowed != null)
-                  ProjectCommandTiles(commands: projectCommandsHere!, itsWork: itsWork, highlight: highlight),
-                Wrap(
-                  spacing: Space.normal,
-                  runSpacing: Space.normal,
-                  children: <Widget>[
-                    for (final job in jobs)
-                      TemplateTile(
-                        job: job,
-                        highlighted: highlight == 'template.start/${job.project}/${job.name}',
-                        unavailable: job.startable
-                            ? notAnswering(fleet)
-                            : 'this job is missing something it needs to run',
-                        onPressed: () => unawaited(_startFromTemplate(job)),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+    return [
+      openWork,
+      if (project.name != defaultProject)
+        projectWorkCommand(
+          open: () {
+            _workView
+              ..machine = machine.name
+              ..project = project.name == defaultProject ? '' : project.name;
+            widget.shell.goTo(Section.work);
+          },
         ),
-      ],
+      if (watched && project.name != defaultProject)
+        ..._projectMenu(project, on: machine).where(
+          (command) =>
+              item == null || !{'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id),
+        ),
+      if (project.name != defaultProject)
+        if (item != null)
+          ...registryItemCommands(context, _registry, item, [
+            RegistryOperation.register,
+            RegistryOperation.join,
+            RegistryOperation.push,
+            RegistryOperation.pull,
+            RegistryOperation.backupKey,
+          ]),
+    ];
+  }
+
+  Widget _machineBody(Machine selected, FleetModel fleet, String? highlight) {
+    final machine = widget.shell.itemMachine ?? selected;
+    final watched = widget.machines.all.contains(machine);
+    final admission = widget.shell.itemRegistryTarget == null ? null : _registry.item(widget.shell.itemRegistryTarget!);
+    if (widget.shell.itemRegistryTarget != null && admission == null) {
+      return ListView(
+        padding: const EdgeInsets.all(Space.normal),
+        children: [
+          const Text(
+            'This verified admission is no longer available. Return to the list to choose another item.',
+            key: Key('registry-selection-unavailable'),
+          ),
+          TextButton(
+            onPressed: () =>
+                widget.shell.goTo(widget.shell.section == Section.project ? Section.projects : Section.machines),
+            child: const Text('Back to the list'),
+          ),
+        ],
+      );
+    }
+    final projectName = widget.shell.itemProject ?? fleet.selectedProject?.name;
+    final project = projectsOnMachine(
+      widget.machines,
+      machine,
+      registry: _registry,
+    ).where((project) => project.name == projectName).firstOrNull;
+    if (widget.shell.section == Section.project && project != null) {
+      final commands = _pageProjectCommands(machine, project, admission: admission);
+      return ProjectDetailsPage(
+        key: ValueKey('project ${projectRowIdentity(machine, project.name, admission)}'),
+        machine: machine,
+        project: project,
+        admission: admission,
+        registry: _registry,
+        commands: commands,
+        onBack: () => widget.shell.goTo(Section.projects),
+        onMachine: () => _openPageMachine(machine),
+        highlight: highlight,
+        onShown: widget.shell.shown,
+        details: ProjectHeader(
+          project: project,
+          muted: widget.notifications.muted.contains(project.name),
+          menu: commands,
+          showTitle: false,
+          onSync: (repository) {
+            _openPageProject(machine, project.name, admission: admission);
+            unawaited(_syncTheUpstream(repository: repository));
+          },
+          onCheck: project.project.following == null ? null : () => unawaited(_checkNow(project)),
+          checking: _check.isChecking(project.name),
+          checked: _check.saidAbout(project.name),
+          onBackups: (repository) {
+            _openPageProject(machine, project.name, admission: admission);
+            unawaited(_showTheBackups(repository: repository));
+          },
+          onOpens: (repository) {
+            _openPageProject(machine, project.name, admission: admission);
+            _checkWorkCanStart(repository: repository);
+          },
+          onReach: (repository) {
+            _openPageProject(machine, project.name, admission: admission);
+            unawaited(_openEgress(repository: repository));
+          },
+          onStart: (repository) {
+            _openPageProject(machine, project.name, admission: admission);
+            unawaited(_startWork(repository: repository));
+          },
+          homeserver: _homeserverWords(machine, project.name),
+          startUnavailable: watched
+              ? StartWork.whyNot(project.project) ?? notAnswering(widget.machines.of(machine))
+              : 'This machine is not connected.',
+        ),
+        jobs: [
+          for (final job in widget.templates.forProject(project.name))
+            TemplateRow(
+              job: job,
+              highlighted: highlight == 'template.start/${job.project}/${job.name}',
+              unavailable: watched && job.startable
+                  ? notAnswering(widget.machines.of(machine))
+                  : 'This job cannot start here.',
+              onPressed: () {
+                _openPageProject(machine, project.name);
+                unawaited(_startFromTemplate(job));
+              },
+            ),
+        ],
+      );
+    }
+    return MachineDetailsPage(
+      key: ValueKey('machine ${machine.name}'),
+      machine: machine,
+      machines: widget.machines,
+      registry: _registry,
+      admission: admission,
+      onAdmission: (item) => _openPageProject(item.machine, item.target.project!, admission: item),
+      menuForAdmission: (machine, project, admission) => _pageProjectCommands(machine, project, admission: admission),
+      commands: watched
+          ? [
+              for (final command in [
+                ..._machineMenu(),
+                ..._commands().where((command) => command.id == 'machine.panic'),
+              ])
+                command.unless(_itemScopeProblem(command)),
+            ]
+          : const [],
+      highlight: highlight,
+      onShown: widget.shell.shown,
+      onBack: () => widget.shell.goTo(Section.machines),
+      onProject: (project) => _openPageProject(machine, project),
+      projectCommands: (project) => _pageProjectCommands(machine, project),
+      tools: watched && machine == widget.machines.current
+          ? VaultButtons(
+              vault: widget.vault,
+              onLock: fleet.reachability == Reachability.connected
+                  ? () => unawaited(_actOnTheVault(widget.vault.lockDoes))
+                  : null,
+              onOpenWithThePassphrase: fleet.reachability == Reachability.connected && _canUnlockHere
+                  ? () => unawaited(_unlockHere())
+                  : null,
+              onMakeIt: fleet.reachability == Reachability.connected && _canMakeHere
+                  ? () => unawaited(_makeTheVault())
+                  : null,
+            )
+          : null,
     );
   }
 
@@ -3179,13 +3423,6 @@ class _ShellState extends State<Shell> {
     final problem = _homeservers.problemOf(machine, project);
     return problem == null ? null : 'Its homeserver is not reachable from here: $problem';
   }
-
-  static String _noProjects(FleetModel fleet) => switch (fleet.reachability) {
-    Reachability.connecting => 'Asking the backend what is here.',
-    Reachability.unreachable => 'Not connected, so what is here is unknown. This is not an empty machine.',
-    Reachability.incompatible => 'This backend speaks nothing this build understands.',
-    Reachability.connected => 'No work has run on this machine, so no project names itself yet.',
-  };
 
   /// What is open over the frame, or null when nothing is.
   ///
@@ -3342,6 +3579,7 @@ class _ShellState extends State<Shell> {
     _attention.dispose();
     _workView.dispose();
     _hostRuns.dispose();
+    widget.machines.removeListener(_vpnMachinesChanged);
     _homeservers.dispose();
     _openedFocus.dispose();
     _frameFocus.dispose();
@@ -3349,6 +3587,8 @@ class _ShellState extends State<Shell> {
     _handIns.dispose();
     _startingAgents.dispose();
     // Only the one made here: a connection the app handed in is the app's.
+    _registry.removeListener(_homeserversChanged);
+    if (widget.registryPages == null) _registry.dispose();
     if (widget.forges == null) _forges.dispose();
     super.dispose();
   }
@@ -3425,47 +3665,4 @@ class _ForgesInSettings implements ForgeEntries {
 
   @override
   Future<void> write(List<Map<String, Object?>> entries) => _settings.rememberForges(entries);
-}
-
-/// The one step a machine needs next, said in the work's own area: what it is, why, and the button
-/// that does it, or what to do instead where nothing here can.
-class _NextStep extends StatelessWidget {
-  const _NextStep({
-    required this.title,
-    required this.says,
-    required this.act,
-    required this.onAct,
-    required this.otherwise,
-    super.key,
-  });
-
-  final String title;
-  final String says;
-  final String? act;
-  final VoidCallback onAct;
-  final String otherwise;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: Space.normal),
-      padding: const EdgeInsets.all(Space.normal),
-      decoration: BoxDecoration(color: scheme.secondaryContainer, borderRadius: BorderRadius.circular(Radii.small)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: Space.tight),
-          Text(says),
-          const SizedBox(height: Space.small),
-          if (act case final act?)
-            FilledButton(key: const Key('next-step-act'), onPressed: onAct, child: Text(act))
-          else
-            Text(otherwise, key: const Key('next-step-otherwise')),
-        ],
-      ),
-    );
-  }
 }

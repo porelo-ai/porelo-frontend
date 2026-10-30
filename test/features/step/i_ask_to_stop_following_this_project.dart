@@ -8,7 +8,7 @@ import 'i_open_the_command_finder.dart';
 /// Usage: I ask to stop following this project
 Future<void> iAskToStopFollowingThisProject(WidgetTester tester) async {
   await iOpenTheCommandFinder(tester);
-  await tester.enterText(find.byType(TextField), 'Stop following this project');
+  await tester.enterText(find.byKey(const Key('command-query')), 'Stop following this project');
   await World.settle(tester);
   await tester.tap(find.widgetWithText(ListTile, 'Stop following this project'));
   await World.settle(tester);

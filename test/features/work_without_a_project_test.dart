@@ -41,7 +41,6 @@ import './step/i_open_the_waiting_push.dart';
 import './step/i_start_forwarding_it_to_its_origin.dart';
 import './step/the_forwarding_asks.dart';
 import './step/i_go_to_the_place.dart';
-import './step/it_does_not_say.dart';
 import './step/the_projects_page_lists_on.dart';
 
 void main() {
@@ -132,10 +131,10 @@ void main() {
       await iStartForwardingItToItsOrigin(tester);
       await theForwardingAsks(tester, 'Forward it to its origin');
     });
-    testWidgets('''work without a project is not listed among the projects''', (tester) async {
+    testWidgets('''work without a project is listed on its machine''', (tester) async {
       await bddSetUp(tester);
       await iGoToThePlace(tester, 'projects');
-      await itDoesNotSay(tester, 'Default');
+      await itSays(tester, 'Without a project');
       await theProjectsPageListsOn(tester, 'checkout', 'this machine');
     });
   });

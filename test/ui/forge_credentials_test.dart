@@ -96,7 +96,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: ForgeForm(forges: forges, onDone: (_) {}),
+            body: ForgeForm(useToken: true, forges: forges, onDone: (_) {}),
           ),
         ),
       );
@@ -142,7 +142,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ForgeForm(forges: forges, onDone: (_) => saved = true),
+          body: ForgeForm(useToken: true, forges: forges, onDone: (_) => saved = true),
         ),
       ),
     );
