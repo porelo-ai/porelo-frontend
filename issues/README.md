@@ -29,6 +29,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | — | [F211](README.md#f211), [F214](README.md#f214) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |
 | <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | — | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
 | <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | — | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
+| <a id="f232"></a>[F232](F232-The-Project-Admins-Own-VPN-For-A-Bring.md) | — | [F213](README.md#f213), [F216](README.md#f216) | The bring on a project admin's own machine brings its VPN to the host up from the pasted values, its address and its copied keys, and trusts the host's CA by `ca_sha256` before it brings. |
 
 ### Implementing
 
@@ -38,7 +39,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f222"></a>[F222](F222-A-Refused-Unlock-Asks-Again-In-Its-Terminal.md) | XS | — | A refused password in the unlock terminal asked again, up to three times, instead of ending it. |
 | <a id="f221"></a>[F221](F221-A-Hosts-Vault-Unlocked-From-The-Secrets-File.md) | S | — | A rented server's vault unlocked from the secrets file with its master password typed once, its Make refused; no value of the file typed by hand. |
 | <a id="f224"></a>[F224](F224-Porelo-Host-Says-Which-Server-Is-Rented-Now.md) | S | — | A read-only `porelo-host find` says which server carries the project's tag now, or that none does. |
-| <a id="f232"></a>[F232](F232-The-Project-Admins-Own-VPN-For-A-Bring.md) | S | [F213](README.md#f213), [F216](README.md#f216) | The bring on a project admin's own machine brings its VPN to the host up from the pasted values, its address and its copied keys, and trusts the host's CA by `ca_sha256` before it brings. |
 
 ### Backlog
 

@@ -1,6 +1,6 @@
 # F232 — The Project Admin's Own VPN For A Bring
 
-**Status:** Implementing; blocked by [F213](README.md#f213) and [F216](README.md#f216).
+**Status:** Review.
 **Size:** S - the bring's first step on a project admin's own machine, reusing the join's VPN step and the CA check.
 
 **What must be true.** A project admin brings their project onto a host from their own machine, which is not the host admin's: from the host values the host admin copied for them, their own address on the host's VPN and the keys *Copy my public keys for a host…* made on this machine, the bring brings this machine's VPN to that host up, fetches the host's CA through it and trusts it only when its SHA-256 equals `ca_sha256`, records the host, and only then brings the project.
@@ -51,3 +51,7 @@ Decided (operator, 2026-10-30): walk 23 has the project admin on a machine of it
 
 - Automatically restoring copied host keys when reopening a bring that already has a local host record.
 - Replacing machine-specific examples elsewhere in the repository; none were added by these changes.
+- Taking down the CA-less VPN and the pinned host key when the fetched CA fails `ca_sha256` (the CA is never trusted; the join had the same leftover).
+- Checking the followed commit and the pinned signing key before the VPN and the CA are set up, not after.
+- `hostForgePasswordFeedCommand` enforcing the pinned ssh options and a non-root login itself, not only through its two callers.
+- Skipping the forge-password terminal on a bring to a host already recorded with a set password.
