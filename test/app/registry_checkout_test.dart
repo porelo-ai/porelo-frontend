@@ -31,13 +31,18 @@ void main() {
       program,
       ['-c', 'url.file://$central.insteadOf=$address', ...args],
       inDirectory: inDirectory,
-      environment: environment,
+      environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', ...environment},
       input: input,
     );
   }
 
   Future<void> run(List<String> args, String inDirectory) async {
-    final result = await Process.run('git', args, workingDirectory: inDirectory);
+    final result = await Process.run(
+      'git',
+      args,
+      workingDirectory: inDirectory,
+      environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+    );
     if (result.exitCode != 0) fail('git ${args.join(' ')}: ${result.stderr}');
   }
 
@@ -48,6 +53,30 @@ void main() {
     await run(['add', file], author);
     await run(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', file], author);
     await run(['push', '-q', 'origin', 'HEAD:main'], author);
+  }
+
+  Future<String> commitCheckout(String folder, String name) async {
+    File('$folder/$name').writeAsStringSync('$name\n');
+    await run(['add', name], folder);
+    await run(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', name], folder);
+    final revision = await Process.run(
+      'git',
+      ['rev-parse', 'HEAD'],
+      workingDirectory: folder,
+      environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+    );
+    expect(revision.exitCode, 0);
+    return (revision.stdout as String).trim();
+  }
+
+  Future<String> centralRevision() async {
+    final revision = await Process.run(
+      'git',
+      ['--git-dir=$central', 'rev-parse', 'HEAD'],
+      environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+    );
+    expect(revision.exitCode, 0);
+    return (revision.stdout as String).trim();
   }
 
   RegistryCheckout checkout([String repository = address]) =>
@@ -75,7 +104,45 @@ void main() {
     expect(revision, matches(RegExp(r'^[0-9a-f]{40}$')));
     expect(File('${registry.folder}/owners.yml').readAsStringSync(), 'owners: [alice]\n');
     expect((await Directory('${scratch.path}/private').stat()).mode & 0x3f, 0, reason: 'nobody else reads it');
-    expect(environments, everyElement(containsPair('GIT_TERMINAL_PROMPT', '0')));
+    for (final environment in environments) {
+      expect(environment, containsPair('GIT_TERMINAL_PROMPT', '0'));
+      expect(environment, containsPair('GIT_ASKPASS', ''), reason: 'an inherited askpass must never prompt');
+      expect(environment, containsPair('SSH_ASKPASS', ''));
+      expect(environment, containsPair('GCM_INTERACTIVE', 'never'));
+      expect(environment['GIT_SSH_COMMAND'], Platform.environment['GIT_SSH_COMMAND'] ?? 'ssh -o BatchMode=yes');
+    }
+  });
+
+  // Harm: inherited or configured askpass runs a credential UI despite terminal prompting being disabled.
+  test('credential lookup cannot invoke inherited or configured askpass', () async {
+    final marker = File('${scratch.path}/asked');
+    final askpass = File('${scratch.path}/askpass')
+      ..writeAsStringSync("#!/bin/sh\nprintf asked > '${marker.path}'\nexit 1\n");
+    final mode = await Process.run('chmod', ['700', askpass.path]);
+    expect(mode.exitCode, 0);
+    var lookups = 0;
+    final registry = RegistryCheckout(
+      root: '${scratch.path}/private',
+      repository: address,
+      run: (program, args, {inDirectory, environment = const {}, input}) async {
+        lookups++;
+        return runHere(
+          'git',
+          ['-c', 'credential.helper=', '-c', 'core.askPass=${askpass.path}', 'credential', 'fill'],
+          environment: {
+            'GIT_CONFIG_GLOBAL': '/dev/null',
+            'GIT_CONFIG_NOSYSTEM': '1',
+            'GIT_ASKPASS': askpass.path,
+            'SSH_ASKPASS': askpass.path,
+            ...environment,
+          },
+          input: 'protocol=https\nhost=example.org\n\n',
+        );
+      },
+    );
+    await expectLater(registry.fetch(), throwsA(isA<WorkspaceRefused>()));
+    expect(lookups, 1, reason: 'the credential lookup must actually have run');
+    expect(marker.existsSync(), isFalse, reason: 'no askpass program may be invoked');
   });
 
   test('a later fetch moves the checkout to the new commit', () async {
@@ -124,6 +191,71 @@ void main() {
     expect(File('${registry.folder}/owners.yml').readAsStringSync(), 'owners: [mallory]\n');
   });
 
+  // Harm: dirty or unpublished work gets pushed without the person's review.
+  for (final committed in [false, true]) {
+    test('publishing refuses pre-existing work, committed=$committed', () async {
+      final registry = checkout();
+      await registry.fetch();
+      File('${registry.folder}/owners.yml').writeAsStringSync('owners: [mallory]\n');
+      if (committed) {
+        await run(['add', 'owners.yml'], registry.folder);
+        await run([
+          '-c',
+          'user.name=Fixture',
+          '-c',
+          'user.email=fixture@example.invalid',
+          'commit',
+          '-qm',
+          'local',
+        ], registry.folder);
+      }
+      await expectLater(registry.prepareFiling(), throwsA(isA<WorkspaceRefused>()));
+      final centralText = await Process.run(
+        'git',
+        ['--git-dir=$central', 'show', 'main:owners.yml'],
+        environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+      );
+      expect(centralText.exitCode, 0);
+      expect(centralText.stdout, 'owners: [alice]\n', reason: 'no unreviewed work may leave the checkout');
+    });
+  }
+
+  // Harm: publication sends a different commit than the one Core filed or includes unrelated work.
+  test("publication sends exactly Core's one commit above the checked base", () async {
+    final registry = checkout();
+    final base = await registry.fetch();
+    await registry.prepareFiling();
+    final filed = await commitCheckout(registry.folder, 'person.card');
+    expect(await centralRevision(), base);
+    await registry.publish(filed);
+    expect(await centralRevision(), filed);
+  });
+
+  for (final interference in ['dirty file', 'extra commit', 'different HEAD']) {
+    test('publication refuses $interference after the checkout was checked', () async {
+      final registry = checkout();
+      final base = await registry.fetch();
+      await registry.prepareFiling();
+      if (interference == 'extra commit') await commitCheckout(registry.folder, 'unreviewed.card');
+      final filed = await commitCheckout(registry.folder, 'person.card');
+      if (interference == 'dirty file') File('${registry.folder}/unreviewed.card').writeAsStringSync('unreviewed');
+      if (interference == 'different HEAD') await commitCheckout(registry.folder, 'unreviewed.card');
+      await expectLater(registry.publish(filed), throwsA(isA<WorkspaceRefused>()));
+      expect(await centralRevision(), base, reason: 'unreviewed work must never reach the central repository');
+    });
+  }
+
+  // Harm: a successful empty clone leaves an unusable folder and permanently prevents recovery.
+  test('a failed post-clone check removes only its fresh checkout so a later fetch can recover', () async {
+    await run(['update-ref', '-d', 'refs/heads/main'], central);
+    final registry = checkout();
+    await expectLater(registry.fetch(), throwsA(isA<WorkspaceRefused>()));
+    expect(Directory(registry.folder).existsSync(), isFalse, reason: 'a fresh incomplete clone must not block a retry');
+    await run(['push', '-q', 'origin', 'HEAD:main'], author);
+    expect(await registry.fetch(), matches(RegExp(r'^[0-9a-f]{40}$')));
+    expect(File('${registry.folder}/owners.yml').readAsStringSync(), 'owners: [alice]\n');
+  });
+
   // Harm: a pasted address with a token is kept or echoed back.
   test('an address with credentials is refused without repeating it', () async {
     final refusal = await checkout('https://bob:s3cret@example.org/team/registry.git')
@@ -140,6 +272,6 @@ void main() {
   });
 
   test('publishing before a fetch is refused', () async {
-    await expectLater(checkout().publish(), throwsA(isA<WorkspaceRefused>()));
+    await expectLater(checkout().publish('1' * 40), throwsA(isA<WorkspaceRefused>()));
   });
 }

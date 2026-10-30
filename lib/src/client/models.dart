@@ -4944,7 +4944,11 @@ class Cleared {
 /// `revision`, `refused_commit` (`commit`, `path`, `why`), `owners_signer` and `admins` as a list of logins
 /// are assumed until Core serves them.
 ///
-/// Read strictly: an answer missing a list, a revision or any field a decision rests on throws a
+/// A missing or null `revision` beside `refused_commit` means Core accepted no commit. A revision
+/// present beside a refusal still names Core's verified last-good snapshot, including revocations.
+/// Refused cards can lack usable key metadata; their login and reason remain required.
+///
+/// Read strictly: an answer missing a list, an accepted revision or any field a decision rests on throws a
 /// [FormatException], so an incomplete answer never reads as an empty registry. Unknown fields are ignored.
 class RegistryRead {
   /// Constructor taking every field.
@@ -4958,8 +4962,8 @@ class RegistryRead {
     this.refusedCommit,
   });
 
-  /// The commit whose state this answer describes: the last one Core accepted.
-  final String revision;
+  /// The last commit Core accepted, or null when it refused the first commit.
+  final String? revision;
 
   /// Every person card, refused ones included so their reason can be shown.
   final List<RegistryCard> people;
@@ -4984,7 +4988,9 @@ class RegistryRead {
     final signer = map['owners_signer'];
     final refused = map['refused_commit'];
     return RegistryRead(
-      revision: _registryRevision(map['revision'], 'revision'),
+      revision: map['revision'] == null && refused is Map<String, dynamic>
+          ? null
+          : _registryRevision(map['revision'], 'revision'),
       people: _registryList(map, 'people', RegistryCard.from),
       owners: _registryList(map, 'owners', RegistryOwner.from),
       hosts: _registryList(map, 'hosts', RegistryHost.from),
@@ -5024,10 +5030,10 @@ class RegistryCard {
   /// The optional address on the card, absent when the card has none.
   final String? email;
 
-  /// The card's public `ssh-ed25519` key, without a comment.
+  /// The card's public key; empty or malformed when Core refused its key metadata.
   final String key;
 
-  /// The key's fingerprint as `ssh-keygen` prints it.
+  /// The key's fingerprint, or empty when Core could not fingerprint a refused key.
   final String fingerprint;
 
   /// `trusted`, `first-seen` or `refused`. Not an enum: a value added later is rendered, never offered.
@@ -5057,8 +5063,10 @@ class RegistryCard {
       throw const FormatException('A refused card in the registry answer has no why.');
     }
     final email = map['email'];
-    final key = _registryText(map['key'], 'people.key');
-    if (!RegExp(r'^ssh-ed25519 AAAA[A-Za-z0-9+/]+={0,2}$').hasMatch(key)) {
+    final key = state == 'refused'
+        ? _registryText(map['key'] ?? '', 'people.key', allowEmpty: true)
+        : _registryText(map['key'], 'people.key');
+    if (state != 'refused' && !RegExp(r'^ssh-ed25519 AAAA[A-Za-z0-9+/]+={0,2}$').hasMatch(key)) {
       throw const FormatException('A card in the registry answer has no plain ssh-ed25519 key.');
     }
     return RegistryCard(
@@ -5066,7 +5074,9 @@ class RegistryCard {
       name: _registryText(map['name'], 'people.name'),
       email: email == null || email == '' ? null : _registryText(email, 'people.email'),
       key: key,
-      fingerprint: _registryFingerprint(map['fingerprint'], 'people.fingerprint'),
+      fingerprint: state == 'refused'
+          ? _registryText(map['fingerprint'] ?? '', 'people.fingerprint', allowEmpty: true)
+          : _registryFingerprint(map['fingerprint'], 'people.fingerprint'),
       state: state,
       why: why,
     );
@@ -5114,7 +5124,7 @@ class RegistryHost {
     final admins = map['admins'];
     if (admins is! List<dynamic>) throw const FormatException('A host in the registry answer has no admins.');
     return RegistryHost(
-      host: _registryLogin(map['host'], 'hosts.host'),
+      host: _registryHostName(map['host']),
       admins: [for (final each in admins) _registryLogin(each, 'hosts.admins')],
       projects: _registryList(map, 'projects', RegistryProject.from),
     );
@@ -5198,8 +5208,15 @@ String _registryText(Object? value, String field, {bool allowEmpty = false}) {
 }
 
 String _registryLogin(Object? value, String field) {
-  if (value is! String || !RegExp(r'^[a-z0-9][a-z0-9._-]{0,63}$').hasMatch(value)) {
+  if (value is! String || !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(value)) {
     throw FormatException('The registry answer has no readable $field.');
+  }
+  return value;
+}
+
+String _registryHostName(Object? value) {
+  if (value is! String || !RegExp(r'^[a-z0-9][a-z0-9._-]{0,63}$').hasMatch(value)) {
+    throw const FormatException('The registry answer has no readable hosts.host.');
   }
   return value;
 }

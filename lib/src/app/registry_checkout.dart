@@ -31,6 +31,7 @@ class RegistryCheckout {
   final RunHere _run;
   final HostFileWriter _writer;
   String? _branch;
+  String? _filingBase;
 
   /// The checkout, named for its address, so another address never meets this one's history.
   String get folder =>
@@ -53,55 +54,89 @@ class RegistryCheckout {
   /// where it was. Never resets: a checkout holding changes or commits the repository lacks is refused.
   Future<String> fetch() async {
     _branch = null;
+    _filingBase = null;
     checkRepository(repository);
     await privateDirectory(Directory(root), writer: _writer);
     final type = await FileSystemEntity.type(folder, followLinks: false);
-    if (type == FileSystemEntityType.notFound) {
-      await _clone();
-    } else if (type != FileSystemEntityType.directory ||
-        await FileSystemEntity.type(path.join(folder, '.git'), followLinks: false) != FileSystemEntityType.directory) {
+    final fresh = type == FileSystemEntityType.notFound;
+    if (!fresh &&
+        (type != FileSystemEntityType.directory ||
+            await FileSystemEntity.type(path.join(folder, '.git'), followLinks: false) !=
+                FileSystemEntityType.directory)) {
       throw const WorkspaceRefused('The registry checkout must be a plain Git directory, without links.');
     }
-    await _writer.protectDirectory(Directory(folder));
-    await _checkClean();
-    await _git(['fetch', '--no-tags', '--prune', 'origin'], refusal: _fetchRefused);
-    final branch = await _defaultBranch();
-    await _checkNothingUnpublished(branch);
-    await _git(['merge', '--ff-only', 'refs/remotes/origin/$branch']);
-    _branch = branch;
-    return _revision();
+    try {
+      if (fresh) await _clone();
+      await _writer.protectDirectory(Directory(folder));
+      await _checkClean();
+      await _git(['fetch', '--no-tags', '--prune', 'origin'], refusal: _fetchRefused);
+      final branch = await _defaultBranch();
+      await _checkNothingUnpublished(branch);
+      await _git(['merge', '--ff-only', 'refs/remotes/origin/$branch']);
+      final revision = await _revision();
+      _branch = branch;
+      return revision;
+    } on Exception {
+      // Only a checkout created by this attempt has no work of the person's to preserve.
+      if (fresh && await Directory(folder).exists()) await Directory(folder).delete(recursive: true);
+      rethrow;
+    }
   }
 
-  /// Pushes the commit Core signed in the checkout to the repository's default branch.
-  Future<void> publish() async {
+  /// Checks for changes and unpublished commits before Core writes, remembering the checked base.
+  Future<void> prepareFiling() async {
+    _filingBase = null;
     final branch = _branch;
-    if (branch == null) throw const WorkspaceRefused('Fetch the registry before publishing a change to it.');
+    if (branch == null) throw const WorkspaceRefused('Fetch the registry before changing it.');
+    await _checkClean();
+    if (await _defaultBranch() != branch) {
+      throw const WorkspaceRefused('The registry default branch changed. Refresh it before making a change.');
+    }
+    await _checkNothingUnpublished(branch);
+    _filingBase = await _revision();
+  }
+
+  /// Publishes only [revision], Core's single new commit above the base checked by [prepareFiling].
+  Future<void> publish(String revision) async {
+    final branch = _branch;
+    final base = _filingBase;
+    _filingBase = null;
+    if (branch == null || base == null) {
+      throw const WorkspaceRefused('Check the registry checkout before publishing a change to it.');
+    }
+    if (!RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(revision)) {
+      throw const WorkspaceRefused('Core did not name a valid registry commit.');
+    }
+    await _checkClean();
+    if (await _defaultBranch() != branch || await _revision() != revision) {
+      throw const WorkspaceRefused('The registry checkout changed outside this filing. Nothing was published.');
+    }
+    final parents = (await _git(['rev-list', '--parents', '-n', '1', revision])).out.trim().split(RegExp(r'\s+'));
+    if (parents.length != 2 || parents[0] != revision || parents[1] != base) {
+      throw const WorkspaceRefused('The registry change includes other commits. Nothing was published.');
+    }
     await _git([
       'push',
       'origin',
-      'HEAD:refs/heads/$branch',
+      '$revision:refs/heads/$branch',
     ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
   }
 
   static const _fetchRefused =
       'Git could not fetch the registry repository with your access: your SSH agent for a git@ address, or '
-      'your forge token for an https one. Try it in a terminal with your own Git. The registry shown is unchanged.';
+      'your forge token for an https one. Try it in a terminal with your own Git.';
 
   Future<void> _clone() async {
     final directory = Directory(folder);
     await privateDirectory(directory, writer: _writer);
-    try {
-      await _git(['clone', '--no-tags', '--', repository, folder], inCheckout: false, refusal: _fetchRefused);
-    } on WorkspaceRefused {
-      // A fresh clone holds nothing of the person's, so a refused one leaves nothing for the next try to meet.
-      if (await directory.exists()) await directory.delete(recursive: true);
-      rethrow;
-    }
+    await _git(['clone', '--no-tags', '--', repository, folder], inCheckout: false, refusal: _fetchRefused);
   }
 
   Future<void> _checkClean() async {
     if ((await _git(['status', '--porcelain'])).out.isNotEmpty) {
-      throw const WorkspaceRefused('The registry checkout has unpublished changes. Nothing was fetched.');
+      throw const WorkspaceRefused(
+        'The registry checkout has unpublished changes. Resolve them with your own Git first.',
+      );
     }
     if ((await _git(['config', '--get', 'remote.origin.url'])).out.trim() != repository) {
       throw const WorkspaceRefused('The registry checkout fetches from another address than the one chosen.');
@@ -151,7 +186,13 @@ class RegistryCheckout {
         'git',
         arguments,
         inDirectory: inCheckout ? folder : null,
-        environment: const {'GIT_TERMINAL_PROMPT': '0'},
+        environment: {
+          'GIT_TERMINAL_PROMPT': '0',
+          'GIT_ASKPASS': '',
+          'SSH_ASKPASS': '',
+          'GCM_INTERACTIVE': 'never',
+          'GIT_SSH_COMMAND': Platform.environment['GIT_SSH_COMMAND'] ?? 'ssh -o BatchMode=yes',
+        },
       );
     } on Exception {
       throw const WorkspaceRefused('Git could not run for the private registry checkout.');

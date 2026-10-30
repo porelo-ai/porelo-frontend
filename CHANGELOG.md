@@ -58,6 +58,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Registry changes refuse missing selections and unpublished checkout work, publish only Core's filed
+  commit, and retain publication failures. Registry reads apply Core's latest verified state beside a
+  refused commit, preserve first-commit and malformed-card refusals, and name owners for hosts without
+  admins. Git disables credential prompts and incomplete initial checkouts can be retried.
+
 - Project joins supply an explicit local Ansible inventory and disable its localhost warning while retaining
   real warnings and failures in the join log.
 - Servers rented without a project can be given back using their existing ownership tag. A refused

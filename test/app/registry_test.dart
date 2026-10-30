@@ -87,6 +87,8 @@ class _FakeCore implements RegistryCore {
 
 class _FakeCheckout implements RegistryCheckout {
   WorkspaceRefused? refuseFetch;
+  WorkspaceRefused? refusePrepare;
+  WorkspaceRefused? refusePublish;
   final List<String> calls;
 
   _FakeCheckout(this.calls);
@@ -108,7 +110,16 @@ class _FakeCheckout implements RegistryCheckout {
   }
 
   @override
-  Future<void> publish() async => calls.add('publish');
+  Future<void> prepareFiling() async {
+    calls.add('prepare');
+    if (refusePrepare case final refused?) throw refused;
+  }
+
+  @override
+  Future<void> publish(String revision) async {
+    calls.add('publish');
+    if (refusePublish case final refused?) throw refused;
+  }
 }
 
 void main() {
@@ -134,8 +145,6 @@ void main() {
     expect(core.filed, isEmpty, reason: 'no change may be sent for a refused card');
 
     core.next = _answer(
-      revision: _second,
-      people: [_card('eve', letter: 'E')],
       refused: {'commit': _refusedCommit, 'path': 'people/alice.card', 'why': 'signed by another key than its own'},
     );
     await registry.refresh();
@@ -146,6 +155,124 @@ void main() {
     expect(registry.refusedCommit!.commit, _refusedCommit);
     expect(registry.problem, allOf(contains(_refusedCommit.substring(0, 12)), contains('signed by another key')));
     expect(registry.problem, contains('people/alice.card'));
+  });
+
+  // Harm: an absent selection bypasses the trusted-card guard and sends an admission to Core.
+  test('an access change requires a selected person and a host card requires a host', () async {
+    for (final people in [null, <Map<String, dynamic>>[]]) {
+      core.next = _answer(people: people);
+      await registry.refresh();
+      for (final filing in const [
+        RegistryFiling(RegistryFilingKind.hostAccess, host: 'walk9server'),
+        RegistryFiling(RegistryFilingKind.hostCard),
+        RegistryFiling(RegistryFilingKind.hostCard, host: ''),
+      ]) {
+        expect(registry.unavailable(filing), isNotNull);
+        await expectLater(registry.file(filing), throwsA(isA<RegistryRefusal>()));
+      }
+    }
+    expect(core.filed, isEmpty, reason: 'missing required choices never reach Core');
+  });
+
+  // Harm: a changed or unpublished checkout reaches Core and gets published without review.
+  test('a refused checkout preparation sends no mutation and records the problem', () async {
+    checkout.refusePrepare = const WorkspaceRefused('The checkout has unpublished work.');
+    await expectLater(registry.file(const RegistryFiling(RegistryFilingKind.card)), throwsA(isA<WorkspaceRefused>()));
+    expect(core.filed, isEmpty);
+    expect(core.calls, ['prepare']);
+    expect(registry.problem, contains('unpublished work'));
+  });
+
+  // Harm: retrying after a failed push silently includes the earlier unpublished mutation.
+  test('a failed publication records a problem and blocks another mutation', () async {
+    checkout.refusePublish = const WorkspaceRefused('Git could not publish the registry change.');
+    const filing = RegistryFiling(RegistryFilingKind.card);
+    await expectLater(registry.file(filing), throwsA(isA<WorkspaceRefused>()));
+    expect(registry.problem, contains('could not publish'));
+    await expectLater(registry.file(filing), throwsA(isA<RegistryRefusal>()));
+    expect(core.filed, hasLength(1));
+  });
+
+  // Harm: a revocation accepted before a refused commit is ignored and revoked access stays offered.
+  for (final initialRead in [false, true]) {
+    test('Core last-good revocations are used beside a refused commit, initial=$initialRead', () async {
+      core.next = _answer(
+        revision: _second,
+        people: [_card('alice')],
+        refused: {'commit': _refusedCommit, 'path': 'people/bob.card', 'why': 'wrong signer'},
+      );
+      final target = initialRead ? Registry(checkout: checkout, core: core) : registry;
+      addTearDown(initialRead ? target.dispose : () {});
+      await target.refresh();
+      expect(target.accepted!.revision, _second);
+      expect(target.selectable.map((card) => card.login), ['alice']);
+      expect(target.refusedCommit!.commit, _refusedCommit);
+      expect(target.unavailable(const RegistryFiling(RegistryFilingKind.card)), isNotNull);
+    });
+  }
+
+  // Harm: refusal of the first commit is lost or an unverified snapshot enables a mutation.
+  test('a first refused commit without an accepted revision retains its reason and trusts nobody', () async {
+    core.next = _answer(refused: {'commit': _refusedCommit, 'path': 'owners.yml', 'why': 'not an organization owner'})
+      ..remove('revision');
+    final target = Registry(checkout: checkout, core: core);
+    addTearDown(target.dispose);
+    await target.refresh();
+    expect(target.refusedCommit!.commit, _refusedCommit);
+    expect(target.problem, contains('not an organization owner'));
+    expect(target.accepted, isNull);
+    expect(target.selectable, isEmpty);
+    expect(target.unavailable(const RegistryFiling(RegistryFilingKind.card)), isNotNull);
+  });
+
+  // Harm: a refused malformed key hides all cards or becomes available to an admission.
+  for (final key in ['ssh-rsa AAAAinvalid', '${_key('A')} comment', '', null]) {
+    test('a refused card with invalid key metadata remains visible and unavailable: $key', () async {
+      core.next = _answer(
+        people: [
+          _card('alice'),
+          _card('mallory', state: 'refused', why: 'invalid key')
+            ..['key'] = key
+            ..['fingerprint'] = null,
+        ],
+      );
+      await registry.refresh();
+      expect(registry.problem, isNull);
+      expect(registry.people.map((card) => card.login), ['alice', 'mallory']);
+      expect(registry.people.last.why, 'invalid key');
+      expect(registry.selectable.map((card) => card.login), ['alice']);
+      await expectLater(
+        registry.file(const RegistryFiling(RegistryFilingKind.hostAccess, host: 'walk9server', person: 'mallory')),
+        throwsA(isA<RegistryRefusal>()),
+      );
+      expect(core.filed, isEmpty);
+    });
+  }
+
+  // Harm: legitimate hyphenated identities disappear or invalid identities cross the Core boundary.
+  test('Core logins accept hyphens and reject characters outside the agreed grammar', () {
+    final answer = _answer(people: [_card('alice-smith')]);
+    answer['owners'] = [
+      {'login': 'alice-smith', 'fingerprint': _fingerprint('A')},
+    ];
+    answer['owners_signer'] = 'alice-smith';
+    final host = (answer['hosts'] as List).single as Map<String, dynamic>;
+    host['admins'] = ['alice-smith'];
+    (host['projects'] as List).single['admin'] = 'alice-smith';
+    expect(RegistryRead.from(answer).people.single.login, 'alice-smith');
+    for (final login in ['Alice', '1alice', 'alice.smith', 'alice_smith', 'a' * 33]) {
+      expect(() => RegistryRead.from(_answer(people: [_card(login)])), throwsFormatException, reason: login);
+    }
+  });
+
+  // Harm: an unassigned host has no contact for the owner who can assign its admins.
+  test('a host without admins falls back to registry owners and their contact addresses', () async {
+    final answer = _answer();
+    (answer['hosts'] as List).single['admins'] = <String>[];
+    core.next = answer;
+    await registry.refresh();
+    const filing = RegistryFiling(RegistryFilingKind.hostAccess, host: 'walk9server', person: 'bob');
+    expect(registry.whoMay(filing).map((who) => (who.login, who.email)), [('alice', 'alice@example.org')]);
   });
 
   // Harm: a list that differs from Core's verdict offers the wrong person or hides who signed the owners.
@@ -268,7 +395,7 @@ void main() {
     final filed = await registry.file(admitBob);
 
     expect(filed.revision, _second);
-    expect(core.calls, ['file ${checkout.folder}', 'publish', 'fetch', 'read ${checkout.folder}']);
+    expect(core.calls, ['prepare', 'file ${checkout.folder}', 'publish', 'fetch', 'read ${checkout.folder}']);
     expect(core.filed.single, same(admitBob));
   });
 
@@ -286,6 +413,7 @@ void main() {
     await Future.wait([change, refresh]);
 
     expect(core.calls, [
+      'prepare',
       'file ${checkout.folder}',
       'publish',
       'fetch',

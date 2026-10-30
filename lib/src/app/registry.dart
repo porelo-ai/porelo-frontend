@@ -150,8 +150,8 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
 
   /// Fetches the repository and publishes Core's answer once it is complete.
   ///
-  /// A refused fetch, an incomplete or unsupported answer, or a refused commit keeps the last accepted
-  /// state and says why in [problem]; nothing else replaces it.
+  /// A refused fetch or an incomplete answer keeps the last accepted state. Beside a refused commit,
+  /// Core supplies the verified state before it, including any newer accepted revocations.
   Future<void> refresh() => _oneAtATime(_readAgain);
 
   /// Why [filing] cannot be made now, or null when it can.
@@ -159,11 +159,11 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
 
   /// The owners or host admins who may make [filing], with the addresses their trusted cards give.
   ///
-  /// A host change names that host's admins; a card, or a host the registry does not list yet, names the
+  /// A host change names that host's admins; a card, or a host without assigned admins, names the
   /// registry's owners, who name the host admins in `owners.yml`.
   List<RegistryContact> whoMay(RegistryFiling filing) {
     final host = hosts.where((each) => each.host == filing.host).firstOrNull;
-    final logins = filing.kind != RegistryFilingKind.card && host != null
+    final logins = filing.kind != RegistryFilingKind.card && host != null && host.admins.isNotEmpty
         ? host.admins
         : [
             for (final owner in owners)
@@ -182,13 +182,22 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
     if (_whyNot(filing) case final reason?) throw RegistryRefusal(reason, whoMay: whoMay(filing));
     final RegistryFiled filed;
     try {
+      await checkout.prepareFiling();
       filed = await core.file(checkout.folder, filing);
+    } on WorkspaceRefused catch (refused) {
+      _problem = refused.words;
+      rethrow;
     } on FeatureNotSupported {
       throw const RegistryRefusal('Porelo on this computer cannot write the registry yet.');
     } on VarlinkException {
       throw RegistryRefusal('Porelo refused this registry change.', whoMay: whoMay(filing));
     }
-    await checkout.publish();
+    try {
+      await checkout.publish(filed.revision);
+    } on WorkspaceRefused catch (refused) {
+      _problem = refused.words;
+      rethrow;
+    }
     await _readAgain();
     return filed;
   });
@@ -231,27 +240,31 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
       return;
     }
     _refusedCommit = answer.refusedCommit;
+    _accepted = answer.revision == null ? null : answer;
     if (answer.refusedCommit case final refused?) {
-      // Core's answer is its last good state; one already shown is kept rather than replaced beside a refusal.
-      _accepted ??= answer;
       _problem =
           'Porelo refused commit ${refused.commit.substring(0, 12)} at ${refused.path}: ${refused.why} $_unchanged';
       return;
     }
-    _accepted = answer;
     _problem = null;
   }
 
-  static const _unchanged = 'The last accepted registry stays shown.';
+  String get _unchanged =>
+      _accepted == null ? 'No accepted registry is available yet.' : 'The last accepted registry stays shown.';
 
   String? _whyNot(RegistryFiling filing) {
     if (_accepted == null) return 'The registry has not been read yet.';
     if (_problem != null) return 'The newest registry state was not accepted. Refresh it before making a change.';
+    if (filing.kind != RegistryFilingKind.card && (filing.host == null || filing.host!.trim().isEmpty)) {
+      return 'Choose the host this change is for.';
+    }
     if (filing.kind == RegistryFilingKind.hostAccess && !hosts.any((host) => host.host == filing.host)) {
       return 'The registry lists no such host.';
     }
     final login = filing.person;
-    if (login == null) return null;
+    if (login == null) {
+      return filing.kind == RegistryFilingKind.hostAccess ? 'Choose a person whose card is in the registry.' : null;
+    }
     final card = people.where((card) => card.login == login).firstOrNull;
     if (card == null) return 'Choose a person whose card is in the registry.';
     if (card.refused) return 'Porelo refused the card of ${card.login}: ${card.why}';
