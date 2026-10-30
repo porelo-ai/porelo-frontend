@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:porelo_host/porelo_host.dart';
 
 import 'access_developers.dart';
@@ -6,6 +8,159 @@ import 'host_access.dart' show HostAdminIdentity;
 import 'host_access_contract.dart' show checkedRegistryRevision;
 import 'machines.dart';
 import 'registry.dart';
+import 'run_here.dart';
+
+/// Adapts the named Core commands while unserved trust and receipt reads stay in [ProjectAccessCore].
+class ProjectAccessCoreAdapter {
+  /// Uses the selected project's directory and an argument-list process runner.
+  ProjectAccessCoreAdapter({required this.directory, RunHere? run}) : _run = run ?? runHere;
+
+  /// The selected project's local working directory for Core's verification.
+  final String directory;
+  final RunHere _run;
+
+  /// Files one idempotent change, using the verified presence of a persons access file.
+  ///
+  /// Registration initializes absent access or adds the admin on this host. Removal
+  /// drops the person everywhere; locks apply to the whole project. Core owns ID
+  /// deduplication. A stale base rereads verified state and requires a new decision.
+  Future<String> file(ProjectAccessChange change, {required bool hasAccessFile}) async {
+    // Constructors are public; validate even requests that did not come from stored receipts.
+    checkAdminName(change.project);
+    checkAdminName(change.actor);
+    checkHostName(change.host);
+    final person = change.action == 'register' ? change.actor : change.person?.login;
+    if (person == null) throw const FormatException('Choose a project person.');
+    checkAdminName(person);
+    if (!RegExp(r'^[a-f0-9]{32}$').hasMatch(change.id)) {
+      throw const FormatException('Invalid project request ID.');
+    }
+    if (!const ['register', 'add', 'remove', 'lock', 'unlock'].contains(change.action)) {
+      throw const FormatException('Unknown project action.');
+    }
+    final action = change.action == 'register' ? (hasAccessFile ? 'add' : 'init') : change.action;
+    if (action != 'init') checkedRegistryRevision(change.baseRevision);
+    final result = await _run('porelo', [
+      'project',
+      'access',
+      action,
+      '--project',
+      change.project,
+      '--person',
+      person,
+      if (action == 'init' || action == 'add') ...['--host', change.host],
+      if (action != 'init') ...['--base', change.baseRevision],
+      '--id',
+      change.id,
+      '--json',
+    ], inDirectory: directory);
+    if (result.code == 65 && action != 'init') {
+      final current = await verify(change.project);
+      throw ProjectAccessConflict(change.baseRevision, current);
+    }
+    if (result.code != 0) throw const WorkspaceRefused('Core refused the project access change.');
+    final revision = _object(result.out)['revision'];
+    if (revision is! String) throw const FormatException('Core did not return an access revision.');
+    return checkedRegistryRevision(revision);
+  }
+
+  /// Reads the persons-form verification in this selected project's directory.
+  ///
+  /// Keeps every named field, including revoked persons with empty SSH and expiry.
+  /// Older access formats and roles outside `admin` and `developer` are refused.
+  Future<Map<String, Object?>> verify(String project) async {
+    checkAdminName(project);
+    final result = await _run('porelo', ['project', 'verify', '--json'], inDirectory: directory);
+    if (result.code != 0) throw const WorkspaceRefused('Core refused project verification.');
+    final value = _object(result.out);
+    if (value['project'] != project) throw const FormatException('The verified state names another project.');
+    _revision(value['commit']);
+    _revision(value['access_commit']);
+    final persons = value['persons'];
+    if (persons is! List) throw const FormatException('Core did not return persons-form access.');
+    final logins = <String>{};
+    final admins = <String>[];
+    final checkedPersons = <Map<String, Object?>>[];
+    for (final person in persons) {
+      if (person is! Map<String, dynamic> ||
+          person['login'] is! String ||
+          person['ssh'] is! String ||
+          person['expires'] is! String ||
+          person['locked'] is! bool ||
+          person['revoked'] is! bool) {
+        throw const FormatException('Invalid verified project person.');
+      }
+      final login = person['login'] as String;
+      checkAdminName(login);
+      if (!logins.add(login)) throw const FormatException('Duplicate verified project person.');
+      if (!const ['admin', 'developer'].contains(person['role'])) {
+        throw const FormatException('Core returned an unsupported project role.');
+      }
+      final hosts = _strings(person['hosts']);
+      for (final host in hosts) {
+        checkHostName(host);
+      }
+      if (person['revoked'] == true) {
+        if (person['ssh'] != '' || person['expires'] != '') {
+          throw const FormatException('A revoked person must have empty SSH and expiry.');
+        }
+      } else {
+        checkedEd25519(person['ssh'] as String);
+        if ((person['expires'] as String).isEmpty) throw const FormatException('Missing person expiry.');
+        if (person['role'] == 'admin' && person['locked'] == false) admins.add(login);
+      }
+      checkedPersons.add(Map.unmodifiable({...person, 'hosts': hosts}));
+    }
+    final answeredAdmins = _strings(value['admins']);
+    if (jsonEncode(answeredAdmins) != jsonEncode(admins)) {
+      throw const FormatException('Core returned inconsistent project admins.');
+    }
+    final signers = _strings(value['signers']);
+    for (final signer in signers) {
+      checkedEd25519(signer);
+    }
+    return Map.unmodifiable({
+      ...value,
+      'persons': List<Map<String, Object?>>.unmodifiable(checkedPersons),
+      'admins': answeredAdmins,
+      'certifiers': _strings(value['certifiers']),
+      'signers': signers,
+    });
+  }
+
+  static Map<String, dynamic> _object(String source) {
+    final value = jsonDecode(source);
+    if (value is! Map<String, dynamic>) throw const FormatException('Core did not return a JSON object.');
+    return value;
+  }
+
+  static void _revision(Object? value) {
+    if (value is! String) throw const FormatException('Missing verified project revision.');
+    checkedRegistryRevision(value);
+  }
+
+  static List<String> _strings(Object? value) {
+    if (value is! List || value.any((item) => item is! String)) {
+      throw const FormatException('Invalid verified project list.');
+    }
+    return List<String>.unmodifiable(value.cast<String>());
+  }
+}
+
+/// A stale access base requiring a fresh explicit decision, never an automatic retry.
+class ProjectAccessConflict extends WorkspaceRefused {
+  /// Retains the reread verified state for the next decision.
+  ProjectAccessConflict(this.baseRevision, this.current)
+    : super(
+        'Access changed from $baseRevision to ${current['access_commit']}. Review the refreshed state and choose again.',
+      );
+
+  /// The refused base revision.
+  final String baseRevision;
+
+  /// Core's fresh verification, including the current access revision.
+  final Map<String, Object?> current;
+}
 
 /// Core's current project-scoped card eligibility, including authorized key recovery.
 class ProjectPersonVerdict {
@@ -240,7 +395,7 @@ abstract interface class ProjectAccessCore {
   /// Signs once per request ID and rejects stale parents or authorization.
   ///
   /// Edits only the selected person's entry, preserving unrelated access settings.
-  /// Registration prepares the existing signed access state without a new grant.
+  /// Registration initializes absent persons access or adds the admin on the host.
   Future<String> file(ProjectAccessChange change);
 
   /// Checks whether this exact authorized request was already accepted by the remote.

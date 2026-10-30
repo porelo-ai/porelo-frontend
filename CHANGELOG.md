@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Project access adapts Core's person-based verification and idempotent access commands,
+  initializes first registration, and rereads stale access without automatically retrying an edit.
+
 - Project change receipts resolve uncertain filing by request ID, retain exact signed revisions,
   and offer scoped discard when superseded. Registration pins pending requests to the approved state,
   delivers again after confirmation, and permits newer access or identity revisions. Refusals name
