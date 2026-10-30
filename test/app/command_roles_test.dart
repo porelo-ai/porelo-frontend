@@ -208,6 +208,7 @@ void main() {
     };
     expect(privileged, <String, Role>{
       'project.server': Role.projectAdmin,
+      'project.developers': Role.projectAdmin,
       'project.takeOffServer': Role.hostAdmin,
       'machine.takeDown': Role.hostAdmin,
       'machine.saveTunnel': Role.hostAdmin,
@@ -309,6 +310,7 @@ void main() {
       'project.clear',
       'project.default',
       'project.delete',
+      'project.developers',
       'project.follow',
       'project.forge',
       'project.fromRepository',
