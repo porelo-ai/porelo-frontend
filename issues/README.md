@@ -34,6 +34,19 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: `host unlock` | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |
+| <a id="f276"></a>[F276](F276-The-VPN-The-CA-And-Per-Machine-Keys-Taken-Out.md) | L | [F270](README.md#f270), [F271](README.md#f271), [F272](README.md#f272), [F273](README.md#f273) | The VPN, the CA, the stops, per-machine keys and the project signing key taken out. |
+| <a id="f278"></a>[F278](F278-The-Machines-Projects-And-Forges-Pages.md) | L | — | The Machines, Projects and Forges pages as agreed on draft 2: lists of rows with ⋮, a page per item, filters, the default project. |
+| <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
+| <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
+| <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | [F269](README.md#f269), [F270](README.md#f270); porelo-host: registry intake | A server's card filed and deleted; project admins admitted, locked and removed from the registry. |
+| <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | *Register the project* at one click; developers added and removed by a pick from the registry. |
+| <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | M | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
+| <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | M | [F270](README.md#f270); porelo-host: person-started push and pull | The central push and pull started by a person, their token through the tunnel. |
+| <a id="f275"></a>[F275](F275-The-Sign-In-Says-Its-Flow.md) | S | porelo: `login.flow` in the agent API | The sign-in terminal says whether to paste a code or confirm on the device page. |
+| <a id="f277"></a>[F277](F277-Commits-Signed-With-The-Persons-Key.md) | M | porelo: signers with `cert-authority` and `valid-before` | Commits signed with the person's key through the agent, verified by the signers Core names. |
+| <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
+| <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -57,19 +70,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
-| <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
-| <a id="f270"></a>[F270](F270-One-Ssh-Tunnel-Per-Host-From-Its-Card.md) | M | porelo-host: sshd per person and the forge and Matrix sockets; porelo: `host unlock` | One SSH tunnel per host, written from its card, carrying forge, Matrix, Git and the daemon. |
-| <a id="f271"></a>[F271](F271-A-Host-Admin-Admits-From-The-Registry.md) | M | [F269](README.md#f269), [F270](README.md#f270); porelo-host: registry intake | A server's card filed and deleted; project admins admitted, locked and removed from the registry. |
-| <a id="f272"></a>[F272](F272-A-Project-Admin-Registers-And-Adds-From-The-Registry.md) | M | [F269](README.md#f269), [F271](README.md#f271) | *Register the project* at one click; developers added and removed by a pick from the registry. |
-| <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | S | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
-| <a id="f274"></a>[F274](F274-Push-And-Pull-With-The-Central-Forge-Started-By-A-Person.md) | S | [F270](README.md#f270); porelo-host: person-started push and pull | The central push and pull started by a person, their token through the tunnel. |
-| <a id="f275"></a>[F275](F275-The-Sign-In-Says-Its-Flow.md) | XS | porelo: `login.flow` in the agent API | The sign-in terminal says whether to paste a code or confirm on the device page. |
-| <a id="f276"></a>[F276](F276-The-VPN-The-CA-And-Per-Machine-Keys-Taken-Out.md) | M | [F270](README.md#f270), [F271](README.md#f271), [F272](README.md#f272), [F273](README.md#f273) | The VPN, the CA, the stops, per-machine keys and the project signing key taken out. |
-| <a id="f277"></a>[F277](F277-Commits-Signed-With-The-Persons-Key.md) | S | porelo: signers with `cert-authority` and `valid-before` | Commits signed with the person's key through the agent, verified by the signers Core names. |
-| <a id="f278"></a>[F278](F278-The-Hosts-Projects-And-Forges-Pages.md) | M | the operator's talk on the layout | Placeholder: the Hosts, Projects and Forges pages as agreed in the talk. |
-| <a id="f279"></a>[F279](F279-The-Walk-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One walk of the one-click flow from first start to first work. |
-| <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | S | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
 | <a id="f244"></a>[F244](F244-A-Bring-Reads-A-Private-Repository-With-The-Follows-Credential.md) | S | — | The bring's bundle clone reads a private repository with the vault entry the follow uses, through Core's credential helper. |
 | <a id="f245"></a>[F245](F245-The-Forge-Password-Kept-Only-Once-The-Forge-Took-It.md) | S | — | The lasting forge password checked for the forge's length, kept only after the forge set it, a refusal said in the forge's words. |
 | <a id="f246"></a>[F246](F246-The-Host-Collection-Where-Every-Account-Finds-It.md) | S | — | `up` installs the host collection read-only where every account finds it, so own-account bring and join run the version `up` ran. |
