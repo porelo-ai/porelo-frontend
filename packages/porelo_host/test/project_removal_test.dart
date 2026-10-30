@@ -24,11 +24,11 @@ master = sys.stdin.readline().rstrip('\n')
 if master != 'fixture-master':
     sys.exit(1)
 if sys.argv[1] == 'ls':
-    if sys.argv[-1] == 'shared':
+    if '-f' in sys.argv:
         if os.environ.get('FIXTURE_LIST_FAILURE'):
             sys.exit(74)
         if 'FIXTURE_ENTRY' in os.environ or os.environ.get('FIXTURE_READ_FAILURE'):
-            print('forge-central-token')
+            print('shared/forge-central-token')
     else:
         print('shared/')
     sys.exit(0)
@@ -82,12 +82,13 @@ sys.stdout.write(value + '\n')
     expect(result.stderr, isNot(contains('fixture-master')));
   });
 
-  // Harm: a project without repositories cannot be removed when an optional token is missing locally.
-  test('a missing central token sends no bytes and names the entry', () async {
+  // Harm: a successful empty feed lets removal start without its required central credential.
+  test('an absent central token refuses the feed and names how to add it', () async {
     final result = await run(feed());
+    expect(result.exitCode, isNot(0));
     expect(result.stdout, isEmpty);
-    expect(result.stderr, contains('has no entry shared/forge-central-token; nothing was sent.'));
-    expect(result.exitCode, 0, reason: 'the host decides whether it needed a token');
+    expect(result.stderr, contains('has no entry shared/forge-central-token'));
+    expect(result.stderr, contains('Add it in KeePassXC'));
   });
 
   // Harm: normalizing a multiline entry could feed a different credential or violate the host's stdin contract.
@@ -116,6 +117,9 @@ with open(os.environ['FIXTURE_OBSERVATION'], 'w') as out:
     json.dump({'input_matches': value == expected, 'input_empty': not value,
                'args': sys.argv[1:], 'terminal': os.isatty(0)}, out)
 code = int(os.environ.get('FIXTURE_REMOTE_CODE', '0'))
+if os.environ.get('FIXTURE_REQUIRES_TOKEN') and not value:
+    sys.stderr.write('porelo-host-project: shared/forge-central-token is required to remove central-forge repositories.\n')
+    sys.exit(65)
 if code:
     sys.stderr.write('porelo-host-project: no central home; its only copy stays.  \n')
 else:
@@ -142,6 +146,34 @@ sys.exit(code)
       replyDirectory: replies.path,
       ssh: ssh,
     );
+
+    // Harm: an unknown repository set must not bypass the local check and start root removal.
+    test('an unknown repository set still requires the token before SSH', () async {
+      final observation = '${scratch.path}/observation.json';
+      final result = await execute(command(), environment: {'FIXTURE_OBSERVATION': observation});
+      expect(await File(observation).exists(), isFalse, reason: 'SSH must never run after local refusal');
+      expect(result.exitCode, isNot(0));
+      expect(result.stdout, isEmpty);
+      expect(result.stderr, contains('has no entry shared/forge-central-token'));
+      expect(await File('${replies.path}/refusal').readAsString(), contains('Add it in KeePassXC'));
+    });
+
+    // Harm: a missing central credential must refuse before any root command runs on the host.
+    test('a project with central-forge repositories and no token entry starts no SSH', () async {
+      final observation = '${scratch.path}/observation.json';
+      final result = await execute(
+        command(),
+        environment: {'FIXTURE_OBSERVATION': observation, 'FIXTURE_REQUIRES_TOKEN': '1'},
+      );
+      expect(await File(observation).exists(), isFalse, reason: 'the host must not be asked whether it needs a token');
+      expect(result.exitCode, 1, reason: 'the local preflight refuses before the helper can exit 65');
+      expect(result.stdout, isEmpty);
+      expect(result.stderr, contains('has no entry shared/forge-central-token'));
+      final refusal = await File('${replies.path}/refusal').readAsString();
+      expect(refusal, contains('shared/forge-central-token'));
+      expect(refusal, contains('Add it in KeePassXC'));
+      expect(await File('${replies.path}/answer').readAsString(), isEmpty);
+    });
 
     // Harm: captured password prompts leave the terminal waiting without telling the person to type.
     test('a real terminal sees the master-password prompt before it supplies input', () async {
@@ -194,43 +226,36 @@ print(json.dumps({'prompt_before_input': prompt, 'code': child.returncode,
     });
 
     // Harm: a token in SSH arguments, a terminal stdin or an unpinned connection exposes the central forge.
-    for (final present in [true, false]) {
-      test('pipes ${present ? 'one token line' : 'no bytes when absent'} to pinned root SSH', () async {
-        const token = 'fixture-central-token';
-        final arguments = command();
-        final observation = '${scratch.path}/observation.json';
-        expect(arguments.join(' '), isNot(contains(token)));
-        final result = await execute(
-          arguments,
-          entry: present ? token : null,
-          environment: {'FIXTURE_OBSERVATION': observation},
-        );
-        expect(result.exitCode, 0);
-        final observed = jsonDecode(await File(observation).readAsString()) as Map;
-        expect(observed['input_matches'], isTrue);
-        expect(observed['input_empty'], !present);
-        expect(observed['terminal'], isFalse);
-        expect(observed['args'], [
-          ...pinnedHostSshOptions('${scratch.path}/known hosts', '${scratch.path}/rental key'),
-          '-o',
-          'ConnectTimeout=10',
-          '-T',
-          '--',
-          'root@10.73.7.1',
-          '/usr/local/sbin/porelo-host-project remove orchard',
-        ]);
-        for (final secret in [token, 'fixture-master']) {
-          expect('${observed['args']}${result.stdout}${result.stderr}', isNot(contains(secret)));
-          for (final file in replies.listSync().whereType<File>()) {
-            expect(await file.readAsString(), isNot(contains(secret)));
-          }
+    test('pipes one token line to pinned root SSH', () async {
+      const token = 'fixture-central-token';
+      final arguments = command();
+      final observation = '${scratch.path}/observation.json';
+      expect(arguments.join(' '), isNot(contains(token)));
+      final result = await execute(arguments, entry: token, environment: {'FIXTURE_OBSERVATION': observation});
+      expect(result.exitCode, 0);
+      final observed = jsonDecode(await File(observation).readAsString()) as Map;
+      expect(observed['input_matches'], isTrue);
+      expect(observed['input_empty'], isFalse);
+      expect(observed['terminal'], isFalse);
+      expect(observed['args'], [
+        ...pinnedHostSshOptions('${scratch.path}/known hosts', '${scratch.path}/rental key'),
+        '-o',
+        'ConnectTimeout=10',
+        '-T',
+        '--',
+        'root@10.73.7.1',
+        '/usr/local/sbin/porelo-host-project remove orchard',
+      ]);
+      for (final secret in [token, 'fixture-master']) {
+        expect('${observed['args']}${result.stdout}${result.stderr}', isNot(contains(secret)));
+        for (final file in replies.listSync().whereType<File>()) {
+          expect(await file.readAsString(), isNot(contains(secret)));
         }
-        expect(result.stdout, '{"project":"orchard","removed":true}\n');
-        expect(await File('${replies.path}/answer').readAsString(), result.stdout);
-        expect(await File('${replies.path}/refusal').readAsString(), isEmpty);
-        if (!present) expect(result.stderr, contains('has no entry shared/forge-central-token'));
-      });
-    }
+      }
+      expect(result.stdout, '{"project":"orchard","removed":true}\n');
+      expect(await File('${replies.path}/answer').readAsString(), result.stdout);
+      expect(await File('${replies.path}/refusal').readAsString(), isEmpty);
+    });
 
     // An existing but unusable token must never authorize tokenless removal.
     for (final failure in ['empty', 'unreadable', 'listing failed']) {
@@ -274,9 +299,10 @@ print(json.dumps({'prompt_before_input': prompt, 'code': child.returncode,
     }
 
     // Harm: a host's protection of a repository's only copy is lost or softened at the terminal boundary.
-    test('preserves the helper refusal and exit code with no local token', () async {
+    test('preserves the helper refusal and exit code after the local check', () async {
       final result = await execute(
         command(),
+        entry: 'fixture-central-token',
         environment: {'FIXTURE_OBSERVATION': '${scratch.path}/observation.json', 'FIXTURE_REMOTE_CODE': '65'},
       );
       const refusal = 'porelo-host-project: no central home; its only copy stays.  \n';

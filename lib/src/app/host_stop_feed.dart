@@ -2,7 +2,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 /// The command the stop's terminal runs on this desktop when the host takes its secrets from the person's file.
 ///
-/// The drive's login, where the host still names it, runs first in a terminal of its own on the host, as
+/// After the local entry check, the drive's login, where the host still names it, runs on the host as
 /// [driveHost] (the account, as today's stop). Then the file's lines for [needs], and for [keys], the vault entries
 /// `machine.yml` names, go on a pipe into `porelo-host-stop --stdin` as [host], with sudo for the root and legacy
 /// acts: the master password is typed once, here, and no secret reaches an argument, the far end's terminal or
@@ -95,15 +95,17 @@ List<String> hostStopFeedCommand({
   if (matrix && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
     throw FormatException('The project $project is not one this computer can let a host in for.');
   }
+  final secrets = fed.isEmpty
+      ? null
+      : SecretsFile(secretsFile, cli: cli).stopScripts(
+          host: secretsHost ?? project,
+          project: act == HostAct.root ? '' : project,
+          needs: fed,
+          keys: fed.contains('keys') ? keys : const [],
+          networkNumber: networkNumber,
+        );
   final feed = [
-    if (fed.isNotEmpty)
-      SecretsFile(secretsFile, cli: cli).stopLines(
-        host: secretsHost ?? project,
-        project: act == HostAct.root ? '' : project,
-        needs: fed,
-        keys: fed.contains('keys') ? keys : const [],
-        networkNumber: networkNumber,
-      ),
+    if (secrets != null) secrets.feed,
     if (matrix)
       r"printf 'matrix-token %s\n' "
           '"\$matrixtoken"',
@@ -115,6 +117,7 @@ List<String> hostStopFeedCommand({
       '${act == HostAct.ownAccount ? '' : '/usr/bin/sudo -n '}'
       '/usr/local/bin/porelo-host-stop --stdin ${[...fed, if (identities) 'identities', if (matrix) 'matrix-token'].join(' ')}';
   final script = [
+    if (secrets != null) secrets.check,
     if (matrix) ...[
       // The folder exists before anything can leave it behind; any end of the terminal takes it away.
       r'admitted="$(/usr/bin/mktemp -d)" || exit 1',
@@ -138,23 +141,27 @@ List<String> hostStopFeedCommand({
           '|| { echo "The admission held no registration token; nothing was sent." >&2; exit 1; }',
       r'/usr/bin/rm -rf -- "$admitted"',
     ],
-    // The drive's login keeps this terminal's echo: ssh hands its modes to the far end's terminal, whose own
-    // prompts show the e-mail and hide the password. Echo goes off the moment it ends, before the file is opened.
+    // SSH hands the terminal's modes to the drive's login, which shows the e-mail and hides the password.
     if (needs.contains('drive'))
-      '${sshLine([
+      '/usr/bin/stty echo 2>/dev/null || true\n${sshLine([
         '-t',
         '--',
         driveHost ?? host,
         inTheLoginShell(hostStopCommand(['drive'], email: email)),
       ])} || exit \$?',
-    // The forge's certificate request is public, asked of the host before the file is opened; the file's script signs it.
+    // Only the request can precede signing; the entry check has already succeeded locally.
     if (fed.contains('forge-certificate'))
       'request="\$(${sshLine(['-n', '-T', '--', host, '/usr/bin/sudo -n /usr/local/bin/porelo-host-stop --request'])})" '
           '|| { echo "The host gave no certificate request for its forge; nothing was sent." >&2; exit 1; }',
     if (caOut != null && fed.contains('forge-certificate')) 'caout=${quoteForAShell(caOut)}',
     '/usr/bin/stty -echo 2>/dev/null || true',
+    if (secrets != null) ...['stop_feed="\$(\n$feed\n)"', 'unset MASTER'],
     // A stop that takes no line still reads a pipe: an empty one.
-    '{\n${feed.isEmpty ? ':' : feed}\n} | ${sshLine(['-T', '--', host, stop])}',
+    '{\n${secrets != null
+        ? r'''printf '%s\n' "$stop_feed"'''
+        : feed.isEmpty
+        ? ':'
+        : feed}\n} | ${sshLine(['-T', '--', host, stop])}',
   ].join('\n');
   return _inACleanBash(script);
 }

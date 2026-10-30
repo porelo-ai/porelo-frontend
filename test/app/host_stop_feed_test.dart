@@ -13,6 +13,7 @@ import 'package:porelo_frontend/src/app/host_stop_feed.dart';
 
 /// The stop's terminal when the host takes its secrets from the person's file, on standard input.
 void main() {
+  group('entry preflight', _preflightTests);
   List<String> command({
     List<String> needs = const ['vault-new', 'wireguard'],
     List<String> keys = const [],
@@ -20,9 +21,12 @@ void main() {
     String ssh = '/usr/bin/ssh',
     String host = 'ubuntu@203.0.113.7',
     String? driveHost = 'porelo@203.0.113.7',
+    String secretsFile = '/home/person/Porelo/secrets.kdbx',
+    String cli = SecretsFile.keepassxcCli,
   }) => hostStopFeedCommand(
     act: HostAct.legacyUp,
-    secretsFile: '/home/person/Porelo/secrets.kdbx',
+    secretsFile: secretsFile,
+    cli: cli,
     project: 'checkout',
     needs: needs,
     keys: keys,
@@ -62,11 +66,12 @@ void main() {
   });
 
   // Harm: the forge signed for a request not its own, or the request read through the pipe that carries the secrets.
-  test('the forge\'s request is asked of the host before the file is opened, and only where it waits', () {
+  test('the forge\'s request follows the local check and precedes signing, only where it waits', () {
     final script = command(needs: ['forge-certificate']).last;
     final asked = script.indexOf('porelo-host-stop --request');
     expect(asked, greaterThan(-1));
-    expect(asked, lessThan(script.indexOf('/usr/bin/stty -echo')), reason: 'before the file is opened');
+    expect(asked, greaterThan(script.indexOf('read -rs')), reason: 'the file opens before any host command');
+    expect(asked, lessThan(script.indexOf('requests=()')), reason: 'the request precedes signing');
     expect(
       script.substring(0, asked),
       contains(" -n -T -- ubuntu@203.0.113.7 "),
@@ -93,10 +98,10 @@ void main() {
     expect(login, contains(' -t -- porelo@203.0.113.7 '), reason: 'the drive logs in as the account');
     expect(login, endsWith(' || exit \$?'), reason: 'a failed login sends nothing after it');
     expect(
-      script.indexOf('/usr/bin/stty -echo'),
+      script.lastIndexOf('/usr/bin/stty -echo'),
       greaterThan(script.indexOf(' -t ')),
       // ssh hands this terminal's modes to the far end's: with echo off there, the e-mail typed would not show.
-      reason: 'echo kept for the drive\'s login',
+      reason: 'echo is hidden again after the drive\'s login',
     );
     expect(script.substring(0, script.indexOf('--stdin')), contains('me@example.org'));
     expect(script.substring(script.indexOf('--stdin')), isNot(contains('drive')));
@@ -180,7 +185,7 @@ void main() {
     late String intoFile;
     late String still;
     setUp(() async {
-      home = await Directory(Platform.environment['HOME']!).createTemp('porelo-stop-feed-test-');
+      home = await Directory.systemTemp.createTemp('porelo-stop-feed-test-');
       got = path.join(home.path, 'got');
       calls = path.join(home.path, 'calls');
       intoFile = path.join(home.path, 'into');
@@ -261,24 +266,43 @@ void main() {
         }
       }
     });
-  }, skip: Platform.isWindows ? 'the feed runs bash, which only Linux has here' : null);
+  }, skip: Platform.isWindows ? 'the feed runs bash and chmod, which only Linux has here' : null);
 
   // Against the real keepassxc-cli: what reaches the far end is the lines and nothing else.
   // Harm: a Tresorit login that failed, and the secrets piped after it all the same.
-  test('a drive login that fails ends the terminal before the file is opened', () async {
-    final home = await Directory(Platform.environment['HOME']!).createTemp('porelo-stop-feed-test-');
+  test('a drive login that fails ends the terminal after the entry check and before the feed', () async {
+    final home = await Directory.systemTemp.createTemp('porelo-stop-feed-test-');
     addTearDown(() => home.delete(recursive: true));
     final calls = path.join(home.path, 'calls');
     final fakeSsh = await File(path.join(home.path, 'ssh')).writeAsString('#!/bin/sh\necho "\$@" >> $calls\nexit 3\n');
-    await Process.run('chmod', ['700', fakeSsh.path]);
-    final run = command(needs: ['drive', 'vault'], email: 'me@example.org', ssh: fakeSsh.path);
+    final database = await File(path.join(home.path, 'secrets.kdbx')).writeAsString('An encrypted database stand-in');
+    final cli = await File(path.join(home.path, 'keepassxc-cli')).writeAsString(r'''#!/usr/bin/python3 -I
+import sys
+sys.stdin.readline()
+if sys.argv[1] == 'ls' and sys.argv[-1].endswith('.kdbx'):
+    if '-f' in sys.argv: print('projects/checkout/vault-passphrase')
+elif sys.argv[1:5] == ['show', '-s', '-a', 'password'] and sys.argv[-1] == 'projects/checkout/vault-passphrase':
+    print('fixture-passphrase')
+else: sys.exit(1)
+''');
+    for (final program in [fakeSsh, cli]) {
+      expect((await Process.run('chmod', ['700', program.path])).exitCode, 0);
+    }
+    final run = command(
+      needs: ['drive', 'vault'],
+      email: 'me@example.org',
+      ssh: fakeSsh.path,
+      secretsFile: database.path,
+      cli: cli.path,
+    );
     final process = await Process.start(run.first, run.skip(1).toList());
+    process.stdin.writeln('fixture-master');
     await process.stdin.close();
     await process.stdout.drain<void>();
     await process.stderr.drain<void>();
     expect(await process.exitCode, 3, reason: 'the login\'s own exit');
     expect(await File(calls).readAsLines(), hasLength(1), reason: 'no second ssh, no pipe');
-  }, skip: Platform.isWindows ? 'the feed runs bash, which only Linux has here' : null);
+  }, skip: Platform.isWindows ? 'the feed runs bash and chmod, which only Linux has here' : null);
 
   group('run', () {
     final cli = Platform.environment['KEEPASSXC_CLI'] ?? SecretsFile.keepassxcCli;
@@ -419,5 +443,254 @@ void main() {
     test('refuses a host that is not one login at one address', () {
       expect(() => unlock(host: '-oProxyCommand=x'), throwsFormatException);
     });
+  });
+}
+
+void _preflightTests() {
+  late Directory scratch;
+  late String cli;
+  late String ssh;
+  late String database;
+  late String observation;
+  late Map<String, String> caEntries;
+  const entries = ['projects/demo/vault-passphrase', 'projects/demo/keys/forge', 'shared/forge-central-token'];
+
+  setUpAll(() async {
+    final key = await Process.run('/usr/bin/openssl', [
+      'genpkey',
+      '-algorithm',
+      'EC',
+      '-pkeyopt',
+      'ec_paramgen_curve:P-256',
+    ]);
+    expect(key.exitCode, 0);
+    final certificate = await Process.start('/usr/bin/openssl', [
+      'req',
+      '-x509',
+      '-new',
+      '-key',
+      '/dev/stdin',
+      '-subj',
+      '/CN=fixture',
+    ]);
+    final output = certificate.stdout.transform(utf8.decoder).join();
+    final errors = certificate.stderr.transform(utf8.decoder).join();
+    certificate.stdin.write(key.stdout);
+    await certificate.stdin.close();
+    expect(await certificate.exitCode, 0, reason: await errors);
+    caEntries = {
+      'hosts/demo/forge-ca-key': base64Encode(utf8.encode(key.stdout as String)),
+      'hosts/demo/forge-ca': base64Encode(utf8.encode(await output)),
+    };
+  });
+
+  setUp(() async {
+    scratch = await Directory.systemTemp.createTemp('stop-preflight-');
+    database = '${scratch.path}/secrets.kdbx';
+    await File(database).writeAsString('An encrypted database stand-in');
+    observation = '${scratch.path}/observation.json';
+    cli = '${scratch.path}/keepassxc-cli';
+    ssh = '${scratch.path}/ssh';
+    await File(cli).writeAsString(r'''#!/usr/bin/python3 -I
+import json, os, sys
+if sys.stdin.readline().rstrip('\n') != os.environ['FIXTURE_MASTER']: sys.exit(1)
+entries = json.loads(os.environ['FIXTURE_ENTRIES'])
+if sys.argv[1] == 'ls':
+    if '-f' in sys.argv:
+        if os.environ.get('FIXTURE_LIST_FAILURE'): sys.exit(74)
+        print('\n'.join(entries))
+    elif sys.argv[-1] != os.environ['FIXTURE_DATABASE']:
+        sys.exit(1)
+elif sys.argv[1] == 'show' and sys.argv[-1] in entries:
+    if '-s' in sys.argv:
+        if os.environ.get('FIXTURE_READ_FAILURE') in ['all', sys.argv[-1]]: sys.exit(74)
+        print(json.loads(os.environ['FIXTURE_VALUES']).get(sys.argv[-1], os.environ['FIXTURE_VALUE']))
+else:
+    sys.exit(1)
+''');
+    await File(ssh).writeAsString(r'''#!/usr/bin/python3 -I
+import base64, json, os, sys
+value = os.environ['FIXTURE_VALUE']
+encoded = base64.b64encode(value.encode()).decode()
+expected = f'vault {encoded}\nkey forge {value}\nforge-central-token {encoded}\n'
+with open(os.environ['FIXTURE_OBSERVATION'], 'w') as out:
+    json.dump({'input_matches': sys.stdin.read() == expected,
+        'secret_argument': any(value in arg or os.environ['FIXTURE_MASTER'] in arg for arg in sys.argv),
+        'terminal': os.isatty(0)}, out)
+''');
+    for (final program in [cli, ssh]) {
+      expect((await Process.run('/usr/bin/chmod', ['700', program])).exitCode, 0);
+    }
+  });
+  tearDown(() => scratch.delete(recursive: true));
+
+  Future<ProcessResult> run({
+    List<String> present = entries,
+    String? failure,
+    Map<String, String> values = const {},
+    String? unreadable,
+    List<String> needs = const ['vault', 'keys', 'forge-central-token'],
+    HostAct act = HostAct.ownAccount,
+  }) async {
+    final command = hostStopFeedCommand(
+      act: act,
+      secretsFile: database,
+      project: 'demo',
+      needs: needs,
+      keys: ['forge'],
+      ssh: ssh,
+      sshOptions: pinnedHostSshOptions('${scratch.path}/known_hosts', '${scratch.path}/identity'),
+      host: 'person@203.0.113.7',
+      cli: cli,
+      email: 'person@example.org',
+    );
+    final random = Random.secure();
+    String secret() => base64Encode(List.generate(24, (_) => random.nextInt(256)));
+    final master = secret();
+    final value = secret();
+    final process = await Process.start(
+      command.first,
+      command.skip(1).toList(),
+      environment: {
+        'FIXTURE_MASTER': master,
+        'FIXTURE_VALUE': value,
+        'FIXTURE_VALUES': jsonEncode(values),
+        'FIXTURE_ENTRIES': jsonEncode(present),
+        'FIXTURE_DATABASE': database,
+        'FIXTURE_OBSERVATION': observation,
+        if (failure == 'list') 'FIXTURE_LIST_FAILURE': '1',
+        if (failure == 'read' || unreadable != null) 'FIXTURE_READ_FAILURE': unreadable ?? 'all',
+      },
+      includeParentEnvironment: false,
+    );
+    final output = process.stdout.transform(utf8.decoder).join();
+    final errors = process.stderr.transform(utf8.decoder).join();
+    process.stdin.writeln(master);
+    await process.stdin.close();
+    final result = ProcessResult(process.pid, await process.exitCode, await output, await errors);
+    expect('${result.stdout}${result.stderr}'.contains(master), isFalse, reason: 'the master password stays hidden');
+    expect('${result.stdout}${result.stderr}'.contains(value), isFalse, reason: 'entry values stay hidden');
+    return result;
+  }
+
+  // Harm: a missing entry starts a host stop with an incomplete or empty secret feed.
+  for (final missing in entries) {
+    test('a missing $missing is named before any host stop starts', () async {
+      final result = await run(present: entries.where((entry) => entry != missing).toList());
+      expect(await File(observation).exists(), isFalse, reason: 'no host command before all entries exist');
+      expect(result.exitCode, isNot(0));
+      expect(result.stdout, isEmpty);
+      expect(result.stderr, contains(missing));
+      expect(result.stderr, contains('Add it in KeePassXC'));
+    });
+  }
+
+  // Harm: an unreadable file or value starts the host with no valid feed.
+  for (final failure in ['list', 'read']) {
+    test('a failed $failure starts no host stop', () async {
+      final result = await run(failure: failure);
+      expect(result.exitCode, isNot(0));
+      expect(await File(observation).exists(), isFalse);
+      expect(result.stdout, isEmpty);
+    });
+  }
+
+  // Harm: an existing but unusable value starts a stop and is misreported as an absent entry.
+  for (final entry in entries) {
+    for (final failure in ['empty', 'unreadable']) {
+      test('an $failure $entry names the problem and remedy before any SSH', () async {
+        final result = await run(
+          values: {if (failure == 'empty') entry: ''},
+          unreadable: failure == 'unreadable' ? entry : null,
+        );
+        expect(result.exitCode, isNot(0));
+        expect(await File(observation).exists(), isFalse);
+        expect(result.stdout, isEmpty);
+        expect(result.stderr, contains(entry));
+        expect(result.stderr, contains(failure == 'empty' ? 'empty' : 'could not be read'));
+        expect(result.stderr, contains('KeePassXC'));
+        expect(result.stderr, isNot(contains('has no entry')));
+      });
+    }
+  }
+
+  // Harm: a command preceding the secret pipe changes the host before bad input is refused.
+  for (final prelude in ['matrix-token', 'drive', 'forge-certificate']) {
+    test('bad base64 is refused before the $prelude host command', () async {
+      const entry = 'projects/demo/keys/forge';
+      final result = await run(act: HostAct.legacyUp, needs: ['keys', prelude], values: {entry: '%%% not base64'});
+      expect(result.exitCode, isNot(0));
+      expect(await File(observation).exists(), isFalse, reason: 'not even the host command preceding the pipe may run');
+      expect(result.stdout, isEmpty);
+      expect(result.stderr, contains(entry));
+      expect(result.stderr, contains('base64'));
+      expect(result.stderr, contains('KeePassXC'));
+    });
+  }
+
+  // Harm: a partial or unusable kept CA reaches the host request step or is replaced as though absent.
+  for (final entry in ['hosts/demo/forge-ca-key', 'hosts/demo/forge-ca']) {
+    for (final failure in ['missing', 'empty', 'unreadable', 'bad base64', 'bad PEM']) {
+      test('a CA entry that is $failure is refused before requesting certificates: $entry', () async {
+        final values = {...caEntries};
+        if (failure == 'empty') values[entry] = '';
+        if (failure == 'bad base64') values[entry] = '%%%';
+        if (failure == 'bad PEM') values[entry] = base64Encode(utf8.encode('invalid PEM'));
+        final result = await run(
+          act: HostAct.root,
+          needs: ['forge-certificate'],
+          present: caEntries.keys.where((key) => failure != 'missing' || key != entry).toList(),
+          values: values,
+          unreadable: failure == 'unreadable' ? entry : null,
+        );
+        expect(result.exitCode, isNot(0));
+        expect(await File(observation).exists(), isFalse, reason: 'CA validation must precede the request over SSH');
+        expect(result.stdout, isEmpty);
+        expect(result.stderr, contains(entry));
+        expect(result.stderr, contains('KeePassXC'));
+        if (failure != 'missing') expect(result.stderr, isNot(contains('has no entry')));
+      });
+    }
+  }
+
+  // Harm: an unusable CA allows host changes before its network restriction is checked.
+  test('a CA restricted to another network is refused before the host certificate request', () async {
+    final certificate = await Process.start('/usr/bin/openssl', [
+      'req',
+      '-x509',
+      '-new',
+      '-key',
+      '/dev/stdin',
+      '-subj',
+      '/CN=fixture',
+      '-addext',
+      'nameConstraints=critical,permitted;IP:10.73.7.0/255.255.255.0',
+    ]);
+    final output = certificate.stdout.transform(utf8.decoder).join();
+    final errors = certificate.stderr.transform(utf8.decoder).join();
+    certificate.stdin.write(utf8.decode(base64Decode(caEntries['hosts/demo/forge-ca-key']!)));
+    await certificate.stdin.close();
+    expect(await certificate.exitCode, 0, reason: await errors);
+    final result = await run(
+      act: HostAct.root,
+      needs: ['forge-certificate'],
+      present: caEntries.keys.toList(),
+      values: {...caEntries, 'hosts/demo/forge-ca': base64Encode(utf8.encode(await output))},
+    );
+    expect(result.exitCode, isNot(0));
+    expect(await File(observation).exists(), isFalse, reason: 'the CA must permit the chosen network before any SSH');
+    expect(result.stdout, isEmpty);
+    expect(result.stderr, contains('hosts/demo/forge-ca'));
+    expect(result.stderr, contains('network'));
+    expect(result.stderr, contains('KeePassXC'));
+  });
+
+  // Harm: the entry check consumes the only password, alters the feed, or exposes its values as arguments.
+  test('one master password checks every entry and feeds exactly the requested lines', () async {
+    final result = await run();
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+    final observed = jsonDecode(await File(observation).readAsString()) as Map;
+    expect(observed, {'input_matches': true, 'secret_argument': false, 'terminal': false});
+    expect(result.stdout, isEmpty);
   });
 }

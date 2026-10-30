@@ -152,10 +152,6 @@ done
   // Only the public request's key counts; its subject and extensions must not broaden the certificate's scope.
   static List<String> _forgeCertificate(String host, int networkNumber) => <String>[
     _certificateRequests,
-    'cakey64="\$(kp show -s -a password "\$file" ${_word(forgeCaKey(host))} 2>/dev/null || true)"',
-    'ca64="\$(kp show -s -a password "\$file" ${_word(forgeCa(host))} 2>/dev/null || true)"',
-    'if { [ -z "\$cakey64" ] && [ -n "\$ca64" ]; } || { [ -n "\$cakey64" ] && [ -z "\$ca64" ]; }; then '
-        'echo "\$file keeps only one of ${forgeCaKey(host)} and ${forgeCa(host)}; nothing was sent." >&2; exit 1; fi',
     // Made once, in this terminal, the first time a host asks: ten years, held to the VPN's names and addresses.
     r'''if [ -z "$cakey64" ]; then''',
     r'''  cakey="$(/usr/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 2>/dev/null)"''',
@@ -169,15 +165,7 @@ done
     '  { printf \'%s\\n%s\\n\' "\$MASTER" "\$(printf \'%s\\n\' "\$ca" | /usr/bin/base64 -w0)"; } | '
         '"\$cli" add -p "\$file" ${_word(forgeCa(host))} >/dev/null',
     '  echo "A lasting CA for $host is made, and kept in your secrets file." >&2',
-    r'''else''',
-    r'''  cakey="$(printf '%s' "$cakey64" | /usr/bin/base64 -d)"; ca="$(printf '%s' "$ca64" | /usr/bin/base64 -d)"''',
     r'''fi''',
-    // A migrated CA keeps its original subnet and must not sign for a newly selected one.
-    r'''constraints="$(printf '%s\n' "$ca" | /usr/bin/openssl x509 -noout -ext nameConstraints 2>/dev/null)"''',
-    r'''permitted_networks="$(printf '%s\n' "$constraints" | /usr/bin/awk '$1 == "Permitted:" { permitted=1; next } $1 == "Excluded:" { permitted=0 } permitted && $1 ~ /^IP:/ { print $1 }')"''',
-    "if [ -n \"\$permitted_networks\" ] && [[ \$'\\n'\"\$permitted_networks\"\$'\\n' != *\$'\\n'\"IP:10.73.$networkNumber.0/255.255.255.0\"\$'\\n'* ]]; then "
-        'echo "The kept CA does not permit this host network; remove the old entries so a new CA is made. Nothing was sent." >&2; exit 1; fi',
-    r'''unset cakey64 ca64 constraints permitted_networks''',
     _signRequest(networkNumber, 0, forgeName(host), 'forgecert'),
     _signRequest(networkNumber, 1, 'matrix.$host.porelo.internal', 'matrixcert'),
     r'''eforge="$(printf '%s\n%s\n%s\n' "$forgecert" "$matrixcert" "$ca" | /usr/bin/base64 -w0)"''',
@@ -206,6 +194,21 @@ done
   /// never sent. Every entry is read and encoded before the first line is written, so a missing one sends nothing
   /// and is named.
   String stopLines({
+    required String host,
+    required String project,
+    required List<String> needs,
+    List<String> keys = const [],
+    int networkNumber = 0,
+  }) {
+    final scripts = stopScripts(host: host, project: project, needs: needs, keys: keys, networkNumber: networkNumber);
+    return '${scripts.check}\n${scripts.feed}';
+  }
+
+  /// Builds a local entry check and its feed for the same terminal shell and master password.
+  ///
+  /// The caller runs `check` before any host command; it reads and validates every needed value for `feed`.
+  /// Certificate authorities may still be created by the feed when both of their entries are absent.
+  ({String check, String feed}) stopScripts({
     required String host,
     required String project,
     required List<String> needs,
@@ -244,8 +247,10 @@ done
     }
     if (keys.toSet().length != keys.length) throw const FormatException('A vault entry is named twice.');
     final reads = <String>[];
+    final signing = <String>[];
     final writes = <String>[];
     final variables = <String>[];
+    final entries = <String>[];
     var index = 0;
     for (final need in needs) {
       final path = switch (need) {
@@ -255,10 +260,11 @@ done
         _ => null,
       };
       if (path != null) {
+        entries.add(path);
         final variable = 'v${index++}';
         variables.addAll([variable, 'e$variable']);
         reads.addAll([
-          '$variable="\$(get ${_word(path)})"',
+          ..._readStopEntry(path, variable),
           // Encoded here, before any line goes: a failure later would leave the host a part of its feed.
           'e$variable="\$(printf \'%s\' "\$$variable" | /usr/bin/base64 -w0)"',
           'if [ -z "\$e$variable" ] || ! [[ "\$e$variable" =~ \$b64 ]]; then '
@@ -266,32 +272,34 @@ done
         ]);
         writes.add("printf '%s %s\\n' ${_word(need)} \"\$e$variable\"");
       } else if (need == 'forge-certificate') {
-        reads.addAll(_forgeCertificate(host, networkNumber));
+        reads.addAll(_checkForgeCa(host, networkNumber));
+        signing.addAll(_forgeCertificate(host, networkNumber));
         variables.addAll(['cakey', 'ca', 'forgecert', 'matrixcert', 'eforge', 'requests', 'csr', 'pem']);
         writes.add(r'''printf 'forge-certificate %s\n' "$eforge"''');
       } else {
         // Each entry kept base64 already, by prepareHost: checked as such, and sent as it is.
         for (final name in keys) {
+          entries.add(vaultKey(project, name));
           final variable = 'v${index++}';
           variables.add(variable);
-          reads.addAll([
-            '$variable="\$(get ${_word(vaultKey(project, name))})"',
-            'if [ -z "\$$variable" ] || ! [[ "\$$variable" =~ \$b64 ]]; then '
-                'echo "${vaultKey(project, name)} is not base64; nothing was sent." >&2; exit 1; fi',
-          ]);
+          reads.addAll([..._readStopEntry(vaultKey(project, name), variable, base64: true)]);
           writes.add("printf 'key %s %s\\n' ${_word(name)} \"\$$variable\"");
         }
       }
     }
-    return [
-      ..._opened,
-      ..._migrateEntries(host, project),
-      // Whole groups of four, padded at the end only: what the host decodes as it stands.
-      r"b64='^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'",
-      ...reads,
-      ...writes,
-      'unset MASTER ${variables.join(' ')}',
-    ].join('\n');
+    return (
+      check: [
+        ..._opened,
+        ..._migrateEntries(host, project),
+        _listEntries,
+        ..._requireEntries(entries),
+        // Whole groups of four, padded at the end only: what the host decodes as it stands.
+        r"b64='^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'",
+        ...reads,
+        'unset entries',
+      ].join('\n'),
+      feed: ['set -euo pipefail', ...signing, ...writes, 'unset MASTER ${variables.join(' ')}'].join('\n'),
+    );
   }
 
   /// The script that writes [project]'s vault passphrase as one line to standard output, which is the pipe to the
@@ -358,22 +366,21 @@ done
     ].join('\n');
   }
 
-  /// Writes the central forge token as one raw line, or names a missing entry and writes nothing.
+  /// Writes the required central forge token as one raw line after checking its entry locally.
+  ///
+  /// Take-off has no verified project repository list, so an absent or unusable entry refuses every removal.
   String projectRemovalTokenLine() => [
     ..._opened,
+    _listEntries,
+    ..._requireEntries([centralForgeToken]),
+    'unset entries',
     'unset token',
     // The sentinel preserves entry line breaks so a malformed value cannot become a different token.
     'if token="\$(kp show -s -a password "\$file" ${_word(centralForgeToken)} 2>/dev/null && printf \'.\')"; then',
     r'''  token="${token%.}"; token="${token%$'\n'}"''',
     '  if [ -z "\$token" ]; then echo "$centralForgeToken is empty; nothing was sent." >&2; exit 1; fi',
     'else',
-    r'''  groups="$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "$file")" || { echo "The secrets file could not be listed; nothing was sent." >&2; exit 1; }''',
-    r'''  if [[ $'\n'"$groups"$'\n' == *$'\nshared/\n'* ]]; then''',
-    r'''    entries="$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "$file" shared)" || { echo "The shared entries could not be listed; nothing was sent." >&2; exit 1; }''',
-    r"""    if [[ $'\n'"$entries"$'\n' == *$'\nforge-central-token\n'* ]]; then echo "shared/forge-central-token could not be read; nothing was sent." >&2; exit 1; fi""",
-    '  fi',
-    '  echo "\$file has no entry $centralForgeToken; nothing was sent." >&2',
-    '  unset MASTER; exit 0',
+    '  echo "$centralForgeToken could not be read; nothing was sent." >&2; exit 1',
     'fi',
     r'''if [[ "$token" == *$'\n'* || "$token" == *$'\r'* ]]; then''',
     '  echo "$centralForgeToken must hold one line; nothing was sent." >&2; exit 1',
@@ -382,6 +389,58 @@ done
     'fi',
     'unset MASTER token',
   ].join('\n');
+
+  static List<String> _readStopEntry(String entry, String variable, {bool base64 = false}) => [
+    '$variable="\$(kp show -s -a password "\$file" ${_word(entry)} 2>/dev/null && printf \'.\')" || { '
+        'echo "$entry could not be read; nothing was sent. Open it in KeePassXC and replace its password value." >&2; exit 1; }',
+    '$variable="\${$variable%.}"; $variable="\${$variable%\$\'\\n\'}"',
+    'if [ -z "\$$variable" ]; then echo "$entry is empty; nothing was sent. Set its password value in KeePassXC." >&2; exit 1; fi',
+    if (base64)
+      'if [ -z "\$$variable" ] || ! [[ "\$$variable" =~ \$b64 ]]; then '
+          'echo "$entry is not base64; nothing was sent. Replace its password value with base64 in KeePassXC." >&2; exit 1; fi',
+  ];
+
+  static List<String> _checkForgeCa(String host, int networkNumber) => [
+    'cakey64=; ca64=; cakey=; ca=',
+    "if [[ \$'\\n'\"\$entries\"\$'\\n' == *\$'\\n'${_word(forgeCaKey(host))}\$'\\n'* || "
+        "\$'\\n'\"\$entries\"\$'\\n' == *\$'\\n'${_word(forgeCa(host))}\$'\\n'* ]]; then",
+    ..._requireEntries([forgeCaKey(host), forgeCa(host)]),
+    ..._readStopEntry(forgeCaKey(host), 'cakey64', base64: true),
+    ..._readStopEntry(forgeCa(host), 'ca64', base64: true),
+    r'''cakey="$(printf '%s' "$cakey64" | /usr/bin/base64 -d)"''',
+    r'''ca="$(printf '%s' "$ca64" | /usr/bin/base64 -d)"''',
+    r'''cakey_public="$(printf '%s\n' "$cakey" | /usr/bin/openssl pkey -pubout 2>/dev/null)" || { '''
+        'echo "${forgeCaKey(host)} is not a valid CA key; nothing was sent. Restore its base64 PEM value in KeePassXC." >&2; exit 1; }',
+    r'''ca_public="$(printf '%s\n' "$ca" | /usr/bin/openssl x509 -noout -pubkey 2>/dev/null)" || { '''
+        'echo "${forgeCa(host)} is not a valid CA certificate; nothing was sent. Restore its base64 PEM value in KeePassXC." >&2; exit 1; }',
+    r'''if [ "$cakey_public" != "$ca_public" ]; then '''
+        'echo "${forgeCaKey(host)} and ${forgeCa(host)} do not match; nothing was sent. Restore the matching CA entries in KeePassXC." >&2; exit 1; fi',
+    'unset cakey_public ca_public',
+    // A migrated CA keeps its original subnet and must not sign for a newly selected one.
+    r'''constraints="$(printf '%s\n' "$ca" | /usr/bin/openssl x509 -noout -ext nameConstraints 2>/dev/null)"''',
+    r'''permitted_networks="$(printf '%s\n' "$constraints" | /usr/bin/awk '$1 == "Permitted:" { permitted=1; next } $1 == "Excluded:" { permitted=0 } permitted && $1 ~ /^IP:/ { print $1 }')"''',
+    "if [ -n \"\$permitted_networks\" ] && [[ \$'\\n'\"\$permitted_networks\"\$'\\n' != *\$'\\n'\"IP:10.73.$networkNumber.0/255.255.255.0\"\$'\\n'* ]]; then "
+        'echo "${forgeCa(host)} does not permit this host network; remove the old entries so a new CA is made, using KeePassXC. Nothing was sent." >&2; exit 1; fi',
+    r'''unset constraints permitted_networks''',
+    'fi',
+  ];
+
+  static const _listEntries =
+      r'''entries="$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q -R -f "$file")" || { echo "The secrets file could not be listed; nothing was sent." >&2; exit 1; }''';
+
+  static List<String> _requireEntries(List<String> required) => [
+    if (required.isNotEmpty) ...[
+      'missing=no',
+      for (final entry in required) ...[
+        "if [[ \$'\\n'\"\$entries\"\$'\\n' != *\$'\\n'${_word(entry)}\$'\\n'* ]]; then",
+        '  echo "\$file has no entry $entry; nothing was sent. Add it in KeePassXC under that entry name." >&2',
+        '  missing=yes',
+        'fi',
+      ],
+      r'[ "$missing" = no ] || exit 1',
+      'unset missing',
+    ],
+  ];
 
   /// The script's start: no echo, `get` for an entry, and the master password asked and checked against the file.
   List<String> get _opened => [

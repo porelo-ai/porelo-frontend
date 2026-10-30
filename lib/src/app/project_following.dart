@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_host/porelo_host.dart' show quoteForAShell;
 
 import 'fleet_backend.dart';
 
@@ -40,7 +41,7 @@ class ProjectFollowing extends ChangeNotifier {
   /// Whether the machine is being asked right now.
   bool busy = false;
 
-  /// Why it could not be asked at all, in words.
+  /// Progress while following, or why it could not finish, in words.
   String? problem;
 
   FleetBackend? _backend;
@@ -88,19 +89,28 @@ class ProjectFollowing extends ChangeNotifier {
 
   /// Follows it. With [acceptRewrite], a person's answer to a rewritten history — never a retry.
   ///
-  /// **The credential is asked about first**, without touching the network, so a follow that could
-  /// only fail is never sent: the check says what is missing and the way out of it.
+  /// Checks declared credentials first, without touching the network. HTTPS with no credential
+  /// record is tried by the follow itself, since the offline check cannot know whether it is public.
   Future<void> follow({bool acceptRewrite = false}) async {
     final backend = _backend;
-    if (backend == null || !ready) return;
+    if (backend == null || !ready || busy) return;
     busy = true;
-    problem = null;
+    check = null;
+    problem = 'Following the project…';
     notifyListeners();
     try {
       if (!acceptRewrite) {
         answer = null;
         check = await _checked(backend);
-        if (held) return;
+        if (check != null && check!.outcome.trim().isEmpty) {
+          check = null;
+          problem = 'The machine returned no credential-check outcome; nothing was followed. Try again.';
+          return;
+        }
+        if (held) {
+          problem = null;
+          return;
+        }
       }
       answer = await backend.follow(
         name.trim(),
@@ -109,6 +119,9 @@ class ProjectFollowing extends ChangeNotifier {
         unverified: checking == Checking.unverified ? true : null,
         acceptRewrite: acceptRewrite ? true : null,
       );
+      problem = answer!.outcome.trim().isEmpty
+          ? 'The machine returned no follow outcome; following is not confirmed. Try again.'
+          : null;
     } on VarlinkException catch (refusal) {
       final said = refusal.parameters['message'];
       problem = said is String && said.isNotEmpty ? said : 'Refused: ${refusal.simpleName}.';
@@ -116,6 +129,8 @@ class ProjectFollowing extends ChangeNotifier {
       problem = 'Lost contact with the machine: ${ex.message}';
     } on FeatureNotSupported catch (ex) {
       problem = '$ex';
+    } catch (_) {
+      problem = 'The project could not be followed; following is not confirmed. Try again.';
     } finally {
       busy = false;
       notifyListeners();
@@ -125,7 +140,13 @@ class ProjectFollowing extends ChangeNotifier {
   /// A Porelo without the check is not a reason to stop: the follow itself still says what is wrong.
   Future<CredentialChecked?> _checked(FleetBackend backend) async {
     try {
-      return await backend.credentialCheck(url.trim());
+      final checked = await backend.credentialCheck(url.trim());
+      if (Uri.tryParse(url.trim())?.scheme == 'https' &&
+          checked.connection.id.isEmpty &&
+          const {'NO_CREDENTIAL', 'VAULT_LOCKED'}.contains(checked.outcome)) {
+        return null;
+      }
+      return checked;
     } on FeatureNotSupported {
       return null;
     }
@@ -168,15 +189,27 @@ class ProjectFollowing extends ChangeNotifier {
   }
 
   /// What the check found, in one line, before the machine's own sentence.
-  String get checkWords => switch (check?.outcome) {
-    'NO_CREDENTIAL' => 'Nothing on this machine is set up to reach this address.',
-    'VAULT_LOCKED' => 'The credential for this address is in the vault, and the vault is shut.',
-    'MISSING_VALUE' => 'A connection for this address is set up, and its value is not there.',
-    'UNUSABLE_VALUE' => 'A connection for this address is set up, and its value cannot be used.',
-    'EXPIRED' => 'The token for this address has expired.',
-    null => '',
-    final other => other.toLowerCase().replaceAll('_', ' '),
-  };
+  String get checkWords {
+    final checked = check;
+    if (checked == null) return '';
+    final why = switch (checked.outcome) {
+      'NO_CREDENTIAL' => 'Nothing on this machine is set up to reach this address.',
+      'VAULT_LOCKED' => 'The credential for this address is in the vault, and the vault is shut.',
+      'MISSING_VALUE' => 'A connection for this address is set up, and its value is not there.',
+      'UNUSABLE_VALUE' => 'A connection for this address is set up, and its value cannot be used.',
+      'EXPIRED' => 'The token for this address has expired.',
+      final other => other.toLowerCase().replaceAll('_', ' '),
+    };
+    return [
+      why,
+      if (checked.connection.id.isNotEmpty) 'The credential is ${checked.connection.id}.',
+      if (checked.storeCommand.isNotEmpty)
+        if (checked.storeStdin.isEmpty)
+          'Add it on that machine with: ${checked.storeCommand.map(quoteForAShell).join(' ')}'
+        else
+          'The value must be piped in: ${checked.storeStdin}.',
+    ].join(' ');
+  }
 
   /// Puts it away.
   void letItBe() {

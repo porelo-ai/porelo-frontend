@@ -32,7 +32,7 @@ Future<int> _executeRemoval(
 import os, sys
 master = sys.stdin.readline().rstrip('\\n')
 if master != 'fixture-master': sys.exit(1)
-if sys.argv[1] == 'ls': print('shared/')
+if sys.argv[1] == 'ls': print('shared/forge-central-token' if '-f' in sys.argv else 'shared/')
 else: print(os.environ['FIXTURE_TOKEN'])
 ''');
   ssh.writeAsStringSync('''#!/usr/bin/python3 -I

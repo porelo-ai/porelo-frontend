@@ -259,7 +259,15 @@ class _WhatCameOfIt extends StatelessWidget {
       children: <Widget>[
         Text(answer.words, key: const Key('follow-says')),
         if (answer.signer.isNotEmpty) SelectableText('Signed by ${answer.signer}', style: text.bodySmall),
-        if (answer.detail.isNotEmpty) Text(answer.detail, style: text.bodySmall),
+        if (answer.detail.isNotEmpty || answer.storeCommand.isNotEmpty)
+          Text(
+            [
+              if (answer.detail.isNotEmpty) answer.detail,
+              if (answer.storeCommand.isNotEmpty && !answer.detail.contains(answer.storeCommand))
+                'Add it on that machine with: ${answer.storeCommand}',
+            ].join(' '),
+            style: text.bodySmall,
+          ),
         if (answer.outcome == 'REWRITTEN')
           Text(
             'This is its owner rebasing, or somebody serving an older signed configuration to put '

@@ -87,7 +87,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   no key remains on the old drive. Legacy links and directories reach the migration refusal before any write.
   Late terminal answers cannot change settings or keys for edited inputs; selecting text preserves a refusal.
   Input identity uses names and paths without probing files; a file changed during opening produces a visible refusal.
-- Project removal validates the secrets file and optional central token before starting the remote helper.
+- Project removal requires `shared/forge-central-token` before starting SSH. A missing entry refuses locally
+  and names how to add it in KeePassXC; take-off has no verified repository list to exempt repository-less projects.
 - Recovery actions in Machines use the desktop terminal opener for local VPN cleanup.
 - Server-only preparation keeps project secrets and this account's homeserver private; migrated CAs refuse
   signing outside their permitted network, and forge password terminals hide input before starting SSH.
@@ -168,7 +169,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Taking a project off a prepared server opens the admin's terminal and pipes the central forge token from the
-  secrets file to the host, where needed to protect the repositories' central copies; a missing entry sends nothing.
+  secrets file to the host to protect the repositories' central copies; a missing entry refuses before SSH starts.
 
 - The Linux packages require KeePassXC (`keepassxc-minimal` or `keepassxc`) and `wireguard-tools`, the programs the
   interface runs for a person's secrets file and for a server's VPN.

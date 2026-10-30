@@ -3,7 +3,7 @@ import 'secrets_file.dart';
 import 'server_contract.dart';
 import 'ssh.dart';
 
-/// Runs project removal in the admin's terminal, piping the optional token only to SSH's stdin.
+/// Runs project removal in the admin's terminal after checking its token, piping it only to SSH's stdin.
 /// Public local refusals and the helper's reply are written in [replyDirectory].
 List<String> projectRemovalFeedCommand({
   required String project,
