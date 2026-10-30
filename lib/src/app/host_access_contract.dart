@@ -95,7 +95,7 @@ class HostRegistryChange {
       throw const FormatException('Choose a host membership.');
     }
     final card = value['card'] == null ? null : PreparedHost.read(value['card']);
-    if (action == 'host-card' && (card == null || !card.sshOnly || card.values['name'] != host)) {
+    if (action == 'host-card' && (card == null || card.values['name'] != host)) {
       throw const FormatException('Choose the completed SSH host card.');
     }
     return HostRegistryChange(
@@ -232,7 +232,7 @@ class HostRegistryProgress {
         uploaded && !published ||
         delivery != null && (intended == null || !published || publicationOnly) ||
         confirmed != null && (confirmed != (delivery ?? intended) || !published || !publicationOnly && !uploaded) ||
-        publishedCard != null && (!publishedCard.sshOnly || publishedCard.values['name'] != change.host) ||
+        publishedCard != null && (publishedCard.values['name'] != change.host) ||
         words != null && words is! String) {
       throw const FormatException('Invalid host registry progress ordering.');
     }

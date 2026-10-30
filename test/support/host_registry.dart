@@ -16,7 +16,7 @@ Map<String, Object?> sshCompletion() => {
   'name': 'orchard',
   'address': '203.0.113.7',
   'ssh_port': 22,
-  'host_key': hostKey,
+  'ssh_host_key': hostKey,
   'services': {
     'forge': {'web_port': 3000, 'git_port': 3001},
     'matrix': {'port': 8448},

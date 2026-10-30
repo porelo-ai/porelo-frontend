@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'dart:async';
 
-import 'package:porelo_host/porelo_host.dart' show SecretsFile;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
@@ -704,7 +701,6 @@ List<Command> projectCommands({
           : project.name == defaultProject
           ? 'default is this machine\'s own: it goes on no server'
           : _setupAgainUnavailable(hostRuns, project.name) ??
-                noSecretsFileHere(desk) ??
                 (putOnAServer == null ? 'project placement needs Linux and a pinned own-account SSH connection' : null),
     ),
     takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
@@ -717,8 +713,6 @@ List<Command> projectCommands({
       unavailable:
           noFile ??
           (isDefault ? 'default belongs to this machine' : null) ??
-          noSecretsFileHere(desk) ??
-          keepassxcCliMissing() ??
           (joinOnItsHost == null ? 'joining needs Linux and your own host keys' : null),
     ),
     Command(
@@ -737,10 +731,9 @@ List<Command> projectCommands({
   ].map((command) => command.unless(notAnswering(fleet))).toList();
 }
 
-/// Offers the root removal helper only to the host admin holding the target host's record, and not while [busy]
-/// says why that server's own setup holds it.
+/// Offers registry removal when its adapter is available and setup is idle.
 Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String? busy}) {
-  const fromServerMenu = 'the host admin takes it off from the server’s menu (Take the project off)';
+  const fromServerMenu = 'a host admin removes the project from the registry host access list';
   return Command(
     id: 'project.takeOffServer',
     role: Role.hostAdmin,
@@ -754,32 +747,12 @@ Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String?
         ? 'default is this machine’s own'
         : !roles.holds(Role.hostAdmin)
         ? fromServerMenu
-        : busy ?? (run == null ? fromServerMenu : null),
+        : busy ??
+              (run == null
+                  ? 'Taking a project off its server requires registry removal, which is not available yet.'
+                  : null),
   );
 }
-
-/// Repeats the verified local VPN setup for an existing host whose ping failed.
-Command bringHostVpnUpAgainCommand({required VoidCallback run, String? unavailable}) => Command(
-  id: 'host.vpnAgain',
-  role: Role.hostAdmin,
-  label: 'Bring the VPN up again',
-  group: 'Machine',
-  home: Home.attentionRow,
-  run: run,
-  unavailable: unavailable,
-);
-
-/// Finishes local tunnel cleanup after a server has been given back.
-Command takeGivenBackVpnDownCommand({required VoidCallback run, String? unavailable, Home home = Home.attentionRow}) =>
-    Command(
-      id: 'host.vpnCleanup',
-      role: Role.hostAdmin,
-      label: 'Take the VPN down',
-      group: 'Machine',
-      home: home,
-      run: run,
-      unavailable: unavailable,
-    );
 
 /// Opens server preparation from the title bar's Machines group.
 Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Command(
@@ -796,26 +769,6 @@ Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Comman
   unavailable: access == null
       ? 'The verified host admins are unavailable.'
       : access.unavailable() ?? (open == null ? 'server preparation is unavailable here' : null),
-);
-
-/// Copies one public host value in the project admins panel.
-Command copyHostValueCommand(String name, VoidCallback copy) => Command(
-  id: 'host.copy $name',
-  role: Role.hostAdmin,
-  label: 'Copy $name',
-  group: 'For the project admins',
-  home: Home.openedView,
-  run: copy,
-);
-
-/// Copies only this laptop's public keys after choosing the host they belong to.
-Command copyJoinKeysCommand({VoidCallback? open}) => Command(
-  id: 'host.copyMyKeys',
-  label: 'Copy my public keys for a host…',
-  group: 'Machines',
-  home: Home.appBar,
-  run: open ?? () {},
-  unavailable: open == null ? 'host keys need the system secret store on Linux' : null,
 );
 
 /// The checked helpers and public handover values belonging to a prepared host.
@@ -835,8 +788,7 @@ List<Command> preparedHostCommands({
           ? 'The verified host admins are unavailable.'
           : hostRuns!.hostAccess!.unavailable(machine.hostProject)) ??
       _setupAgainUnavailable(hostRuns, machine.hostProject) ??
-      (record?.preparing == true || record?.preparedHost == null ? 'complete the server setup first' : null) ??
-      (machine.identity.isEmpty ? 'the rental SSH key was not kept' : null);
+      (record?.preparing == true || record?.preparedHost == null ? 'complete the server setup first' : null);
   return [
     Command(
       id: 'host.adminValues',
@@ -891,16 +843,12 @@ List<Command> preparedHostCommands({
   ];
 }
 
-/// The host's lifecycle, local VPN and project room, sharing the machine's home.
+/// The host's confirmed rental lifecycle.
 List<Command> hostMachineCommands({
   required Machine machine,
   required Settings settings,
   HostRuns? hostRuns,
   required VoidCallback takeDown,
-  VoidCallback? saveTunnel,
-  VoidCallback? bringVpnUp,
-  VoidCallback? takeVpnDown,
-  bool? vpnLinkUp = false,
 }) => [
   if (machine.kind == 'host') ...[
     Command(
@@ -918,45 +866,6 @@ List<Command> hostMachineCommands({
               ? 'nothing was kept from putting it on a server; use Put this project on a server…'
               : null),
     ),
-    Command(
-      id: 'machine.saveTunnel',
-      role: Role.hostAdmin,
-      label: 'Save the VPN connection for another device…',
-      group: 'Machine',
-      home: Home.machineMenu,
-      run: saveTunnel ?? () {},
-      unavailable: settings.hostUp(machine.hostProject) == null
-          ? 'no host setup was kept; use Put this project on a server…'
-          : saveTunnel == null
-          ? 'not offered here'
-          : null,
-    ),
-    if (vpnLinkUp != true)
-      Command(
-        id: 'machine.vpnUp',
-        role: Role.hostAdmin,
-        label: 'Bring the VPN up',
-        group: 'Machine',
-        home: Home.machineMenu,
-        run: bringVpnUp ?? () {},
-        unavailable: vpnLinkUp == null
-            ? 'the local VPN interface has not been checked; refresh Machines'
-            : settings.hostUp(machine.hostProject)?.vpnHostPublicKey.isNotEmpty != true
-            ? 'complete the server setup first'
-            : bringVpnUp == null
-            ? 'not offered here'
-            : null,
-      ),
-    if (vpnLinkUp == true)
-      Command(
-        id: 'machine.vpnDown',
-        role: Role.hostAdmin,
-        label: 'Take the VPN down',
-        group: 'Machine',
-        home: Home.machineMenu,
-        run: takeVpnDown ?? () {},
-        unavailable: takeVpnDown == null ? 'not offered here' : null,
-      ),
   ],
 ];
 
@@ -1264,7 +1173,6 @@ List<Command> commandsFor({
   VoidCallback? putOnAServer,
   VoidCallback? openDevelopers,
   VoidCallback? joinOnItsHost,
-  VoidCallback? copyMyHostKeys,
   VoidCallback? takeOffServer,
   String? takeOffServerBusy,
   VoidCallback? startTheAgents,
@@ -1321,7 +1229,6 @@ List<Command> commandsFor({
       run: watchAnotherMachine,
     ),
     prepareServerCommand(open: prepareServer),
-    copyJoinKeysCommand(open: copyMyHostKeys),
     Command(
       id: 'appearance.light',
       label: 'Appearance: light',
@@ -1570,27 +1477,6 @@ String describeShortcut(SingleActivator shortcut) {
   return parts.join('+');
 }
 
-/// Whether `keepassxc-cli` is there now; the tests stand in for it.
-bool Function() keepassxcCliThere = () => File(SecretsFile.keepassxcCli).existsSync();
-
-/// Whether this computer has the `keepassxc-cli` that opens the secrets file: read when the interface starts, and
-/// again where the person asks to open the file, so one installed meanwhile counts at once. The interface's package
-/// brings it; a build run from its sources does not. The tests set it.
-bool keepassxcCliIsHere = keepassxcCliThere();
-
-/// What is said where keepassxc-cli is not there, before a terminal asks a master password it cannot use; null where
-/// it is. Asked through [keepassxcCliThere], so a test stands it in.
-String? keepassxcCliMissing() => keepassxcCliThere() ? null : SecretsFile.cliMissing();
-
-/// Why a server cannot be set up from [here], or null: a server takes its secrets from the person's secrets file,
-/// which this interface opens with the `keepassxc-cli` it brings only on Linux so far.
-String? noSecretsFileHere(Desk here) => here.isWindows
-    ? 'a server takes its keys from your secrets file, which this interface opens only on Linux so far'
-    : keepassxcCliIsHere
-    ? null
-    : 'a server takes its keys from your secrets file, which needs KeePassXC\'s command line: install it, in a '
-          'terminal of your own, with sudo apt install keepassxc-minimal';
-
 /// Opens the dialog for completing a host setup stop.
 Command hostPreparationCommand({
   required String project,
@@ -1664,6 +1550,29 @@ List<Command> hostRecoveryCommands({
   required VoidCallback goOn,
   required VoidCallback takeDown,
 }) {
+  if (run.legacy) {
+    return [
+      Command(
+        id: 'host.again',
+        role: Role.hostAdmin,
+        label: 'Set it up again',
+        group: run.name,
+        home: Home.machineRow,
+        run: goOn,
+        unavailable:
+            run.lockProblem ?? (run.running ? 'the host command is still running' : run.replacementUnavailable),
+      ),
+      Command(
+        id: 'host.takeDown',
+        role: Role.hostAdmin,
+        label: 'Give the server back',
+        group: run.name,
+        home: Home.machineRow,
+        run: takeDown,
+        unavailable: run.lockProblem ?? (run.running ? 'the host command is still running' : null),
+      ),
+    ];
+  }
   final resume = resumeHostPreparationCommand(run: run, resume: goOn, home: Home.machineRow);
   return [
     resume,
@@ -1692,13 +1601,12 @@ Command resumeHostPreparationCommand({
   home: home,
   run: resume,
   unavailable:
+      (run.legacy ? 'this rental needs setup again through signed state' : null) ??
       run.lockProblem ??
       (run.running
           ? 'the host command is still running'
           : run.ready && !run.needsYou && !run.interrupted || run.givenBack
           ? 'preparation has ended'
-          : run.awaitingVpn
-          ? 'setup waits for the VPN on this computer'
           : null),
 );
 
@@ -1716,17 +1624,6 @@ Command setScalewayKeyCommand({required VoidCallback run, bool checking = false}
 /// Opens the selected project's existing work under Work.
 Command projectWorkCommand({required VoidCallback open}) =>
     Command(id: 'project.itsWork', label: 'Its work, under Work', group: 'Project', home: Home.startTile, run: open);
-
-/// Repeats the local check after remote setup has completed.
-Command setupHostVpnCommand({required VoidCallback run, required bool alreadyOpen}) => Command(
-  id: 'host.vpnUp',
-  role: Role.hostAdmin,
-  label: 'Bring the VPN up',
-  group: 'Machine',
-  home: Home.machineRow,
-  run: run,
-  unavailable: alreadyOpen ? 'the VPN terminal is already open' : null,
-);
 
 /// Opens an item's details without running the item's main action.
 Command listOpenCommand({required String label, required Home home, required VoidCallback open}) =>

@@ -393,14 +393,8 @@ void main() {
         hostName: 'orchard',
         scalewayProject: 'provider',
         account: 'root',
-        tresor: '',
-        folder: null,
-        signingKey: '',
-        identity: '/keys/private',
         publicKey: '/keys/public',
         collection: '',
-        vpnPeerPublicKey: '',
-        vpnPeerAddress: '',
       ),
     );
     final release = Completer<void>();
@@ -559,14 +553,8 @@ void main() {
         hostName: 'orchard',
         scalewayProject: 'provider',
         account: 'root',
-        tresor: '',
-        folder: null,
-        signingKey: '',
-        identity: '/keys/private',
         publicKey: '/keys/public',
         collection: '',
-        vpnPeerPublicKey: '',
-        vpnPeerAddress: '',
       ).withPreparedHost(PreparedHost.read(sshCompletion())),
     );
     await access.publishReady('orchard', PreparedHost.read(sshCompletion()));
@@ -601,6 +589,70 @@ void main() {
     expect(attempts, 1);
   });
 
+  // Harm: host administration loses its preparation guard or bypasses current permission through a retained command.
+  test('host commands retain preparation guards and recheck selected registry actions', () async {
+    final machines = Machines(settings, reach: (_) => FakeBackend(const []));
+    final runs = HostRuns(machines, hostAccess: access);
+    addTearDown(runs.dispose);
+    addTearDown(machines.dispose);
+    const machine = Machine(name: 'orchard', kind: 'host', hostProject: 'orchard', socketPath: '');
+    await settings.rememberHostUp(
+      'orchard',
+      const HostUpRecord(scalewayProject: 'provider', host: 'orchard', hostName: 'orchard', publicKey: hostKey),
+    );
+    var prepares = 0;
+    final prepare = prepareServerCommand(access: access, open: () => prepares++);
+    expect(prepare.home, Home.appBar);
+    prepare.run();
+    expect(prepares, 1);
+    final actions = <String>[];
+    List<Command> commands() => preparedHostCommands(
+      machine: machine,
+      settings: settings,
+      hostRuns: runs,
+      open: actions.add,
+      showValues: () {},
+      bringRegistry: () {},
+    );
+    expect(commands().map((command) => command.id), [
+      'host.adminValues',
+      'host.bringRegistry',
+      'host.admitAdmin',
+      'host.lockAdmin',
+      'host.unlockAdmin',
+      'host.purgeAdmin',
+    ]);
+    expect(commands().every((command) => command.home == Home.machineMenu), isTrue);
+    expect(
+      commands().every((command) => command.unavailable != null),
+      isTrue,
+      reason: 'no membership command is offered before checked completion',
+    );
+    await settings.rememberHostUp('orchard', _readyRecord());
+    final selected = commands()
+        .where(
+          (command) =>
+              const ['host.admitAdmin', 'host.lockAdmin', 'host.unlockAdmin', 'host.purgeAdmin'].contains(command.id),
+        )
+        .toList();
+    expect(
+      selected.every((command) => command.unavailable == null),
+      isTrue,
+      reason: 'one-click host actions require no per-machine private key',
+    );
+    for (final command in selected) {
+      command.run();
+    }
+    expect(actions, ['admit', 'lock', 'unlock', 'purge']);
+    fixture.actor = const HostAdminIdentity('bob', personFingerprint);
+    expect(prepare.run, throwsA(isA<RegistryRefusal>()));
+    for (final command in selected) {
+      expect(command.run, throwsA(isA<RegistryRefusal>()));
+    }
+    expect(prepares, 1);
+    expect(actions, ['admit', 'lock', 'unlock', 'purge']);
+  });
+
   // Harm: malformed persisted progress silently drops work or selects another host.
   test('pending progress rejects malformed ordering and fields', () {
     final change = HostRegistryChange(id: 'a' * 32, host: 'orchard', action: 'delete-card');
@@ -629,18 +681,13 @@ void main() {
 }
 
 HostUpRecord _readyRecord() => HostUpRecord.fromStored({
+  'oneClick': true,
   'host': 'orchard',
   'hostName': 'orchard',
   'scalewayProject': 'provider',
   'account': 'root',
-  'tresor': '',
-  'folder': null,
-  'signingKey': '',
-  'identity': '/keys/private',
   'publicKey': '/keys/public',
   'collection': '',
-  'vpnPeerPublicKey': '',
-  'vpnPeerAddress': '',
   'preparedHost': sshCompletion(),
 })!;
 

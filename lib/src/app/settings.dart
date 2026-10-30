@@ -3,10 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_host/porelo_host.dart' show HostCardSsh, SecretsFile, PreparedHost, checkHostName;
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, SecretsFile, PreparedHost, HostPlan, checkHostName;
 
 import 'desk.dart';
-import 'host_vpn.dart' show isForgeCaCertificate, checkVpnInterface;
 import 'host_protocol.dart';
 import 'host_access_contract.dart';
 import 'machines.dart';
@@ -25,496 +24,269 @@ bool _sameStored(Object? left, Object? right) {
   return left == right;
 }
 
-/// One host's public VPN state and optional setup recovery inputs.
+/// A validated rental identity and optional signed-state setup progress.
 @immutable
 class HostUpRecord {
-  /// Keeps paths and public tunnel options, never key contents or login answers.
+  /// Keeps public setup references; legacy records can only recover the rental.
   const HostUpRecord({
     required this.scalewayProject,
-    required this.account,
-    required this.tresor,
-    required this.folder,
-    this.setupFolder,
     this.host,
-    this.vpnNetworkNumber = 0,
-    this.vpnInterface = 'porelo-0',
     this.hostName = '',
+    this.account = '',
+    this.publicKey = '',
     this.forge = true,
     this.preparedHost,
-    this.repository = '',
-    required this.signingKey,
-    required this.identity,
-    required this.publicKey,
-    required this.collection,
+    this.rentalTag,
+    this.setupFolder,
+    this.collection = '',
     this.collectionSha256 = '',
-    required this.vpnPeerPublicKey,
-    required this.vpnPeerAddress,
-    this.vpnHostPublicKey = '',
-    this.vpnEndpointAddress = '',
-    this.vpnFile,
-    this.forgeCa,
-    this.vaultKeys = const [],
     this.preparing = false,
     this.startedAt,
     this.protocol = const [],
-    this.vpnOnly = false,
+    this.legacy = false,
   });
 
-  /// The host name, absent in records kept before host names were stored.
-  final String? host;
+  /// The explanation shown wherever an older rental is recovered.
+  static const legacyExplanation = 'Made before one-click joining: give it back or set it up again.';
 
-  /// Whether this is a joined host's VPN record without rental or setup identity metadata.
-  final bool vpnOnly;
-
-  /// The third octet of this host's VPN network.
-  final int vpnNetworkNumber;
-
-  /// The local WireGuard interface, including the legacy `porelo` name.
-  final String vpnInterface;
-
-  /// The server name for preparation without a project; empty for the legacy project path.
-  final String hostName;
-
-  /// Whether this server runs its own forge.
-  final bool forge;
-
-  /// The validated completion values for project admins, absent before completion.
-  final PreparedHost? preparedHost;
-
-  /// Keeps the server's confirmed public completion values.
-  HostUpRecord withPreparedHost(PreparedHost host) => HostUpRecord.fromStored({
-    ...stored,
-    'preparedHost': host.stored,
-    'vpnHostPublicKey': host.values['wireguard_public_key'] ?? '',
-    'vpnEndpointAddress': host.values['address'],
-  })!;
-
-  /// The provider project that owns the rented host.
+  /// The provider project that owns the billed server.
   final String scalewayProject;
 
-  /// The OS user on the host.
+  /// The settings key, including migrated project-mode rentals.
+  final String? host;
+
+  /// The server tag's name, empty for a legacy project-mode rental.
+  final String hostName;
+
+  /// The legacy project account, used only to identify its rental.
   final String account;
 
-  /// The Tresorit tresor a host synced in setups before the drive left them; empty since, and never passed on.
-  final String tresor;
+  /// The original provider tag retained when a legacy rental is set up again.
+  final String? rentalTag;
 
-  /// Its local synced folder, absent when the host files were supplied manually.
-  final String? folder;
+  /// The original provider identity, independent of a replacement host card's name.
+  String rentalTagFor(String project) =>
+      rentalTag ?? (hostName.isEmpty ? HostPlan.tagFor(project) : HostPlan.serverTagFor(hostName));
 
-  /// The interface's own folder holding the host's `machine.yml` and bundle, which `up` uploads; absent in a record
-  /// from before the upload, whose host read them from the drive.
-  final String? setupFolder;
-
-  /// Retained for source compatibility; stored repository addresses are ignored.
-  final String repository;
-
-  /// The public signing key's path.
-  final String signingKey;
-
-  /// The private SSH key's path, never its contents.
-  final String identity;
-
-  /// The public SSH key's path.
+  /// The person's public identity reference for new setup.
   final String publicKey;
 
-  /// The host setup collection's path.
+  /// Whether setup includes a host forge.
+  final bool forge;
+
+  /// The checked SSH completion, absent until confirmed.
+  final PreparedHost? preparedHost;
+
+  /// The old setup location, retained only to identify a migrated rental.
+  final String? setupFolder;
+
+  /// The debug collection reference, never a credential.
   final String collection;
 
-  /// The test collection's expected digest, absent for carried collections or older records.
+  /// The collection's expected digest.
   final String collectionSha256;
 
-  /// The tunnel peer's public half, empty when none was supplied.
-  final String vpnPeerPublicKey;
-
-  /// The tunnel peer's address, empty when none was supplied.
-  final String vpnPeerAddress;
-
-  /// The host's WireGuard public half, absent in older setup records.
-  final String vpnHostPublicKey;
-
-  /// The host address used by the tunnel, without its port, absent in older setup records.
-  final String vpnEndpointAddress;
-
-  /// The explicitly exported VPN file's local path, never its private key contents.
-  final String? vpnFile;
-
-  /// This host's lasting CA certificate, public PEM; its key stays in the secrets file.
-  final String? forgeCa;
-
-  /// The names of the vault entries `machine.yml` names, never their files' contents: the stop sends these alone.
-  final List<String> vaultKeys;
-
-  /// Whether setup still needs a confirmed machine or server give-back.
+  /// Whether setup has not yet confirmed completion.
   final bool preparing;
 
-  /// The UTC instant preparation began, absent before setup or after confirmation.
+  /// The UTC setup start, if recorded.
   final DateTime? startedAt;
 
-  /// The public protocol retained until the server is given back.
+  /// The retained public protocol.
   final List<HostProtocolEntry> protocol;
 
-  /// Keeps recovery until a machine or give-back has been confirmed.
-  HostUpRecord withPreparation(DateTime? instant) => HostUpRecord(
-    vpnOnly: vpnOnly,
-    scalewayProject: scalewayProject,
-    hostName: hostName,
-    forge: forge,
-    preparedHost: preparedHost,
-    account: account,
-    tresor: tresor,
-    folder: folder,
-    setupFolder: setupFolder,
-    host: host,
-    vpnNetworkNumber: vpnNetworkNumber,
-    vpnInterface: vpnInterface,
-    repository: repository,
-    signingKey: signingKey,
-    identity: identity,
-    publicKey: publicKey,
-    collection: collection,
-    collectionSha256: collectionSha256,
-    vpnPeerPublicKey: vpnPeerPublicKey,
-    vpnPeerAddress: vpnPeerAddress,
-    vpnHostPublicKey: vpnHostPublicKey,
-    vpnEndpointAddress: vpnEndpointAddress,
-    vpnFile: vpnFile,
-    forgeCa: forgeCa,
-    vaultKeys: vaultKeys,
-    preparing: instant != null,
-    startedAt: instant?.toUtc(),
-    protocol: protocol,
-  );
+  /// Whether obsolete setup credentials must never be resumed.
+  final bool legacy;
 
-  /// Keeps the same host identity when the exported file is saved or explicitly deleted.
-  HostUpRecord withVpnFile(String? file) => HostUpRecord(
-    vpnOnly: vpnOnly,
-    scalewayProject: scalewayProject,
-    hostName: hostName,
-    forge: forge,
-    preparedHost: preparedHost,
-    account: account,
-    tresor: tresor,
-    folder: folder,
-    setupFolder: setupFolder,
-    host: host,
-    vpnNetworkNumber: vpnNetworkNumber,
-    vpnInterface: vpnInterface,
-    repository: repository,
-    signingKey: signingKey,
-    identity: identity,
-    publicKey: publicKey,
-    collection: collection,
-    collectionSha256: collectionSha256,
-    vpnPeerPublicKey: vpnPeerPublicKey,
-    vpnPeerAddress: vpnPeerAddress,
-    vpnHostPublicKey: vpnHostPublicKey,
-    vpnEndpointAddress: vpnEndpointAddress,
-    vpnFile: file,
-    forgeCa: forgeCa,
-    vaultKeys: vaultKeys,
-    preparing: preparing,
-    startedAt: startedAt,
-    protocol: protocol,
-  );
+  /// Keeps recovery and its original rental identity throughout setup.
+  HostUpRecord withPreparation(DateTime? instant) => _copy(preparing: instant != null, startedAt: instant);
 
-  /// Keeps the confirmed public tunnel settings without changing setup or the chosen file.
-  HostUpRecord withTunnel({required String hostPublicKey, required String address}) => HostUpRecord(
-    vpnOnly: vpnOnly,
-    scalewayProject: scalewayProject,
-    hostName: hostName,
-    forge: forge,
-    preparedHost: preparedHost,
-    account: account,
-    tresor: tresor,
-    folder: folder,
-    setupFolder: setupFolder,
-    host: host,
-    vpnNetworkNumber: vpnNetworkNumber,
-    vpnInterface: vpnInterface,
-    repository: repository,
-    signingKey: signingKey,
-    identity: identity,
-    publicKey: publicKey,
-    collection: collection,
-    collectionSha256: collectionSha256,
-    vpnPeerPublicKey: vpnPeerPublicKey,
-    vpnPeerAddress: vpnPeerAddress,
-    vpnHostPublicKey: hostPublicKey,
-    vpnEndpointAddress: address,
-    vpnFile: vpnFile,
-    forgeCa: forgeCa,
-    vaultKeys: vaultKeys,
-    preparing: preparing,
-    startedAt: startedAt,
-    protocol: protocol,
-  );
+  /// Replaces the public protocol without changing the rental identity.
+  HostUpRecord withProtocol(List<HostProtocolEntry> entries) => _copy(protocol: List.unmodifiable(entries));
 
-  /// Replaces the kept protocol without changing the setup answers.
-  HostUpRecord withProtocol(List<HostProtocolEntry> entries) => HostUpRecord(
-    vpnOnly: vpnOnly,
-    scalewayProject: scalewayProject,
-    hostName: hostName,
-    forge: forge,
-    preparedHost: preparedHost,
-    account: account,
-    tresor: tresor,
-    folder: folder,
-    setupFolder: setupFolder,
-    host: host,
-    vpnNetworkNumber: vpnNetworkNumber,
-    vpnInterface: vpnInterface,
-    repository: repository,
-    signingKey: signingKey,
-    identity: identity,
-    publicKey: publicKey,
-    collection: collection,
-    collectionSha256: collectionSha256,
-    vpnPeerPublicKey: vpnPeerPublicKey,
-    vpnPeerAddress: vpnPeerAddress,
-    vpnHostPublicKey: vpnHostPublicKey,
-    vpnEndpointAddress: vpnEndpointAddress,
-    vpnFile: vpnFile,
-    forgeCa: forgeCa,
-    vaultKeys: vaultKeys,
-    preparing: preparing,
-    startedAt: startedAt,
-    protocol: List.unmodifiable(entries),
-  );
-
-  /// Keeps this host's trust with its setup identity.
-  HostUpRecord withForgeCa(String? pem) {
-    if (pem != null && !isForgeCaCertificate(pem)) {
-      throw ArgumentError('The host\'s CA must be one certificate in PEM.');
+  /// Keeps only a checked SSH completion from the new setup flow.
+  HostUpRecord withPreparedHost(PreparedHost value) {
+    if (legacy || value.name != hostName) {
+      throw StateError('The completion does not belong to this signed-state setup.');
     }
-    return HostUpRecord.fromStored({...stored, 'forgeCa': pem})!;
+    return _copy(preparedHost: value);
   }
 
-  /// Assigns a migrated setup to its host without changing its tunnel identity.
-  HostUpRecord forHost(String name) {
+  /// Assigns a legacy project record to its migrated host settings key.
+  HostUpRecord forHost(String name, {required String rentalProject}) {
     SecretsFile.checkHost(name);
-    return HostUpRecord.fromStored({...stored, 'host': name})!;
+    final tag = rentalTagFor(rentalProject);
+    HostPlan.lockNameForTag(tag);
+    return _copy(host: name, rentalTag: tag);
   }
 
-  /// Reads every field or drops the entire unusable record.
+  HostUpRecord _copy({
+    bool? preparing,
+    DateTime? startedAt,
+    List<HostProtocolEntry>? protocol,
+    PreparedHost? preparedHost,
+    String? host,
+    String? rentalTag,
+  }) => HostUpRecord(
+    scalewayProject: scalewayProject,
+    host: host ?? this.host,
+    hostName: hostName,
+    account: account,
+    rentalTag: rentalTag ?? this.rentalTag,
+    publicKey: publicKey,
+    forge: forge,
+    preparedHost: preparedHost ?? this.preparedHost,
+    setupFolder: setupFolder,
+    collection: collection,
+    collectionSha256: collectionSha256,
+    preparing: preparing ?? this.preparing,
+    startedAt: preparing == false ? null : startedAt ?? this.startedAt,
+    protocol: protocol ?? this.protocol,
+    legacy: legacy,
+  );
+
+  /// Reads the minimum recovery identity before interpreting any optional setup state.
+  ///
+  /// Retired trust and credential metadata in old records is deliberately ignored. Corrupt
+  /// progress cannot erase the provider identity needed to give a paid server back.
   static HostUpRecord? fromStored(Object? value) {
-    if (value case {
-      'scalewayProject': final String scalewayProject,
-      'account': final String account,
-      'tresor': final String tresor,
-      'folder': final Object? folder,
-      'signingKey': final String signingKey,
-      'identity': final String identity,
-      'publicKey': final String publicKey,
-      'collection': final String collection,
-      'vpnPeerPublicKey': final String vpnPeerPublicKey,
-      'vpnPeerAddress': final String vpnPeerAddress,
-    }) {
-      final host = value['host'];
-      final vpnOnly = value['vpnOnly'] ?? false;
-      if (vpnOnly is! bool) return null;
-      if (value.containsKey('host') && host is! String) return null;
-      final match = RegExp(r'^10\.73\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})/32$').firstMatch(vpnPeerAddress);
-      if (vpnPeerAddress.isNotEmpty && (match == null || int.parse(match[1]!) > 255 || int.parse(match[2]!) > 255)) {
-        return null;
-      }
-      final network = value.containsKey('vpnNetworkNumber')
-          ? value['vpnNetworkNumber']
-          : match == null
-          ? 0
-          : int.parse(match[1]!);
-      final interface = value.containsKey('vpnInterface') ? value['vpnInterface'] : 'porelo';
-      if (network is! int || interface is! String) return null;
+    if (value is! Map) return null;
+    final provider = value['scalewayProject'];
+    if (provider is! String || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(provider)) return null;
+    final tag = value['rentalTag'];
+    if (tag != null) {
+      if (tag is! String) return null;
       try {
-        if (host is String) SecretsFile.checkHost(host);
-        SecretsFile.checkNetworkNumber(network);
-        checkVpnInterface(interface, network);
-      } on Exception {
-        return null;
-      }
-      if (match != null && int.parse(match[1]!) != network) return null;
-      final hostName = value['hostName'] ?? '';
-      final forge = value['forge'] ?? true;
-      if (hostName is! String || forge is! bool) return null;
-      PreparedHost? preparedHost;
-      try {
-        if (hostName.isNotEmpty) {
-          checkHostName(hostName);
-          if (hostName != host) return null;
-        }
-        if (value['preparedHost'] != null) {
-          preparedHost = PreparedHost.read(value['preparedHost']);
-          if (preparedHost.sshOnly) {
-            if (preparedHost.values['name'] != hostName) return null;
-          } else if (preparedHost.network != network ||
-              preparedHost.values['homeserver'] != 'matrix.$hostName.porelo.internal') {
-            return null;
-          }
-        }
+        HostPlan.lockNameForTag(tag);
       } on FormatException {
         return null;
       }
-      // Unreadable progress must not erase the answers needed to give a billed server back.
-      final protocol = HostProtocolEntry.readMany(value['protocol']) ?? const <HostProtocolEntry>[];
-      final preparing = value.containsKey('preparing') ? value['preparing'] : false;
-      if (preparing is! bool) return null;
-      final start = value['startedAt'];
-      if (start != null && start is! String) return null;
-      final startedAt = start is String ? DateTime.tryParse(start) : null;
-      if (start != null && (startedAt == null || !startedAt.isUtc)) return null;
-      if (preparing && startedAt == null) return null;
-      final vpnFile = value['vpnFile'];
-      if (vpnFile != null && vpnFile is! String) return null;
-      final forgeCa = value['forgeCa'];
-      if (forgeCa != null && (forgeCa is! String || !isForgeCaCertificate(forgeCa))) return null;
-      final vaultKeys = value['vaultKeys'] ?? const <Object?>[];
-      if (vaultKeys is! List ||
-          vaultKeys.any((name) => name is! String || !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) ||
-          vaultKeys.toSet().length != vaultKeys.length) {
-        return null;
+    }
+    final marker = value['oneClick'];
+    if (marker != null && marker is! bool) return null;
+    final legacy = marker != true;
+    final host = value['host'];
+    final name = value['hostName'] ?? '';
+    final account = value['account'] ?? '';
+    if (host != null && host is! String || name is! String || account is! String) return null;
+    try {
+      if (host is String) {
+        SecretsFile.checkHost(host);
       }
-      final setupFolder = value['setupFolder'];
-      if (setupFolder != null &&
-          (setupFolder is! String || !path.isAbsolute(setupFolder) || setupFolder.contains('\x00'))) {
-        return null;
+      if (name.isNotEmpty) {
+        checkHostName(name);
       }
-      final vpnHostPublicKey = value['vpnHostPublicKey'] ?? '';
-      final vpnEndpointAddress = value['vpnEndpointAddress'] ?? '';
-      if (vpnHostPublicKey is! String || vpnEndpointAddress is! String) return null;
-      if (vpnHostPublicKey.isNotEmpty) {
-        try {
-          final bytes = base64Decode(vpnHostPublicKey);
-          if (bytes.length != 32 || base64Encode(bytes) != vpnHostPublicKey) return null;
-        } on FormatException {
-          return null;
-        }
-      }
-      if (vpnEndpointAddress.isNotEmpty && !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(vpnEndpointAddress)) {
-        return null;
-      }
-      if (folder != null && (folder is! String || folder.trim().isEmpty || folder.contains('\x00'))) return null;
-      final required = [scalewayProject, account, identity, publicKey];
-      if (!vpnOnly && required.any((field) => field.trim().isEmpty)) return null;
-      if (vpnOnly && (host is! String || !Settings.isUserName(account) || account == 'root')) return null;
-      final collectionSha256 = switch (value) {
-        {'collectionSha256': final Object? digest} => digest,
-        _ => '',
-      };
-      if (collectionSha256 is! String ||
-          (collectionSha256.isNotEmpty &&
-              (collection.trim().isEmpty || !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(collectionSha256)))) {
-        return null;
-      }
-      if ([
-        ...required,
-        tresor,
-        signingKey,
-        collection,
-        vpnPeerPublicKey,
-        vpnPeerAddress,
-      ].any((field) => field.contains('\x00'))) {
-        return null;
-      }
-      if (vpnPeerPublicKey.isEmpty != vpnPeerAddress.isEmpty) return null;
-      if (folder != null && signingKey.trim().isEmpty) return null;
+      if (account.isNotEmpty && !Settings.isUserName(account)) return null;
+    } on FormatException {
+      return null;
+    }
+    final folder = value['setupFolder'];
+    final setupFolder = folder is String && path.isAbsolute(folder) && !RegExp(r'[\x00\r\n]').hasMatch(folder)
+        ? folder
+        : null;
+    final preparing = value['preparing'] == true;
+    final start = value['startedAt'];
+    final instant = start is String ? DateTime.tryParse(start) : null;
+    final startedAt = instant?.isUtc == true ? instant : null;
+    if (legacy) {
       return HostUpRecord(
-        vpnOnly: vpnOnly,
-        scalewayProject: scalewayProject,
-        hostName: hostName,
-        forge: forge,
-        preparedHost: preparedHost,
+        scalewayProject: provider,
+        host: host as String?,
+        hostName: name,
         account: account,
-        tresor: tresor,
-        folder: folder is String ? folder : null,
-        host: host is String ? host : null,
-        vpnNetworkNumber: network,
-        vpnInterface: interface,
-        repository: '',
-        signingKey: signingKey,
-        identity: identity,
-        publicKey: publicKey,
-        collection: collection,
-        collectionSha256: collectionSha256,
-        vpnPeerPublicKey: vpnPeerPublicKey,
-        vpnPeerAddress: vpnPeerAddress,
-        vpnHostPublicKey: vpnHostPublicKey,
-        vpnEndpointAddress: vpnEndpointAddress,
-        vpnFile: vpnFile is String ? vpnFile : null,
-        forgeCa: forgeCa is String ? forgeCa : null,
-        vaultKeys: List.unmodifiable(vaultKeys.whereType<String>()),
-        setupFolder: setupFolder is String ? setupFolder : null,
+        rentalTag: tag as String?,
+        setupFolder: setupFolder,
+        legacy: true,
         preparing: preparing,
         startedAt: startedAt,
-        protocol: protocol,
       );
     }
-    return null;
+    final publicKey = value['publicKey'];
+    final forge = value['forge'] ?? true;
+    final collection = value['collection'] ?? '';
+    final digest = value['collectionSha256'] ?? '';
+    if (name.isEmpty ||
+        publicKey is! String ||
+        publicKey.isEmpty ||
+        RegExp(r'[\x00\r\n]').hasMatch(publicKey) ||
+        forge is! bool ||
+        collection is! String ||
+        digest is! String ||
+        collection.contains('\x00') ||
+        digest.isNotEmpty && !RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(digest) ||
+        preparing && startedAt == null) {
+      return null;
+    }
+    PreparedHost? prepared;
+    try {
+      if (value['preparedHost'] != null) {
+        prepared = PreparedHost.read(value['preparedHost']);
+        if (prepared.name != name) return null;
+      }
+    } on FormatException {
+      return null;
+    }
+    return HostUpRecord(
+      scalewayProject: provider,
+      host: host as String?,
+      hostName: name,
+      publicKey: publicKey,
+      rentalTag: tag as String?,
+      forge: forge,
+      preparedHost: prepared,
+      setupFolder: setupFolder,
+      collection: collection,
+      collectionSha256: digest,
+      preparing: preparing,
+      startedAt: startedAt,
+      protocol: HostProtocolEntry.readMany(value['protocol']) ?? const [],
+    );
   }
 
-  /// Only the public setup choices that belong in the interface's settings.
+  /// The minimum recovery data or the new flow's public setup state.
   Map<String, Object?> get stored => {
-    if (vpnOnly) 'vpnOnly': true,
-    if (host != null) 'host': host,
-    'vpnNetworkNumber': vpnNetworkNumber,
-    'vpnInterface': vpnInterface,
     'scalewayProject': scalewayProject,
-    if (hostName.isNotEmpty) ...{'hostName': hostName, 'forge': forge},
-    if (preparedHost != null) 'preparedHost': preparedHost!.stored,
-    'account': account,
-    'tresor': tresor,
-    'folder': folder,
+    if (host != null) 'host': host,
+    if (hostName.isNotEmpty) 'hostName': hostName,
+    if (account.isNotEmpty) 'account': account,
+    if (rentalTag != null) 'rentalTag': rentalTag,
     if (setupFolder != null) 'setupFolder': setupFolder,
-    'signingKey': signingKey,
-    'identity': identity,
-    'publicKey': publicKey,
-    'collection': collection,
-    if (collectionSha256.isNotEmpty) 'collectionSha256': collectionSha256,
-    'vpnPeerPublicKey': vpnPeerPublicKey,
-    'vpnPeerAddress': vpnPeerAddress,
-    if (vpnHostPublicKey.isNotEmpty) 'vpnHostPublicKey': vpnHostPublicKey,
-    if (vpnEndpointAddress.isNotEmpty) 'vpnEndpointAddress': vpnEndpointAddress,
-    if (vpnFile != null) 'vpnFile': vpnFile,
-    if (forgeCa != null) 'forgeCa': forgeCa,
-    if (vaultKeys.isNotEmpty) 'vaultKeys': vaultKeys,
-    if (protocol.isNotEmpty) 'protocol': [for (final entry in protocol) entry.stored],
     if (preparing) 'preparing': true,
     if (startedAt != null) 'startedAt': startedAt!.toUtc().toIso8601String(),
+    if (!legacy) ...{
+      'oneClick': true,
+      'publicKey': publicKey,
+      'forge': forge,
+      if (preparedHost != null) 'preparedHost': preparedHost!.values,
+      if (collection.isNotEmpty) 'collection': collection,
+      if (collectionSha256.isNotEmpty) 'collectionSha256': collectionSha256,
+      if (protocol.isNotEmpty) 'protocol': [for (final entry in protocol) entry.stored],
+    },
   };
 
-  /// The identical host identity options for up, resume and down.
-  List<String> arguments(String project) => [
-    if (hostName.isEmpty) ...[
-      '--project',
-      project,
-      '--account',
-      account,
-    ] else ...[
+  /// Builds setup arguments only for signed-state records.
+  List<String> arguments(String project) {
+    if (legacy) throw StateError('This rental needs setup again through signed state.');
+    return [
       '--host-name',
       hostName,
-      '--network',
-      '$vpnNetworkNumber',
-      '--login-user',
-      'root',
+      '--public-key',
+      publicKey,
+      '--scaleway-project',
+      scalewayProject,
       '--forge',
       '$forge',
-    ],
-    '--public-key',
-    publicKey,
-    '--identity',
-    identity,
-    if (vpnPeerPublicKey.isNotEmpty) ...[
-      '--vpn-peer-public-key',
-      vpnPeerPublicKey,
-      '--vpn-peer-address',
-      vpnPeerAddress,
-    ],
+      if (rentalTag != null) ...['--rental-tag', rentalTag!],
+    ];
+  }
+
+  /// Identifies give-back without opening an obsolete SSH connection.
+  List<String> giveBackArguments(String project) => [
+    if (hostName.isEmpty) ...['--project', project, '--account', account] else ...['--host-name', hostName],
     '--scaleway-project',
     scalewayProject,
-    if (setupFolder case final folder?) ...[
-      '--machine-file',
-      path.join(path.normalize(folder), 'porelo-host', 'machine.yml'),
-      '--bundle',
-      path.join(path.normalize(folder), 'porelo-host', '$project.bundle'),
-    ],
+    if (legacy) '--legacy-rental',
+    if (rentalTag != null) ...['--rental-tag', rentalTag!],
   ];
 }
 
@@ -782,9 +554,19 @@ class Settings extends ChangeNotifier {
       final unique = candidates.map((candidate) => candidate.host).toSet().length == candidates.length;
       for (final candidate in candidates) {
         final (:key, :host, :record) = candidate;
-        _hostUps[unique ? host : key] = unique && record.host == null && host != key ? record.forHost(host) : record;
-        migratedHosts |= unique && host != key;
-        if (unique && host != key) migratedHostKeys[key] = host;
+        var target = unique ? host : key;
+        var saved = record;
+        if (unique && host != key) {
+          try {
+            saved = record.forHost(host, rentalProject: key);
+          } on FormatException {
+            // An invalid old key must not create a tag that loses recovery on restart.
+            target = key;
+          }
+        }
+        _hostUps[target] = saved;
+        migratedHosts |= target != key;
+        if (target != key) migratedHostKeys[key] = target;
       }
     }
     _projectHosts.clear();
@@ -887,16 +669,6 @@ class Settings extends ChangeNotifier {
     _secretsFile = file;
     await _write();
     notifyListeners();
-  }
-
-  /// One certificate in PEM, and nothing beside it.
-  static bool isCertificate(String pem) => isForgeCaCertificate(pem);
-
-  /// Keeps the lasting CA only with the host whose stop supplied it.
-  Future<void> rememberForgeCa(String host, String? pem) async {
-    final record = hostUp(host);
-    if (record == null) throw ArgumentError('The CA needs a kept host setup.');
-    await rememberHostUp(host, record.withForgeCa(pem));
   }
 
   final _returnedHosts = <String>{};
@@ -1034,47 +806,21 @@ class Settings extends ChangeNotifier {
   /// The arguments used for the host's last setup, absent when none were kept.
   HostUpRecord? hostUp(String host) => _hostUps[host];
 
-  /// Keeps a confirmed developer VPN without requiring a prior rental on this laptop.
-  Future<void> rememberJoinedHostVpn({
-    required PreparedHost host,
-    required String account,
-    required String peerPublicKey,
-    required String peerAddress,
-    required String ca,
-  }) async {
-    final name = host.values['homeserver']!.split('.')[1];
-    final old = hostUp(name);
-    final record = HostUpRecord(
-      vpnOnly: true,
-      scalewayProject: '',
-      account: account,
-      tresor: '',
-      folder: null,
-      host: name,
-      vpnNetworkNumber: host.network,
-      vpnInterface: 'porelo-${host.network}',
-      signingKey: '',
-      identity: '',
-      publicKey: '',
-      collection: '',
-      vpnPeerPublicKey: peerPublicKey,
-      vpnPeerAddress: '$peerAddress/32',
-      vpnHostPublicKey: host.values['wireguard_public_key']!,
-      vpnEndpointAddress: host.values['address']!,
-      forgeCa: ca,
-    );
-    final checked = HostUpRecord.fromStored({
-      ...(old ?? record).stored,
-      'vpnNetworkNumber': host.network,
-      'vpnInterface': 'porelo-${host.network}',
-      'vpnPeerPublicKey': peerPublicKey,
-      'vpnPeerAddress': '$peerAddress/32',
-      'vpnHostPublicKey': host.values['wireguard_public_key'] ?? '',
-      'vpnEndpointAddress': host.values['address'],
-      'forgeCa': ca,
-    });
-    if (checked == null) throw ArgumentError('The joined host VPN settings are invalid.');
-    await rememberHostUp(name, checked);
+  /// Removes recovery only after provider-confirmed give-back.
+  Future<void> forgetHostUp(String host) async {
+    final previous = _hostUps.remove(host);
+    if (previous == null) return;
+    try {
+      await _write();
+      final saved = (await _store.read())['hostUps'];
+      if (saved is! Map || saved.containsKey(host)) {
+        throw const FileSystemException('Cannot clear the confirmed rental record.');
+      }
+    } on Exception {
+      _hostUps[host] = previous;
+      rethrow;
+    }
+    notifyListeners();
   }
 
   /// Persists the setup before a process can rent a host that would otherwise be lost.
@@ -1142,7 +888,8 @@ class Settings extends ChangeNotifier {
     final machines = <Machine>[];
     for (final each in stored) {
       if (each is! Map<String, Object?>) continue;
-      final machine = Machine.fromStored(each);
+      final project = each['hostProject'];
+      final machine = Machine.fromStored(each, legacyHost: project is String && hostUp(project)?.legacy == true);
       if (machine.name.isEmpty || (machine.socketPath.isEmpty && machine.kind.isEmpty)) continue;
       if (machines.any((kept) => kept.name == machine.name)) continue;
       machines.add(machine);

@@ -9,6 +9,7 @@ import 'package:porelo_host/porelo_host.dart' as host;
 
 import '../features/support/world.dart' show FakeBackend, World;
 import '../support/host_process.dart';
+import '../support/host_registry.dart';
 import '../support/host_rental.dart';
 import '../support/signed_host.dart';
 
@@ -17,7 +18,10 @@ void main() {
   testWidgets('the retained setup protocol remains visible without starting another command', (tester) async {
     final settings = Settings(MemorySettingsStore());
     final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    final runs = HostRuns(machines);
+    final fixture = RegistryFixture();
+    final access = await fixture.access(settings);
+    addTearDown(fixture.registry.dispose);
+    final runs = HostRuns(machines, hostAccess: access);
     final process = HostProcess();
     var starts = 0;
     final session = HostSession(

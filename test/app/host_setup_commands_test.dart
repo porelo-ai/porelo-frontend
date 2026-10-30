@@ -12,6 +12,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
+import '../support/host_registry.dart';
 import '../support/host_admin.dart';
 
 const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
@@ -29,7 +30,10 @@ void main() {
     test('conflicting commands wait for a ready server setup that is $state', () async {
       final settings = Settings(MemorySettingsStore());
       final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-      final runs = HostRuns(machines);
+      final fixture = RegistryFixture();
+      final access = await fixture.access(settings);
+      addTearDown(fixture.registry.dispose);
+      final runs = HostRuns(machines, hostAccess: access);
       final notifications = Notifications(RecordingNotifier(), settings);
       final originalDesk = desk;
       desk = Desk.of('linux', const {});
