@@ -2,8 +2,8 @@
 # Walk 23, laptop B, as root, after the walk, from the operator's own login, not the developer's: takes away what
 # the walk added, by what laptop-b-make.sh recorded. That is the interface's VPN configurations (porelo-*) and its
 # /etc/hosts lines (*.porelo.internal) added since; the developer's account with its home if the walk made it, or
-# its sudo if the walk gave it; and porelo if it was not here before. A porelo the walk replaced stays at the
-# walk's version, which this says. It says what it will do, refuses loudly, and may be run again.
+# its sudo if the walk gave it; and porelo if it was not here before, or the porelo the walk replaced, put back
+# from the package laptop-b-make.sh set aside. It says what it will do, refuses loudly, and may be run again.
 # Usage, from the unpacked hand-over: sudo bash laptop-b-remove.sh
 set -euo pipefail
 current=
@@ -101,7 +101,13 @@ elif [ -z "$before" ]; then
     apt-get remove porelo
     echo "ok: porelo removed"
 else
-    echo "note: porelo stays at $now; the walk replaced $before, and apt keeps no copy of it. Install $before again from where it came if you want it back."
+    [ -f "$state/porelo-before.deb" ] || refuse "the record holds no copy of porelo $before; install it again from where it came"
+    [ "$(dpkg-deb -f "$state/porelo-before.deb" Version)" = "$before" ] ||
+        refuse "the package set aside is not porelo $before; install it again from where it came"
+    echo "putting porelo $before back in place of $now"
+    apt-get install -y --allow-downgrades "$state/porelo-before.deb"
+    [ "$(dpkg-query -W -f='${Version}' porelo)" = "$before" ] || refuse "porelo $before did not install"
+    echo "ok: porelo $before, as before"
 fi
 
 rm -rf -- "$state"

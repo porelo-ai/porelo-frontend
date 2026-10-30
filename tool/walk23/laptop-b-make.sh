@@ -3,7 +3,8 @@
 # installs the porelo package handed over beside this script. Every handed-over file is checked against SHA256SUMS,
 # and SHA256SUMS itself against the digest the walk shows, given as the one argument. It says what it will do before
 # doing it, refuses loudly, and may be run again: what is in place already is left as it is. It records what was
-# here before, so that laptop-b-remove.sh takes away only what the walk added.
+# here before, so that laptop-b-remove.sh takes away only what the walk added; a porelo already installed is set
+# aside in that record as a package of its own (dpkg-repack), so that laptop-b-remove.sh can put it back.
 # Usage, from the unpacked hand-over: sudo bash laptop-b-make.sh <SHA-256 of SHA256SUMS, from the walk>
 set -euo pipefail
 current=
@@ -45,6 +46,8 @@ echo "ok: $(wc -l <"$here/SHA256SUMS") files, package $deb"
 step b-make.3 "what is here before the walk is recorded once"
 if [ -f "$state/complete" ]; then
     [ "$(cat "$state/developer")" = "$developer" ] || refuse "the record is for $(cat "$state/developer"), not $developer"
+    [ ! -s "$state/porelo-version" ] || [ -f "$state/porelo-before.deb" ] ||
+        refuse "the record names porelo $(cat "$state/porelo-version") but holds no copy of it; run laptop-b-remove.sh first"
     echo "ok: recorded already in $state, kept"
 else
     if id "$developer" >/dev/null 2>&1; then
@@ -63,7 +66,16 @@ else
     if [ "$account" = yes ] && id -nG "$developer" | tr ' ' '\n' | grep -qx sudo; then sudo=yes; else sudo=no; fi
     printf '%s\n' "$sudo" >"$record/had-sudo-before"
     case $(dpkg-query -W -f='${db:Status-Status}' porelo 2>/dev/null || true) in
-    installed) dpkg-query -W -f='${Version}\n' porelo >"$record/porelo-version" ;;
+    installed)
+        dpkg-query -W -f='${Version}\n' porelo >"$record/porelo-version"
+        command -v dpkg-repack >/dev/null ||
+            refuse "porelo $(cat "$record/porelo-version") is installed and dpkg-repack is missing to set it aside; install it with: sudo apt install dpkg-repack"
+        echo "setting porelo $(cat "$record/porelo-version") aside as a package"
+        (cd "$record" && dpkg-repack porelo >/dev/null)
+        mapfile -t aside < <(find "$record" -maxdepth 1 -name 'porelo_*.deb' -printf '%f\n')
+        [ "${#aside[@]}" -eq 1 ] || refuse "dpkg-repack did not leave exactly one porelo package"
+        mv -- "$record/${aside[0]}" "$record/porelo-before.deb"
+        ;;
     '' | not-installed | config-files) : >"$record/porelo-version" ;;
     *) refuse "porelo is half installed; repair it with sudo apt-get -f install and run this again" ;;
     esac
@@ -75,7 +87,7 @@ else
     trap - EXIT
     chmod 0700 "$state"
     before=$(cat "$state/porelo-version")
-    echo "ok: recorded in $state: porelo ${before:-not installed}, account $account, sudo $sudo, the VPN configurations and /etc/hosts"
+    echo "ok: recorded in $state: porelo ${before:-not installed}${before:+, set aside}, account $account, sudo $sudo, the VPN configurations and /etc/hosts"
 fi
 
 step b-make.4 "the account $developer, with a password, in the sudo group"
