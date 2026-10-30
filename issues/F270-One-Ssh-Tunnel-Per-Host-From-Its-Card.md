@@ -56,6 +56,7 @@ One-click joining from signed state (operator, 2026-10-30), building block 2 (ev
 - Items 9 and 10: exclude reached or explicitly waiting hosts from the unreachable count, retain a separate daemon refusal, and map Core's explicit signing wait to the host state. Screen wiring and the unagreed Core failure classification remain deferred above.
 - Trial cleanup retains its consumer until the pending raise settles and rechecks watchers before teardown. Concurrent drops share cleanup, new starts wait for it, a later drop cancels a queued watcher, and shutdown waits for active teardown before discarding ownership. Host ownership stays reserved until its old master finishes stopping, so another endpoint cannot start against its control socket during cleanup.
 - Imported card reservations acquire their machine owner during registration or replacement, so dropping a card before its first raise releases its fixed ports without releasing another endpoint's reservation.
+- Machine-list callers await queued registration and replacement before storing or opening the new list. A refused replacement restores the previous watchers before reporting its error, so every retained machine still has a fleet. Requests for another endpoint wait for running host teardown and then attempt their connection.
 
 ## Test
 

@@ -609,7 +609,14 @@ class Machines extends ChangeNotifier {
     for (final machine in _machines) {
       await tunnels.dropFor(machine);
     }
-    tunnels.replaceCards(machines);
+    try {
+      await tunnels.replaceCards(machines);
+    } on Object {
+      for (final machine in _machines) {
+        _open(machine);
+      }
+      rethrow;
+    }
     _nodes.clear();
     _machines
       ..clear()
@@ -632,15 +639,20 @@ class Machines extends ChangeNotifier {
       tunnels.checkCards(replacing);
       _watching.remove(old.name)?.dispose();
       await tunnels.dropFor(old);
+      try {
+        await tunnels.replaceCards(replacing);
+      } on Object {
+        _open(old);
+        rethrow;
+      }
       _nodes.remove(old.name);
       _machines[at] = machine;
-      tunnels.replaceCards(_machines);
       _open(machine);
       await _remember();
       _notify();
       return;
     }
-    tunnels.registerCards([machine]);
+    await tunnels.registerCards([machine]);
     _machines.add(machine);
     _open(machine);
     await _remember();

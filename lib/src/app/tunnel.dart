@@ -371,6 +371,13 @@ class Tunnel {
     };
   }
 
+  Future<void> _cancelRaise() async {
+    _generation++;
+    _wanted = false;
+    state = TunnelState.down;
+    if (machine.hostCard != null) await _unlocker.cancel(machine.hostCard!.name);
+  }
+
   Future<bool> _agentHasKey(HostCardSsh card) async {
     final result = await _tighten([openSsh('ssh-add'), '-L']).timeout(_untilExplained);
     if (result.exitCode != 0) return false;
@@ -552,14 +559,16 @@ class Tunnels extends ChangeNotifier {
   final HostUnlocker _unlocker;
   final Map<String, HostCardSsh> _cards = {};
   final Map<String, Machine> _cardOwners = {};
-  final Map<Machine, Future<bool>> _raising = {};
-  final Map<Machine, Future<void>> _dropping = {};
+  final _serial = _TunnelSteps();
+  final Set<_TunnelRequest> _requests = {};
   final Map<Machine, int> _trials = {};
   final Map<Machine, Completer<void>> _trialsDone = {};
   final Set<Machine> _retained = {};
   bool _closing = false;
 
   static Machine _key(Machine machine) => machine;
+
+  static Object _queueKey(Machine machine) => machine.hostCard?.name ?? machine;
 
   /// Validates a complete imported set without reserving any of its ports.
   void checkCards(Iterable<Machine> machines) {
@@ -573,26 +582,56 @@ class Tunnels extends ChangeNotifier {
   }
 
   /// Replaces reservations after the previous watched tunnels have been dropped.
-  void replaceCards(Iterable<Machine> machines) {
-    checkCards(machines);
-    _cards
-      ..clear()
-      ..addEntries(
-        machines
-            .where((machine) => machine.hostCard != null)
-            .map((machine) => MapEntry(machine.hostCard!.name, machine.hostCard!)),
-      );
-    _cardOwners
-      ..clear()
-      ..addEntries(
-        machines
-            .where((machine) => machine.hostCard != null)
-            .map((machine) => MapEntry(machine.hostCard!.name, machine)),
-      );
+  ///
+  /// Completes synchronously when the affected queues are idle; otherwise waits
+  /// for their preceding work. Active probes keep their reservations.
+  FutureOr<void> replaceCards(Iterable<Machine> machines) {
+    final replacing = machines.toList();
+    checkCards(replacing);
+    final affected = {..._serial.keys, ...replacing.map(_queueKey)};
+    return _serial.run<void>(affected, () {
+      final owners = {..._cardOwners};
+      final cards = {..._cards};
+      for (final name in affected.whereType<String>()) {
+        final owner = owners[name];
+        if (owner != null && (_mine.containsKey(owner) || _retained.contains(owner) || _trials.containsKey(owner))) {
+          continue;
+        }
+        owners.remove(name);
+        cards.remove(name);
+      }
+      for (final machine in replacing) {
+        final card = machine.hostCard;
+        if (card == null) continue;
+        if (owners[card.name] != null && owners[card.name] != machine) {
+          throw HostFilesRefused('Host ${card.name} already has a different managed endpoint.');
+        }
+        card.checkAgainst(cards.values);
+        cards[card.name] = card;
+        owners[card.name] = machine;
+      }
+      for (final name in affected.whereType<String>()) {
+        if (cards[name] case final card?) {
+          _cards[name] = card;
+          _cardOwners[name] = owners[name]!;
+        } else {
+          _cards.remove(name);
+          _cardOwners.remove(name);
+        }
+      }
+    });
   }
 
   /// Reserves every imported card's ports before any asynchronous publication.
-  void registerCards(Iterable<Machine> machines) {
+  ///
+  /// Completes synchronously when its host queues are idle; otherwise waits for
+  /// their preceding work. Validation failures leave existing reservations intact.
+  FutureOr<void> registerCards(Iterable<Machine> machines) {
+    final registering = machines.toList();
+    return _serial.run<void>(registering.map(_queueKey), () => _registerCards(registering));
+  }
+
+  void _registerCards(Iterable<Machine> machines) {
     final candidates = <String, HostCardSsh>{..._cards};
     for (final machine in machines) {
       final card = machine.hostCard;
@@ -627,22 +666,54 @@ class Tunnels extends ChangeNotifier {
   /// A machine that names no host is left alone and answers true: it is already reachable, by
   /// somebody else's forward, and there is nothing to do.
   Future<bool> raiseFor(Machine machine) {
-    if (machine.hostCard != null) _retained.add(_key(machine));
-    return _raiseShared(machine);
+    final request = _TunnelRequest(machine);
+    _requests.add(request);
+    return Future<bool>.sync(
+      () => _serial.run<bool>([_queueKey(machine)], () async {
+        try {
+          if (_closing || request.canceled) return false;
+          request.started = true;
+          if (machine.hostCard != null) _retained.add(_key(machine));
+          return await _raiseShared(machine, request);
+        } finally {
+          _requests.remove(request);
+        }
+      }),
+    );
   }
 
   /// Holds a card master for a probe, releasing it only after its last consumer.
   HostTunnelTrial holdForTrial(Machine machine) {
     if (machine.hostCard == null) throw ArgumentError('A shared trial needs a host card.');
-    final key = _key(machine);
-    _trials.update(key, (count) => count + 1, ifAbsent: () => 1);
-    final ready = _raiseShared(machine);
-    return HostTunnelTrial._(ready, () async {
-      try {
-        await ready;
-      } finally {
-        await _releaseTrial(machine);
-      }
+    final request = _TunnelRequest(machine, trial: true);
+    _requests.add(request);
+    final ready = Future<bool>.sync(
+      () => _serial.run<bool>([_queueKey(machine)], () async {
+        if (_closing || request.canceled) return false;
+        request.started = true;
+        _trials.update(_key(machine), (count) => count + 1, ifAbsent: () => 1);
+        try {
+          return await _raiseShared(machine, request);
+        } finally {
+          request.interrupt = null;
+        }
+      }),
+    );
+    return HostTunnelTrial._(ready, () {
+      request.canceled = true;
+      return Future<void>.sync(
+        () => _serial.run<void>([_queueKey(machine)], () async {
+          _requests.remove(request);
+          if (request.started) {
+            await _releaseTrial(machine);
+          } else if (!_trials.containsKey(_key(machine)) &&
+              !_retained.contains(_key(machine)) &&
+              !_hasQueuedConsumer(machine) &&
+              _mine.containsKey(_key(machine))) {
+            await _finishDrop(machine);
+          }
+        }),
+      );
     });
   }
 
@@ -657,52 +728,41 @@ class Tunnels extends ChangeNotifier {
     _trials.remove(key);
     final done = _trialsDone.remove(key);
     try {
-      if (!_retained.contains(key)) await _dropFor(machine);
+      if (!_retained.contains(key) && !_hasQueuedConsumer(machine)) await _finishDrop(machine);
     } finally {
       done?.complete();
     }
   }
 
-  Future<bool> _raiseShared(Machine machine) {
-    if (_closing) return Future<bool>.value(false);
-    final dropping = _dropping[_key(machine)];
-    if (dropping != null) {
-      return dropping.then((_) {
-        if (machine.hostCard != null && !_retained.contains(_key(machine)) && !_trials.containsKey(_key(machine))) {
-          return false;
-        }
-        return _raiseShared(machine);
-      });
-    }
+  bool _hasQueuedConsumer(Machine machine) =>
+      _requests.any((request) => request.machine == machine && !request.started && !request.canceled);
+
+  Future<bool> _raiseShared(Machine machine, _TunnelRequest request) async {
+    if (_closing) return false;
     try {
       final card = machine.hostCard;
       if (card != null && _cardOwners[card.name] != null && _cardOwners[card.name] != machine) {
         throw HostFilesRefused('Host ${card.name} already has a different managed endpoint.');
       }
-      registerCards([machine]);
+      _registerCards([machine]);
       if (card != null) _cardOwners[card.name] = machine;
     } on HostFilesRefused catch (refused) {
       final tunnel = _mine.putIfAbsent(_key(machine), () => _newTunnel(machine));
       tunnel.state = TunnelState.down;
       tunnel.problem = refused.message;
-      return Future.value(false);
+      return false;
     }
-    final key = _key(machine);
-    return _raising.putIfAbsent(
-      key,
-      () => _raiseFor(machine).whenComplete(() {
-        _raising.remove(key);
-      }),
-    );
+    return _raiseFor(machine, request);
   }
 
-  Future<bool> _raiseFor(Machine machine) async {
+  Future<bool> _raiseFor(Machine machine, _TunnelRequest request) async {
     // A machine this build cannot reach is said so where it is opened, never forwarded.
     if (machine.hostCard != null && machine.whyNotReachableHere != null) return false;
     if (!machine.needsATunnel || machine.whyNotReachableHere != null || machine.relay != null) return true;
     final tunnel = _mine.putIfAbsent(_key(machine), () => _newTunnel(machine));
-    if (machine.hostCard != null && tunnel.state == TunnelState.up) {
-      if (tunnel.vaultState != HostUnlockState.unlocked) await tunnel.unlockVault();
+    request.interrupt = tunnel._cancelRaise;
+    if (tunnel.state == TunnelState.up) {
+      if (machine.hostCard != null && tunnel.vaultState != HostUnlockState.unlocked) await tunnel.unlockVault();
       return tunnel.state == TunnelState.up;
     }
     await tunnel.raise();
@@ -738,15 +798,27 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Without being asked, because a forward that goes away is not a decision anybody made — but
   /// only for one this interface raised, and only while it is still wanted.
-  Future<void> raiseAgainIfItDropped(Machine machine) async {
-    final tunnel = _mine[_key(machine)];
-    if (tunnel == null || (tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) return;
-    if (machine.hostCard != null) {
-      await raiseFor(machine);
-      return;
-    }
-    await tunnel.raise();
-    notifyListeners();
+  Future<void> raiseAgainIfItDropped(Machine machine) {
+    final request = _TunnelRequest(machine);
+    _requests.add(request);
+    return Future<void>.sync(
+      () => _serial.run<void>([_queueKey(machine)], () async {
+        try {
+          final tunnel = _mine[_key(machine)];
+          if (_closing ||
+              request.canceled ||
+              tunnel == null ||
+              (tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) {
+            return;
+          }
+          request.started = true;
+          if (machine.hostCard != null) _retained.add(_key(machine));
+          await _raiseShared(machine, request);
+        } finally {
+          _requests.remove(request);
+        }
+      }),
+    );
   }
 
   /// The line that would start a daemon on [machine].
@@ -955,39 +1027,33 @@ class Tunnels extends ChangeNotifier {
 
   /// Takes down the forward for one machine, if this interface raised it.
   Future<void> dropFor(Machine machine) async {
-    final key = _key(machine);
-    _retained.remove(key);
-    while (_trials.containsKey(key)) {
-      await _trialsDone.putIfAbsent(key, Completer<void>.new).future;
+    for (final request in _requests) {
+      if (request.machine == machine && !request.trial && !request.started) request.canceled = true;
     }
-    if (_retained.contains(key)) return;
-    await _dropFor(machine);
+    final dropped = await _serial.run<_TrialDrain>([_queueKey(machine)], () async {
+      final key = _key(machine);
+      _retained.remove(key);
+      if (_trials.containsKey(key)) {
+        return _TrialDrain(_trialsDone.putIfAbsent(key, Completer<void>.new).future);
+      }
+      await _finishDrop(machine);
+      return const _TrialDrain(null);
+    });
+    await dropped.done;
   }
 
-  Future<void> _dropFor(Machine machine) => _dropping.putIfAbsent(
-    _key(machine),
-    () => _finishDrop(machine).whenComplete(() {
-      _dropping.remove(_key(machine));
-    }),
-  );
-
   Future<void> _finishDrop(Machine machine) async {
-    final pending = _raising[_key(machine)];
+    final tunnel = _mine.remove(_key(machine));
     try {
-      if (pending != null) await pending;
+      if (tunnel != null) {
+        await tunnel.drop();
+        notifyListeners();
+      }
     } finally {
-      final tunnel = _mine.remove(_key(machine));
-      try {
-        if (tunnel != null) {
-          await tunnel.drop();
-          notifyListeners();
-        }
-      } finally {
-        final card = machine.hostCard;
-        if (card != null && _cardOwners[card.name] == machine) {
-          _cardOwners.remove(card.name);
-          if (_cards[card.name] == card) _cards.remove(card.name);
-        }
+      final card = machine.hostCard;
+      if (card != null && _cardOwners[card.name] == machine) {
+        _cardOwners.remove(card.name);
+        _cards.remove(card.name);
       }
     }
   }
@@ -1009,29 +1075,96 @@ class Tunnels extends ChangeNotifier {
       }
     }
 
-    final pending = Future.wait(_raising.values.toList());
-    final settling = attempt(() async {
-      await pending;
+    // Interrupt current I/O without changing ownership ahead of its queued cleanup.
+    final interrupting = attempt(
+      () async => Future.wait([
+        for (final request in _requests)
+          if (request.interrupt case final interrupt?) Future<void>.sync(interrupt),
+      ]),
+    );
+    final settling = attempt(() async => Future.wait(_serial.pending));
+    await _serial.run<void>(_serial.keys, () async {
+      await interrupting;
+      await settling;
+      for (final machine in _mine.keys.toList()) {
+        await attempt(() => _finishDrop(machine));
+      }
+      _cards.clear();
+      _cardOwners.clear();
+      _trials.clear();
+      for (final waiting in _trialsDone.values) {
+        waiting.complete();
+      }
+      _trialsDone.clear();
+      _retained.clear();
+      notifyListeners();
     });
-    for (final tunnel in _mine.values.toList()) {
-      await attempt(tunnel.drop);
-    }
-    await settling;
-    await attempt(() => Future.wait(_dropping.values.toList()));
-    for (final tunnel in _mine.values.toList()) {
-      await attempt(tunnel.drop);
-    }
-    _mine.clear();
-    _cards.clear();
-    _cardOwners.clear();
-    _trials.clear();
-    for (final waiting in _trialsDone.values) {
-      waiting.complete();
-    }
-    _trialsDone.clear();
-    _retained.clear();
-    notifyListeners();
     if (failure != null) Error.throwWithStackTrace(failure!, trace!);
+  }
+}
+
+class _TunnelRequest {
+  _TunnelRequest(this.machine, {this.trial = false});
+
+  final Machine machine;
+  final bool trial;
+  bool started = false;
+  bool canceled = false;
+  Future<void> Function()? interrupt;
+}
+
+class _TrialDrain {
+  const _TrialDrain(this.done);
+
+  final Future<void>? done;
+}
+
+class _TunnelSteps {
+  final keys = <Object>{};
+  final pending = <Future<dynamic>>{};
+  final _tails = <Object, Future<void>>{};
+
+  FutureOr<T> run<T>(Iterable<Object> names, FutureOr<T> Function() work) {
+    final affected = names.toSet();
+    keys.addAll(affected);
+    final preceding = <Future<void>>{for (final key in affected) ?_tails[key]};
+    final completed = Completer<void>();
+    for (final key in affected) {
+      _tails[key] = completed.future;
+    }
+    void finish() {
+      for (final key in affected) {
+        if (identical(_tails[key], completed.future)) _tails.remove(key);
+      }
+      // The caller receives the error; the next step only waits for completion.
+      completed.complete();
+    }
+
+    FutureOr<T> start() {
+      try {
+        final result = work();
+        if (result is Future<T>) return result.whenComplete(finish);
+        finish();
+        return result;
+      } catch (_) {
+        finish();
+        rethrow;
+      }
+    }
+
+    final result = preceding.isEmpty ? start() : Future.wait(preceding).then((_) => start());
+    if (result is Future<T>) {
+      pending.add(result);
+      unawaited(
+        result.then<void>(
+          (_) => pending.remove(result),
+          onError: (Object error, StackTrace stack) {
+            pending.remove(result);
+          },
+        ),
+      );
+    }
+    return result;
   }
 }
 

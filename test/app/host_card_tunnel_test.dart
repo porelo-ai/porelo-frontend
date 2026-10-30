@@ -195,6 +195,299 @@ void main() {
     expect(tunnels.manages(host), isTrue);
   });
 
+  // Prevents an unsaved probe from losing its control socket and fixed ports to another endpoint.
+  test('replacing the watched cards preserves an unsaved trial owner', () async {
+    final trial = tunnels.holdForTrial(host);
+    expect(await trial.ready, isTrue);
+    await Future<void>.sync(() => tunnels.replaceCards([]));
+    final other = host.withSocketPath('${folder.path}/second');
+    expect(await tunnels.raiseFor(other), isFalse, reason: 'the unsaved trial still owns this card');
+    expect(launches, hasLength(1));
+    expect(processes.single.killed, isFalse);
+    await tunnels.dropFor(other);
+    await trial.release();
+    expect(processes.single.killed, isTrue);
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+      socketPath: '${folder.path}/b',
+    );
+    expect(() => tunnels.registerCards([beta]), returnsNormally);
+  });
+
+  // Prevents a canceled queued probe from starting SSH, unlock, or socket publication.
+  test('releasing a trial queued behind a drop skips its raise', () async {
+    final old = _SlowProcess();
+    nextProcess = () => processes.isEmpty ? old : _Process();
+    await tunnels.raiseFor(host);
+    final dropping = tunnels.dropFor(host);
+    addTearDown(() async {
+      old.end('');
+      await dropping;
+    });
+    await old.stopping.future;
+    final trial = tunnels.holdForTrial(host);
+    final releasing = trial.release();
+    old.end('');
+    await dropping;
+    await releasing;
+    expect(await trial.ready, isFalse, reason: 'a released queued probe no longer needs a connection');
+    expect(launches, hasLength(1));
+    expect(unlock.calls, hasLength(1));
+    expect(tunnels.manages(host), isFalse);
+  });
+
+  // Prevents cleanup from rethrowing a consumed connection failure or dropping another consumer.
+  test('releasing a failed trial does not repeat its ready error', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      if (!entered.isCompleted) entered.complete();
+      return checked.future;
+    };
+    final first = tunnels.holdForTrial(host);
+    final firstFailed = expectLater(first.ready, throwsStateError);
+    await entered.future;
+    final second = tunnels.holdForTrial(host);
+    final secondFailed = expectLater(second.ready, throwsStateError);
+    checked.completeError(StateError('control check failed'));
+    await firstFailed;
+    await secondFailed;
+    checkControl = null;
+    expect(await tunnels.raiseFor(host), isTrue);
+    await expectLater(first.release(), completes);
+    await expectLater(second.release(), completes);
+    expect(processes.last.killed, isFalse, reason: 'the watcher still retains the recovered master');
+    expect(tunnels.of(host)!.state, TunnelState.up);
+  });
+
+  // Prevents a failed prior start from poisoning a later connect after cleanup.
+  test('a queued watcher raises after the preceding raise and drop fail', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final raising = tunnels.raiseFor(host);
+    final failed = expectLater(raising, throwsStateError);
+    await entered.future;
+    final dropping = tunnels.dropFor(host);
+    // A serial drop has no reason to repeat its predecessor's error.
+    final dropped = dropping.then<Object?>((_) => null, onError: (Object error) => error);
+    final reconnecting = tunnels.raiseFor(host);
+    final reconnected = expectLater(reconnecting, completion(isTrue));
+    checkControl = null;
+    checked.completeError(StateError('old control check failed'));
+    await failed;
+    await dropped;
+    await reconnected;
+    expect(launches, hasLength(2));
+    expect(processes.first.killed, isTrue);
+    expect(processes.last.killed, isFalse);
+  });
+
+  // Prevents a teardown error from being delivered to a fresh connection request.
+  for (final probe in [false, true]) {
+    test('a queued ${probe ? 'trial' : 'watcher'} raises after the preceding drop fails', () async {
+      final old = _FailingStopProcess();
+      nextProcess = () => processes.isEmpty ? old : _Process();
+      await tunnels.raiseFor(host);
+      final dropped = expectLater(tunnels.dropFor(host), throwsStateError);
+      final trial = probe ? tunnels.holdForTrial(host) : null;
+      final connected = expectLater(trial?.ready ?? tunnels.raiseFor(host), completion(isTrue));
+      await dropped;
+      await connected;
+      expect(launches, hasLength(2));
+      expect(old.killed, isTrue);
+      expect(processes.last.killed, isFalse);
+      await trial?.release();
+    });
+  }
+
+  // Prevents a finishing drop from erasing a reservation submitted while it was stopping.
+  for (final replace in [false, true]) {
+    test('${replace ? 'replacing' : 'registering'} a card during drop preserves its reservation', () async {
+      final old = _SlowProcess();
+      nextProcess = () => processes.isEmpty ? old : _Process();
+      await tunnels.raiseFor(host);
+      final dropping = tunnels.dropFor(host);
+      addTearDown(() async {
+        old.end('');
+        await dropping;
+      });
+      await old.stopping.future;
+      final reserving = Future<void>.sync(() => replace ? tunnels.replaceCards([host]) : tunnels.registerCards([host]));
+      old.end('');
+      await dropping;
+      await reserving;
+      final beta = Machine.fromHostCard(
+        HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta'}),
+        socketPath: '${folder.path}/b',
+      );
+      expect(
+        () => tunnels.registerCards([beta]),
+        throwsA(isA<HostFilesRefused>()),
+        reason: 'the later registration must reserve the fixed ports after cleanup',
+      );
+      expect(launches, hasLength(1));
+    });
+  }
+
+  // Prevents a queued list replacement from freeing a newly registered host's fixed ports.
+  test('a queued replacement preserves later registration on a new host queue', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    addTearDown(() {
+      if (!checked.isCompleted) checked.complete(ProcessResult(0, 0, '', ''));
+    });
+    final raising = tunnels.raiseFor(host);
+    await entered.future;
+    final replacing = Future<void>.sync(() => tunnels.replaceCards([]));
+    final betaCard = HostCardSsh.fromStored({
+      ...host.hostCard!.stored,
+      'name': 'beta',
+      'services': {
+        'forge': {'web_port': 19080, 'git_port': 19081},
+        'matrix': {'port': 19082},
+      },
+    });
+    final beta = Machine.fromHostCard(betaCard, socketPath: '${folder.path}/b');
+    await Future<void>.sync(() => tunnels.registerCards([beta]));
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await raising, isTrue);
+    await replacing;
+    final gamma = Machine.fromHostCard(
+      HostCardSsh.fromStored({...betaCard.stored, 'name': 'gamma'}),
+      socketPath: '${folder.path}/g',
+    );
+    expect(() => tunnels.registerCards([gamma]), throwsA(isA<HostFilesRefused>()));
+  });
+
+  // Prevents a refused queued import from being saved before its reservation is checked.
+  test('adding a card waits for queued reservation validation before saving it', () async {
+    final entered = Completer<void>();
+    final checked = Completer<ProcessResult>();
+    checkControl = () {
+      entered.complete();
+      return checked.future;
+    };
+    final settings = Settings(MemorySettingsStore());
+    final machines = Machines(settings, tunnels: tunnels, reach: (_) => _StoppedBackend());
+    addTearDown(machines.dispose);
+    final trial = tunnels.holdForTrial(host);
+    addTearDown(() async {
+      if (!checked.isCompleted) checked.complete(ProcessResult(0, 0, '', ''));
+      await trial.release();
+    });
+    await entered.future;
+    final changed = Machine.fromHostCard(
+      HostCardSsh.fromStored({...host.hostCard!.stored, 'uid': 1002}),
+      socketPath: '${folder.path}/changed',
+      sshConfig: host.sshConfig,
+    );
+    final adding = machines.add(changed);
+    final refused = expectLater(adding, throwsA(isA<HostFilesRefused>()));
+    await Future<void>.delayed(Duration.zero);
+    checked.complete(ProcessResult(0, 0, '', ''));
+    expect(await trial.ready, isTrue);
+    await refused;
+    expect(machines.all, isNot(contains(changed)));
+    expect(await settings.machines(), isNot(contains(changed)));
+  });
+
+  // Prevents a refused reservation replacement from leaving a listed machine without its fleet.
+  for (final loading in [false, true]) {
+    test('a refused ${loading ? 'loaded' : 'same-name'} replacement preserves the old fleet', () async {
+      final settings = Settings(MemorySettingsStore());
+      final machines = Machines(settings, tunnels: tunnels, reach: (_) => _StoppedBackend());
+      addTearDown(machines.dispose);
+      await machines.add(host);
+      await machines.of(host).untilAsked();
+      final services = {
+        'forge': {'web_port': 19080, 'git_port': 19081},
+        'matrix': {'port': 19082},
+      };
+      final beta = Machine.fromHostCard(
+        HostCardSsh.fromStored({...host.hostCard!.stored, 'name': 'beta', 'services': services}),
+        socketPath: '${folder.path}/b',
+        sshConfig: '${folder.path}/porelo/ssh/beta.conf',
+      );
+      final trial = tunnels.holdForTrial(beta);
+      addTearDown(trial.release);
+      expect(await trial.ready, isTrue);
+      final changed = Machine.fromHostCard(
+        HostCardSsh.fromStored({...host.hostCard!.stored, 'services': services}),
+        socketPath: '${folder.path}/changed',
+        sshConfig: host.sshConfig,
+      );
+      if (loading) await settings.rememberMachines([changed]);
+      await expectLater(loading ? machines.load() : machines.add(changed), throwsA(isA<HostFilesRefused>()));
+      expect(machines.all, contains(host));
+      expect(machines.all, isNot(contains(changed)));
+      await machines.of(host).untilAsked();
+      expect(tunnels.of(host)!.state, TunnelState.up, reason: 'the retained machine must regain a usable watcher');
+      expect(processes.first.killed, isTrue);
+      expect(processes[1].killed, isFalse, reason: 'the unsaved probe still owns its master');
+    });
+  }
+
+  // Prevents a canceled handoff between probes from orphaning the old master.
+  test('canceling a queued trial releases the master left for it by an earlier probe', () async {
+    final alphaEntered = Completer<void>();
+    final betaEntered = Completer<void>();
+    final alphaCheck = Completer<ProcessResult>();
+    final betaCheck = Completer<ProcessResult>();
+    var checks = 0;
+    checkControl = () {
+      if (++checks == 1) {
+        alphaEntered.complete();
+        return alphaCheck.future;
+      }
+      betaEntered.complete();
+      return betaCheck.future;
+    };
+    addTearDown(() {
+      if (!alphaCheck.isCompleted) alphaCheck.complete(ProcessResult(0, 0, '', ''));
+      if (!betaCheck.isCompleted) betaCheck.complete(ProcessResult(0, 0, '', ''));
+    });
+    final first = tunnels.holdForTrial(host);
+    await alphaEntered.future;
+    final releasingFirst = first.release();
+    final beta = Machine.fromHostCard(
+      HostCardSsh.fromStored({
+        ...host.hostCard!.stored,
+        'name': 'beta',
+        'services': {
+          'forge': {'web_port': 19080, 'git_port': 19081},
+          'matrix': {'port': 19082},
+        },
+      }),
+      socketPath: '${folder.path}/b',
+      sshConfig: '${folder.path}/porelo/ssh/beta.conf',
+    );
+    final watchingBeta = tunnels.raiseFor(beta);
+    await betaEntered.future;
+    final barrier = Future<void>.sync(() => tunnels.registerCards([host, beta]));
+    final second = tunnels.holdForTrial(host);
+    alphaCheck.complete(ProcessResult(0, 0, '', ''));
+    expect(await first.ready, isTrue);
+    await releasingFirst;
+    expect(processes.first.killed, isFalse, reason: 'the queued trial still needs this master');
+    final releasingSecond = second.release();
+    betaCheck.complete(ProcessResult(0, 0, '', ''));
+    expect(await watchingBeta, isTrue);
+    await barrier;
+    expect(await second.ready, isFalse);
+    await releasingSecond;
+    expect(processes.first.killed, isTrue, reason: 'the canceled handoff has no remaining consumer');
+    expect(tunnels.manages(host), isFalse);
+    expect(processes.last.killed, isFalse, reason: 'the unrelated watcher still needs its master');
+  });
+
   // Prevents finishing an old teardown from deleting a new connection's endpoints or cancelling its unlock.
   for (final probe in [false, true]) {
     test('a new ${probe ? 'trial' : 'watcher'} waits for a releasing master to stop', () async {
@@ -252,24 +545,32 @@ void main() {
   });
 
   // Prevents an old host teardown from deleting another endpoint's new shared control socket.
-  test('another endpoint cannot claim a card while its old master is stopping', () async {
+  test('another endpoint waits for the old master to stop before claiming its card', () async {
     final old = _SlowProcess();
     nextProcess = () => processes.isEmpty ? old : _Process();
     final trial = tunnels.holdForTrial(host);
     expect(await trial.ready, isTrue);
     final releasing = trial.release();
+    await old.stopping.future;
+    final other = host.withSocketPath('${folder.path}/second');
+    var joined = false;
+    final joining = tunnels.raiseFor(other).then((ready) {
+      joined = true;
+      return ready;
+    });
     addTearDown(() async {
       old.end('');
       await releasing;
+      await joining;
     });
-    await old.stopping.future;
-    final other = host.withSocketPath('${folder.path}/second');
-    expect(await tunnels.raiseFor(other), isFalse, reason: 'the old master still owns the host control socket');
+    await Future<void>.delayed(Duration.zero);
+    expect(joined, isFalse, reason: 'the new request must wait while the old master owns the control socket');
     expect(launches, hasLength(1));
     old.end('');
     await releasing;
-    expect(await tunnels.raiseFor(other), isTrue);
+    expect(await joining, isTrue);
     expect(launches, hasLength(2));
+    expect(processes.last.killed, isFalse, reason: 'old cleanup must leave the new master alive');
   });
 
   // Prevents an unused imported card from permanently blocking another host's fixed service ports.
@@ -345,11 +646,16 @@ void main() {
 
   test('a replacement reserves its new ports before a concurrent import can claim them', () async {
     final master = _SlowProcess();
+    var started = false;
     final owned = Tunnels(
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
-      start: (_) async => master,
+      start: (_) async {
+        if (started) return _Process();
+        started = true;
+        return master;
+      },
       run: (_) async => ProcessResult(0, 0, '', ''),
       unlocker: unlock,
     );
@@ -476,6 +782,44 @@ void main() {
     await observed;
     await cleanup;
     expect(process.killed, isTrue);
+    expect(owned.manages(host), isFalse);
+  });
+
+  // Prevents window shutdown from leaving Core signing or secret delivery running.
+  test('shutdown cancels an active Core unlock before waiting for the host queue', () async {
+    final entered = Completer<void>();
+    final coreProcess = _Process();
+    final master = _Process();
+    final core = CoreHostUnlocker(
+      environment: {'XDG_CONFIG_HOME': folder.path},
+      start: (_) async {
+        entered.complete();
+        return coreProcess;
+      },
+    );
+    final owned = Tunnels(
+      configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+      keyAvailable: (_) async => true,
+      portsAvailable: (_) async {},
+      run: (_) async => ProcessResult(0, 0, '', ''),
+      start: (_) async => master,
+      unlocker: core,
+    );
+    addTearDown(() async {
+      coreProcess.end('');
+      await owned.dropEverything();
+      owned.dispose();
+    });
+    final raising = owned.raiseFor(host);
+    await entered.future;
+    final dropping = owned.dropEverything();
+    await Future<void>.delayed(Duration.zero);
+    final canceledBeforeSettling = coreProcess.killed;
+    coreProcess.end('');
+    await raising;
+    await dropping;
+    expect(canceledBeforeSettling, isTrue, reason: 'shutdown must interrupt Core without waiting for its deadline');
+    expect(master.killed, isTrue);
     expect(owned.manages(host), isFalse);
   });
 
@@ -1006,5 +1350,13 @@ class _SlowProcess extends _Process {
     killed = true;
     if (!stopping.isCompleted) stopping.complete();
     return true;
+  }
+}
+
+class _FailingStopProcess extends _Process {
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    super.kill(signal);
+    throw StateError('the old process stop failed');
   }
 }
