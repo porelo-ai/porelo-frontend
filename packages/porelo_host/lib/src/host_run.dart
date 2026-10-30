@@ -769,6 +769,42 @@ class HostRun {
     return _uploadSetupFiles(address, user, files, act: act, project: project);
   }
 
+  /// Replaces only the access bundle in an existing own-account setup.
+  ///
+  /// Uses the setup upload's private staging and digest checks, then renames the
+  /// checked file into place with mode `0600`. Returns a refusal code on failure.
+  Future<int?> uploadAccessBundle({
+    required String address,
+    required String user,
+    required String project,
+    required String bundle,
+  }) async {
+    HostFiles.checkProjectName(project);
+    if (user == 'root' ||
+        !RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*$').hasMatch(user) ||
+        !RegExp(r'^[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(address)) {
+      throw const FormatException('The access upload needs the person\'s host address and login.');
+    }
+    return _uploadOwnSetupFiles(
+      address,
+      user,
+      {HostFiles.accessBundleFileName: _uploadFile(bundle)},
+      project: project,
+      replaceAccess: true,
+    );
+  }
+
+  static ({String path, String digest}) _uploadFile(String local) {
+    if (FileSystemEntity.typeSync(local, followLinks: false) != FileSystemEntityType.file) {
+      throw FormatException('$local is not a plain file to upload');
+    }
+    try {
+      return (path: local, digest: sha256.convert(File(local).readAsBytesSync()).toString());
+    } on FileSystemException catch (error) {
+      throw FormatException('Cannot read $local: ${error.osError?.message ?? error.message}');
+    }
+  }
+
   /// The setup's files by the name they take on the host, each with its local path and SHA-256, read before anything
   /// is rented; null when [plan] names none. Refuses a plan naming only one, or a file that is no plain file.
   static Map<String, ({String path, String digest})>? _setupFiles(
@@ -786,14 +822,7 @@ class HostRun {
       (act == HostAct.ownAccount ? HostFiles.projectBundleFileName : '${plan.project}.bundle', plan.bundle!),
       if (accessBundle != null) (HostFiles.accessBundleFileName, accessBundle),
     ]) {
-      if (FileSystemEntity.typeSync(local, followLinks: false) != FileSystemEntityType.file) {
-        throw FormatException('$local is not a plain file to upload');
-      }
-      try {
-        files[name] = (path: local, digest: sha256.convert(File(local).readAsBytesSync()).toString());
-      } on FileSystemException catch (error) {
-        throw FormatException('Cannot read $local: ${error.osError?.message ?? error.message}');
-      }
+      files[name] = _uploadFile(local);
     }
     return files;
   }
@@ -871,6 +900,7 @@ class HostRun {
     String user,
     Map<String, ({String path, String digest})> files, {
     required String project,
+    bool replaceAccess = false,
   }) async {
     // The remote login shell is Bash by porelo-host's account-creation contract.
     // Its startup files and environment belong to the account and are trusted as such.
@@ -905,9 +935,32 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
       for (final folder in [home, ...parents.map((parent) => path.posix.join(home, parent))]) plainDirectory(folder),
     ].join(' && ');
     final prefix = '$checkedHome\ntest "\$setup_home" = ${q(home)} || exit 1\nsafe() { $safe; }';
+    final uploadedNames = replaceAccess
+        ? ['machine.yml', HostFiles.projectBundleFileName, HostFiles.accessBundleFileName]
+        : files.keys.toList();
+    final foreignWords = q('The project setup folder already exists at $destination; it was preserved: ');
+    final previousAccess = '$staging/.previous-access.bundle';
+    final checkUpload = [
+      'safe && ${plainDirectory(destination)} || foreign "not a plain directory"',
+      'test -f ${q('$destination/.porelo-upload')} && test ! -L ${q('$destination/.porelo-upload')} || foreign "missing plain upload marker"',
+      'shopt -s nullglob dotglob',
+      'for entry in ${q(destination)}/*; do',
+      '  test -f "\$entry" && test ! -L "\$entry" || foreign "a file is a link or not a plain file: \$entry"',
+      '  case "\${entry##*/}" in ${[...uploadedNames, '.porelo-upload'].map(q).join('|')}) ;; *) foreign "unexpected file: \$entry";; esac',
+      'done',
+      'mapfile -t marker < ${q('$destination/.porelo-upload')}',
+      'test "\${#marker[@]}" = ${uploadedNames.length + 1} || foreign "malformed upload marker"',
+      r'''[[ "${marker[0]}" =~ ^uploaded=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || foreign "malformed upload time"''',
+      for (final (index, name) in uploadedNames.indexed)
+        '[[ "\${marker[${index + 1}]}" =~ ^[0-9a-f]{64}\\ \\ ${RegExp.escape(name)}\$ ]] || foreign "malformed upload digest"',
+      '(cd -- ${q(destination)} && printf \'%s\\n\' "\${marker[@]:1}" | /usr/bin/sha256sum --quiet -c -) || foreign "uploaded files changed"',
+    ].join('\n');
     final removeStaging =
         'if safe && ${plainDirectory(staging)}; then\n'
-        '  /usr/bin/rm -f -- ${files.keys.map((name) => q('$staging/$name')).join(' ')} && '
+        '  /usr/bin/rm -f -- ${[
+          ...files.keys,
+          if (replaceAccess) ...['.porelo-upload', '.previous-access.bundle'],
+        ].map((name) => q('$staging/$name')).join(' ')} && '
         '/usr/bin/rmdir -- ${q(staging)}\n'
         'else echo ${q('Cannot safely clean staging at $staging.')} >&2; return 1; fi';
     Future<int> refused(RemoteResult result, String fix) async {
@@ -928,29 +981,23 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
       [
         'set -e',
         prefix,
-        for (final parent in parents)
-          'test ! -L ${underHome(parent)} && '
-              '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
+        if (replaceAccess)
+          '${plainDirectory(destination)} || { echo "The project setup folder is missing or a link." >&2; exit 1; }',
+        if (!replaceAccess)
+          for (final parent in parents)
+            'test ! -L ${underHome(parent)} && '
+                '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
+        'safe || exit 1',
         '/usr/bin/mkdir -m 0700 ${q(staging)}',
-        'foreign() { echo ${q('The project setup folder already exists at $destination; it was preserved: ')}"\$1" >&2; '
+        'foreign() { echo $foreignWords"\$1" >&2; '
             'if safe && ${plainDirectory(staging)}; then /usr/bin/rmdir -- ${q(staging)}; fi; exit 1; }',
         'if test -e ${q(destination)} || test -L ${q(destination)}; then',
-        '  safe && ${plainDirectory(destination)} || foreign "not a plain directory"',
-        '  test -f ${q('$destination/.porelo-upload')} && test ! -L ${q('$destination/.porelo-upload')} || foreign "missing plain upload marker"',
-        '  shopt -s nullglob dotglob',
-        '  for entry in ${q(destination)}/*; do',
-        '    test -f "\$entry" && test ! -L "\$entry" || foreign "a file is a link or not a plain file: \$entry"',
-        '    case "\${entry##*/}" in ${[...files.keys, '.porelo-upload'].map(q).join('|')}) ;; *) foreign "unexpected file: \$entry";; esac',
-        '  done',
-        '  mapfile -t marker < ${q('$destination/.porelo-upload')}',
-        '  test "\${#marker[@]}" = ${files.length + 1} || foreign "malformed upload marker"',
-        r'''  [[ "${marker[0]}" =~ ^uploaded=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || foreign "malformed upload time"''',
-        for (final (index, name) in files.keys.indexed)
-          '  [[ "\${marker[${index + 1}]}" =~ ^[0-9a-f]{64}\\ \\ ${RegExp.escape(name)}\$ ]] || foreign "malformed upload digest"',
-        '  (cd -- ${q(destination)} && printf \'%s\\n\' "\${marker[@]:1}" | /usr/bin/sha256sum --quiet -c -) || foreign "uploaded files changed"',
-        '  /usr/bin/rm -- ${[...files.keys, '.porelo-upload'].map((name) => q('$destination/$name')).join(' ')}',
-        '  /usr/bin/rmdir -- ${q(destination)}',
-        '  printf \'%s\\n\' ${q(replacedWords)}',
+        checkUpload,
+        if (!replaceAccess) ...[
+          '  /usr/bin/rm -- ${[...files.keys, '.porelo-upload'].map((name) => q('$destination/$name')).join(' ')}',
+          '  /usr/bin/rmdir -- ${q(destination)}',
+          '  printf \'%s\\n\' ${q(replacedWords)}',
+        ],
         'fi',
       ].join('\n'),
       onLine: lines.add,
@@ -997,10 +1044,19 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         'set -e',
         prefix,
         'reserved=0',
+        if (replaceAccess) 'restore_access=0',
         'installed=()',
         'clean_staging() { $removeStaging; }',
         'cleanup() {',
         '  result=\$?; trap - EXIT',
+        if (replaceAccess) ...[
+          '  if [ "\$result" -ne 0 ] && [ "\$restore_access" = 1 ]; then',
+          '    if safe && ${plainDirectory(destination)} && ${plainDirectory(staging)} && '
+              'test -f ${q(previousAccess)} && test ! -L ${q(previousAccess)} && '
+              '/usr/bin/mv -fT -- ${q(previousAccess)} ${q('$destination/${HostFiles.accessBundleFileName}')}; then :',
+          '    else echo ${q('Cannot safely restore the previous access bundle; it remains at $previousAccess.')} >&2; exit 1; fi',
+          '  fi',
+        ],
         '  if [ "\$result" -ne 0 ] && [ "\$reserved" = 1 ]; then',
         '    if safe && ${plainDirectory(destination)}; then',
         '      for name in "\${installed[@]}"; do /usr/bin/rm -f -- ${q(destination)}/"\$name" || result=1; done',
@@ -1012,17 +1068,38 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         '}',
         'trap cleanup EXIT',
         'safe && ${plainDirectory(staging)} || exit 1',
-        '/usr/bin/mkdir -m 0700 ${q(destination)}',
-        'reserved=1',
+        if (!replaceAccess) ...['/usr/bin/mkdir -m 0700 ${q(destination)}', 'reserved=1'],
         'safe && ${plainDirectory(staging)} && ${plainDirectory(destination)} || exit 1',
+        if (replaceAccess) ...[
+          'foreign() { echo $foreignWords"\$1" >&2; exit 1; }',
+          checkUpload,
+          'marker[${uploadedNames.indexOf(HostFiles.accessBundleFileName) + 1}]=${q('${files[HostFiles.accessBundleFileName]!.digest}  ${HostFiles.accessBundleFileName}')}',
+          '(umask 077; set -o noclobber; printf \'%s\\n\' "\${marker[@]}" > ${q('$staging/.porelo-upload')})',
+          '/usr/bin/chmod 0600 -- ${q('$staging/.porelo-upload')}',
+          'test ! -e ${q(previousAccess)} && test ! -L ${q(previousAccess)} || exit 1',
+          '/usr/bin/install -m 0600 ${q('$destination/${HostFiles.accessBundleFileName}')} ${q(previousAccess)}',
+        ],
         for (final name in files.keys) ...[
           'installed+=(${q(name)})',
-          '/usr/bin/install -m 0600 ${q('$staging/$name')} ${q('$destination/$name')}',
+          if (replaceAccess) ...[
+            'test -f ${q('$staging/$name')} && test ! -L ${q('$staging/$name')} || exit 1',
+            'test ! -e ${q('$destination/$name')} && test ! -L ${q('$destination/$name')} || '
+                '{ test -f ${q('$destination/$name')} && test ! -L ${q('$destination/$name')}; } || exit 1',
+            '/usr/bin/chmod 0600 -- ${q('$staging/$name')}',
+            'restore_access=1',
+            '/usr/bin/mv -fT -- ${q('$staging/$name')} ${q('$destination/$name')}',
+          ] else
+            '/usr/bin/install -m 0600 ${q('$staging/$name')} ${q('$destination/$name')}',
         ],
         'cd -- ${q(destination)} && /usr/bin/sha256sum --quiet -c -',
-        'installed+=(${q('.porelo-upload')})',
-        '{ printf \'uploaded=%s\\n\' "\$(/usr/bin/date -u +%Y-%m-%dT%H:%M:%SZ)"; printf \'%s\' ${q(digests)}; } > .porelo-upload',
-        '/usr/bin/chmod 0600 .porelo-upload',
+        if (replaceAccess) ...[
+          '/usr/bin/mv -fT -- ${q('$staging/.porelo-upload')} ${q('$destination/.porelo-upload')}',
+          'restore_access=0',
+        ] else ...[
+          'installed+=(${q('.porelo-upload')})',
+          '{ printf \'uploaded=%s\\n\' "\$(/usr/bin/date -u +%Y-%m-%dT%H:%M:%SZ)"; printf \'%s\' ${q(digests)}; } > .porelo-upload',
+          '/usr/bin/chmod 0600 .porelo-upload',
+        ],
       ].join('\n'),
       input: digests,
       onLine: lines.add,
@@ -1035,6 +1112,13 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
       );
     }
     if (lines.isNotEmpty) {
+      if (replaceAccess) {
+        return _refused(
+          'copy',
+          const RemoteResult(1, 'The host printed unexpected startup output.'),
+          'the access bundle replacement was not confirmed',
+        );
+      }
       final cleaned = await runScript(
         '$prefix\nif test ! -e ${q(destination)} && test ! -L ${q(destination)}; then exit 0; fi\n'
         'if safe && ${plainDirectory(destination)}; then\n'

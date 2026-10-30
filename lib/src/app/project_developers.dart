@@ -20,12 +20,31 @@ class DeveloperHostSync {
   /// The project admin’s own host account.
   final String account;
 
-  /// Requests exactly one sync and retains only its validated public answer.
-  Future<DeveloperSyncAnswer> call(String project, AccessDevelopers access) async {
+  /// Uploads [bundle] when supplied, then requests one validated sync answer.
+  Future<DeveloperSyncAnswer> call(String project, AccessDevelopers access, {String? bundle}) async {
     checkAdminName(account);
     HostFiles.checkProjectName(project);
     if (account == 'root') throw const FormatException('Use your own project admin account.');
     if (remote case final OpenSsh ssh) await ssh.trust(access.hostAddress, access.sshHostKey);
+    if (bundle != null) {
+      String? refusal;
+      final runner = HostRun(
+        provider: GivenMachine(address: access.hostAddress, hostKey: access.sshHostKey),
+        remote: remote,
+        emit: (step) {
+          if (step.state == StepState.refused) refusal = [step.fix, step.words].whereType<String>().join(': ');
+        },
+      );
+      final code = await runner.uploadAccessBundle(
+        address: access.hostAddress,
+        user: account,
+        project: project,
+        bundle: bundle,
+      );
+      if (code != null) {
+        throw HostAdminRefused('The access bundle upload failed. ${refusal ?? 'The host refused the upload.'}');
+      }
+    }
     final lines = <String>[];
     final result = await remote.run(
       access.hostAddress,
@@ -63,8 +82,8 @@ class DeveloperSyncAnswer {
   /// The accounts dropped by this sync.
   final List<String> dropped;
 
-  /// The accounts the host reported as unchanged.
-  final List<String> unchanged;
+  /// Whether neither the project nor its access changed at this sync.
+  final bool unchanged;
 
   /// The laptop identifiers added by this sync.
   final List<String> laptopsAdded;
@@ -101,8 +120,13 @@ class DeveloperSyncAnswer {
         return List.unmodifiable(items.cast<String>());
       }
 
-      final added = names('added'), dropped = names('dropped'), unchanged = names('unchanged');
-      if ({...added, ...dropped, ...unchanged}.length != added.length + dropped.length + unchanged.length) {
+      final added = names('added'), dropped = names('dropped');
+      final laptopsAdded = names('laptops_added', laptop: true);
+      final laptopsDropped = names('laptops_dropped', laptop: true);
+      final unchanged = value['unchanged'];
+      if (unchanged is! bool ||
+          (unchanged && [added, dropped, laptopsAdded, laptopsDropped].any((items) => items.isNotEmpty)) ||
+          {...added, ...dropped}.length != added.length + dropped.length) {
         throw const FormatException();
       }
       return DeveloperSyncAnswer._(
@@ -111,8 +135,8 @@ class DeveloperSyncAnswer {
         added,
         dropped,
         unchanged,
-        names('laptops_added', laptop: true),
-        names('laptops_dropped', laptop: true),
+        laptopsAdded,
+        laptopsDropped,
       );
     } on Exception {
       throw const FormatException('The host returned a malformed sync answer or answered for another project.');
@@ -124,7 +148,7 @@ class DeveloperSyncAnswer {
       ? 'admitted by last sync'
       : dropped.contains(account)
       ? 'dropped by last sync'
-      : unchanged.contains(account)
+      : unchanged
       ? 'unchanged at last sync'
       : 'not reported by last sync';
 }
@@ -144,7 +168,7 @@ class ProjectDevelopers extends ChangeNotifier {
   final String repository;
 
   /// The project admin’s sync boundary.
-  final Future<DeveloperSyncAnswer> Function(String project, AccessDevelopers access) sync;
+  final Future<DeveloperSyncAnswer> Function(String project, AccessDevelopers access, {String? bundle}) sync;
 
   /// The last verified and published developer list.
   AccessDevelopers? listed;
@@ -167,6 +191,8 @@ class ProjectDevelopers extends ChangeNotifier {
   Future<void> Function()? _pendingForge;
   bool _pendingSync = false;
   String? _accessCommit;
+  Directory? _pendingBundle;
+  bool _bundleReady = false;
 
   /// Whether a published change still needs an external confirmation.
   bool get needsRetry => _pendingSync || _pendingForge != null;
@@ -194,7 +220,13 @@ class ProjectDevelopers extends ChangeNotifier {
           if (developer.forgeLogin != null) developer.forgeLogin!,
         ...removed.values.whereType<String>(),
       ]);
-      forgeStates.addAll(states);
+      for (final entry in states.entries) {
+        if ((entry.value == 'can read' || entry.value == 'invited') &&
+            forgeStates[entry.key] == 'already has read access') {
+          continue;
+        }
+        forgeStates[entry.key] = entry.value;
+      }
     }
   }
 
@@ -284,6 +316,8 @@ class ProjectDevelopers extends ChangeNotifier {
         onPublished: (revision) {
           listed = next;
           _accessCommit = revision;
+          _pendingBundle = temporary;
+          _bundleReady = false;
           if (developer == null) removed[account] = oldLogin;
           _pendingSync = true;
           if (collaborators != null && grant != null) {
@@ -298,11 +332,12 @@ class ProjectDevelopers extends ChangeNotifier {
           }
         },
       );
+      _bundleReady = true;
     } finally {
       try {
         await access.close();
       } finally {
-        if (temporary != null) await temporary.delete(recursive: true);
+        if (temporary != null && temporary != _pendingBundle) await temporary.delete(recursive: true);
       }
     }
     await _apply();
@@ -321,10 +356,24 @@ class ProjectDevelopers extends ChangeNotifier {
     final failures = <String>[];
     if (_pendingSync) {
       try {
-        final answer = await sync(access.project, listed!);
+        var temporary = _pendingBundle;
+        if (temporary != null && !await temporary.exists()) {
+          temporary = await HostFileWriter().createPrivateTemporary(Directory.systemTemp);
+          _pendingBundle = temporary;
+          _bundleReady = false;
+        }
+        final bundle = temporary == null ? null : '${temporary.path}/access.bundle';
+        if (bundle != null && (!_bundleReady || !await File(bundle).exists())) {
+          await access.bundlePublished(bundle, _accessCommit!);
+          _bundleReady = true;
+        }
+        final answer = await sync(access.project, listed!, bundle: bundle);
         if (answer.accessCommit != _accessCommit) throw const FormatException('The host synced another access commit.');
         lastSync = answer;
         _pendingSync = false;
+        _discardBundle();
+      } on WorkspaceRefused catch (refused) {
+        failures.add(refused.words);
       } on HostAdminRefused catch (refused) {
         failures.add(refused.words);
       } on Exception {
@@ -370,6 +419,7 @@ class ProjectDevelopers extends ChangeNotifier {
         problem = 'The signed access file was published. $problem';
       }
       busy = false;
+      if (_disposed) _discardBundle();
       _notify();
     }
   }
@@ -378,9 +428,20 @@ class ProjectDevelopers extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  void _discardBundle() {
+    try {
+      _pendingBundle?.deleteSync(recursive: true);
+    } on PathNotFoundException {
+      // The temporary bundle may already have been removed.
+    }
+    _pendingBundle = null;
+    _bundleReady = false;
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    if (!busy) _discardBundle();
     super.dispose();
   }
 }

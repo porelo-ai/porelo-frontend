@@ -25,7 +25,7 @@ class DeveloperSettingsFixture extends ProjectDevelopers {
         ),
         forge: null,
         repository: 'team/access',
-        sync: (_, _) => throw StateError('No host call before review.'),
+        sync: (_, _, {String? bundle}) => throw StateError('No host call before review.'),
       ) {
     listed = parseAccessDevelopers('''host: {network: 10.77.0.0/24, ssh_host_key: "$developerSsh"}
 developers:

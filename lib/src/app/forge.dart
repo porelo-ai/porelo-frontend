@@ -11,7 +11,7 @@ abstract interface class ForgeCollaborators {
   /// Refuses a token or account without Administration on the access repository.
   Future<void> checkAdministration(String repository);
 
-  /// Invites [login] with read permission, returning the forge's confirmed state.
+  /// Checks [login]'s permission before granting missing read access.
   Future<String> grantRead(String repository, String login);
 
   /// Revokes direct access and any pending invitation for [login].
@@ -256,17 +256,15 @@ class GitHub implements Forge, ForgeCollaborators {
         allow404: allow404,
       );
     } on ForgeRefused catch (refused) {
+      final call = '$method /repos/$repository${suffix.isEmpty ? '' : '/$suffix'}';
+      final words = _token.isEmpty ? refused.words : refused.words.replaceAll(_token, '[redacted]');
       if (refused.status == 401 || refused.status == 403 || refused.status == 404) {
         throw ForgeRefused(
-          'GitHub refused access management. The central token needs Administration: Read and write on the access repository $repository. Check its selected repositories and your admin access.',
+          '$call: $words The central token needs Administration: Read and write on the access repository $repository. Check its selected repositories and your admin access.',
           status: refused.status,
         );
       }
-      // GitHub may echo submitted values; no API diagnostics enter developer settings.
-      throw ForgeRefused(
-        'GitHub refused access management${refused.status == null ? '' : ' (HTTP ${refused.status})'}. Check the access repository and developer login.',
-        status: refused.status,
-      );
+      throw ForgeRefused('$call: $words', status: refused.status);
     }
   }
 
@@ -286,20 +284,26 @@ class GitHub implements Forge, ForgeCollaborators {
     final invitations = <String, int>{};
     var page = 1;
     while (true) {
-      final reply = await _collaboratorCall('GET', repository, 'invitations?per_page=100&page=$page');
-      final listed = _listOf(reply);
+      final suffix = 'invitations?per_page=100&page=$page';
+      final call = 'GET /repos/$repository/$suffix';
+      final reply = await _collaboratorCall('GET', repository, suffix);
+      final listed = _listOf(reply, call: call);
       for (final item in listed) {
         if (item is! Map ||
             item['id'] is! int ||
             (item['id'] as int) <= 0 ||
             item['invitee'] is! Map ||
             item['invitee']['login'] is! String) {
-          throw const ForgeRefused('GitHub returned a malformed repository invitation.');
+          throw ForgeRefused('$call: GitHub returned a malformed repository invitation.');
         }
         final login = item['invitee']['login'] as String;
-        checkForgeLogin(login);
+        try {
+          checkForgeLogin(login);
+        } on FormatException {
+          throw ForgeRefused('$call: GitHub returned a malformed repository invitation.');
+        }
         if (invitations.containsKey(login.toLowerCase())) {
-          throw const ForgeRefused('GitHub repeated a repository invitation page.');
+          throw ForgeRefused('$call: GitHub repeated a repository invitation page.');
         }
         invitations[login.toLowerCase()] = item['id'] as int;
       }
@@ -311,6 +315,23 @@ class GitHub implements Forge, ForgeCollaborators {
   @override
   Future<String> grantRead(String repository, String login) async {
     _checkCollaborator(repository, login);
+    final permissionCall = 'GET /repos/$repository/collaborators/$login/permission';
+    final permissionReply = await _collaboratorCall(
+      'GET',
+      repository,
+      'collaborators/$login/permission',
+      allow404: true,
+    );
+    if (permissionReply.status != 404) {
+      switch (_mapOf(permissionReply, call: permissionCall)['permission']) {
+        case 'read' || 'triage' || 'write' || 'maintain' || 'admin':
+          return 'already has read access';
+        case 'none':
+          break;
+        default:
+          throw ForgeRefused('$permissionCall: GitHub did not report a known repository permission.');
+      }
+    }
     final reply = await _collaboratorCall(
       'PUT',
       repository,
@@ -320,7 +341,9 @@ class GitHub implements Forge, ForgeCollaborators {
     return switch (reply.status) {
       201 => 'invited',
       204 => 'can read',
-      _ => throw const ForgeRefused('GitHub did not confirm read access or an invitation.'),
+      _ => throw ForgeRefused(
+        'PUT /repos/$repository/collaborators/$login: GitHub did not confirm read access or an invitation.',
+      ),
     };
   }
 
@@ -349,8 +372,9 @@ class GitHub implements Forge, ForgeCollaborators {
         states[login] = 'no read access';
         continue;
       }
-      final permission = _mapOf(reply)['permission'];
-      if (permission is! String) throw const ForgeRefused('GitHub did not report repository permission.');
+      final call = 'GET /repos/$repository/collaborators/$login/permission';
+      final permission = _mapOf(reply, call: call)['permission'];
+      if (permission is! String) throw ForgeRefused('$call: GitHub did not report repository permission.');
       states[login] = switch (permission) {
         'read' || 'triage' || 'write' || 'maintain' || 'admin' => 'can read',
         'none' => 'no read access',
@@ -417,23 +441,27 @@ class GitHub implements Forge, ForgeCollaborators {
 
   /// [reply]'s body as the list a call reads, or GitHub refusing it: a proxy's page, or JSON of another
   /// shape, is said rather than thrown past every form that asked.
-  static List<dynamic> _listOf(ForgeReply reply) => switch (_decoded(reply)) {
+  static List<dynamic> _listOf(ForgeReply reply, {String? call}) => switch (_decoded(reply, call: call)) {
     final List<dynamic> list => list,
-    _ => throw ForgeRefused('GitHub answered with something other than the list this asks for.'),
+    _ => throw ForgeRefused(
+      '${call == null ? '' : '$call: '}GitHub answered with something other than the list this asks for.',
+    ),
   };
 
   /// [reply]'s body as the object a call reads, or GitHub refusing it.
-  static Map<String, dynamic> _mapOf(ForgeReply reply) => switch (_decoded(reply)) {
+  static Map<String, dynamic> _mapOf(ForgeReply reply, {String? call}) => switch (_decoded(reply, call: call)) {
     final Map<String, dynamic> map => map,
-    _ => throw ForgeRefused('GitHub answered with something other than the object this asks for.'),
+    _ => throw ForgeRefused(
+      '${call == null ? '' : '$call: '}GitHub answered with something other than the object this asks for.',
+    ),
   };
 
-  static Object? _decoded(ForgeReply reply) {
+  static Object? _decoded(ForgeReply reply, {String? call}) {
     try {
       return jsonDecode(reply.body);
     } on FormatException {
       throw ForgeRefused(
-        'GitHub answered with a page that is not its API, as a proxy or a network sign-in does.',
+        '${call == null ? '' : '$call: '}GitHub answered with a page that is not its API, as a proxy or a network sign-in does.',
         status: reply.status,
       );
     }

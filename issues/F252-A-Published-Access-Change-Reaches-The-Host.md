@@ -26,3 +26,8 @@ Only the change: the tests above and `project_developers`' own tests. On VM A: o
 ## Estimate
 
 `F252 size=S est=15 basis=median S 15 (F155 F156 F160 F168 F173 F176 F221 F223 F224 F226 F228, 11 records)`
+
+## Deferred
+
+- Preserve pending upload and sync recovery across closing and reopening Developers, including the retained private bundle's lifecycle.
+- Reset `_bundleReady` before rebuilding a missing bundle (`project_developers.dart` ~367), so a rebuild that throws after writing the file is rebuilt again on the next Retry.

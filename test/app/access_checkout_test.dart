@@ -323,6 +323,25 @@ room: '#old:old.example.org', tls_verify: false}} # Keep transport note
       throwsA(isA<WorkspaceRefused>()),
     );
     expect(published, 'b' * 40, reason: 'external application must survive a failure after the push');
+    bundleFails = false;
+    commands.clear();
+    final bundle = '${scratch.path}/access.bundle';
+    await access.bundlePublished(bundle, published!);
+    expect(await File(bundle).readAsString(), 'bundle fixture');
+    expect((await File(bundle).stat()).mode & 0x1ff, 0x180);
+    expect(commands.where((args) => args.first == 'commit' || args.first == 'push'), isEmpty);
+  });
+
+  // Harm: Retry could bundle a newer revision instead of the exact published access change.
+  test('rebundling refuses a checkout that no longer names the published commit', () async {
+    final access = await checkout();
+    await access.open();
+    await access.close();
+    commands.clear();
+    final bundle = '${scratch.path}/access.bundle';
+    await expectLater(access.bundlePublished(bundle, 'c' * 40), throwsA(isA<WorkspaceRefused>()));
+    expect(await File(bundle).exists(), isFalse);
+    expect(commands.where((args) => args.first == 'bundle'), isEmpty);
   });
 
   // Harm: an unsigned access update fails verification only after it leaves this computer.

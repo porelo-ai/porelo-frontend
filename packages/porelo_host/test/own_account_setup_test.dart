@@ -62,32 +62,132 @@ void main() {
     expect(steps.map((step) => step.words), contains('An earlier upload of demo was replaced.'));
   });
 
-  // Harm: retry cleanup deletes a foreign file or follows a link in a formerly valid upload.
-  for (final foreign in ['missing marker', 'extra file', 'link', 'marker link']) {
-    test('a marked upload with $foreign is refused with its contents preserved', () async {
+  // Harm: an access update invalidates ownership proof and prevents a later bring from replacing its own upload.
+  test('a bring replaces its earlier upload after an access bundle replacement', () async {
+    expect(await upload(), isNull);
+    final place = '${(remote as _HomeRemote).home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
+    final marker = File('$place/.porelo-upload');
+    final earlier = await marker.readAsLines();
+    await accessBundle.writeAsBytes([6, 7, 8]);
+
+    expect(
+      await run.uploadAccessBundle(
+        address: '203.0.113.7',
+        user: 'developer',
+        project: 'demo',
+        bundle: accessBundle.path,
+      ),
+      isNull,
+    );
+    expect(await File('$place/access.bundle').readAsBytes(), [6, 7, 8]);
+    expect(await File('$place/machine.yml').readAsBytes(), await machine.readAsBytes());
+    expect(await File('$place/project.bundle').readAsBytes(), await bundle.readAsBytes());
+    expect(await marker.readAsLines(), [
+      ...earlier.take(3),
+      '${sha256.convert([6, 7, 8])}  access.bundle',
+    ]);
+    expect((await marker.stat()).mode & 0x1ff, 0x180, reason: 'the updated marker is 0600');
+    expect(await Directory(_stagingPlace(place)).exists(), isFalse);
+
+    await bundle.writeAsBytes([9, 10, 11]);
+    expect(await upload(), isNull);
+    expect(await File('$place/project.bundle').readAsBytes(), [9, 10, 11]);
+    expect(await File('$place/access.bundle').readAsBytes(), [6, 7, 8]);
+    expect(await marker.readAsString(), contains('${sha256.convert([9, 10, 11])}  project.bundle\n'));
+  });
+
+  // Harm: a failed marker update strands changed access as foreign content and blocks Retry.
+  for (final failure in ['creation', 'publication']) {
+    test('a marker $failure failure preserves the previous upload and allows Retry', () async {
       expect(await upload(), isNull);
-      final place = '${(remote as _HomeRemote).home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
+      final home = (remote as _HomeRemote).home;
+      final place = '${home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
       final marker = File('$place/.porelo-upload');
-      if (foreign == 'missing marker' || foreign == 'marker link') await marker.delete();
-      if (foreign == 'extra file') await File('$place/foreign').writeAsString('preserve');
-      final outside = await File('${scratch.path}/outside').writeAsString('preserve');
-      if (foreign == 'link') {
-        await File('$place/access.bundle').delete();
-        await Link('$place/access.bundle').create(outside.path);
-      }
-      if (foreign == 'marker link') await Link(marker.path).create(outside.path);
-      final before = await Directory(place).list(followLinks: false).map((entry) => entry.path).toList();
-      final steps = <Step>[];
-      run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
-      expect(await upload(), Exit.refused);
-      expect(steps.last.words, contains(place));
-      expect(
-        await Directory(place).list(followLinks: false).map((entry) => entry.path).toList(),
-        unorderedEquals(before),
+      final earlierMarker = await marker.readAsString();
+      final earlierAccess = await File('$place/access.bundle').readAsBytes();
+      await accessBundle.writeAsBytes([6, 7, 8]);
+      remote = _HomeRemote(
+        home,
+        refuseMarkerPublication: failure == 'publication',
+        beforeSession: (number) async {
+          if (failure == 'creation' && number == 4) {
+            await File('${_stagingPlace(place)}/.porelo-upload').writeAsString('occupied temporary marker');
+          }
+        },
       );
-      expect(await outside.readAsString(), 'preserve');
+      run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
+      Future<int?> replaceAccess() =>
+          run.uploadAccessBundle(address: '203.0.113.7', user: 'developer', project: 'demo', bundle: accessBundle.path);
+
+      expect(await replaceAccess(), Exit.refused);
+      expect(await marker.readAsString(), earlierMarker);
+      expect(await File('$place/access.bundle').readAsBytes(), earlierAccess);
+      expect(await File('$place/machine.yml').readAsBytes(), await machine.readAsBytes());
       expect(await File('$place/project.bundle').readAsBytes(), await bundle.readAsBytes());
+      expect(await Directory(_stagingPlace(place)).exists(), isFalse);
+
+      remote = _HomeRemote(home);
+      run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
+      expect(await replaceAccess(), isNull);
+      expect(await File('$place/access.bundle').readAsBytes(), [6, 7, 8]);
+      expect(await upload(), isNull, reason: 'the recovered marker must still prove ownership for a fresh bring');
     });
+  }
+
+  // Harm: retry cleanup or an access update changes a foreign file or follows a link.
+  for (final replaceAccess in [false, true]) {
+    for (final foreign in ['missing marker', 'extra file', 'link', 'marker link', 'changed file', 'malformed marker']) {
+      test(
+        '${replaceAccess ? 'an access update to' : 'a marked upload with'} $foreign is refused with its contents preserved',
+        () async {
+          expect(await upload(), isNull);
+          final place = '${(remote as _HomeRemote).home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
+          final marker = File('$place/.porelo-upload');
+          if (foreign == 'missing marker' || foreign == 'marker link') await marker.delete();
+          if (foreign == 'extra file') await File('$place/foreign').writeAsString('preserve');
+          final outside = await File('${scratch.path}/outside').writeAsString('preserve');
+          if (foreign == 'link') {
+            await File('$place/access.bundle').delete();
+            await Link('$place/access.bundle').create(outside.path);
+          }
+          if (foreign == 'marker link') await Link(marker.path).create(outside.path);
+          if (foreign == 'changed file') await File('$place/access.bundle').writeAsString('preserve changed access');
+          if (foreign == 'malformed marker') await marker.writeAsString('preserve malformed marker\n');
+          final before = await Directory(place).list(followLinks: false).map((entry) => entry.path).toList();
+          final previousAccess = await File('$place/access.bundle').readAsBytes();
+          final previousMarker = await marker.exists() ? await marker.readAsBytes() : null;
+          final copies = (remote as _HomeRemote).copiedTo.length;
+          final steps = <Step>[];
+          run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+          expect(
+            replaceAccess
+                ? await run.uploadAccessBundle(
+                    address: '203.0.113.7',
+                    user: 'developer',
+                    project: 'demo',
+                    bundle: accessBundle.path,
+                  )
+                : await upload(),
+            Exit.refused,
+          );
+          expect(steps.last.words, contains(place));
+          expect(
+            await Directory(place).list(followLinks: false).map((entry) => entry.path).toList(),
+            unorderedEquals(before),
+          );
+          expect(await outside.readAsString(), 'preserve');
+          expect(await File('$place/project.bundle').readAsBytes(), await bundle.readAsBytes());
+          expect(await File('$place/access.bundle').readAsBytes(), previousAccess);
+          if (previousMarker != null) expect(await marker.readAsBytes(), previousMarker);
+          expect(
+            (remote as _HomeRemote).copiedTo,
+            hasLength(copies),
+            reason: 'foreign folders are refused before copying',
+          );
+          expect(await Directory(_stagingPlace(place)).exists(), isFalse);
+        },
+      );
+    }
   }
 
   // Harm: refusing a foreign upload removes an empty directory through a substituted ancestor link.
@@ -112,6 +212,29 @@ void main() {
     expect(await kept.readAsString(), 'preserve');
     expect(await Link(ancestor).target(), outside.path);
   });
+
+  // Harm: a refused access update leaves new setup directories behind on an unprepared host.
+  for (final existingParent in ['', '.local', '.local/share', '.local/share/porelo-host']) {
+    test('an access update refuses missing setup without creating parents under "$existingParent"', () async {
+      final home = (remote as _HomeRemote).home;
+      if (existingParent.isNotEmpty) await Directory('${home.path}/$existingParent').create(recursive: true);
+      final before = (await home.list(recursive: true).toList()).map((entry) => entry.path).toSet();
+      final steps = <Step>[];
+      run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+      expect(
+        await run.uploadAccessBundle(
+          address: '203.0.113.7',
+          user: 'developer',
+          project: 'demo',
+          bundle: accessBundle.path,
+        ),
+        Exit.refused,
+      );
+      expect(steps.last.words, contains('project setup folder is missing'));
+      expect((await home.list(recursive: true).toList()).map((entry) => entry.path).toSet(), before);
+      expect((remote as _HomeRemote).copiedTo, isEmpty);
+    });
+  }
 
   // Harm: project files require root or are installed into another account's setup.
   test('the own-account upload stays in the person home without sudo', () async {
@@ -642,6 +765,7 @@ class _HomeRemote extends ScriptedRemote {
     this.skipSession,
     this.beforeSession,
     this.reservationHook,
+    this.refuseMarkerPublication = false,
   }) : super([]);
 
   final Directory home;
@@ -656,6 +780,7 @@ class _HomeRemote extends ScriptedRemote {
   final int? skipSession;
   final Future<void> Function(int)? beforeSession;
   final String? reservationHook;
+  final bool refuseMarkerPublication;
 
   @override
   Future<RemoteResult> run(
@@ -684,6 +809,11 @@ class _HomeRemote extends ScriptedRemote {
     }
     if (installHook != null) {
       script = script.replaceFirst('/usr/bin/install -m 0600', '{ $installHook; } && /usr/bin/install -m 0600');
+    }
+    if (refuseMarkerPublication) {
+      final place = '${home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
+      final publish = '/usr/bin/mv -fT -- ${quoteForAShell('${_stagingPlace(place)}/.porelo-upload')}';
+      script = script.replaceFirst(publish, '/usr/bin/false\n$publish');
     }
     command = script;
     await beforeSession?.call(runs.length);

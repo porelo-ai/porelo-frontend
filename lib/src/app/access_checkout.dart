@@ -351,6 +351,16 @@ class AccessCheckout {
       await close();
     }
     await _git(['merge', '--ff-only', published]);
+    await bundlePublished(bundle, published);
+  }
+
+  /// Rebuilds the bundle only while the checkout still names [published].
+  Future<void> bundlePublished(String bundle, String published) async {
+    final branch = _branch;
+    if (branch == null || await revision() != published) {
+      throw const WorkspaceRefused('The access checkout no longer names the published access commit.');
+    }
+    if (await File(bundle).exists()) await File(bundle).delete();
     await _git(['bundle', 'create', bundle, 'refs/heads/$branch', 'HEAD']);
     await _writer.protect(File(bundle));
   }

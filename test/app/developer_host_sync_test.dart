@@ -43,7 +43,7 @@ void main() {
         'access_commit': 'b' * 40,
         'added': ['developer'],
         'dropped': <String>[],
-        'unchanged': <String>[],
+        'unchanged': false,
         'laptops_added': ['developer/l1'],
         'laptops_dropped': <String>[],
       });

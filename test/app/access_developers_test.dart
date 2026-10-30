@@ -109,18 +109,32 @@ void main() {
       'access_commit': 'b' * 40,
       'added': ['alice'],
       'dropped': ['bob'],
-      'unchanged': ['carol'],
+      'unchanged': false,
       'laptops_added': ['alice/l1'],
       'laptops_dropped': <String>[],
     };
     final parsed = DeveloperSyncAnswer.read(jsonEncode(answer), 'demo');
     expect(parsed.state('alice'), 'admitted by last sync');
     expect(parsed.state('bob'), 'dropped by last sync');
-    expect(parsed.state('carol'), 'unchanged at last sync');
+    expect(parsed.state('carol'), 'not reported by last sync');
+    final unchanged = {
+      ...answer,
+      'added': <String>[],
+      'dropped': <String>[],
+      'laptops_added': <String>[],
+      'unchanged': true,
+    };
+    final repeated = DeveloperSyncAnswer.read(jsonEncode(unchanged), 'demo');
+    expect(repeated.accessCommit, answer['access_commit']);
+    expect(repeated.state('carol'), 'unchanged at last sync');
     for (final edit in <Map<String, Object>>[
       {'project': 'other'},
       {'access_commit': 'bad'},
       {'commit': ''},
+      {
+        'unchanged': ['carol'],
+      },
+      {'unchanged': true},
       {
         'added': ['../unsafe'],
       },
@@ -132,6 +146,19 @@ void main() {
       },
     ]) {
       expect(() => DeveloperSyncAnswer.read(jsonEncode({...answer, ...edit}), 'demo'), throwsFormatException);
+    }
+    for (final field in ['added', 'dropped', 'laptops_added', 'laptops_dropped']) {
+      expect(
+        () => DeveloperSyncAnswer.read(
+          jsonEncode({
+            ...unchanged,
+            field: [field.startsWith('laptops') ? 'alice/l1' : 'alice'],
+          }),
+          'demo',
+        ),
+        throwsFormatException,
+        reason: 'unchanged cannot report a change in $field',
+      );
     }
   });
 }
