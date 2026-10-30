@@ -1,3 +1,7 @@
+// Linux: these terminal feeds require Bash, chmod, and keepassxc-cli.
+@Tags(['linux'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -320,7 +324,7 @@ void main() {
         host: 'person@203.0.113.7',
         cli: cli,
       );
-      final first = await run(command, 'm\n$password\n');
+      final first = await run(command, 'm\n$password\n$password\n');
       expect(first.exitCode, 0, reason: '${first.stderr}');
       expect(first.stdout, digest.stdout, reason: 'the receiver hashes exactly the password line');
       expect('${first.stderr}'.contains(password), isFalse);

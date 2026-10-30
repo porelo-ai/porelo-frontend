@@ -42,6 +42,28 @@ class HelperRemote extends ScriptedRemote {
 void main() {
   // Harm: malformed metadata can redirect admin access or trust.
   group('host completion', () {
+    // Harm: pasted spacing blocks a valid host, while malformed trust metadata must still be refused.
+    for (final (field, pasted) in [
+      ('ssh_host_key', '  ${sshKey.replaceFirst(' ', '  \t ')}  '),
+      ('wireguard_public_key', ' \t$wireGuardKey  '),
+    ]) {
+      test('normalizes pasted $field blanks without changing other public values', () {
+        final host = PreparedHost.read({...hostValues(), field: pasted});
+        expect(host.values, hostValues());
+      });
+    }
+    test('a malformed CA digest names its required form', () {
+      expect(
+        () => PreparedHost.read({...hostValues(), 'ca_sha256': 'wrong'}),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'required digest form',
+            allOf(contains('ca_sha256'), contains('64'), contains('lowercase hexadecimal')),
+          ),
+        ),
+      );
+    });
     for (final field in hostValues().keys) {
       for (final value in [null, 42, '', 'malformed']) {
         test('refuses $field when it is $value by name', () {
@@ -73,6 +95,7 @@ void main() {
       ('network', '10.73.7.1/24'),
       ('ssh_host_key', '$sshKey\ncomment'),
       ('ssh_host_key', 'ssh-ed25519 AAAA'),
+      ('ssh_host_key', '$sshKey comment'),
       ('wireguard_public_key', '${'A' * 42}B='),
       ('ca_sha256', 'A' * 64),
       ('homeserver', 'matrix.-bad.porelo.internal'),

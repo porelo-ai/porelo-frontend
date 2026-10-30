@@ -7,15 +7,24 @@
 
 ## Why
 
-Operator's walk 23 on VM A (2026-10-30): a failed bring left `~/.local/share/porelo-host/setup/walk6-demo/` on walk9server. The next try refused with "The project setup folder already exists; it was preserved." (`uploadSetupFiles` in `packages/porelo_host/lib/src/host_run.dart`). Removing the folder when a bring fails is not the answer: a bring that waits at a stop needs its files when it goes on.
+Operator's walk 23 on VM A (2026-10-30): a failed bring left `~/.local/share/porelo-host/setup/walk6-demo/` on the prepared host. The next try refused with "The project setup folder already exists; it was preserved." (`uploadSetupFiles` in `packages/porelo_host/lib/src/host_run.dart`). Removing the folder when a bring fails is not the answer: a bring that waits at a stop needs its files when it goes on.
 
 ## Plan
 
 - The upload writes a marker into the folder it makes (`.porelo-upload`, holding the upload's time and the bundle digests), as the last file of a complete upload.
-- A new try finds the folder, checks that it is a plain directory, that it holds the marker and only the files an upload writes, and that nothing in it is a link. It then removes it and uploads afresh, saying "An earlier upload of walk6-demo was replaced." Anything else is refused as today, naming the path and what made it foreign.
+- A new try finds the folder, checks that it is a plain directory, that it holds the marker and only the files an upload writes, and that nothing in it is a link. It then removes it and uploads afresh. The uploader emits "An earlier upload of walk6-demo was replaced." Anything else is refused as today, naming the path and what made it foreign; cleanup rechecks the staging directory and its ancestors before removing it.
 - A bring that goes on after a stop uses the folder as it is and does not re-upload.
 - **Red first:** a test that an earlier marked upload is replaced and a new one made; a test that a folder without the marker, or with an extra file or a link, is refused and left untouched.
 
 ## Test
 
 Only the change: the tests above against a stand-in remote, and `porelo_host`'s own upload tests. The VM test covers only a second bring try after a failed one on the walk's host.
+
+## To be checked
+
+- A second bring after a failed upload has not been exercised on a VM in this worktree.
+
+## Deferred
+
+- Marker-format and modified-file cases of foreign uploads need dedicated tests.
+- Retaining the replacement notice in the bring's lastLines is deferred; What must be true requires safe replacement and a path-named refusal, without a visible replacement notice.

@@ -33,6 +33,77 @@ class _ServerRemote extends ScriptedRemote {
   }
 }
 
+/// Replays installation in a private tree, modeling root ownership without changing this machine.
+class _CollectionRemote extends _ServerRemote {
+  _CollectionRemote(this.root, this.owner) : super([]);
+
+  final Directory root;
+  final File owner;
+
+  String get tree => '${root.path}/collections/ansible_collections/porelo/host';
+
+  @override
+  Future<RemoteResult> run(
+    String host,
+    String user,
+    String command, {
+    String? input,
+    void Function(String)? onLine,
+  }) async {
+    final result = await super.run(host, user, command, input: input, onLine: onLine);
+    if (!command.contains('ansible-galaxy collection install')) return result;
+    final script = r'''
+umask 077
+cloud-init() { return 0; }
+sudo() {
+  case "$1" in
+    DEBIAN_FRONTEND=noninteractive) shift; test "$1" = apt-get;;
+    env)
+      shift 3
+      test "$1 $2 $3" = 'ansible-galaxy collection install' || return 99
+      /usr/bin/mkdir -p -- "$collection_tree" && printf collection > "$collection_tree/MANIFEST.json";;
+    /usr/bin/stat)
+      shift
+      test "$1 $2 $3 $4" = "-c %u -- $collection_root" || return 99
+      /usr/bin/cat -- "$collection_owner";;
+    /usr/bin/chown)
+      shift
+      if test "$1" = -R; then shift; fi
+      test "$1" = root:root || return 99
+      shift
+      for directory in "$@"; do
+        if test "$directory" = "$collection_root"; then printf 0 > "$collection_owner"; fi
+      done;;
+    /usr/bin/install)
+      shift
+      local arguments=()
+      while test "$#" -gt 0; do
+        case "$1" in
+          -o|-g) test "$2" = root || return 99; shift 2;;
+          *) arguments+=("$1"); shift;;
+        esac
+      done
+      /usr/bin/install "${arguments[@]}" && printf 0 > "$collection_owner";;
+    /usr/bin/chmod|/usr/bin/find|/usr/bin/test) "$@";;
+    *) echo "Unexpected sudo command: $1" >&2; return 99;;
+  esac
+}
+''';
+    final installed = await Process.run(
+      '/bin/bash',
+      ['-c', '$script\n${command.replaceAll('/usr/share/ansible', root.path)}'],
+      environment: {
+        'collection_root': root.path,
+        'collection_tree': tree,
+        'collection_owner': owner.path,
+        'PATH': '/usr/bin:/bin',
+      },
+      includeParentEnvironment: false,
+    );
+    return RemoteResult(installed.exitCode, installed.stderr as String);
+  }
+}
+
 void main() {
   late Directory scratch;
   late File collection;
@@ -76,6 +147,62 @@ void main() {
   );
 
   // Harm: valid DNS labels must not collide with project locks or Windows device names.
+  // Harm: own-account plays cannot find the checked collection, or can replace root's installed code.
+  test('up installs a globally readable root-owned collection and runs that same path', () async {
+    final remote = _ServerRemote([]);
+    expect(await run(remote).up(plan()), Exit.done);
+    final install = remote.commands.singleWhere((command) => command.contains('ansible-galaxy collection install'));
+    expect(install, contains('-p /usr/share/ansible/collections '));
+    expect(install, contains('chown'));
+    expect(install, contains('root:root'));
+    expect(install, allOf(contains('0755'), contains('0644')));
+    final play = remote.commands.singleWhere((command) => command.contains('ansible-playbook'));
+    expect(play, contains('ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections '));
+    expect(remote.commands, everyElement(isNot(contains('/var/tmp/porelo-host/collections'))));
+  });
+
+  // Harm: a writable or linked parent lets another account replace the collection root runs.
+  for (final kind in ['absent', 'root-owned', 'foreign-owned', 'link', 'file']) {
+    test('collection installation checks and normalizes the $kind ansible directory', () async {
+      final root = Directory('${scratch.path}/ansible');
+      final owner = await File('${scratch.path}/owner').writeAsString(kind == 'foreign-owned' ? '1001' : '0');
+      final outside = await Directory('${scratch.path}/outside').create();
+      final kept = await File('${outside.path}/keep').writeAsString('preserve');
+      if (kind == 'root-owned' || kind == 'foreign-owned') {
+        await root.create();
+        final mode = await Process.run('/usr/bin/chmod', ['0700', root.path]);
+        expect(mode.exitCode, 0, reason: mode.stderr as String);
+      } else if (kind == 'link') {
+        await Link(root.path).create(outside.path);
+      } else if (kind == 'file') {
+        await File(root.path).writeAsString('preserve');
+      }
+      final remote = _CollectionRemote(root, owner);
+      final allowed = kind == 'absent' || kind == 'root-owned';
+
+      expect(await run(remote).up(plan()), allowed ? Exit.done : Exit.refused);
+      expect(await File('${remote.tree}/MANIFEST.json').exists(), allowed);
+      expect(await kept.readAsString(), 'preserve');
+      if (allowed) {
+        expect(await owner.readAsString(), '0', reason: 'the parent must be root-owned');
+        expect((await root.stat()).mode & 0x1ff, 0x1ed, reason: 'every account must be able to traverse the parent');
+        expect((await Directory(remote.tree).stat()).mode & 0x1ff, 0x1ed);
+        expect((await File('${remote.tree}/MANIFEST.json').stat()).mode & 0x1ff, 0x1a4);
+      } else {
+        expect(steps.last.words, contains(root.path));
+        expect(remote.commands.where((command) => command.contains('ansible-playbook')), isEmpty);
+        if (kind == 'foreign-owned') {
+          expect(await owner.readAsString(), '1001');
+          expect((await root.stat()).mode & 0x1ff, 0x1c0);
+        } else if (kind == 'link') {
+          expect(await Link(root.path).target(), outside.path);
+        } else {
+          expect(await File(root.path).readAsString(), 'preserve');
+        }
+      }
+    });
+  }
+
   test('server names use their own lock namespace and accept the contract boundaries', () async {
     expect(HostPlan.serverLockName('con'), 'host-con');
     for (final name in ['con', '0', 'a' * 63]) {

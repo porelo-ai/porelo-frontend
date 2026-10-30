@@ -49,6 +49,70 @@ void main() {
     accessBundle: accessBundle.path,
   );
 
+  // Harm: a failed bring blocks a fresh try even when only this interface's completed upload remains.
+  test('a completed marked upload is replaced by fresh files on the next try', () async {
+    final steps = <Step>[];
+    run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+    expect(await upload(), isNull);
+    final place = '${(remote as _HomeRemote).home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
+    await bundle.writeAsBytes([9, 8, 7]);
+    expect(await upload(), isNull);
+    expect(await File('$place/project.bundle').readAsBytes(), [9, 8, 7]);
+    expect(await File('$place/.porelo-upload').readAsString(), contains(sha256.convert([9, 8, 7]).toString()));
+    expect(steps.map((step) => step.words), contains('An earlier upload of demo was replaced.'));
+  });
+
+  // Harm: retry cleanup deletes a foreign file or follows a link in a formerly valid upload.
+  for (final foreign in ['missing marker', 'extra file', 'link', 'marker link']) {
+    test('a marked upload with $foreign is refused with its contents preserved', () async {
+      expect(await upload(), isNull);
+      final place = '${(remote as _HomeRemote).home.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
+      final marker = File('$place/.porelo-upload');
+      if (foreign == 'missing marker' || foreign == 'marker link') await marker.delete();
+      if (foreign == 'extra file') await File('$place/foreign').writeAsString('preserve');
+      final outside = await File('${scratch.path}/outside').writeAsString('preserve');
+      if (foreign == 'link') {
+        await File('$place/access.bundle').delete();
+        await Link('$place/access.bundle').create(outside.path);
+      }
+      if (foreign == 'marker link') await Link(marker.path).create(outside.path);
+      final before = await Directory(place).list(followLinks: false).map((entry) => entry.path).toList();
+      final steps = <Step>[];
+      run = HostRun(provider: CountingProvider(), remote: remote, emit: steps.add);
+      expect(await upload(), Exit.refused);
+      expect(steps.last.words, contains(place));
+      expect(
+        await Directory(place).list(followLinks: false).map((entry) => entry.path).toList(),
+        unorderedEquals(before),
+      );
+      expect(await outside.readAsString(), 'preserve');
+      expect(await File('$place/project.bundle').readAsBytes(), await bundle.readAsBytes());
+    });
+  }
+
+  // Harm: refusing a foreign upload removes an empty directory through a substituted ancestor link.
+  test('foreign upload cleanup preserves staging behind a substituted ancestor link', () async {
+    final home = (remote as _HomeRemote).home;
+    final outside = await Directory('${scratch.path}/outside').create();
+    final outsideSetup = await Directory('${outside.path}/share/porelo-host/setup').create(recursive: true);
+    final outsideStaging = await Directory('${outsideSetup.path}/-upload-demo').create();
+    final foreign = await Directory('${outsideSetup.path}/demo').create();
+    final kept = await File('${foreign.path}/keep').writeAsString('preserve');
+    final ancestor = '${home.path}/.local';
+    remote = _HomeRemote(
+      home,
+      reservationHook:
+          '/usr/bin/mv -- ${quoteForAShell(ancestor)} ${quoteForAShell('$ancestor-kept')} && '
+          '/usr/bin/ln -s -- ${quoteForAShell(outside.path)} ${quoteForAShell(ancestor)}',
+    );
+    run = HostRun(provider: CountingProvider(), remote: remote, emit: (_) {});
+
+    expect(await upload(), Exit.refused);
+    expect(await outsideStaging.exists(), isTrue, reason: 'cleanup must not follow the replaced ancestor');
+    expect(await kept.readAsString(), 'preserve');
+    expect(await Link(ancestor).target(), outside.path);
+  });
+
   // Harm: project files require root or are installed into another account's setup.
   test('the own-account upload stays in the person home without sudo', () async {
     expect(await upload(), isNull);
@@ -95,7 +159,11 @@ void main() {
       'project.bundle': bundle.readAsBytesSync(),
       'access.bundle': accessBundle.readAsBytesSync(),
     };
-    expect((await place.list().toList()).map((file) => file.uri.pathSegments.last).toSet(), expected.keys.toSet());
+    expect((await place.list().toList()).map((file) => file.uri.pathSegments.last).toSet(), {
+      ...expected.keys,
+      '.porelo-upload',
+    });
+    expect((await File('${place.path}/.porelo-upload').stat()).mode & 0x1ff, 0x180);
     for (final entry in expected.entries) {
       final file = File('${place.path}/${entry.key}');
       expect(await file.readAsBytes(), entry.value, reason: entry.key);
@@ -181,7 +249,7 @@ void main() {
   }
 
   // Harm: a second project overwrites the first project's setup or makes the host read old bundle names.
-  test('each project receives only the three fixed names in its own private directory', () async {
+  test('each project receives only the three fixed files and upload marker in its private directory', () async {
     final home = (remote as _HomeRemote).home;
     expect(await upload(), isNull);
     final secondMachine = await File('${scratch.path}/other-machine.yml').writeAsString('project: {name: other}\n');
@@ -205,6 +273,7 @@ void main() {
         'machine.yml',
         'project.bundle',
         'access.bundle',
+        '.porelo-upload',
       });
       for (final (name, source) in [
         ('machine.yml', expectedMachine),
@@ -572,6 +641,7 @@ class _HomeRemote extends ScriptedRemote {
     this.noisySession,
     this.skipSession,
     this.beforeSession,
+    this.reservationHook,
   }) : super([]);
 
   final Directory home;
@@ -585,6 +655,7 @@ class _HomeRemote extends ScriptedRemote {
   final int? noisySession;
   final int? skipSession;
   final Future<void> Function(int)? beforeSession;
+  final String? reservationHook;
 
   @override
   Future<RemoteResult> run(
@@ -608,6 +679,9 @@ class _HomeRemote extends ScriptedRemote {
       );
     }
     if (script.contains('install -m 0600')) await beforeInstall?.call();
+    if (reservationHook != null) {
+      script = script.replaceFirst('foreign() {', '$reservationHook\nforeign() {');
+    }
     if (installHook != null) {
       script = script.replaceFirst('/usr/bin/install -m 0600', '{ $installHook; } && /usr/bin/install -m 0600');
     }

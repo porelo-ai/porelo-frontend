@@ -7,13 +7,13 @@
 
 ## Why
 
-Walk 23 on walk9server (2026-10-30), the own-account bring on VM A: "[ERROR]: the playbook: porelo.host.bring could not be found". `HostRun` (`packages/porelo_host/lib/src/host_run.dart`) installs the collection only under `/var/tmp/porelo-host/collections`, and runs root's plays with `ANSIBLE_COLLECTIONS_PATH` pointing there. A person's login sees `~/.ansible/collections` and `/usr/share/ansible/collections`, neither of which holds `porelo.host`. Walk 23 was the first walk to reach the own-account bring. For the walk, Agent Coordinator copied the installed tree into walkadmin's own `~/.ansible/collections`.
+Walk 23 on the prepared host (2026-10-30), the own-account bring on VM A: "[ERROR]: the playbook: porelo.host.bring could not be found". `HostRun` (`packages/porelo_host/lib/src/host_run.dart`) installs the collection only under `/var/tmp/porelo-host/collections`, and runs root's plays with `ANSIBLE_COLLECTIONS_PATH` pointing there. A person's login sees `~/.ansible/collections` and `/usr/share/ansible/collections`, neither of which holds `porelo.host`. Walk 23 was the first walk to reach the own-account bring. For the walk, Agent Coordinator copied the installed tree into the project admin's own `~/.ansible/collections`.
 
 ## Plan
 
-- `up` installs the checked collection with `ansible-galaxy collection install --force -p /usr/share/ansible/collections`, as root. Its tree is root-owned, directories 0755 and files 0644. Root's own plays run with that path.
+- `up` installs the checked collection with `ansible-galaxy collection install --force -p /usr/share/ansible/collections`, as root. The `/usr/share/ansible` parent is created if absent, refused if linked or not root-owned, and set to root:root 0755. The collection tree is root-owned, directories 0755 and files 0644. Root's own plays run with that path.
 - No play writes inside the collection's tree (Agent Machines, 2026-10-30), so it stays read-only; `host_run.dart`'s comment saying the plays leave root's files there goes.
-- A `porelo.host` in the person's own `~/.ansible/collections` would win over the installed one. Before running, the bring and the join ask `ansible-galaxy collection list porelo.host`; if the first one found is not under `/usr/share/ansible/collections`, they refuse and name that path: "<path> holds another porelo.host, which would run instead of the host's; remove it and try again."
+- A `porelo.host` in the person's own `~/.ansible/collections` would win over the installed one. Before running, the bring and the join ask `ansible-galaxy collection list porelo.host`; if any listed entry is outside `/usr/share/ansible/collections`, they refuse and name that path, regardless of listing order: "<path> holds another porelo.host, which would run instead of the host's; remove it and try again."
 - The copy under `/var/tmp/porelo-host/collections` is no longer made; a second `up` replaces the installed one, as now.
 - The bring and join keep running `ansible-playbook -c local porelo.host.bring` (or `join`) as the person, with no path set: the default finds it.
 - **Red first:** a test that `up`'s install command names `/usr/share/ansible/collections` and its play the same path; a test that the bring's command sets no collections path; a test that a `porelo.host` found first in the person's home is refused by its path.
@@ -21,3 +21,11 @@ Walk 23 on walk9server (2026-10-30), the own-account bring on VM A: "[ERROR]: th
 ## Test
 
 Only the change: the tests above and `porelo_host`'s own tests. The VM test covers only an own-account `ansible-playbook --syntax-check porelo.host.bring` after `up` on the walk's host.
+
+## To be checked
+
+- The own-account syntax check after `up` has not been exercised on a VM in this worktree.
+
+## Deferred
+
+- Support for customized collection search paths is deferred; every listed copy outside the system installation is refused.

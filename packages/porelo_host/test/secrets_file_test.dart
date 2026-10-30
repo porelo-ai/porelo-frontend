@@ -551,12 +551,12 @@ void main() {
     }, skip: skip);
 
     // Harm: a lasting login password leaks into the terminal or is silently replaced on another host.
-    test('the lasting forge password is typed once and kept only in the shared entry', () async {
+    test('the lasting forge password is confirmed and kept only in the shared entry after acceptance', () async {
       final kdbx = await preparedSecrets();
       final random = Random.secure();
       final password = base64Encode(List<int>.generate(24, (_) => random.nextInt(256)));
-      final script = SecretsFile(kdbx, cli: cli).forgePasswordLine();
-      final made = await run(script, 'm\n$password');
+      final script = SecretsFile(kdbx, cli: cli).forgePasswordLine(receiver: ['/usr/bin/cat']);
+      final made = await run(script, 'm\n$password\n$password');
       expect(made.exitCode, 0, reason: '${made.stderr}');
       expect(await entryExists(kdbx, 'shared/forge-password', 'm'), isTrue);
       expect(
@@ -581,7 +581,7 @@ void main() {
     // Harm: an empty or multiline stored password reaches a privileged host command as an unintended input.
     test('an empty or multiline forge password is refused without a feed', () async {
       final kdbx = await preparedSecrets();
-      final script = SecretsFile(kdbx, cli: cli).forgePasswordLine();
+      final script = SecretsFile(kdbx, cli: cli).forgePasswordLine(receiver: ['/usr/bin/cat']);
       final empty = await run(script, 'm\n');
       expect(empty.exitCode, isNot(0));
       expect('${empty.stdout}', isEmpty);

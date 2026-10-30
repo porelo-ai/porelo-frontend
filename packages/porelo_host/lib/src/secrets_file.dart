@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'host_files.dart' show HostFilesRefused;
+import 'ssh.dart' show quoteForAShell;
 
 /// The person's `secrets.kdbx`, opened only by `keepassxc-cli` in a terminal on this desktop.
 ///
@@ -306,24 +307,56 @@ done
     ].join('\n');
   }
 
-  /// The terminal-only password feed for this person's own forge login, stored once and reused on every host.
-  String forgePasswordLine() => [
-    ..._opened,
-    'password="\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null || true)"',
-    'if [ -z "\$password" ]; then',
-    '  if kp show "\$file" ${_word(forgePassword)} >/dev/null 2>&1; then '
-        'echo "Your secrets file has an empty $forgePassword; nothing was sent." >&2; exit 1; fi',
-    r'  IFS= read -rs -p "Your lasting forge password: " password; echo >&2',
-    r'  if [ -z "$password" ]; then echo "A forge password cannot be empty; nothing was sent." >&2; exit 1; fi',
-    '  kp ls "\$file" shared >/dev/null 2>&1 || kp mkdir "\$file" shared >/dev/null',
-    '  printf \'%s\\n%s\\n\' "\$MASTER" "\$password" | "\$cli" add -p "\$file" ${_word(forgePassword)} >/dev/null',
-    '  if [ "\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null)" != "\$password" ]; then '
-        'echo "The secrets file did not keep the forge password; nothing was sent." >&2; exit 1; fi',
-    'fi',
-    r'''if [[ "$password" == *$'\n'* || "$password" == *$'\r'* ]]; then echo "The kept forge password is not one line; nothing was sent." >&2; exit 1; fi''',
-    r'''printf '%s\n' "$password"''',
-    'unset MASTER password',
-  ].join('\n');
+  /// Sets the forge password through [receiver], keeping it only after the helper succeeds.
+  ///
+  /// Confirms a new password in the same terminal that opens the secrets file, and offers one
+  /// replacement when the helper refuses a kept password. Every secret travels on standard input.
+  String forgePasswordLine({required List<String> receiver}) {
+    if (receiver.isEmpty || !receiver.first.startsWith('/')) {
+      throw const FormatException('The forge password receiver needs an absolute executable path.');
+    }
+    return [
+      ..._opened,
+      // Forgejo counts Unicode characters; a C locale would make Bash count UTF-8 bytes.
+      'export LC_ALL=C.UTF-8',
+      r'''ask_password() {
+  IFS= read -rs -p "Your lasting forge password: " password; echo >&2
+  if [ "${#password}" -lt 8 ]; then echo "A forge password needs at least 8 characters; nothing was sent." >&2; exit 1; fi
+  if [[ "$password" == *$'\r'* ]]; then echo "A forge password must be one line; nothing was sent." >&2; exit 1; fi
+  IFS= read -rs -p "Your lasting forge password again: " confirmation; echo >&2
+  if [ "$password" != "$confirmation" ]; then echo "The forge passwords do not match; nothing was sent." >&2; exit 1; fi
+  unset confirmation
+}''',
+      'send_password() { printf \'%s\\n\' "\$password" | ${receiver.map(quoteForAShell).join(' ')}; }',
+      'password="\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null || true)"',
+      'kept=no',
+      'if [ -z "\$password" ]; then',
+      '  if kp show "\$file" ${_word(forgePassword)} >/dev/null 2>&1; then '
+          'echo "Your secrets file has an empty $forgePassword; nothing was sent." >&2; exit 1; fi',
+      '  ask_password',
+      'else kept=yes',
+      'fi',
+      r'''if [[ "$password" == *$'\n'* || "$password" == *$'\r'* ]]; then echo "The kept forge password is not one line; nothing was sent." >&2; exit 1; fi''',
+      'if send_password; then',
+      '  if [ "\$kept" = yes ]; then unset MASTER password; exit 0; fi',
+      'else',
+      '  result=\$?',
+      '  if [ "\$kept" != yes ]; then unset MASTER password; exit "\$result"; fi',
+      r'''  IFS= read -r -p "The forge refused the kept password. Replace it? [y/N] " replace || { unset MASTER password; exit "$result"; }''',
+      r'''  case "$replace" in y|Y) ;; *) unset MASTER password; exit "$result";; esac''',
+      '  ask_password',
+      '  if send_password; then :; else result=\$?; unset MASTER password; exit "\$result"; fi',
+      'fi',
+      'kp ls "\$file" shared >/dev/null 2>&1 || kp mkdir "\$file" shared >/dev/null',
+      'action=add; if [ "\$kept" = yes ]; then action=edit; fi',
+      'if ! printf \'%s\\n%s\\n\' "\$MASTER" "\$password" | "\$cli" "\$action" -p "\$file" ${_word(forgePassword)} >/dev/null; then',
+      '  echo "The forge accepted the password, but the secrets file could not keep it." >&2; exit 1',
+      'fi',
+      'if [ "\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null)" != "\$password" ]; then '
+          'echo "The forge accepted the password, but the secrets file did not keep it." >&2; exit 1; fi',
+      'unset MASTER password',
+    ].join('\n');
+  }
 
   /// Writes the central forge token as one raw line, or names a missing entry and writes nothing.
   String projectRemovalTokenLine() => [

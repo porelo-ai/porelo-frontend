@@ -199,14 +199,14 @@ List<String> hostForgePasswordFeedCommand({
   if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.:-]*$').hasMatch(host)) {
     throw const FormatException('The forge password needs the person\'s own host login and address.');
   }
-  final feed = SecretsFile(secretsFile, cli: cli).forgePasswordLine();
   final pipe = [ssh, ...sshOptions, '-T', '--', host, '/usr/bin/sudo -n /usr/local/sbin/porelo-host-forge-password'];
+  final feed = SecretsFile(secretsFile, cli: cli).forgePasswordLine(receiver: pipe);
   return _inACleanBash(
     [
       '/usr/bin/stty -echo 2>/dev/null || true',
       "trap '/usr/bin/stty echo 2>/dev/null || true' EXIT",
       'set -o pipefail',
-      '{\n$feed\n} | ${pipe.map(quoteForAShell).join(' ')}',
+      feed,
     ].join('\n'),
   );
 }

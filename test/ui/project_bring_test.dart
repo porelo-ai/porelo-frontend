@@ -116,8 +116,14 @@ class _Following extends FakeBackend {
 }
 
 class _OwnSsh implements Remote {
-  _OwnSsh(this.home, this.target, {this.rejectRoom = false});
+  _OwnSsh(
+    this.home,
+    this.target, {
+    this.rejectRoom = false,
+    this.collectionRoots = const ['/usr/share/ansible/collections/ansible_collections'],
+  });
   final bool rejectRoom;
+  final List<String> collectionRoots;
   final Directory home;
   final _Following target;
   final commands = <String>[];
@@ -143,7 +149,7 @@ class _OwnSsh implements Remote {
       process.end(0);
       return process;
     }
-    if (command.contains('ansible-playbook')) {
+    if (command.contains('ansible-playbook') || command.contains('ansible-galaxy collection list')) {
       final process = HostProcess();
       run('10.73.7.1', 'admin', command, onLine: process.raw).then((result) {
         if (result.stderr.isNotEmpty) process.words(result.stderr);
@@ -180,6 +186,17 @@ class _OwnSsh implements Remote {
   }) async {
     commands.add(command);
     users.add(user);
+    if (command.contains('ansible-galaxy collection list')) {
+      onLine?.call(
+        jsonEncode({
+          for (final root in collectionRoots)
+            root: {
+              'porelo.host': {'version': hostCollection.version},
+            },
+        }),
+      );
+      return const RemoteResult(0, '');
+    }
     if (command.contains('ansible-playbook')) {
       if (stop) {
         onLine?.call(
@@ -295,6 +312,8 @@ void main() {
     'vpn-new',
     'vpn-ca-mismatch',
     'forge-password-refused',
+    'collection-shadowed',
+    'collection-shadowed-system-first',
   ]) {
     final rejectRoom = outcome == 'room-refused';
     final newVpn = outcome.startsWith('vpn-');
@@ -306,6 +325,8 @@ void main() {
           ? 'a refused lasting forge password stops the bring before publication or upload'
           : outcome == 'setup-exists'
           ? 'an interrupted bring retry preserves existing setup and publishes access once'
+          : outcome.startsWith('collection-shadowed')
+          ? 'the bring refuses a shadowing home collection listed ${outcome.endsWith('system-first') ? 'after' : 'before'} the system one'
           : rejectRoom
           ? 'a room refusal stops the bring in Porelo’s words'
           : newVpn
@@ -325,7 +346,22 @@ void main() {
           File('${existing.path}/keep').writeAsStringSync('interrupted bring');
         }
         final target = _Following(empty: true);
-        final remote = _OwnSsh(home, target, rejectRoom: rejectRoom);
+        final remote = _OwnSsh(
+          home,
+          target,
+          rejectRoom: rejectRoom,
+          collectionRoots: outcome == 'collection-shadowed-system-first'
+              ? [
+                  '/usr/share/ansible/collections/ansible_collections',
+                  '/home/person/.ansible/collections/ansible_collections',
+                ]
+              : outcome == 'collection-shadowed'
+              ? [
+                  '/home/person/.ansible/collections/ansible_collections',
+                  '/usr/share/ansible/collections/ansible_collections',
+                ]
+              : ['/usr/share/ansible/collections/ansible_collections'],
+        );
         final settings = Settings(MemorySettingsStore());
         await settings.rememberHostUp('garden', matrixHostRecord(host: 'garden'));
         if (!newVpn) {
@@ -556,6 +592,16 @@ void main() {
 
         await startBring();
         final action = tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first;
+        if (outcome.startsWith('collection-shadowed')) {
+          expect(action.state(), WizardActionState.refused);
+          expect(
+            find.textContaining('/home/person/.ansible/collections/ansible_collections holds another porelo.host'),
+            findsWidgets,
+          );
+          expect(remote.commands.where((command) => command.contains('ansible-playbook')), isEmpty);
+          await tester.pumpWidget(const SizedBox.shrink());
+          return;
+        }
         if (outcome == 'forge-password-refused') {
           expect(action.state(), WizardActionState.refused);
           expect(find.textContaining('The lasting forge password was not set'), findsWidgets);
@@ -568,7 +614,7 @@ void main() {
         if (outcome == 'setup-exists') {
           for (var attempt = 0; attempt < 2; attempt++) {
             expect(tester.widget<Wizard>(find.byType(Wizard)).actionSteps.first.state(), WizardActionState.refused);
-            expect(find.textContaining('The project setup folder already exists; it was preserved.'), findsWidgets);
+            expect(find.textContaining(existing.path), findsWidgets);
             expect(File('${existing.path}/keep').readAsStringSync(), 'interrupted bring');
             expect(remote.commands.where((command) => command.contains('ansible-playbook')), isEmpty);
             expect(
@@ -629,6 +675,7 @@ void main() {
         expect(remote.users, everyElement('admin'));
         final playbook = remote.commands.singleWhere((command) => command.contains('ansible-playbook'));
         expect(playbook, contains('ansible-playbook -c local porelo.host.bring -e porelo_project=demo'));
+        expect(playbook, isNot(contains('ANSIBLE_COLLECTIONS_PATH')));
         expect(remote.commands, everyElement(isNot(contains('sudo'))));
         expect(
           remote.commands,

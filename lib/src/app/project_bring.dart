@@ -254,6 +254,7 @@ class ProjectBring extends ChangeNotifier {
     _lastLines.clear();
     _playbookFailure = null;
     final login = machine.host.split('@');
+    await _checkCollection(login[1], login[0]);
     final result = await remote.run(
       login[1],
       login[0],
@@ -282,6 +283,46 @@ class ProjectBring extends ChangeNotifier {
       );
     }
     brought = true;
+  }
+
+  Future<void> _checkCollection(String address, String user) async {
+    final lines = <String>[];
+    final listed = await remote.run(
+      address,
+      user,
+      inTheLoginShell('ansible-galaxy collection list porelo.host --format json'),
+      onLine: lines.add,
+    );
+    if (listed.exitCode != 0) {
+      throw WorkspaceRefused(
+        listed.stderr.trim().isEmpty
+            ? 'The host collection could not be checked; the $_action did not start.'
+            : listed.stderr.trimRight(),
+      );
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(lines.join('\n'));
+    } on FormatException {
+      throw const WorkspaceRefused('The host returned a malformed collection list.');
+    }
+    if (decoded is! Map<String, Object?>) {
+      throw const WorkspaceRefused('The host returned a malformed collection list.');
+    }
+    var found = false;
+    for (final entry in decoded.entries) {
+      if (entry.value is! Map<String, Object?>) {
+        throw const WorkspaceRefused('The host returned a malformed collection list.');
+      }
+      if (!(entry.value as Map<String, Object?>).containsKey('porelo.host')) continue;
+      if (entry.key != '/usr/share/ansible/collections/ansible_collections') {
+        throw WorkspaceRefused(
+          '${entry.key} holds another porelo.host, which would run instead of the host\'s; remove it and try again.',
+        );
+      }
+      found = true;
+    }
+    if (!found) throw const WorkspaceRefused('The host has no installed porelo.host collection.');
   }
 
   Future<List<Followed>> _followingOnHost() async {

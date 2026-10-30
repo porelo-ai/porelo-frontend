@@ -62,6 +62,7 @@ class JoinRemote implements Remote {
   bool wait = false;
   int playbookCode = 0;
   int copies = 0;
+  List<String> collectionRoots = ['/usr/share/ansible/collections/ansible_collections'];
   @override
   Future<RemoteResult> run(
     String host,
@@ -74,6 +75,17 @@ class JoinRemote implements Remote {
     commands.add(command);
     users.add(user);
     hosts.add(host);
+    if (command.contains('ansible-galaxy collection list')) {
+      onLine?.call(
+        jsonEncode({
+          for (final root in collectionRoots)
+            root: {
+              'porelo.host': {'version': hostCollection.version},
+            },
+        }),
+      );
+      return const RemoteResult(0, '');
+    }
     if (command == '/usr/bin/cat /etc/porelo-host/forge/ca.pem') {
       const LineSplitter().convert(ca).forEach((line) => onLine?.call(line));
       return const RemoteResult(0, '');
@@ -493,6 +505,22 @@ void main() {
   });
 
   // Harm: a join must target the developer account, omit admin forge migration, and retain its trust anchor.
+  // Harm: a developer's own collection shadows the digest-checked code installed by up.
+  for (final systemFirst in [false, true]) {
+    test(
+      'the join refuses a shadowing home collection listed ${systemFirst ? 'after' : 'before'} the system one',
+      () async {
+        const shadow = '/home/person/.ansible/collections/ansible_collections';
+        const system = '/usr/share/ansible/collections/ansible_collections';
+        remote.collectionRoots = systemFirst ? [system, shadow] : [shadow, system];
+        await join.join();
+        expect(join.joined, isFalse);
+        expect(join.accountRun!.problem, contains('$shadow holds another porelo.host'));
+        expect(remote.commands.where((command) => command.contains('ansible-playbook')), isEmpty);
+      },
+    );
+  }
+
   test('a listed laptop uploads an own-account join without forge migration and retains its access commit', () async {
     await join.join();
     expect(join.problem, isNull);
@@ -508,6 +536,10 @@ void main() {
     expect(
       remote.commands.where((command) => command.contains('ansible-playbook')).single,
       contains('ansible-playbook -c local porelo.host.join -e porelo_project=demo'),
+    );
+    expect(
+      remote.commands.where((command) => command.contains('ansible-playbook')).single,
+      isNot(contains('ANSIBLE_COLLECTIONS_PATH')),
     );
     final setup = '${scratch.path}/${HostAct.ownAccount.setupPlace(project: 'demo')}';
     final machine = loadYaml(await File('$setup/machine.yml').readAsString()) as Map;

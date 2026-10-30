@@ -113,11 +113,13 @@ class _ProjectBringDialogState extends State<ProjectBringDialog> {
   bool _feeding = false;
 
   PreparedHost _host() {
+    final Object? decoded;
     try {
-      return PreparedHost.read(jsonDecode(_values.text));
+      decoded = jsonDecode(_values.text);
     } on FormatException {
       throw const FormatException('Paste the complete public host values from the host admin as a JSON object.');
     }
+    return PreparedHost.read(decoded);
   }
 
   HostUpRecord? get _record {

@@ -60,6 +60,14 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   folders, and refuses linked folders or folders another account owns before copying the CA. Existing
   CA copies must be regular files owned by root and readable by Firefox; only owned regular CA files
   enter the policy. VPN take-down preserves unmanaged policies without preparing Firefox folders.
+- Pasted public host keys accept extra blanks and refusals identify the malformed field and its required form.
+- Bring and join retries replace only their own completed setup uploads and preserve foreign files and links;
+  foreign-upload cleanup checks the staging directory and its ancestors before removing it.
+- New lasting forge passwords are confirmed, checked for the minimum length, and saved only after the host accepts
+  them. A refused kept password can be replaced without losing the old entry before acceptance.
+- Server setup installs the checked host collection for every account with root-only writes, checks its parent
+  is a plain root-owned directory, and makes that parent readable by all. Own-account bring and join refuse
+  every listed collection outside the host's installation, regardless of listing order.
 
 - Own-account setup keeps each project's `machine.yml`, `project.bundle`, and `access.bundle` in its own
   `~/.local/share/porelo-host/setup/<project>/` directory. Its machine file names `access.bundle` relatively

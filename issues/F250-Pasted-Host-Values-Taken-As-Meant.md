@@ -18,3 +18,7 @@ Operator's walk 23 on VM A (2026-10-30): the JSON copied from a chat held two bl
 ## Test
 
 Only the change: the tests above and the reader's own tests. No VM run.
+
+## Deferred
+
+- Other dialogs that might hide PreparedHost.read's field-named refusal need a separate review.

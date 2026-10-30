@@ -74,17 +74,22 @@ class PreparedHost {
   factory PreparedHost.read(Object? json) {
     if (json is! Map<String, Object?>) throw const FormatException('host.json needs an object.');
     final values = <String, String>{};
-    for (final name in const [
-      'address',
-      'endpoint',
-      'wireguard_public_key',
-      'network',
-      'ssh_host_key',
-      'ca_sha256',
-      'homeserver',
-    ]) {
-      final value = json[name];
-      if (value is! String || value.isEmpty) throw FormatException('host.json: $name is missing or malformed.');
+    const forms = {
+      'address': 'a public IPv4 address',
+      'endpoint': 'the address followed by :51820',
+      'wireguard_public_key': '32 bytes as 44 base64 characters ending in =',
+      'network': '10.73.<0 through 255>.0/24',
+      'ssh_host_key': 'one line, ssh-ed25519 and its base64, with no comment',
+      'ca_sha256': '64 lowercase hexadecimal characters',
+      'homeserver': 'matrix.<host name>.porelo.internal',
+    };
+    for (final name in forms.keys) {
+      FormatException refusal() => FormatException('host.json: $name must be ${forms[name]}.');
+      final raw = json[name];
+      if (raw is! String || raw.isEmpty) throw refusal();
+      final value = name == 'ssh_host_key' || name == 'wireguard_public_key'
+          ? raw.replaceAll(RegExp(r'^[ \t]+|[ \t]+$'), '').replaceAll(RegExp(r'[ \t]+'), ' ')
+          : raw;
       values[name] = value;
       var valid = true;
       try {
@@ -99,14 +104,12 @@ class PreparedHost {
         };
         if (name == 'wireguard_public_key') checkWireGuardPublicKey(value);
         if (name == 'ssh_host_key') {
-          final match = RegExp(r'^ssh-ed25519 ([A-Za-z0-9+/]+={0,2})(?: [^\x00-\x1f\x7f]+)?$').firstMatch(value);
-          if (match == null) throw const FormatException();
-          checkedEd25519('ssh-ed25519 ${match.group(1)}');
+          checkedEd25519(value);
         }
       } on FormatException {
         valid = false;
       }
-      if (!valid) throw FormatException('host.json: $name is malformed.');
+      if (!valid) throw refusal();
     }
     return PreparedHost._(Map.unmodifiable(values));
   }

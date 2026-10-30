@@ -7,7 +7,7 @@
 
 ## Why
 
-Operator's walk 23, the first bring on VM A (2026-10-30): about 6 characters were chosen. `SecretsFile.forgePasswordLine` (`packages/porelo_host/lib/src/secrets_file.dart`) kept them before sending, and every later try sent them again without asking. Forgejo on walk9server answered `PATCH /api/v1/admin/users/walkadmin` with 400, twice, and the terminal said only "the forge answered 400 setting walkadmin's password" (`porelo-host-forge-password` in porelo-host).
+Operator's walk 23, the first bring on VM A (2026-10-30): about 6 characters were chosen. `SecretsFile.forgePasswordLine` (`packages/porelo_host/lib/src/secrets_file.dart`) kept them before sending, and every later try sent them again without asking. Forgejo on the prepared host answered `PATCH /api/v1/admin/users/<account>` with 400, twice, and the terminal said only "the forge answered 400 setting <account>'s password" (`porelo-host-forge-password` in porelo-host).
 
 ## Plan
 
@@ -20,3 +20,14 @@ Operator's walk 23, the first bring on VM A (2026-10-30): about 6 characters wer
 ## Test
 
 Only the change: the tests above with stand-in `keepassxc-cli` and helper, and the feed's own tests. The VM test covers only the bring's forge-password step on one VM against the walk's host.
+
+## To be checked
+
+- The forge-password step has not been exercised on a VM in this worktree.
+
+## Deferred
+
+- Four existing feed tests create temporary folders directly in the real home directory, which is read-only in
+  this worktree's execution environment; changing their unrelated setup is outside this task.
+- The keepassxc-cli stand-in does not yet distinguish adding an entry from editing an existing entry.
+- Plain-words forge refusals wait for the host helper to include Forgejo's safe refusal message with its status; the helper currently returns only the status.

@@ -154,6 +154,9 @@ Future<(String, String)> sshKeygenEd25519() async {
 /// Where everything goes on the host.
 const _workdir = '/var/tmp/porelo-host';
 
+const _collections = '/usr/share/ansible/collections';
+const _collectionTree = '$_collections/ansible_collections/porelo/host';
+
 /// Ansible's locale on the host, whatever this computer's ssh sends along: it refuses one that is
 /// not UTF-8, and a person's own (`de_CH.UTF-8`, say) need not exist on a fresh host.
 const _locale = 'export LC_ALL=C.UTF-8 LANG=C.UTF-8 && ';
@@ -407,10 +410,19 @@ class HostRun {
       '${_locale}if command -v cloud-init >/dev/null; then cloud-init status --wait >/dev/null; [ \$? -le 2 ] || exit 1; fi && '
       'sudo DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null && '
       'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q ansible-core >/dev/null && '
-      // As root, as the plays run: they leave root's files in the collection, which a second `up`
-      // replaces.
+      '{ test ! -L /usr/share/ansible && { '
+      'if test -e /usr/share/ansible; then '
+      'test -d /usr/share/ansible && test "\$(sudo /usr/bin/stat -c %u -- /usr/share/ansible)" = 0; '
+      'else sudo /usr/bin/install -d -o root -g root -m 0755 /usr/share/ansible; fi; '
+      '} || { echo "The collection directory /usr/share/ansible must be a plain root-owned directory." >&2; exit 65; }; '
+      'sudo /usr/bin/chown root:root /usr/share/ansible && sudo /usr/bin/chmod 0755 /usr/share/ansible; } && '
       'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ansible-galaxy collection install --force '
-      '-p $_workdir/collections $_workdir/collection.tar.gz >/dev/null',
+      '-p $_collections $_workdir/collection.tar.gz >/dev/null && '
+      'sudo /usr/bin/chown root:root $_collections $_collections/ansible_collections $_collections/ansible_collections/porelo && '
+      'sudo /usr/bin/chmod 0755 $_collections $_collections/ansible_collections $_collections/ansible_collections/porelo && '
+      'sudo /usr/bin/chown -R root:root $_collectionTree && '
+      'sudo /usr/bin/find $_collectionTree -type d -exec /usr/bin/chmod 0755 {} + && '
+      'sudo /usr/bin/find $_collectionTree -type f -exec /usr/bin/chmod 0644 {} +',
     );
     if (installed.exitCode != 0) {
       return _refused('ansible', installed, 'ansible-core or the collection did not install');
@@ -591,7 +603,7 @@ class HostRun {
       address,
       plan.loginUser,
       // Through `env`, not `sudo -E`: Ubuntu 26.04's sudo (sudo-rs) ignores -E and says so.
-      'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_workdir/collections '
+      'sudo env LC_ALL=C.UTF-8 LANG=C.UTF-8 ANSIBLE_COLLECTIONS_PATH=$_collections '
       'ANSIBLE_STDOUT_CALLBACK=porelo.host.lines ansible-playbook -c local -i $_workdir/inventory.yml $playbook',
       onLine: (line) {
         if (hostProblem != null) return;
@@ -911,6 +923,7 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
     }
 
     lines.clear();
+    final replacedWords = 'An earlier upload of $project was replaced.';
     final made = await runScript(
       [
         'set -e',
@@ -918,14 +931,32 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         for (final parent in parents)
           'test ! -L ${underHome(parent)} && '
               '{ test -d ${underHome(parent)} || /usr/bin/mkdir -m 0700 ${underHome(parent)}; } || exit 1',
-        'test ! -e ${q(destination)} && test ! -L ${q(destination)} || '
-            '{ echo "The project setup folder already exists; it was preserved." >&2; exit 1; }',
         '/usr/bin/mkdir -m 0700 ${q(staging)}',
+        'foreign() { echo ${q('The project setup folder already exists at $destination; it was preserved: ')}"\$1" >&2; '
+            'if safe && ${plainDirectory(staging)}; then /usr/bin/rmdir -- ${q(staging)}; fi; exit 1; }',
+        'if test -e ${q(destination)} || test -L ${q(destination)}; then',
+        '  safe && ${plainDirectory(destination)} || foreign "not a plain directory"',
+        '  test -f ${q('$destination/.porelo-upload')} && test ! -L ${q('$destination/.porelo-upload')} || foreign "missing plain upload marker"',
+        '  shopt -s nullglob dotglob',
+        '  for entry in ${q(destination)}/*; do',
+        '    test -f "\$entry" && test ! -L "\$entry" || foreign "a file is a link or not a plain file: \$entry"',
+        '    case "\${entry##*/}" in ${[...files.keys, '.porelo-upload'].map(q).join('|')}) ;; *) foreign "unexpected file: \$entry";; esac',
+        '  done',
+        '  mapfile -t marker < ${q('$destination/.porelo-upload')}',
+        '  test "\${#marker[@]}" = ${files.length + 1} || foreign "malformed upload marker"',
+        r'''  [[ "${marker[0]}" =~ ^uploaded=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || foreign "malformed upload time"''',
+        for (final (index, name) in files.keys.indexed)
+          '  [[ "\${marker[${index + 1}]}" =~ ^[0-9a-f]{64}\\ \\ ${RegExp.escape(name)}\$ ]] || foreign "malformed upload digest"',
+        '  (cd -- ${q(destination)} && printf \'%s\\n\' "\${marker[@]:1}" | /usr/bin/sha256sum --quiet -c -) || foreign "uploaded files changed"',
+        '  /usr/bin/rm -- ${[...files.keys, '.porelo-upload'].map((name) => q('$destination/$name')).join(' ')}',
+        '  /usr/bin/rmdir -- ${q(destination)}',
+        '  printf \'%s\\n\' ${q(replacedWords)}',
+        'fi',
       ].join('\n'),
       onLine: lines.add,
     );
     if (made.exitCode != 0) return _refused('copy', made, 'the host refused a folder for the setup files');
-    if (lines.isNotEmpty) {
+    if (lines.isNotEmpty && (lines.length != 1 || lines.single != replacedWords)) {
       final cleaned = await runScript('$prefix\nsafe && ${plainDirectory(staging)} && /usr/bin/rmdir -- ${q(staging)}');
       return _refused(
         'copy',
@@ -936,6 +967,7 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
         'the setup reservation was refused; any populated reservation was preserved',
       );
     }
+    if (lines.isNotEmpty) _write(Step('copy', StepState.started, words: replacedWords));
     for (final file in files.entries) {
       final copied = await remote.copy(address, user, file.value.path, '$staging/${file.key}');
       if (copied.exitCode != 0) return refused(copied, 'the setup files could not be copied');
@@ -988,6 +1020,9 @@ test -d "$setup_home" && test ! -L "$setup_home" || { echo 'The host home is mis
           '/usr/bin/install -m 0600 ${q('$staging/$name')} ${q('$destination/$name')}',
         ],
         'cd -- ${q(destination)} && /usr/bin/sha256sum --quiet -c -',
+        'installed+=(${q('.porelo-upload')})',
+        '{ printf \'uploaded=%s\\n\' "\$(/usr/bin/date -u +%Y-%m-%dT%H:%M:%SZ)"; printf \'%s\' ${q(digests)}; } > .porelo-upload',
+        '/usr/bin/chmod 0600 .porelo-upload',
       ].join('\n'),
       input: digests,
       onLine: lines.add,
