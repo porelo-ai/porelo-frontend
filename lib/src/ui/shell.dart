@@ -395,11 +395,24 @@ class _ShellState extends State<Shell> {
   List<Command> _commands() => [
     for (final command in [
       ..._unscopedCommands(),
-      if (widget.shell.itemRegistryTarget case final target?)
-        if (_registry.item(target) case final item?) ..._registryPageCommands(item),
+      if (_openRegistryItem case final item?) ..._registryPageCommands(item),
     ])
       if (command.id != 'project.developers') _commandForItem(command).unless(_itemScopeProblem(command)),
   ];
+
+  RegistryPageItem? get _openRegistryItem {
+    final shell = widget.shell;
+    if (shell.section != Section.machine && shell.section != Section.project) return null;
+    final machine = shell.itemMachine;
+    if (machine == null) return null;
+    final project = shell.section == Section.project ? shell.itemProject : null;
+    if (shell.section == Section.project && (project == null || project == defaultProject)) return null;
+    if (shell.itemRegistryTarget case final target?) {
+      final item = _registry.item(target);
+      return item?.machine == machine && item?.target.project == project ? item : null;
+    }
+    return project == null ? _registry.host(machine) : _registry.project(machine, project);
+  }
 
   Command _commandForItem(Command command) {
     if (command.id != 'project.default' ||
@@ -2698,12 +2711,20 @@ class _ShellState extends State<Shell> {
     widget.shell.openOperation(operation.id);
   }
 
-  /// Finds a command, then goes to where it lives and shows it there.
+  /// Finds a command and opens its home, running registry actions on their captured item page.
   Future<void> _openFinder() async {
+    final registryItem = _openRegistryItem;
     final chosen = await showCommandFinder(context, _commands());
     if (chosen == null || !mounted) return;
     if (chosen.id.startsWith('registry.')) {
-      widget.shell.showOnItem(chosen.id);
+      if (registryItem == null) return;
+      final target = registryItem.target;
+      if (target.project case final project?) {
+        widget.shell.openProject(registryItem.machine, project, target: target);
+      } else {
+        widget.shell.openMachine(registryItem.machine, target: target);
+      }
+      chosen.run();
       return;
     }
     // Something with no single place on screen runs at once; everything else is shown where it

@@ -40,7 +40,203 @@ Future<void> _join(WidgetTester tester, String name) async {
   await World.tapInView(tester, 'join-it');
 }
 
+Future<void> _findCommand(WidgetTester tester, String label) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  await World.settle(tester);
+  await tester.enterText(find.byKey(const Key('command-query')), label);
+  await World.settle(tester);
+}
+
 void main() {
+  // Harm: a verified page opened without an admission must not lose its own operations to daemon selection.
+  for (final scope in ['unwatched machine', 'unwatched project', 'unfollowed project']) {
+    testWidgets('identity-only $scope offers its own verified finder operation', (tester) async {
+      await World.startBackend(World.work);
+      final project = scope == 'unwatched machine' ? null : 'admitted';
+      final machine = scope == 'unfollowed project'
+          ? Machine.local()
+          : const Machine(name: 'unwatched', socketPath: '/unwatched');
+      final operation = project == null ? RegistryOperation.bringState : RegistryOperation.join;
+      final target = (registry: 'registry', host: machine.name, project: project);
+      final source = FakeRegistryPageSource(
+        RegistryPageSnapshot(
+          items: [
+            RegistryPageItem(
+              target: target,
+              machine: machine,
+              role: 'developer',
+              state: 'admitted',
+              revision: 'r1',
+              allowed: {operation},
+            ),
+          ],
+        ),
+      );
+      final registry = RegistryPages(
+        source: source,
+        features: RegistryPageFeatures(operations: {operation}),
+      );
+      addTearDown(registry.dispose);
+      await World.startApp(tester, registryPages: registry);
+      World.fleet.selectProject('checkout');
+      if (project == null) {
+        World.shell.openMachine(machine);
+      } else {
+        World.shell.openProject(machine, project);
+      }
+      await World.settle(tester);
+      expect(World.shell.itemRegistryTarget, isNull);
+      final label = project == null ? 'Bring the state to the host' : 'Join';
+      await _findCommand(tester, label);
+      final command = find.widgetWithText(ListTile, label);
+      expect(command, findsOneWidget, reason: 'the open identity resolves to one verified admission');
+      expect(tester.widget<ListTile>(command).enabled, isTrue, reason: 'background following is irrelevant');
+      expect(source.published, isEmpty);
+    });
+  }
+
+  // Harm: the background selection must not lend its permissions or contacts to a different item.
+  testWidgets('background registry permissions never appear on another item or section', (tester) async {
+    await World.startBackend(World.work);
+    final local = Machine.local();
+    const remote = Machine(name: 'unwatched', socketPath: '/unwatched');
+    final source = FakeRegistryPageSource(
+      RegistryPageSnapshot(
+        items: [
+          for (final project in [null, 'checkout'])
+            RegistryPageItem(
+              target: (registry: 'background', host: local.name, project: project),
+              machine: local,
+              role: 'project admin',
+              state: 'registered',
+              revision: 'r1',
+              allowed: project == null
+                  ? {RegistryOperation.bringState}
+                  : {RegistryOperation.join, RegistryOperation.push},
+            ),
+          const RegistryPageItem(
+            target: (registry: 'opened', host: 'unwatched', project: 'checkout'),
+            machine: remote,
+            role: 'developer',
+            state: 'admitted',
+            revision: 'r1',
+            roleOperations: {RegistryOperation.join},
+            authorities: {
+              RegistryOperation.join: (
+                role: 'a project admin',
+                people: [RegistryPerson(login: 'page-admin', name: 'Page Admin', email: 'page@example.org')],
+              ),
+            },
+          ),
+        ],
+      ),
+    );
+    final registry = RegistryPages(
+      source: source,
+      features: const RegistryPageFeatures(
+        operations: {RegistryOperation.join, RegistryOperation.bringState, RegistryOperation.push},
+      ),
+    );
+    addTearDown(registry.dispose);
+    await World.startApp(tester, registryPages: registry);
+    World.fleet.selectProject('checkout');
+    World.shell.openProject(local, 'checkout', target: source.snapshot.items[1].target);
+    await World.settle(tester);
+    await _findCommand(tester, 'Join');
+    expect(find.widgetWithText(ListTile, 'Join'), findsOneWidget, reason: 'an explicit target supplies one command');
+    expect(tester.widget<ListTile>(find.widgetWithText(ListTile, 'Join')).enabled, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await World.settle(tester);
+    World.shell.openProject(remote, 'checkout', target: source.snapshot.items.last.target);
+    await World.settle(tester);
+    await _findCommand(tester, 'Join');
+    final join = find.widgetWithText(ListTile, 'Join');
+    expect(join, findsOneWidget, reason: 'only the open admission may supply this operation');
+    expect(tester.widget<ListTile>(join).enabled, isFalse);
+    expect(find.descendant(of: join, matching: find.textContaining('page@example.org')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('command-query')), 'Push');
+    await World.settle(tester);
+    expect(find.widgetWithText(ListTile, 'Push the approved main to the central forge…'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await World.settle(tester);
+    for (final project in [null, 'unverified']) {
+      if (project == null) {
+        World.shell.openMachine(remote);
+      } else {
+        World.shell.openProject(remote, project);
+      }
+      await World.settle(tester);
+      for (final label in ['Join', 'Bring the state to the host']) {
+        await _findCommand(tester, label);
+        expect(find.widgetWithText(ListTile, label), findsNothing, reason: 'an unverified page has no registry target');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await World.settle(tester);
+      }
+    }
+    World.shell.goTo(Section.work);
+    await World.settle(tester);
+    await _findCommand(tester, 'Join');
+    expect(find.widgetWithText(ListTile, 'Join'), findsNothing, reason: 'Work must not borrow a selected admission');
+    expect(source.published, isEmpty, reason: 'refused and absent operations must publish nothing');
+  });
+
+  // Harm: a captured finder action must not strand or mutate a different item after navigation changes.
+  for (final destination in ['another section', 'another item', 'an opened view']) {
+    testWidgets('finder runs on its captured registry page after $destination', (tester) async {
+      await World.startBackend(World.work);
+      const machine = Machine(name: 'unwatched', socketPath: '/unwatched');
+      const target = (registry: 'registry', host: 'unwatched', project: 'admitted');
+      final source = _PageCheckingRegistrySource(
+        const RegistryPageSnapshot(
+          items: [
+            RegistryPageItem(
+              target: target,
+              machine: machine,
+              role: 'developer',
+              state: 'admitted',
+              revision: 'r1',
+              allowed: {RegistryOperation.join},
+            ),
+          ],
+        ),
+      );
+      final registry = RegistryPages(
+        source: source,
+        features: const RegistryPageFeatures(operations: {RegistryOperation.join}),
+      );
+      addTearDown(registry.dispose);
+      await World.startApp(tester, registryPages: registry);
+      World.fleet.selectProject('checkout');
+      final previousMachine = World.machines.current;
+      World.shell.openProject(machine, 'admitted', target: target);
+      await World.settle(tester);
+      await _findCommand(tester, 'Join');
+      switch (destination) {
+        case 'another section':
+          World.shell.goTo(Section.work);
+        case 'another item':
+          World.shell.openProject(previousMachine, 'checkout');
+        default:
+          World.shell.openOperations();
+      }
+      await World.settle(tester);
+      await tester.tap(find.widgetWithText(ListTile, 'Join'));
+      await World.settle(tester);
+      expect(source.published, [
+        (target: target, operation: RegistryOperation.join, person: null),
+      ], reason: 'choosing runs once, after opening the captured item');
+      expect(source.applications, [(target: target, revision: 'revision-2')]);
+      expect(source.pagesAtPublication, [
+        (section: Section.project, machine: machine, project: 'admitted', target: target, opened: false),
+      ], reason: 'the action must run on its own item page, with the previous view closed');
+      expect(find.byKey(const Key('project-details unwatched/admitted')), findsOneWidget);
+      expect(World.machines.current, previousMachine, reason: 'registry navigation must not select another daemon');
+      expect(World.fleet.selectedProject?.name, 'checkout');
+    });
+  }
+
   // Harm: registry actions must reach the verified admission without changing another daemon's project.
   for (final scope in ['unwatched machine', 'unwatched project', 'unfollowed project']) {
     testWidgets('the finder reaches registry actions on an $scope', (tester) async {
@@ -90,8 +286,6 @@ void main() {
       expect(tester.widget<ListTile>(command).enabled, isTrue, reason: 'registry actions need no local following');
       await tester.tap(command);
       await World.settle(tester);
-      expect(source.published, isEmpty, reason: 'the finder reveals the operation before it is invoked');
-      await World.tapInView(tester, 'highlighted');
       expect(source.published, [(target: target, operation: operation, person: null)]);
       expect(source.applications, [(target: target, revision: 'revision-2')]);
       expect(World.shell.itemRegistryTarget, target, reason: 'the finder must retain the verified admission');
@@ -435,4 +629,23 @@ void main() {
     ]);
     await World.tapInView(tester, 'messages-close');
   });
+}
+
+class _PageCheckingRegistrySource extends FakeRegistryPageSource {
+  _PageCheckingRegistrySource(super.snapshot);
+
+  final pagesAtPublication =
+      <({Section section, Machine? machine, String? project, RegistryTarget? target, bool opened})>[];
+
+  @override
+  Future<String> publish(RegistryPageChange change) {
+    pagesAtPublication.add((
+      section: World.shell.section,
+      machine: World.shell.itemMachine,
+      project: World.shell.itemProject,
+      target: World.shell.itemRegistryTarget,
+      opened: World.shell.anythingOpen,
+    ));
+    return super.publish(change);
+  }
 }

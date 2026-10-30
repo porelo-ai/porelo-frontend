@@ -55,7 +55,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Registry refusals use only contacts verified for the operation. The finder exposes registry actions
-  on unwatched machines and unfollowed projects while retaining the opened admission's scope.
+  on unwatched machines and unfollowed projects, including pages opened without an explicit admission.
+  Choosing a registry action opens its captured item's page and runs it there with its own permissions.
 - Project shortcuts and finder commands refuse stale item selections. Default project pages retain
   repository management, and prepared machines without registry state retain project placement commands.
   Forge repository menus retain repository removal and trusted-machine tools; renaming keeps the chosen
