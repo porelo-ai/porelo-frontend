@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'login_forward.dart';
 import 'machines.dart';
 import 'settings.dart';
+import 'tunnel.dart';
 
 /// The homeservers a person joined from this computer, **forwarded while the window runs**, not
 /// only while the Messages dialog is open (walk 10: nheko lost its server the moment
@@ -21,8 +22,12 @@ class HomeserverForwards extends ChangeNotifier {
     RaiseLoginForward? raise,
     Future<bool> Function(int port)? answers,
     this.lookEvery = const Duration(seconds: 30),
+    this.tunnels,
   }) : _raise = raise ?? raiseForward,
        _answers = answers ?? answering;
+
+  /// The host tunnel owner, shared by all Matrix projects on an imported host.
+  Tunnels? tunnels;
 
   /// Whether a forwarded port answers here: a connection to it, as a Matrix client makes one. Injectable,
   /// as [raiseLoginForward] is, so the frame is judged without a port.
@@ -47,6 +52,9 @@ class HomeserverForwards extends ChangeNotifier {
   /// The port at which a Matrix client here reaches [project]'s homeserver on [machine], or null
   /// where it is not forwarded.
   int? portOf(Machine machine, String project) {
+    if (machine.hostCard case final card?) {
+      return tunnels?.of(machine)?.state == TunnelState.up ? card.matrixPort : null;
+    }
     final key = _key(machine.name, project);
     if (!_held.containsKey(key)) return null;
     return _settings.homeservers
@@ -77,12 +85,16 @@ class HomeserverForwards extends ChangeNotifier {
 
   /// Holds [project]'s homeserver on [machine] forwarded on [port] from now on, and remembers it.
   Future<void> hold(Machine machine, String project, int port) async {
+    if (machine.hostCard != null && port != machine.hostCard!.matrixPort) {
+      throw const ForwardRefused('Use the fixed Matrix port from this host card.');
+    }
     await _settings.rememberHomeserver(machine.name, project, port);
     await _raiseFor(machine, project, port);
   }
 
   /// Raises again what was joined before, for the machines in [machines], and keeps looking.
   Future<void> restore(Machines machines) async {
+    tunnels = machines.tunnels;
     for (final each in _settings.homeservers) {
       final machine = machines.all.where((m) => m.name == each.machine).firstOrNull;
       if (machine != null) await _raiseFor(machine, each.project, each.port);
@@ -131,6 +143,20 @@ class HomeserverForwards extends ChangeNotifier {
   }
 
   Future<void> _raiseOnce(String key, Machine machine, int port) async {
+    if (machine.hostCard case final card?) {
+      final owner = tunnels;
+      if (port != card.matrixPort) {
+        _problems[key] = 'The remembered Matrix port differs from this host card.';
+      } else if (owner == null) {
+        _problems[key] = 'The shared host tunnel is unavailable.';
+      } else if (await owner.raiseFor(machine)) {
+        _problems.remove(key);
+      } else {
+        _problems[key] = owner.of(machine)?.problem ?? 'The host tunnel could not be reached.';
+      }
+      if (!_disposed) notifyListeners();
+      return;
+    }
     if (_held.containsKey(key) && await _answers(port)) return;
     await _held.remove(key)?.close();
     try {

@@ -39,12 +39,16 @@ Future<Trial> tryAMachine(
 }) async {
   final why = machine.whyNotReachableHere;
   if (why != null) return Trial(reached: false, words: why);
-  final target = machine.needsATunnel && machine.relay == null
+  final target = machine.hostCard == null && machine.needsATunnel && machine.relay == null
       ? machine.withSocketPath(Machine.endpointFor('${machine.name} trial'))
       : machine;
   Tunnel? tunnel;
   try {
-    if (machine.needsATunnel && machine.relay == null) {
+    if (machine.hostCard != null) {
+      if (!await tunnels.raiseFor(machine)) {
+        return Trial(reached: false, words: tunnels.of(machine)?.problem ?? 'The host could not be reached.');
+      }
+    } else if (machine.needsATunnel && machine.relay == null) {
       tunnel = await tunnels.trial(target);
       if (tunnel.state != TunnelState.up) {
         return Trial(
@@ -126,12 +130,14 @@ Future<int?> countKeyslots(
   Duration within = const Duration(seconds: 10),
 }) async {
   if (machine.whyNotReachableHere != null) return null;
-  final target = machine.needsATunnel && machine.relay == null
+  final target = machine.hostCard == null && machine.needsATunnel && machine.relay == null
       ? machine.withSocketPath(Machine.endpointFor('${machine.name} vault'))
       : machine;
   Tunnel? tunnel;
   try {
-    if (machine.needsATunnel && machine.relay == null) {
+    if (machine.hostCard != null) {
+      if (!await tunnels.raiseFor(machine)) return null;
+    } else if (machine.needsATunnel && machine.relay == null) {
       tunnel = await tunnels.trial(target);
       if (tunnel.state != TunnelState.up) return null;
     }

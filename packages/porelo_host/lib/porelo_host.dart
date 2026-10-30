@@ -13,6 +13,7 @@ export 'src/secrets_file.dart';
 export 'src/steps.dart';
 export 'src/state.dart';
 export 'src/ssh.dart';
+export 'src/host_card_ssh.dart';
 export 'src/step_output.dart';
 export 'src/host_files.dart';
 export 'src/host_file_writer.dart';

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:porelo_host/porelo_host.dart' show SecretsFile, PreparedHost, checkHostName;
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, SecretsFile, PreparedHost, checkHostName;
 
 import 'desk.dart';
 import 'host_vpn.dart' show isForgeCaCertificate, checkVpnInterface;
@@ -1111,6 +1111,13 @@ class Settings extends ChangeNotifier {
 
   /// Remembers which machines to open next time.
   Future<void> rememberMachines(List<Machine> machines) async {
+    final cards = <HostCardSsh>[];
+    for (final machine in machines) {
+      final card = machine.hostCard;
+      if (card == null) continue;
+      card.checkAgainst(cards);
+      cards.add(card);
+    }
     _machines = <Map<String, Object?>>[for (final machine in machines) machine.stored];
     await _write();
   }

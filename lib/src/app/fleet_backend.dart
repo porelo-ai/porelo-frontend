@@ -1,6 +1,102 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:porelo_frontend/client.dart';
+
+import 'owned_process.dart';
+
+/// Core's public result, independent of SSH authentication or daemon readiness.
+enum HostUnlockState {
+  /// Core confirmed the vault is open.
+  unlocked,
+
+  /// Core explicitly needs the local identity unlocked.
+  waitingForKey,
+
+  /// Core refused to unlock this host vault.
+  refused,
+
+  /// This installation cannot perform the agreed operation.
+  unsupported,
+}
+
+/// A public vault outcome containing no key material or CLI output.
+class HostUnlockResult {
+  /// Carries the public result and a safe explanation from the adapter.
+  const HostUnlockResult(this.state, [this.words]);
+
+  /// Whether Core unlocked the host or needs the person's key.
+  final HostUnlockState state;
+
+  /// The public refusal, without process output or secret values.
+  final String? words;
+}
+
+/// Delegates signing and host vault delivery entirely to Core.
+abstract interface class HostUnlocker {
+  /// Opens the host vault through the host's published SSH configuration.
+  Future<HostUnlockResult> unlock(String host, String config);
+
+  /// Cancels this host's in-flight signing or secret delivery and awaits cleanup.
+  Future<void> cancel(String host);
+}
+
+/// Invokes the agreed Core command without parsing its output.
+class CoreHostUnlocker implements HostUnlocker {
+  /// Accepts a process boundary for tests and installations of Core.
+  CoreHostUnlocker({Future<Process> Function(List<String>)? start, this.deadline = const Duration(seconds: 30)})
+    : _start = start ?? _startCore;
+
+  /// The bound on Core signing and delivery before its owned child is terminated.
+  final Duration deadline;
+  final Future<Process> Function(List<String>) _start;
+  final Map<String, Process> _children = {};
+  final Map<String, Future<HostUnlockResult>> _pending = {};
+  final Map<String, int> _generations = {};
+  static Future<Process> _startCore(List<String> command) => Process.start(command.first, command.sublist(1));
+
+  @override
+  Future<HostUnlockResult> unlock(String host, String config) => _pending.putIfAbsent(
+    host,
+    () => _unlock(host).whenComplete(() {
+      _pending.remove(host);
+    }),
+  );
+
+  Future<HostUnlockResult> _unlock(String host) async {
+    final generation = _generations[host] ?? 0;
+    Process? process;
+    try {
+      process = await _start(['porelo', 'host', 'unlock', host]);
+      unawaited(process.stdout.drain<void>());
+      unawaited(process.stderr.drain<void>());
+      if (generation != (_generations[host] ?? 0)) {
+        await stopOwnedProcess(process);
+        return const HostUnlockResult(HostUnlockState.refused, 'Host unlock was cancelled.');
+      }
+      _children[host] = process;
+      final code = await process.exitCode.timeout(deadline);
+      return code == 0
+          ? const HostUnlockResult(HostUnlockState.unlocked)
+          : const HostUnlockResult(HostUnlockState.refused, 'Core could not unlock the host vault.');
+    } on TimeoutException {
+      if (process != null) await stopOwnedProcess(process);
+      return const HostUnlockResult(HostUnlockState.refused, 'Core host unlock timed out.');
+    } on ProcessException {
+      return const HostUnlockResult(HostUnlockState.unsupported, 'Core host unlock is unavailable on this computer.');
+    } finally {
+      if (identical(_children[host], process)) _children.remove(host);
+    }
+  }
+
+  @override
+  Future<void> cancel(String host) async {
+    _generations[host] = (_generations[host] ?? 0) + 1;
+    final child = _children.remove(host);
+    if (child != null) await stopOwnedProcess(child);
+    await _pending[host];
+  }
+}
 
 /// The backend, narrowed to what the frame asks of it.
 ///

@@ -24,6 +24,18 @@ enum Reachability {
   incompatible,
 }
 
+/// SSH reachability, which remains reached when the daemon is stopped.
+enum HostReachability {
+  /// The owned SSH master answers.
+  reached,
+
+  /// The SSH connection is unavailable.
+  notReached,
+
+  /// The selected local key needs unlocking.
+  waitingForKey,
+}
+
 /// One project and the work under it, as the frame draws them.
 ///
 /// The project itself is the daemon's — assembled from the gate mirrors, the tasks that exist and
@@ -99,7 +111,13 @@ class FleetModel extends ChangeNotifier {
   /// [retryAfter] is how long to wait before trying a machine that stopped answering. A tunnel
   /// that drops has to recover without anybody restarting the interface, so this is a loop and
   /// not a button — the button is there as well, for somebody who does not want to wait.
-  FleetModel(this.backend, {this.retryAfter = const Duration(seconds: 2)}) {
+  FleetModel(
+    this.backend, {
+    this.retryAfter = const Duration(seconds: 2),
+    this.hostConnection,
+    this.hostRefusal,
+    this.prepareConnection,
+  }) {
     // Once, here: connect() runs again on every reconnect, and each listener it added stayed.
     clearance.addListener(_notify);
     mailboxes.addListener(_notify);
@@ -108,6 +126,29 @@ class FleetModel extends ChangeNotifier {
 
   /// Which machine this is.
   final FleetBackend backend;
+
+  /// Returns a transport refusal before any daemon open, including refresh and retry.
+  final Future<String?> Function()? prepareConnection;
+
+  /// The host transport state, separate from this daemon's readiness.
+  final HostReachability? Function()? hostConnection;
+
+  /// The public vault or transport refusal beside a reached host.
+  final String? Function()? hostRefusal;
+
+  /// The current SSH reachability for an imported host.
+  HostReachability? get hostReachability => hostConnection?.call();
+
+  /// The public transport or vault refusal, independent of daemon status.
+  String? get hostProblem => hostRefusal?.call();
+
+  /// The person's words for host reachability, when this is a card-based host.
+  String? get hostState => switch (hostReachability) {
+    HostReachability.reached => 'Reached',
+    HostReachability.notReached => 'Not reached',
+    HostReachability.waitingForKey => 'Waiting for your key',
+    null => null,
+  };
 
   /// How long to wait before trying a machine that stopped answering.
   final Duration retryAfter;
@@ -254,6 +295,8 @@ class FleetModel extends ChangeNotifier {
     _reachability = Reachability.connecting;
     _say('Connecting to ${backend.label}.');
     try {
+      final transportRefusal = await prepareConnection?.call();
+      if (transportRefusal != null) throw VarlinkDisconnected(transportRefusal);
       final info = await backend.open();
       _info = info;
       _retry?.cancel();

@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh, HostFileWriter, HostFilesRefused;
 
 import 'connections.dart';
 import 'machines.dart';
 import 'host_keys.dart';
+import 'fleet_backend.dart';
+import 'owned_process.dart';
 
 /// What an attempt to start a daemon came back with.
 @immutable
@@ -33,33 +36,23 @@ enum TunnelState {
   /// `ssh` has been started and the socket is not there yet.
   raising,
 
-  /// The socket exists and the process is alive.
+  /// The owned transport answers, independently of the remote daemon's readiness.
   up,
 
   /// It could not be raised, or it went away and could not be raised again. [Tunnel.problem]
   /// carries what the transport said.
   down,
+
+  /// The local key is absent from the agent, or Core explicitly needs it unlocked.
+  waitingForKey,
 }
 
-/// One forward this interface raised and owns.
+/// One supervised SSH connection this interface raised and owns.
 ///
-/// **`ssh -L <local socket>:<remote socket> <host> -N`**, one process per machine, supervised.
-/// Running `ssh` is not a breach of the rule against shelling out: that rule is about never
-/// building a second implementation of the *domain* by parsing the `porelo` CLI, and `ssh` is
-/// transport. Nothing about the contract, the calls or the refusals goes near it.
-///
-/// Three decisions are baked in here and each of them keeps this requirement small:
-///
-/// * **`BatchMode=yes`, so it never prompts.** A passphrase and an unknown host key are both
-///   terminal prompts, and this has no terminal. With batch mode `ssh` fails instead, saying why
-///   — *"Permission denied (publickey)"*, *"Host key verification failed"* — and that sentence is
-///   shown as it came. The way through is an agent or a key with no passphrase, and accepting a
-///   host key once in a shell. **Nothing here handles a passphrase**, deliberately.
-/// * **One process per host, not a shared `ControlMaster`.** A master would be shared with the
-///   person's own sessions, and tearing ours down could take theirs with it — which is exactly
-///   what *"a tunnel the interface did not raise is never torn down by it"* forbids.
-/// * **It does not outlive the window.** Friendlier if it did, and it would contradict the
-///   criterion that closing leaves no forward running and no socket behind.
+/// Imported cards use a private master shared by the host's services and commands.
+/// Other SSH machines retain their independent daemon forward. Batch mode prevents
+/// prompts; no private key or secret enters this transport. Only owned processes
+/// and endpoints are removed when the window closes.
 class Tunnel {
   /// Constructor taking which machine to reach.
   ///
@@ -72,10 +65,36 @@ class Tunnel {
     Duration appears = const Duration(seconds: 10),
     Duration explains = const Duration(seconds: 5),
     this.onChanged,
+    this.keyAvailable,
+    HostUnlocker? unlocker,
+    this.portsAvailable,
+    this.messengerSocket,
+    this.writer,
   }) : _launch = start ?? _runIt,
        _tighten = run ?? _runAndWait,
        _untilItBinds = appears,
-       _untilExplained = explains;
+       _untilExplained = explains,
+       _unlocker = unlocker ?? CoreHostUnlocker();
+
+  /// The local public-key availability check, without agent forwarding.
+  final Future<bool> Function(HostCardSsh)? keyAvailable;
+
+  /// The fixed-port preflight, injectable without changing endpoint selection.
+  final Future<void> Function(HostCardSsh)? portsAvailable;
+
+  /// The local messenger socket, present only while the messenger needs a return path.
+  final String? messengerSocket;
+
+  /// The private public-file publisher.
+  final HostFileWriter? writer;
+  final HostUnlocker _unlocker;
+
+  /// The vault refusal beside an SSH-reached host, independent of daemon readiness.
+  String? vaultProblem;
+
+  /// Core's last public vault result, separate from SSH readiness.
+  HostUnlockState? vaultState;
+  bool _ownsEndpoints = false;
 
   /// The machine this forwards to.
   final Machine machine;
@@ -109,7 +128,9 @@ class Tunnel {
   /// `-N` because nothing is run at the far end; `ExitOnForwardFailure` so a forward that cannot
   /// bind fails the process rather than leaving `ssh` up with no socket under it, which would
   /// read as connected.
-  List<String> get command => machine.host.startsWith('-')
+  List<String> get command => machine.hostCard != null
+      ? _cardCommand
+      : machine.host.startsWith('-')
       ? throw ArgumentError('An ssh host must not start with a dash.')
       : <String>[
           openSsh('ssh'),
@@ -125,8 +146,34 @@ class Tunnel {
           machine.host,
         ];
 
+  List<String> get _cardCommand {
+    final card = machine.hostCard!;
+    return [
+      openSsh('ssh'),
+      '-F',
+      machine.sshConfig,
+      '-M',
+      '-N',
+      '-o',
+      'ExitOnForwardFailure=yes',
+      '-o',
+      'ServerAliveInterval=15',
+      '-o',
+      'ServerAliveCountMax=2',
+      for (var i = 0; i < card.ports.length; i++) ...[
+        '-L',
+        '127.0.0.1:${card.ports[i]}:${HostCardSsh.serviceSockets[i]}',
+      ],
+      '-L',
+      '${machine.socketPath}:${card.daemonSocket}',
+      if (messengerSocket != null) ...['-R', '${card.returnSocket}:$messengerSocket'],
+      card.name,
+    ];
+  }
+
   /// Raises it, and waits until the socket is there or the transport says why not.
   Future<void> raise() async {
+    if (machine.hostCard != null) return _raiseCard();
     final generation = ++_generation;
     _wanted = true;
     state = TunnelState.raising;
@@ -219,6 +266,117 @@ class Tunnel {
     problem = 'the forward did not appear within ${_untilItBinds.inSeconds} seconds';
   }
 
+  Future<void> _raiseCard() async {
+    final generation = ++_generation;
+    final card = machine.hostCard!;
+    _wanted = true;
+    state = TunnelState.raising;
+    problem = null;
+    vaultProblem = null;
+    vaultState = null;
+    await _stopWhatWeStarted();
+    await _unlocker.cancel(card.name);
+    if (generation != _generation) return;
+    _clearOwnedCardEndpoints();
+    HostCardSsh.checkLocalSocket(machine.socketPath);
+    HostCardSsh.checkLocalSocket(card.controlSocket(machine.sshConfig));
+    if (messengerSocket != null) HostCardSsh.checkMessengerSocket(messengerSocket!);
+    for (final endpoint in [machine.socketPath, card.controlSocket(machine.sshConfig)]) {
+      if (FileSystemEntity.typeSync(endpoint, followLinks: false) != FileSystemEntityType.notFound) {
+        state = TunnelState.down;
+        problem = 'Host ${card.name} cannot start: an endpoint already exists and was left alone.';
+        return;
+      }
+    }
+    try {
+      await (portsAvailable?.call(card) ?? card.checkPortsAvailable());
+      final available = await (keyAvailable?.call(card) ?? _agentHasKey(card));
+      if (generation != _generation) return;
+      if (!available) {
+        state = TunnelState.waitingForKey;
+        problem = 'Waiting for your key. Unlock KeePassXC with your selected key available.';
+        return;
+      }
+      await card.publish(machine.sshConfig, writer: writer);
+      if (generation != _generation) return;
+      final process = await _launch(command);
+      if (generation != _generation) {
+        await stopOwnedProcess(process);
+        _ownsEndpoints = true;
+        _clearOwnedCardEndpoints();
+        return;
+      }
+      _process = process;
+      _ownsEndpoints = true;
+      raised++;
+      unawaited(process.stdout.drain<void>());
+      final saying = process.stderr.transform(utf8.decoder).transform(const LineSplitter()).toList();
+      unawaited(process.exitCode.then((code) => _itEnded(code, saying, generation)));
+      final by = DateTime.now().add(_untilItBinds);
+      while (generation == _generation && state == TunnelState.raising && DateTime.now().isBefore(by)) {
+        final check = await _tighten([openSsh('ssh'), '-F', machine.sshConfig, '-O', 'check', card.name])
+            .timeout(_untilExplained);
+        if (generation != _generation || state != TunnelState.raising) return;
+        if (check.exitCode == 0) {
+          state = TunnelState.up;
+          await unlockVault();
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      if (generation != _generation || state == TunnelState.down) return;
+      await _stopWhatWeStarted();
+      _clearOwnedCardEndpoints();
+      state = TunnelState.down;
+      problem = 'The SSH master did not answer within ${_untilItBinds.inSeconds} seconds.';
+    } on TimeoutException {
+      if (generation != _generation) return;
+      state = TunnelState.down;
+      problem = 'The host transport check timed out.';
+    } on HostFilesRefused catch (refused) {
+      state = TunnelState.down;
+      problem = refused.message;
+    } on ProcessException {
+      state = TunnelState.down;
+      problem = 'The required host transport command is unavailable.';
+    } finally {
+      if (generation == _generation && state == TunnelState.down) {
+        await _stopWhatWeStarted();
+        _clearOwnedCardEndpoints();
+      }
+    }
+  }
+
+  /// Retries Core unlock on the existing master without changing fixed endpoints.
+  Future<void> unlockVault() async {
+    if (machine.hostCard == null || state != TunnelState.up) return;
+    final generation = _generation;
+    final unlocked = await _unlocker.unlock(machine.hostCard!.name, machine.sshConfig);
+    if (generation != _generation || state != TunnelState.up) return;
+    vaultState = unlocked.state;
+    vaultProblem = switch (unlocked.state) {
+      HostUnlockState.unlocked => null,
+      HostUnlockState.waitingForKey => 'Waiting for your key. Unlock KeePassXC to open the host vault.',
+      _ => unlocked.words ?? 'Core could not unlock the host vault.',
+    };
+  }
+
+  Future<bool> _agentHasKey(HostCardSsh card) async {
+    final result = await _tighten([openSsh('ssh-add'), '-L']).timeout(_untilExplained);
+    if (result.exitCode != 0) return false;
+    return '${result.stdout}'.split('\n').any((line) => line.split(' ').take(2).join(' ') == card.publicKey);
+  }
+
+  void _clearOwnedCardEndpoints() {
+    if (!_ownsEndpoints) return;
+    _ownsEndpoints = false;
+    for (final endpoint in [machine.socketPath, machine.hostCard!.controlSocket(machine.sshConfig)]) {
+      if (FileSystemEntity.typeSync(endpoint, followLinks: false) == FileSystemEntityType.unixDomainSock) {
+        File(endpoint).deleteSync();
+      }
+    }
+  }
+
   /// Takes it down and removes what it left.
   ///
   /// Safe to call on a tunnel that was never raised, which is what makes closing the window able
@@ -226,8 +384,13 @@ class Tunnel {
   Future<void> drop() async {
     _generation++;
     _wanted = false;
+    if (machine.hostCard != null) await _unlocker.cancel(machine.hostCard!.name);
     await _stopWhatWeStarted();
-    _clearTheWay();
+    if (machine.hostCard == null) {
+      _clearTheWay();
+    } else {
+      _clearOwnedCardEndpoints();
+    }
     state = TunnelState.idle;
   }
 
@@ -236,8 +399,7 @@ class Tunnel {
     final process = _process;
     _process = null;
     if (process == null) return;
-    process.kill();
-    await process.exitCode;
+    await stopOwnedProcess(process);
   }
 
   /// Whether something answers at the endpoint. A leftover socket does not.
@@ -259,6 +421,7 @@ class Tunnel {
   String? get words => switch (state) {
     TunnelState.raising => 'raising the forward…',
     TunnelState.down => problem,
+    TunnelState.waitingForKey => problem,
     _ => null,
   };
 
@@ -269,6 +432,20 @@ class Tunnel {
     if (!_wanted || generation != _generation) return;
     final words = said.join(' ');
     state = TunnelState.down;
+    if (machine.hostCard != null) {
+      problem =
+          words.contains('Host key verification failed') || words.contains('REMOTE HOST IDENTIFICATION HAS CHANGED')
+          ? hostKeyPinRefusal
+          : words.contains('Permission denied')
+          ? 'The host refused this admitted account or its selected key.'
+          : words.contains('forwarding failed') || words.contains('Address already in use')
+          ? 'The host tunnel could not bind its fixed port or socket.'
+          : 'The SSH connection stopped (exit $code).';
+      await _unlocker.cancel(machine.hostCard!.name);
+      if (!_wanted || generation != _generation) return;
+      onChanged?.call();
+      return;
+    }
     problem = said.isEmpty ? 'the forward stopped, exit code $code' : words;
     onChanged?.call();
     if (said.isEmpty) return;
@@ -330,9 +507,45 @@ class Tunnels extends ChangeNotifier {
     Future<Process> Function(List<String> command)? start,
     Future<ProcessResult> Function(List<String> command)? run,
     Duration appears = const Duration(seconds: 10),
+    this.keyAvailable,
+    this.portsAvailable,
+    HostUnlocker? unlocker,
+    this.messengerSocket,
+    this.writer,
   }) : _launch = start,
        _run = run ?? _runIt,
-       _untilItBinds = appears;
+       _untilItBinds = appears,
+       _unlocker = unlocker ?? CoreHostUnlocker();
+
+  /// The public-key availability boundary, without guessing from remote refusals.
+  final Future<bool> Function(HostCardSsh)? keyAvailable;
+
+  /// The fixed-port availability boundary.
+  final Future<void> Function(HostCardSsh)? portsAvailable;
+
+  /// The local messenger return endpoint, if needed.
+  final String? messengerSocket;
+
+  /// The private public-file publisher.
+  final HostFileWriter? writer;
+  final HostUnlocker _unlocker;
+  final Map<String, HostCardSsh> _cards = {};
+  final Map<String, Future<bool>> _raising = {};
+  bool _closing = false;
+
+  static String _key(Machine machine) => machine.hostCard?.name ?? machine.name;
+
+  /// Reserves every imported card's ports before any asynchronous publication.
+  void registerCards(Iterable<Machine> machines) {
+    final candidates = <String, HostCardSsh>{..._cards};
+    for (final machine in machines) {
+      final card = machine.hostCard;
+      if (card == null) continue;
+      card.checkAgainst(candidates.values);
+      candidates[card.name] = card;
+    }
+    _cards.addAll(candidates);
+  }
 
   final Future<Process> Function(List<String> command)? _launch;
   final Future<ProcessResult> Function(List<String> command) _run;
@@ -344,22 +557,50 @@ class Tunnels extends ChangeNotifier {
   final Map<String, Tunnel> _mine = <String, Tunnel>{};
 
   /// The forward for one machine, or null when this interface did not raise it.
-  Tunnel? of(Machine machine) => _mine[machine.name];
+  Tunnel? of(Machine machine) => _mine[_key(machine)];
 
   /// Whether this interface raised the way in to [machine].
-  bool manages(Machine machine) => _mine.containsKey(machine.name);
+  bool manages(Machine machine) => _mine.containsKey(_key(machine));
 
   /// Raises the forward for [machine], if it is one this interface manages.
   ///
   /// A machine that names no host is left alone and answers true: it is already reachable, by
   /// somebody else's forward, and there is nothing to do.
-  Future<bool> raiseFor(Machine machine) async {
+  Future<bool> raiseFor(Machine machine) {
+    if (_closing) return Future<bool>.value(false);
+    registerCards([machine]);
+    final key = _key(machine);
+    return _raising.putIfAbsent(
+      key,
+      () => _raiseFor(machine).whenComplete(() {
+        _raising.remove(key);
+      }),
+    );
+  }
+
+  Future<bool> _raiseFor(Machine machine) async {
     // A machine this build cannot reach is said so where it is opened, never forwarded.
+    if (machine.hostCard != null && machine.whyNotReachableHere != null) return false;
     if (!machine.needsATunnel || machine.whyNotReachableHere != null || machine.relay != null) return true;
     final tunnel = _mine.putIfAbsent(
-      machine.name,
-      () => Tunnel(machine, start: _launch, run: _run, appears: _untilItBinds, onChanged: notifyListeners),
+      _key(machine),
+      () => Tunnel(
+        machine,
+        start: _launch,
+        run: _run,
+        appears: _untilItBinds,
+        onChanged: notifyListeners,
+        keyAvailable: keyAvailable,
+        portsAvailable: portsAvailable,
+        unlocker: _unlocker,
+        messengerSocket: messengerSocket,
+        writer: writer,
+      ),
     );
+    if (machine.hostCard != null && tunnel.state == TunnelState.up) {
+      if (tunnel.vaultState != HostUnlockState.unlocked) await tunnel.unlockVault();
+      return tunnel.state == TunnelState.up;
+    }
     await tunnel.raise();
     notifyListeners();
     return tunnel.state == TunnelState.up;
@@ -369,6 +610,7 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Kept out of [of]: a trial is not a machine being watched, and the caller takes it down.
   Future<Tunnel> trial(Machine machine) async {
+    if (machine.hostCard != null) throw const HostFilesRefused('Use the shared host tunnel for card hosts.');
     final tunnel = Tunnel(machine, start: _launch, run: _run, appears: _untilItBinds);
     await tunnel.raise();
     return tunnel;
@@ -379,8 +621,12 @@ class Tunnels extends ChangeNotifier {
   /// Without being asked, because a forward that goes away is not a decision anybody made — but
   /// only for one this interface raised, and only while it is still wanted.
   Future<void> raiseAgainIfItDropped(Machine machine) async {
-    final tunnel = _mine[machine.name];
-    if (tunnel == null || tunnel.state != TunnelState.down) return;
+    final tunnel = _mine[_key(machine)];
+    if (tunnel == null || (tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) return;
+    if (machine.hostCard != null) {
+      await raiseFor(machine);
+      return;
+    }
     await tunnel.raise();
     notifyListeners();
   }
@@ -591,7 +837,10 @@ class Tunnels extends ChangeNotifier {
 
   /// Takes down the forward for one machine, if this interface raised it.
   Future<void> dropFor(Machine machine) async {
-    final tunnel = _mine.remove(machine.name);
+    final pending = _raising[_key(machine)];
+    if (pending != null) await pending;
+    final tunnel = _mine.remove(_key(machine));
+    _cards.remove(_key(machine));
     if (tunnel == null) return;
     await tunnel.drop();
     notifyListeners();
@@ -602,10 +851,16 @@ class Tunnels extends ChangeNotifier {
   /// Called when the window closes. **Only what is in here** — a forward somebody else raised is
   /// not in this map and is therefore untouchable, which is the whole of that criterion.
   Future<void> dropEverything() async {
+    _closing = true;
+    for (final tunnel in _mine.values.toList()) {
+      await tunnel.drop();
+    }
+    await Future.wait(_raising.values.toList());
     for (final tunnel in _mine.values.toList()) {
       await tunnel.drop();
     }
     _mine.clear();
+    _cards.clear();
     notifyListeners();
   }
 }
