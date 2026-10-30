@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Walk 23, laptop B, as the developer: unpacks the interface handed over beside this script into ~/.porelo/walk23,
 # after checking SHA256SUMS against the digest the walk shows and every file against SHA256SUMS, and starts it with
-# --roles developer, visibly on this desktop, which the operator walks. It refuses loudly and may be run again: an
-# unpacked bundle of the same digest is kept, any other replaced, never while it runs.
+# no roles beyond the ordinary person's, visibly on this desktop, which the operator walks. It refuses loudly and may
+# be run again: an unpacked bundle of the same digest is kept, any other replaced, never while it runs.
 # Usage, logged in as the developer, from the unpacked hand-over: bash laptop-b-start.sh <SHA-256 of SHA256SUMS>
 set -euo pipefail
 current=
@@ -55,6 +55,6 @@ else
     echo "ok: unpacked"
 fi
 
-step b-start.4 "the interface starts with --roles developer"
+step b-start.4 "the interface starts as an ordinary person's"
 echo "starting it; close its window to end this script"
-exec "$walk/bundle/porelo_frontend" --roles developer
+exec "$walk/bundle/porelo_frontend"

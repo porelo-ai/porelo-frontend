@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Starts a host admin's sprint walk: checks the test collection's digests where a folder is given, builds porelo-host
 # from this checkout into ~/.porelo/walk/porelo-host (or $PORELO_WALK), builds the Linux debug bundle and starts it with
-# --roles host-admin, directly rather than through flutter run so snap confinement does not block wg-quick.
+# --roles host-admin, or the roles given, directly rather than through flutter run so snap confinement does not block
+# wg-quick.
 # It starts invisibly on a private X display unless --visible is given; only the operator walking it passes --visible,
 # so an agent's rehearsal never opens a window on the operator's desktop. Hidden, its walk folder defaults to
 # ~/.porelo/walk-hidden, so a rehearsal never touches the operator's walk.
 # Usage, from anywhere in this checkout:
-#   bash tool/start_host_walk.sh [--visible] <walk number> [<folder holding the test collection and its SHA256SUMS>]
+#   bash tool/start_host_walk.sh [--visible] [--roles <role>,<role>] <walk number> [<folder holding the test collection
+#   and its SHA256SUMS>]
 set -eu
 set -o pipefail
 
@@ -15,8 +17,17 @@ if [ "${1:-}" = --visible ]; then
     visible=true
     shift
 fi
+roles=host-admin
+if [ "${1:-}" = --roles ]; then
+    if ! printf '%s\n' "${2:-}" | LC_ALL=C grep -Eq '^[a-z-]+(,[a-z-]+)*$'; then
+        echo 'start-host-walk: --roles takes a comma-separated list such as host-admin,project-admin' >&2
+        exit 64
+    fi
+    roles=$2
+    shift 2
+fi
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ] || { [ "$#" -eq 2 ] && [ -z "$2" ]; } || ! printf '%s\n' "$1" | LC_ALL=C grep -Eq '^[0-9]+$'; then
-    echo 'usage: bash tool/start_host_walk.sh [--visible] <walk number> [<collection folder>]' >&2
+    echo 'usage: bash tool/start_host_walk.sh [--visible] [--roles <list>] <walk number> [<collection folder>]' >&2
     exit 64
 fi
 # The collection folder and the walk folder are taken from where the script was called, before it moves to the checkout.
@@ -75,7 +86,7 @@ flutter build linux --debug || {
 }
 bundle=build/linux/x64/debug/bundle/porelo_frontend
 if [ "$visible" = true ]; then
-    PORELO_HOST_STANDIN=$walk/porelo-host PORELO_WALK=$walk exec "$bundle" --roles host-admin
+    PORELO_HOST_STANDIN=$walk/porelo-host PORELO_WALK=$walk exec "$bundle" --roles "$roles"
 fi
 # Hidden, the run has a home of its own under the walk folder: its own HOME, settings, state, data and cache, so the
 # interface neither reads nor writes the person's secrets file or settings, and a throwaway keyring unlocked on its own
@@ -97,7 +108,7 @@ chmod 700 "$runtime"
 exec env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS -u GNOME_KEYRING_CONTROL -u SSH_AUTH_SOCK \
     PORELO_SOCKET="$runtime/no-daemon.sock" GDK_BACKEND=x11 HOME="$hidden/home" XDG_RUNTIME_DIR="$runtime" XDG_CONFIG_HOME="$hidden/config" \
     XDG_STATE_HOME="$hidden/state" XDG_DATA_HOME="$hidden/data" XDG_CACHE_HOME="$hidden/cache" \
-    PORELO_HOST_STANDIN="$walk/porelo-host" PORELO_WALK="$walk" \
+    PORELO_HOST_STANDIN="$walk/porelo-host" PORELO_WALK="$walk" PORELO_WALK_ROLES="$roles" \
     xvfb-run -a -s '-screen 0 1280x800x24' dbus-run-session -- bash -eu -c '
         printf %s walk-keyring-only |
             gnome-keyring-daemon --foreground --unlock --components=secrets \
@@ -105,4 +116,4 @@ exec env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS -u GNOME_KEYR
         keyring=$!
         trap "kill $keyring 2>/dev/null || true" EXIT
         timeout 20s gdbus wait --session --timeout 15 org.freedesktop.secrets
-        "$0" --roles host-admin' "$bundle"
+        "$0" --roles "$PORELO_WALK_ROLES"' "$bundle"
