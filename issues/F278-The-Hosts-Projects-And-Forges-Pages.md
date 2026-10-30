@@ -11,11 +11,12 @@ One-click joining from signed state (operator, 2026-10-30), the flow's step 7, a
 
 Folded in: [F262](README.md#f262), [F263](README.md#f263), [F265](README.md#f265), [F266](README.md#f266), [F267](README.md#f267), and [F239](README.md#f239)'s lists.
 
-## Open questions
+## Decided in the talk so far
 
-1. Do *Hosts* replace today's *Machines*, or do this computer and test machines stay under *Machines*?
-2. May a project admin lock a developer on the host, or only the host admin?
-3. Does the identity get a page of its own, or stay under Settings?
+- *Machines* stays the umbrella: this computer and the remote machines, rented or provided by someone; the proposal's *Hosts* page is the *Machines* page, with the remote machines as its rows (operator, 2026-10-30).
+- A project admin may lock a developer in their project, beside the host admin's lock ([F272](README.md#f272)).
+- The own identity stays under Settings ([F268](README.md#f268)).
+- Further remarks follow as the operator goes through the pages.
 
 ## Estimate
 
