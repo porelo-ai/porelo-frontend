@@ -20,16 +20,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 |---|---|---|---|
 | <a id="f118"></a>[F118](F118-An-Upstream-That-Cannot-Be-Read-Said-Before-A-Start.md) | — | — | An upstream that cannot be read said before a start, with what fixes it. |
 | <a id="f137"></a>[F137](F137-The-Collection-Taken-Only-By-Its-Digest.md) | — | — | The collection installed on the host only by the digest the package expects, checked here and there. |
-| <a id="f208"></a>[F208](F208-Roles-Given-At-The-Start-Of-The-Interface.md) | — | — | Roles given at the start (`--roles`), each command shown only for its role; normal work alone without it. |
-| <a id="f210"></a>[F210](F210-The-Secrets-File-Grouped-By-Host-And-By-Project.md) | — | — | The secrets file's entries under `hosts/<host>/` and `projects/<project>/`, today's moved once. |
-| <a id="f212"></a>[F212](F212-The-Forges-CA-One-Per-Host.md) | — | [F210](README.md#f210) | One lasting CA per host, constrained to its names and network, signing its forge and homeserver, trusted per host; the lasting forge password, split off from [F202](README.md#f202). |
-| <a id="f209"></a>[F209](F209-The-VPN-Kept-Per-Host-Several-Up-At-Once.md) | — | [F208](README.md#f208) | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. |
-| <a id="f211"></a>[F211](F211-A-Server-Prepared-With-No-Project.md) | — | [F208](README.md#f208), [F209](README.md#f209), [F210](README.md#f210), [F212](README.md#f212) | A server prepared by its host admin with no project, a project registered for its admin, project admins admitted by hand. |
-| <a id="f214"></a>[F214](F214-The-Setup-Files-And-The-Stop-Split-By-Act.md) | — | — | The setup files in the person's own home and the stop fed by act: root takes only the VPN key and the forge's certificate. |
-| <a id="f213"></a>[F213](F213-A-Project-Brought-Onto-A-Prepared-Host.md) | — | [F211](README.md#f211), [F214](README.md#f214) | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. |
-| <a id="f215"></a>[F215](F215-The-Developers-Of-A-Project-Kept-In-Its-Access-File.md) | — | [F213](README.md#f213) | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. |
-| <a id="f216"></a>[F216](F216-A-Developer-Joins-A-Project-On-Its-Host.md) | — | [F209](README.md#f209), [F212](README.md#f212), [F214](README.md#f214), [F215](README.md#f215) | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. |
-| <a id="f232"></a>[F232](F232-The-Project-Admins-Own-VPN-For-A-Bring.md) | — | [F213](README.md#f213), [F216](README.md#f216) | The bring on a project admin's own machine brings its VPN to the host up from the pasted values, its address and its copied keys, and trusts the host's CA by `ca_sha256` before it brings. |
 
 ### Implementing
 
@@ -160,6 +150,16 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="f208"></a>F208 | Roles Given At The Start Of The Interface | Roles given at the start (`--roles`), each command shown only for its role; normal work alone without it. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f209"></a>F209 | The VPN Kept Per Host, Several Up At Once | The VPN kept per host with its own network, interface, hosts lines and CA, several up at once, a colliding network refused. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f210"></a>F210 | The Secrets File Grouped By Host And By Project | The secrets file's entries under `hosts/<host>/` and `projects/<project>/`, today's moved once. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f211"></a>F211 | A Server Prepared With No Project | A server prepared by its host admin with no project, a project registered for its admin, project admins admitted by hand. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f212"></a>F212 | The Forge's CA One Per Host | One lasting CA per host, constrained to its names and network, signing its forge and homeserver, trusted per host; the lasting forge password, split off from [F202](README.md#f202). Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f213"></a>F213 | A Project Brought Onto A Prepared Host | A project brought onto a prepared host by its admin in their own account, its `host:` block and Matrix settings signed into its private `access.yml`. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f214"></a>F214 | The Setup Files And The Stop Split By Act | The setup files in the person's own home and the stop fed by act: root takes only the VPN key and the forge's certificate. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f215"></a>F215 | The Developers Of A Project Kept In Its Access File | The project's developers kept in its signed access file, read access to it granted through GitHub's API, each developer's state read from host and forge. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f216"></a>F216 | A Developer Joins A Project On Its Host | A developer joins from the signed access file with nothing handed over: verified by a local Porelo, own VPN, CA by its fingerprint, the join in their own account. Tested by walk 23 (operator, 2026-10-30). |
+| <a id="f232"></a>F232 | The Project Admin's Own VPN For A Bring | The bring on a project admin's own machine brings its VPN to the host up from the pasted values, its address and its copied keys, and trusts the host's CA by `ca_sha256` before it brings. Tested by walk 23 (operator, 2026-10-30). |
 | <a id="f231"></a>F231 | A Link Only The Task Can Reach Is Not Offered For The Browser | A link a task's program prints to an address only its container reaches shown below its terminal as only reachable inside the task, with no browser button. |
 | <a id="f230"></a>F230 | Text Selected With The Mouse In A Task's Terminal | Shift+drag selecting in a task's terminal without reaching the program, said in the hint below it, and the program's own copy (OSC 52) put on the clipboard while a read of it is never answered. |
 | <a id="f229"></a>F229 | A Restarted Task Says So In Its Terminal | A task's terminal says above its screen when the task was started, and its tile *started HH:MM*. |
