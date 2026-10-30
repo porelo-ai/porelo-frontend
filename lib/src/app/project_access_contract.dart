@@ -231,6 +231,12 @@ abstract interface class ProjectAccessCore {
   /// changes. Current revoked identities or removed host admission still refuse it.
   Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision);
 
+  /// Resolves this request ID to Core's signed commit without signing or publishing.
+  ///
+  /// Returns `null` only when Core confirms that this ID was never filed. An
+  /// unavailable lookup throws, so an uncertain receipt cannot be discarded.
+  Future<String?> filedRevision(ProjectAccessChange change);
+
   /// Signs once per request ID and rejects stale parents or authorization.
   ///
   /// Edits only the selected person's entry, preserving unrelated access settings.
@@ -289,21 +295,42 @@ abstract interface class ProjectAccessTransport {
   Future<ProjectAccessStatus> apply(ProjectAccessChange change, String accessRevision);
 }
 
-/// Durable signed, published, uploaded and confirmed receipts, as for host access.
+/// The durable life of a project change, independent of publication retries.
+enum ProjectAccessState {
+  /// The request ID exists but Core's signed revision has not been resolved.
+  unfiled,
+
+  /// Core has signed the request and supplied its revision.
+  filed,
+
+  /// The host has uploaded and applied the exact revision and membership effect.
+  delivered,
+
+  /// Host delivery and any local registration recording have completed.
+  confirmed,
+
+  /// Current verified state has overtaken this signed request.
+  superseded,
+}
+
+/// The immutable request and its last completed lifecycle and delivery stages.
 class ProjectAccessProgress {
-  /// Retains immutable scope with the last completed delivery stage.
+  /// Retains scope and receipts before the next side effect.
   const ProjectAccessProgress({
     required this.change,
+    this.state = ProjectAccessState.unfiled,
     this.revision,
     this.published = false,
     this.uploaded = false,
-    this.confirmed = false,
   });
 
   /// The original request, including its idempotency ID.
   final ProjectAccessChange change;
 
-  /// The signed access revision, absent before signing.
+  /// The durable lifecycle state.
+  final ProjectAccessState state;
+
+  /// Core's signed access revision, absent while unfiled.
   final String? revision;
 
   /// Whether the exact access commit was published.
@@ -312,36 +339,50 @@ class ProjectAccessProgress {
   /// Whether the exact bundles reached host intake.
   final bool uploaded;
 
-  /// Whether the host confirmed scope, revisions and membership.
-  final bool confirmed;
+  /// Whether delivery and local recording have completed.
+  bool get confirmed => state == ProjectAccessState.confirmed;
 
   /// The public retry record; no credential or local key path is stored.
   Map<String, Object?> get stored => {
     'change': change.stored,
+    'state': state.name,
     'revision': ?revision,
     'published': published,
     'uploaded': uploaded,
-    'confirmed': confirmed,
   };
 
-  /// Refuses broken receipt ordering instead of losing pending work.
+  /// Refuses broken receipt ordering and migrates receipts predating explicit states.
   factory ProjectAccessProgress.read(Object? value) {
-    if (value is! Map || value['published'] is! bool || value['uploaded'] is! bool || value['confirmed'] is! bool) {
+    if (value is! Map || value['published'] is! bool || value['uploaded'] is! bool) {
       throw const FormatException('Invalid project delivery progress.');
     }
     final revision = value['revision'];
+    final ProjectAccessState state;
+    if (value.containsKey('state')) {
+      final parsed = ProjectAccessState.values.where((state) => state.name == value['state']).firstOrNull;
+      if (parsed == null) throw const FormatException('Invalid project receipt state.');
+      state = parsed;
+    } else {
+      if (value['confirmed'] is! bool) throw const FormatException('Invalid project delivery progress.');
+      state = value['confirmed'] == true
+          ? ProjectAccessState.confirmed
+          : revision == null
+          ? ProjectAccessState.unfiled
+          : ProjectAccessState.filed;
+    }
     if (revision != null && revision is! String ||
+        (state == ProjectAccessState.unfiled) != (revision == null) ||
         value['published'] == true && revision == null ||
         value['uploaded'] == true && value['published'] != true ||
-        value['confirmed'] == true && value['uploaded'] != true) {
+        (state == ProjectAccessState.delivered || state == ProjectAccessState.confirmed) && value['uploaded'] != true) {
       throw const FormatException('Invalid project delivery ordering.');
     }
     return ProjectAccessProgress(
       change: ProjectAccessChange.read(value['change']),
+      state: state,
       revision: revision == null ? null : checkedRegistryRevision(revision as String),
       published: value['published'] as bool,
       uploaded: value['uploaded'] as bool,
-      confirmed: value['confirmed'] as bool,
     );
   }
 }

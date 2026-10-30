@@ -25,6 +25,12 @@ abstract interface class ProjectPersonActions implements ProjectPeople {
   /// Retries the durable signed revision without another edit.
   Future<void> retry();
 
+  /// The exact superseded receipt offered for discard, absent for live work.
+  String? get supersededChangeId;
+
+  /// Discards only the selected superseded receipt.
+  Future<void> discard(String changeId);
+
   /// Why a project change is currently unavailable.
   String? unavailable({bool delivery = false});
 
@@ -95,6 +101,13 @@ class ProjectDevelopers extends ChangeNotifier {
     if (actions == null) throw const RegistryRefusal('Project delivery recovery is unavailable.');
     await actions.retry();
     access = await people.read(project);
+  });
+
+  /// Forgets an obsolete signed receipt without changing project access or confirmed work.
+  Future<void> discard(String changeId) => _doing(() async {
+    final actions = scoped;
+    if (actions == null) throw const RegistryRefusal('Project receipt recovery is unavailable.');
+    await actions.discard(changeId);
   });
 
   Future<void> _doing(Future<void> Function() action) async {

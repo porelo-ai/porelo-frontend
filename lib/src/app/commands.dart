@@ -1746,6 +1746,7 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
       ? 'Verified project person changes are unavailable.'
       : actions.unavailable();
   final pending = actions?.pending == true;
+  final superseded = actions?.supersededChangeId;
   final selected = developers.access?.developers[person];
   String? reason({bool selecting = false}) =>
       unavailable ??
@@ -1821,5 +1822,19 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
         if (canRun(delivery: true)) unawaited(developers.retry());
       },
     ),
+    if (superseded != null)
+      Command(
+        id: 'project.discardAccess',
+        label: 'Discard',
+        group: 'Project',
+        home: Home.projectMenu,
+        role: Role.projectAdmin,
+        unavailable: developers.busy ? 'A person change is still running.' : null,
+        run: () {
+          if (!developers.busy && developers.scoped?.supersededChangeId == superseded) {
+            unawaited(developers.discard(superseded));
+          }
+        },
+      ),
   ];
 }

@@ -789,11 +789,24 @@ class Settings extends ChangeNotifier {
   /// The last confirmed registration, independent of subsequent person changes.
   ProjectAccessProgress? projectRegistration(String project) => _projectRegistrations[project];
 
-  /// Discards only unsigned work, retaining every signed request for exact retry.
+  /// Forgets a request only after the caller resolved its ID as unfiled in Core.
   Future<void> forgetUnfiledProjectAccess(String project) async {
     final previous = _projectAccess[project];
     if (previous == null) return;
-    if (previous.revision != null) throw StateError('A signed project change must be retained.');
+    if (previous.state != ProjectAccessState.unfiled) throw StateError('A signed project change must be retained.');
+    await _forgetProjectAccess(project, previous);
+  }
+
+  /// Discards only the selected superseded receipt, preserving confirmed records.
+  Future<void> forgetSupersededProjectAccess(String project, String changeId) async {
+    final previous = _projectAccess[project];
+    if (previous?.change.id != changeId || previous?.state != ProjectAccessState.superseded) {
+      throw const RegistryRefusal('The superseded receipt changed. Refresh before discarding it.');
+    }
+    await _forgetProjectAccess(project, previous!);
+  }
+
+  Future<void> _forgetProjectAccess(String project, ProjectAccessProgress previous) async {
     _projectAccess.remove(project);
     try {
       await _write();

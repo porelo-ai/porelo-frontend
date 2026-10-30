@@ -9,6 +9,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Project change receipts resolve uncertain filing by request ID, retain exact signed revisions,
+  and offer scoped discard when superseded. Registration pins pending requests to the approved state,
+  delivers again after confirmation, and permits newer access or identity revisions. Refusals name
+  project admins for developers and host admins for missing host admission.
+
 - Project access rejects stale memberships, wrong-project reads and unapproved-key unlocks,
   clears obsolete unsigned requests, and pins registration through its final authorization read.
   Registration retries retain local host recording and avoid duplicate signed changes; picker and

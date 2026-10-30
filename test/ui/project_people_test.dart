@@ -1,11 +1,111 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/access_developers.dart';
+import 'package:porelo_frontend/src/app/host_access.dart';
+import 'package:porelo_frontend/src/app/registry.dart';
+
+import '../support/host_registry.dart';
+
 import 'package:porelo_frontend/src/ui/project_developers_dialog.dart';
 
 import '../support/project_access.dart';
 
 void main() {
+  // Harm: recovery must remain reachable after authority changes, before mutation is allowed.
+  for (final stage in ['filed', 'unfiled']) {
+    testWidgets('Retry resolves a $stage receipt after the actor key changes', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final settings = Settings(MemorySettingsStore());
+      final fixture = ProjectAccessFixture();
+      addTearDown(settings.dispose);
+      addTearDown(fixture.registry.dispose);
+      final access = await fixture.access(settings);
+      fixture.fail = stage == 'filed' ? 'upload' : 'file-after-commit';
+      if (stage == 'unfiled') {
+        fixture.lookupFailureAfterFile = const FormatException('Core lookup unavailable');
+      }
+      await expectLater(access.register(), throwsFormatException);
+      final id = settings.projectAccess('demo')!.change.id;
+      fixture.fail = null;
+      fixture.lookupFailure = null;
+      fixture.lookupFailureAfterFile = null;
+      fixture.actor = const HostAdminIdentity('alice', personFingerprint);
+      fixture.calls.clear();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ProjectDevelopersDialog(project: 'demo', access: access),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      final retry = find.widgetWithText(OutlinedButton, 'Retry project delivery');
+      expect(tester.widget<OutlinedButton>(retry).onPressed, isNotNull);
+      await tester.ensureVisible(retry);
+      await tester.tap(retry);
+      for (var frame = 0; frame < 10; frame++) {
+        await tester.pump();
+      }
+      expect(find.widgetWithText(OutlinedButton, 'Discard'), findsOneWidget);
+      expect(access.supersededChangeId, id);
+      expect(settings.projectAccess('demo')!.revision, fixture.filed[id]);
+      expect(fixture.filed.keys, [id]);
+      expect(fixture.calls, isEmpty);
+    });
+  }
+
+  // Harm: a superseded signed change must be discardable without erasing confirmed work.
+  testWidgets('a superseded receipt exposes Discard and releases only pending work', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final settings = Settings(MemorySettingsStore());
+    final fixture = ProjectAccessFixture();
+    addTearDown(settings.dispose);
+    addTearDown(fixture.registry.dispose);
+    final access = await fixture.access(settings);
+    await access.register();
+    final confirmed = settings.projectRegistration('demo')!.stored;
+    fixture.fail = 'upload';
+    await expectLater(
+      access.change(
+        'demo',
+        AccessDeveloper(login: 'bob', role: 'developer', fingerprint: personFingerprint),
+        remove: false,
+      ),
+      throwsFormatException,
+    );
+    fixture.fail = null;
+    fixture.currentAccess = 'c' * 40;
+    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+    fixture.calls.clear();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProjectDevelopersDialog(project: 'demo', access: access),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final discard = find.widgetWithText(OutlinedButton, 'Discard');
+    expect(discard, findsOneWidget);
+    await tester.ensureVisible(discard);
+    await tester.tap(discard);
+    for (var frame = 0; frame < 10; frame++) {
+      await tester.pump();
+    }
+    expect(settings.projectAccess('demo'), isNull);
+    expect(settings.projectRegistration('demo')!.stored, confirmed);
+    expect(fixture.calls, isEmpty);
+  });
+
   // Harm: a registry revocation must remove a selectable cached grant immediately.
   testWidgets('the open picker drops refused candidates after registry refresh', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);

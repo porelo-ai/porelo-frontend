@@ -25,6 +25,8 @@ repositories:
 
 class ProjectRegistryFixture extends RegistryFixture {
   bool admitted = true;
+  String projectAdmin = 'alice';
+  String? rotatedAdminFingerprint;
   String accessRepository = accessAddress;
   @override
   Future<RegistryRead> read(String checkout) async {
@@ -32,13 +34,28 @@ class ProjectRegistryFixture extends RegistryFixture {
     final base = await super.read(checkout);
     return RegistryRead(
       revision: base.revision,
-      people: base.people,
+      people: [
+        for (final card in base.people)
+          if (card.login == 'alice' && rotatedAdminFingerprint != null)
+            RegistryCard(
+              login: card.login,
+              name: card.name,
+              email: card.email,
+              key: card.key,
+              fingerprint: rotatedAdminFingerprint!,
+              state: card.state,
+            )
+          else
+            card,
+      ],
       owners: base.owners,
       hosts: [
         RegistryHost(
           host: 'orchard',
-          admins: ['alice'],
-          projects: [if (admitted) RegistryProject(name: 'demo', admin: 'alice', accessRepository: accessRepository)],
+          admins: assignedAdmins,
+          projects: [
+            if (admitted) RegistryProject(name: 'demo', admin: projectAdmin, accessRepository: accessRepository),
+          ],
         ),
       ],
     );
@@ -50,6 +67,11 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   final registrySource = ProjectRegistryFixture();
   late final registry = Registry(checkout: registrySource, core: registrySource);
   bool signing = true;
+  List<String>? signers;
+  HostAdminIdentity actor = const HostAdminIdentity('alice', adminFingerprint);
+  Exception? lookupFailure;
+  Exception? lookupFailureAfterFile;
+  final lookups = <String>[];
   String verifiedRevision = projectRevision;
   Exception? readFailure;
   void Function()? onRead;
@@ -117,11 +139,11 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
       projectRevision: verifiedRevision,
       accessRevision: currentAccess,
       projectYaml: source,
-      actor: const HostAdminIdentity('alice', adminFingerprint),
-      admittedFingerprint: adminFingerprint,
+      actor: actor,
+      admittedFingerprint: actor.fingerprint,
       canAdmin: authorized,
       signingAvailable: signing,
-      adminSigners: authorized ? [hostKey] : [],
+      adminSigners: signers ?? (authorized ? [hostKey] : []),
       access: AccessDevelopers(members.values),
       eligible: {if (eligible) 'bob': ProjectPersonVerdict(personFingerprint, replacedLostKey: replacement)},
       whoMay: const [RegistryContact(login: 'alice', name: 'Alice', email: 'alice@example.org')],
@@ -140,14 +162,26 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   }
 
   @override
+  Future<String?> filedRevision(ProjectAccessChange change) async {
+    lookups.add(change.id);
+    if (lookupFailure case final failure?) throw failure;
+    return filed[change.id];
+  }
+
+  @override
   Future<String> file(ProjectAccessChange change) async {
     calls.add('file');
+    lookupFailure = lookupFailureAfterFile;
     if (fail == 'file') throw const FormatException('signing refused');
     if (filed.containsKey(change.id)) return filed[change.id]!;
     if (change.baseRevision != currentAccess) throw const FormatException('concurrent edit');
     final revision = (filed.length + 2).toRadixString(16) * 40;
     filed[change.id] = revision;
     changes[revision] = change;
+    if (fail == 'file-after-commit') {
+      currentAccess = revision;
+      throw const FormatException('filing reply lost');
+    }
     return revision;
   }
 

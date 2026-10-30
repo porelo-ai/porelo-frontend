@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/access_developers.dart';
+import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/project_access.dart';
+import 'package:porelo_frontend/src/app/project_access_contract.dart';
 import 'package:porelo_frontend/src/app/project_developers.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
@@ -23,6 +26,271 @@ void main() {
     settings.dispose();
     fixture.registry.dispose();
   });
+
+  // Harm: failed signing must not block a different authorized request indefinitely.
+  test('a refused filing with no Core commit releases the receipt', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'file';
+    await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
+    expect(settings.projectAccess('demo'), isNull);
+    expect(fixture.lookups, isNotEmpty);
+    fixture.fail = null;
+    await access.register();
+    expect(fixture.changes.values.single.action, 'register');
+  });
+
+  // Harm: uncertain signing must never lose the only ID that recovers a signed commit.
+  for (final entry in ['retry', 'register', 'change']) {
+    test('$entry resolves a lost filing receipt before checking its old base', () async {
+      final store = MemorySettingsStore();
+      final first = Settings(store);
+      addTearDown(first.dispose);
+      final access = await fixture.access(first);
+      fixture.fail = 'file-after-commit';
+      fixture.lookupFailureAfterFile = const FormatException('Core lookup unavailable');
+      await expectLater(access.register(), throwsA(isA<Exception>()));
+      final id = first.projectAccess('demo')!.change.id;
+      final restored = Settings(store);
+      addTearDown(restored.dispose);
+      await restored.load();
+      final resumed = await fixture.access(restored);
+      fixture.fail = null;
+      fixture.lookupFailure = null;
+      fixture.lookupFailureAfterFile = null;
+      if (entry == 'retry') {
+        await resumed.retry();
+      } else if (entry == 'register') {
+        await resumed.register();
+      } else {
+        await expectLater(resumed.change('demo', bob, remove: false), throwsA(isA<RegistryRefusal>()));
+        expect(restored.projectAccess('demo')!.change.id, id);
+        expect(restored.projectAccess('demo')!.revision, fixture.filed[id]);
+        await resumed.retry();
+      }
+      expect(fixture.filed.keys, [id]);
+      expect(fixture.calls.where((call) => call == 'file'), hasLength(1));
+      expect(restored.projectAccess('demo')!.confirmed, isTrue);
+    });
+  }
+
+  // Harm: a transient Core refusal must not erase uncertain work or start a replacement.
+  test('replacement retains an unresolved receipt when Core lookup refuses', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'file';
+    fixture.lookupFailureAfterFile = const RegistryRefusal('Core lookup unavailable');
+    await expectLater(access.register(), throwsA(isA<Exception>()));
+    final id = settings.projectAccess('demo')!.change.id;
+    fixture.fail = null;
+    fixture.readFailure = const RegistryRefusal('Core read unavailable');
+    fixture.calls.clear();
+    await expectLater(access.change('demo', bob, remove: false), throwsA(isA<RegistryRefusal>()));
+    expect(settings.projectAccess('demo')!.change.id, id);
+    expect(fixture.calls, isEmpty);
+  });
+
+  // Harm: obsolete signed edits must not block all future work or erase confirmed registration.
+  for (final moved in ['access', 'project', 'key']) {
+    test('an overtaken $moved receipt offers scoped discard after restart', () async {
+      final store = MemorySettingsStore();
+      final first = Settings(store);
+      addTearDown(first.dispose);
+      final access = await fixture.access(first);
+      await access.register();
+      final confirmed = first.projectRegistration('demo')!.stored;
+      fixture.fail = 'upload';
+      await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
+      final id = first.projectAccess('demo')!.change.id;
+      fixture.fail = null;
+      if (moved == 'access') fixture.currentAccess = 'c' * 40;
+      if (moved == 'project') fixture.verifiedRevision = 'c' * 40;
+      if (moved == 'key') fixture.actor = const HostAdminIdentity('alice', personFingerprint);
+      fixture.calls.clear();
+      final restored = Settings(store);
+      addTearDown(restored.dispose);
+      await restored.load();
+      final resumed = await fixture.access(restored);
+      await expectLater(resumed.retry(), throwsA(isA<RegistryRefusal>()));
+      final developers = ProjectDevelopers(project: 'demo', people: resumed);
+      addTearDown(developers.dispose);
+      await developers.load();
+      final discard = projectPersonCommands(developers: developers)
+          .where((command) => command.id == 'project.discardAccess');
+      expect(discard, hasLength(1));
+      expect(discard.single.unavailable, isNull);
+      final finished = Completer<void>();
+      developers.addListener(() {
+        if (!developers.busy && !finished.isCompleted) finished.complete();
+      });
+      discard.single.run();
+      await finished.future;
+      expect(restored.projectAccess('demo'), isNull, reason: 'Only the superseded receipt $id is discarded');
+      expect(restored.projectRegistration('demo')!.stored, confirmed);
+      expect(fixture.calls, isEmpty);
+    });
+  }
+
+  // Harm: Core's delivery refusal must not hide an overtaken receipt's local cleanup.
+  test('supersession is resolved even when Core refuses old delivery authority', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'upload';
+    await expectLater(access.register(), throwsFormatException);
+    fixture.fail = null;
+    fixture.currentAccess = 'c' * 40;
+    fixture.deliveryAuthorized = false;
+    fixture.calls.clear();
+    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+    expect(access.supersededChangeId, settings.projectAccess('demo')!.change.id);
+    expect(fixture.calls, isEmpty);
+  });
+
+  // Harm: a developer needs project authority even when no project admin has host admission.
+  test('a developer is directed to project admins without host admission', () async {
+    fixture.authorized = false;
+    fixture.actor = const HostAdminIdentity('bob', personFingerprint);
+    fixture.registrySource.admitted = false;
+    final access = await fixture.access(settings);
+    await access.read('demo');
+    expect(access.unavailable(), contains('alice@example.org'));
+  });
+
+  // Harm: delivery proof must survive a failed local recording and its subsequent retry.
+  test('retry retains delivered state until local registration is confirmed', () async {
+    final access = await fixture.access(settings);
+    fixture.failRememberMachine = true;
+    await expectLater(access.register(), throwsFormatException);
+    expect(settings.projectAccess('demo')!.state, ProjectAccessState.delivered);
+    final observed = <ProjectAccessState>[];
+    settings.addListener(() => observed.add(settings.projectAccess('demo')!.state));
+    fixture.failRememberMachine = false;
+    await access.retry();
+    expect(observed, isNot(contains(ProjectAccessState.filed)));
+    expect(observed.last, ProjectAccessState.confirmed);
+  });
+
+  // Harm: migration must retain both uncertain IDs and exact signed or confirmed revisions.
+  test('legacy receipts retain their lifecycle and reject impossible new states', () async {
+    final access = await fixture.access(settings);
+    await access.register();
+    final confirmed = settings.projectAccess('demo')!;
+    final change = confirmed.change;
+    for (final legacy in [
+      (revision: null, published: false, uploaded: false, confirmed: false, state: ProjectAccessState.unfiled),
+      (
+        revision: confirmed.revision,
+        published: true,
+        uploaded: false,
+        confirmed: false,
+        state: ProjectAccessState.filed,
+      ),
+      (
+        revision: confirmed.revision,
+        published: true,
+        uploaded: true,
+        confirmed: true,
+        state: ProjectAccessState.confirmed,
+      ),
+    ]) {
+      final migrated = ProjectAccessProgress.read({
+        'change': change.stored,
+        'revision': legacy.revision,
+        'published': legacy.published,
+        'uploaded': legacy.uploaded,
+        'confirmed': legacy.confirmed,
+      });
+      expect(migrated.state, legacy.state);
+      expect(migrated.revision, legacy.revision);
+      expect(migrated.change.id, change.id);
+    }
+    for (final invalid in [
+      {'state': 'unknown'},
+      {'state': 'unfiled'},
+      {'state': 'filed', 'revision': null},
+      {'state': 'delivered', 'uploaded': false},
+      {'state': 'superseded', 'revision': null},
+    ]) {
+      expect(() => ProjectAccessProgress.read({...confirmed.stored, ...invalid}), throwsFormatException);
+    }
+  });
+
+  // Harm: pending registration must not deliver an older project than the dialog approved.
+  for (final stage in ['receipt', 'resume']) {
+    test('registration pins expected state through the pending $stage path', () async {
+      final access = await fixture.access(settings);
+      fixture.fail = 'upload';
+      await expectLater(access.register(), throwsFormatException);
+      fixture.fail = null;
+      final registration = RegistryProjectRegistration(access);
+      if (stage == 'receipt') fixture.verifiedRevision = 'c' * 40;
+      final expected = await registration.verify('demo', registering: true);
+      var reads = 0;
+      fixture.onRead = () {
+        if (++reads == 2) {
+          if (stage == 'receipt') fixture.verifiedRevision = projectRevision;
+          if (stage == 'resume') fixture.signers = [hostKey, hostKey];
+        }
+      };
+      fixture.calls.clear();
+      await expectLater(access.register(expected: expected), throwsA(isA<RegistryRefusal>()));
+      expect(fixture.calls, isEmpty);
+    });
+  }
+
+  // Harm: refusals must direct the blocked person to a role that can authorize the action.
+  for (final admin in [false, true]) {
+    test('${admin ? 'an unadmitted admin' : 'a developer'} is directed to the right admins', () async {
+      fixture.registrySource.assignedAdmins = ['bob'];
+      fixture.authorized = admin;
+      if (admin) {
+        fixture.registrySource.admitted = false;
+      } else {
+        fixture.actor = const HostAdminIdentity('bob', personFingerprint);
+      }
+      final access = await fixture.access(settings);
+      await access.read('demo');
+      expect(access.unavailable(), contains(admin ? 'Bob (bob)' : 'alice@example.org'));
+      expect(access.unavailable(), isNot(contains(admin ? 'alice@example.org' : 'Bob (bob)')));
+      await expectLater(
+        access.register(),
+        throwsA(
+          isA<RegistryRefusal>().having(
+            (refusal) => refusal.whoMay.map((contact) => contact.login).toList(),
+            'permitted role',
+            [admin ? 'bob' : 'alice'],
+          ),
+        ),
+      );
+      expect(fixture.calls, isEmpty);
+    });
+  }
+
+  // Harm: historical confirmation must not block re-registration or bypass host application.
+  for (final moved in ['access', 'key', 'unchanged', 'readmitted']) {
+    test('confirmed registration permits a fresh host delivery after $moved', () async {
+      final access = await fixture.access(settings);
+      await access.register();
+      if (moved == 'access') await access.change('demo', bob, remove: false);
+      if (moved == 'key') {
+        fixture.actor = const HostAdminIdentity('alice', personFingerprint);
+        fixture.registrySource.rotatedAdminFingerprint = personFingerprint;
+        await fixture.registry.refresh();
+      }
+      if (moved == 'readmitted') {
+        fixture.registrySource.admitted = false;
+        await fixture.registry.refresh();
+        await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
+        fixture.registrySource.admitted = true;
+        await fixture.registry.refresh();
+      }
+      fixture.calls.clear();
+      await access.register();
+      expect(fixture.calls, containsAllInOrder(['upload', 'apply']));
+      expect(
+        fixture.changes.values.where((change) => change.action == 'register'),
+        hasLength(moved == 'unchanged' || moved == 'readmitted' ? 1 : 2),
+      );
+      expect(settings.projectAccess('demo')!.confirmed, isTrue);
+    });
+  }
 
   // Harm: unlocking must never restore access for an unapproved key.
   for (final refused in [true, false]) {
@@ -72,7 +340,10 @@ void main() {
     addTearDown(first.dispose);
     final access = await fixture.access(first);
     fixture.fail = 'file';
+    fixture.lookupFailureAfterFile = const FormatException('Core lookup unavailable');
     await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
+    fixture.lookupFailure = null;
+    fixture.lookupFailureAfterFile = null;
     final restored = Settings(store);
     addTearDown(restored.dispose);
     await restored.load();
@@ -102,7 +373,10 @@ void main() {
   test('retry forgets an unsigned request after its candidate becomes ineligible', () async {
     final access = await fixture.access(settings);
     fixture.fail = 'file';
+    fixture.lookupFailureAfterFile = const FormatException('Core lookup unavailable');
     await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
+    fixture.lookupFailure = null;
+    fixture.lookupFailureAfterFile = null;
     fixture.eligible = false;
     await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
     expect(settings.projectAccess('demo'), isNull);
@@ -182,8 +456,8 @@ void main() {
     });
   }
 
-  // Harm: a later person edit must not erase proof of registration and permit a duplicate bring.
-  test('confirmed registration survives later access edits and restart', () async {
+  // Harm: a historical registration must survive a failed bring of newer access.
+  test('confirmed registration survives while newer access is registered after restart', () async {
     final store = MemorySettingsStore();
     final first = Settings(store);
     addTearDown(first.dispose);
@@ -195,8 +469,8 @@ void main() {
     await restored.load();
     final resumed = await fixture.access(restored);
     await resumed.register();
-    expect(fixture.filed.length, 2);
-    expect(fixture.changes.values.where((change) => change.action == 'register'), hasLength(1));
+    expect(fixture.filed.length, 3);
+    expect(fixture.changes.values.where((change) => change.action == 'register'), hasLength(2));
   });
 
   // Harm: the final read must not substitute another project revision after the dialog verified it.
