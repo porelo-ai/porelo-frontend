@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Walk 23, laptop A, by the agent: builds the hand-over for laptop B from this checkout's committed HEAD. That is
 # the interface's Linux bundle, the porelo package given, laptop B's three scripts and SHA256SUMS over them, in
-# ~/.porelo/handover/porelo-frontend/walk23 (or $PORELO_WALK23_HANDOVER), with SHA256SUMS.sha256 beside it naming
-# the digest the walk shows. It refuses a checkout with changes, so the bundle is what a commit holds, and replaces
+# ~/.porelo/handover/porelo-frontend/walk23, with SHA256SUMS.sha256 beside it naming the digest the walk shows. The
+# folder is fixed, so the replacement deletes nothing but an earlier hand-over. It refuses a checkout with changes, so the bundle is what a commit holds, and replaces
 # an earlier hand-over.
 # Usage: bash tool/walk23/hand-over.sh <porelo_*_amd64.deb>
 set -euo pipefail
@@ -17,7 +17,7 @@ refuse() {
 }
 trap 'printf "\n%s failed\n" "${current:-the start}" >&2' ERR
 checkout=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
-out=$(realpath -m -- "${PORELO_WALK23_HANDOVER:-$HOME/.porelo/handover/porelo-frontend/walk23}")
+out=$HOME/.porelo/handover/porelo-frontend/walk23
 
 step hand-over.1 "the package and the checkout"
 [ "$#" -eq 1 ] || refuse "give the porelo package as the one argument"
@@ -25,13 +25,9 @@ deb=$(realpath -- "$1")
 [[ $(basename -- "$deb") =~ ^porelo_[^/]+_amd64\.deb$ ]] || refuse "$1 is not a porelo_*_amd64.deb"
 [ "$(dpkg-deb -f "$deb" Package)" = porelo ] || refuse "$1 is not the porelo package"
 cd "$checkout"
-[ -z "$(git status --porcelain)" ] || refuse "the checkout has changes or untracked files; commit or remove them first"
-case "$out/" in
-/ | "$(realpath -m -- "$HOME")/" | "$checkout"/*) refuse "$out is /, your home or inside this checkout; give another PORELO_WALK23_HANDOVER" ;;
-esac
-case "$checkout/" in
-"$out"/*) refuse "$out holds this checkout; give another PORELO_WALK23_HANDOVER" ;;
-esac
+changes=$(git status --porcelain)
+[ -z "$changes" ] || refuse "the checkout has changes or untracked files; commit or remove them first"
+[ ! -L "$out" ] || refuse "$out is a symbolic link; remove it first"
 commit=$(git rev-parse --short HEAD)
 echo "ok: porelo $(dpkg-deb -f "$deb" Version), interface from $commit"
 
