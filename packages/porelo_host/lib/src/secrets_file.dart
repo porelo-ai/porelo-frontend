@@ -1,13 +1,11 @@
-import 'dart:io';
+import 'host_file_name.dart' show HostFilesRefused;
 
-import 'host_files.dart' show HostFilesRefused;
-import 'ssh.dart' show quoteForAShell;
-
-/// The person's `secrets.kdbx`, opened only by `keepassxc-cli` in a terminal on this desktop.
+/// The person's `secrets.kdbx`, opened only by `keepassxc-cli` in a terminal on this desktop, and the validation
+/// shared by encrypted-storage references and legacy rental recovery.
 ///
 /// This builds the script that runs there and holds no secret itself: the master password is typed into that
 /// terminal once and reaches `keepassxc-cli` on standard input only, and every entry stays inside the script's
-/// own shell. The interface reads back nothing but a public key.
+/// own shell.
 class SecretsFile {
   /// Names the file and the `keepassxc-cli` that opens it.
   SecretsFile(this.file, {this.cli = keepassxcCli}) {
@@ -18,164 +16,34 @@ class SecretsFile {
   /// The packaged `keepassxc-cli`, run by its absolute path.
   static const keepassxcCli = '/usr/bin/keepassxc-cli';
 
-  /// What to say where [cli] is not there, before a terminal asks a master password it cannot use; null where it
-  /// is. The interface's package brings it; a build run from its sources does not.
-  static String? missingCli([String cli = keepassxcCli]) => File(cli).existsSync() ? null : cliMissing(cli);
-
-  /// What is said where [cli] is not there.
-  static String cliMissing([String cli = keepassxcCli]) =>
-      'KeePassXC\'s command line is not installed here ($cli), so the secrets file cannot be opened. Install it, '
-      'in a terminal of your own: $installCli';
-
-  /// What installs [keepassxcCli], to be run by the person in a terminal of their own.
-  static const installCli = 'sudo apt install keepassxc-minimal';
-
   /// The file, an absolute path on this desktop.
   final String file;
 
-  /// The `keepassxc-cli` to run.
+  /// The `keepassxc-cli` that opens it.
   final String cli;
 
-  /// The entry of a host's own WireGuard key, below the root group.
-  static String hostKey(String host) {
-    checkHost(host);
-    return 'hosts/$host/wireguard';
+  /// Refuses unsafe legacy rental identifiers.
+  static void checkHost(String host) {
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(host) || host == '.' || host == '..') {
+      throw const HostFilesRefused('A project name holds only letters, digits, ".", "_" and "-".');
+    }
   }
 
-  /// The entry of a project's vault passphrase, below the root group.
-  static String vaultPassphrase(String project) {
-    _checkProject(project);
-    return 'projects/$project/vault-passphrase';
-  }
-
-  /// Refuses unsafe entry identifiers while retaining legacy project names as host keys.
-  static void checkHost(String host) => _checkProject(host);
-
-  /// Refuses a path a shell would read as more than one quoted word.
+  /// Refuses a path that cannot be passed as one plain shell word.
   static void checkPath(String value) {
     if (!value.startsWith('/') || value.length < 2 || RegExp(r'[^A-Za-z0-9 /._:@%+=,-]').hasMatch(value)) {
-      throw const FormatException(
-        'The secrets file needs a plain absolute path, without quotes, shell characters or line breaks.',
-      );
+      throw const FormatException('A plain absolute encrypted-storage path is required.');
+    }
+  }
+
+  /// Refuses unsafe vault entry names.
+  static void checkKeyName(String name) {
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) {
+      throw const HostFilesRefused('A vault entry name holds only letters, digits, ".", "_" and "-".');
     }
   }
 
   static String _word(String value) => "'$value'";
-
-  /// The needs a host's stop takes on standard input, as `porelo-host-stop --stdin` names them.
-  static const stopNeeds = <String>{
-    'vault',
-    'vault-new',
-    'wireguard',
-    'keys',
-    'forge-central-token',
-    'forge-certificate',
-  };
-
-  /// The host's lasting CA key, PEM kept base64.
-  static String forgeCaKey(String host) {
-    checkHost(host);
-    return 'hosts/$host/forge-ca-key';
-  }
-
-  /// The host's lasting CA certificate, PEM kept base64.
-  static String forgeCa(String host) {
-    checkHost(host);
-    return 'hosts/$host/forge-ca';
-  }
-
-  /// The services' address on the host's VPN, never taken from a certificate request.
-  static String forgeAddress(int networkNumber) {
-    checkNetworkNumber(networkNumber);
-    return '10.73.$networkNumber.1';
-  }
-
-  /// The forge's name, which the VPN step resolves to [forgeAddress] on this desktop.
-  static String forgeName(String host) {
-    checkHost(host);
-    return 'forge.$host.porelo.internal';
-  }
-
-  /// Refuses a network outside the host VPN's third octet.
-  static void checkNetworkNumber(int networkNumber) {
-    if (networkNumber < 0 || networkNumber > 255) {
-      throw const FormatException('A host network number is between 0 and 255.');
-    }
-  }
-
-  static const _certificateRequests = r'''
-bad_requests() { echo "The host must give exactly two certificate requests it signed itself; nothing was sent." >&2; exit 1; }
-requests=()
-pem=
-inside=no
-while IFS= read -r line || [ -n "$line" ]; do
-  line=${line%$'\r'}
-  case "$line" in
-    '-----BEGIN CERTIFICATE REQUEST-----')
-      [ "$inside" = no ] || bad_requests
-      inside=yes
-      pem="$line"$'\n'
-      ;;
-    '-----END CERTIFICATE REQUEST-----')
-      [ "$inside" = yes ] || bad_requests
-      requests+=("$pem$line"$'\n')
-      [ "${#requests[@]}" -le 2 ] || bad_requests
-      inside=no
-      pem=
-      ;;
-    *)
-      if [ "$inside" = yes ]; then
-        [[ "$line" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || bad_requests
-        pem+="$line"$'\n'
-      else
-        [[ "$line" =~ ^[[:space:]]*$ ]] || bad_requests
-      fi
-      ;;
-  esac
-done <<< "${request:-}"
-[ "$inside" = no ] && [ "${#requests[@]}" = 2 ] || bad_requests
-for csr in "${requests[@]}"; do
-  printf '%s' "$csr" | /usr/bin/openssl req -noout -verify >/dev/null 2>&1 || bad_requests
-done
-''';
-
-  static String _signRequest(int networkNumber, int index, String name, String variable) =>
-      '$variable="\$(/usr/bin/openssl x509 -req -in <(printf \'%s\' "\${requests[$index]}") '
-      '-subj ${_word('/CN=$name')} -CA <(printf \'%s\\n\' "\$ca") '
-      '-CAkey <(printf \'%s\\n\' "\$cakey") -days 365 '
-      '-set_serial "0x\$(/usr/bin/openssl rand -hex 16)" '
-      '-extfile <(printf \'%s\\n\' ${_word('subjectAltName=DNS:$name,IP:${forgeAddress(networkNumber)}')} '
-      "'basicConstraints=critical,CA:FALSE' 'keyUsage=critical,digitalSignature' 'extendedKeyUsage=serverAuth') "
-      "2>/dev/null)\" "
-      '|| { echo "The certificate for $name could not be signed; nothing was sent." >&2; exit 1; }';
-
-  // Only the public request's key counts; its subject and extensions must not broaden the certificate's scope.
-  static List<String> _forgeCertificate(String host, int networkNumber) => <String>[
-    _certificateRequests,
-    // Made once, in this terminal, the first time a host asks: ten years, held to the VPN's names and addresses.
-    r'''if [ -z "$cakey64" ]; then''',
-    r'''  cakey="$(/usr/bin/openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 2>/dev/null)"''',
-    '  ca="\$(/usr/bin/openssl req -x509 -new -key <(printf \'%s\\n\' "\$cakey") '
-        '-subj ${_word('/CN=Porelo $host CA')} -days 3650 '
-        "-addext 'basicConstraints=critical,CA:TRUE,pathlen:0' -addext 'keyUsage=critical,keyCertSign,cRLSign' "
-        "-addext 'nameConstraints=critical,permitted;DNS:$host.porelo.internal,permitted;IP:10.73.$networkNumber.0/255.255.255.0')\"",
-    '  ensure_group ${_word('hosts/$host')}',
-    '  { printf \'%s\\n%s\\n\' "\$MASTER" "\$(printf \'%s\\n\' "\$cakey" | /usr/bin/base64 -w0)"; } | '
-        '"\$cli" add -p "\$file" ${_word(forgeCaKey(host))} >/dev/null',
-    '  { printf \'%s\\n%s\\n\' "\$MASTER" "\$(printf \'%s\\n\' "\$ca" | /usr/bin/base64 -w0)"; } | '
-        '"\$cli" add -p "\$file" ${_word(forgeCa(host))} >/dev/null',
-    '  echo "A lasting CA for $host is made, and kept in your secrets file." >&2',
-    r'''fi''',
-    _signRequest(networkNumber, 0, forgeName(host), 'forgecert'),
-    _signRequest(networkNumber, 1, 'matrix.$host.porelo.internal', 'matrixcert'),
-    r'''eforge="$(printf '%s\n%s\n%s\n' "$forgecert" "$matrixcert" "$ca" | /usr/bin/base64 -w0)"''',
-    r'''if [ -z "$forgecert" ] || [ -z "$matrixcert" ] || ! [[ "$eforge" =~ $b64 ]]; then echo "The host's certificates could not be signed; nothing was sent." >&2; exit 1; fi''',
-    // The CA's certificate, public, for this desktop to trust: where the stop's terminal names a file for it.
-    r'''if [ -n "${caout:-}" ]; then printf '%s\n' "$ca" > "$caout"; fi''',
-  ];
-
-  /// The entry of the central forge's token, which every host of the person shares.
-  static const centralForgeToken = 'shared/forge-central-token';
 
   /// The current interface instance's central transfer entry below the root group.
   static const centralTransferToken = 'forge-central-token';
@@ -189,7 +57,7 @@ done
       ..._opened.skip(_shellStart.length),
       _listEntries,
       ..._requireEntries([centralTransferToken]),
-      ..._readStopEntry(centralTransferToken, 'transfer_token'),
+      ..._readEntry(centralTransferToken, 'transfer_token'),
       r'''if [[ "$transfer_token" =~ [[:space:][:cntrl:]] ]]; then echo "The central forge token must hold one nonempty line; nothing was sent." >&2; exit 1; fi''',
       r'''transfer_encoded="$(printf '%s' "$transfer_token" | /usr/bin/base64 -w0)" || { echo "The central token could not be encoded; nothing was sent." >&2; exit 1; }''',
       'unset MASTER entries',
@@ -199,252 +67,11 @@ done
         r'"$transfer_encoded"',
   );
 
-  /// The person's lasting forge password, shared across their hosts.
-  static const forgePassword = 'shared/forge-password';
-
-  /// The entry of [project]'s vault entry file, its bytes base64 in the password field.
-  static String vaultKey(String project, String name) {
-    _checkProject(project);
-    checkKeyName(name);
-    return 'projects/$project/keys/$name';
-  }
-
-  /// The script that writes the stop's lines for [needs], one `<need> <base64>` per secret and `key <name> <base64>`
-  /// per name in [keys], to standard output, which is the pipe to the host's `porelo-host-stop --stdin`.
-  ///
-  /// [keys] are the vault entries `machine.yml` names, none or more; another entry the file keeps for the project is
-  /// never sent. Every entry is read and encoded before the first line is written, so a missing one sends nothing
-  /// and is named.
-  String stopLines({
-    required String host,
-    required String project,
-    required List<String> needs,
-    List<String> keys = const [],
-    int networkNumber = 0,
-  }) {
-    final scripts = stopScripts(host: host, project: project, needs: needs, keys: keys, networkNumber: networkNumber);
-    return '${scripts.check}\n${scripts.feed}';
-  }
-
-  /// Builds a local entry check and its feed for the same terminal shell and master password.
-  ///
-  /// The caller runs `check` before any host command; it reads and validates every needed value for `feed`.
-  /// Certificate authorities may still be created by the feed when both of their entries are absent.
-  ({String check, String feed}) stopScripts({
-    required String host,
-    required String project,
-    required List<String> needs,
-    List<String> keys = const [],
-    int networkNumber = 0,
-  }) {
-    checkHost(host);
-    checkNetworkNumber(networkNumber);
-    if (project.isNotEmpty) _checkProject(project);
-    if (project.isEmpty &&
-        (needs.any((need) => need != 'wireguard' && need != 'forge-certificate') || keys.isNotEmpty)) {
-      throw const FormatException('Project secrets require a project name.');
-    }
-    if (needs.isEmpty) throw const FormatException('The host asked for nothing the secrets file gives.');
-    for (final need in needs) {
-      if (!stopNeeds.contains(need)) {
-        throw FormatException('The host asked for "$need", which the secrets file does not give.');
-      }
-    }
-    if (needs.toSet().length != needs.length) throw const FormatException('The host named a need twice.');
-    if (needs.contains('vault') && needs.contains('vault-new')) {
-      throw const FormatException('The host asked for a new vault and for an open one at once.');
-    }
-    if (keys.isNotEmpty && !needs.contains('keys')) {
-      throw const FormatException('The host did not ask for the files of its vault entries.');
-    }
-    // The host takes `keys` with no line only beside a new vault, for a machine without vault entries.
-    if (needs.contains('keys') && keys.isEmpty && !needs.contains('vault-new')) {
-      throw const FormatException(
-        'The host asks for the files of its vault entries, and this setup names none. Choose them on the drive\'s '
-        'step and put the server on again.',
-      );
-    }
-    for (final name in keys) {
-      checkKeyName(name);
-    }
-    if (keys.toSet().length != keys.length) throw const FormatException('A vault entry is named twice.');
-    final reads = <String>[];
-    final signing = <String>[];
-    final writes = <String>[];
-    final variables = <String>[];
-    final entries = <String>[];
-    var index = 0;
-    for (final need in needs) {
-      final path = switch (need) {
-        'vault' || 'vault-new' => vaultPassphrase(project),
-        'wireguard' => hostKey(host),
-        'forge-central-token' => centralForgeToken,
-        _ => null,
-      };
-      if (path != null) {
-        entries.add(path);
-        final variable = 'v${index++}';
-        variables.addAll([variable, 'e$variable']);
-        reads.addAll([
-          ..._readStopEntry(path, variable),
-          // Encoded here, before any line goes: a failure later would leave the host a part of its feed.
-          'e$variable="\$(printf \'%s\' "\$$variable" | /usr/bin/base64 -w0)"',
-          'if [ -z "\$e$variable" ] || ! [[ "\$e$variable" =~ \$b64 ]]; then '
-              'echo "$path did not encode; nothing was sent." >&2; exit 1; fi',
-        ]);
-        writes.add("printf '%s %s\\n' ${_word(need)} \"\$e$variable\"");
-      } else if (need == 'forge-certificate') {
-        reads.addAll(_checkForgeCa(host, networkNumber));
-        signing.addAll(_forgeCertificate(host, networkNumber));
-        variables.addAll(['cakey', 'ca', 'forgecert', 'matrixcert', 'eforge', 'requests', 'csr', 'pem']);
-        writes.add(r'''printf 'forge-certificate %s\n' "$eforge"''');
-      } else {
-        // Each entry kept base64 already, by prepareHost: checked as such, and sent as it is.
-        for (final name in keys) {
-          entries.add(vaultKey(project, name));
-          final variable = 'v${index++}';
-          variables.add(variable);
-          reads.addAll([..._readStopEntry(vaultKey(project, name), variable, base64: true)]);
-          writes.add("printf 'key %s %s\\n' ${_word(name)} \"\$$variable\"");
-        }
-      }
-    }
-    return (
-      check: [
-        ..._opened,
-        ..._migrateEntries(host, project),
-        _listEntries,
-        ..._requireEntries(entries),
-        // Whole groups of four, padded at the end only: what the host decodes as it stands.
-        r"b64='^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'",
-        ...reads,
-        'unset entries',
-      ].join('\n'),
-      feed: ['set -euo pipefail', ...signing, ...writes, 'unset MASTER ${variables.join(' ')}'].join('\n'),
-    );
-  }
-
-  /// The script that writes [project]'s vault passphrase as one line to standard output, which is the pipe to the
-  /// host's `porelo vault unlock --passphrase-stdin`, after the file's master password is typed once. A file that
-  /// does not open, or has no such entry, writes nothing.
-  String unlockLine({required String project}) {
-    _checkProject(project);
-    return [
-      ..._opened,
-      'v="\$(get ${_word(vaultPassphrase(project))})"',
-      r'''printf '%s\n' "$v"''',
-      'unset MASTER v',
-    ].join('\n');
-  }
-
-  /// Sets the forge password through [receiver], keeping it only after the helper succeeds.
-  ///
-  /// Confirms a new password in the same terminal that opens the secrets file, and offers one
-  /// replacement when the helper refuses a kept password. Every secret travels on standard input.
-  String forgePasswordLine({required List<String> receiver}) {
-    if (receiver.isEmpty || !receiver.first.startsWith('/')) {
-      throw const FormatException('The forge password receiver needs an absolute executable path.');
-    }
-    return [
-      ..._opened,
-      // Forgejo counts Unicode characters; a C locale would make Bash count UTF-8 bytes.
-      'export LC_ALL=C.UTF-8',
-      r'''ask_password() {
-  IFS= read -rs -p "Your lasting forge password: " password; echo >&2
-  if [ "${#password}" -lt 8 ]; then echo "A forge password needs at least 8 characters; nothing was sent." >&2; exit 1; fi
-  if [[ "$password" == *$'\r'* ]]; then echo "A forge password must be one line; nothing was sent." >&2; exit 1; fi
-  IFS= read -rs -p "Your lasting forge password again: " confirmation; echo >&2
-  if [ "$password" != "$confirmation" ]; then echo "The forge passwords do not match; nothing was sent." >&2; exit 1; fi
-  unset confirmation
-}''',
-      'send_password() { printf \'%s\\n\' "\$password" | ${receiver.map(quoteForAShell).join(' ')}; }',
-      'password="\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null || true)"',
-      'kept=no',
-      'if [ -z "\$password" ]; then',
-      '  if kp show "\$file" ${_word(forgePassword)} >/dev/null 2>&1; then '
-          'echo "Your secrets file has an empty $forgePassword; nothing was sent." >&2; exit 1; fi',
-      '  ask_password',
-      'else kept=yes',
-      'fi',
-      r'''if [[ "$password" == *$'\n'* || "$password" == *$'\r'* ]]; then echo "The kept forge password is not one line; nothing was sent." >&2; exit 1; fi''',
-      'if send_password; then',
-      '  if [ "\$kept" = yes ]; then unset MASTER password; exit 0; fi',
-      'else',
-      '  result=\$?',
-      '  if [ "\$kept" != yes ]; then unset MASTER password; exit "\$result"; fi',
-      r'''  IFS= read -r -p "The forge refused the kept password. Replace it? [y/N] " replace || { unset MASTER password; exit "$result"; }''',
-      r'''  case "$replace" in y|Y) ;; *) unset MASTER password; exit "$result";; esac''',
-      '  ask_password',
-      '  if send_password; then :; else result=\$?; unset MASTER password; exit "\$result"; fi',
-      'fi',
-      'kp ls "\$file" shared >/dev/null 2>&1 || kp mkdir "\$file" shared >/dev/null',
-      'action=add; if [ "\$kept" = yes ]; then action=edit; fi',
-      'if ! printf \'%s\\n%s\\n\' "\$MASTER" "\$password" | "\$cli" "\$action" -p "\$file" ${_word(forgePassword)} >/dev/null; then',
-      '  echo "The forge accepted the password, but the secrets file could not keep it." >&2; exit 1',
-      'fi',
-      'if [ "\$(kp show -s -a password "\$file" ${_word(forgePassword)} 2>/dev/null)" != "\$password" ]; then '
-          'echo "The forge accepted the password, but the secrets file did not keep it." >&2; exit 1; fi',
-      'unset MASTER password',
-    ].join('\n');
-  }
-
-  /// Writes the required central forge token as one raw line after checking its entry locally.
-  ///
-  /// Take-off has no verified project repository list, so an absent or unusable entry refuses every removal.
-  String projectRemovalTokenLine() => [
-    ..._opened,
-    _listEntries,
-    ..._requireEntries([centralForgeToken]),
-    'unset entries',
-    'unset token',
-    // The sentinel preserves entry line breaks so a malformed value cannot become a different token.
-    'if token="\$(kp show -s -a password "\$file" ${_word(centralForgeToken)} 2>/dev/null && printf \'.\')"; then',
-    r'''  token="${token%.}"; token="${token%$'\n'}"''',
-    '  if [ -z "\$token" ]; then echo "$centralForgeToken is empty; nothing was sent." >&2; exit 1; fi',
-    'else',
-    '  echo "$centralForgeToken could not be read; nothing was sent." >&2; exit 1',
-    'fi',
-    r'''if [[ "$token" == *$'\n'* || "$token" == *$'\r'* ]]; then''',
-    '  echo "$centralForgeToken must hold one line; nothing was sent." >&2; exit 1',
-    'else',
-    r'''  printf '%s\n' "$token"''',
-    'fi',
-    'unset MASTER token',
-  ].join('\n');
-
-  static List<String> _readStopEntry(String entry, String variable, {bool base64 = false}) => [
+  static List<String> _readEntry(String entry, String variable) => [
     '$variable="\$(kp show -s -a password "\$file" ${_word(entry)} 2>/dev/null && printf \'.\')" || { '
         'echo "$entry could not be read; nothing was sent. Open it in KeePassXC and replace its password value." >&2; exit 1; }',
     '$variable="\${$variable%.}"; $variable="\${$variable%\$\'\\n\'}"',
     'if [ -z "\$$variable" ]; then echo "$entry is empty; nothing was sent. Set its password value in KeePassXC." >&2; exit 1; fi',
-    if (base64)
-      'if [ -z "\$$variable" ] || ! [[ "\$$variable" =~ \$b64 ]]; then '
-          'echo "$entry is not base64; nothing was sent. Replace its password value with base64 in KeePassXC." >&2; exit 1; fi',
-  ];
-
-  static List<String> _checkForgeCa(String host, int networkNumber) => [
-    'cakey64=; ca64=; cakey=; ca=',
-    "if [[ \$'\\n'\"\$entries\"\$'\\n' == *\$'\\n'${_word(forgeCaKey(host))}\$'\\n'* || "
-        "\$'\\n'\"\$entries\"\$'\\n' == *\$'\\n'${_word(forgeCa(host))}\$'\\n'* ]]; then",
-    ..._requireEntries([forgeCaKey(host), forgeCa(host)]),
-    ..._readStopEntry(forgeCaKey(host), 'cakey64', base64: true),
-    ..._readStopEntry(forgeCa(host), 'ca64', base64: true),
-    r'''cakey="$(printf '%s' "$cakey64" | /usr/bin/base64 -d)"''',
-    r'''ca="$(printf '%s' "$ca64" | /usr/bin/base64 -d)"''',
-    r'''cakey_public="$(printf '%s\n' "$cakey" | /usr/bin/openssl pkey -pubout 2>/dev/null)" || { '''
-        'echo "${forgeCaKey(host)} is not a valid CA key; nothing was sent. Restore its base64 PEM value in KeePassXC." >&2; exit 1; }',
-    r'''ca_public="$(printf '%s\n' "$ca" | /usr/bin/openssl x509 -noout -pubkey 2>/dev/null)" || { '''
-        'echo "${forgeCa(host)} is not a valid CA certificate; nothing was sent. Restore its base64 PEM value in KeePassXC." >&2; exit 1; }',
-    r'''if [ "$cakey_public" != "$ca_public" ]; then '''
-        'echo "${forgeCaKey(host)} and ${forgeCa(host)} do not match; nothing was sent. Restore the matching CA entries in KeePassXC." >&2; exit 1; fi',
-    'unset cakey_public ca_public',
-    // A migrated CA keeps its original subnet and must not sign for a newly selected one.
-    r'''constraints="$(printf '%s\n' "$ca" | /usr/bin/openssl x509 -noout -ext nameConstraints 2>/dev/null)"''',
-    r'''permitted_networks="$(printf '%s\n' "$constraints" | /usr/bin/awk '$1 == "Permitted:" { permitted=1; next } $1 == "Excluded:" { permitted=0 } permitted && $1 ~ /^IP:/ { print $1 }')"''',
-    "if [ -n \"\$permitted_networks\" ] && [[ \$'\\n'\"\$permitted_networks\"\$'\\n' != *\$'\\n'\"IP:10.73.$networkNumber.0/255.255.255.0\"\$'\\n'* ]]; then "
-        'echo "${forgeCa(host)} does not permit this host network; remove the old entries so a new CA is made, using KeePassXC. Nothing was sent." >&2; exit 1; fi',
-    r'''unset constraints permitted_networks''',
-    'fi',
   ];
 
   static const _listEntries =
@@ -464,13 +91,12 @@ done
     ],
   ];
 
-  /// The script's start: no echo, `get` for an entry, and the master password asked and checked against the file.
+  /// The script's start: no echo, and the master password asked and checked against the file.
   List<String> get _opened => [
     ..._shellStart,
     'cli=${_word(cli)}',
     'file=${_word(file)}',
     _kp,
-    r'''get() { local value; value="$(kp show -s -a password "$file" "$1" 2>/dev/null || true)"; if [ -z "$value" ]; then echo "$file has no entry $1; nothing was sent." >&2; return 1; fi; printf '%s' "$value"; }''',
     // A file that cannot be read is said as such, never asked about three times as a wrong password.
     r'if ! [ -r "$file" ]; then echo "$file cannot be read; nothing was sent." >&2; exit 1; fi',
     // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.
@@ -494,201 +120,4 @@ done
 
   // Every call reads the master password from standard input; the builtin printf runs no other program.
   static const _kp = r'''kp() { printf '%s\n' "$MASTER" | "$cli" "$@"; }''';
-
-  /// Refuses a vault entry name the file's group, `machine.yml` and the host's stop would not all take.
-  static void checkKeyName(String name) {
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) {
-      throw const HostFilesRefused('A vault entry name holds only letters, digits, ".", "_" and "-".');
-    }
-  }
-
-  static void _checkProject(String project) {
-    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(project)) {
-      throw const HostFilesRefused('A project name holds only letters, digits, ".", "_" and "-".');
-    }
-  }
-
-  // A copy is read back before its source is removed, so a failed or incomplete write cannot lose the value.
-  static List<String> _migrateEntries(String host, String project) => [
-    r'''ensure_group() {
-  local parent
-  if kp ls "$file" "$1" >/dev/null 2>&1; then return 0; fi
-  parent="${1%/*}"
-  if [ "$parent" != "$1" ]; then ensure_group "$parent" || return 1; fi
-  kp mkdir "$file" "$1" >/dev/null
-}''',
-    r'''move_entry() {
-  local value copied
-  if ! kp show "$file" "$1" >/dev/null 2>&1; then return 0; fi
-  if kp show "$file" "$2" >/dev/null 2>&1; then
-    echo "Both $1 and $2 exist; neither was changed." >&2
-    return 0
-  fi
-  value="$(kp show -s -a password "$file" "$1" 2>/dev/null)" || {
-    echo "Could not read $1; the old entry was kept." >&2; return 1;
-  }
-  ensure_group "${2%/*}" || return 1
-  if ! printf '%s\n%s\n' "$MASTER" "$value" | "$cli" add -p "$file" "$2" >/dev/null 2>&1; then
-    echo "Could not copy $1 to $2; the old entry was kept." >&2; return 1
-  fi
-  copied="$(kp show -s -a password "$file" "$2" 2>/dev/null)" || {
-    echo "Could not read back $2; the old entry was kept." >&2; return 1;
-  }
-  if [ "$value" != "$copied" ]; then
-    echo "$2 does not hold the value of $1; the old entry was kept." >&2; return 1
-  fi
-  kp rm "$file" "$1" >/dev/null
-}''',
-    if (project.isNotEmpty) ...[
-      'move_entry ${_word('hosts/$project/vault-passphrase')} ${_word(vaultPassphrase(project))}',
-      'if kp ls "\$file" ${_word('hosts/$project/keys')} >/dev/null 2>&1; then',
-      // keepassxc-cli translates its empty-group marker, so the listing is read in one language.
-      '  entries="\$(LC_ALL=C.UTF-8 LANGUAGE= kp ls -q "\$file" ${_word('hosts/$project/keys')})"',
-      r'''  printf '%s\n' "$entries" | while IFS= read -r name; do''',
-      r'''    if [ -z "$name" ] || [ "$name" = '[empty]' ]; then continue; fi''',
-      r'''    if ! [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then echo "A legacy vault entry has an invalid name; it was kept." >&2; exit 1; fi''',
-      '    move_entry ${_word('hosts/$project/keys/')}"\$name" ${_word('projects/$project/keys/')}"\$name"',
-      '  done',
-      '  unset entries',
-      'fi',
-    ],
-    'move_entry ${_word('shared/forge-ca-key')} ${_word(forgeCaKey(host))}',
-    'move_entry ${_word('shared/forge-ca')} ${_word(forgeCa(host))}',
-  ];
-
-  /// The script that makes the file where [create] says so, gives [host] a WireGuard key and [project] a vault
-  /// passphrase where absent (an empty project prepares only the host), keeps the files of [keys] base64, and writes
-  /// only the key's public half to [publicKeyOut], `0600`.
-  ///
-  /// A key in [migrateKeyFrom], the host's key from before the file, is taken into the file and that file then
-  /// removed. Input checks precede migration; a legacy entry is removed only after its copy reads back unchanged.
-  String prepareHost({
-    required String host,
-    required String project,
-    required bool create,
-    required String publicKeyOut,
-    String? migrateKeyFrom,
-    Map<String, String> keys = const {},
-  }) {
-    checkHost(host);
-    if (project.isNotEmpty) _checkProject(project);
-    if (project.isEmpty && keys.isNotEmpty) throw const FormatException('Vault entries require a project name.');
-    checkPath(publicKeyOut);
-    if (migrateKeyFrom != null) checkPath(migrateKeyFrom);
-    for (final entry in keys.entries) {
-      checkKeyName(entry.key);
-      checkPath(entry.value);
-    }
-    final key = _word(hostKey(host));
-    final passphrase = project.isEmpty ? null : _word(vaultPassphrase(project));
-    final hostGroup = _word('hosts/$host');
-    final projectGroup = _word('projects/$project');
-    final drive = migrateKeyFrom == null ? null : _word(migrateKeyFrom);
-    final files = keys.entries.toList();
-    return [
-      ..._shellStart,
-      'cli=${_word(cli)}',
-      'file=${_word(file)}',
-      'out=${_word(publicKeyOut)}',
-      _kp,
-      // A WireGuard private key is one whose public half wg can derive.
-      r'''valid() { local half; half="$(printf '%s\n' "$1" | /usr/bin/wg pubkey 2>/dev/null)" && [ -n "$half" ]; }''',
-      if (create) ...[
-        r'if [ -e "$file" ]; then echo "$file exists already; name it instead of making it anew." >&2; exit 65; fi',
-        r'IFS= read -rs -p "A new master password for $file: " MASTER; echo >&2',
-        r'IFS= read -rs -p "The same once more: " AGAIN; echo >&2',
-        r'if [ "$MASTER" != "$AGAIN" ]; then echo "The two did not match; nothing was made." >&2; exit 1; fi',
-        'unset AGAIN',
-      ] else
-        r'IFS= read -rs -p "The master password of $file: " MASTER; echo >&2',
-      r'if [ -z "$MASTER" ]; then echo "A master password cannot be empty; nothing was changed." >&2; exit 1; fi',
-      // A vault entry's file is outside input: a plain file reached through no link, with bytes, read once here.
-      for (var i = 0; i < files.length; i++) ...[
-        'if [ "\$(/usr/bin/realpath -e -- ${_word(files[i].value)} 2>/dev/null)" != ${_word(files[i].value)} ] || '
-            '[ ! -f ${_word(files[i].value)} ] || [ ! -s ${_word(files[i].value)} ]; then '
-            'echo "${files[i].value} is not a plain file with content, reached through no link; nothing was changed." >&2; exit 1; fi',
-        'k$i="\$(/usr/bin/base64 -w0 < ${_word(files[i].value)})"',
-      ],
-      // The drive's copy is outside input: a link or a key wg cannot read is refused.
-      if (drive != null) ...[
-        'if [ -L $drive ]; then echo "The drive\'s wireguard.key is a link; nothing was changed." >&2; exit 1; fi',
-        'if [ -e $drive ] && [ ! -f $drive ]; then echo "The drive\'s wireguard.key is not a file; nothing was changed." >&2; exit 1; fi',
-        'if [ -f $drive ]; then old="\$(/usr/bin/tr -d \'[:space:]\' < $drive)"; '
-            'if ! valid "\$old"; then echo "The drive\'s wireguard.key is no WireGuard key; nothing was changed." >&2; exit 1; fi; '
-            'else old=""; fi',
-      ] else
-        'old=""',
-      if (create) ...[
-        'private=""',
-        for (var i = 0; i < files.length; i++) 'have$i=""',
-      ] else ...[
-        r'if ! kp ls "$file" >/dev/null 2>&1; then echo "$file did not open with that password; nothing was changed." >&2; exit 1; fi',
-        'private="\$(kp show -s -a password "\$file" $key 2>/dev/null || true)"',
-        // An entry there that holds no key, or nothing, is the person's to mend: never added over, nor used.
-        'if [ -z "\$private" ] && kp show "\$file" $key >/dev/null 2>&1; then '
-            'echo "Your secrets file has an empty ${hostKey(host)}; remove it there. Nothing was changed." >&2; exit 1; fi',
-        'if [ -n "\$private" ] && ! valid "\$private"; then '
-            'echo "Your secrets file keeps no WireGuard key in ${hostKey(host)}; nothing was changed." >&2; exit 1; fi',
-        // A copy still on the drive goes only when it is the file's own key; another key for the host stops it all.
-        'if [ -n "\$private" ] && [ -n "\$old" ] && [ "\$old" != "\$private" ]; then '
-            'echo "The drive holds another key for this server than your secrets file; nothing was changed." >&2; exit 1; fi',
-        // One already kept under that name is replaced only by the same bytes.
-        for (var i = 0; i < files.length; i++) ...[
-          'entry$i=${_word(vaultKey(project, files[i].key))}',
-          'if ! kp show "\$file" "\$entry$i" >/dev/null 2>&1 && '
-              'kp show "\$file" ${_word('hosts/$project/keys/${files[i].key}')} >/dev/null 2>&1; then '
-              'entry$i=${_word('hosts/$project/keys/${files[i].key}')}; fi',
-          'have$i="\$(kp show -s -a password "\$file" "\$entry$i" 2>/dev/null || true)"',
-          'if [ -z "\$have$i" ] && kp show "\$file" "\$entry$i" >/dev/null 2>&1; then '
-              'echo "Your secrets file has an empty \$entry$i; remove it there. Nothing was '
-              'changed." >&2; exit 1; fi',
-          'if [ -n "\$have$i" ] && [ "\$have$i" != "\$k$i" ]; then echo "Your secrets file keeps another '
-              '${files[i].key} for this server; remove it there to take the new one. Nothing was changed." >&2; exit 1; fi',
-        ],
-      ],
-      // Legacy values must move before missing entries can be generated without replacing an existing secret.
-      if (!create) ..._migrateEntries(host, project),
-      if (create) ...[
-        r'/usr/bin/mkdir -p "$(/usr/bin/dirname "$file")"',
-        r'printf'
-            " '%s\\n%s\\n' "
-            r'"$MASTER" "$MASTER" | "$cli" db-create -p "$file" >/dev/null',
-        'kp mkdir "\$file" ${_word('shared')} >/dev/null',
-        'kp mkdir "\$file" ${_word('hosts')} >/dev/null',
-      ] else
-        'kp ls "\$file" ${_word('hosts')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('hosts')} >/dev/null',
-      'kp ls "\$file" $hostGroup >/dev/null 2>&1 || kp mkdir "\$file" $hostGroup >/dev/null',
-      if (project.isNotEmpty)
-        'kp ls "\$file" ${_word('projects')} >/dev/null 2>&1 || kp mkdir "\$file" ${_word('projects')} >/dev/null',
-      if (project.isNotEmpty)
-        'kp ls "\$file" $projectGroup >/dev/null 2>&1 || kp mkdir "\$file" $projectGroup >/dev/null',
-      'if [ -n "\$private" ]; then :',
-      'elif [ -n "\$old" ]; then private="\$old"; '
-          '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null',
-      'else private="\$(/usr/bin/wg genkey)"; '
-          '{ printf \'%s\\n%s\\n\' "\$MASTER" "\$private"; } | "\$cli" add -p "\$file" $key >/dev/null',
-      'fi',
-      if (project.isNotEmpty)
-        'kp show "\$file" $passphrase >/dev/null 2>&1 || kp add -g -L 32 "\$file" $passphrase >/dev/null',
-      if (keys.isNotEmpty)
-        'kp ls "\$file" ${_word('projects/$project/keys')} >/dev/null 2>&1 || '
-            'kp mkdir "\$file" ${_word('projects/$project/keys')} >/dev/null',
-      for (var i = 0; i < files.length; i++)
-        'if [ -z "\$have$i" ]; then { printf \'%s\\n%s\\n\' "\$MASTER" "\$k$i"; } | '
-            '"\$cli" add -p "\$file" ${_word(vaultKey(project, files[i].key))} >/dev/null; fi',
-      // Read back before anything is removed: the file must hold what is used.
-      'if [ "\$(kp show -s -a password "\$file" $key 2>/dev/null)" != "\$private" ] || ! valid "\$private"; then '
-          'echo "The secrets file does not hold a WireGuard key for this server; nothing was removed." >&2; exit 1; fi',
-      for (var i = 0; i < files.length; i++)
-        'if [ "\$(kp show -s -a password "\$file" ${_word(vaultKey(project, files[i].key))} 2>/dev/null)" != "\$k$i" ]; then '
-            'echo "The secrets file does not hold ${files[i].key}; nothing was removed." >&2; exit 1; fi',
-      if (drive != null) 'if [ -n "\$old" ]; then /usr/bin/rm -f $drive; fi',
-      r'''pub="$(printf '%s\n' "$private" | /usr/bin/wg pubkey)"''',
-      r'if [ -z "$pub" ]; then echo "wg gave no public key; nothing was written." >&2; exit 1; fi',
-      r'''printf '%s\n' "$pub" > "$out.new"''',
-      r'/usr/bin/mv "$out.new" "$out"',
-      'unset MASTER private pub old${[for (var i = 0; i < files.length; i++) ' k$i have$i entry$i'].join()}',
-      r'echo "The secrets file is ready."',
-    ].join('\n');
-  }
 }

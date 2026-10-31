@@ -7,6 +7,175 @@ import 'package:test/test.dart';
 import 'support/pinned_ssh.dart';
 
 void main() {
+  // Harm: preparation could use a disk key, forward the agent, or corrupt the collection in transit.
+  test('given preparation uses the pinned agent-only SSH policy and streams binary bytes', () async {
+    final directory = await Directory.systemTemp.createTemp('agent-ssh-');
+    addTearDown(() => directory.delete(recursive: true));
+    final source = File('${directory.path}/collection.tar.gz');
+    final received = File('${directory.path}/received');
+    await source.writeAsBytes([0, 128, 255, 10]);
+    final receiver = File('${directory.path}/receive.dart');
+    await receiver.writeAsString(
+      "import 'dart:io'; Future<void> main(List<String> args) async {"
+      "final bytes = await stdin.expand((chunk) => chunk).toList();"
+      "await File(args.single).writeAsBytes(bytes); }",
+    );
+    final commands = <List<String>>[];
+    final remote = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      start: (program, args) {
+        commands.add([program, ...args]);
+        return Process.start(Platform.resolvedExecutable, [receiver.path, received.path]);
+      },
+    );
+    await remote.run('192.0.2.7', 'root', 'true');
+    expect((await remote.copy('192.0.2.7', 'root', source.path, '/var/tmp/porelo-host/collection.tar.gz')).exitCode, 0);
+    expect(await received.readAsBytes(), await source.readAsBytes());
+    expect(commands.map((c) => c.last), ['true', 'cat > /var/tmp/porelo-host/collection.tar.gz']);
+    for (final command in commands) {
+      expect(command.first, 'ssh');
+      expect(
+        command,
+        containsAllInOrder(['-F', '/dev/null', '-o', 'IdentityFile=none', '-o', 'PreferredAuthentications=publickey']),
+      );
+      expect(
+        command,
+        containsAll(['BatchMode=yes', 'ForwardAgent=no', 'StrictHostKeyChecking=yes', 'GlobalKnownHostsFile=none']),
+      );
+      expect(command, isNot(contains('-i')));
+      expect(command, contains('root@192.0.2.7'));
+    }
+  });
+
+  // Harm: an early SSH refusal must retain its cause instead of escaping as a broken pipe.
+  test('copy returns the remote refusal when SSH closes input early', () async {
+    final directory = await Directory.systemTemp.createTemp('copy-refusal-');
+    addTearDown(() => directory.delete(recursive: true));
+    final source = File('${directory.path}/collection');
+    await source.writeAsBytes([0, 128, 255, 10]);
+    final remote = OpenSsh(
+      knownHosts: File('${directory.path}/known_hosts'),
+      identity: '',
+      agentOnly: true,
+      start: (_, _) async => _RefusedCopyProcess(),
+    );
+    final result = await remote.copy('192.0.2.7', 'root', source.path, '/destination');
+    expect(result.exitCode, 65);
+    expect(result.stderr, 'Remote copy refused.\n');
+  });
+
+  // Harm: teardown must not trust ambient keys or run against another account and billed host.
+  test('card teardown pins the provider key and keeps the requested endpoint for ssh and scp', () async {
+    final commands = <List<String>>[];
+    final directory = await Directory.systemTemp.createTemp('card-teardown-');
+    addTearDown(() => directory.delete(recursive: true));
+    final config = File('${directory.path}/orchard.conf');
+    await config.writeAsString(
+      'Host orchard\n  HostName 198.51.100.9\n  User worker\n  Port 2222\n'
+      '  IdentityFile /public/person.pub\n',
+    );
+    final remote = OpenSsh(
+      knownHosts: File('/state/known_hosts'),
+      identity: '',
+      config: config.path,
+      configHost: 'orchard',
+      start: (program, arguments) {
+        commands.add([program, ...arguments]);
+        return Process.start(Platform.resolvedExecutable, ['--version']);
+      },
+      run: (program, arguments) async {
+        commands.add([program, ...arguments]);
+        return ProcessResult(0, 0, '', '');
+      },
+    );
+    await remote.run('192.0.2.7', 'root', 'true');
+    await remote.copy('192.0.2.7', 'root', '/public/file', '/destination');
+    for (final command in commands) {
+      for (final option in [
+        'StrictHostKeyChecking=yes',
+        'UserKnownHostsFile="/state/known_hosts"',
+        'GlobalKnownHostsFile=none',
+        'KnownHostsCommand=none',
+        'BatchMode=yes',
+        'ForwardAgent=no',
+        'ControlMaster=no',
+        'ControlPath=none',
+      ]) {
+        expect(command, contains(option), reason: 'teardown must use the provider pin despite the card config');
+      }
+      expect(command, containsAllInOrder(['-F', config.path]));
+      expect(command, isNot(contains('')));
+      expect(command, isNot(contains('-i')));
+      expect(
+        command,
+        containsAllInOrder(['-o', 'HostName=192.0.2.7', '-o', 'User=root']),
+        reason: 'config identity selection cannot replace the provider address or teardown login',
+      );
+    }
+    for (final command in commands) {
+      final options = command.first == 'ssh'
+          ? command.sublist(1, command.length - 2)
+          : command.sublist(1, command.indexOf('-q'));
+      final effective = await Process.run('ssh', ['-G', ...options, 'orchard']);
+      expect(effective.exitCode, 0, reason: '${effective.stderr}');
+      final values = effective.stdout.toString().split('\n');
+      expect(
+        values,
+        containsAll(['hostname 192.0.2.7', 'user root', 'port 22', 'identityfile /public/person.pub']),
+        reason: 'both transports must reach the provider endpoint with the selected identity',
+      );
+    }
+    expect(commands.first, contains('orchard'));
+    expect(commands.last.last, 'orchard:/destination');
+  });
+
+  // Harm: wrong host config paths connect to a different host or bypass its selected agent identity.
+  test('host configs use the platform config directory and reject unsafe names', () {
+    expect(
+      poreloHostSshConfig('orchard', environment: {'XDG_CONFIG_HOME': '/config'}, windows: false),
+      '/config/porelo/ssh/orchard.conf',
+    );
+    expect(
+      poreloHostSshConfig(
+        'orchard',
+        environment: {'XDG_CONFIG_HOME': 'relative', 'HOME': '/home/person'},
+        windows: false,
+      ),
+      '/home/person/.config/porelo/ssh/orchard.conf',
+    );
+    expect(
+      poreloHostSshConfig('orchard', environment: {'APPDATA': r'C:\Users\person\AppData\Roaming'}, windows: true),
+      r'C:\Users\person\AppData\Roaming\porelo\ssh\orchard.conf',
+    );
+    for (final host in ['../other', '-option', 'Uppercase', 'a/b']) {
+      expect(() => poreloHostSshConfig(host, environment: {'XDG_CONFIG_HOME': '/config'}), throwsFormatException);
+    }
+  });
+
+  // Harm: teardown with an empty identity cannot authenticate to release a billed host.
+  test('agent authentication never receives an empty identity override', () async {
+    final commands = <List<String>>[];
+    final remote = OpenSsh(
+      knownHosts: File('/state/known_hosts'),
+      identity: '',
+      run: (program, arguments) async {
+        commands.add([program, ...arguments]);
+        return ProcessResult(0, 0, '', '');
+      },
+    );
+    await remote.copy('192.0.2.7', 'root', '/public/file', '/destination');
+    expect(commands.single, isNot(contains('')));
+    expect(commands.single, isNot(contains('-i')));
+    expect(
+      commands.single,
+      isNot(contains('IdentitiesOnly=yes')),
+      reason: 'agent keys remain available when no identity is selected',
+    );
+    expect(commands.single, contains('StrictHostKeyChecking=yes'));
+  });
+
   // Harm: a compromised host uses a forwarded agent or reaches the person's display.
   test('the pinned policy disables agent and display forwarding from SSH config', () async {
     final directory = await Directory.systemTemp.createTemp('ssh-forwarding-');
@@ -351,6 +520,19 @@ void main() {
   });
 }
 
+class _RefusedCopyProcess implements Process {
+  @override
+  final IOSink stdin = _BrokenStream();
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+  @override
+  Stream<List<int>> get stderr => Stream.value('Remote copy refused.\n'.codeUnits);
+  @override
+  Future<int> get exitCode async => 65;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _SyntheticVault {
   int reads = 0;
   String get value => String.fromCharCodes([115, 121, 110, 116, 104, 101, 116, 105, 99, 45, 111, 110, 108, 121]);
@@ -389,6 +571,15 @@ class _WaitingProcess implements Process {
     if (!_exit.isCompleted) _exit.complete(137);
     return true;
   }
+}
+
+class _BrokenStream implements IOSink {
+  @override
+  Future<void> addStream(Stream<List<int>> stream) async => throw const SocketException('Broken pipe');
+  @override
+  Future<void> close() async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _BrokenInput implements IOSink {

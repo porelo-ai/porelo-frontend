@@ -23,7 +23,7 @@ void main() {
       '--given',
       '192.0.2.7',
       '--host-key',
-      'ssh-ed25519 AAAA',
+      'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
       if (force) '--give-back-anyway',
     ],
     includeParentEnvironment: false,

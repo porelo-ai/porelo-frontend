@@ -51,39 +51,50 @@ class OpenSsh implements Remote {
   OpenSsh({
     required this.knownHosts,
     required this.identity,
+    this.agentOnly = false,
+    this.config,
+    this.configHost,
     Future<Process> Function(String, List<String>)? start,
     Future<ProcessResult> Function(String, List<String>)? run,
     this.deadline,
-  }) : _config = null,
-       _card = null,
+  }) : _card = null,
        _start = start ?? ((executable, arguments) => Process.start(executable, arguments)),
        _runProcess = run ?? ((executable, arguments) => Process.run(executable, arguments));
 
   /// Uses the public config of an already owned host-card connection.
   OpenSsh.sharedHost({
     required HostCardSsh card,
-    required String config,
+    required String this.config,
     Map<String, String>? environment,
     Future<Process> Function(String, List<String>)? start,
     this.deadline = const Duration(minutes: 5),
   }) : knownHosts = File('$config.known_hosts'),
        identity = '$config.pub',
-       _config = config,
+       agentOnly = false,
+       configHost = null,
        _card = card,
        _start = start ?? ((executable, arguments) => Process.start(executable, arguments)),
        _runProcess = ((executable, arguments) => Process.run(executable, arguments)) {
-    HostCardSsh.checkConfigPath(card.name, config, environment: environment, windows: Platform.isWindows);
+    HostCardSsh.checkConfigPath(card.name, config!, environment: environment, windows: Platform.isWindows);
   }
 
   /// The completion bound for a submitted host command.
   final Duration? deadline;
-  final String? _config;
   final HostCardSsh? _card;
   final Future<Process> Function(String, List<String>) _start;
   final Future<ProcessResult> Function(String, List<String>) _runProcess;
 
   /// The `known_hosts` this package writes the provider's key into.
   final File knownHosts;
+
+  /// Whether only keys served by the local agent may authenticate the host command.
+  final bool agentOnly;
+
+  /// The verified host-card configuration, when supplied.
+  final String? config;
+
+  /// The verified alias selecting public identity settings, never the destination or account.
+  final String? configHost;
 
   /// The private key that logs in.
   final String identity;
@@ -94,19 +105,41 @@ class OpenSsh implements Remote {
     await knownHosts.writeAsString('$host $hostKey\n');
   }
 
-  List<String> _options() => <String>[
-    if (_config case final config?) ...[
+  List<String> _options(String host, String user) => <String>[
+    // A shared host-card connection names its host, account and pin in its own public config alone.
+    if (_card != null) ...[
       '-F',
-      config,
+      config!,
       '-o',
       'ControlMaster=no',
       '-o',
       'ProxyCommand=false',
-    ] else
+    ] else ...[
       ...pinnedHostSshOptions(knownHosts.path, identity),
+      if (agentOnly) ...[
+        '-F',
+        '/dev/null',
+        '-o',
+        'IdentityFile=none',
+        '-o',
+        'PreferredAuthentications=publickey',
+      ] else if (config case final file?) ...[
+        '-F',
+        file,
+      ],
+      '-o',
+      'HostName=$host',
+      '-o',
+      'User=$user',
+      '-o',
+      'Port=22',
+    ],
     '-o',
     'ConnectTimeout=10',
   ];
+
+  List<String> _destination(String host, String user) =>
+      _card != null ? <String>['-T', '--', host] : <String>[configHost ?? '$user@$host'];
 
   @override
   Future<RemoteResult> run(
@@ -130,7 +163,7 @@ class OpenSsh implements Remote {
     }
 
     try {
-      process = await _start('ssh', <String>[..._options(), '-T', '--', user.isEmpty ? host : '$user@$host', command]);
+      process = await _start('ssh', <String>[..._options(host, user), ..._destination(host, user), command]);
       final child = process;
       final out = child.stdout
           .transform(const Utf8Decoder(allowMalformed: true))
@@ -167,7 +200,33 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
-    final done = await _runProcess('scp', <String>[..._options(), '-q', from, '$user@$host:$to']);
+    if (agentOnly) {
+      final process = await _start('ssh', [..._options(host, user), '$user@$host', 'cat > ${quoteForAShell(to)}']);
+      final out = process.stdout.drain<void>();
+      final err = process.stderr.transform(utf8.decoder).join();
+      SocketException? inputFailure;
+      try {
+        await process.stdin.addStream(File(from).openRead());
+      } on SocketException catch (error) {
+        inputFailure = error;
+      }
+      try {
+        await process.stdin.close();
+      } on SocketException catch (error) {
+        inputFailure ??= error;
+      }
+      final code = await process.exitCode;
+      await out;
+      final words = await err;
+      if (code == 0 && inputFailure != null) throw inputFailure;
+      return RemoteResult(code, words);
+    }
+    final done = await _runProcess('scp', <String>[
+      ..._options(host, user),
+      '-q',
+      from,
+      '${configHost ?? '$user@$host'}:$to',
+    ]);
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }
 }
