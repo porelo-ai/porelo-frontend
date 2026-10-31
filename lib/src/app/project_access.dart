@@ -193,7 +193,9 @@ class ProjectAccess implements ProjectPersonActions {
     // A filed person change is judged by Core before the view, as what moved since may be the very reason Core refused
     // it; a registration stays bound to the project state the person approved, and is held to it first.
     final person = receipt?.change.action != 'register';
-    if (filed && (delivered || expected != null || !person) && !_matches(receipt!.change, view, recording: delivered)) {
+    if (filed &&
+        ((delivered || expected != null) && !_matches(receipt!.change, view, recording: delivered) ||
+            !delivered && !person && receipt!.change.projectRevision != view.projectRevision)) {
       throw RegistryRefusal(
         'The pending project selection differs from the verified state. Retry.',
         whoMay: _contacts(view),

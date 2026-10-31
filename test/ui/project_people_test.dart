@@ -34,6 +34,8 @@ void main() {
       fixture.lookupFailure = null;
       fixture.lookupFailureAfterFile = null;
       fixture.actor = const HostAdminIdentity('alice', personFingerprint);
+      // Core refuses what the old key signed; only its verdict supersedes the change.
+      fixture.deliveryAuthorized = false;
       fixture.calls.clear();
       await tester.pumpWidget(
         MaterialApp(
@@ -83,6 +85,8 @@ void main() {
     );
     fixture.fail = null;
     fixture.currentAccess = 'c' * 40;
+    // Core no longer authorizes the filed revision; only its verdict supersedes the change.
+    fixture.deliveryAuthorized = false;
     await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
     fixture.calls.clear();
     await tester.pumpWidget(
