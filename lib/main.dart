@@ -29,6 +29,12 @@ import 'src/app/backups.dart';
 import 'src/app/connections.dart';
 import 'src/app/project_following.dart';
 import 'src/app/project_deletion.dart';
+import 'src/app/desk.dart';
+import 'src/app/fleet_backend.dart';
+import 'src/app/registry.dart';
+import 'src/app/registry_checkout.dart';
+import 'src/app/registry_pages.dart';
+import 'src/app/registry_read_source.dart';
 import 'src/app/session.dart';
 import 'src/app/settings.dart';
 import 'src/app/shell_model.dart';
@@ -79,6 +85,20 @@ WalkSession? _walk() {
 }
 
 Future<PoreloApp>? _composed;
+
+/// Every registry list, read by this computer's daemon from a private checkout of the address chosen once.
+RegistryPages? _registryPages(Settings settings, Machines machines) {
+  final repository = settings.registryRepository;
+  if (repository == null) return null;
+  final registry = Registry(
+    checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
+    core: DaemonRegistryCore(PoreloBackend(Machines.backendFor(Machine.local()))),
+  );
+  return RegistryPages(
+    source: RegistryReadSource(registry: registry, repository: repository, machines: () => machines.all),
+    features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
+  );
+}
 
 Future<PoreloApp> _compose() async {
   final settings = Settings(FileSettingsStore());
@@ -137,6 +157,7 @@ Future<PoreloApp> _compose() async {
     backups: Backups(),
     narrowing: Narrowing(),
     held: WorkHeld(),
+    registryPages: _registryPages(settings, machines),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

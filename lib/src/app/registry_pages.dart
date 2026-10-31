@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
 import 'machines.dart';
+import 'registry.dart' show RegistryRefusal;
 
 /// The full access scope, retained when names match in different registries or hosts.
 typedef RegistryTarget = ({String registry, String host, String? project});
@@ -193,7 +194,7 @@ class RegistryHostState {
 @immutable
 class RegistryPageSnapshot {
   /// Creates a snapshot after all required access repositories have been read.
-  const RegistryPageSnapshot({this.items = const [], this.people = const [], this.applied = const {}});
+  const RegistryPageSnapshot({this.items = const [], this.people = const [], this.applied = const {}, this.problem});
 
   /// The last complete verified set of admissions.
   final List<RegistryPageItem> items;
@@ -203,6 +204,9 @@ class RegistryPageSnapshot {
 
   /// The host confirmations kept separately from registry decisions.
   final Map<RegistryTarget, RegistryHostState> applied;
+
+  /// Why a newer state is not the one in this snapshot, or null when it is the newest.
+  final String? problem;
 }
 
 /// A scoped access change with a selected verified person, never a typed account.
@@ -374,8 +378,10 @@ class RegistryPages extends ChangeNotifier {
       );
       _snapshot = next;
       _failures.removeWhere((target, _) => item(target) == null || !pending(target));
-      problem = null;
+      problem = next.problem;
       loaded = true;
+    } on RegistryRefusal catch (refused) {
+      problem = refused.words;
     } on Exception {
       problem = 'The verified registry or access repository could not be read. The last verified list is retained.';
     } finally {
