@@ -143,8 +143,11 @@ List<JoinAdmission> readJoinable(Object? json) {
 }
 
 JoinOffered _offered(Map<String, Object?> entry) {
-  final host = PreparedHost.read(entry['host_card']);
-  if (host.name != _text(entry, 'host')) throw const FormatException('the host card names another host');
+  final card = entry['host_card'];
+  if (card is! Map<String, Object?>) throw const FormatException('no host card');
+  final name = _text(entry, 'host');
+  final host = PreparedHost.read({'name': name, ...card});
+  if (host.name != name) throw const FormatException('the host card names another host');
   final signers = entry['signers'];
   if (signers is! List) throw const FormatException('no signers');
   return JoinOffered(

@@ -244,7 +244,7 @@ void main() {
         'project': 'demo',
         'host': 'orchard',
         'host_account': 'porelo-alice',
-        'host_card': hostValues(),
+        'host_card': {...hostValues()..remove('name'), 'homeserver': 'matrix.orchard.porelo.internal'},
         'source': 'https://forge.example/team/demo.git',
         'access_repository': 'https://forge.example/team/access.git',
         'revision': 'a' * 40,
@@ -280,7 +280,10 @@ void main() {
   // Harm: a broken answer, or a card for another host, shows as an empty list or a row to click.
   for (final (name, change) in <(String, void Function(Map<String, Object?>))>[
     ('missing refused', (json) => json.remove('refused')),
-    ('a host card for another host', (json) => ((json['projects'] as List).single as Map)['host'] = 'grove'),
+    (
+      'a host card for another host',
+      (json) => (((json['projects'] as List).single as Map)['host_card'] as Map)['name'] = 'grove',
+    ),
     ('a project without signers', (json) => ((json['projects'] as List).single as Map).remove('signers')),
   ]) {
     test('a joinable answer with $name is refused whole', () {
