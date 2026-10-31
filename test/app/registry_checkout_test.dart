@@ -71,6 +71,42 @@ void main() {
     return (revision.stdout as String).trim();
   }
 
+  /// Commits as Core does under request [id]: [file] alone, with [trailer] naming the request; a removal with [remove].
+  Future<String> commitMade(
+    String folder, {
+    String id = 'req-1',
+    String trailer = 'Porelo-Change-Id',
+    String file = 'owners.yml',
+    String text = 'owners: [alice, bob]\n',
+    bool remove = false,
+  }) async {
+    if (remove) {
+      await run(['rm', '-q', file], folder);
+    } else {
+      File('$folder/$file')
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync(text);
+      await run(['add', file], folder);
+    }
+    await run([
+      '-c',
+      'user.name=Core',
+      '-c',
+      'user.email=core@example.invalid',
+      'commit',
+      '-qm',
+      'filed $file\n\n$trailer: $id\nPorelo-Change-Digest: 00',
+    ], folder);
+    final revision = await Process.run(
+      'git',
+      ['rev-parse', 'HEAD'],
+      workingDirectory: folder,
+      environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+    );
+    expect(revision.exitCode, 0);
+    return (revision.stdout as String).trim();
+  }
+
   Future<String> centralRevision() async {
     final revision = await Process.run(
       'git',
@@ -254,10 +290,15 @@ void main() {
       final base = await first.fetch();
       await first.prepareFiling();
       if (interference == 'extra commit') await commitCheckout(first.folder, 'unreviewed.card');
-      final made = await commitCheckout(first.folder, 'owners-change.yml');
+      final made = await commitMade(first.folder);
       if (interference == 'different HEAD') await commitCheckout(first.folder, 'unreviewed.card');
       final again = checkout();
-      final pushed = again.publishMade(made, base: interference == 'other base' ? made : base);
+      final pushed = again.publishMade(
+        made,
+        base: interference == 'other base' ? made : base,
+        id: 'req-1',
+        file: 'owners.yml',
+      );
       if (interference == 'none') {
         await pushed;
         expect(await centralRevision(), made);
@@ -276,7 +317,7 @@ void main() {
       final first = checkout();
       final base = await first.fetch();
       await first.prepareFiling();
-      final made = await commitCheckout(first.folder, 'owners-change.yml');
+      final made = await commitMade(first.folder);
       if (after != 'another commit instead') await run(['push', '-q', central, '$made:refs/heads/main'], first.folder);
       if (after == 'a fetch') await first.fetch();
       if (after == 'a later commit') {
@@ -287,7 +328,7 @@ void main() {
       if (after == 'another commit instead') await commitCentral('other.yml', 'other\n');
       final tip = await centralRevision();
 
-      final publishing = checkout().publishMade(made, base: base);
+      final publishing = checkout().publishMade(made, base: base, id: 'req-1', file: 'owners.yml');
 
       if (after == 'another commit instead') {
         await expectLater(publishing, throwsA(isA<WorkspaceRefused>()));
@@ -309,16 +350,19 @@ void main() {
         await run(['pull', '-q', '--ff-only', 'origin', 'main'], author);
         await commitCentral('next.yml', 'next\n');
         final base = await first.fetch();
-        final publishing = checkout().publishMade(start, base: base);
+        final publishing = checkout().publishMade(start, base: base, id: 'req-1', file: 'owners.yml');
         await expectLater(publishing, throwsA(isA<WorkspaceRefused>()));
         return;
       }
       if (named == 'the base') {
-        await expectLater(checkout().publishMade(start, base: start), throwsA(isA<WorkspaceRefused>()));
+        await expectLater(
+          checkout().publishMade(start, base: start, id: 'req-1', file: 'owners.yml'),
+          throwsA(isA<WorkspaceRefused>()),
+        );
         return;
       }
       await first.prepareFiling();
-      final made = await commitCheckout(first.folder, 'owners-change.yml');
+      final made = await commitMade(first.folder);
       if (named == 'a merged side commit') {
         await run(['pull', '-q', '--ff-only', 'origin', 'main'], author);
         await commitCentral('beside.yml', 'beside\n');
@@ -342,7 +386,10 @@ void main() {
       }
       final tip = await centralRevision();
 
-      await expectLater(checkout().publishMade(made, base: start), throwsA(isA<WorkspaceRefused>()));
+      await expectLater(
+        checkout().publishMade(made, base: start, id: 'req-1', file: 'owners.yml'),
+        throwsA(isA<WorkspaceRefused>()),
+      );
       expect(await centralRevision(), tip, reason: 'nothing is pushed anew');
     });
   }
@@ -451,14 +498,60 @@ void main() {
     });
   }
 
+  // Harm: a request's own commit refused for good because Core made it on the commit it read last after a refresh, or
+  // as its removal and filing again in two commits; it then blocks every later read and filing of the checkout.
+  for (final made in ['on the commit read last', 'as a removal and its filing']) {
+    test('a request’s own commit made $made is pushed', () async {
+      final first = checkout();
+      final base = await first.fetch();
+      String? lastRead;
+      if (made == 'on the commit read last') {
+        await run(['pull', '-q', '--ff-only', 'origin', 'main'], author);
+        await commitCentral('people/carol.card', 'login: carol\n');
+        lastRead = await first.fetch();
+      } else {
+        await commitMade(first.folder, trailer: 'Porelo-Change-Step', remove: true);
+      }
+      final revision = await commitMade(first.folder);
+
+      await checkout().publishMade(revision, base: base, id: 'req-1', file: 'owners.yml', lastRead: lastRead);
+
+      expect(await centralRevision(), revision);
+    });
+  }
+
+  // Harm: a kept receipt naming a commit that is not the request's own, someone else's change on the same base already
+  // in the registry, taken as the request's done change and delivered to hosts as a key replacement.
+  for (final other in ['another request’s', 'one without a request', 'one changing another file', 'a step alone']) {
+    test('a commit on the base that is $other is never taken as the request’s', () async {
+      final first = checkout();
+      final base = await first.fetch();
+      final revision = switch (other) {
+        'another request’s' => await commitMade(first.folder, id: 'req-2'),
+        'one without a request' => await commitCheckout(first.folder, 'owners.yml'),
+        'one changing another file' => await commitMade(first.folder, file: 'people/bob.card'),
+        _ => await commitMade(first.folder, trailer: 'Porelo-Change-Step'),
+      };
+      await run(['push', '-q', central, '$revision:refs/heads/main'], first.folder);
+
+      await expectLater(
+        checkout().publishMade(revision, base: base, id: 'req-1', file: 'owners.yml'),
+        throwsA(isA<WorkspaceRefused>()),
+      );
+    });
+  }
+
   // Harm: a made commit pushed on a base the repository does not hold, which pushes that unreviewed base with it.
   test('pushing a made commit again refuses a base the repository does not hold', () async {
     final first = checkout();
     final published = await first.fetch();
     final base = await commitCheckout(first.folder, 'unreviewed.card');
-    final made = await commitCheckout(first.folder, 'owners-change.yml');
+    final made = await commitMade(first.folder);
 
-    await expectLater(checkout().publishMade(made, base: base), throwsA(isA<WorkspaceRefused>()));
+    await expectLater(
+      checkout().publishMade(made, base: base, id: 'req-1', file: 'owners.yml'),
+      throwsA(isA<WorkspaceRefused>()),
+    );
     expect(await centralRevision(), published, reason: 'unreviewed work must never reach the central repository');
   });
 

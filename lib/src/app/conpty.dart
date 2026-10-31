@@ -4,7 +4,7 @@ import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 
 import 'pty.dart';
 
@@ -145,6 +145,8 @@ class ConPty implements SessionChannel {
           },
           closeConsole: () => _Kernel32().closePseudoConsole(hpc),
           closeConsoleAway: () => _closeAway(hpc),
+          // Asked for no more: the program and all it started have ended.
+          closeProcess: () => _Kernel32().closeHandle(process),
         ),
       );
       _pump(closing, process, outputRead, output, ended);
@@ -200,12 +202,16 @@ class ConPty implements SessionChannel {
 
   /// Ends the program from this side and waits for it to end, as [Pty] does; past the bound it is still running.
   @override
-  Future<void> close() => _closing ??= letGoAndWait(() {
-    _shut = true;
-    _console.release.endInput();
-    // Ends `wsl.exe` or `ssh.exe` and whatever they started; the waiter then sees the end and closes the console.
-    return _console.release.letGo();
-  }, _ended);
+  Future<void> close() => _closing ??= letGoAndWait(
+    () {
+      _shut = true;
+      _console.release.endInput();
+      // Ends `wsl.exe` or `ssh.exe` and whatever they started; the waiter then sees the end and closes the console.
+      return _console.release.letGo();
+    },
+    _ended,
+    end: _console.release.endNow,
+  );
 
   /// Lets go of a program's console with [letGo], then waits for it to have [ended] within [bound], counted from
   /// before [letGo], which may take long.
@@ -213,15 +219,32 @@ class ConPty implements SessionChannel {
   /// Throws a [TerminalStillRunning] past it: a console closed is not a program ended, and what it does meanwhile
   /// still happens.
   @visibleForTesting
-  static Future<void> letGoAndWait(Future<void> Function() letGo, Future<int> ended, {Duration bound = closeBound}) {
-    final waited = endedAfterClose(ended, ended, bound: bound);
+  static Future<void> letGoAndWait(
+    Future<void> Function() letGo,
+    Future<int> ended, {
+    Duration bound = closeBound,
+    Future<void> Function()? end,
+  }) {
+    final waited = endedAfterClose(ended, ended, bound: bound, end: end);
     // Not waited on: the bound alone says how long the program has, and a console that did not close leaves it running.
     unawaited(Future.sync(letGo).then<void>((_) {}, onError: (Object _) {}));
     return waited;
   }
 
-  /// Closes the pseudoconsole [handle] on an isolate of its own, as closing it waits on what still runs in it.
-  static Future<void> _closeAway(int handle) => Isolate.run(() => _Kernel32().closePseudoConsole(handle));
+  /// Closes the pseudoconsole [handle] on an isolate of its own, as closing it waits on what still runs in it; throws
+  /// only where that isolate never started, so a close that may have run is never taken for one that did not.
+  static Future<void> _closeAway(int handle) async {
+    final exited = ReceivePort();
+    try {
+      await Isolate.spawn(_closeConsoleOn, handle, onExit: exited.sendPort);
+    } on Object {
+      exited.close();
+      rethrow;
+    }
+    await exited.first;
+  }
+
+  static void _closeConsoleOn(int handle) => _Kernel32().closePseudoConsole(handle);
 
   /// Reads the output on one isolate and waits for the program on another.
   static void _pump(
@@ -231,11 +254,7 @@ class ConPty implements SessionChannel {
     StreamController<List<int>> output,
     Completer<int> ended,
   ) => watch(
-    closeConsole: () {
-      console.release.close();
-      // Asked for no more: the program and all it started have ended.
-      _Kernel32().closeHandle(process);
-    },
+    closeConsole: console.release.close,
     output: output,
     ended: ended,
     // A reader that dies, whatever it posted last, says so on the same port, after its output, as null.
@@ -251,11 +270,15 @@ class ConPty implements SessionChannel {
 
   /// Ends [output] and completes [ended] from what [read] and [wait] post, each from an isolate it starts.
   ///
+  /// The program's end is posted as a [ProgramEnd], or an int for a whole one. A whole end closes the console at once;
+  /// an end of the program alone, with no job to say its other processes ended too, leaves the console open until its
+  /// output ended, as closing it would cut off a child still writing.
+  ///
   /// Where [wait] cannot start, or fails after it started (an error posted as a list of two strings, as an isolate's
-  /// `onError` port receives it), the program is asked for here every [poll] through [endedNow], its exit code once
-  /// every process of it has ended, and counts as running until then; where [read] cannot start, its end is not waited
-  /// for, nor where its isolate ended (null posted, as an isolate's `onExit` port receives it) without saying the output
-  /// ended. A throw while asking or closing counts as still running, never as an error nobody handles.
+  /// `onError` port receives it), the program is asked for here every [poll] through [endedNow], and counts as running
+  /// until then; where [read] cannot start, its end is not waited for, nor where its isolate ended (null posted, as an
+  /// isolate's `onExit` port receives it) without saying the output ended. A throw while asking, closing or starting
+  /// either counts as still running, never as an error nobody handles.
   @visibleForTesting
   static void watch({
     required void Function() closeConsole,
@@ -263,27 +286,45 @@ class ConPty implements SessionChannel {
     required Completer<int> ended,
     required Future<Object?> Function(SendPort to) read,
     required Future<Object?> Function(SendPort to) wait,
-    required int? Function() endedNow,
+    required ProgramEnd? Function() endedNow,
     Duration poll = const Duration(milliseconds: 100),
   }) {
     final port = ReceivePort();
     int? code;
     var drained = false;
+    var consoleClosed = false;
     Timer? asking;
     late final StreamSubscription<dynamic> listening;
+
+    void closeTheConsole() {
+      if (consoleClosed) return;
+      consoleClosed = true;
+      try {
+        closeConsole();
+      } on Object {
+        // Its end was seen all the same; what could not be closed is not waited on.
+      }
+    }
+
     Future<void> finishWhenBoth() async {
       if (code == null || !drained) return;
+      closeTheConsole();
       if (!ended.isCompleted) ended.complete(code);
-      await output.close();
-      await listening.cancel();
-      port.close();
+      try {
+        await output.close();
+        await listening.cancel();
+      } on Object {
+        // The end is said; what could not be let go of is not waited on.
+      } finally {
+        port.close();
+      }
     }
 
     void askHere() {
       // Nothing waits for the program: it is asked for here, and counts as running until it is seen gone.
       if (code != null || asking != null) return;
       asking = Timer.periodic(poll, (_) {
-        int? value;
+        ProgramEnd? value;
         try {
           value = endedNow();
         } on Object {
@@ -301,15 +342,12 @@ class ConPty implements SessionChannel {
         } else if (message == _drained || message == null) {
           drained = true;
           await finishWhenBoth();
-        } else if (message is int && code == null) {
+        } else if ((message is int || message is ProgramEnd) && code == null) {
           asking?.cancel();
-          code = message;
-          try {
-            // The output ends only now: the program has exited, and the pseudoconsole lets go.
-            closeConsole();
-          } on Object {
-            // Its end was seen all the same; what could not be closed is not waited on.
-          }
+          final end = message is ProgramEnd ? message : ProgramEnd(message as int, whole: true);
+          code = end.code;
+          // The output ends only once the console is closed; a program alone may have left a child writing into it.
+          if (end.whole) closeTheConsole();
           await finishWhenBoth();
         } else if (message is List) {
           askHere();
@@ -319,15 +357,19 @@ class ConPty implements SessionChannel {
       }
     });
     unawaited(
-      read(port.sendPort).then<void>(
+      Future<Object?>.sync(() => read(port.sendPort)).then<void>(
         (_) {},
         onError: (Object _) async {
           drained = true;
-          await finishWhenBoth();
+          try {
+            await finishWhenBoth();
+          } on Object {
+            // Said as far as it could be.
+          }
         },
       ),
     );
-    unawaited(wait(port.sendPort).then<void>((_) {}, onError: (Object _) => askHere()));
+    unawaited(Future<Object?>.sync(() => wait(port.sendPort)).then<void>((_) {}, onError: (Object _) => askHere()));
   }
 
   static void _readUntilItEnds(List<Object> arguments) {
@@ -358,18 +400,18 @@ class ConPty implements SessionChannel {
     send.send(waitUntilEnded(() => _endedNow(k, process, job), () => k.sleep(_pollMilliseconds)));
   }
 
-  /// Asks [endedNow] until it answers an exit code, with a [pause] between.
+  /// Asks [endedNow] until it answers an end, with a [pause] between.
   @visibleForTesting
-  static int waitUntilEnded(int? Function() endedNow, void Function() pause) {
+  static ProgramEnd waitUntilEnded(ProgramEnd? Function() endedNow, void Function() pause) {
     while (true) {
       if (endedNow() case final code?) return code;
       pause();
     }
   }
 
-  /// The program's exit code once it and every process in its [job] have ended, or null while one runs; -1 for an
-  /// exit code Windows would not give.
-  static int? _endedNow(_Kernel32 k, int process, int job) => endedFrom(
+  /// The program's end once it and every process in its [job] have ended, or it alone where the job cannot say; null
+  /// while one runs.
+  static ProgramEnd? _endedNow(_Kernel32 k, int process, int job) => endedFrom(
     processEnded: () => k.waitForSingleObject(process, 0) == _waitObject0,
     activeInJob: job == 0
         ? null
@@ -401,19 +443,21 @@ class ConPty implements SessionChannel {
     },
   );
 
-  /// The program's [exitCode] once it [processEnded] and no process is [activeInJob], or null while one runs.
+  /// The program's end once it [processEnded] and no process is [activeInJob], or null while one runs.
   ///
-  /// [activeInJob] is null where the program is in no job; it answers null where the job cannot be asked, and the
-  /// program's own handle alone then says whether it ended: a job that is never answered would hold its end for good.
+  /// [activeInJob] is null where the program is in no job; it answers null where the job cannot be asked. Either way
+  /// the program's own handle alone says it ended, and its end is not [ProgramEnd.whole]: a child it started may still
+  /// write, so its console stays open until the output ended.
   @visibleForTesting
-  static int? endedFrom({
+  static ProgramEnd? endedFrom({
     required bool Function() processEnded,
     required int? Function()? activeInJob,
     required int Function() exitCode,
   }) {
     if (!processEnded()) return null;
-    if (activeInJob?.call() case final active? when active != 0) return null;
-    return exitCode();
+    final active = activeInJob?.call();
+    if (active != null && active != 0) return null;
+    return ProgramEnd(exitCode(), whole: active == 0);
   }
 
   /// The two pipes of a terminal, each made by [pipe], null where it could not make one; a pipe made before one that
@@ -481,13 +525,14 @@ class _Console {
 @visibleForTesting
 class ConsoleRelease {
   /// Takes the calls: [endJob] null where the program is in no job; [lastResort] is how long a console whose close on
-  /// an isolate of its own failed is left before it is closed on this one.
+  /// an isolate of its own failed is left before that close is tried once more.
   ConsoleRelease({
     required this.closeInput,
     required this.endJob,
     required this.closeJob,
     required this.closeConsole,
     required this.closeConsoleAway,
+    required this.closeProcess,
     this.lastResort = closeBound,
   });
 
@@ -503,11 +548,15 @@ class ConsoleRelease {
   /// Closes the console on this isolate, which waits on what still runs in it.
   final void Function() closeConsole;
 
-  /// Closes the console on an isolate of its own.
+  /// Closes the console on an isolate of its own; throws only where that isolate never started, so the console is not
+  /// closed: one that started counts as having closed it.
   final Future<void> Function() closeConsoleAway;
 
-  /// How long a console whose close away failed is left before it is closed here: past the close's bound, so whoever
-  /// waits on it was told the program still runs before this isolate may wait on it.
+  /// Closes the program's own handle, asked for no more once it ended.
+  final void Function() closeProcess;
+
+  /// How long a console whose close away failed is left before it is closed away once more: past the close's bound,
+  /// so whoever waits on it was told the program still runs first.
   final Duration lastResort;
 
   /// Whether the console is closed.
@@ -515,6 +564,10 @@ class ConsoleRelease {
 
   bool _closingAway = false;
   bool _jobClosed = false;
+  bool _processClosed = false;
+
+  // Whether the program's end was seen: closing the console here then waits on nothing.
+  bool _ended = false;
 
   /// Whether the console is closed or being closed, so nothing more is asked of it.
   bool get closing => closed || _closingAway;
@@ -527,43 +580,99 @@ class ConsoleRelease {
   void endInput() {
     if (_inputEnded) return;
     _inputEnded = true;
-    closeInput();
+    _step(closeInput);
   }
 
   /// Ends the program from this side: every process in its job, which does not block, so closing the console after
   /// it waits on nothing. Without a job, or where ending it failed, only closing the console ends it, which may block,
-  /// so it is closed on an isolate of its own, and counted closed only once it was; where that failed, it is closed on
-  /// this isolate after [lastResort]. The job stays open for the waiter that asks it.
+  /// so it is closed on an isolate of its own, and counted closed only once it was; where that failed, it is closed
+  /// away once more after [lastResort], never on this isolate before the program's end was seen. The job stays open
+  /// for the waiter that asks it.
   Future<void> letGo() async {
     if (closing) return;
-    if (endJob?.call() ?? false) return;
+    var jobEnded = false;
+    try {
+      jobEnded = endJob?.call() ?? false;
+    } on Object {
+      // Not ended: the console's close ends it.
+    }
+    if (jobEnded) return;
+    if (await _closeAway() || _closeHereOnceEnded()) return;
+    await Future<void>.delayed(lastResort);
+    if (closing || await _closeAway()) return;
+    _closeHereOnceEnded();
+  }
+
+  /// Ends the program by force for whoever waited on it past the bound: its job once more, and its console away, unless
+  /// a close of it runs already.
+  Future<void> endNow() async {
+    try {
+      if (endJob?.call() ?? false) return;
+    } on Object {
+      // Not ended: the console's close ends it.
+    }
+    if (!closing) await _closeAway();
+  }
+
+  Future<bool> _closeAway() async {
     _closingAway = true;
     try {
       await closeConsoleAway();
       closed = true;
     } on Object {
-      await Future<void>.delayed(lastResort);
-      if (!closed) {
-        closed = true;
-        closeConsole();
-      }
+      // Its isolate never started: the console is not closed.
     } finally {
       _closingAway = false;
     }
+    return closed;
+  }
+
+  /// Closes the console here once the program's end was seen and nothing closed it yet; whether it is closed.
+  bool _closeHereOnceEnded() {
+    if (closed || !_ended) return closed;
+    closed = true;
+    _step(closeConsole);
+    return true;
   }
 
   /// Once the program's end was seen: closes the input and the job, ending whatever is still in it, then the console,
-  /// unless it is being closed away already, which closes it either way.
+  /// unless it is being closed away right now, which closes it, or after a failure closes it here, and the program's
+  /// handle. Each step is taken whatever the one before it threw.
   void close() {
+    _ended = true;
     endInput();
     if (!_jobClosed) {
       _jobClosed = true;
-      closeJob();
+      _step(closeJob);
     }
-    if (closing) return;
-    closed = true;
-    closeConsole();
+    if (!_closingAway) _closeHereOnceEnded();
+    if (!_processClosed) {
+      _processClosed = true;
+      _step(closeProcess);
+    }
   }
+
+  static void _step(void Function() step) {
+    try {
+      step();
+    } on Object {
+      // One release that failed keeps none of the others from running.
+    }
+  }
+}
+
+/// How a program ended as far as it was seen: its [code], and whether [whole], every process of its job seen gone,
+/// or only the program itself, where it is in no job or its job could not be asked.
+@immutable
+class ProgramEnd {
+  /// Keeps the code and how much was seen.
+  const ProgramEnd(this.code, {required this.whole});
+
+  /// The program's exit code; -1 for one Windows would not give.
+  final int code;
+
+  /// Whether every process of its job was seen gone, so its console may be closed now.
+  final bool whole;
 }
 
 /// [arguments] as one Windows command line, quoted so that the Microsoft C runtime splits it back

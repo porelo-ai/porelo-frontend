@@ -8,7 +8,7 @@ import 'registry_pages.dart';
 ///
 /// Only the read and Refresh are served here; a change reaches the registry through the adapters that
 /// own it, so [publish] and [apply] refuse.
-class RegistryReadSource implements RegistryPageSource {
+class RegistryReadSource implements RegistryPageSource, RegistryCheckouts {
   /// Constructor taking the chosen address, how a registry is opened for it, and the watched machines.
   RegistryReadSource({required this.repository, required this.open, required this.machines});
 
@@ -21,14 +21,53 @@ class RegistryReadSource implements RegistryPageSource {
   /// The machines watched here; a host the person does not watch has no machine to show it on yet.
   final List<Machine> Function() machines;
 
-  Registry? _registry;
+  // One registry per address, and so per checkout folder: going to another address and back finds the one a run may
+  // hold, never a second, unheld one on the same folder.
+  final _opened = <String, Registry>{};
+
+  // The token every registry opened here is held by for a change Core makes in each, or null.
+  Object? _allHolder;
 
   /// The registry of the address chosen now, or null before one was chosen.
   Registry? get registry {
     final address = repository();
     if (address == null) return null;
-    if (_registry?.checkout.repository != address) _registry = open(address);
-    return _registry;
+    return _opened[address] ??= _opening(address);
+  }
+
+  Registry _opening(String address) {
+    final made = open(address);
+    // Opened while a change Core makes in every checkout runs: held for it from the start.
+    if (_allHolder case final holder?) made.hold(holder);
+    return made;
+  }
+
+  @override
+  List<Registry> holdAll(Object holder) {
+    if (_allHolder != null) throw const RegistryRefusal(Registry.heldWords);
+    final held = <Registry>[];
+    try {
+      for (final each in _opened.values) {
+        each.hold(holder);
+        held.add(each);
+      }
+    } on RegistryRefusal {
+      for (final each in held) {
+        each.release(holder);
+      }
+      rethrow;
+    }
+    _allHolder = holder;
+    return List.unmodifiable(_opened.values);
+  }
+
+  @override
+  void releaseAll(Object holder) {
+    if (!identical(_allHolder, holder)) return;
+    _allHolder = null;
+    for (final each in _opened.values) {
+      each.release(holder);
+    }
   }
 
   @override

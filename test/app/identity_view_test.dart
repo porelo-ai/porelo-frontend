@@ -99,7 +99,13 @@ class _Core implements KeyRecoveryCore {
   }
 
   @override
-  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder}) async {
+  Future<void> publish(
+    RecoveryScope scope,
+    String revision, {
+    required String base,
+    required String id,
+    Object? holder,
+  }) async {
     if (!identical(holder, this.holder)) throw StateError('pushed without the hold');
     calls.add('publish $revision $base');
   }

@@ -8,7 +8,7 @@ import '../app/identity.dart';
 import '../app/key_recovery.dart' show BackupKeyMaking, KeyRecoveryEntry, RecoveryRuns, RecoveryScope;
 import '../app/links.dart';
 import '../app/machines.dart';
-import '../app/registry.dart' show Registry, RegistryContact;
+import '../app/registry.dart' show RegistryCheckouts, RegistryContact;
 import '../app/session.dart';
 import 'key_recovery_dialog.dart';
 import 'tokens.dart';
@@ -16,18 +16,18 @@ import 'unlock_terminal.dart';
 import 'wizard.dart';
 
 /// Opens the person's key and card over the frame; [checkoutFor] names a registry's local checkout folder, and
-/// [registry] the registry read here, whose checkout each change to the card holds while it runs.
+/// [registries] every registry read here, whose checkouts each change to the card holds while it runs.
 Future<void> showIdentity(
   BuildContext context, {
   IdentityModel? model,
   OpenTerminal? open,
   String? Function(String address)? checkoutFor,
-  Registry? Function()? registry,
+  RegistryCheckouts? Function()? registries,
   KeyRecoveryEntry? recovery,
 }) => showDialog<void>(
   context: context,
   builder: (_) => IdentityDialog(
-    model: model ?? IdentityModel(Identity(), checkoutFor: checkoutFor, registry: registry),
+    model: model ?? IdentityModel(Identity(), checkoutFor: checkoutFor, registries: registries),
     open: open,
     recovery: recovery,
   ),
@@ -189,8 +189,8 @@ class _IdentityDialogState extends State<IdentityDialog> {
       final ended = await _keyTerminal(context, title: title, command: command, open: widget.open);
       await _model.terminalEnded(code: ended.code, lastLine: ended.last, id: id);
     } finally {
-      // The registry checkout its change held is let go of however the terminal ended.
-      _model.terminalGone();
+      // The registry checkouts its change held are let go of however the terminal ended.
+      await _model.terminalGone();
     }
   }
 

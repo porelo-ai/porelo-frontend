@@ -54,6 +54,35 @@ void main() {
     expect(closed, <int>[42017]);
   });
 
+  // Harm: a terminal left open, its program and handles with it, because its login's forward would not close, and an
+  // error nobody handles.
+  test('a forward that will not close leaves the terminal closed all the same', () async {
+    raiseLoginForward = (machine, port) async => _Recorded(() => throw StateError('the forward would not close'));
+    final session = login();
+    await said('\x1b]5379;forward;42017\x1b\\');
+
+    await session.leave();
+    expect(far.closed, isTrue);
+
+    final disposed = login();
+    await said('\x1b]5379;forward;42018\x1b\\');
+    disposed.dispose();
+    await pumpEventQueue();
+    expect(far.closed, isTrue);
+  });
+
+  // Harm: a terminal that was left still taken for one that can be typed into.
+  test('a session left or put away is no longer live', () async {
+    final left = login();
+    expect(left.live, isTrue);
+    await left.leave();
+    expect(left.live, isFalse);
+
+    final disposed = login();
+    disposed.dispose();
+    expect(disposed.live, isFalse);
+  });
+
   test('a login that ends takes its forward down with it', () async {
     final session = login();
     await said('\x1b]5379;forward;42017\x1b\\');

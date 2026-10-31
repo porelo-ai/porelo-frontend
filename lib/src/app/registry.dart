@@ -213,6 +213,17 @@ class RegistryFilingRefused extends RegistryRefusal {
   final String? reason;
 }
 
+/// Every registry checkout read here: a change Core makes in each checkout it read, such as a key change, holds them
+/// all at once.
+abstract interface class RegistryCheckouts {
+  /// Holds every registry read here for [holder], and each one opened while it holds them, and answers them; throws a
+  /// [RegistryRefusal] with words, holding none, while any is held or read.
+  List<Registry> holdAll(Object holder);
+
+  /// Lets go of every registry [holder] holds; a token that holds them lets go of nothing.
+  void releaseAll(Object holder);
+}
+
 /// The organisation's registry as Core last accepted it, shared by every list of persons, hosts and projects.
 class Registry extends ChangeNotifier with QuietAfterDispose {
   /// Constructor taking the private checkout and Core's boundary.

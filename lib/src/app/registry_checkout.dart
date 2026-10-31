@@ -168,36 +168,40 @@ class RegistryCheckout {
     ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
   }
 
-  /// Pushes [revision], a commit made earlier on [base] that a push did not take, without any filing state.
+  /// Pushes [revision], a commit made earlier under request [id] that a push did not take, without any filing state.
   ///
-  /// [revision] must be a commit whose only parent is [base], or nothing is taken from it. Done without a push when the
-  /// published branch, fetched first, holds [revision] on its first-parent line, the only one Core reads: its push went
-  /// through before its answer was read, or by hand; a commit of the checkout above it is refused, as it would go with
-  /// the next push. Otherwise refused unless the checkout is clean, on its default branch, at [revision], and [base] is
-  /// the published tip: pushed on any other base, an unreviewed commit would go with it.
-  Future<void> publishMade(String revision, {required String base}) async {
-    if (!_commit.hasMatch(revision) || !_commit.hasMatch(base)) {
+  /// [revision] must be the request's own: its `Porelo-Change-Id` trailer [id], its one parent the kept [base] or the
+  /// commit Core read last, [lastRead], and its change [file] alone; or such a commit whose parent is Core's removal of
+  /// [file] before filing it again, carrying `Porelo-Change-Step: [id]` on one of those, taken whole. Nothing is taken
+  /// from any other commit. Done without a push when the published branch, fetched first, holds [revision] on its
+  /// first-parent line, the only one Core reads: its push went through before its answer was read, or by hand; a commit
+  /// of the checkout above it is refused, as it would go with the next push. Otherwise refused unless the checkout is
+  /// clean, on its default branch, at [revision], and the commit it was made on is the published tip: pushed on any
+  /// other, an unreviewed commit would go with it.
+  Future<void> publishMade(
+    String revision, {
+    required String base,
+    required String id,
+    required String file,
+    String? lastRead,
+  }) async {
+    if (!_commit.hasMatch(revision) ||
+        !_commit.hasMatch(base) ||
+        lastRead != null && !_commit.hasMatch(lastRead) ||
+        !RegExp(r'^[A-Za-z0-9._-]{1,64}$').hasMatch(id)) {
       throw const WorkspaceRefused('Core did not name a valid registry commit.');
     }
-    if (revision == base) throw const WorkspaceRefused(_notOnItsBase);
+    if (revision == base || revision == lastRead) throw const WorkspaceRefused(_notOnItsBase);
     await _checkClean();
     final branch = await _defaultBranch();
     await _git(['fetch', '--no-tags', '--prune', 'origin'], refusal: _fetchRefused);
-    final parents = (await _git([
-      'rev-list',
-      '--parents',
-      '-n',
-      '1',
-      revision,
-    ], refusal: _notOnItsBase)).out.trim().split(RegExp(r'\s+'));
-    if (parents.length != 2 || parents[0] != revision || parents[1] != base) {
-      throw const WorkspaceRefused(_notOnItsBase);
-    }
+    final madeOn = await _ownMadeOn(revision, id: id, file: file, bases: {base, ?lastRead});
+    if (madeOn == null) throw const WorkspaceRefused(_notOnItsBase);
     if (await _onFirstParentLine(branch, revision)) {
       await _checkNothingUnpublished(branch);
       return;
     }
-    if (await _published(branch) != base) {
+    if (await _published(branch) != madeOn) {
       throw const WorkspaceRefused(
         'The registry moved past the commit this change was made on. Nothing was published.',
       );
@@ -210,6 +214,47 @@ class RegistryCheckout {
       'origin',
       '$revision:refs/heads/$branch',
     ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
+  }
+
+  /// The commit [revision] was made on, one of [bases], when it is request [id]'s own change of [file] alone, directly
+  /// or above Core's removal of [file] made for that request; null for any other commit.
+  Future<String?> _ownMadeOn(
+    String revision, {
+    required String id,
+    required String file,
+    required Set<String> bases,
+  }) async {
+    final parent = await _ownChange(revision, trailer: 'Porelo-Change-Id: $id', file: file);
+    if (parent == null) return null;
+    if (bases.contains(parent)) return parent;
+    final before = await _ownChange(parent, trailer: 'Porelo-Change-Step: $id', file: file);
+    return before != null && bases.contains(before) ? before : null;
+  }
+
+  /// The one parent of [commit] when its message carries [trailer] exactly once, no other Porelo change line, and its
+  /// change is [file] alone; null otherwise.
+  Future<String?> _ownChange(String commit, {required String trailer, required String file}) async {
+    final parents = (await _git([
+      'rev-list',
+      '--parents',
+      '-n',
+      '1',
+      commit,
+    ], refusal: _notOnItsBase)).out.trim().split(RegExp(r'\s+'));
+    if (parents.length != 2 || parents[0] != commit) return null;
+    final raw = (await _git(['cat-file', 'commit', commit], refusal: _notOnItsBase)).out;
+    final body = raw.indexOf('\n\n');
+    if (body < 0) return null;
+    final changeLines = [
+      for (final line in const LineSplitter().convert(raw.substring(body + 2)))
+        if (line.startsWith('Porelo-Change-Id:') || line.startsWith('Porelo-Change-Step:')) line,
+    ];
+    if (changeLines.length != 1 || changeLines.single != trailer) return null;
+    // Names as Git holds them, ended by NUL: a name with a space at its end is another file.
+    final changed = (await _git(['diff', '--name-only', '-z', '--no-renames', parents[1], commit])).out.split('\x00')
+      ..removeLast();
+    if (changed.length != 1 || changed.single != file) return null;
+    return parents[1];
   }
 
   static const _notOnItsBase = 'The registry change includes other commits. Nothing was published.';

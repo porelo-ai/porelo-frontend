@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math';
@@ -5,7 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'host_access_contract.dart' show checkedRegistryRevision;
-import 'registry.dart' show Registry, RegistryContact, RegistryRefusal;
+import 'registry.dart' show Registry, RegistryCheckouts, RegistryContact, RegistryRefusal;
 import 'run_here.dart';
 
 /// Whether the agent `SSH_AUTH_SOCK` names serves the card's key, as Core answers it.
@@ -992,28 +993,32 @@ class Identity implements AgentKeyList {
 /// **A change starts once**: an operation whose answer was lost is retried by its ID, never started again.
 class IdentityModel extends ChangeNotifier {
   /// Constructor taking Core's verbs and the agent's key list, fakes in tests.
-  IdentityModel(this.core, {AgentKeyList? keys, this.checkoutFor, this.registry, Map<String, String>? environment})
+  IdentityModel(this.core, {AgentKeyList? keys, this.checkoutFor, this.registries, Map<String, String>? environment})
     : agentKeys = keys ?? core,
       environment = environment ?? Platform.environment;
 
   /// The local checkout folder of the registry at an address, or null when none is here.
   final String? Function(String address)? checkoutFor;
 
-  /// The registry read here, whose checkout a card filing or a key change writes: each holds it while it runs, so no
-  /// key recovery run or registry read meets it half made; absent where none is read here.
-  final Registry? Function()? registry;
+  /// Every registry read here, whose checkouts a card filing or a key change writes: Core files a key change into each
+  /// checkout it read, so each such change holds them all while it runs, and no key recovery run or registry read meets
+  /// it half made; absent where none is read here.
+  final RegistryCheckouts? Function()? registries;
 
   // The hold a key change in a terminal keeps until its terminal ended.
-  ({Registry? registry, Object token})? _terminalHold;
+  _Hold? _terminalHold;
 
-  /// Holds the registry checkout for one change under a token of its own: null, with its words said, while a key
-  /// recovery run holds it or a registry read or filing runs; a hold of nothing where no registry is read here.
-  ({Registry? registry, Object token})? _take() {
-    final registry = this.registry?.call();
-    if (registry == null) return (registry: null, token: Object());
+  /// Holds every registry checkout read here for one change, under a token of its own: null, with its words said, while
+  /// a key recovery run holds one or a registry read or filing runs.
+  ///
+  /// With no registry read here, nothing is held: no checkout of this program's is then read or written beside the
+  /// change, and Core alone decides on the checkouts it read.
+  _Hold? _take() {
+    final checkouts = registries?.call();
     final token = Object();
+    if (checkouts == null) return (checkouts: null, held: const <Registry>[], token: token);
     try {
-      registry.hold(token);
+      return (checkouts: checkouts, held: checkouts.holdAll(token), token: token);
     } on RegistryRefusal catch (refused) {
       problem = refused.words;
       problemReason = null;
@@ -1021,18 +1026,41 @@ class IdentityModel extends ChangeNotifier {
       notifyListeners();
       return null;
     }
-    return (registry: registry, token: token);
   }
 
-  /// Runs [work] holding the registry checkout, and lets go of it by its own token alone.
+  /// Reads each registry [hold] holds again through that hold, as Core may have moved its checkout's `HEAD` and card,
+  /// then lets go of them by its own token alone.
+  static Future<void> _letGo(_Hold hold) async {
+    try {
+      for (final registry in hold.held) {
+        // A registry never read has no read to go stale; its first read comes after the release.
+        if (registry.accepted == null && registry.problem == null) continue;
+        try {
+          await registry.readAgainHeld(hold.token);
+        } on Object {
+          // Said by the registry's own problem; the hold is let go of all the same.
+        }
+      }
+    } finally {
+      hold.checkouts?.releaseAll(hold.token);
+    }
+  }
+
+  /// Runs [work] holding the registry checkouts, and lets go of them by its own token alone.
   Future<void> _holding(Future<void> Function() work) async {
     final hold = _take();
     if (hold == null) return;
     try {
       await work();
     } finally {
-      hold.registry?.release(hold.token);
+      await _letGo(hold);
     }
+  }
+
+  @override
+  void dispose() {
+    unawaited(terminalGone());
+    super.dispose();
   }
 
   /// Where `XDG_CONFIG_HOME` and `HOME` are read, for the card's file.
@@ -1204,11 +1232,12 @@ class IdentityModel extends ChangeNotifier {
     return (command: command, id: id);
   }
 
-  /// Lets go of the registry checkout a key change in a terminal held, once that terminal ended or went away.
-  void terminalGone() {
+  /// Lets go of the registry checkouts a key change in a terminal held, once that terminal ended or went away, after
+  /// reading each again.
+  Future<void> terminalGone() async {
     final hold = _terminalHold;
     _terminalHold = null;
-    if (hold != null) hold.registry?.release(hold.token);
+    if (hold != null) await _letGo(hold);
   }
 
   void _started(String id, String action) {
@@ -1299,7 +1328,7 @@ class IdentityModel extends ChangeNotifier {
   ///
   /// [id] is the rotation's ID, absent for create; [lastLine] is the terminal's last line, Core's JSON when it fits.
   Future<void> terminalEnded({required int code, required String lastLine, String? id}) async {
-    terminalGone();
+    await terminalGone();
     final typed = code == 0 ? null : Identity.typedRefusal(lastLine);
     if (id != null) {
       if (typed != null && nothingMade.contains(typed.reason)) {
@@ -1444,6 +1473,12 @@ class IdentityModel extends ChangeNotifier {
       _filing.remove(registry.address);
       lastFiled = filed;
       await load();
+      // Core files the card and pushes nothing: until it is pushed, the checkout holds a commit the repository does not.
+      problem =
+          'Your card is committed in the registry checkout as ${filed.commit}, and not pushed: push it with your own '
+          'Git, then refresh the registry. Until then the registry is not read here.';
+      problemReason = null;
+      notifyListeners();
       return;
     }
     if (problemCode == 65) {
@@ -1456,3 +1491,6 @@ class IdentityModel extends ChangeNotifier {
     }
   }
 }
+
+/// A change's hold on the registry checkouts: what it holds them through, which it holds, and its own token.
+typedef _Hold = ({RegistryCheckouts? checkouts, List<Registry> held, Object token});

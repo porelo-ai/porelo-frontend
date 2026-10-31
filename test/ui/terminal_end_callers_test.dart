@@ -12,14 +12,18 @@ import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/forges_view.dart';
 import 'package:porelo_frontend/src/ui/host_key_dialog.dart';
 import 'package:porelo_frontend/src/ui/host_stop_dialog.dart';
+import 'package:porelo_frontend/src/ui/unlock_terminal.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart' show FakeBackend, FakeForge, World;
 
-/// A terminal whose program does its work and ends with 0 only while the terminal closes, as one put away at the moment
-/// it finished does.
-class _EndsWellOnClose implements SessionChannel {
-  _EndsWellOnClose({this.onClose});
+/// A terminal whose program does its work and ends with [code] only while the terminal closes, as one put away at the
+/// moment it finished does; none, as one whose end was never seen.
+class _EndsOnClose implements SessionChannel {
+  _EndsOnClose(this.code, {this.onClose});
+
+  /// What it ends with, or null for an end never seen.
+  final int? code;
 
   /// What the program did before it ended.
   final void Function()? onClose;
@@ -42,7 +46,7 @@ class _EndsWellOnClose implements SessionChannel {
   @override
   Future<void> close() async {
     onClose?.call();
-    if (!_ended.isCompleted) _ended.complete(0);
+    if (code case final code? when !_ended.isCompleted) _ended.complete(code);
   }
 }
 
@@ -62,19 +66,192 @@ Future<void> _putAway(WidgetTester tester) async {
 
 void main() {
   // Harm: a Scaleway key Scaleway accepted and kept as its terminal closed taken as refused, so the host setup asks for
-  // it again although it is kept.
-  testWidgets('a provider key kept while its terminal closes is taken as accepted', (tester) async {
+  // it again although it is kept; or one refused, or put away unseen, taken as kept.
+  for (final (code, kept) in [(0, true), (1, false), (null, false)]) {
+    testWidgets('a provider key ending with $code while its terminal closes is taken as accepted: $kept', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      bool? accepted;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => accepted = await openHostKeyDialog(
+                context,
+                open: (executable, arguments, {columns = 80, rows = 24}) => _EndsOnClose(code),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await World.settle(tester);
+
+      await _putAway(tester);
+
+      expect(accepted, kept, reason: 'the program ended with $code while its terminal closed');
+    });
+  }
+
+  // Harm: a provider sign-in that went through as its terminal closed taken as failed, so the host run never resumes;
+  // or a failed or cancelled one taken as done, so the run resumes without its sign-in.
+  for (final (code, resumes) in [(0, true), (1, false), (null, false)]) {
+    testWidgets('a provider sign-in ending with $code while its terminal closes resumes the host run: $resumes', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final settings = Settings(MemorySettingsStore());
+      final machines = Machines(settings, reach: (_) => FakeBackend(const []));
+      final runs = _Runs(machines);
+      final session = HostSession(executable: 'fake', arguments: const []);
+      addTearDown(() {
+        runs.dispose();
+        machines.dispose();
+        settings.dispose();
+        session.dispose();
+      });
+      final run = HostPreparation(
+        project: 'demo',
+        session: session,
+        record: const HostUpRecord(scalewayProject: 'provider'),
+        act: HostAct.ownAccount,
+        providerMachine: const Machine(
+          name: 'account',
+          kind: 'host',
+          hostProject: 'orchard',
+          host: 'worker@orchard',
+          socketPath: '',
+          remoteSocket: '/run/user/1007/porelo',
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HostStopDialog(
+            run: run,
+            hostRuns: runs,
+            machines: machines,
+            needs: const ['vault'],
+            openTerminal: (program, arguments, {columns = 80, rows = 24}) => _EndsOnClose(code),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('host-open-provider-terminal')));
+      await World.settle(tester);
+
+      await _putAway(tester);
+
+      expect(runs.resumed, resumes ? [run] : isEmpty, reason: 'the program ended with $code while its terminal closed');
+    });
+  }
+
+  // Harm: a forge token stored as its terminal closed taken as cancelled, so the forge is never added; or a failed or
+  // cancelled store taken as done.
+  for (final (code, connects) in [(0, true), (1, false), (null, false)]) {
+    testWidgets('a forge token stored by a program ending with $code as its terminal closes connects: $connects', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final tokens = MemoryForgeTokens();
+      final forges = ForgeConnection(
+        tokens,
+        forgeFor: (token, _) => FakeForge()..tokensTried.add(token),
+        openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) =>
+            _EndsOnClose(code, onClose: () => unawaited(tokens.write(arguments.last, 'ghp_accepted'))),
+      );
+      addTearDown(forges.dispose);
+      var said = '';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ForgeForm(useToken: true, forges: forges, onDone: (words) => said = words),
+          ),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('forge-address')), 'git.example.org');
+      final connect = find.byKey(const Key('forge-connect'));
+      await tester.ensureVisible(connect);
+      await tester.tap(connect);
+      await World.settle(tester);
+
+      await _putAway(tester);
+
+      expect(
+        said,
+        connects ? contains('is set up') : isNot(contains('is set up')),
+        reason: 'the program ended with $code while its terminal closed',
+      );
+    });
+  }
+
+  // Harm: a terminal whose navigator went away while it was open never returning to its caller, so whatever the caller
+  // holds for it, the registry checkout, a running mark or a card copy, stays held for good.
+  testWidgets('a terminal whose navigator goes away returns to its caller with its end', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    bool? accepted;
+    TerminalEnd? returned;
+    var letGo = false;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
           builder: (context) => TextButton(
-            onPressed: () async => accepted = await openHostKeyDialog(
+            onPressed: () async {
+              try {
+                returned = await runInATerminal(
+                  context,
+                  title: 'Run',
+                  explanation: 'It runs.',
+                  machine: Machine.local(),
+                  command: const ['true'],
+                  open: (executable, arguments, {columns = 80, rows = 24}) => _EndsOnClose(3),
+                );
+              } finally {
+                letGo = true;
+              }
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await World.settle(tester);
+    expect(find.byKey(const Key('unlock-terminal')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await World.settle(tester);
+
+    expect(letGo, isTrue, reason: 'the caller’s own end ran');
+    expect(returned, (started: true, code: 3));
+  });
+
+  // Harm: a program that ended while its terminal closed never told to the caller that waits on its exit, so what it
+  // did is taken as never done.
+  testWidgets('an exit seen while the terminal closes reaches its exit callback', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final exits = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => runInATerminal(
               context,
-              open: (executable, arguments, {columns = 80, rows = 24}) => _EndsWellOnClose(),
+              title: 'Run',
+              explanation: 'It runs.',
+              machine: Machine.local(),
+              command: const ['true'],
+              open: (executable, arguments, {columns = 80, rows = 24}) => _EndsOnClose(4),
+              onExit: exits.add,
             ),
             child: const Text('Open'),
           ),
@@ -86,86 +263,6 @@ void main() {
 
     await _putAway(tester);
 
-    expect(accepted, isTrue, reason: 'the program ended with 0 while its terminal closed');
-  });
-
-  // Harm: a provider sign-in that went through as its terminal closed taken as failed, so the host run never resumes.
-  testWidgets('a provider sign-in that ends well while its terminal closes resumes the host run', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []));
-    final runs = _Runs(machines);
-    final session = HostSession(executable: 'fake', arguments: const []);
-    addTearDown(() {
-      runs.dispose();
-      machines.dispose();
-      settings.dispose();
-      session.dispose();
-    });
-    final run = HostPreparation(
-      project: 'demo',
-      session: session,
-      record: const HostUpRecord(scalewayProject: 'provider'),
-      act: HostAct.ownAccount,
-      providerMachine: const Machine(
-        name: 'account',
-        kind: 'host',
-        hostProject: 'orchard',
-        host: 'worker@orchard',
-        socketPath: '',
-        remoteSocket: '/run/user/1007/porelo',
-      ),
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HostStopDialog(
-          run: run,
-          hostRuns: runs,
-          machines: machines,
-          needs: const ['vault'],
-          openTerminal: (program, arguments, {columns = 80, rows = 24}) => _EndsWellOnClose(),
-        ),
-      ),
-    );
-    await tester.tap(find.byKey(const Key('host-open-provider-terminal')));
-    await World.settle(tester);
-
-    await _putAway(tester);
-
-    expect(runs.resumed, [run], reason: 'the program ended with 0 while its terminal closed');
-  });
-
-  // Harm: a forge token stored as its terminal closed taken as cancelled, so the forge is never added.
-  testWidgets('a forge token stored while its terminal closes connects the forge', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final tokens = MemoryForgeTokens();
-    final forges = ForgeConnection(
-      tokens,
-      forgeFor: (token, _) => FakeForge()..tokensTried.add(token),
-      openTerminal: (executable, arguments, {int columns = 80, int rows = 24}) =>
-          _EndsWellOnClose(onClose: () => unawaited(tokens.write(arguments.last, 'ghp_accepted'))),
-    );
-    addTearDown(forges.dispose);
-    var said = '';
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ForgeForm(useToken: true, forges: forges, onDone: (words) => said = words),
-        ),
-      ),
-    );
-    await tester.enterText(find.byKey(const Key('forge-address')), 'git.example.org');
-    final connect = find.byKey(const Key('forge-connect'));
-    await tester.ensureVisible(connect);
-    await tester.tap(connect);
-    await World.settle(tester);
-
-    await _putAway(tester);
-
-    expect(said, contains('is set up'), reason: 'the program ended with 0 while its terminal closed');
+    expect(exits, [4]);
   });
 }

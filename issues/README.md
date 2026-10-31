@@ -26,6 +26,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="f287"></a>[F287](F287-A-Join-Confirmed-By-What-The-Host-Follows.md) | — | — | A first join confirmed by what the host follows, healthy hosts offered beside a refused commit, no credential kept or shown, an unconfirmed join undoing only its own. |
+| <a id="f286"></a>[F286](F286-A-Recovery-Hold-Never-Stuck-And-Its-Commit-Its-Own.md) | — | — | A recovery run never holding the registry for good, its made commit taken only when its own, the reviewed card copied privately, terminals closed without hang or leak. |
 | <a id="f285"></a>[F285](F285-A-Recovery-Run-Ended-Pushed-And-On-Its-Own-Base.md) | — | — | A recovery run always ended, its own pushed commit finished, a project backup key on its own base, the reviewed card filed, terminals closed without freezing. |
 | <a id="f283"></a>[F283](F283-A-Recovery-Request-Never-Locked-Lost-Or-Misfiled.md) | — | — | A kept key replacement or backup key always finishable or droppable, never dropped while made or running, never filed unread or on a stale base. |
 | <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
@@ -96,7 +97,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f286"></a>[F286](F286-A-Recovery-Hold-Never-Stuck-And-Its-Commit-Its-Own.md) | — | — | A recovery run never holding the registry for good, its made commit taken only when its own, the reviewed card copied privately, terminals closed without hang or leak. |
 | <a id="f284"></a>[F284](F284-The-Subagent-Number-Chosen-When-Starting.md) | — | — | How many subagents the agent may run at once, chosen when starting, with the number that applies and Core's refusal said before anything is made. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f281"></a>[F281](F281-A-Kept-Recovery-Commit-Finished-Not-Made-Again.md) | — | — | A key replacement or backup key committed but not pushed finished under the same request, never made twice; each harm guarded by a test. |

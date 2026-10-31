@@ -2010,6 +2010,7 @@ List<Command> keyRecoveryCommands({
   required VoidCallback useBackup,
   required VoidCallback makeBackup,
   required VoidCallback forget,
+  VoidCallback? endOutlived,
 }) {
   final login = person;
   final reviewed = recovery.review;
@@ -2108,6 +2109,20 @@ List<Command> keyRecoveryCommands({
           ? 'The single admin or owner makes their own backup key.'
           : null,
       run: makeBackup,
+    ),
+    Command(
+      id: 'keyRecovery.endOutlived',
+      label: 'End Core in the put-away terminal',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: recovery.outlivedKey == null
+          ? 'No terminal put away while Core still ran in it.'
+          : endOutlived == null
+          ? 'It is ended where it was started.'
+          : null,
+      run: () {
+        if (recovery.outlivedKey != null) endOutlived?.call();
+      },
     ),
   ];
 }

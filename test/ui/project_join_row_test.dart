@@ -318,7 +318,13 @@ class _Registry implements RegistryCheckout, RegistryCore {
   Future<void> prepareFiling() async {}
 
   @override
-  Future<void> publishMade(String revision, {required String base}) async {}
+  Future<void> publishMade(
+    String revision, {
+    required String base,
+    required String id,
+    required String file,
+    String? lastRead,
+  }) async {}
 
   @override
   Future<void> publish(String revision) async {}

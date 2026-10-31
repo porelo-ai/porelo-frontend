@@ -19,6 +19,7 @@ import 'src/app/authentication.dart';
 import 'src/app/emergency_stop.dart';
 import 'src/app/start_work.dart';
 import 'src/app/templates.dart';
+import 'src/app/key_recovery.dart' show PrivateCards;
 import 'src/app/keystore.dart';
 import 'src/app/vault.dart';
 import 'src/app/widening.dart';
@@ -127,6 +128,8 @@ Future<PoreloApp> _compose() async {
     exit(0);
   }
 
+  // A card copy a crash left behind is removed now, not only when the next replacement runs.
+  unawaited(PrivateCards().sweep());
   final newerVersion = NewerVersion()..watch();
   // Nothing is opened here: a session exists only once somebody asks for one, and the list is
   // what makes several of them tellable apart.

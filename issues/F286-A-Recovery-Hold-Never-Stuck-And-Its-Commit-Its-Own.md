@@ -1,6 +1,6 @@
 # F286 — A Recovery Hold Never Stuck And Its Commit Its Own
 
-**Status:** Idea.
+**Status:** Implementing.
 
 **What must be true.** A key replacement or backup key never holds the registry checkout for good. Its made commit is
 taken as done only when it is the request's own, and a commit Core made on a newer base is still finished. The card
@@ -67,3 +67,53 @@ Each point gets a test that goes red with its harm first. These are the fixes in
 - The hold is bound to the dialog's life: a run whose dialog went away ends its hold.
 - Identity writes hold every checkout Core will write.
 - `publishMade` takes the commit's change id and the parent Core answers.
+
+## Built so far
+
+Each harm below has a test that was seen red with the harm put back, then green.
+- **Hold bound to the dialog.** `runInATerminal` returns when its navigator goes away, completed from the terminal's
+  `dispose`, so each caller's `finally` lets go of the hold, the running mark and the card copy. A close-time exit
+  reaches `onExit`. `IdentityModel.dispose` lets go of its terminal's hold. A registry backup-key terminal put away
+  while its program runs keeps the hold only until that program ends; the dialog shows it running with *End Core in
+  the put-away terminal*, which ends it and waits a bounded time.
+- **One registry per checkout.** `RegistryReadSource` keeps one `Registry` per address, so switching away and back gives
+  the same object. Identity writes hold every registry read here (`RegistryCheckouts.holdAll`), refuse with words
+  while any is held, and hold nothing when none was read, leaving Core alone to decide. Each held registry is read
+  again through its hold before it is let go. `fileCard` says its unpushed commit.
+- **Project runs.** A project replacement is never refused because the registry is held or busy.
+- **Made commit.** Each request keeps the change id it sent; `publishMade` takes a commit only when its single
+  `Porelo-Change-Id` (or, for the removal step, `Porelo-Change-Step`) line is the request's id and it changes only the
+  expected file, on the kept base or the commit read last. A two-commit `registry file` answer is taken whole.
+  Anything else is refused with words.
+- **Card copy.** On Windows copies are made under a private root restricted once with `privateDirectory`. The sweep
+  compares normalized absolute paths, and a folder is made and marked live under a lock the sweep honours. A login
+  must match `[a-z][a-z0-9-]{0,31}`. The app sweeps at start. A card or folder that is a link or no plain file is
+  refused with words. A receipt kept without its card text is refused with words, and Forget is offered. A list opened
+  while the registry is read waits for the read to end, then reads its cards.
+- **Project backup-key records.** Each commit made here is kept with its own base. A read forgets only those it holds,
+  so a read that has caught up to the middle of a chain keeps the newer ones. A backup key's use (`--use`) is kept only
+  in the project repository's record. It blocks nothing in the access file and is shown as done. Neither the use nor a
+  new backup key is offered again while the access file still names the key it replaced.
+- **Windows close.** A program end closes the console even when the close on its own isolate failed. The last resort
+  never runs on the UI isolate and never closes twice. With no job, or a failed job query, the console stays open
+  until output EOF. Every release step has its own try. `read` and `wait` go through `Future.sync` with the error
+  handled.
+- **Terminals.** `Session.leave` and `dispose` close the channel in a `finally` and catch every error; `live` is false
+  once left.
+- **Tests.** The three terminal callers are tested with codes 0, 1 and none. The receipt-without-card test runs the
+  real core. The dialog's fake reads the project repository's records, and its tear-down checks hold, run and copy
+  every time. The unremovable-copy test is skipped on Windows and as root.
+
+## To be checked
+
+- A backup-key commit is assumed to carry `Porelo-Change-Id: <the request's id>`, as `registry file` does. Core's
+  contract says only "the same `--id` answers the commit already made". Confirm it on a real Core run.
+- `prepareRetry` still accepts only a single-commit chain on the base. A two-commit answer is finished by
+  `publishMade`, but a retry before Core answered again does not take it.
+- `readRegularFile` checks the card's type before it reads the card, which leaves a short gap between check and read.
+  Core's own refusal of links runs on the copy's source only if Core reads the checkout itself.
+- The identity page's rotate terminal lets go of its hold when it is put away while its program runs. It has no
+  *End* command like the replacement dialog's.
+- Nothing sweeps card copies at exit, only at start and before each copy.
+- The start sweep in `main.dart` is not tested at the app level. `PrivateCards.sweep` itself is.
+- The unremovable-copy test was not seen red as root: no root run was made here.

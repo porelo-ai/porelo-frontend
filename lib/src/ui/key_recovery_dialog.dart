@@ -202,8 +202,8 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
   } on FormatException catch (error) {
     words = error.message;
   } on TerminalStillRunning catch (still) {
-    // Core may still write the key and commit it: the attempt runs until its program has ended.
-    await still.ended.then<void>((_) {}, onError: (Object _) {});
+    // Core may still write the key and commit it: the attempt runs until its program has ended, or is ended by hand.
+    await RecoveryRuns.of(making.receipts).outlive(BackupKeyMaking.keyOf(making.scope), still);
     words =
         'The terminal was put away while Core still ran in it, and its answer was not read. Core may have made the '
         'backup key, so its request is kept: make a backup key again, into the same file, to finish it under the same '
@@ -383,7 +383,7 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
         ended = true;
         // Counted as running until its program ended, which needs no dialog: this one may be put away meanwhile.
         if (mounted) setState(() => _using = false);
-        await _recovery.backupOutlived(still.ended);
+        await _recovery.backupOutlived(still);
         return;
       }
       ended = true;
@@ -465,6 +465,7 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
         useBackup: () => unawaited(_useBackup()),
         makeBackup: () => unawaited(_makeBackup()),
         forget: () => unawaited(_forgetAttempt()),
+        endOutlived: () => unawaited(_recovery.endOutlived()),
       );
       final holding = _recovery.busy || _using;
       return PopScope(
@@ -515,13 +516,23 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
                                 'key and card.'
                           : 'Now ${situation.people[login]} · new ${card.fingerprint} (${card.state})',
                     ),
+                  if (situation.backupUsed case final used? when _recovery.filed == null)
+                    Text(
+                      'The backup key replaced $used’s key in the project file, pushed from here; the project’s host '
+                      'takes it at its next sync. The backup key stays, now for the new key.',
+                      key: const Key('recovery-backup-used'),
+                    ),
                   if (reviewed != null) ..._review(reviewed),
                   if (_recovery.filed case final filed?) ..._results(filed),
                   if (_recovery.problem case final problem?) Text(problem, style: TextStyle(color: error)),
                   for (final command in commands)
                     if (switch (command.id) {
-                      'keyRecovery.makeBackup' => _recovery.replaced || situation.madeHereReplaced != null,
+                      // A backup key's use keeps it: Core refuses a second one beside it.
+                      'keyRecovery.makeBackup' =>
+                        (_recovery.replaced && reviewed?.backup != true || situation.madeHereReplaced != null) &&
+                            situation.backupUsed == null,
                       'keyRecovery.forget' => _recovery.forgettable,
+                      'keyRecovery.endOutlived' => _recovery.outlivedKey != null,
                       _ => true,
                     })
                       _CommandButton(command),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -8,9 +9,11 @@ import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart' show RegistryCard, RegistryFiled, RegistryHost, RegistryOwner;
 import 'package:porelo_host/porelo_host.dart' show HostFileWriter;
 
+import 'access_checkout.dart' show privateDirectory;
 import 'host_access.dart' show HostAdminIdentity;
 import 'host_access_contract.dart' show HostRegistryTransport, checkedRegistryRevision;
 import 'identity.dart' show Identity, operationIdPattern;
+import 'pty.dart' show TerminalStillRunning, closeBound;
 import 'project_access_contract.dart' show ProjectAccessCoreAdapter, ProjectAccessNotAdmin, ProjectAccessView;
 import 'quiet_after_dispose.dart';
 import 'registry.dart';
@@ -131,6 +134,7 @@ class RecoverySituation {
     this.madeHere,
     this.madeHereReplaced,
     String? backupBase,
+    this.backupUsed,
     Map<String, String> cardTexts = const {},
   }) : backupBase = backupBase ?? (scope.kind == RecoveryKind.project ? null : base),
        cardTexts = Map.unmodifiable(cardTexts),
@@ -170,7 +174,7 @@ class RecoverySituation {
 
   /// A commit made here on [base] that this read does not show yet, or null: its people and roles are older than it,
   /// so no replacement is reviewed on it, while a backup key, which touches only its own entry, is made on it. For a
-  /// project, also a backup key's replacement made here in its own repository that its read does not show yet.
+  /// project, only one in its access file: what its backup key makes in its own repository changes no access.
   final String? madeHere;
 
   /// The login whose key a replacement in [madeHere] or before it replaced, or null when that is no replacement.
@@ -180,6 +184,11 @@ class RecoverySituation {
   /// project its own repository's, where `project.yml` names the backup key, never the access repository's; the
   /// list's [base] otherwise. Null when it is not read.
   final String? backupBase;
+
+  /// For a project, the login whose key its backup key replaced here in the project's own repository, while the access
+  /// file still names the key it replaced; null otherwise. That replacement is done: the backup key stays, and the
+  /// project file no longer names the old key, so neither its use nor a new backup key is offered for that login.
+  final String? backupUsed;
 
   /// The exact text of each new card the checkout held when this was read, by login: what a review of it reviews.
   final Map<String, String> cardTexts;
@@ -203,6 +212,10 @@ class RecoverySituation {
     if (soleAdmin != login) return 'The backup key replaces only its own admin’s key, $soleAdmin’s.';
     if (actor?.login != login) return 'Only $login uses their backup key, on their own computer.';
     if (!backupRegistered) return 'No backup key is filed for $login.';
+    if (backupUsed == login) {
+      return 'The backup key replaced $login’s key in the project file already; the project’s host takes it at its '
+          'next sync.';
+    }
     return null;
   }
 }
@@ -310,9 +323,9 @@ class RecoveryReview {
     );
   }
 
-  /// Whether [text] is the card this review read: its exact text, or for a review kept before it read one, a card
-  /// naming the reviewed key.
-  bool isReviewedCard(String text) => cardText == null ? _cardFingerprint(text) == newFingerprint : text == cardText;
+  /// Whether [text] is the card this review read, its exact text; never for a review kept before it read one, as a
+  /// rotated card of the same key names the same key and is another card.
+  bool isReviewedCard(String text) => cardText != null && text == cardText;
 }
 
 /// What a replacement made: the signed commit, and whether it reached the shared repository.
@@ -430,8 +443,15 @@ abstract interface class KeyRecoveryCore {
   /// Readies the registry checkout before Core commits a change there in a terminal, for the run [holder].
   Future<void> prepare(RecoveryScope scope, {Object? holder});
 
-  /// Pushes [revision], which Core committed in the registry checkout on [base] and did not push, for the run [holder].
-  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder});
+  /// Pushes [revision], which Core committed in the registry checkout under request [id] on [base], or on the commit it
+  /// read last, and did not push, for the run [holder]; any commit but the request's own is refused.
+  Future<void> publish(
+    RecoveryScope scope,
+    String revision, {
+    required String base,
+    required String id,
+    Object? holder,
+  });
 
   /// Takes the registry checkout for the run whose token [holder] is, made for that run alone, until [release] with
   /// the same token, so no registry read or filing runs beside it; throws a [RegistryRefusal] with words while one
@@ -553,6 +573,45 @@ class RecoveryRuns extends ChangeNotifier {
   /// Counts [key] as running no longer.
   void end(String key) {
     if (_scopes.remove(key) != null) notifyListeners();
+  }
+
+  final _outlived = <String, ({TerminalStillRunning still, Completer<void> byHand})>{};
+
+  /// Whether the terminal of the request kept as [key] was put away while its program still runs.
+  bool outlived(String key) => _outlived.containsKey(key);
+
+  /// Waits, for the request kept as [key], on [still], a terminal put away while its program still runs: until that
+  /// program ended, or was ended by [endOutlived]. Meanwhile it may still write, so whatever its run holds stays held.
+  Future<void> outlive(String key, TerminalStillRunning still) async {
+    final byHand = Completer<void>();
+    _outlived[key] = (still: still, byHand: byHand);
+    notifyListeners();
+    try {
+      await Future.any([still.ended.then<void>((_) {}, onError: (Object _) {}), byHand.future]);
+    } finally {
+      if (identical(_outlived[key]?.byHand, byHand)) _outlived.remove(key);
+      notifyListeners();
+    }
+  }
+
+  /// Ends by force the program the request kept as [key] left running in a put-away terminal; once ended it writes
+  /// nothing more, so its run lets go of what it held, after its end, or the close's bound, has passed.
+  Future<void> endOutlived(String key) async {
+    final outlived = _outlived[key];
+    final end = outlived?.still.end;
+    if (outlived == null || end == null) return;
+    try {
+      await end();
+    } on Object {
+      // It could not be ended: its run still waits on its own end.
+      return;
+    }
+    try {
+      await outlived.still.ended.timeout(closeBound);
+    } on Object {
+      // Ended by force: what it was still doing is cut off.
+    }
+    if (!outlived.byHand.isCompleted) outlived.byHand.complete();
   }
 }
 
@@ -907,6 +966,18 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
     notifyListeners();
   }
 
+  /// The kept request whose terminal was put away while Core still runs in it, this replacement's or its list's backup
+  /// key making, or null.
+  String? get outlivedKey => [
+    _key,
+    if (situation.scope.backupFlags != null) BackupKeyMaking.keyOf(situation.scope),
+  ].where(_runs.outlived).firstOrNull;
+
+  /// Ends by force Core in a terminal put away while it still ran, for [outlivedKey].
+  Future<void> endOutlived() async {
+    if (outlivedKey case final key?) await _runs.endOutlived(key);
+  }
+
   /// Whether Retry runs the backup key's terminal again, rather than anything this program calls itself.
   bool get retriesInTerminal => review?.backup == true && filed == null;
 
@@ -947,7 +1018,7 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       // Made before the request, so a list that does not hold the reviewed key starts nothing.
       _content = await core.fileFor(reviewed, holder: _hold);
     } else if (_content == null) {
-      await _keptWithoutFile(reviewed);
+      _keptWithoutFile();
     }
     requestId ??= _newId();
     // Kept as uncertain before Core runs: an attempt whose end is never read may have made the commit.
@@ -981,32 +1052,20 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
     await _published();
   }
 
-  /// Reads the file a request kept before it kept one, whose answer was lost: only while the list still reads as
-  /// reviewed and the checkout's card is the reviewed one; otherwise Forget is the way out.
-  Future<void> _keptWithoutFile(RecoveryReview reviewed) async {
-    // A registry list's own unpushed commit may be in the checkout, which is made again from the list as kept.
-    if (reviewed.scope.inRegistry && !reviewed.backup) {
-      _content = await core.fileFor(reviewed, holder: _hold);
-      return;
-    }
-    try {
-      await core.checkReviewed(reviewed, holder: _hold);
-      _content = await core.fileFor(reviewed, holder: _hold);
-    } on RegistryRefusal catch (refused) {
-      throw RecoveryRefused(
-        '${refused.words} This request was kept without the card it hands Core, and the card the registry holds now is '
-        'not the reviewed one, so it is not tried again: Forget drops it once you checked by hand what Core made under '
-        'it.',
-        code: 0,
-      );
-    }
-  }
+  /// Refuses a request kept before it kept the file it hands Core, whose answer was lost: that file cannot be made
+  /// again as it was, so the request is never tried again blind. Forget is the way out; a commit it made already and
+  /// recorded is finished by its push, which takes only the request's own commit.
+  static Never _keptWithoutFile() => throw const RecoveryRefused(
+    'This request was kept without the file it hands Core, so it is not tried again: Forget drops it once you checked '
+    'by hand what Core made under it.',
+    code: 0,
+  );
 
   Future<void> _published() async {
     final reviewed = review!;
     var made = filed!;
     if (!made.published) {
-      await core.publish(reviewed.scope, made.revision, base: reviewed.base, holder: _hold);
+      await core.publish(reviewed.scope, made.revision, base: reviewed.base, id: _keptId ?? '', holder: _hold);
       made = filed = RecoveryFiled(revision: made.revision, published: true);
       await _keep();
     }
@@ -1016,6 +1075,7 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       base: reviewed.base,
       revision: made.revision,
       replaced: reviewed.login,
+      old: reviewed.oldFingerprint,
       projectRepository: reviewed.backup,
     );
     for (final host in reviewed.hosts) {
@@ -1097,7 +1157,7 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       await core.checkReviewed(reviewed, holder: _hold);
       _content = await core.fileFor(reviewed, holder: _hold);
     } else if (_content == null) {
-      await _keptWithoutFile(reviewed);
+      _keptWithoutFile();
     }
     final card = _content;
     if (card == null || !reviewed.isReviewedCard(card)) throw const RecoveryRefused(reviewMoved, code: 0);
@@ -1189,15 +1249,17 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
     });
   }
 
-  /// Keeps the backup key's terminal counted as open after it was put away while Core still ran, until Core [ended].
+  /// Keeps the backup key's terminal counted as open after it was put away while Core still ran, [still], until Core
+  /// ended or was ended by [endOutlived]; its run holds the registry checkout meanwhile.
   ///
   /// Its answer is never read: the request stays kept as uncertain, for Retry under it or Forget.
-  Future<void> backupOutlived(Future<Object?> ended) async {
+  Future<void> backupOutlived(TerminalStillRunning still) async {
     if (!backupRunning) return;
     problem =
-        'The terminal was put away while Core still ran in it. Nothing can be retried or forgotten until it ends.';
+        'The terminal was put away while Core still ran in it. Nothing can be retried or forgotten until it ends; '
+        'end it here if it does not.';
     notifyListeners();
-    await ended.then<void>((_) {}, onError: (Object _) {});
+    await _runs.outlive(_key, still);
     await _letGo();
     problem =
         'Core ended after its terminal was put away; its answer was not read. Retry runs the backup key again under '
@@ -1375,59 +1437,119 @@ BackupKeyMade backupMadeFrom(
 String _inForceKey(RecoveryScope scope, {bool projectRepository = false}) =>
     projectRepository ? 'in-force/project-repository/${scope.receiptKey}' : 'in-force/${scope.receiptKey}';
 
-/// Keeps [revision], made here on [base] and pushed, as the commit in force for a project's access, or with
-/// [projectRepository] for its own repository; [replaced] is the login whose key it replaced, when it is a replacement.
+/// One commit made here and pushed in one repository of a project: the `base` it was made on, and, for a replacement,
+/// the login it `replaced` and the fingerprint it replaced there, `old`.
+typedef MadeHere = ({String base, String revision, String? replaced, String? old});
+
+/// The commits kept as made here in [scope]'s access, or with [projectRepository] in its own repository, oldest first;
+/// one kept before they were kept each on its own base reads as the one it names.
+List<MadeHere> madeHereIn(RecoveryReceipts receipts, RecoveryScope scope, {bool projectRepository = false}) {
+  final kept = receipts.read(_inForceKey(scope, projectRepository: projectRepository));
+  final entries = kept?['made'] is List ? kept!['made']! as List : [kept];
+  return [
+    for (final entry in entries)
+      if (entry is Map && entry['base'] is String && entry['revision'] is String)
+        (
+          base: entry['base']! as String,
+          revision: entry['revision']! as String,
+          replaced: entry['replaced'] is String ? entry['replaced']! as String : null,
+          old: entry['old'] is String ? entry['old']! as String : null,
+        ),
+  ];
+}
+
+Future<void> _keepMadeHere(RecoveryReceipts receipts, String key, List<MadeHere> made) => made.isEmpty
+    ? receipts.forget(key)
+    : receipts.keep(key, {
+        'made': [
+          for (final entry in made)
+            {'base': entry.base, 'revision': entry.revision, 'replaced': entry.replaced, 'old': entry.old},
+        ],
+      });
+
+/// The commits kept in [made] that a read at [read] does not hold yet: the one made on it, the one made on that, and so
+/// on, oldest first.
+List<MadeHere> _after(List<MadeHere> made, String? read) {
+  final chain = <MadeHere>[];
+  var at = read;
+  while (at != null && chain.length < made.length) {
+    final next = made.where((entry) => entry.base == at).lastOrNull;
+    if (next == null) break;
+    chain.add(next);
+    at = next.revision;
+  }
+  return chain;
+}
+
+/// Keeps [revision], made here on [base] and pushed, as a commit in force for a project's access, or with
+/// [projectRepository] for its own repository; [replaced] is the login whose key it replaced there, and [old] that
+/// key's fingerprint, when it is a replacement.
 ///
-/// A chain of such commits keeps the base first read, so a read older than all of them still finds the newest, and
-/// the replacement in it.
+/// Each commit keeps its own base, so a read that holds one of a chain still finds every one made after it.
 Future<void> keepMadeInForce(
   RecoveryReceipts receipts,
   RecoveryScope scope, {
   required String base,
   required String revision,
   String? replaced,
+  String? old,
   bool projectRepository = false,
 }) async {
   if (scope.kind != RecoveryKind.project) return;
-  final key = _inForceKey(scope, projectRepository: projectRepository);
-  final kept = receipts.read(key);
-  final chained = kept?['revision'] == base && kept?['base'] is String;
-  final earlier = chained && kept!['replaced'] is String ? kept['replaced']! as String : null;
-  await receipts.keep(key, {
-    'base': chained ? kept!['base']! as String : base,
-    'revision': revision,
-    'replaced': replaced ?? earlier,
-  });
+  final made = madeHereIn(receipts, scope, projectRepository: projectRepository);
+  if (made.any((entry) => entry.revision == revision)) return;
+  await _keepMadeHere(receipts, _inForceKey(scope, projectRepository: projectRepository), [
+    ...made,
+    (base: base, revision: revision, replaced: replaced, old: old),
+  ]);
 }
 
-/// Forgets the commit kept as made here in [scope], or with [projectRepository] in the project's own repository, once a
-/// read shows it or Core said the list moved past it.
+/// Forgets every commit kept as made here in [scope], or with [projectRepository] in the project's own repository,
+/// once Core said the list moved past them.
 Future<void> forgetMadeInForce(RecoveryReceipts receipts, RecoveryScope scope, {bool projectRepository = false}) async {
   final key = _inForceKey(scope, projectRepository: projectRepository);
   if (scope.kind == RecoveryKind.project && receipts.read(key) != null) await receipts.forget(key);
 }
 
-/// The login whose key the commits kept as made here on [read] replaced, or null when none of them is a replacement;
-/// with [projectRepository], those made in the project's own repository by its backup key.
+/// Forgets the commits kept as made here that a read at [read] holds, or that a list moved past: only those made on it,
+/// one after another, are kept, and those [stillDone] keeps as done whatever the read holds.
+Future<void> forgetShownInForce(
+  RecoveryReceipts receipts,
+  RecoveryScope scope,
+  String? read, {
+  bool projectRepository = false,
+  bool Function(MadeHere made)? stillDone,
+}) async {
+  if (scope.kind != RecoveryKind.project) return;
+  final made = madeHereIn(receipts, scope, projectRepository: projectRepository);
+  final unshown = _after(made, read);
+  final kept = [
+    for (final entry in made)
+      if (unshown.contains(entry) || (stillDone?.call(entry) ?? false)) entry,
+  ];
+  if (kept.length == made.length) return;
+  await _keepMadeHere(receipts, _inForceKey(scope, projectRepository: projectRepository), kept);
+}
+
+/// The login whose key the newest replacement kept as made here after [read] replaced, or null when none of them is
+/// one; with [projectRepository], those made in the project's own repository by its backup key.
 String? madeInForceReplaced(
   RecoveryReceipts receipts,
   RecoveryScope scope,
   String? read, {
   bool projectRepository = false,
-}) {
-  final kept = receipts.read(_inForceKey(scope, projectRepository: projectRepository));
-  final replaced = kept?['replaced'];
-  return read != null && kept?['base'] == read && replaced is String ? replaced : null;
-}
+}) => _after(
+  madeHereIn(receipts, scope, projectRepository: projectRepository),
+  read,
+).map((entry) => entry.replaced).nonNulls.lastOrNull;
 
 /// The commit in force for [scope] when [read] is what its access, or with [projectRepository] its own repository, was
-/// last read at: the newest made here on it.
+/// last read at: the newest made here after it.
 String? madeInForce(RecoveryReceipts receipts, RecoveryScope scope, String? read, {bool projectRepository = false}) {
-  final kept = receipts.read(_inForceKey(scope, projectRepository: projectRepository));
-  final revision = kept?['revision'];
-  if (read == null || kept?['base'] != read || revision is! String) return read;
+  final newest = _after(madeHereIn(receipts, scope, projectRepository: projectRepository), read).lastOrNull;
+  if (newest == null) return read;
   try {
-    return checkedRegistryRevision(revision);
+    return checkedRegistryRevision(newest.revision);
   } on FormatException {
     return read;
   }
@@ -1633,7 +1755,7 @@ class BackupKeyMaking {
     final kept = _kept;
     final revision = kept?.revision;
     if (kept == null || revision == null) return;
-    await core.publish(scope, revision, base: kept.base, holder: _hold);
+    await core.publish(scope, revision, base: kept.base, id: kept.id, holder: _hold);
     await receipts.forget(_key);
   }
 
@@ -1812,7 +1934,9 @@ void checkOneKeyChanged(String before, String after) {
 /// Private copies of a reviewed card that Core is handed, each in a folder of its own that only this user reaches from
 /// its creation, the file restricted before its text is written.
 ///
-/// A copy is removed once Core ran, and a removal that fails throws nothing; what a crash left behind is swept when the
+/// On Windows, where a folder is made with its parent's access and restricted only after, each copy's folder is made
+/// under a private root this program restricted once, so it is never reachable by another account. A copy is removed
+/// once Core ran, and a removal that fails throws nothing; what a crash left behind is swept at start and when the
 /// next copy is made.
 class PrivateCards {
   /// Constructor taking the folder copies are made under, the system's temporary folder by default, and the writer
@@ -1821,7 +1945,7 @@ class PrivateCards {
     : root = root ?? Directory.systemTemp.path,
       _writer = writer ?? HostFileWriter();
 
-  /// Where each copy's folder is made.
+  /// Where each copy's folder is made, or on Windows the private root that holds them.
   final String root;
 
   final HostFileWriter _writer;
@@ -1829,14 +1953,52 @@ class PrivateCards {
   /// The start of each copy's folder name.
   static const prefix = 'porelo-card-';
 
-  // The folders of copies Core may still read, made in this program: never swept.
+  /// The private root copies are made under on Windows, inside [root].
+  static const windowsRoot = 'porelo-cards';
+
+  /// What a login that names a card copy must be: no separator, no dot, nothing a path reads otherwise.
+  static final login = RegExp(r'^[a-z][a-z0-9-]{0,31}$');
+
+  // The folders of copies Core may still read, made in this program, as normalized absolute paths: never swept.
   static final _live = <String>{};
 
+  // Making a copy's folder and marking it live, and every sweep, run one after another: a sweep never meets a folder
+  // made and not yet marked.
+  static Future<void> _lock = Future<void>.value();
+
+  // The private root, made once.
+  Future<String>? _home;
+
+  static Future<T> _locked<T>(Future<T> Function() work) {
+    final result = _lock.then((_) => work());
+    _lock = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
+  }
+
+  static String _normal(String folder) => path.normalize(path.absolute(folder));
+
+  /// Where each copy's folder is made: [root], or on Windows the private root inside it, made private before first use.
+  Future<String> _folder() => _home ??= () async {
+    if (!_writer.isWindows) return _normal(root);
+    final home = _normal(path.join(root, windowsRoot));
+    await privateDirectory(Directory(home), writer: _writer);
+    return home;
+  }();
+
   /// Writes [content] as `<login>.card` into a new private folder and answers the file's path.
+  ///
+  /// [login] must be a login, or nothing is made: anything else could name a file outside the folder.
   Future<String> copy(String login, String content) async {
-    await _sweep();
-    final folder = await _writer.createPrivateTemporary(Directory(root), prefix: prefix);
-    _live.add(folder.path);
+    if (!PrivateCards.login.hasMatch(login)) {
+      throw RecoveryRefused('“$login” is no login a card can be named after. Nothing was handed to Core.', code: 0);
+    }
+    final folder = await _locked(() async {
+      final home = await _folder();
+      await _sweepIn(home);
+      final made = await _writer.createPrivateTemporary(Directory(home), prefix: prefix);
+      _live.add(_normal(made.path));
+      return made;
+    });
     final file = File(path.join(folder.path, '$login.card'));
     try {
       await file.create(exclusive: true);
@@ -1851,19 +2013,30 @@ class PrivateCards {
 
   /// Removes the copy [file] and its folder; one that cannot be removed now is swept later.
   Future<void> drop(String file) async {
-    final folder = path.dirname(file);
+    final folder = _normal(path.dirname(file));
     if (!_live.remove(folder)) return;
     try {
       await Directory(folder).delete(recursive: true);
     } on FileSystemException {
-      // Core's answer counts more than the copy: the next copy sweeps it.
+      // Core's answer counts more than the copy: the next sweep removes it.
     }
   }
 
-  Future<void> _sweep() async {
+  /// Removes every copy left behind that this program does not hand Core now: at start, and before each copy.
+  Future<void> sweep() => _locked(() async {
     try {
-      await for (final entry in Directory(root).list(followLinks: false)) {
-        if (entry is! Directory || !path.basename(entry.path).startsWith(prefix) || _live.contains(entry.path)) {
+      await _sweepIn(await _folder());
+    } on Exception {
+      // Nothing to sweep where the folder cannot be made private or listed.
+    }
+  });
+
+  static Future<void> _sweepIn(String home) async {
+    try {
+      await for (final entry in Directory(home).list(followLinks: false)) {
+        if (entry is! Directory ||
+            !path.basename(entry.path).startsWith(prefix) ||
+            _live.contains(_normal(entry.path))) {
           continue;
         }
         try {
@@ -1878,6 +2051,20 @@ class PrivateCards {
   }
 }
 
+/// Reads [file], a new card or `owners.yml`, from the registry checkout, refusing one, or its folder, that is a link or
+/// no plain file: Core refuses such a file, and a copy of what it points to would pass that refusal by.
+Future<String> readRegularFile(String file) async {
+  final folder = await FileSystemEntity.type(path.dirname(file), followLinks: false);
+  final card = await FileSystemEntity.type(file, followLinks: false);
+  if (folder != FileSystemEntityType.directory || card != FileSystemEntityType.file) {
+    throw RecoveryRefused(
+      '$file in the registry checkout is a link or no plain file, which Core refuses. Nothing was handed to Core.',
+      code: 0,
+    );
+  }
+  return File(file).readAsString();
+}
+
 /// Core's replacement verbs on this computer: `project access replace` and the registry's own filings.
 class CliKeyRecoveryCore implements KeyRecoveryCore {
   /// Constructor taking the project adapters, the shared registry, the proven identity and a process runner.
@@ -1889,7 +2076,7 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
     Future<String> Function(String file)? readFile,
     PrivateCards? cards,
   }) : _run = run ?? runHere,
-       _readFile = readFile ?? ((file) => File(file).readAsString()),
+       _readFile = readFile ?? readRegularFile,
        _cards = cards ?? PrivateCards();
 
   /// The person at this computer as Core proved them.
@@ -1967,8 +2154,9 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
     final accepted = registry?.accepted;
     // The new card is read from the checkout that holds it, which only a registry read moves, and Core's answer to that
     // read is what is compared: while one runs, or another run holds the checkout, the card on disk may already be
-    // another. A run holding the checkout meets none running, only some waiting for it.
-    if (registry != null) _checkoutStill(registry, holder);
+    // another. A run holding the checkout meets none running, only some waiting for it. A project's run commits nothing
+    // there and hands Core only the exact card text reviewed, so it is never refused for a read or a hold.
+    if (registry != null && review.scope.inRegistry) _checkoutStill(registry, holder);
     if (registry == null || accepted == null || registry.problem != null) {
       throw const RecoveryRefused(reviewMoved, code: 0);
     }
@@ -2016,10 +2204,12 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
   Future<String> _reviewedCard(RecoveryReview review, Object? holder) async {
     final registry = this.registry;
     if (registry == null) throw const RecoveryRefused(reviewMoved, code: 0);
-    _checkoutStill(registry, holder);
+    // A project's run takes the card only as the exact text reviewed, whatever runs in the checkout meanwhile.
+    final atRest = review.scope.inRegistry;
+    if (atRest) _checkoutStill(registry, holder);
     final read = registry.accepted;
     final card = await _readFile(review.card);
-    _checkoutStill(registry, holder);
+    if (atRest) _checkoutStill(registry, holder);
     if (!identical(registry.accepted, read) || registry.problem != null || !review.isReviewedCard(card)) {
       throw const RecoveryRefused(reviewMoved, code: 0);
     }
@@ -2092,9 +2282,7 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
       content: content,
     );
     if (again) {
-      // Git names a file in the repository with `/` on every system.
-      final file = hostAccess ? 'hosts/${review.scope.name}/access.yml' : 'owners.yml';
-      await registry.checkout.prepareRetry(base: base, file: file, content: content);
+      await registry.checkout.prepareRetry(base: base, file: _changedFile(review.scope), content: content);
     } else {
       if (registry.unavailable(filing, holder: holder) case final why?) {
         throw RecoveryRefused(why, code: 65, whoMay: registry.whoMay(filing));
@@ -2124,12 +2312,25 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
   }
 
   @override
-  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder}) async {
+  Future<void> publish(
+    RecoveryScope scope,
+    String revision, {
+    required String base,
+    required String id,
+    Object? holder,
+  }) async {
     if (!scope.inRegistry) return;
     final registry = this.registry;
     if (registry == null) throw const RegistryRefusal('The registry has not been read here yet.');
     if (registry.held && !registry.holds(holder)) throw const RegistryRefusal(Registry.heldWords);
-    await registry.checkout.publishMade(checkedRegistryRevision(revision), base: checkedRegistryRevision(base));
+    // Core makes a backup key's commit on the kept base or on the commit it read last, which may have moved since.
+    await registry.checkout.publishMade(
+      checkedRegistryRevision(revision),
+      base: checkedRegistryRevision(base),
+      id: id,
+      file: _changedFile(scope),
+      lastRead: registry.accepted?.revision,
+    );
     // The run holding the checkout reads it again itself, one read after another: a refresh would wait for its end.
     if (holder != null && registry.holds(holder)) {
       await registry.readAgainHeld(holder);
@@ -2137,6 +2338,10 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
       await registry.refresh();
     }
   }
+
+  /// The one file a change of [scope] commits in the registry checkout, as Git names it, with `/` on every system.
+  static String _changedFile(RecoveryScope scope) =>
+      scope.kind == RecoveryKind.hostAccess ? 'hosts/${scope.name}/access.yml' : 'owners.yml';
 
   Registry _registry() {
     final registry = this.registry;
@@ -2246,7 +2451,7 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
     this.projectView,
     this.projectBackup,
     Future<String> Function(String file)? readFile,
-  }) : _readFile = readFile ?? ((file) => File(file).readAsString());
+  }) : _readFile = readFile ?? readRegularFile;
 
   final Future<String> Function(String file) _readFile;
 
@@ -2322,6 +2527,9 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
 
   @override
   Future<RecoverySituation> situation(RecoveryScope scope) async {
+    // A list opened while a read runs waits for it to end: its cards are read at rest, never left unread for the
+    // dialog's life. A hold is a run's own and may last; a list opened meanwhile says so and is read again later.
+    await _readEnded();
     final read = await _situation(scope);
     final texts = <String, String>{};
     for (final login in read.people.keys) {
@@ -2344,8 +2552,24 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
       madeHere: read.madeHere,
       madeHereReplaced: read.madeHereReplaced,
       backupBase: read.backupBase,
+      backupUsed: read.backupUsed,
       cardTexts: texts,
     );
+  }
+
+  /// Ends once no fetch, read or filing runs in the registry, or once a run holds it.
+  Future<void> _readEnded() {
+    final registry = this.registry;
+    if (!registry.busy || registry.held) return Future<void>.value();
+    final ended = Completer<void>();
+    void heard() {
+      if (registry.busy && !registry.held) return;
+      registry.removeListener(heard);
+      ended.complete();
+    }
+
+    registry.addListener(heard);
+    return ended.future;
   }
 
   /// The exact text of [card] as the checkout holds it for the registry read Core accepted, or null when the checkout
@@ -2357,6 +2581,9 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
     try {
       text = await _readFile(path.join(registry.checkout.folder, 'people', '${card.login}.card'));
     } on FileSystemException {
+      return null;
+    } on RegistryRefusal {
+      // A link or no plain file: never offered for review.
       return null;
     }
     if (registry.busy || registry.held || !identical(registry.accepted, accepted)) return null;
@@ -2380,6 +2607,7 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
       String? madeHere,
       String? madeHereReplaced,
       String? backupBase,
+      String? backupUsed,
     }) => RecoverySituation(
       scope: scope,
       people: people,
@@ -2393,6 +2621,7 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
       madeHere: madeHere,
       madeHereReplaced: madeHereReplaced,
       backupBase: backupBase,
+      backupUsed: backupUsed,
     );
     switch (scope.kind) {
       case RecoveryKind.project:
@@ -2406,27 +2635,35 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
         ];
         final sole = admins.length == 1 ? admins.single : null;
         final revision = view.accessRevision;
-        // A project read before a commit made here does not show it yet; the newest made on that read is in force.
+        final people = {for (final person in view.access.developers.values) person.login: person.fingerprint};
+        // A read that holds a commit made here, or a list moved past it, forgets it; those made after it stay.
+        await forgetShownInForce(receipts, scope, revision);
+        // A project read before a commit made here does not show it yet; the newest made after that read is in force.
         final made = madeInForce(receipts, scope, revision);
-        final replaced = made == revision ? null : madeInForceReplaced(receipts, scope, revision);
-        // A read that is not the one that commit was made on shows it, or a list moved past it: it is kept no longer.
-        if (made == revision) await forgetMadeInForce(receipts, scope);
+        final replaced = madeInForceReplaced(receipts, scope, revision);
+        // The backup key changes the project's own repository alone, never the access file: what it made there blocks
+        // nothing here. Its replacement stays done while the access file still names the key it replaced, which the
+        // project file no longer does.
+        await forgetShownInForce(
+          receipts,
+          scope,
+          view.projectRevision,
+          projectRepository: true,
+          stillDone: (made) => made.replaced != null && made.old != null && people[made.replaced] == made.old,
+        );
         // A backup key is made on the project's own repository, and on the newest commit made there here.
         final own = madeInForce(receipts, scope, view.projectRevision, projectRepository: true);
-        if (own == view.projectRevision) await forgetMadeInForce(receipts, scope, projectRepository: true);
-        // A backup key's replacement made there is a replacement too: its people and roles are newer than this read.
-        final ownReplaced = own == view.projectRevision
-            ? null
-            : madeInForceReplaced(receipts, scope, view.projectRevision, projectRepository: true);
+        final used = madeHereIn(receipts, scope, projectRepository: true).map((made) => made.replaced).nonNulls;
         return read(
-          people: {for (final person in view.access.developers.values) person.login: person.fingerprint},
+          people: people,
           base: revision,
           hostsOf: (_) => [view.host.name],
           sole: sole,
           backup: sole != null && (projectBackup?.call(name!, sole) ?? false),
-          madeHere: made != revision ? made : (ownReplaced == null ? null : own),
-          madeHereReplaced: replaced ?? ownReplaced,
+          madeHere: made != revision ? made : null,
+          madeHereReplaced: replaced,
           backupBase: own,
+          backupUsed: used.lastOrNull,
         );
       case RecoveryKind.hostAccess:
         final host = accepted.hosts.where((host) => host.host == name).firstOrNull;

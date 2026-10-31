@@ -72,10 +72,12 @@ Future<TerminalEnd> runInATerminal(
   Key? key,
 }) async {
   final closed = Completer<TerminalEnd>();
-  // Handled from the start: a navigator that goes away with the terminal open never returns from the dialog, and its
-  // program outliving the close would otherwise be an error nobody handles.
+  // Handled from the start: its program outliving the close would otherwise be an error nobody handles.
   unawaited(closed.future.then<void>((_) {}, onError: (Object _) {}));
-  await showDialog<void>(
+  var built = false;
+  // Not waited on: a navigator that goes away with the terminal open never returns from the dialog, so the end comes
+  // from the terminal's own going away, and whatever its caller holds for it is let go of then too.
+  final dialog = showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (context) => _UnlockTerminal(
@@ -96,7 +98,19 @@ Future<TerminalEnd> runInATerminal(
       finish: finish,
       afterClose: afterClose,
       lastLine: lastLine,
+      built: () => built = true,
       closing: (leaving) => leaving.then(closed.complete, onError: closed.completeError),
+    ),
+  );
+  unawaited(
+    dialog.then<void>(
+      (_) {
+        // Put away before it was ever built: nothing was started, and no terminal will say so.
+        if (!built && !closed.isCompleted) closed.complete((started: false, code: null));
+      },
+      onError: (Object _) {
+        if (!built && !closed.isCompleted) closed.complete((started: false, code: null));
+      },
     ),
   );
   try {
@@ -125,6 +139,7 @@ class _UnlockTerminal extends StatefulWidget {
     this.finish,
     this.afterClose,
     this.lastLine,
+    required this.built,
     required this.closing,
     super.key,
   });
@@ -157,6 +172,9 @@ class _UnlockTerminal extends StatefulWidget {
   final ValueChanged<String>? lastLine;
   final ValueChanged<Future<TerminalEnd>> closing;
 
+  /// Told once the terminal is made, so a dialog put away before that ends with nothing started.
+  final VoidCallback built;
+
   @override
   State<_UnlockTerminal> createState() => _UnlockTerminalState();
 }
@@ -177,6 +195,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
   @override
   void initState() {
     super.initState();
+    widget.built();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _keyboard.requestFocus();
     });
@@ -274,7 +293,11 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
       _session.leave().then((_) async {
         // A program that ended while its terminal closed may still have done its work: what it did is said on.
         final code = _session.exitCode;
-        if (!_reportedExit && code != null) _tellLastLine();
+        if (!_reportedExit && code != null) {
+          _reportedExit = true;
+          widget.onExit?.call(code);
+          _tellLastLine();
+        }
         await widget.afterClose?.call();
         return (started: started, code: code);
       }),

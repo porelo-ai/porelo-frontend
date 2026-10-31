@@ -12,7 +12,7 @@ import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/project_access.dart';
 import '../app/project_join.dart';
-import '../app/registry.dart' show Registry, RegistryRefusal;
+import '../app/registry.dart' show RegistryCheckouts, RegistryRefusal;
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/forge_key_check.dart';
@@ -487,7 +487,12 @@ class _ShellState extends State<Shell> {
       ..._viewActions(),
       myKeyCommand(
         open: () => unawaited(
-          showIdentity(context, checkoutFor: _registryCheckout, registry: _registryRead, recovery: widget.keyRecovery),
+          showIdentity(
+            context,
+            checkoutFor: _registryCheckout,
+            registries: _registryCheckouts,
+            recovery: widget.keyRecovery,
+          ),
         ),
       ),
       replaceKeyCommand(
@@ -1354,9 +1359,9 @@ class _ShellState extends State<Shell> {
         keyCheck: widget.forgeKeyCheck,
       );
 
-  /// The registry read here, whose checkout a change to the person's card holds while it runs, or null.
-  Registry? _registryRead() => switch (_registry.source) {
-    final RegistryReadSource source => source.registry,
+  /// Every registry read here, whose checkouts a change to the person's card holds while it runs, or null.
+  RegistryCheckouts? _registryCheckouts() => switch (_registry.source) {
+    final RegistryReadSource source => source,
     _ => null,
   };
 

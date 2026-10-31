@@ -157,6 +157,10 @@ class Session extends ChangeNotifier with QuietAfterDispose {
         forwarded = null;
         forwardProblem = refused.words;
         if (!_gone) notifyListeners();
+      } on Object {
+        // Raised or taken down after the session went: nobody is left to tell.
+        forwarded = null;
+        if (!_gone) notifyListeners();
       }
     }());
   }
@@ -210,8 +214,8 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   /// Whether this has been left. An ending that arrives afterwards is not news.
   bool _gone = false;
 
-  /// Whether it is open and can be typed into.
-  bool get live => state == SessionState.live;
+  /// Whether it is open and can be typed into; never once it was left.
+  bool get live => !_gone && state == SessionState.live;
 
   /// What the command line would be. Public so a test and a person can read the same thing.
   ///
@@ -264,14 +268,24 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     _channel = null;
     final forward = _forward;
     _forward = null;
+    // The channel is closed whatever its forward did: a terminal left open keeps its program and its handles.
+    await _closeForward(forward);
     try {
-      await forward?.close();
       await channel?.close();
     } finally {
       // Read until the channel closed or its bound passed: a program that answers as it ends prints its last line
       // then. **The cancel is not waited on.** Canceling a subscription to a broadcast stream settles a turn later,
       // and waiting for it put whatever follows behind the frame that had already reported the session gone.
       unawaited(reading?.cancel());
+    }
+  }
+
+  /// Takes down a login's forward, which leaving goes on past whatever it threw.
+  static Future<void> _closeForward(HeldForward? forward) async {
+    try {
+      await forward?.close();
+    } on Object {
+      // A forward that would not close is no reason to keep the terminal open.
     }
   }
 
@@ -285,8 +299,8 @@ class Session extends ChangeNotifier with QuietAfterDispose {
   Future<void> _leaveUnwaited() async {
     try {
       await leave();
-    } on TerminalStillRunning {
-      // Whoever must count it as running waits on [leave] itself.
+    } on Object {
+      // Whoever must count it as running, or hear why it would not close, waits on [leave] itself.
     }
   }
 
@@ -329,7 +343,7 @@ class Session extends ChangeNotifier with QuietAfterDispose {
     exitCode = code;
     final forward = _forward;
     _forward = null;
-    unawaited(forward?.close());
+    unawaited(_closeForward(forward));
     state = SessionState.over;
     problem = switch (code) {
       0 => null,

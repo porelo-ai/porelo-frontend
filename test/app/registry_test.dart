@@ -123,7 +123,13 @@ class _FakeCheckout implements RegistryCheckout {
   }
 
   @override
-  Future<void> publishMade(String revision, {required String base}) async {}
+  Future<void> publishMade(
+    String revision, {
+    required String base,
+    required String id,
+    required String file,
+    String? lastRead,
+  }) async {}
 
   @override
   Future<void> publish(String revision) async {

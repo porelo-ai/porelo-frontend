@@ -87,7 +87,13 @@ class _FakeCheckout implements RegistryCheckout {
   Future<void> prepareFiling() async {}
 
   @override
-  Future<void> publishMade(String revision, {required String base}) async {}
+  Future<void> publishMade(
+    String revision, {
+    required String base,
+    required String id,
+    required String file,
+    String? lastRead,
+  }) async {}
 
   @override
   Future<void> publish(String revision) async {}
@@ -110,6 +116,28 @@ void main() {
       ),
       features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
     );
+  });
+
+  // Harm: a second registry made on the checkout a run holds, after another address was chosen and this one again, so
+  // its reads and filings run beside that run's change, which Core makes in the same folder.
+  test('choosing another address and this one again finds the same registry', () {
+    var address = _repository;
+    final source = RegistryReadSource(
+      repository: () => address,
+      open: (_) => Registry(checkout: _FakeCheckout(), core: core),
+      machines: () => const [],
+    );
+    final first = source.registry;
+    final run = Object();
+    first!.hold(run);
+    addTearDown(() => first.release(run));
+
+    address = 'git@example.org:team/other.git';
+    expect(source.registry, isNot(same(first)));
+    address = _repository;
+
+    expect(source.registry, same(first));
+    expect(source.registry!.held, isTrue);
   });
 
   // Guards admitting a person whose card Core refused or has not yet checked against the forge.

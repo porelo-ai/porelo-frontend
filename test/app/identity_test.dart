@@ -6,6 +6,7 @@ import 'package:porelo_frontend/client.dart' show RegistryFiled, RegistryRead;
 import 'package:porelo_frontend/src/app/identity.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
+import 'package:porelo_frontend/src/app/registry_read_source.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 
 const _old = 'SHA256:BvxPEqOldOldOldOldOldOldOldOldOldOldOldOld';
@@ -122,6 +123,64 @@ class _Unread implements RegistryCore {
 
   @override
   Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
+}
+
+/// A registry read as Core answers it, which records whether its registry was held while it was read.
+class _Read implements RegistryCore {
+  _Read(this.registry);
+
+  final Registry Function() registry;
+  final heldWhileRead = <bool>[];
+
+  @override
+  Future<RegistryRead> read(String checkout) async {
+    heldWhileRead.add(registry().held);
+    return RegistryRead.from({
+      'revision': '1111111111111111111111111111111111111111',
+      'people': <Object?>[],
+      'owners': <Object?>[],
+      'warnings': <Object?>[],
+      'hosts': <Object?>[],
+    });
+  }
+
+  @override
+  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
+}
+
+/// A checkout that fetches without Git.
+class _Fetched implements RegistryCheckout {
+  _Fetched(this.repository);
+
+  @override
+  final String repository;
+
+  @override
+  String get root => path.join('nowhere', 'registry');
+
+  @override
+  String get folder => path.join(root, repository.hashCode.toString());
+
+  @override
+  Future<String> fetch() async => '1111111111111111111111111111111111111111';
+
+  @override
+  Future<void> prepareFiling() async {}
+
+  @override
+  Future<void> prepareRetry({required String base, required String file, required String content}) async {}
+
+  @override
+  Future<void> publish(String revision) async {}
+
+  @override
+  Future<void> publishMade(
+    String revision, {
+    required String base,
+    required String id,
+    required String file,
+    String? lastRead,
+  }) async {}
 }
 
 AgentKey _usable() => const AgentKey(
@@ -524,25 +583,36 @@ void main() {
     // commits there, so one meets the other's commit half made; or the checkout left held after it.
     group('beside a recovery run', () {
       late Registry registry;
+      late Registry other;
+      late RegistryReadSource source;
       late IdentityModel holding;
-      final heldWhile = <String, bool>{};
+      late _Read reads;
+      var address = 'git@example.org:t/r.git';
+      final heldWhile = <String, List<bool>>{};
 
       setUp(() {
-        registry = Registry(
-          checkout: RegistryCheckout(root: path.join('nowhere', 'registry'), repository: 'git@example.org:t/r.git'),
-          core: _Unread(),
-        );
+        address = 'git@example.org:t/r.git';
+        reads = _Read(() => registry);
+        registry = Registry(checkout: _Fetched('git@example.org:t/r.git'), core: reads);
+        other = Registry(checkout: _Fetched('git@example.org:t/other.git'), core: _Unread());
         addTearDown(registry.dispose);
+        addTearDown(other.dispose);
+        source = RegistryReadSource(
+          repository: () => address,
+          open: (repository) => repository == 'git@example.org:t/r.git' ? registry : other,
+          machines: () => const [],
+        );
+        expect(source.registry, same(registry));
         heldWhile.clear();
         holding = IdentityModel(
           Identity(
             run: (program, arguments, {inDirectory, environment = const {}, input}) {
-              heldWhile[arguments.take(2).join(' ')] = registry.held;
+              heldWhile[arguments.take(2).join(' ')] = [registry.held, other.held];
               return core.run(program, arguments, inDirectory: inDirectory, environment: environment, input: input);
             },
           ),
           checkoutFor: (address) => address == 'https://github.com/porelo-ai/registry' ? checkout : null,
-          registry: () => registry,
+          registries: () => source,
           environment: const {'XDG_CONFIG_HOME': '/home/ms/.config', 'HOME': '/home/ms'},
         );
       });
@@ -576,17 +646,75 @@ void main() {
         await holding.load();
         core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
         await holding.fileCard(holding.card!.registry.single);
-        expect(heldWhile['registry file'], isTrue);
+        expect(heldWhile['registry file']?.first, isTrue);
         expect(registry.held, isFalse);
 
         core.answer('identity rotate', '{"id": "rot-', code: 0);
         await holding.rotate(_usable());
-        expect(heldWhile['identity rotate'], isTrue);
+        expect(heldWhile['identity rotate']?.first, isTrue);
         expect(registry.held, isFalse);
         final id = holding.unfinishedId!;
         core.answer('identity publish', _operation(id));
         await holding.retry(id);
-        expect(heldWhile['identity publish'], isTrue);
+        expect(heldWhile['identity publish']?.first, isTrue);
+        expect(registry.held, isFalse);
+      });
+
+      // Harm: a key change's terminal hold kept for good once its model went away, so every refresh waits for ever.
+      test('a model put away lets go of its terminal’s hold', () async {
+        core.answer('identity show', absent());
+        await holding.load();
+        expect(holding.rotateInTerminal(database: '/home/ms/Passwords.kdbx'), isNotNull);
+        expect(registry.held, isTrue);
+
+        holding.dispose();
+        await pumpEventQueue();
+
+        expect(registry.held, isFalse);
+      });
+
+      // Harm: Core committing a key change into a checkout this program reads or files in beside it, because only the
+      // registry chosen now was held, or a second registry made on the same checkout after another address was chosen.
+      test('a key change holds every registry read here, and refuses while any is held', () async {
+        core.answer('identity show', absent());
+        await holding.load();
+        address = 'git@example.org:t/other.git';
+        expect(source.registry, same(other));
+        address = 'git@example.org:t/r.git';
+        expect(source.registry, same(registry), reason: 'the same registry again, never a second on its checkout');
+
+        core.answer('identity rotate', '{"id": "rot-', code: 0);
+        await holding.rotate(_usable());
+        expect(heldWhile['identity rotate'], [true, true]);
+        expect([registry.held, other.held], [false, false]);
+
+        final run = Object();
+        other.hold(run);
+        core.calls.clear();
+        final id = holding.unfinishedId!;
+        await holding.retry(id);
+        expect(holding.problem, Registry.heldWords);
+        expect(core.named('identity publish'), isEmpty);
+        expect(registry.held, isFalse, reason: 'nothing is left held by a refused change');
+        other.release(run);
+      });
+
+      // Harm: a key change or filing moving the checkout's HEAD and card while the registry keeps its older read, so
+      // the next filing or recovery run is made against a state that is no longer there.
+      test('a change reads its registry again through its hold before letting go of it', () async {
+        core.answer('identity show', absent());
+        await holding.load();
+        await registry.refresh();
+        expect(reads.heldWhileRead, [false]);
+
+        core.answer('identity rotate', '{"id": "rot-', code: 0);
+        await holding.rotate(_usable());
+        expect(reads.heldWhileRead, [false, true]);
+
+        core.answer('registry file', {'commit': commit, 'path': 'people/ms-test-reviewer.card'});
+        await holding.fileCard(holding.card!.registry.single);
+        expect(reads.heldWhileRead, [false, true, true]);
+        expect(holding.problem, contains('not pushed'), reason: 'Core files the card and pushes nothing');
         expect(registry.held, isFalse);
       });
     });

@@ -102,7 +102,13 @@ class _Core implements KeyRecoveryCore {
   }
 
   @override
-  Future<void> publish(RecoveryScope scope, String revision, {required String base, Object? holder}) async {
+  Future<void> publish(
+    RecoveryScope scope,
+    String revision, {
+    required String base,
+    required String id,
+    Object? holder,
+  }) async {
     if (scope.inRegistry && !identical(holder, this.holder)) throw StateError('pushed without the hold');
     calls.add('publish $revision $base');
   }
@@ -159,9 +165,11 @@ class _Entry implements KeyRecoveryEntry {
   Future<RecoverySituation> situation(RecoveryScope scope) async {
     if (refused case final refusal?) throw refusal;
     final read = this.read!;
-    // As the real entry reads it: a commit made here on this read is in force, which the read does not show yet.
+    // As the real entry reads it: a commit made here on this read is in force, which the read does not show yet; the
+    // project repository's own records block nothing in the access file, and a backup key's use there is done.
     final made = madeInForce(receipts, scope, read.base);
     final own = madeInForce(receipts, scope, read.backupBase, projectRepository: true);
+    final used = madeHereIn(receipts, scope, projectRepository: true).map((made) => made.replaced).nonNulls;
     return RecoverySituation(
       scope: read.scope,
       people: read.people,
@@ -175,6 +183,7 @@ class _Entry implements KeyRecoveryEntry {
       madeHere: made == read.base ? null : made,
       madeHereReplaced: made == read.base ? null : madeInForceReplaced(receipts, scope, read.base),
       backupBase: own,
+      backupUsed: used.lastOrNull,
       cardTexts: read.cardTexts,
     );
   }
@@ -290,12 +299,16 @@ void main() {
   });
 
   // Harm: a dialog that went away, or a run that ended, leaving the registry checkout held for good, or a card copy
-  // behind; a terminal still running at the test's end holds it rightly.
+  // behind; only a terminal whose program still runs at the test's end holds it rightly.
   tearDown(() {
     final made = [..._Entry._made];
     _Entry._made.clear();
     for (final entry in made) {
-      if (RecoveryRuns.of(entry.receipts).keys.isNotEmpty) continue;
+      final runs = RecoveryRuns.of(entry.receipts);
+      for (final key in runs.keys) {
+        expect(runs.outlived(key), isTrue, reason: 'only a terminal whose program still runs keeps $key running');
+      }
+      if (runs.keys.isNotEmpty) continue;
       expect(entry.core.holder, isNull, reason: 'the registry checkout was let go of');
       expect(entry.core.copies, isEmpty, reason: 'every card copy was removed');
     }
@@ -400,6 +413,31 @@ void main() {
     expect(opened.single, containsAllInOrder(['--use', '/media/usb/porelo-backup']));
   });
 
+  // Harm: a new backup key offered after the backup key's use, which keeps it: Core refuses a second as existing.
+  testWidgets('a backup key used here offers no new backup key beside it', (tester) async {
+    await pump(tester, _Entry(receipts), situation: _situation(backup: true), pick: () => '/media/usb/porelo-backup');
+
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    final command = opened.single;
+    channel.end(
+      0,
+      jsonEncode({
+        'id': command[command.indexOf('--id') + 1],
+        'scope': {'kind': 'project', 'name': 'demo'},
+        'revision': _revision,
+        'pushed': true,
+        'replaced': _old,
+        'by': _new,
+      }),
+    );
+    await settle(tester);
+    await tap(tester, 'unlock-done');
+
+    expect(find.textContaining(_revision), findsWidgets, reason: 'the use is pushed');
+    expect(find.byKey(const Key('keyRecovery.makeBackup')), findsNothing);
+  });
+
   // Harm: the backup file's place held by the dialog after its terminal, shown, or reused by Retry without asking.
   testWidgets('Retry asks for the backup file again, and its place is shown nowhere', (tester) async {
     // Real file work runs outside the test's fake time, which would never complete it.
@@ -460,27 +498,71 @@ void main() {
   }
 
   // Harm: a terminal whose window goes away while its program outlives the close raising an error nobody handles,
-  // which ends the interface's zone with an uncaught exception.
-  testWidgets('a terminal whose window goes away while its program runs raises nothing unhandled', (tester) async {
-    await openWith(
-      tester,
-      (context) => runInATerminal(
-        context,
-        title: 'Make a backup key',
-        explanation: 'Its program outlives the window.',
-        machine: Machine.local(),
-        command: const ['porelo', 'identity', 'backup-key'],
-        open: open,
-        waitsOnItsProgram: true,
-      ),
-    );
+  // which ends the interface's zone with an uncaught exception; or never telling its caller, which waits for good.
+  testWidgets('a terminal whose window goes away while its program runs tells its caller, and nothing else', (
+    tester,
+  ) async {
+    TerminalStillRunning? told;
+    await openWith(tester, (context) async {
+      try {
+        await runInATerminal(
+          context,
+          title: 'Make a backup key',
+          explanation: 'Its program outlives the window.',
+          machine: Machine.local(),
+          command: const ['porelo', 'identity', 'backup-key'],
+          open: open,
+          waitsOnItsProgram: true,
+        );
+      } on TerminalStillRunning catch (still) {
+        told = still;
+      }
+    });
     final program = channel.outlives = Completer<int>();
     expect(opened, hasLength(1));
 
     await tester.pumpWidget(const SizedBox());
     await settle(tester);
+    expect(told, isNotNull, reason: 'its caller counts it as running until it ended');
     program.complete(0);
     await settle(tester);
+    expect(await told!.ended, 0);
+  });
+
+  // Harm: a registry backup key's terminal whose navigator went away while it was open never returning, so the
+  // registry checkout, the running mark and the card copy stay for good and every registry read waits for ever.
+  testWidgets('a registry backup key’s terminal whose window goes away lets go of its hold, run and copy', (
+    tester,
+  ) async {
+    final entry = _Entry(receipts);
+    await pump(
+      tester,
+      entry,
+      situation: RecoverySituation(
+        scope: const RecoveryScope.owner(),
+        people: {'bob': _old},
+        cards: [_card('bob', _key(2))],
+        base: _base,
+        actor: HostAdminIdentity('bob', _new),
+        hosts: const {'bob': []},
+        checkout: '/private/registry/checkout',
+        soleAdmin: 'bob',
+        backupRegistered: true,
+        cardTexts: {'bob': _bobCard},
+      ),
+      pick: () => '/media/usb/porelo-backup',
+    );
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    expect(opened, hasLength(1));
+    expect([entry.core.holder, entry.core.copies], [isNotNull, hasLength(1)]);
+
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+
+    expect(entry.core.holder, isNull, reason: 'the registry checkout was let go of');
+    expect(entry.core.copies, isEmpty, reason: 'the card copy was removed');
+    expect(RecoveryRuns.of(receipts).keys, isEmpty, reason: 'nothing counts as running');
   });
 
   // Harm: the replacement dialog put away by a pop asked from outside it (a back, an ancestor) while the backup key's
@@ -958,6 +1040,33 @@ void main() {
     expect(find.textContaining(_revision), findsOneWidget);
     expect(pressable(tester, 'keyRecovery.makeBackup'), isNotNull);
     expect(pressable(tester, 'keyRecovery.review'), isNull);
+  });
+
+  // Harm: a backup key's use made here, which changes the project file alone, blocking the access file's replacements,
+  // offered again on the key it replaced, or offered a new backup key Core refuses beside the one it kept.
+  testWidgets('a dialog opened after a backup key’s use made here says it done and blocks nothing else', (
+    tester,
+  ) async {
+    await keepMadeInForce(
+      receipts,
+      const RecoveryScope.project('demo'),
+      base: _project,
+      revision: _revision,
+      replaced: 'bob',
+      old: _old,
+      projectRepository: true,
+    );
+    final entry = _Entry(receipts, read: _situation(backup: true));
+    await openWith(
+      tester,
+      (context) => showKeyRecovery(context, entry: entry, scope: const RecoveryScope.project('demo'), login: 'bob'),
+    );
+
+    expect(find.byKey(const Key('recovery-backup-used')), findsOneWidget);
+    expect(find.byKey(const Key('recovery-made-here')), findsNothing);
+    expect(find.byKey(const Key('keyRecovery.makeBackup')), findsNothing);
+    expect(pressable(tester, 'keyRecovery.reviewBackup'), isNull);
+    expect(pressable(tester, 'keyRecovery.review'), isNotNull);
   });
 }
 
