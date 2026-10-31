@@ -537,7 +537,6 @@ List<Command> projectCommands({
   VoidCallback? showTheDefault,
   String? registryAccessUnavailable,
   VoidCallback? putOnAServer,
-  VoidCallback? joinOnItsHost,
   VoidCallback? takeOffServer,
   String? takeOffServerBusy,
   VoidCallback? startTheAgents,
@@ -721,17 +720,6 @@ List<Command> projectCommands({
                         : null)),
     ),
     takeProjectOffServerCommand(project?.name, run: takeOffServer, busy: takeOffServerBusy),
-    Command(
-      id: 'project.joinHost',
-      label: 'Join this project on its host…',
-      group: 'Project',
-      home: Home.projectMenu,
-      run: joinOnItsHost ?? () {},
-      unavailable:
-          noFile ??
-          (isDefault ? 'default belongs to this machine' : null) ??
-          (joinOnItsHost == null ? 'joining needs Linux and your own host keys' : null),
-    ),
     Command(
       id: 'project.delete',
       label: 'Stop following this project',
@@ -1190,7 +1178,6 @@ List<Command> commandsFor({
   String? registryAccessUnavailable,
   VoidCallback? putOnAServer,
   VoidCallback? openDevelopers,
-  VoidCallback? joinOnItsHost,
   VoidCallback? takeOffServer,
   String? takeOffServerBusy,
   VoidCallback? startTheAgents,
@@ -1387,7 +1374,6 @@ List<Command> commandsFor({
       registryAccessUnavailable: registryAccessUnavailable,
       putOnAServer: putOnAServer,
       openDevelopers: openDevelopers,
-      joinOnItsHost: joinOnItsHost,
       takeOffServer: takeOffServer,
       takeOffServerBusy: takeOffServerBusy,
       showTheMessages: showTheMessages,

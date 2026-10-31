@@ -262,7 +262,6 @@ void main() {
       'project.messages',
       'project.prepare',
       'project.server',
-      'project.joinHost',
       'project.startAgents',
       'project.sync',
       'project.takeOffServer',

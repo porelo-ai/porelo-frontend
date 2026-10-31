@@ -13,6 +13,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   signing configuration, and an origin commit is accepted only by Core's allowed signers or by Core's
   recorded verdict. Workspace commits and merges are pushed only when signed by the chosen key.
 
+- A developer joins a project at one click from Core's verified admission, shown as "in project P on host X".
+  The join asks Core again, follows with Core's signers through the host's tunnel, and saves only what
+  the host confirmed. An access repository that cannot be read names who may grant it.
+
 - Existing-server preparation runs the checked collection over pinned, agent-only SSH as root,
   retains callback refusal words, and saves the dialog's public settings for retry and card publication.
   Teardown excludes disk identities, checks given-host pins, and isolates concurrent pins. Malformed

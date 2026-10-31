@@ -11,6 +11,8 @@ import '../app/homeserver_forwards.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/project_access.dart';
+import '../app/project_join.dart';
+import '../app/registry.dart' show RegistryRefusal;
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
 import '../app/machine_binding.dart';
@@ -51,7 +53,6 @@ import '../app/session.dart';
 import '../app/unattended_run.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
-import 'project_join_dialog.dart';
 import '../app/shell_model.dart';
 
 import 'package:porelo_frontend/client.dart';
@@ -148,6 +149,8 @@ class Shell extends StatefulWidget {
     required this.connections,
     this.forges,
     this.registryPages,
+    this.joinDiscovery,
+    this.joinHost,
     this.projectAccess,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
@@ -163,6 +166,12 @@ class Shell extends StatefulWidget {
 
   /// Verified registry decisions and separately confirmed host state.
   final RegistryPages? registryPages;
+
+  /// Core's verified discovery of where the person may join, once Core serves it.
+  final JoinDiscovery? joinDiscovery;
+
+  /// The card tunnel and the account daemon a join goes through.
+  final JoinHost? joinHost;
 
   /// The project-scoped Core and host adapters, supplied once their contracts are served.
   final ProjectAccess? Function(String project)? projectAccess;
@@ -286,6 +295,7 @@ class _ShellState extends State<Shell> {
     super.initState();
     _registry.addListener(_homeserversChanged);
     unawaited(_registry.refresh());
+    unawaited(_discoverJoins());
     _hostRuns = HostRuns(widget.machines);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
@@ -451,7 +461,7 @@ class _ShellState extends State<Shell> {
         !(widget.shell.itemProject == defaultProject && _fleet.selectedProject == null)) {
       return 'Open this project again before running its commands.';
     }
-    if (target != null && {'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id)) {
+    if (target != null && {'project.server', 'project.takeOffServer'}.contains(command.id)) {
       return 'Use the operation on the verified item page.';
     }
     return null;
@@ -512,7 +522,6 @@ class _ShellState extends State<Shell> {
         : null,
     putOnAServer: desk.isWindows ? null : _registerCallback(_fleet.selectedProject),
     openDevelopers: desk.isWindows ? null : _developersCallback(_fleet.selectedProject),
-    joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
     takeOffServerBusy: _takeOffServerBusy(_fleet.selectedProject?.name),
     startTheAgents: switch (_fleet.selectedProject?.project.name) {
       final name? => () => unawaited(_startTheAgents(name)),
@@ -674,7 +683,6 @@ class _ShellState extends State<Shell> {
           : null,
       putOnAServer: desk.isWindows ? null : _registerCallback(project),
       openDevelopers: desk.isWindows ? null : _developersCallback(project),
-      joinOnItsHost: desk.isWindows ? null : () => unawaited(_joinOnItsHost()),
       takeOffServerBusy: _takeOffServerBusy(project.name),
       showTheMessages: () => unawaited(_showTheMessages()),
       openItsForge: () => unawaited(_openItsForge()),
@@ -800,19 +808,6 @@ class _ShellState extends State<Shell> {
       access: widget.projectAccess?.call(project.name),
       backend: _fleet.backend,
       project: project.name,
-      machines: widget.machines,
-      settings: widget.settings,
-      openTerminal: widget.sessions.openTerminal,
-    );
-  }
-
-  Future<void> _joinOnItsHost() async {
-    final project = _fleet.selectedProject;
-    if (project == null) return;
-    await openProjectJoinDialog(
-      context,
-      project: project.name,
-      backend: _fleet.backend,
       machines: widget.machines,
       settings: widget.settings,
       openTerminal: widget.sessions.openTerminal,
@@ -2933,6 +2928,7 @@ class _ShellState extends State<Shell> {
           menuFor: _pageProjectCommands,
           onFromARepository: _fleet.reachability == Reachability.connected ? _fromARepository : null,
           onFollow: _fleet.reachability == Reachability.connected ? () => unawaited(_followARepository()) : null,
+          joins: _joinRows,
         ),
       );
 
@@ -3222,13 +3218,8 @@ class _ShellState extends State<Shell> {
         ..._projectMenu(project, on: machine).where(
           (command) =>
               (project.name != defaultProject ||
-                  !{
-                    'project.server',
-                    'project.joinHost',
-                    'project.takeOffServer',
-                    'project.clear',
-                  }.contains(command.id)) &&
-              (item == null || !{'project.server', 'project.joinHost', 'project.takeOffServer'}.contains(command.id)),
+                  !{'project.server', 'project.takeOffServer', 'project.clear'}.contains(command.id)) &&
+              (item == null || !{'project.server', 'project.takeOffServer'}.contains(command.id)),
         ),
       if (project.name != defaultProject && item != null) ..._registryPageCommands(item),
     ];
@@ -3543,8 +3534,49 @@ class _ShellState extends State<Shell> {
     widget.shell.close();
   }
 
+  /// Where Core verified that the person is admitted, each row with its own join.
+  List<({JoinAdmission admission, ProjectJoin? join})> _joinRows = const [];
+  final Map<String, ProjectJoin> _joins = {};
+
+  /// Asks Core where the person may join; a refusal leaves no row, and says itself.
+  Future<void> _discoverJoins() async {
+    final discovery = widget.joinDiscovery;
+    final host = widget.joinHost;
+    if (discovery == null || host == null) return;
+    try {
+      final admissions = await discovery.admissions();
+      if (!mounted) return;
+      setState(() {
+        _joinRows = [
+          for (final admission in admissions)
+            (
+              admission: admission,
+              join: switch (admission) {
+                JoinOffered offer => _joins.putIfAbsent(
+                  offer.key,
+                  () => ProjectJoin(
+                    offer: offer,
+                    discovery: discovery,
+                    host: host,
+                    machines: widget.machines,
+                    settings: widget.settings,
+                  ),
+                ),
+                JoinUnreadable() => null,
+              },
+            ),
+        ];
+      });
+    } on Exception catch (error) {
+      if (mounted) _fleet.say(error is RegistryRefusal ? error.toString() : 'Core could not say where you may join.');
+    }
+  }
+
   @override
   void dispose() {
+    for (final join in _joins.values) {
+      join.dispose();
+    }
     for (final run in _runs.values) {
       run.dispose();
     }

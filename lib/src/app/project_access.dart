@@ -620,10 +620,6 @@ class RegistryProjectRegistration implements SignedHostActions {
     await access._begin('register', null, expected: state, registrationMachine: machine);
     return state.revision;
   }
-
-  @override
-  Future<String> join(VerifiedHostProject state, Machine machine) =>
-      throw const RegistryRefusal('Use the project joining operation.');
 }
 
 enum _SupersessionReason {

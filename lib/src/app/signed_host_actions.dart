@@ -64,9 +64,6 @@ abstract interface class SignedHostActions {
 
   /// Registers the verified project and returns the revision confirmed by the host.
   Future<String> register(VerifiedHostProject state, Machine machine);
-
-  /// Joins with the verified admin signers and returns the host's confirmed revision.
-  Future<String> join(VerifiedHostProject state, Machine machine);
 }
 
 /// An explicit project operation, confirmed before its machine association is saved.
@@ -132,7 +129,7 @@ class SignedHostAction extends ChangeNotifier {
           throw const RegistryRefusal('The verified project admission changed. Try again.');
         }
       }
-      final observed = registering ? await service.register(state, machine) : await service.join(state, machine);
+      final observed = await service.register(state, machine);
       if (observed != state.revision) {
         throw const RegistryRefusal('The host did not confirm the intended verified project revision.');
       }

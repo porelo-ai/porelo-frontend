@@ -3,6 +3,7 @@ import 'package:porelo_frontend/client.dart';
 
 import '../app/fleet_model.dart';
 import '../app/machines.dart';
+import '../app/project_join.dart';
 import '../app/commands.dart';
 import '../app/registry_pages.dart';
 import 'command_menu.dart';
@@ -26,8 +27,12 @@ class ProjectsPage extends StatelessWidget {
     this.menuForAdmission,
     this.highlight,
     this.onShown,
+    this.joins = const [],
     super.key,
   });
+
+  /// Where Core verified that the person is admitted, each with its join, and what Core could not read.
+  final List<({JoinAdmission admission, ProjectJoin? join})> joins;
 
   /// The watched machines and their daemon state.
   final Machines machines;
@@ -73,6 +78,21 @@ class ProjectsPage extends StatelessWidget {
       padding: const EdgeInsets.all(Space.normal),
       children: [
         if (registry?.problem case final problem?) Text(problem),
+        if (joins.isNotEmpty)
+          FilteredListSection(
+            storageId: 'joins',
+            title: 'Projects you may join',
+            rows: [
+              for (final row in joins)
+                (
+                  words: switch (row.admission) {
+                    JoinOffered(:final project, :final host) => '$project ${host.name}',
+                    JoinUnreadable(:final repository, :final host) => '$repository $host',
+                  },
+                  child: joinRow(row.admission, row.join),
+                ),
+            ],
+          ),
         FilteredListSection(
           storageId: 'projects',
           title: 'Projects',
@@ -194,3 +214,36 @@ String registryStateWords(RegistryPages registry, RegistryPageItem item) {
     ?registry.failure(item.target),
   ].join(' · ');
 }
+
+/// One admission's row: the project and host with *Join*, or the access repository that cannot be read.
+Widget joinRow(JoinAdmission admission, ProjectJoin? join) => switch (admission) {
+  JoinOffered(:final project, :final host, :final key) => ListenableBuilder(
+    listenable: join ?? const AlwaysStoppedAnimation<double>(0),
+    builder: (context, _) => ListTile(
+      key: ValueKey('join-row $key'),
+      leading: const Icon(Icons.group_add_outlined),
+      title: Text(project),
+      subtitle: Text(
+        [
+          'in project $project on host ${host.name}',
+          if (join?.joined ?? false) 'Joined',
+          ?join?.progress,
+          ?join?.problem,
+        ].join(' · '),
+      ),
+      trailing: join == null || join.joined
+          ? null
+          : FilledButton(
+              key: ValueKey('join $key'),
+              onPressed: join.busy ? null : join.join,
+              child: const Text('Join'),
+            ),
+    ),
+  ),
+  JoinUnreadable(:final repository, :final words) => ListTile(
+    key: ValueKey('join-unreadable $repository'),
+    leading: const Icon(Icons.lock_outline),
+    title: Text(repository),
+    subtitle: Text(words),
+  ),
+};

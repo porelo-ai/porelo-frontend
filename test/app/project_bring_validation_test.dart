@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_host/porelo_host.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/project_bring.dart';
-import 'package:porelo_frontend/src/app/project_join.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/signed_host_actions.dart';
 
@@ -162,22 +161,11 @@ void main() {
     expect(ssh.commands, ['true']);
     expect(steps.singleWhere((step) => step.state == StepState.host).host?.values, service.state.host.values);
     final bring = ProjectBring(project: 'demo', machines: machines, settings: settings, actions: service);
-    final join = ProjectJoin(project: 'demo', machines: machines, settings: settings, actions: service);
     addTearDown(bring.dispose);
-    addTearDown(join.dispose);
     await bring.bring();
-    await join.join();
-    expect(bring.brought && join.joined, isTrue);
+    expect(bring.brought, isTrue);
     expect(settings.projectHost('demo'), 'orchard');
-    expect(service.calls, [
-      'verify demo register',
-      'ssh orchard',
-      'verify demo register',
-      'register demo',
-      'verify demo join',
-      'ssh orchard',
-      'join demo',
-    ]);
+    expect(service.calls, ['verify demo register', 'ssh orchard', 'verify demo register', 'register demo']);
     expect(
       machines.all.where((m) => m.kind == 'host').single.identity,
       isEmpty,

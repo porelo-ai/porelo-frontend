@@ -64,11 +64,4 @@ class SignedHostFake implements SignedHostActions {
     if (refused != null) throw refused!;
     return observed ?? state.revision;
   }
-
-  @override
-  Future<String> join(VerifiedHostProject state, Machine machine) async {
-    calls.add('join ${state.project}');
-    if (refused != null) throw refused!;
-    return observed ?? state.revision;
-  }
 }

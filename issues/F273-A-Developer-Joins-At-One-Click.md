@@ -24,6 +24,17 @@ One-click joining from signed state (operator, 2026-10-30), the flow's step 6.
 - Double clicks and retry after a failed tunnel do not duplicate follows, watched accounts or host tunnels. A partial result stays visible and never claims the person is ready before confirmation. Two projects on one host reuse its connection.
 - Once Machines admits the person's card key, rehearse a real join from an already configured identity and forge session. Check the verified followed revision and reachable account daemon, separately from fake tests.
 
+## Plan as built
+
+- `ProjectJoin` in `lib/src/app/project_join.dart` joins one verified admission. Core's discovery (`JoinDiscovery`: `JoinOffered`, `JoinUnreadable`) and the host side (`JoinHost`: the card tunnel, what the account daemon follows, and its follow with Core's signers) are two small interfaces, faked in tests. Before acting it asks Core again and refuses an admission that changed. It reuses a watched account on the host and a project already followed at the verified revision, keeps a tunnel it opened for a retry, and saves the account and the project/host association only after the host confirms the verified revision.
+- *Projects you may join* on `ProjectsPage` shows "in project P on host X" with *Join*, and an unreadable access repository as its own row naming its address and who may grant it.
+- The join dialog, `AccessJoin`, the *Join this project on its host…* command and `SignedHostActions.join` are removed. The rest of the join wizard was already taken out ([F276](README.md#f276)).
+
+## Deferred
+
+- The served adapters: `JoinDiscovery` over Core's discovery, and `JoinHost` over the card tunnel and the account daemon's follow. Until Core serves its discovery, `Shell` gets neither, and no join row is shown.
+- The real join rehearsal from a configured identity, once Machines admits the person's card key.
+
 ## To be checked
 
 - Confirm Core's discovery fields for project source, current login, trusted signer list, verified revision, host account and grant contacts. Confirm the served follow response can distinguish verified in-force state from a held or rewritten project.
