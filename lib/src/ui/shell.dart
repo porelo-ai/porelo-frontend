@@ -1326,7 +1326,7 @@ class _ShellState extends State<Shell> {
     final address = await chooseRegistryAddress(context, current: widget.settings.registryRepository);
     if (address == null || !mounted) return;
     await widget.settings.setRegistryRepository(address);
-    await _registry.refresh();
+    await _registry.readAfresh();
   }
 
   /// One forge's repositories, as a page.

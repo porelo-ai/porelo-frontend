@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -51,8 +53,14 @@ Map<String, dynamic> _answer({String? revision = _first, Map<String, dynamic>? r
 class _FakeCore implements RegistryCore {
   Map<String, dynamic> next = _answer();
 
+  Completer<void>? hold;
+
   @override
-  Future<RegistryRead> read(String checkout) async => RegistryRead.from(next);
+  Future<RegistryRead> read(String checkout) async {
+    final answer = next;
+    await hold?.future;
+    return RegistryRead.from(answer);
+  }
 
   @override
   Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError();
@@ -150,5 +158,45 @@ void main() {
     expect(pages.loaded, isFalse);
     expect(pages.items, isEmpty);
     expect(pages.problem, 'Choose the registry repository first.');
+  });
+
+  // Guards one registry's verified lists showing under another address after the address changed.
+  test('another address shows nothing of the one before, also when it cannot be read', () async {
+    await pages.refresh();
+    expect(pages.items, isNotEmpty);
+    repository = 'git@example.org:other/registry.git';
+    core.next = _answer(
+      revision: null,
+      refused: {'commit': _refusedCommit, 'path': 'owners.yml', 'why': 'not signed by an owner'},
+    );
+
+    await pages.readAfresh();
+
+    expect(pages.items, isEmpty, reason: 'nothing of the earlier registry stays');
+    expect(pages.people, isEmpty);
+    expect(pages.loaded, isFalse);
+    expect(pages.problem, contains('not signed by an owner'));
+  });
+
+  // Guards a read of the earlier address, still running at the change, installing its state as current.
+  test('a read still running when the address changes is never shown', () async {
+    core.hold = Completer<void>();
+    final earlier = pages.refresh();
+    await pumpEventQueue();
+    repository = 'git@example.org:other/registry.git';
+    final afresh = pages.readAfresh();
+    core.next = _answer(
+      revision: null,
+      refused: {'commit': _refusedCommit, 'path': 'owners.yml', 'why': 'not signed by an owner'},
+    );
+    core.hold!.complete();
+    core.hold = null;
+
+    await earlier;
+    await afresh;
+
+    expect(pages.items, isEmpty, reason: "the earlier address's hosts are not shown");
+    expect(pages.loaded, isFalse);
+    expect(pages.problem, contains('not signed by an owner'));
   });
 }

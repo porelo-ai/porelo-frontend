@@ -357,13 +357,39 @@ class RegistryPages extends ChangeNotifier {
     RegistryOperation.replaceLostKey,
   };
 
+  int _generation = 0;
+  Future<void>? _reading;
+
   /// Refreshes without discarding the last verified list on an unreadable source.
-  Future<void> refresh() async {
-    if (source == null || busy) return;
+  Future<void> refresh() {
+    if (source == null) return Future<void>.value();
+    if (busy) return _reading ?? Future<void>.value();
+    return _reading = _read();
+  }
+
+  /// Forgets everything read so far and reads again, for a source that now reads another registry.
+  ///
+  /// A read still running for the earlier registry ends unseen, so its state never shows under this one.
+  Future<void> readAfresh() async {
+    _generation++;
+    _snapshot = const RegistryPageSnapshot();
+    _published.clear();
+    _applied.clear();
+    _failures.clear();
+    loaded = false;
+    problem = null;
+    notifyListeners();
+    await _reading;
+    await refresh();
+  }
+
+  Future<void> _read() async {
+    final generation = _generation;
     busy = true;
     notifyListeners();
     try {
       final next = await source!.read();
+      if (generation != _generation) return;
       final nextItems = {for (final item in next.items) item.target: item};
       _published.removeWhere(
         (target, revision) =>
@@ -381,9 +407,11 @@ class RegistryPages extends ChangeNotifier {
       problem = next.problem;
       loaded = true;
     } on RegistryRefusal catch (refused) {
-      problem = refused.words;
+      if (generation == _generation) problem = refused.words;
     } on Exception {
-      problem = 'The verified registry or access repository could not be read. The last verified list is retained.';
+      if (generation == _generation) {
+        problem = 'The verified registry or access repository could not be read. The last verified list is retained.';
+      }
     } finally {
       busy = false;
       notifyListeners();
