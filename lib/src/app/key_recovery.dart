@@ -126,6 +126,7 @@ class RecoverySituation {
     required this.checkout,
     this.soleAdmin,
     this.backupRegistered = false,
+    this.resumeOnly = false,
   }) : people = Map.unmodifiable(people),
        cards = List.unmodifiable(cards),
        hosts = Map.unmodifiable(hosts);
@@ -156,6 +157,9 @@ class RecoverySituation {
 
   /// Whether a backup key is filed for [soleAdmin].
   final bool backupRegistered;
+
+  /// Whether this is only a kept request's own record, not a clean read: it finishes that request and starts nothing.
+  final bool resumeOnly;
 
   /// The new card waiting for [login]: another key than the list names, only one Core trusts.
   ///
@@ -338,7 +342,8 @@ abstract interface class RevocationHosts {
   Future<HostLock> deliver(RecoveryReview review, String host, String revision);
 }
 
-/// Where pending requests are kept across dialogs and restarts; never a backup file's place or content.
+/// Where pending requests, and the newest commit made here in a project, are kept across dialogs and restarts; never a
+/// backup file's place or content.
 abstract interface class RecoveryReceipts {
   /// The request kept under [key], or null.
   Map<String, Object?>? read(String key);
@@ -383,7 +388,14 @@ class RecoveryRefused extends RegistryRefusal {
 
   /// Whether nothing was made under the request, so the next attempt is a new decision.
   bool get nothingMade => const {64, 65, 66}.contains(code);
+
+  /// Whether Core's answer proves no commit exists under the request, so even an uncertain one may be dropped.
+  bool get provesNoneMade => nothingMade && _provesNoneMade(reason);
 }
+
+/// Whether Core's typed [reason] proves no commit exists under a kept `--id`: Core makes nothing for the list in this
+/// release, or the list moved past the request's base, where the same id would have been answered as made.
+bool _provesNoneMade(String? reason) => reason == 'not-in-this-release' || reason == 'base-moved';
 
 /// Whether a terminal that ended with [code] made nothing: put away before it ended, wrong use, refused, unreadable.
 bool _terminalMadeNothing(int code) => code == -1 || const {64, 65, 66}.contains(code);
@@ -473,6 +485,9 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
   /// Whether the backup key's terminal was opened and has not been read back.
   bool backupRunning = false;
 
+  // Whether an attempt before the running one ended uncertain: what a proven-nothing-made end restores.
+  bool _earlier = false;
+
   String get _key => situation.scope.receiptKey;
 
   /// Whether the replacement started: a request is kept or a commit made.
@@ -557,6 +572,7 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
   String? whyNotReview(String login, {bool backup = false}) {
     if (busy) return 'Still working.';
     if (started) return 'A replacement is started here; retry it.';
+    if (situation.resumeOnly) return refreshBeforeReplacing;
     if (!situation.people.containsKey(login)) return '$login is not in ${situation.scope.words}.';
     if (situation.base == null) return 'The commit in force is not read. Read ${situation.scope.words} again.';
     if (situation.checkout == null) return 'No registry checkout holding the new card is on this computer.';
@@ -642,7 +658,28 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
   String? get whyNotRetry {
     if (busy) return 'Still working.';
     if (!unfinished) return 'Nothing is unfinished.';
+    if (retriesInTerminal) return whyNotBackup();
     return null;
+  }
+
+  /// Why the kept request cannot be forgotten, or null when it can: one Core may have made a commit under, not read.
+  String? get whyNotForget {
+    if (busy) return 'Still working.';
+    if (backupRunning) return 'The backup key’s terminal is still open.';
+    if (requestId == null || filed != null) return 'No request whose answer was lost is kept.';
+    return null;
+  }
+
+  /// Drops the kept request on the person's word; whatever Core committed under it stays, to be checked by hand.
+  Future<void> forget() async {
+    if (whyNotForget != null) return;
+    requestId = null;
+    uncertain = false;
+    review = null;
+    problem = null;
+    locks.clear();
+    await _forget();
+    notifyListeners();
   }
 
   /// Whether Retry runs the backup key's terminal again, rather than anything this program calls itself.
@@ -672,21 +709,22 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
   Future<void> _file() async {
     final reviewed = review!;
     requestId ??= _newId();
+    final earlier = uncertain;
+    // Kept as uncertain before Core runs: an attempt whose end is never read may have made the commit.
+    uncertain = true;
     await _keep();
     final RecoveryFiled made;
     try {
       made = await core.replace(reviewed, requestId!);
     } on RecoveryRefused catch (refused) {
-      if (!refused.nothingMade) {
-        uncertain = true;
-        await _keep();
-        rethrow;
-      }
+      if (!refused.nothingMade) rethrow;
+      uncertain = earlier && !refused.provesNoneMade;
       if (!uncertain) {
         requestId = null;
         await _forget();
         rethrow;
       }
+      await _keep();
       // An earlier attempt may have made the commit: only the same request answers it.
       throw RecoveryRefused(
         '${refused.words} $_madeBefore',
@@ -694,10 +732,6 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
         reason: refused.reason,
         whoMay: refused.whoMay,
       );
-    } catch (_) {
-      uncertain = true;
-      await _keep();
-      rethrow;
     }
     filed = made;
     requestId = null;
@@ -714,6 +748,7 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       made = filed = RecoveryFiled(revision: made.revision, published: true);
       await _keep();
     }
+    await keepMadeInForce(receipts, reviewed.scope, base: reviewed.base, revision: made.revision);
     for (final host in reviewed.hosts) {
       locks.putIfAbsent(host, () => HostLockPending(host, 'Not on the host yet.'));
     }
@@ -771,6 +806,9 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       // A first attempt checks the checkout is clean; a retry may meet the commit Core made already.
       if (reviewed.scope.inRegistry && requestId == null) await core.prepare(reviewed.scope);
       requestId ??= _newId();
+      _earlier = uncertain;
+      // Kept as uncertain before the terminal runs Core: an end never read back may have made the commit.
+      uncertain = true;
       await _keep();
       command = [
         'porelo',
@@ -802,12 +840,17 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       if (_terminalMadeNothing(code)) {
         final typed = Identity.typedRefusal(lastLine);
         final words = backupKeyWords(code, typed?.reason, typed?.words);
-        // An earlier attempt may have made the commit: dropping its request would make a second one.
-        if (uncertain) throw RecoveryRefused('$words $_madeBefore', code: code, reason: typed?.reason);
+        uncertain = _earlier && !_provesNoneMade(typed?.reason);
+        if (uncertain) {
+          await _keep();
+          // An earlier attempt may have made the commit: dropping its request would make a second one.
+          throw RecoveryRefused('$words $_madeBefore', code: code, reason: typed?.reason);
+        }
         requestId = null;
         await _forget();
         throw RecoveryRefused(words, code: code, reason: typed?.reason);
       }
+      // From here Core ran and may have made the commit: anything but the exact answer keeps the request uncertain.
       final RecoveryFiled made;
       try {
         if (code != 0) {
@@ -816,18 +859,16 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
         }
         made = checkedBackupUse(lastLine, reviewed, id);
       } on RecoveryRefused catch (refused) {
-        if (refused.reason == 'backup-only-own' && !uncertain) {
+        if (refused.reason != 'backup-only-own') rethrow;
+        uncertain = _earlier;
+        if (!uncertain) {
           // Core answered another change than the reviewed one: it stays where Core made it, never published.
           requestId = null;
           await _forget();
           rethrow;
         }
-        if (refused.reason == 'backup-only-own') {
-          throw RecoveryRefused('${refused.words} $_madeBefore', code: refused.code, reason: refused.reason);
-        }
-        uncertain = true;
         await _keep();
-        rethrow;
+        throw RecoveryRefused('${refused.words} $_madeBefore', code: refused.code, reason: refused.reason);
       }
       filed = made;
       requestId = null;
@@ -858,6 +899,9 @@ class KeyRecovery extends ChangeNotifier with QuietAfterDispose {
       notifyListeners();
     }
   }
+
+  /// What a resume-only list answers to anything new.
+  static const refreshBeforeReplacing = 'Refresh the registry before replacing a key.';
 
   static const _madeBefore =
       'An earlier attempt may have made the commit already, so its request is kept: Retry runs it again under the '
@@ -909,7 +953,10 @@ RecoveryFiled checkedBackupUse(String lastLine, RecoveryReview reviewed, String 
 @immutable
 class BackupKeyMade {
   /// Keeps Core's answer.
-  const BackupKeyMade({required this.fingerprint, required this.revision, required this.published});
+  const BackupKeyMade({required this.fingerprint, required this.revision, required this.published, required this.file});
+
+  /// Where Core wrote the backup key's file.
+  final String file;
 
   /// The backup key's fingerprint.
   final String fingerprint;
@@ -943,12 +990,14 @@ List<String> backupMakeCommand(RecoveryScope scope, {required String out, requir
 }
 
 /// Reads what a backup-key making terminal ended with, refusing an answer for another request, list, file or push.
+///
+/// Without [out], any file is taken: a retry of an uncertain request meets the file an earlier attempt wrote.
 BackupKeyMade backupMadeFrom(
   RecoveryScope scope, {
   required int code,
   required String lastLine,
   required String id,
-  required String out,
+  required String? out,
 }) {
   if (code != 0) {
     final typed = Identity.typedRefusal(lastLine);
@@ -965,11 +1014,14 @@ BackupKeyMade backupMadeFrom(
   final fingerprint = answer['fingerprint'];
   final revision = answer['revision'];
   final published = answer['pushed'];
+  final file = answer['file'];
   if (answer['id'] != id ||
       answered is! Map<String, dynamic> ||
       answered['kind'] != scope.backupKind ||
       answered['name'] != scope.name ||
-      answer['file'] != out ||
+      file is! String ||
+      file.isEmpty ||
+      out != null && file != out ||
       fingerprint is! String ||
       !fingerprint.startsWith('SHA256:') ||
       revision is! String ||
@@ -984,14 +1036,46 @@ BackupKeyMade backupMadeFrom(
     fingerprint: fingerprint,
     revision: checkedRegistryRevision(revision),
     published: published as bool,
+    file: file,
   );
+}
+
+/// Where the newest commit made here in a project's access is kept, which a project read before it does not show yet.
+String _inForceKey(RecoveryScope scope) => 'in-force/${scope.receiptKey}';
+
+/// Keeps [revision], made here on [base] and pushed, as the commit in force for a project's access.
+///
+/// A chain of such commits keeps the base first read, so a read older than all of them still finds the newest.
+Future<void> keepMadeInForce(
+  RecoveryReceipts receipts,
+  RecoveryScope scope, {
+  required String base,
+  required String revision,
+}) async {
+  if (scope.kind != RecoveryKind.project) return;
+  final kept = receipts.read(_inForceKey(scope));
+  final from = kept?['revision'] == base && kept?['base'] is String ? kept!['base']! as String : base;
+  await receipts.keep(_inForceKey(scope), {'base': from, 'revision': revision});
+}
+
+/// The commit in force for [scope] when [read] is what its access was last read at: the newest made here on it.
+String? madeInForce(RecoveryReceipts receipts, RecoveryScope scope, String? read) {
+  final kept = receipts.read(_inForceKey(scope));
+  final revision = kept?['revision'];
+  if (read == null || kept?['base'] != read || revision is! String) return read;
+  try {
+    return checkedRegistryRevision(revision);
+  } on FormatException {
+    return read;
+  }
 }
 
 /// Making one backup key for one list, under a request kept until its commit is pushed.
 ///
 /// **One key per request**: a terminal that ended without a readable answer is retried under the same ID and base,
-/// which Core answers without a second key; the new file's place is asked again and never kept. Once an end was
-/// uncertain, no later cancelled, refused or mismatched attempt drops the request.
+/// which Core answers without a second key; the new file's place is asked again and never kept. A request is kept as
+/// uncertain while its terminal runs; once an end was uncertain, only Core's proof that nothing was made under it, or
+/// the person's Forget, drops it.
 class BackupKeyMaking {
   /// Constructor taking the list, the commit in force, Core's boundary and where the request is kept.
   BackupKeyMaking({required this.scope, required this.base, required this.core, required this.receipts, Random? random})
@@ -1019,29 +1103,55 @@ class BackupKeyMaking {
 
   String get _key => keyOf(scope);
 
-  ({String id, String base, String? revision, bool uncertain})? get _kept {
-    final kept = receipts.read(_key);
-    final id = kept?['id'];
-    final base = kept?['base'];
-    final revision = kept?['revision'];
+  /// Reads a kept request field by field, or null when [kept] is none or cannot be read.
+  static _BackupRequest? _read(Map<String, Object?>? kept) {
+    if (kept == null) return null;
+    final id = kept['id'];
+    final base = kept['base'];
+    final revision = kept['revision'];
     // A request kept without the flag is taken as uncertain: keeping it is safe, dropping it is not.
-    final uncertain = kept?['uncertain'] ?? true;
-    if (kept == null ||
-        id is! String ||
-        base is! String ||
-        revision != null && revision is! String ||
-        uncertain is! bool) {
+    final uncertain = kept['uncertain'] ?? true;
+    final earlier = kept['earlier'] ?? uncertain;
+    try {
+      if (id is! String ||
+          !operationIdPattern.hasMatch(id) ||
+          base is! String ||
+          revision != null && revision is! String ||
+          uncertain is! bool ||
+          earlier is! bool) {
+        return null;
+      }
+      return (
+        scope: RecoveryScope.read(kept['scope']),
+        id: id,
+        base: checkedRegistryRevision(base),
+        revision: revision == null ? null : checkedRegistryRevision(revision as String),
+        uncertain: uncertain,
+        earlier: earlier,
+      );
+    } on FormatException {
       return null;
     }
-    return (id: id, base: base, revision: revision as String?, uncertain: uncertain);
   }
 
-  Future<void> _keep(({String id, String base, String? revision, bool uncertain}) request) => receipts.keep(_key, {
+  _BackupRequest? get _kept {
+    final kept = _read(receipts.read(_key));
+    return kept?.scope == scope ? kept : null;
+  }
+
+  Future<void> _keep({
+    required String id,
+    required String base,
+    String? revision,
+    required bool uncertain,
+    required bool earlier,
+  }) => receipts.keep(_key, {
     'scope': scope.stored,
-    'id': request.id,
-    'base': request.base,
-    'revision': request.revision,
-    'uncertain': request.uncertain,
+    'id': id,
+    'base': base,
+    'revision': revision,
+    'uncertain': uncertain,
+    'earlier': earlier,
   });
 
   /// The commit Core made whose push is still owed, or null.
@@ -1049,6 +1159,9 @@ class BackupKeyMaking {
 
   /// Whether a request is kept, so the next attempt repeats it.
   bool get pending => _kept != null;
+
+  /// The kept request's ID, or null.
+  String? get requestId => _kept?.id;
 
   /// Whether an attempt ended without a readable answer, so Core may have made the key and its commit already.
   bool get uncertain => _kept?.uncertain ?? false;
@@ -1060,10 +1173,11 @@ class BackupKeyMaking {
     final base = this.base;
     if (kept == null && base == null) throw const RegistryRefusal('The commit in force is not read. Read it again.');
     if (kept == null && scope.inRegistry) await core.prepare(scope);
-    final request =
-        kept ?? (id: 'bk-${_newId()}', base: checkedRegistryRevision(base!), revision: null, uncertain: false);
-    final command = backupMakeCommand(scope, out: out, id: request.id, base: request.base);
-    await _keep(request);
+    final id = kept?.id ?? 'bk-${_newId()}';
+    final requestBase = kept?.base ?? checkedRegistryRevision(base!);
+    final command = backupMakeCommand(scope, out: out, id: id, base: requestBase);
+    // Kept as uncertain before the terminal runs Core: an end never read back may have made the key.
+    await _keep(id: id, base: requestBase, uncertain: true, earlier: kept?.uncertain ?? false);
     return command;
   }
 
@@ -1072,28 +1186,36 @@ class BackupKeyMaking {
     final kept = _kept;
     if (kept == null) throw const RegistryRefusal('No backup key is being made.');
     if (_terminalMadeNothing(code)) {
-      // After an uncertain end the key may exist already: only the same request answers it.
-      if (!kept.uncertain) await receipts.forget(_key);
       final typed = Identity.typedRefusal(lastLine);
+      // After an uncertain end the key may exist already: only the same request answers it, or Core's proof of none.
+      if (!kept.earlier || _provesNoneMade(typed?.reason)) {
+        await receipts.forget(_key);
+      } else {
+        await _keep(id: kept.id, base: kept.base, uncertain: true, earlier: true);
+      }
       throw RecoveryRefused(backupKeyWords(code, typed?.reason, typed?.words), code: code, reason: typed?.reason);
     }
+    // From here Core ran: anything but the exact answer leaves the request kept as uncertain.
     final BackupKeyMade made;
     try {
-      made = backupMadeFrom(scope, code: code, lastLine: lastLine, id: kept.id, out: out);
+      made = backupMadeFrom(scope, code: code, lastLine: lastLine, id: kept.id, out: kept.earlier ? null : out);
     } on RecoveryRefused catch (refused) {
-      if (refused.reason != 'backup-only-own') {
-        await _keep((id: kept.id, base: kept.base, revision: null, uncertain: true));
-      } else if (!kept.uncertain) {
-        await receipts.forget(_key);
-      }
+      if (refused.reason == 'backup-only-own' && !kept.earlier) await receipts.forget(_key);
       rethrow;
     }
     if (!made.published) {
-      await _keep((id: kept.id, base: kept.base, revision: made.revision, uncertain: false));
+      await _keep(id: kept.id, base: kept.base, revision: made.revision, uncertain: false, earlier: false);
       await publish();
     }
     await receipts.forget(_key);
-    return BackupKeyMade(fingerprint: made.fingerprint, revision: made.revision, published: true);
+    await keepMadeInForce(receipts, scope, base: kept.base, revision: made.revision);
+    return BackupKeyMade(fingerprint: made.fingerprint, revision: made.revision, published: true, file: made.file);
+  }
+
+  /// Drops a kept request on the person's word, never a made commit still owed its push; what Core made stays.
+  Future<void> forget() async {
+    if (_kept?.revision != null) return;
+    await receipts.forget(_key);
   }
 
   /// Pushes the commit Core made in the registry checkout, once; a refused push keeps it for the next try.
@@ -1107,6 +1229,18 @@ class BackupKeyMaking {
 
   String _newId() => List.generate(8, (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
 }
+
+/// A backup-key request as kept: its list, ID and base, the commit once made, and whether it may be made already.
+///
+/// `earlier` is whether an attempt before the running one ended uncertain, which a proven-nothing-made end restores.
+typedef _BackupRequest = ({
+  RecoveryScope scope,
+  String id,
+  String base,
+  String? revision,
+  bool uncertain,
+  bool earlier,
+});
 
 /// The SHA256 fingerprint of an `ssh-ed25519 AAAA...` key, as OpenSSH prints it.
 String sshFingerprint(String key) {
@@ -1377,8 +1511,12 @@ class CliKeyRecoveryCore implements KeyRecoveryCore {
     final RegistryFiled made;
     try {
       made = await registry.core.file(registry.checkout.folder, filing);
+    } on RegistryFilingRefused catch (refused) {
+      // Core's own exit code says whether a commit may be made: 69 and 70 can come after it.
+      throw RecoveryRefused(refused.words, code: refused.code, reason: refused.reason, whoMay: registry.whoMay(filing));
     } on RegistryRefusal catch (refused) {
-      throw RecoveryRefused(refused.words, code: 65, whoMay: registry.whoMay(filing));
+      // Without Core's exit code nothing proves the commit was not made.
+      throw RecoveryRefused(refused.words, code: 70, whoMay: registry.whoMay(filing));
     }
     // Pushed by [publish], so a refused push keeps this commit for Retry instead of filing again.
     return RecoveryFiled(revision: checkedRegistryRevision(made.revision), published: false);
@@ -1544,16 +1682,10 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
   List<RecoveryScope> get keptBackups => [
     for (final key in receipts.keys)
       if (key.startsWith(BackupKeyMaking.keyPrefix))
-        if (_scopeOf(receipts.read(key)?['scope']) case final scope? when key == BackupKeyMaking.keyOf(scope)) scope,
+        // A request that does not read is never offered: making a backup key anew writes over it.
+        if (BackupKeyMaking._read(receipts.read(key))?.scope case final scope? when key == BackupKeyMaking.keyOf(scope))
+          scope,
   ];
-
-  static RecoveryScope? _scopeOf(Object? value) {
-    try {
-      return RecoveryScope.read(value);
-    } on FormatException {
-      return null;
-    }
-  }
 
   RecoveryReview? _keptReview(String key) {
     if (key.startsWith(BackupKeyMaking.keyPrefix)) return null;
@@ -1579,6 +1711,7 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
       checkout: registry.checkout.folder,
       soleAdmin: review.backup ? review.login : null,
       backupRegistered: review.backup,
+      resumeOnly: true,
     );
   }
 
@@ -1588,7 +1721,7 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
     if (accepted == null || registry.problem != null) {
       // A replacement started here resumes from its own receipt; nothing new is offered without a clean read.
       if (_kept(scope) case final kept?) return kept;
-      throw const RegistryRefusal('Refresh the registry before replacing a key.');
+      throw const RegistryRefusal(KeyRecovery.refreshBeforeReplacing);
     }
     final name = scope.name;
     RecoverySituation read({
@@ -1621,7 +1754,8 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
         final sole = admins.length == 1 ? admins.single : null;
         return read(
           people: {for (final person in view.access.developers.values) person.login: person.fingerprint},
-          base: view.accessRevision,
+          // A project read before a commit made here does not show it yet; the newest made on that read is in force.
+          base: madeInForce(receipts, scope, view.accessRevision),
           hostsOf: (_) => [view.host.name],
           sole: sole,
           backup: sole != null && (projectBackup?.call(name!, sole) ?? false),

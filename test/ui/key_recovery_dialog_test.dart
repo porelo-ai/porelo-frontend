@@ -8,6 +8,7 @@ import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/key_recovery.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
+import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/key_recovery_dialog.dart';
@@ -97,6 +98,46 @@ class _Entry implements KeyRecoveryEntry {
   List<RecoveryScope> get keptBackups => const [];
 }
 
+/// The registry as after a restart: nothing read yet, so only a kept request's own record opens a list.
+class _Unread implements RegistryCore {
+  @override
+  Future<RegistryRead> read(String checkout) => throw UnimplementedError('nothing is read');
+
+  @override
+  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
+}
+
+/// The real entry over a registry never read, with the stand-in Core and hosts.
+KeyRecoveryServices _services(RecoveryReceipts receipts) => KeyRecoveryServices(
+  core: _Core(),
+  hosts: _Hosts(),
+  registry: Registry(
+    checkout: RegistryCheckout(root: '/private/registry', repository: 'git@example.org:team/registry.git'),
+    core: _Unread(),
+  ),
+  actor: () => HostAdminIdentity('alice', _admin),
+  receipts: receipts,
+);
+
+/// Bob's replacement as reviewed in [scope] and kept, made as [revision] when given, not pushed.
+Map<String, Object?> _keptReplacement(RecoveryScope scope, {String? revision}) => {
+  'review': RecoveryReview(
+    scope: scope,
+    login: 'bob',
+    oldFingerprint: _old,
+    newFingerprint: _new,
+    newKey: _key(2),
+    card: '/private/registry/checkout/people/bob.card',
+    base: _base,
+    hosts: const [],
+  ).stored,
+  'id': 'abcdef0123456789',
+  'revision': revision,
+  'published': false,
+  'uncertain': revision == null,
+  'confirmed': <String, Object?>{},
+};
+
 /// A terminal that runs nothing: it records the command and ends when the test says.
 class _Channel implements SessionChannel {
   final _output = StreamController<List<int>>.broadcast();
@@ -155,6 +196,7 @@ void main() {
     required RecoverySituation situation,
     PickAFileStandIn? pick,
     ChooseNewFile? choose,
+    List<String?>? folders,
   }) async {
     // Made inside the test's fake time, or its end would never reach the session.
     channel = _Channel();
@@ -171,7 +213,10 @@ void main() {
             entry: entry,
             login: 'bob',
             open: open,
-            pickAFile: ({String? initialDirectory, String? title}) async => pick?.call(),
+            pickAFile: ({String? initialDirectory, String? title}) async {
+              folders?.add(initialDirectory);
+              return pick?.call();
+            },
             chooseNewFile: choose ?? ({String? title}) async => null,
           ),
         ),
@@ -221,18 +266,36 @@ void main() {
     expect(entry.core.calls, isEmpty);
   });
 
+  // Harm: a stolen key's backup replacement refused in the dialog although its new fingerprint was confirmed in person.
+  testWidgets('a stolen key confirmed in person opens the backup key’s terminal with the chosen file', (tester) async {
+    await pump(tester, _Entry(receipts), situation: _situation(backup: true), pick: () => '/media/usb/porelo-backup');
+
+    await tester.tap(find.text('Stolen'));
+    await settle(tester);
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tester.tap(find.byKey(const Key('recovery-told-in-person')));
+    await settle(tester);
+    await tap(tester, 'keyRecovery.replace');
+
+    expect(opened, hasLength(1));
+    expect(opened.single, containsAllInOrder(['--use', '/media/usb/porelo-backup']));
+  });
+
   // Harm: the backup file's place held by the dialog after its terminal, shown, or reused by Retry without asking.
   testWidgets('Retry asks for the backup file again, and its place is shown nowhere', (tester) async {
     // Real file work runs outside the test's fake time, which would never complete it.
     final folder = (await tester.runAsync(() => Directory.systemTemp.createTemp('backup-')))!;
     addTearDown(() => folder.deleteSync(recursive: true));
     final file = '${folder.path}/porelo-backup';
+    await tester.runAsync(() => File(file).writeAsString('SECRET-BACKUP-KEY'));
     final picked = <String?>[file, null];
+    final folders = <String?>[];
     var picks = 0;
     await pump(
       tester,
       _Entry(receipts),
       situation: _situation(backup: true),
+      folders: folders,
       pick: () {
         picks++;
         return picked.removeAt(0);
@@ -249,8 +312,88 @@ void main() {
     expect(find.textContaining(folder.path), findsNothing);
     await tap(tester, 'keyRecovery.retry');
     expect(picks, 2, reason: 'the file is asked again');
+    expect(folders, [null, null], reason: 'neither the file nor its folder is offered again');
     expect(opened, hasLength(1), reason: 'no file chosen, nothing runs');
+    expect(find.textContaining('SECRET'), findsNothing);
     expect(jsonEncode(settings.keyRecoveryKeys.map(settings.keyRecovery).toList()), isNot(contains(folder.path)));
+  });
+
+  Future<void> openWith(WidgetTester tester, Future<void> Function(BuildContext context) show) async {
+    channel = _Channel();
+    tester.view.physicalSize = const Size(1280, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(onPressed: () => show(context), child: const Text('open')),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await settle(tester);
+  }
+
+  // Harm: a registry replacement's own unpushed commit unreachable after a restart, so nothing ever pushes it.
+  testWidgets('the registry’s list choice resumes a kept unpushed replacement after a restart', (tester) async {
+    await receipts.keep('owner', _keptReplacement(const RecoveryScope.owner(), revision: _revision));
+    final services = _services(receipts);
+    await openWith(tester, (context) => showRegistryKeyRecovery(context, entry: services));
+
+    await tester.tap(find.byKey(const ValueKey('recovery-scope owner null')));
+    await settle(tester);
+    await tap(tester, 'keyRecovery.retry');
+
+    expect((services.core as _Core).calls, ['publish $_revision $_base']);
+    expect(find.textContaining('Commit $_revision, pushed'), findsOneWidget);
+  });
+
+  // Harm: a kept request whose answer was lost unreachable from the project's dialog, or stuck there for good with
+  // no way to drop it; or dropped without the person told what may be committed under it.
+  testWidgets('a kept uncertain project replacement is resumed, and Forget drops it once confirmed', (tester) async {
+    await receipts.keep('project/demo', _keptReplacement(const RecoveryScope.project('demo')));
+    final services = _services(receipts);
+    await openWith(
+      tester,
+      (context) => showKeyRecovery(context, entry: services, scope: const RecoveryScope.project('demo'), login: 'bob'),
+    );
+
+    expect(find.text('Person: bob (the login stays)'), findsOneWidget);
+    expect(pressable(tester, 'keyRecovery.retry'), isNotNull);
+    await tap(tester, 'keyRecovery.forget');
+    expect(find.textContaining('request abcdef0123456789'), findsOneWidget);
+    await tester.tap(find.text('Keep it'));
+    await settle(tester);
+    expect(settings.keyRecoveryKeys, ['project/demo']);
+
+    await tap(tester, 'keyRecovery.forget');
+    await tap(tester, 'forget-attempt-confirm');
+
+    expect(settings.keyRecoveryKeys, isEmpty);
+    expect(find.text('Person: bob (the login stays)'), findsNothing);
+    expect((services.core as _Core).calls, isEmpty);
+  });
+
+  // Harm: a new backup key made on a list known only from a kept replacement's record, without a clean read.
+  testWidgets('a new backup key is never made on a list known only from a kept request', (tester) async {
+    await receipts.keep('project/demo', _keptReplacement(const RecoveryScope.project('demo')));
+    final services = _services(receipts);
+    await openWith(
+      tester,
+      (context) => makeBackupKey(
+        context,
+        entry: services,
+        scope: const RecoveryScope.project('demo'),
+        open: open,
+        chooseNewFile: ({String? title}) async => '/media/usb/bk',
+      ),
+    );
+
+    expect(opened, isEmpty);
+    expect(find.text('Refresh the registry before making a backup key.'), findsOneWidget);
+    expect(settings.keyRecoveryKeys, ['project/demo']);
   });
 
   // Harm: the new backup key after a project replacement made on the access commit read before it, which Core

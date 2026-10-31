@@ -2,10 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:porelo_frontend/client.dart' show RegistryFiled, RegistryRead;
 import 'package:porelo_frontend/src/app/identity.dart';
 import 'package:porelo_frontend/src/app/key_recovery.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
+import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/identity_view.dart';
 
 import '../features/support/world.dart';
@@ -55,59 +58,128 @@ Future<void> _open(WidgetTester tester, Ran shown, List<List<String>> calls) asy
   await tester.pump();
 }
 
-/// Where the identity dialog finds a backup key kept here and not pushed; nothing else is asked of it.
-class _KeptBackup implements KeyRecoveryEntry {
-  @override
-  List<RecoveryScope> get keptBackups => const [RecoveryScope.owner()];
+const _base = '1111111111111111111111111111111111111111';
+const _revision = '2222222222222222222222222222222222222222';
+
+/// Core's side of a backup key's push, recorded.
+class _Core implements KeyRecoveryCore {
+  final calls = <String>[];
 
   @override
-  Future<RecoverySituation> situation(RecoveryScope scope) async =>
-      throw const RegistryRefusal('Refresh the registry before replacing a key.');
+  Future<RegistryRefusal?> refusal(RecoveryScope scope, {bool backup = false}) async => null;
 
   @override
-  List<RecoveryScope> get registryScopes => const [];
+  Future<RecoveryFiled> replace(RecoveryReview review, String id) => throw UnimplementedError('nothing is replaced');
 
   @override
-  KeyRecoveryCore get core => throw UnimplementedError();
+  Future<void> prepare(RecoveryScope scope) async => calls.add('prepare');
 
   @override
-  RevocationHosts get hosts => throw UnimplementedError();
+  Future<void> publish(RecoveryScope scope, String revision, {required String base}) async =>
+      calls.add('publish $revision $base');
+}
+
+/// The registry as after a restart: nothing read yet.
+class _Unread implements RegistryCore {
+  @override
+  Future<RegistryRead> read(String checkout) => throw UnimplementedError('nothing is read');
 
   @override
-  RecoveryReceipts get receipts => throw UnimplementedError();
+  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError('nothing is filed');
+}
+
+/// A backup-key request for the registry's owner kept in real settings, made as [revision] when given.
+Future<(Settings, _Core, KeyRecoveryServices)> _keptBackup({String? revision}) async {
+  final settings = Settings(MemorySettingsStore());
+  final receipts = SettingsReceipts(settings);
+  await receipts.keep('backup-make/owner', {
+    'scope': const RecoveryScope.owner().stored,
+    'id': 'bk-0011',
+    'base': _base,
+    'revision': revision,
+    'uncertain': revision == null,
+  });
+  final core = _Core();
+  final services = KeyRecoveryServices(
+    core: core,
+    hosts: _NoHosts(),
+    registry: Registry(
+      checkout: RegistryCheckout(root: '/private/registry', repository: 'git@example.org:team/registry.git'),
+      core: _Unread(),
+    ),
+    actor: () => null,
+    receipts: receipts,
+  );
+  return (settings, core, services);
+}
+
+class _NoHosts implements RevocationHosts {
+  @override
+  Future<HostLock> deliver(RecoveryReview review, String host, String revision) =>
+      throw UnimplementedError('no host is asked');
+}
+
+Future<void> _openWith(WidgetTester tester, KeyRecoveryEntry recovery) async {
+  tester.view.physicalSize = const Size(1280, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final shown = {..._shown(), 'sole_without_backup': <Object?>[]};
+  Future<Ran> run(
+    String program,
+    List<String> arguments, {
+    String? inDirectory,
+    Map<String, String> environment = const {},
+    String? input,
+  }) async => arguments[1] == 'show' ? (code: 0, out: jsonEncode(shown), err: '') : (code: 70, out: '', err: '');
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: IdentityDialog(
+          model: IdentityModel(Identity(run: run)),
+          recovery: recovery,
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump();
 }
 
 void main() {
   // Harm: a backup key's commit made here and not pushed, which `identity show` already counts as filed, leaving
   // nothing that pushes it.
   testWidgets('a kept backup key not pushed keeps its action offered as a push again', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final shown = {..._shown(), 'sole_without_backup': <Object?>[]};
-    Future<Ran> run(
-      String program,
-      List<String> arguments, {
-      String? inDirectory,
-      Map<String, String> environment = const {},
-      String? input,
-    }) async => arguments[1] == 'show' ? (code: 0, out: jsonEncode(shown), err: '') : (code: 70, out: '', err: '');
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: IdentityDialog(
-            model: IdentityModel(Identity(run: run)),
-            recovery: _KeptBackup(),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+    final (settings, core, services) = await _keptBackup(revision: _revision);
+    await _openWith(tester, services);
+    expect(find.byKey(const Key('identity.forgetBackup')), findsNothing, reason: 'a made commit is only pushed');
 
-    final backup = tester.widget<TextButton>(find.byKey(const Key('identity.backupKey')));
-    expect(backup.onPressed, isNotNull);
-    expect(find.text('Push the backup key again…'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('identity.backupKey')));
+    await World.settle(tester);
+
+    expect(core.calls, ['publish $_revision $_base']);
+    expect(settings.keyRecoveryKeys, isEmpty);
+  });
+
+  // Harm: a kept backup-key request whose answer was lost locking the action for good, or dropped without the person
+  // told what may already be made under it.
+  testWidgets('a kept backup key whose answer was lost is forgotten only once confirmed', (tester) async {
+    final (settings, core, services) = await _keptBackup();
+    await _openWith(tester, services);
+
+    await tester.tap(find.byKey(const Key('identity.forgetBackup')));
+    await World.settle(tester);
+    expect(find.textContaining('request bk-0011'), findsOneWidget);
+    await tester.tap(find.text('Keep it'));
+    await World.settle(tester);
+    expect(settings.keyRecoveryKeys, ['backup-make/owner']);
+    await tester.tap(find.byKey(const Key('identity.forgetBackup')));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('forget-attempt-confirm')));
+    await World.settle(tester);
+
+    expect(settings.keyRecoveryKeys, isEmpty);
+    expect(find.byKey(const Key('identity.forgetBackup')), findsNothing);
+    expect(core.calls, isEmpty);
   });
 
   testWidgets('a revoked key offers no change of key, only the lost-key replacement', (tester) async {

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
 import '../app/identity.dart';
-import '../app/key_recovery.dart' show KeyRecoveryEntry, RecoveryScope;
+import '../app/key_recovery.dart' show BackupKeyMaking, KeyRecoveryEntry, RecoveryScope;
 import '../app/links.dart';
 import '../app/machines.dart';
 import '../app/registry.dart' show RegistryContact;
@@ -193,6 +193,14 @@ class _IdentityDialogState extends State<IdentityDialog> {
   // A backup key made here and not pushed is no longer listed as missing, yet is still owed its push.
   List<RecoveryScope> get _keptBackups => widget.recovery?.keptBackups ?? const <RecoveryScope>[];
 
+  // A kept backup key whose answer was lost may be dropped on the person's word; a made commit is only ever pushed.
+  List<RecoveryScope> get _forgettableBackups => [
+    if (widget.recovery case final entry?)
+      for (final scope in _keptBackups)
+        if (BackupKeyMaking(scope: scope, base: null, core: entry.core, receipts: entry.receipts).unpublished == null)
+          scope,
+  ];
+
   List<Command> _commands(IdentityCard? card) => [
     Command(
       id: 'identity.changeKey',
@@ -226,27 +234,48 @@ class _IdentityDialogState extends State<IdentityDialog> {
         _keptBackups.isEmpty ? _makeBackup(card?.soleWithoutBackup ?? const []) : _finishBackup(_keptBackups),
       ),
     ),
+    if (_forgettableBackups case final kept when kept.isNotEmpty)
+      Command(
+        id: 'identity.forgetBackup',
+        label: 'Forget this attempt…',
+        group: 'My key',
+        home: Home.openedView,
+        run: () => unawaited(_forgetBackup(kept)),
+      ),
   ];
+
+  /// One of [kept], chosen when there are several.
+  Future<RecoveryScope?> _chooseKept(List<RecoveryScope> kept, String title) async => kept.length == 1
+      ? kept.single
+      : await showDialog<RecoveryScope>(
+          context: context,
+          builder: (context) => SimpleDialog(
+            title: Text(title),
+            children: [
+              for (final scope in kept)
+                SimpleDialogOption(onPressed: () => Navigator.pop(context, scope), child: Text(scope.words)),
+            ],
+          ),
+        );
 
   /// Finishes a backup key kept here under its own request, chosen when there are several; a new one waits for it.
   Future<void> _finishBackup(List<RecoveryScope> kept) async {
     final entry = widget.recovery;
     if (entry == null || kept.isEmpty || _model.whyNotChange != null) return;
-    final chosen = kept.length == 1
-        ? kept.single
-        : await showDialog<RecoveryScope>(
-            context: context,
-            builder: (context) => SimpleDialog(
-              title: const Text('Push the backup key of which list?'),
-              children: [
-                for (final scope in kept)
-                  SimpleDialogOption(onPressed: () => Navigator.pop(context, scope), child: Text(scope.words)),
-              ],
-            ),
-          );
+    final chosen = await _chooseKept(kept, 'Push the backup key of which list?');
     if (chosen == null || !mounted) return;
     await makeBackupKey(context, entry: entry, scope: chosen, open: widget.open, chooseNewFile: widget.chooseNewFile);
     await _model.load();
+  }
+
+  /// Drops a kept backup-key request whose answer was lost, once the person read what may be made under it.
+  Future<void> _forgetBackup(List<RecoveryScope> kept) async {
+    final entry = widget.recovery;
+    if (entry == null || kept.isEmpty) return;
+    final chosen = await _chooseKept(kept, 'Forget the backup key attempt of which list?');
+    if (chosen == null || !mounted) return;
+    await forgetBackupKeyAttempt(context, entry: entry, scope: chosen);
+    if (mounted) setState(() {});
   }
 
   /// Makes a backup key for one list the person alone administers, chosen when there are several.

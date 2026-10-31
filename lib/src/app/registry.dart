@@ -67,7 +67,13 @@ class CliRegistryCore implements RegistryCore {
         if (filing.base case final base?) ...['--base', base],
         '--json',
       ]);
-      if (result.code != 0) throw RegistryRefusal(_words(result, 'Porelo refused this registry change.'));
+      if (result.code != 0) {
+        throw RegistryFilingRefused(
+          _words(result, 'Porelo refused this registry change.'),
+          code: result.code,
+          reason: _reason(result),
+        );
+      }
       final commit = _object(result.out)['commit'];
       return RegistryFiled.from(<String, dynamic>{'revision': commit});
     } finally {
@@ -87,6 +93,16 @@ class CliRegistryCore implements RegistryCore {
     final value = jsonDecode(out);
     if (value is! Map<String, dynamic>) throw const FormatException('Core answered no JSON object.');
     return value;
+  }
+
+  /// Core's typed reason for a refusal, or null when it gave none.
+  static String? _reason(Ran result) {
+    try {
+      final reason = _object(result.out)['reason'];
+      return reason is String && reason.isNotEmpty ? reason : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   /// Core's typed words for a refusal, or [otherwise] when it gave none; never its error output.
@@ -183,6 +199,18 @@ class RegistryRefusal implements Exception {
         .join('; ');
     return '$words${contacts.isEmpty ? '' : ' Ask $contacts.'}';
   }
+}
+
+/// Core ended a registry filing with a non-zero exit: its code says whether a commit may have been made.
+class RegistryFilingRefused extends RegistryRefusal {
+  /// Keeps Core's words, exit code and typed reason.
+  const RegistryFilingRefused(super.words, {required this.code, this.reason});
+
+  /// Core's exit code; 69 and 70 may come after the commit was made.
+  final int code;
+
+  /// Core's fixed reason, when it named one.
+  final String? reason;
 }
 
 /// The organisation's registry as Core last accepted it, shared by every list of persons, hosts and projects.

@@ -2001,7 +2001,7 @@ Command replaceKeyCommand({
 /// A key replacement's own steps, each rechecked against the controller when it runs.
 ///
 /// With the backup key, the reviewed replacement is confirmed first and only then [useBackup] opens its terminal; its
-/// Retry opens that terminal again and never signs with the agent's key.
+/// Retry opens that terminal again and never signs with the agent's key. [forget] asks before a kept request is dropped.
 List<Command> keyRecoveryCommands({
   required KeyRecovery recovery,
   required String? person,
@@ -2009,6 +2009,7 @@ List<Command> keyRecoveryCommands({
   required bool toldInPerson,
   required VoidCallback useBackup,
   required VoidCallback makeBackup,
+  required VoidCallback forget,
 }) {
   final login = person;
   final reviewed = recovery.review;
@@ -2082,6 +2083,16 @@ List<Command> keyRecoveryCommands({
         } else {
           unawaited(recovery.retry());
         }
+      },
+    ),
+    Command(
+      id: 'keyRecovery.forget',
+      label: 'Forget this attempt…',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: recovery.whyNotForget,
+      run: () {
+        if (recovery.whyNotForget == null) forget();
       },
     ),
     Command(

@@ -104,13 +104,19 @@ Future<BackupKeyMade?> makeBackupKey(
 }) async {
   var making = BackupKeyMaking(scope: scope, base: base, core: entry.core, receipts: entry.receipts);
   if (!making.pending && base == null) {
-    final String? read;
+    final RecoverySituation situation;
     try {
-      read = (await entry.situation(scope)).base;
+      situation = await entry.situation(scope);
     } on RegistryRefusal catch (refused) {
       if (context.mounted) await _say(context, 'Make a backup key', refused.toString());
       return null;
     }
+    // A list known only from a kept replacement's record is no read to make a new key on.
+    if (situation.resumeOnly) {
+      if (context.mounted) await _say(context, 'Make a backup key', 'Refresh the registry before making a backup key.');
+      return null;
+    }
+    final read = situation.base;
     if (read == null) {
       if (context.mounted) await _say(context, 'Make a backup key', 'The commit in force is not read. Read it again.');
       return null;
@@ -147,6 +153,9 @@ Future<BackupKeyMade?> makeBackupKey(
       );
       made = await making.ended(code: code, lastLine: last, out: out);
       words = 'The backup key ${made.fingerprint} is filed in commit ${made.revision}, and pushed.';
+      if (made.file != out) {
+        words = '$words Its file is ${made.file}, where an earlier attempt under this request wrote it, not $out.';
+      }
     }
   } on RegistryRefusal catch (refused) {
     words = refused.toString();
@@ -166,6 +175,45 @@ Future<BackupKeyMade?> makeBackupKey(
   }
   if (context.mounted) await _say(context, made == null ? 'Make a backup key' : 'Backup key made', words);
   return made;
+}
+
+/// Asks whether a kept request whose answer was lost is dropped, after [words] said what may be committed under it.
+Future<bool> _confirmForget(BuildContext context, String words) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const Key('forget-attempt'),
+        title: const Text('Forget this attempt?'),
+        content: Text(words),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep it')),
+          TextButton(
+            key: const Key('forget-attempt-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Forget it'),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
+/// Drops the kept backup-key request for [scope] once the person read what Core may have made under it.
+Future<void> forgetBackupKeyAttempt(
+  BuildContext context, {
+  required KeyRecoveryEntry entry,
+  required RecoveryScope scope,
+}) async {
+  final making = BackupKeyMaking(scope: scope, base: null, core: entry.core, receipts: entry.receipts);
+  final id = making.requestId;
+  if (id == null || making.unpublished != null) return;
+  final where = scope.inRegistry ? 'committed in the registry checkout, perhaps not pushed' : 'filed and pushed';
+  final sure = await _confirmForget(
+    context,
+    'Core may already have made the backup key for ${scope.words} under request $id: its file written and its public '
+    'half $where. Forgetting it here undoes nothing. Check by hand whether that backup key is filed, and where its file '
+    'is, before making another.',
+  );
+  if (sure) await making.forget();
 }
 
 Future<void> _say(BuildContext context, String title, String words) => showDialog<void>(
@@ -250,6 +298,23 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
     await _recovery.backupEnded(code: code, lastLine: last);
   }
 
+  /// Drops a kept request whose answer was lost, once the person read what Core may have committed under it.
+  Future<void> _forgetAttempt() async {
+    final reviewed = _recovery.review;
+    final id = _recovery.requestId;
+    if (reviewed == null || id == null || _recovery.whyNotForget != null) return;
+    final where = reviewed.scope.inRegistry
+        ? 'in the registry checkout, perhaps not pushed: git log there shows it'
+        : 'and pushed: the history of the project’s access repository shows it';
+    final sure = await _confirmForget(
+      context,
+      'Core may already have committed the replacement of ${reviewed.login}’s key in ${reviewed.scope.words} under '
+      'request $id, $where. Forgetting it here undoes nothing. Check by hand whether that commit exists before '
+      'replacing the key again, or it is replaced twice.',
+    );
+    if (sure && mounted) await _recovery.forget();
+  }
+
   Future<void> _makeBackup() {
     final scope = _recovery.situation.scope;
     return makeBackupKey(
@@ -279,6 +344,7 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
         toldInPerson: _toldInPerson,
         useBackup: () => unawaited(_useBackup()),
         makeBackup: () => unawaited(_makeBackup()),
+        forget: () => unawaited(_forgetAttempt()),
       );
       return AlertDialog(
         key: const Key('key-recovery-dialog'),
@@ -328,7 +394,12 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
                 if (_recovery.filed case final filed?) ..._results(filed),
                 if (_recovery.problem case final problem?) Text(problem, style: TextStyle(color: error)),
                 for (final command in commands)
-                  if (command.id != 'keyRecovery.makeBackup' || _recovery.replaced) _CommandButton(command),
+                  if (switch (command.id) {
+                    'keyRecovery.makeBackup' => _recovery.replaced,
+                    'keyRecovery.forget' => _recovery.requestId != null,
+                    _ => true,
+                  })
+                    _CommandButton(command),
               ],
             ),
           ),

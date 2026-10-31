@@ -112,4 +112,20 @@ void main() {
     await expectLater(core().read('/c'), throwsA(isA<RegistryRefusal>()));
     expect(scratch.listSync(recursive: true).whereType<File>(), isEmpty);
   });
+
+  // Guards a filing that ended after its commit (69, 70) read as one that made nothing, so its request is dropped and
+  // the next attempt commits a second time.
+  test('a refused filing keeps Core’s exit code and typed reason', () async {
+    for (final (code, reason) in [(70, null), (69, 'push-failed'), (65, 'base-moved')]) {
+      answer = (code: code, out: reason == null ? '' : '{"reason":"$reason","words":"w"}', err: '');
+      await expectLater(
+        core().file('/c', const RegistryFiling(RegistryFilingKind.owners, content: 'owners: []\n')),
+        throwsA(
+          isA<RegistryFilingRefused>()
+              .having((refused) => refused.code, 'code', code)
+              .having((refused) => refused.reason, 'reason', reason),
+        ),
+      );
+    }
+  });
 }
