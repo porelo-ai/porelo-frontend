@@ -39,7 +39,7 @@ class TransferSelection {
 
 /// A terminal executor that keeps the local secrets-file token outside Dart.
 abstract interface class CentralTransferSource {
-  /// Runs the captured action and reports when an owned terminal may submit it.
+  /// Runs the captured action and reports the shell's SSH submission marker.
   ///
   /// Public output has already been redacted in the terminal shell.
   Future<TransferResult> run(
@@ -53,10 +53,24 @@ abstract interface class CentralTransferSource {
 /// A terminal result with an explicit local refusal when no host command ran.
 class TransferResult extends RemoteResult {
   /// Keeps the host exit and words, or a confirmed pre-submission refusal.
-  const TransferResult(super.exitCode, super.stderr, {this.notSubmitted = false});
+  const TransferResult(
+    super.exitCode,
+    super.stderr, {
+    this.notSubmitted = false,
+    this.uncertain = false,
+    this.childEnded,
+  });
 
   /// Whether the local terminal confirmed that it sent nothing to the host.
   final bool notSubmitted;
+
+  /// Whether shutdown or lost output leaves the transfer unconfirmed.
+  final bool uncertain;
+
+  /// The child exit still required before reconciling an uncertain shutdown.
+  ///
+  /// A negative code or failed future cannot confirm death and keeps replay blocked.
+  final Future<int>? childEnded;
 }
 
 /// Whether a host confirmed a transfer, refused it, or lost its answer.
@@ -89,13 +103,11 @@ class TransferAnswer {
 /// Explicit central transfers, with no timer, reconnect hook, or automatic retry.
 class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
   /// Accepts a terminal executor, with no token-bearing callback in the interface.
-  ProjectTransfers({required this.source, this.answerWithin = const Duration(minutes: 6)});
+  ProjectTransfers({required this.source});
 
   /// The terminal-only transfer boundary.
   final CentralTransferSource source;
 
-  /// The bound on local preparation and the one submitted command together.
-  final Duration answerWithin;
   final Set<String> _busy = {};
   final Set<String> _uncertain = {};
   final Set<String> _pending = {};
@@ -163,28 +175,43 @@ class ProjectTransfers extends ChangeNotifier with QuietAfterDispose {
       try {
         final result =
             await Future<TransferResult>.sync(
-                  () => source.run(
-                    selection,
-                    direction,
-                    onSubmitted: () {
-                      if (submitted) throw const RemoteNotStarted();
-                      submitted = true;
-                      if (!active) _uncertain.add(key);
-                      notifyListeners();
-                    },
-                    onLine: (line) {
-                      lines.add(line);
-                      if (active) onProgress?.call(line);
-                    },
-                  ),
-                )
-                .whenComplete(() {
-                  _pending.remove(key);
-                  if (!submitted) _uncertain.remove(key);
+              () => source.run(
+                selection,
+                direction,
+                onSubmitted: () {
+                  if (submitted) throw const RemoteNotStarted();
+                  submitted = true;
+                  if (!active) _uncertain.add(key);
                   notifyListeners();
-                })
-                .timeout(answerWithin);
-        final state = !submitted || result.notSubmitted
+                },
+                onLine: (line) {
+                  lines.add(line);
+                  if (active) onProgress?.call(line);
+                },
+              ),
+            ).whenComplete(() {
+              _pending.remove(key);
+              if (!submitted) _uncertain.remove(key);
+              notifyListeners();
+            });
+        if (result.childEnded case final ended?) {
+          _pending.add(key);
+          unawaited(
+            ended.then<void>(
+              (code) {
+                if (code < 0) return;
+                _pending.remove(key);
+                notifyListeners();
+              },
+              onError: (Object _) {
+                // Failed confirmation cannot release the replay guard.
+              },
+            ),
+          );
+        }
+        final state = result.uncertain
+            ? TransferState.unconfirmed
+            : !submitted || result.notSubmitted
             ? TransferState.unavailable
             : result.exitCode >= 128 || result.exitCode < 0
             ? TransferState.unconfirmed

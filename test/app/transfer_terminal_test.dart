@@ -89,8 +89,8 @@ void main() {
     expect(commands.single.last, contains('porelo-host-push --pull example api'));
   });
 
-  // Harm: lost output before confirmed submission blocks a transfer that never started.
-  test('losing the terminal before its submission marker stays retryable', () async {
+  // Harm: a read error hides a submitted marker and permits a duplicate transfer.
+  test('losing terminal output leaves submission uncertain', () async {
     final child = _Channel();
     final runner = TransferTerminal(
       secretsFile: '/data/secrets.kdbx',
@@ -101,8 +101,8 @@ void main() {
     final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
     child.outputController.addError(StateError('lost output'));
     final answer = await pending;
-    expect(answer.state, TransferState.unavailable);
-    expect(transfers.unavailable(selection()), isNull);
+    expect(answer.state, TransferState.unconfirmed);
+    expect(transfers.unavailable(selection()), isNotNull);
     expect(child.closed, isTrue);
     await child.outputController.close();
     if (!child.exit.isCompleted) child.exit.complete(255);
@@ -178,6 +178,154 @@ void main() {
     expect(transfers.unavailable(selection()), isNull);
   });
 
+  // Harm: a canceled password prompt is called submitted although SSH never started.
+  test('a deadline before submission returns a confirmed not-sent result', () async {
+    final child = _Channel();
+    final runner = TransferTerminal(
+      secretsFile: '/data/secrets.kdbx',
+      deadline: Duration.zero,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
+    );
+    var submits = 0;
+    final result = await runner.run(selection(), ProjectTransfer.push, onSubmitted: () => submits++);
+    expect(child.closed, isTrue);
+    expect(result.notSubmitted, isTrue);
+    expect(submits, 0);
+  });
+
+  // Harm: a failed drain hides a possible submission and permits a duplicate write.
+  test('a drain failure without a marker blocks replay', () async {
+    final child = _FailedDrainChannel();
+    final runner = TransferTerminal(
+      secretsFile: '/data/secrets.kdbx',
+      deadline: Duration.zero,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
+    );
+    final transfers = ProjectTransfers(source: runner);
+    addTearDown(transfers.dispose);
+    final result = await transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
+    expect(result.state, TransferState.unconfirmed);
+    expect(transfers.unavailable(selection()), isNotNull);
+    expect(
+      (await transfers.start(selection(), ProjectTransfer.push, refresh: () async {})).state,
+      TransferState.unavailable,
+    );
+  });
+
+  // Harm: a reader that never finishes loses evidence of submission and permits replay.
+  test('a drain bound without EOF leaves the transfer unconfirmed', () async {
+    for (final code in <int?>[137, -1, null]) {
+      final child = _HungChannel();
+      final runner = TransferTerminal(
+        secretsFile: '/data/secrets.kdbx',
+        deadline: Duration.zero,
+        drainWithin: Duration.zero,
+        openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
+      );
+      addTearDown(() async {
+        if (!child.exit.isCompleted) child.exit.complete(137);
+        await child.outputController.close();
+      });
+      final transfers = ProjectTransfers(source: runner);
+      addTearDown(transfers.dispose);
+      final answer = await transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
+      expect(child.closed, isTrue);
+      expect(answer.state, TransferState.unconfirmed);
+      expect(transfers.unavailable(selection()), isNotNull);
+      await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
+      if (code == null) {
+        child.exit.completeError(StateError('unknown exit'));
+      } else {
+        child.exit.complete(code);
+      }
+      await Future<void>.delayed(Duration.zero);
+      if (code == null || code < 0) {
+        await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
+      } else {
+        await transfers.reconcile(selection(), () async {});
+        expect(transfers.unavailable(selection()), isNull);
+      }
+    }
+  });
+
+  // Harm: an unknown child status is taken as proof that SSH can no longer start.
+  test('EOF with an unknown child exit stays unconfirmed', () async {
+    final child = _Channel();
+    final runner = TransferTerminal(
+      secretsFile: '/data/secrets.kdbx',
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
+    );
+    final transfers = ProjectTransfers(source: runner);
+    addTearDown(transfers.dispose);
+    final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
+    await child.outputController.close();
+    child.exit.complete(-1);
+    expect((await pending).state, TransferState.unconfirmed);
+    await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
+  });
+
+  // Harm: a rendering error hides an incomplete termination and allows a second write.
+  test('a callback error cannot release the pending child guard after a drain bound', () async {
+    final child = _HungChannel();
+    final runner = TransferTerminal(
+      secretsFile: '/data/secrets.kdbx',
+      drainWithin: Duration.zero,
+      openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) => child,
+    );
+    addTearDown(() async {
+      child.exit.complete(137);
+      await child.outputController.close();
+    });
+    final transfers = ProjectTransfers(source: runner);
+    addTearDown(transfers.dispose);
+    final pending = transfers.start(
+      selection(),
+      ProjectTransfer.push,
+      refresh: () async {},
+      onProgress: (_) => throw StateError('render'),
+    );
+    child.outputController.add(utf8.encode('$projectTransferSubmitted\n${projectTransferOutput}public\n'));
+    expect((await pending).state, TransferState.unconfirmed);
+    await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
+  });
+
+  // Harm: entering a password after the deadline starts a transfer declared not sent.
+  test(
+    'a deadline kills a real password prompt before its SSH step',
+    () async {
+      late Pty child;
+      final prompt = Completer<void>();
+      final raw = StringBuffer();
+      final runner = TransferTerminal(
+        secretsFile: '/data/secrets.kdbx',
+        deadline: const Duration(seconds: 1),
+        openTerminal: (_, _, {columns = 80, rows = 24, echo = true}) {
+          child = Pty.start('/bin/sh', [
+            '-c',
+            "printf 'password prompt\\n'; read line; printf '%s\\n' '$projectTransferSubmitted'",
+          ], echo: echo);
+          child.output.transform(utf8.decoder).listen((text) {
+            raw.write(text);
+            if (!prompt.isCompleted && raw.toString().contains('password prompt')) prompt.complete();
+          });
+          return child;
+        },
+      );
+      final transfers = ProjectTransfers(source: runner);
+      addTearDown(transfers.dispose);
+      final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
+      await prompt.future.timeout(const Duration(seconds: 5));
+      final answer = await pending;
+      child.send('late input\n');
+      expect(await child.ended, 137);
+      expect(raw.toString(), isNot(contains(projectTransferSubmitted)));
+      expect(answer.state, TransferState.unavailable);
+      expect(transfers.unavailable(selection()), isNull);
+    },
+    tags: ['linux'],
+    skip: !Platform.isLinux,
+  ); // Linux: real PTY and shell waiting for terminal input.
+
   // Harm: typing before the terminal script starts echoes a password into the interface.
   test(
     'a transfer PTY suppresses input before the child can disable echo',
@@ -237,5 +385,13 @@ class _HungChannel extends _Channel {
   Future<void> close() async {
     closed = true;
     if (!closing.isCompleted) closing.complete();
+  }
+}
+
+class _FailedDrainChannel extends _Channel {
+  @override
+  Future<void> terminate() async {
+    await close();
+    throw TimeoutException('reader did not drain');
   }
 }

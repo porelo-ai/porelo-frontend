@@ -141,13 +141,12 @@ void main() {
   });
 
   // Harm: a queued submission arrives after the controller deadline and permits a duplicate transfer.
-  testWidgets('a deadline before the submitted notification blocks retry until the source settles', (tester) async {
+  testWidgets('preparation blocks retry and reconciliation until the source settles', (tester) async {
     transfers.dispose();
-    transfers = ProjectTransfers(source: terminal, answerWithin: const Duration(seconds: 1));
+    transfers = ProjectTransfers(source: terminal);
     terminal.prepare = Completer<void>();
     final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {});
-    await tester.pump(const Duration(seconds: 1));
-    expect((await pending).state, TransferState.unconfirmed);
+    await tester.pump(const Duration(minutes: 6));
     expect(transfers.unavailable(selection()), isNotNull);
     await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
     terminal.work = Completer<void>();
@@ -158,9 +157,25 @@ void main() {
     await expectLater(transfers.reconcile(selection(), () async {}), throwsStateError);
     terminal.work!.complete();
     await tester.pump();
-    expect(transfers.unavailable(selection()), isNotNull);
+    expect((await pending).state, TransferState.completed);
     await transfers.reconcile(selection(), () async {});
     expect(transfers.unavailable(selection()), isNull);
+  });
+
+  // Harm: an outer deadline returns while a credential prompt can still start SSH.
+  testWidgets('the controller awaits the terminal outcome across its old deadline', (tester) async {
+    terminal.prepare = Completer<void>();
+    var done = false;
+    final pending = transfers.start(selection(), ProjectTransfer.push, refresh: () async {}).then((answer) {
+      done = true;
+      return answer;
+    });
+    await tester.pump(const Duration(minutes: 6));
+    final returnedBeforeTermination = done;
+    terminal.prepare!.complete();
+    await tester.pump();
+    await pending;
+    expect(returnedBeforeTermination, isFalse, reason: 'only the terminal can terminate and drain its child');
   });
 
   // Harm: duplicate explicit starts can push or pull the project twice.
@@ -212,21 +227,21 @@ void main() {
     expect(transfers.unavailable(chosen), isNull);
   });
 
-  // Harm: a local timeout is reconciled while the original host operation can still write.
-  testWidgets('a timed out submission cannot be reconciled until it settles', (tester) async {
+  // Harm: reconciliation permits replay while the original terminal can still write.
+  testWidgets('a pending submission cannot be reconciled until it settles', (tester) async {
     transfers.dispose();
-    transfers = ProjectTransfers(source: terminal, answerWithin: const Duration(seconds: 1));
+    transfers = ProjectTransfers(source: terminal);
     terminal.work = Completer<void>();
     final chosen = selection();
     final pending = transfers.start(chosen, ProjectTransfer.push, refresh: () async {});
     await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect((await pending).state, TransferState.unconfirmed);
+    await tester.pump(const Duration(minutes: 6));
     await expectLater(transfers.reconcile(chosen, () async {}), throwsStateError);
     await transfers.start(chosen, ProjectTransfer.push, refresh: () async {});
     expect(terminal.commands.length, 1);
     terminal.work!.complete();
     await tester.pump();
+    expect((await pending).state, TransferState.completed);
     await transfers.reconcile(chosen, () async {});
     expect(transfers.unavailable(chosen), isNull);
   });

@@ -205,6 +205,98 @@ void main() {
     expect(output.toString().trim(), '$child');
   });
 
+  // Harm: shutdown completes before the terminal consumer can read its final submission marker.
+  test('termination and close wait for the output consumer to reach EOF', () async {
+    for (final force in [true, false]) {
+      final pty = Pty.start('/bin/sh', ['-c', 'printf "submitted\\n"; read line'], echo: false);
+      final ready = Completer<void>();
+      final eof = Completer<void>();
+      final said = StringBuffer();
+      late StreamSubscription<List<int>> reading;
+      reading = pty.output.listen((bytes) {
+        said.write(utf8.decode(bytes));
+        reading.pause();
+        if (!ready.isCompleted) ready.complete();
+      }, onDone: eof.complete);
+      addTearDown(() async {
+        reading.resume();
+        await reading.cancel();
+        await pty.terminate();
+      });
+      await ready.future.timeout(const Duration(seconds: 5));
+      var stopped = false;
+      final stopping = (force ? pty.terminate() : pty.close()).then((_) => stopped = true);
+      await pty.ended.timeout(const Duration(seconds: 5));
+      await Future<void>.delayed(Duration.zero);
+      final stoppedBeforeEof = stopped;
+      reading.resume();
+      await eof.future.timeout(const Duration(seconds: 5));
+      await stopping;
+      expect(stoppedBeforeEof, isFalse, reason: 'reaping the child does not drain the output consumer');
+      expect(said.toString().trim(), 'submitted');
+    }
+  });
+
+  // Harm: a timed-out reader consumes a replacement file descriptor and exposes unrelated data.
+  test('a bounded drain retains the descriptor until its reader has ended', () async {
+    final directory = Directory.systemTemp.createTempSync('pty-reader-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    final release = File('${directory.path}/release');
+    final unrelated = File('${directory.path}/unrelated')..writeAsStringSync('unrelated file contents');
+    Set<int> masters() => {
+      for (final entry in Directory('/proc/self/fd').listSync())
+        if (FileSystemEntity.typeSync(entry.path, followLinks: false) == FileSystemEntityType.link &&
+            const {'/dev/ptmx', '/dev/pts/ptmx'}.contains(Link(entry.path).targetSync()))
+          int.parse(entry.path.split('/').last),
+    };
+    final before = masters();
+    final pty = Pty.start(
+      '/usr/bin/python3',
+      [
+        '-c',
+        "import os, signal, time; child = os.fork(); "
+            "exec(\"if child == 0:\\n os.setsid()\\n signal.alarm(15)\\n print(os.getpid(), flush=True)\\n "
+            "while not os.path.exists(os.environ['RELEASE']): time.sleep(.01)\\n "
+            "print('released', flush=True)\\n os._exit(0)\\n\") ; signal.pause()",
+      ],
+      echo: false,
+      environment: {'RELEASE': release.path},
+    );
+    addTearDown(() async {
+      release.writeAsStringSync('release');
+      try {
+        await pty.terminate();
+      } on TimeoutException {
+        // The test deliberately leaves the reader open beyond the shutdown bound.
+      }
+    });
+    final master = masters().difference(before).single;
+    final descendant = Completer<int>();
+    final said = StringBuffer();
+    final eof = Completer<void>();
+    final reading = pty.output.transform(utf8.decoder).listen((text) {
+      said.write(text);
+      if (int.tryParse(said.toString().trim()) case final pid? when !descendant.isCompleted) {
+        descendant.complete(pid);
+      }
+    }, onDone: eof.complete);
+    await descendant.future.timeout(const Duration(seconds: 5));
+    RandomAccessFile? replacement;
+    addTearDown(() async {
+      release.writeAsStringSync('release');
+      await eof.future.timeout(const Duration(seconds: 5));
+      await reading.cancel();
+      replacement?.closeSync();
+    });
+    await expectLater(pty.terminate(), throwsA(isA<TimeoutException>()));
+    replacement = unrelated.openSync();
+    final stillOwned = const {'/dev/ptmx', '/dev/pts/ptmx'}.contains(Link('/proc/self/fd/$master').targetSync());
+    release.writeAsStringSync('release');
+    await eof.future.timeout(const Duration(seconds: 5));
+    expect(said.toString(), isNot(contains('unrelated file contents')));
+    expect(stillOwned, isTrue, reason: 'the reader still owns this descriptor after the bound');
+  });
+
   test('closing a session that is still running does signal it', () async {
     final pty = Pty.start('sh', <String>['-c', 'sleep 30']);
     // Long enough to be running, short enough not to slow the suite down.

@@ -27,6 +27,7 @@ class TransferTerminal implements CentralTransferSource {
     this.environment,
     this.cli = SecretsFile.keepassxcCli,
     this.deadline = const Duration(minutes: 5),
+    this.drainWithin = const Duration(seconds: 5),
   });
 
   /// The selected local encrypted file, absent until one is chosen.
@@ -41,8 +42,11 @@ class TransferTerminal implements CentralTransferSource {
   /// The absolute path to the terminal's KeePassXC command.
   final String cli;
 
-  /// The terminal completion bound, shorter than the controller's overall bound.
+  /// The time allowed before terminating the child and draining its output.
   final Duration deadline;
+
+  /// The shutdown bound, whose expiry always leaves the transfer unconfirmed.
+  final Duration drainWithin;
 
   @override
   Future<TransferResult> run(
@@ -66,6 +70,11 @@ class TransferTerminal implements CentralTransferSource {
     final channel = openTerminal(command.first, command.skip(1).toList(), echo: false);
     var submitted = false;
     var callbackFailed = false;
+    var outputFailed = false;
+    var uncertain = false;
+    Object? failure;
+    StackTrace? failureStack;
+    var exitCode = -1;
     final drained = Completer<void>();
     StreamSubscription<String>? subscription;
     try {
@@ -88,6 +97,7 @@ class TransferTerminal implements CentralTransferSource {
               }
             },
             onError: (Object error, StackTrace stack) {
+              outputFailed = true;
               if (!output.isCompleted) output.completeError(error, stack);
             },
             onDone: () {
@@ -95,20 +105,35 @@ class TransferTerminal implements CentralTransferSource {
               if (!output.isCompleted) output.complete();
             },
           );
-      final result = await Future.wait<Object?>([output.future, channel.ended], eagerError: true).timeout(deadline);
-      return TransferResult(
-        result[1]! as int,
-        submitted ? '' : 'The local transfer did not start; nothing was sent.',
-        notSubmitted: !submitted,
-      );
+      try {
+        await Future.wait<Object?>([output.future, channel.ended], eagerError: true).timeout(deadline);
+      } catch (error, stack) {
+        failure = error;
+        failureStack = stack;
+      }
     } finally {
       try {
-        await channel.terminate();
+        await channel.terminate().timeout(drainWithin);
+        // Reaping alone does not deliver the last buffered submission marker.
+        final result = await Future.wait<Object?>([drained.future, channel.ended]).timeout(drainWithin);
+        exitCode = result[1]! as int;
+      } catch (_) {
+        uncertain = true;
       } finally {
-        // An exit code can arrive before the last buffered submission marker.
-        await Future.wait<Object?>([drained.future, channel.ended]);
         await subscription?.cancel();
       }
     }
+    final childEnded = uncertain || exitCode < 0 ? channel.ended : null;
+    if (callbackFailed && !uncertain && !outputFailed && exitCode >= 0) {
+      Error.throwWithStackTrace(failure!, failureStack!);
+    }
+    uncertain = uncertain || outputFailed || exitCode < 0 || (submitted && failure != null);
+    return TransferResult(
+      exitCode,
+      submitted || uncertain ? '' : 'The local transfer did not start; nothing was sent.',
+      notSubmitted: !submitted && !uncertain,
+      uncertain: uncertain,
+      childEnded: childEnded,
+    );
   }
 }

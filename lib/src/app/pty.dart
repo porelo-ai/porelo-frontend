@@ -32,7 +32,7 @@ abstract class SessionChannel {
 
 /// A terminal that can stop its owned child without discarding buffered output.
 ///
-/// Transfer owners cancel through [terminate]; ordinary [close] may discard output.
+/// Both [terminate] and [close] wait for output EOF; an incomplete drain throws.
 abstract class DrainingSessionChannel implements SessionChannel {
   /// Stops the owned child while preserving output until the channel ends.
   Future<void> terminate();
@@ -187,6 +187,7 @@ class Pty implements DrainingSessionChannel {
   final StreamController<List<int>> _output;
   final Future<int> _ended;
   bool _shut = false;
+  Future<void>? _closing;
 
   /// Whether the far end has been waited for. **Nothing is signalled after this.**
   ///
@@ -245,33 +246,35 @@ class Pty implements DrainingSessionChannel {
   }
 
   @override
-  Future<void> close() async {
-    if (_shut) return;
-    _shut = true;
-    final c = _Libc(DynamicLibrary.process());
-    // SIGHUP, which is what a terminal window closing sends. Inside the container the session is
-    // a multiplexer, so this ends the way in and not the work. **Only while the far end is still
-    // there**: after it has been reaped the number is the kernel's to hand out again.
-    // The group, not the shell alone: the shell is its leader, and the command runs in it.
-    if (!_reaped) {
-      c.kill(-_pid, _sighup);
-      signalledOnClose = true;
-    }
-    c.close(_master);
-  }
+  Future<void> close() => _closing ??= _stop(_sighup);
 
   @override
-  Future<void> terminate() async {
-    if (_shut) return;
+  Future<void> terminate() {
+    // Forced cancellation must also stop a child ignoring an earlier close.
+    if (_closing != null && !_reaped) _signal(_sigkill);
+    return _closing ??= _stop(_sigkill);
+  }
+
+  void _signal(int signal) {
+    if (_reaped) return;
+    _Libc(DynamicLibrary.process()).kill(-_pid, signal);
+    signalledOnClose = true;
+  }
+
+  Future<void> _stop(int signal) async {
     _shut = true;
-    final c = _Libc(DynamicLibrary.process());
-    if (!_reaped) {
-      c.kill(-_pid, _sigkill);
-      signalledOnClose = true;
+    _signal(signal);
+    // A normal window close gives the command a chance to handle SIGHUP.
+    final escalation = signal == _sighup ? Timer(const Duration(seconds: 1), () => _signal(_sigkill)) : null;
+    final drained = Future.wait<Object?>([_ended, _output.done]).then((_) {
+      _Libc(DynamicLibrary.process()).close(_master);
+    });
+    try {
+      // Keep ownership even after a bound, while the reader can still use this fd.
+      await drained.timeout(const Duration(seconds: 5));
+    } finally {
+      escalation?.cancel();
     }
-    // Closing the master first would discard output queued just before termination.
-    await _ended;
-    c.close(_master);
   }
 
   /// Reads the far end on an isolate of its own.
