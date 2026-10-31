@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
+import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/tunnel.dart';
 import 'package:porelo_host/porelo_host.dart' show poreloHostKnownHosts;
@@ -278,7 +279,14 @@ void main() {
     await tunnel.raise();
     expect(tunnel.problem, contains('accepted none'));
     expect(ran.single, contains('-G'));
-    expect(pinnedCommandProblems(ran.single, knownHosts: poreloHostKnownHosts(), identity: machine.identity), isEmpty);
+    expect(
+      pinnedCommandProblems(
+        ran.single,
+        knownHosts: poreloHostKnownHosts(environment: desk.environment, windows: false),
+        identity: machine.identity,
+      ),
+      isEmpty,
+    );
   });
 
   // A delayed explanation must not prevent recovery or overwrite a recovered forward.

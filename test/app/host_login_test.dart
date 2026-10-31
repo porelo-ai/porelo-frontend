@@ -158,7 +158,11 @@ void main() {
     ]);
     for (final entry in commands.entries) {
       expect(
-        pinnedCommandProblems(entry.value, knownHosts: poreloHostKnownHosts(), identity: host.identity),
+        pinnedCommandProblems(
+          entry.value,
+          knownHosts: poreloHostKnownHosts(environment: desk.environment, windows: false),
+          identity: host.identity,
+        ),
         isEmpty,
         reason: entry.key,
       );
@@ -186,7 +190,14 @@ void main() {
     await tunnels.explainRefusal('Permission denied (publickey)', host.host, options: host.loginSshOptions);
     expect(ran, hasLength(2));
     for (final command in ran) {
-      expect(pinnedCommandProblems(command, knownHosts: poreloHostKnownHosts(), identity: host.identity), isEmpty);
+      expect(
+        pinnedCommandProblems(
+          command,
+          knownHosts: poreloHostKnownHosts(environment: desk.environment, windows: false),
+          identity: host.identity,
+        ),
+        isEmpty,
+      );
     }
     expect(ran.last, contains('-G'));
   });

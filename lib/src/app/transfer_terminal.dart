@@ -5,6 +5,7 @@ import 'pty.dart';
 
 import 'package:porelo_host/porelo_host.dart';
 
+import 'desk.dart';
 import 'project_transfers.dart';
 
 /// Opens a transfer terminal with its input echo policy applied before spawning.
@@ -65,7 +66,8 @@ class TransferTerminal implements CentralTransferSource {
       card: card,
       config: selection.machine.sshConfig,
       secretsFile: SecretsFile(file, cli: cli),
-      environment: environment,
+      environment: environment ?? desk.environment,
+      windows: desk.isWindows,
     );
     final channel = openTerminal(command.first, command.skip(1).toList(), echo: false);
     var submitted = false;

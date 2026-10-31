@@ -31,9 +31,10 @@ List<String> projectTransferFeedCommand({
   required String config,
   required SecretsFile secretsFile,
   Map<String, String>? environment,
+  bool? windows,
   String ssh = '/usr/bin/ssh',
 }) {
-  HostCardSsh.checkConfigPath(card.name, config, environment: environment, windows: Platform.isWindows);
+  HostCardSsh.checkConfigPath(card.name, config, environment: environment, windows: windows ?? Platform.isWindows);
   SecretsFile.checkPath(ssh);
   final remote = projectTransferCommand(direction, project, repositories);
   final scripts = secretsFile.projectTransferScripts();

@@ -187,7 +187,7 @@ class Machine {
     socketPath: socketPath,
     remoteSocket: card.daemonSocket,
     hostCard: card,
-    sshConfig: sshConfig ?? card.configPath(windows: desk.isWindows),
+    sshConfig: sshConfig ?? card.configPath(environment: desk.environment, windows: desk.isWindows),
   );
 
   /// Whether its retained rental requires recovery before any connection.
