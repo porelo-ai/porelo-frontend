@@ -236,6 +236,7 @@ class OpenSsh implements Remote {
     final done = await _runProcess('scp', <String>[
       ..._options(host, user),
       '-q',
+      '--',
       from,
       '${_card != null ? host : configHost ?? _account(host, user)}:$to',
     ]);
