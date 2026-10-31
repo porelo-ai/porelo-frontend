@@ -444,7 +444,9 @@ class HostAccess {
     final accepted = registry.accepted?.revision;
     // A push whose receipt was lost: the accepted registry holds the change already, so nothing is filed.
     if (accepted != null &&
-        (change.action == 'admit' && _holds(change) || change.action == 'host-card' && _holdsCard(change))) {
+        (change.action == 'admit' && _holds(change) ||
+            change.action == 'host-card' && _holdsCard(change) ||
+            change.action == 'delete-card' && _holdsNoCard(change))) {
       return checkedRegistryRevision(accepted);
     }
     // An unfiled change without its base cannot be filed safely; it is chosen again on what is accepted now.
@@ -471,7 +473,12 @@ class HostAccess {
         base: change.base,
         content: hostCardBody(change.card!),
       ),
-      'delete-card' => throw const RegistryRefusal('No Core verb removes a host card from the registry yet.'),
+      'delete-card' => RegistryFiling(
+        RegistryFilingKind.hostCardRemove,
+        host: change.host,
+        id: change.id,
+        base: change.base,
+      ),
       _ => throw const RegistryRefusal(noHostWideChange),
     };
     try {
@@ -502,6 +509,10 @@ class HostAccess {
               each.accessRepository == change.accessRepository,
         );
   }
+
+  /// Whether the accepted registry holds no card for [change]'s host, as its removal leaves it.
+  bool _holdsNoCard(HostRegistryChange change) =>
+      registry.hosts.where((each) => each.host == change.host).firstOrNull?.card == null;
 
   /// Whether the accepted registry's card for [change]'s host is the card [change] files.
   bool _holdsCard(HostRegistryChange change) {

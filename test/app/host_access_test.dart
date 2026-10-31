@@ -101,22 +101,27 @@ void main() {
     });
   }
 
-  // Harm: a returned host's card is claimed deleted, or its name is rented again while the card still points at it.
-  test('a returned host keeps its deletion pending while no Core verb removes a host card', () async {
+  // Harm: a returned host's name is rented again while its card still points at it, or the server is contacted.
+  test('a returned host is prepared again only after Core removed its card, on the base read', () async {
+    fixture.hostCard = {'host': 'orchard'};
+    await fixture.registry.refresh();
     await settings.rememberHostReturned('orchard');
-    await expectLater(
-      access.bringToHost('orchard'),
-      throwsA(isA<RegistryRefusal>().having((refusal) => refusal.words, 'words', contains('removes a host card'))),
-    );
     await expectLater(
       access.publishReady('orchard', PreparedHost.read(sshCompletion())),
       throwsA(isA<RegistryRefusal>()),
     );
     await expectLater(access.beginPreparation('orchard'), throwsA(isA<RegistryRefusal>()));
-    expect(settings.hostReturned('orchard'), isTrue);
-    expect(access.notOnHostYet('orchard'), isTrue);
-    expect(fixture.changes, isEmpty);
-    expect(fixture.calls, isEmpty);
+    final base = registryBefore;
+    await access.bringToHost('orchard');
+    final removal = fixture.changes.single.filing;
+    expect(
+      (removal.kind, removal.host, removal.base, removal.content),
+      (RegistryFilingKind.hostCardRemove, 'orchard', base, null),
+    );
+    expect(fixture.hostCard, isNull);
+    expect(fixture.calls.where((call) => !call.startsWith('file') && !call.startsWith('publish')), isEmpty);
+    await access.beginPreparation('orchard');
+    expect(settings.hostReturned('orchard'), isFalse);
   });
 
   // Harm: old membership progress without card metadata re-files an unchanged host card.
@@ -193,7 +198,7 @@ void main() {
       fixture.fail = null;
       final calls = fixture.calls.length;
       await settings.rememberHostReturned('orchard');
-      await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
+      await access.bringToHost('orchard');
       expect(settings.hostRegistry('orchard')!.change.action, 'delete-card');
       expect(settings.hostReturned('orchard'), isTrue);
       expect(fixture.calls, hasLength(calls), reason: 'a returned server is never contacted');
@@ -333,7 +338,8 @@ void main() {
     await settings.rememberHostReturned('orchard');
     expect(command.run, throwsA(isA<RegistryRefusal>()));
     expect(opened, isFalse);
-    await expectLater(access.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
+    await access.bringToHost('orchard');
+    expect(fixture.hostCard, isNull, reason: 'the returned host card is removed');
     expect(settings.hostUp('orchard')!.preparedHost, isNull);
     await expectLater(admit(), throwsA(isA<RegistryRefusal>()));
   });
@@ -640,8 +646,9 @@ void main() {
     expect(access.givenBack('orchard'), isTrue);
     final restored = await restart();
     expect(restored.givenBack('orchard'), isTrue);
-    await expectLater(restored.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
+    await restored.bringToHost('orchard');
     expect(restored.settings.hostRegistry('orchard')!.change.action, 'delete-card');
+    expect(restored.settings.hostRegistry('orchard')!.complete, isTrue);
   });
 
   // Harm: a response from another host confirms access on the intended one.

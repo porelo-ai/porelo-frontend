@@ -40,17 +40,28 @@ class CliRegistryCore implements RegistryCore {
   @override
   Future<RegistryFiled> file(String checkout, RegistryFiling filing) async {
     final content = filing.content;
-    if (content == null) throw const FormatException('A registry change names no file to file.');
+    final removal = filing.kind == RegistryFilingKind.hostCardRemove;
+    if ((content == null) != removal) {
+      throw FormatException(removal ? 'A removal files no file.' : 'A registry change names no file to file.');
+    }
     await privateDirectory(Directory(scratch));
     final handed = File(path.join(scratch, 'filing-${filing.id ?? DateTime.now().microsecondsSinceEpoch}'));
     try {
-      await handed.writeAsString(content, flush: true);
+      if (content != null) await handed.writeAsString(content, flush: true);
       final result = await _porelo([
         'registry',
         'file',
         filing.kind.word,
         checkout,
-        if (filing.kind == RegistryFilingKind.hostAccess) ...['--file', handed.path] else ...['--card', handed.path],
+        if (removal)
+          ...[]
+        else if (filing.kind == RegistryFilingKind.hostAccess) ...[
+          '--file',
+          handed.path,
+        ] else ...[
+          '--card',
+          handed.path,
+        ],
         if (filing.host case final host?) ...['--host', host],
         if (filing.id case final id?) ...['--id', id],
         if (filing.base case final base?) ...['--base', base],
@@ -99,7 +110,10 @@ enum RegistryFilingKind {
   hostCard('host-card'),
 
   /// A host's access file, `hosts/<host>/access.yml`.
-  hostAccess('host-access');
+  hostAccess('host-access'),
+
+  /// The removal of the host card the registry accepts for a host; it files no bytes.
+  hostCardRemove('host-card-remove');
 
   const RegistryFilingKind(this.word);
 

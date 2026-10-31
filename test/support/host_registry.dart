@@ -31,11 +31,15 @@ class FiledChange {
   final RegistryFiling filing;
   final String revision;
 
-  String get action => filing.kind == RegistryFilingKind.hostCard ? 'host-card' : 'admit';
+  String get action => switch (filing.kind) {
+    RegistryFilingKind.hostCard => 'host-card',
+    RegistryFilingKind.hostCardRemove => 'delete-card',
+    _ => 'admit',
+  };
   String? get person => filing.person;
   String? get id => filing.id;
   String? get base => filing.base;
-  String get content => filing.content!;
+  String get content => filing.content ?? '';
   String? _value(String key) {
     final found = RegExp('${RegExp.escape(key)}: ("[^"\n]*"|[0-9]+)').allMatches(content).lastOrNull?.group(1);
     return found == null ? null : '${jsonDecode(found)}';
@@ -209,6 +213,7 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
         'signed_by': adminFingerprint,
       };
     }
+    if (change.action == 'delete-card') hostCard = null;
     if (change.action == 'admit') {
       pins[change.person!] = change.fingerprint!;
       projects.add(

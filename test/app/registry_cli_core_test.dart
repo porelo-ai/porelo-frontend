@@ -52,6 +52,31 @@ void main() {
     expect(scratch.listSync(recursive: true).whereType<File>(), isEmpty, reason: 'nothing handed stays behind');
   });
 
+  // Guards a host card removal that hands Core a file or loses its host, id or base, and so removes another.
+  test('a host card removal is handed to Core with its host, id and base and no file', () async {
+    final filed = await core().file(
+      '/private/registry/checkout',
+      const RegistryFiling(RegistryFilingKind.hostCardRemove, host: 'walk9', id: 'ab12', base: _base),
+    );
+
+    expect(filed.revision, _commit);
+    expect(calls.single, [
+      'porelo',
+      'registry',
+      'file',
+      'host-card-remove',
+      '/private/registry/checkout',
+      '--host',
+      'walk9',
+      '--id',
+      'ab12',
+      '--base',
+      _base,
+      '--json',
+    ]);
+    expect(scratch.listSync(recursive: true).whereType<File>(), isEmpty, reason: 'a removal hands no file');
+  });
+
   // Guards a refused read or change passing as a registry or a commit: it is a refusal in Core's words.
   test('a refusal is Core typed words and never an answer, and leaves no file behind', () async {
     answer = (code: 65, out: '{"reason":"base-moved","words":"HEAD is not the base."}', err: 'secret-ish noise');

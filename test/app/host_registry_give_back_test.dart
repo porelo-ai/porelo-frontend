@@ -14,7 +14,7 @@ import '../support/host_registry.dart';
 
 void main() {
   // Harm: failed give-back deletes a still-rented host, publication failure causes a second give-back,
-  // or a card is claimed deleted although no Core verb removes it.
+  // or a card is claimed deleted before its removal is published, or removed twice on retry.
   for (final outcome in [
     'refused',
     'unconfirmed',
@@ -29,7 +29,7 @@ void main() {
       addTearDown(tester.view.reset);
       final store = MemorySettingsStore();
       final settings = Settings(store);
-      final fixture = RegistryFixture();
+      final fixture = RegistryFixture()..hostCard = {'host': 'orchard'};
       final access = await fixture.access(settings);
       final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
       final owner = outcome != 'confirmed' && outcome.startsWith('confirmed')
@@ -87,13 +87,12 @@ void main() {
       await tester.tap(find.byKey(const Key('host-confirm-down')));
       await World.settle(tester);
       expect(downs, 1);
-      expect(fixture.changes, isEmpty, reason: 'no Core verb removes a host card');
+      final filedRemoval = confirmed && outcome != 'confirmed revoked';
+      expect(fixture.changes.map((change) => change.action), filedRemoval ? ['delete-card'] : isEmpty);
+      expect(fixture.hostCard, isNotNull, reason: 'an unpublished removal leaves the card');
       expect(settings.hostRegistry('orchard')?.change.action, confirmed ? 'delete-card' : isNull);
       if (confirmed) {
         expect(find.textContaining('registry card still needs deletion'), findsOneWidget);
-        if (outcome != 'confirmed revoked') {
-          expect(find.textContaining('No Core verb removes a host card'), findsOneWidget);
-        }
         if (outcome == 'confirmed revoked') {
           expect(find.textContaining('alice@example.org'), findsOneWidget);
         }
@@ -138,8 +137,13 @@ void main() {
         fixture.actor = const HostAdminIdentity('alice', adminFingerprint);
         fixture.fail = null;
         fixture.publicationRefusal = null;
-        await expectLater(restored.bringToHost('orchard'), throwsA(isA<RegistryRefusal>()));
-        expect(fixture.changes, isEmpty);
+        // The commit Core made but could not publish is pushed by hand, as the checkout asks.
+        if (fixture.unpublished != null) fixture.pushByHand();
+        await fixture.registry.refresh();
+        await restored.bringToHost('orchard');
+        expect(fixture.changes, hasLength(1), reason: 'the retry files the same removal, never a second');
+        expect(fixture.hostCard, isNull);
+        expect(reopened.hostRegistry('orchard')!.complete, isTrue);
         expect(reopened.hostReturned('orchard'), isTrue);
         expect(downs, 1, reason: 'publication does not call down');
         await tester.pumpWidget(const SizedBox.shrink());
