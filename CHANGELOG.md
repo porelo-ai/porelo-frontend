@@ -9,6 +9,21 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Existing-server preparation runs the checked collection over pinned, agent-only SSH as root,
+  retains callback refusal words, and saves the dialog's public settings for retry and card publication.
+  Teardown excludes disk identities, checks given-host pins, and isolates concurrent pins. Malformed
+  stops refuse completion, given-host login refusals stop immediately, duplicate names preserve recovery,
+  and copy and command errors retain their cause.
+
+- Host administration retains confirmed card and applied-revision state when replacing stale changes,
+  preserves returned-host deletion during publication retries, and migrates older delivery records.
+  Preparation reads SSH-only host results on private networks, carries optional forge job limits and
+  local forward choices, shows root bootstrap instructions for a separate terminal, and refuses root stops.
+
+- Host administration recovers unpublished ready cards, changed selections and lost intake staging,
+  delivers verified newer registry state without rolling back host access, and refuses unassigned hosts,
+  purged memberships and refused-card unlocks. Confirmed returns retain visible deletion recovery,
+  disable stale admin actions and permit name reuse after deletion; publication status tracks the host card.
 - Host-card retries leave trial-only masters unretained, waiting drops finish old-master teardown
   before later probes start, and card registration keeps its fixed ports until explicit drop.
   Queued replacements read the current machine list when they run.
@@ -20,9 +35,33 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ownership and port reservations separate across hosts and trials, and complete shutdown after
   socket races or failed starts. Scoped IPv6 addresses retain their literal zone, and reached hosts
   keep daemon failures separate from key availability.
+- Host account commands enforce the card pin even outside its SSH alias. Teardown keeps the provider's
+  pinned endpoint and requested login; forced give-back works without local SSH configuration.
+- Provider terminals refuse unreachable accounts and use the desktop's OpenSSH. Rental migration keeps
+  original provider tags for already-named hosts and preserves malformed legacy recovery records.
+
+- Legacy rental migration keeps the original provider tag and recovery explanation. One-click SSH uses
+  the host configuration without an empty identity, and failed teardown offers a loss-confirmed give-back.
+- Supported provider sign-ins retain their terminal flow. Following can resolve verified project-admin
+  signers after edits and discards stale answers; project take-off explains its pending registry support.
+
+### Removed
+
+- Retired VPN and local trust installers, host-secret stops, copied laptop keys, project-key setup inputs,
+  and the associated walks. Old rentals remain visible for confirmed give-back or setup again without
+  reusing obsolete credentials. Signed-state setup and joining require the served replacement adapters.
 
 ### Added
 
+- Host administration has registry-backed app operations for trusted-person admission, host-scoped locking,
+  readmission and separately confirmed account deletion. Checked SSH completion cards and confirmed provider
+  returns retain publication recovery independently; registry delivery resumes the same signed revision and
+  requires the intended host, revision and membership result before confirming it. Signing and host intake
+  remain injectable until their implementations are available.
+- The organisation's registry repository is kept as one credential-free address and fetched into a private
+  checkout with the person's own Git access, never prompting. Core's registry read of it is the one source
+  for persons, hosts, admins and projects; a refused fetch, an incomplete answer or a refused commit keeps
+  the last accepted state and says why, and a refused card can never be picked for a change.
 - Verified host cards can publish pinned public-only SSH configurations and share one supervised
   connection for fixed forge, Git-over-HTTP, Matrix and daemon forwards. Port conflicts are refused,
   agent forwarding is disabled, and host transport state is separate from daemon and vault readiness.
@@ -71,6 +110,23 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Unknown roles are refused before the window opens.
 
 ### Fixed
+
+- Registry changes refuse missing selections and unpublished checkout work, publish only Core's filed
+  commit, and retain publication failures. Registry reads apply Core's latest verified state beside a
+  refused commit, preserve first-commit and malformed-card refusals, and name owners for hosts without
+  admins. Git disables credential prompts and incomplete initial checkouts can be retried.
+- Covered item pages and section-only navigation no longer supply registry actions. Finder choices
+  open and select the captured item through its row navigation, preserve watched SSH settings, and
+  wait for its page before acting. Registry identity compares machine name and socket path.
+- Registry refusals use only contacts verified for the operation. The finder exposes registry actions
+  on unwatched machines and unfollowed projects, including pages opened without an explicit admission.
+  Choosing a registry action opens its captured item's page and runs it there with its own permissions.
+- Project shortcuts and finder commands refuse stale item selections. Default project pages retain
+  repository management, and prepared machines without registry state retain project placement commands.
+  Forge repository menus retain repository removal and trusted-machine tools; renaming keeps the chosen
+  authentication method.
+- Registry menus hide operations outside the person's role and name the responsible contacts with their
+  supplied email. Saved jobs have a collapsible filter and working finder menus; project rows show tunnel state.
 
 - Project joins supply an explicit local Ansible inventory and disable its localhost warning while retaining
   real warnings and failures in the join log.
@@ -187,6 +243,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Each Choose… in the server setup dialog starts in the folder of the file or folder chosen before it.
 
 ### Changed
+
+- Machines, Projects, Forges, repository lists, saved jobs, and work use rows with visible menus. Item pages
+  have independent collapsible filters, retain registry/host/project identity, and show confirmed host state
+  separately from pending registry changes. Each machine always has Without a project. Central forges default
+  to SSH identity, and choosing a token explicitly opens its terminal boundary.
 
 - Taking a project off a prepared server opens the admin's terminal and pipes the central forge token from the
   secrets file to the host to protect the repositories' central copies; a missing entry refuses before SSH starts.
