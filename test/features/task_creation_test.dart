@@ -490,6 +490,19 @@ void main() {
       await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
       await theTerminalIsHeadedBy(tester, 'Confirm on the device page');
     });
+    testWidgets('''a sign-in of a definition naming no flow says only to follow the terminal''', (tester) async {
+      await bddSetUp(tester);
+      await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);
+      await theAgentLogsInByItsOwnLogin(tester, 'an-agent');
+      await iStartWorkInThisProject(tester);
+      await iChooseTheAgent(tester, 'An Agent');
+      await iLogInWithTheAgentFromTheStart(tester);
+      await aTerminalRunsOnTheMachine(tester, 'porelo vault login --agent an-agent');
+      await theTerminalIsHeadedBy(tester, 'Then follow what the terminal below says');
+      await theTerminalIsNotHeadedBy(tester, 'Paste the code');
+      await theTerminalIsNotHeadedBy(tester, 'Confirm on the device page');
+      await theTerminalIsNotHeadedBy(tester, 'hands the answer back');
+    });
     testWidgets('''a sign-in of an unknown flow says only to follow the terminal''', (tester) async {
       await bddSetUp(tester);
       await theVaultHoldsNoCredentialForWhatARunWouldUse(tester);

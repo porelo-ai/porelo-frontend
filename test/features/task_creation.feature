@@ -336,6 +336,18 @@ Feature: Starting work with an agent, a mode and a credential
         And the terminal is headed by {'Confirm on the device page'}
 
     # A definition naming no flow, or one this interface does not know, is promised none of them.
+    Scenario: a sign-in of a definition naming no flow says only to follow the terminal
+        Given the vault holds no credential for what a run would use
+        And the agent {'an-agent'} logs in by its own login
+        When I start work in this project
+        And I choose the agent {'An Agent'}
+        And I log in with the agent from the start
+        Then a terminal runs {'porelo vault login --agent an-agent'} on the machine
+        And the terminal is headed by {'Then follow what the terminal below says'}
+        And the terminal is not headed by {'Paste the code'}
+        And the terminal is not headed by {'Confirm on the device page'}
+        And the terminal is not headed by {'hands the answer back'}
+
     Scenario: a sign-in of an unknown flow says only to follow the terminal
         Given the vault holds no credential for what a run would use
         And the agent {'an-agent'} logs in by its own login
