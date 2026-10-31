@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/access_developers.dart';
 import 'package:porelo_frontend/src/app/project_access_contract.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
@@ -188,7 +189,7 @@ void main() {
       '--host',
       'orchard',
       '--card',
-      '$_registry/people/bob.card',
+      path.join(_registry, 'people', 'bob.card'),
       '--role',
       'developer',
       '--base',
@@ -217,7 +218,7 @@ void main() {
         '--host',
         'orchard',
         '--card',
-        '$_registry/people/alice.card',
+        path.join(_registry, 'people', 'alice.card'),
         // Core's init makes its person admin and refuses --role; add without it would make a developer.
         if (exists) ...['--role', 'admin', '--base', _base],
         '--id',
@@ -475,7 +476,7 @@ void main() {
       '--person',
       'bob',
       '--card',
-      '$_registry/people/bob.card',
+      path.join(_registry, 'people', 'bob.card'),
       '--base',
       _base,
       '--id',

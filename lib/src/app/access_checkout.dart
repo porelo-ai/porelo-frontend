@@ -273,9 +273,14 @@ Future<void> privateDirectory(Directory directory, {HostFileWriter? writer}) asy
     if (current == parent) break;
     current = parent;
   }
+  final files = writer ?? HostFileWriter();
   for (final ancestor in ancestors.reversed) {
     final type = await FileSystemEntity.type(ancestor, followLinks: false);
-    if (type == FileSystemEntityType.notFound) {
+    if (type == FileSystemEntityType.notFound && files.isWindows) {
+      // Windows has no creation mode: the new folder is kept to this user before anything enters it.
+      await Directory(ancestor).create();
+      await files.protectDirectory(Directory(ancestor));
+    } else if (type == FileSystemEntityType.notFound) {
       // Private from creation: project history never enters a directory made with the process umask.
       final result = await Process.run('/usr/bin/mkdir', ['-m', '700', '--', ancestor]);
       if (result.exitCode != 0) throw const WorkspaceRefused('The private access directory could not be created.');
@@ -283,5 +288,5 @@ Future<void> privateDirectory(Directory directory, {HostFileWriter? writer}) asy
       throw const WorkspaceRefused('The private access directory has a linked or non-directory ancestor.');
     }
   }
-  await (writer ?? HostFileWriter()).protectDirectory(Directory(absolute));
+  await files.protectDirectory(Directory(absolute));
 }
