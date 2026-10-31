@@ -532,13 +532,16 @@ class Settings extends ChangeNotifier {
       }
     }
     _projectAccess.clear();
+    _projectAccessReasons.clear();
     final projectWork = stored['projectAccess'];
     if (projectWork != null) {
       if (projectWork is! Map) throw const FormatException('Invalid pending project work.');
       for (final entry in projectWork.entries) {
         final progress = ProjectAccessProgress.read(entry.value);
         if (entry.key != progress.change.project) throw const FormatException('Pending work names another project.');
+        final reason = _checkedProjectAccessReason(progress, (entry.value as Map)['reason']);
         _projectAccess[progress.change.project] = progress;
+        if (reason != null) _projectAccessReasons[progress.change.project] = reason;
       }
     }
     _projectRegistrations.clear();
@@ -783,11 +786,23 @@ class Settings extends ChangeNotifier {
   }
 
   final _projectAccess = <String, ProjectAccessProgress>{};
+  final _projectAccessReasons = <String, String>{};
   final _projectChangesRunning = <String>{};
   final _projectRegistrations = <String, ProjectAccessProgress>{};
 
   /// The last confirmed registration, independent of subsequent person changes.
   ProjectAccessProgress? projectRegistration(String project) => _projectRegistrations[project];
+
+  /// The permanent refusal retained with a superseded receipt.
+  String? projectAccessReason(String project) => _projectAccessReasons[project];
+
+  static String? _checkedProjectAccessReason(ProjectAccessProgress progress, Object? reason) {
+    if (reason == null) return null;
+    if (progress.state != ProjectAccessState.superseded || reason is! String || reason.trim().isEmpty) {
+      throw const FormatException('Invalid superseded project reason.');
+    }
+    return reason;
+  }
 
   /// Forgets a request only after the caller resolved its ID as unfiled in Core.
   Future<void> forgetUnfiledProjectAccess(String project) async {
@@ -808,10 +823,12 @@ class Settings extends ChangeNotifier {
 
   Future<void> _forgetProjectAccess(String project, ProjectAccessProgress previous) async {
     _projectAccess.remove(project);
+    final reason = _projectAccessReasons.remove(project);
     try {
       await _write();
     } on Object {
       _projectAccess[project] = previous;
+      if (reason != null) _projectAccessReasons[project] = reason;
       rethrow;
     }
     notifyListeners();
@@ -838,10 +855,13 @@ class Settings extends ChangeNotifier {
   }
 
   /// Saves a checked receipt before the next side effect, restoring memory on failure.
-  Future<void> rememberProjectAccess(ProjectAccessProgress progress) async {
+  Future<void> rememberProjectAccess(ProjectAccessProgress progress, {String? reason}) async {
     final checked = ProjectAccessProgress.read(progress.stored);
+    final checkedReason = _checkedProjectAccessReason(checked, reason);
     final project = checked.change.project;
     final previous = _projectAccess[project];
+    final previousReason = _projectAccessReasons.remove(project);
+    if (checkedReason != null) _projectAccessReasons[project] = checkedReason;
     final registration = checked.confirmed && checked.change.action == 'register';
     final previousRegistration = _projectRegistrations[project];
     _projectAccess[project] = checked;
@@ -849,6 +869,8 @@ class Settings extends ChangeNotifier {
     try {
       await _write();
     } catch (_) {
+      _projectAccessReasons.remove(project);
+      if (previousReason != null) _projectAccessReasons[project] = previousReason;
       if (registration) {
         if (previousRegistration == null) {
           _projectRegistrations.remove(project);
@@ -1172,7 +1194,10 @@ class Settings extends ChangeNotifier {
     'tresorFolders': _tresorFolders,
     'secretsFile': _secretsFile,
     'returnedHosts': _returnedHosts.toList(),
-    'projectAccess': {for (final entry in _projectAccess.entries) entry.key: entry.value.stored},
+    'projectAccess': {
+      for (final entry in _projectAccess.entries)
+        entry.key: {...entry.value.stored, 'reason': ?_projectAccessReasons[entry.key]},
+    },
     'projectRegistrations': {for (final entry in _projectRegistrations.entries) entry.key: entry.value.stored},
     'hostRegistry': {for (final entry in _hostRegistry.entries) entry.key: entry.value.stored},
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},

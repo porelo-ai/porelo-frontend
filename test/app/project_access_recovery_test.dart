@@ -16,28 +16,138 @@ import '../support/project_access.dart';
 
 void main() {
   late Settings settings;
-  late ProjectAccessFixture fixture;
+  late _FilingFixture fixture;
   final bob = AccessDeveloper(login: 'bob', role: 'developer', fingerprint: personFingerprint);
   setUp(() {
     settings = Settings(MemorySettingsStore());
-    fixture = ProjectAccessFixture();
+    fixture = _FilingFixture();
   });
   tearDown(() {
     settings.dispose();
     fixture.registry.dispose();
   });
 
-  // Harm: failed signing must not block a different authorized request indefinitely.
-  test('a refused filing with no Core commit releases the receipt', () async {
+  // Harm: a signing failure must retain the request ID until explicit recovery.
+  test('a signing failure retains the receipt with Retry', () async {
     final access = await fixture.access(settings);
     fixture.fail = 'file';
     await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
-    expect(settings.projectAccess('demo'), isNull);
-    expect(fixture.lookups, isNotEmpty);
+    expect(settings.projectAccess('demo'), isNotNull, reason: 'the unresolved request must retain its ID');
+    expect(settings.projectAccess('demo')!.state, ProjectAccessState.unfiled);
+    expect(access.unavailable(delivery: true), isNull);
     fixture.fail = null;
     await access.register();
     expect(fixture.changes.values.single.action, 'register');
   });
+
+  // Harm: expected-view pins must not prevent reconciliation of older durable work.
+  for (final entry in ['register', 'adapter', 'retry']) {
+    for (final moved in ['project', 'card']) {
+      for (final signed in [false, true]) {
+        test('$entry reconciles ${signed ? 'filed' : 'unfiled'} before expected $moved checks', () async {
+          final access = await fixture.access(settings);
+          fixture.fail = signed ? 'upload' : 'file';
+          fixture.lookupFailureAfterFile = const FormatException('lookup unavailable');
+          await expectLater(access.register(), throwsFormatException);
+          final old = settings.projectAccess('demo')!;
+          fixture.fail = null;
+          fixture.lookupFailure = null;
+          fixture.lookupFailureAfterFile = null;
+          if (moved == 'project') fixture.verifiedRevision = 'c' * 40;
+          if (moved == 'card') fixture.host = PreparedHost.read({...sshCompletion(), 'address': '203.0.113.9'});
+          final registration = RegistryProjectRegistration(access);
+          final expected = await registration.verify('demo', registering: true);
+          fixture.calls.clear();
+          final work = entry == 'retry'
+              ? access.retry()
+              : entry == 'adapter'
+              ? registration.register(expected, await fixture.connect(await access.verify()))
+              : access.register(expected: expected);
+          if (signed) {
+            await expectLater(work, throwsA(isA<RegistryRefusal>()));
+            expect(access.supersededChangeId, old.change.id);
+            await access.discard(old.change.id);
+            expect(settings.projectAccess('demo'), isNull);
+          } else {
+            await work;
+            if (entry == 'retry') {
+              expect(settings.projectAccess('demo'), isNull);
+            } else {
+              expect(settings.projectAccess('demo')!.confirmed, isTrue);
+              expect(settings.projectAccess('demo')!.change.id, isNot(old.change.id));
+            }
+          }
+          if (!signed) expect(fixture.lookups, contains(old.change.id));
+        });
+      }
+    }
+  }
+
+  // Harm: a refusal after persisting a new ID must not erase uncertain signed work.
+  test('authorization refusal retains a new unfiled receipt for Retry', () async {
+    final access = await fixture.access(settings);
+    var reads = 0;
+    fixture.onRead = () {
+      if (++reads == 2) fixture.authorized = false;
+    };
+    await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
+    expect(settings.projectAccess('demo'), isNotNull, reason: 'the unresolved request must retain its ID');
+    expect(settings.projectAccess('demo')!.state, ProjectAccessState.unfiled);
+    expect(access.unavailable(delivery: true), isNull);
+    expect(fixture.calls, isEmpty);
+  });
+
+  // Harm: a locally signed self-revocation must still reach the host.
+  for (final action in ['lock', 'remove']) {
+    test('a self-$action at the filed revision can publish and deliver', () async {
+      final alice = AccessDeveloper(login: 'alice', role: 'admin', fingerprint: adminFingerprint);
+      fixture.members['alice'] = alice;
+      fixture.afterFile = (revision) {
+        fixture.currentAccess = revision;
+        fixture.authorized = false;
+      };
+      final access = await fixture.access(settings);
+      if (action == 'lock') {
+        await access.lock('alice', locked: true, selected: alice);
+      } else {
+        await access.change('demo', alice, remove: true);
+      }
+      expect(fixture.calls, containsAllInOrder(['file', 'publish', 'upload', 'apply']));
+      expect(settings.projectAccess('demo')!.confirmed, isTrue);
+      expect(fixture.hostPeople['demo'], action == 'lock' ? {'alice': 'locked'} : isEmpty);
+    });
+  }
+
+  // Harm: permanent delivery refusals must offer discard instead of stranding signed work.
+  for (final refusal in ['returned', 'admission']) {
+    test('a filed $refusal refusal persists its reason and offers Discard', () async {
+      final store = MemorySettingsStore();
+      final first = Settings(store);
+      addTearDown(first.dispose);
+      final access = await fixture.access(first);
+      fixture.fail = 'publish';
+      await expectLater(access.register(), throwsFormatException);
+      final id = first.projectAccess('demo')!.change.id;
+      fixture.fail = null;
+      if (refusal == 'returned') {
+        await first.rememberHostReturned('orchard');
+      } else {
+        fixture.registrySource.admitted = false;
+        await fixture.registry.refresh();
+      }
+      fixture.calls.clear();
+      await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+      expect(access.supersededChangeId, id);
+      final restored = Settings(store);
+      addTearDown(restored.dispose);
+      await restored.load();
+      final resumed = await fixture.access(restored);
+      expect(resumed.unavailable(), contains(refusal == 'returned' ? 'given back' : 'not admitted'));
+      await resumed.discard(id);
+      expect(restored.projectAccess('demo'), isNull);
+      expect(fixture.calls, isEmpty);
+    });
+  }
 
   // Harm: uncertain signing must never lose the only ID that recovers a signed commit.
   for (final entry in ['retry', 'register', 'change']) {
@@ -284,10 +394,7 @@ void main() {
       fixture.calls.clear();
       await access.register();
       expect(fixture.calls, containsAllInOrder(['upload', 'apply']));
-      expect(
-        fixture.changes.values.where((change) => change.action == 'register'),
-        hasLength(moved == 'unchanged' || moved == 'readmitted' ? 1 : 2),
-      );
+      expect(fixture.changes.values.where((change) => change.action == 'register'), hasLength(2));
       expect(settings.projectAccess('demo')!.confirmed, isTrue);
     });
   }
@@ -378,7 +485,7 @@ void main() {
     fixture.lookupFailure = null;
     fixture.lookupFailureAfterFile = null;
     fixture.eligible = false;
-    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+    await access.retry();
     expect(settings.projectAccess('demo'), isNull);
     fixture.fail = null;
     await access.register();
@@ -452,7 +559,7 @@ void main() {
       expect(restored.projectHost('demo'), 'orchard');
       expect(fixture.savedMachines.last.hostProject, 'orchard');
       await resumed.register();
-      expect(fixture.filed.length, 1);
+      expect(fixture.filed.length, 2);
     });
   }
 
@@ -534,5 +641,16 @@ class _AssociationStore extends MemorySettingsStore {
       throw const FormatException('association persistence failed');
     }
     await super.write(values);
+  }
+}
+
+class _FilingFixture extends ProjectAccessFixture {
+  void Function(String revision)? afterFile;
+
+  @override
+  Future<String> file(ProjectAccessChange change) async {
+    final revision = await super.file(change);
+    afterFile?.call(revision);
+    return revision;
   }
 }
