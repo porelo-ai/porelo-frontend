@@ -229,9 +229,10 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   /// registry's owners, who name the host admins in `owners.yml`.
   List<RegistryContact> whoMay(RegistryFiling filing) {
     // A host's admins in `hosts[].admins` are the pins it admitted; who may change a host is in `owners.yml`.
+    final host = filing.host;
     final hostAdmins = [
-      for (final admin in _accepted?.hostAdmins ?? const <RegistryOwner>[])
-        if (!admin.backup) admin.login,
+      if (host != null)
+        for (final admin in _accepted?.adminsOf(host) ?? const <RegistryOwner>[]) admin.login,
     ];
     final logins = filing.kind != RegistryFilingKind.card && hostAdmins.isNotEmpty
         ? hostAdmins

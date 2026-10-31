@@ -163,6 +163,9 @@ class _HostDialogState extends State<HostDialog> {
     );
   }
 
+  // The host typed so far, checked against its own admins once named.
+  String? get _named => _name.text.trim().isEmpty ? null : _name.text.trim();
+
   Future<void> _prepare() async {
     if (_busy) return;
     setState(() {
@@ -294,7 +297,7 @@ class _HostDialogState extends State<HostDialog> {
               if (!widget.takeDownOnly && run == null) ...[
                 if (access == null)
                   const Text('Verified host-admin identity and registry state are unavailable.')
-                else if (access.unavailable() case final reason? when reason != _problem)
+                else if (access.unavailable(_named) case final reason? when reason != _problem)
                   Text(reason),
                 for (final field in [
                   (_name, 'Host name', 'One lower-case server name, such as orchard.'),
@@ -304,6 +307,8 @@ class _HostDialogState extends State<HostDialog> {
                   TextField(
                     controller: field.$1,
                     decoration: InputDecoration(labelText: field.$2, helperText: field.$3),
+                    // The host name decides whose admins may prepare it, so its refusal follows each change.
+                    onChanged: field.$1 == _name ? (_) => setState(() {}) : null,
                   ),
                 OutlinedButton(
                   onPressed: _busy
@@ -337,7 +342,7 @@ class _HostDialogState extends State<HostDialog> {
                     }
                   },
                 ),
-                if (access != null && access.unavailable() == null) ...[
+                if (access != null && access.unavailable(_named) == null) ...[
                   const Text(
                     'Before setup, run this in a separate terminal on the server. It replaces root’s authorized keys with your host admin card key.',
                   ),
@@ -370,7 +375,7 @@ class _HostDialogState extends State<HostDialog> {
         TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: const Text('Close')),
         if (!widget.takeDownOnly && run == null)
           FilledButton(
-            onPressed: _busy || access == null || access.unavailable() != null ? null : _prepare,
+            onPressed: _busy || access == null || access.unavailable(_named) != null ? null : _prepare,
             child: const Text('Prepare the host'),
           ),
         if (!widget.takeDownOnly && run != null && !run.ready && !run.running && !run.legacy)

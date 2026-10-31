@@ -4985,7 +4985,7 @@ class RegistryRead {
     required this.owners,
     required this.hosts,
     this.ownersSigner,
-    this.hostAdmins = const <RegistryOwner>[],
+    this.hostAdmins = const <String, List<RegistryOwner>>{},
     this.warnings = const <String>[],
     this.refusedCommit,
   });
@@ -5002,8 +5002,14 @@ class RegistryRead {
   /// The login of the registry owner who signed `owners.yml`, or null when Core did not say.
   final String? ownersSigner;
 
-  /// The host admins accepted from `owners.yml`, separate from registry owners.
-  final List<RegistryOwner> hostAdmins;
+  /// The host admins `owners.yml` names per host label, backup keys included; a host without an entry has none.
+  final Map<String, List<RegistryOwner>> hostAdmins;
+
+  /// The working (non-backup) host admins `owners.yml` names for [host]; empty when it names none.
+  List<RegistryOwner> adminsOf(String host) => [
+    for (final admin in hostAdmins[host] ?? const <RegistryOwner>[])
+      if (!admin.backup) admin,
+  ];
 
   /// Every host with its admins and the projects admitted there.
   final List<RegistryHost> hosts;
@@ -5026,7 +5032,7 @@ class RegistryRead {
       owners: _registryList(map, 'owners', RegistryOwner.from),
       hosts: _registryList(map, 'hosts', RegistryHost.from),
       ownersSigner: signer == null ? null : _registryLogin(signer, 'owners_signer'),
-      hostAdmins: map['host_admins'] == null ? const [] : _registryList(map, 'host_admins', RegistryOwner.from),
+      hostAdmins: _registryHostAdmins(map['host_admins']),
       warnings: [
         if (map['warnings'] case final List<dynamic> warnings)
           for (final each in warnings) _registryText(each, 'warnings'),
@@ -5248,6 +5254,21 @@ class RegistryFiled {
   factory RegistryFiled.from(Map<String, dynamic> map) =>
       RegistryFiled(revision: _registryRevision(map['revision'], 'revision'));
 }
+
+// Absent means nobody may change any host; any other shape than {label: [owner]} is refused.
+Map<String, List<RegistryOwner>> _registryHostAdmins(Object? value) {
+  if (value == null) return const {};
+  if (value is! Map<String, dynamic>) throw const FormatException('The registry answer has unreadable host_admins.');
+  final label = RegExp(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$');
+  return {
+    for (final MapEntry(:key, value: admins) in value.entries)
+      _registryHostLabel(key, label): _registryList({'host_admins': admins}, 'host_admins', RegistryOwner.from),
+  };
+}
+
+String _registryHostLabel(String host, RegExp label) => label.hasMatch(host)
+    ? host
+    : throw const FormatException('The registry answer names host admins for an unreadable host label.');
 
 List<T> _registryList<T>(Map<String, dynamic> map, String key, T Function(Map<String, dynamic>) read) {
   final list = map[key];

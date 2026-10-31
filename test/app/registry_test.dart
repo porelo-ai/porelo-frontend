@@ -394,11 +394,16 @@ void main() {
   // Harm: a person refused a change is left without knowing whom to ask.
   test('a change Core refuses names the host admins owners.yml gives, with their addresses', () async {
     final answer = _answer();
-    answer['host_admins'] = [
-      {'login': 'alice', 'fingerprint': _fingerprint('A'), 'backup': false},
-      {'login': 'bob', 'fingerprint': _fingerprint('B'), 'backup': false},
-      {'login': 'alice', 'fingerprint': _fingerprint('Z'), 'backup': true},
-    ];
+    answer['host_admins'] = {
+      'walk9server': [
+        {'login': 'alice', 'fingerprint': _fingerprint('A'), 'backup': false},
+        {'login': 'bob', 'fingerprint': _fingerprint('B'), 'backup': false},
+        {'login': 'alice', 'fingerprint': _fingerprint('Z'), 'backup': true},
+      ],
+      'otherhost': [
+        {'login': 'dave', 'fingerprint': _fingerprint('D'), 'backup': false},
+      ],
+    };
     (answer['hosts'] as List).single['admins'] = [
       {'login': 'carol', 'fingerprint': _fingerprint('C')},
     ];

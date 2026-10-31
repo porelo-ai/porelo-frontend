@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:porelo_frontend/client.dart' show RegistryHost, RegistryProject;
+import 'package:porelo_frontend/client.dart' show RegistryHost, RegistryProject, RegistryRead;
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/host_runs.dart';
@@ -651,6 +651,53 @@ void main() {
     expect(settings.hostRegistry('orchard')!.complete, isFalse);
   });
 
+  // Harm: a host admin of one host changes another, or a host owners.yml names no admin for is changed at all.
+  test('a host is changed only by the admins owners.yml names for that host', () async {
+    fixture.adminHosts = {'orchard'};
+    await fixture.registry.refresh();
+    expect(access.unavailable('orchard'), isNull);
+    expect(access.unavailable('demo'), contains('names no host admin for demo'));
+    await expectLater(
+      access.admit(
+        host: 'demo',
+        person: 'bob',
+        project: 'demo',
+        accessRepository: 'git@example.org:team/demo-access.git',
+      ),
+      throwsA(isA<RegistryRefusal>()),
+    );
+    expect(fixture.calls, isNot(contains('file')));
+  });
+
+  // Harm: an answer in the old flat shape, or naming an unreadable host, is read as host admins.
+  test('host admins in any other shape than one list per host label are refused', () {
+    Map<String, dynamic> answer(Object hostAdmins) => {
+      'revision': '1111111111111111111111111111111111111111',
+      'people': <Object?>[],
+      'owners': <Object?>[],
+      'hosts': <Object?>[],
+      'host_admins': hostAdmins,
+    };
+    final alice = {'login': 'alice', 'fingerprint': 'SHA256:${'A' * 43}', 'backup': false};
+    expect(() => RegistryRead.from(answer([alice])), throwsFormatException);
+    expect(
+      () => RegistryRead.from(
+        answer({
+          'Not A Label': [alice],
+        }),
+      ),
+      throwsFormatException,
+    );
+    expect(
+      RegistryRead.from(
+        answer({
+          'orchard': [alice],
+        }),
+      ).adminsOf('orchard').single.login,
+      'alice',
+    );
+  });
+
   // Harm: retained callbacks bypass changed permissions or select refused cards.
   test('authorization is rechecked with identity fingerprint and contacts', () async {
     expect(access.unavailable(), isNull);
@@ -658,7 +705,8 @@ void main() {
       fixture.calls.add('rent');
     });
     fixture.actor = const HostAdminIdentity('bob', personFingerprint);
-    expect(access.unavailable(), contains('alice@example.org'));
+    expect(access.unavailable('orchard'), contains('alice@example.org'));
+    expect(access.unavailable(), isNotNull);
     await expectLater(callback(), throwsA(isA<RegistryRefusal>()));
     await expectLater(admit(), throwsA(isA<RegistryRefusal>()));
     fixture.actor = const HostAdminIdentity('alice', personFingerprint);

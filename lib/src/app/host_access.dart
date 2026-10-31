@@ -41,16 +41,23 @@ class HostAccess {
   final _busy = <String>{};
   final _statuses = <String, HostRegistryStatus>{};
 
-  /// The host admins accepted from owners.yml, with their available email.
-  List<RegistryContact> get whoMay => [
-    for (final admin in registry.accepted?.hostAdmins ?? <RegistryOwner>[])
-      if (!admin.backup)
-        RegistryContact(
-          login: admin.login,
-          name: _person(admin.login)?.name ?? admin.login,
-          email: _person(admin.login)?.contactEmail,
-        ),
-  ];
+  /// Who may change [host]: its host admins from owners.yml, or, while owners.yml names none for it, the registry
+  /// owners who name them; without a host, the owners too.
+  List<RegistryContact> whoMay([String? host]) {
+    final admins = host == null
+        ? const <RegistryOwner>[]
+        : registry.accepted?.adminsOf(host) ?? const <RegistryOwner>[];
+    final logins = admins.isNotEmpty
+        ? [for (final admin in admins) admin.login]
+        : [
+            for (final owner in registry.accepted?.owners ?? const <RegistryOwner>[])
+              if (!owner.backup) owner.login,
+          ];
+    return [
+      for (final login in {...logins})
+        RegistryContact(login: login, name: _person(login)?.name ?? login, email: _person(login)?.contactEmail),
+    ];
+  }
 
   RegistryCard? _person(String login) => registry.selectable.where((card) => card.login == login).firstOrNull;
 
@@ -65,7 +72,7 @@ class HostAccess {
     if (reason == null || registry.accepted == null || registry.problem != null || registry.busy) {
       return reason == null ? null : RegistryRefusal(reason);
     }
-    return RegistryRefusal('$noRequests Only a host admin of $host may admit a project.', whoMay: whoMay);
+    return RegistryRefusal('$noRequests Only a host admin of $host may admit a project.', whoMay: whoMay(host));
   }
 
   /// Why preparation or admission is unavailable, including who may do it.
@@ -75,17 +82,27 @@ class HostAccess {
     }
     final actor = identity();
     final card = actor == null ? null : _person(actor.login);
-    final admins = registry.accepted!.hostAdmins;
+    final accepted = registry.accepted!;
+    // Without a host, being a host admin of any host opens the way; each host is checked again by its own label.
+    final admins = host == null
+        ? [for (final label in accepted.hostAdmins.keys) ...accepted.adminsOf(label)]
+        : accepted.adminsOf(host);
     final permitted =
         actor != null &&
         card?.fingerprint == actor.fingerprint &&
-        admins.any((admin) => !admin.backup && admin.login == actor.login && admin.fingerprint == actor.fingerprint);
+        admins.any((admin) => admin.login == actor.login && admin.fingerprint == actor.fingerprint);
     // The right comes from owners.yml alone; a host's `admins` are the admitted pins of its access file.
     if (!permitted) {
-      final names = whoMay
+      final names = whoMay(host)
           .map((contact) => '${contact.name} (${contact.login})${contact.email == null ? '' : ', ${contact.email}'}')
           .join('; ');
-      return 'Only a host admin named in owners.yml may do this.${names.isEmpty ? '' : ' Ask $names.'}';
+      final ask = names.isEmpty ? '' : ' Ask $names.';
+      if (host != null && accepted.adminsOf(host).isEmpty) {
+        return 'owners.yml names no host admin for $host yet; a registry owner names them first.$ask';
+      }
+      return host == null
+          ? 'Only a host admin named in owners.yml may do this.$ask'
+          : 'Only a host admin owners.yml names for $host may do this.$ask';
     }
     return null;
   }
@@ -570,7 +587,7 @@ String? pendingHostRegistryGiveBack({required String host, required Settings set
   final progress = settings.hostRegistry(host);
   if (progress?.change.action == 'delete-card' && progress?.complete == true) return null;
   final reason = access?.unavailable(host);
-  return _registryDeletionProblem(reason == null ? null : RegistryRefusal(reason, whoMay: access!.whoMay));
+  return _registryDeletionProblem(reason == null ? null : RegistryRefusal(reason, whoMay: access!.whoMay(host)));
 }
 
 String _registryDeletionProblem([RegistryRefusal? refused]) {

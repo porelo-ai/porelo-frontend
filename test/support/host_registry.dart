@@ -61,6 +61,9 @@ class FiledChange {
 /// Core, the checkout and the host's intake at once: `--id` on the same `--base` answers the same commit.
 class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTransport {
   bool admin = true;
+
+  /// The hosts owners.yml names alice as host admin of, while [admin] holds.
+  Set<String> adminHosts = {'orchard', 'demo'};
   bool refusedPerson = false;
   bool applyMembership = true;
   bool listedHost = true;
@@ -141,9 +144,13 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
       },
     ],
     'owners': <Object?>[],
-    'host_admins': [
-      if (admin) {'login': 'alice', 'fingerprint': adminFingerprint, 'backup': false},
-    ],
+    'host_admins': {
+      if (admin)
+        for (final host in adminHosts)
+          host: [
+            {'login': 'alice', 'fingerprint': adminFingerprint, 'backup': false},
+          ],
+    },
     'warnings': <Object?>[],
     'hosts': [
       if (listedHost)
