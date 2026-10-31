@@ -36,6 +36,7 @@ One-click joining from signed state (operator, 2026-10-30), the flow's step 6.
 
 - The served adapters: `JoinDiscovery` running Core's `registry joinable` through `readJoinable`, and `JoinHost` over the card tunnel and the account daemon's follow. Until Core serves its discovery, `Shell` gets neither, and no join row is shown.
 - Whether a follow already there is pinned to Core's signers: the daemon's follow answer names no signers, so a follow at the verified revision, from the verified source and not unverified, is taken as confirmed.
+- A tunnel that drops after it was opened for a join is kept for that host's retries; noticing the drop and opening it again is the tunnel's own watch ([F270](README.md#f270)).
 - The real join rehearsal from a configured identity, once Machines admits the person's card key.
 
 ## To be checked

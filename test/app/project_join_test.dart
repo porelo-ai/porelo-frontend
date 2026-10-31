@@ -285,6 +285,10 @@ void main() {
       (json) => (((json['projects'] as List).single as Map)['host_card'] as Map)['name'] = 'grove',
     ),
     ('a project without signers', (json) => ((json['projects'] as List).single as Map).remove('signers')),
+    (
+      'a source with credentials',
+      (json) => ((json['projects'] as List).single as Map)['source'] = 'https://forge.example/demo.git?token=secret',
+    ),
   ]) {
     test('a joinable answer with $name is refused whole', () {
       final json = joinable();

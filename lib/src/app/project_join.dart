@@ -156,7 +156,7 @@ JoinOffered _offered(Map<String, Object?> entry) {
     source: _text(entry, 'source'),
     revision: _text(entry, 'revision'),
     signers: signers.cast<String>(),
-  );
+  )..check();
 }
 
 String _checked(String repository) =>
@@ -300,11 +300,15 @@ class ProjectJoin extends ChangeNotifier {
   Future<void> _adding(Machine machine) async {
     final adding = _additions[machines] ??= {};
     final key = offer.host.name;
-    await (adding[key] ??= () async {
+    final running = adding[key] ??= () async {
       if (!machines.all.contains(machine)) await machines.add(machine);
-    }());
-    adding.remove(key);
-    _pending[machines]?.remove(key);
+    }();
+    try {
+      await running;
+      _pending[machines]?.remove(key);
+    } finally {
+      if (identical(adding[key], running)) adding.remove(key);
+    }
   }
 
   void _notify() {
