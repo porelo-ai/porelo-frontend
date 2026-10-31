@@ -10,6 +10,7 @@ import 'package:porelo_frontend/src/app/project_access_contract.dart';
 import 'package:porelo_frontend/src/app/project_developers.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/signed_host_actions.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../support/host_registry.dart';
@@ -26,6 +27,139 @@ void main() {
   tearDown(() {
     settings.dispose();
     fixture.registry.dispose();
+  });
+
+  // Harm: post-filing failures must not throw away the only deliverable signed change.
+  for (final stage in ['delivery', 'publication lookup', 'publish', 'upload', 'apply']) {
+    test('arbitrary $stage refusal retains the exact filed receipt for Retry', () async {
+      final access = await fixture.access(settings);
+      fixture.refusalStage = stage;
+      fixture.refusal = const RegistryRefusal('An unfamiliar refusal that can recover.');
+      await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
+      final receipt = settings.projectAccess('demo')!;
+      expect(receipt.state, ProjectAccessState.filed);
+      expect(access.supersededChangeId, isNull);
+      expect(access.unavailable(delivery: true), isNull);
+      fixture.refusalStage = null;
+      await access.retry();
+      expect(settings.projectAccess('demo')!.change.id, receipt.change.id);
+      expect(settings.projectAccess('demo')!.confirmed, isTrue);
+      expect(fixture.filed, hasLength(1));
+    });
+  }
+
+  // Harm: local persistence failure must not invalidate already applied signed work.
+  test('a delivered registration survives a recording refusal and returned server', () async {
+    final base = await fixture.access(settings);
+    var refuse = true;
+    final access = ProjectAccess(
+      project: base.project,
+      registry: base.registry,
+      settings: settings,
+      core: fixture,
+      transport: fixture,
+      rememberMachine: (machine) async {
+        if (refuse) throw const RegistryRefusal('Local recording is temporarily unavailable.');
+        fixture.savedMachines.add(machine);
+      },
+    );
+    await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
+    final receipt = settings.projectAccess('demo')!;
+    expect(receipt.state, ProjectAccessState.delivered);
+    await settings.rememberHostReturned('orchard');
+    await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+    expect(settings.projectAccess('demo')!.stored, receipt.stored);
+    expect(access.supersededChangeId, isNull);
+    expect(access.unavailable(delivery: true), isNull);
+    refuse = false;
+  });
+
+  // Harm: a stale signed-action callback must resolve uncertain signing before checking its view.
+  for (final entry in ['verify', 'connect']) {
+    test('registration $entry resolves an unfiled ID before a stale view refusal', () async {
+      final access = await fixture.access(settings);
+      final registration = RegistryProjectRegistration(access);
+      final state = await registration.verify('demo', registering: true);
+      fixture.fail = 'file';
+      await expectLater(access.register(), throwsFormatException);
+      final id = settings.projectAccess('demo')!.change.id;
+      fixture.fail = null;
+      fixture.authorized = false;
+      fixture.lookups.clear();
+      await expectLater(
+        entry == 'verify' ? registration.verify('demo', registering: true) : registration.connect(state),
+        throwsA(isA<RegistryRefusal>()),
+      );
+      expect(fixture.lookups, [id]);
+      expect(settings.projectAccess('demo'), isNull);
+    });
+  }
+
+  // Harm: current admin loss must not strand registration authorized at its filed revision.
+  test('signed registration verifies connects and resumes after active signer loss', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'upload';
+    await expectLater(access.register(), throwsFormatException);
+    final receipt = settings.projectAccess('demo')!;
+    fixture.fail = null;
+    fixture.authorized = false;
+    fixture.signers = [];
+    final registration = RegistryProjectRegistration(access);
+    final state = await registration.verify('demo', registering: true);
+    state.check('demo');
+    final machine = await registration.connect(state);
+    await registration.register(state, machine);
+    expect(settings.projectAccess('demo')!.change.id, receipt.change.id);
+    expect(settings.projectAccess('demo')!.confirmed, isTrue);
+    expect(fixture.filed, hasLength(1));
+  });
+
+  // Harm: a verdict for another filing must not destroy this receipt.
+  for (final outcome in ['refused', 'overtaken']) {
+    for (final pin in ['exact', 'wrong id', 'wrong revision']) {
+      test('typed $outcome with $pin selects only the judged receipt', () async {
+        final access = await fixture.access(settings);
+        fixture.fail = 'upload';
+        await expectLater(access.register(), throwsFormatException);
+        final receipt = settings.projectAccess('demo')!;
+        fixture.fail = null;
+        final id = pin == 'wrong id' ? 'f' * 32 : receipt.change.id;
+        final revision = pin == 'wrong revision' ? 'f' * 40 : receipt.revision!;
+        fixture.deliveryVerdict = outcome == 'refused'
+            ? ProjectAccessRevisionRefused(id, revision)
+            : ProjectAccessRevisionOvertaken(id, revision);
+        fixture.calls.clear();
+        await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+        expect(
+          settings.projectAccess('demo')!.state,
+          pin == 'exact' ? ProjectAccessState.superseded : ProjectAccessState.filed,
+        );
+        expect(fixture.calls, isEmpty);
+        if (pin == 'exact') {
+          expect(settings.projectAccessReason('demo'), isNotEmpty);
+          await access.discard(receipt.change.id);
+          expect(settings.projectAccess('demo'), isNull);
+        } else {
+          fixture.deliveryVerdict = null;
+          await access.retry();
+          expect(settings.projectAccess('demo')!.confirmed, isTrue);
+        }
+      });
+    }
+  }
+
+  // Harm: a later verified head can contain the filed revision and must not lose its delivery.
+  test('a later head containing the filed revision remains deliverable', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'upload';
+    await expectLater(access.register(), throwsFormatException);
+    final receipt = settings.projectAccess('demo')!;
+    fixture.fail = null;
+    fixture.currentAccess = 'c' * 40;
+    await access.retry();
+    expect(settings.projectAccess('demo')!.confirmed, isTrue);
+    expect(settings.projectAccess('demo')!.change.id, receipt.change.id);
+    expect(fixture.filed, hasLength(1));
   });
 
   // Harm: a signing failure must retain the request ID until explicit recovery.
@@ -54,21 +188,33 @@ void main() {
           fixture.fail = null;
           fixture.lookupFailure = null;
           fixture.lookupFailureAfterFile = null;
+          final registration = RegistryProjectRegistration(access);
+          // Keep the dialog's original state while the stored receipt is still unresolved.
+          final expected = VerifiedHostProject(
+            project: 'demo',
+            host: fixture.host,
+            revision: projectRevision,
+            adminSigners: [hostKey],
+            admitted: true,
+          );
           if (moved == 'project') fixture.verifiedRevision = 'c' * 40;
           if (moved == 'card') fixture.host = PreparedHost.read({...sshCompletion(), 'address': '203.0.113.9'});
-          final registration = RegistryProjectRegistration(access);
-          final expected = await registration.verify('demo', registering: true);
           fixture.calls.clear();
+          final selected = !signed && entry != 'retry'
+              ? await registration.verify('demo', registering: true)
+              : expected;
           final work = entry == 'retry'
               ? access.retry()
               : entry == 'adapter'
-              ? registration.register(expected, await fixture.connect(await access.verify()))
-              : access.register(expected: expected);
+              ? registration.register(
+                  selected,
+                  const Machine(name: 'host', kind: 'host', hostProject: 'orchard', socketPath: '/unused'),
+                )
+              : access.register(expected: selected);
           if (signed) {
             await expectLater(work, throwsA(isA<RegistryRefusal>()));
-            expect(access.supersededChangeId, old.change.id);
-            await access.discard(old.change.id);
-            expect(settings.projectAccess('demo'), isNull);
+            expect(access.supersededChangeId, isNull);
+            expect(settings.projectAccess('demo')!.stored, old.stored);
           } else {
             await work;
             if (entry == 'retry') {
@@ -119,9 +265,9 @@ void main() {
     });
   }
 
-  // Harm: permanent delivery refusals must offer discard instead of stranding signed work.
+  // Harm: only a returned server permits local discard; admission refresh must retain signed work.
   for (final refusal in ['returned', 'admission']) {
-    test('a filed $refusal refusal persists its reason and offers Discard', () async {
+    test('a filed $refusal refusal keeps the correct recovery choice', () async {
       final store = MemorySettingsStore();
       final first = Settings(store);
       addTearDown(first.dispose);
@@ -138,15 +284,25 @@ void main() {
       }
       fixture.calls.clear();
       await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
-      expect(access.supersededChangeId, id);
+      expect(access.supersededChangeId, refusal == 'returned' ? id : isNull);
       final restored = Settings(store);
       addTearDown(restored.dispose);
       await restored.load();
       final resumed = await fixture.access(restored);
+      await resumed.read('demo');
       expect(resumed.unavailable(), contains(refusal == 'returned' ? 'given back' : 'not admitted'));
-      await resumed.discard(id);
-      expect(restored.projectAccess('demo'), isNull);
-      expect(fixture.calls, isEmpty);
+      if (refusal == 'returned') {
+        await resumed.discard(id);
+        expect(restored.projectAccess('demo'), isNull);
+        expect(fixture.calls, isEmpty);
+      } else {
+        expect(resumed.unavailable(delivery: true), isNull);
+        fixture.registrySource.admitted = true;
+        await fixture.registry.refresh();
+        await resumed.retry();
+        expect(restored.projectAccess('demo')!.confirmed, isTrue);
+        expect(restored.projectAccess('demo')!.change.id, id);
+      }
     });
   }
 
@@ -200,7 +356,7 @@ void main() {
   });
 
   // Harm: obsolete signed edits must not block all future work or erase confirmed registration.
-  for (final moved in ['access', 'project', 'key']) {
+  for (final moved in ['access']) {
     test('an overtaken $moved receipt offers scoped discard after restart', () async {
       final store = MemorySettingsStore();
       final first = Settings(store);
@@ -212,9 +368,8 @@ void main() {
       await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
       final id = first.projectAccess('demo')!.change.id;
       fixture.fail = null;
-      if (moved == 'access') fixture.currentAccess = 'c' * 40;
-      if (moved == 'project') fixture.verifiedRevision = 'c' * 40;
-      if (moved == 'key') fixture.actor = const HostAdminIdentity('alice', personFingerprint);
+      fixture.currentAccess = 'c' * 40;
+      fixture.deliveryVerdict = ProjectAccessRevisionOvertaken(id, first.projectAccess('demo')!.revision!);
       fixture.calls.clear();
       final restored = Settings(store);
       addTearDown(restored.dispose);
@@ -276,7 +431,42 @@ void main() {
     await access.retry();
     expect(observed, isNot(contains(ProjectAccessState.filed)));
     expect(observed.last, ProjectAccessState.confirmed);
+    expect(fixture.calls.where((call) => call == 'upload'), hasLength(1));
+    expect(fixture.calls.where((call) => call == 'apply'), hasLength(1));
   });
+
+  // Harm: later signed work must not strand an already applied receipt's local recording.
+  for (final moved in ['access', 'project']) {
+    for (final entry in ['retry', 'registration']) {
+      test('delivered $entry finishes local recording after $moved advances', () async {
+        final access = await fixture.access(settings);
+        fixture.failRememberMachine = true;
+        await expectLater(access.register(), throwsFormatException);
+        final receipt = settings.projectAccess('demo')!;
+        expect(receipt.state, ProjectAccessState.delivered);
+        fixture.failRememberMachine = false;
+        if (moved == 'access') fixture.currentAccess = 'c' * 40;
+        if (moved == 'project') fixture.verifiedRevision = 'c' * 40;
+        fixture.deliveryVerdict = ProjectAccessRevisionRefused(receipt.change.id, receipt.revision!);
+        fixture.calls.clear();
+        if (entry == 'retry') {
+          await access.retry();
+        } else {
+          final registration = RegistryProjectRegistration(access);
+          final state = await registration.verify('demo', registering: true);
+          state.check('demo');
+          expect(state.revision, receipt.change.projectRevision);
+          final machine = await registration.connect(state);
+          await registration.register(state, machine);
+        }
+        expect(settings.projectAccess('demo')!.confirmed, isTrue);
+        expect(settings.projectAccess('demo')!.change.id, receipt.change.id);
+        expect(fixture.calls, everyElement('connect'));
+        expect(fixture.savedMachines.single.hostProject, 'orchard');
+        expect(fixture.filed, hasLength(1));
+      });
+    }
+  }
 
   // Harm: migration must retain both uncertain IDs and exact signed or confirmed revisions.
   test('legacy receipts retain their lifecycle and reject impossible new states', () async {
@@ -331,13 +521,13 @@ void main() {
       await expectLater(access.register(), throwsFormatException);
       fixture.fail = null;
       final registration = RegistryProjectRegistration(access);
-      if (stage == 'receipt') fixture.verifiedRevision = 'c' * 40;
       final expected = await registration.verify('demo', registering: true);
+      if (stage == 'receipt') fixture.verifiedRevision = 'c' * 40;
       var reads = 0;
       fixture.onRead = () {
         if (++reads == 2) {
           if (stage == 'receipt') fixture.verifiedRevision = projectRevision;
-          if (stage == 'resume') fixture.signers = [hostKey, hostKey];
+          if (stage == 'resume') fixture.verifiedRevision = 'c' * 40;
         }
       };
       fixture.calls.clear();
@@ -633,7 +823,13 @@ void main() {
       final old = settings.projectAccess('demo')!;
       fixture.fail = null;
       final registration = RegistryProjectRegistration(access);
-      final expected = await registration.verify('demo', registering: true);
+      final expected = VerifiedHostProject(
+        project: 'demo',
+        host: fixture.host,
+        revision: projectRevision,
+        adminSigners: [hostKey],
+        admitted: true,
+      );
       if (signed) fixture.verifiedRevision = 'c' * 40;
       fixture.lookups.clear();
       fixture.calls.clear();
@@ -645,7 +841,8 @@ void main() {
         throwsA(isA<RegistryRefusal>()),
       );
       if (signed) {
-        expect(access.supersededChangeId, old.change.id);
+        expect(access.supersededChangeId, isNull);
+        expect(settings.projectAccess('demo')!.stored, old.stored);
       } else {
         expect(fixture.lookups, [old.change.id]);
         expect(settings.projectAccess('demo'), isNull);
@@ -668,7 +865,8 @@ void main() {
       fixture.calls.clear();
       await expectLater(access.lock('bob', locked: true), throwsA(isA<RegistryRefusal>()));
       if (signed) {
-        expect(access.supersededChangeId, old.change.id);
+        expect(access.supersededChangeId, isNull);
+        expect(settings.projectAccess('demo')!.stored, old.stored);
       } else {
         expect(fixture.lookups, [old.change.id]);
         expect(settings.projectAccess('demo'), isNull);
@@ -728,14 +926,15 @@ void main() {
     fixture.deliveryRevision = registryBefore;
     fixture.calls.clear();
     await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
-    expect(access.supersededChangeId, settings.projectAccess('demo')!.change.id);
+    expect(access.supersededChangeId, isNull);
+    expect(settings.projectAccess('demo')!.state, ProjectAccessState.filed);
     expect(fixture.calls, isEmpty);
   });
 
-  // Harm: permanent refusals must permit Discard; temporary failures must permit Retry.
+  // Harm: refusal wording must not discard a signed change, including across restart.
   for (final stage in ['delivery', 'publication lookup', 'publish', 'upload', 'apply']) {
     for (final transient in [false, true]) {
-      test('$stage ${transient ? 'transient' : 'permanent'} refusal preserves the recovery choice', () async {
+      test('$stage refusal with ${transient ? 'temporary' : 'final'} words retains Retry across restart', () async {
         final store = MemorySettingsStore();
         final first = Settings(store);
         addTearDown(first.dispose);
@@ -754,21 +953,14 @@ void main() {
         addTearDown(restored.dispose);
         await restored.load();
         final resumed = await fixture.access(restored);
-        if (transient) {
-          expect(receipt.state, ProjectAccessState.filed);
-          expect(resumed.supersededChangeId, isNull);
-          expect(resumed.unavailable(delivery: true), isNull);
-          fixture.refusalStage = null;
-          await resumed.retry();
-          expect(restored.projectAccess('demo')!.change.id, receipt.change.id);
-          expect(restored.projectAccess('demo')!.confirmed, isTrue);
-        } else {
-          expect(resumed.supersededChangeId, receipt.change.id);
-          expect(restored.projectAccessReason('demo'), fixture.refusal!.words);
-          await resumed.discard(receipt.change.id);
-          expect(restored.projectAccess('demo'), isNull);
-          expect(restored.projectRegistration('demo')!.stored, history);
-        }
+        expect(receipt.state, ProjectAccessState.filed);
+        expect(resumed.supersededChangeId, isNull);
+        expect(resumed.unavailable(delivery: true), isNull);
+        expect(restored.projectRegistration('demo')!.stored, history);
+        fixture.refusalStage = null;
+        await resumed.retry();
+        expect(restored.projectAccess('demo')!.change.id, receipt.change.id);
+        expect(restored.projectAccess('demo')!.confirmed, isTrue);
       });
     }
   }
@@ -802,15 +994,17 @@ class _FilingFixture extends ProjectAccessFixture {
   String? refusalStage;
   RegistryRefusal? refusal;
   bool deliveryBeforePublish = false;
+  ProjectAccessDelivery? deliveryVerdict;
 
   void _refuse(String stage) {
     if (refusalStage == stage) throw refusal!;
   }
 
   @override
-  Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision) async {
+  Future<ProjectAccessDelivery> delivery(ProjectAccessChange change, String revision) async {
     deliveryBeforePublish |= !published.contains(revision);
     _refuse('delivery');
+    if (deliveryVerdict case final verdict?) return verdict;
     return super.delivery(change, revision);
   }
 

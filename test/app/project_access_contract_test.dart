@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/access_developers.dart';
 import 'package:porelo_frontend/src/app/project_access_contract.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
+import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_host/porelo_host.dart';
 
 import '../support/host_registry.dart';
@@ -93,6 +94,39 @@ class _CoreCommand {
 }
 
 void main() {
+  // Harm: dependency exceptions must reach recovery as Retry rather than strand signed work.
+  for (final failure in <Exception>[
+    const WorkspaceRefused('private verification diagnostic'),
+    const FormatException('private unsupported access format'),
+    const RegistryRefusal('private delivery refusal'),
+  ]) {
+    test('delivery maps ${failure.runtimeType} to a safe Retry failure', () async {
+      final adapter = ProjectAccessCoreAdapter(
+        directory: '/workspace/demo',
+        delivery: (change, revision) async => throw failure,
+      );
+      await expectLater(adapter.delivery(_change(), _revision), throwsA(isA<ProjectAccessRetry>()));
+    });
+  }
+
+  // Harm: only a verdict naming this exact request and revision may discard signed work.
+  for (final verdict in <ProjectAccessDelivery>[
+    const ProjectAccessRevisionRefused(_id, _revision),
+    const ProjectAccessRevisionOvertaken(_id, _revision),
+  ]) {
+    test('delivery retains typed ${verdict.runtimeType} without reading words', () async {
+      final adapter = ProjectAccessCoreAdapter(directory: '/workspace/demo', delivery: (_, _) async => verdict);
+      expect(await adapter.delivery(_change(), _revision), same(verdict));
+    });
+  }
+
+  // Harm: verify format and process refusals must always leave a usable recovery failure.
+  test('verification maps a process refusal to a safe Retry failure', () async {
+    final command = _CoreCommand()..verificationAnswer = (code: 1, out: '', err: 'private diagnostic');
+    final adapter = ProjectAccessCoreAdapter(directory: '/workspace/demo', run: command.run);
+    await expectLater(adapter.verify('demo'), throwsA(isA<ProjectAccessRetry>()));
+  });
+
   // Harm: an incorrectly scoped command can grant access on the wrong host or duplicate a signed edit.
   test('add sends the person host base and durable id as separate arguments', () async {
     final command = _CoreCommand();
@@ -202,7 +236,7 @@ void main() {
       ..filingAnswer = (code: 65, out: '', err: 'Base $_base is not head $_revision')
       ..verificationAnswer = (code: 1, out: '', err: 'refused');
     final adapter = ProjectAccessCoreAdapter(directory: '/workspace/demo', run: command.run);
-    await expectLater(adapter.file(_change(), hasAccessFile: true), throwsA(isA<WorkspaceRefused>()));
+    await expectLater(adapter.file(_change(), hasAccessFile: true), throwsA(isA<ProjectAccessRetry>()));
     expect(command.calls.length, 2);
   });
 
@@ -256,7 +290,7 @@ void main() {
       final command = _CoreCommand();
       command.alice['role'] = role;
       final adapter = ProjectAccessCoreAdapter(directory: '/workspace/demo', run: command.run);
-      await expectLater(adapter.verify('demo'), throwsFormatException);
+      await expectLater(adapter.verify('demo'), throwsA(isA<ProjectAccessRetry>()));
     });
   }
 
@@ -283,7 +317,7 @@ void main() {
       final command = _CoreCommand();
       corrupt.value(command);
       final adapter = ProjectAccessCoreAdapter(directory: '/workspace/demo', run: command.run);
-      await expectLater(adapter.verify('demo'), throwsFormatException);
+      await expectLater(adapter.verify('demo'), throwsA(isA<ProjectAccessRetry>()));
     });
   }
 }

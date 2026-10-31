@@ -156,12 +156,12 @@ class ProjectAccessFixture implements ProjectAccessCore, ProjectAccessTransport 
   }
 
   @override
-  Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision) async {
+  Future<ProjectAccessDelivery> delivery(ProjectAccessChange change, String revision) async {
     if (!deliveryAuthorized || filed[change.id] != revision || changes[revision]?.project != change.project) {
-      throw const FormatException('The exact filed change is not authorized for delivery.');
+      return ProjectAccessRevisionRefused(change.id, revision);
     }
     await read(change.project);
-    return _view(accessRevision: deliveryRevision ?? revision);
+    return ProjectAccessAuthorized(_view(accessRevision: deliveryRevision ?? revision));
   }
 
   @override

@@ -13,11 +13,31 @@ import 'run_here.dart';
 /// Adapts the named Core commands while unserved trust and receipt reads stay in [ProjectAccessCore].
 class ProjectAccessCoreAdapter {
   /// Uses the selected project's directory and an argument-list process runner.
-  ProjectAccessCoreAdapter({required this.directory, RunHere? run}) : _run = run ?? runHere;
+  ProjectAccessCoreAdapter({required this.directory, RunHere? run, this._delivery}) : _run = run ?? runHere;
 
   /// The selected project's local working directory for Core's verification.
   final String directory;
   final RunHere _run;
+  final ProjectAccessDeliveryCheck? _delivery;
+
+  /// Reads the exact filing verdict through the supplied Core trust boundary.
+  Future<ProjectAccessDelivery> delivery(ProjectAccessChange change, String revision) async {
+    final read = _delivery;
+    if (read == null) throw const ProjectAccessRetry('Core delivery verification is unavailable. Retry.');
+    return _retryOnFailure(() => read(change, revision));
+  }
+
+  static Future<T> _retryOnFailure<T>(Future<T> Function() read) async {
+    try {
+      return await read();
+    } on WorkspaceRefused {
+      throw const ProjectAccessRetry('Core verification is unavailable or refused. Retry.');
+    } on FormatException {
+      throw const ProjectAccessRetry('Core verification is incomplete or unsupported. Retry.');
+    } on RegistryRefusal {
+      throw const ProjectAccessRetry('Core verification is unavailable or refused. Retry.');
+    }
+  }
 
   /// Files one idempotent change, using the verified presence of a persons access file.
   ///
@@ -68,7 +88,9 @@ class ProjectAccessCoreAdapter {
   ///
   /// Keeps every named field, including revoked persons with empty SSH and expiry.
   /// Older access formats and roles outside `admin` and `developer` are refused.
-  Future<Map<String, Object?>> verify(String project) async {
+  Future<Map<String, Object?>> verify(String project) => _retryOnFailure(() => _verify(project));
+
+  Future<Map<String, Object?>> _verify(String project) async {
     checkAdminName(project);
     final result = await _run('porelo', ['project', 'verify', '--json'], inDirectory: directory);
     if (result.code != 0) throw const WorkspaceRefused('Core refused project verification.');
@@ -145,6 +167,56 @@ class ProjectAccessCoreAdapter {
     }
     return List<String>.unmodifiable(value.cast<String>());
   }
+}
+
+/// A Core read failure that retains the receipt for Retry.
+class ProjectAccessRetry extends RegistryRefusal {
+  /// Retains safe public words without dependency diagnostics.
+  const ProjectAccessRetry(super.words);
+}
+
+/// The unserved Core boundary for an exact filed request's delivery verdict.
+typedef ProjectAccessDeliveryCheck = Future<ProjectAccessDelivery> Function(
+  ProjectAccessChange change,
+  String revision,
+);
+
+/// Core's typed verdict on the exact filed request, independent of refusal words.
+sealed class ProjectAccessDelivery {
+  const ProjectAccessDelivery();
+}
+
+/// Core authorizes this request using its signing-time authority.
+class ProjectAccessAuthorized extends ProjectAccessDelivery {
+  /// Retains the verified state at the filed access revision.
+  const ProjectAccessAuthorized(this.view);
+
+  /// The verified delivery state, including current identity and admission.
+  final ProjectAccessView view;
+}
+
+/// Core explicitly refuses authorization of this exact filed revision.
+class ProjectAccessRevisionRefused extends ProjectAccessDelivery {
+  /// Pins the refusal to the request and signed revision Core judged.
+  const ProjectAccessRevisionRefused(this.changeId, this.revision);
+
+  /// The judged durable request ID.
+  final String changeId;
+
+  /// The judged filed access revision.
+  final String revision;
+}
+
+/// Core verified that access moved past the base without containing this filing.
+class ProjectAccessRevisionOvertaken extends ProjectAccessDelivery {
+  /// Pins the verified exclusion to the request and signed revision.
+  const ProjectAccessRevisionOvertaken(this.changeId, this.revision);
+
+  /// The judged durable request ID.
+  final String changeId;
+
+  /// The excluded filed access revision.
+  final String revision;
 }
 
 /// A stale access base requiring a fresh explicit decision, never an automatic retry.
@@ -380,11 +452,15 @@ abstract interface class ProjectAccessCore {
 
   /// Authorizes delivery of this exact published request using accepted signing-time authority.
   ///
-  /// Returns current verified identity, project and admission only after confirming
-  /// the accepted commit belongs to [change] and its originally authorized signer.
+  /// Returns [ProjectAccessAuthorized] with identity, project and admission only
+  /// after confirming the commit belongs to [change] and its original signer.
+  /// Only [ProjectAccessRevisionRefused] and [ProjectAccessRevisionOvertaken],
+  /// pinned to the exact request ID and revision, supersede filed work. A newer
+  /// head containing the filing is still authorized; read failures throw
+  /// [ProjectAccessRetry] without discarding it.
   /// This permits delivery of self-removal without granting authority to sign more
   /// changes. Current revoked identities or removed host admission still refuse it.
-  Future<ProjectAccessView> delivery(ProjectAccessChange change, String revision);
+  Future<ProjectAccessDelivery> delivery(ProjectAccessChange change, String revision);
 
   /// Resolves this request ID to Core's signed commit without signing or publishing.
   ///

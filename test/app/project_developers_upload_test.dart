@@ -237,9 +237,10 @@ void main() {
   test('Core refusal of filed delivery prevents publication and upload', () async {
     fixture.deliveryAuthorized = false;
     final access = await fixture.access(settings);
-    await expectLater(access.register(), throwsFormatException);
+    await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
     expect(fixture.calls, ['file']);
     expect(settings.projectAccess('demo')!.confirmed, isFalse);
+    expect(settings.projectAccess('demo')!.state, ProjectAccessState.superseded, reason: 'Core refused this revision');
   });
 
   // Harm: a changed host card under the same name must not reuse the old connection.
