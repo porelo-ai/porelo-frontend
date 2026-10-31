@@ -425,7 +425,12 @@ class _ForgePageState extends State<ForgePage> {
       subtitle: [
         if (on.isNotEmpty) 'followed on ${on.join(', ')}',
         if (repository.push) 'can push' else 'read access',
-        if (isProject == true) 'has a project.yml' else if (isProject == null) 'project state unknown',
+        if (isProject == true)
+          'has a project.yml'
+        else if (isProject == false)
+          'no project.yml yet'
+        else
+          'project state unknown',
         if (_chosen == name && forges.problem != null) forges.problem!,
       ].join(' · '),
       leading: Icon(repository.private ? Icons.lock_outline : Icons.public),

@@ -9,5 +9,7 @@ Future<void> theMachineIsASocketSomebodyElseForwards(WidgetTester tester) async 
   const machine = Machine(name: 'forwarded', socketPath: '/tmp/world-forwarded.sock');
   await World.machines.add(machine);
   World.machines.select(machine);
+  // Its own page is where its commands live; the page of the machine before would refuse them.
+  World.shell.openMachine(machine);
   await World.settle(tester);
 }

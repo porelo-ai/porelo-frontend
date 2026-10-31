@@ -6,6 +6,7 @@ import '../app/fleet_model.dart';
 import '../app/registry_pages.dart';
 import 'command_menu.dart';
 import 'filtered_list_section.dart';
+import 'machine_switcher.dart';
 import 'projects_page.dart';
 import 'registry_persons.dart';
 import 'tokens.dart';
@@ -95,7 +96,8 @@ class MachineDetailsPage extends StatelessWidget {
             ),
           ],
         ),
-        Text(machine.where),
+        // The way in decides what silence and closing the window do; a node reached twice is said once.
+        Text('${machine.where}${machineKind(machines, machine)}', key: const Key('machine-kind')),
         if (item != null) Text('${item.role} · ${item.state} · ${registryStateWords(registry, item)}'),
         if (machines.all.contains(machine))
           Text(

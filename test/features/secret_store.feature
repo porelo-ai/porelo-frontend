@@ -90,16 +90,16 @@ Feature: Seeing and shutting the secret store, without showing a value
         When I open the store with its passphrase from the lock
         Then a terminal runs {'ssh -t alice@vm porelo vault init'} on the machine
 
-    # A person new to Porelo looks at the work, not at a mark in the header: the first step is said there.
-    Scenario: a machine with no store says making it is the next step, and makes it from there
+    # The machine's own page offers the first step among its commands.
+    Scenario: a machine with no store makes it from the machine's menu, in a terminal there
         Given the machine is reached over ssh as {'alice@vm'}
         And the machine has no store yet
-        Then the work says {'Next: make the vault on'}
-        When I make it from the next step
+        When I choose the command {'Make the vault, in a terminal'}
         Then a terminal runs {'ssh -t alice@vm porelo vault init'} on the machine
 
-    Scenario: a machine with a store says nothing about making one
-        Then the work does not say {'Next: make the vault'}
+    Scenario: a machine with a store offers no second one
+        When I open the command finder
+        Then the command {'Make the vault, in a terminal'} is offered as unavailable
 
     # A store that is not there answers readable, because there is nothing to open. That is not an
     # open store, and saying so would send somebody looking for a store that does not exist.

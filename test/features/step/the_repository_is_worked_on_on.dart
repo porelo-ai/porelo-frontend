@@ -3,10 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Usage: the repository {'acme/api'} is worked on on {'vm'}
 Future<void> theRepositoryIsWorkedOnOn(WidgetTester tester, String repository, String machines) async {
-  final card = find.byKey(ValueKey<String>('forge-repository $repository'));
-  final count = machines.split(',').length;
-  expect(find.descendant(of: card, matching: find.textContaining('on $count machine')), findsOneWidget);
-  final bubble = tester.widget<Tooltip>(find.byKey(ValueKey<String>('repository-machines $repository')));
-  // The machines' names and nothing else (walk 10).
-  expect(bubble.message, machines.split(',').map((each) => each.trim()).join('\n'));
+  final row = find.byKey(ValueKey<String>('forge-repository $repository'));
+  // The machines' names on its row, and nothing else (walk 10).
+  final names = machines.split(',').map((each) => each.trim()).join(', ');
+  expect(find.descendant(of: row, matching: find.textContaining('followed on $names ·')), findsOneWidget);
 }

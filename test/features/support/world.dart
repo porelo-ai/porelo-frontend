@@ -2987,9 +2987,9 @@ class World {
       },
       workspaceFor: (repository, token) {
         workspace.repository = repository;
-        // Each token its own clone, as ProjectWorkspace(repository, token) is: a dialog that kept the
-        // old one is caught.
-        return workspace.pushesOnlyWith == null ? workspace : _WorkspaceWithToken(workspace, token);
+        // Each repository and token its own clone, as ProjectWorkspace(repository, token) is: a page
+        // that asks for every row's clone, and a dialog that kept the old token, are both caught.
+        return _WorkspaceWithToken(workspace, token, repository);
       },
     );
     pickedFile = null;
@@ -3667,9 +3667,10 @@ class _ForgeWithToken implements Forge {
   Future<void> removeDeployKey(String repository, int id) => _forge.removeDeployKey(repository, id);
 }
 
-/// [FakeWorkspace] reached with one token: everything is the clone's, and a push goes with this token.
+/// [FakeWorkspace] of one repository reached with one token: everything else is the clone's, and a
+/// push goes with this token.
 class _WorkspaceWithToken implements ProjectWorkspace {
-  _WorkspaceWithToken(this._clone, this._token);
+  _WorkspaceWithToken(this._clone, this._token, this.repository);
 
   final FakeWorkspace _clone;
   final String _token;
@@ -3677,13 +3678,13 @@ class _WorkspaceWithToken implements ProjectWorkspace {
   @override
   String get sshDirectory => _clone.sshDirectory;
   @override
-  ForgeRepository get repository => _clone.repository;
+  final ForgeRepository repository;
   @override
   String get root => _clone.root;
   @override
-  String get folder => _clone.folder;
+  String get folder => '$root/${repository.fullName}';
   @override
-  String get projectFile => _clone.projectFile;
+  String get projectFile => '$folder/project.yml';
   @override
   Future<void> open() => _clone.open();
   @override

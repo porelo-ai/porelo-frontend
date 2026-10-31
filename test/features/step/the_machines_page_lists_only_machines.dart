@@ -16,5 +16,5 @@ Future<void> theMachinesPageListsOnlyMachines(WidgetTester tester) async {
     (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('project '),
   );
   expect(projects, findsNothing);
-  expect(find.byWidgetPredicate((widget) => widget is Card && '${widget.key}'.contains("'tile ")), findsNothing);
+  expect(workRows(), findsNothing);
 }

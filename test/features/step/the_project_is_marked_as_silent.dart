@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tiles.dart';
@@ -7,9 +6,6 @@ import '../support/tiles.dart';
 Future<void> theProjectIsMarkedAsSilent(WidgetTester tester, String project) async {
   await lookingAtTheProjects(tester, () async {
     // A switch whose state cannot be seen is one people turn off twice and never back on.
-    expect(
-      find.descendant(of: cardFor(project), matching: find.byIcon(Icons.notifications_off_outlined)),
-      findsOneWidget,
-    );
+    expect(whatTheRowOfSays(tester, project), contains('Notifications off'));
   });
 }

@@ -1,13 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../support/tiles.dart';
-import '../support/world.dart';
 
 /// Usage: the rail says {'1'} is waiting
 Future<void> theRailSaysIsWaiting(WidgetTester tester, String count) async {
-  await lookingAtTheMachines(tester, () async {
-    // On the machine's rail entry, not inside a view: a question with a deadline cannot be something
-    // you find only by having gone to look in the right place.
-    expect(find.descendant(of: railEntryFor(World.machines.current.name), matching: find.text(count)), findsOneWidget);
-  });
+  // On the rail's Needs you, on every page, not inside a view: a question with a deadline cannot be
+  // something you find only by having gone to look in the right place.
+  final badge = find.byKey(const Key('needing-count-badge'));
+  expect(badge, findsOneWidget);
+  final shown = tester.widget<Badge>(badge);
+  expect(shown.isLabelVisible, isTrue, reason: 'Needs you shows no count');
+  expect((shown.label! as Text).data, count);
 }

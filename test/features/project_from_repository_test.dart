@@ -46,7 +46,6 @@ import './step/the_keychain_here_keeps_the_token.dart';
 import './step/it_does_not_say.dart';
 import './step/the_forge_form_takes_no_token.dart';
 import './step/the_forges_repository_says.dart';
-import './step/what_comes_next_for_says.dart';
 import './step/binding_is_not_offered_for.dart';
 import './step/has_a_projectyml.dart';
 import './step/i_use_as_a_project.dart';
@@ -109,7 +108,7 @@ void main() {
       await iPickAProjectFromOneOfMyRepositories(tester);
       await theRepositoriesAreOffered(tester);
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as alice');
+      await itSays(tester, 'login alice');
       await theForgesRepositoryIsListed(tester, 'acme/api');
     });
     testWidgets('''following a project by hand points to picking one of the person's repositories''', (tester) async {
@@ -131,7 +130,7 @@ void main() {
       await theForgesSetUpHereAre(tester, 'GitHub, GitHub work');
       await theKeychainKeepsForTheForgeEntry(tester, 'ghp_work', 'GitHub work');
       await theKeychainKeepsForTheForgeEntry(tester, 'ghp_accepted', 'GitHub');
-      await itSays(tester, 'GitHub work is set up');
+      await itSays(tester, 'git.work.example.org · token chosen explicitly');
     });
     testWidgets('''with two forges set up, the repositories are shown once one is chosen''', (tester) async {
       await bddSetUp(tester);
@@ -139,11 +138,11 @@ void main() {
       await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
       await theForgesAndAreSetUpBothReachingIt(tester, 'GitHub', 'GitHub work');
       await iPickAProjectFromOneOfMyRepositories(tester);
-      await itSays(tester, 'Add a forge');
+      await itSays(tester, 'Connect a forge');
       await noTokenIsAskedFor(tester);
       await iChooseTheForge(tester, 'GitHub work');
       await itSays(tester, 'GitHub work');
-      await itSays(tester, 'as alice');
+      await itSays(tester, 'login alice');
       await theForgesRepositoryIsListed(tester, 'acme/api');
     });
     testWidgets('''a forge is renamed and given a new token, through the terminal prompt''', (tester) async {
@@ -211,7 +210,7 @@ void main() {
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as alice');
+      await itSays(tester, 'login alice');
       await theKeychainHereKeepsTheToken(tester, 'ghp_accepted');
       await itDoesNotSay(tester, 'ghp_accepted');
     });
@@ -228,8 +227,8 @@ void main() {
       await theForgeReachesAsAnAdminAndWithoutAdminRights(tester, 'acme/api', 'acme/web');
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
-      await theForgesRepositorySays(tester, 'acme/api', 'you can push to it');
-      await theForgesRepositorySays(tester, 'acme/web', 'you can push to it');
+      await theForgesRepositorySays(tester, 'acme/api', 'can push');
+      await theForgesRepositorySays(tester, 'acme/web', 'can push');
     });
     testWidgets('''a repository with no project.yml is said to be no Porelo project, and nothing is offered for it''', (
       tester,
@@ -239,11 +238,7 @@ void main() {
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
       await iLookAtTheForgesRepository(tester, 'acme/api');
-      await whatComesNextForSays(
-        tester,
-        'acme/api',
-        'It has no project.yml, so it is no Porelo project. Add one in the repository itself',
-      );
+      await theForgesRepositorySays(tester, 'acme/api', 'no project.yml yet');
       await bindingIsNotOfferedFor(tester, 'acme/api');
     });
     testWidgets('''a project the token may bind is offered to be bound, saying what that does''', (tester) async {
@@ -252,8 +247,8 @@ void main() {
       await hasAProjectyml(tester, 'acme/api');
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await iConnectTheForgeWithTheToken(tester, 'ghp_accepted');
-      await iLookAtTheForgesRepository(tester, 'acme/api');
-      await whatComesNextForSays(tester, 'acme/api', 'uses your own token in its vault');
+      await iUseAsAProject(tester, 'acme/api');
+      await itSays(tester, 'token in its vault');
     });
     testWidgets('''a repository with a project.yml says so on its line, and is used as a project from there''', (
       tester,
@@ -278,11 +273,11 @@ void main() {
       await theKeychainHereKeepsTheTokenForTheForge(tester, 'ghp_accepted');
       await theForgeAnswersOnlyWhenTold(tester);
       await iPickAProjectFromOneOfMyRepositories(tester);
-      await itSays(tester, 'set up on this computer');
+      await itSays(tester, 'token chosen explicitly');
       await noTokenIsAskedFor(tester);
       await theForgeAnswers(tester);
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as alice');
+      await itSays(tester, 'login alice');
     });
     testWidgets('''the list narrows to what is searched for''', (tester) async {
       await bddSetUp(tester);
@@ -310,7 +305,7 @@ void main() {
       await theKeychainHereKeepsTheTokenForTheForge(tester, 'ghp_accepted');
       await iChooseTheCommand(tester, 'A project from a repository you have');
       await itSays(tester, 'GitHub');
-      await itSays(tester, 'as alice');
+      await itSays(tester, 'login alice');
       await iForgetTheTokenHere(tester);
       await theKeychainHereKeepsNoToken(tester);
     });
@@ -561,7 +556,7 @@ void main() {
       await theMachineFollowsTheProjectFrom(tester, 'checkout', 'git@github.com:acme/api.git');
       await theRailListsInThisOrder(tester, 'Machines, Forges, Projects');
       await iGoToTheForges(tester);
-      await itSays(tester, 'Add a forge');
+      await itSays(tester, 'Connect a forge');
       await iChooseTheForge(tester, 'GitHub');
       await theForgesRepositoryIsListed(tester, 'acme/api');
       await theRepositoryIsWorkedOnOn(tester, 'acme/api', 'this machine');

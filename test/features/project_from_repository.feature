@@ -20,7 +20,7 @@ Feature: A project from a repository a person already has on a forge
         When I pick a project from one of my repositories
         Then the repositories are offered
         And it says {'GitHub'}
-        And it says {'as alice'}
+        And it says {'login alice'}
         And the forge's repository {'acme/api'} is listed
 
     Scenario: following a project by hand points to picking one of the person's repositories
@@ -39,18 +39,18 @@ Feature: A project from a repository a person already has on a forge
         Then the forges set up here are {'GitHub, GitHub work'}
         And the keychain keeps {'ghp_work'} for the forge entry {'GitHub work'}
         And the keychain keeps {'ghp_accepted'} for the forge entry {'GitHub'}
-        And it says {'GitHub work is set up'}
+        And it says {'git.work.example.org · token chosen explicitly'}
 
     Scenario: with two forges set up, the repositories are shown once one is chosen
         Given I go to the work
         And the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         And the forges {'GitHub'} and {'GitHub work'} are set up, both reaching it
         When I pick a project from one of my repositories
-        Then it says {'Add a forge'}
+        Then it says {'Connect a forge'}
         And no token is asked for
         When I choose the forge {'GitHub work'}
         Then it says {'GitHub work'}
-        And it says {'as alice'}
+        And it says {'login alice'}
         And the forge's repository {'acme/api'} is listed
 
     Scenario: a forge is renamed and given a new token, through the terminal prompt
@@ -105,7 +105,7 @@ Feature: A project from a repository a person already has on a forge
         When I choose the command {'A project from a repository you have'}
         And I connect the forge with the token {'ghp_accepted'}
         Then it says {'GitHub'}
-        And it says {'as alice'}
+        And it says {'login alice'}
         And the keychain here keeps the token {'ghp_accepted'}
         And it does not say {'ghp_accepted'}
 
@@ -121,17 +121,17 @@ Feature: A project from a repository a person already has on a forge
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         When I choose the command {'A project from a repository you have'}
         And I connect the forge with the token {'ghp_accepted'}
-        Then the forge's repository {'acme/api'} says {'you can push to it'}
-        And the forge's repository {'acme/web'} says {'you can push to it'}
+        Then the forge's repository {'acme/api'} says {'can push'}
+        And the forge's repository {'acme/web'} says {'can push'}
 
-    # Choosing one says what comes next under it, rather than a click that seems to do nothing.
+    # Its row says what it holds, rather than a menu that seems to do nothing.
     # Walk 10: a project.yml is written in its repository only, never from here.
     Scenario: a repository with no project.yml is said to be no Porelo project, and nothing is offered for it
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
         When I choose the command {'A project from a repository you have'}
         And I connect the forge with the token {'ghp_accepted'}
         And I look at the forge's repository {'acme/api'}
-        Then what comes next for {'acme/api'} says {'It has no project.yml, so it is no Porelo project. Add one in the repository itself'}
+        Then the forge's repository {'acme/api'} says {'no project.yml yet'}
         And binding is not offered for {'acme/api'}
 
     Scenario: a project the token may bind is offered to be bound, saying what that does
@@ -139,8 +139,8 @@ Feature: A project from a repository a person already has on a forge
         And {'acme/api'} has a project.yml
         When I choose the command {'A project from a repository you have'}
         And I connect the forge with the token {'ghp_accepted'}
-        And I look at the forge's repository {'acme/api'}
-        Then what comes next for {'acme/api'} says {'uses your own token in its vault'}
+        And I use {'acme/api'} as a project
+        Then it says {'token in its vault'}
     # GitHub lists every repository of the account, whatever the token was narrowed to (a
     # token for one organization listed another's). All are shown; narrowing asks about each one.
     # Which are projects already is asked of the forge for every repository, and said on its line.
@@ -160,11 +160,11 @@ Feature: A project from a repository a person already has on a forge
         And the keychain here keeps the token {'ghp_accepted'} for the forge
         And the forge answers only when told
         When I pick a project from one of my repositories
-        Then it says {'set up on this computer'}
+        Then it says {'token chosen explicitly'}
         And no token is asked for
         When the forge answers
         Then it says {'GitHub'}
-        And it says {'as alice'}
+        And it says {'login alice'}
 
     Scenario: the list narrows to what is searched for
         Given the forge reaches {'acme/api'} as an admin, and {'acme/web'} without admin rights
@@ -189,7 +189,7 @@ Feature: A project from a repository a person already has on a forge
         And the keychain here keeps the token {'ghp_accepted'} for the forge
         When I choose the command {'A project from a repository you have'}
         Then it says {'GitHub'}
-        And it says {'as alice'}
+        And it says {'login alice'}
         When I forget the token here
         Then the keychain here keeps no token
 
@@ -349,7 +349,7 @@ Feature: A project from a repository a person already has on a forge
         And the machine follows the project {'checkout'} from {'git@github.com:acme/api.git'}
         Then the rail lists {'Machines, Forges, Projects'} in this order
         When I go to the forges
-        Then it says {'Add a forge'}
+        Then it says {'Connect a forge'}
         When I choose the forge {'GitHub'}
         Then the forge's repository {'acme/api'} is listed
         And the repository {'acme/api'} is worked on on {'this machine'}

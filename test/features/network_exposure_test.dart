@@ -63,7 +63,7 @@ void main() {
     testWidgets('''a blocked connection turns up without anybody going to look for it''', (tester) async {
       await bddSetUp(tester);
       await workIsBlockedReaching(tester, 'api.example.test:443');
-      await theRailSaysIsWaiting(tester, '1');
+      await theRailSaysIsWaiting(tester, '2');
     });
     testWidgets('''what was attempted, by which work, and which rule stopped it''', (tester) async {
       await bddSetUp(tester);

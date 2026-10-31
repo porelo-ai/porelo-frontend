@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 
@@ -32,8 +33,39 @@ Finder tileFor(String work) {
 /// The entry of one project under the machine being looked at.
 Finder cardFor(String project) => find.byKey(ValueKey<String>('project ${World.machines.current.name}/$project'));
 
+/// Everything the row of [project] on the machine being looked at says, as one line.
+String whatTheRowOfSays(WidgetTester tester, String project) {
+  expect(cardFor(project), findsOneWidget, reason: '$project is not listed');
+  return <String>[
+    for (final text in tester.widgetList<Text>(find.descendant(of: cardFor(project), matching: find.byType(Text))))
+      text.data ?? text.textSpan?.toPlainText() ?? '',
+  ].join(' ');
+}
+
+/// Every piece of work shown, a row of its own on the work page and on what needs a person, in the
+/// order they are drawn.
+Finder workRows() => find.byWidgetPredicate((widget) => '${widget.key}'.startsWith("[<'tile "));
+
 /// The navigation row of one machine.
 Finder railEntryFor(String machine) => find.byKey(ValueKey<String>('tree-machine $machine'));
+
+/// Opens [machine]'s own page from its row on Machines, and closes what is opened over it - what it
+/// can run, which watching it opens - as a person does to read the page.
+Future<void> toTheMachinesPage(WidgetTester tester, String machine) async {
+  await toTheMachines(tester);
+  await tapOnScreen(tester, railEntryFor(machine));
+  await World.settle(tester);
+  await closeWhatCoversThePage(tester);
+}
+
+/// Closes what is opened over the page - a view, the vault's, what a machine can run - as a person
+/// does to reach what stands on the page itself, such as a machine's lock.
+Future<void> closeWhatCoversThePage(WidgetTester tester) async {
+  for (var press = 0; press < 3 && World.shell.opened is! NothingOpened; press++) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await World.settle(tester);
+  }
+}
 
 /// Brings [target] on screen and taps it.
 ///
@@ -63,6 +95,9 @@ String whatItSaysAbout(WidgetTester tester, String work) => <String>[
 Future<void> followTheFinder(WidgetTester tester) async {
   final there = find.byKey(const Key('highlighted'));
   if (there.evaluate().isEmpty) return;
+  // A long menu, such as a machine's, scrolls to the entry first, as a person's pointer does.
+  await tester.ensureVisible(there.first);
+  await tester.pump();
   await tester.tap(there.first);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));

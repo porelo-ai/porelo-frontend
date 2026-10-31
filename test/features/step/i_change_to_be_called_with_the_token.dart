@@ -9,11 +9,12 @@ import '../../support/expand_list_rows.dart';
 Future<void> iChangeToBeCalledWithTheToken(WidgetTester tester, String name, String renamed, String token) async {
   await expandListRows(tester);
   await World.settle(tester);
-  // From its menu on the Forges page, or a form already open (a binding asks for it in place).
+  // A new token is the forge's explicit alternative in its menu on the Forges page, or a form
+  // already open (a binding asks for it in place).
   if (find.byKey(const Key('forge-name')).evaluate().isEmpty) {
     await tester.tap(find.byKey(ValueKey<String>('forges-menu $name')).first);
     await World.settle(tester);
-    await tester.tap(find.byKey(ValueKey<String>('forge-change $name')));
+    await tester.tap(find.byKey(const ValueKey<String>('forge.useToken')).last);
     await World.settle(tester);
   }
   await tester.enterText(find.byKey(const Key('forge-name')), renamed);

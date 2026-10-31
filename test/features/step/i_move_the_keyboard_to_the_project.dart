@@ -24,14 +24,16 @@ Future<void> iMoveTheKeyboardToTheProject(WidgetTester tester, String project) a
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await World.settle(tester);
   }
+  // Its row on the machine being acted on.
+  final row = ValueKey<String>('project ${World.machines.current.name}/$project');
   for (var press = 0; press < 80; press++) {
     final focused = FocusManager.instance.primaryFocus?.context;
     var there = false;
     focused?.visitAncestorElements((element) {
-      there = element.widget.key == ValueKey<String>('project $project');
+      there = element.widget.key == row;
       return !there;
     });
-    if (there || focused?.widget.key == ValueKey<String>('project $project')) return;
+    if (there || focused?.widget.key == row) return;
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
   }

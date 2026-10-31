@@ -5,7 +5,9 @@ import '../support/world.dart';
 
 /// Usage: I go to its work
 Future<void> iGoToItsWork(WidgetTester tester) async {
-  await tester.ensureVisible(find.byKey(const Key('its-work')));
-  await tester.tap(find.byKey(const Key('its-work')));
+  // From the project page's menu, where its work under Work is offered.
+  await tester.tap(find.byKey(const Key('project-menu')));
+  await World.settle(tester);
+  await tester.tap(find.byKey(const ValueKey<String>('project.itsWork')).last);
   await World.settle(tester);
 }

@@ -10,6 +10,6 @@ Future<void> iRemoveTheForge(WidgetTester tester, String name) async {
   await World.settle(tester);
   await tester.tap(find.byKey(ValueKey<String>('forges-menu $name')).first);
   await World.settle(tester);
-  await tester.tap(find.byKey(ValueKey<String>('forge-remove $name')));
+  await tester.tap(find.byKey(const ValueKey<String>('forge.remove')).last);
   await World.settle(tester);
 }

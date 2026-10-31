@@ -183,7 +183,7 @@ void main() {
       await iChoose(tester, 'Leave it alone');
       await theGroupIsShut(tester, 'stopped', false);
     });
-    testWidgets('''machines are a list, and a machine's details show no projects and no work''', (tester) async {
+    testWidgets('''machines are a list, and a machine's details show no work''', (tester) async {
       await bddSetUp(tester);
       await theMachinesPageListsOnlyMachines(tester);
       await iOpenTheDetailsOf(tester, 'this machine');

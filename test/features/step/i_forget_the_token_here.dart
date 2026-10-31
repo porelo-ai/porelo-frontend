@@ -11,7 +11,7 @@ Future<void> iForgetTheTokenHere(WidgetTester tester) async {
   final name = World.forges.current?.name ?? 'GitHub';
   await tester.tap(find.byKey(ValueKey<String>('forges-menu $name')).first);
   await World.settle(tester);
-  await tester.tap(find.byKey(ValueKey<String>('forge-remove $name')));
+  await tester.tap(find.byKey(const ValueKey<String>('forge.remove')).last);
   await World.settle(tester);
   await tester.tap(find.byKey(const Key('forge-remove-confirm')));
   await World.settle(tester);

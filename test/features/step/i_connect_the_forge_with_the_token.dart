@@ -7,5 +7,6 @@ import '../support/forge_prompt.dart';
 Future<void> iConnectTheForgeWithTheToken(WidgetTester tester, String token) async {
   await World.settle(tester);
   await answerForgePrompt(tester, token);
+  await openTheForgeShown(tester);
   await World.settle(tester);
 }

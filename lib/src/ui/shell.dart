@@ -3250,6 +3250,17 @@ class _ShellState extends State<Shell> {
       machine,
       registry: _registry,
     ).where((project) => project.name == projectName).firstOrNull;
+    // A project's page whose project went - deleted, cleared, no longer followed - goes back to the
+    // list of projects rather than showing its machine's page under the project's name (walk 9).
+    if (widget.shell.section == Section.project && project == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            widget.shell.section == Section.project &&
+            (widget.shell.itemProject ?? _fleet.selectedProject?.name) == projectName) {
+          widget.shell.goTo(Section.projects);
+        }
+      });
+    }
     if (widget.shell.section == Section.project && project != null) {
       final commands = _pageProjectCommands(machine, project, admission: admission, registryActions: admission != null);
       return ProjectDetailsPage(

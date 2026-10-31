@@ -107,6 +107,7 @@ class ProjectsPage extends StatelessWidget {
                   machines: machines,
                   registry: registry,
                   admission: row.admission,
+                  muted: muted.contains(row.project.name),
                   onOpen: () {
                     if (row.admission != null && onAdmission != null) {
                       onAdmission!(row.admission!);
@@ -135,6 +136,7 @@ Widget projectListRow({
   required List<Command> commands,
   RegistryPages? registry,
   RegistryPageItem? admission,
+  bool muted = false,
 }) {
   final isDefault = project.name == defaultProject;
   admission ??= registry?.project(machine, project.name);
@@ -142,11 +144,13 @@ Widget projectListRow({
   final watched = machines.all.contains(machine);
   final connected = watched && machines.of(machine).reachability == Reachability.connected;
   final tunnel = watched ? machines.tunnels.of(machine) : null;
+  final selected = watched && machines.current == machine && machines.of(machine).selectedProject?.name == project.name;
 
   final menu = isDefault ? commands.where((command) => command.id == 'work.start').toList() : commands;
   return ItemListRow(
     key: ValueKey('projects-row $identity'),
     bodyKey: ValueKey('project $identity'),
+    selected: selected,
     title: isDefault ? 'Without a project' : project.label,
     subtitle: [
       'on ${machine.name}',
@@ -165,8 +169,9 @@ Widget projectListRow({
       if (project.project.environmentIsStale) 'Environment older than its project file',
       if (!isDefault && !project.canBeActedOn) 'Not followed on this machine',
       if (project.project.following?.unverified ?? false) 'Followed unverified',
+      if (muted) 'Notifications off',
     ].join(' · '),
-    leading: const Icon(Icons.folder_outlined),
+    leading: Icon(selected ? Icons.folder : Icons.folder_outlined),
     onOpen: onOpen,
     menu: CommandMenu(
       key: ValueKey('projects-menu $identity'),

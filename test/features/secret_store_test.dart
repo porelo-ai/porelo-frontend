@@ -31,9 +31,8 @@ import './step/the_machine_is_a_socket_somebody_else_forwards.dart';
 import './step/i_open_the_command_finder.dart';
 import './step/the_command_is_unavailable_because.dart';
 import './step/the_machine_has_no_store_yet.dart';
-import './step/the_work_says.dart';
-import './step/i_make_it_from_the_next_step.dart';
-import './step/the_work_does_not_say.dart';
+import './step/i_choose_the_command.dart';
+import './step/the_command_is_offered_as_unavailable.dart';
 import './step/it_does_not_say.dart';
 import './step/the_lock_does_not_show_an_open_store.dart';
 import './step/i_make_it_here_with_a_passphrase.dart';
@@ -150,17 +149,17 @@ void main() {
       await iOpenTheStoreWithItsPassphraseFromTheLock(tester);
       await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault init');
     });
-    testWidgets('''a machine with no store says making it is the next step, and makes it from there''', (tester) async {
+    testWidgets('''a machine with no store makes it from the machine's menu, in a terminal there''', (tester) async {
       await bddSetUp(tester);
       await theMachineIsReachedOverSshAs(tester, 'alice@vm');
       await theMachineHasNoStoreYet(tester);
-      await theWorkSays(tester, 'Next: make the vault on');
-      await iMakeItFromTheNextStep(tester);
+      await iChooseTheCommand(tester, 'Make the vault, in a terminal');
       await aTerminalRunsOnTheMachine(tester, 'ssh -t alice@vm porelo vault init');
     });
-    testWidgets('''a machine with a store says nothing about making one''', (tester) async {
+    testWidgets('''a machine with a store offers no second one''', (tester) async {
       await bddSetUp(tester);
-      await theWorkDoesNotSay(tester, 'Next: make the vault');
+      await iOpenTheCommandFinder(tester);
+      await theCommandIsOfferedAsUnavailable(tester, 'Make the vault, in a terminal');
     });
     testWidgets('''a machine with no store does not say one is open and empty''', (tester) async {
       await bddSetUp(tester);

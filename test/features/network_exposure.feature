@@ -7,9 +7,10 @@ Feature: Answering blocked connections, and widening what work reaches
         And the app is running
         And I go to the work
 
+    # Needs you counts the work already waiting at the gate, and now the blocked connection.
     Scenario: a blocked connection turns up without anybody going to look for it
         When work is blocked reaching {'api.example.test:443'}
-        Then the rail says {'1'} is waiting
+        Then the rail says {'2'} is waiting
 
     Scenario: what was attempted, by which work, and which rule stopped it
         When work is blocked reaching {'api.example.test:443'}

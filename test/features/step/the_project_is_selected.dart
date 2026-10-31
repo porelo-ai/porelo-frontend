@@ -6,6 +6,8 @@ import '../support/tiles.dart';
 /// Usage: the project {'checkout'} is selected
 Future<void> theProjectIsSelected(WidgetTester tester, String project) async {
   await lookingAtTheProjects(tester, () async {
-    expect(find.ancestor(of: find.text(project), matching: find.byKey(const Key('selected-row'))), findsOneWidget);
+    // Its row on Projects, on the machine being acted on, is the one marked.
+    expect(cardFor(project), findsOneWidget, reason: '$project is not listed');
+    expect(tester.widget<ListTile>(cardFor(project)).selected, isTrue, reason: '$project is not marked selected');
   });
 }

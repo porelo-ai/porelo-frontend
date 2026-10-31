@@ -121,9 +121,9 @@ Feature: Daily work in front, setting up machines and projects apart
         When I choose {'Leave it alone'}
         Then the group {'stopped'} is shut {false}
 
-    # Walk 9: Machines is a list of machines, each with details of its own; its projects
-    # are under Projects and its work under Work, never on a machine's or a project's page.
-    Scenario: machines are a list, and a machine's details show no projects and no work
+    # Walk 9: Machines is a list of machines, each with a page of its own; its work is under
+    # Work, never on a machine's or a project's page.
+    Scenario: machines are a list, and a machine's details show no work
         Then the machines page lists only machines
         When I open the details of {'this machine'}
         Then the title is {'this machine'}
