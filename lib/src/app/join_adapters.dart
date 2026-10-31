@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_host/porelo_host.dart' show HostCardSsh, checkAdminName;
+import 'package:porelo_host/porelo_host.dart' show HostCardSsh;
 
 import 'desk.dart';
 import 'fleet_backend.dart';
@@ -9,14 +10,15 @@ import 'identity.dart';
 import 'machines.dart';
 import 'project_join.dart';
 import 'registry.dart';
-import 'registry_checkout.dart';
 import 'registry_read_source.dart';
 import 'run_here.dart';
+import 'tunnel.dart';
 
 /// What the app hands its shell to join with, both as the person Core's identity names.
 ///
 /// Discovery reads the registry checkout [registry] reads for the pages, never a second one; a join's tunnel is
-/// raised through [machines]' own tunnels.
+/// raised through [machines]' own tunnels. Both use the person's card only while it may be used to join through that
+/// registry ([whyCardUnusable]).
 ({CoreJoinDiscovery discovery, DaemonJoinHost host}) appJoins({
   required RegistryReadSource registry,
   required Machines machines,
@@ -24,14 +26,50 @@ import 'run_here.dart';
   RunHere? run,
 }) {
   final person = identity ?? Identity(run: run);
+  Future<IdentityCard> usable() async {
+    final IdentityCard card;
+    try {
+      card = await person.show();
+    } on RegistryRefusal {
+      rethrow;
+    } on Object {
+      throw const RegistryRefusal('Porelo knows no identity of yours yet, so no project you may join is known.');
+    }
+    final address = registry.registry?.checkout.repository;
+    if (address == null) throw const RegistryRefusal(CoreJoinDiscovery.noRegistry);
+    if (whyCardUnusable(card, address) case final why?) throw RegistryRefusal(why);
+    return card;
+  }
+
   return (
     discovery: CoreJoinDiscovery(
-      checkout: () => registry.registry?.checkout,
-      login: () async => (await person.show()).login,
+      registry: () => registry.registry,
+      login: () async => (await usable()).login,
       run: run,
     ),
-    host: DaemonJoinHost(connect: cardTunnel(machines, publicKey: () async => (await person.show()).key)),
+    host: DaemonJoinHost(
+      connect: cardTunnel(
+        machines,
+        person: () async {
+          final card = await usable();
+          return (login: card.login, key: card.key);
+        },
+      ),
+      ready: cardTunnelUp(machines),
+      release: cardTunnelDown(machines),
+    ),
   );
+}
+
+/// Why [card] cannot be used to join through the registry at [registry], or null when it can: its key must be
+/// usable (not revoked, the card verified, the agent holding the key) and the card filed `done` in that registry.
+String? whyCardUnusable(IdentityCard card, String registry) {
+  if (card.whyKeyUnusable case final why?) return '$why No project can be joined with it.';
+  final filed = card.registry.where((each) => each.address == registry);
+  if (filed.length != 1 || filed.single.filed != FiledState.done) {
+    return 'Your card is not accepted in the registry $registry yet, so no project you may join is known.';
+  }
+  return null;
 }
 
 /// The card a join's tunnel is written from: Core's verified host card, the row's host account and the person's
@@ -51,19 +89,28 @@ HostCardSsh joinCard(JoinOffered offer, String publicKey) => HostCardSsh(
 /// Raises a joinable row's card tunnel through [machines]' tunnels and names the account it reaches; the account is
 /// watched only once the join is confirmed.
 ///
-/// [endpoint] is where the daemon's local end goes for a host, under the runtime directory unless a test says.
+/// [person] is the login and public key of the person's card now; a row for another login than theirs raises
+/// nothing. A tunnel that does not come up is taken down with its published files. [endpoint] is where the daemon's
+/// local end goes for a host, under the runtime directory unless a test says.
 Future<Machine> Function(JoinOffered offer) cardTunnel(
   Machines machines, {
-  required Future<String> Function() publicKey,
+  required Future<({String login, String key})> Function() person,
   String Function(String host)? endpoint,
 }) => (offer) async {
-  final String key;
+  final ({String login, String key}) own;
   try {
-    key = await publicKey();
+    own = await person();
+  } on RegistryRefusal {
+    rethrow;
   } on Exception {
     throw const RegistryRefusal('Your own key could not be read from your identity, so no host was connected.');
   }
-  final card = joinCard(offer, key);
+  if (own.login != offer.login) {
+    throw const RegistryRefusal(
+      'This row was found for another login than your card names now. Look at the list again.',
+    );
+  }
+  final card = joinCard(offer, own.key);
   final machine = Machine.fromHostCard(
     card,
     socketPath: (endpoint ?? Machine.endpointFor)(card.name),
@@ -73,38 +120,70 @@ Future<Machine> Function(JoinOffered offer) cardTunnel(
     ),
   );
   if (!await machines.tunnels.raiseFor(machine)) {
-    throw RegistryRefusal(
-      machine.whyNotReachableHere ??
-          machines.tunnels.of(machine)?.problem ??
-          'The tunnel to ${card.name} could not be opened.',
-    );
+    final why =
+        machine.whyNotReachableHere ??
+        machines.tunnels.of(machine)?.problem ??
+        'The tunnel to ${card.name} could not be opened.';
+    if (!machines.all.contains(machine)) await cardTunnelDown(machines)(machine);
+    throw RegistryRefusal(why);
   }
   return machine;
 };
 
+/// Whether a card machine's tunnel is up through [machines]' tunnels, with the ssh configuration this desktop
+/// publishes for its card.
+bool Function(Machine machine) cardTunnelUp(Machines machines) => (machine) {
+  final card = machine.hostCard;
+  return card != null &&
+      machine.sshConfig ==
+          card.configPath(
+            environment: machines.tunnels.configEnvironment ?? desk.environment,
+            windows: desk.isWindows,
+          ) &&
+      machines.tunnels.of(machine)?.state == TunnelState.up;
+};
+
+/// Takes down a card machine's tunnel in [machines]' tunnels and the files published for its card, so nothing of a
+/// join that was not confirmed refuses the host's next card.
+Future<void> Function(Machine machine) cardTunnelDown(Machines machines) => (machine) async {
+  await machines.tunnels.dropFor(machine);
+  await machine.hostCard?.unpublish(machine.sshConfig, environment: machines.tunnels.configEnvironment);
+};
+
 /// Core's `porelo registry joinable` on the person's private registry checkout, for the person Core names.
+///
+/// It asks only once the registry pages' read of that checkout has ended accepted, never while a fetch, a read or a
+/// filing runs in it or a key replacement holds it.
 class CoreJoinDiscovery implements JoinDiscovery {
-  /// Takes the registry checkout, who the person is, and an argument-list process runner.
-  CoreJoinDiscovery({required this.checkout, required this.login, RunHere? run}) : _run = run ?? runHere;
+  /// Takes the registry the pages read, who the person is, and an argument-list process runner.
+  CoreJoinDiscovery({required this.registry, required this.login, RunHere? run}) : _run = run ?? runHere;
 
-  /// The private checkout of the registry Core reads, or null before a registry was chosen.
-  final RegistryCheckout? Function() checkout;
+  /// What is said before a registry was chosen.
+  static const noRegistry = 'Choose the registry repository first, so the projects you may join can be read.';
 
-  /// The logged-in person's login as Core's identity names it, or null when there is none.
+  /// The registry the pages read, or null before one was chosen.
+  final Registry? Function() registry;
+
+  /// The logged-in person's login as Core's identity names it, or null when there is none; a [RegistryRefusal] says
+  /// why their card cannot be used to join.
   final Future<String?> Function() login;
 
   final RunHere _run;
 
   @override
   Future<List<JoinAdmission>> admissions() async {
-    final registry = checkout();
-    if (registry == null) {
-      throw const RegistryRefusal('Choose the registry repository first, so the projects you may join can be read.');
+    final registry = this.registry();
+    if (registry == null) throw const RegistryRefusal(noRegistry);
+    await _settled(registry);
+    if (registry.accepted == null || registry.problem != null) {
+      throw const RegistryRefusal(
+        'The registry has not been read here completely yet, so the projects you may join are not known. Refresh it.',
+      );
     }
     final person = await _login();
     final Ran result;
     try {
-      result = await _run('porelo', ['registry', 'joinable', registry.folder, '--login', person, '--json']);
+      result = await _run('porelo', ['registry', 'joinable', registry.checkout.folder, '--login', person, '--json']);
     } on Exception {
       throw const RegistryRefusal('Porelo could not be asked which projects you may join.');
     }
@@ -116,7 +195,7 @@ class CoreJoinDiscovery implements JoinDiscovery {
         } on FormatException {
           throw const RegistryRefusal('Core\'s answer on the projects you may join could not be read.');
         }
-        return readJoinable(json);
+        return readJoinable(json, login: person);
       case 65:
         throw const RegistryRefusal(
           'Core refused to say which projects you may join: the registry did not verify, or accepted no commit yet.',
@@ -130,36 +209,68 @@ class CoreJoinDiscovery implements JoinDiscovery {
     }
   }
 
-  /// The person's login, checked before it reaches a command line.
+  /// Waits until no fetch, read or filing runs in [registry] and no key replacement holds it.
+  static Future<void> _settled(Registry registry) async {
+    while (registry.busy || registry.held) {
+      final changed = Completer<void>();
+      void moved() {
+        if (!changed.isCompleted) changed.complete();
+      }
+
+      registry.addListener(moved);
+      try {
+        await changed.future;
+      } finally {
+        registry.removeListener(moved);
+      }
+    }
+  }
+
+  /// The person's login, checked against Core's rule before it reaches a command line.
   Future<String> _login() async {
     String? person;
     try {
       person = await login();
+    } on RegistryRefusal {
+      rethrow;
     } on Exception {
       person = null;
     }
-    try {
-      if (person == null) throw const FormatException('no login');
-      checkAdminName(person);
-      return person;
-    } on FormatException {
+    if (person == null || !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(person)) {
       throw const RegistryRefusal('Porelo knows no identity of yours yet, so no project you may join is known.');
     }
+    return person;
   }
 }
 
 /// The host side of a join: the card tunnel, and the account daemon's existing follow with Core's signers.
 class DaemonJoinHost implements JoinHost {
-  /// Takes the card tunnel's connect and how a watched account's daemon is reached.
-  DaemonJoinHost({required this._connect, FleetBackend Function(Machine)? reach})
-    : _reach = reach ?? ((machine) => PoreloBackend(Machines.backendFor(machine)));
+  /// Takes the card tunnel's connect, whether a tunnel is up, how one is taken down, and how a watched account's
+  /// daemon is reached.
+  DaemonJoinHost({
+    required this._connect,
+    required this._ready,
+    required this._release,
+    FleetBackend Function(Machine)? reach,
+  }) : _reach = reach ?? ((machine) => PoreloBackend(Machines.backendFor(machine)));
 
   final Future<Machine> Function(JoinOffered offer) _connect;
+  final bool Function(Machine machine) _ready;
+  final Future<void> Function(Machine machine) _release;
   final FleetBackend Function(Machine) _reach;
   final Map<String, FleetBackend> _open = {};
 
   @override
   Future<Machine> connect(JoinOffered offer) => _connect(offer);
+
+  @override
+  bool ready(Machine machine) => _ready(machine);
+
+  @override
+  Future<void> release(Machine machine) async {
+    _open.remove(machine.socketPath);
+    await _release(machine);
+  }
 
   @override
   Future<Followed?> followed(Machine machine, String project) async {

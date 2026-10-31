@@ -216,6 +216,31 @@ void main() {
     expect(File('$config.known_hosts').readAsStringSync(), before);
   });
 
+  // Harm: the pins of a card whose join was never confirmed stay and refuse the host's next card, or taking them down
+  // deletes another card's files.
+  test('unpublish removes this card\'s files and leaves another card\'s alone', () async {
+    final folder = await Directory.systemTemp.createTemp('u-');
+    addTearDown(() => folder.delete(recursive: true));
+    final environment = {'XDG_CONFIG_HOME': folder.path};
+    final config = '${folder.path}/porelo/ssh/alpha.conf';
+    final card = HostCardSsh.fromStored(cardValues());
+    final rotated = HostCardSsh.fromStored({
+      ...cardValues(),
+      'host_key': publicKey.replaceFirst('AAAAIAAA', 'AAAAIBAA'),
+    });
+    await card.publish(config, environment: environment);
+    await rotated.unpublish(config, environment: environment);
+    for (final file in [config, '$config.known_hosts', '$config.pub']) {
+      expect(File(file).existsSync(), isTrue, reason: '$file holds the other card\'s pin');
+    }
+    await card.unpublish(config, environment: environment);
+    for (final file in [config, '$config.known_hosts', '$config.pub']) {
+      expect(File(file).existsSync(), isFalse, reason: file);
+    }
+    await rotated.publish(config, environment: environment);
+    expect(File('$config.known_hosts').readAsStringSync(), contains(rotated.hostKey));
+  });
+
   test('SSH paths refuse config injection and unexpected expansion', () async {
     final card = HostCardSsh.fromStored(cardValues());
     for (final config in [

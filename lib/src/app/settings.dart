@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart'
-    show HostCardSsh, SecretsFile, PreparedHost, HostPlan, HostPreparationSettings, checkHostName;
+    show HostCardSsh, HostFilesRefused, SecretsFile, PreparedHost, HostPlan, HostPreparationSettings, checkHostName;
 
 import 'desk.dart';
 import 'host_protocol.dart';
@@ -1198,17 +1198,48 @@ class Settings extends ChangeNotifier {
     // socket: a WSL distribution has none, and a kind this version does not know is not its to drop.
     // A second entry of a name already read is dropped too: every machine is told apart by its name,
     // and two of one would send one's calls through the other's way in.
+    //
+    // An entry whose host card does not read is set aside whole, kept in the file and said, never read as a machine:
+    // it names a host this build will not reach, and losing it, or every other machine, would be worse.
     final machines = <Machine>[];
+    final setAside = <Map<String, Object?>>[];
+    var older = false;
     for (final each in stored) {
       if (each is! Map<String, Object?>) continue;
       final project = each['hostProject'];
-      final machine = Machine.fromStored(each, legacyHost: project is String && hostUp(project)?.legacy == true);
+      final Machine machine;
+      try {
+        machine = Machine.fromStored(each, legacyHost: project is String && hostUp(project)?.legacy == true);
+      } on HostFilesRefused {
+        setAside.add(each);
+        continue;
+      }
       if (machine.name.isEmpty || (machine.socketPath.isEmpty && machine.kind.isEmpty)) continue;
       if (machines.any((kept) => kept.name == machine.name)) continue;
+      // A card saved by an older build, with its uid, its return socket or an account's own daemon socket.
+      final card = each['hostCard'];
+      older |=
+          card is Map &&
+          (card.containsKey('uid') ||
+              card.containsKey('return_socket') ||
+              each['remoteSocket'] != machine.remoteSocket);
       machines.add(machine);
     }
+    _setAside = List.unmodifiable(setAside);
+    _olderMachines = older;
     return machines;
   }
+
+  List<Map<String, Object?>> _setAside = const [];
+  bool _olderMachines = false;
+
+  /// The names of stored machines whose host card did not read at the last [machines], kept in the file unread.
+  List<String> get machinesSetAside => [
+    for (final each in _setAside) each['name'] is String ? each['name'] as String : '(unnamed)',
+  ];
+
+  /// Whether the last [machines] read a card an older build saved, so the list is saved again in today's form.
+  bool get olderMachines => _olderMachines;
 
   /// Where somebody was when the interface last closed.
   ///
@@ -1283,7 +1314,13 @@ class Settings extends ChangeNotifier {
       card.checkAgainst(cards);
       cards.add(card);
     }
-    _machines = <Map<String, Object?>>[for (final machine in machines) machine.stored];
+    _machines = <Map<String, Object?>>[
+      for (final machine in machines) machine.stored,
+      // What did not read stays as it was, unless a machine of its name took its place.
+      for (final each in _setAside)
+        if (!machines.any((machine) => machine.name == each['name'])) each,
+    ];
+    _olderMachines = false;
     await _write();
   }
 

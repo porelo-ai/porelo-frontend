@@ -241,12 +241,43 @@ class HostCardSsh {
       throw const HostFilesRefused('The SSH config directory must not be a link.');
     }
     await files.protectDirectory(folder);
+    final contents = _contents(config);
+    for (final entry in contents.entries) {
+      await files.check(File(entry.key), utf8.encode(entry.value));
+    }
+    for (final entry in contents.entries) {
+      await files.write(File(entry.key), utf8.encode(entry.value));
+    }
+  }
+
+  /// Removes what [publish] wrote for this card at [config], only while every file there holds exactly this card's
+  /// bytes.
+  ///
+  /// A card tunnel raised for a join that was never confirmed leaves no pin behind, so a later card of the host, with
+  /// another key or address, is not refused for it; the files of another card, or any changed by hand, stay whole.
+  Future<void> unpublish(String config, {Map<String, String>? environment}) async {
+    checkConfigPath(name, config, environment: environment, windows: Platform.isWindows);
+    final ours = <File>[];
+    for (final entry in _contents(config).entries) {
+      final file = File(entry.key);
+      final type = await FileSystemEntity.type(file.path, followLinks: false);
+      if (type == FileSystemEntityType.notFound) continue;
+      if (type != FileSystemEntityType.file || await file.readAsString() != entry.value) return;
+      ours.add(file);
+    }
+    for (final file in ours) {
+      await file.delete();
+    }
+  }
+
+  /// The files [publish] writes at [config], by path.
+  Map<String, String> _contents(String config) {
     final known = '$config.known_hosts';
     final identity = '$config.pub';
     final control = controlSocket(config);
     checkLocalSocket(control);
     final host = sshPort == 22 ? address : '[$address]:$sshPort';
-    final contents = {
+    return {
       known: '$host $hostKey\n',
       identity: '$publicKey\n',
       config:
@@ -257,12 +288,6 @@ class HostCardSsh {
           '  StreamLocalBindMask 0177\n'
           '  ControlMaster auto\n  ControlPath ${_quote(control)}\n  ControlPersist no\n',
     };
-    for (final entry in contents.entries) {
-      await files.check(File(entry.key), utf8.encode(entry.value));
-    }
-    for (final entry in contents.entries) {
-      await files.write(File(entry.key), utf8.encode(entry.value));
-    }
   }
 
   static String _quote(String value) => '"${value.replaceAll('%', '%%')}"';

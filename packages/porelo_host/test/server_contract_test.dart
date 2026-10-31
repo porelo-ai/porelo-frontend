@@ -42,6 +42,30 @@ void main() {
     });
   }
 
+  // Harm: Core's host card is misread, so its host is taken from another field than Core names it in, or an address
+  // Core's card takes refuses every joinable project.
+  test('Core\'s host card is read with Core\'s fields and every address form its card takes', () {
+    Map<String, Object?> card(String address) => {
+      'host': 'orchard',
+      'address': address,
+      'ssh_port': 2222,
+      'ssh_host_key': sshKey,
+      'services': {
+        'forge': {'web_port': 8081, 'git_port': 8082},
+        'matrix': {'port': 8083},
+      },
+      'signed_by': 'SHA256:${'A' * 43}',
+    };
+    for (final address in ['203.0.113.7', 'orchard.example.org', 'orchard', '2001:db8::7', '::1', '127.0.0.1']) {
+      final host = PreparedHost.card(card(address));
+      expect((host.name, host.address, host.sshPort), ('orchard', address, 2222), reason: address);
+    }
+    expect(() => PreparedHost.card({...card('203.0.113.7'), 'host': null, 'name': 'orchard'}), throwsFormatException);
+    for (final address in ['', '0177.0.0.1', '127.1', 'a b', 'fe80::1%eth0', '[::1]', 'host:22', '-oProxy', 'x.0x7f']) {
+      expect(() => PreparedHost.card(card(address)), throwsFormatException, reason: address);
+    }
+  });
+
   // Harm: invalid limits or port collisions can exhaust a host or connect to the wrong service.
   test('preparation settings reject invalid limits and round trip the optional role defaults', () {
     expect(const HostPreparationSettings().roleSettings, isEmpty);

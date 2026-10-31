@@ -18,6 +18,29 @@ bool isIpv4Address(String value) {
       parts.every((part) => RegExp(r'^(0|[1-9][0-9]{0,2})$').hasMatch(part) && int.parse(part) <= 255);
 }
 
+/// Whether a host card's address is one Core's card takes, read without a resolver: a plain IPv4 address, an IPv6
+/// address in hex and colons alone, or a host name whose last label is no number.
+bool isCardAddress(String value) {
+  if (value.length > 253) return false;
+  if (RegExp(r'^[0-9.]+$').hasMatch(value)) return isIpv4Address(value);
+  if (value.contains(':')) return RegExp(r'^[0-9A-Fa-f:]+$').hasMatch(value) && _ipv6(value);
+  final last = value.substring(value.lastIndexOf('.') + 1);
+  return RegExp(r'^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$')
+          .hasMatch(value) &&
+      !RegExp(r'^[0-9]+$').hasMatch(last) &&
+      !RegExp(r'^0[xX][0-9A-Fa-f]*$').hasMatch(last);
+}
+
+/// Whether hex-and-colon [value] is one IPv6 address: eight groups, or fewer around one `::`.
+bool _ipv6(String value) {
+  final halves = value.split('::');
+  if (halves.length > 2) return false;
+  List<String> groups(String half) => half.isEmpty ? const [] : half.split(':');
+  final all = [for (final half in halves) ...groups(half)];
+  if (all.any((group) => group.isEmpty || group.length > 4)) return false;
+  return halves.length == 2 ? all.length < 8 : all.length == 8;
+}
+
 bool _usableIpv4(String value) {
   if (!isIpv4Address(value)) return false;
   final parts = value.split('.').map(int.parse).toList();
@@ -84,6 +107,45 @@ class PreparedHost {
     final ports = [forge['web_port'], forge['git_port'], matrix['port']];
     if (ports.any((p) => p is! int || p < 1 || p > 65535) || ports.toSet().length != ports.length) {
       throw const FormatException('The host completion needs three distinct valid service ports.');
+    }
+    return PreparedHost._(
+      name,
+      address,
+      port,
+      key,
+      Map.unmodifiable({
+        'forge': Map<String, int>.unmodifiable({'web_port': ports[0] as int, 'git_port': ports[1] as int}),
+        'matrix': Map<String, int>.unmodifiable({'port': ports[2] as int}),
+      }),
+    );
+  }
+
+  /// Reads a host card as Core's registry answers it: `host`, `address`, `ssh_port`, `ssh_host_key`, `services` and
+  /// `signed_by`, with the address in any form Core's card takes (a host name, an IPv4 or an IPv6 address).
+  factory PreparedHost.card(Object? json) {
+    if (json is! Map<String, Object?>) throw const FormatException('The host card needs an object.');
+    final name = json['host'];
+    final address = json['address'];
+    final port = json['ssh_port'];
+    final key = json['ssh_host_key'];
+    if (name is! String) throw const FormatException('The host card needs its host.');
+    checkHostName(name);
+    if (address is! String || !isCardAddress(address)) {
+      throw const FormatException('The host card needs a host name or an IP address.');
+    }
+    if (port is! int || port < 1 || port > 65535 || key is! String) {
+      throw const FormatException('The host card needs valid ssh_port and ssh_host_key.');
+    }
+    checkedEd25519(key);
+    final services = json['services'];
+    final forge = services is Map<String, Object?> ? services['forge'] : null;
+    final matrix = services is Map<String, Object?> ? services['matrix'] : null;
+    if (forge is! Map<String, Object?> || matrix is! Map<String, Object?>) {
+      throw const FormatException('The host card needs forge and matrix service ports.');
+    }
+    final ports = [forge['web_port'], forge['git_port'], matrix['port']];
+    if (ports.any((p) => p is! int || p < 1 || p > 65535) || ports.toSet().length != ports.length) {
+      throw const FormatException('The host card needs three distinct valid service ports.');
     }
     return PreparedHost._(
       name,

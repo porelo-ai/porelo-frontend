@@ -45,6 +45,9 @@ class FakeJoinHost implements JoinHost {
   /// Whether the daemon confirms the follow as unverified.
   bool unverified = false;
 
+  /// Whether a card tunnel is up, with the ssh configuration this desktop publishes for its card.
+  bool up = true;
+
   @override
   Future<Machine> connect(JoinOffered offer) async {
     final host = offer.host;
@@ -73,6 +76,12 @@ class FakeJoinHost implements JoinHost {
 
   @override
   Future<Followed?> followed(Machine machine, String project) async => following[project];
+
+  @override
+  bool ready(Machine machine) => up;
+
+  @override
+  Future<void> release(Machine machine) async => calls.add('release ${machine.name}');
 
   @override
   Future<Followed> follow(Machine machine, JoinOffered offer) async {

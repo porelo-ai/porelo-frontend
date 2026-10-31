@@ -35,7 +35,7 @@ final _answer = {
       'project': 'demo',
       'host': 'orchard',
       'host_account': 'alice',
-      'host_card': {...hostValues()..remove('name')},
+      'host_card': {'host': 'orchard', ...hostValues()..remove('name'), 'signed_by': 'SHA256:${'A' * 43}'},
       'homeserver': 'matrix.orchard.porelo.internal',
       'source': 'https://forge.example/team/demo.git',
       'access_repository': 'https://forge.example/team/access.git',
@@ -88,10 +88,66 @@ final _shown = {
   'agent_holds_key': true,
   'revoked': false,
   'card_refused': null,
-  'registry': <Object?>[],
+  'registry': [
+    {'address': _registryAddress, 'filed': 'done', 'revision': 'b' * 40, 'may_file': true, 'who_may': <Object?>[]},
+  ],
   'forge': null,
   'pending': <Object?>[],
 };
+
+const _registryAddress = 'https://forge.example/team/registry.git';
+
+/// The registry checkout, never cloned or fetched here.
+class _Checkout implements RegistryCheckout {
+  _Checkout(this.repository);
+
+  @override
+  final String repository;
+
+  @override
+  String get root => '/private/registry';
+
+  @override
+  String get folder => '/private/registry/registry-${repository.hashCode}';
+
+  @override
+  Future<String> fetch() async => 'b' * 40;
+
+  @override
+  Future<void> prepareRetry({required String base, required String file, required String content}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> prepareFiling() async {}
+
+  @override
+  Future<void> publishMade(String revision, {required String base}) async {}
+
+  @override
+  Future<void> publish(String revision) async {}
+}
+
+/// Core's registry read, accepted at once unless a test holds it or makes it refuse a commit.
+class _RegistryCore implements RegistryCore {
+  Completer<void>? hold;
+  Map<String, dynamic>? refusedCommit;
+
+  @override
+  Future<RegistryRead> read(String checkout) async {
+    await hold?.future;
+    return RegistryRead.from({
+      'revision': 'b' * 40,
+      'people': <Object?>[],
+      'owners': <Object?>[],
+      'warnings': <Object?>[],
+      'hosts': <Object?>[],
+      'refused_commit': ?refusedCommit,
+    });
+  }
+
+  @override
+  Future<RegistryFiled> file(String checkout, RegistryFiling filing) => throw UnimplementedError();
+}
 
 /// An ssh master that stays up until it is stopped.
 class _Master extends Fake implements Process {
@@ -202,11 +258,14 @@ class _Daemon extends FakeBackend {
 void main() {
   late _Core core;
   late CoreJoinDiscovery discovery;
-  final checkout = RegistryCheckout(root: '/private/registry', repository: 'https://forge.example/team/registry.git');
+  late Registry registry;
+  final checkout = _Checkout(_registryAddress);
 
-  setUp(() {
+  setUp(() async {
     core = _Core();
-    discovery = CoreJoinDiscovery(checkout: () => checkout, login: () async => 'alice', run: core.run);
+    registry = Registry(checkout: checkout, core: _RegistryCore());
+    await registry.refresh();
+    discovery = CoreJoinDiscovery(registry: () => registry, login: () async => 'alice', run: core.run);
   });
 
   // Harm: a project whose access file names no homeserver is dropped, or another homeserver is taken for it.
@@ -301,10 +360,16 @@ void main() {
   // Harm: Core is asked for someone else, or for nobody, so another person's admissions are offered.
   test('without a known login Core is not asked and nothing is offered', () async {
     for (final login in [null, '--json', 'Alice Smith']) {
-      discovery = CoreJoinDiscovery(checkout: () => checkout, login: () async => login, run: core.run);
+      discovery = CoreJoinDiscovery(registry: () => registry, login: () async => login, run: core.run);
       await expectLater(discovery.admissions(), throwsA(isA<RegistryRefusal>()));
     }
     expect(core.calls, isEmpty);
+  });
+
+  // Harm: a row for another person than the login asked for is offered, and its tunnel logs in as them.
+  test('a joinable row for another login than the one asked for offers nothing', () async {
+    core.answer = _with((json) => _project(json)['host_account'] = 'bob')();
+    await expectLater(discovery.admissions(), throwsA(isA<RegistryRefusal>()));
   });
 
   // Harm: a host account Core would never admit becomes a path on the host, or a tunnel is raised for it.
@@ -319,9 +384,11 @@ void main() {
     late Directory folder;
     late List<List<String>> launches;
     late Machines machines;
+    late bool portsBusy;
 
     setUp(() {
       folder = Directory.systemTemp.createTempSync('j-');
+      portsBusy = false;
       launches = [];
       final tunnels = Tunnels(
         configEnvironment: {'XDG_CONFIG_HOME': folder.path},
@@ -331,7 +398,9 @@ void main() {
         },
         run: (_) async => ProcessResult(0, 0, '', ''),
         keyAvailable: (_) async => true,
-        portsAvailable: (_) async {},
+        portsAvailable: (card) async {
+          if (portsBusy) throw HostFilesRefused('Host ${card.name} cannot start: a port is busy.');
+        },
         unlocker: _Unlocked(),
         messengerSocket: path.join(folder.path, 'm'),
       );
@@ -345,18 +414,81 @@ void main() {
       });
     });
 
-    Future<Machine> Function(JoinOffered) connect() =>
-        cardTunnel(machines, publicKey: () async => personKey, endpoint: (_) => path.join(folder.path, 'd'));
+    Future<Machine> Function(JoinOffered) connect({String login = 'alice'}) => cardTunnel(
+      machines,
+      person: () async => (login: login, key: personKey),
+      endpoint: (_) => path.join(folder.path, 'd'),
+    );
+
+    JoinOffered as(JoinOffered shown, {String? login, String? hostKey}) => JoinOffered(
+      project: shown.project,
+      host: PreparedHost.card({
+        'host': shown.host.name,
+        'address': shown.host.address,
+        'ssh_port': shown.host.sshPort,
+        'ssh_host_key': hostKey ?? shown.host.sshHostKey,
+        'services': shown.host.services,
+      }),
+      login: login ?? shown.login,
+      source: shown.source,
+      revision: shown.revision,
+      signers: shown.signers,
+    );
 
     // Harm: the tunnel forwards another account's daemon, or lets the host write into another person's directory.
-    test('forwards the daemon and return sockets of the row\'s host account', tags: ['linux'], () async {
+    test('forwards the daemon and return sockets of the person\'s own account only', tags: ['linux'], () async {
       final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      await expectLater(connect()(as(offer, login: 'bob')), throwsA(isA<RegistryRefusal>()));
+      await expectLater(connect(login: 'bob')(offer), throwsA(isA<RegistryRefusal>()));
+      expect(launches, isEmpty, reason: 'a row for another login than the card names raises nothing');
       final machine = await connect()(offer);
       final command = launches.single;
       expect(_after('-L', command).last, '${path.join(folder.path, 'd')}:/run/porelo-host/people/alice/porelod.sock');
       expect(_after('-R', command), ['/run/porelo-host/people/alice/return.sock:${path.join(folder.path, 'm')}']);
       expect(command.last, 'orchard');
       expect(offer.reaches(machine), isTrue, reason: 'the join reuses the account this tunnel reaches');
+      expect(cardTunnelUp(machines)(machine), isTrue);
+    });
+
+    // Harm: a join that was not confirmed leaves its tunnel and pins, and the host's next card is refused for them.
+    test('a card tunnel taken down after an unconfirmed join lets a rotated card raise', tags: ['linux'], () async {
+      final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      final machine = await connect()(offer);
+      final config = machine.sshConfig;
+      expect(File('$config.known_hosts').existsSync(), isTrue);
+      await cardTunnelDown(machines)(machine);
+      expect(machines.tunnels.of(machine), isNull);
+      for (final file in [config, '$config.known_hosts', '$config.pub']) {
+        expect(File(file).existsSync(), isFalse, reason: file);
+      }
+      final rotated = await connect()(as(offer, hostKey: _otherSigner));
+      expect(cardTunnelUp(machines)(rotated), isTrue);
+      expect(File('$config.known_hosts').readAsStringSync(), contains(_otherSigner));
+    });
+
+    // Harm: a tunnel that never came up keeps the host's card reserved, and the host's next card is refused for it.
+    test('a card tunnel that does not come up keeps nothing of its card', tags: ['linux'], () async {
+      final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      portsBusy = true;
+      await expectLater(connect()(offer), throwsA(isA<RegistryRefusal>()));
+      portsBusy = false;
+      final rotated = await connect()(as(offer, hostKey: _otherSigner));
+      expect(cardTunnelUp(machines)(rotated), isTrue);
+    });
+
+    // Harm: a card account whose tunnel is down, or which uses another ssh configuration, is taken as reached.
+    test('a card account is up only with its own configuration and an up tunnel', tags: ['linux'], () async {
+      final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      final card = joinCard(offer, personKey);
+      final unraised = Machine.fromHostCard(
+        card,
+        socketPath: path.join(folder.path, 'd'),
+        sshConfig: card.configPath(environment: {'XDG_CONFIG_HOME': folder.path}),
+      );
+      expect(cardTunnelUp(machines)(unraised), isFalse, reason: 'no tunnel was raised for it');
+      final machine = await connect()(offer);
+      final elsewhere = Machine.fromHostCard(card, socketPath: machine.socketPath, sshConfig: '/other/orchard.conf');
+      expect(cardTunnelUp(machines)(elsewhere), isFalse);
     });
 
     // Harm: a login Core would never admit reaches the host as a path in a tunnel's forwards.
@@ -370,24 +502,35 @@ void main() {
         revision: shown.revision,
         signers: shown.signers,
       );
-      await expectLater(connect()(offer), throwsA(isA<HostFilesRefused>()));
+      await expectLater(connect(login: 'porelo_alice')(offer), throwsA(isA<HostFilesRefused>()));
       expect(launches, isEmpty);
     });
   });
 
-  // Harm: joining reads another checkout than the registry pages, offering admissions from a registry not chosen here.
-  test('the app\'s join adapters read the pages\' own registry checkout, as the person Core names', () async {
+  group('the app\'s join adapters', () {
     String? address;
-    final root = path.join(Directory.systemTemp.path, 'private');
-    final registry = RegistryReadSource(
-      repository: () => address,
-      open: (repository) => Registry(
-        checkout: RegistryCheckout(root: path.join(root, 'registry'), repository: repository),
-        core: CliRegistryCore(scratch: path.join(root, 'registry-filing')),
-      ),
-      machines: () => const [],
-    );
-    final calls = <List<String>>[];
+    late _RegistryCore read;
+    late RegistryReadSource registry;
+    late List<List<String>> calls;
+    late Map<String, Object?> shown;
+    late Machines machines;
+
+    setUp(() {
+      address = null;
+      read = _RegistryCore();
+      registry = RegistryReadSource(
+        repository: () => address,
+        open: (repository) => Registry(checkout: _Checkout(repository), core: read),
+        machines: () => const [],
+      );
+      calls = [];
+      shown = jsonDecode(jsonEncode(_shown)) as Map<String, Object?>;
+      final settings = Settings(MemorySettingsStore());
+      machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+      addTearDown(machines.dispose);
+      addTearDown(settings.dispose);
+    });
+
     Future<Ran> run(
       String program,
       List<String> arguments, {
@@ -397,29 +540,73 @@ void main() {
     }) async {
       calls.add([program, ...arguments]);
       return arguments.first == 'identity'
-          ? (code: 0, out: jsonEncode(_shown), err: '')
+          ? (code: 0, out: jsonEncode(shown), err: '')
           : (code: 0, out: jsonEncode(_joinable()), err: '');
     }
 
-    final settings = Settings(MemorySettingsStore());
-    final machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
-    addTearDown(machines.dispose);
-    addTearDown(settings.dispose);
-    final joins = appJoins(registry: registry, machines: machines, run: run);
-    await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
-    expect(calls.where((call) => call.contains('joinable')), isEmpty, reason: 'no registry was chosen yet');
-    address = 'https://forge.example/team/registry.git';
-    final rows = await joins.discovery.admissions();
-    expect(calls.last, [
-      'porelo',
-      'registry',
-      'joinable',
-      registry.registry!.checkout.folder,
-      '--login',
-      'alice',
-      '--json',
-    ]);
-    expect(rows.whereType<JoinOffered>().single.login, 'alice');
+    Iterable<List<String>> joinable() => calls.where((call) => call.contains('joinable'));
+
+    // Harm: joining reads another checkout than the registry pages, or one never cloned, fetched or accepted, or one
+    // a fetch is moving, offering admissions from a registry not chosen or not read here.
+    test('read the pages\' own registry checkout once its read has ended accepted', () async {
+      final joins = appJoins(registry: registry, machines: machines, run: run);
+      await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
+      expect(joinable(), isEmpty, reason: 'no registry was chosen yet');
+      address = _registryAddress;
+      await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
+      expect(joinable(), isEmpty, reason: 'the checkout was never fetched and read');
+      read.hold = Completer<void>();
+      final reading = registry.registry!.refresh();
+      final asked = joins.discovery.admissions();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(joinable(), isEmpty, reason: 'a fetch and read of the checkout still runs');
+      read.hold!.complete();
+      await reading;
+      final rows = await asked;
+      expect(joinable().single, [
+        'porelo',
+        'registry',
+        'joinable',
+        registry.registry!.checkout.folder,
+        '--login',
+        'alice',
+        '--json',
+      ]);
+      expect(rows.whereType<JoinOffered>().single.login, 'alice');
+      read.refusedCommit = {'commit': 'c' * 40, 'path': 'owners.yml', 'why': 'not signed by an owner'};
+      await registry.registry!.refresh();
+      await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
+      expect(joinable(), hasLength(1), reason: 'the newest registry state was refused');
+    });
+
+    // Harm: a card that is revoked, does not verify, whose key the agent does not hold, or that the registry has not
+    // accepted, finds joinable rows and publishes its key in a host's ssh configuration.
+    for (final (name, change) in <(String, void Function(Map<String, Object?>))>[
+      ('revoked', (card) => card['revoked'] = true),
+      ('refused', (card) => card['card_refused'] = 'the signature does not verify'),
+      (
+        'not held by the agent',
+        (card) => card
+          ..['agent'] = 'not-held'
+          ..['agent_holds_key'] = false,
+      ),
+      ('pending in the registry', (card) => ((card['registry'] as List).single as Map)['filed'] = 'pending'),
+      ('filed in another registry', (card) => ((card['registry'] as List).single as Map)['address'] = 'git@x:o/r'),
+      ('read in no registry', (card) => card['registry'] = <Object?>[]),
+    ]) {
+      test('a card $name joins nothing and says why', () async {
+        address = _registryAddress;
+        await registry.registry!.refresh();
+        final joins = appJoins(registry: registry, machines: machines, run: run);
+        final offer = (await joins.discovery.admissions()).whereType<JoinOffered>().single;
+        change(shown);
+        calls.clear();
+        await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
+        expect(joinable(), isEmpty);
+        await expectLater(joins.host.connect(offer), throwsA(isA<RegistryRefusal>()));
+        expect((machines.tunnels as RecordingTunnels).requested.where((m) => m.hostCard != null), isEmpty);
+      });
+    }
   });
 
   group('on the account daemon', () {
@@ -434,7 +621,12 @@ void main() {
       machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
       daemon = _Daemon();
       tunnel = FakeJoinHost();
-      host = DaemonJoinHost(connect: tunnel.connect, reach: (_) => daemon);
+      host = DaemonJoinHost(
+        connect: tunnel.connect,
+        ready: tunnel.ready,
+        release: tunnel.release,
+        reach: (_) => daemon,
+      );
       addTearDown(machines.dispose);
       addTearDown(settings.dispose);
     });

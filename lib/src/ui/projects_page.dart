@@ -88,6 +88,7 @@ class ProjectsPage extends StatelessWidget {
                   words: switch (row.admission) {
                     JoinOffered(:final project, :final host) => '$project ${host.name}',
                     JoinUnreadable(:final repository, :final host) => '$repository $host',
+                    JoinUnusable(:final project, :final host) => '$project $host',
                   },
                   child: joinRow(row.admission, row.join),
                 ),
@@ -215,7 +216,8 @@ String registryStateWords(RegistryPages registry, RegistryPageItem item) {
   ].join(' · ');
 }
 
-/// One admission's row: the project and host with *Join*, or the access repository that cannot be read.
+/// One admission's row: the project and host with *Join*, the access repository that cannot be read, or a row Core
+/// answered in a form not joined here.
 Widget joinRow(JoinAdmission admission, ProjectJoin? join) => switch (admission) {
   JoinOffered(:final project, :final host, :final key) => ListenableBuilder(
     listenable: join ?? const AlwaysStoppedAnimation<double>(0),
@@ -244,6 +246,12 @@ Widget joinRow(JoinAdmission admission, ProjectJoin? join) => switch (admission)
     key: ValueKey('join-unreadable $repository $host'),
     leading: const Icon(Icons.lock_outline),
     title: Text(repository ?? 'The access file of $host'),
+    subtitle: Text(words),
+  ),
+  JoinUnusable(:final project, :final key, :final words) => ListTile(
+    key: ValueKey('join-unusable $key'),
+    leading: const Icon(Icons.block_outlined),
+    title: Text(project),
     subtitle: Text(words),
   ),
 };

@@ -117,8 +117,14 @@ class Machine {
   factory Machine.fromStored(Map<String, Object?> stored, {bool legacyHost = false}) {
     final card = stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null;
     final hostCard = stored['hostCard'];
-    // A card saved with the account's uid named the daemon by it; the host now links it under the login.
-    final older = card != null && hostCard is Map && hostCard.containsKey('uid');
+    // A card saved with the account's uid or return socket named the daemon by the uid; the host now links it under
+    // the login, and an account's own `/run/user/` socket is never a card's.
+    final older =
+        card != null &&
+        hostCard is Map &&
+        (hostCard.containsKey('uid') ||
+            hostCard.containsKey('return_socket') ||
+            _text(stored['remoteSocket']).startsWith('/run/user/'));
     return Machine(
       name: _text(stored['name']),
       socketPath: _text(stored['socket']),
@@ -550,6 +556,14 @@ class Machines extends ChangeNotifier {
   /// Every machine, in the order they were added.
   List<Machine> get all => List<Machine>.unmodifiable(_machines);
 
+  /// What is said of stored machines whose host card did not read: they are kept in the file and not watched.
+  String? get setAside => switch (_settings.machinesSetAside) {
+    [] => null,
+    final names =>
+      'The saved host card of ${names.join(', ')} does not read in this version, so it is not watched. '
+          'It stays saved as it was.',
+  };
+
   /// What is being acted on. There is always one.
   Machine get current => _machines.firstWhere((machine) => machine.name == _selected, orElse: () => _machines.first);
 
@@ -594,6 +608,8 @@ class Machines extends ChangeNotifier {
   Future<void> _load() async {
     final stored = await _settings.machines();
     if (stored.isNotEmpty) await _adopt(stored);
+    // An older card is saved again without what it no longer holds, so the plugin reads today's endpoint too.
+    if (_settings.olderMachines) await _remember();
     final extra = _lookFor;
     if (extra != null &&
         !_machines.any((each) => each.socketPath == extra.socketPath || each.name == extra.name) &&

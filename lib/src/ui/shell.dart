@@ -308,8 +308,9 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     _registry.addListener(_homeserversChanged);
-    unawaited(_registry.refresh());
-    unawaited(_discoverJoins());
+    // Where the person may join is asked once the registry's read has ended, never beside a fetch of its checkout.
+    unawaited(_registry.refresh().then((_) => _discoverJoins()));
+    widget.machines.addListener(_sayWhatWasSetAside);
     _hostRuns = HostRuns(widget.machines);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
@@ -349,6 +350,7 @@ class _ShellState extends State<Shell> {
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
     await _registry.refresh();
+    unawaited(_discoverJoins());
     for (final machine in widget.machines.all) {
       final fleet = widget.machines.of(machine);
       if (fleet.reachability != Reachability.connected) continue;
@@ -1373,6 +1375,7 @@ class _ShellState extends State<Shell> {
     if (address == null || !mounted) return;
     await widget.settings.setRegistryRepository(address);
     await _registry.readAfresh();
+    unawaited(_discoverJoins());
   }
 
   /// One forge's repositories, as a page.
@@ -3595,11 +3598,34 @@ class _ShellState extends State<Shell> {
   List<({JoinAdmission admission, ProjectJoin? join})> _joinRows = const [];
   final Map<String, ProjectJoin> _joins = {};
 
-  /// Asks Core where the person may join; a refusal leaves no row, and says itself.
-  Future<void> _discoverJoins() async {
+  Future<void>? _discovering;
+  String? _joinsSaid;
+  String? _setAsideSaid;
+
+  /// Says once which stored machines were set aside because their host card did not read.
+  void _sayWhatWasSetAside() {
+    final words = widget.machines.setAside;
+    if (words == null || words == _setAsideSaid) return;
+    _setAsideSaid = words;
+    _fleet.say(words);
+  }
+
+  /// Asks Core where the person may join, once the registry pages' read has ended cleanly; a refusal leaves no row,
+  /// and says itself once. One ask at a time: one asked while another runs follows it.
+  Future<void> _discoverJoins() {
+    final running = _discovering;
+    final next = _discovering = (running ?? Future<void>.value()).then((_) => _discover());
+    return next.whenComplete(() {
+      if (identical(_discovering, next)) _discovering = null;
+    });
+  }
+
+  Future<void> _discover() async {
     final discovery = widget.joinDiscovery;
     final host = widget.joinHost;
-    if (discovery == null || host == null) return;
+    if (discovery == null || host == null || !mounted) return;
+    // The pages' read of the registry must have ended accepted; discovery reads the same checkout.
+    if (_registry.source != null && (_registry.busy || !_registry.loaded || _registry.problem != null)) return;
     try {
       final admissions = await discovery.admissions();
       if (!mounted) return;
@@ -3619,13 +3645,17 @@ class _ShellState extends State<Shell> {
                     settings: widget.settings,
                   ),
                 ),
-                JoinUnreadable() => null,
+                JoinUnreadable() || JoinUnusable() => null,
               },
             ),
         ];
       });
+      _joinsSaid = null;
     } on Exception catch (error) {
-      if (mounted) _fleet.say(error is RegistryRefusal ? error.toString() : 'Core could not say where you may join.');
+      if (!mounted) return;
+      final words = error is RegistryRefusal ? error.toString() : 'Core could not say where you may join.';
+      setState(() => _joinRows = const []);
+      if (words != _joinsSaid) _fleet.say(_joinsSaid = words);
     }
   }
 
@@ -3639,6 +3669,7 @@ class _ShellState extends State<Shell> {
     }
     widget.shell.removeListener(_moveKeyboard);
     widget.sessions.removeListener(_moveKeyboard);
+    widget.machines.removeListener(_sayWhatWasSetAside);
     widget.settings.removeListener(_keepRefreshing);
     _refreshing?.cancel();
     _leaving.dispose();

@@ -82,16 +82,21 @@ class CoreHostUnlocker implements HostUnlocker {
     Process? process;
     try {
       HostCardSsh.checkConfigPath(host, config, environment: environment, windows: Platform.isWindows);
-      // Never --yes: a vault opened by another key is reset only after the person's own yes.
+      if (whyNotUnlockable(card) case final why?) return HostUnlockResult(HostUnlockState.refused, why);
+      // Never --yes: a vault opened by another key is reset only after the person's own yes. The card's verified
+      // address, never its bare name, which a resolver or the person's ssh configuration may send elsewhere; the
+      // host key Core pinned, and the card's own key, whichever others the agent holds.
       process = await _start([
         'porelo',
         'host',
         'unlock',
-        host,
+        card.address,
         '--host-key',
         _fingerprint(card.hostKey),
         '--login',
         card.login,
+        '--key',
+        _fingerprint(card.publicKey),
         '--json',
       ]);
       // The answer is one short JSON line; anything longer is no answer and is only drained.
@@ -123,6 +128,22 @@ class CoreHostUnlocker implements HostUnlocker {
     } finally {
       if (identical(_children[host], process)) _children.remove(host);
     }
+  }
+
+  /// Why Core's `host unlock` cannot reach [card]'s host as its card says, or null when it can.
+  ///
+  /// Core's `host unlock` takes a host name or an IPv4 address and always uses SSH's port 22; it takes no port and no
+  /// ssh configuration of its own. A card on another port, or at an IPv6 address, is never probed elsewhere instead.
+  static String? whyNotUnlockable(HostCardSsh card) {
+    if (card.sshPort != 22) {
+      return 'The vault of ${card.name} is not opened from here: Porelo\'s host unlock reaches a host only on SSH port '
+          '22, and its card names port ${card.sshPort}.';
+    }
+    if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$').hasMatch(card.address)) {
+      return 'The vault of ${card.name} is not opened from here: Porelo\'s host unlock takes a host name or an IPv4 '
+          'address, and its card names ${card.address}.';
+    }
+    return null;
   }
 
   /// Core's `vault` word, or null for any other answer.

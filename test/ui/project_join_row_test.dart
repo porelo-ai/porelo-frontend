@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/project_join.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
+import 'package:porelo_frontend/src/app/registry_pages.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/projects_page.dart';
@@ -42,8 +45,8 @@ void main() {
     expect(find.byKey(ValueKey('join ${offer.key}')), findsNothing);
   });
 
-  // Harm: Core verified where the person may join, and the window shows them no way in.
-  testWidgets('the shell shows the row Core\'s discovery answers, with its join', (tester) async {
+  // Harm: Core verified where the person may join, and the window shows them no way in, or a Join that does nothing.
+  testWidgets('the shell shows the row Core\'s discovery answers, and its Join joins', (tester) async {
     final offer = JoinOffered(
       project: 'demo',
       host: PreparedHost.read(hostValues()),
@@ -52,13 +55,42 @@ void main() {
       revision: 'a' * 40,
       signers: [personKey],
     );
+    final host = FakeJoinHost();
     await World.startBackend(World.work);
-    await World.startApp(tester, joinDiscovery: FakeDiscovery()..answer = [offer], joinHost: FakeJoinHost());
+    await World.startApp(tester, joinDiscovery: FakeDiscovery()..answer = [offer], joinHost: host);
     World.shell.goTo(Section.projects);
     await World.settle(tester);
     expect(find.textContaining('in project demo on host ${offer.host.name}'), findsOneWidget);
-    expect(find.byKey(ValueKey('join ${offer.key}')), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('join ${offer.key}')));
+    await World.settle(tester);
+    expect(host.calls, ['connect ${offer.host.name}', 'follow demo ${offer.source} $personKey']);
+    expect(World.settings.projectHost('demo'), offer.host.name);
+    expect(find.textContaining('Joined'), findsOneWidget);
   });
+
+  // Harm: discovery reads the registry checkout while its first fetch and read still run, or after that read was
+  // refused, and offers rows from a registry not read here.
+  for (final refused in [false, true]) {
+    testWidgets(
+      'discovery waits for the registry pages\' read${refused ? ', and asks nothing after a refused one' : ''}',
+      (tester) async {
+        final source = _HeldSource()..refuses = refused;
+        final discovery = _CountingDiscovery();
+        await World.startBackend(World.work);
+        await World.startApp(
+          tester,
+          registryPages: RegistryPages(source: source, address: () => 'https://forge.example/team/registry.git'),
+          joinDiscovery: discovery,
+          joinHost: FakeJoinHost(),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(discovery.asked, 0, reason: 'the registry read still runs');
+        source.reading.complete();
+        await World.settle(tester);
+        expect(discovery.asked, refused ? 0 : 1);
+      },
+    );
+  }
 
   // Harm: an access file that cannot be read looks like a person with no projects.
   testWidgets('an unreadable access repository is a row of its own naming who may grant it', (tester) async {
@@ -85,3 +117,33 @@ Widget _unreadable(BuildContext context) => joinRow(
   ),
   null,
 );
+
+/// A registry read that ends when the test says, refusing when it says.
+class _HeldSource implements RegistryPageSource {
+  Completer<void> reading = Completer<void>();
+  bool refuses = false;
+
+  @override
+  Future<RegistryPageSnapshot> read() async {
+    await reading.future;
+    if (refuses) throw const RegistryRefusal('Porelo refused the newest registry commit.');
+    return const RegistryPageSnapshot();
+  }
+
+  @override
+  Future<String> publish(RegistryPageChange change) => throw UnimplementedError();
+
+  @override
+  Future<RegistryHostState> apply(RegistryTarget target, String revision) => throw UnimplementedError();
+}
+
+/// Core's discovery, counting each ask.
+class _CountingDiscovery implements JoinDiscovery {
+  int asked = 0;
+
+  @override
+  Future<List<JoinAdmission>> admissions() async {
+    asked++;
+    return const [];
+  }
+}

@@ -102,22 +102,59 @@ void main() {
     expect(Machine.fromStored(stored).kind, 'host');
   });
 
-  // Harm: a host watched before its daemon was linked under the login is lost, or forwards a socket the host no
-  // longer serves.
-  test('an older card record with a uid reaches the daemon under the login and is saved without the uid', () {
-    final older = Machine.fromStored({
+  // Harm: a host watched before its daemon was linked under the login is lost, forwards a socket the host no longer
+  // serves, or is saved again with it for the plugin to read; one card that no longer reads loses every machine.
+  test('older card records are loaded, saved in today\'s form, and one that does not read is set aside', () async {
+    Map<String, Object?> record(String name, int port, Map<String, Object?> card, {String? remoteSocket}) => {
       ...host.stored,
-      'remoteSocket': '/run/user/1001/porelo/porelod.sock',
+      'name': name,
+      'host': name,
+      'socket': '${folder.path}/$name',
+      'sshConfig': '${folder.path}/porelo/ssh/$name.conf',
+      'remoteSocket': ?remoteSocket,
       'hostCard': {
         ...host.hostCard!.stored,
-        'uid': 1001,
-        'return_socket': '/run/porelo-host/people/alice/messenger.sock',
+        'name': name,
+        'services': {
+          'forge': {'web_port': port, 'git_port': port + 1},
+          'matrix': {'port': port + 2},
+        },
+        ...card,
       },
+    };
+    final unreadable = record('gamma', 18090, {'login': 'porelo_alice'});
+    final store = MemorySettingsStore({
+      'machines': [
+        record('alpha', 18080, {
+          'uid': 1001,
+          'return_socket': '/run/porelo-host/people/alice/messenger.sock',
+        }, remoteSocket: '/run/user/1001/porelo/porelod.sock'),
+        unreadable,
+        record('beta', 18084, {
+          'return_socket': '/run/porelo-host/people/alice/messenger.sock',
+        }, remoteSocket: '/run/porelo-host/alice/porelod.sock'),
+        record('delta', 18094, {}, remoteSocket: '/run/user/1001/porelo/porelod.sock'),
+      ],
     });
-    expect(older.remoteSocket, '/run/porelo-host/people/alice/porelod.sock');
-    expect(older.whyNotReachableOn(windows: false), isNull);
-    expect(older, host);
-    expect(older.stored['hostCard'], isNot(anyOf(contains('uid'), contains('return_socket'))));
+    final settings = Settings(store);
+    await settings.load();
+    final machines = Machines(settings, reach: (_) => _StoppedBackend(), tunnels: tunnels);
+    addTearDown(machines.dispose);
+    addTearDown(settings.dispose);
+    await machines.load();
+    final cards = machines.all.where((machine) => machine.hostCard != null).toList();
+    expect(cards.map((machine) => machine.name), ['alpha', 'beta', 'delta']);
+    for (final machine in cards) {
+      expect(machine.remoteSocket, '/run/porelo-host/people/alice/porelod.sock', reason: machine.name);
+      expect(machine.whyNotReachableOn(windows: false), isNull, reason: machine.name);
+    }
+    expect(machines.setAside, contains('gamma'));
+    final saved = (await store.read())['machines'] as List;
+    expect(saved, contains(unreadable), reason: 'what did not read stays saved as it was');
+    for (final entry in saved.cast<Map<String, Object?>>().where((entry) => entry['name'] != 'gamma')) {
+      expect(entry['remoteSocket'], '/run/porelo-host/people/alice/porelod.sock', reason: '${entry['name']}');
+      expect(entry['hostCard'], isNot(anyOf(contains('uid'), contains('return_socket'))), reason: '${entry['name']}');
+    }
   });
 
   test('a card never reuses or drops a same-name non-card tunnel', () async {
@@ -1104,6 +1141,7 @@ void main() {
 
   // Prevents window shutdown from leaving Core signing or secret delivery running.
   test('shutdown cancels an active Core unlock before waiting for the host queue', () async {
+    final unlockable = _onPort22(host);
     final entered = Completer<void>();
     final coreProcess = _Process();
     final master = _Process();
@@ -1127,7 +1165,7 @@ void main() {
       await owned.dropEverything();
       owned.dispose();
     });
-    final raising = owned.raiseFor(host);
+    final raising = owned.raiseFor(unlockable);
     await entered.future;
     final dropping = owned.dropEverything();
     await Future<void>.delayed(Duration.zero);
@@ -1137,7 +1175,7 @@ void main() {
     await dropping;
     expect(canceledBeforeSettling, isTrue, reason: 'shutdown must interrupt Core without waiting for its deadline');
     expect(master.killed, isTrue);
-    expect(owned.manages(host), isFalse);
+    expect(owned.manages(unlockable), isFalse);
   });
 
   // Prevents an SSH unlink race from interrupting shutdown before all masters are stopped.
@@ -1416,6 +1454,7 @@ void main() {
 
   // Prevents a cancelled unlock from surviving the window and acting after a reconnect.
   test('dropping the tunnel cancels Core unlock as well as the SSH master', () async {
+    final unlockable = _onPort22(host);
     final asked = Completer<void>();
     final core = _Process();
     final master = _Process();
@@ -1427,7 +1466,7 @@ void main() {
       },
     );
     final tunnel = Tunnel(
-      host,
+      unlockable,
       configEnvironment: {'XDG_CONFIG_HOME': folder.path},
       keyAvailable: (_) async => true,
       portsAvailable: (_) async {},
@@ -1480,6 +1519,7 @@ void main() {
 
   // Prevents a timed-out Core child from remaining alive or exposing its output.
   test('Core refuses an off-platform config before launching unlock', () async {
+    final unlockable = _onPort22(host);
     final commands = <List<String>>[];
     final core = CoreHostUnlocker(
       environment: {'XDG_CONFIG_HOME': folder.path},
@@ -1490,12 +1530,36 @@ void main() {
         return process;
       },
     );
-    final result = await core.unlock(host.hostCard!, '${folder.path}/alpha.conf');
+    final result = await core.unlock(unlockable.hostCard!, '${folder.path}/alpha.conf');
     expect(commands, isEmpty);
     expect(result.state, HostUnlockState.refused);
   });
 
+  // Harm: the vault share is sent to whatever the card's bare name resolves to on port 22, never the host Core
+  // verified, or Core picks another of the agent's keys.
+  for (final (name, change) in <(String, Map<String, Object?>)>[
+    ('another SSH port', {'ssh_port': 2222}),
+    ('an IPv6 address', {'ssh_port': 22, 'address': '2001:db8::7'}),
+  ]) {
+    test('a card on $name is not unlocked at another place, and says why', () async {
+      final commands = <List<String>>[];
+      final core = CoreHostUnlocker(
+        environment: {'XDG_CONFIG_HOME': folder.path},
+        start: (command) async {
+          commands.add(command);
+          return _Answered(0, '{"vault":"open"}');
+        },
+      );
+      final card = HostCardSsh.fromStored({...host.hostCard!.stored, ...change});
+      final result = await core.unlock(card, host.sshConfig);
+      expect(commands, isEmpty);
+      expect(result.state, HostUnlockState.refused);
+      expect(result.words, contains('not opened from here'));
+    });
+  }
+
   test('Core unlock uses the agreed command and terminates its child on deadline', () async {
+    final unlockable = _onPort22(host);
     final process = _Process();
     final commands = <List<String>>[];
     final core = CoreHostUnlocker(
@@ -1506,9 +1570,21 @@ void main() {
         return process;
       },
     );
-    final result = await core.unlock(host.hostCard!, host.sshConfig);
+    final result = await core.unlock(unlockable.hostCard!, unlockable.sshConfig);
     expect(commands, [
-      ['porelo', 'host', 'unlock', 'alpha', '--host-key', hostKeyFingerprint, '--login', 'alice', '--json'],
+      [
+        'porelo',
+        'host',
+        'unlock',
+        'alpha.example.org',
+        '--host-key',
+        hostKeyFingerprint,
+        '--login',
+        'alice',
+        '--key',
+        hostKeyFingerprint,
+        '--json',
+      ],
     ]);
     expect(process.killed, isTrue);
     expect(result.state, HostUnlockState.refused);
@@ -1523,6 +1599,7 @@ void main() {
   ]) {
     // Prevents a vault opened by another key from being shown open or reset without the person's yes.
     test('Core unlock answers $state for exit $code with $answer and never says yes', () async {
+      final unlockable = _onPort22(host);
       final commands = <List<String>>[];
       final core = CoreHostUnlocker(
         environment: {'XDG_CONFIG_HOME': folder.path},
@@ -1531,7 +1608,7 @@ void main() {
           return _Answered(code, answer);
         },
       );
-      final result = await core.unlock(host.hostCard!, host.sshConfig);
+      final result = await core.unlock(unlockable.hostCard!, unlockable.sshConfig);
       expect(result.state, state);
       expect(commands.single, isNot(contains('--yes')));
       if (state == HostUnlockState.otherKey) expect(result.words, contains('kept'));
@@ -1718,3 +1795,10 @@ class _FailingStopProcess extends _Process {
     throw StateError('the old process stop failed');
   }
 }
+
+/// [machine] with its card on SSH's port 22, which Core's host unlock reaches.
+Machine _onPort22(Machine machine) => Machine.fromHostCard(
+  HostCardSsh.fromStored({...machine.hostCard!.stored, 'ssh_port': 22}),
+  socketPath: machine.socketPath,
+  sshConfig: machine.sshConfig,
+);
