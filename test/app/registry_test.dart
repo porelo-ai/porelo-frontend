@@ -119,6 +119,9 @@ class _FakeCheckout implements RegistryCheckout {
   }
 
   @override
+  Future<void> publishMade(String revision, {required String base}) async {}
+
+  @override
   Future<void> publish(String revision) async {
     calls.add('publish');
     if (refusePublish case final refused?) throw refused;

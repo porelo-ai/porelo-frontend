@@ -400,12 +400,6 @@ void main() {
     ]);
   });
 
-  test('the backup key refuses until Core builds it', () async {
-    // Harm: an action that seems to make a backup while nothing is made.
-    await expectLater(Identity(run: core.run).backupKey(), throwsA(isA<IdentityRefused>()));
-    expect(core.calls, isEmpty);
-  });
-
   group('filing the card never files twice', () {
     // Harm: a second commit of the card, or a filing against a registry state nobody reviewed.
     const first = '1111111111111111111111111111111111111111';

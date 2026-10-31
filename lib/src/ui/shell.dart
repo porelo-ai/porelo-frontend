@@ -52,6 +52,8 @@ import '../app/project_deletion.dart';
 import '../app/hand_in.dart';
 import '../app/session.dart';
 import '../app/unattended_run.dart';
+import '../app/key_recovery.dart';
+import 'key_recovery_dialog.dart';
 import 'clearing_view.dart';
 import '../app/settings.dart';
 import '../app/shell_model.dart';
@@ -157,6 +159,7 @@ class Shell extends StatefulWidget {
     this.joinDiscovery,
     this.joinHost,
     this.projectAccess,
+    this.keyRecovery,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -183,6 +186,9 @@ class Shell extends StatefulWidget {
 
   /// The project-scoped Core and host adapters, supplied once their contracts are served.
   final ProjectAccess? Function(String project)? projectAccess;
+
+  /// Where a lost or stolen key is replaced, absent until Core's replacement verbs are connected.
+  final KeyRecoveryEntry? keyRecovery;
 
   /// Every machine being watched, and which one is being acted on.
   final Machines machines;
@@ -478,7 +484,19 @@ class _ShellState extends State<Shell> {
   List<Command> _unscopedCommands() => commandsFor(
     viewActions: [
       ..._viewActions(),
-      myKeyCommand(open: () => unawaited(showIdentity(context, checkoutFor: _registryCheckout))),
+      myKeyCommand(
+        open: () => unawaited(showIdentity(context, checkoutFor: _registryCheckout, recovery: widget.keyRecovery)),
+      ),
+      replaceKeyCommand(
+        id: 'registry.replaceKey',
+        label: 'Replace a lost or stolen key in owners.yml…',
+        group: 'Options',
+        home: Home.appBar,
+        unavailable: widget.keyRecovery == null ? keyRecoveryNotConnected : null,
+        open: () {
+          if (widget.keyRecovery case final entry?) unawaited(showRegistryKeyRecovery(context, entry: entry));
+        },
+      ),
     ],
     fleet: _fleet,
     machine: widget.machines.current,
@@ -927,6 +945,7 @@ class _ShellState extends State<Shell> {
       backend: _fleet.backend,
       forges: _forges,
       access: widget.projectAccess?.call(project.name),
+      recovery: widget.keyRecovery,
     );
   }
 

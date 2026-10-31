@@ -1,6 +1,6 @@
 # F280 — A Lost Or Stolen Key Replaced
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - recovery spans project, host, and registry roles, a restricted Core backup operation, and confirmed results for every affected host.
 
 **What must be true.** A project admin can revoke another person's key in the project's access file and enter their new key, and a host admin can do the same in `hosts/<host>/access.yml`, chosen from the person list; the person keeps their login. A successor card signed by a revoked key is never offered; a registry owner can do the same in `owners.yml` for a host admin or another owner. A revoked key's person is shown locked on every host at once. Where a project, a host or the registry has a single admin or owner, *Use the backup key…* takes the offline backup key's file for this one commit: it may only replace the lost key's entry among the signers or in `owners.yml`, and the interface refuses any other change with it, in Core's words. The backup key file is read once, never copied and never kept; a new backup key is offered afterwards ([F268](README.md#f268)).
@@ -26,6 +26,11 @@ One-click joining from signed state (operator, 2026-10-30): an admin's own key i
 - Backup recovery accepts exactly the permitted replacement. An extra entry, role change, or unrelated field fails before push. Cancellation makes no recovery call. Missing or unreadable backup input leaves state unchanged. Secrets are entered only in the local Core terminal.
 - For multiple host replies, show locked only for confirmed locks of the revoked key. Disconnection or refusal remains pending or refused beside Git state. Retry makes no second commit and repeats no confirmed host work.
 - After replacement, offer a new backup and the person's vault-recreation path. Recorded calls, settings, and diagnostics contain no backup-key contents or passphrase.
+
+## Built so far
+
+- Built against Core's agreed backup-key contract behind a fake: `lib/src/app/key_recovery.dart`, `lib/src/ui/key_recovery_dialog.dart`, wired into the identity, registry persons and project developers dialogs. Not live until Core's `identity backup-key` and `registry file owners` land.
+- Gaps: Core answers no card's predecessor, so "a successor signed by a revoked key" is checked only as far as `trusted`; a project-scope replacement shows *Not delivered yet* until the project access transport takes it; no dialog widget test. What the second reading still found is [F281](README.md#f281).
 
 ## Open questions
 

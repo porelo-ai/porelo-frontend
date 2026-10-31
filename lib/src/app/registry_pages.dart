@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+
+import 'key_recovery.dart' show KeyRecoveryEntry;
+
 import 'package:porelo_frontend/client.dart';
 
 import 'fleet_model.dart';
@@ -227,7 +230,10 @@ abstract interface class RegistryPageSource {
 /// Joins signed decisions and host confirmations without turning a pending change into success.
 class RegistryPages extends ChangeNotifier {
   /// Creates page state with optional adapters; the default exposes no unavailable protocol.
-  RegistryPages({this.source, this.features = const RegistryPageFeatures(), this._address});
+  RegistryPages({this.source, this.features = const RegistryPageFeatures(), this._address, this.keyRecovery});
+
+  /// Where a person's lost or stolen key is replaced, absent until Core's replacement verbs are connected.
+  final KeyRecoveryEntry? keyRecovery;
 
   final String? Function()? _address;
 

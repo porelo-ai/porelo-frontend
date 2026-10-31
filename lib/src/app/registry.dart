@@ -55,7 +55,7 @@ class CliRegistryCore implements RegistryCore {
         checkout,
         if (removal)
           ...[]
-        else if (filing.kind == RegistryFilingKind.hostAccess) ...[
+        else if (filing.kind == RegistryFilingKind.hostAccess || filing.kind == RegistryFilingKind.owners) ...[
           '--file',
           handed.path,
         ] else ...[
@@ -113,7 +113,10 @@ enum RegistryFilingKind {
   hostAccess('host-access'),
 
   /// The removal of the host card the registry accepts for a host; it files no bytes.
-  hostCardRemove('host-card-remove');
+  hostCardRemove('host-card-remove'),
+
+  /// The registry's `owners.yml`: its owners and each host's admins, signed by an owner.
+  owners('owners');
 
   const RegistryFilingKind(this.word);
 
@@ -342,7 +345,9 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   String? _whyNot(RegistryFiling filing) {
     if (_accepted == null) return 'The registry has not been read yet.';
     if (_problem != null) return 'The newest registry state was not accepted. Refresh it before making a change.';
-    if (filing.kind != RegistryFilingKind.card && (filing.host == null || filing.host!.trim().isEmpty)) {
+    // owners.yml is the registry's own file, for no single host.
+    final hostless = filing.kind == RegistryFilingKind.card || filing.kind == RegistryFilingKind.owners;
+    if (!hostless && (filing.host == null || filing.host!.trim().isEmpty)) {
       return 'Choose the host this change is for.';
     }
     if (filing.kind == RegistryFilingKind.hostAccess && !hosts.any((host) => host.host == filing.host)) {

@@ -8,6 +8,7 @@ import 'package:porelo_frontend/client.dart';
 import 'fleet_model.dart';
 import 'host_runs.dart';
 import 'host_access.dart';
+import 'key_recovery.dart';
 import 'registry.dart';
 import 'project_developers.dart';
 import 'desk.dart';
@@ -1983,5 +1984,119 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
           }
         },
       ),
+  ];
+}
+
+/// Opens the replacement of a lost or stolen key in one list: a project's, a host's or the registry's owners.yml.
+Command replaceKeyCommand({
+  required String id,
+  required String group,
+  required Home home,
+  required VoidCallback open,
+  String label = 'Replace a lost or stolen key…',
+  Role role = Role.user,
+  String? unavailable,
+}) => Command(id: id, label: label, group: group, home: home, role: role, unavailable: unavailable, run: open);
+
+/// A key replacement's own steps, each rechecked against the controller when it runs.
+///
+/// With the backup key, the reviewed replacement is confirmed first and only then [useBackup] opens its terminal; its
+/// Retry opens that terminal again and never signs with the agent's key.
+List<Command> keyRecoveryCommands({
+  required KeyRecovery recovery,
+  required String? person,
+  required bool stolen,
+  required bool toldInPerson,
+  required VoidCallback useBackup,
+  required VoidCallback makeBackup,
+}) {
+  final login = person;
+  final reviewed = recovery.review;
+  final backup = reviewed?.backup == true;
+  String? whyNotConfirm() =>
+      backup ? recovery.whyNotBackup(toldInPerson: toldInPerson) : recovery.whyNotConfirm(toldInPerson: toldInPerson);
+  return [
+    Command(
+      id: 'keyRecovery.review',
+      label: 'Review the replacement',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: login == null ? 'Choose a person.' : recovery.whyNotReview(login),
+      run: () {
+        if (login != null && recovery.whyNotReview(login) == null) recovery.reviewFor(login, stolen: stolen);
+      },
+    ),
+    Command(
+      id: 'keyRecovery.reviewBackup',
+      label: 'Review it with the backup key',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: login == null ? 'Choose a person.' : recovery.whyNotReview(login, backup: true),
+      run: () {
+        if (login != null && recovery.whyNotReview(login, backup: true) == null) {
+          recovery.reviewFor(login, stolen: stolen, backup: true);
+        }
+      },
+    ),
+    Command(
+      id: 'keyRecovery.replace',
+      label: backup
+          ? 'Use the backup key for this replacement…'
+          : reviewed?.stolen == true
+          ? 'Revoke the stolen key and replace it'
+          : 'Replace the key',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: recovery.started ? 'It is started; retry it.' : whyNotConfirm(),
+      run: () {
+        if (recovery.started || whyNotConfirm() != null) return;
+        if (backup) {
+          useBackup();
+        } else {
+          unawaited(recovery.confirm(toldInPerson: toldInPerson));
+        }
+      },
+    ),
+    Command(
+      id: 'keyRecovery.cancel',
+      label: 'Cancel',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: reviewed == null
+          ? 'Nothing is under review.'
+          : recovery.started
+          ? 'It is started; retry it instead.'
+          : null,
+      run: recovery.cancel,
+    ),
+    Command(
+      id: 'keyRecovery.retry',
+      label: recovery.retriesInTerminal ? 'Retry with the backup key…' : 'Retry what is unfinished',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: recovery.whyNotRetry,
+      run: () {
+        if (recovery.whyNotRetry != null) return;
+        if (recovery.retriesInTerminal) {
+          useBackup();
+        } else {
+          unawaited(recovery.retry());
+        }
+      },
+    ),
+    Command(
+      id: 'keyRecovery.makeBackup',
+      label: 'Make a new backup key…',
+      group: 'Key',
+      home: Home.openedView,
+      unavailable: !recovery.replaced
+          ? 'Offered once the key is replaced.'
+          : recovery.situation.scope.backupFlags == null
+          ? 'No backup key is kept for ${recovery.situation.scope.words}.'
+          : recovery.situation.soleAdmin == null || recovery.situation.actor?.login != recovery.situation.soleAdmin
+          ? 'The single admin or owner makes their own backup key.'
+          : null,
+      run: makeBackup,
+    ),
   ];
 }

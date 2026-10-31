@@ -178,7 +178,11 @@ class IdentityCard {
     required this.registry,
     required this.forge,
     required this.pending,
+    this.soleWithoutBackup,
   });
+
+  /// The lists the person is the single admin or owner of without a backup key; null while Core does not answer it.
+  final List<SoleWithoutBackup>? soleWithoutBackup;
 
   /// The person's login.
   final String login;
@@ -239,6 +243,22 @@ class IdentityCard {
       AgentState.unknown => 'Core answered “$agentWord” for your SSH agent, which this interface does not know.',
     };
   }
+}
+
+/// A list whose single admin or owner the person is, with no backup key filed for them.
+@immutable
+class SoleWithoutBackup {
+  /// Constructor taking Core's role and scope.
+  const SoleWithoutBackup({required this.role, required this.kind, required this.name});
+
+  /// `project-admin`, `host-admin` or `registry-owner`.
+  final String role;
+
+  /// `project`, `host` or `registry`.
+  final String kind;
+
+  /// The project or host, absent for the registry.
+  final String? name;
 }
 
 /// One place an identity operation publishes to.
@@ -471,8 +491,8 @@ class NoIdentity implements Exception {
   final String words;
 }
 
-/// Why `identity backup-key` cannot run here yet.
-const backupKeyRefusal = 'Waits for Core: the backup key is not built yet.';
+/// Why `identity backup-key` cannot be offered while Core does not name the lists that need one.
+const backupKeyRefusal = 'Core does not name yet which lists you are the single admin or owner of.';
 
 /// Typed refusals Core gives before it made anything, so no operation exists under the ID.
 const nothingMade = {
@@ -676,9 +696,6 @@ class Identity implements AgentKeyList {
     return fingerprint != null ? ['--key', _fingerprint(fingerprint)] : _keepassxc(database!, entry);
   }
 
-  /// Refuses until Core builds the backup key.
-  Future<Never> backupKey() async => throw const IdentityRefused(backupKeyRefusal, code: 65, reason: 'not-built');
-
   static List<String> _keepassxc(String database, String? entry) {
     if (database.trim().isEmpty) throw const FormatException('Name your KeePassXC database file.');
     return [
@@ -865,6 +882,27 @@ class Identity implements AgentKeyList {
           return PendingIdentityOperation(id: _id(_text(operation, 'id')), action: _text(operation, 'action'));
         }),
       ),
+      soleWithoutBackup: value.containsKey('sole_without_backup')
+          ? _soleWithoutBackup(value['sole_without_backup'])
+          : null,
+    );
+  }
+
+  static List<SoleWithoutBackup> _soleWithoutBackup(Object? value) {
+    if (value is! List) throw const FormatException('Core did not answer sole_without_backup as a list.');
+    return List.unmodifiable(
+      value.map((entry) {
+        final scope = entry is Map<String, dynamic> ? entry['scope'] : null;
+        if (entry is! Map<String, dynamic> || scope is! Map<String, dynamic>) {
+          throw const FormatException('Invalid sole_without_backup entry.');
+        }
+        final kind = _text(scope, 'kind');
+        final name = _textOrNull(scope, 'name');
+        if (!const {'project', 'host', 'registry'}.contains(kind) || (kind == 'registry') != (name == null)) {
+          throw const FormatException('Invalid sole_without_backup scope.');
+        }
+        return SoleWithoutBackup(role: _text(entry, 'role'), kind: kind, name: name);
+      }),
     );
   }
 

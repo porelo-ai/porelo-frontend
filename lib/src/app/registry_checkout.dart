@@ -122,6 +122,30 @@ class RegistryCheckout {
     ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
   }
 
+  /// Pushes [revision], a commit made earlier on [base] that a push did not take, without any filing state.
+  ///
+  /// Refused unless the checkout is clean, on its default branch, at [revision], whose only parent is [base].
+  Future<void> publishMade(String revision, {required String base}) async {
+    final hex = RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$');
+    if (!hex.hasMatch(revision) || !hex.hasMatch(base)) {
+      throw const WorkspaceRefused('Core did not name a valid registry commit.');
+    }
+    await _checkClean();
+    final branch = await _defaultBranch();
+    if (await _revision() != revision) {
+      throw const WorkspaceRefused('The registry checkout is not at the commit Core made. Nothing was published.');
+    }
+    final parents = (await _git(['rev-list', '--parents', '-n', '1', revision])).out.trim().split(RegExp(r'\s+'));
+    if (parents.length != 2 || parents[0] != revision || parents[1] != base) {
+      throw const WorkspaceRefused('The registry change includes other commits. Nothing was published.');
+    }
+    await _git([
+      'push',
+      'origin',
+      '$revision:refs/heads/$branch',
+    ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
+  }
+
   static const _fetchRefused =
       'Git could not fetch the registry repository with your access: your SSH agent for a git@ address, or '
       'your forge token for an https one. Try it in a terminal with your own Git.';

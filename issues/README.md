@@ -25,6 +25,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
 | <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
 | <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
@@ -46,7 +47,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
 | <a id="f99"></a>[F99](F99-An-Attached-Agent-Shown-At-Rest-Or-Working.md) | S | — | A work tile says whether an attached agent is at rest or working. |
 | <a id="f108"></a>[F108](F108-A-Machine-Over-Ssh-From-Windows.md) | M | — | On Windows, a machine over ssh is reached through the relay, as a WSL distribution is. |
 | <a id="f117"></a>[F117](F117-What-Walk-8-Left-Unbuilt.md) | M | — | A tile's repository in its heading, a refused release said as an error that stays, the project file taken after one's own push. |
@@ -93,6 +93,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f281"></a>[F281](F281-A-Kept-Recovery-Commit-Finished-Not-Made-Again.md) | — | — | A key replacement or backup key committed but not pushed finished under the same request, never made twice; each harm guarded by a test. |
 | <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |
 | <a id="f234"></a>[F234](F234-No-Back-Once-The-Server-Is-Being-Prepared.md) | — | — | No *Back* in *Prepare a server…* once *Prepare the server* has started. |
 | <a id="f235"></a>[F235](F235-Leaving-The-Server-Wizard-While-Machines-Shows-It.md) | — | — | *Finish* usable in *Prepare a server…* once the server is being prepared, closing at once to *Machines*; *Leave* the same. |

@@ -571,6 +571,13 @@ class Settings extends ChangeNotifier {
     }
     final secrets = stored['secretsFile'];
     _secretsFile = secrets is String && secrets.startsWith('/') && !secrets.contains('\x00') ? secrets : null;
+    _keyRecoveries.clear();
+    if (stored['keyRecoveries'] case final Map<String, Object?> receipts) {
+      for (final MapEntry(:key, :value) in receipts.entries) {
+        // Each receipt is read field by field where it is used; here only its JSON shape is kept.
+        if (value is Map<String, Object?>) _keyRecoveries[key] = Map.unmodifiable(value);
+      }
+    }
     _returnedHosts.clear();
     final returnedHosts = stored['returnedHosts'];
     if (returnedHosts != null) {
@@ -801,6 +808,25 @@ class Settings extends ChangeNotifier {
   }
 
   final _returnedHosts = <String>{};
+
+  final _keyRecoveries = <String, Map<String, Object?>>{};
+
+  /// The pending key replacement or backup-key request kept under [key], or null; never a backup file's place.
+  Map<String, Object?>? keyRecovery(String key) => _keyRecoveries[key];
+
+  /// Keeps a pending key replacement or backup-key request, so reopening resumes it under the same request ID.
+  Future<void> rememberKeyRecovery(String key, Map<String, Object?> receipt) async {
+    _keyRecoveries[key] = Map.unmodifiable(receipt);
+    notifyListeners();
+    await _write();
+  }
+
+  /// Forgets a finished or never-started key replacement or backup-key request.
+  Future<void> forgetKeyRecovery(String key) async {
+    if (_keyRecoveries.remove(key) == null) return;
+    notifyListeners();
+    await _write();
+  }
 
   /// Whether provider success is durably recorded, independent of registry work.
   bool hostReturned(String host) => _returnedHosts.contains(host);
@@ -1357,6 +1383,7 @@ class Settings extends ChangeNotifier {
     'projectRegistrations': {for (final entry in _projectRegistrations.entries) entry.key: entry.value.stored},
     'hostUps': {for (final entry in _hostUps.entries) entry.key: entry.value.stored},
     'projectHosts': Map<String, String>.of(_projectHosts),
+    'keyRecoveries': {for (final entry in _keyRecoveries.entries) entry.key: entry.value},
   };
 
   static ThemeMode _appearanceNamed(Object? name) =>

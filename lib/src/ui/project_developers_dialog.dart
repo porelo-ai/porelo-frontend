@@ -6,10 +6,12 @@ import '../app/access_developers.dart';
 import '../app/commands.dart';
 import '../app/fleet_backend.dart';
 import '../app/forge_connection.dart';
+import '../app/key_recovery.dart';
 import '../app/project_access.dart';
 import '../app/project_developers.dart';
 import 'tokens.dart';
 import 'dialog_scroll.dart';
+import 'key_recovery_dialog.dart';
 
 /// Opens the registry picker without accepting person values, keys or secrets by hand.
 Future<void> showProjectDevelopers(
@@ -18,21 +20,25 @@ Future<void> showProjectDevelopers(
   required FleetBackend backend,
   required ForgeConnection forges,
   ProjectAccess? access,
+  KeyRecoveryEntry? recovery,
 }) => showDialog<void>(
   context: context,
-  builder: (_) => ProjectDevelopersDialog(project: project, access: access),
+  builder: (_) => ProjectDevelopersDialog(project: project, access: access, recovery: recovery),
 );
 
 /// The accepted project person list and Core's scoped registry picker.
 class ProjectDevelopersDialog extends StatefulWidget {
   /// Uses the same project service as registration and durable recovery.
-  const ProjectDevelopersDialog({required this.project, this.access, super.key});
+  const ProjectDevelopersDialog({required this.project, this.access, this.recovery, super.key});
 
   /// The selected project.
   final String project;
 
   /// The Core and host adapter, absent until the served contracts are available.
   final ProjectAccess? access;
+
+  /// Where a lost or stolen key is replaced, absent until Core's replacement verbs are connected.
+  final KeyRecoveryEntry? recovery;
 
   @override
   State<ProjectDevelopersDialog> createState() => _ProjectDevelopersDialogState();
@@ -91,6 +97,27 @@ class _ProjectDevelopersDialogState extends State<ProjectDevelopersDialog> {
                     ),
                   ),
           );
+    final recovery = widget.recovery;
+    final person = _person;
+    commands.add(
+      replaceKeyCommand(
+        id: 'project.replaceKey',
+        group: 'Project',
+        home: Home.projectMenu,
+        unavailable: recovery == null
+            ? keyRecoveryNotConnected
+            : person == null
+            ? 'Choose a person in this project.'
+            : null,
+        open: () {
+          if (recovery != null && person != null) {
+            unawaited(
+              showKeyRecovery(context, entry: recovery, scope: RecoveryScope.project(widget.project), login: person),
+            );
+          }
+        },
+      ),
+    );
     return AlertDialog(
       title: Text('Persons in ${widget.project}'),
       content: SizedBox(

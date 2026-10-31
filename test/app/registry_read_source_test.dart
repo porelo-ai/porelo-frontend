@@ -83,6 +83,9 @@ class _FakeCheckout implements RegistryCheckout {
   Future<void> prepareFiling() async {}
 
   @override
+  Future<void> publishMade(String revision, {required String base}) async {}
+
+  @override
   Future<void> publish(String revision) async {}
 }
 

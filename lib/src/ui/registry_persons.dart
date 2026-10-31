@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
+import '../app/key_recovery.dart';
 import '../app/links.dart';
 import '../app/registry_pages.dart';
 import 'command_menu.dart';
 import 'expandable_list_row.dart';
 import 'filtered_list_section.dart';
+import 'key_recovery_dialog.dart';
 import 'tokens.dart';
 
 /// Offers scoped operations only when the corresponding backend adapter is supplied.
@@ -39,6 +41,20 @@ Future<void> runRegistryAction(
   String? person,
 }) async {
   if (registry.unavailable(item.target, operation, person: person) != null) return;
+  if (operation == RegistryOperation.replaceLostKey) {
+    // A replacement is reviewed and signed in its own dialog, never as a one-click registry change.
+    final entry = registry.keyRecovery;
+    final project = item.target.project;
+    if (entry != null && person != null) {
+      await showKeyRecovery(
+        context,
+        entry: entry,
+        scope: project == null ? RecoveryScope.hostAccess(item.target.host) : RecoveryScope.project(project),
+        login: person,
+      );
+    }
+    return;
+  }
   if ({RegistryOperation.admit, RegistryOperation.addPerson}.contains(operation)) {
     person = await showDialog<String>(
       context: context,

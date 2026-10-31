@@ -245,6 +245,27 @@ void main() {
     });
   }
 
+  // Harm: a commit Core made earlier pushed again after a restart with unrelated work, or on another base.
+  for (final interference in ['none', 'extra commit', 'different HEAD', 'other base']) {
+    test('pushing a made commit again sends only it on its base, interference: $interference', () async {
+      final first = checkout();
+      final base = await first.fetch();
+      await first.prepareFiling();
+      if (interference == 'extra commit') await commitCheckout(first.folder, 'unreviewed.card');
+      final made = await commitCheckout(first.folder, 'owners-change.yml');
+      if (interference == 'different HEAD') await commitCheckout(first.folder, 'unreviewed.card');
+      final again = checkout();
+      final pushed = again.publishMade(made, base: interference == 'other base' ? made : base);
+      if (interference == 'none') {
+        await pushed;
+        expect(await centralRevision(), made);
+      } else {
+        await expectLater(pushed, throwsA(isA<WorkspaceRefused>()));
+        expect(await centralRevision(), base, reason: 'unreviewed work must never reach the central repository');
+      }
+    });
+  }
+
   // Harm: a successful empty clone leaves an unusable folder and permanently prevents recovery.
   test('a failed post-clone check removes only its fresh checkout so a later fetch can recover', () async {
     await run(['update-ref', '-d', 'refs/heads/main'], central);

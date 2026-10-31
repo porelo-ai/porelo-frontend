@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
 import '../app/identity.dart';
+import '../app/key_recovery.dart' show KeyRecoveryEntry, RecoveryScope;
 import '../app/links.dart';
 import '../app/machines.dart';
 import '../app/registry.dart' show RegistryContact;
 import '../app/session.dart';
+import 'key_recovery_dialog.dart';
 import 'tokens.dart';
 import 'unlock_terminal.dart';
 import 'wizard.dart';
@@ -19,11 +21,13 @@ Future<void> showIdentity(
   IdentityModel? model,
   OpenTerminal? open,
   String? Function(String address)? checkoutFor,
+  KeyRecoveryEntry? recovery,
 }) => showDialog<void>(
   context: context,
   builder: (_) => IdentityDialog(
     model: model ?? IdentityModel(Identity(), checkoutFor: checkoutFor),
     open: open,
+    recovery: recovery,
   ),
 );
 
@@ -55,13 +59,25 @@ Future<({int code, String last})> _keyTerminal(
 /// The person's one key and card: its state, where it is filed, and the changes to it.
 class IdentityDialog extends StatefulWidget {
   /// Constructor taking the model, a fake-backed one in tests, and the terminal opener.
-  const IdentityDialog({required this.model, this.open, super.key});
+  const IdentityDialog({
+    required this.model,
+    this.open,
+    this.chooseNewFile = chooseWithTheDesktop,
+    this.recovery,
+    super.key,
+  });
+
+  /// Where a backup key's commit is read against and pushed, absent until Core's verbs are connected here.
+  final KeyRecoveryEntry? recovery;
 
   /// The identity as Core answers it.
   final IdentityModel model;
 
   /// Opens the terminal a key is made in; a stand-in in tests.
   final OpenTerminal? open;
+
+  /// Asks where a new backup key's file goes; a stand-in in tests.
+  final ChooseNewFile chooseNewFile;
 
   @override
   State<IdentityDialog> createState() => _IdentityDialogState();
@@ -191,17 +207,52 @@ class _IdentityDialogState extends State<IdentityDialog> {
       unavailable: _model.whyNotStart,
       run: () => _pick(_Picking.lost),
     ),
-    const Command(
+    Command(
       id: 'identity.backupKey',
       label: 'Make a backup key…',
       group: 'My key',
       home: Home.openedView,
-      unavailable: backupKeyRefusal,
-      run: _nothing,
+      unavailable: switch (card?.soleWithoutBackup) {
+        null => backupKeyRefusal,
+        _ when widget.recovery == null => keyRecoveryNotConnected,
+        final lists when lists.isEmpty => 'You are the single admin or owner of no list without a backup key.',
+        _ => _model.whyNotChange,
+      },
+      run: () => unawaited(_makeBackup(card?.soleWithoutBackup ?? const [])),
     ),
   ];
 
-  static void _nothing() {}
+  /// Makes a backup key for one list the person alone administers, chosen when there are several.
+  Future<void> _makeBackup(List<SoleWithoutBackup> lists) async {
+    final entry = widget.recovery;
+    if (entry == null || lists.isEmpty || _model.whyNotChange != null) return;
+    RecoveryScope scopeOf(SoleWithoutBackup list) => switch (list.kind) {
+      'project' => RecoveryScope.project(list.name!),
+      'host' => RecoveryScope.hostAdmin(list.name!),
+      _ => const RecoveryScope.owner(),
+    };
+    final chosen = lists.length == 1
+        ? lists.single
+        : await showDialog<SoleWithoutBackup>(
+            context: context,
+            builder: (context) => SimpleDialog(
+              title: const Text('A backup key for which list?'),
+              children: [
+                for (final list in lists)
+                  SimpleDialogOption(onPressed: () => Navigator.pop(context, list), child: Text(scopeOf(list).words)),
+              ],
+            ),
+          );
+    if (chosen == null || !mounted) return;
+    await makeBackupKey(
+      context,
+      entry: entry,
+      scope: scopeOf(chosen),
+      open: widget.open,
+      chooseNewFile: widget.chooseNewFile,
+    );
+    await _model.load();
+  }
 
   @override
   Widget build(BuildContext context) => AlertDialog(

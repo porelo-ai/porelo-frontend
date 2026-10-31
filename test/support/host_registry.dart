@@ -223,6 +223,9 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   }
 
   @override
+  Future<void> publishMade(String revision, {required String base}) async {}
+
+  @override
   Future<void> publish(String revision) async {
     calls.add('publish $revision');
     if (publicationRefusal case final refusal?) throw refusal;
