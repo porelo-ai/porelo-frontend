@@ -61,10 +61,12 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f114"></a>[F114](F114-Windows-Notifications-From-The-MSIX.md) | M | — | Windows notifications from the MSIX's identity. | — |
 | <a id="f115"></a>[F115](F115-A-Fine-Grained-Token-Waiting-For-An-Organisations-Approval.md) | S | the test organisation at GitHub from the operator | A fine-grained token waiting for an organisation's approval said as waiting. | — |
 | <a id="f95"></a>[F95](F95-A-Waiting-Push-Fetched-Here.md) | M | — | A waiting push fetched here, into a clone the person chooses, with its source level, risk class, and checkout warning. | — |
-| <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | M | — | A waiting push read as a pull request, with source level, per-file risk classes, Approve held until every C3 file is read, and bidi escaping. | — |
-| <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | L | [F78](README.md#f78) | Comments and findings on lines in the review in Porelo's SARIF 2.1.0 profile, with origin, source level, suggestions, and run completeness. | — |
+| <a id="f78"></a>[F78](F78-A-Waiting-Push-Is-Reviewed-As-At-A-Forge.md) | S | — | A waiting push decided without an IDE: source level, highest risk class, files in risk order with their class, *Let it through…* or *Turn it away*, a second ask for `C3` files; the code read in IntelliJ. | — |
+| <a id="f107"></a>[F107](F107-Code-Comments-In-The-Review.md) | M | [F78](README.md#f78) | Per waiting push the open finding and thread counts and each check's completeness, anything but complete never shown as clean; comments read and written in IntelliJ. | — |
 | <a id="f74"></a>[F74](F74-A-Waiting-Pushs-Tests-Run-In-A-Container-Of-Its-Own.md) | M | — | A waiting push's tests run in a container of their own on the machine, pinned to the reviewed commit under its source-level and risk-class isolation. | — |
-| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | L | — | What a piece of work did, in words, at the top of its tile, with its SARIF check round, completeness, open findings and threads, and risk class. | — |
+| <a id="f112"></a>[F112](F112-What-A-Piece-Of-Work-Did-In-Words.md) | M | — | What a piece of work did, in words, at its top: last answer, commits as a list with their highest risk class, what waits with its checks, messages, firewall stops; no diff. | — |
+| <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | M | — | A host pull request's state and approval, and approved work brought on to the central forge bound to commit, repository and pull request, with level, class and checks in one line. | — |
+| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | M | — | Held inbound forge comments and outgoing ones in *Needs you*, each released, dismissed, sent or kept back alone, bound to commit and pull request. | — |
 
 ### Accepted
 
@@ -112,8 +114,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 | <a id="f138"></a>[F138](F138-A-Host-On-Fedora-From-The-Same-Command.md) | — | — | `porelo-host` bringing a Fedora host up and down as it does Ubuntu 26.04. |
 | <a id="f146"></a>[F146](F146-The-Hosts-VM-Pool-Switched-On.md) | — | — | The host's pool of small test VMs switched on on `porelo_host` and in the host dialog, with its systems and accounts. |
 | <a id="f149"></a>[F149](F149-A-Panel-Plans-The-Release.md) | — | — | A panel that shows and edits a project's release plan by dragging issues into sprints and their functions, writing only the plan file. |
-| <a id="f190"></a>[F190](F190-Approved-Work-Brought-To-The-Central-Forge.md) | — | — | Approved work on the host's Forgejo reviewed in SARIF 2.1.0 and brought to the central forge, bound to the reviewed commit, repository, and pull request. |
-| <a id="f191"></a>[F191](F191-Held-And-Outgoing-Forge-Comments-Released.md) | — | — | Held inbound forge comments (`E0`, and `E1` under policy) released alone to a task, and outgoing forge comments released bound to the reviewed commit and pull request. |
 | <a id="f192"></a>[F192](F192-A-Machine-That-Refuses-Every-Key-Said-So.md) | — | — | A machine refusing every offered key said so, with the key it expects. |
 | <a id="f193"></a>[F193](F193-What-A-Walk-Left-Open-For-Keys-And-Tasks.md) | — | — | Key handling, one way to a running task and the proposed project model, built or decided against. |
 | <a id="f200"></a>[F200](F200-KeePassXC-Shipped-On-Windows-And-macOS.md) | — | — | KeePassXC's signed build shipped with the interface on Windows and macOS, with its license and source offer, for the person's secrets file. |

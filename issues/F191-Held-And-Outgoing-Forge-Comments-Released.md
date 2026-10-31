@@ -1,41 +1,62 @@
 # F191 — Held And Outgoing Forge Comments Released
 
-**Status:** Idea.
+**Status:** Analyzed.
+**Size:** M - two kinds of *Needs you* rows and a read dialog, with list, release, dismiss, send and keep-back calls in
+the client and its stand-ins and the contract docs; nothing in the review.
 
-**What must be true.** A comment from an untrusted forge account (`E0`, or `E1` when project or machine policy holds
-it) is held and shown in *Needs you* and in the review with its author, forge origin, and source level, and reaches the
-task only when the person releases it alone. Comments going out to a forge wait in a release queue and are sent only on
-the person's explicit action bound to the exact reviewed commit SHA, target repository, and pull request or merge
-request number.
+**What must be true.** A comment from an untrusted forge account (`E0`, or `E1` when the project's rule holds it) is
+shown in *Needs you* with its author, forge, pull request, source level and text, and reaches the task only when the
+person releases that one comment. A comment going out to a forge is shown in *Needs you* with its target repository,
+pull request number, file and line, commit and text, and is sent only when the person sends that one comment, bound to
+that commit, repository and pull request.
 
 ## Why
 
-A stranger's comment on a public pull request (`E0`) can carry prompt injection aimed at an agent. Holding `E0` comments (and `E1`
-comments where policy tightens the default) until a person reads and releases each one keeps untrusted instructions out
-of the task while letting the reviewer read them in context. In the other direction, comments written in Porelo must
-never leak to an external forge by themselves: they wait until the person releases the
-chosen items against the exact reviewed commit and target pull request.
+A stranger's comment on a public pull request (`E0`) can carry prompt injection aimed at an agent; holding it until a
+person reads and releases it keeps untrusted instructions out of the task. Comments written in Porelo must never reach
+an external forge by themselves.
 
-## The shape
+## Plan
 
-- **Inbound held comments.** By default, `E0` comments are
-  held until the person releases them individually; `E1` and `I1` comments are delivered at once, marked untrusted; `A`
-  comments are delivered, marked untrusted. A project file or machine policy may tighten `E1` to held, never loosen
-  `E0`.
-- **Where held comments appear.** Held comments are listed in *Needs you* and at their anchor in the review, each
-  showing its author, forge origin, source level (`E0` or `E1`), and body text, with individual release and dismiss
-  actions. Nothing is released in a batch the person did not read.
-- **Outbound release queue.** Comments and replies waiting to go out
-  to a forge are listed in *Needs you* and in the review with the target repository, pull request or merge request
-  number, file and line anchor, and text. The person can include or exclude each item before releasing, and releasing
-  binds the call to the reviewed commit SHA, target repository, and pull request or merge request number. Where a
-  project switched outbound holding off, the review states that and nothing waits.
+- **Waits for the contract:** the daemon answers held inbound comments (author, forge, pull request, level, body) with
+  release and dismiss per comment, the outbound queue (target repository, pull request number, file and line, commit,
+  text) with send and keep back per comment, refused when the pull request moved from the commit, and the project's
+  outbound holding setting. `doc/Backend-API.md` and `doc/Contract-Gaps.md` take them first.
+- **The client:** `HeldForgeComment` and `OutgoingForgeComment` in `lib/src/client/models.dart`, read and decided
+  through `PoreloClient` (`lib/src/client/porelo_client.dart`) and `FleetBackend` (`lib/src/app/fleet_backend.dart`),
+  with `MockMachine` (`lib/src/mock/machine.dart`) and `FakeBackend` (`test/fakes/fake_backend.dart`).
+- **Where:** two rows in *Needs you* (`Attention` in `lib/src/app/attention.dart`, `AttentionView` in
+  `lib/src/ui/attention_view.dart`), one per comment, built like `HeldMessageRow` and `HeldMessageDialog`
+  (`lib/src/ui/held_message_view.dart`): *Comment held from a stranger* with *Dismiss it* / *Release it*, and *Comment
+  waiting to go out* with *Keep it back* / *Send it*. A long body shows its first lines and *Read it all* opens the full
+  text with the same two buttons.
+- **States:** an `E1` comment held by the project's rule says so. While a comment is decided, that row alone shows
+  "Sending…" and leaves once the daemon answers. A refusal shows on the row in Porelo's words and the row stays. Where
+  the project holds no outbound comments, no outgoing rows show and the project's page says so. A decided row moves to
+  the resolved list with its outcome and its buttons disabled.
+- **Safe rendering:** bodies, author names and paths are plain text with Unicode bidi overrides (`U+202A`–`U+202E`,
+  `U+2066`–`U+2069`) and control characters (`< 0x20` except `\t` and `\n`, plus `0x7F`–`0x9F`) badged.
+- **Red first:** a scenario in `test/features/needs_a_person.feature` with two held comments, releasing one, which must
+  send exactly that one.
+
+## What it drops
+
+- Held and outgoing comments shown at their anchor in the review: move to the IntelliJ plugin's review
+  (`porelo-intellij`), which releases them there.
+- Including or excluding items before one release, and any release of several at once: nowhere; each comment is
+  decided alone.
+
+## Acceptance
+
+- Each held comment shows its author, forge, pull request, level and text, and *Release it* sends that one comment
+  and no other. Seen to fail: a scenario in `test/features/needs_a_person.feature` where releasing one releases two.
+- Each outgoing comment shows its target, pull request number, file and line, commit and text, and *Send it* carries
+  that commit, repository and pull request. Seen to fail: a scenario where the call carries another commit or the
+  comment goes without *Send it*.
+- A refusal for a moved pull request shows on the row and the row stays. Seen to fail: a scenario where the row leaves
+  before the daemon's answer.
+- A body with HTML or `U+202E` shows them as text and badges. Seen to fail: a widget test with both in a held comment.
 
 ## To be checked
 
-- Dependencies: [F107](README.md#f107).
-- Code places in `porelo-frontend`: `Attention` in `lib/src/app/attention.dart`, `AttentionView` in
-  `lib/src/ui/attention_view.dart`, `HeldMessageDialog` in `lib/src/ui/held_message_view.dart`, `Gate` in
-  `lib/src/app/gate.dart`, and `ReviewView` and `GateProblem` in `lib/src/ui/gate_view.dart`.
-- Which Varlink methods and fields the daemon brings to `Tasks1` for held inbound
-  comments and commit-bound outbound release.
+- The method and field names held and outgoing comments get in `Tasks1`.
