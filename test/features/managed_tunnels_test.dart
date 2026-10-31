@@ -53,14 +53,9 @@ import './step/the_wizard_set_up_the_machine.dart';
 import './step/i_ask_to_forget_this_machine.dart';
 import './step/i_forget_it.dart';
 import './step/the_ssh_config_still_has_the_host.dart';
-import './step/the_key_of_is_still_there.dart';
 import './step/i_also_remove_its_host_entry.dart';
-import './step/i_also_delete_its_key.dart';
 import './step/the_ssh_config_no_longer_has_the_host.dart';
 import './step/the_ssh_config_as_it_was_before_is_kept.dart';
-import './step/the_key_of_is_gone.dart';
-import './step/another_host_entry_uses_the_key_of.dart';
-import './step/deleting_its_key_cannot_be_chosen.dart';
 import './step/the_machine_is_reached_through_a_host_entry_written_by_hand.dart';
 import './step/the_machine_is_no_longer_watched.dart';
 import './step/the_machine_is_still_watched.dart';
@@ -263,40 +258,26 @@ void main() {
       await theMachineWasAskedWhoLogsInAs(tester, 'user@build.example.test');
       await theForwardWasRaisedThroughTo(tester, 'user@build.example.test', '/run/user/1007/porelo/porelod.sock');
     });
-    testWidgets(
-      '''forgetting a machine the wizard set up offers its Host entry and key, and removes neither unasked''',
-      (tester) async {
-        await bddSetUp(tester);
-        await theWizardSetUpTheMachine(tester, 'build');
-        await iSwitchToTheMachine(tester, 'build');
-        await iAskToForgetThisMachine(tester);
-        await itSays(tester, 'Also remove Host porelo-build from ~/.ssh/config');
-        await itSays(tester, 'Also delete its key');
-        await iForgetIt(tester);
-        await theSshConfigStillHasTheHost(tester, 'porelo-build');
-        await theKeyOfIsStillThere(tester, 'build');
-      },
-    );
-    testWidgets('''forgetting a machine the wizard set up removes its Host entry and key when asked''', (tester) async {
+    testWidgets('''forgetting a machine the wizard set up offers its Host entry, and removes it not unasked''', (
+      tester,
+    ) async {
+      await bddSetUp(tester);
+      await theWizardSetUpTheMachine(tester, 'build');
+      await iSwitchToTheMachine(tester, 'build');
+      await iAskToForgetThisMachine(tester);
+      await itSays(tester, 'Also remove Host porelo-build from ~/.ssh/config');
+      await iForgetIt(tester);
+      await theSshConfigStillHasTheHost(tester, 'porelo-build');
+    });
+    testWidgets('''forgetting a machine the wizard set up removes its Host entry when asked''', (tester) async {
       await bddSetUp(tester);
       await theWizardSetUpTheMachine(tester, 'build');
       await iSwitchToTheMachine(tester, 'build');
       await iAskToForgetThisMachine(tester);
       await iAlsoRemoveItsHostEntry(tester);
-      await iAlsoDeleteItsKey(tester);
       await iForgetIt(tester);
       await theSshConfigNoLongerHasTheHost(tester, 'porelo-build');
       await theSshConfigAsItWasBeforeIsKept(tester);
-      await theKeyOfIsGone(tester, 'build');
-    });
-    testWidgets('''a key another Host entry uses is not offered for deleting''', (tester) async {
-      await bddSetUp(tester);
-      await theWizardSetUpTheMachine(tester, 'build');
-      await anotherHostEntryUsesTheKeyOf(tester, 'build');
-      await iSwitchToTheMachine(tester, 'build');
-      await iAskToForgetThisMachine(tester);
-      await itSays(tester, 'Another entry in ~/.ssh/config uses it, so it stays.');
-      await deletingItsKeyCannotBeChosen(tester);
     });
     testWidgets('''a Host entry written by hand is never offered for removal''', (tester) async {
       await bddSetUp(tester);

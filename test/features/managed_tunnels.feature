@@ -175,36 +175,24 @@ Feature: Raising and dropping the forward that reaches a machine
         And the forward was raised through {'user@build.example.test'} to {'/run/user/1007/porelo/porelod.sock'}
 
     # What setting a machine up wrote on this computer is offered for removal when it is forgotten, and
-    # only offered: the Host entry in exactly the form the wizard writes, and its key unless another
-    # entry uses it.
-    Scenario: forgetting a machine the wizard set up offers its Host entry and key, and removes neither unasked
+    # only offered: the Host entry in exactly the form the wizard writes. A machine has no key of its own
+    # any more; the person's one key stays.
+    Scenario: forgetting a machine the wizard set up offers its Host entry, and removes it not unasked
         Given the wizard set up the machine {'build'}
         And I switch to the machine {'build'}
         When I ask to forget this machine
         Then it says {'Also remove Host porelo-build from ~/.ssh/config'}
-        And it says {'Also delete its key'}
         When I forget it
         Then the ssh config still has the Host {'porelo-build'}
-        And the key of {'build'} is still there
 
-    Scenario: forgetting a machine the wizard set up removes its Host entry and key when asked
+    Scenario: forgetting a machine the wizard set up removes its Host entry when asked
         Given the wizard set up the machine {'build'}
         And I switch to the machine {'build'}
         When I ask to forget this machine
         And I also remove its Host entry
-        And I also delete its key
         And I forget it
         Then the ssh config no longer has the Host {'porelo-build'}
         And the ssh config as it was before is kept
-        And the key of {'build'} is gone
-
-    Scenario: a key another Host entry uses is not offered for deleting
-        Given the wizard set up the machine {'build'}
-        And another Host entry uses the key of {'build'}
-        And I switch to the machine {'build'}
-        When I ask to forget this machine
-        Then it says {'Another entry in ~/.ssh/config uses it, so it stays.'}
-        And deleting its key cannot be chosen
 
     Scenario: a Host entry written by hand is never offered for removal
         Given the machine {'handmade'} is reached through a Host entry written by hand
