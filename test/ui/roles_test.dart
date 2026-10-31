@@ -8,6 +8,7 @@ import 'package:porelo_frontend/src/ui/command_finder.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
 
 import '../features/support/world.dart';
+import '../support/host_registry.dart';
 
 void main() {
   setUp(() => roles = const Roles());
@@ -117,6 +118,28 @@ void main() {
       expect(
         find.descendant(of: find.byType(AppBar), matching: find.byTooltip('Watch another machine…')),
         findsOneWidget,
+      );
+    });
+  }
+
+  // Harm: the app's host setup is composed without the host admin check, so a host admin named in owners.yml is
+  // never let in, or anybody else is.
+  for (final admin in [true, false]) {
+    testWidgets('the shell gives host setup the composed host access (${admin ? 'host admin' : 'nobody named'})', (
+      tester,
+    ) async {
+      roles = Roles.fromArguments(const ['--roles', 'host-admin']);
+      final fixture = RegistryFixture()..admin = admin;
+      await World.startBackend(World.work);
+      await World.startApp(tester, hostAccess: fixture.access);
+      addTearDown(fixture.registry.dispose);
+      World.shell.goTo(Section.machines);
+      await World.settle(tester);
+      final control = find.byKey(const Key('host.prepare'));
+      expect(tester.widget<OutlinedButton>(control).onPressed, admin ? isNotNull : isNull);
+      expect(
+        find.ancestor(of: control, matching: find.byTooltip('The verified host admins are unavailable.')),
+        findsNothing,
       );
     });
   }

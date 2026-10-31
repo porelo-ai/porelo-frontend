@@ -102,7 +102,7 @@ void main() {
         expect(reopened.hostRegistry('orchard')!.change.action, 'delete-card');
         await tester.pumpWidget(const SizedBox.shrink());
         final restored = HostAccess(
-          registry: fixture.registry,
+          registry: () => fixture.registry,
           settings: reopened,
           identity: () => fixture.actor,
           transport: fixture,

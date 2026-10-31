@@ -50,6 +50,7 @@ import 'package:porelo_frontend/src/app/newer_version.dart';
 import 'package:porelo_frontend/src/app/where_you_were.dart';
 import 'package:porelo_frontend/src/app/notifications.dart';
 import 'package:porelo_frontend/src/app/operations.dart';
+import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/app/porelo_app.dart';
@@ -2926,6 +2927,7 @@ class World {
     RegistryPages? registryPages,
     JoinDiscovery? joinDiscovery,
     JoinHost? joinHost,
+    Future<HostAccess> Function(Settings settings)? hostAccess,
   }) async {
     // The view rather than the surface, at a pixel ratio of one: the surface is set in *physical*
     // pixels, so a default ratio quietly turns a desktop window into a narrow one and every
@@ -3056,6 +3058,7 @@ class World {
 
     // As the application does it: every machine, including one added later.
     notifications.watchMachines(machines, open: (_) => shell.goTo(Section.attention));
+    final composedHostAccess = hostAccess == null ? null : await hostAccess(settings);
 
     await tester.pumpWidget(
       PoreloApp(
@@ -3084,6 +3087,7 @@ class World {
         registryPages: registryPages,
         joinDiscovery: joinDiscovery,
         joinHost: joinHost,
+        hostAccess: composedHostAccess,
         pickAFile: ({String? initialDirectory, String? title}) async => pickedFile,
         backups: backups,
         narrowing: narrowing,

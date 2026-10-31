@@ -34,6 +34,8 @@ import 'src/app/desk.dart';
 import 'src/app/registry.dart';
 import 'src/app/registry_checkout.dart';
 import 'src/app/forge_key_check.dart';
+import 'src/app/host_access.dart';
+import 'src/app/host_access_adapters.dart';
 import 'src/app/join_adapters.dart';
 import 'src/app/registry_pages.dart';
 import 'src/app/registry_read_source.dart';
@@ -97,6 +99,25 @@ RegistryReadSource _registrySource(Settings settings, Machines machines) => Regi
   ),
   machines: () => machines.all,
 );
+
+/// A host admin's registry changes, judged on [source]'s registry and Core's proven identity, read again before every
+/// side effect; delivered to a host as root through its card's pinned SSH config.
+HostAccess _hostAccess(Settings settings, Machines machines, RegistryReadSource source) {
+  final proven = CoreHostAdminProof();
+  unawaited(proven.readAgain());
+  return HostAccess(
+    registry: () => source.registry,
+    settings: settings,
+    identity: proven.current,
+    proof: proven,
+    transport: SshHostRegistryTransport(
+      registry: () => source.registry,
+      machines: () => machines.all,
+      settings: settings,
+      scratch: '${desk.data}/registry-bundles',
+    ),
+  );
+}
 
 /// Every registry list, read by this computer's daemon from [source].
 RegistryPages _registryPages(Settings settings, RegistryReadSource source) => RegistryPages(
@@ -170,6 +191,7 @@ Future<PoreloApp> _compose() async {
     joinDiscovery: joins.discovery,
     joinHost: joins.host,
     forgeKeyCheck: ForgeKeyCheckCli(),
+    hostAccess: _hostAccess(settings, machines, registry),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

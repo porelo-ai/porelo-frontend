@@ -17,6 +17,7 @@ import 'vault.dart';
 import 'widening.dart';
 import 'work_held.dart';
 import 'gate.dart';
+import 'host_access.dart';
 import 'host_readiness.dart';
 import 'logs.dart';
 import 'machines.dart';
@@ -66,6 +67,7 @@ class PoreloApp extends StatelessWidget {
     this.joinDiscovery,
     this.joinHost,
     this.forgeKeyCheck,
+    this.hostAccess,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -88,6 +90,10 @@ class PoreloApp extends StatelessWidget {
 
   /// Whether the person's key is listed on their central forge account.
   final ForgeKeyCheck? forgeKeyCheck;
+
+  /// A host admin's registry changes and their delivery to hosts, checked against `owners.yml` and Core's proven
+  /// identity; without it no host may be prepared or admitted to.
+  final HostAccess? hostAccess;
 
   /// Every machine being watched.
   final Machines machines;
@@ -234,6 +240,7 @@ class PoreloApp extends StatelessWidget {
           joinDiscovery: joinDiscovery,
           joinHost: joinHost,
           forgeKeyCheck: forgeKeyCheck,
+          hostAccess: hostAccess,
           pickAFile: pickAFile,
           backups: backups,
           narrowing: narrowing,

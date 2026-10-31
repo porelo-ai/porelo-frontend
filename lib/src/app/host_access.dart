@@ -22,13 +22,43 @@ class HostAdminIdentity {
   final String fingerprint;
 }
 
+/// Where the proven identity is read again from, and why there is none.
+abstract interface class HostAdminProof {
+  /// Reads the proven identity again; what it found is what [HostAccess.identity] answers next.
+  Future<void> readAgain();
+
+  /// Why no identity is proven now, or null when one is.
+  String? get whyNone;
+}
+
 /// Publishes signed host state and retains every unconfirmed step across restarts.
 class HostAccess {
   /// Uses the shared verified registry and isolated write and delivery boundaries.
-  HostAccess({required this.registry, required this.settings, required this.identity, required this.transport});
+  ///
+  /// [registry] answers the registry of the address chosen now, the one the registry pages read, or null before one was
+  /// chosen.
+  HostAccess({
+    required this._registry,
+    required this.settings,
+    required this.identity,
+    required this.transport,
+    this.proof,
+  });
 
-  /// The shared registry whose accepted state controls every selection.
-  final Registry registry;
+  final Registry? Function() _registry;
+
+  /// Said while no registry address was chosen.
+  static const noRegistry = 'Choose the registry repository first.';
+
+  /// The registry of the address chosen now, or null before one was chosen.
+  Registry? get chosenRegistry => _registry();
+
+  /// The shared registry whose accepted state controls every selection; refused before one was chosen.
+  Registry get registry => _registry() ?? (throw const RegistryRefusal(noRegistry));
+
+  /// Reads [identity] again before every side effect, and says why none is proven; absent where [identity] is given
+  /// whole, as in tests.
+  final HostAdminProof? proof;
 
   /// The durable public progress store.
   final Settings settings;
@@ -46,11 +76,11 @@ class HostAccess {
   List<RegistryContact> whoMay([String? host]) {
     final admins = host == null
         ? const <RegistryOwner>[]
-        : registry.accepted?.adminsOf(host) ?? const <RegistryOwner>[];
+        : chosenRegistry?.accepted?.adminsOf(host) ?? const <RegistryOwner>[];
     final logins = admins.isNotEmpty
         ? [for (final admin in admins) admin.login]
         : [
-            for (final owner in registry.accepted?.owners ?? const <RegistryOwner>[])
+            for (final owner in chosenRegistry?.accepted?.owners ?? const <RegistryOwner>[])
               if (!owner.backup) owner.login,
           ];
     // The person asking is never told to ask themselves.
@@ -62,7 +92,7 @@ class HostAccess {
     ];
   }
 
-  RegistryCard? _person(String login) => registry.selectable.where((card) => card.login == login).firstOrNull;
+  RegistryCard? _person(String login) => chosenRegistry?.selectable.where((card) => card.login == login).firstOrNull;
 
   /// No Core verb takes a person's request to a host admin; only a host admin files access.
   static const noRequests = 'No Core issue covers host access requests yet.';
@@ -72,10 +102,13 @@ class HostAccess {
 
   RegistryRefusal? _admitRefusal(String host) {
     final reason = unavailable(host);
-    // A host without named admins keeps its own reason: the owners named are those who name its admins.
+    final registry = chosenRegistry;
+    // A host without named admins keeps its own reason: the owners named are those who name its admins; nobody proven
+    // is told why.
     if (reason == null ||
-        registry.accepted == null ||
-        registry.problem != null ||
+        identity() == null && proof?.whyNone != null ||
+        registry?.accepted == null ||
+        registry!.problem != null ||
         registry.busy ||
         registry.accepted!.adminsOf(host).isEmpty) {
       return reason == null ? null : RegistryRefusal(reason);
@@ -85,10 +118,16 @@ class HostAccess {
 
   /// Why preparation or admission is unavailable, including who may do it.
   String? unavailable([String? host]) {
+    final registry = chosenRegistry;
+    if (registry == null) return noRegistry;
     if (registry.accepted == null || registry.problem != null || registry.busy) {
       return 'Refresh the registry before changing a host.';
     }
     final actor = identity();
+    // Nobody proven is told why, before anyone is named who may.
+    if (actor == null) {
+      if (proof?.whyNone case final why?) return why;
+    }
     final card = actor == null ? null : _person(actor.login);
     final accepted = registry.accepted!;
     // Without a host, being a host admin of any host opens the way; each host is checked again by its own label.
@@ -117,6 +156,7 @@ class HostAccess {
 
   /// Rechecks a retained Prepare callback immediately before it can rent a server.
   Future<void> prepare(Future<void> Function() start) async {
+    await proof?.readAgain();
     _authorize();
     await start();
   }
@@ -180,10 +220,11 @@ class HostAccess {
     final applied = _statuses[host]?.revision ?? settings.hostRegistryState(host).lastAppliedRevision;
     if (progress?.complete == true &&
         applied == progress?.confirmedRevision &&
-        registry.accepted?.revision == progress?.revision) {
+        chosenRegistry?.accepted?.revision == progress?.revision) {
       return false;
     }
-    return registry.accepted?.revision != null && applied != registry.accepted!.revision;
+    final newest = chosenRegistry?.accepted?.revision;
+    return newest != null && applied != newest;
   }
 
   /// Files the checked SSH completion once; a retry never runs setup again.
@@ -288,6 +329,7 @@ class HostAccess {
 
   /// Reads the host's applied registry after reconnecting, without changing it.
   Future<void> refreshStatus(String host) async {
+    await proof?.readAgain();
     _authorizeExisting(host);
     final status = await transport.status(host);
     _checkStatus(host, status);
@@ -569,6 +611,8 @@ class HostAccess {
     checkHostName(host);
     if (!_busy.add(host)) throw const RegistryRefusal('A change for this host is still running.');
     try {
+      // A key revoked or taken out of the agent since the last read never acts.
+      await proof?.readAgain();
       await work();
     } finally {
       _busy.remove(host);

@@ -41,7 +41,7 @@ void main() {
     addTearDown(reopened.dispose);
     await reopened.load();
     return HostAccess(
-      registry: fixture.registry,
+      registry: () => fixture.registry,
       settings: reopened,
       identity: () => fixture.actor,
       transport: fixture,
@@ -514,7 +514,7 @@ void main() {
     final durable = Settings(held);
     addTearDown(durable.dispose);
     final guarded = HostAccess(
-      registry: fixture.registry,
+      registry: () => fixture.registry,
       settings: durable,
       identity: () => fixture.actor,
       transport: fixture,
@@ -567,7 +567,7 @@ void main() {
     final durable = Settings(held);
     addTearDown(durable.dispose);
     final guarded = HostAccess(
-      registry: fixture.registry,
+      registry: () => fixture.registry,
       settings: durable,
       identity: () => fixture.actor,
       transport: fixture,

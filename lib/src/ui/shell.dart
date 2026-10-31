@@ -8,6 +8,7 @@ import 'package:guided_walk/guided_walk.dart';
 
 import '../app/desk.dart';
 import '../app/homeserver_forwards.dart';
+import '../app/host_access.dart';
 import '../app/host_runs.dart';
 import '../app/product.dart';
 import '../app/project_access.dart';
@@ -158,6 +159,7 @@ class Shell extends StatefulWidget {
     this.forgeKeyCheck,
     this.joinDiscovery,
     this.joinHost,
+    this.hostAccess,
     this.projectAccess,
     this.keyRecovery,
     this.pickAFile = pickWithTheDesktop,
@@ -183,6 +185,9 @@ class Shell extends StatefulWidget {
 
   /// The card tunnel and the account daemon a join goes through.
   final JoinHost? joinHost;
+
+  /// A host admin's registry changes and their delivery, given to host setup and its dialogs.
+  final HostAccess? hostAccess;
 
   /// The project-scoped Core and host adapters, supplied once their contracts are served.
   final ProjectAccess? Function(String project)? projectAccess;
@@ -310,7 +315,7 @@ class _ShellState extends State<Shell> {
     _registry.addListener(_homeserversChanged);
     // Where the person may join is asked once the registry's read has ended, never beside a fetch of its checkout.
     unawaited(_registry.refresh().then((_) => _discoverJoins()));
-    _hostRuns = HostRuns(widget.machines);
+    _hostRuns = HostRuns(widget.machines, hostAccess: widget.hostAccess);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
     // One that cannot be raised is said under Needs you; the project's page says the address.
@@ -349,6 +354,8 @@ class _ShellState extends State<Shell> {
   /// Asks every answering machine again. Only the one open says so, and only when asked by hand.
   Future<void> _refreshAll({bool quietly = false}) async {
     await _registry.refresh();
+    // A key loaded into the agent, or revoked, since the last read changes what a host admin is offered.
+    await widget.hostAccess?.proof?.readAgain();
     unawaited(_discoverJoins());
     for (final machine in widget.machines.all) {
       final fleet = widget.machines.of(machine);

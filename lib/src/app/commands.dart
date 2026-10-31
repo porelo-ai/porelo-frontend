@@ -1242,7 +1242,7 @@ List<Command> commandsFor({
       home: Home.appBar,
       run: watchAnotherMachine,
     ),
-    prepareServerCommand(open: prepareServer),
+    prepareServerCommand(open: prepareServer, access: hostRuns?.hostAccess),
     Command(
       id: 'appearance.light',
       label: 'Appearance: light',

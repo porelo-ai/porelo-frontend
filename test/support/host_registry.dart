@@ -103,7 +103,7 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   Future<HostAccess> access(Settings settings) async {
     registry = Registry(checkout: this, core: this);
     await registry.refresh();
-    return HostAccess(registry: registry, settings: settings, identity: () => actor, transport: this);
+    return HostAccess(registry: () => registry, settings: settings, identity: () => actor, transport: this);
   }
 
   @override
