@@ -392,8 +392,19 @@ void main() {
   });
 
   // Harm: a person refused a change is left without knowing whom to ask.
-  test('a change Core refuses names the host admins with the addresses their cards give', () async {
-    core.fileAnswer = const VarlinkException('org.fuin.porelo.Tasks1.NotAHostAdmin');
+  test('a change Core refuses names the host admins owners.yml gives, with their addresses', () async {
+    final answer = _answer();
+    answer['host_admins'] = [
+      {'login': 'alice', 'fingerprint': _fingerprint('A'), 'backup': false},
+      {'login': 'bob', 'fingerprint': _fingerprint('B'), 'backup': false},
+      {'login': 'alice', 'fingerprint': _fingerprint('Z'), 'backup': true},
+    ];
+    (answer['hosts'] as List).single['admins'] = [
+      {'login': 'carol', 'fingerprint': _fingerprint('C')},
+    ];
+    core.next = answer;
+    await registry.refresh();
+    core.fileAnswer = const RegistryRefusal('The agent holds no key of a host admin.');
     const admitBob = RegistryFiling(RegistryFilingKind.hostAccess, host: 'walk9server', person: 'bob');
 
     final refusal = await registry

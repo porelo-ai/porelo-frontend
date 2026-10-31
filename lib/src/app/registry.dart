@@ -228,9 +228,13 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
   /// A host change names that host's admins; a card, or a host without assigned admins, names the
   /// registry's owners, who name the host admins in `owners.yml`.
   List<RegistryContact> whoMay(RegistryFiling filing) {
-    final host = hosts.where((each) => each.host == filing.host).firstOrNull;
-    final logins = filing.kind != RegistryFilingKind.card && host != null && host.admins.isNotEmpty
-        ? host.admins
+    // A host's admins in `hosts[].admins` are the pins it admitted; who may change a host is in `owners.yml`.
+    final hostAdmins = [
+      for (final admin in _accepted?.hostAdmins ?? const <RegistryOwner>[])
+        if (!admin.backup) admin.login,
+    ];
+    final logins = filing.kind != RegistryFilingKind.card && hostAdmins.isNotEmpty
+        ? hostAdmins
         : [
             for (final owner in owners)
               if (!owner.backup) owner.login,
@@ -253,6 +257,8 @@ class Registry extends ChangeNotifier with QuietAfterDispose {
     } on WorkspaceRefused catch (refused) {
       _problem = refused.words;
       rethrow;
+    } on RegistryRefusal catch (refused) {
+      throw RegistryRefusal(refused.words, whoMay: whoMay(filing));
     } on FeatureNotSupported {
       throw const RegistryRefusal('Porelo on this computer cannot write the registry yet.');
     } on VarlinkException {
