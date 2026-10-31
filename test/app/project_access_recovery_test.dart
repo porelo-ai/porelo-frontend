@@ -267,6 +267,30 @@ void main() {
     });
   }
 
+  // Harm: an unfiled or already superseded receipt on a returned server keeps a Retry that can never succeed.
+  for (final stage in ['unfiled', 'superseded']) {
+    test('an $stage receipt whose server was given back is forgotten without asking Core', () async {
+      final access = await fixture.access(settings);
+      if (stage == 'unfiled') {
+        fixture.fail = 'file';
+        await expectLater(access.register(), throwsFormatException);
+      } else {
+        fixture.deliveryAuthorized = false;
+        await expectLater(access.register(), throwsA(isA<RegistryRefusal>()));
+        expect(access.supersededChangeId, isNotNull);
+      }
+      fixture.fail = null;
+      await settings.rememberHostReturned('orchard');
+      fixture.calls.clear();
+      fixture.lookups.clear();
+      await access.retry();
+      expect(settings.projectAccess('demo'), isNull);
+      expect(access.supersededChangeId, isNull);
+      expect(fixture.calls, isEmpty);
+      expect(fixture.lookups, isEmpty);
+    });
+  }
+
   // Harm: a returned server leaves a Retry stuck; an admission refresh must retain signed work.
   for (final refusal in ['returned', 'admission']) {
     test('a filed $refusal refusal keeps the correct recovery choice', () async {

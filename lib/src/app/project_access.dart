@@ -186,8 +186,9 @@ class ProjectAccess implements ProjectPersonActions {
     if (receipt?.state == ProjectAccessState.superseded) throw RegistryRefusal(_supersededReason);
     final filed = receipt?.revision != null;
     final delivered = receipt?.state == ProjectAccessState.delivered;
-    if (filed && settings.hostReturned(receipt!.change.host)) {
-      await _supersede(receipt, _SupersessionReason.hostReturned);
+    if (receipt != null && settings.hostReturned(receipt.change.host)) {
+      await settings.forgetReturnedProjectAccess(project);
+      throw const _GivenBack();
     }
     var view = await _read();
     // A filed person change is judged by Core before the view, as what moved since may be the very reason Core refused
@@ -396,7 +397,7 @@ class ProjectAccess implements ProjectPersonActions {
     }
     if (pendingReceipt != null) {
       if (action == 'register' && pendingReceipt.change.action == 'register') {
-        await _continue(pendingReceipt, expected: expected);
+        await _endingIfGivenBack(() => _continue(pendingReceipt, expected: expected));
         return;
       }
       await _authorize(receipt: pendingReceipt, expected: expected);
@@ -446,19 +447,28 @@ class ProjectAccess implements ProjectPersonActions {
     );
     final receipt = ProjectAccessProgress(change: change);
     await settings.rememberProjectAccess(receipt);
-    await _continue(receipt, expected: expected);
+    await _endingIfGivenBack(() => _continue(receipt, expected: expected));
   });
 
   /// Resumes the original request after a restart without signing another change.
   @override
-  Future<void> retry() => _withChange(_resume);
+  Future<void> retry() => _withChange(() => _endingIfGivenBack(_resume));
+
+  /// Ends a running change cleanly when its server was given back on the way and its receipt was forgotten.
+  static Future<void> _endingIfGivenBack(Future<void> Function() work) async {
+    try {
+      await work();
+    } on _GivenBack {
+      return;
+    }
+  }
 
   Future<ProjectAccessProgress?> _reconcile() async {
     var progress = settings.projectAccess(project);
     if (progress == null || progress.confirmed) return null;
     // A server given back before Core's change was recorded leaves nothing to deliver to: the receipt is forgotten
-    // and the operation ends.
-    if (progress.revision != null && settings.hostReturned(progress.change.host)) {
+    // and the operation ends, whatever state it reached.
+    if (settings.hostReturned(progress.change.host)) {
       await settings.forgetReturnedProjectAccess(project);
       return null;
     }
@@ -630,12 +640,15 @@ class RegistryProjectRegistration implements SignedHostActions {
 
 enum _SupersessionReason {
   coreRefused,
-  overtaken,
-  hostReturned;
+  overtaken;
 
   String get words => switch (this) {
     coreRefused => 'Core refuses authorization of this exact filed project access revision. Discard it.',
     overtaken => 'The verified access revision moved past this receipt without containing it. Discard it.',
-    hostReturned => 'The server was given back.',
   };
+}
+
+/// The server was given back while a change ran; its receipt is already forgotten.
+class _GivenBack extends RegistryRefusal {
+  const _GivenBack() : super('The server was given back.');
 }
