@@ -40,6 +40,9 @@ abstract interface class ProjectPersonActions implements ProjectPeople {
   /// Why a project change is currently unavailable.
   String? unavailable({bool delivery = false});
 
+  /// Why removing, locking, letting back in and accepting a new key cannot run here at all, absent where they can.
+  String? get personChangesUnavailable;
+
   /// Whether a delivery must finish before another edit.
   bool get pending;
 

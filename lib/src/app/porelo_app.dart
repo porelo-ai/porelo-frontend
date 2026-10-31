@@ -34,6 +34,7 @@ import 'session.dart';
 import 'settings.dart';
 import 'shell_model.dart';
 import 'project_join.dart' show JoinDiscovery, JoinHost;
+import 'project_access.dart' show ProjectAccess;
 import 'registry_pages.dart';
 import 'forge_key_check.dart';
 
@@ -66,6 +67,7 @@ class PoreloApp extends StatelessWidget {
     this.registryPages,
     this.joinDiscovery,
     this.joinHost,
+    this.projectAccess,
     this.forgeKeyCheck,
     this.hostAccess,
     this.pickAFile = pickWithTheDesktop,
@@ -87,6 +89,9 @@ class PoreloApp extends StatelessWidget {
 
   /// The card tunnel and the account daemon's follow a join goes through.
   final JoinHost? joinHost;
+
+  /// Each project's Register and Add a developer, absent while not composed; without it they are listed unavailable.
+  final ProjectAccess? Function(String project)? projectAccess;
 
   /// Whether the person's key is listed on their central forge account.
   final ForgeKeyCheck? forgeKeyCheck;
@@ -239,6 +244,7 @@ class PoreloApp extends StatelessWidget {
           registryPages: registryPages,
           joinDiscovery: joinDiscovery,
           joinHost: joinHost,
+          projectAccess: projectAccess,
           forgeKeyCheck: forgeKeyCheck,
           hostAccess: hostAccess,
           pickAFile: pickAFile,

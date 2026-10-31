@@ -34,10 +34,14 @@ None.
 
 ## To be checked
 
-- Confirm Core's served fields for person identity, project-admin authorization and authorized key replacement, and how an admin's access-file replacement affects picker eligibility. The named verification response contains persons (login, SSH key, admin/developer role, hosts, expiry, revoked and locked), admins, certifiers, project/access commits, signers and project. The argument-list adapter validates that shape; concrete trust integration remains behind `ProjectAccessCore`.
-- Confirm the read-only command for resolving a filed request ID and the verified indication that no persons-form access file exists. Keep the lookup behind `filedRevision` and pass access-file presence explicitly to the command adapter; an empty person list is not evidence of absence.
-- Confirm Machines' own-account registration, bundle inputs, SSH service endpoints and sync/status replies for project locks and room removal. Today's sync reply reports laptop changes, not project lock effects; keep those new replies behind fakes until available.
-- Confirm the source of the verified project selection and access address for an admitted admin on a new desktop. Check pending registration and access-delivery recovery, concurrent edits and retries after restart against the exact published revision.
+- Nothing below was run live: every Core and host command was read from Core's `doc/commands.md` and `doc/hosts.md` on its `main` and from porelo-host's `main` (`roles/porelo/files/porelo-host-person`, its sudoers file, `roles/forge/files/porelo-host-project`, `roles/forge/tasks/own.yml`, `doc/local-forge.md`), and is proven only against test stand-ins.
+- The host has no own-account registration a project admin can run without a hand step. Registration on the host is root's `porelo-host-project add <project> <admin> --signed-by <key>` (no sudoers rule for a person), and the forge's organization, teams and room come from the own-account bring (`porelo.host.bring`), which needs a machine file and a stop that fills the vault, and answers Ansible steps rather than the project and access commits. Until porelo-host offers one, *Register the project* ends at the host's `sync`, which refuses in its own words ("project <p> is not registered on this host", or "run bring first") until both were done by hand.
+- The host's `sync` answers whom it `added`, `dropped` and `refused`, not each person's state: Add confirms a person only when this sync added them, so a sync whose answer was lost and that runs again (`unchanged`) cannot confirm the person, and Lock and Let back in cannot be confirmed at all. A read of the project's applied membership on the host is needed from porelo-host.
+- Which head `project verify` takes from a bundle is not written down; the bundles carry exactly the change's commit as both `HEAD` and `main`, as the bring's do.
+- What `project access init` calls an empty repository: the change needs the access repository's head commit as its base, so an access repository with no commit at all is refused with words.
+- Whether `project access add --host --card --role admin` takes an admin already in the access file (Register on a further host, or again).
+- Core serves no project-scoped picker verdict and no lost-key-replacement verdict: the picker offers the registry's trusted cards, and Core refuses a card it does not take when the person is filed.
+- The targeted VM check of Register and Add against Core's and porelo-host's packages.
 
 ## Test
 
@@ -58,8 +62,8 @@ Only the change: tests against a fake Core and the host stand-in. One VM check w
 
 ## Deferred
 
-- The production `ProjectAccessCore` that maps `ProjectAdminStanding` (admin, holds a pinned key, the admins as who may) onto the view, and the sources of `ProjectVerifySource` (project and access copies, pinned keys) and of the registry checkout for `--card`: the adapter is built against Core's verbs, its callers in the app are not yet supplied.
-- A project with no access file yet answers `access_commit: ""`, which the verify reader refuses; `init` therefore relies on host admission and Core's own refusal instead of the admin check.
+- Remove, Lock, Let back in and accepting a new key are listed unavailable in the app ("not connected to Core and the host yet") and Core is never asked for them, since the host's answer cannot confirm them (see *To be checked*).
+- Core's filing commits and pushes in one step, so publication only confirms that the access repository holds the exact filed commit; a filed id is looked up by Core's `Porelo-Change-Id` trailer in the access repository's history, there being no read-only Core verb for it.
 - Automatic central-forge collaborator grants and revocations; central-forge access remains a prerequisite.
 - New list and item pages; the shared project commands and minimal dialog wiring are available for page integration.
 - A filed registration is still held to the project state it names before Core is asked, so a registration Core refused after a project commit is retried rather than superseded.

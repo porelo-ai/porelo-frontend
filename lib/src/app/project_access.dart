@@ -24,6 +24,7 @@ class ProjectAccess implements ProjectPersonActions {
     required this.core,
     required this.transport,
     required this.rememberMachine,
+    this.personChangesUnavailable,
   });
 
   /// The selected project, captured before any callback runs.
@@ -43,6 +44,10 @@ class ProjectAccess implements ProjectPersonActions {
 
   /// The idempotent Machine recording operation shared by registration and Retry.
   final Future<void> Function(Machine machine) rememberMachine;
+
+  /// Why Remove, Lock, Let back in and Accept a new key are not offered, absent where Core and the host take them.
+  @override
+  final String? personChangesUnavailable;
 
   /// The latest verified project, retained for availability and contact words.
   ProjectAccessView? current;
@@ -361,6 +366,7 @@ class ProjectAccess implements ProjectPersonActions {
   @override
   Future<void> change(String selectedProject, AccessDeveloper person, {required bool remove}) async {
     if (selectedProject != project) throw const RegistryRefusal('Choose this project.');
+    if (remove) _connected();
     await _begin(remove ? 'remove' : 'add', person);
   }
 
@@ -394,8 +400,13 @@ class ProjectAccess implements ProjectPersonActions {
 
   @override
   Future<void> lock(String login, {required bool locked, AccessDeveloper? selected}) async {
+    _connected();
     final person = selected ?? current?.access.developers[login];
     await _begin(locked ? 'lock' : 'unlock', person);
+  }
+
+  void _connected() {
+    if (personChangesUnavailable case final why?) throw RegistryRefusal(why);
   }
 
   /// The person's registry card whose key differs from the one this project pins for them, absent otherwise.
@@ -413,6 +424,7 @@ class ProjectAccess implements ProjectPersonActions {
   /// Accepts the person's new registry key in this project's access file, as an admin vouching for it.
   @override
   Future<void> acceptKey(String login, {AccessDeveloper? selected}) async {
+    _connected();
     final person = selected ?? current?.access.developers[login];
     if (person == null) throw const RegistryRefusal('Choose a person in this project.');
     await _begin('replace', person);

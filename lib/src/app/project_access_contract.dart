@@ -17,8 +17,13 @@ typedef AgentKeys = Future<List<String>> Function();
 /// The local project copies and pinned keys Core's `project verify` checks, never a secret.
 class ProjectVerifySource {
   /// Takes the project repository, the keys this machine pins for it and its access repository copy.
-  ProjectVerifySource({required this.repository, required List<String> signedBy, this.accessRepository})
-    : signedBy = List.unmodifiable(signedBy);
+  ProjectVerifySource({
+    required this.repository,
+    required List<String> signedBy,
+    this.accessRepository,
+    this.since,
+    this.accessSince,
+  }) : signedBy = List.unmodifiable(signedBy);
 
   /// The project repository as a local path or bundle.
   final String repository;
@@ -28,6 +33,12 @@ class ProjectVerifySource {
 
   /// The access repository as a local path or bundle, absent for a project naming none.
   final String? accessRepository;
+
+  /// The project commit in force here whose keys [signedBy] are, absent before any was.
+  final String? since;
+
+  /// The access commit in force here, absent before any was.
+  final String? accessSince;
 }
 
 /// Whether a login may change this project's access here, from Core's verified admins and the agent's keys.
@@ -130,6 +141,8 @@ class ProjectAccessCoreAdapter {
   static Future<T> _retryOnFailure<T>(Future<T> Function() read) async {
     try {
       return await read();
+    } on ProjectAccessRetry {
+      rethrow;
     } on WorkspaceRefused {
       throw const ProjectAccessRetry('Core verification is unavailable or refused. Retry.');
     } on FormatException {
@@ -266,6 +279,9 @@ class ProjectAccessCoreAdapter {
     for (final key in source.signedBy) {
       checkedEd25519(key);
     }
+    for (final commit in [source.since, source.accessSince]) {
+      if (commit != null) checkedRegistryRevision(commit);
+    }
     final result = await _run('porelo', [
       'project',
       'verify',
@@ -274,16 +290,27 @@ class ProjectAccessCoreAdapter {
       for (final key in source.signedBy) ...['--signed-by', key],
       '--project',
       project,
+      if (source.since case final since?) ...['--since', since],
       if (source.accessRepository case final access?) ...['--access-repository', access],
+      if (source.accessSince case final since?) ...['--access-since', since],
       '--json',
     ], inDirectory: directory);
+    // Core names why a check failed on its last line; any other failure keeps its diagnostics private.
+    if (result.code == 65) throw ProjectAccessRetry(_coreWords(result.err, 'Core refused project verification.'));
     if (result.code != 0) throw const WorkspaceRefused('Core refused project verification.');
     final value = _object(result.out);
     if (value['project'] != project) throw const FormatException('The verified state names another project.');
     _revision(value['commit']);
-    _revision(value['access_commit']);
     final persons = value['persons'];
     if (persons is! List) throw const FormatException('Core did not return persons-form access.');
+    // Core answers an access commit of "" for a project whose access repository holds no access file yet, with no
+    // persons, admins or certifiers; any other answer names a commit.
+    if (value['access_commit'] != '' ||
+        persons.isNotEmpty ||
+        _strings(value['admins']).isNotEmpty ||
+        _strings(value['certifiers']).isNotEmpty) {
+      _revision(value['access_commit']);
+    }
     final logins = <String>{};
     final admins = <String>[];
     final checkedPersons = <Map<String, Object?>>[];
@@ -332,6 +359,14 @@ class ProjectAccessCoreAdapter {
       'certifiers': _strings(value['certifiers']),
       'signers': signers,
     });
+  }
+
+  /// Core's last line on standard error without its `porelo: ` prefix, or [otherwise] when it said nothing.
+  static String _coreWords(String err, String otherwise) {
+    final lines = const LineSplitter().convert(err).map((line) => line.trim()).where((line) => line.isNotEmpty);
+    if (lines.isEmpty) return otherwise;
+    final last = lines.last;
+    return last.startsWith('porelo: ') ? last.substring('porelo: '.length) : last;
   }
 
   static Map<String, dynamic> _object(String source) {

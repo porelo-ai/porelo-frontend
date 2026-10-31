@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/src/app/access_developers.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
+import 'package:porelo_frontend/src/app/project_access.dart';
 import 'package:porelo_frontend/src/app/project_developers.dart';
+import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
 
 import '../support/host_registry.dart';
@@ -84,6 +86,52 @@ void main() {
     expect(fixture.calls, isEmpty);
     expect(developers.problem, contains('alice@example.org'));
     expect(projectPersonCommands(developers: developers).every((command) => command.unavailable != null), isTrue);
+  });
+
+  // Harm: a removal, lock or new key signed and pushed while nothing delivers it leaves the host granting what the
+  // access file took away.
+  test('person changes not connected yet are listed unavailable and send nothing, even from a kept callback', () async {
+    const why = 'Not connected yet.';
+    final settings = Settings(MemorySettingsStore());
+    final fixture = ProjectAccessFixture();
+    fixture.members['bob'] = AccessDeveloper(login: 'bob', role: 'developer', fingerprint: personFingerprint);
+    fixture.hostPeople['demo']!['bob'] = 'active';
+    fixture.registrySource.selectedFingerprint = 'SHA256:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+    addTearDown(settings.dispose);
+    addTearDown(fixture.registry.dispose);
+    await fixture.registry.refresh();
+    final access = ProjectAccess(
+      project: 'demo',
+      registry: fixture.registry,
+      settings: settings,
+      core: fixture,
+      transport: fixture,
+      rememberMachine: (_) async {},
+      personChangesUnavailable: why,
+    );
+    final developers = ProjectDevelopers(project: 'demo', people: access);
+    addTearDown(developers.dispose);
+    await developers.load();
+    final commands = projectPersonCommands(developers: developers, person: 'bob');
+    final unavailable = {for (final command in commands) command.id: command.unavailable};
+    expect(unavailable['project.addDeveloper'], isNot(why));
+    expect(unavailable['project.removePerson'], why);
+    expect(unavailable['project.lockPerson'], why);
+    expect(unavailable['project.acceptKey'], why);
+    fixture.calls.clear();
+    for (final command in commands) {
+      if (command.id != 'project.addDeveloper' && command.id != 'project.retryAccess') command.run();
+    }
+    await Future<void>.delayed(Duration.zero);
+    for (final change in [
+      access.lock('bob', locked: true),
+      access.change('demo', fixture.members['bob']!, remove: true),
+      access.acceptKey('bob'),
+    ]) {
+      await expectLater(change, throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', why)));
+    }
+    expect(fixture.calls.where((call) => !call.startsWith('read')), isEmpty);
+    expect(fixture.filed, isEmpty);
   });
 
   group('accepting a new key', () {

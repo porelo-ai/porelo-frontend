@@ -1885,6 +1885,7 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
   final superseded = actions?.supersededChangeId;
   final selected = developers.access?.developers[person];
   String? reason({bool selecting = false}) =>
+      (selecting ? actions?.personChangesUnavailable : null) ??
       unavailable ??
       (pending
           ? 'Retry the pending project change first.'
@@ -1907,7 +1908,7 @@ List<Command> projectPersonCommands({required ProjectDevelopers developers, Stri
       (delivery
           ? developers.scoped!.pending
           : !developers.scoped!.pending && developers.access != null && developers.problem == null) &&
-      (!selecting || sameSelection());
+      (!selecting || developers.scoped!.personChangesUnavailable == null && sameSelection());
   return [
     Command(
       id: 'project.addDeveloper',
