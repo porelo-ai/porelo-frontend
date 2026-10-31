@@ -1,6 +1,6 @@
 # F277 — Commits Signed With The Person's Key
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - replace access checkout trust, connect Core's signer policy, and cover existing commit and merge paths as well as registry operations.
 
 **What must be true.** Every commit the interface makes (access file, registry) is signed with the person's key through the SSH agent (`gpg.format ssh`, namespace `git`), never with a key file the interface holds. Verification uses the allowed-signers Core answers for the project (admins' keys, the backup key, admitted persons' keys as `cert-authority` limited to tasks' namespaces and principals, so the task keys they certified are accepted, old keys with `valid-before`), not a list the interface builds.
