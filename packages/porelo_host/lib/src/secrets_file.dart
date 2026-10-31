@@ -1,9 +1,11 @@
+import 'host_file_name.dart' show HostFilesRefused;
+
 /// Validation shared by encrypted-storage references and legacy rental recovery.
 abstract final class SecretsFile {
   /// Refuses unsafe legacy rental identifiers.
   static void checkHost(String host) {
     if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(host) || host == '.' || host == '..') {
-      throw const FormatException('The rental identifier is not valid.');
+      throw const HostFilesRefused('A project name holds only letters, digits, ".", "_" and "-".');
     }
   }
 
@@ -17,7 +19,7 @@ abstract final class SecretsFile {
   /// Refuses unsafe vault entry names.
   static void checkKeyName(String name) {
     if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$').hasMatch(name)) {
-      throw const FormatException('The vault entry name is invalid.');
+      throw const HostFilesRefused('A vault entry name holds only letters, digits, ".", "_" and "-".');
     }
   }
 }

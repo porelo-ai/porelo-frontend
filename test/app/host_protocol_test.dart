@@ -16,6 +16,7 @@ import 'package:porelo_host/porelo_host.dart';
 
 import '../features/support/world.dart';
 import '../support/host_process.dart';
+import '../support/host_registry.dart';
 
 const _record = HostUpRecord(scalewayProject: 'provider', hostName: 'demo', publicKey: '/keys/person.pub');
 
@@ -30,7 +31,14 @@ void main() {
     store = FileSettingsStore(file: File('${scratch.path}/settings.json'));
     settings = Settings(store);
     machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-    runs = HostRuns(machines, environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path});
+    final fixture = RegistryFixture();
+    final access = await fixture.access(settings);
+    addTearDown(fixture.registry.dispose);
+    runs = HostRuns(
+      machines,
+      environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      hostAccess: access,
+    );
   });
   tearDown(() async {
     runs.dispose();
@@ -73,10 +81,14 @@ void main() {
     await reopened.load();
     final fleet = Machines(reopened, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
     final next = HostProcess();
+    final restoredFixture = RegistryFixture();
+    final restoredAccess = await restoredFixture.access(reopened);
+    addTearDown(restoredFixture.registry.dispose);
     final restored = _RestoredRuns(
       fleet,
       (_, _) async => next,
       environment: {'XDG_STATE_HOME': scratch.path, 'LOCALAPPDATA': scratch.path},
+      hostAccess: restoredAccess,
     );
     addTearDown(() {
       restored.dispose();
@@ -229,7 +241,10 @@ void main() {
   test('protocol write failure keeps recovery and refuses leaving', () async {
     final failing = Settings(_RefusingProtocolStore());
     final fleet = Machines(failing, reach: (_) => FakeBackend(const []), tunnels: FakeTunnels());
-    final preparing = HostRuns(fleet);
+    final fixture = RegistryFixture();
+    final access = await fixture.access(failing);
+    addTearDown(fixture.registry.dispose);
+    final preparing = HostRuns(fleet, hostAccess: access);
     addTearDown(() {
       preparing.dispose();
       fleet.dispose();
@@ -354,7 +369,7 @@ void main() {
 }
 
 class _RestoredRuns extends HostRuns {
-  _RestoredRuns(super.machines, this.startCommand, {super.environment});
+  _RestoredRuns(super.machines, this.startCommand, {super.environment, super.hostAccess});
   final StartHostCommand startCommand;
   @override
   HostSession sessionFor(String project, HostUpRecord record) => HostSession(
