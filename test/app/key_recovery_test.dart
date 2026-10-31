@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/host_access_contract.dart';
@@ -17,6 +18,9 @@ const _revision = '2222222222222222222222222222222222222222';
 const _other = '3333333333333333333333333333333333333333';
 const _checkout = '/private/registry/checkout';
 const _backupFile = '/media/usb/porelo-backup';
+
+// Built as the code builds it, so the expected arguments hold on Windows too.
+final _bobCard = path.join(_checkout, 'people', 'bob.card');
 
 /// An Ed25519 public key whose 32 key bytes are all [byte], shaped as OpenSSH writes it.
 String _key(int byte) =>
@@ -513,7 +517,7 @@ void main() {
         '--use',
         backupFile,
         '--card',
-        '$_checkout/people/bob.card',
+        _bobCard,
         '--base',
         _base,
         '--id',
@@ -722,7 +726,7 @@ void main() {
             oldFingerprint: _old,
             newFingerprint: _new,
             newKey: _newKey,
-            card: '$_checkout/people/bob.card',
+            card: _bobCard,
             base: _base,
             hosts: const ['walk1'],
             stolen: stolen,
@@ -995,7 +999,7 @@ void main() {
         '--person',
         'bob',
         '--card',
-        '$_checkout/people/bob.card',
+        _bobCard,
         '--base',
         _base,
       ]);
@@ -1036,7 +1040,7 @@ void main() {
         core: CliKeyRecoveryCore(
           actor: () => HostAdminIdentity(actor, actor == 'alice' ? _admin : _new),
           registry: registry,
-          readFile: (file) async => file == '$_checkout/owners.yml' ? _owners : '',
+          readFile: (file) async => file == path.join(_checkout, 'owners.yml') ? _owners : '',
         ),
         hosts: _Hosts(),
         receipts: _Kept().receipts,
