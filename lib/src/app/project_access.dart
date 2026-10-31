@@ -190,7 +190,10 @@ class ProjectAccess implements ProjectPersonActions {
       await _supersede(receipt, _SupersessionReason.hostReturned);
     }
     var view = await _read();
-    if (filed && !_matches(receipt!.change, view, recording: delivered)) {
+    // A filed person change is judged by Core before the view, as what moved since may be the very reason Core refused
+    // it; a registration stays bound to the project state the person approved, and is held to it first.
+    final person = receipt?.change.action != 'register';
+    if (filed && (delivered || expected != null || !person) && !_matches(receipt!.change, view, recording: delivered)) {
       throw RegistryRefusal(
         'The pending project selection differs from the verified state. Retry.',
         whoMay: _contacts(view),
@@ -212,7 +215,14 @@ class ProjectAccess implements ProjectPersonActions {
         throw const RegistryRefusal('Core did not authorize the filed project access revision. Retry.');
       }
     }
-    await _checkView(view, receipt: receipt, delivery: filed);
+    // Core authorized this exact person change, so the project commits since do not undo it; a registration stays
+    // bound to the project state it names.
+    await _checkView(
+      view,
+      receipt: receipt,
+      delivery: filed,
+      authorized: filed && receipt!.change.action != 'register',
+    );
     if (expected != null) {
       if (receipt != null) _checkRegistrationChange(expected, receipt.change);
       _checkRegistration(expected, view, delivery: filed, delivered: delivered);
@@ -220,10 +230,15 @@ class ProjectAccess implements ProjectPersonActions {
     return view;
   }
 
-  Future<void> _checkView(ProjectAccessView view, {ProjectAccessProgress? receipt, required bool delivery}) async {
+  Future<void> _checkView(
+    ProjectAccessView view, {
+    ProjectAccessProgress? receipt,
+    required bool delivery,
+    bool authorized = false,
+  }) async {
     if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     final change = receipt?.change;
-    final recording = receipt?.state == ProjectAccessState.delivered;
+    final recording = authorized || receipt?.state == ProjectAccessState.delivered;
     if (change != null) {
       if (!_matches(change, view, recording: recording) ||
           !recording && view.accessRevision != change.baseRevision && view.accessRevision != receipt!.revision) {

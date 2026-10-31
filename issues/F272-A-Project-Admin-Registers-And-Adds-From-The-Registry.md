@@ -59,3 +59,6 @@ Only the change: tests against a fake Core and the host stand-in. One VM check w
 
 - Automatic central-forge collaborator grants and revocations; central-forge access remains a prerequisite.
 - New list and item pages; the shared project commands and minimal dialog wiring are available for page integration.
+- A delivered change whose server was given back before its local recording stays refused as "given back" on every Retry; what it does instead (forget its recording, or keep it for another host) is the operator's to decide.
+- A filed registration is still held to the project state it names before Core is asked, so a registration Core refused after a project commit is retried rather than superseded.
+- The Core adapter's filing maps only its conflict to a typed answer; another filing failure leaves an unfiled receipt that files again with the same request ID.

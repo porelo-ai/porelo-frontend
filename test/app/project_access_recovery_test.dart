@@ -468,6 +468,30 @@ void main() {
     }
   }
 
+  // Harm: a filed person change whose project moved on is retried forever, though Core refused or authorized it.
+  for (final verdict in ['refused', 'authorized']) {
+    test('a filed person change Core $verdict after the project advanced is judged by Core, not the view', () async {
+      final access = await fixture.access(settings);
+      await access.register();
+      fixture.fail = 'publish';
+      await expectLater(access.change('demo', bob, remove: false), throwsFormatException);
+      fixture.fail = null;
+      final receipt = settings.projectAccess('demo')!;
+      expect(receipt.state, ProjectAccessState.filed);
+      fixture.verifiedRevision = 'c' * 40;
+      if (verdict == 'refused') {
+        fixture.deliveryVerdict = ProjectAccessRevisionRefused(receipt.change.id, receipt.revision!);
+        await expectLater(access.retry(), throwsA(isA<RegistryRefusal>()));
+        expect(settings.projectAccess('demo')!.state, ProjectAccessState.superseded);
+      } else {
+        await access.retry();
+        expect(settings.projectAccess('demo')!.confirmed, isTrue);
+        expect(settings.projectAccess('demo')!.change.id, receipt.change.id);
+      }
+      expect(fixture.filed, hasLength(2));
+    });
+  }
+
   // Harm: migration must retain both uncertain IDs and exact signed or confirmed revisions.
   test('legacy receipts retain their lifecycle and reject impossible new states', () async {
     final access = await fixture.access(settings);
