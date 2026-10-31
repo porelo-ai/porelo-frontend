@@ -96,6 +96,30 @@ class RegistryCheckout {
     _filingBase = await _revision();
   }
 
+  /// Checks the checkout before Core files again under a request whose answer was lost, which may have made its commit.
+  ///
+  /// Beside a checkout with nothing unpublished, accepts exactly one commit on [base] that changes only [file], to
+  /// [content]: the one that request made. Any other unpublished commit is refused as [prepareFiling] refuses it.
+  Future<void> prepareRetry({required String base, required String file, required String content}) async {
+    _filingBase = null;
+    if (!RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(base)) {
+      throw const WorkspaceRefused('Core did not name a valid registry commit.');
+    }
+    await _checkClean();
+    final branch = await _defaultBranch();
+    if (await _madeUnder(base: base, file: file, content: content)) return;
+    await _checkNothingUnpublished(branch);
+  }
+
+  /// Whether the checkout is one commit on [base] that changes only [file], to [content].
+  Future<bool> _madeUnder({required String base, required String file, required String content}) async {
+    final parents = (await _git(['rev-list', '--parents', '-n', '1', 'HEAD'])).out.trim().split(RegExp(r'\s+'));
+    if (parents.length != 2 || parents[1] != base) return false;
+    final changed = (await _git(['diff', '--name-only', '--no-renames', base, 'HEAD'])).out.trim();
+    if (changed != file) return false;
+    return (await _git(['show', 'HEAD:$file'])).out == content;
+  }
+
   /// Publishes only [revision], Core's single new commit above the base checked by [prepareFiling].
   Future<void> publish(String revision) async {
     final branch = _branch;

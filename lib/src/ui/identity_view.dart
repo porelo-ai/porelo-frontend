@@ -193,13 +193,13 @@ class _IdentityDialogState extends State<IdentityDialog> {
   // A backup key made here and not pushed is no longer listed as missing, yet is still owed its push.
   List<RecoveryScope> get _keptBackups => widget.recovery?.keptBackups ?? const <RecoveryScope>[];
 
-  // A kept backup key whose answer was lost may be dropped on the person's word; a made commit is only ever pushed.
-  List<RecoveryScope> get _forgettableBackups => [
-    if (widget.recovery case final entry?)
-      for (final scope in _keptBackups)
-        if (BackupKeyMaking(scope: scope, base: null, core: entry.core, receipts: entry.receipts).unpublished == null)
-          scope,
-  ];
+  // While a backup key is being made, from its file's place to its terminal's end, nothing drops or repeats it.
+  bool get _backupRunning => switch (widget.recovery) {
+    final entry? => BackupKeyMaking.anyRunning(entry.receipts),
+    null => false,
+  };
+
+  static const _backupRunningWords = 'A backup key is being made; wait until its terminal has ended.';
 
   List<Command> _commands(IdentityCard? card) => [
     Command(
@@ -224,6 +224,7 @@ class _IdentityDialogState extends State<IdentityDialog> {
       group: 'My key',
       home: Home.openedView,
       unavailable: switch (card?.soleWithoutBackup) {
+        _ when _backupRunning => _backupRunningWords,
         _ when _keptBackups.isNotEmpty => _model.whyNotChange,
         null => backupKeyRefusal,
         _ when widget.recovery == null => keyRecoveryNotConnected,
@@ -234,12 +235,14 @@ class _IdentityDialogState extends State<IdentityDialog> {
         _keptBackups.isEmpty ? _makeBackup(card?.soleWithoutBackup ?? const []) : _finishBackup(_keptBackups),
       ),
     ),
-    if (_forgettableBackups case final kept when kept.isNotEmpty)
+    // A kept backup key may be dropped on the person's word; a made commit only once its confirmation named it.
+    if (_keptBackups case final kept when kept.isNotEmpty)
       Command(
         id: 'identity.forgetBackup',
         label: 'Forget this attempt…',
         group: 'My key',
         home: Home.openedView,
+        unavailable: _backupRunning ? _backupRunningWords : null,
         run: () => unawaited(_forgetBackup(kept)),
       ),
   ];
@@ -264,14 +267,23 @@ class _IdentityDialogState extends State<IdentityDialog> {
     if (entry == null || kept.isEmpty || _model.whyNotChange != null) return;
     final chosen = await _chooseKept(kept, 'Push the backup key of which list?');
     if (chosen == null || !mounted) return;
-    await makeBackupKey(context, entry: entry, scope: chosen, open: widget.open, chooseNewFile: widget.chooseNewFile);
+    await _whileMaking(
+      makeBackupKey(context, entry: entry, scope: chosen, open: widget.open, chooseNewFile: widget.chooseNewFile),
+    );
+  }
+
+  /// Shows [making] as running until it ended, then reads the card again.
+  Future<void> _whileMaking(Future<Object?> making) async {
+    setState(() {});
+    await making;
+    if (mounted) setState(() {});
     await _model.load();
   }
 
-  /// Drops a kept backup-key request whose answer was lost, once the person read what may be made under it.
+  /// Drops a kept backup-key request once the person read what may be made under it, or which made commit stays.
   Future<void> _forgetBackup(List<RecoveryScope> kept) async {
     final entry = widget.recovery;
-    if (entry == null || kept.isEmpty) return;
+    if (entry == null || kept.isEmpty || _backupRunning) return;
     final chosen = await _chooseKept(kept, 'Forget the backup key attempt of which list?');
     if (chosen == null || !mounted) return;
     await forgetBackupKeyAttempt(context, entry: entry, scope: chosen);
@@ -300,14 +312,15 @@ class _IdentityDialogState extends State<IdentityDialog> {
             ),
           );
     if (chosen == null || !mounted) return;
-    await makeBackupKey(
-      context,
-      entry: entry,
-      scope: scopeOf(chosen),
-      open: widget.open,
-      chooseNewFile: widget.chooseNewFile,
+    await _whileMaking(
+      makeBackupKey(
+        context,
+        entry: entry,
+        scope: scopeOf(chosen),
+        open: widget.open,
+        chooseNewFile: widget.chooseNewFile,
+      ),
     );
-    await _model.load();
   }
 
   @override

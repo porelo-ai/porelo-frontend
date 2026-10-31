@@ -5,6 +5,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 
@@ -263,6 +264,56 @@ void main() {
         await expectLater(pushed, throwsA(isA<WorkspaceRefused>()));
         expect(await centralRevision(), base, reason: 'unreviewed work must never reach the central repository');
       }
+    });
+  }
+
+  // Harm: a filing whose answer was lost never retried under its request, because the checkout refuses the commit that
+  // request made; or a retry passing anyone else's unpublished work, or a fresh filing passing that commit.
+  for (final held in ['nothing', 'its own commit', 'other content', 'another file too', 'a commit before it', 'two']) {
+    test('a retry accepts only the commit its own request made, holding $held', () async {
+      final first = checkout();
+      final base = await first.fetch();
+      const content = 'owners: [alice, bob]\n';
+      Future<void> commit(Map<String, String> files) async {
+        for (final MapEntry(:key, :value) in files.entries) {
+          File(path.join(first.folder, key)).writeAsStringSync(value);
+          await run(['add', key], first.folder);
+        }
+        await run([
+          '-c',
+          'user.name=Core',
+          '-c',
+          'user.email=core@example.invalid',
+          'commit',
+          '-qm',
+          'filed',
+        ], first.folder);
+      }
+
+      if (held == 'a commit before it') await commit({'unreviewed.card': 'x\n'});
+      if (held != 'nothing') {
+        await commit({
+          'owners.yml': held == 'other content' ? 'owners: [mallory]\n' : content,
+          if (held == 'another file too') 'unreviewed.card': 'x\n',
+        });
+      }
+      if (held == 'two') await commit({'unreviewed.card': 'x\n'});
+      // As after a restart: nothing fetched in this run.
+      final retry = checkout().prepareRetry(base: base, file: 'owners.yml', content: content);
+
+      if (held == 'nothing' || held == 'its own commit') {
+        await retry;
+      } else {
+        await expectLater(retry, throwsA(isA<WorkspaceRefused>()));
+      }
+      if (held != 'nothing') {
+        await expectLater(
+          first.prepareFiling(),
+          throwsA(isA<WorkspaceRefused>()),
+          reason: 'a fresh filing passes none',
+        );
+      }
+      expect(await centralRevision(), base);
     });
   }
 

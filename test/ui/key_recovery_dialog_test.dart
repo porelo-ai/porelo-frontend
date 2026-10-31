@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/host_access.dart';
 import 'package:porelo_frontend/src/app/key_recovery.dart';
@@ -54,7 +55,10 @@ class _Core implements KeyRecoveryCore {
   }
 
   @override
-  Future<RecoveryFiled> replace(RecoveryReview review, String id) async {
+  Future<String?> fileFor(RecoveryReview review) async => null;
+
+  @override
+  Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) async {
     calls.add('replace');
     return const RecoveryFiled(revision: _revision, published: true);
   }
@@ -139,9 +143,12 @@ Map<String, Object?> _keptReplacement(RecoveryScope scope, {String? revision}) =
 };
 
 /// A terminal that runs nothing: it records the command and ends when the test says.
+///
+/// With [outlives], its program does not end when it is closed, but when the test completes that.
 class _Channel implements SessionChannel {
   final _output = StreamController<List<int>>.broadcast();
   final _ended = Completer<int>();
+  Completer<int>? outlives;
 
   void end(int code, String last) {
     _output.add(utf8.encode('$last\r\n'));
@@ -162,6 +169,7 @@ class _Channel implements SessionChannel {
 
   @override
   Future<void> close() async {
+    if (outlives case final program?) throw TerminalStillRunning(program.future, closeBound);
     if (!_ended.isCompleted) _ended.complete(-1);
   }
 }
@@ -195,6 +203,7 @@ void main() {
     _Entry entry, {
     required RecoverySituation situation,
     PickAFileStandIn? pick,
+    Completer<String?>? picking,
     ChooseNewFile? choose,
     List<String?>? folders,
   }) async {
@@ -215,7 +224,8 @@ void main() {
             open: open,
             pickAFile: ({String? initialDirectory, String? title}) async {
               folders?.add(initialDirectory);
-              return pick?.call();
+              final answer = pick?.call();
+              return picking == null ? answer : await picking.future;
             },
             chooseNewFile: choose ?? ({String? title}) async => null,
           ),
@@ -286,8 +296,12 @@ void main() {
     // Real file work runs outside the test's fake time, which would never complete it.
     final folder = (await tester.runAsync(() => Directory.systemTemp.createTemp('backup-')))!;
     addTearDown(() => folder.deleteSync(recursive: true));
-    final file = '${folder.path}/porelo-backup';
-    await tester.runAsync(() => File(file).writeAsString('SECRET-BACKUP-KEY'));
+    final file = path.join(folder.path, 'porelo-backup');
+    // A real backup file this program cannot read: any read of it here fails the attempt.
+    await tester.runAsync(() async {
+      await File(file).writeAsString('SECRET-BACKUP-KEY');
+      await Process.run('chmod', ['000', file]);
+    });
     final picked = <String?>[file, null];
     final folders = <String?>[];
     var picks = 0;
@@ -348,6 +362,24 @@ void main() {
 
     expect((services.core as _Core).calls, ['publish $_revision $_base']);
     expect(find.textContaining('Commit $_revision, pushed'), findsOneWidget);
+  });
+
+  // Harm: a registry replacement's commit whose push fails for good locking its list for good; or dropped without the
+  // person told which commit stays in the registry checkout.
+  testWidgets('a made registry replacement is forgotten only through a confirmation naming its commit', (tester) async {
+    await receipts.keep('owner', _keptReplacement(const RecoveryScope.owner(), revision: _revision));
+    final services = _services(receipts);
+    await openWith(tester, (context) => showRegistryKeyRecovery(context, entry: services));
+    await tester.tap(find.byKey(const ValueKey('recovery-scope owner null')));
+    await settle(tester);
+
+    await tap(tester, 'keyRecovery.forget');
+    expect(find.textContaining('commit $_revision'), findsWidgets);
+    expect(find.textContaining('leaves that commit in the registry checkout'), findsOneWidget);
+    await tap(tester, 'forget-attempt-confirm');
+
+    expect(settings.keyRecoveryKeys, isEmpty);
+    expect((services.core as _Core).calls, isEmpty, reason: 'nothing is pushed');
   });
 
   // Harm: a kept request whose answer was lost unreachable from the project's dialog, or stuck there for good with
@@ -414,6 +446,121 @@ void main() {
     await tap(tester, 'unlock-done');
     expect(find.textContaining('Not yet.'), findsOneWidget, reason: 'Core’s own words');
     expect(settings.keyRecoveryKeys, isNot(contains('backup-make/project/demo')), reason: 'nothing is kept');
+  });
+
+  // Harm: a new backup key made on a list known only from a kept request's record because a base was handed in, as
+  // after a project replacement, without a clean read.
+  testWidgets('a new backup key is never made on a list known only from a kept request, base or not', (tester) async {
+    await receipts.keep('project/demo', _keptReplacement(const RecoveryScope.project('demo'), revision: _revision));
+    final services = _services(receipts);
+    await openWith(
+      tester,
+      (context) => makeBackupKey(
+        context,
+        entry: services,
+        scope: const RecoveryScope.project('demo'),
+        base: _revision,
+        open: open,
+        chooseNewFile: ({String? title}) async => '/media/usb/bk',
+      ),
+    );
+
+    expect(opened, isEmpty);
+    expect(find.text('Refresh the registry before making a backup key.'), findsOneWidget);
+    expect(settings.keyRecoveryKeys, ['project/demo']);
+  });
+
+  // Harm: a retry that took the file an earlier attempt wrote telling the person the key is in the file they chose,
+  // so they keep the wrong one and lose the backup key.
+  testWidgets('a backup key made by an earlier attempt says the file it is in', (tester) async {
+    final written = path.join('media', 'usb', 'bk1');
+    final chosen = path.join('media', 'usb', 'bk2');
+    await receipts.keep('backup-make/owner', {
+      'scope': const RecoveryScope.owner().stored,
+      'id': 'bk-0011',
+      'base': _base,
+      'uncertain': true,
+    });
+    final entry = _Entry(receipts, refused: const RegistryRefusal('Refresh the registry before replacing a key.'));
+    await openWith(
+      tester,
+      (context) => makeBackupKey(
+        context,
+        entry: entry,
+        scope: const RecoveryScope.owner(),
+        open: open,
+        chooseNewFile: ({String? title}) async => chosen,
+      ),
+    );
+
+    expect(opened.single, containsAllInOrder(['--out', chosen, '--id', 'bk-0011']));
+    channel.end(
+      0,
+      jsonEncode({
+        'id': 'bk-0011',
+        'scope': {'kind': 'registry', 'name': null},
+        'fingerprint': 'SHA256:B',
+        'file': written,
+        'revision': _revision,
+        'pushed': false,
+      }),
+    );
+    await settle(tester);
+    await tap(tester, 'unlock-done');
+
+    expect(entry.core.calls, ['publish $_revision $_base']);
+    expect(find.textContaining('Its file is $written'), findsOneWidget);
+  });
+
+  // Harm: two pickers for the backup file opening two terminals that run Core at once under one request.
+  testWidgets('a second Use the backup key while its file is asked opens nothing more', (tester) async {
+    final picked = Completer<String?>();
+    var picks = 0;
+    await pump(
+      tester,
+      _Entry(receipts),
+      situation: _situation(backup: true),
+      picking: picked,
+      pick: () {
+        picks++;
+        return null;
+      },
+    );
+    await tap(tester, 'keyRecovery.reviewBackup');
+
+    await tap(tester, 'keyRecovery.replace');
+    await tap(tester, 'keyRecovery.replace');
+    expect(picks, 1);
+    picked.complete(null);
+    await settle(tester);
+    expect(opened, isEmpty);
+  });
+
+  // Harm: the backup key's terminal put away while Core still runs in it, and Forget or Retry going ahead meanwhile,
+  // dropping or repeating a request Core may still commit under.
+  testWidgets('a terminal whose program outlives its close holds Forget and Retry until it ended', (tester) async {
+    final recovery = await pump(
+      tester,
+      _Entry(receipts),
+      situation: _situation(backup: true),
+      pick: () => '/media/usb/porelo-backup',
+    );
+    final program = channel.outlives = Completer<int>();
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    expect(opened, hasLength(1));
+    await tap(tester, 'unlock-cancel');
+    await tap(tester, 'unlock-cancel-yes');
+
+    expect(pressable(tester, 'keyRecovery.forget'), isNull);
+    expect(pressable(tester, 'keyRecovery.retry'), isNull);
+    program.complete(0);
+    await settle(tester);
+
+    expect(pressable(tester, 'keyRecovery.forget'), isNotNull);
+    expect(pressable(tester, 'keyRecovery.retry'), isNotNull);
+    expect(recovery.requestId, isNotNull, reason: 'its answer was never read');
+    expect(settings.keyRecoveryKeys, ['project/demo']);
   });
 
   // Harm: a backup key's commit made and not pushed that no one can push, because the list's read refuses on it.

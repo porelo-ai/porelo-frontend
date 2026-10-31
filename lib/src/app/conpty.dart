@@ -4,6 +4,8 @@ import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'pty.dart';
 
 /// A Windows pseudoconsole, opened and driven with `dart:ffi` against `kernel32`: the terminal of
@@ -181,14 +183,26 @@ class ConPty implements SessionChannel {
     if (!_console.closed) _Kernel32().resizePseudoConsole(_console.handle, _coord(columns, rows));
   }
 
+  Future<void>? _closing;
+
+  /// Ends the program from this side and waits for it to end, as [Pty] does; past the bound it is still running.
   @override
-  Future<void> close() async {
-    if (_shut) return;
+  Future<void> close() => _closing ??= letGoAndWait(() {
     _shut = true;
     final k = _Kernel32();
     k.closeHandle(_input);
     // Ends `wsl.exe` or `ssh.exe` as a closing console window would; the reader then sees the end.
     _console.close();
+  }, _ended);
+
+  /// Lets go of a program's console with [letGo], then waits for it to have [ended] within [bound].
+  ///
+  /// Throws a [TerminalStillRunning] past it: a console closed is not a program ended, and what it does meanwhile
+  /// still happens.
+  @visibleForTesting
+  static Future<void> letGoAndWait(void Function() letGo, Future<int> ended, {Duration bound = closeBound}) async {
+    letGo();
+    await endedAfterClose(ended, ended, bound: bound);
   }
 
   /// Reads the output on one isolate and waits for the program on another.

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../app/commands.dart';
 import '../app/key_recovery.dart';
 import '../app/machines.dart';
+import '../app/pty.dart' show TerminalStillRunning;
 import '../app/registry.dart' show RegistryRefusal;
 import '../app/run_here.dart' show WorkspaceRefused;
 import '../app/session.dart';
@@ -93,7 +94,11 @@ Future<void> showRegistryKeyRecovery(
 /// and it is never kept; the key and its passphrase never pass through this program.
 ///
 /// A kept request needs no fresh read of the list, whose own unpushed commit may be what keeps that read from passing;
-/// [base], when given, is the commit this program just made in force, which a list read earlier does not show yet.
+/// a new one does. [base], when given, is the commit this program just made in force, which a list read earlier does
+/// not show yet.
+///
+/// The attempt counts as running from asking where the file goes until its terminal's program ended, so nothing drops
+/// its request meanwhile and no second one starts.
 Future<BackupKeyMade?> makeBackupKey(
   BuildContext context, {
   required KeyRecoveryEntry entry,
@@ -102,25 +107,45 @@ Future<BackupKeyMade?> makeBackupKey(
   OpenTerminal? open,
   ChooseNewFile chooseNewFile = chooseWithTheDesktop,
 }) async {
-  var making = BackupKeyMaking(scope: scope, base: base, core: entry.core, receipts: entry.receipts);
-  if (!making.pending && base == null) {
+  final making = BackupKeyMaking(scope: scope, base: base, core: entry.core, receipts: entry.receipts);
+  final BackupKeyMade? made;
+  final String? words;
+  try {
+    (made, words) = await making.attempt(
+      () => _makeBackupKey(context, entry: entry, making: making, base: base, open: open, chooseNewFile: chooseNewFile),
+    );
+  } on RegistryRefusal catch (refused) {
+    if (context.mounted) await _say(context, 'Make a backup key', refused.toString());
+    return null;
+  }
+  if (words != null && context.mounted) {
+    await _say(context, made == null ? 'Make a backup key' : 'Backup key made', words);
+  }
+  return made;
+}
+
+/// One attempt of [makeBackupKey]: what Core made, and the words to say, or none when the person put it away.
+Future<(BackupKeyMade?, String?)> _makeBackupKey(
+  BuildContext context, {
+  required KeyRecoveryEntry entry,
+  required BackupKeyMaking making,
+  required String? base,
+  required OpenTerminal? open,
+  required ChooseNewFile chooseNewFile,
+}) async {
+  final scope = making.scope;
+  if (!making.pending) {
     final RecoverySituation situation;
     try {
       situation = await entry.situation(scope);
     } on RegistryRefusal catch (refused) {
-      if (context.mounted) await _say(context, 'Make a backup key', refused.toString());
-      return null;
+      return (null, refused.toString());
     }
-    // A list known only from a kept replacement's record is no read to make a new key on.
-    if (situation.resumeOnly) {
-      if (context.mounted) await _say(context, 'Make a backup key', 'Refresh the registry before making a backup key.');
-      return null;
-    }
-    final read = situation.base;
-    if (read == null) {
-      if (context.mounted) await _say(context, 'Make a backup key', 'The commit in force is not read. Read it again.');
-      return null;
-    }
+    // A list known only from a kept replacement's record is no read to make a new key on, whatever base is given.
+    if (situation.resumeOnly) return (null, 'Refresh the registry before making a backup key.');
+    // A backup key touches only its own entry, so it is made on the newest commit made here.
+    final read = base ?? situation.madeHere ?? situation.base;
+    if (read == null) return (null, 'The commit in force is not read. Read it again.');
     making = BackupKeyMaking(scope: scope, base: read, core: entry.core, receipts: entry.receipts);
   }
   String words;
@@ -134,9 +159,9 @@ Future<BackupKeyMade?> makeBackupKey(
       final out = await chooseNewFile(
         title: making.pending ? 'Choose the same file again' : 'Make the backup key here',
       );
-      if (out == null || !context.mounted) return null;
+      if (out == null || !context.mounted) return (null, null);
       final command = await making.start(out);
-      if (!context.mounted) return null;
+      if (!context.mounted) return (null, null);
       var code = -1;
       var last = '';
       await runInATerminal(
@@ -172,9 +197,15 @@ Future<BackupKeyMade?> makeBackupKey(
     words = '${refused.words} Make a backup key again to push it; nothing else is filed into the registry until then.';
   } on FormatException catch (error) {
     words = error.message;
+  } on TerminalStillRunning catch (still) {
+    // Core may still write the key and commit it: the attempt runs until its program has ended.
+    await still.ended.then<void>((_) {}, onError: (Object _) {});
+    words =
+        'The terminal was put away while Core still ran in it, and its answer was not read. Core may have made the '
+        'backup key, so its request is kept: make a backup key again, into the same file, to finish it under the same '
+        'request.';
   }
-  if (context.mounted) await _say(context, made == null ? 'Make a backup key' : 'Backup key made', words);
-  return made;
+  return (made, words);
 }
 
 /// Asks whether a kept request whose answer was lost is dropped, after [words] said what may be committed under it.
@@ -205,7 +236,17 @@ Future<void> forgetBackupKeyAttempt(
 }) async {
   final making = BackupKeyMaking(scope: scope, base: null, core: entry.core, receipts: entry.receipts);
   final id = making.requestId;
-  if (id == null || making.unpublished != null) return;
+  if (id == null || making.running) return;
+  if (making.unpublished case final made?) {
+    final sure = await _confirmForget(
+      context,
+      'The backup key for ${scope.words} is made and filed in commit $made, which is not pushed. Forgetting it here '
+      'leaves that commit in the registry checkout, which refuses every other registry change until you push it or '
+      'drop it there with your own Git. Its file stays where Core wrote it.',
+    );
+    if (sure) await making.forget(made: made);
+    return;
+  }
   final where = scope.inRegistry ? 'committed in the registry checkout, perhaps not pushed' : 'filed and pushed';
   final sure = await _confirmForget(
     context,
@@ -265,6 +306,8 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
   String? _login;
   bool _stolen = false;
   bool _toldInPerson = false;
+  // Whether the backup file is being asked for: a second picker would start a second terminal.
+  bool _picking = false;
 
   @override
   void initState() {
@@ -276,25 +319,36 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
 
   /// Opens the backup key's terminal for the reviewed and confirmed replacement, or for its Retry.
   Future<void> _useBackup() async {
-    if (_recovery.whyNotBackup(toldInPerson: _toldInPerson) != null) return;
-    final file = await widget.pickAFile(title: 'Use this backup key');
+    if (_picking || _recovery.whyNotBackup(toldInPerson: _toldInPerson) != null) return;
+    final String? file;
+    _picking = true;
+    try {
+      file = await widget.pickAFile(title: 'Use this backup key');
+    } finally {
+      _picking = false;
+    }
     if (file == null || !mounted) return;
     final command = await _recovery.startBackup(file, toldInPerson: _toldInPerson);
     if (command == null || !mounted) return;
     var code = -1;
     var last = '';
-    await runInATerminal(
-      context,
-      title: 'Use the backup key',
-      explanation:
-          'Porelo reads the backup file once and asks its passphrase in this terminal. Neither passes through this '
-          'program, and nothing here keeps the file’s place.',
-      machine: Machine.local(),
-      command: command,
-      open: widget.open,
-      onExit: (exit) => code = exit,
-      lastLine: (line) => last = line,
-    );
+    try {
+      await runInATerminal(
+        context,
+        title: 'Use the backup key',
+        explanation:
+            'Porelo reads the backup file once and asks its passphrase in this terminal. Neither passes through this '
+            'program, and nothing here keeps the file’s place.',
+        machine: Machine.local(),
+        command: command,
+        open: widget.open,
+        onExit: (exit) => code = exit,
+        lastLine: (line) => last = line,
+      );
+    } on TerminalStillRunning catch (still) {
+      await _recovery.backupOutlived(still.ended);
+      return;
+    }
     await _recovery.backupEnded(code: code, lastLine: last);
   }
 
@@ -302,7 +356,18 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
   Future<void> _forgetAttempt() async {
     final reviewed = _recovery.review;
     final id = _recovery.requestId;
-    if (reviewed == null || id == null || _recovery.whyNotForget != null) return;
+    if (reviewed == null || _recovery.whyNotForget != null) return;
+    if (_recovery.filed case RecoveryFiled(:final revision, published: false)) {
+      final sure = await _confirmForget(
+        context,
+        'The replacement of ${reviewed.login}’s key in ${reviewed.scope.words} is made in commit $revision, which is '
+        'not pushed. Forgetting it here leaves that commit in the registry checkout, which refuses every other registry '
+        'change until you push it or drop it there with your own Git.',
+      );
+      if (sure && mounted) await _recovery.forget(made: revision);
+      return;
+    }
+    if (id == null) return;
     final where = reviewed.scope.inRegistry
         ? 'in the registry checkout, perhaps not pushed: git log there shows it'
         : 'and pushed: the history of the project’s access repository shows it';
@@ -396,7 +461,7 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
                 for (final command in commands)
                   if (switch (command.id) {
                     'keyRecovery.makeBackup' => _recovery.replaced,
-                    'keyRecovery.forget' => _recovery.requestId != null,
+                    'keyRecovery.forget' => _recovery.requestId != null || _recovery.filed?.published == false,
                     _ => true,
                   })
                     _CommandButton(command),

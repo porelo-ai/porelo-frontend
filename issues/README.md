@@ -25,6 +25,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f283"></a>[F283](F283-A-Recovery-Request-Never-Locked-Lost-Or-Misfiled.md) | — | — | A kept key replacement or backup key always finishable or droppable, never dropped while made or running, never filed unread or on a stale base. |
 | <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
 | <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
@@ -93,7 +94,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f283"></a>[F283](F283-A-Recovery-Request-Never-Locked-Lost-Or-Misfiled.md) | — | — | A kept key replacement or backup key always finishable or droppable, never dropped while made or running, never filed unread or on a stale base. |
 | <a id="f282"></a>[F282](F282-The-Providers-Usage-In-A-Status-Line.md) | — | — | A status line with one traffic light for the providers' usage, a popup per provider, and a *Needs you* warning past a set threshold. |
 | <a id="f281"></a>[F281](F281-A-Kept-Recovery-Commit-Finished-Not-Made-Again.md) | — | — | A key replacement or backup key committed but not pushed finished under the same request, never made twice; each harm guarded by a test. |
 | <a id="f233"></a>[F233](F233-The-Server-Type-And-Zone-Chosen-When-Renting.md) | — | — | The server type and zone chosen in *Prepare a server…*, stock shown before renting, the zone kept for down and give back. |

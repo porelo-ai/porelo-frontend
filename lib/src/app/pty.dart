@@ -30,6 +30,31 @@ abstract class SessionChannel {
   Future<void> close();
 }
 
+/// A terminal closed from this side whose program had not ended within the bound; [ended] completes once it has.
+///
+/// Whatever the program does meanwhile still happens: what waits on it counts it as running until then.
+class TerminalStillRunning extends TimeoutException {
+  /// Keeps the program's end.
+  TerminalStillRunning(this.ended, Duration bound)
+    : super('The terminal was closed, and its program had not ended in time.', bound);
+
+  /// The program's exit code, once it ended.
+  final Future<int> ended;
+}
+
+/// How long a terminal closed from this side gives its program to end.
+const closeBound = Duration(seconds: 5);
+
+/// Waits, after a close, for [settled], which settles once the program [ended]; past [bound] the program counts as
+/// still running.
+Future<void> endedAfterClose(Future<int> ended, Future<Object?> settled, {Duration bound = closeBound}) async {
+  try {
+    await settled.timeout(bound);
+  } on TimeoutException {
+    throw TerminalStillRunning(ended, bound);
+  }
+}
+
 /// A terminal that can stop its owned child without discarding buffered output.
 ///
 /// Both [terminate] and [close] wait for output EOF; an incomplete drain throws.
@@ -271,7 +296,7 @@ class Pty implements DrainingSessionChannel {
     });
     try {
       // Keep ownership even after a bound, while the reader can still use this fd.
-      await drained.timeout(const Duration(seconds: 5));
+      await endedAfterClose(_ended, drained);
     } finally {
       escalation?.cancel();
     }

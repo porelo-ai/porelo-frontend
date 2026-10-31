@@ -80,6 +80,10 @@ class _FakeCheckout implements RegistryCheckout {
   Future<String> fetch() async => _first;
 
   @override
+  Future<void> prepareRetry({required String base, required String file, required String content}) =>
+      throw UnimplementedError('nothing is filed again');
+
+  @override
   Future<void> prepareFiling() async {}
 
   @override

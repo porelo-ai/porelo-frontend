@@ -115,6 +115,10 @@ class RegistryFixture implements RegistryCore, RegistryCheckout, HostRegistryTra
   @override
   Future<String> fetch() async => registryRevision;
   @override
+  Future<void> prepareRetry({required String base, required String file, required String content}) =>
+      throw UnimplementedError('nothing is filed again');
+
+  @override
   Future<void> prepareFiling() async {
     if (unpublished != null) throw const WorkspaceRefused('The registry checkout holds an unpublished change.');
   }

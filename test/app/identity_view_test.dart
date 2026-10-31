@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,11 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart' show RegistryFiled, RegistryRead;
 import 'package:porelo_frontend/src/app/identity.dart';
 import 'package:porelo_frontend/src/app/key_recovery.dart';
+import 'package:porelo_frontend/src/app/pty.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/registry_checkout.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
+import 'package:porelo_frontend/src/app/session.dart' show OpenTerminal;
 import 'package:porelo_frontend/src/app/settings.dart';
 import 'package:porelo_frontend/src/ui/identity_view.dart';
+import 'package:porelo_frontend/src/ui/key_recovery_dialog.dart' show ChooseNewFile;
 
 import '../features/support/world.dart';
 
@@ -69,7 +73,11 @@ class _Core implements KeyRecoveryCore {
   Future<RegistryRefusal?> refusal(RecoveryScope scope, {bool backup = false}) async => null;
 
   @override
-  Future<RecoveryFiled> replace(RecoveryReview review, String id) => throw UnimplementedError('nothing is replaced');
+  Future<String?> fileFor(RecoveryReview review) => throw UnimplementedError('nothing is replaced');
+
+  @override
+  Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) =>
+      throw UnimplementedError('nothing is replaced');
 
   @override
   Future<void> prepare(RecoveryScope scope) async => calls.add('prepare');
@@ -119,45 +127,145 @@ class _NoHosts implements RevocationHosts {
       throw UnimplementedError('no host is asked');
 }
 
-Future<void> _openWith(WidgetTester tester, KeyRecoveryEntry recovery) async {
+/// Opens the dialog over [recovery]; answers how often Core's `identity show` was asked so far.
+Future<int Function()> _openWith(
+  WidgetTester tester,
+  KeyRecoveryEntry recovery, {
+  OpenTerminal? open,
+  ChooseNewFile? chooseNewFile,
+}) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final shown = {..._shown(), 'sole_without_backup': <Object?>[]};
+  var shows = 0;
   Future<Ran> run(
     String program,
     List<String> arguments, {
     String? inDirectory,
     Map<String, String> environment = const {},
     String? input,
-  }) async => arguments[1] == 'show' ? (code: 0, out: jsonEncode(shown), err: '') : (code: 70, out: '', err: '');
+  }) async {
+    if (arguments[1] != 'show') return (code: 70, out: '', err: '');
+    shows++;
+    return (code: 0, out: jsonEncode(shown), err: '');
+  }
+
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: IdentityDialog(
           model: IdentityModel(Identity(run: run)),
           recovery: recovery,
+          open: open,
+          chooseNewFile: chooseNewFile ?? ({String? title}) async => null,
         ),
       ),
     ),
   );
   await tester.pump();
   await tester.pump();
+  return () => shows;
 }
+
+/// A terminal whose program does not end when it is closed, but when the test completes [program].
+class _Outliving implements SessionChannel {
+  final program = Completer<int>();
+
+  @override
+  Stream<List<int>> get output => const Stream.empty();
+
+  @override
+  void send(String input) {}
+
+  @override
+  void resize({required int columns, required int rows}) {}
+
+  @override
+  Future<int> get ended => program.future;
+
+  @override
+  Future<void> close() => throw TerminalStillRunning(program.future, closeBound);
+}
+
+bool _pressable(WidgetTester tester, String id) => tester.widget<TextButton>(find.byKey(Key(id))).onPressed != null;
 
 void main() {
   // Harm: a backup key's commit made here and not pushed, which `identity show` already counts as filed, leaving
-  // nothing that pushes it.
+  // nothing that pushes it; or, once pushed, the card not read again, so the action stays a push of nothing.
   testWidgets('a kept backup key not pushed keeps its action offered as a push again', (tester) async {
     final (settings, core, services) = await _keptBackup(revision: _revision);
-    await _openWith(tester, services);
-    expect(find.byKey(const Key('identity.forgetBackup')), findsNothing, reason: 'a made commit is only pushed');
+    final shows = await _openWith(tester, services);
+    final before = shows();
+    expect(find.text('Push the backup key again…'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('identity.backupKey')));
     await World.settle(tester);
-
     expect(core.calls, ['publish $_revision $_base']);
+    await tester.tap(find.text('Close').last);
+    await World.settle(tester);
+
     expect(settings.keyRecoveryKeys, isEmpty);
+    expect(shows(), greaterThan(before), reason: 'the card is read again after the push');
+    expect(find.text('Push the backup key again…'), findsNothing);
+  });
+
+  // Harm: a made backup-key commit whose push fails for good locking Make a backup key for every list; or dropped
+  // without the person told that the commit stays in the registry checkout.
+  testWidgets('a made backup key commit is forgotten only through a confirmation naming it', (tester) async {
+    final (settings, core, services) = await _keptBackup(revision: _revision);
+    await _openWith(tester, services);
+
+    await tester.tap(find.byKey(const Key('identity.forgetBackup')));
+    await World.settle(tester);
+    expect(find.textContaining('commit $_revision'), findsOneWidget);
+    expect(find.textContaining('leaves that commit in the registry checkout'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('forget-attempt-confirm')));
+    await World.settle(tester);
+
+    expect(settings.keyRecoveryKeys, isEmpty);
+    expect(core.calls, isEmpty, reason: 'nothing is pushed');
+  });
+
+  // Harm: a kept backup key's request forgotten while its attempt runs: while the save dialog is open, or after its
+  // terminal was put away while Core still ran, so Core's commit lands under a request no longer kept.
+  testWidgets('Forget waits while a backup key is being made, until its terminal’s program ended', (tester) async {
+    final (settings, _, services) = await _keptBackup();
+    final channel = _Outliving();
+    final where = Completer<String?>();
+    await _openWith(
+      tester,
+      services,
+      open: (executable, arguments, {columns = 80, rows = 24}) => channel,
+      chooseNewFile: ({String? title}) => where.future,
+    );
+    expect(_pressable(tester, 'identity.forgetBackup'), isTrue);
+
+    await tester.tap(find.byKey(const Key('identity.backupKey')));
+    await World.settle(tester);
+    expect(_pressable(tester, 'identity.forgetBackup'), isFalse, reason: 'its file’s place is being asked');
+    expect(_pressable(tester, 'identity.backupKey'), isFalse);
+    where.complete('/media/usb/bk');
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-cancel')));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-cancel-yes')));
+    await World.settle(tester);
+    // Whatever is said meanwhile, put away as a person would.
+    if (find.textContaining('its answer was not read').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Close').last);
+      await World.settle(tester);
+    }
+    expect(_pressable(tester, 'identity.forgetBackup'), isFalse, reason: 'Core still runs');
+
+    channel.program.complete(0);
+    await World.settle(tester);
+    expect(find.textContaining('its answer was not read'), findsOneWidget);
+    await tester.tap(find.text('Close').last);
+    await World.settle(tester);
+
+    expect(_pressable(tester, 'identity.forgetBackup'), isTrue);
+    expect(settings.keyRecoveryKeys, ['backup-make/owner'], reason: 'Core may have made it');
   });
 
   // Harm: a kept backup-key request whose answer was lost locking the action for good, or dropped without the person
