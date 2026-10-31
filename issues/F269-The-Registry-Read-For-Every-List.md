@@ -1,6 +1,6 @@
 # F269 — The Registry Read For Every List
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - about a day across checkout storage, the Core client, shared list state and its interface.
 
 **What must be true.** The interface asks once for the organisation's registry repository (an `git@` or `https` address) and reads it with the person's own access: SSH through the agent, or a token from the vault through Core's credential helper. It keeps a private checkout, fetched at start and on *Refresh*. Every list of persons, hosts, admitted project admins and projects comes from Core's `registry read` of that checkout: each person with login, name, email, fingerprint and state (trusted, first seen, refused with why). A refused card is shown in red, naming the login and why, and is never offered. A commit Core refuses is named, and the last good state stays shown. The registry's `owners.yml` (its owners and the host admins) is shown as Core reads it, with who signed it; the "who may" lines take registry owners and host admins from it. Writes go through Core's `registry file`, never through the forge's contents API.

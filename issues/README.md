@@ -25,6 +25,7 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
 | <a id="f273"></a>[F273](F273-A-Developer-Joins-At-One-Click.md) | M | [F270](README.md#f270), [F272](README.md#f272) | *Join* at one click from the access file that names the person. |
 | <a id="f277"></a>[F277](F277-Commits-Signed-With-The-Persons-Key.md) | M | porelo: signers with `cert-authority` and `valid-before` | Commits signed with the person's key through the agent, verified by the signers Core names. |
 | <a id="f275"></a>[F275](F275-The-Sign-In-Says-Its-Flow.md) | S | porelo: `login.flow` in the agent API | The sign-in terminal says whether to paste a code or confirm on the device page. |
@@ -43,7 +44,6 @@ its row stays under *Finished*, with one sentence of what was built; decisions a
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="f269"></a>[F269](F269-The-Registry-Read-For-Every-List.md) | M | porelo: `registry read` and `registry file` | The registry repository kept in a private checkout and read through Core for every list. |
 | <a id="f268"></a>[F268](F268-One-Key-And-One-Card-Per-Person.md) | M | porelo: identity verbs (key, card, rotate, revoke, backup-key) | One Ed25519 key and one card per person, filed in the registry; key changed, lost or backed up. |
 | <a id="f280"></a>[F280](F280-A-Lost-Or-Stolen-Key-Replaced.md) | M | [F268](README.md#f268), [F269](README.md#f269); porelo: revoke and backup-key commits | A lost or stolen key replaced by an admin; an admin's own by another admin or the backup key. |
 | <a id="f279"></a>[F279](F279-The-Steps-Of-One-Click-Joining.md) | S | [F268](README.md#f268)–[F278](README.md#f278) | One Markdown file of numbered steps of the one-click flow, from first start to first work. |
