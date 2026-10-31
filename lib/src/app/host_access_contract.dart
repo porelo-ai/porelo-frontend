@@ -294,9 +294,10 @@ class HostRegistryState {
 /// a descendant of the applied revision. Status reports the registry revision,
 /// never a project's access revision. No central-forge credential reaches it.
 abstract interface class HostRegistryTransport {
-  /// Uploads the bundle to `setup/registry.bundle` in the admitted admin's account.
+  /// Gives the bundle to root's `porelo-host-person registry --stdin` on standard input, over SSH as root
+  /// with the card key alone, for the first registry and every later one.
   ///
-  /// Intake runs root's `porelo-host-person registry`; verification uses
+  /// Verification uses
   /// `porelo registry verify --repository <bundle> --host --pinned [--since] --json`.
   /// Only descendants of the last applied revision may reach sync.
   Future<void> upload(String host, String revision);
