@@ -1,8 +1,8 @@
 {
   "title": "Den Tresor anlegen",
   "steps": [
-    {"say": "Wähle links deine Maschine.", "at": ["rail-machine *"], "then": "next-step-vault"},
-    {"say": "Oben steht „Next: make the vault“. Klick „Make it, in a terminal“.", "at": "next-step-act", "then": "unlock-terminal"},
+    {"say": "Wähle unter „Machines“ deine Maschine; ihre Seite geht auf.", "at": ["rail-machine *"], "then": "vault-act"},
+    {"say": "Oben rechts auf der Seite der Maschine: das Tresor-Symbol, „There is no vault here yet“. Klick es.", "at": "vault-act", "then": "unlock-terminal"},
     {"say": "Im Terminal: Wähle eine Passphrase und tippe sie zweimal. Sie geht direkt zur Maschine; die Oberfläche liest sie nicht.", "at": "unlock-terminal", "then": "unlock-done"},
     {"say": "Klick „Done“. Danach verschwindet der Hinweis, und das Schloss oben zeigt einen offenen Tresor.", "at": "unlock-done", "then": "!unlock-done"},
     {"say": "Schreib mir, was du gesehen hast."}

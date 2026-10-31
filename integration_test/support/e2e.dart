@@ -87,7 +87,7 @@ Future<void> pumpUntil(
 /// Makes [name] the machine acted on, through the switcher a person would use.
 Future<void> switchTo(WidgetTester tester, String name) async {
   await toTheMachines(tester);
-  await tester.tap(find.byKey(ValueKey<String>('waiting-count $name')));
+  await tester.tap(find.byKey(ValueKey<String>('rail-machine $name')));
   await pumpFor(tester);
 }
 

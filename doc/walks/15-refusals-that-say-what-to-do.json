@@ -45,11 +45,12 @@
       ]
     },
     {
-      "say": "To try an unknown SSH host, remove github.com from the test account's known_hosts in its terminal. Under Work, start without a project and enter git@github.com:porelo-ai/porelo-test-1.git. Choose Claude Code and start it. This SSH address uses the person's SSH key.",
+      "say": "To try an unknown SSH host, remove github.com from the test account's known_hosts in its terminal. Under Projects, in the ⋮ of “Without a project”, choose “Start work” and enter git@github.com:porelo-ai/porelo-test-1.git. Choose Claude Code and start it. This SSH address uses the person's SSH key.",
       "at": [
         "default-start-new",
         "default-address",
-        "start-work",
+        "work.start",
+        "project-menu",
         "project default",
         "project */default"
       ]

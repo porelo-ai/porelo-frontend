@@ -2,7 +2,7 @@
   "title": "Ein erster Task in default, mit Claude Code",
   "steps": [
     {"say": "Klick links unter deiner Maschine auf „default — work without a project“.", "at": ["project default", "project */default"]},
-    {"say": "Klick auf „Start work“.", "at": "start-work", "then": "default-dialog"},
+    {"say": "Im ⋮ von „Without a project“: „Start work“.", "at": ["work.start", "project-menu"], "then": "default-dialog"},
     {"say": "Gib bei „Its address“ dein Repository an, oder wähle es mit „or pick it at a forge“ daneben. Steht es schon in der Liste darüber, klick dort „Start work on it“.", "at": ["default-address"], "then": "start-agent"},
     {"say": "Unten bei „Its address“: Klick „Start work on it“.", "at": "default-start-new", "then": "start-agent"},
     {"say": "Prüf das Formular: Repository, ein Name aus dem Repository, Claude Code, „A shell, driven by hand“. Steht oben „Sign in to Claude Code first“, mach zuerst den Durchgang „Anmelden“. Sonst klick „Start it“.", "at": "start-go", "then": "terminal"},

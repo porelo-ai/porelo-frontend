@@ -22,9 +22,8 @@
       ]
     },
     {
-      "say": "Start the red work: on the page of porelo-test-project, press “Start work here” beside porelo-test-2 (or use its ⋮ → “Start work in porelo-test-2”). The project-wide Start work tile under Work asks which repository to use.",
+      "say": "Start the red work: on the page of porelo-test-project, use the ⋮ beside porelo-test-2 → “Start work in porelo-test-2”. The project’s own “Start work” in its ⋮ menu asks which repository to use.",
       "at": [
-        "start-here-*test-2",
         "start-in-*test-2",
         "repository-menu *test-2",
         "new-work"
@@ -116,9 +115,8 @@
       ]
     },
     {
-      "say": "Start the green work on testmaschine: open porelo-test-project under Projects and press “Start work here” beside porelo-test-1. Its name is shown with “Change” beside it. Name the work green, choose Claude Code and “A shell, driven by hand”, then “Start it” and “Leave”.",
+      "say": "Start the green work on testmaschine: open porelo-test-project under Projects and use the ⋮ beside porelo-test-1 → “Start work in porelo-test-1”. Its name is shown with “Change” beside it. Name the work green, choose Claude Code and “A shell, driven by hand”, then “Start it” and “Leave”.",
       "at": [
-        "start-here-*test-1",
         "start-in-*test-1",
         "repository-menu *test-1",
         "new-work"

@@ -28,9 +28,10 @@
       ]
     },
     {
-      "say": "Die Arbeit starten: auf der Seite von porelo-test-project „Start work“ (oder links „Work“ → „New work“, testmaschine, porelo-test-project).",
+      "say": "Die Arbeit starten: im ⋮ von porelo-test-project „Start work“ (oder links „Work“ → „New work“, testmaschine, porelo-test-project).",
       "at": [
-        "start-work",
+        "work.start",
+        "project-menu",
         "new-work-in porelo-test-project",
         "new-work"
       ]
@@ -60,9 +61,9 @@
       ]
     },
     {
-      "say": "Open porelo-test-project under Projects. Under Work, press the “Messages and the project’s room” tile. The same command remains in the project’s ⋮ menu.",
+      "say": "Open porelo-test-project under Projects. In its ⋮ menu, choose “Messages and the project’s room”.",
       "at": [
-        "command-tile-*project.messages",
+        "project.messages",
         "project-menu",
         "project porelo-test-project",
         "rail projects",
@@ -88,7 +89,7 @@
     {
       "say": "Du an den Agenten, nur über Matrix: In Deinem Matrix-Client im Raum des Projekts @writer tippen und writer aus der Liste wählen (so wird er erwähnt), dann Deine Zeile, z. B. „Please introduce yourself to the people in this room.“ Oder auf eine Nachricht von writer mit „Antworten“. Ohne Erwähnung oder Antwort erreicht die Zeile keine Arbeit.",
       "at": [
-        "its-work",
+        "rail work",
         "refresh-all"
       ]
     },
