@@ -4010,6 +4010,9 @@ class Followed {
   /// The commit verified and in force, or empty when none ever was.
   final String commit;
 
+  /// The project's access commit verified and in force, or empty when none is.
+  final String accessCommit;
+
   /// When it last tried, RFC 3339, or empty.
   final String at;
 
@@ -4058,6 +4061,7 @@ class Followed {
     required this.name,
     this.url = '',
     this.commit = '',
+    this.accessCommit = '',
     this.at = '',
     this.outcome = '',
     this.refused = '',
@@ -4082,6 +4086,7 @@ class Followed {
     name: _string(map, 'name'),
     url: _string(map, 'url'),
     commit: _string(map, 'commit'),
+    accessCommit: _string(map, 'accessCommit'),
     at: _string(map, 'at'),
     outcome: _string(map, 'outcome'),
     refused: _string(map, 'refused'),

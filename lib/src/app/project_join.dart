@@ -29,6 +29,7 @@ class JoinOffered extends JoinAdmission {
     required this.source,
     required this.revision,
     required List<String> signers,
+    this.homeserver,
   }) : signers = List.unmodifiable(signers);
 
   /// The project's name.
@@ -40,8 +41,11 @@ class JoinOffered extends JoinAdmission {
   /// The project repository's address, credential-free.
   final String source;
 
-  /// The project revision Core verified as in force.
+  /// The project's access commit Core verified as in force.
   final String revision;
+
+  /// The homeserver the verified access file names, or null when it names none.
+  final String? homeserver;
 
   /// The project's signers Core verified, followed with as given.
   final List<String> signers;
@@ -77,7 +81,7 @@ class JoinOffered extends JoinAdmission {
   bool confirms(Followed followed) =>
       followed.name == project &&
       followed.url == source &&
-      followed.commit == revision &&
+      followed.accessCommit == revision &&
       !followed.unverified &&
       followed.signers.length == signers.length &&
       setEquals(followed.signers.toSet(), {for (final signer in signers) _fingerprint(signer)});
@@ -87,6 +91,7 @@ class JoinOffered extends JoinAdmission {
       other.key == key &&
       other.source == source &&
       other.revision == revision &&
+      other.homeserver == homeserver &&
       listEquals(other.signers, signers) &&
       jsonEncode(other.host.stored) == jsonEncode(host.stored);
 }
@@ -196,7 +201,8 @@ JoinOffered _offered(Map<String, Object?> entry) {
   final card = entry['host_card'];
   if (card is! Map<String, Object?>) throw const FormatException('no host card');
   final name = _text(entry, 'host');
-  _text(card, 'homeserver');
+  if (!entry.containsKey('homeserver')) throw const FormatException('no homeserver');
+  final homeserver = entry['homeserver'] == null ? null : _text(entry, 'homeserver');
   final host = PreparedHost.read({'name': name, ...card});
   if (host.name != name) throw const FormatException('the host card names another host');
   if (!RegExp(r'^[a-z_][a-z0-9_-]{0,31}$').hasMatch(_text(entry, 'host_account'))) {
@@ -212,6 +218,7 @@ JoinOffered _offered(Map<String, Object?> entry) {
     source: _text(entry, 'source'),
     revision: _text(entry, 'revision'),
     signers: signers.cast<String>(),
+    homeserver: homeserver,
   )..check();
 }
 

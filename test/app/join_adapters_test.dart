@@ -28,7 +28,8 @@ final _answer = {
       'project': 'demo',
       'host': 'orchard',
       'host_account': 'porelo-alice',
-      'host_card': {...hostValues()..remove('name'), 'homeserver': 'matrix.orchard.porelo.internal'},
+      'host_card': {...hostValues()..remove('name')},
+      'homeserver': 'matrix.orchard.porelo.internal',
       'source': 'https://forge.example/team/demo.git',
       'access_repository': 'https://forge.example/team/access.git',
       'revision': 'a' * 40,
@@ -126,7 +127,7 @@ class _Daemon extends FakeBackend {
     final followed = kept[name] = Followed(
       name: name,
       url: url,
-      commit: 'a' * 40,
+      accessCommit: 'a' * 40,
       unverified: unverified == true,
       signers: [for (final key in answersPinned ?? signers ?? const <String>[]) _fingerprint(key)],
     );
@@ -146,6 +147,14 @@ void main() {
   setUp(() {
     core = _Core();
     discovery = CoreJoinDiscovery(checkout: checkout, login: () async => 'alice', run: core.run);
+  });
+
+  // Harm: a project whose access file names no homeserver is dropped, or another homeserver is taken for it.
+  test('the homeserver comes from the project row, and a row naming none is still offered', () async {
+    core.answer = _with((_) {})();
+    expect((await discovery.admissions()).whereType<JoinOffered>().single.homeserver, 'matrix.orchard.porelo.internal');
+    core.answer = _with((json) => _project(json)['homeserver'] = null)();
+    expect((await discovery.admissions()).whereType<JoinOffered>().single.homeserver, isNull);
   });
 
   // Harm: a project whose access file Core refused is offered to join, or its admins are not named to ask.
@@ -205,8 +214,9 @@ void main() {
         return (code: 0, out: jsonEncode(json), err: '');
       },
     ),
-    ('a host card without its homeserver', _with((json) => (_project(json)['host_card'] as Map).remove('homeserver'))),
-    ('a blank homeserver', _with((json) => (_project(json)['host_card'] as Map)['homeserver'] = '  ')),
+    ('a project row without its homeserver', _with((json) => _project(json).remove('homeserver'))),
+    ('a blank homeserver', _with((json) => _project(json)['homeserver'] = '  ')),
+    ('a project row without its repository', _with((json) => _project(json).remove('source'))),
     ('an admitted project nobody may grant', _with((json) => _project(json)['admins'] = [])),
     ('a blank refused project', _with((json) => _refused(json)['project'] = ' ')),
     ('a blank refused host', _with((json) => _refused(json)['host'] = '')),
@@ -285,7 +295,7 @@ void main() {
         daemon.kept['demo'] = Followed(
           name: 'demo',
           url: 'https://forge.example/team/demo.git',
-          commit: 'a' * 40,
+          accessCommit: 'a' * 40,
           signers: [for (final key in pinned) _fingerprint(key)],
         );
         final join = await joining();

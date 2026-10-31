@@ -85,7 +85,7 @@ class FakeJoinHost implements JoinHost {
     return following[offer.project] = Followed(
       name: offer.project,
       url: offer.source,
-      commit: confirms ?? offer.revision,
+      accessCommit: confirms ?? offer.revision,
       unverified: unverified,
       signers: [for (final signer in offer.signers) pinnedAs(signer)],
     );

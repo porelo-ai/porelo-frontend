@@ -24,6 +24,7 @@ void main() {
         source: 'https://forge.example/team/$project.git',
         revision: revision,
         signers: [personKey],
+        homeserver: 'matrix.orchard.porelo.internal',
       );
 
   ProjectJoin joining(JoinOffered shown) {
@@ -129,6 +130,15 @@ void main() {
     expect(machines.all.where((m) => m.kind == 'host'), hasLength(1));
   });
 
+  // Harm: a follow running the right project commit on another access file is taken as joined.
+  test('a follow is confirmed by its access commit, never by its project commit', () {
+    final shown = offer();
+    Followed at({required String commit, required String access}) =>
+        Followed(name: 'demo', url: shown.source, commit: commit, accessCommit: access, signers: [pinnedAs(personKey)]);
+    expect(shown.confirms(at(commit: shown.revision, access: 'b' * 40)), isFalse);
+    expect(shown.confirms(at(commit: 'b' * 40, access: shown.revision)), isTrue);
+  });
+
   // Harm: a project already followed at the verified revision is followed again.
   test('a project followed already at the verified revision is not followed again', () async {
     final shown = offer();
@@ -136,7 +146,7 @@ void main() {
     host.following['demo'] = Followed(
       name: 'demo',
       url: shown.source,
-      commit: shown.revision,
+      accessCommit: shown.revision,
       signers: [pinnedAs(personKey)],
     );
     final join = joining(shown);
@@ -149,11 +159,12 @@ void main() {
   for (final (name, before) in [
     (
       'unverified',
-      (JoinOffered shown) => Followed(name: 'demo', url: shown.source, commit: shown.revision, unverified: true),
+      (JoinOffered shown) => Followed(name: 'demo', url: shown.source, accessCommit: shown.revision, unverified: true),
     ),
     (
       'other-source',
-      (JoinOffered shown) => Followed(name: 'demo', url: 'https://elsewhere.example/demo.git', commit: shown.revision),
+      (JoinOffered shown) =>
+          Followed(name: 'demo', url: 'https://elsewhere.example/demo.git', accessCommit: shown.revision),
     ),
   ]) {
     test('an $name follow already there is followed again with Core\'s signers', () async {
@@ -249,7 +260,8 @@ void main() {
         'project': 'demo',
         'host': 'orchard',
         'host_account': 'porelo-alice',
-        'host_card': {...hostValues()..remove('name'), 'homeserver': 'matrix.orchard.porelo.internal'},
+        'host_card': {...hostValues()..remove('name')},
+        'homeserver': 'matrix.orchard.porelo.internal',
         'source': 'https://forge.example/team/demo.git',
         'access_repository': 'https://forge.example/team/access.git',
         'revision': 'a' * 40,
