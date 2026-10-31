@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:porelo_host/porelo_host.dart';
@@ -120,7 +121,8 @@ void main() {
           : command.sublist(1, command.indexOf('-q'));
       final effective = await Process.run('ssh', ['-G', ...options, 'orchard']);
       expect(effective.exitCode, 0, reason: '${effective.stderr}');
-      final values = effective.stdout.toString().split('\n');
+      // Windows' OpenSSH ends each line with CRLF.
+      final values = const LineSplitter().convert(effective.stdout.toString());
       expect(
         values,
         containsAll(['hostname 192.0.2.7', 'user root', 'port 22', 'identityfile /public/person.pub']),
