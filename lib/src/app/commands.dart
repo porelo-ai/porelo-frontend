@@ -1638,6 +1638,10 @@ Command setScalewayKeyCommand({required VoidCallback run, bool checking = false}
 Command projectWorkCommand({required VoidCallback open}) =>
     Command(id: 'project.itsWork', label: 'Its work, under Work', group: 'Project', home: Home.startTile, run: open);
 
+/// Opens the person's own key and card, from the title bar's options.
+Command myKeyCommand({required VoidCallback open}) =>
+    Command(id: 'identity.open', label: 'My key and card…', group: 'Options', home: Home.appBar, run: open);
+
 /// Opens an item's details without running the item's main action.
 Command listOpenCommand({required String label, required Home home, required VoidCallback open}) =>
     Command(id: 'list.open', label: label, group: 'Details', home: home, run: open);

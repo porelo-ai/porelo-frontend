@@ -27,6 +27,12 @@ One-click joining from signed state (operator, 2026-10-30), building block 1 and
 - Check all three sole-admin or owner scopes. Backup creation opens the returned folder only after Core confirms the file. Unsupported Core methods disable the action with a reason.
 - Inspect fake process calls and settings: no private key, sign-in answer, or derived vault share reaches command arguments, logs, clipboard, or settings. Secret input belongs to KeePassXC or the Core terminal.
 
+## Deferred
+
+- After a create, rotate or lost-key run in the KeePassXC terminal, the typed reason is read from the terminal's last line; when Core's answer does not fit on it, the view says to read the terminal and reads Core back.
+- A filed card is committed in the registry checkout, not pushed; pushing it is the registry's publication step.
+- The backup key waits for Core's backup-key verb and refuses until then.
+
 ## To be checked
 
 - Confirm Core's identity verbs, public replies, KeePassXC creation handoff, mismatch error, and resumable recovery identifiers. Confirm how reset completion is read back after interruption.

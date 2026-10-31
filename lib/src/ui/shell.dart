@@ -79,6 +79,7 @@ import 'project_details_page.dart';
 import 'registry_address_dialog.dart';
 import 'registry_persons.dart';
 import '../app/registry_pages.dart';
+import '../app/registry_read_source.dart';
 import 'session_view.dart';
 import 'shell_rail.dart';
 import 'vault_actions.dart';
@@ -99,6 +100,7 @@ import 'narrowing_view.dart';
 import 'operations.dart';
 import 'panes.dart';
 import 'destinations_view.dart';
+import 'identity_view.dart';
 import 'grant_view.dart';
 import 'messages_view.dart';
 import 'repositories_view.dart';
@@ -474,7 +476,10 @@ class _ShellState extends State<Shell> {
   }
 
   List<Command> _unscopedCommands() => commandsFor(
-    viewActions: _viewActions(),
+    viewActions: [
+      ..._viewActions(),
+      myKeyCommand(open: () => unawaited(showIdentity(context, checkoutFor: _registryCheckout))),
+    ],
     fleet: _fleet,
     machine: widget.machines.current,
     hostRuns: _hostRuns,
@@ -1326,6 +1331,14 @@ class _ShellState extends State<Shell> {
         onOpen: (entry) => unawaited(_openTheForge(entry)),
         keyCheck: widget.forgeKeyCheck,
       );
+
+  /// The private checkout of [address] when it is the registry read here, else null.
+  String? _registryCheckout(String address) {
+    final source = _registry.source;
+    if (source is! RegistryReadSource) return null;
+    final registry = source.registry;
+    return registry != null && registry.checkout.repository == address ? registry.checkout.folder : null;
+  }
 
   /// Keeps the registry repository the person names and reads it at once.
   Future<void> _chooseRegistry() async {
