@@ -251,6 +251,8 @@ class ForgePage extends StatefulWidget {
     this.onBack,
     this.onMachine,
     this.registry,
+    this.registryAddress,
+    this.onChooseRegistry,
     super.key,
   });
 
@@ -298,6 +300,12 @@ class ForgePage extends StatefulWidget {
 
   /// The verified registry decisions and separate host confirmations.
   final RegistryPages? registry;
+
+  /// The registry repository chosen on this computer, or null before one was.
+  final String? registryAddress;
+
+  /// Asks for the registry repository's address, or null where it cannot be chosen here.
+  final VoidCallback? onChooseRegistry;
   @override
   State<ForgePage> createState() => _ForgePageState();
 }
@@ -393,6 +401,20 @@ class _ForgePageState extends State<ForgePage> {
             ],
           ),
           if (registry?.problem case final problem?) Text(problem),
+          if (widget.onChooseRegistry case final choose?)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('forge-choose-registry'),
+                onPressed: choose,
+                icon: const Icon(Icons.folder_shared_outlined),
+                label: Text(
+                  widget.registryAddress == null
+                      ? 'Choose the registry repository…'
+                      : 'Registry ${widget.registryAddress} · Choose another…',
+                ),
+              ),
+            ),
           if (forges.registryRows.isEmpty) const Text('Verified registry state has not been supplied.'),
           FilteredListSection(
             key: ValueKey('forge-repositories ${entry?.id}'),

@@ -40,7 +40,7 @@ Only the change: tests against a fake Core and a local bare repository. No VM ru
 
 ## Deferred
 
-- Choosing the address in the interface: until it is offered, a stored address is read at start and on *Refresh*, and the Forges page's lists come from Core's accepted read. A registry host is shown on a watched machine whose host is that name; one not watched has no machine until its card makes one.
+- A registry host is shown on a watched machine whose host is that name; one not watched has no machine until its card makes one ([F270](README.md#f270)).
 - Review finding 7's proposal to accept uppercase logins is not real: Core's agreed person-login grammar is `[a-z][a-z0-9-]{0,31}`; hyphens are accepted and the boundary rejects uppercase, dots, underscores, leading digits and overlength logins.
 - Rewriting a person's existing `GIT_SSH_COMMAND` to add `BatchMode=yes` is deferred: its shell syntax and options cannot safely be guessed; preserve it verbatim, so noninteractive SSH remains that command's responsibility.
 

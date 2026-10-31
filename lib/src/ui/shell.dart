@@ -75,6 +75,7 @@ import 'project_deletion_view.dart';
 import 'projects_page.dart';
 import 'machine_details_page.dart';
 import 'project_details_page.dart';
+import 'registry_address_dialog.dart';
 import 'registry_persons.dart';
 import '../app/registry_pages.dart';
 import 'session_view.dart';
@@ -1320,6 +1321,14 @@ class _ShellState extends State<Shell> {
         onOpen: (entry) => unawaited(_openTheForge(entry)),
       );
 
+  /// Keeps the registry repository the person names and reads it at once.
+  Future<void> _chooseRegistry() async {
+    final address = await chooseRegistryAddress(context, current: widget.settings.registryRepository);
+    if (address == null || !mounted) return;
+    await widget.settings.setRegistryRepository(address);
+    await _registry.refresh();
+  }
+
   /// One forge's repositories, as a page.
   Widget _forgePage() {
     final machineAtOpen = widget.machines.current;
@@ -1330,6 +1339,8 @@ class _ShellState extends State<Shell> {
           ]),
           builder: (context, _) => ForgePage(
             registry: _registry,
+            registryAddress: widget.settings.registryRepository,
+            onChooseRegistry: () => unawaited(_chooseRegistry()),
             onBack: () => widget.shell.goTo(Section.forges),
             onMachine: (name) {
               final machine = widget.machines.all.where((machine) => machine.name == name).firstOrNull;

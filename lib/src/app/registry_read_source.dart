@@ -9,28 +9,40 @@ import 'registry_pages.dart';
 /// Only the read and Refresh are served here; a change reaches the registry through the adapters that
 /// own it, so [publish] and [apply] refuse.
 class RegistryReadSource implements RegistryPageSource {
-  /// Constructor taking the shared registry and the watched machines a host is matched against.
-  RegistryReadSource({required this.registry, required this.repository, required this.machines});
+  /// Constructor taking the chosen address, how a registry is opened for it, and the watched machines.
+  RegistryReadSource({required this.repository, required this.open, required this.machines});
 
-  /// The shared registry, whose last accepted read is shown.
-  final Registry registry;
+  /// The registry's address as chosen now, or null before it was; part of every target.
+  final String? Function() repository;
 
-  /// The registry's address, part of every target so two registries never share one.
-  final String repository;
+  /// Opens the registry of an address, once per address, so another address never shows this one's state.
+  final Registry Function(String repository) open;
 
   /// The machines watched here; a host the person does not watch has no machine to show it on yet.
   final List<Machine> Function() machines;
 
+  Registry? _registry;
+
+  /// The registry of the address chosen now, or null before one was chosen.
+  Registry? get registry {
+    final address = repository();
+    if (address == null) return null;
+    if (_registry?.checkout.repository != address) _registry = open(address);
+    return _registry;
+  }
+
   @override
   Future<RegistryPageSnapshot> read() async {
+    final registry = this.registry;
+    if (registry == null) throw const RegistryRefusal('Choose the registry repository first.');
     await registry.refresh();
     final accepted = registry.accepted;
     if (accepted == null) throw RegistryRefusal(registry.problem ?? 'No accepted registry is available yet.');
-    return snapshotOf(accepted, problem: registry.problem);
+    return snapshotOf(registry.checkout.repository, accepted, problem: registry.problem);
   }
 
-  /// The pages' snapshot of [accepted]; [problem] says why a newer state is not the one shown.
-  RegistryPageSnapshot snapshotOf(RegistryRead accepted, {String? problem}) {
+  /// The pages' snapshot of [accepted] from [repository]; [problem] says why a newer state is not the one shown.
+  RegistryPageSnapshot snapshotOf(String repository, RegistryRead accepted, {String? problem}) {
     final trusted = {
       for (final card in accepted.people)
         if (card.trusted) card.login: RegistryPerson(login: card.login, name: card.name, email: card.contactEmail),

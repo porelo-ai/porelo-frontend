@@ -82,13 +82,15 @@ void main() {
   const watched = Machine(name: 'walk9server', socketPath: '/run/forward.sock', host: 'walk9server');
   late _FakeCore core;
   late RegistryPages pages;
+  String? repository;
 
   setUp(() {
     core = _FakeCore();
+    repository = _repository;
     pages = RegistryPages(
       source: RegistryReadSource(
-        registry: Registry(checkout: _FakeCheckout(), core: core),
-        repository: _repository,
+        repository: () => repository,
+        open: (_) => Registry(checkout: _FakeCheckout(), core: core),
         machines: () => [watched],
       ),
       features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
@@ -137,5 +139,16 @@ void main() {
     expect(pages.loaded, isFalse, reason: 'nothing accepted is nothing loaded');
     expect(pages.items, isEmpty);
     expect(pages.problem, contains('not signed by an owner'));
+  });
+
+  // Guards a registry nobody chose reading as an empty, verified one.
+  test('without a chosen registry nothing is read and the page says to choose one', () async {
+    repository = null;
+
+    await pages.refresh();
+
+    expect(pages.loaded, isFalse);
+    expect(pages.items, isEmpty);
+    expect(pages.problem, 'Choose the registry repository first.');
   });
 }

@@ -87,18 +87,17 @@ WalkSession? _walk() {
 Future<PoreloApp>? _composed;
 
 /// Every registry list, read by this computer's daemon from a private checkout of the address chosen once.
-RegistryPages? _registryPages(Settings settings, Machines machines) {
-  final repository = settings.registryRepository;
-  if (repository == null) return null;
-  final registry = Registry(
-    checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
-    core: DaemonRegistryCore(PoreloBackend(Machines.backendFor(Machine.local()))),
-  );
-  return RegistryPages(
-    source: RegistryReadSource(registry: registry, repository: repository, machines: () => machines.all),
-    features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
-  );
-}
+RegistryPages _registryPages(Settings settings, Machines machines) => RegistryPages(
+  source: RegistryReadSource(
+    repository: () => settings.registryRepository,
+    open: (repository) => Registry(
+      checkout: RegistryCheckout(root: '${desk.data}/registry', repository: repository),
+      core: DaemonRegistryCore(PoreloBackend(Machines.backendFor(Machine.local()))),
+    ),
+    machines: () => machines.all,
+  ),
+  features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
+);
 
 Future<PoreloApp> _compose() async {
   final settings = Settings(FileSettingsStore());
