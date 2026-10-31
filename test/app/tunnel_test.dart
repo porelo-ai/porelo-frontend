@@ -115,6 +115,25 @@ void main() {
   Future<Process> Function(List<String>) failsSaying(String words) =>
       (_) => Process.start('sh', <String>['-c', 'echo "$words" >&2; exit 255']);
 
+  // Prevents a queued consumer from silently losing its connection during earlier teardown.
+  test('a queued consumer raises a missing tunnel after earlier teardown', () async {
+    final socket = '${where.path}/queued.sock';
+    final machine = machineAt(socket);
+    final tunnels = Tunnels(start: bindsAndStays(socket));
+    addTearDown(tunnels.dispose);
+    addTearDown(tunnels.dropEverything);
+    expect(await tunnels.raiseFor(machine), isTrue);
+
+    final dropping = tunnels.dropFor(machine);
+    final reconnecting = tunnels.raiseAgainIfItDropped(machine);
+    await dropping;
+    await reconnecting;
+
+    expect(tunnels.of(machine)?.state, TunnelState.up, reason: 'the queued consumer still needs its connection');
+    final connection = await Socket.connect(InternetAddress(socket, type: InternetAddressType.unix), 0);
+    connection.destroy();
+  });
+
   // Measured: under a person's ControlMaster the forward lived in their master, and
   // letting go of this process left it answering. The command line wins over their config.
   test("the forward is a connection of its own, never through the person's ssh master", () {

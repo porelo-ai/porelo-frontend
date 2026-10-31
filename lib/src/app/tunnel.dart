@@ -784,6 +784,8 @@ class Tunnels extends ChangeNotifier {
   ///
   /// Without being asked, because a forward that goes away is not a decision anybody made — but
   /// only for one this interface raised, and only while it is still wanted.
+  /// A queued consumer raises a missing forward from the state at its step's start;
+  /// card hosts still require a retained watcher.
   Future<void> raiseAgainIfItDropped(Machine machine) {
     final request = _TunnelRequest(machine);
     _requests.add(request);
@@ -794,8 +796,7 @@ class Tunnels extends ChangeNotifier {
           if (_closing ||
               request.canceled ||
               (machine.hostCard != null && !_retained.contains(_key(machine))) ||
-              tunnel == null ||
-              (tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) {
+              (tunnel != null && tunnel.state != TunnelState.down && tunnel.state != TunnelState.waitingForKey)) {
             return;
           }
           request.started = true;
