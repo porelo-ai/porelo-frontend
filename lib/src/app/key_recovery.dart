@@ -2387,8 +2387,9 @@ class RegistryRevocationHosts implements RevocationHosts {
     final status = await transport.sync(host, revision);
     if (status.host != host) return HostLockPending(host, 'Not on the host yet: it answered for another host.');
     if (status.revision != revision) {
-      final applied = status.revision.length > 12 ? status.revision.substring(0, 12) : status.revision;
-      return HostLockPending(host, 'Not on the host yet: it applied ${applied.isEmpty ? 'nothing' : applied}.');
+      final applied = status.revision ?? '';
+      final shown = applied.length > 12 ? applied.substring(0, 12) : applied;
+      return HostLockPending(host, 'Not on the host yet: it applied ${shown.isEmpty ? 'nothing' : shown}.');
     }
     if (!review.stolen) return HostReplaced(host);
     return status.people[review.login] == 'locked'

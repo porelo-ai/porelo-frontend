@@ -94,21 +94,124 @@ class SshHostRegistryTransport implements HostRegistryTransport {
   /// The host's own registry intake, root's alone.
   static const intake = '/usr/local/sbin/porelo-host-person registry --stdin';
 
-  /// Why status cannot be asked: the host serves no verb that reads its applied registry.
-  static const noStatus =
-      'The host cannot be asked which registry it applied yet: porelo-host-person serves no read-only registry '
-      'status that names the host, its applied commit and each person’s membership.';
+  /// The host's read-only answer of what it applied, root's alone.
+  static const statusVerb = '/usr/local/sbin/porelo-host-person registry status';
 
-  /// Why sync cannot be asked: the host applies the registry while taking it, and confirms no membership.
-  static const noSync =
-      'The host cannot confirm a registry sync yet: porelo-host-person applies the registry while taking it, and '
-      'its answer names neither the host nor each person’s membership.';
+  /// Said when the host's helper does not know [statusVerb].
+  static const olderHost = "The host's porelo-host is older than its registry status. Update porelo-host on the host.";
 
   @override
-  Future<HostRegistryStatus> status(String host) => Future.error(const RegistryRefusal(noStatus));
+  Future<HostRegistryStatus> status(String host) async {
+    checkHostName(host);
+    final Ran answer;
+    try {
+      answer = await _run('ssh', [..._root(_config(host), host), statusVerb]);
+    } on ProcessException {
+      throw const RegistryRefusal('SSH could not run on this computer.');
+    }
+    if (answer.code != 0) {
+      final words = _hostWords(answer);
+      if (answer.code == 2 ||
+          words.contains('unknown') ||
+          answer.code == 64 && words.startsWith('porelo-host-person: use ')) {
+        throw const RegistryRefusal(olderHost);
+      }
+      throw RegistryRefusal(words);
+    }
+    final Object? read;
+    try {
+      read = jsonDecode(answer.out.trim());
+    } on FormatException {
+      throw const RegistryRefusal('The host answered its registry status incompletely.');
+    }
+    if (read is! Map) throw const RegistryRefusal('The host answered its registry status incompletely.');
+    if (read['host'] != host) throw const RegistryRefusal('The registry status names another host.');
+    final commit = read['commit'];
+    final pinned = read['pinned'];
+    if (commit != null && (commit is! String || !_commit.hasMatch(commit)) ||
+        pinned != null && (pinned is! String || !_fingerprint.hasMatch(pinned)) ||
+        !read.containsKey('commit') ||
+        !read.containsKey('pinned')) {
+      throw const RegistryRefusal('The host answered its registry status incompletely.');
+    }
+    return HostRegistryStatus(
+      host: host,
+      revision: commit as String?,
+      people: _people(read['persons']),
+      words: commit == null
+          ? 'The host has applied no registry yet.'
+          : 'The host applied registry commit ${commit.substring(0, 12)}.',
+    );
+  }
 
+  /// Intake applied the bundle already; sync sends nothing and confirms the host applied exactly [revision].
   @override
-  Future<HostRegistryStatus> sync(String host, String revision) => Future.error(const RegistryRefusal(noSync));
+  Future<HostRegistryStatus> sync(String host, String revision) async {
+    checkedRegistryRevision(revision);
+    final answer = await status(host);
+    if (answer.revision != revision) {
+      throw RegistryRefusal(
+        'The host has not applied the registry revision brought; it reports '
+        '${answer.revision?.substring(0, 12) ?? 'none'}.',
+      );
+    }
+    return answer;
+  }
+
+  static final _commit = RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$');
+  static final _fingerprint = RegExp(r'^SHA256:[A-Za-z0-9+/]{43}$');
+
+  /// The host's persons as [HostRegistryStatus.people]: an unfinished lock is locked, a login only named is absent.
+  static Map<String, String> _people(Object? value) {
+    const incomplete = RegistryRefusal('The host answered its persons incompletely.');
+    if (value is! List) throw incomplete;
+    final people = <String, String>{};
+    for (final person in value) {
+      if (person is! Map) throw incomplete;
+      final login = person['login'];
+      final state = person['state'];
+      final hand = person['hand'];
+      final projects = person['projects'];
+      if (login is! String ||
+          !RegExp(r'^[a-z][a-z0-9-]{0,30}$').hasMatch(login) ||
+          hand is! bool ||
+          projects is! List ||
+          !projects.every(
+            (each) =>
+                each is Map && each['project'] is String && const ['project-admin', 'developer'].contains(each['role']),
+          ) ||
+          people.containsKey(login) ||
+          (state == 'purged' && (hand || projects.isNotEmpty)) ||
+          (state == 'named' && projects.isNotEmpty)) {
+        throw incomplete;
+      }
+      final mapped = switch (state) {
+        'active' => 'active',
+        'locked' || 'pending' => 'locked',
+        'purged' => 'purged',
+        'named' => null,
+        _ => throw incomplete,
+      };
+      if (mapped != null) people[login] = mapped;
+    }
+    return people;
+  }
+
+  /// SSH to root through the card's pinned [config]: no agent forwarding, no shared connection of the person's.
+  static List<String> _root(String config, String host) => [
+    '-F',
+    config,
+    '-T',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'ForwardAgent=no',
+    '-o',
+    'ControlMaster=no',
+    '-o',
+    'ControlPath=none',
+    'root@$host',
+  ];
 
   @override
   Future<void> upload(String host, String revision) async {
@@ -123,23 +226,9 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     try {
       final bundle = await _bundle(registry, temporary.path, revision);
       await _verify(bundle, host: host, revision: revision, pinned: pinned, since: since);
-      final answer = await _send('ssh', [
-        '-F',
-        config,
-        '-T',
-        '-o',
-        'BatchMode=yes',
-        '-o',
-        'ForwardAgent=no',
-        '-o',
-        'ControlMaster=no',
-        '-o',
-        'ControlPath=none',
-        'root@$host',
-        intake,
-      ], input: await File(bundle).readAsBytes());
+      final answer = await _send('ssh', [..._root(config, host), intake], input: await File(bundle).readAsBytes());
       if (answer.code != 0) throw RegistryRefusal(_hostWords(answer));
-      _checkTaken(answer.out, revision);
+      _checkTaken(answer.out, revision, host);
     } finally {
       await temporary.delete(recursive: true);
     }
@@ -255,7 +344,7 @@ class SshHostRegistryTransport implements HostRegistryTransport {
   }
 
   /// Checks the host's answer field by field: it took exactly [revision].
-  static void _checkTaken(String out, String revision) {
+  static void _checkTaken(String out, String revision, String host) {
     final Object? answer;
     try {
       answer = jsonDecode(out.trim());
@@ -277,6 +366,11 @@ class SshHostRegistryTransport implements HostRegistryTransport {
     if (answer['commit'] != revision) {
       throw const RegistryRefusal('The host took another registry revision than the one brought.');
     }
+    // A host from before its registry status answers neither; one that does is held to both.
+    if (answer.containsKey('host') && answer['host'] != host) {
+      throw const RegistryRefusal('The host that took the registry names another host.');
+    }
+    if (answer.containsKey('persons')) _people(answer['persons']);
   }
 
   /// The host's own refusal, or SSH's when the host was not reached; never more than its last line.

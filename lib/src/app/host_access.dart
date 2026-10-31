@@ -582,7 +582,7 @@ class HostAccess {
 
   void _checkStatus(String host, HostRegistryStatus answer) {
     if (answer.host != host) throw const FormatException('The registry answer names another host.');
-    checkedRegistryRevision(answer.revision);
+    if (answer.revision case final revision?) checkedRegistryRevision(revision);
     for (final person in answer.people.keys) {
       checkAdminName(person);
     }

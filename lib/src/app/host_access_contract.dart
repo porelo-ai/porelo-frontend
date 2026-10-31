@@ -179,10 +179,10 @@ class HostRegistryStatus {
   /// The host this state belongs to.
   final String host;
 
-  /// The applied registry commit, never a project-access commit.
-  final String revision;
+  /// The applied registry commit, never a project-access commit; null before the host applied any.
+  final String? revision;
 
-  /// The confirmed host memberships: active, locked or purged.
+  /// The confirmed host memberships: active, locked or purged; a login the host has not admitted yet is absent.
   final Map<String, String> people;
 
   /// The host’s own public result.

@@ -184,6 +184,7 @@ void main() {
     late List<Machine> watched;
     late Ran verified;
     late Ran taken;
+    late List<Ran> statuses;
     late int gitFails;
     late bool bundleSeenAtSend;
     late SshHostRegistryTransport transport;
@@ -225,6 +226,7 @@ void main() {
       config = card.configPath(environment: environment, windows: desk.isWindows);
       watched = [Machine.fromHostCard(card, socketPath: path.join(home.path, 'orchard.sock'), sshConfig: config)];
       calls = [];
+      statuses = [];
       gitFails = 0;
       bundleSeenAtSend = false;
       verified = (
@@ -259,6 +261,7 @@ void main() {
             }
             return (code: 0, out: '', err: '');
           }
+          if (program == 'ssh') return statuses.removeAt(0);
           return verified;
         },
         send: (program, arguments, {required input}) async {
@@ -465,17 +468,207 @@ void main() {
       expect(calls, isEmpty);
     });
 
-    // Harm: a sync or status the host never answered is confirmed.
-    test('status and sync are refused, running nothing, while the host serves no verb for them', () async {
+    List<String> rootTo(String command) => [
+      '-F',
+      config,
+      '-T',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ForwardAgent=no',
+      '-o',
+      'ControlMaster=no',
+      '-o',
+      'ControlPath=none',
+      'root@orchard',
+      command,
+    ];
+
+    Ran status({Object? host = 'orchard', Object? commit = registryAfter, List<Object?>? persons}) => (
+      code: 0,
+      out:
+          '${jsonEncode({'host': host, 'commit': commit, 'pinned': adminFingerprint, 'persons': persons ?? <Object?>[]})}\n',
+      err: '',
+    );
+
+    Map<String, Object?> person(String login, String state, {bool hand = true, List<Object?>? projects}) => {
+      'login': login,
+      'state': state,
+      'hand': hand,
+      'projects':
+          projects ??
+          [
+            {'project': 'demo', 'role': 'project-admin'},
+          ],
+    };
+
+    // Harm: a person the host has locked, or only named, reads as admitted; a purge reads as anything but a purge.
+    test('status asks root read-only and reads each person as the host left them', () async {
+      statuses = [
+        status(
+          persons: [
+            person('ada', 'active'),
+            person('bo', 'locked'),
+            person('cy', 'pending'),
+            person('di', 'purged', hand: false, projects: const []),
+            person('ed', 'named', hand: false, projects: const []),
+          ],
+        ),
+      ];
+      final answer = await transport.status('orchard');
+      expect(calls.single.program, 'ssh');
+      expect(calls.single.arguments, rootTo('/usr/local/sbin/porelo-host-person registry status'));
+      expect(calls.single.input, isNull, reason: 'status sends nothing on stdin');
+      expect(answer.host, 'orchard');
+      expect(answer.revision, registryAfter);
+      expect(answer.people, {'ada': 'active', 'bo': 'locked', 'cy': 'locked', 'di': 'purged'});
+    });
+
+    test('a host that applied no registry yet answers no revision', () async {
+      statuses = [status(commit: null)];
+      expect((await transport.status('orchard')).revision, isNull);
+    });
+
+    // Harm: an answer for another host, of another shape, or with a person half read, is taken as this host's state.
+    for (final (name, answer) in [
+      ('another host', status(host: 'grove')),
+      ('a short commit', status(commit: 'abc123')),
+      ('a purged person still a member', status(persons: [person('di', 'purged', hand: false)])),
+      ('a named person with projects', status(persons: [person('ed', 'named')])),
+      ('an unknown state', status(persons: [person('ada', 'admitted')])),
+      ('a person twice', status(persons: [person('ada', 'active'), person('ada', 'locked')])),
+      ('no object', (code: 0, out: '[]', err: '')),
+    ]) {
+      test('status refuses $name', () async {
+        statuses = [answer];
+        await expectLater(transport.status('orchard'), throwsA(isA<RegistryRefusal>()));
+      });
+    }
+
+    // Harm: an old host's usage refusal reads as an answer, or as anything but an older host.
+    for (final (name, answer) in [
+      ('exit 2', (code: 2, out: '', err: 'porelo-host-person: bad usage\n')),
+      ('an unknown verb', (code: 65, out: '', err: 'porelo-host-person: unknown verb status\n')),
+      (
+        'the usage line',
+        (
+          code: 64,
+          out: '',
+          err: 'porelo-host-person: use add <user> --role project-admin, lock <user>, purge <user>, sync <project>\n',
+        ),
+      ),
+    ]) {
+      test('$name says the host is older than its registry status', () async {
+        statuses = [answer];
+        await expectLater(
+          transport.status('orchard'),
+          throwsA(
+            isA<RegistryRefusal>().having((refused) => refused.words, 'words', SshHostRegistryTransport.olderHost),
+          ),
+        );
+      });
+    }
+
+    test('any other refusal keeps the host words', () async {
+      statuses = [(code: 69, out: '', err: 'porelo-host-person: /etc/porelo-host/forge.conf is missing\n')];
       await expectLater(
         transport.status('orchard'),
-        throwsA(isA<RegistryRefusal>().having((refused) => refused.words, 'words', SshHostRegistryTransport.noStatus)),
+        throwsA(isA<RegistryRefusal>().having((refused) => refused.words, 'words', contains('forge.conf is missing'))),
       );
-      await expectLater(
-        transport.sync('orchard', registryAfter),
-        throwsA(isA<RegistryRefusal>().having((refused) => refused.words, 'words', SshHostRegistryTransport.noSync)),
+    });
+
+    // Harm: sync sends the registry a second time, or confirms a revision the host did not apply.
+    test('sync sends nothing and confirms only the applied revision', () async {
+      statuses = [
+        status(persons: [person('ada', 'active')]),
+      ];
+      final answer = await transport.sync('orchard', registryAfter);
+      expect(answer.people, {'ada': 'active'});
+      expect(calls.map((call) => call.arguments.last), ['/usr/local/sbin/porelo-host-person registry status']);
+      statuses = [status(commit: registryBefore)];
+      await expectLater(transport.sync('orchard', registryAfter), throwsA(isA<RegistryRefusal>()));
+      statuses = [status(commit: null)];
+      await expectLater(transport.sync('orchard', registryAfter), throwsA(isA<RegistryRefusal>()));
+      expect(calls.where((call) => call.input != null), isEmpty);
+    });
+
+    // Harm: an intake answered by another host, or with persons half read, reads as taken.
+    for (final (name, extra, refused) in [
+      ('another host', {'host': 'grove', 'persons': <Object?>[]}, true),
+      (
+        'a malformed person',
+        {
+          'host': 'orchard',
+          'persons': [person('ada', 'admitted')],
+        },
+        true,
+      ),
+      (
+        'this host and its persons',
+        {
+          'host': 'orchard',
+          'persons': [person('ada', 'active')],
+        },
+        false,
+      ),
+    ]) {
+      test('an intake answer naming $name is ${refused ? 'refused' : 'taken'}', () async {
+        taken = (
+          code: 0,
+          out: jsonEncode({
+            'commit': registryAfter,
+            'pinned': adminFingerprint,
+            'projects': <String>[],
+            'dropped': <String>[],
+            'revoked': <String>[],
+            'refused': <String>[],
+            'unchanged': false,
+            ...extra,
+          }),
+          err: '',
+        );
+        final upload = transport.upload('orchard', registryAfter);
+        await (refused ? expectLater(upload, throwsA(isA<RegistryRefusal>())) : upload);
+      });
+    }
+
+    // Harm: a host that applied no registry yet can never be given its first one.
+    test('a host with no registry yet is brought the accepted one, then confirmed', () async {
+      final access = HostAccess(
+        registry: () => fixture.registry,
+        settings: settings,
+        identity: () => const HostAdminIdentity('alice', adminFingerprint),
+        transport: transport,
       );
-      expect(calls, isEmpty);
+      verified = (
+        code: 0,
+        out: jsonEncode({
+          'commit': registryBefore,
+          'host_card': {'host': 'orchard'},
+        }),
+        err: '',
+      );
+      taken = (
+        code: 0,
+        out: jsonEncode({
+          'commit': registryBefore,
+          'pinned': adminFingerprint,
+          'projects': <String>[],
+          'dropped': <String>[],
+          'revoked': <String>[],
+          'refused': <String>[],
+          'unchanged': false,
+        }),
+        err: '',
+      );
+      statuses = [status(commit: null), status(commit: registryBefore)];
+      await access.bringToHost('orchard');
+      expect(settings.hostRegistry('orchard')!.confirmedRevision, registryBefore);
+      expect(calls.where((call) => call.program == 'ssh').map((call) => call.arguments.last), [
+        '/usr/local/sbin/porelo-host-person registry status',
+        '/usr/local/sbin/porelo-host-person registry --stdin',
+        '/usr/local/sbin/porelo-host-person registry status',
+      ]);
     });
   });
 }
