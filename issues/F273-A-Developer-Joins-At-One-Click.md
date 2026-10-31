@@ -1,6 +1,6 @@
 # F273 — A Developer Joins At One Click
 
-**Status:** Backlog. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
+**Status:** Implementing. Estimated and Backlog (operator, 2026-10-30, sprint 6m).
 **Size:** M - replaces the join wizard and laptop-based setup across discovery, verification, project UI and saved host state.
 
 **What must be true.** A person named in a project's access file, which they find through `hosts/<host>/access.yml`'s access repository addresses, sees "in project P on host X" and *Join*. One click follows the project (verified by its signers), writes the host's ssh config and opens the tunnel ([F270](README.md#f270)). Nothing is pasted or typed. A project whose access file cannot be read is said, naming the repository and who may grant it.
