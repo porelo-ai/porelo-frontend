@@ -23,6 +23,7 @@ class ProjectVerifySource {
     this.accessRepository,
     this.since,
     this.accessSince,
+    this.krl,
   }) : signedBy = List.unmodifiable(signedBy);
 
   /// The project repository as a local path or bundle.
@@ -39,6 +40,9 @@ class ProjectVerifySource {
 
   /// The access commit in force here, absent before any was.
   final String? accessSince;
+
+  /// The revocation list Core's follow checks here, absent while there is none: `verify` reads none of its own.
+  final String? krl;
 }
 
 /// Whether a login may change this project's access here, from Core's verified admins and the agent's keys.
@@ -186,7 +190,10 @@ class ProjectAccessCoreAdapter {
   /// the person's new registry card in. Every action but `init` is sent only for an
   /// active admin whose key the agent holds. Core owns ID deduplication. A stale base
   /// rereads verified state and requires a new decision.
-  Future<String> file(ProjectAccessChange change, {required bool hasAccessFile}) async {
+  ///
+  /// [card] is a private copy of the person's card as the registry accepted it; without one, the registry checkout's
+  /// file is taken.
+  Future<String> file(ProjectAccessChange change, {required bool hasAccessFile, String? card}) async {
     // Constructors are public; validate even requests that did not come from stored receipts.
     checkAdminName(change.project);
     checkAdminName(change.actor);
@@ -207,7 +214,7 @@ class ProjectAccessCoreAdapter {
     if (role != null && !const ['admin', 'developer'].contains(role)) {
       throw const FormatException('Unknown project role.');
     }
-    final card = const ['init', 'add', 'replace'].contains(action) ? _card(person) : null;
+    final cardFile = const ['init', 'add', 'replace'].contains(action) ? card ?? _card(person) : null;
     if (action != 'init') {
       final standing = await this.standing(change.project, login: change.actor);
       if (!standing.may) throw ProjectAccessNotAdmin(standing);
@@ -221,7 +228,7 @@ class ProjectAccessCoreAdapter {
       '--person',
       person,
       if (action == 'init' || action == 'add') ...['--host', change.host],
-      if (card != null) ...['--card', card],
+      if (cardFile != null) ...['--card', cardFile],
       if (role != null) ...['--role', role],
       if (action != 'init') ...['--base', change.baseRevision],
       '--id',
@@ -293,6 +300,7 @@ class ProjectAccessCoreAdapter {
       if (source.since case final since?) ...['--since', since],
       if (source.accessRepository case final access?) ...['--access-repository', access],
       if (source.accessSince case final since?) ...['--access-since', since],
+      if (source.krl case final krl?) ...['--krl', krl],
       '--json',
     ], inDirectory: directory);
     // Core names why a check failed on its last line; any other failure keeps its diagnostics private.

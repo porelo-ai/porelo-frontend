@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/src/app/access_developers.dart';
+import 'package:porelo_frontend/src/app/fleet_backend.dart';
 import 'package:porelo_frontend/src/app/host_access.dart' show HostAdminIdentity;
 import 'package:porelo_frontend/src/app/identity.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
@@ -14,6 +16,7 @@ import 'package:porelo_frontend/src/app/project_copies.dart';
 import 'package:porelo_frontend/src/app/registry.dart';
 import 'package:porelo_frontend/src/app/run_here.dart';
 import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_frontend/src/app/tunnel.dart';
 
 import '../features/support/world.dart' show FakeBackend;
 
@@ -127,6 +130,47 @@ class _Remote implements Remote {
   }
 }
 
+/// A card tunnel's SSH master, up until it is taken down.
+class _Master extends Fake implements Process {
+  final _exit = Completer<int>();
+
+  @override
+  Stream<List<int>> get stdout => const Stream.empty();
+  @override
+  Stream<List<int>> get stderr => const Stream.empty();
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    if (!_exit.isCompleted) _exit.complete(255);
+    return true;
+  }
+}
+
+/// The host vault, opened at once.
+class _Unlocked implements HostUnlocker {
+  @override
+  Future<HostUnlockResult> unlock(HostCardSsh card, String config) async =>
+      const HostUnlockResult(HostUnlockState.unlocked);
+
+  @override
+  Future<void> cancel(String host) async {}
+}
+
+ProjectAccessChange _changeOf({String id = _id, String action = 'add'}) => ProjectAccessChange(
+  id: id,
+  project: _change.project,
+  host: _change.host,
+  hostCard: _change.hostCard,
+  repository: _change.repository,
+  projectRevision: _change.projectRevision,
+  baseRevision: _change.baseRevision,
+  actor: _change.actor,
+  actorFingerprint: _change.actorFingerprint,
+  action: action,
+  person: action == 'register' ? null : _change.person,
+);
+
 void main() {
   late Directory root;
   late Settings settings;
@@ -195,6 +239,123 @@ void main() {
     card = _card(login: 'mallory');
     await expectLater(transport.connect(_view()), throwsA(isA<RegistryRefusal>()));
     expect(tunnels.requested, hasLength(raised));
+  });
+
+  group('with the tunnels the app runs', () {
+    late Directory folder;
+    late List<List<String>> launches;
+    late Machines watched;
+    late CardProjectAccessTransport through;
+
+    setUp(() {
+      folder = Directory.systemTemp.createTempSync('project-access-tunnels-');
+      launches = [];
+      final tunnels = Tunnels(
+        configEnvironment: {'XDG_CONFIG_HOME': folder.path},
+        start: (command) async {
+          launches.add(command);
+          return _Master();
+        },
+        run: (_) async => ProcessResult(0, 0, '', ''),
+        keyAvailable: (_) async => true,
+        portsAvailable: (_) async {},
+        unlocker: _Unlocked(),
+        messengerSocket: path.join(folder.path, 'm'),
+      );
+      watched = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: tunnels);
+      through = CardProjectAccessTransport(
+        machines: watched,
+        identity: () async => card,
+        copies: ProjectCopies(root: path.join(folder.path, 'copies')),
+        remote: (card, config) => remote,
+        endpoint: (host) => path.join(folder.path, '$host.sock'),
+      );
+      addTearDown(() async {
+        await tunnels.dropEverything();
+        watched.dispose();
+        folder.deleteSync(recursive: true);
+      });
+    });
+
+    HostCardSsh cardOf(String key) => HostCardSsh(
+      name: 'orchard',
+      address: '203.0.113.7',
+      sshPort: 22,
+      hostKey: _hostKey,
+      login: 'alice',
+      publicKey: key,
+      webPort: 3000,
+      gitPort: 3001,
+      matrixPort: 8448,
+    );
+
+    // A host the person joined here, watched as Join keeps it.
+    Future<Machine> joined(String key) async {
+      final card = cardOf(key);
+      final machine = Machine.fromHostCard(
+        card,
+        socketPath: path.join(folder.path, 'joined.sock'),
+        sshConfig: card.configPath(environment: {'XDG_CONFIG_HOME': folder.path}, windows: false),
+      );
+      await watched.add(machine);
+      expect(await watched.tunnels.raiseFor(machine), isTrue);
+      return machine;
+    }
+
+    // Harm: Add a developer on a host joined here is refused for good, as its card has another endpoint already.
+    test('a host joined here is reached through the machine it is watched as', tags: ['linux'], () async {
+      final machine = await joined(_alice);
+      final raised = launches.length;
+      final connected = await through.connect(_view());
+      expect(connected.hostProject, 'orchard');
+      expect(connected.hostCard, machine.hostCard);
+      expect(connected.socketPath, machine.socketPath);
+      expect(connected.sshConfig, machine.sshConfig);
+      expect(watched.tunnels.of(machine)?.state, TunnelState.up);
+      expect(launches, hasLength(raised), reason: 'the joined tunnel carries the change, no second one is raised');
+    });
+
+    // Harm: a host watched with the person's older key keeps its card here, so the card now never raises.
+    test('a host watched with an older key gives its tunnel up to the card now', tags: ['linux'], () async {
+      final old = await joined(_key(5));
+      final connected = await through.connect(_view());
+      expect(connected.hostCard!.publicKey, _alice);
+      expect(watched.tunnels.of(old)?.state, isNot(TunnelState.up));
+      expect(watched.tunnels.of(connected)?.state, TunnelState.up);
+    });
+  });
+
+  // Harm: an id not of the form a receipt holds names a path the host removes and recreates.
+  test('a request id of another form names no folder on the host', () async {
+    await transport.connect(_view());
+    await expectLater(
+      transport.upload(_changeOf(id: '../../x'), _filed),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', 'Invalid project request ID.')),
+    );
+    expect(remote.runs, isEmpty);
+  });
+
+  // Harm: a setup folder made earlier with another mode lets other accounts read or swap the bundles placed in it.
+  test('the setup folders are made owner-only, those there already too', () async {
+    await transport.connect(_view());
+    await transport.upload(_change, _filed);
+    final reserve = remote.runs.first.command;
+    for (final folder in ['.local/share/porelo-host/setup', '.local/share/porelo-host/setup/demo']) {
+      expect(reserve, contains("d=$folder; if [ -L \"\$d\" ]"), reason: folder);
+      expect(
+        reserve,
+        contains('[ -d "\$d" ] || /usr/bin/mkdir -m 0700 -- "\$d"; /usr/bin/chmod 0700 -- "\$d"'),
+        reason: folder,
+      );
+    }
+    expect(
+      reserve,
+      isNot(
+        contains(
+          'd=.local; if [ -L "\$d" ]; then echo "\$d is a link; nothing was placed." >&2; exit 1; fi; [ -d "\$d" ] || /usr/bin/mkdir -m 0700 -- "\$d"; /usr/bin/chmod',
+        ),
+      ),
+    );
   });
 
   // Harm: nothing reaches the host through a tunnel this transport did not raise for the person.
@@ -302,6 +463,21 @@ void main() {
       ],
       'The host refused bob: not named in the host\'s applied registry.',
     ),
+    'the host refuses the admin a registration registers': (
+      const RemoteResult(0, ''),
+      [
+        jsonEncode({
+          'project': 'demo',
+          'commit': _project,
+          'access_commit': _filed,
+          'added': <String>[],
+          'dropped': <String>[],
+          'refused': ['alice: card key or expiry does not match the host\'s applied registry'],
+          'unchanged': false,
+        }),
+      ],
+      'The host refused alice: card key or expiry does not match the host\'s applied registry.',
+    ),
     'the answer lacks its fields': (
       const RemoteResult(0, ''),
       [
@@ -319,8 +495,9 @@ void main() {
       await transport.connect(_view());
       remote.syncing = entry.value.$1;
       remote.said = entry.value.$2;
+      final change = entry.key.contains('registration') ? _changeOf(action: 'register') : _change;
       await expectLater(
-        transport.apply(_change, _filed),
+        transport.apply(change, _filed),
         throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', entry.value.$3)),
       );
     });

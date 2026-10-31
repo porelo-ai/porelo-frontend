@@ -367,7 +367,8 @@ class ProjectAccess implements ProjectPersonActions {
   Future<void> change(String selectedProject, AccessDeveloper person, {required bool remove}) async {
     if (selectedProject != project) throw const RegistryRefusal('Choose this project.');
     if (remove) _connected();
-    await _begin(remove ? 'remove' : 'add', person);
+    // A person goes onto the host the project is registered on here, never onto another the registry also names.
+    await _begin(remove ? 'remove' : 'add', person, expectedHost: settings.projectHost(project));
   }
 
   /// Registers only the selected admitted project with its verified revisions.
@@ -436,6 +437,7 @@ class ProjectAccess implements ProjectPersonActions {
     AccessDeveloper? person, {
     VerifiedHostProject? expected,
     Machine? registrationMachine,
+    String? expectedHost,
   }) => _withChange(
     () => _endingIfGivenBack(() async {
       final pendingReceipt = await _reconcile();
@@ -454,6 +456,12 @@ class ProjectAccess implements ProjectPersonActions {
         throw const RegistryRefusal('Choose a person in this project.');
       }
       final view = await _authorize(expected: expected);
+      if (expectedHost != null && view.host.name != expectedHost) {
+        throw RegistryRefusal(
+          '$project is registered on host $expectedHost here, and its admission names host ${view.host.name}. '
+          'Nothing was changed.',
+        );
+      }
       if (action == 'add') {
         if (person!.role != 'developer' || person.locked || !_eligible(view, person.login, person.fingerprint)) {
           throw const RegistryRefusal('Core does not permit this person and key in this project.');

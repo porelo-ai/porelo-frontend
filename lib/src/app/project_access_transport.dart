@@ -78,33 +78,54 @@ class CardProjectAccessTransport implements ProjectAccessTransport {
     } on HostFilesRefused catch (error) {
       throw RegistryRefusal(error.message);
     }
-    // The machine this host's card already reaches here keeps its local end; either way it names the host it was
-    // raised for, as a registration's machine does.
+    // A machine watched for this host with another card or key gives its tunnel and files up to this card, as a join
+    // does; it publishes them again when it is raised.
+    for (final old in machines.all) {
+      if (old.hostCard case final other? when other.name == hostCard.name && other != hostCard) {
+        await machines.tunnels.dropAndUnpublish(old);
+      }
+    }
+    // The machine this card already reaches here, joined or registered, is raised as it is watched; the change names
+    // the host it was raised for either way.
     final watched = machines.all.where((machine) => machine.hostCard == hostCard).firstOrNull;
-    final machine = Machine(
-      name: hostCard.name,
-      kind: 'host',
-      host: hostCard.name,
-      socketPath: watched?.socketPath ?? _endpoint(hostCard.name),
-      remoteSocket: hostCard.daemonSocket,
-      hostProject: hostCard.name,
-      hostCard: hostCard,
-      sshConfig:
-          watched?.sshConfig ??
-          hostCard.configPath(
+    final raised =
+        watched ??
+        Machine(
+          name: hostCard.name,
+          kind: 'host',
+          host: hostCard.name,
+          socketPath: _endpoint(hostCard.name),
+          remoteSocket: hostCard.daemonSocket,
+          hostProject: hostCard.name,
+          hostCard: hostCard,
+          sshConfig: hostCard.configPath(
             environment: machines.tunnels.configEnvironment ?? desk.environment,
             windows: desk.isWindows,
           ),
-    );
-    if (!await machines.tunnels.raiseFor(machine)) {
+        );
+    if (!await machines.tunnels.raiseFor(raised)) {
       final why =
-          machine.whyNotReachableHere ??
-          machines.tunnels.of(machine)?.problem ??
+          raised.whyNotReachableHere ??
+          machines.tunnels.of(raised)?.problem ??
           'The tunnel to ${hostCard.name} could not be opened.';
-      if (watched == null) await machines.tunnels.dropAndUnpublish(machine);
+      if (watched == null) await machines.tunnels.dropAndUnpublish(raised);
       _connected.remove(hostCard.name);
       throw RegistryRefusal(why);
     }
+    final machine = raised.hostProject == hostCard.name
+        ? raised
+        : Machine(
+            name: raised.name,
+            kind: raised.kind,
+            host: raised.host,
+            socketPath: raised.socketPath,
+            remoteSocket: raised.remoteSocket,
+            distribution: raised.distribution,
+            identity: raised.identity,
+            hostProject: hostCard.name,
+            hostCard: hostCard,
+            sshConfig: raised.sshConfig,
+          );
     _connected[hostCard.name] = machine;
     return machine;
   }
@@ -124,6 +145,8 @@ class CardProjectAccessTransport implements ProjectAccessTransport {
   @override
   Future<void> upload(ProjectAccessChange change, String accessRevision) async {
     final (:remote, :card) = _through(change);
+    // The id names a folder the host removes and recreates: only the form a receipt holds is ever put in a path.
+    if (!RegExp(r'^[a-f0-9]{32}$').hasMatch(change.id)) throw const RegistryRefusal('Invalid project request ID.');
     final project = change.project;
     final folder = setupFolder(project);
     final staging = '$folder/.incoming-${change.id}';
@@ -158,13 +181,18 @@ class CardProjectAccessTransport implements ProjectAccessTransport {
     }
   }
 
+  /// Each folder down to [folder], refusing a link and making what is missing owner-only; from the setup folder on, one
+  /// that was there already is made owner-only too, so no other account reads or swaps a bundle placed in it.
   static String _checkedFolders(String folder) {
     final parts = folder.split('/');
+    // The folder is the setup folder's own folder for the project, `.local/share/porelo-host/setup/<project>`.
+    final setup = parts.length - 1;
     return [
       for (var count = 1; count <= parts.length; count++)
         'd=${quoteForAShell(parts.take(count).join('/'))}; '
             'if [ -L "\$d" ]; then echo "\$d is a link; nothing was placed." >&2; exit 1; fi; '
-            '[ -d "\$d" ] || /usr/bin/mkdir -m 0700 -- "\$d"',
+            '[ -d "\$d" ] || /usr/bin/mkdir -m 0700 -- "\$d"'
+            '${count >= setup ? '; /usr/bin/chmod 0700 -- "\$d"' : ''}',
     ].join('\n');
   }
 
@@ -208,7 +236,8 @@ class CardProjectAccessTransport implements ProjectAccessTransport {
     );
     if (ran.exitCode != 0) throw RegistryRefusal(_said(ran, 'The host did not take the project\'s bundles.'));
     final answer = _answer(lines);
-    final person = change.person?.login;
+    // The person a change adds, or for a registration the admin it registers, refused by the host is no success.
+    final person = change.action == 'register' ? change.actor : change.person?.login;
     if (person != null) {
       for (final refused in answer.refused) {
         if (refused.startsWith('$person: ')) throw RegistryRefusal('The host refused $refused.');

@@ -35,11 +35,13 @@ class ProjectCopies {
   /// The bare copy of the project's access repository.
   String access(String project) => path.join(folder(project), 'access.git');
 
-  /// Brings the copy at [copy] up to every branch of [url], cloning it first where there is none.
+  /// Brings the copy at [copy] up to every branch of [url], cloning it first where there is none, and points its
+  /// `HEAD` at the branch the remote's `HEAD` names.
   ///
-  /// A copy whose `origin` names another address is refused rather than fetched into.
+  /// A copy whose `origin` names another address, or more than one, is refused rather than fetched into.
   Future<void> fetch(String copy, String url) async {
     BringProjectFile.checkSource(url);
+    await privateDirectory(Directory(root));
     await privateDirectory(Directory(path.dirname(copy)));
     final type = await FileSystemEntity.type(copy, followLinks: false);
     if (type == FileSystemEntityType.notFound) {
@@ -49,8 +51,8 @@ class ProjectCopies {
     if (type != FileSystemEntityType.directory) {
       throw RegistryRefusal('The private copy at $copy is not a plain directory; it was left as it is.');
     }
-    final origin = await _git(['config', '--get', 'remote.origin.url'], inside: copy, words: _unreadable(copy));
-    if (origin.trim() != url) {
+    final origin = await _git(['config', '--get-all', 'remote.origin.url'], inside: copy, words: _unreadable(copy));
+    if (origin != '$url\n') {
       throw RegistryRefusal('The private copy at $copy names another repository than $url; it was left as it is.');
     }
     await _git(
@@ -58,7 +60,27 @@ class ProjectCopies {
       inside: copy,
       words: 'Git could not fetch $url.',
     );
+    // A fetch never moves a bare copy's HEAD: a copy made while the repository was empty, or a renamed default branch,
+    // would read no commit or an old one.
+    final remoteHead = await _git(
+      ['ls-remote', '--symref', 'origin', 'HEAD'],
+      inside: copy,
+      words: 'Git could not read $url.',
+    );
+    for (final line in remoteHead.split('\n')) {
+      final match = RegExp(r'^ref: (refs/heads/[A-Za-z0-9._/-]+)\tHEAD$').firstMatch(line);
+      if (match == null) continue;
+      await _git(['symbolic-ref', 'HEAD', match.group(1)!], inside: copy, words: _unreadable(copy));
+      break;
+    }
   }
+
+  /// The blob [name] at [revision] of [repository], byte for byte as git stores it.
+  Future<String> blob(String repository, String revision, String name) => _git(
+    ['cat-file', 'blob', '$revision:$name'],
+    inside: repository,
+    words: 'Git could not read $name at $revision.',
+  );
 
   /// The file [name] at [revision] of [copy], as git stores it.
   Future<String> show(String copy, String revision, String name) =>
@@ -83,9 +105,9 @@ class ProjectCopies {
     };
   }
 
-  /// The newest commit of [copy]'s default branch, among its last 1000 first parents, carrying the
-  /// `Porelo-Change-Id` trailer [id] Core writes for a filing; null when none does.
-  Future<String?> changeCommit(String copy, String id) async {
+  /// Every commit of [copy]'s default branch, among its last 1000 first parents and newest first, carrying the
+  /// `Porelo-Change-Id` trailer [id] Core writes for a filing.
+  Future<List<String>> changeCommits(String copy, String id) async {
     final listed = await _git(
       [
         'log',
@@ -98,11 +120,50 @@ class ProjectCopies {
       inside: copy,
       words: _unreadable(copy),
     );
-    for (final line in listed.split('\n')) {
-      final parts = line.trim().split(' ');
-      if (parts.length == 2 && parts[1] == id) return _commit(parts[0], copy);
-    }
-    return null;
+    return [
+      for (final line in listed.split('\n'))
+        if (line.trim().split(' ') case [final commit, final ids] when ids.split(',').contains(id))
+          _commit(commit, copy),
+    ];
+  }
+
+  /// The parents of [revision], in order.
+  Future<List<String>> parents(String copy, String revision) async {
+    final said = await _git(
+      ['rev-list', '--parents', '-n', '1', '$revision^{commit}'],
+      inside: copy,
+      words: _unreadable(copy),
+    );
+    final commits = said.trim().split(' ');
+    return [for (final commit in commits.skip(1)) _commit(commit, copy)];
+  }
+
+  /// Whether [older] is [newer] or one of its ancestors.
+  Future<bool> descends(String copy, String newer, String older) async {
+    final ancestor = await _ran(['merge-base', '--is-ancestor', older, newer], inside: copy);
+    return switch (ancestor.code) {
+      0 => true,
+      1 => false,
+      _ => throw RegistryRefusal(_unreadable(copy)),
+    };
+  }
+
+  /// The fingerprint of the key whose signature on [revision] verifies against [allowedSigners], an allowed-signers
+  /// file of the keys that may have signed it; null when none does, or [krl] revokes it.
+  Future<String?> signer(String copy, String revision, {required String allowedSigners, String? krl}) async {
+    final said = await _ran([
+      '-c',
+      'gpg.ssh.allowedSignersFile=$allowedSigners',
+      if (krl != null) ...['-c', 'gpg.ssh.revocationFile=$krl'],
+      'log',
+      '-1',
+      '--no-show-signature',
+      '--format=%G? %GF',
+      '$revision^{commit}',
+    ], inside: copy);
+    if (said.code != 0) return null;
+    final verdict = said.out.trim().split(' ');
+    return verdict.length == 2 && verdict.first == 'G' ? verdict.last : null;
   }
 
   /// The `Porelo-Change-Id` trailers [revision] carries, as written.

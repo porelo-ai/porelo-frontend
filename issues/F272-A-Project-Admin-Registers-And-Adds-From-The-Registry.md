@@ -41,6 +41,8 @@ None.
 - What `project access init` calls an empty repository: the change needs the access repository's head commit as its base, so an access repository with no commit at all is refused with words.
 - Whether `project access add --host --card --role admin` takes an admin already in the access file (Register on a further host, or again).
 - Core serves no project-scoped picker verdict and no lost-key-replacement verdict: the picker offers the registry's trusted cards, and Core refuses a card it does not take when the person is filed.
+- Core's `project verify` names the signer of the project tip only, not of the access commit. A filed commit is taken as the change's own only when git verifies its SSH signature against the actor's key alone (an allowed-signers file of that one key, `gpg.ssh.revocationFile` the person's `revoked.krl` when there is one); an `access_signer` in Core's answer would let Core decide that too.
+- The access repository is read from `project.yml` at the commit Core's follow holds in force, never at the project copy's unverified head; a project file that moved its access repository after that commit is refused until Core's follow takes it.
 - The targeted VM check of Register and Add against Core's and porelo-host's packages.
 
 ## Test
@@ -63,7 +65,7 @@ Only the change: tests against a fake Core and the host stand-in. One VM check w
 ## Deferred
 
 - Remove, Lock, Let back in and accepting a new key are listed unavailable in the app ("not connected to Core and the host yet") and Core is never asked for them, since the host's answer cannot confirm them (see *To be checked*).
-- Core's filing commits and pushes in one step, so publication only confirms that the access repository holds the exact filed commit; a filed id is looked up by Core's `Porelo-Change-Id` trailer in the access repository's history, there being no read-only Core verb for it.
+- Core's filing commits and pushes in one step, so publication only confirms that the access repository holds the exact filed commit; a filed id is looked up by Core's `Porelo-Change-Id` trailer in the access repository's history, there being no read-only Core verb for it. A commit is taken only when it is the one commit carrying the id, once, made on the change's base alone, signed by the actor's key, verified by Core from the access commit in force here, and shows the person with the role and key the change names; any other is refused, never delivered.
 - Automatic central-forge collaborator grants and revocations; central-forge access remains a prerequisite.
 - New list and item pages; the shared project commands and minimal dialog wiring are available for page integration.
 - A filed registration is still held to the project state it names before Core is asked, so a registration Core refused after a project commit is retried rather than superseded.

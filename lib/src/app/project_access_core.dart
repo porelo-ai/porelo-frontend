@@ -8,7 +8,9 @@ import 'package:porelo_host/porelo_host.dart';
 import 'access_developers.dart';
 import 'bring_project_file.dart';
 import 'host_access.dart' show HostAdminIdentity;
+import 'host_access_contract.dart' show checkedRegistryRevision;
 import 'identity.dart';
+import 'key_recovery.dart' show cardFingerprint;
 import 'project_access_contract.dart';
 import 'project_copies.dart';
 import 'registry.dart';
@@ -47,7 +49,12 @@ class CoreProjectAccess implements ProjectAccessCore {
     required this.copies,
     RunHere? run,
     this._agentKeys,
-  }) : _run = run ?? runHere;
+    String? Function(String project)? pinnedHost,
+    bool Function(String host)? hostReturned,
+    this.krl,
+  }) : _run = run ?? runHere,
+       _pinnedHost = pinnedHost ?? ((_) => null),
+       _hostReturned = hostReturned ?? ((_) => false);
 
   /// What is said while no registry was chosen.
   static const noRegistry = 'Choose the registry repository first, so this project\'s hosts and persons can be read.';
@@ -65,8 +72,14 @@ class CoreProjectAccess implements ProjectAccessCore {
   /// The private project and access copies Core verifies.
   final ProjectCopies copies;
 
+  /// The revocation list Core's follow checks here, `~/.config/porelo/revoked.krl`; Core's `verify` and git are given it
+  /// whenever it is there, as they read none of their own.
+  final String? krl;
+
   final RunHere _run;
   final AgentKeys? _agentKeys;
+  final String? Function(String project) _pinnedHost;
+  final bool Function(String host) _hostReturned;
 
   // The last verification of each project, which filing builds on.
   final _last = <String, ({ProjectAccessCoreAdapter adapter, bool hasAccessFile})>{};
@@ -74,7 +87,25 @@ class CoreProjectAccess implements ProjectAccessCore {
   @override
   Future<ProjectAccessView> read(String project) => _view(project);
 
-  Future<ProjectAccessView> _view(String project, {String? accessAt}) async {
+  Future<ProjectAccessView> _view(String project, {String? accessAt}) async =>
+      (await _verified(project, accessAt: accessAt)).view;
+
+  // The view and Core's verified persons, refusals said in their own words.
+  Future<({ProjectAccessView view, List<Map<String, Object?>> persons})> _verified(
+    String project, {
+    String? accessAt,
+  }) async {
+    try {
+      return await _verifiedOnce(project, accessAt: accessAt);
+    } on WorkspaceRefused catch (error) {
+      throw RegistryRefusal(error.words);
+    }
+  }
+
+  Future<({ProjectAccessView view, List<Map<String, Object?>> persons})> _verifiedOnce(
+    String project, {
+    String? accessAt,
+  }) async {
     checkAdminName(project);
     final registry = this.registry();
     if (registry == null) throw const RegistryRefusal(noRegistry);
@@ -82,9 +113,26 @@ class CoreProjectAccess implements ProjectAccessCore {
     final followed = await _followed(project);
     final projectCopy = copies.project(project);
     await copies.fetch(projectCopy, followed.url);
-    final named = _accessOf(await copies.show(projectCopy, 'HEAD', 'project.yml'));
+    // Nothing is read from the project's newest commits before Core verified them: the access repository is the one
+    // the project file names at the commit this computer's follow holds in force, as Core's own `access` takes it.
+    if (followed.commit.isEmpty) {
+      throw RegistryRefusal(
+        'This computer follows $project without a verified commit yet. Refresh it, then read it again.',
+      );
+    }
+    if (!await copies.holds(projectCopy, followed.commit)) {
+      throw RegistryRefusal(
+        'The repository of $project no longer holds the commit this computer follows. Refresh it, then read it again.',
+      );
+    }
+    final named = _accessOf(await copies.show(projectCopy, followed.commit, 'project.yml'));
     final accessCopy = copies.access(project);
     await copies.fetch(accessCopy, named);
+    var accessSince = followed.accessCommit.isEmpty ? null : followed.accessCommit;
+    // A filed commit Core's follow took already, and maybe moved past, is in force here as it is.
+    if (accessAt != null && accessSince != null && await copies.descends(accessCopy, accessSince, accessAt)) {
+      accessSince = accessAt;
+    }
     Directory? scratch;
     try {
       var accessSource = accessCopy;
@@ -100,11 +148,10 @@ class CoreProjectAccess implements ProjectAccessCore {
           repository: projectCopy,
           signedBy: followed.signedBy,
           accessRepository: accessSource,
-          since: followed.commit.isEmpty ? null : followed.commit,
-          // An exact filed commit is checked on its own: the access in force here may have moved past it already.
-          accessSince: accessAt != null || followed.accessCommit.isEmpty ? null : followed.accessCommit,
+          since: followed.commit,
+          accessSince: accessSince,
+          krl: _krlHere(),
         ),
-        registryCheckout: registry.checkout.folder,
         agentKeys: _agentKeys,
       );
       final verified = await adapter.verify(project);
@@ -161,21 +208,24 @@ class CoreProjectAccess implements ProjectAccessCore {
           for (final person in registry.people)
             if (person.trusted) person.login: ProjectPersonVerdict(person.fingerprint),
         },
+        // A name and an address are shown only from a card the registry trusts.
         whoMay: [
           for (final login in admins)
-            RegistryContact(
-              login: login,
-              name: registry.people.where((person) => person.login == login).firstOrNull?.name ?? login,
-              email: registry.people.where((person) => person.login == login).firstOrNull?.contactEmail,
-            ),
+            if (registry.people.where((person) => person.login == login && person.trusted).firstOrNull
+                case final person?)
+              RegistryContact(login: login, name: person.name, email: person.contactEmail)
+            else
+              RegistryContact(login: login, name: login),
         ],
       );
       if (accessAt == null) _last[project] = (adapter: adapter, hasAccessFile: hasAccessFile);
-      return view;
+      return (view: view, persons: persons);
     } finally {
       if (scratch != null && await scratch.exists()) await scratch.delete(recursive: true);
     }
   }
+
+  String? _krlHere() => krl != null && File(krl!).existsSync() ? krl : null;
 
   static String _accessOf(String projectYaml) {
     try {
@@ -201,14 +251,24 @@ class CoreProjectAccess implements ProjectAccessCore {
     return card;
   }
 
-  /// The one registry host whose access file admits [login] as [project]'s admin, with its accepted card.
-  static ({RegistryHost entry, PreparedHost card}) _admittingHost(Registry registry, String project, String login) {
+  /// The one registry host whose access file admits [login] as [project]'s admin, with its accepted card: the host the
+  /// project is registered on here when one is, never a host given back or one without an accepted card.
+  ({RegistryHost entry, PreparedHost card}) _admittingHost(Registry registry, String project, String login) {
+    final pinned = _pinnedHost(project);
     final hosts = [
       for (final host in registry.hosts)
-        if (host.projects.any((entry) => entry.name == project && entry.admin == login)) host,
+        if (host.card != null &&
+            !_hostReturned(host.host) &&
+            (pinned == null || host.host == pinned) &&
+            host.projects.any((entry) => entry.name == project && entry.admin == login))
+          host,
     ];
     if (hosts.isEmpty) {
-      throw RegistryRefusal('No host in the registry admits you as the project admin of $project.');
+      throw RegistryRefusal(
+        pinned == null
+            ? 'No host in the registry admits you as the project admin of $project.'
+            : 'Host $pinned, where $project is registered here, does not admit you as its project admin in the registry.',
+      );
     }
     if (hosts.length > 1) {
       throw RegistryRefusal(
@@ -216,10 +276,8 @@ class CoreProjectAccess implements ProjectAccessCore {
         'this interface registers on one.',
       );
     }
-    final card = hosts.single.card;
-    if (card == null) throw RegistryRefusal('The registry holds no accepted card of host ${hosts.single.host} yet.');
     try {
-      return (entry: hosts.single, card: PreparedHost.card(card));
+      return (entry: hosts.single, card: PreparedHost.card(hosts.single.card!));
     } on FormatException {
       throw RegistryRefusal('The registry\'s card of host ${hosts.single.host} could not be read.');
     }
@@ -276,26 +334,82 @@ class CoreProjectAccess implements ProjectAccessCore {
   @override
   Future<String> file(ProjectAccessChange change) async {
     if (change.action != 'register' && change.action != 'add') throw const RegistryRefusal(notConnected);
+    final registry = this.registry();
+    if (registry == null) throw const RegistryRefusal(noRegistry);
+    _atRest(registry);
     var last = _last[change.project];
     if (last == null) {
       await read(change.project);
       last = _last[change.project]!;
     }
+    final register = change.action == 'register';
+    final login = register ? change.actor : change.person?.login;
+    if (login == null) throw const RegistryRefusal('Choose a project person.');
+    final fingerprint = register ? change.actorFingerprint : change.person!.fingerprint;
+    final scratch = await HostFileWriter().createPrivateTemporary(Directory(copies.folder(change.project)));
     try {
-      return await last.adapter.file(change, hasAccessFile: last.hasAccessFile);
+      final card = await _acceptedCard(registry, login, fingerprint, into: scratch.path);
+      return await last.adapter.file(change, hasAccessFile: last.hasAccessFile, card: card);
     } on RegistryRefusal {
       rethrow;
     } on WorkspaceRefused catch (error) {
       throw RegistryRefusal(error.words);
     } on FormatException catch (error) {
       throw RegistryRefusal(error.message);
+    } finally {
+      if (await scratch.exists()) await scratch.delete(recursive: true);
     }
+  }
+
+  /// Refuses while the registry is read, filed, held by a key change or not accepted as it stands.
+  static void _atRest(Registry registry) {
+    if (registry.held) throw const RegistryRefusal(Registry.heldWords);
+    if (registry.busy) {
+      throw const RegistryRefusal('A registry read or filing still runs; try again once it has ended.');
+    }
+    if (registry.accepted?.revision == null || registry.problem != null) {
+      throw const RegistryRefusal('Refresh the verified registry before changing this project.');
+    }
+  }
+
+  /// A private copy, in [into], of [login]'s card exactly as the registry's accepted commit holds it, never the
+  /// checkout's working file, which a refresh or a key change may rewrite; refused unless it carries the reviewed key.
+  Future<String> _acceptedCard(Registry registry, String login, String fingerprint, {required String into}) async {
+    checkAdminName(login);
+    final accepted = registry.accepted!;
+    final text = await copies.blob(
+      registry.checkout.folder,
+      checkedRegistryRevision(accepted.revision!),
+      'people/$login.card',
+    );
+    _atRest(registry);
+    if (!identical(registry.accepted, accepted)) {
+      throw const RegistryRefusal('The registry was read again meanwhile. Read the project again.');
+    }
+    if (cardFingerprint(text) != fingerprint) {
+      throw RegistryRefusal(
+        'The registry\'s accepted card of $login carries another key than the one chosen. Read the project again.',
+      );
+    }
+    final copy = File(path.join(into, '$login.card'));
+    await copy.create(exclusive: true);
+    await HostFileWriter().protect(copy);
+    await copy.writeAsString(text, flush: true);
+    return copy.path;
   }
 
   @override
   Future<String?> filedRevision(ProjectAccessChange change) async {
     final copy = await _fetchedAccess(change);
-    return copies.changeCommit(copy, change.id);
+    final found = await copies.changeCommits(copy, change.id);
+    if (found.isEmpty) return null;
+    if (found.length != 1 || await _adopted(change, copy, found.single) == null) {
+      throw RegistryRefusal(
+        'The access repository holds ${found.join(', ')} under this request\'s id, which is not the change made here. '
+        'It was not taken.',
+      );
+    }
+    return found.single;
   }
 
   @override
@@ -319,10 +433,48 @@ class CoreProjectAccess implements ProjectAccessCore {
       }
       throw ProjectAccessRetry('The access repository does not hold the filed commit $revision yet. Retry.');
     }
-    if (!(await copies.changeIds(copy, revision)).contains(change.id)) {
-      return ProjectAccessRevisionRefused(change.id, revision);
+    final view = await _adopted(change, copy, revision);
+    return view == null ? ProjectAccessRevisionRefused(change.id, revision) : ProjectAccessAuthorized(view);
+  }
+
+  /// The verified access at [revision] when it is this change's own commit, else null: made on the change's base
+  /// alone, carrying its id once, signed by the actor's own key, verified by Core from the access commit in force
+  /// here, and showing the person with the role and key the change names.
+  Future<ProjectAccessView?> _adopted(ProjectAccessChange change, String copy, String revision) async {
+    if (!RegExp(r'^[a-f0-9]{32}$').hasMatch(change.id)) return null;
+    final parents = await copies.parents(copy, revision);
+    if (parents.length != 1 || parents.single != change.baseRevision) return null;
+    final ids = await copies.changeIds(copy, revision);
+    if (ids.length != 1 || ids.single != change.id) return null;
+    final (:view, :persons) = await _verified(change.project, accessAt: revision);
+    if (view.accessRevision != revision) return null;
+    final actorKey = persons
+        .where(
+          (person) =>
+              person['login'] == change.actor &&
+              person['revoked'] == false &&
+              HostFiles.signingFingerprint(person['ssh'] as String) == change.actorFingerprint,
+        )
+        .firstOrNull?['ssh'];
+    if (actorKey is! String) return null;
+    final scratch = await HostFileWriter().createPrivateTemporary(Directory(copies.folder(change.project)));
+    try {
+      final allowed = File(path.join(scratch.path, 'allowed_signers'));
+      await allowed.writeAsString('${change.actor} namespaces="git" $actorKey\n', flush: true);
+      final signer = await copies.signer(copy, revision, allowedSigners: allowed.path, krl: _krlHere());
+      if (signer != change.actorFingerprint) return null;
+    } finally {
+      if (await scratch.exists()) await scratch.delete(recursive: true);
     }
-    return ProjectAccessAuthorized(await _view(change.project, accessAt: revision));
+    final register = change.action == 'register';
+    final shown = view.access.developers[register ? change.actor : change.person?.login];
+    if (shown == null ||
+        shown.locked ||
+        shown.role != (register ? 'admin' : change.person!.role) ||
+        shown.fingerprint != (register ? change.actorFingerprint : change.person!.fingerprint)) {
+      return null;
+    }
+    return view;
   }
 
   Future<String> _fetchedAccess(ProjectAccessChange change) async {

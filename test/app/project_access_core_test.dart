@@ -18,10 +18,13 @@ const _project = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const _base = '1111111111111111111111111111111111111111';
 const _filed = '2222222222222222222222222222222222222222';
 const _moved = '3333333333333333333333333333333333333333';
+const _newer = 'dddddddddddddddddddddddddddddddddddddddd';
+const _accepted = 'cccccccccccccccccccccccccccccccccccccccc';
 const _id = '0123456789abcdef0123456789abcdef';
 const _url = 'git@example.org:team/demo.git';
 const _accessUrl = 'git@example.org:team/demo-access.git';
 const _checkout = '/private/registry/checkout';
+const _otherAccess = 'git@example.org:mallory/access.git';
 const _projectYaml =
     '''
 access:
@@ -74,10 +77,28 @@ class _Checkout implements RegistryCheckout {
   Future<void> publish(String revision) async {}
 }
 
+Map<String, Object?> _hostCard(String host) => {
+  'host': host,
+  'address': '203.0.113.7',
+  'ssh_port': 22,
+  'ssh_host_key': _hostKey,
+  'services': {
+    'forge': {'web_port': 3000, 'git_port': 3001},
+    'matrix': {'port': 8448},
+  },
+  'signed_by': HostFiles.signingFingerprint(_alice),
+};
+
 class _RegistryCore implements RegistryCore {
+  /// Further hosts admitting Alice for demo, each with its card or none.
+  Map<String, bool> moreHosts = {};
+
+  /// The people's states, trusted unless named.
+  Map<String, String> states = {};
+
   @override
   Future<RegistryRead> read(String checkout) async => RegistryRead.from({
-    'revision': 'c' * 40,
+    'revision': _accepted,
     'people': [
       for (final (login, key) in [('alice', _alice), ('bob', _bob)])
         {
@@ -86,7 +107,7 @@ class _RegistryCore implements RegistryCore {
           'email': '$login@example.org',
           'key': key,
           'fingerprint': HostFiles.signingFingerprint(key),
-          'state': 'trusted',
+          'state': states[login] ?? 'trusted',
           'why': '',
         },
     ],
@@ -113,6 +134,17 @@ class _RegistryCore implements RegistryCore {
           {'name': 'demo', 'admin': 'alice', 'access_repository': _accessUrl},
         ],
       },
+      for (final MapEntry(key: host, value: carded) in moreHosts.entries)
+        {
+          'host': host,
+          'card': carded ? _hostCard(host) : null,
+          'admins': [
+            {'login': 'alice', 'fingerprint': HostFiles.signingFingerprint(_alice)},
+          ],
+          'projects': [
+            {'name': 'demo', 'admin': 'alice', 'access_repository': _accessUrl},
+          ],
+        },
     ],
   });
 
@@ -148,7 +180,21 @@ class _Here {
   Ran? verifying;
   bool fetchFails = false;
 
+  /// The project file each commit of the project's repository holds; `HEAD` is its newest, unverified one.
+  Map<String, String> projectFiles = {'HEAD': _projectYaml};
+
+  /// The key each card in the registry's accepted commit carries.
+  Map<String, String> cards = {'alice': _alice, 'bob': _bob};
+
+  /// What git says of a commit's signature, as `%G? %GF`.
+  String signature = 'G ${HostFiles.signingFingerprint(_alice)}';
+
+  /// The card file Core was handed, as it read it.
+  String? cardSent;
+
   String get head => history.first.$1;
+
+  int _at(String commit) => commit == 'HEAD' ? 0 : history.indexWhere((each) => each.$1 == commit);
 
   Future<Ran> run(
     String program,
@@ -169,19 +215,48 @@ class _Here {
           err: '',
         ),
         'project verify' => verifying ?? (code: 0, out: jsonEncode(verification), err: ''),
-        _ => filing ?? (code: 0, out: jsonEncode({'revision': _filed}), err: ''),
+        _ => () {
+          if (arguments.contains('--card')) {
+            cardSent = File(arguments[arguments.indexOf('--card') + 1]).readAsStringSync();
+          }
+          return filing ?? (code: 0, out: jsonEncode({'revision': _filed}), err: '');
+        }(),
       };
     }
     expect(environment['GIT_CONFIG_GLOBAL'], '/dev/null', reason: 'git runs without the person\'s configuration');
     if (arguments.first == 'clone') Directory(arguments.last).createSync(recursive: true);
     final held = {for (final (commit, _) in history) commit};
+    final project = inDirectory?.endsWith('project.git') ?? false;
     return switch (arguments.first) {
       'fetch' when fetchFails => (code: 128, out: '', err: 'private diagnostic'),
       'config' => (code: 0, out: '${inDirectory!.endsWith('access.git') ? _accessUrl : _url}\n', err: ''),
-      'show' => (code: 0, out: _projectYaml, err: ''),
+      'ls-remote' => (code: 0, out: 'ref: refs/heads/main\tHEAD\n$head\tHEAD\n', err: ''),
+      'show' => (code: 0, out: projectFiles[arguments[1].split(':').first] ?? _projectYaml, err: ''),
       'rev-parse' => (code: 0, out: '$head\n', err: ''),
-      'cat-file' => (code: held.contains(arguments.last.split('^').first) ? 0 : 1, out: '', err: ''),
-      'merge-base' => (code: held.contains(arguments[2]) ? 0 : 1, out: '', err: ''),
+      'cat-file' when arguments[1] == 'blob' => (
+        code: 0,
+        out: () {
+          final login = path.basenameWithoutExtension(arguments[2].split(':').last);
+          return 'login: "$login"\nkey: "${cards[login]}"\n-----BEGIN SSH SIGNATURE-----\n';
+        }(),
+        err: '',
+      ),
+      'cat-file' => (code: project || held.contains(arguments.last.split('^').first) ? 0 : 1, out: '', err: ''),
+      'merge-base' when project => (code: 0, out: '', err: ''),
+      'merge-base' => (
+        code: _at(arguments[2]) >= 0 && _at(arguments[3]) >= 0 && _at(arguments[2]) >= _at(arguments[3]) ? 0 : 1,
+        out: '',
+        err: '',
+      ),
+      'rev-list' => (
+        code: 0,
+        out: () {
+          final at = _at(arguments.last.split('^').first);
+          return [history[at].$1, if (at + 1 < history.length) history[at + 1].$1].join(' ');
+        }(),
+        err: '',
+      ),
+      '-c' => (code: 0, out: '$signature\n', err: ''),
       'log' when arguments.contains('-1') => (
         code: 0,
         out: '${history.where((each) => each.$1 == arguments.last).firstOrNull?.$2 ?? ''}\n',
@@ -246,22 +321,33 @@ void main() {
   late Directory root;
   late _Here here;
   late Registry registry;
+  late _RegistryCore registryCore;
   late IdentityCard card;
   late CoreProjectAccess core;
+
+  CoreProjectAccess coreWith({
+    String? Function(String)? pinnedHost,
+    bool Function(String)? hostReturned,
+    String? krl,
+  }) => CoreProjectAccess(
+    registry: () => registry,
+    identity: () async => card,
+    copies: ProjectCopies(root: path.join(root.path, 'copies'), run: here.run),
+    run: here.run,
+    agentKeys: () async => [_alice],
+    pinnedHost: pinnedHost,
+    hostReturned: hostReturned,
+    krl: krl,
+  );
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('project-access-core-');
     here = _Here();
     card = _card();
-    registry = Registry(checkout: _Checkout(), core: _RegistryCore());
+    registryCore = _RegistryCore();
+    registry = Registry(checkout: _Checkout(), core: registryCore);
     await registry.refresh();
-    core = CoreProjectAccess(
-      registry: () => registry,
-      identity: () async => card,
-      copies: ProjectCopies(root: path.join(root.path, 'copies'), run: here.run),
-      run: here.run,
-      agentKeys: () async => [_alice],
-    );
+    core = coreWith();
   });
 
   tearDown(() async {
@@ -270,6 +356,15 @@ void main() {
   });
 
   String copy(String which) => path.join(root.path, 'copies', 'demo', '$which.git');
+
+  // The private copy of a card Core was handed: in the project's own folder, never the registry checkout's file.
+  String cardCopy(String login) {
+    final sent = here.named('porelo', 'project').last;
+    final file = sent[sent.indexOf('--card') + 1];
+    expect(path.dirname(path.dirname(file)), path.join(root.path, 'copies', 'demo'));
+    expect(path.basename(file), '$login.card');
+    return file;
+  }
 
   // Harm: verifying copies against keys or commits other than those this computer's follow holds in force, or
   // another project's, would let a rewritten history or a retired key decide who may change access.
@@ -371,7 +466,7 @@ void main() {
       '--host',
       'orchard',
       '--card',
-      path.join(_checkout, 'people', 'alice.card'),
+      cardCopy('alice'),
       '--id',
       _id,
       '--json',
@@ -393,7 +488,7 @@ void main() {
       '--host',
       'orchard',
       '--card',
-      path.join(_checkout, 'people', 'bob.card'),
+      cardCopy('bob'),
       '--role',
       'developer',
       '--base',
@@ -402,6 +497,105 @@ void main() {
       _id,
       '--json',
     ]);
+  });
+
+  // Harm: a card the registry did not accept - found in the checkout's working tree after a read that stopped early,
+  // or while a key change rewrites it - would be signed into the access file and synced onto the host.
+  test(
+    'the card Core is handed is the registry\'s accepted one, read from its commit, never the checkout\'s file',
+    () async {
+      await core.read('demo');
+      await core.file(_change('add'));
+      final read = here.calls.where((call) => call.take(3).join(' ') == 'git cat-file blob').single;
+      expect(read, ['git', 'cat-file', 'blob', '$_accepted:people/bob.card']);
+      expect(here.directories[here.calls.indexOf(read)], _checkout);
+      expect(here.cardSent, contains('key: "$_bob"'));
+      expect(File(cardCopy('bob')).existsSync(), isFalse, reason: 'the copy is removed once Core answered');
+    },
+  );
+
+  test('an accepted card carrying another key than the one chosen is not handed to Core', () async {
+    await core.read('demo');
+    here.cards['bob'] = _key(9);
+    await expectLater(
+      core.file(_change('add')),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', contains('another key'))),
+    );
+    expect(here.named('porelo', 'project').where((call) => call[2] == 'access'), isEmpty);
+  });
+
+  test('nothing is filed while a key change holds the registry checkout', () async {
+    await core.read('demo');
+    final holder = Object();
+    registry.hold(holder);
+    addTearDown(() => registry.release(holder));
+    await expectLater(
+      core.file(_change('add')),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', Registry.heldWords)),
+    );
+    expect(here.calls.where((call) => call.contains('blob') || call.contains('access')), isEmpty);
+  });
+
+  // Harm: a key this computer revoked, ahead of Core's own follow, would still be taken as a signer of the project or
+  // of its access, and the access it signed delivered to the host.
+  test('the revocation list Core\'s follow checks is handed to the verification whenever it is there', () async {
+    final krl = path.join(root.path, 'revoked.krl');
+    core = coreWith(krl: krl);
+    await core.read('demo');
+    expect(here.named('porelo', 'project').last, isNot(contains('--krl')));
+    await File(krl).writeAsBytes([0]);
+    await core.read('demo');
+    final verify = here.named('porelo', 'project').last;
+    expect(verify.sublist(verify.length - 3), ['--krl', krl, '--json']);
+  });
+
+  // Harm: an unsigned commit pushed to the project's repository names another access repository, and this computer
+  // reaches it with the person's agent and keeps its copy, before anything was verified.
+  test('the access repository is taken from the project file only at commits Core verified', () async {
+    here.projectFiles['HEAD'] = _projectYaml.replaceAll(_accessUrl, _otherAccess);
+    here.verification['commit'] = _newer;
+    await core.read('demo');
+    expect(here.named('git').where((call) => call[1] == 'show').map((call) => call[2]), [
+      '$_project:project.yml',
+      '$_newer:project.yml',
+    ]);
+    expect(here.named('git').where((call) => call[1] == 'clone').map((call) => call[5]), [_url, _accessUrl]);
+  });
+
+  // Harm: an access change goes, with the project's private bundles, to a host the project is not registered on here,
+  // or a host given back or without a card blocks the one it is.
+  test('the admitting host is the one the project is registered on here', () async {
+    registryCore.moreHosts = {'grove': true};
+    await registry.refresh();
+    await expectLater(core.read('demo'), throwsA(isA<RegistryRefusal>()));
+    expect((await coreWith(pinnedHost: (_) => 'orchard').read('demo')).host.name, 'orchard');
+    expect((await coreWith(pinnedHost: (_) => 'grove').read('demo')).host.name, 'grove');
+  });
+
+  test('a host given back, or one without an accepted card, admits nothing', () async {
+    registryCore.moreHosts = {'grove': true, 'shed': false};
+    await registry.refresh();
+    expect((await coreWith(hostReturned: (host) => host == 'grove').read('demo')).host.name, 'orchard');
+  });
+
+  // Harm: a name and an address from a card the registry does not trust are shown as whom to ask.
+  test('whom to ask is named from trusted cards only', () async {
+    registryCore.states = {'alice': 'first-seen'};
+    await registry.refresh();
+    final view = await core.read('demo');
+    expect(view.whoMay.single.login, 'alice');
+    expect(view.whoMay.single.name, 'alice');
+    expect(view.whoMay.single.email, isNull);
+  });
+
+  // Harm: why the project's address was refused is replaced by a generic failure.
+  test('a followed address refused as a source is said in its own words', () async {
+    here.follow['url'] = 'ext::sh -c evil';
+    await expectLater(
+      core.read('demo'),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', contains('credential-free HTTPS'))),
+    );
+    expect(here.named('git'), isEmpty);
   });
 
   // Harm: a lock or removal signed and pushed while nothing delivers it leaves the host granting what the access file
@@ -433,11 +627,19 @@ void main() {
   });
 
   group('the filed commit', () {
+    // The access repository after Core filed Bob's addition, and Core's verification of it.
+    void filedAsMade() {
+      here.history = [(_filed, _id), (_base, '')];
+      here.verification
+        ..['access_commit'] = _filed
+        ..['persons'] = [_person('alice', _alice, 'admin'), _person('bob', _bob, 'developer')];
+    }
+
     // Harm: an id taken for unfiled while the access repository could not be read would let the same change be
     // signed twice, or a filed one be forgotten.
     test('is looked up by its change id and an unreadable repository keeps the receipt', () async {
       expect(await core.filedRevision(_change('add')), isNull);
-      here.history = [(_filed, _id), (_base, '')];
+      filedAsMade();
       expect(await core.filedRevision(_change('add')), _filed);
       here.fetchFails = true;
       await expectLater(core.filedRevision(_change('add')), throwsA(isA<ProjectAccessRetry>()));
@@ -452,21 +654,57 @@ void main() {
       expect(here.named('git').where((call) => call[1] == 'push'), isEmpty);
     });
 
-    // Harm: a commit of another change delivered as this one, or a newer access state delivered in its place.
-    test('is delivered only when it carries this change\'s id, verified at exactly that commit', () async {
-      here.history = [(_filed, 'f' * 32), (_base, '')];
-      expect(await core.delivery(_change('add'), _filed), isA<ProjectAccessRevisionRefused>());
-      here.history = [(_moved, ''), (_filed, _id), (_base, '')];
-      here.verification['access_commit'] = _filed;
-      final verdict = await core.delivery(_change('add'), _filed);
-      expect(verdict, isA<ProjectAccessAuthorized>());
-      expect((verdict as ProjectAccessAuthorized).view.accessRevision, _filed);
-      final bundling = here.named('git').where((call) => call[1] == 'update-ref').last;
-      expect(bundling, ['git', 'update-ref', 'refs/heads/main', '$_filed^{commit}']);
-      final verify = here.named('porelo', 'project').last;
-      expect(verify, isNot(contains('--access-since')));
-      expect(verify[verify.indexOf('--access-repository') + 1], endsWith('access.bundle'));
-    });
+    // Harm: a newer access state delivered in the filed one's place, or one Core checked without the access in force.
+    test(
+      'is delivered as exactly that commit, verified from the access in force here and signed by the actor',
+      () async {
+        filedAsMade();
+        here.history = [(_moved, ''), ...here.history];
+        final verdict = await core.delivery(_change('add'), _filed);
+        expect(verdict, isA<ProjectAccessAuthorized>());
+        expect((verdict as ProjectAccessAuthorized).view.accessRevision, _filed);
+        final bundling = here.named('git').where((call) => call[1] == 'update-ref').last;
+        expect(bundling, ['git', 'update-ref', 'refs/heads/main', '$_filed^{commit}']);
+        final verify = here.named('porelo', 'project').last;
+        expect(verify[verify.indexOf('--access-repository') + 1], endsWith('access.bundle'));
+        expect(verify[verify.indexOf('--access-since') + 1], _base);
+        final signed = here.calls.where((call) => call.first == 'git' && call[1] == '-c').single;
+        expect(signed.sublist(signed.length - 4), [
+          '-1',
+          '--no-show-signature',
+          '--format=%G? %GF',
+          '$_filed^{commit}',
+        ]);
+        expect(signed[2], startsWith('gpg.ssh.allowedSignersFile='));
+      },
+    );
+
+    // Harm: a commit someone else made under this change's id - on another base, with the id twice or beside another,
+    // signed by another key, or granting another person, role or key - is delivered to the host and confirmed as this
+    // change.
+    for (final entry in <String, void Function(_Here)>{
+      'of another change': (here) => here.history = [(_filed, 'f' * 32), (_base, '')],
+      'made on another base': (here) => here.history = [(_filed, _id), (_moved, ''), (_base, '')],
+      'carrying the id twice': (here) => here.history = [(_filed, '$_id,$_id'), (_base, '')],
+      'carrying another id beside it': (here) => here.history = [(_filed, '$_id,${'f' * 32}'), (_base, '')],
+      'signed by another key': (here) => here.signature = 'G ${HostFiles.signingFingerprint(_bob)}',
+      'whose signature git does not take': (here) => here.signature = 'U ${HostFiles.signingFingerprint(_alice)}',
+      'granting the person as admin': (here) => here.verification
+        ..['persons'] = [_person('alice', _alice, 'admin'), _person('bob', _bob, 'admin')]
+        ..['admins'] = ['alice', 'bob'],
+      'granting the person another key': (here) =>
+          here.verification['persons'] = [_person('alice', _alice, 'admin'), _person('bob', _key(9), 'developer')],
+      'not granting the person': (here) => here.verification['persons'] = [_person('alice', _alice, 'admin')],
+    }.entries) {
+      test('a commit ${entry.key} is refused, never delivered or adopted', () async {
+        filedAsMade();
+        entry.value(here);
+        expect(await core.delivery(_change('add'), _filed), isA<ProjectAccessRevisionRefused>());
+        if (here.history.first.$2.contains(_id)) {
+          await expectLater(core.filedRevision(_change('add')), throwsA(isA<RegistryRefusal>()));
+        }
+      });
+    }
 
     // Harm: a filing the access repository moved past without holding is retried forever, or one still on its way is
     // discarded.

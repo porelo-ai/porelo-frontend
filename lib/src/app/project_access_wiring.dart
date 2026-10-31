@@ -26,10 +26,19 @@ ProjectAccess? Function(String project) appProjectAccess({
   Identity? identity,
   RunHere? run,
   String? root,
+  String? krl,
 }) {
   final person = identity ?? Identity(run: run);
   final copies = ProjectCopies(root: root ?? path.join(desk.data, 'project-access'), run: run);
-  final core = CoreProjectAccess(registry: () => registry.registry, identity: person.show, copies: copies, run: run);
+  final core = CoreProjectAccess(
+    registry: () => registry.registry,
+    identity: person.show,
+    copies: copies,
+    run: run,
+    pinnedHost: settings.projectHost,
+    hostReturned: settings.hostReturned,
+    krl: krl ?? path.join(desk.configuration, 'revoked.krl'),
+  );
   final transport = CardProjectAccessTransport(machines: machines, identity: person.show, copies: copies);
   final made = <String, ({Registry registry, ProjectAccess access})>{};
   return (project) {

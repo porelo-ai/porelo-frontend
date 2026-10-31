@@ -1890,7 +1890,7 @@ String ownersFileReplacing(
 
 /// The fingerprint of the key a person card names in its body, before its signatures; null when the body names no single
 /// Ed25519 key on a `key:` line of its own.
-String? _cardFingerprint(String card) {
+String? cardFingerprint(String card) {
   final signature = card.indexOf('-----BEGIN SSH SIGNATURE-----');
   final body = signature < 0 ? card : card.substring(0, signature);
   final keys = [
@@ -2588,7 +2588,7 @@ class KeyRecoveryServices implements KeyRecoveryEntry {
       return null;
     }
     if (registry.busy || registry.held || !identical(registry.accepted, accepted)) return null;
-    return _cardFingerprint(text) == card.fingerprint ? text : null;
+    return cardFingerprint(text) == card.fingerprint ? text : null;
   }
 
   Future<RecoverySituation> _situation(RecoveryScope scope) async {

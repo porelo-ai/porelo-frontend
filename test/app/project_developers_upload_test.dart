@@ -57,6 +57,19 @@ void main() {
     });
   }
 
+  // Harm: a person added onto another host than the one the project is registered on here, whose bundles and sync
+  // would then reach a host nobody chose for it.
+  test('a person is added only on the host the project is registered on here', () async {
+    await settings.rememberProjectHost('demo', 'elsewhere');
+    final access = await fixture.access(settings);
+    await expectLater(
+      access.change('demo', bob, remove: false),
+      throwsA(isA<RegistryRefusal>().having((e) => e.words, 'words', contains('registered on host elsewhere'))),
+    );
+    expect(fixture.calls, isEmpty);
+    expect(fixture.hostPeople['demo'], <String, String>{});
+  });
+
   // Harm: a replacement approved for a different access scope must not grant access here.
   test('a lost-key replacement is eligible only for the project Core authorizes', () async {
     fixture.registrySource.refusedPerson = true;
