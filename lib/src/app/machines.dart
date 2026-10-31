@@ -116,15 +116,9 @@ class Machine {
   /// saved.
   factory Machine.fromStored(Map<String, Object?> stored, {bool legacyHost = false}) {
     final card = stored.containsKey('hostCard') ? HostCardSsh.fromStored(stored['hostCard']) : null;
-    final hostCard = stored['hostCard'];
-    // A card saved with the account's uid or return socket named the daemon by the uid; the host now links it under
-    // the login, and an account's own `/run/user/` socket is never a card's.
-    final older =
-        card != null &&
-        hostCard is Map &&
-        (hostCard.containsKey('uid') ||
-            hostCard.containsKey('return_socket') ||
-            _text(stored['remoteSocket']).startsWith('/run/user/'));
+    // A card's daemon is the login's socket on its host, whatever an older build saved: one with the account's uid or
+    // return socket named it by the uid, and an earlier layout put it elsewhere.
+    final older = card != null && _text(stored['remoteSocket']) != card.daemonSocket;
     return Machine(
       name: _text(stored['name']),
       socketPath: _text(stored['socket']),
@@ -680,6 +674,9 @@ class Machines extends ChangeNotifier {
     await _remember();
     _notify();
   }
+
+  /// Saves the watched machines again, after a save that failed once a machine was added.
+  Future<void> remember() => _change(_remember);
 
   /// Forgets a machine, closing what was watching it and taking down any forward raised for it.
   ///

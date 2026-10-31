@@ -1,6 +1,6 @@
 # F287 — A Join Confirmed By What The Host Follows
 
-**Status:** Idea.
+**Status:** Implementing.
 
 **What must be true.** A first Join of a project succeeds when the host follows it as verified. A registry with one
 refused commit still offers its healthy hosts. The rows follow each refresh and each registry chosen. No credential
@@ -9,6 +9,48 @@ the person. Each harm is guarded by a test that goes red when it is there.
 
 Found on 2026-10-31 by the second and last independent reading of [F273](README.md#f273). Each point is to be checked
 against the code before it is fixed.
+
+## Built so far
+
+Each point below has a test that was seen to fail with its harm present, then pass.
+
+1. A `Follow` answering `APPLIED` or `UNCHANGED` is confirmed by reading `Following` and checking the project's entry;
+   any other outcome is the refusal in the daemon's words, `VAULT_LOCKED` included. The fakes answer `follow` as the
+   daemon does: an outcome and what it pinned, never the access commit or the signers in force.
+2. A refused commit beside an accepted revision is read as read: discovery runs on the accepted revision and a host
+   whose access file was refused is its own row. A read with no accepted revision, or a fetch or read that failed,
+   still offers nothing, with words. The shell no longer gates discovery on the pages' problem; Core's discovery
+   decides, read through the app's own registry and `appJoins`.
+3. With no registry chosen the status line says so once. A failed read or a switch of registry takes every row and
+   join away, and an answer about the registry chosen before never shows under the new one. A row Core answers anew
+   gets a new join; one still running is replaced when it ends.
+4. `identity show`'s `who_may` contacts with `name` and `email` null are read, named by their login. A login outside
+   the host account rule is said in its own words. A watched card account is used only while its card holds the
+   person's usable key; otherwise its tunnel and files give way and the tunnel is raised anew with the card now.
+5. A watched card account whose tunnel is not up is raised before the join checks it, and refused only if it still
+   is not up.
+6. Addresses: a user part, query, fragment, `%40` or any `@` after the host is a credential in every form; the
+   homeserver is checked as an `https` base URL with no user, query or fragment; a port must be 1 to 65535 and an
+   IPv6 host must read as one. A refused row whose access repository may hold a credential names its project instead
+   and never keeps or shows the address.
+7. Each join holding a tunnel it raised, or shares, is counted per tunnel; the last one to let go of an unconfirmed
+   tunnel takes it down, whatever another join on the host does. Removing the published files runs in the host's
+   tunnel queue, after a queued raise, and keeps the files of a card the tunnels hold again. A card account watched
+   under another name refuses the join with words.
+8. A list of machines that cannot be saved after the account was added says so, and a retry saves it. The set-aside
+   notice is a row under Needs you, where it stays. A stored card record whose daemon socket is not the login's is
+   moved to it. A host vault the tunnel could not unlock is said in the tunnel's words while it is up.
+9. Each test the last reading named is now one that goes red with its harm: the follow fakes, the identity fake's
+   `who_may`, the refused host read through the registry and `appJoins`, the vault refusal read where the app shows
+   it, and the shell rows read through `appJoins` and the registry pages.
+
+## To be checked
+
+- Whether a read ended with a refused commit is told from a failed fetch after it only by the words the registry
+  sets (`Porelo refused commit <12> at <path>: `); a flag on the registry's read would say it without them.
+- The switch of registry through the dialog is not driven by a test; its rows go through the same path as a failed
+  read, which is.
+- The whole workflow on the VM, and the operator's walk of a first Join.
 
 ## To be fixed
 

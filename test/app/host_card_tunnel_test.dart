@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
+import 'package:porelo_frontend/src/app/attention.dart';
 import 'package:porelo_frontend/src/app/connection_trial.dart';
 import 'package:porelo_frontend/src/app/connections.dart';
 import 'package:porelo_frontend/src/app/fleet_backend.dart';
@@ -134,6 +135,8 @@ void main() {
           'return_socket': '/run/porelo-host/people/alice/messenger.sock',
         }, remoteSocket: '/run/porelo-host/alice/porelod.sock'),
         record('delta', 18094, {}, remoteSocket: '/run/user/1001/porelo/porelod.sock'),
+        // A socket of an older layout, with neither uid nor return socket.
+        record('epsilon', 18098, {}, remoteSocket: '/run/porelo-host/alice/porelod.sock'),
       ],
     });
     final settings = Settings(store);
@@ -143,12 +146,19 @@ void main() {
     addTearDown(settings.dispose);
     await machines.load();
     final cards = machines.all.where((machine) => machine.hostCard != null).toList();
-    expect(cards.map((machine) => machine.name), ['alpha', 'beta', 'delta']);
+    expect(cards.map((machine) => machine.name), ['alpha', 'beta', 'delta', 'epsilon']);
     for (final machine in cards) {
       expect(machine.remoteSocket, '/run/porelo-host/people/alice/porelod.sock', reason: machine.name);
       expect(machine.whyNotReachableOn(windows: false), isNull, reason: machine.name);
     }
     expect(machines.setAside, contains('gamma'));
+    // Said under Needs you, where it stays, never on a status line the restored machine's connection overwrites.
+    final attention = Attention(machines);
+    addTearDown(attention.dispose);
+    expect(
+      attention.openRows.where((row) => row.kind == AttentionKind.setAside).single.value,
+      allOf(contains('gamma'), contains('not watched')),
+    );
     final saved = (await store.read())['machines'] as List;
     expect(saved, contains(unreadable), reason: 'what did not read stays saved as it was');
     for (final entry in saved.cast<Map<String, Object?>>().where((entry) => entry['name'] != 'gamma')) {
@@ -1406,6 +1416,18 @@ void main() {
     expect(await tunnels.raiseFor(host), isTrue);
     expect(tunnels.of(host)!.vaultProblem, 'The host vault refused unlock.');
     expect(tunnels.of(host)!.problem, isNull);
+  });
+
+  // Harm: the host vault is not unlocked from here, at another port or address or for another key, and nothing the
+  // person sees says so: the machine reads as reached while every project on it waits.
+  test('a vault the tunnel could not unlock is said where the machine\'s tunnel is shown', () async {
+    unlock.result = const HostUnlockResult(HostUnlockState.refused, 'The host vault is not opened from here.');
+    expect(await tunnels.raiseFor(host), isTrue);
+    expect(tunnels.of(host)!.state, TunnelState.up);
+    expect(tunnels.of(host)!.words, 'The host vault is not opened from here.');
+    unlock.result = const HostUnlockResult(HostUnlockState.unlocked);
+    await tunnels.of(host)!.unlockVault();
+    expect(tunnels.of(host)!.words, isNull);
   });
 
   // Prevents persistence from losing the selected public identity or saving conflicting hosts.

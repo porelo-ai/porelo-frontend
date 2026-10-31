@@ -446,6 +446,8 @@ class Tunnel {
     TunnelState.raising => 'raising the forward…',
     TunnelState.down => problem,
     TunnelState.waitingForKey => problem,
+    // Up, and the host vault not opened from here: why is said, since every project on it waits.
+    TunnelState.up => vaultProblem,
     _ => null,
   };
 
@@ -1026,6 +1028,18 @@ class Tunnels extends ChangeNotifier {
       return const _TrialDrain(null);
     });
     await dropped.done;
+  }
+
+  /// Takes down the forward for one card machine and then, in its host's queue, removes the files published for its
+  /// card, unless a raise queued meanwhile took the card again: a raise never loses the files it published.
+  Future<void> dropAndUnpublish(Machine machine) async {
+    await dropFor(machine);
+    final card = machine.hostCard;
+    if (card == null) return;
+    await _serial.run<void>([_queueKey(machine)], () async {
+      if (_cardOwners.containsKey(card.name) || _mine.containsKey(_key(machine))) return;
+      await card.unpublish(machine.sshConfig, environment: configEnvironment);
+    });
   }
 
   Future<void> _finishDrop(Machine machine) async {

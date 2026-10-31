@@ -60,6 +60,7 @@ class JoinOffered extends JoinAdmission {
     if (!_project.hasMatch(project) ||
         !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(login) ||
         !_usable(source) ||
+        (homeserver != null && !_homeserver(homeserver!)) ||
         signers.isEmpty ||
         signers.any((signer) => !RegExp(r'^ssh-ed25519 [A-Za-z0-9+/]{68}$').hasMatch(signer)) ||
         !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(revision)) {
@@ -107,22 +108,29 @@ class JoinOffered extends JoinAdmission {
 @immutable
 class JoinUnreadable extends JoinAdmission {
   /// Retains the repository and who may grant it.
-  const JoinUnreadable({required this.host, required this.repository, this.whoMay = const []});
+  const JoinUnreadable({required this.host, required this.repository, this.project, this.whoMay = const []});
 
   /// The host whose access entries name the repository.
   final String host;
 
-  /// The access repository's address, or null when the registry refused the host's own access file.
+  /// The access repository's address, or null when the registry refused the host's own access file or the address
+  /// may hold a credential and is not shown.
   final String? repository;
+
+  /// A project the repository is named for, or null for the host's own access file.
+  final String? project;
 
   /// The verified admins who may grant reading it, or the host's admins for its own access file.
   final List<RegistryContact> whoMay;
 
   /// What the row says.
   String get words => RegistryRefusal(
-    repository == null
+    repository != null
+        ? 'The access file in $repository for $host cannot be read, so its projects are not known here.'
+        : project == null
         ? 'The registry refused the access file of $host, so no project on it is known here.'
-        : 'The access file in $repository for $host cannot be read, so its projects are not known here.',
+        : 'The access repository of project $project on $host cannot be read, so its projects are not known here. '
+              'Its address is not shown, as it may hold a credential.',
     whoMay: whoMay,
   ).toString();
 }
@@ -158,7 +166,8 @@ class JoinUnusable extends JoinAdmission {
 final _connecting = Expando<Map<String, Future<Machine>>>();
 final _pending = Expando<Map<String, Machine>>();
 final _additions = Expando<Map<String, Future<void>>>();
-final _joining = Expando<Map<String, int>>();
+final _holds = Expando<Map<Machine, int>>();
+final _unsaved = Expando<Set<String>>();
 
 /// A key's `SHA256:` fingerprint, as the daemon names the keys a follow pinned.
 String _fingerprint(String key) =>
@@ -173,40 +182,71 @@ const _sshUser = r'[A-Za-z0-9][A-Za-z0-9._-]*';
 /// A host as a repository address names it, a name or an IPv4 address, or an IPv6 address in brackets for `ssh://`.
 const _addressHost = r'[A-Za-z0-9][A-Za-z0-9.-]*';
 
-/// Whether a repository address Core answered carries a credential: a user beside an `https` host, a password or
-/// anything beyond an ssh user before the last `@`, or a query that may hold a token.
+/// The schemes git hands to ssh, whose host ends at the first slash alone.
+const _sshSchemes = {'ssh://', 'git+ssh://', 'ssh+git://'};
+
+/// Whether an address Core answered may carry a credential, in any form git, ssh or libcurl reads one: a user part
+/// beside an `https` host, anything but a plain ssh user before an ssh host, a query or fragment that may hold a token,
+/// an at sign spelled `%40`, or an `@` anywhere after the host.
 bool _credential(String address) {
+  if (address.contains('?') || address.contains('#') || address.toLowerCase().contains('%40')) return true;
   final scheme = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://').matchAsPrefix(address);
   if (scheme == null) {
-    final at = address.lastIndexOf('@');
-    return at >= 0 && !RegExp('^$_sshUser\$').hasMatch(address.substring(0, at));
+    // `user@host:path`: ssh takes the user up to the at sign; a second one is no plain user, or follows the host.
+    final at = address.indexOf('@');
+    return at >= 0 && (!RegExp('^$_sshUser\$').hasMatch(address.substring(0, at)) || address.contains('@', at + 1));
   }
   final rest = address.substring(scheme.end);
-  final end = rest.indexOf(RegExp('[/?#]'));
-  final authority = end < 0 ? rest : rest.substring(0, end);
-  final at = authority.lastIndexOf('@');
-  final ssh = scheme.group(0)!.toLowerCase() == 'ssh://';
-  return address.contains('?') || (at >= 0 && (!ssh || !RegExp('^$_sshUser\$').hasMatch(authority.substring(0, at))));
+  final slash = rest.indexOf('/');
+  if (slash >= 0 && rest.contains('@', slash)) return true;
+  final authority = slash < 0 ? rest : rest.substring(0, slash);
+  final at = authority.indexOf('@');
+  if (at < 0) return false;
+  final ssh = _sshSchemes.contains(scheme.group(0)!.toLowerCase());
+  return !ssh || authority.contains('@', at + 1) || !RegExp('^$_sshUser\$').hasMatch(authority.substring(0, at));
 }
 
-/// Whether a credential-free repository address is in a form this interface follows: `https://host/path`,
-/// `ssh://[user@]host[:port]/path` or `user@host:path`.
+/// Whether [port], as an address writes it, is absent or one of 1 to 65535.
+bool _port(String? port) => port == null || (int.parse(port) >= 1 && int.parse(port) <= 65535);
+
+/// Whether [host] is a host name, or an IPv6 address in brackets that reads as one.
+bool _host(String host) {
+  if (!host.startsWith('[')) return RegExp('^$_addressHost\$').hasMatch(host);
+  if (!host.endsWith(']')) return false;
+  try {
+    Uri.parseIPv6Address(host.substring(1, host.length - 1));
+    return true;
+  } on FormatException {
+    return false;
+  }
+}
+
+/// Whether a credential-free repository address is in a form this interface follows: `https://host[:port]/path`,
+/// `ssh://[user@]host[:port]/path` or `user@host:path`, its port one of 1 to 65535.
 bool _usable(String address) {
   if (_credential(address) || RegExp(r'[\s\x00-\x1f\x7f\\]').hasMatch(address)) return false;
   const path = r'[A-Za-z0-9_.~+-][A-Za-z0-9_./~+-]*';
-  if (RegExp('^ssh://($_sshUser@)?($_addressHost|\\[[0-9A-Fa-f:]+\\])(:[0-9]{1,5})?/$path\$').hasMatch(address) ||
-      RegExp('^$_sshUser@$_addressHost:$path\$').hasMatch(address)) {
-    return true;
-  }
+  final ssh = RegExp('^ssh://(?:$_sshUser@)?($_addressHost|\\[[0-9A-Fa-f:.]+\\])(?::([0-9]{1,5}))?/$path\$')
+      .firstMatch(address);
+  if (ssh != null) return _host(ssh.group(1)!) && _port(ssh.group(2));
+  if (RegExp('^$_sshUser@$_addressHost:$path\$').hasMatch(address)) return true;
+  final https = RegExp('^https://($_addressHost)(?::([0-9]{1,5}))?(/.*)\$').firstMatch(address);
   final uri = Uri.tryParse(address);
-  return uri != null &&
-      uri.scheme == 'https' &&
-      address.startsWith('https://') &&
-      RegExp('^$_addressHost\$').hasMatch(uri.host) &&
+  return https != null &&
+      _port(https.group(2)) &&
+      uri != null &&
+      uri.host.toLowerCase() == https.group(1)!.toLowerCase() &&
       uri.userInfo.isEmpty &&
       !uri.hasQuery &&
       !uri.hasFragment &&
       uri.path.length > 1;
+}
+
+/// Whether a homeserver Core answered is an `https://` base URL with a real host, as Core's rule has it: no user part,
+/// query or fragment, a port of 1 to 65535, and at most a path.
+bool _homeserver(String url) {
+  final https = RegExp('^https://($_addressHost|\\[[0-9A-Fa-f:.]+\\])(?::([0-9]{1,5}))?(/[^\\s]*)?\$').firstMatch(url);
+  return https != null && !_credential(url) && _host(https.group(1)!) && _port(https.group(2));
 }
 
 /// Reads the answer of `porelo registry joinable --login [login] --json`, or refuses it whole so it never shows as an
@@ -231,13 +271,16 @@ List<JoinAdmission> readJoinable(Object? json, {required String login}) {
       } else {
         closed.add(key);
       }
-      // One row per repository and host, as several refused projects may share one access repository.
-      final same = unreadable['${row.repository} ${row.host}'];
-      unreadable['${row.repository} ${row.host}'] = same == null
+      // One row per repository and host, as several refused projects may share one access repository; one whose
+      // address is not shown is a row of its project.
+      final at = '${row.repository ?? row.project} ${row.host}';
+      final same = unreadable[at];
+      unreadable[at] = same == null
           ? row
           : JoinUnreadable(
               host: row.host,
               repository: row.repository,
+              project: row.project,
               whoMay: [
                 ...same.whoMay,
                 for (final admin in row.whoMay)
@@ -272,11 +315,15 @@ Map<String, Object?> _object(Object? entry) =>
   _text(entry, 'why');
   final ofTheHost = entry['project'] == null;
   if (ofTheHost != (entry['access_repository'] == null)) throw const FormatException('half a host row');
+  final project = ofTheHost ? null : _text(entry, 'project');
+  final repository = ofTheHost ? null : _text(entry, 'access_repository');
   return (
-    ofTheHost ? null : '${_text(entry, 'project')}@$host',
+    ofTheHost ? null : '$project@$host',
     JoinUnreadable(
       host: host,
-      repository: ofTheHost ? null : _checked(_text(entry, 'access_repository')),
+      // An address that may hold a credential is never kept or shown; the row names its project instead.
+      repository: repository == null || _credential(repository) ? null : repository,
+      project: project,
       whoMay: _contacts(entry['admins']),
     ),
   );
@@ -293,6 +340,7 @@ Map<String, Object?> _object(Object? entry) =>
   if (_text(entry, 'host_account') != login) throw const FormatException('a row for another login');
   if (!entry.containsKey('homeserver')) throw const FormatException('no homeserver');
   final homeserver = entry['homeserver'] == null ? null : _text(entry, 'homeserver');
+  if (homeserver != null && _credential(homeserver)) throw const FormatException('a homeserver with credentials');
   final project = _text(entry, 'project');
   final source = _text(entry, 'source');
   final access = _text(entry, 'access_repository');
@@ -306,6 +354,9 @@ Map<String, Object?> _object(Object? entry) =>
   if (!_project.hasMatch(project)) return (key, unusable('its project name is not one a project takes'));
   if (!_usable(source)) return (key, unusable('its project repository address is in a form not followed here'));
   if (!_usable(access)) return (key, unusable('its access repository address is in a form not read here'));
+  if (homeserver != null && !_homeserver(homeserver)) {
+    return (key, unusable('its homeserver is not an https base URL this interface reaches'));
+  }
   final PreparedHost host;
   try {
     host = PreparedHost.card(card);
@@ -325,9 +376,6 @@ Map<String, Object?> _object(Object? entry) =>
     )..check(),
   );
 }
-
-String _checked(String repository) =>
-    _credential(repository) ? throw const FormatException('an access repository with credentials') : repository;
 
 String _text(Map<String, Object?> entry, String key) {
   final value = entry[key];
@@ -363,10 +411,17 @@ abstract interface class JoinHost {
   /// watched account.
   Future<Machine> connect(JoinOffered offer);
 
+  /// Whether [machine]'s card holds the person's usable key now; an account reached with an older key is raised anew.
+  Future<bool> current(Machine machine);
+
+  /// Raises [machine]'s card tunnel, watched or raised by another join, when it is not up.
+  Future<void> raise(Machine machine);
+
   /// What the account daemon follows as [project], or null when it follows nothing by that name.
   Future<Followed?> followed(Machine machine, String project);
 
-  /// Follows [offer] on the account daemon with Core's signers, never unverified.
+  /// Follows [offer] on the account daemon with Core's signers, never unverified, and answers how the follow ended;
+  /// what is in force is read with [followed].
   Future<Followed> follow(Machine machine, JoinOffered offer);
 
   /// Whether [machine]'s card tunnel is up, with the ssh configuration this desktop publishes for its card.
@@ -418,68 +473,113 @@ class ProjectJoin extends ChangeNotifier {
 
   /// Follows the project on its host and saves the association, once.
   ///
-  /// A join not confirmed takes down the card tunnel it raised, and the files it published, unless another join on
-  /// the host still uses them or the account is watched already.
+  /// A join not confirmed takes down the card tunnel it raised, and the files it published, once no other join holds
+  /// them and unless the account is watched already.
   Future<void> join() async {
     if (busy || joined) return;
     busy = true;
     problem = null;
     _notify();
     final name = offer.host.name;
-    final joining = _joining[machines] ??= {};
-    Machine? machine;
-    var counted = false;
-    var added = false;
+    Machine? held;
+    var confirmed = false;
     try {
       offer.check();
       final latest = (await discovery.admissions()).whereType<JoinOffered>().where((each) => each.key == offer.key);
       if (latest.length != 1 || !latest.single.same(offer)) {
         throw const RegistryRefusal('Core no longer verifies this admission as shown. Look at the list again.');
       }
-      if (machines.all.any((each) => each.name == name && !offer.reaches(each))) {
-        throw RegistryRefusal(
-          'A machine named $name is watched here already and is not the account this host card reaches. '
-          'Remove it under Machines, then join again.',
-        );
+      for (final each in machines.all) {
+        if (offer.reaches(each)) continue;
+        if (each.name == name) {
+          throw RegistryRefusal(
+            'A machine named $name is watched here already and is not the account this host card reaches. '
+            'Remove it under Machines, then join again.',
+          );
+        }
+        if (each.hostCard?.name == name) {
+          throw RegistryRefusal(
+            'The machine ${each.name} is watched here already through a card of host $name, and is not the account '
+            'this host card reaches. Remove it under Machines, then join again.',
+          );
+        }
       }
-      joining[name] = (joining[name] ?? 0) + 1;
-      counted = true;
-      machine = _watched() ?? await _connect();
+      var machine = _watched();
+      if (machine != null) {
+        held = _hold(machine);
+        if (!await host.current(machine)) {
+          // An account reached with a key the person no longer uses is raised anew with their card now.
+          held = null;
+          await _unhold(machine);
+          machine = null;
+        } else if (!host.ready(machine)) {
+          await host.raise(machine);
+        }
+      }
+      if (machine == null) {
+        machine = await _connect();
+        held = _hold(machine);
+      }
       if (!offer.reaches(machine) || !host.ready(machine)) {
         throw const RegistryRefusal('The tunnel did not confirm this host and your identity.');
       }
       progress = 'Connected to $name; not joined yet.';
       _notify();
       final before = await host.followed(machine, offer.project);
-      final followed = before != null && offer.confirms(before) ? before : await host.follow(machine, offer);
-      if (!offer.confirms(followed)) {
-        throw const RegistryRefusal('The host did not confirm the verified project revision. Nothing was saved.');
+      if (before == null || !offer.confirms(before)) {
+        final answer = await host.follow(machine, offer);
+        if (!answer.inForce) {
+          final detail = answer.detail.trim();
+          throw RegistryRefusal(
+            'The host did not follow ${offer.project}: ${answer.words}${detail.isEmpty ? '' : ' ($detail)'}. '
+            'Nothing was saved.',
+          );
+        }
+        // Only `Following` says which access commit and signers are in force.
+        final after = await host.followed(machine, offer.project);
+        if (after == null || !offer.confirms(after)) {
+          throw const RegistryRefusal('The host did not confirm the verified project revision. Nothing was saved.');
+        }
       }
+      confirmed = true;
       await _adding(machine);
-      added = true;
       await settings.rememberProjectHost(offer.project, name);
       joined = true;
       progress = null;
     } on RegistryRefusal catch (error) {
       problem = error.toString();
     } on Exception {
-      problem = added
-          ? 'The host confirmed the project and its account on $name is watched, but which host ${offer.project} is '
-                'on could not be saved here. Try again.'
-          : 'Joining could not be confirmed. Nothing was saved; try again.';
+      problem = !confirmed || held == null || !machines.all.contains(held)
+          ? 'Joining could not be confirmed. Nothing was saved; try again.'
+          : _unsaved[machines]?.contains(name) ?? false
+          ? 'The host confirmed the project and its account on $name is watched, but the list of watched machines '
+                'could not be saved here. Try again.'
+          : 'The host confirmed the project and its account on $name is watched, but which host ${offer.project} is '
+                'on could not be saved here. Try again.';
     } finally {
-      if (counted) {
-        final left = (joining[name] ?? 1) - 1;
-        if (left > 0) {
-          joining[name] = left;
-        } else {
-          joining.remove(name);
-          if (machine != null && !joined && !machines.all.contains(machine)) await _letGo(machine);
-        }
-      }
+      if (held != null) await _unhold(held);
       busy = false;
       _notify();
     }
+  }
+
+  /// Counts this join among those holding [machine], so it is taken down only once the last of them let it go.
+  Machine _hold(Machine machine) {
+    final holds = _holds[machines] ??= Map.identity();
+    holds[machine] = (holds[machine] ?? 0) + 1;
+    return machine;
+  }
+
+  /// Lets go of [machine]; the last join holding it takes it down unless its account is watched.
+  Future<void> _unhold(Machine machine) async {
+    final holds = _holds[machines] ??= Map.identity();
+    final left = (holds[machine] ?? 1) - 1;
+    if (left > 0) {
+      holds[machine] = left;
+      return;
+    }
+    holds.remove(machine);
+    if (!machines.all.contains(machine)) await _letGo(machine);
   }
 
   /// Takes down what an unconfirmed join raised on its host, so a later join, with a rotated card too, starts anew.
@@ -515,12 +615,23 @@ class ProjectJoin extends ChangeNotifier {
     }
   }
 
-  /// Adds the account once, even when two rows confirm at once.
+  /// Adds the account once, even when two rows confirm at once, and saves the list again after a save that failed.
   Future<void> _adding(Machine machine) async {
     final adding = _additions[machines] ??= {};
     final key = offer.host.name;
     final running = adding[key] ??= () async {
-      if (!machines.all.contains(machine)) await machines.add(machine);
+      try {
+        if (!machines.all.contains(machine)) {
+          await machines.add(machine);
+        } else if (_unsaved[machines]?.contains(key) ?? false) {
+          await machines.remember();
+        }
+        _unsaved[machines]?.remove(key);
+      } on Object {
+        // Added and watched, and not saved: a retry saves the list again.
+        if (machines.all.contains(machine)) (_unsaved[machines] ??= {}).add(key);
+        rethrow;
+      }
     }();
     try {
       await running;

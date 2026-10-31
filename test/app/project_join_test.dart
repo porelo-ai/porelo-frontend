@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +28,7 @@ void main() {
         source: 'https://forge.example/team/$project.git',
         revision: revision,
         signers: [personKey],
-        homeserver: 'matrix.orchard.porelo.internal',
+        homeserver: 'https://matrix.orchard.porelo.internal',
       );
 
   ProjectJoin joining(JoinOffered shown) {
@@ -198,6 +199,141 @@ void main() {
     expect(join.joined, isFalse);
     expect(join.problem, contains('did not confirm this host'));
     expect(host.calls.where((call) => call.startsWith('follow')), isEmpty);
+  });
+
+  // Harm: a first follow the daemon answered and recorded is refused, because only `Following` says what is in force.
+  test('a first follow is confirmed by what the host follows afterwards', () async {
+    final shown = offer();
+    core.answer = [shown];
+    final join = joining(shown);
+    await join.join();
+    expect(join.problem, isNull);
+    expect(join.joined, isTrue);
+    expect(settings.projectHost('demo'), shown.host.name);
+  });
+
+  // Harm: a follow the daemon refused, its vault shut here, is said as a mismatch or as nothing, and the person does
+  // not learn to unlock.
+  test('a follow the daemon refuses is said in its words, and saves nothing', () async {
+    final shown = offer();
+    core.answer = [shown];
+    host.outcome = 'VAULT_LOCKED';
+    final join = joining(shown);
+    await join.join();
+    expect(join.joined, isFalse);
+    expect(join.problem, contains("This account's store is shut"));
+    expect(settings.projectHost('demo'), isNull);
+    expect(host.calls.last, 'release ${shown.host.name}');
+  });
+
+  // Harm: a watched account whose tunnel is not up yet, its key locked at the start, refuses every join for good.
+  test('a watched account whose tunnel is not up is raised before it is followed on', () async {
+    final shown = offer();
+    final other = offer(project: 'billing');
+    core.answer = [shown, other];
+    await joining(shown).join();
+    host.up = false;
+    host.upOnRaise = true;
+    final second = joining(other);
+    await second.join();
+    expect(second.problem, isNull);
+    expect(second.joined, isTrue);
+    expect(host.calls, contains('raise ${shown.host.name}'));
+    host.up = false;
+    host.upOnRaise = false;
+    final third = joining(offer(project: 'ledger'));
+    core.answer = [shown, other, third.offer];
+    await third.join();
+    expect(third.joined, isFalse);
+    expect(third.problem, contains('did not confirm this host'));
+  });
+
+  // Harm: a watched account reached with a key the person has rotated away from is followed on with the old key.
+  test('a watched account of an older key of the person is raised anew with the card now', () async {
+    final shown = offer();
+    final other = offer(project: 'billing');
+    core.answer = [shown, other];
+    await joining(shown).join();
+    host.isCurrent = false;
+    final second = joining(other);
+    await second.join();
+    expect(second.joined, isTrue);
+    expect(host.calls.where((call) => call.startsWith('connect')), hasLength(2));
+  });
+
+  // Harm: two joins on one host, one failing to connect, both skip taking down the tunnel the other raised, which
+  // keeps its pins and refuses the host's next card.
+  test('a join that raised a tunnel takes it down when unconfirmed, whatever another join on the host does', () async {
+    final shown = offer();
+    final rotated = JoinOffered(
+      project: 'billing',
+      host: PreparedHost.read({...hostValues(), 'ssh_host_key': _otherHostKey}),
+      login: 'porelo-alice',
+      source: 'https://forge.example/team/billing.git',
+      revision: 'a' * 40,
+      signers: [personKey],
+    );
+    core.answer = [shown, rotated];
+    host.followHeld = Completer<void>();
+    host.followFails = const FormatException('daemon went away');
+    final first = joining(shown).join();
+    await pumpEventQueue();
+    expect(host.calls.last, startsWith('follow demo'));
+    host.connectHeld = Completer<void>();
+    final second = joining(rotated).join();
+    await pumpEventQueue();
+    expect(host.calls.last, 'connect ${shown.host.name}');
+    host.followHeld!.complete();
+    await first;
+    host.tunnelFails = const RegistryRefusal('The tunnel to the host could not be raised.');
+    host.connectHeld!.complete();
+    await second;
+    expect(host.calls.where((call) => call.startsWith('release')), ['release ${shown.host.name}']);
+  });
+
+  // Harm: a card account watched under another name is missed, and the join's teardown removes its live files.
+  test('a card account watched under another name refuses the join with words', () async {
+    final shown = offer();
+    core.answer = [shown];
+    final card = HostCardSsh(
+      name: shown.host.name,
+      address: shown.host.address,
+      sshPort: shown.host.sshPort,
+      hostKey: _otherHostKey,
+      login: shown.login,
+      publicKey: personKey,
+      webPort: 3000,
+      gitPort: 3001,
+      matrixPort: 8448,
+    );
+    final watched = Machine.fromHostCard(card, socketPath: '/unused', sshConfig: '/unused/orchard.conf');
+    await machines.add(Machine.fromStored({...watched.stored, 'name': 'my-orchard'}));
+    final join = joining(shown);
+    await join.join();
+    expect(join.joined, isFalse);
+    expect(join.problem, allOf(contains('my-orchard'), contains('watched here already')));
+    expect(host.calls, isEmpty);
+  });
+
+  // Harm: the account was added and watched, the list of machines not saved, and the person is told nothing was
+  // saved; a retry then never saves it.
+  test('a list of machines that cannot be saved after the account was added says so, and a retry saves it', () async {
+    final store = _FailingMachines();
+    settings = Settings(store);
+    machines = Machines(settings, reach: (_) => FakeBackend(const []), tunnels: RecordingTunnels());
+    addTearDown(machines.dispose);
+    addTearDown(settings.dispose);
+    final shown = offer();
+    core.answer = [shown];
+    final join = joining(shown);
+    await join.join();
+    expect(join.joined, isFalse);
+    expect(machines.all.where((m) => m.kind == 'host'), hasLength(1));
+    expect(join.problem, allOf(isNot(contains('Nothing was saved')), contains('could not be saved')));
+    store.fails = false;
+    await join.join();
+    expect(join.joined, isTrue);
+    expect(store.saved, contains(shown.host.name));
   });
 
   // Harm: the project was followed and the account added, and the person is told nothing was saved.
@@ -393,7 +529,7 @@ void main() {
         'host': 'orchard',
         'host_account': 'porelo-alice',
         'host_card': _card(),
-        'homeserver': 'matrix.orchard.porelo.internal',
+        'homeserver': 'https://matrix.orchard.porelo.internal',
         'source': 'https://forge.example/team/demo.git',
         'access_repository': 'https://forge.example/team/access.git',
         'revision': 'a' * 40,
@@ -477,10 +613,69 @@ void main() {
     expect(() => readJoinable(json, login: 'porelo-alice'), throwsA(isA<RegistryRefusal>()));
   });
 
-  test('an unreadable access repository with a credential refuses the answer whole', () {
+  // Harm: a credential in a refused row's access repository is kept and shown on the row.
+  for (final address in [
+    'https://bob:secret@forge.example/access.git',
+    'git@forge.example:team/access.git?token=secret',
+    'https://forge.example/team/access.git#token=secret',
+    'https://forge.example/https://bob:secret@other.example/access.git',
+    'ssh://git@forge.example/team/bob:secret@access.git',
+    'git@forge.example:team/bob:secret@access.git',
+    'https://bob%3Asecret%40forge.example/access.git',
+  ]) {
+    test('an unreadable access repository $address is named by its project, never shown', () {
+      final json = joinable();
+      _refusal(json)['access_repository'] = address;
+      final rows = readJoinable(json, login: 'porelo-alice');
+      final row = rows.whereType<JoinUnreadable>().single;
+      expect(row.repository, isNull);
+      expect(row.words, allOf(contains('billing'), isNot(contains('secret'))));
+      expect(rows.whereType<JoinOffered>(), hasLength(1), reason: 'the other rows stay');
+    });
+  }
+
+  // Harm: an address or homeserver with a credential, in a form the first check let pass, is kept in the offer.
+  for (final (field, value) in [
+    ('source', 'git@forge.example:team/demo.git?token=secret'),
+    ('source', 'https://forge.example/team/demo.git#token=secret'),
+    ('source', 'https://forge.example/team/alice:secret@demo.git'),
+    ('source', 'git@forge.example:team/alice:secret@demo.git'),
+    ('access_repository', 'git@forge.example:team/access.git?token=secret'),
+    ('access_repository', 'https://forge.example/https://bob:secret@other.example/access.git'),
+    ('homeserver', 'https://alice:secret@matrix.example'),
+    ('homeserver', 'https://matrix.example/?access_token=secret'),
+    ('homeserver', 'https://matrix.example/#secret'),
+  ]) {
+    test('a joinable $field $value refuses the answer whole', () {
+      final json = joinable();
+      _first(json)[field] = value;
+      expect(() => readJoinable(json, login: 'porelo-alice'), throwsA(isA<RegistryRefusal>()));
+    });
+  }
+
+  // Harm: an address Core's rule does not take, or a port no host listens on, is offered to click.
+  for (final (field, value) in [
+    ('source', 'ssh://git@[:::]:22/team/demo.git'),
+    ('source', 'ssh://git@forge.example:99999/team/demo.git'),
+    ('source', 'ssh://git@forge.example:0/team/demo.git'),
+    ('source', 'https://forge.example:0/team/demo.git'),
+    ('source', 'https://forge.example:65536/team/demo.git'),
+    ('homeserver', 'matrix.example'),
+    ('homeserver', 'https://matrix.example:0'),
+  ]) {
+    test('a joinable $field $value is its own refusal, never offered', () {
+      final json = joinable();
+      _first(json)[field] = value;
+      final rows = readJoinable(json, login: 'porelo-alice');
+      expect(rows.whereType<JoinOffered>(), isEmpty);
+      expect(rows.whereType<JoinUnusable>().single.key, 'demo@orchard');
+    });
+  }
+
+  test('a homeserver base URL with a port and a path is read', () {
     final json = joinable();
-    ((json['refused'] as List).single as Map)['access_repository'] = 'https://bob:secret@forge.example/access.git';
-    expect(() => readJoinable(json, login: 'porelo-alice'), throwsA(isA<RegistryRefusal>()));
+    _first(json)['homeserver'] = 'https://matrix.example:8448/base';
+    expect(readJoinable(json, login: 'porelo-alice').whereType<JoinOffered>().single.homeserver, endsWith('/base'));
   });
 
   // Harm: a form Core answers is refused, so the person sees no way in, or one row hides every other.
@@ -550,6 +745,30 @@ const _nobody = {'login': 'carol', 'name': null, 'email': null};
 Map<String, Object?> _first(Map<String, Object?> json) => (json['projects'] as List).first as Map<String, Object?>;
 
 Map<String, Object?> _refusal(Map<String, Object?> json) => (json['refused'] as List).first as Map<String, Object?>;
+
+/// Another host key of orchard, as a rotated host card names it.
+const _otherHostKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+
+/// Settings whose list of machines cannot be written while [fails].
+class _FailingMachines extends MemorySettingsStore {
+  bool fails = true;
+
+  /// The names of the machines last saved.
+  List<String> saved = [];
+
+  @override
+  Future<void> write(Map<String, Object?> values) async {
+    final machines = values['machines'];
+    final names = [
+      if (machines is List)
+        for (final each in machines)
+          if (each is Map) '${each['name']}',
+    ];
+    if (fails && names.length > 1) throw const FileSystemException('disk full');
+    saved = names;
+    await super.write(values);
+  }
+}
 
 /// Settings whose project and host association cannot be written while [fails].
 class _FailingProjectHosts extends MemorySettingsStore {

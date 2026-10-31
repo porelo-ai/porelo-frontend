@@ -826,9 +826,12 @@ class Identity implements AgentKeyList {
     return List.unmodifiable(
       value.map((contact) {
         if (contact is! Map<String, dynamic>) throw const FormatException('Invalid contact.');
+        final login = _text(contact, 'login');
+        // Core names a contact without an accepted card with `name` and `email` null; it is named by its login.
+        if (!contact.containsKey('name')) throw const FormatException('Core did not answer name.');
         return RegistryContact(
-          login: _text(contact, 'login'),
-          name: _text(contact, 'name'),
+          login: login,
+          name: contact['name'] == null ? login : _text(contact, 'name'),
           email: _textOrNull(contact, 'email'),
         );
       }),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -48,10 +49,26 @@ class FakeJoinHost implements JoinHost {
   /// Whether a card tunnel is up, with the ssh configuration this desktop publishes for its card.
   bool up = true;
 
+  /// Whether a watched card holds the person's key now.
+  bool isCurrent = true;
+
+  /// Whether a tunnel raised again comes up, or null to leave it as it is.
+  bool? upOnRaise;
+
+  /// Holds each connect until completed.
+  Completer<void>? connectHeld;
+
+  /// Holds each follow until completed.
+  Completer<void>? followHeld;
+
+  /// How the daemon's `Follow` ends: `APPLIED`, `UNCHANGED`, or a refusal such as `VAULT_LOCKED`.
+  String outcome = 'APPLIED';
+
   @override
   Future<Machine> connect(JoinOffered offer) async {
     final host = offer.host;
     calls.add('connect ${host.name}');
+    await connectHeld?.future;
     if (tunnelFails case final failure?) {
       tunnelFails = null;
       throw failure;
@@ -78,6 +95,15 @@ class FakeJoinHost implements JoinHost {
   Future<Followed?> followed(Machine machine, String project) async => following[project];
 
   @override
+  Future<bool> current(Machine machine) async => isCurrent;
+
+  @override
+  Future<void> raise(Machine machine) async {
+    calls.add('raise ${machine.name}');
+    up = upOnRaise ?? up;
+  }
+
+  @override
   bool ready(Machine machine) => up;
 
   @override
@@ -86,16 +112,25 @@ class FakeJoinHost implements JoinHost {
   @override
   Future<Followed> follow(Machine machine, JoinOffered offer) async {
     calls.add('follow ${offer.project} ${offer.source} ${offer.signers.join(',')}');
+    await followHeld?.future;
     if (followFails case final failure?) {
       followFails = null;
       throw failure;
     }
-    return following[offer.project] = Followed(
+    // As the daemon answers `Follow`: its outcome and what it pinned, never the access commit or the signers in force,
+    // which only `Following` answers.
+    final pinned = [for (final signer in offer.signers) pinnedAs(signer)];
+    if (outcome != 'APPLIED' && outcome != 'UNCHANGED') {
+      return Followed(name: '', outcome: outcome, detail: 'the vault of this account is shut');
+    }
+    following[offer.project] = Followed(
       name: offer.project,
       url: offer.source,
+      outcome: outcome,
       accessCommit: confirms ?? offer.revision,
       unverified: unverified,
-      signers: [for (final signer in offer.signers) pinnedAs(signer)],
+      signers: pinned,
     );
+    return Followed(name: '', outcome: outcome, commit: 'f' * 40, recorded: true, pinned: pinned);
   }
 }

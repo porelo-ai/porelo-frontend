@@ -308,6 +308,10 @@ extension on _AttentionViewState {
                 reason ?? (tile.fleet.reachability == Reachability.connected ? null : 'the machine is not answering'),
           );
         }
+      case AttentionKind.setAside:
+        title = 'Saved hosts not watched';
+        state = 'Set aside';
+        icon = Icons.inventory_2_outlined;
       case AttentionKind.missed:
         final each = row.value as ({Machine machine, int count});
         title = 'Dropped questions';
@@ -507,6 +511,8 @@ extension on _AttentionViewState {
           onPutAway: widget.onPutAway,
           onSelect: resolved || widget.onSelect == null ? null : () => widget.onSelect!(tile),
         );
+      case AttentionKind.setAside:
+        return Text(row.value as String);
       case AttentionKind.missed:
         final each = row.value as ({Machine machine, int count});
         return _MissedQuestions(

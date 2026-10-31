@@ -310,7 +310,6 @@ class _ShellState extends State<Shell> {
     _registry.addListener(_homeserversChanged);
     // Where the person may join is asked once the registry's read has ended, never beside a fetch of its checkout.
     unawaited(_registry.refresh().then((_) => _discoverJoins()));
-    widget.machines.addListener(_sayWhatWasSetAside);
     _hostRuns = HostRuns(widget.machines);
     _attention = Attention(widget.machines, widget.settings, widget.operations)..hostRuns = _hostRuns;
     _homeservers = HomeserverForwards(widget.settings);
@@ -1374,6 +1373,9 @@ class _ShellState extends State<Shell> {
     final address = await chooseRegistryAddress(context, current: widget.settings.registryRepository);
     if (address == null || !mounted) return;
     await widget.settings.setRegistryRepository(address);
+    // The rows and joins of the registry chosen before never show under this one.
+    _joinsFor++;
+    if (mounted) setState(_forgetJoins);
     await _registry.readAfresh();
     unawaited(_discoverJoins());
   }
@@ -3600,18 +3602,15 @@ class _ShellState extends State<Shell> {
 
   Future<void>? _discovering;
   String? _joinsSaid;
-  String? _setAsideSaid;
 
-  /// Says once which stored machines were set aside because their host card did not read.
-  void _sayWhatWasSetAside() {
-    final words = widget.machines.setAside;
-    if (words == null || words == _setAsideSaid) return;
-    _setAsideSaid = words;
-    _fleet.say(words);
-  }
+  /// The running joins to be replaced when they end, as Core answered their rows anew meanwhile.
+  final Set<ProjectJoin> _replacing = {};
 
-  /// Asks Core where the person may join, once the registry pages' read has ended cleanly; a refusal leaves no row,
-  /// and says itself once. One ask at a time: one asked while another runs follows it.
+  /// Counts the registries chosen, so an answer about one chosen before never shows under this one.
+  int _joinsFor = 0;
+
+  /// Asks Core where the person may join, once the registry pages' read has ended; a refusal leaves no row, and says
+  /// itself once. One ask at a time: one asked while another runs follows it.
   Future<void> _discoverJoins() {
     final running = _discovering;
     final next = _discovering = (running ?? Future<void>.value()).then((_) => _discover());
@@ -3624,38 +3623,94 @@ class _ShellState extends State<Shell> {
     final discovery = widget.joinDiscovery;
     final host = widget.joinHost;
     if (discovery == null || host == null || !mounted) return;
-    // The pages' read of the registry must have ended accepted; discovery reads the same checkout.
-    if (_registry.source != null && (_registry.busy || !_registry.loaded || _registry.problem != null)) return;
+    // Never beside a read of the checkout discovery reads; that read asks again when it ends. Whether the registry
+    // was read far enough to join through it is Core's discovery's to say.
+    if (_registry.source != null && _registry.busy) return;
+    final asked = _joinsFor;
     try {
       final admissions = await discovery.admissions();
-      if (!mounted) return;
+      if (!mounted || asked != _joinsFor) return;
       setState(() {
         _joinRows = [
           for (final admission in admissions)
             (
               admission: admission,
               join: switch (admission) {
-                JoinOffered offer => _joins.putIfAbsent(
-                  offer.key,
-                  () => ProjectJoin(
-                    offer: offer,
-                    discovery: discovery,
-                    host: host,
-                    machines: widget.machines,
-                    settings: widget.settings,
-                  ),
-                ),
+                JoinOffered offer => _joinOf(offer, discovery, host),
                 JoinUnreadable() || JoinUnusable() => null,
               },
             ),
         ];
+        final shown = {for (final row in _joinRows) ?row.join};
+        for (final MapEntry(:key, value: join) in _joins.entries.toList()) {
+          if (!shown.contains(join)) _retire(_joins.remove(key)!);
+        }
       });
       _joinsSaid = null;
     } on Exception catch (error) {
-      if (!mounted) return;
+      if (!mounted || asked != _joinsFor) return;
       final words = error is RegistryRefusal ? error.toString() : 'Core could not say where you may join.';
-      setState(() => _joinRows = const []);
+      setState(_forgetJoins);
       if (words != _joinsSaid) _fleet.say(_joinsSaid = words);
+    }
+  }
+
+  /// The join of [offer]'s row: the one it had while Core answers it unchanged, else a new one; a join still running
+  /// for what Core answered before is replaced when it ends.
+  ProjectJoin _joinOf(JoinOffered offer, JoinDiscovery discovery, JoinHost host) {
+    final kept = _joins[offer.key];
+    if (kept != null && kept.offer.same(offer)) return kept;
+    if (kept != null && kept.busy) {
+      if (!_replacing.add(kept)) return kept;
+      void ended() {
+        if (kept.busy) return;
+        kept.removeListener(ended);
+        _replacing.remove(kept);
+        if (!mounted || !identical(_joins[offer.key], kept)) return;
+        final now = _joinRows.where((row) => row.join == kept).firstOrNull?.admission;
+        setState(() {
+          if (now is JoinOffered && !now.same(kept.offer)) {
+            final fresh = _joinOf(now, discovery, host);
+            _joinRows = [for (final row in _joinRows) row.join == kept ? (admission: now, join: fresh) : row];
+          }
+        });
+      }
+
+      kept.addListener(ended);
+      return kept;
+    }
+    if (kept != null) _retire(kept);
+    return _joins[offer.key] = ProjectJoin(
+      offer: offer,
+      discovery: discovery,
+      host: host,
+      machines: widget.machines,
+      settings: widget.settings,
+    );
+  }
+
+  /// Takes every row and join away, as when the registry read failed or another registry was chosen.
+  void _forgetJoins() {
+    _joinRows = const [];
+    for (final join in _joins.values) {
+      _retire(join);
+    }
+    _joins.clear();
+  }
+
+  /// Lets go of a join no row shows any more, once it has ended, never cutting off one that runs.
+  void _retire(ProjectJoin join) {
+    void ended() {
+      if (join.busy) return;
+      join.removeListener(ended);
+      // Never inside its own notification.
+      scheduleMicrotask(join.dispose);
+    }
+
+    if (join.busy) {
+      join.addListener(ended);
+    } else {
+      scheduleMicrotask(join.dispose);
     }
   }
 
@@ -3669,7 +3724,6 @@ class _ShellState extends State<Shell> {
     }
     widget.shell.removeListener(_moveKeyboard);
     widget.sessions.removeListener(_moveKeyboard);
-    widget.machines.removeListener(_sayWhatWasSetAside);
     widget.settings.removeListener(_keepRefreshing);
     _refreshing?.cancel();
     _leaving.dispose();

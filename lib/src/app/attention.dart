@@ -105,6 +105,9 @@ enum AttentionKind {
 
   /// A machine dropped questions unseen.
   missed,
+
+  /// Stored machines are kept unread and not watched, as their host card does not read in this version.
+  setAside,
 }
 
 /// An immutable row snapshot, retained when the condition it describes is resolved.
@@ -206,6 +209,10 @@ class Attention extends ChangeNotifier {
       'message ${machine.name}/${message.task}/${message.handle}';
 
   Iterable<AttentionRow> _rows() sync* {
+    // Said here, where it stays while the records are set aside, never on a status line the next connection overwrites.
+    if (_machines.setAside case final words?) {
+      yield AttentionRow(AttentionKind.setAside, 'set aside', 'This computer', words);
+    }
     for (final run in _hostRuns?.needingYou ?? <HostPreparation>[]) {
       yield AttentionRow(AttentionKind.host, 'host ${run.project}', run.name, HostStop(run));
     }

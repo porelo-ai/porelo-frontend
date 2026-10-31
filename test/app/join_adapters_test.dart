@@ -36,7 +36,7 @@ final _answer = {
       'host': 'orchard',
       'host_account': 'alice',
       'host_card': {'host': 'orchard', ...hostValues()..remove('name'), 'signed_by': 'SHA256:${'A' * 43}'},
-      'homeserver': 'matrix.orchard.porelo.internal',
+      'homeserver': 'https://matrix.orchard.porelo.internal',
       'source': 'https://forge.example/team/demo.git',
       'access_repository': 'https://forge.example/team/access.git',
       'revision': 'a' * 40,
@@ -89,7 +89,16 @@ final _shown = {
   'revoked': false,
   'card_refused': null,
   'registry': [
-    {'address': _registryAddress, 'filed': 'done', 'revision': 'b' * 40, 'may_file': true, 'who_may': <Object?>[]},
+    {
+      'address': _registryAddress,
+      'filed': 'done',
+      'revision': 'b' * 40,
+      'may_file': true,
+      // An owner without an accepted card, as Core names one.
+      'who_may': [
+        {'login': 'carol', 'name': null, 'email': null},
+      ],
+    },
   ],
   'forge': null,
   'pending': <Object?>[],
@@ -110,8 +119,11 @@ class _Checkout implements RegistryCheckout {
   @override
   String get folder => '/private/registry/registry-${repository.hashCode}';
 
+  /// Whether the next fetch fails.
+  bool fails = false;
+
   @override
-  Future<String> fetch() async => 'b' * 40;
+  Future<String> fetch() async => fails ? throw const WorkspaceRefused('The registry could not be fetched.') : 'b' * 40;
 
   @override
   Future<void> prepareRetry({required String base, required String file, required String content}) =>
@@ -132,11 +144,14 @@ class _RegistryCore implements RegistryCore {
   Completer<void>? hold;
   Map<String, dynamic>? refusedCommit;
 
+  /// Whether the read accepted no revision yet.
+  bool noRevision = false;
+
   @override
   Future<RegistryRead> read(String checkout) async {
     await hold?.future;
     return RegistryRead.from({
-      'revision': 'b' * 40,
+      'revision': noRevision ? null : 'b' * 40,
       'people': <Object?>[],
       'owners': <Object?>[],
       'warnings': <Object?>[],
@@ -240,18 +255,21 @@ class _Daemon extends FakeBackend {
     bool? acceptRewrite,
   }) async {
     asked.add((name: name, url: url, signedBy: signedBy, signers: signers, unverified: unverified));
-    final followed = kept[name] = Followed(
+    final pinned = [for (final key in answersPinned ?? signers ?? const <String>[]) _fingerprint(key)];
+    kept[name] = Followed(
       name: name,
       url: url,
+      outcome: 'APPLIED',
       accessCommit: 'a' * 40,
       unverified: unverified == true,
-      signers: [for (final key in answersPinned ?? signers ?? const <String>[]) _fingerprint(key)],
+      signers: pinned,
     );
     if (dropsAnswer) {
       dropsAnswer = false;
       throw const VarlinkDisconnected('the connection went away');
     }
-    return followed;
+    // `Follow` answers its outcome and what it pinned; the access commit and the signers in force only `Following`.
+    return Followed(name: '', outcome: 'APPLIED', commit: 'f' * 40, recorded: true, pinned: pinned);
   }
 }
 
@@ -271,7 +289,10 @@ void main() {
   // Harm: a project whose access file names no homeserver is dropped, or another homeserver is taken for it.
   test('the homeserver comes from the project row, and a row naming none is still offered', () async {
     core.answer = _with((_) {})();
-    expect((await discovery.admissions()).whereType<JoinOffered>().single.homeserver, 'matrix.orchard.porelo.internal');
+    expect(
+      (await discovery.admissions()).whereType<JoinOffered>().single.homeserver,
+      'https://matrix.orchard.porelo.internal',
+    );
     core.answer = _with((json) => _project(json)['homeserver'] = null)();
     expect((await discovery.admissions()).whereType<JoinOffered>().single.homeserver, isNull);
   });
@@ -466,6 +487,42 @@ void main() {
       expect(File('$config.known_hosts').readAsStringSync(), contains(_otherSigner));
     });
 
+    // Harm: taking down an unconfirmed join's tunnel removes the files a raise queued meanwhile published, and that
+    // tunnel runs without its configuration and pins.
+    test('a raise queued while a tunnel is taken down keeps the files it published', tags: ['linux'], () async {
+      final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      final machine = await connect()(offer);
+      final config = machine.sshConfig;
+      // A probe holds the master, so the drop ends only once it lets go; a raise queued meanwhile takes the tunnel.
+      final probe = machines.tunnels.holdForTrial(machine);
+      expect(await probe.ready, isTrue);
+      final down = cardTunnelDown(machines)(machine);
+      await pumpEventQueue();
+      expect(await machines.tunnels.raiseFor(machine), isTrue);
+      await probe.release();
+      await down;
+      expect(cardTunnelUp(machines)(machine), isTrue);
+      for (final file in [config, '$config.known_hosts', '$config.pub']) {
+        expect(File(file).existsSync(), isTrue, reason: file);
+      }
+    });
+
+    // Harm: a watched account reached with the person's older key keeps the host's card, so the card now never
+    // raises, or the join goes on with the old key.
+    test('a watched account of an older key gives its tunnel up to the card now', tags: ['linux'], () async {
+      final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
+      final old = await cardTunnel(
+        machines,
+        person: () async => (login: 'alice', key: _otherSigner),
+        endpoint: (_) => path.join(folder.path, 'd'),
+      )(offer);
+      await machines.add(old);
+      final machine = await connect()(offer);
+      expect(machine.hostCard!.publicKey, personKey);
+      expect(cardTunnelUp(machines)(machine), isTrue);
+      expect(File('${machine.sshConfig}.pub').readAsStringSync(), contains(personKey.split(' ')[1]));
+    });
+
     // Harm: a tunnel that never came up keeps the host's card reserved, and the host's next card is refused for it.
     test('a card tunnel that does not come up keeps nothing of its card', tags: ['linux'], () async {
       final offer = (await discovery.admissions()).whereType<JoinOffered>().single;
@@ -573,10 +630,98 @@ void main() {
         '--json',
       ]);
       expect(rows.whereType<JoinOffered>().single.login, 'alice');
+      read.noRevision = true;
       read.refusedCommit = {'commit': 'c' * 40, 'path': 'owners.yml', 'why': 'not signed by an owner'};
       await registry.registry!.refresh();
+      await expectLater(
+        joins.discovery.admissions(),
+        throwsA(isA<RegistryRefusal>().having((e) => e.toString(), 'words', contains('no accepted revision'))),
+      );
+      expect(joinable(), hasLength(1), reason: 'the registry accepted no revision');
+    });
+
+    // Harm: one refused commit beside the accepted revision closes every host, and a host whose access file was
+    // refused is never shown as its own row.
+    test(
+      'a refused commit beside the accepted revision still offers the healthy hosts and names the refused one',
+      () async {
+        address = _registryAddress;
+        read.refusedCommit = {
+          'commit': 'c' * 40,
+          'path': 'hosts/grove/access.yml',
+          'why': 'not signed by a host admin',
+        };
+        await registry.registry!.refresh();
+        expect(registry.registry!.problem, isNotNull, reason: 'the pages say the refused commit');
+        final answer = _joinable();
+        (answer['refused'] as List).add({
+          'project': null,
+          'host': 'grove',
+          'access_repository': null,
+          'why': 'hosts/grove/access.yml in cccccccc: not signed by a host admin',
+          'admins': [
+            {'login': 'dave', 'name': null, 'email': null},
+          ],
+        });
+        final joins = appJoins(
+          registry: registry,
+          machines: machines,
+          run: (program, arguments, {inDirectory, environment = const {}, input}) async {
+            calls.add([program, ...arguments]);
+            return arguments.first == 'identity'
+                ? (code: 0, out: jsonEncode(shown), err: '')
+                : (code: 0, out: jsonEncode(answer), err: '');
+          },
+        );
+        final rows = await joins.discovery.admissions();
+        expect(rows.whereType<JoinOffered>().single.key, 'demo@orchard');
+        final grove = rows.whereType<JoinUnreadable>().where((row) => row.host == 'grove').single;
+        expect(grove.repository, isNull);
+        expect(grove.words, allOf(contains('grove'), contains('dave (dave)')));
+      },
+    );
+
+    // Harm: a failed fetch after a read with a refused commit is taken as read, and rows of a registry not read here
+    // are offered.
+    test('a failed fetch after a refused commit offers nothing', () async {
+      address = _registryAddress;
+      read.refusedCommit = {'commit': 'c' * 40, 'path': 'owners.yml', 'why': 'not signed by an owner'};
+      await registry.registry!.refresh();
+      final joins = appJoins(registry: registry, machines: machines, run: run);
+      expect(await joins.discovery.admissions(), isNotEmpty);
+      (registry.registry!.checkout as _Checkout).fails = true;
+      await registry.registry!.refresh();
       await expectLater(joins.discovery.admissions(), throwsA(isA<RegistryRefusal>()));
-      expect(joinable(), hasLength(1), reason: 'the newest registry state was refused');
+      expect(joinable(), hasLength(1));
+    });
+
+    // Harm: a person whose identity Core names with an owner it has no card for is told Porelo knows no identity, and
+    // finds no project to join.
+    test('an identity naming a contact without an accepted card is read', () async {
+      address = _registryAddress;
+      await registry.registry!.refresh();
+      final joins = appJoins(registry: registry, machines: machines, run: run);
+      expect((await joins.discovery.admissions()).whereType<JoinOffered>(), hasLength(1));
+    });
+
+    // Harm: a login outside the host account rule is said as no identity at all, so the person looks for a card they
+    // have.
+    test('a login outside the host account rule is said in its own words', () async {
+      address = _registryAddress;
+      await registry.registry!.refresh();
+      shown['login'] = 'Alice_Smith';
+      final joins = appJoins(registry: registry, machines: machines, run: run);
+      await expectLater(
+        joins.discovery.admissions(),
+        throwsA(
+          isA<RegistryRefusal>().having(
+            (e) => e.toString(),
+            'words',
+            allOf(contains('not one a host account takes'), isNot(contains('knows no identity'))),
+          ),
+        ),
+      );
+      expect(joinable(), isEmpty);
     });
 
     // Harm: a card that is revoked, does not verify, whose key the agent does not hold, or that the registry has not
@@ -623,6 +768,8 @@ void main() {
       tunnel = FakeJoinHost();
       host = DaemonJoinHost(
         connect: tunnel.connect,
+        current: tunnel.current,
+        raise: tunnel.raise,
         ready: tunnel.ready,
         release: tunnel.release,
         reach: (_) => daemon,

@@ -87,7 +87,7 @@ class ProjectsPage extends StatelessWidget {
                 (
                   words: switch (row.admission) {
                     JoinOffered(:final project, :final host) => '$project ${host.name}',
-                    JoinUnreadable(:final repository, :final host) => '$repository $host',
+                    JoinUnreadable(:final repository, :final project, :final host) => '${repository ?? project} $host',
                     JoinUnusable(:final project, :final host) => '$project $host',
                   },
                   child: joinRow(row.admission, row.join),
@@ -242,10 +242,10 @@ Widget joinRow(JoinAdmission admission, ProjectJoin? join) => switch (admission)
             ),
     ),
   ),
-  JoinUnreadable(:final repository, :final host, :final words) => ListTile(
-    key: ValueKey('join-unreadable $repository $host'),
+  JoinUnreadable(:final repository, :final project, :final host, :final words) => ListTile(
+    key: ValueKey('join-unreadable ${repository ?? project} $host'),
     leading: const Icon(Icons.lock_outline),
-    title: Text(repository ?? 'The access file of $host'),
+    title: Text(repository ?? (project == null ? 'The access file of $host' : 'The access repository of $project')),
     subtitle: Text(words),
   ),
   JoinUnusable(:final project, :final key, :final words) => ListTile(

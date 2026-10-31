@@ -32,8 +32,12 @@ import 'tunnel.dart';
       card = await person.show();
     } on RegistryRefusal {
       rethrow;
-    } on Object {
+    } on NoIdentity {
       throw const RegistryRefusal('Porelo knows no identity of yours yet, so no project you may join is known.');
+    } on Object {
+      throw const RegistryRefusal(
+        'Porelo\'s answer on your identity could not be read, so no project you may join is known. Try again.',
+      );
     }
     final address = registry.registry?.checkout.repository;
     if (address == null) throw const RegistryRefusal(CoreJoinDiscovery.noRegistry);
@@ -55,6 +59,10 @@ import 'tunnel.dart';
           return (login: card.login, key: card.key);
         },
       ),
+      current: (machine) async => machine.hostCard?.publicKey == (await usable()).key,
+      raise: (machine) async {
+        await machines.tunnels.raiseFor(machine);
+      },
       ready: cardTunnelUp(machines),
       release: cardTunnelDown(machines),
     ),
@@ -111,6 +119,11 @@ Future<Machine> Function(JoinOffered offer) cardTunnel(
     );
   }
   final card = joinCard(offer, own.key);
+  // The watched account of this card reached with a key the person no longer uses gives its tunnel and its files up
+  // to this one; it publishes them again when it is raised.
+  for (final old in machines.all) {
+    if (offer.reaches(old) && old.hostCard!.publicKey != own.key) await machines.tunnels.dropAndUnpublish(old);
+  }
   final machine = Machine.fromHostCard(
     card,
     socketPath: (endpoint ?? Machine.endpointFor)(card.name),
@@ -145,10 +158,8 @@ bool Function(Machine machine) cardTunnelUp(Machines machines) => (machine) {
 
 /// Takes down a card machine's tunnel in [machines]' tunnels and the files published for its card, so nothing of a
 /// join that was not confirmed refuses the host's next card.
-Future<void> Function(Machine machine) cardTunnelDown(Machines machines) => (machine) async {
-  await machines.tunnels.dropFor(machine);
-  await machine.hostCard?.unpublish(machine.sshConfig, environment: machines.tunnels.configEnvironment);
-};
+Future<void> Function(Machine machine) cardTunnelDown(Machines machines) =>
+    (machine) => machines.tunnels.dropAndUnpublish(machine);
 
 /// Core's `porelo registry joinable` on the person's private registry checkout, for the person Core names.
 ///
@@ -175,11 +186,7 @@ class CoreJoinDiscovery implements JoinDiscovery {
     final registry = this.registry();
     if (registry == null) throw const RegistryRefusal(noRegistry);
     await _settled(registry);
-    if (registry.accepted == null || registry.problem != null) {
-      throw const RegistryRefusal(
-        'The registry has not been read here completely yet, so the projects you may join are not known. Refresh it.',
-      );
-    }
+    if (whyNotRead(registry) case final why?) throw RegistryRefusal(why);
     final person = await _login();
     final Ran result;
     try {
@@ -209,6 +216,29 @@ class CoreJoinDiscovery implements JoinDiscovery {
     }
   }
 
+  /// Why [registry] was not read far enough to join through, or null when its last read ended with an accepted
+  /// revision.
+  ///
+  /// A commit Core refused beside the accepted revision leaves that revision read: Core answers what it accepted, and
+  /// a host whose access file it refused as that host's own row. A read that answered no accepted revision, or a fetch
+  /// or read that failed, leaves nothing to join through.
+  static String? whyNotRead(Registry registry) {
+    if (registry.accepted?.revision == null) {
+      return 'The registry has no accepted revision here yet, so the projects you may join are not known. '
+          '${registry.problem ?? 'Refresh it.'}';
+    }
+    final problem = registry.problem;
+    if (problem == null) return null;
+    // The words of a read that ended with a refused commit beside the accepted revision, as the registry says them.
+    final refused = registry.refusedCommit;
+    if (refused != null &&
+        refused.commit.length >= 12 &&
+        problem.startsWith('Porelo refused commit ${refused.commit.substring(0, 12)} at ${refused.path}: ')) {
+      return null;
+    }
+    return 'The registry has not been read here completely, so the projects you may join are not known. $problem';
+  }
+
   /// Waits until no fetch, read or filing runs in [registry] and no key replacement holds it.
   static Future<void> _settled(Registry registry) async {
     while (registry.busy || registry.held) {
@@ -236,8 +266,14 @@ class CoreJoinDiscovery implements JoinDiscovery {
     } on Exception {
       person = null;
     }
-    if (person == null || !RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(person)) {
+    if (person == null) {
       throw const RegistryRefusal('Porelo knows no identity of yours yet, so no project you may join is known.');
+    }
+    if (!RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(person)) {
+      throw const RegistryRefusal(
+        'The login your card names is not one a host account takes (a lower-case letter first, then lower-case '
+        'letters, digits or hyphens, at most 32), so no project can be joined with it.',
+      );
     }
     return person;
   }
@@ -245,16 +281,20 @@ class CoreJoinDiscovery implements JoinDiscovery {
 
 /// The host side of a join: the card tunnel, and the account daemon's existing follow with Core's signers.
 class DaemonJoinHost implements JoinHost {
-  /// Takes the card tunnel's connect, whether a tunnel is up, how one is taken down, and how a watched account's
-  /// daemon is reached.
+  /// Takes the card tunnel's connect, whether a card holds the person's key now, how a tunnel is raised again, whether
+  /// one is up, how one is taken down, and how a watched account's daemon is reached.
   DaemonJoinHost({
     required this._connect,
+    required this._current,
+    required this._raise,
     required this._ready,
     required this._release,
     FleetBackend Function(Machine)? reach,
   }) : _reach = reach ?? ((machine) => PoreloBackend(Machines.backendFor(machine)));
 
   final Future<Machine> Function(JoinOffered offer) _connect;
+  final Future<bool> Function(Machine machine) _current;
+  final Future<void> Function(Machine machine) _raise;
   final bool Function(Machine machine) _ready;
   final Future<void> Function(Machine machine) _release;
   final FleetBackend Function(Machine) _reach;
@@ -262,6 +302,12 @@ class DaemonJoinHost implements JoinHost {
 
   @override
   Future<Machine> connect(JoinOffered offer) => _connect(offer);
+
+  @override
+  Future<bool> current(Machine machine) => _current(machine);
+
+  @override
+  Future<void> raise(Machine machine) => _raise(machine);
 
   @override
   bool ready(Machine machine) => _ready(machine);
