@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:porelo_host/porelo_host.dart' show ProjectTransfer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/client.dart';
@@ -18,12 +19,16 @@ import 'narrowing.dart';
 import 'notifications.dart';
 import 'operations.dart';
 import 'session.dart';
+import 'registry_pages.dart';
 import 'settings.dart';
 import 'shell_model.dart';
 import 'start_agents.dart';
 import 'start_work.dart';
 import 'templates.dart';
 import 'vault.dart';
+import 'project_transfers.dart';
+import 'central_reviews.dart';
+import 'forge.dart';
 import 'widening.dart';
 
 /// Where an action lives on screen, so the finder can go there and show it.
@@ -124,11 +129,14 @@ class Command {
     required this.group,
     required this.run,
     this.shortcut,
-    this.unavailable,
+    String? unavailable,
+    this.unavailableNow,
     this.home = Home.none,
     this.checked,
     this.role = Role.user,
-  });
+    // The public named argument remains compatible with existing const commands.
+    // ignore: prefer_initializing_formals
+  }) : _unavailable = unavailable;
 
   /// Stable identifier, used to route a keystroke to this command.
   final String id;
@@ -155,7 +163,11 @@ class Command {
   ///
   /// An unavailable command is still listed. Hiding it would make the finder answer "there is
   /// no such action" when the truth is "not yet, and here is what is missing".
-  final String? unavailable;
+  String? get unavailable => unavailableNow?.call() ?? _unavailable;
+  final String? _unavailable;
+
+  /// Rechecks an action whose controller can change after this command is built.
+  final String? Function()? unavailableNow;
 
   /// Where it lives on screen.
   final Home home;
@@ -176,6 +188,7 @@ class Command {
           group: group,
           shortcut: shortcut,
           unavailable: reason,
+          unavailableNow: unavailableNow,
           home: home,
           checked: checked,
           run: run,
@@ -188,7 +201,8 @@ class Command {
     label: label,
     group: group,
     shortcut: shortcut,
-    unavailable: unavailable,
+    unavailable: _unavailable,
+    unavailableNow: unavailableNow,
     home: home,
     checked: checked,
     run: () {
@@ -636,7 +650,7 @@ List<Command> projectCommands({
       id: 'project.default',
       label: 'Repositories worked on without a project',
       group: 'Project',
-      home: Home.projectMenu,
+      home: project?.name == defaultProject ? Home.openedView : Home.projectMenu,
       run: showTheDefault ?? () {},
       unavailable: project == null
           ? nothing
@@ -757,13 +771,13 @@ Command takeProjectOffServerCommand(String? project, {VoidCallback? run, String?
   );
 }
 
-/// Opens server preparation from the title bar's Machines group.
+/// Opens server preparation from the Machines page.
 Command prepareServerCommand({VoidCallback? open, HostAccess? access}) => Command(
   id: 'host.prepare',
   role: Role.hostAdmin,
   label: 'Prepare a server…',
   group: 'Machines',
-  home: Home.appBar,
+  home: Home.machineRow,
   run: () {
     final reason = access?.unavailable() ?? (access == null ? 'The verified host admins are unavailable.' : null);
     if (reason != null) throw RegistryRefusal(reason);
@@ -1734,6 +1748,129 @@ Command putAwayQuestionCommand({required VoidCallback run, String? unavailable})
   run: run,
   unavailable: unavailable,
 );
+
+/// Creates a page operation from the supplied adapter and its exact access scope.
+Command? registryPageCommand({
+  required RegistryPages registry,
+  required RegistryTarget target,
+  required RegistryOperation operation,
+  required VoidCallback run,
+  String? person,
+}) => registry.item(target)?.offers(operation) != true
+    ? null
+    : Command(
+        id: 'registry.${operation.name}',
+        label: registryOperationLabel(operation),
+        group: target.project == null ? 'Machines' : 'Projects',
+        home: target.project == null ? Home.machineMenu : Home.projectMenu,
+        run: run,
+        unavailable: registry.unavailable(target, operation, person: person),
+      );
+
+/// Names registry actions once for page menus, confirmations, and the finder.
+String registryOperationLabel(RegistryOperation operation) => switch (operation) {
+  RegistryOperation.refresh => 'Refresh',
+  RegistryOperation.fileCard => 'File my card',
+  RegistryOperation.selectRegistry => 'Choose another registry…',
+  RegistryOperation.createRegistry => 'Create the registry…',
+  RegistryOperation.admit => 'Admit a project admin…',
+  RegistryOperation.register => 'Register the project',
+  RegistryOperation.addPerson => 'Add a developer…',
+  RegistryOperation.join => 'Join',
+  RegistryOperation.projectLock => 'Lock in this project…',
+  RegistryOperation.projectUnlock || RegistryOperation.hostUnlock => 'Let back in',
+  RegistryOperation.removePerson => 'Remove from the project…',
+  RegistryOperation.hostLock => 'Lock out of this server…',
+  RegistryOperation.deleteAccount => 'Delete their account from this server…',
+  RegistryOperation.takeOffHost => 'Take this project off the server…',
+  RegistryOperation.bringState => 'Bring the state to the host',
+  RegistryOperation.push => 'Push the approved main to the central forge…',
+  RegistryOperation.pull => 'Take the central state…',
+  RegistryOperation.backupKey => 'Make a backup key…',
+  RegistryOperation.replaceLostKey => 'Replace a lost key…',
+};
+
+/// Project-menu actions for verified push admission, independent of startup roles.
+List<Command> projectTransferCommands({
+  required ProjectTransfers transfers,
+  required TransferSelection selection,
+  required void Function(ProjectTransfer direction) start,
+}) => [
+  for (final direction in ProjectTransfer.values)
+    Command(
+      id: direction == ProjectTransfer.push ? 'project.pushApprovedMain' : 'project.takeCentralState',
+      label: direction == ProjectTransfer.push ? 'Push the approved main…' : 'Take the central state…',
+      group: selection.project,
+      home: Home.projectMenu,
+      unavailable: transfers.unavailable(selection),
+      run: () {
+        if (transfers.unavailable(selection) == null) start(direction);
+      },
+    ),
+];
+
+/// Explicit central forge actions for the project menu and selected request.
+List<Command> centralReviewCommands({
+  required String project,
+  required VoidCallback list,
+  required VoidCallback create,
+  VoidCallback? read,
+  VoidCallback? reviews,
+  VoidCallback? submit,
+  required CentralReviews actions,
+}) {
+  void run(VoidCallback? action, {bool write = false}) {
+    final reason = write ? actions.unavailable : actions.closedReason;
+    if (reason != null) throw ForgeRefused(reason);
+    if (action == null) throw const ForgeRefused('Choose a central pull request.');
+    action();
+  }
+
+  return [
+    Command(
+      id: 'project.centralPullRequests',
+      label: 'Read central pull requests…',
+      group: project,
+      home: Home.projectMenu,
+      unavailableNow: () => actions.closedReason,
+      run: () => run(list),
+    ),
+    Command(
+      id: 'centralPullRequest.create',
+      label: 'Create a central pull request…',
+      group: project,
+      home: Home.projectMenu,
+      unavailableNow: () => actions.unavailable,
+      run: () => run(create, write: true),
+    ),
+    Command(
+      id: 'centralPullRequest.read',
+      label: 'Read the pull request',
+      group: project,
+      home: Home.openedView,
+      unavailableNow: () => actions.closedReason,
+      unavailable: read == null ? 'Choose a central pull request.' : null,
+      run: () => run(read),
+    ),
+    Command(
+      id: 'centralPullRequest.reviews',
+      label: 'Read its central reviews',
+      group: project,
+      home: Home.openedView,
+      unavailableNow: () => actions.closedReason,
+      unavailable: reviews == null ? 'Choose a central pull request.' : null,
+      run: () => run(reviews),
+    ),
+    Command(
+      id: 'centralPullRequest.review',
+      label: 'Review on the central forge…',
+      group: project,
+      home: Home.openedView,
+      unavailableNow: () => actions.unavailable ?? (submit == null ? 'Choose a central pull request.' : null),
+      run: () => run(submit, write: true),
+    ),
+  ];
+}
 
 /// The selected project's person actions, with current availability and stale callbacks guarded.
 List<Command> projectPersonCommands({required ProjectDevelopers developers, String? person, VoidCallback? add}) {
