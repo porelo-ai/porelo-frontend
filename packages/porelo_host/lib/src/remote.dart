@@ -115,7 +115,8 @@ class OpenSsh implements Remote {
       '-o',
       'ProxyCommand=false',
     ] else ...[
-      ...pinnedHostSshOptions(knownHosts.path, identity),
+      // An agent-only run offers no key from disk, whatever identity it was given.
+      ...pinnedHostSshOptions(knownHosts.path, agentOnly ? '' : identity),
       if (agentOnly) ...[
         '-F',
         '/dev/null',
@@ -129,8 +130,7 @@ class OpenSsh implements Remote {
       ],
       '-o',
       'HostName=$host',
-      '-o',
-      'User=$user',
+      if (user.isNotEmpty) ...['-o', 'User=$user'],
       '-o',
       'Port=22',
     ],
@@ -139,7 +139,17 @@ class OpenSsh implements Remote {
   ];
 
   List<String> _destination(String host, String user) =>
-      _card != null ? <String>['-T', '--', host] : <String>[configHost ?? '$user@$host'];
+      _card != null ? <String>['-T', '--', host] : <String>['--', configHost ?? _account(host, user)];
+
+  String _account(String host, String user) => user.isEmpty ? host : '$user@$host';
+
+  void _checkCard(String host, String user) {
+    if (_card case final card?) {
+      if (host != card.name || user.isNotEmpty) {
+        throw const FormatException('The shared host command must use its admitted account and host alias.');
+      }
+    }
+  }
 
   @override
   Future<RemoteResult> run(
@@ -149,11 +159,7 @@ class OpenSsh implements Remote {
     String? input,
     void Function(String line)? onLine,
   }) async {
-    if (_card case final card?) {
-      if (host != card.name || user.isNotEmpty) {
-        throw const FormatException('The shared host command must use its admitted account and host alias.');
-      }
-    }
+    _checkCard(host, user);
     Process? process;
     String public(String text) {
       for (final value in const LineSplitter().convert(input ?? '').where((value) => value.isNotEmpty)) {
@@ -200,8 +206,14 @@ class OpenSsh implements Remote {
 
   @override
   Future<RemoteResult> copy(String host, String user, String from, String to) async {
+    _checkCard(host, user);
     if (agentOnly) {
-      final process = await _start('ssh', [..._options(host, user), '$user@$host', 'cat > ${quoteForAShell(to)}']);
+      final process = await _start('ssh', [
+        ..._options(host, user),
+        '--',
+        configHost ?? _account(host, user),
+        'cat > ${quoteForAShell(to)}',
+      ]);
       final out = process.stdout.drain<void>();
       final err = process.stderr.transform(utf8.decoder).join();
       SocketException? inputFailure;
@@ -225,7 +237,7 @@ class OpenSsh implements Remote {
       ..._options(host, user),
       '-q',
       from,
-      '${configHost ?? '$user@$host'}:$to',
+      '${_card != null ? host : configHost ?? _account(host, user)}:$to',
     ]);
     return RemoteResult(done.exitCode, '${done.stderr}'.trim());
   }

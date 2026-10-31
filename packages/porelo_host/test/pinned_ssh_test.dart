@@ -480,6 +480,8 @@ void main() {
     );
     await expectLater(ssh.run('other', '', 'true'), throwsFormatException);
     await expectLater(ssh.run('alpha', 'root', 'true'), throwsFormatException);
+    await expectLater(ssh.copy('other', '', '/from', '/to'), throwsFormatException);
+    await expectLater(ssh.copy('alpha', 'root', '/from', '/to'), throwsFormatException);
     expect(commands, isEmpty);
     final answer = await ssh.run(
       'alpha',

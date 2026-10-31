@@ -97,6 +97,8 @@ class SecretsFile {
     'cli=${_word(cli)}',
     'file=${_word(file)}',
     _kp,
+    // A missing command line is said before any password is asked, never taken for a wrong password.
+    'if ! [ -x "\$cli" ]; then echo "KeePassXC\'s command line is not installed here (\$cli), so \$file cannot be opened; nothing was sent. Install it in a terminal of your own: sudo apt install keepassxc-minimal" >&2; exit 1; fi',
     // A file that cannot be read is said as such, never asked about three times as a wrong password.
     r'if ! [ -r "$file" ]; then echo "$file cannot be read; nothing was sent." >&2; exit 1; fi',
     // A mistyped password is asked again, three times at most; an empty one or the end of input ends it at once.

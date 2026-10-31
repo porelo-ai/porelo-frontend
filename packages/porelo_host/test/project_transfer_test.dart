@@ -56,6 +56,16 @@ void main() {
     expect(result.stdout, contains(projectTransferNotSubmitted));
   });
 
+  // Harm: a missing keepassxc-cli is asked about as a wrong master password three times.
+  test('a missing keepassxc-cli is said before any password is asked', () async {
+    final fixture = await _Fixture.create();
+    final result = await fixture.run(secrets: SecretsFile(fixture.file, cli: '${fixture.folder.path}/no-cli'));
+    expect(result.exitCode, isNot(0));
+    expect(result.stdout, isNot(contains(projectTransferSubmitted)));
+    expect(result.stderr, contains('is not installed here'));
+    expect(result.stderr, isNot(contains('master password')));
+  });
+
   // Harm: EOF after partial password input submits despite cancellation.
   test('EOF at an unterminated password prompt never submits', () async {
     final fixture = await _Fixture.create();
