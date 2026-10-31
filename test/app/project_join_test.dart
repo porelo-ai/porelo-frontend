@@ -152,6 +152,58 @@ void main() {
     expect(settings.projectHost('billing'), first.host.name);
   });
 
+  Map<String, Object?> joinable() => {
+    'projects': [
+      {
+        'project': 'demo',
+        'host': 'orchard',
+        'host_account': 'porelo-alice',
+        'host_card': hostValues(),
+        'source': 'https://forge.example/team/demo.git',
+        'access_repository': 'https://forge.example/team/access.git',
+        'revision': 'a' * 40,
+        'signers': [personKey],
+        'admins': [
+          {'login': 'bob', 'name': 'Bob'},
+        ],
+      },
+    ],
+    'refused': [
+      {
+        'project': 'billing',
+        'host': 'orchard',
+        'access_repository': 'https://forge.example/team/billing-access.git',
+        'why': 'not signed by a verified admin',
+        'admins': [
+          {'login': 'bob', 'name': 'Bob', 'email': 'bob@example.org'},
+        ],
+      },
+    ],
+  };
+
+  // Harm: Core's joinable answer is misread, so a row shows another host, revision or signer than Core verified.
+  test('Core\'s joinable answer becomes one offered row and one unreadable row', () {
+    final rows = readJoinable(joinable());
+    final offered = rows.whereType<JoinOffered>().single;
+    expect(offered.same(offer()), isTrue);
+    final unreadable = rows.whereType<JoinUnreadable>().single;
+    expect(unreadable.words, contains('billing-access.git'));
+    expect(unreadable.words, contains('Bob (bob), bob@example.org'));
+  });
+
+  // Harm: a broken answer, or a card for another host, shows as an empty list or a row to click.
+  for (final (name, change) in <(String, void Function(Map<String, Object?>))>[
+    ('missing refused', (json) => json.remove('refused')),
+    ('a host card for another host', (json) => ((json['projects'] as List).single as Map)['host'] = 'grove'),
+    ('a project without signers', (json) => ((json['projects'] as List).single as Map).remove('signers')),
+  ]) {
+    test('a joinable answer with $name is refused whole', () {
+      final json = joinable();
+      change(json);
+      expect(() => readJoinable(json), throwsA(isA<RegistryRefusal>()));
+    });
+  }
+
   // Harm: an unreadable access repository is shown as nothing, or without who may grant it.
   test('an unreadable access repository names its address and who may grant it', () {
     const unreadable = JoinUnreadable(

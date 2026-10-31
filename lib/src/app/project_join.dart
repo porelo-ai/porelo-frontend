@@ -89,6 +89,57 @@ class JoinUnreadable extends JoinAdmission {
   ).toString();
 }
 
+/// Reads the answer of `porelo registry joinable --json`, or refuses it whole so it never shows as an empty list.
+List<JoinAdmission> readJoinable(Object? json) {
+  try {
+    if (json is! Map<String, Object?>) throw const FormatException('not an object');
+    final projects = json['projects'];
+    final refused = json['refused'];
+    if (projects is! List || refused is! List) throw const FormatException('no projects or refused');
+    return [
+      for (final entry in projects.cast<Map<String, Object?>>()) _offered(entry),
+      for (final entry in refused.cast<Map<String, Object?>>())
+        JoinUnreadable(
+          host: _text(entry, 'host'),
+          repository: _text(entry, 'access_repository'),
+          whoMay: _contacts(entry['admins']),
+        ),
+    ];
+  } on Object catch (error) {
+    if (error is RegistryRefusal) rethrow;
+    throw const RegistryRefusal('Core\'s answer on the projects you may join could not be read.');
+  }
+}
+
+JoinOffered _offered(Map<String, Object?> entry) {
+  final host = PreparedHost.read(entry['host_card']);
+  if (host.name != _text(entry, 'host')) throw const FormatException('the host card names another host');
+  final signers = entry['signers'];
+  if (signers is! List) throw const FormatException('no signers');
+  return JoinOffered(
+    project: _text(entry, 'project'),
+    host: host,
+    source: _text(entry, 'source'),
+    revision: _text(entry, 'revision'),
+    signers: signers.cast<String>(),
+  );
+}
+
+String _text(Map<String, Object?> entry, String key) {
+  final value = entry[key];
+  if (value is! String) throw FormatException('no $key');
+  return value;
+}
+
+List<RegistryContact> _contacts(Object? json) => [
+  for (final admin in (json as List? ?? const []).cast<Map<String, Object?>>())
+    RegistryContact(
+      login: _text(admin, 'login'),
+      name: admin['name'] as String? ?? _text(admin, 'login'),
+      email: admin['email'] as String?,
+    ),
+];
+
 /// Core's verified discovery of where the person is admitted. Assumed until Core serves it.
 abstract interface class JoinDiscovery {
   /// Every admission Core verified for the current person, and every access repository it could not read.

@@ -27,12 +27,13 @@ One-click joining from signed state (operator, 2026-10-30), the flow's step 6.
 ## Plan as built
 
 - `ProjectJoin` in `lib/src/app/project_join.dart` joins one verified admission. Core's discovery (`JoinDiscovery`: `JoinOffered`, `JoinUnreadable`) and the host side (`JoinHost`: the card tunnel, what the account daemon follows, and its follow with Core's signers) are two small interfaces, faked in tests. Before acting it asks Core again and refuses an admission that changed. It reuses a watched account on the host and a project already followed at the verified revision, keeps a tunnel it opened for a retry, and saves the account and the project/host association only after the host confirms the verified revision.
+- `readJoinable` reads the answer of Core's `porelo registry joinable --login L --json` (contract agreed in the room, 2026-10-31): each `projects[]` entry as a `JoinOffered` from its `host_card`, and each `refused[]` entry as a `JoinUnreadable` naming its access repository and `admins`. A broken answer, or a host card for another host, is refused whole and never shown as an empty list.
 - *Projects you may join* on `ProjectsPage` shows "in project P on host X" with *Join*, and an unreadable access repository as its own row naming its address and who may grant it.
 - The join dialog, `AccessJoin`, the *Join this project on its host…* command and `SignedHostActions.join` are removed. The rest of the join wizard was already taken out ([F276](README.md#f276)).
 
 ## Deferred
 
-- The served adapters: `JoinDiscovery` over Core's discovery, and `JoinHost` over the card tunnel and the account daemon's follow. Until Core serves its discovery, `Shell` gets neither, and no join row is shown.
+- The served adapters: `JoinDiscovery` running Core's `registry joinable` through `readJoinable`, and `JoinHost` over the card tunnel and the account daemon's follow. Until Core serves its discovery, `Shell` gets neither, and no join row is shown.
 - The real join rehearsal from a configured identity, once Machines admits the person's card key.
 
 ## To be checked
