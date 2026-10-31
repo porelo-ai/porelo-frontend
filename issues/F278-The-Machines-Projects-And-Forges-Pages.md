@@ -65,6 +65,7 @@ Folded in: [F262](README.md#f262), [F263](README.md#f263), [F265](README.md#f265
 
 ## Deferred
 
+- The central forge's key check (whether the person's key is listed on their forge account) sits on the Forges list; the chosen registry's row shows on the forge whose address holds it, and only hosts watched here are counted in it.
 - Forgetting the open default machine does not leave an unwatched machine current: `Machines.current` reads from `all`, forgetting selects another watched machine, and `_commandForItem` skips the lookup when the opened machine differs.
 - Live registry, access, publishing, key-recovery, and tunnel adapters, their protocol implementations, and the local VM walk against those services belong to the changes supplying those contracts.
 - Machine-specific values in older guided walks and tooling need a separate documentation cleanup; those files are outside these page changes.

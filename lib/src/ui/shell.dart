@@ -15,6 +15,7 @@ import '../app/project_join.dart';
 import '../app/registry.dart' show RegistryRefusal;
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
+import '../app/forge_key_check.dart';
 import '../app/machine_binding.dart';
 import '../app/machine_clearing.dart';
 import '../app/login_forward.dart';
@@ -150,6 +151,7 @@ class Shell extends StatefulWidget {
     required this.connections,
     this.forges,
     this.registryPages,
+    this.forgeKeyCheck,
     this.joinDiscovery,
     this.joinHost,
     this.projectAccess,
@@ -167,6 +169,9 @@ class Shell extends StatefulWidget {
 
   /// Verified registry decisions and separately confirmed host state.
   final RegistryPages? registryPages;
+
+  /// Whether the person's key is listed on their central forge account, absent until supplied.
+  final ForgeKeyCheck? forgeKeyCheck;
 
   /// Core's verified discovery of where the person may join, once Core serves it.
   final JoinDiscovery? joinDiscovery;
@@ -1319,6 +1324,7 @@ class _ShellState extends State<Shell> {
           if (machine != null) _openPageMachine(machine);
         },
         onOpen: (entry) => unawaited(_openTheForge(entry)),
+        keyCheck: widget.forgeKeyCheck,
       );
 
   /// Keeps the registry repository the person names and reads it at once.

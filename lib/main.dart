@@ -33,6 +33,7 @@ import 'src/app/desk.dart';
 import 'src/app/fleet_backend.dart';
 import 'src/app/registry.dart';
 import 'src/app/registry_checkout.dart';
+import 'src/app/forge_key_check.dart';
 import 'src/app/registry_pages.dart';
 import 'src/app/registry_read_source.dart';
 import 'src/app/session.dart';
@@ -97,6 +98,7 @@ RegistryPages _registryPages(Settings settings, Machines machines) => RegistryPa
     machines: () => machines.all,
   ),
   features: const RegistryPageFeatures(operations: {RegistryOperation.refresh}),
+  address: () => settings.registryRepository,
 );
 
 Future<PoreloApp> _compose() async {
@@ -157,6 +159,7 @@ Future<PoreloApp> _compose() async {
     narrowing: Narrowing(),
     held: WorkHeld(),
     registryPages: _registryPages(settings, machines),
+    forgeKeyCheck: ForgeKeyCheckCli(),
     // A development build started with PORELO_WALK=<folder>; a release build never has one.
     walk: _walk(),
   );

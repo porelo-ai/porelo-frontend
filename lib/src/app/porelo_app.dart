@@ -34,6 +34,7 @@ import 'settings.dart';
 import 'shell_model.dart';
 import 'project_join.dart' show JoinDiscovery, JoinHost;
 import 'registry_pages.dart';
+import 'forge_key_check.dart';
 
 /// The application: one window, one frame, one backend at a time.
 class PoreloApp extends StatelessWidget {
@@ -64,6 +65,7 @@ class PoreloApp extends StatelessWidget {
     this.registryPages,
     this.joinDiscovery,
     this.joinHost,
+    this.forgeKeyCheck,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -83,6 +85,9 @@ class PoreloApp extends StatelessWidget {
 
   /// The card tunnel and the account daemon's follow a join goes through.
   final JoinHost? joinHost;
+
+  /// Whether the person's key is listed on their central forge account.
+  final ForgeKeyCheck? forgeKeyCheck;
 
   /// Every machine being watched.
   final Machines machines;
@@ -228,6 +233,7 @@ class PoreloApp extends StatelessWidget {
           registryPages: registryPages,
           joinDiscovery: joinDiscovery,
           joinHost: joinHost,
+          forgeKeyCheck: forgeKeyCheck,
           pickAFile: pickAFile,
           backups: backups,
           narrowing: narrowing,

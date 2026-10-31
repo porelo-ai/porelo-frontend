@@ -9,6 +9,7 @@ import 'expandable_list_row.dart';
 import '../app/fleet_backend.dart';
 import '../app/forge.dart';
 import '../app/forge_connection.dart';
+import '../app/forge_key_check.dart';
 import '../app/links.dart';
 import '../app/machine_binding.dart';
 import '../app/machines.dart';
@@ -25,7 +26,14 @@ import 'tokens.dart';
 /// Central forges reached with the person's identity, and host forges reached through tunnels.
 class ForgesPage extends StatefulWidget {
   /// Creates the forge list with a separate page for each entry.
-  const ForgesPage({required this.forges, required this.usedBy, required this.onOpen, this.onMachine, super.key});
+  const ForgesPage({
+    required this.forges,
+    required this.usedBy,
+    required this.onOpen,
+    this.onMachine,
+    this.keyCheck,
+    super.key,
+  });
 
   /// The configured forges and current access state.
   final ForgeConnection forges;
@@ -38,6 +46,9 @@ class ForgesPage extends StatefulWidget {
 
   /// Opens the machine belonging to this item.
   final void Function(String name)? onMachine;
+
+  /// Whether the person's key is listed on their central forge account, absent until supplied.
+  final ForgeKeyCheck? keyCheck;
   @override
   State<ForgesPage> createState() => _ForgesPageState();
 }
@@ -63,6 +74,7 @@ class _ForgesPageState extends State<ForgesPage> {
         children: [
           if (forges.problem case final problem?) Text(problem, key: const Key('forges-problem')),
           if (_said case final said?) Text(said),
+          if (widget.keyCheck case final check?) ForgeKeyRow(check: check),
           FilteredListSection(
             title: 'Forges',
             storageId: 'forges',
@@ -316,7 +328,7 @@ class _ForgePageState extends State<ForgePage> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.forges,
+    animation: Listenable.merge([widget.forges, widget.registry]),
     builder: (context, _) {
       final forges = widget.forges;
       final entry = forges.current;
@@ -398,6 +410,9 @@ class _ForgePageState extends State<ForgePage> {
                       ),
                     ),
                   ),
+              if (!forges.registryRows.any((row) => row.forgeId == entry?.id) && entry != null)
+                if (_chosenRegistry(registry, entry) case final chosen?)
+                  (words: chosen.address!, child: _chosenRegistryRow(chosen)),
             ],
           ),
           if (registry?.problem case final problem?) Text(problem),
@@ -415,7 +430,8 @@ class _ForgePageState extends State<ForgePage> {
                 ),
               ),
             ),
-          if (forges.registryRows.isEmpty) const Text('Verified registry state has not been supplied.'),
+          if (forges.registryRows.isEmpty && (entry == null || _chosenRegistry(registry, entry) == null))
+            const Text('Verified registry state has not been supplied.'),
           FilteredListSection(
             key: ValueKey('forge-repositories ${entry?.id}'),
             title: 'Repositories',
@@ -432,6 +448,47 @@ class _ForgePageState extends State<ForgePage> {
       );
     },
   );
+
+  /// The chosen registry when it lives on [entry]; null when none is chosen.
+  static RegistryPages? _chosenRegistry(RegistryPages? registry, ForgeEntry entry) {
+    final address = registry?.address;
+    return address != null && forgeHoldsUrl(entry, address) ? registry : null;
+  }
+
+  /// The chosen registry's own row, read from the pages' verified read; never verified before a read.
+  Widget _chosenRegistryRow(RegistryPages registry) {
+    final hosts = [
+      for (final item in registry.items)
+        if (item.target.project == null) item.target.host,
+    ];
+    return ItemListRow(
+      key: const Key('forge-registry-chosen'),
+      title: registry.address!,
+      subtitle: !registry.loaded
+          ? (registry.busy ? 'Reading the registry…' : 'Not read yet: Refresh to read it.')
+          : '${registry.people.length} persons · ${hosts.isEmpty ? 'no hosts' : 'hosts ${hosts.join(', ')}'}',
+      leading: const Icon(Icons.folder_shared_outlined),
+      onOpen: null,
+      menu: CommandMenu(
+        key: const Key('forge-registry-chosen-menu'),
+        tooltip: 'Registry ${registry.address}',
+        commands: [
+          Command(
+            id: 'registry.refresh',
+            label: registryOperationLabel(RegistryOperation.refresh),
+            group: 'Forges',
+            home: Home.forgeRow,
+            run: () => unawaited(registry.refresh()),
+            unavailable: registry.source == null || !registry.features.supports(RegistryOperation.refresh)
+                ? 'This operation is not available yet.'
+                : registry.busy
+                ? 'Another registry operation is still running.'
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _row(BuildContext context, ForgeConnection forges, ForgeRepository repository) {
     final name = repository.fullName;
@@ -626,4 +683,101 @@ class _ForgePageState extends State<ForgePage> {
     final clone = forges.workspace(repository);
     return changed == null || clone == null ? null : (forge: changed, workspace: clone);
   };
+}
+
+/// Whether the person's key is listed on their central forge account; only a listed key on a good card reads as good.
+class ForgeKeyRow extends StatefulWidget {
+  /// Reads [check] once shown, and again from the row's menu.
+  const ForgeKeyRow({required this.check, super.key});
+
+  /// Core's identity read, reduced to the forge's key check.
+  final ForgeKeyCheck check;
+
+  @override
+  State<ForgeKeyRow> createState() => _ForgeKeyRowState();
+}
+
+class _ForgeKeyRowState extends State<ForgeKeyRow> {
+  ForgeKeyReading? _reading;
+  bool _busy = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_read());
+  }
+
+  void _again() {
+    setState(() => _busy = true);
+    unawaited(_read());
+  }
+
+  Future<void> _read() async {
+    final reading = await widget.check.read();
+    if (!mounted) return;
+    setState(() {
+      _reading = reading;
+      _busy = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reading = _reading;
+    final forge = reading is ForgeKeyAnswered ? reading.forge : null;
+    final words = switch (reading) {
+      null => 'Checking whether your key is listed on your forge account…',
+      ForgeKeyNoIdentity(:final words) => '$words Create your identity in Settings.',
+      ForgeKeyUnavailable(:final words) => 'Whether your key is listed is not known. $words',
+      ForgeKeyAnswered(forge: null, :final cardProblem) =>
+        '${cardProblem == null ? '' : '$cardProblem '}No forge is known yet: no registry has been read here.',
+      ForgeKeyAnswered(forge: final forge?, :final cardProblem) =>
+        '${cardProblem == null ? '' : '$cardProblem '}'
+            '${switch (forge.listed) {
+              ForgeKeyListed.listed => 'Your key is listed on ${forge.login}\'s forge account.',
+              ForgeKeyListed.notListed => 'Your key is not listed on ${forge.login}\'s forge account. Add it there.',
+              ForgeKeyListed.unknown => 'Whether your key is listed on ${forge.login}\'s forge account could not be asked.',
+            }}',
+    };
+    final good = reading?.good ?? false;
+    return ItemListRow(
+      key: const Key('forge-key-check'),
+      title: 'My key on the forge',
+      subtitle: words,
+      leading: good
+          ? const Icon(Icons.check_circle_outline, key: Key('forge-key-listed'))
+          : const Icon(Icons.key_outlined, key: Key('forge-key-not-good')),
+      onOpen: null,
+      menu: CommandMenu(
+        key: const Key('forge-key-menu'),
+        tooltip: 'My key on the forge',
+        commands: [
+          Command(
+            id: 'forge.keyAdd',
+            label: 'Add my key on the forge…',
+            group: 'Forges',
+            home: Home.forgeRow,
+            run: () => unawaited(openLink(forge!.accountUrl)),
+            unavailable: forge == null ? 'No forge is known yet.' : null,
+          ),
+          Command(
+            id: 'forge.keyList',
+            label: 'See the keys the forge lists',
+            group: 'Forges',
+            home: Home.forgeRow,
+            run: () => unawaited(openLink(forge!.keysUrl)),
+            unavailable: forge == null ? 'No forge is known yet.' : null,
+          ),
+          Command(
+            id: 'forge.keyCheck',
+            label: 'Check again',
+            group: 'Forges',
+            home: Home.forgeRow,
+            run: _again,
+            unavailable: _busy ? 'Still checking.' : null,
+          ),
+        ],
+      ),
+    );
+  }
 }
