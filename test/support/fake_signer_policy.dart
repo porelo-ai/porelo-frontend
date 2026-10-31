@@ -18,6 +18,9 @@ class FakeSignerPolicy implements SignerPolicy {
   /// What Core answers instead of a policy, such as an unsupported method or an unreadable answer.
   Exception? refusal;
 
+  /// An error Core's side throws when asked for a verdict, such as a daemon not opened.
+  Error? verdictError;
+
   /// Core's recorded verdicts by revision; a revision not named here is unrecorded.
   final Map<String, String> verdicts = <String, String>{};
 
@@ -35,6 +38,7 @@ class FakeSignerPolicy implements SignerPolicy {
   Future<CommitVerdict> verdict(String project, String revision) async {
     asked.add('verdict $project $revision');
     if (refusal case final refused?) throw refused;
+    if (verdictError case final error?) throw error;
     return CommitVerdict(verdicts[revision] ?? 'unrecorded');
   }
 }

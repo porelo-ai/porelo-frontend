@@ -41,7 +41,8 @@ class CommitSigning {
       return await policy.signers(project);
     } on FeatureNotSupported {
       throw const WorkspaceRefused(_noPolicy);
-    } on Exception {
+    } catch (_) {
+      // Whatever Core's side throws, an error as much as an exception, nothing is cloned, moved or signed.
       throw const WorkspaceRefused('Porelo did not say who signs for this project. Nothing was signed or pushed.');
     }
   }
@@ -85,7 +86,7 @@ class CommitSigning {
     final CommitVerdict verdict;
     try {
       verdict = await policy.verdict(project, revision);
-    } on Exception {
+    } catch (_) {
       throw const WorkspaceRefused('Porelo did not say whether it accepted this commit. Nothing was moved.');
     }
     if (verdict.accepted) return;
@@ -97,7 +98,21 @@ class CommitSigning {
   Future<String> _acceptedNow(String folder, String revision, ProjectSigners signers, Directory scratchIn) async {
     final raw = await _run('git', ['cat-file', 'commit', revision], inDirectory: folder, environment: isolatedGit);
     if (raw.code != 0) throw _unsigned;
-    final signed = _split(raw.out);
+    // Git checks only the signature header of the repository's own hash; another one is never taken for it.
+    final format = await _run(
+      'git',
+      ['rev-parse', '--show-object-format'],
+      inDirectory: folder,
+      environment: isolatedGit,
+    );
+    final signed = _split(
+      raw.out,
+      header: switch (format.out.trim()) {
+        'sha1' when format.code == 0 => 'gpgsig',
+        'sha256' when format.code == 0 => 'gpgsig-sha256',
+        _ => throw _unsigned,
+      },
+    );
     final scratch = await scratchIn.createTemp('porelo-signers-');
     try {
       final allowed = File('${scratch.path}/allowed_signers');
@@ -135,8 +150,9 @@ class CommitSigning {
 
   static bool _isPrincipal(String principal) => RegExp(r'^[^\s\x00-\x1f\x7f-][^\s\x00-\x1f\x7f]*$').hasMatch(principal);
 
-  /// Splits a raw commit object into its one SSH signature and the payload that signature covers.
-  static ({String signature, String payload}) _split(String raw) {
+  /// Splits a raw commit object into its one SSH signature under [header] and the payload that signature covers,
+  /// refusing a commit that carries a signature header of another hash.
+  static ({String signature, String payload}) _split(String raw, {required String header}) {
     final payload = <String>[];
     final signature = <String>[];
     var headers = true;
@@ -146,6 +162,7 @@ class CommitSigning {
       if (headers && line.isEmpty) {
         headers = false;
       } else if (headers && (line.startsWith('gpgsig ') || line.startsWith('gpgsig-sha256 '))) {
+        if (!line.startsWith('$header ')) throw _unsigned;
         signatures++;
         inSignature = true;
         signature.add(line.substring(line.indexOf(' ') + 1));

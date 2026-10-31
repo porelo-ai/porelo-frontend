@@ -83,7 +83,7 @@ class AccessCheckout {
     try {
       if (fresh) await _git(['clone', '--no-tags', '--', repository, folder], inCheckout: false);
       await _verifyAndAdvance(directory, signers);
-    } on Exception {
+    } catch (_) {
       // A fresh clone holds nothing of the person's, so one that failed any check leaves nothing behind.
       if (fresh && await directory.exists()) await directory.delete(recursive: true);
       rethrow;

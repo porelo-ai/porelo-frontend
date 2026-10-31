@@ -363,6 +363,24 @@ void main() {
       await advancesTo(revision);
     });
 
+    // Harm: a signature moved under another hash's header is taken as signing a commit Git treats as unsigned.
+    test('whose signature sits under the other hash\'s header is refused', () async {
+      final signed = await originCommit('admin2');
+      final raw = await fixture(['cat-file', 'commit', signed], directory: central);
+      final written = await Process.start(
+        'git',
+        ['hash-object', '-t', 'commit', '-w', '--stdin'],
+        workingDirectory: central,
+        environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+      );
+      written.stdin.write('${raw.replaceFirst('\ngpgsig ', '\ngpgsig-sha256 ')}\n');
+      await written.stdin.close();
+      final renamed = (await written.stdout.transform(utf8.decoder).join()).trim();
+      expect(await written.exitCode, 0);
+      await fixture(['update-ref', 'refs/heads/main', renamed], directory: central);
+      await isRefused();
+    });
+
     // Harm: a commit Core refused when it arrived is read as good because its signature still checks.
     test('Core recorded as refused is refused though its signer is in force', () async {
       final revision = await originCommit('admin2');
@@ -426,6 +444,13 @@ void main() {
       }
     },
   );
+
+  // Harm: an error, not an exception, from Core's side leaves a fresh clone advanced to an unverified commit.
+  test('an error from Core while judging a fresh clone leaves no checkout behind', () async {
+    core.verdictError = StateError('open() has not answered yet');
+    await expectLater(checkout().open(), throwsA(isA<WorkspaceRefused>()));
+    expect(Directory(cache()).existsSync(), isFalse);
+  });
 
   // Harm: a transient clone refusal must not poison every retry with an empty private directory.
   test('a failed initial clone leaves a later bring able to clone', () async {
