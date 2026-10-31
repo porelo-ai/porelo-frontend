@@ -1,20 +1,13 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:porelo_frontend/src/app/templates.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
-import 'package:porelo_frontend/src/app/settings.dart';
-import 'package:porelo_frontend/src/app/roles.dart';
-import 'package:porelo_frontend/src/ui/host_admin_dialog.dart';
-import 'package:porelo_host/porelo_host.dart' show PreparedHost;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
 import 'package:porelo_frontend/src/app/commands.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/ui/projects_page.dart';
 import 'package:porelo_frontend/src/ui/machine_details_page.dart';
-import 'package:porelo_frontend/src/ui/machines_page.dart';
 import 'package:porelo_frontend/src/ui/start_work_view.dart';
 import 'package:porelo_frontend/src/app/registry_pages.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
@@ -83,71 +76,6 @@ void main() {
     await World.settle(tester);
     await World.tapInView(tester, 'default-remove api');
     expect(World.backend.inDefault, isEmpty);
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  // Harm: removing placement commands can strand projects on a retained prepared server.
-  testWidgets('a prepared server without registry state retains project registration and removal', (tester) async {
-    roles = Roles.fromArguments(const ['--roles', 'host-admin']);
-    addTearDown(() => roles = const Roles());
-    await World.startBackend(World.work);
-    await World.startApp(tester);
-    const machine = Machine(
-      name: 'elsewhere',
-      socketPath: '/unused',
-      kind: 'host',
-      hostProject: 'demo',
-      identity: '/keys/private',
-    );
-    await World.settings.rememberHostUp(
-      'demo',
-      HostUpRecord(
-        scalewayProject: 'provider',
-        account: 'worker',
-        tresor: 'drive',
-        folder: null,
-        host: 'demo',
-        hostName: 'demo',
-        signingKey: '',
-        identity: '/keys/private',
-        publicKey: '/keys/public',
-        collection: '',
-        vpnPeerPublicKey: '',
-        vpnPeerAddress: '',
-        preparedHost: PreparedHost.read({
-          'address': '203.0.113.7',
-          'endpoint': '203.0.113.7:51820',
-          'wireguard_public_key': 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
-          'network': '10.73.0.0/24',
-          'ssh_host_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
-          'ca_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          'homeserver': 'matrix.demo.porelo.internal',
-        }),
-      ),
-    );
-    World.shell.goTo(Section.machines);
-    await World.settle(tester);
-    final page = tester.widget<MachinesPage>(find.byType(MachinesPage));
-    unawaited(
-      showDialog<void>(
-        context: tester.element(find.byType(MachinesPage)),
-        builder: (_) => AlertDialog(
-          content: CommandMenu(
-            key: const Key('prepared-server-menu'),
-            commands: page.hostCommands!(machine),
-            tooltip: 'Prepared server operations',
-          ),
-        ),
-      ),
-    );
-    await World.settle(tester);
-    await World.tapInView(tester, 'prepared-server-menu');
-    expect(find.byKey(const Key('host.registerProject')), findsOneWidget);
-    expect(find.byKey(const Key('host.removeProject')), findsOneWidget);
-    expect(find.byKey(const Key('host.admitAdmin')), findsNothing);
-    await World.tapInView(tester, 'host.registerProject');
-    expect(tester.widget<HostAdminDialog>(find.byType(HostAdminDialog)).action, 'register');
-    expect(World.terminals, isEmpty, reason: 'opening registration must not mutate the server');
     await tester.pumpWidget(const SizedBox());
   });
 

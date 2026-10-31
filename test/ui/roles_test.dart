@@ -109,7 +109,14 @@ void main() {
       await World.settle(tester);
       final control = find.byKey(const Key('host.prepare'));
       expect(control, held ? findsOneWidget : findsNothing);
-      if (held) expect(tester.widget<OutlinedButton>(control).onPressed, isNotNull);
+      // Without a verified registry nobody is known as host admin yet, so it says why instead of opening.
+      if (held) {
+        expect(tester.widget<OutlinedButton>(control).onPressed, isNull);
+        expect(
+          find.ancestor(of: control, matching: find.byTooltip('The verified host admins are unavailable.')),
+          findsOneWidget,
+        );
+      }
       expect(
         find.descendant(of: find.byType(AppBar), matching: find.byTooltip('Watch another machine…')),
         findsOneWidget,

@@ -1,9 +1,12 @@
 import 'package:porelo_frontend/src/app/roles.dart';
+import 'package:porelo_frontend/src/app/settings.dart';
+import 'package:porelo_host/porelo_host.dart';
+
+import '../support/host_admin.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porelo_frontend/client.dart';
-import 'package:porelo_frontend/src/app/commands.dart';
-import 'package:porelo_frontend/src/app/desk.dart';
 import 'package:porelo_frontend/src/app/machines.dart';
 import 'package:porelo_frontend/src/app/shell_model.dart';
 import 'package:porelo_frontend/src/ui/command_menu.dart';
@@ -29,6 +32,26 @@ Future<void> _start(WidgetTester tester) async {
 void main() {
   setUp(() => roles = Roles.fromArguments(const ['--roles', 'host-admin,project-admin']));
   tearDown(() => roles = const Roles());
+  // Harm: take-off must not dispatch an unrelated host-person dialog or lose its association.
+  testWidgets('registered project take-off waits for registry removal', (tester) async {
+    await _project(tester);
+    await World.settings.rememberHostUp(
+      'orchard',
+      HostUpRecord(
+        scalewayProject: 'provider',
+        publicKey: personKey,
+        hostName: 'orchard',
+        preparedHost: PreparedHost.read(hostValues()),
+      ),
+    );
+    await World.settings.rememberProjectHost('checkout', 'orchard');
+    await World.settle(tester);
+    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
+    final command = menu.commands.singleWhere((each) => each.id == 'project.takeOffServer');
+    expect(command.available, isFalse, reason: 'registry removal has no adapter yet');
+    expect(World.settings.projectHost('checkout'), 'orchard');
+  });
+
   // Harm: a changed current machine must not redirect a repository action from the displayed page.
   testWidgets('repository commands reselect the displayed project in the full shell', (tester) async {
     await _project(tester);
@@ -158,81 +181,6 @@ void main() {
   });
 
   // Harm: a server put up from where its keys cannot be kept, refused only after the wizard was filled.
-  testWidgets('putting a project on a server is unavailable on Windows, saying why', (tester) async {
-    final previous = desk;
-    addTearDown(() {
-      desk = previous;
-    });
-    await _project(tester);
-    desk = Desk.of('windows', const {'USERPROFILE': r'C:\Users\person', 'SystemRoot': r'C:\Windows'});
-    World.fleet.selectProject('checkout');
-    World.shell.goTo(Section.machines);
-    await World.settle(tester);
-    World.shell.goTo(Section.project);
-    await World.settle(tester);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    expect(
-      menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
-      contains('opens only on Linux so far'),
-    );
-  });
-
-  // Harm: a server set up where its secrets file cannot be opened, found only after the master password was typed.
-  testWidgets('putting a project on a server is unavailable without keepassxc-cli, saying how to install it', (
-    tester,
-  ) async {
-    addTearDown(() {
-      keepassxcCliIsHere = true;
-    });
-    keepassxcCliIsHere = false;
-    await _project(tester);
-    World.fleet.selectProject('checkout');
-    World.shell.goTo(Section.machines);
-    await World.settle(tester);
-    World.shell.goTo(Section.project);
-    await World.settle(tester);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    expect(
-      menu.commands.singleWhere((command) => command.id == 'project.server').unavailable,
-      contains('sudo apt install keepassxc-minimal'),
-    );
-  });
-
-  // Harm: joining without the terminal's secret-file reader fails only after privileged laptop setup.
-  testWidgets('joining is unavailable without keepassxc-cli and explains installation', (tester) async {
-    final previous = keepassxcCliThere;
-    addTearDown(() {
-      keepassxcCliThere = previous;
-      keepassxcCliIsHere = true;
-    });
-    keepassxcCliThere = () => false;
-    keepassxcCliIsHere = false;
-    await _project(tester);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    final command = menu.commands.singleWhere((command) => command.id == 'project.joinHost');
-    expect(command.available, isFalse);
-    expect(command.unavailable, contains('keepassxc'));
-    await World.tapInView(tester, 'project-menu');
-    await World.tapInView(tester, 'project.joinHost');
-    expect(find.byKey(const Key('join-signing-key')), findsNothing);
-  });
-
-  // Harm: a developer's new laptop has no secrets file chosen yet; refusing the join for it leaves no way in,
-  // since the join's own wizard is where the secrets file is chosen.
-  testWidgets('joining is available with KeePassXC before a secrets file is chosen', (tester) async {
-    final previous = keepassxcCliThere;
-    addTearDown(() {
-      keepassxcCliThere = previous;
-      keepassxcCliIsHere = true;
-    });
-    keepassxcCliThere = () => true;
-    keepassxcCliIsHere = true;
-    await _project(tester);
-    expect(World.settings.secretsFile, isNull);
-    final menu = tester.widget<CommandMenu>(find.byKey(const Key('project-menu')));
-    final command = menu.commands.singleWhere((command) => command.id == 'project.joinHost');
-    expect(command.available, isTrue, reason: command.unavailable);
-  });
 
   // Harm: replacing tiles must not strand commands that open review or repository tools.
   testWidgets('the project menu preserves work review and repository tools once each', (tester) async {

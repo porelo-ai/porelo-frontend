@@ -602,7 +602,7 @@ void main() {
     );
     var prepares = 0;
     final prepare = prepareServerCommand(access: access, open: () => prepares++);
-    expect(prepare.home, Home.appBar);
+    expect(prepare.home, Home.machineRow);
     prepare.run();
     expect(prepares, 1);
     final actions = <String>[];
