@@ -3396,12 +3396,7 @@ class _ShellState extends State<Shell> {
       registry: _registry,
     ).where((project) => project.name == projectName).firstOrNull;
     if (widget.shell.section == Section.project && project != null) {
-      final commands = _pageProjectCommands(
-        machine,
-        project,
-        admission: admission,
-        registryActions: widget.shell.itemMachine != null,
-      );
+      final commands = _pageProjectCommands(machine, project, admission: admission, registryActions: admission != null);
       return ProjectDetailsPage(
         key: ValueKey('project ${projectRowIdentity(machine, project.name, admission)}'),
         machine: machine,

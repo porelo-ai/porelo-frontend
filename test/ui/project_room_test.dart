@@ -54,9 +54,20 @@ Future<void> _findCommand(WidgetTester tester, String label) async {
 
 void main() {
   // Harm: commands from a hidden admission can mutate access while another target is on screen.
-  for (final project in [null, 'checkout']) {
-    for (final cover in ['Gate', 'Backups', 'Egress', 'Vault', 'Operations', 'Detail', 'refusal', 'session']) {
-      testWidgets('covered ${project ?? 'machine'} hides registry commands behind $cover', (tester) async {
+  for (final (project, explicitTarget) in [(null, true), ('checkout', true), ('checkout', false)]) {
+    final scope = '${explicitTarget ? '' : 'identity-only '}${project ?? 'machine'}';
+    for (final cover in [
+      'Gate',
+      'Backups',
+      'Egress',
+      'Vault',
+      'Operations',
+      'Detail',
+      'refusal',
+      'session',
+      if (!explicitTarget) 'missing operation',
+    ]) {
+      testWidgets('covered $scope hides registry commands behind $cover', (tester) async {
         await World.startBackend(World.work);
         final machine = Machine.local();
         final operation = project == null ? RegistryOperation.bringState : RegistryOperation.push;
@@ -85,9 +96,10 @@ void main() {
         if (project == null) {
           World.shell.openMachine(machine, target: target);
         } else {
-          World.shell.openProject(machine, project, target: target);
+          World.shell.openProject(machine, project, target: explicitTarget ? target : null);
         }
         await World.settle(tester);
+        expect(World.shell.itemRegistryTarget, explicitTarget ? target : isNull);
         final label = registryOperationLabel(operation);
         await _findCommand(tester, label);
         expect(find.widgetWithText(ListTile, label), findsOneWidget, reason: 'the visible item supplies the control');
@@ -104,6 +116,8 @@ void main() {
             World.shell.openVault();
           case 'Operations':
             World.shell.openOperations();
+          case 'missing operation':
+            World.shell.openOperation('missing');
           case 'Detail':
             World.fleet.selectTask(World.work.first.name);
             World.shell.openDetail();
@@ -126,9 +140,16 @@ void main() {
           find.byKey(
             ValueKey(project == null ? 'machine-details ${machine.name}' : 'project-details ${machine.name}/$project'),
           ),
-          findsNothing,
-          reason: 'the tested view must actually cover the item',
+          cover == 'missing operation' ? findsOneWidget : findsNothing,
+          reason: 'an unresolved overlay falls back to the page while other covers replace it',
         );
+        if (cover == 'missing operation') {
+          expect(World.shell.anythingOpen, isTrue);
+          await World.tapInView(tester, 'project-menu');
+          expect(find.text(label), findsNothing, reason: 'an unresolved overlay must not restore registry actions');
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await World.settle(tester);
+        }
         if (cover == 'session') {
           await tester.tap(find.byTooltip('Find a command (Ctrl+K)'));
           await World.settle(tester);
