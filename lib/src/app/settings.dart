@@ -810,15 +810,29 @@ class Settings extends ChangeNotifier {
     checkHostName(host);
     final added = _returnedHosts.add(host);
     final previous = _hostUps[host];
-    if (!added && previous?.preparedHost == null) return;
+    // An unconfirmed project change for this server has nothing left to be delivered to.
+    final receipts = {
+      for (final entry in _projectAccess.entries)
+        if (!entry.value.confirmed && entry.value.change.host == host) entry.key: entry.value,
+    };
+    final reasons = {for (final project in receipts.keys) project: _projectAccessReasons[project]};
+    if (!added && previous?.preparedHost == null && receipts.isEmpty) return;
     if (previous != null) {
       _hostUps[host] = HostUpRecord.fromStored({...previous.stored, 'preparedHost': null})!;
+    }
+    for (final project in receipts.keys) {
+      _projectAccess.remove(project);
+      _projectAccessReasons.remove(project);
     }
     try {
       await _write();
     } on Object {
       if (added) _returnedHosts.remove(host);
       if (previous != null) _hostUps[host] = previous;
+      _projectAccess.addAll(receipts);
+      for (final MapEntry(:key, :value) in reasons.entries) {
+        if (value != null) _projectAccessReasons[key] = value;
+      }
       rethrow;
     }
     notifyListeners();

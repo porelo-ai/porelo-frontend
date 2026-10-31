@@ -267,6 +267,20 @@ void main() {
     });
   }
 
+  // Harm: giving back one server forgets another server's change, or leaves its own stuck as a pending Retry.
+  test('giving a server back forgets only its own unconfirmed change, at once', () async {
+    final access = await fixture.access(settings);
+    fixture.fail = 'publish';
+    await expectLater(access.register(), throwsFormatException);
+    fixture.fail = null;
+    await settings.rememberHostReturned('grove');
+    expect(settings.projectAccess('demo'), isNotNull);
+    await settings.rememberHostReturned('orchard');
+    expect(settings.projectAccess('demo'), isNull);
+    expect(access.pending, isFalse);
+    expect(access.supersededChangeId, isNull);
+  });
+
   // Harm: an unfiled or already superseded receipt on a returned server keeps a Retry that can never succeed.
   for (final stage in ['unfiled', 'superseded']) {
     test('an $stage receipt whose server was given back is forgotten without asking Core', () async {

@@ -57,9 +57,12 @@ class ProjectAccess implements ProjectPersonActions {
 
   /// The exact superseded request offered for explicit discard.
   @override
-  String? get supersededChangeId => settings.projectAccess(project)?.state == ProjectAccessState.superseded
-      ? settings.projectAccess(project)?.change.id
-      : null;
+  String? get supersededChangeId {
+    final receipt = settings.projectAccess(project);
+    return receipt?.state == ProjectAccessState.superseded && !settings.hostReturned(receipt!.change.host)
+        ? receipt.change.id
+        : null;
+  }
 
   /// Forgets only the superseded receipt selected by the control.
   @override
@@ -87,7 +90,8 @@ class ProjectAccess implements ProjectPersonActions {
     final view = current;
     if (settings.projectChangeRunning(project)) return 'A change for this project is still running.';
     if (supersededChangeId != null) return _supersededReason;
-    // Recovery must resolve uncertain receipts before it can check mutation authority.
+    // Recovery must resolve uncertain receipts before it can check mutation authority; a receipt on a server given
+    // back is offered to Retry, which forgets it.
     if (delivery && pending) return null;
     if (registry.accepted == null || registry.problem != null || registry.busy) {
       return 'Refresh the verified registry before changing this project.';
@@ -239,6 +243,10 @@ class ProjectAccess implements ProjectPersonActions {
     required bool delivery,
     bool authorized = false,
   }) async {
+    if (receipt != null && settings.hostReturned(receipt.change.host)) {
+      await settings.forgetReturnedProjectAccess(project);
+      throw const _GivenBack();
+    }
     if (!_registryReady) throw const RegistryRefusal('Refresh the verified registry before changing this project.');
     final change = receipt?.change;
     final recording = authorized || receipt?.state == ProjectAccessState.delivered;
@@ -385,81 +393,87 @@ class ProjectAccess implements ProjectPersonActions {
     await _begin(locked ? 'lock' : 'unlock', person);
   }
 
-  Future<void> _begin(
+  /// Runs one change; false when its server was given back on the way and the change ended without effect.
+  Future<bool> _begin(
     String action,
     AccessDeveloper? person, {
     VerifiedHostProject? expected,
     Machine? registrationMachine,
-  }) => _withChange(() async {
-    final pendingReceipt = await _reconcile();
-    if (registrationMachine != null && registrationMachine.hostProject != expected!.host.name) {
-      throw const RegistryRefusal('The verified project admission changed.');
-    }
-    if (pendingReceipt != null) {
-      if (action == 'register' && pendingReceipt.change.action == 'register') {
-        await _endingIfGivenBack(() => _continue(pendingReceipt, expected: expected));
-        return;
+  }) => _withChange(
+    () => _endingIfGivenBack(() async {
+      final pendingReceipt = await _reconcile();
+      if (registrationMachine != null && registrationMachine.hostProject != expected!.host.name) {
+        throw const RegistryRefusal('The verified project admission changed.');
       }
-      await _authorize(receipt: pendingReceipt, expected: expected);
-      throw const RegistryRefusal('Retry the pending project change before making another.');
-    }
-    if ((action == 'lock' || action == 'unlock') && person == null) {
-      throw const RegistryRefusal('Choose a person in this project.');
-    }
-    final view = await _authorize(expected: expected);
-    if (action == 'add') {
-      if (person!.role != 'developer' || person.locked || !_eligible(view, person.login, person.fingerprint)) {
+      if (pendingReceipt != null) {
+        if (action == 'register' && pendingReceipt.change.action == 'register') {
+          await _continue(pendingReceipt, expected: expected);
+          return;
+        }
+        await _authorize(receipt: pendingReceipt, expected: expected);
+        throw const RegistryRefusal('Retry the pending project change before making another.');
+      }
+      if ((action == 'lock' || action == 'unlock') && person == null) {
+        throw const RegistryRefusal('Choose a person in this project.');
+      }
+      final view = await _authorize(expected: expected);
+      if (action == 'add') {
+        if (person!.role != 'developer' || person.locked || !_eligible(view, person.login, person.fingerprint)) {
+          throw const RegistryRefusal('Core does not permit this person and key in this project.');
+        }
+        if (view.access.developers.containsKey(person.login)) {
+          throw const RegistryRefusal('This person is already in the project.');
+        }
+      } else if (person != null) {
+        final accepted = view.access.developers[person.login];
+        if (accepted == null ||
+            accepted.fingerprint != person.fingerprint ||
+            accepted.role != person.role ||
+            accepted.locked != person.locked) {
+          throw const RegistryRefusal('Refresh the selected project person before changing access.');
+        }
+      }
+      if (action == 'unlock' && !_eligible(view, person!.login, person.fingerprint)) {
         throw const RegistryRefusal('Core does not permit this person and key in this project.');
       }
-      if (view.access.developers.containsKey(person.login)) {
-        throw const RegistryRefusal('This person is already in the project.');
-      }
-    } else if (person != null) {
-      final accepted = view.access.developers[person.login];
-      if (accepted == null ||
-          accepted.fingerprint != person.fingerprint ||
-          accepted.role != person.role ||
-          accepted.locked != person.locked) {
+      if ((action == 'lock' || action == 'unlock') && person!.locked == (action == 'lock')) {
         throw const RegistryRefusal('Refresh the selected project person before changing access.');
       }
-    }
-    if (action == 'unlock' && !_eligible(view, person!.login, person.fingerprint)) {
-      throw const RegistryRefusal('Core does not permit this person and key in this project.');
-    }
-    if ((action == 'lock' || action == 'unlock') && person!.locked == (action == 'lock')) {
-      throw const RegistryRefusal('Refresh the selected project person before changing access.');
-    }
-    final random = Random.secure();
-    final change = ProjectAccessChange.read(
-      ProjectAccessChange(
-        id: List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join(),
-        project: project,
-        host: view.host.name,
-        hostCard: view.host,
-        repository: view.source.access,
-        projectRevision: view.projectRevision,
-        baseRevision: view.accessRevision,
-        actor: view.actor.login,
-        actorFingerprint: view.actor.fingerprint,
-        action: action,
-        person: person,
-      ).stored,
-    );
-    final receipt = ProjectAccessProgress(change: change);
-    await settings.rememberProjectAccess(receipt);
-    await _endingIfGivenBack(() => _continue(receipt, expected: expected));
-  });
+      final random = Random.secure();
+      final change = ProjectAccessChange.read(
+        ProjectAccessChange(
+          id: List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join(),
+          project: project,
+          host: view.host.name,
+          hostCard: view.host,
+          repository: view.source.access,
+          projectRevision: view.projectRevision,
+          baseRevision: view.accessRevision,
+          actor: view.actor.login,
+          actorFingerprint: view.actor.fingerprint,
+          action: action,
+          person: person,
+        ).stored,
+      );
+      final receipt = ProjectAccessProgress(change: change);
+      await settings.rememberProjectAccess(receipt);
+      await _continue(receipt, expected: expected);
+    }),
+  );
 
   /// Resumes the original request after a restart without signing another change.
   @override
-  Future<void> retry() => _withChange(() => _endingIfGivenBack(_resume));
+  Future<void> retry() async {
+    await _withChange(() => _endingIfGivenBack(_resume));
+  }
 
   /// Ends a running change cleanly when its server was given back on the way and its receipt was forgotten.
-  static Future<void> _endingIfGivenBack(Future<void> Function() work) async {
+  static Future<bool> _endingIfGivenBack(Future<void> Function() work) async {
     try {
       await work();
+      return true;
     } on _GivenBack {
-      return;
+      return false;
     }
   }
 
@@ -633,7 +647,9 @@ class RegistryProjectRegistration implements SignedHostActions {
 
   @override
   Future<String> register(VerifiedHostProject state, Machine machine) async {
-    await access._begin('register', null, expected: state, registrationMachine: machine);
+    if (!await access._begin('register', null, expected: state, registrationMachine: machine)) {
+      throw const RegistryRefusal('The server was given back, so nothing was registered.');
+    }
     return state.revision;
   }
 }
