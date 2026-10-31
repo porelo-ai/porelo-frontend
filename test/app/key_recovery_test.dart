@@ -1685,7 +1685,8 @@ void main() {
       final handed = porelo.handed.single;
       expect(handed.file, isNot(_bobCard), reason: 'the checkout’s file may be another by then');
       expect(handed.text, checked);
-      expect(handed.folderMode & 0x3f, 0, reason: 'only this user reaches the copy');
+      // Windows has no mode bits; there privateDirectory restricts the folder by its ACL, tested with it.
+      if (!Platform.isWindows) expect(handed.folderMode & 0x3f, 0, reason: 'only this user reaches the copy');
       expect(File(handed.file).existsSync(), isFalse, reason: 'the copy goes once Core ran');
       expect(recovery.filed?.revision, _revision);
     });
