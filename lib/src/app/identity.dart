@@ -1288,18 +1288,21 @@ class IdentityModel extends ChangeNotifier {
     await _runOperation(() => core.replaceLostKey(fingerprint: fingerprint, id: reviewed.id), reviewed.id);
   }
 
-  // A kept filing ends once Core names the registry's card in any other state than absent, or the card or its key changed.
+  // A kept filing ends once Core reads the registry's card as filed, pending or unknown, or the card's key changed.
   void _dropSettledFilings(IdentityCard read) {
     if (read.revoked || read.cardRefused != null) {
       _filing.clear();
       return;
     }
-    final absent = {
+    final open = {
       for (final registry in read.registry)
-        if (registry.filed == FiledState.absent) registry.address,
+        if (_fileable.contains(registry.filed)) registry.address,
     };
-    _filing.removeWhere((address, kept) => !absent.contains(address) || kept.fingerprint != read.fingerprint);
+    _filing.removeWhere((address, kept) => !open.contains(address) || kept.fingerprint != read.fingerprint);
   }
+
+  // The states in which a card is filed, or a lost filing retried: none there yet, or the last one refused.
+  static const _fileable = {FiledState.absent, FiledState.refused};
 
   /// Whether a filing in [registry] lost its answer, so its button retries the same request.
   bool filingUnanswered(IdentityRegistry registry) => _filing.containsKey(registry.address);
@@ -1312,10 +1315,10 @@ class IdentityModel extends ChangeNotifier {
     if (!registry.mayFile) return 'Only an owner may file it here.';
     if (read.whyKeyUnusable case final why?) return why;
     if (checkoutFor?.call(registry.address) == null) return 'No checkout of this registry is on this computer.';
-    if (registry.filed != FiledState.absent && registry.filed != FiledState.refused) return 'It is filed already.';
-    // A kept request is retried as it was, against its own base, only while Core still reads no card there.
+    if (!_fileable.contains(registry.filed)) return 'It is filed already.';
+    // A kept request is retried as it was, against its own base, while Core still reads no accepted card there.
     if (_filing[registry.address] case final kept?) {
-      return registry.filed == FiledState.absent && kept.fingerprint == read.fingerprint
+      return kept.fingerprint == read.fingerprint
           ? null
           : 'Read your card again: Core no longer names the request that lost its answer.';
     }

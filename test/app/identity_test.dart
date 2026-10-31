@@ -678,6 +678,7 @@ void main() {
           'revision': first,
           'may_file': true,
           'who_may': <Object?>[],
+          if (filed == 'refused') 'why': 'the signature does not verify',
         },
       ],
     };
@@ -729,6 +730,20 @@ void main() {
         expect(core.named('registry file'), hasLength(1));
       });
     }
+
+    test('a lost filing made over a refused card is retried under its own ID', () async {
+      // Harm: a second filing under a new ID while the first one's answer was only lost.
+      core.answer('identity show', absent(filed: 'refused'));
+      await filing.load();
+      core.answer('registry file', '', code: 70);
+      await filing.fileCard(filing.card!.registry.single);
+      await filing.load();
+      expect(filing.filingUnanswered(filing.card!.registry.single), isTrue);
+      await filing.fileCard(filing.card!.registry.single);
+      final ids = [for (final call in core.named('registry file')) call[call.indexOf('--id') + 1]];
+      expect(ids, hasLength(2));
+      expect(ids.toSet(), hasLength(1));
+    });
 
     test('a card with another key since the lost answer drops the kept request', () async {
       await lostAnswer();
