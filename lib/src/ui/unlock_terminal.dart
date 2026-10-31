@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
 import '../app/machines.dart';
+import '../app/pty.dart' show TerminalStillRunning;
 import '../app/session.dart';
 import 'dialog_scroll.dart';
 
@@ -37,12 +38,19 @@ Future<void> unlockInATerminal(
   open: open,
 );
 
+/// What a terminal's program did, as far as this side saw it: whether it was started, and its exit code, also one
+/// that arrived while the terminal closed; no code when none was seen.
+typedef TerminalEnd = ({bool started, int? code});
+
 /// Runs [command] on [machine] in a terminal a person types into, for a value this program must
-/// never hold. Returns once the dialog is put away; what came of it is asked of the machine then.
+/// never hold. Returns once the dialog is put away, with what its program did; what came of it is
+/// asked of the machine then.
 /// [onExit] reports a process exit, never cancellation; [completed] is shown only after exit zero.
 /// [showCommand] hides the line behind Details when false.
 /// [shownCommand] can show a readable command when the actual argument list uses a shell parameter.
-Future<void> runInATerminal(
+/// With [waitsOnItsProgram], a program that outlives the close is thrown as a [TerminalStillRunning],
+/// for a caller that counts it as running until it ended; any other caller is not told of it.
+Future<TerminalEnd> runInATerminal(
   BuildContext context, {
   required String title,
   required String explanation,
@@ -60,9 +68,10 @@ Future<void> runInATerminal(
   Future<bool> Function(int code)? finish,
   Future<void> Function()? afterClose,
   ValueChanged<String>? lastLine,
+  bool waitsOnItsProgram = false,
   Key? key,
 }) async {
-  final closed = Completer<void>();
+  final closed = Completer<TerminalEnd>();
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -87,7 +96,12 @@ Future<void> runInATerminal(
       closing: (leaving) => leaving.then(closed.complete, onError: closed.completeError),
     ),
   );
-  await closed.future;
+  try {
+    return await closed.future;
+  } on TerminalStillRunning {
+    if (waitsOnItsProgram) rethrow;
+    return (started: true, code: null);
+  }
 }
 
 class _UnlockTerminal extends StatefulWidget {
@@ -138,7 +152,7 @@ class _UnlockTerminal extends StatefulWidget {
 
   /// Told the terminal's last line with text when its command ends, before [finish]: what a failed command said last.
   final ValueChanged<String>? lastLine;
-  final ValueChanged<Future<void>> closing;
+  final ValueChanged<Future<TerminalEnd>> closing;
 
   @override
   State<_UnlockTerminal> createState() => _UnlockTerminalState();
@@ -203,14 +217,7 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
     if (!_reportedExit && code != null) {
       _reportedExit = true;
       widget.onExit?.call(code);
-      if (widget.lastLine case final told?) {
-        final term = _session.terminal;
-        final shown = copiedText(
-          term,
-          BufferRangeLine(CellOffset(0, 0), CellOffset(term.viewWidth - 1, term.buffer.height - 1)),
-        );
-        told(shown.split('\n').map((line) => line.trimRight()).lastWhere((line) => line.isNotEmpty, orElse: () => ''));
-      }
+      _tellLastLine();
       if (widget.finish case final finish?) {
         _finishing = true;
         unawaited(() async {
@@ -236,6 +243,18 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
     }
   }
 
+  /// Tells [_UnlockTerminal.lastLine] the terminal's last line with text.
+  void _tellLastLine() {
+    final told = widget.lastLine;
+    if (told == null) return;
+    final term = _session.terminal;
+    final shown = copiedText(
+      term,
+      BufferRangeLine(CellOffset(0, 0), CellOffset(term.viewWidth - 1, term.buffer.height - 1)),
+    );
+    told(shown.split('\n').map((line) => line.trimRight()).lastWhere((line) => line.isNotEmpty, orElse: () => ''));
+  }
+
   /// Closes this terminal's dialog, together with a cancel confirmation still open above it.
   void _closeOwnRoute() {
     final route = ModalRoute.of(context);
@@ -247,7 +266,16 @@ class _UnlockTerminalState extends State<_UnlockTerminal> {
 
   @override
   void dispose() {
-    widget.closing(_session.leave().then((_) => widget.afterClose?.call()));
+    final started = _session.started;
+    widget.closing(
+      _session.leave().then((_) async {
+        // A program that ended while its terminal closed may still have done its work: what it did is said on.
+        final code = _session.exitCode;
+        if (!_reportedExit && code != null) _tellLastLine();
+        await widget.afterClose?.call();
+        return (started: started, code: code);
+      }),
+    );
     _session
       ..removeListener(_changed)
       ..dispose();

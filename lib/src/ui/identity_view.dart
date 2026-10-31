@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../app/commands.dart';
 import '../app/identity.dart';
-import '../app/key_recovery.dart' show BackupKeyMaking, KeyRecoveryEntry, RecoveryScope;
+import '../app/key_recovery.dart' show BackupKeyMaking, KeyRecoveryEntry, RecoveryRuns, RecoveryScope;
 import '../app/links.dart';
 import '../app/machines.dart';
 import '../app/registry.dart' show RegistryContact;
@@ -98,14 +98,35 @@ class _IdentityDialogState extends State<IdentityDialog> {
   AgentKey? _reviewKey;
   bool _reviewNew = false;
 
+  // What runs Core for key recovery, seen by this dialog however often it was opened while it ran.
+  RecoveryRuns? get _runs => switch (widget.recovery) {
+    final entry? => RecoveryRuns.of(entry.receipts),
+    null => null,
+  };
+  bool _wasMaking = false;
+  // Whether this dialog waits on the making itself, and reads the card again once it ended.
+  bool _makingHere = false;
+
   @override
   void initState() {
     super.initState();
+    _wasMaking = _backupRunning;
+    _runs?.addListener(_runsChanged);
     unawaited(_model.load());
+  }
+
+  /// Shows a backup key being made or not, and reads the card again once one has ended, whichever dialog started it.
+  void _runsChanged() {
+    if (!mounted) return;
+    final making = _backupRunning;
+    setState(() {});
+    if (_wasMaking && !making && !_makingHere) unawaited(_model.load());
+    _wasMaking = making;
   }
 
   @override
   void dispose() {
+    _runs?.removeListener(_runsChanged);
     for (final field in [_database, _entry]) {
       field.dispose();
     }
@@ -274,8 +295,12 @@ class _IdentityDialogState extends State<IdentityDialog> {
 
   /// Shows [making] as running until it ended, then reads the card again.
   Future<void> _whileMaking(Future<Object?> making) async {
-    setState(() {});
-    await making;
+    setState(() => _makingHere = true);
+    try {
+      await making;
+    } finally {
+      _makingHere = false;
+    }
     if (mounted) setState(() {});
     await _model.load();
   }

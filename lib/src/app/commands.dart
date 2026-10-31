@@ -2100,7 +2100,7 @@ List<Command> keyRecoveryCommands({
       label: 'Make a new backup key…',
       group: 'Key',
       home: Home.openedView,
-      unavailable: !recovery.replaced
+      unavailable: !recovery.replaced && recovery.situation.madeHereReplaced == null
           ? 'Offered once the key is replaced.'
           : recovery.situation.scope.backupFlags == null
           ? 'No backup key is kept for ${recovery.situation.scope.words}.'

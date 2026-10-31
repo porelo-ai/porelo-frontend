@@ -189,8 +189,12 @@ class Session extends ChangeNotifier {
   /// adds is what kind of ending it was, which the terminal cannot say.
   String? problem;
 
-  /// The actual process exit code, absent if no process ended or the terminal was canceled.
+  /// The actual process exit code, also one that arrived while it was left; absent while no process ended.
   int? exitCode;
+
+  /// Whether its program was started: one that never was did nothing, any other may have done anything.
+  bool get started => _started;
+  bool _started = false;
 
   SessionChannel? _channel;
   StreamSubscription<List<int>>? _reading;
@@ -262,14 +266,24 @@ class Session extends ChangeNotifier {
 
   @override
   void dispose() {
-    unawaited(leave());
+    unawaited(_leaveUnwaited());
     super.dispose();
+  }
+
+  /// Leaves for whoever does not wait on it: a program that outlives the close has nobody here to tell.
+  Future<void> _leaveUnwaited() async {
+    try {
+      await leave();
+    } on TerminalStillRunning {
+      // Whoever must count it as running waits on [leave] itself.
+    }
   }
 
   void _start(int columns, int rows) {
     try {
       final channel = _open(command.first, command.skip(1).toList(), columns: columns, rows: rows);
       _channel = channel;
+      _started = true;
       state = SessionState.live;
       // Decoded as a stream: a chunk can end in the middle of a character, and a decoder per
       // chunk would put a replacement mark on screen every few kilobytes of anything but ASCII.
@@ -294,8 +308,12 @@ class Session extends ChangeNotifier {
 
   void _itEnded(int code) {
     // Closing the channel ends the far end, so an exit code arrives *after* somebody has left —
-    // by which time this is disposed and notifying would throw into whatever is drawing.
-    if (_gone) return;
+    // by which time this is disposed and notifying would throw into whatever is drawing. The code is
+    // still kept: what the program did before it ended is not undone by leaving.
+    if (_gone) {
+      exitCode ??= code;
+      return;
+    }
     // The login is over, so its reply has nothing left to reach.
     exitCode = code;
     final forward = _forward;
@@ -442,8 +460,13 @@ class Sessions extends ChangeNotifier {
   Future<void> leaveAll() => leave();
 
   Future<void> _end(Session session) async {
-    await session.leave();
-    session.dispose();
+    try {
+      await session.leave();
+    } on TerminalStillRunning {
+      // The way into work that carries on anyway; nothing waits on its end.
+    } finally {
+      session.dispose();
+    }
   }
 
   @override

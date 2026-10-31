@@ -94,8 +94,8 @@ Future<void> showRegistryKeyRecovery(
 /// and it is never kept; the key and its passphrase never pass through this program.
 ///
 /// A kept request needs no fresh read of the list, whose own unpushed commit may be what keeps that read from passing;
-/// a new one does. [base], when given, is the commit this program just made in force, which a list read earlier does
-/// not show yet.
+/// a new one does, and is made on the newest commit in force: one this program made, which a list read earlier does
+/// not show yet, or else the read's own.
 ///
 /// The attempt counts as running from asking where the file goes until its terminal's program ended, so nothing drops
 /// its request meanwhile and no second one starts.
@@ -103,16 +103,15 @@ Future<BackupKeyMade?> makeBackupKey(
   BuildContext context, {
   required KeyRecoveryEntry entry,
   required RecoveryScope scope,
-  String? base,
   OpenTerminal? open,
   ChooseNewFile chooseNewFile = chooseWithTheDesktop,
 }) async {
-  final making = BackupKeyMaking(scope: scope, base: base, core: entry.core, receipts: entry.receipts);
+  final making = BackupKeyMaking(scope: scope, base: null, core: entry.core, receipts: entry.receipts);
   final BackupKeyMade? made;
   final String? words;
   try {
     (made, words) = await making.attempt(
-      () => _makeBackupKey(context, entry: entry, making: making, base: base, open: open, chooseNewFile: chooseNewFile),
+      () => _makeBackupKey(context, entry: entry, making: making, open: open, chooseNewFile: chooseNewFile),
     );
   } on RegistryRefusal catch (refused) {
     if (context.mounted) await _say(context, 'Make a backup key', refused.toString());
@@ -129,7 +128,6 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
   BuildContext context, {
   required KeyRecoveryEntry entry,
   required BackupKeyMaking making,
-  required String? base,
   required OpenTerminal? open,
   required ChooseNewFile chooseNewFile,
 }) async {
@@ -141,10 +139,10 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
     } on RegistryRefusal catch (refused) {
       return (null, refused.toString());
     }
-    // A list known only from a kept replacement's record is no read to make a new key on, whatever base is given.
+    // A list known only from a kept replacement's record is no read to make a new key on.
     if (situation.resumeOnly) return (null, 'Refresh the registry before making a backup key.');
     // A backup key touches only its own entry, so it is made on the newest commit made here.
-    final read = base ?? situation.madeHere ?? situation.base;
+    final read = situation.madeHere ?? situation.base;
     if (read == null) return (null, 'The commit in force is not read. Read it again.');
     making = BackupKeyMaking(scope: scope, base: read, core: entry.core, receipts: entry.receipts);
   }
@@ -162,9 +160,8 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
       if (out == null || !context.mounted) return (null, null);
       final command = await making.start(out);
       if (!context.mounted) return (null, null);
-      var code = -1;
       var last = '';
-      await runInATerminal(
+      final end = await runInATerminal(
         context,
         title: 'Make a backup key',
         explanation:
@@ -173,10 +170,10 @@ Future<(BackupKeyMade?, String?)> _makeBackupKey(
         machine: Machine.local(),
         command: command,
         open: open,
-        onExit: (exit) => code = exit,
         lastLine: (line) => last = line,
+        waitsOnItsProgram: true,
       );
-      made = await making.ended(code: code, lastLine: last, out: out);
+      made = await making.ended(code: end.code, lastLine: last, out: out, started: end.started);
       words = 'The backup key ${made.fingerprint} is filed in commit ${made.revision}, and pushed.';
       if (made.file != out) {
         words = '$words Its file is ${made.file}, where an earlier attempt under this request wrote it, not $out.';
@@ -330,10 +327,10 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
     if (file == null || !mounted) return;
     final command = await _recovery.startBackup(file, toldInPerson: _toldInPerson);
     if (command == null || !mounted) return;
-    var code = -1;
     var last = '';
+    final TerminalEnd end;
     try {
-      await runInATerminal(
+      end = await runInATerminal(
         context,
         title: 'Use the backup key',
         explanation:
@@ -342,14 +339,14 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
         machine: Machine.local(),
         command: command,
         open: widget.open,
-        onExit: (exit) => code = exit,
         lastLine: (line) => last = line,
+        waitsOnItsProgram: true,
       );
     } on TerminalStillRunning catch (still) {
       await _recovery.backupOutlived(still.ended);
       return;
     }
-    await _recovery.backupEnded(code: code, lastLine: last);
+    await _recovery.backupEnded(code: end.code, lastLine: last, started: end.started);
   }
 
   /// Drops a kept request whose answer was lost, once the person read what Core may have committed under it.
@@ -357,6 +354,21 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
     final reviewed = _recovery.review;
     final id = _recovery.requestId;
     if (reviewed == null || _recovery.whyNotForget != null) return;
+    if (_recovery.filed case RecoveryFiled(:final revision, published: true)) {
+      final open = [
+        for (final host in reviewed.hosts)
+          if (!(_recovery.locks[host]?.confirmed ?? false)) host,
+      ];
+      final sure = await _confirmForget(
+        context,
+        'The replacement of ${reviewed.login}’s key in ${reviewed.scope.words} is pushed in commit $revision. '
+        '${open.join(', ')} ${open.length == 1 ? 'has' : 'have'} not confirmed it. Forgetting it here stops asking '
+        '${open.length == 1 ? 'it' : 'them'}: check on each by hand that it applied that commit'
+        '${reviewed.stolen ? ' and locked ${reviewed.login}' : ''}.',
+      );
+      if (sure && mounted) await _recovery.forget(made: revision);
+      return;
+    }
     if (_recovery.filed case RecoveryFiled(:final revision, published: false)) {
       final sure = await _confirmForget(
         context,
@@ -380,18 +392,14 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
     if (sure && mounted) await _recovery.forget();
   }
 
-  Future<void> _makeBackup() {
-    final scope = _recovery.situation.scope;
-    return makeBackupKey(
-      context,
-      entry: widget.entry,
-      scope: scope,
-      // The project's access read when the dialog opened is older than the commit just made; the registry is read again.
-      base: scope.kind == RecoveryKind.project ? _recovery.filed?.revision : null,
-      open: widget.open,
-      chooseNewFile: widget.chooseNewFile,
-    );
-  }
+  // The list is read again: a commit made here, which the read this dialog opened on does not show, is kept in force.
+  Future<void> _makeBackup() => makeBackupKey(
+    context,
+    entry: widget.entry,
+    scope: _recovery.situation.scope,
+    open: widget.open,
+    chooseNewFile: widget.chooseNewFile,
+  );
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -448,7 +456,9 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
                     'card signed by the stolen key is never offered. Where no new key waits yet, lock the person in '
                     'the project or on the server now, and replace the key once their new card arrives.',
                   ),
-                if (_login case final login?)
+                if (situation.madeHere case final made? when _recovery.filed == null)
+                  ..._madeHere(made, situation.madeHereReplaced)
+                else if (_login case final login?)
                   Text(
                     card == null
                         ? 'No new key of $login waits in the registry. They make one with “I lost my key” under My '
@@ -460,8 +470,8 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
                 if (_recovery.problem case final problem?) Text(problem, style: TextStyle(color: error)),
                 for (final command in commands)
                   if (switch (command.id) {
-                    'keyRecovery.makeBackup' => _recovery.replaced,
-                    'keyRecovery.forget' => _recovery.requestId != null || _recovery.filed?.published == false,
+                    'keyRecovery.makeBackup' => _recovery.replaced || situation.madeHereReplaced != null,
+                    'keyRecovery.forget' => _recovery.forgettable,
                     _ => true,
                   })
                     _CommandButton(command),
@@ -510,12 +520,28 @@ class _KeyRecoveryDialogState extends State<KeyRecoveryDialog> {
         HostLockRefused(:final why) => '$host: refused: $why',
         null => '$host: Lock not on the host yet.',
       }, key: ValueKey('recovery-host $host')),
-    if (_recovery.replaced)
-      const Text(
-        'Hand the person on: on their computer, My key and card names the host vaults opened by the old key, which '
-        'are made again, and the sign-ins they make again there.',
-      ),
+    if (_recovery.replaced && _recovery.situation.scope.kind == RecoveryKind.project) const Text(_lockedAtSync),
+    if (_recovery.replaced) const Text(_handOn),
   ];
+
+  /// What a project read older than a commit made here shows instead of its keys, which that commit may have changed.
+  List<Widget> _madeHere(String made, String? replaced) => [
+    SelectableText(
+      replaced == null
+          ? 'Commit $made, made here, is newer than this read of the project; refresh the project to see it.'
+          : 'The replacement of $replaced’s key is pushed in commit $made, which this read of the project does not show '
+                'yet; refresh the project to see it.',
+      key: const Key('recovery-made-here'),
+    ),
+    if (replaced != null) ...[const Text(_lockedAtSync), const Text(_handOn)],
+  ];
+
+  static const _lockedAtSync =
+      'The project’s host takes the commit at its next sync: until then a stolen key is not locked there.';
+
+  static const _handOn =
+      'Hand the person on: on their computer, My key and card names the host vaults opened by the old key, which are '
+      'made again, and the sign-ins they make again there.';
 }
 
 class _CommandButton extends StatelessWidget {

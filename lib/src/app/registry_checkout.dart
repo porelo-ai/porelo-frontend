@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:path/path.dart' as path;
 import 'package:porelo_host/porelo_host.dart';
 
@@ -35,7 +35,7 @@ class RegistryCheckout {
 
   /// The checkout, named for its address, so another address never meets this one's history.
   String get folder =>
-      path.join(root, 'registry-${sha256.convert(utf8.encode(repository)).toString().substring(0, 16)}');
+      path.join(root, 'registry-${crypto.sha256.convert(utf8.encode(repository)).toString().substring(0, 16)}');
 
   /// Refuses an address with credentials or unsafe Git source syntax, without repeating it.
   static void checkRepository(String repository) {
@@ -98,27 +98,49 @@ class RegistryCheckout {
 
   /// Checks the checkout before Core files again under a request whose answer was lost, which may have made its commit.
   ///
-  /// Beside a checkout with nothing unpublished, accepts exactly one commit on [base] that changes only [file], to
-  /// [content]: the one that request made. Any other unpublished commit is refused as [prepareFiling] refuses it.
+  /// Beside a checkout with nothing unpublished, accepts exactly one commit on [base], the published tip, that changes
+  /// only [file], as a plain file holding [content]'s UTF-8 bytes: the one that request made. Any other unpublished
+  /// commit is refused as [prepareFiling] refuses it, before Core runs.
   Future<void> prepareRetry({required String base, required String file, required String content}) async {
     _filingBase = null;
-    if (!RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(base)) {
-      throw const WorkspaceRefused('Core did not name a valid registry commit.');
-    }
+    if (!_commit.hasMatch(base)) throw const WorkspaceRefused('Core did not name a valid registry commit.');
     await _checkClean();
     final branch = await _defaultBranch();
-    if (await _madeUnder(base: base, file: file, content: content)) return;
+    if (await _madeUnder(branch: branch, base: base, file: file, content: content)) return;
     await _checkNothingUnpublished(branch);
   }
 
-  /// Whether the checkout is one commit on [base] that changes only [file], to [content].
-  Future<bool> _madeUnder({required String base, required String file, required String content}) async {
+  /// Whether the checkout is one commit on [base], the published tip of [branch], that changes only [file], as a plain
+  /// file holding [content]'s UTF-8 bytes.
+  Future<bool> _madeUnder({
+    required String branch,
+    required String base,
+    required String file,
+    required String content,
+  }) async {
+    if (await _published(branch) != base) return false;
     final parents = (await _git(['rev-list', '--parents', '-n', '1', 'HEAD'])).out.trim().split(RegExp(r'\s+'));
     if (parents.length != 2 || parents[1] != base) return false;
-    final changed = (await _git(['diff', '--name-only', '--no-renames', base, 'HEAD'])).out.trim();
-    if (changed != file) return false;
-    return (await _git(['show', 'HEAD:$file'])).out == content;
+    // Names as Git holds them, ended by NUL: a name with a space at its end is another file.
+    final changed = (await _git(['diff', '--name-only', '-z', '--no-renames', base, 'HEAD'])).out.split('\x00')
+      ..removeLast();
+    if (changed.length != 1 || changed.single != file) return false;
+    // A link or a program whose text is the content is not the file Core was asked to write.
+    final entry = (await _git(['--literal-pathspecs', 'ls-tree', '-z', 'HEAD', '--', file])).out.split('\x00');
+    final blob = RegExp(r'^100644 blob ([0-9a-f]{40}|[0-9a-f]{64})\t(.*)$').firstMatch(entry.first);
+    if (entry.length != 2 || entry.last.isNotEmpty || blob == null || blob.group(2) != file) return false;
+    return blob.group(1) == _blobId(utf8.encode(content), sha256: blob.group(1)!.length == 64);
   }
+
+  /// Git's id of a blob holding [bytes]: compared by id, the content never passes through an encoding or a filter.
+  static String _blobId(List<int> bytes, {required bool sha256}) {
+    final object = [...utf8.encode('blob ${bytes.length}\x00'), ...bytes];
+    return (sha256 ? crypto.sha256 : crypto.sha1).convert(object).toString();
+  }
+
+  /// The tip of [branch] as the repository last answered it.
+  Future<String> _published(String branch) async =>
+      (await _git(['rev-parse', '--verify', 'refs/remotes/origin/$branch^{commit}'])).out.trim();
 
   /// Publishes only [revision], Core's single new commit above the base checked by [prepareFiling].
   Future<void> publish(String revision) async {
@@ -148,14 +170,19 @@ class RegistryCheckout {
 
   /// Pushes [revision], a commit made earlier on [base] that a push did not take, without any filing state.
   ///
-  /// Refused unless the checkout is clean, on its default branch, at [revision], whose only parent is [base].
+  /// Refused unless the checkout is clean, on its default branch, at [revision], whose only parent is [base], the
+  /// published tip: pushed on any other base, an unreviewed commit would go with it.
   Future<void> publishMade(String revision, {required String base}) async {
-    final hex = RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$');
-    if (!hex.hasMatch(revision) || !hex.hasMatch(base)) {
+    if (!_commit.hasMatch(revision) || !_commit.hasMatch(base)) {
       throw const WorkspaceRefused('Core did not name a valid registry commit.');
     }
     await _checkClean();
     final branch = await _defaultBranch();
+    if (await _published(branch) != base) {
+      throw const WorkspaceRefused(
+        'The registry moved past the commit this change was made on. Nothing was published.',
+      );
+    }
     if (await _revision() != revision) {
       throw const WorkspaceRefused('The registry checkout is not at the commit Core made. Nothing was published.');
     }
@@ -169,6 +196,8 @@ class RegistryCheckout {
       '$revision:refs/heads/$branch',
     ], refusal: 'Git could not publish the registry change with your access. It stays in the private checkout.');
   }
+
+  static final _commit = RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$');
 
   static const _fetchRefused =
       'Git could not fetch the registry repository with your access: your SSH agent for a git@ address, or '
@@ -230,9 +259,10 @@ class RegistryCheckout {
   }) async {
     final Ran result;
     try {
+      // The checkout holds the repository's own bytes, which a file made from it and its commit are compared by.
       result = await _run(
         'git',
-        arguments,
+        ['-c', 'core.autocrlf=false', ...arguments],
         inDirectory: inCheckout ? folder : null,
         environment: {
           'GIT_TERMINAL_PROMPT': '0',

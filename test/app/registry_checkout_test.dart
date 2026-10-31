@@ -25,7 +25,8 @@ void main() {
     String? input,
   }) {
     environments.add(environment);
-    if (failFetch && (args.first == 'fetch' || args.first == 'clone')) {
+    final verb = args.firstWhere((arg) => !arg.startsWith('-') && !arg.contains('='), orElse: () => '');
+    if (failFetch && (verb == 'fetch' || verb == 'clone')) {
       return Future.value((code: 128, out: '', err: 'fatal: Authentication failed for $address token=hidden-v4lue'));
     }
     return runHere(
@@ -316,6 +317,84 @@ void main() {
       expect(await centralRevision(), base);
     });
   }
+
+  // Harm: a retry handing Core a commit that is not its request's own, on a base the repository does not hold, under
+  // another name that trims to the file, or as a link or program whose text is the file's: Core's answer then stands
+  // for a change nobody reviewed, or pushes an unreviewed commit beside it.
+  for (final held in ['on an unpublished base', 'a name with a trailing space', 'a link', 'a program']) {
+    test('a retry refuses a commit that only looks like its own, $held', () async {
+      final first = checkout();
+      var base = await first.fetch();
+      // The name with a trailing space leaves owners.yml as it is, so its text is the content asked for.
+      final content = held == 'a name with a trailing space' ? 'owners: [alice]\n' : 'owners: [alice, bob]\n';
+      Future<String> commit(String message) async {
+        await run([
+          '-c',
+          'user.name=Core',
+          '-c',
+          'user.email=core@example.invalid',
+          'commit',
+          '-qm',
+          message,
+        ], first.folder);
+        final head = await Process.run(
+          'git',
+          ['rev-parse', 'HEAD'],
+          workingDirectory: first.folder,
+          environment: {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1'},
+        );
+        return (head.stdout as String).trim();
+      }
+
+      final owners = File(path.join(first.folder, 'owners.yml'));
+      switch (held) {
+        case 'on an unpublished base':
+          File(path.join(first.folder, 'unreviewed.card')).writeAsStringSync('x\n');
+          await run(['add', 'unreviewed.card'], first.folder);
+          base = await commit('unreviewed');
+          owners.writeAsStringSync(content);
+        case 'a name with a trailing space':
+          File(path.join(first.folder, 'owners.yml ')).writeAsStringSync('owners: [mallory]\n');
+        case 'a link':
+          owners.deleteSync();
+          Link(owners.path).createSync(content);
+        case 'a program':
+          owners.writeAsStringSync(content);
+          expect((await Process.run('chmod', ['755', owners.path])).exitCode, 0);
+      }
+      await run(['add', '-A'], first.folder);
+      await commit('filed');
+
+      await expectLater(
+        checkout().prepareRetry(base: base, file: 'owners.yml', content: content),
+        throwsA(isA<WorkspaceRefused>()),
+      );
+    });
+  }
+
+  // Harm: a made commit pushed on a base the repository does not hold, which pushes that unreviewed base with it.
+  test('pushing a made commit again refuses a base the repository does not hold', () async {
+    final first = checkout();
+    final published = await first.fetch();
+    final base = await commitCheckout(first.folder, 'unreviewed.card');
+    final made = await commitCheckout(first.folder, 'owners-change.yml');
+
+    await expectLater(checkout().publishMade(made, base: base), throwsA(isA<WorkspaceRefused>()));
+    expect(await centralRevision(), published, reason: 'unreviewed work must never reach the central repository');
+  });
+
+  // Harm: on a computer whose Git turns line ends, the checkout holds other bytes than the repository, so the file a
+  // replacement is made from never matches the commit its own request made, and its retry is refused for good.
+  test('the checkout holds the bytes the repository holds, whatever Git is told about line ends', () async {
+    final registry = checkout();
+    await registry.fetch();
+    await run(['config', 'core.autocrlf', 'true'], registry.folder);
+    await commitCentral('owners.yml', 'owners:\n  - alice\n');
+
+    await registry.fetch();
+
+    expect(File(path.join(registry.folder, 'owners.yml')).readAsBytesSync(), 'owners:\n  - alice\n'.codeUnits);
+  });
 
   // Harm: a successful empty clone leaves an unusable folder and permanently prevents recovery.
   test('a failed post-clone check removes only its fresh checkout so a later fetch can recover', () async {

@@ -22,11 +22,11 @@ import 'pty.dart';
 ///
 /// * **The output ends only when the pseudoconsole is closed.** A pseudoconsole keeps its output
 ///   pipe open after the program in it has exited, so a reader waiting for the end of the pipe
-///   waits for ever. The program is waited for on an isolate of its own, and when it has exited the
-///   pseudoconsole is closed, which ends the output.
-/// * **Closing from this side ends the way in, not the work.** Closing the pseudoconsole sends the
-///   programs in it the event a console window closing sends, so `wsl.exe` or `ssh.exe` ends and
-///   `tmux` inside the container goes on, as `SIGHUP` does on Linux.
+///   waits for ever. The program, and every process in its job, is waited for on an isolate of its
+///   own, and when they have exited the pseudoconsole is closed, which ends the output.
+/// * **Closing from this side ends the way in, not the work.** It ends every process in the job,
+///   so `wsl.exe` or `ssh.exe` ends and `tmux` inside the container goes on, as `SIGHUP` does on
+///   Linux; the pseudoconsole is closed only after, as closing it first waits on what still runs.
 /// * **The command line is quoted as the C runtime reads it back.** `CreateProcessW` takes one
 ///   string, and each program splits it again; [windowsCommandLine] writes what the Microsoft C
 ///   runtime, which `wsl.exe` and `ssh.exe` use, splits into the same arguments.
@@ -191,18 +191,20 @@ class ConPty implements SessionChannel {
     _shut = true;
     final k = _Kernel32();
     k.closeHandle(_input);
-    // Ends `wsl.exe` or `ssh.exe` as a closing console window would; the reader then sees the end.
-    _console.close();
+    // Ends `wsl.exe` or `ssh.exe` and whatever they started; the waiter then sees the end and closes the console.
+    _console.letGo();
   }, _ended);
 
-  /// Lets go of a program's console with [letGo], then waits for it to have [ended] within [bound].
+  /// Lets go of a program's console with [letGo], then waits for it to have [ended] within [bound], counted from
+  /// before [letGo], which may block.
   ///
   /// Throws a [TerminalStillRunning] past it: a console closed is not a program ended, and what it does meanwhile
   /// still happens.
   @visibleForTesting
-  static Future<void> letGoAndWait(void Function() letGo, Future<int> ended, {Duration bound = closeBound}) async {
+  static Future<void> letGoAndWait(void Function() letGo, Future<int> ended, {Duration bound = closeBound}) {
+    final waited = endedAfterClose(ended, ended, bound: bound);
     letGo();
-    await endedAfterClose(ended, ended, bound: bound);
+    return waited;
   }
 
   /// Reads the output on one isolate and waits for the program on another.
@@ -212,10 +214,41 @@ class ConPty implements SessionChannel {
     int outputRead,
     StreamController<List<int>> output,
     Completer<int> ended,
-  ) {
+  ) => watch(
+    closeConsole: () {
+      console.close();
+      // Asked for no more: the program and all it started have ended.
+      _Kernel32().closeHandle(process);
+    },
+    output: output,
+    ended: ended,
+    read: (to) => Isolate.spawn(_readUntilItEnds, <Object>[to, outputRead]).catchError((Object error) {
+      // Nothing reads the output: closed, so the console writes into nothing rather than blocking.
+      _Kernel32().closeHandle(outputRead);
+      throw error;
+    }),
+    wait: (to) => Isolate.spawn(_waitForIt, <Object>[to, process, console.job]),
+    endedNow: () => _endedNow(_Kernel32(), process, console.job),
+  );
+
+  /// Ends [output] and completes [ended] from what [read] and [wait] post, each from an isolate it starts.
+  ///
+  /// Where [wait] cannot start, the program is asked for here every [poll] through [endedNow], its exit code once every
+  /// process of it has ended, and counts as running until then; where [read] cannot start, its end is not waited for.
+  @visibleForTesting
+  static void watch({
+    required void Function() closeConsole,
+    required StreamController<List<int>> output,
+    required Completer<int> ended,
+    required Future<Object?> Function(SendPort to) read,
+    required Future<Object?> Function(SendPort to) wait,
+    required int? Function() endedNow,
+    Duration poll = const Duration(milliseconds: 100),
+  }) {
     final port = ReceivePort();
     int? code;
     var drained = false;
+    Timer? asking;
     late final StreamSubscription<dynamic> listening;
     Future<void> finishWhenBoth() async {
       if (code == null || !drained) return;
@@ -231,24 +264,33 @@ class ConPty implements SessionChannel {
       } else if (message == _drained) {
         drained = true;
         await finishWhenBoth();
-      } else if (message is int) {
+      } else if (message is int && code == null) {
+        asking?.cancel();
         code = message;
         // The output ends only now: the program has exited, and the pseudoconsole lets go.
-        console.close();
+        closeConsole();
         await finishWhenBoth();
       }
     });
     unawaited(
-      Isolate.spawn(_readUntilItEnds, <Object>[port.sendPort, outputRead]).catchError((Object _) {
-        drained = true;
-        return Isolate.current;
-      }),
+      read(port.sendPort).then<void>(
+        (_) {},
+        onError: (Object _) async {
+          drained = true;
+          await finishWhenBoth();
+        },
+      ),
     );
     unawaited(
-      Isolate.spawn(_waitForIt, <Object>[port.sendPort, process]).catchError((Object _) {
-        if (!ended.isCompleted) ended.complete(-1);
-        return Isolate.current;
-      }),
+      wait(port.sendPort).then<void>(
+        (_) {},
+        onError: (Object _) {
+          // Nothing waits for the program: it is asked for here, and counts as running until it is seen gone.
+          asking = Timer.periodic(poll, (_) {
+            if (endedNow() case final value?) port.sendPort.send(value);
+          });
+        },
+      ),
     );
   }
 
@@ -270,17 +312,41 @@ class ConPty implements SessionChannel {
     }
   }
 
+  /// Waits for the program and every process it started in its job, then posts its exit code.
   static void _waitForIt(List<Object> arguments) {
     final send = arguments[0] as SendPort;
     final process = arguments[1] as int;
+    final job = arguments[2] as int;
     final k = _Kernel32();
     k.waitForSingleObject(process, _infinite);
+    while (_endedNow(k, process, job) == null) {
+      k.sleep(_pollMilliseconds);
+    }
+    send.send(_endedNow(k, process, job)!);
+  }
+
+  /// The program's exit code once it and every process in its [job] have ended, or null while one runs; -1 for an
+  /// exit code Windows would not give.
+  static int? _endedNow(_Kernel32 k, int process, int job) {
+    if (k.waitForSingleObject(process, 0) != _waitObject0) return null;
+    if (job != 0) {
+      final accounting = k.alloc(_basicAccountingBytes);
+      try {
+        // A job that cannot be asked is counted as still running: ended is said only once it is known.
+        if (k.queryInformationJobObject(job, _basicAccountingInformation, accounting, _basicAccountingBytes, nullptr) ==
+                0 ||
+            (accounting.cast<Uint8>() + _activeProcessesOffset).cast<Uint32>().value != 0) {
+          return null;
+        }
+      } finally {
+        k.free(accounting);
+      }
+    }
     final code = k.alloc(sizeOf<Uint32>()).cast<Uint32>();
     final got = k.getExitCodeProcess(process, code);
     final value = got == 0 ? -1 : code.value;
     k.free(code.cast());
-    k.closeHandle(process);
-    send.send(value);
+    return value;
   }
 
   /// A job object that kills [process], and whatever it starts, when the job's handle closes; 0
@@ -312,7 +378,7 @@ class ConPty implements SessionChannel {
   }
 }
 
-/// A pseudoconsole, closed once: by this side, or when its program has exited.
+/// A pseudoconsole, closed once its program has ended.
 class _Console {
   _Console(this.handle, this.job);
 
@@ -322,12 +388,21 @@ class _Console {
   final int job;
   bool closed = false;
 
+  /// Ends the program from this side: every process in its job, which does not block, so closing the console after
+  /// it waits on nothing. Without a job only closing the console ends it, which may block.
+  void letGo() {
+    if (closed) return;
+    if (job != 0 && _Kernel32().terminateJobObject(job, _closedFromHere) != 0) return;
+    close();
+  }
+
+  /// Closes the job, ending whatever is still in it, then the console.
   void close() {
     if (closed) return;
     closed = true;
     final k = _Kernel32();
-    k.closePseudoConsole(handle);
     if (job != 0) k.closeHandle(job);
+    k.closePseudoConsole(handle);
   }
 }
 
@@ -368,6 +443,16 @@ const String _drained = 'drained';
 
 const int _readChunk = 8192;
 const int _infinite = 0xFFFFFFFF;
+const int _waitObject0 = 0;
+const int _pollMilliseconds = 50;
+
+/// The exit code of a program ended from this side, as on Linux: 128 and the hang-up signal.
+const int _closedFromHere = 129;
+
+// JOBOBJECT_BASIC_ACCOUNTING_INFORMATION: four LARGE_INTEGER times, then four DWORDs, ActiveProcesses the third.
+const int _basicAccountingInformation = 1;
+const int _basicAccountingBytes = 48;
+const int _activeProcessesOffset = 40;
 const int _attributePseudoConsole = 0x00020016;
 const int _extendedStartupInfoPresent = 0x00080000;
 const int _startfUseStdHandles = 0x00000100;
@@ -479,6 +564,15 @@ class _Kernel32 {
       assignProcessToJobObject = k.lookupFunction<Int32 Function(IntPtr, IntPtr), int Function(int, int)>(
         'AssignProcessToJobObject',
       ),
+      terminateJobObject = k.lookupFunction<Int32 Function(IntPtr, Uint32), int Function(int, int)>(
+        'TerminateJobObject',
+      ),
+      queryInformationJobObject = k
+          .lookupFunction<
+            Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32, Pointer<Uint32>),
+            int Function(int, int, Pointer<Void>, int, Pointer<Uint32>)
+          >('QueryInformationJobObject'),
+      sleep = k.lookupFunction<Void Function(Uint32), void Function(int)>('Sleep'),
       getLastError = k.lookupFunction<Uint32 Function(), int Function()>('GetLastError'),
       _heap = k.lookupFunction<IntPtr Function(), int Function()>('GetProcessHeap')(),
       _heapAlloc = k
@@ -521,6 +615,9 @@ class _Kernel32 {
   final int Function(Pointer<Void>, Pointer<Uint16>) createJobObject;
   final int Function(int, int, Pointer<Void>, int) setInformationJobObject;
   final int Function(int, int) assignProcessToJobObject;
+  final int Function(int, int) terminateJobObject;
+  final int Function(int, int, Pointer<Void>, int, Pointer<Uint32>) queryInformationJobObject;
+  final void Function(int) sleep;
   final int Function() getLastError;
   final int _heap;
   final Pointer<Void> Function(int, int, int) _heapAlloc;

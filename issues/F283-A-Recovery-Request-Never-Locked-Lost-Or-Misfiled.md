@@ -53,8 +53,15 @@ checked against the code before it is fixed.
 
 - An exit-0 answer that fails a check, for a backup key's use or its making, is an answer not read: it keeps the
   request as uncertain, never as proof that nothing was made.
+- Once Core was started, only its own refusal codes 64, 65 and 66 prove that nothing was made. A terminal put away,
+  killed, or whose end was never seen keeps the request; only a terminal that never started Core leaves nothing. A
+  program that outlives its terminal's close hands on its real exit code once it has ended.
 - A pushed project replacement forgets its receipt at once: nothing of it can be made twice, and its hosts answer only
   *pending* here, which each host's line says. This was the smaller change than offering Forget once it is pushed.
+  The dialog keeps saying what was done and offers no Retry; opened again on a project read older than it, it says the
+  replacement was pushed as that revision, and *Make a new backup key…* stays offered.
+- A pushed registry replacement that some host never confirms can be forgotten through a confirmation naming the
+  hosts that have not confirmed it, to be checked by hand.
 - A made commit not pushed, a replacement's or a backup key's, can be forgotten through a confirmation that names the
   commit and says it stays in the registry checkout, to be pushed or dropped there by hand; any other Forget of it is
   refused.
@@ -65,8 +72,25 @@ checked against the code before it is fixed.
 - A backup key being made counts as running from asking where its file goes until its terminal's program has ended:
   Forget, a second attempt and *Make a backup key…* wait meanwhile, in the identity dialog too. A terminal whose
   program outlives its close counts as running until the program ended, in the replacement dialog as well.
+- What runs Core for a request is one shared state over the receipts, seen by every dialog however often it was
+  opened again while it ran; the identity dialog reads the card again once a making it did not start has ended. In
+  the registry checkout no replacement or backup key starts while another change runs there.
+- A replacement's filing, its first attempt included, first checks against the registry as Core last read it that the
+  commit in force is still the reviewed base and that the person's card holds the reviewed new key; otherwise it
+  refuses, with nothing started: "The registry changed since the review; review again." A project replacement whose
+  answer names another signer than the reviewed key is kept, never taken as made.
+- *Make a new backup key…* is always made on the newest commit made here or the read's own base, never on an older
+  one handed in.
+- A retry readies the checkout only on its own commit: the registry's published commit is still its base, the commit
+  has that one parent, changes exactly the one file (names read with `-z`) as a plain file (`100644`), and its blob is
+  the file's exact UTF-8 bytes. Pushing a made commit again refuses unless the published commit is still its base. All
+  of the checkout's Git calls run with `core.autocrlf=false`, and the content is compared by blob ID, so no line-end
+  setting changes what is compared.
 - On Windows, closing a terminal waits for its program to end, with the same bound as on Linux; past it the program
-  counts as still running.
+  counts as still running. The bound runs from before the console is let go; the program's job is ended before its
+  console is closed; the end is said only once no process of the job is left, and when reading its output or waiting
+  on it fails, it is watched until it is seen gone. A program still running when its session is put away is left to
+  end, never an error.
 - The backup key's file is asked once at a time, and its terminal does not open again while one is open.
 - On a list known only from a kept request's record, nothing new is confirmed or used with the backup key, with or
   without a base handed in, and the review ends with the request.
@@ -76,12 +100,21 @@ checked against the code before it is fixed.
 - Tests for each, each seen red with the code broken on purpose: in `key_recovery_test`, `registry_checkout_test`
   against real Git, `terminal_close_test`, the dialog test (the backup file unreadable on disk, the earlier file's place
   said through `makeBackupKey`) and the identity view test (the card read again after the push, Forget held while the
-  save dialog and an outliving terminal run).
+  save dialog and an outliving terminal run; a new backup key held and the card read again after it, also in a
+  dialog closed and opened again meanwhile).
 
 ## To be checked
 
 - That the confirmation and the review's end both hold on a resume-only list: the review's end is proven by a test,
   while the confirmation's own refusal behind it cannot be reached through the controller once the review has ended.
-- `ConPty`'s close is proven through the waiting it shares; the console itself is opened only on Windows.
+- `ConPty`'s close is proven through the waiting it shares and its watching seam; the console, the job's end and the
+  count of its processes run only on Windows and are not seen by any test here.
+- A program behind the console (`wsl.exe`, `ssh.exe`) may keep running on the far side after the job has ended.
+- Between the check against the review and Core's run, the registry may still move; Core's own `base-moved` covers
+  that window.
+- A `.gitattributes` line-end or filter rule in the registry is not looked at: the blob compared is the content's own
+  bytes, so such a rule makes a retry refuse rather than accept another commit.
+- The check against the review uses the registry as Core last read it, refused while a read runs; it does not read the
+  card file itself.
 - A registry replacement kept by an earlier version holds no file; its retry reads `owners.yml` again and is refused
   once its commit changed it, leaving Forget as the way out.

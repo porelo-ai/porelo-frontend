@@ -81,6 +81,13 @@ class _Kept {
   late final receipts = SettingsReceipts(settings);
 
   Future<String> written() async => jsonEncode(await store.read());
+
+  /// The same kept requests as a program started again reads them, with nothing of the earlier one running.
+  Future<SettingsReceipts> restarted() async {
+    final again = Settings(store);
+    await again.load();
+    return SettingsReceipts(again);
+  }
 }
 
 /// Core's side as the controller sees it; every call is recorded.
@@ -91,6 +98,9 @@ class _Core implements KeyRecoveryCore {
   Exception? publishFails;
   // An answer that never comes: the program ends while Core runs.
   Completer<RecoveryFiled>? hold;
+  // The list or card as read now moved past the review; how often it was checked.
+  RecoveryRefused? moved;
+  var checks = 0;
 
   @override
   Future<RegistryRefusal?> refusal(RecoveryScope scope, {bool backup = false}) async {
@@ -101,6 +111,12 @@ class _Core implements KeyRecoveryCore {
   @override
   Future<String?> fileFor(RecoveryReview review) async =>
       review.scope.inRegistry ? 'the file for ${review.login}' : null;
+
+  @override
+  Future<void> checkReviewed(RecoveryReview review) async {
+    checks++;
+    if (moved case final refused?) throw refused;
+  }
 
   @override
   Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) async {
@@ -193,8 +209,17 @@ class _Porelo {
   ];
 }
 
-CliKeyRecoveryCore _cliProject(_Porelo porelo) => CliKeyRecoveryCore(
+/// Core's project verbs over [porelo], beside a registry read whose cards are the ones the replacement is checked by.
+Future<CliKeyRecoveryCore> _cliProject(_Porelo porelo) async {
+  final registry = Registry(checkout: _Checkout(), core: _RegistryCore());
+  addTearDown(registry.dispose);
+  await registry.refresh();
+  return _cliProjectOver(porelo, registry);
+}
+
+CliKeyRecoveryCore _cliProjectOver(_Porelo porelo, Registry registry) => CliKeyRecoveryCore(
   actor: () => HostAdminIdentity('alice', _admin),
+  registry: registry,
   run: porelo.run,
   project: (project) => ProjectAccessCoreAdapter(
     directory: '/workspace/$project',
@@ -259,13 +284,15 @@ class _RegistryCore implements RegistryCore {
   final filed = <RegistryFiling>[];
   final fileFailures = <Exception>[];
   String bobState = 'trusted';
+  String revision = _base;
+  String bobKey = _newKey;
 
   @override
   Future<RegistryRead> read(String checkout) async => RegistryRead.from({
-    'revision': _base,
+    'revision': revision,
     'people': [
       {'login': 'alice', 'name': 'Alice', 'key': _adminKey, 'fingerprint': _admin, 'state': 'trusted'},
-      {'login': 'bob', 'name': 'Bob', 'key': _newKey, 'fingerprint': _new, 'state': bobState},
+      {'login': 'bob', 'name': 'Bob', 'key': bobKey, 'fingerprint': sshFingerprint(bobKey), 'state': bobState},
     ],
     'owners': [
       {'login': 'alice', 'fingerprint': _admin, 'backup': false},
@@ -371,12 +398,17 @@ void main() {
     late _Kept kept;
     setUp(() => kept = _Kept());
 
-    KeyRecovery backupRecovery(_Core core, _Hosts hosts, {RecoveryScope scope = const RecoveryScope.project('demo')}) {
+    KeyRecovery backupRecovery(
+      _Core core,
+      _Hosts hosts, {
+      RecoveryScope scope = const RecoveryScope.project('demo'),
+      RecoveryReceipts? receipts,
+    }) {
       final recovery = KeyRecovery(
         situation: _situation(scope: scope, sole: 'bob', backup: true, actor: 'bob'),
         core: core,
         hosts: hosts,
-        receipts: kept.receipts,
+        receipts: receipts ?? kept.receipts,
       );
       addTearDown(recovery.dispose);
       return recovery;
@@ -446,17 +478,19 @@ void main() {
       expect(await recovery.startBackup(_backupFile, toldInPerson: true), isNotNull);
     });
 
-    // Harm: a put-away or refused terminal keeping a request, so Cancel stays blocked and Retry is offered.
-    for (final (code, out) in [
-      (-1, ''),
-      (64, ''),
-      (65, '{"reason":"wrong-passphrase","words":"the backup file did not open"}'),
-      (66, ''),
+    // Harm: a terminal that never started Core, or one Core refused, keeping a request, so Cancel stays blocked and
+    // Retry is offered.
+    for (final (begun, code, out) in [
+      (false, null, ''),
+      (true, 64, ''),
+      (true, 65, '{"reason":"wrong-passphrase","words":"the backup file did not open"}'),
+      (true, 66, ''),
     ]) {
-      test('a terminal ending with $code keeps no request, so Cancel works and no Retry is offered', () async {
+      test('a terminal ending with ${begun ? code : 'Core never started'} keeps no request, so Cancel works and no '
+          'Retry is offered', () async {
         final (recovery, core, hosts, _) = await started();
 
-        await recovery.backupEnded(code: code, lastLine: out);
+        await recovery.backupEnded(code: code, lastLine: out, started: begun);
 
         expect(recovery.requestId, isNull);
         expect(recovery.filed, isNull);
@@ -595,7 +629,12 @@ void main() {
     // put-away retry after the restart drops it and the next attempt makes a second commit.
     test('a request is kept as uncertain while its terminal runs, so a retry after a restart keeps it', () async {
       final (_, _, _, command) = await started(scope: const RecoveryScope.owner());
-      final restarted = backupRecovery(_Core(), _Hosts(), scope: const RecoveryScope.owner());
+      final restarted = backupRecovery(
+        _Core(),
+        _Hosts(),
+        scope: const RecoveryScope.owner(),
+        receipts: await kept.restarted(),
+      );
 
       final again = await restarted.startBackup(_backupFile);
       await restarted.backupEnded(code: -1, lastLine: '');
@@ -1043,7 +1082,7 @@ void main() {
       final hosts = _Hosts()..answers['walk2'] = const WorkspaceRefused('not reached');
       final recovery = KeyRecovery(
         situation: _situation(hosts: ['walk1', 'walk2']),
-        core: _cliProject(porelo),
+        core: await _cliProject(porelo),
         hosts: hosts,
         receipts: _Kept().receipts,
       );
@@ -1055,11 +1094,46 @@ void main() {
       await recovery.retry();
       expect(porelo.replaces, hasLength(2));
       expect(porelo.replaces.first, porelo.replaces.last, reason: 'the same id on the same base');
-      expect(hosts.calls.map((call) => call.split(' ').first), ['walk1', 'walk2']);
+      expect(recovery.filed?.published, isTrue);
+    });
 
+    // Harm: a pushed project replacement offering a Retry that only asks its hosts again, which answer nothing but
+    // pending here: a dead end that reads as unfinished work.
+    test('a pushed project replacement offers no Retry', () async {
+      final hosts = _Hosts()..answers['walk2'] = const WorkspaceRefused('not reached');
+      final recovery = KeyRecovery(
+        situation: _situation(hosts: ['walk1', 'walk2']),
+        core: _Core(),
+        hosts: hosts,
+        receipts: _Kept().receipts,
+      );
+      addTearDown(recovery.dispose);
+      recovery.reviewFor('bob');
+
+      await recovery.confirm();
+
+      expect(recovery.filed?.published, isTrue);
+      expect(recovery.whyNotRetry, isNotNull);
+    });
+
+    // Harm: a second commit on a registry Retry, or a host that confirmed asked again.
+    test('a registry Retry asks only the hosts not confirmed', () async {
+      final core = _Core();
+      final hosts = _Hosts()..answers['walk2'] = const WorkspaceRefused('not reached');
+      final recovery = KeyRecovery(
+        situation: _situation(scope: const RecoveryScope.owner(), hosts: ['walk1', 'walk2']),
+        core: core,
+        hosts: hosts,
+        receipts: _Kept().receipts,
+      );
+      addTearDown(recovery.dispose);
+      recovery.reviewFor('bob');
+
+      await recovery.confirm();
       hosts.answers.remove('walk2');
       await recovery.retry();
-      expect(porelo.replaces, hasLength(2), reason: 'no second commit');
+
+      expect(core.calls.where((call) => call.startsWith('replace')), hasLength(1), reason: 'no second commit');
       expect(hosts.calls.map((call) => call.split(' ').first), ['walk1', 'walk2', 'walk2']);
       expect(recovery.allConfirmed, isTrue);
     });
@@ -1076,7 +1150,7 @@ void main() {
         ]);
       final recovery = KeyRecovery(
         situation: _situation(hosts: const []),
-        core: _cliProject(porelo),
+        core: await _cliProject(porelo),
         hosts: _Hosts(),
         receipts: kept.receipts,
       );
@@ -1118,7 +1192,7 @@ void main() {
         situation: _situation(hosts: const []),
         core: core,
         hosts: _Hosts(),
-        receipts: kept.receipts,
+        receipts: await kept.restarted(),
       );
       addTearDown(again.dispose);
       final id = again.requestId!;
@@ -1278,7 +1352,7 @@ void main() {
       final porelo = _Porelo()..replaceAnswers.add((code: 69, out: '', err: ''));
       final first = KeyRecovery(
         situation: _situation(hosts: ['walk1']),
-        core: _cliProject(porelo),
+        core: await _cliProject(porelo),
         hosts: _Hosts(),
         receipts: kept.receipts,
       );
@@ -1288,7 +1362,7 @@ void main() {
 
       final again = KeyRecovery(
         situation: _situation(hosts: ['walk1']),
-        core: _cliProject(porelo),
+        core: await _cliProject(porelo),
         hosts: _Hosts(),
         receipts: kept.receipts,
       );
@@ -1299,7 +1373,7 @@ void main() {
       expect(porelo.replaces, hasLength(2));
       expect(porelo.replaces.first, porelo.replaces.last);
       expect(again.allConfirmed, isTrue);
-      expect(await kept.written(), isNot(contains('"bob"')), reason: 'a finished request is forgotten');
+      expect(await kept.written(), isNot(contains('"project/demo"')), reason: 'a finished request is forgotten');
     });
 
     // Harm: a registry Retry after a refused push filing again, or a replacement shown done while unpushed.
@@ -1438,10 +1512,42 @@ void main() {
       expect(core.calls, isEmpty);
     });
 
+    // Harm: a project's new card filed although the registry now holds another key for it than the one reviewed.
+    test('a project replacement is refused when its new card moved since the review', () async {
+      final porelo = _Porelo();
+      final registryCore = _RegistryCore();
+      final registry = Registry(checkout: _Checkout(), core: registryCore);
+      addTearDown(registry.dispose);
+      await registry.refresh();
+      final recovery = make(_situation(), _cliProjectOver(porelo, registry));
+      recovery.reviewFor('bob');
+      registryCore.bobKey = _key(5);
+      await registry.refresh();
+
+      await recovery.confirm();
+
+      expect(recovery.problem, reviewMoved);
+      expect(porelo.replaces, isEmpty);
+    });
+
+    // Harm: a project commit Core answers for another key than the reviewed one taken as the replacement made.
+    test('a project replacement Core answers for another key is kept, never taken as made', () async {
+      final porelo = _Porelo()
+        ..replaceAnswers.add((code: 0, out: jsonEncode({'revision': _revision, 'by': _admin}), err: ''));
+      final recovery = make(_situation(), await _cliProject(porelo));
+      recovery.reviewFor('bob');
+
+      await recovery.confirm();
+
+      expect(recovery.filed, isNull);
+      expect(recovery.requestId, isNotNull, reason: 'Core ran: its commit may exist');
+      expect(recovery.problem, contains('another key'));
+    });
+
     // Harm: a replacement signed by someone Core does not name as project admin here.
     test('a forged project admin is refused before the replacement verb runs', () async {
       final porelo = _Porelo()..admins = [];
-      final recovery = make(_situation(), _cliProject(porelo));
+      final recovery = make(_situation(), await _cliProject(porelo));
       recovery.reviewFor('bob');
 
       await recovery.confirm();
@@ -1454,7 +1560,7 @@ void main() {
     // Harm: the replacement filed with another card, base or person than reviewed.
     test('a project admin’s replacement is Core’s replace verb with the reviewed values', () async {
       final porelo = _Porelo();
-      final recovery = make(_situation(hosts: ['walk1']), _cliProject(porelo));
+      final recovery = make(_situation(hosts: ['walk1']), await _cliProject(porelo));
       recovery.reviewFor('bob');
 
       await recovery.confirm();
@@ -1574,7 +1680,7 @@ void main() {
 
       expect(registryCore.filed, isEmpty);
       expect(checkout.calls, isEmpty);
-      expect(recovery.problem, contains('not been checked'));
+      expect(recovery.problem, reviewMoved);
     });
 
     // Harm: an owners.yml filing that adds an entry, changes a role or another field beside the key.
@@ -1665,6 +1771,59 @@ void main() {
       expect(recovery.requestId, id);
       expect(registryCore.filed.map((filing) => filing.id), [id, id]);
     });
+
+    // Harm: a host access file's replacement that committed and lost its answer never retried, as its retry readies
+    // the checkout for another file than the one its own commit changed.
+    test('a host access file’s retry readies the checkout for that file’s own commit', () async {
+      registryCore.fileFailures.add(const RegistryFilingRefused('committed, the answer lost', code: 70));
+      final recovery = make(const RecoveryScope.hostAccess('walk1'));
+      await recovery.confirm();
+      final id = recovery.requestId;
+      final file = registryCore.filed.single.content!;
+      checkout.made = (base: _base, file: 'hosts/walk1/access.yml', content: file);
+
+      await recovery.retry();
+
+      expect(checkout.calls, contains('prepare again hosts/walk1/access.yml'));
+      expect(registryCore.filed.map((filing) => [filing.id, filing.content]), [
+        [id, file],
+        [id, file],
+      ]);
+      expect(recovery.filed?.revision, _revision);
+    });
+
+    // Harm: a change filed against another registry state than the person reviewed: a list read again in between, or
+    // a new card that is no longer the reviewed key.
+    for (final moved in ['the list', 'the card']) {
+      test('a registry change is refused when $moved moved since the review', () async {
+        final kept = _Kept();
+        final recovery = KeyRecovery(
+          situation: _situation(scope: const RecoveryScope.owner(), hosts: const []),
+          core: CliKeyRecoveryCore(
+            actor: () => HostAdminIdentity('alice', _admin),
+            registry: registry,
+            readFile: (file) async => _owners,
+          ),
+          hosts: _Hosts(),
+          receipts: kept.receipts,
+        );
+        addTearDown(recovery.dispose);
+        recovery.reviewFor('bob');
+        if (moved == 'the list') {
+          registryCore.revision = _other;
+        } else {
+          registryCore.bobKey = _key(5);
+        }
+        await registry.refresh();
+
+        await recovery.confirm();
+
+        expect(recovery.problem, reviewMoved);
+        expect(registryCore.filed, isEmpty);
+        expect(checkout.calls, isEmpty);
+        expect(kept.receipts.keys, isEmpty, reason: 'nothing started');
+      });
+    }
   });
 
   group('a project read before a commit made here starts no replacement on it', () {
@@ -1820,6 +1979,164 @@ void main() {
       await recovery.confirm();
 
       expect(kept.receipts.keys, isEmpty);
+    });
+  });
+
+  group('a request is kept while Core may have made it, and runs once for every dialog', () {
+    late _Kept kept;
+    setUp(() => kept = _Kept());
+
+    KeyRecovery backupRecovery({RecoveryScope scope = const RecoveryScope.owner()}) {
+      final recovery = KeyRecovery(
+        situation: _situation(scope: scope, sole: 'bob', backup: true, actor: 'bob', hosts: const []),
+        core: _Core(),
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      );
+      addTearDown(recovery.dispose);
+      return recovery;
+    }
+
+    // Harm: a backup key's use put away, killed or ended unseen after Core started taken as proof that nothing was
+    // made, so its request is dropped and the next attempt makes a second commit.
+    for (final code in [null, -1, 129]) {
+      test('a backup key’s terminal ended with ${code ?? 'no code'} after Core started keeps its request', () async {
+        final recovery = backupRecovery()..reviewFor('bob', backup: true);
+        final command = await recovery.startBackup(_backupFile);
+
+        await recovery.backupEnded(code: code, lastLine: '');
+
+        expect(recovery.requestId, _idOf(command!));
+        expect(recovery.uncertain, isTrue);
+        expect(await kept.written(), contains(_idOf(command)));
+      });
+
+      test('a backup key made in a terminal ended with ${code ?? 'no code'} after Core started is kept', () async {
+        final making = BackupKeyMaking(
+          scope: const RecoveryScope.owner(),
+          base: _base,
+          core: _Core(),
+          receipts: kept.receipts,
+        );
+        final out = path.join('media', 'usb', 'bk');
+        final command = await making.start(out);
+
+        await expectLater(making.ended(code: code, lastLine: '', out: out), throwsA(isA<RecoveryRefused>()));
+
+        expect([making.requestId, making.uncertain], [_idOf(command), true]);
+      });
+    }
+
+    // Harm: an answer Core gave after it ran that fails a check counted as nothing made, so a retry Core refuses drops
+    // the request and the next attempt makes a second commit.
+    test('after an answer that fails a check, a refused retry keeps the request', () async {
+      final recovery = backupRecovery()..reviewFor('bob', backup: true);
+      final command = await recovery.startBackup(_backupFile);
+      final another = _used(id: _idOf(command!), kind: 'registry', name: null, replaced: _admin, pushed: false);
+      await recovery.backupEnded(code: 0, lastLine: another);
+      await recovery.startBackup(_backupFile);
+
+      await recovery.backupEnded(code: 65, lastLine: '{"reason":"wrong-passphrase","words":"no"}');
+
+      expect(recovery.requestId, _idOf(command));
+      expect(await kept.written(), contains(_idOf(command)));
+    });
+
+    // Harm: a dialog closed and opened again while the backup key's terminal still runs Core offering Forget or a
+    // second terminal, which drops or repeats a request Core may still commit under; or never offering them again.
+    test('a dialog opened again meets the backup key’s terminal still running, and is told when it ended', () async {
+      final first = KeyRecovery(
+        situation: _situation(scope: const RecoveryScope.owner(), sole: 'bob', backup: true, actor: 'bob'),
+        core: _Core(),
+        hosts: _Hosts(),
+        receipts: kept.receipts,
+      )..reviewFor('bob', backup: true);
+      await first.startBackup(_backupFile);
+      final program = Completer<int>();
+      final outlived = first.backupOutlived(program.future);
+      first.dispose();
+
+      final again = backupRecovery();
+      var told = 0;
+      again.addListener(() => told++);
+      expect(again.whyNotForget, isNotNull);
+      expect(again.whyNotRetry, isNotNull);
+      expect(await again.startBackup(_backupFile), isNull, reason: 'a second terminal would run Core twice');
+
+      program.complete(0);
+      await outlived;
+
+      expect(told, greaterThan(0));
+      expect(again.whyNotForget, isNull);
+      expect(again.whyNotRetry, isNull);
+    });
+
+    // Harm: two changes running Core in the registry checkout at once, a backup key and a replacement, each meeting
+    // the other's commit.
+    test(
+      'a backup key is not made in the registry checkout while a replacement runs there, nor the other way',
+      () async {
+        final replacing = backupRecovery()..reviewFor('bob', backup: true);
+        await replacing.startBackup(_backupFile);
+        final making = BackupKeyMaking(
+          scope: const RecoveryScope.hostAdmin('walk1'),
+          base: _base,
+          core: _Core(),
+          receipts: kept.receipts,
+        );
+        await expectLater(making.attempt(() async {}), throwsA(isA<RegistryRefusal>()));
+        final project = BackupKeyMaking(
+          scope: const RecoveryScope.project('demo'),
+          base: _base,
+          core: _Core(),
+          receipts: kept.receipts,
+        );
+        await project.attempt(() async {});
+        await replacing.backupEnded(code: 70, lastLine: '');
+
+        final core = _Core();
+        final ending = Completer<void>();
+        final attempt = making.attempt(() => ending.future);
+        final filing = KeyRecovery(
+          situation: _situation(scope: const RecoveryScope.hostAccess('walk1'), hosts: const []),
+          core: core,
+          hosts: _Hosts(),
+          receipts: kept.receipts,
+        );
+        addTearDown(filing.dispose);
+        filing.reviewFor('bob');
+        expect(filing.whyNotConfirm(), isNotNull);
+        await filing.confirm();
+        expect(core.calls, isEmpty);
+
+        ending.complete();
+        await attempt;
+        expect(filing.whyNotConfirm(), isNull);
+      },
+    );
+
+    // Harm: a pushed registry replacement whose host is gone for good held for ever, locking key replacement in that
+    // list; or dropped without naming the commit the person confirmed.
+    test('a pushed registry replacement a host never confirms is forgotten once its commit is named', () async {
+      final hosts = _Hosts()..answers['walk2'] = const WorkspaceRefused('not reached');
+      final recovery = KeyRecovery(
+        situation: _situation(scope: const RecoveryScope.owner(), hosts: ['walk1', 'walk2']),
+        core: _Core(),
+        hosts: hosts,
+        receipts: kept.receipts,
+      );
+      addTearDown(recovery.dispose);
+      recovery.reviewFor('bob');
+      await recovery.confirm();
+      expect([recovery.filed?.published, recovery.allConfirmed], [true, false]);
+      expect(recovery.whyNotForget, isNull);
+
+      await recovery.forget(made: _other);
+      expect(kept.receipts.keys, contains('owner'), reason: 'not the commit the person read');
+      await recovery.forget(made: _revision);
+
+      expect(kept.receipts.keys, isNot(contains('owner')));
+      expect(recovery.started, isFalse);
     });
   });
 }

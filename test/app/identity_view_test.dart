@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:porelo_frontend/client.dart' show RegistryFiled, RegistryRead;
 import 'package:porelo_frontend/src/app/identity.dart';
 import 'package:porelo_frontend/src/app/key_recovery.dart';
@@ -76,6 +77,9 @@ class _Core implements KeyRecoveryCore {
   Future<String?> fileFor(RecoveryReview review) => throw UnimplementedError('nothing is replaced');
 
   @override
+  Future<void> checkReviewed(RecoveryReview review) => throw UnimplementedError('nothing is replaced');
+
+  @override
   Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) =>
       throw UnimplementedError('nothing is replaced');
 
@@ -127,39 +131,94 @@ class _NoHosts implements RevocationHosts {
       throw UnimplementedError('no host is asked');
 }
 
-/// Opens the dialog over [recovery]; answers how often Core's `identity show` was asked so far.
+/// The registry's owners read with the person as their single owner and no backup key, over [services].
+class _SoleOwner implements KeyRecoveryEntry {
+  _SoleOwner(this.services);
+
+  final KeyRecoveryServices services;
+
+  @override
+  Future<RecoverySituation> situation(RecoveryScope scope) async => RecoverySituation(
+    scope: scope,
+    people: const {'ms-test-reviewer': 'SHA256:BvxPEqOldOldOldOldOldOldOldOldOldOldOldOld'},
+    cards: const [],
+    base: _base,
+    actor: null,
+    hosts: const {'ms-test-reviewer': []},
+    checkout: path.join('private', 'registry', 'checkout'),
+    soleAdmin: 'ms-test-reviewer',
+  );
+
+  @override
+  List<RecoveryScope> get registryScopes => services.registryScopes;
+
+  @override
+  KeyRecoveryCore get core => services.core;
+
+  @override
+  RevocationHosts get hosts => services.hosts;
+
+  @override
+  RecoveryReceipts get receipts => services.receipts;
+
+  @override
+  List<RecoveryScope> get keptBackups => services.keptBackups;
+}
+
+/// The person as the registry's single owner without a backup key, as Core's `identity show` answers it.
+const _soleOwner = <Object?>[
+  {
+    'role': 'registry-owner',
+    'scope': {'kind': 'registry', 'name': 'git@example.org:team/registry.git'},
+  },
+];
+
+/// Opens the dialog over [recovery]; answers how often Core's `identity show` was asked so far. While [opened] is
+/// given, the dialog is there only while it holds true, as when the person closes it and opens it again.
 Future<int Function()> _openWith(
   WidgetTester tester,
   KeyRecoveryEntry recovery, {
   OpenTerminal? open,
   ChooseNewFile? chooseNewFile,
+  List<Object?> sole = const [],
+  ValueNotifier<bool>? opened,
 }) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final shown = {..._shown(), 'sole_without_backup': <Object?>[]};
+  final shown = {..._shown(), 'sole_without_backup': sole};
   var shows = 0;
-  Future<Ran> run(
-    String program,
-    List<String> arguments, {
-    String? inDirectory,
-    Map<String, String> environment = const {},
-    String? input,
-  }) async {
-    if (arguments[1] != 'show') return (code: 70, out: '', err: '');
-    shows++;
-    return (code: 0, out: jsonEncode(shown), err: '');
-  }
+  // Only the newest dialog's reads count: one closed may still read its own card.
+  var newest = 0;
+  RunHere runFor(int dialog) =>
+      (
+        String program,
+        List<String> arguments, {
+        String? inDirectory,
+        Map<String, String> environment = const {},
+        String? input,
+      }) async {
+        if (arguments[1] != 'show') return (code: 70, out: '', err: '');
+        if (dialog == newest) shows++;
+        return (code: 0, out: jsonEncode(shown), err: '');
+      };
 
+  Widget dialog() => IdentityDialog(
+    model: IdentityModel(Identity(run: runFor(++newest))),
+    recovery: recovery,
+    open: open,
+    chooseNewFile: chooseNewFile ?? ({String? title}) async => null,
+  );
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: IdentityDialog(
-          model: IdentityModel(Identity(run: run)),
-          recovery: recovery,
-          open: open,
-          chooseNewFile: chooseNewFile ?? ({String? title}) async => null,
-        ),
+        body: switch (opened) {
+          final opened? => ValueListenableBuilder<bool>(
+            valueListenable: opened,
+            builder: (context, open, _) => open ? dialog() : const SizedBox(),
+          ),
+          null => dialog(),
+        },
       ),
     ),
   );
@@ -266,6 +325,90 @@ void main() {
 
     expect(_pressable(tester, 'identity.forgetBackup'), isTrue);
     expect(settings.keyRecoveryKeys, ['backup-make/owner'], reason: 'Core may have made it');
+  });
+
+  // Harm: a new backup key's action offered again while its file's place is asked or its terminal's program still
+  // runs, so a second attempt starts beside it; or the card not read again once it ended.
+  testWidgets('a new backup key holds its action until its terminal’s program ended, then reads the card again', (
+    tester,
+  ) async {
+    final (_, core, services) = await _keptBackup();
+    await services.receipts.forget('backup-make/owner');
+    final channel = _Outliving();
+    final where = Completer<String?>();
+    final shows = await _openWith(
+      tester,
+      _SoleOwner(services),
+      open: (executable, arguments, {columns = 80, rows = 24}) => channel,
+      chooseNewFile: ({String? title}) => where.future,
+      sole: _soleOwner,
+    );
+    expect(find.text('Make a backup key…'), findsOneWidget);
+    expect(_pressable(tester, 'identity.backupKey'), isTrue);
+
+    await tester.tap(find.byKey(const Key('identity.backupKey')));
+    await World.settle(tester);
+    expect(_pressable(tester, 'identity.backupKey'), isFalse, reason: 'its file’s place is being asked');
+    where.complete(path.join('media', 'usb', 'bk'));
+    await World.settle(tester);
+    expect(core.calls, ['prepare']);
+    await tester.tap(find.byKey(const Key('unlock-cancel')));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-cancel-yes')));
+    await World.settle(tester);
+    expect(_pressable(tester, 'identity.backupKey'), isFalse, reason: 'Core still runs');
+    final before = shows();
+
+    channel.program.complete(0);
+    await World.settle(tester);
+    await tester.tap(find.text('Close').last);
+    await World.settle(tester);
+
+    expect(_pressable(tester, 'identity.backupKey'), isTrue);
+    expect(find.text('Push the backup key again…'), findsOneWidget, reason: 'Core may have made it');
+    expect(shows(), greaterThan(before), reason: 'the card is read again once it ended');
+  });
+
+  // Harm: the dialog closed while a backup key's terminal still runs Core, and opened again, offering a second attempt
+  // or Forget beside it; or never reading the card again once it ended.
+  testWidgets('a dialog opened again while a backup key’s program runs holds its actions until it ended', (
+    tester,
+  ) async {
+    final (_, core, services) = await _keptBackup();
+    await services.receipts.forget('backup-make/owner');
+    final channel = _Outliving();
+    final opened = ValueNotifier(true);
+    addTearDown(opened.dispose);
+    final shows = await _openWith(
+      tester,
+      _SoleOwner(services),
+      open: (executable, arguments, {columns = 80, rows = 24}) => channel,
+      chooseNewFile: ({String? title}) async => path.join('media', 'usb', 'bk'),
+      sole: _soleOwner,
+      opened: opened,
+    );
+    await tester.tap(find.byKey(const Key('identity.backupKey')));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-cancel')));
+    await World.settle(tester);
+    await tester.tap(find.byKey(const Key('unlock-cancel-yes')));
+    await World.settle(tester);
+
+    opened.value = false;
+    await World.settle(tester);
+    opened.value = true;
+    await World.settle(tester);
+    expect(_pressable(tester, 'identity.backupKey'), isFalse, reason: 'Core still runs');
+    expect(_pressable(tester, 'identity.forgetBackup'), isFalse);
+    final before = shows();
+
+    channel.program.complete(0);
+    await World.settle(tester);
+
+    expect(_pressable(tester, 'identity.backupKey'), isTrue);
+    expect(_pressable(tester, 'identity.forgetBackup'), isTrue);
+    expect(shows(), greaterThan(before), reason: 'the card is read again once it ended');
+    expect(core.calls, ['prepare']);
   });
 
   // Harm: a kept backup-key request whose answer was lost locking the action for good, or dropped without the person

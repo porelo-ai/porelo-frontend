@@ -16,6 +16,7 @@ import 'package:porelo_frontend/src/ui/key_recovery_dialog.dart';
 
 const _base = '1111111111111111111111111111111111111111';
 const _revision = '2222222222222222222222222222222222222222';
+const _other = '3333333333333333333333333333333333333333';
 
 String _key(int byte) =>
     'ssh-ed25519 ${base64.encode([
@@ -32,12 +33,12 @@ final _admin = sshFingerprint(_key(3));
 RegistryCard _card(String login, String key) =>
     RegistryCard(login: login, name: login, key: key, fingerprint: sshFingerprint(key), state: 'trusted', why: '');
 
-/// Bob alone administers project demo with a backup key, or Alice administers it beside him.
-RecoverySituation _situation({required bool backup}) => RecoverySituation(
+/// Bob alone administers project demo with a backup key, or Alice administers it beside him; read at [base].
+RecoverySituation _situation({required bool backup, String base = _base}) => RecoverySituation(
   scope: const RecoveryScope.project('demo'),
   people: {'alice': _admin, 'bob': _old},
   cards: [_card('alice', _key(3)), _card('bob', _key(2))],
-  base: _base,
+  base: base,
   actor: backup ? HostAdminIdentity('bob', _new) : HostAdminIdentity('alice', _admin),
   hosts: const {'alice': [], 'bob': []},
   checkout: '/private/registry/checkout',
@@ -56,6 +57,9 @@ class _Core implements KeyRecoveryCore {
 
   @override
   Future<String?> fileFor(RecoveryReview review) async => null;
+
+  @override
+  Future<void> checkReviewed(RecoveryReview review) async {}
 
   @override
   Future<RecoveryFiled> replace(RecoveryReview review, String id, {String? content, bool again = false}) async {
@@ -80,7 +84,7 @@ class _Hosts implements RevocationHosts {
 class _Entry implements KeyRecoveryEntry {
   _Entry(this.receipts, {this.read, this.refused});
 
-  final RecoverySituation? read;
+  RecoverySituation? read;
   final RegistryRefusal? refused;
 
   @override
@@ -93,7 +97,25 @@ class _Entry implements KeyRecoveryEntry {
   final RecoveryReceipts receipts;
 
   @override
-  Future<RecoverySituation> situation(RecoveryScope scope) async => refused == null ? read! : throw refused!;
+  Future<RecoverySituation> situation(RecoveryScope scope) async {
+    if (refused case final refusal?) throw refusal;
+    final read = this.read!;
+    // As the real entry reads it: a commit made here on this read is in force, which the read does not show yet.
+    final made = madeInForce(receipts, scope, read.base);
+    return RecoverySituation(
+      scope: read.scope,
+      people: read.people,
+      cards: read.cards,
+      base: read.base,
+      actor: read.actor,
+      hosts: read.hosts,
+      checkout: read.checkout,
+      soleAdmin: read.soleAdmin,
+      backupRegistered: read.backupRegistered,
+      madeHere: made == read.base ? null : made,
+      madeHereReplaced: made == read.base ? null : madeInForceReplaced(receipts, scope, read.base),
+    );
+  }
 
   @override
   List<RecoveryScope> get registryScopes => const [];
@@ -123,8 +145,13 @@ KeyRecoveryServices _services(RecoveryReceipts receipts) => KeyRecoveryServices(
   receipts: receipts,
 );
 
-/// Bob's replacement as reviewed in [scope] and kept, made as [revision] when given, not pushed.
-Map<String, Object?> _keptReplacement(RecoveryScope scope, {String? revision}) => {
+/// Bob's replacement as reviewed in [scope] and kept, made as [revision] when given, [published] or not.
+Map<String, Object?> _keptReplacement(
+  RecoveryScope scope, {
+  String? revision,
+  bool published = false,
+  List<String> hosts = const [],
+}) => {
   'review': RecoveryReview(
     scope: scope,
     login: 'bob',
@@ -133,11 +160,11 @@ Map<String, Object?> _keptReplacement(RecoveryScope scope, {String? revision}) =
     newKey: _key(2),
     card: '/private/registry/checkout/people/bob.card',
     base: _base,
-    hosts: const [],
+    hosts: hosts,
   ).stored,
   'id': 'abcdef0123456789',
   'revision': revision,
-  'published': false,
+  'published': published,
   'uncertain': revision == null,
   'confirmed': <String, Object?>{},
 };
@@ -448,28 +475,6 @@ void main() {
     expect(settings.keyRecoveryKeys, isNot(contains('backup-make/project/demo')), reason: 'nothing is kept');
   });
 
-  // Harm: a new backup key made on a list known only from a kept request's record because a base was handed in, as
-  // after a project replacement, without a clean read.
-  testWidgets('a new backup key is never made on a list known only from a kept request, base or not', (tester) async {
-    await receipts.keep('project/demo', _keptReplacement(const RecoveryScope.project('demo'), revision: _revision));
-    final services = _services(receipts);
-    await openWith(
-      tester,
-      (context) => makeBackupKey(
-        context,
-        entry: services,
-        scope: const RecoveryScope.project('demo'),
-        base: _revision,
-        open: open,
-        chooseNewFile: ({String? title}) async => '/media/usb/bk',
-      ),
-    );
-
-    expect(opened, isEmpty);
-    expect(find.text('Refresh the registry before making a backup key.'), findsOneWidget);
-    expect(settings.keyRecoveryKeys, ['project/demo']);
-  });
-
   // Harm: a retry that took the file an earlier attempt wrote telling the person the key is in the file they chose,
   // so they keep the wrong one and lose the backup key.
   testWidgets('a backup key made by an earlier attempt says the file it is in', (tester) async {
@@ -595,6 +600,121 @@ void main() {
     expect(entry.core.calls, ['publish $_revision $_base']);
     expect(find.text('The backup key’s commit is pushed now.'), findsOneWidget);
     expect(settings.keyRecoveryKeys, isEmpty);
+  });
+
+  // Harm: a new backup key after a project replacement made on that replacement's commit although the project was
+  // read again past it, which Core refuses as moved, or makes on a base older than the one in force.
+  testWidgets('a new backup key after the project was read again starts from the newer read', (tester) async {
+    final entry = _Entry(receipts, read: _situation(backup: false));
+    await pump(tester, entry, situation: _situation(backup: false), choose: ({String? title}) async => '/media/usb/bk');
+    await tap(tester, 'keyRecovery.review');
+    await tap(tester, 'keyRecovery.replace');
+
+    entry.read = _situation(backup: false, base: _other);
+    await tap(tester, 'keyRecovery.makeBackup');
+
+    final command = opened.single;
+    expect(command.sublist(command.indexOf('--base'), command.indexOf('--base') + 2), ['--base', _other]);
+  });
+
+  // Harm: the backup key's terminal cancelled after Core started, and Core ending within the bound, taken as proof that
+  // nothing was made: the request is dropped though Core may have made the commit, and the next attempt makes another.
+  testWidgets('a backup key’s terminal cancelled after Core started keeps its request', (tester) async {
+    final recovery = await pump(
+      tester,
+      _Entry(receipts),
+      situation: _situation(backup: true),
+      pick: () => '/media/usb/porelo-backup',
+    );
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    expect(opened, hasLength(1));
+
+    await tap(tester, 'unlock-cancel');
+    await tap(tester, 'unlock-cancel-yes');
+
+    expect(recovery.requestId, isNotNull);
+    expect(settings.keyRecoveryKeys, ['project/demo']);
+    expect(pressable(tester, 'keyRecovery.retry'), isNotNull);
+  });
+
+  // Harm: the replacement dialog closed and opened again while the backup key's terminal still runs Core offering
+  // Forget or a second terminal, which drop or repeat a request Core may still commit under.
+  testWidgets('a dialog opened again while the backup key’s program still runs holds Forget and Retry', (tester) async {
+    final entry = _Entry(receipts, read: _situation(backup: true));
+    await openWith(
+      tester,
+      (context) => showKeyRecovery(
+        context,
+        entry: entry,
+        scope: const RecoveryScope.project('demo'),
+        login: 'bob',
+        open: open,
+        pickAFile: ({String? initialDirectory, String? title}) async => '/media/usb/porelo-backup',
+      ),
+    );
+    final program = channel.outlives = Completer<int>();
+    await tap(tester, 'keyRecovery.reviewBackup');
+    await tap(tester, 'keyRecovery.replace');
+    await tap(tester, 'unlock-cancel');
+    await tap(tester, 'unlock-cancel-yes');
+    await tester.tap(find.text('Close'));
+    await settle(tester);
+
+    await tester.tap(find.text('open'));
+    await settle(tester);
+    expect(pressable(tester, 'keyRecovery.forget'), isNull);
+    expect(pressable(tester, 'keyRecovery.retry'), isNull);
+    program.complete(0);
+    await settle(tester);
+
+    expect(pressable(tester, 'keyRecovery.forget'), isNotNull);
+    expect(pressable(tester, 'keyRecovery.retry'), isNotNull);
+    expect(opened, hasLength(1));
+  });
+
+  // Harm: a pushed registry replacement whose host never confirms stuck for good, locking key replacement in its list;
+  // or dropped without the person told which hosts must be checked by hand.
+  testWidgets('a pushed registry replacement is forgotten through a confirmation naming the hosts to check', (
+    tester,
+  ) async {
+    await receipts.keep(
+      'owner',
+      _keptReplacement(const RecoveryScope.owner(), revision: _revision, published: true, hosts: ['walk1']),
+    );
+    final services = _services(receipts);
+    await openWith(tester, (context) => showRegistryKeyRecovery(context, entry: services));
+    await tester.tap(find.byKey(const ValueKey('recovery-scope owner null')));
+    await settle(tester);
+
+    await tap(tester, 'keyRecovery.forget');
+    expect(find.textContaining('walk1 has not confirmed it'), findsOneWidget);
+    await tap(tester, 'forget-attempt-confirm');
+
+    expect(settings.keyRecoveryKeys, isEmpty);
+    expect((services.core as _Core).calls, isEmpty);
+  });
+
+  // Harm: a project replacement pushed here shown, once the dialog is opened again on the read before it, as if the old
+  // key were still in force and unrevoked, without the steps that follow it.
+  testWidgets('a dialog opened on a read older than a replacement made here says that replacement', (tester) async {
+    await keepMadeInForce(
+      receipts,
+      const RecoveryScope.project('demo'),
+      base: _base,
+      revision: _revision,
+      replaced: 'bob',
+    );
+    final entry = _Entry(receipts, read: _situation(backup: false));
+    await openWith(
+      tester,
+      (context) => showKeyRecovery(context, entry: entry, scope: const RecoveryScope.project('demo'), login: 'bob'),
+    );
+
+    expect(find.textContaining('Now $_old'), findsNothing);
+    expect(find.textContaining(_revision), findsOneWidget);
+    expect(pressable(tester, 'keyRecovery.makeBackup'), isNotNull);
+    expect(pressable(tester, 'keyRecovery.review'), isNull);
   });
 }
 
