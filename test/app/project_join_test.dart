@@ -250,7 +250,7 @@ void main() {
         'revision': 'a' * 40,
         'signers': [personKey],
         'admins': [
-          {'login': 'bob', 'name': 'Bob'},
+          {'login': 'bob', 'name': 'Bob', 'email': null},
         ],
       },
     ],

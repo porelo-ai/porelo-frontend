@@ -32,6 +32,7 @@ import 'project_deletion.dart';
 import 'session.dart';
 import 'settings.dart';
 import 'shell_model.dart';
+import 'project_join.dart' show JoinDiscovery, JoinHost;
 import 'registry_pages.dart';
 
 /// The application: one window, one frame, one backend at a time.
@@ -61,6 +62,8 @@ class PoreloApp extends StatelessWidget {
     required this.connections,
     this.forges,
     this.registryPages,
+    this.joinDiscovery,
+    this.joinHost,
     this.pickAFile = pickWithTheDesktop,
     required this.backups,
     required this.narrowing,
@@ -74,6 +77,12 @@ class PoreloApp extends StatelessWidget {
 
   /// The optional verified registry adapter used by item pages.
   final RegistryPages? registryPages;
+
+  /// Core's discovery of where the person may join, once it is served; without it no join row is shown.
+  final JoinDiscovery? joinDiscovery;
+
+  /// The card tunnel and the account daemon's follow a join goes through.
+  final JoinHost? joinHost;
 
   /// Every machine being watched.
   final Machines machines;
@@ -217,6 +226,8 @@ class PoreloApp extends StatelessWidget {
           connections: connections,
           forges: forges,
           registryPages: registryPages,
+          joinDiscovery: joinDiscovery,
+          joinHost: joinHost,
           pickAFile: pickAFile,
           backups: backups,
           narrowing: narrowing,

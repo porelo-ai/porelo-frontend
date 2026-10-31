@@ -240,8 +240,8 @@ Widget joinRow(JoinAdmission admission, ProjectJoin? join) => switch (admission)
             ),
     ),
   ),
-  JoinUnreadable(:final repository, :final words) => ListTile(
-    key: ValueKey('join-unreadable $repository'),
+  JoinUnreadable(:final repository, :final host, :final words) => ListTile(
+    key: ValueKey('join-unreadable $repository $host'),
     leading: const Icon(Icons.lock_outline),
     title: Text(repository),
     subtitle: Text(words),

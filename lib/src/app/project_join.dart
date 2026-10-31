@@ -121,25 +121,65 @@ bool _repository(String repository) {
 }
 
 /// Reads the answer of `porelo registry joinable --json`, or refuses it whole so it never shows as an empty list.
+///
+/// A project Core refused is never offered, even when the same answer also lists it as admitted.
 List<JoinAdmission> readJoinable(Object? json) {
   try {
     if (json is! Map<String, Object?>) throw const FormatException('not an object');
     final projects = json['projects'];
     final refused = json['refused'];
     if (projects is! List || refused is! List) throw const FormatException('no projects or refused');
+    final closed = <String>{};
+    final unreadable = <String, JoinUnreadable>{};
+    for (final entry in refused) {
+      final (key, row) = _unreadable(_object(entry));
+      closed.add(key);
+      // One row per repository and host, as several refused projects may share one access repository.
+      final same = unreadable['${row.repository} ${row.host}'];
+      unreadable['${row.repository} ${row.host}'] = same == null
+          ? row
+          : JoinUnreadable(
+              host: row.host,
+              repository: row.repository,
+              whoMay: [
+                ...same.whoMay,
+                for (final admin in row.whoMay)
+                  if (!same.whoMay.any((each) => each.login == admin.login)) admin,
+              ],
+            );
+    }
+    final offered = <String, JoinOffered>{};
+    for (final entry in projects) {
+      final offer = _offered(_object(entry));
+      if (offered.containsKey(offer.key)) throw const FormatException('a project twice');
+      offered[offer.key] = offer;
+    }
     return [
-      for (final entry in projects.cast<Map<String, Object?>>()) _offered(entry),
-      for (final entry in refused.cast<Map<String, Object?>>())
-        JoinUnreadable(
-          host: _text(entry, 'host'),
-          repository: _checked(_text(entry, 'access_repository')),
-          whoMay: _contacts(entry['admins']),
-        ),
+      for (final offer in offered.values)
+        if (!closed.contains(offer.key)) offer,
+      ...unreadable.values,
     ];
   } on Object catch (error) {
     if (error is RegistryRefusal) rethrow;
     throw const RegistryRefusal('Core\'s answer on the projects you may join could not be read.');
   }
+}
+
+Map<String, Object?> _object(Object? entry) =>
+    entry is Map<String, Object?> ? entry : throw const FormatException('not an object');
+
+(String, JoinUnreadable) _unreadable(Map<String, Object?> entry) {
+  final project = _text(entry, 'project');
+  final host = _text(entry, 'host');
+  _text(entry, 'why');
+  return (
+    '$project@$host',
+    JoinUnreadable(
+      host: host,
+      repository: _checked(_text(entry, 'access_repository')),
+      whoMay: _contacts(entry['admins']),
+    ),
+  );
 }
 
 JoinOffered _offered(Map<String, Object?> entry) {
@@ -148,6 +188,11 @@ JoinOffered _offered(Map<String, Object?> entry) {
   final name = _text(entry, 'host');
   final host = PreparedHost.read({'name': name, ...card});
   if (host.name != name) throw const FormatException('the host card names another host');
+  if (!RegExp(r'^[a-z_][a-z0-9_-]{0,31}$').hasMatch(_text(entry, 'host_account'))) {
+    throw const FormatException('no host account');
+  }
+  _checked(_text(entry, 'access_repository'));
+  _contacts(entry['admins']);
   final signers = entry['signers'];
   if (signers is! List) throw const FormatException('no signers');
   return JoinOffered(
@@ -168,14 +213,17 @@ String _text(Map<String, Object?> entry, String key) {
   return value;
 }
 
-List<RegistryContact> _contacts(Object? json) => [
-  for (final admin in (json as List? ?? const []).cast<Map<String, Object?>>())
-    RegistryContact(
-      login: _text(admin, 'login'),
-      name: admin['name'] as String? ?? _text(admin, 'login'),
-      email: admin['email'] as String?,
-    ),
-];
+/// Core's contacts, each `{"login", "name", "email"}` with `email` null when the card has none.
+List<RegistryContact> _contacts(Object? json) {
+  if (json is! List) throw const FormatException('no admins');
+  final contacts = <RegistryContact>[];
+  for (final admin in json.map(_object)) {
+    final email = admin['email'];
+    if (!admin.containsKey('email') || (email != null && email is! String)) throw const FormatException('no email');
+    contacts.add(RegistryContact(login: _text(admin, 'login'), name: _text(admin, 'name'), email: email as String?));
+  }
+  return contacts;
+}
 
 /// Core's verified discovery of where the person is admitted. Assumed until Core serves it.
 abstract interface class JoinDiscovery {
